@@ -134,9 +134,13 @@ guess" principle rather than inventing new tolerance rules.
 ### 6.3 Pairing/rotation engine — **decided, not built**
 
 Input: confirmed roster + court count + partner-history AND
-opponent-history from prior `Pairing` records for the group. Output:
-this round's court assignments, minimizing repeat partners and
-balancing who sits out.
+opponent-history from prior `Pairing` records for the group (**all-time**
+across sessions — the whole point is spreading out variety over the
+group's life, not just one evening) + games-played-so-far **this
+session only** for sit-out fairness (see below — deliberately a
+different scope than the partner/opponent history). Output: this
+round's court assignments, minimizing repeat partners and balancing
+who sits out.
 
 **Opponent-balancing decision:** in scope for v1, as a secondary
 soft signal — not an equal-weight constraint. Repeat-*partner*
@@ -173,13 +177,20 @@ arbitrarily (e.g. first found), since there's no further signal to
 prefer one over the other.
 
 **Sit-out selection — decided.** Deterministic, not part of the
-weighted score: rank roster players by games-played-so-far (from prior
-`Pairing` + `Waitlist` records for the group), and whoever needs to sit
-out this round (roster size exceeds available court capacity) is
-whoever has played the *most* rounds so far, ties broken randomly.
-Predictable to the host ("they've played the most, so they sit") and
-keeps rotation fair without folding another term into the scoring
-formula above.
+weighted score: rank roster players by games-played *this session only*
+(resets each session — rotation is fair within today's rounds, not
+carried over from weeks ago), and whoever needs to sit out this round
+is whoever has played the *most* rounds so far today, ties broken
+randomly. Predictable to the host ("they've played the most today, so
+they sit") and keeps rotation fair without folding another term into
+the scoring formula above.
+
+Number who must sit out this round = `roster.length - usableCourts * 4`,
+where `usableCourts = min(courtCount, floor(roster.length / 4))` — a
+court always needs exactly 4 players, so a roster that isn't a multiple
+of 4 leaves a remainder sitting out even when `courtCount` itself isn't
+exceeded (e.g. 10 players, 3 courts: only 2 courts are usable, 2 people
+sit out).
 
 **Search strategy — decided.** Real groups run 10-20+ players across
 2-3 courts; exhaustively scoring every possible court arrangement (as

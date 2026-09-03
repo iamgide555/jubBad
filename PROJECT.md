@@ -343,9 +343,21 @@ after a court's match changes.
 
 Routing is built (`web/`, Angular 22, standalone components, Vitest):
 `/g/:groupCode` → `GroupEntry`, `/s/:sessionCode` → `SessionDashboard`,
-`/s/:sessionCode/display` → `SessionDisplay`, all empty placeholders.
-Panel content (roster panel, court panels, waiting queue, display
-content) is the next plan — not built yet.
+`/s/:sessionCode/display` → `SessionDisplay`.
+
+Roster panel is built: `GroupEntry` handles paste → confirm (parsed
+header fields + fuzzy-match review per name) → confirm creates a
+`Session` and persists `Player` records to `localStorage`, then
+navigates to `/s/:sessionCode`, where `SessionDashboard` renders the
+confirmed roster as chips. Business logic lives in
+`web/src/app/core/roster-review.ts` (`buildReviews`, `resolveReviews`)
+and `web/src/app/core/roster.service.ts` — both call the root-level
+`parser.ts`/`fuzzy-match.ts` engines directly by relative import
+(`allowImportingTsExtensions` + `rewriteRelativeImportExtensions` in
+`web/tsconfig.json` make this work).
+
+Add-late-arrival/remove-no-show interactivity, court panels, waiting
+queue, and display content are the next plan — not built yet.
 
 ## 8. Progress checklist
 

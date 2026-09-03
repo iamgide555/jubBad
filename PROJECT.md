@@ -51,9 +51,25 @@ splitting bills) — not a smarter pairing algorithm or a bigger feature set.
    final score per court (e.g. "21-15"), stored against the pairing
    record. No live scoreboard.
 
-**Known-but-not-designed-yet, expected to come up fast once real
-sessions run:** mid-session edits — reshuffle after a round has
-started, add a late arrival, remove a no-show.
+**Mid-session edits — decided.** No new algorithmic work — both
+`fuzzy-match.ts` and `pairing.ts` already compose correctly around one
+app-level rule: **history (`partnerCounts`, `opponentCounts`,
+`gamesPlayedThisSession`) only updates when a round is *confirmed*
+(scores or "played" logged), never on generation.**
+
+- **Reshuffle** — regenerate the current, not-yet-confirmed round (host
+  doesn't like the draw, taps reshuffle before anyone plays): just call
+  `generateRound` again with a new random seed. Free and unlimited,
+  since nothing has been committed to history yet.
+- **Late arrival** — add the player to the roster array used for the
+  *next* `generateRound` call. Their name goes through the fuzzy-match
+  layer like initial import. No engine change needed: a new player
+  naturally has `gamesPlayedThisSession = 0`, so the existing sit-out
+  logic already prioritizes them to play as soon as possible.
+- **No-show removal** — remove the player from the roster array for
+  future rounds. Past confirmed/played rounds are never retroactively
+  edited. If someone assigned to the *current unconfirmed* round turns
+  out to be a no-show, that's just "remove them, then reshuffle."
 
 ## 4. Explicitly out of scope for v1
 
@@ -213,7 +229,7 @@ overkill for a casual v1.
 - [x] LINE bot (trigger-word or passive) reconsidered — stays out of v1, see §2
 - [x] Cost-splitting/PromptPay dropped from v1 — delegated to KhunThong, see §2
 - [x] Opponent-balancing scope decision for pairing engine — in, as secondary soft signal, see §6.3
-- [ ] Mid-session edit flow designed (reshuffle / late-add / no-show removal)
+- [x] Mid-session edit flow designed (reshuffle / late-add / no-show removal) — see §3
 
 ### Build order
 - [x] 1. LINE roster-message parser (`parser.ts`, verified vs 3 real messages)

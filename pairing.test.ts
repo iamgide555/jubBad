@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { pairKey, shuffle, selectSittingOut, scoreArrangement } from './pairing.ts';
+import { pairKey, shuffle, selectSittingOut, scoreArrangement, buildRandomArrangement } from './pairing.ts';
 
 function makeSeededRandom(seed: number): () => number {
   let state = seed;
@@ -85,4 +85,20 @@ test('scoreArrangement sums across multiple courts', () => {
     { teamA: ['e', 'f'] as [string, string], teamB: ['g', 'h'] as [string, string] },
   ];
   assert.equal(scoreArrangement(arrangement, partnerCounts, new Map()), 10);
+});
+
+test('buildRandomArrangement groups players into the requested number of 4-player courts', () => {
+  const playing = Array.from({ length: 8 }, (_, i) => `p${i + 1}`);
+  const result = buildRandomArrangement(playing, 2, makeSeededRandom(3));
+  assert.deepEqual(result, [
+    { court: 1, teamA: ['p4', 'p3'], teamB: ['p1', 'p7'] },
+    { court: 2, teamA: ['p6', 'p8'], teamB: ['p2', 'p5'] },
+  ]);
+});
+
+test('buildRandomArrangement includes every playing player exactly once', () => {
+  const playing = Array.from({ length: 8 }, (_, i) => `p${i + 1}`);
+  const result = buildRandomArrangement(playing, 2, makeSeededRandom(11));
+  const allAssigned = result.flatMap((c) => [...c.teamA, ...c.teamB]);
+  assert.deepEqual([...allAssigned].sort(), [...playing].sort());
 });

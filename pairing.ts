@@ -79,3 +79,21 @@ export function scoreArrangement(
 
   return score;
 }
+
+export function buildRandomArrangement(
+  playing: PlayerId[],
+  usableCourts: number,
+  random: () => number
+): CourtAssignment[] {
+  const shuffled = shuffle(playing, random);
+  const courts: CourtAssignment[] = [];
+  for (let i = 0; i < usableCourts; i++) {
+    const group = shuffled.slice(i * 4, i * 4 + 4);
+    courts.push({
+      court: i + 1,
+      teamA: [group[0], group[1]],
+      teamB: [group[2], group[3]],
+    });
+  }
+  return courts;
+}

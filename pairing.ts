@@ -97,3 +97,53 @@ export function buildRandomArrangement(
   }
   return courts;
 }
+
+export interface MatchHistory {
+  /** All-time across sessions — variety over the group's whole life. */
+  partnerCounts: Map<string, number>;
+  /** All-time across sessions. */
+  opponentCounts: Map<string, number>;
+  /** This session only — resets each session for fair rotation today. */
+  gamesPlayedThisSession: Map<PlayerId, number>;
+}
+
+export interface RoundResult {
+  courts: CourtAssignment[];
+  sittingOut: PlayerId[];
+}
+
+const SEARCH_TRIALS = 200;
+
+export function generateRound(
+  roster: PlayerId[],
+  courtCount: number,
+  history: MatchHistory,
+  random: () => number = Math.random
+): RoundResult {
+  const { playing, sittingOut } = selectSittingOut(
+    roster,
+    courtCount,
+    history.gamesPlayedThisSession,
+    random
+  );
+
+  const usableCourts = Math.min(courtCount, Math.floor(playing.length / 4));
+
+  if (usableCourts === 0) {
+    return { courts: [], sittingOut };
+  }
+
+  let best: CourtAssignment[] | null = null;
+  let bestScore = Infinity;
+
+  for (let trial = 0; trial < SEARCH_TRIALS; trial++) {
+    const candidate = buildRandomArrangement(playing, usableCourts, random);
+    const score = scoreArrangement(candidate, history.partnerCounts, history.opponentCounts);
+    if (score < bestScore) {
+      bestScore = score;
+      best = candidate;
+    }
+  }
+
+  return { courts: best as CourtAssignment[], sittingOut };
+}

@@ -1,6 +1,14 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { pairKey, shuffle, selectSittingOut, scoreArrangement, buildRandomArrangement } from './pairing.ts';
+import {
+  pairKey,
+  shuffle,
+  selectSittingOut,
+  scoreArrangement,
+  buildRandomArrangement,
+  generateRound,
+  type MatchHistory,
+} from './pairing.ts';
 
 function makeSeededRandom(seed: number): () => number {
   let state = seed;
@@ -101,4 +109,50 @@ test('buildRandomArrangement includes every playing player exactly once', () => 
   const result = buildRandomArrangement(playing, 2, makeSeededRandom(11));
   const allAssigned = result.flatMap((c) => [...c.teamA, ...c.teamB]);
   assert.deepEqual([...allAssigned].sort(), [...playing].sort());
+});
+
+test('generateRound picks the lowest-scoring arrangement out of its search trials', () => {
+  const history: MatchHistory = {
+    partnerCounts: new Map([[pairKey('tam', 'base'), 2]]),
+    opponentCounts: new Map([[pairKey('pom', 'mai'), 3]]),
+    gamesPlayedThisSession: new Map(),
+  };
+  const result = generateRound(['tam', 'base', 'pom', 'mai'], 1, history, makeSeededRandom(1));
+  assert.deepEqual(result, {
+    courts: [{ court: 1, teamA: ['base', 'mai'], teamB: ['tam', 'pom'] }],
+    sittingOut: [],
+  });
+  assert.equal(scoreArrangement(result.courts, history.partnerCounts, history.opponentCounts), 1);
+});
+
+test('generateRound integrates sit-out selection: 10 players, 3 courts', () => {
+  const history: MatchHistory = {
+    partnerCounts: new Map(),
+    opponentCounts: new Map(),
+    gamesPlayedThisSession: new Map([
+      ['p1', 3],
+      ['p2', 2],
+    ]),
+  };
+  const roster = Array.from({ length: 10 }, (_, i) => `p${i + 1}`);
+  const result = generateRound(roster, 3, history, makeSeededRandom(99));
+
+  assert.deepEqual(result.sittingOut, ['p1', 'p2']);
+  assert.equal(result.courts.length, 2);
+  const allAssigned = result.courts.flatMap((c) => [...c.teamA, ...c.teamB]);
+  assert.deepEqual(
+    [...allAssigned].sort(),
+    roster.filter((p) => p !== 'p1' && p !== 'p2').sort()
+  );
+});
+
+test('generateRound returns no courts when fewer than 4 players are available to play', () => {
+  const history: MatchHistory = {
+    partnerCounts: new Map(),
+    opponentCounts: new Map(),
+    gamesPlayedThisSession: new Map(),
+  };
+  const result = generateRound(['a', 'b', 'c'], 1, history, makeSeededRandom(1));
+  assert.deepEqual(result.courts, []);
+  assert.equal(result.sittingOut.length, 3);
 });

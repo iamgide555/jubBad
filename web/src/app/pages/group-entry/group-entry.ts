@@ -1,9 +1,10 @@
 import { Component, signal } from '@angular/core';
-import { ActivatedRoute } from '@angular/router';
+import { ActivatedRoute, Router } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { parseLineRosterMessage } from '../../../../../parser.ts';
-import { buildReviews, type NameReview } from '../../core/roster-review';
+import { buildReviews, resolveReviews, type NameReview } from '../../core/roster-review';
 import { RosterService } from '../../core/roster.service';
+import type { Session } from '../../core/session.model';
 
 @Component({
   selector: 'app-group-entry',
@@ -23,7 +24,8 @@ export class GroupEntry {
 
   constructor(
     route: ActivatedRoute,
-    private rosterService: RosterService
+    private rosterService: RosterService,
+    private router: Router
   ) {
     this.groupCode = route.snapshot.paramMap.get('groupCode')!;
   }
@@ -61,5 +63,30 @@ export class GroupEntry {
       );
     this.rosterReviews.update(flip);
     this.waitlistReviews.update(flip);
+  }
+
+  confirmRoster(): void {
+    let players = this.rosterService.getPlayers(this.groupCode);
+
+    const roster = resolveReviews(this.rosterReviews(), players);
+    players = roster.players;
+    const waitlist = resolveReviews(this.waitlistReviews(), players);
+    players = waitlist.players;
+
+    this.rosterService.savePlayers(this.groupCode, players);
+
+    const session: Session = {
+      code: crypto.randomUUID().slice(0, 8),
+      groupCode: this.groupCode,
+      date: this.date(),
+      venue: this.venue() || null,
+      courtCount: this.courtCount(),
+      rawImportText: this.rawText(),
+      rosterPlayerIds: roster.playerIds,
+      waitlistPlayerIds: waitlist.playerIds,
+    };
+    this.rosterService.createSession(session);
+
+    this.router.navigateByUrl(`/s/${session.code}`);
   }
 }

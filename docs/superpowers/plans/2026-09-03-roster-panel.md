@@ -775,6 +775,7 @@ it('confirmRoster persists players and session, then navigates to the new sessio
   component.venue.set('KIP');
 
   component.confirmRoster();
+  await fixture.whenStable();
 
   const players = rosterService.getPlayers('group1');
   expect(players).toHaveLength(2);
@@ -793,7 +794,7 @@ it('confirmRoster persists players and session, then navigates to the new sessio
 });
 ```
 
-(This test navigates for real via the router configured with `provideRouter(routes)` in Task 4's `beforeEach` — confirmed necessary: `provideRouter([])` with an empty route table makes `navigateByUrl` reject with `NG04002: Cannot match any routes`, it does not just quietly update `router.url`. Using the real `routes` (which do have a matching `/s/:sessionCode` route) is required, not optional.)
+(This test navigates for real via the router configured with `provideRouter(routes)` in Task 4's `beforeEach` — confirmed necessary: `provideRouter([])` with an empty route table makes `navigateByUrl` reject with `NG04002: Cannot match any routes`, it does not just quietly update `router.url`. Using the real `routes` (which do have a matching `/s/:sessionCode` route) is required, not optional. The `await fixture.whenStable()` right after `confirmRoster()` is also required — `navigateByUrl` is async, and without it `router.url` is still `/` when the assertion runs, confirmed by running this exact test without the await first.)
 
 - [ ] **Step 2: Run test to verify it fails**
 

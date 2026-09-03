@@ -1,6 +1,6 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
-import { ActivatedRoute, convertToParamMap } from '@angular/router';
+import { ActivatedRoute, convertToParamMap, Router } from '@angular/router';
 import { GroupEntry } from './group-entry';
 import { routes } from '../../app.routes';
 import { RosterService } from '../../core/roster.service';
@@ -88,5 +88,34 @@ describe('GroupEntry', () => {
     expect(review.decision).toBe('accept');
     component.toggleDecision(review);
     expect(component.rosterReviews()[0].decision).toBe('reject-new');
+  });
+
+  it('confirmRoster persists players and session, then navigates to the new session', async () => {
+    const rosterService = TestBed.inject(RosterService);
+    const router = TestBed.inject(Router);
+
+    component.rawText.set('1. ตั้ม\n2. เกียร์');
+    component.parse();
+    component.date.set('2026-09-08');
+    component.courtCount.set(2);
+    component.venue.set('KIP');
+
+    component.confirmRoster();
+    await fixture.whenStable();
+
+    const players = rosterService.getPlayers('group1');
+    expect(players).toHaveLength(2);
+    expect(players.map((p) => p.name)).toEqual(['ตั้ม', 'เกียร์']);
+
+    expect(router.url).toMatch(/^\/s\//);
+    const sessionCode = router.url.split('/s/')[1];
+    const session = rosterService.getSession(sessionCode);
+    expect(session).toMatchObject({
+      groupCode: 'group1',
+      date: '2026-09-08',
+      courtCount: 2,
+      venue: 'KIP',
+    });
+    expect(session?.rosterPlayerIds).toHaveLength(2);
   });
 });

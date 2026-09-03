@@ -1,6 +1,8 @@
 import { Injectable, signal } from '@angular/core';
 import { ActivatedRoute } from '@angular/router';
+import { generateRound } from '../../../../pairing.ts';
 import { RosterService } from './roster.service';
+import { deriveHistory } from './history-derivation';
 import type { CourtState, MatchRecord } from './live-session.model';
 
 @Injectable()
@@ -36,5 +38,30 @@ export class LiveSessionService {
       `live:${this.sessionCode}`,
       JSON.stringify({ courts: this.courts(), matches: this.matches() })
     );
+  }
+
+  proposeMatch(courtNumber: number, random: () => number = Math.random): void {
+    const index = courtNumber - 1;
+    const reservedByOtherCourts = new Set<string>();
+    this.courts().forEach((court, i) => {
+      if (i === index || court.status === 'idle') return;
+      reservedByOtherCourts.add(court.teamA[0]);
+      reservedByOtherCourts.add(court.teamA[1]);
+      reservedByOtherCourts.add(court.teamB[0]);
+      reservedByOtherCourts.add(court.teamB[1]);
+    });
+    const available = this.rosterPlayerIds.filter((id) => !reservedByOtherCourts.has(id));
+
+    const history = deriveHistory(this.matches());
+    const result = generateRound(available, 1, history, random);
+    if (result.courts.length === 0) return;
+
+    const [proposed] = result.courts;
+    this.courts.update((courts) => {
+      const next = [...courts];
+      next[index] = { status: 'pending', teamA: proposed.teamA, teamB: proposed.teamB };
+      return next;
+    });
+    this.persist();
   }
 }

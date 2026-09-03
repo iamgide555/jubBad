@@ -37,4 +37,76 @@ describe('LiveSessionService', () => {
     expect(service.courts()).toEqual([{ status: 'idle' }, { status: 'idle' }]);
     expect(service.matches()).toEqual([]);
   });
+
+  it('proposeMatch fills an idle court from the roster', () => {
+    setUpSession('sess1', 1, ['p1', 'p2', 'p3', 'p4']);
+    const service = TestBed.inject(LiveSessionService);
+
+    service.proposeMatch(1, () => 0.5);
+
+    const court = service.courts()[0];
+    expect(court.status).toBe('pending');
+    if (court.status === 'pending') {
+      const allAssigned = [...court.teamA, ...court.teamB].sort();
+      expect(allAssigned).toEqual(['p1', 'p2', 'p3', 'p4']);
+    }
+  });
+
+  it('proposeMatch does nothing when fewer than 4 players are available', () => {
+    setUpSession('sess1', 1, ['p1', 'p2']);
+    const service = TestBed.inject(LiveSessionService);
+
+    service.proposeMatch(1, () => 0.5);
+
+    expect(service.courts()[0]).toEqual({ status: 'idle' });
+  });
+
+  it('proposeMatch excludes players reserved by other pending/active courts', () => {
+    setUpSession('sess1', 2, ['p1', 'p2', 'p3', 'p4', 'p5', 'p6', 'p7', 'p8']);
+    const service = TestBed.inject(LiveSessionService);
+
+    service.proposeMatch(1, () => 0.1);
+    const firstCourt = service.courts()[0];
+    expect(firstCourt.status).toBe('pending');
+
+    service.proposeMatch(2, () => 0.1);
+    const secondCourt = service.courts()[1];
+    expect(secondCourt.status).toBe('pending');
+
+    if (firstCourt.status === 'pending' && secondCourt.status === 'pending') {
+      const firstIds = new Set([...firstCourt.teamA, ...firstCourt.teamB]);
+      const secondIds = [...secondCourt.teamA, ...secondCourt.teamB];
+      for (const id of secondIds) {
+        expect(firstIds.has(id)).toBe(false);
+      }
+    }
+  });
+
+  it('proposeMatch on an already-pending court reconsiders its own occupants (reshuffle)', () => {
+    setUpSession('sess1', 1, ['p1', 'p2', 'p3', 'p4']);
+    const service = TestBed.inject(LiveSessionService);
+
+    service.proposeMatch(1, () => 0.1);
+    service.proposeMatch(1, () => 0.9); // reshuffle with a different random stream
+
+    const court = service.courts()[0];
+    expect(court.status).toBe('pending');
+    if (court.status === 'pending') {
+      const allAssigned = [...court.teamA, ...court.teamB].sort();
+      expect(allAssigned).toEqual(['p1', 'p2', 'p3', 'p4']); // still only these 4 players exist
+    }
+  });
+
+  it('persists after proposeMatch, reloadable by a fresh instance under the same session key', () => {
+    setUpSession('sess1', 1, ['p1', 'p2', 'p3', 'p4']);
+    const first = TestBed.inject(LiveSessionService);
+    first.proposeMatch(1, () => 0.5);
+    expect(first.courts()[0].status).toBe('pending');
+
+    const second = new LiveSessionService(
+      TestBed.inject(ActivatedRoute),
+      TestBed.inject(RosterService)
+    );
+    expect(second.courts()).toEqual(first.courts());
+  });
 });

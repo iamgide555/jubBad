@@ -81,7 +81,15 @@ app-level rule: **history (`partnerCounts`, `opponentCounts`,
 
 ## 4. Explicitly out of scope for v1
 
-- Skill/Elo-based match balancing
+- Skill/Elo-based match balancing — schema already supports adding
+  this later with **no changes needed**: `Pairing.teamA`/`teamB` (who
+  played with/against whom), `scoreA`/`scoreB` (outcome + margin), and
+  `confirmedAt` (a real timestamp, giving the chronological order a
+  rating algorithm like Elo needs to replay history) are already
+  captured. The one soft dependency: `scoreA`/`scoreB` are optional
+  (§3), so ranking quality later depends entirely on how consistently
+  hosts bother entering scores — a match with no score is invisible to
+  a future rating model. Nothing to change now, just worth knowing.
 - Multi-sport support (badminton-only, Thai-only — that's the moat)
 - Any LINE bot (posting OR passively listening) — reconsidered, still out; see §2
 - LIFF / LINE Login

@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { normalizeName, levenshteinDistance, similarity, matchName, matchRoster, type Player } from './fuzzy-match.ts';
+import { normalizeName, levenshteinDistance, similarity, matchName, matchRoster, confirmExistingPlayerAlias, type Player } from './fuzzy-match.ts';
 
 test('normalizeName strips a trailing (...) note', () => {
   assert.equal(normalizeName('พี่แวน(พี่ที่ทำงานไกด์)'), 'พี่แวน');
@@ -94,4 +94,25 @@ test('matchRoster maps each name through matchName, preserving order', () => {
 
 test('matchRoster returns an empty array for an empty input', () => {
   assert.deepEqual(matchRoster([], players), []);
+});
+
+test('confirmExistingPlayerAlias adds the raw pasted text as a new alias', () => {
+  const before: Player[] = [{ id: 'p1', name: 'ตั้ม', aliases: [] }];
+  const after = confirmExistingPlayerAlias(before, 'p1', 'ตัม');
+  assert.deepEqual(after, [{ id: 'p1', name: 'ตั้ม', aliases: ['ตัม'] }]);
+});
+
+test('confirmExistingPlayerAlias does not duplicate an existing alias', () => {
+  const before: Player[] = [{ id: 'p1', name: 'ตั้ม', aliases: ['ตัม'] }];
+  const after = confirmExistingPlayerAlias(before, 'p1', 'ตัม');
+  assert.deepEqual(after, [{ id: 'p1', name: 'ตั้ม', aliases: ['ตัม'] }]);
+});
+
+test('confirmExistingPlayerAlias leaves other players untouched', () => {
+  const before: Player[] = [
+    { id: 'p1', name: 'ตั้ม', aliases: [] },
+    { id: 'p2', name: 'เบส', aliases: [] },
+  ];
+  const after = confirmExistingPlayerAlias(before, 'p1', 'ตัม');
+  assert.deepEqual(after[1], { id: 'p2', name: 'เบส', aliases: [] });
 });

@@ -92,3 +92,15 @@ export interface RosterNameMatch {
 export function matchRoster(names: string[], players: Player[]): RosterNameMatch[] {
   return names.map((inputName) => ({ inputName, match: matchName(inputName, players) }));
 }
+
+export function confirmExistingPlayerAlias(
+  players: Player[],
+  playerId: string,
+  rawInputName: string
+): Player[] {
+  return players.map((player) => {
+    if (player.id !== playerId) return player;
+    if (player.aliases.includes(rawInputName)) return player;
+    return { ...player, aliases: [...player.aliases, rawInputName] };
+  });
+}

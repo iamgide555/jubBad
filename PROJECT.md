@@ -106,7 +106,7 @@ Design principles:
 - **`@All`/`@all` excluded from venue detection** — looks like an
   `@venue` tag syntactically but means something different.
 
-### 6.2 Fuzzy-match layer — **decided, not built**
+### 6.2 Fuzzy-match layer — **built** (`fuzzy-match.ts`)
 
 Parsed roster/waitlist names → known `Player` records for the group.
 
@@ -159,7 +159,7 @@ EMV QR spec generation using `Group.hostPromptPayId`.
 
 ### Build order
 - [x] 1. LINE roster-message parser (`parser.ts`, verified vs 3 real messages)
-- [ ] 2. Fuzzy-match layer (parsed names → `Player` + `aliases[]`)
+- [x] 2. Fuzzy-match layer (parsed names → `Player` + `aliases[]`, `fuzzy-match.ts`)
 - [ ] 3. Pairing/rotation engine (repeat-partner avoidance + sit-out balancing)
 - [ ] 4. Cost split + PromptPay QR generation
 - [ ] 5. Angular screens: paste → confirm → shuffle → share → score → split

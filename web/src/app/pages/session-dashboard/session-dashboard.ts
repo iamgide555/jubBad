@@ -2,6 +2,7 @@ import { Component, computed } from '@angular/core';
 import { ActivatedRoute } from '@angular/router';
 import { RosterService } from '../../core/roster.service';
 import { LiveSessionService } from '../../core/live-session.service';
+import { resolvePlayerNames } from '../../core/player-names';
 import { CourtPanel } from './court-panel/court-panel';
 
 @Component({
@@ -17,8 +18,7 @@ export class SessionDashboard {
     const session = this.rosterService.getSession(this.sessionCode);
     if (!session) return [];
     const players = this.rosterService.getPlayers(session.groupCode);
-    const byId = new Map(players.map((p) => [p.id, p.name]));
-    return session.rosterPlayerIds.map((id) => byId.get(id) ?? id);
+    return resolvePlayerNames(session.rosterPlayerIds, players);
   });
 
   readonly courtNumbers = computed(() =>
@@ -29,8 +29,7 @@ export class SessionDashboard {
     const session = this.rosterService.getSession(this.sessionCode);
     if (!session) return [];
     const players = this.rosterService.getPlayers(session.groupCode);
-    const byId = new Map(players.map((p) => [p.id, p.name]));
-    return this.liveSession.waitingPlayerIds().map((id) => byId.get(id) ?? id);
+    return resolvePlayerNames(this.liveSession.waitingPlayerIds(), players);
   });
 
   constructor(

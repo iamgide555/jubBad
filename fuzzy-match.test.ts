@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { normalizeName, levenshteinDistance, similarity, matchName, type Player } from './fuzzy-match.ts';
+import { normalizeName, levenshteinDistance, similarity, matchName, matchRoster, type Player } from './fuzzy-match.ts';
 
 test('normalizeName strips a trailing (...) note', () => {
   assert.equal(normalizeName('พี่แวน(พี่ที่ทำงานไกด์)'), 'พี่แวน');
@@ -82,4 +82,16 @@ test('matchName suggests a fuzzy match above the 0.7 threshold', () => {
 test('matchName flags a name below the 0.7 threshold as new', () => {
   const result = matchName('เกียร์', players); // real example from PROJECT.md §6.2 — no close match here
   assert.deepEqual(result, { type: 'new' });
+});
+
+test('matchRoster maps each name through matchName, preserving order', () => {
+  const result = matchRoster(['ตั้ม', 'เกียร์'], players);
+  assert.deepEqual(result, [
+    { inputName: 'ตั้ม', match: { type: 'exact', playerId: 'p1' } },
+    { inputName: 'เกียร์', match: { type: 'new' } },
+  ]);
+});
+
+test('matchRoster returns an empty array for an empty input', () => {
+  assert.deepEqual(matchRoster([], players), []);
 });

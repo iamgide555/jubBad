@@ -83,3 +83,12 @@ export function matchName(inputName: string, players: Player[]): NameMatch {
 
   return { type: 'new' };
 }
+
+export interface RosterNameMatch {
+  inputName: string;
+  match: NameMatch;
+}
+
+export function matchRoster(names: string[], players: Player[]): RosterNameMatch[] {
+  return names.map((inputName) => ({ inputName, match: matchName(inputName, players) }));
+}

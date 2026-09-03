@@ -2,3 +2,54 @@
   <textarea [(ngModel)]="rawText" rows="15" placeholder="Paste the LINE roster message here"></textarea>
   <button type="button" (click)="parse()">Parse</button>
 }
+
+@if (state() === 'confirm') {
+  <label>
+    Date
+    <input type="date" [(ngModel)]="date" required />
+  </label>
+  <label>
+    Court count
+    <input type="number" [ngModel]="courtCount()" (ngModelChange)="courtCount.set($event)" required />
+  </label>
+  <label>
+    Venue
+    <input type="text" [(ngModel)]="venue" />
+  </label>
+
+  <h3>Roster</h3>
+  @for (review of rosterReviews(); track review.inputName) {
+    <div>
+      {{ review.inputName }} —
+      @switch (review.match.type) {
+        @case ('exact') { <span>matched</span> }
+        @case ('fuzzy') {
+          <span>ใช่ [{{ review.match.playerId }}] ไหม?</span>
+          <button type="button" (click)="toggleDecision(review)">
+            {{ review.decision === 'accept' ? 'confirmed' : 'treat as new' }}
+          </button>
+        }
+        @case ('new') { <span>new player</span> }
+      }
+    </div>
+  }
+
+  <h3>Waitlist</h3>
+  @for (review of waitlistReviews(); track review.inputName) {
+    <div>
+      {{ review.inputName }} —
+      @switch (review.match.type) {
+        @case ('exact') { <span>matched</span> }
+        @case ('fuzzy') {
+          <span>ใช่ [{{ review.match.playerId }}] ไหม?</span>
+          <button type="button" (click)="toggleDecision(review)">
+            {{ review.decision === 'accept' ? 'confirmed' : 'treat as new' }}
+          </button>
+        }
+        @case ('new') { <span>new player</span> }
+      }
+    </div>
+  }
+
+  <button type="button" [disabled]="!canConfirm()">Confirm roster</button>
+}

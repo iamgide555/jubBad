@@ -369,8 +369,23 @@ reshuffling — the same operation either way. History
 demand via `deriveHistory`, and is **within-session only** for now —
 real cross-session history needs the backend, not built yet.
 
-Add-late-arrival/remove-no-show interactivity and display content are
-the next plan — not built yet.
+`Group` is now a real entity (`code`, `name`) — editable from
+`GroupEntry`, persisted in `localStorage` (`group:${groupCode}`), and
+carried forward to every future session under that group.
+
+Display view is built (`SessionDisplay`, `/s/:sessionCode/display`):
+read-only, big text, its own `LiveSessionService` instance reading the
+same session state as `SessionDashboard`. Header shows `Group.name` if
+set, else falls back to `date · venue`. Only `active` courts show a
+pairing — `idle`/`pending` courts render as "waiting", so a
+proposed-but-unconfirmed pairing never reaches the venue screen.
+Manual `[↻ refresh]` re-reads from `localStorage` — no auto-polling or
+live push, matching the app's no-extra-infra style.
+
+All 4 pieces of §7's UI/UX design are now built. Add-late-arrival /
+remove-no-show interactivity (§3's mid-session-edits decision) is not
+built yet — the roster panel only supports the initial paste-and-confirm
+flow.
 
 ## 8. Progress checklist
 
@@ -388,7 +403,7 @@ the next plan — not built yet.
 - [x] 1. LINE roster-message parser (`parser.ts`, verified vs 3 real messages)
 - [x] 2. Fuzzy-match layer (parsed names → `Player` + `aliases[]`, `fuzzy-match.ts`)
 - [x] 3. Pairing/rotation engine (repeat-partner avoidance + sit-out balancing, `pairing.ts`)
-- [ ] 4. Angular screens: roster panel → per-court panels (idle/active/finish) → waiting queue → display view (see §7)
+- [x] 4. Angular screens: roster panel → per-court panels (idle/active/finish) → waiting queue → display view (see §7)
 
 ### Infra
 - [x] Git repo initialized, `.gitignore` added

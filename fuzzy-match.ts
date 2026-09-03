@@ -40,3 +40,46 @@ export function similarity(a: string, b: string): number {
   if (maxLen === 0) return 1;
   return 1 - levenshteinDistance(a, b) / maxLen;
 }
+
+export interface Player {
+  id: string;
+  name: string;
+  aliases: string[];
+}
+
+export type NameMatch =
+  | { type: 'exact'; playerId: string }
+  | { type: 'fuzzy'; playerId: string; score: number }
+  | { type: 'new' };
+
+const FUZZY_THRESHOLD = 0.7;
+
+export function matchName(inputName: string, players: Player[]): NameMatch {
+  const normalizedInput = normalizeName(inputName);
+
+  for (const player of players) {
+    const candidates = [player.name, ...player.aliases];
+    if (candidates.some((c) => normalizeName(c) === normalizedInput)) {
+      return { type: 'exact', playerId: player.id };
+    }
+  }
+
+  let bestPlayerId: string | null = null;
+  let bestScore = 0;
+  for (const player of players) {
+    const candidates = [player.name, ...player.aliases];
+    for (const candidate of candidates) {
+      const score = similarity(normalizedInput, normalizeName(candidate));
+      if (score > bestScore) {
+        bestScore = score;
+        bestPlayerId = player.id;
+      }
+    }
+  }
+
+  if (bestPlayerId !== null && bestScore >= FUZZY_THRESHOLD) {
+    return { type: 'fuzzy', playerId: bestPlayerId, score: bestScore };
+  }
+
+  return { type: 'new' };
+}

@@ -125,12 +125,31 @@ Waitlist     — id, sessionId, playerId, position
 
 1. **LINE roster-message parser** (done below — port into NestJS service)
 2. Fuzzy-match layer: parsed names → known Player records (flag unmatched
-   as "new player?" for host confirmation). **Algorithm TBD** — needs a
-   decision before this step starts: edit-distance (e.g. Levenshtein)
-   threshold vs. substring/prefix match, plus Thai-specific normalization
-   (tone marks, spacing variance) since names come from free-text paste.
-   When host confirms an unmatched name as an existing player, save it as
-   a new `Player.alias` so the next import matches automatically.
+   as "new player?" for host confirmation).
+
+   **Algorithm (decided):** normalized Levenshtein, no auto-link on a
+   fuzzy match — only on exact match.
+   - Thai nicknames here run 2-4 chars (ปอม, ตี๋, เบส). Bigram/Dice
+     similarity is weak at that length (one edit breaks most bigrams);
+     namespace is small and dense enough that near-misses are real
+     distinct people (e.g. "เกีย" vs "เกียร์" are two different players
+     across the example messages) — so any auto-link on a fuzzy match
+     risks a wrong silent merge. Extends the parser's existing
+     "never silently guess" principle rather than inventing new
+     tolerance rules.
+   1. Normalize: strip trailing `(...)` note (e.g.
+      `พี่แวน(พี่ที่ทำงานไกด์)` → `พี่แวน`), trim, Unicode NFC.
+   2. Exact match (post-normalize) vs `Player.name` + `aliases[]` →
+      auto-link (still shown in review screen, never hidden).
+   3. No exact match → normalized Levenshtein similarity
+      (`1 - distance/maxLen`) vs all known names+aliases for the group.
+      Best score ≥ 0.7 → surface as "ใช่ [X] ไหม?" suggestion, host taps
+      confirm/reject. Below 0.7 → flag "new player?".
+   4. Host confirms a fuzzy/new mapping → pasted text saved as new
+      `Player.alias` so the next import matches automatically.
+   5. Implement inline in TS (~15 lines, no npm dep) — matches
+      `parser.ts`'s existing no-dependency style; not worth pulling in
+      `string-similarity` or similar for something this small.
 3. Pairing/rotation engine (roster + court count + partner history → fair
    pairings, avoid-repeat-partner + sit-out balancing). **Scope decision
    needed:** repeat-*partner* avoidance is in v1 scope; repeat-*opponent*

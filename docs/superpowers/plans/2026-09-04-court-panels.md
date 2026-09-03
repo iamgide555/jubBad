@@ -850,7 +850,7 @@ Expected: FAIL — `CourtPanel` doesn't exist yet.
 Create `web/src/app/pages/session-dashboard/court-panel/court-panel.ts`:
 
 ```ts
-import { Component, input } from '@angular/core';
+import { Component, computed, input } from '@angular/core';
 import { LiveSessionService } from '../../../core/live-session.service';
 
 @Component({
@@ -864,9 +864,9 @@ export class CourtPanel {
 
   constructor(protected liveSession: LiveSessionService) {}
 
-  protected court() {
-    return this.liveSession.courts()[this.courtNumber() - 1];
-  }
+  protected readonly court = computed(
+    () => this.liveSession.courts()[this.courtNumber() - 1]
+  );
 
   protected startOrReshuffle(): void {
     this.liveSession.proposeMatch(this.courtNumber());
@@ -893,26 +893,30 @@ Create `web/src/app/pages/session-dashboard/court-panel/court-panel.html`:
 <div class="court-panel">
   <h4>Court {{ courtNumber() }}</h4>
 
-  @switch (court().status) {
+  @let c = court();
+
+  @switch (c.status) {
     @case ('idle') {
       <button type="button" (click)="startOrReshuffle()">Start next match</button>
     }
     @case ('pending') {
-      @if (court().status === 'pending') {
-        <p>{{ court().teamA[0] }} + {{ court().teamA[1] }} vs {{ court().teamB[0] }} + {{ court().teamB[1] }}</p>
+      @if (c.status === 'pending') {
+        <p>{{ c.teamA[0] }} + {{ c.teamA[1] }} vs {{ c.teamB[0] }} + {{ c.teamB[1] }}</p>
       }
       <button type="button" (click)="startOrReshuffle()">reshuffle</button>
       <button type="button" (click)="confirm()">confirm</button>
     }
     @case ('active') {
-      @if (court().status === 'active') {
-        <p>{{ court().teamA[0] }} + {{ court().teamA[1] }} vs {{ court().teamB[0] }} + {{ court().teamB[1] }}</p>
+      @if (c.status === 'active') {
+        <p>{{ c.teamA[0] }} + {{ c.teamA[1] }} vs {{ c.teamB[0] }} + {{ c.teamB[1] }}</p>
       }
       <button type="button" (click)="finish(null, null)">Finish match</button>
     }
   }
 </div>
 ```
+
+(Repeatedly calling `court()` in the template and relying on Angular's signal-narrowing to refine the type on each call does **not** work inside `@switch`/`@case` combined with a nested `@if` re-check of the same condition — confirmed by running this exact template first and hitting `TS2339: Property 'teamB' does not exist on type '{ status: "idle"; }'`. Binding the value once via `@let c = court();` and narrowing off the single local `c` fixes it — this is the reliable pattern for a discriminated union read multiple times in one template.)
 
 - [ ] **Step 4: Run test to verify it passes**
 

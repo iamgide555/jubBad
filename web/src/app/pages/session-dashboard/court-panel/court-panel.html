@@ -1,0 +1,24 @@
+<div class="court-panel">
+  <h4>Court {{ courtNumber() }}</h4>
+
+  @let c = court();
+
+  @switch (c.status) {
+    @case ('idle') {
+      <button type="button" (click)="startOrReshuffle()">Start next match</button>
+    }
+    @case ('pending') {
+      @if (c.status === 'pending') {
+        <p>{{ c.teamA[0] }} + {{ c.teamA[1] }} vs {{ c.teamB[0] }} + {{ c.teamB[1] }}</p>
+      }
+      <button type="button" (click)="startOrReshuffle()">reshuffle</button>
+      <button type="button" (click)="confirm()">confirm</button>
+    }
+    @case ('active') {
+      @if (c.status === 'active') {
+        <p>{{ c.teamA[0] }} + {{ c.teamA[1] }} vs {{ c.teamB[0] }} + {{ c.teamB[1] }}</p>
+      }
+      <button type="button" (click)="finish(null, null)">Finish match</button>
+    }
+  }
+</div>

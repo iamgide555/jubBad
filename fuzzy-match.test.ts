@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { normalizeName, levenshteinDistance, similarity, matchName, matchRoster, confirmExistingPlayerAlias, type Player } from './fuzzy-match.ts';
+import { normalizeName, levenshteinDistance, similarity, matchName, matchRoster, confirmExistingPlayerAlias, createNewPlayer, type Player } from './fuzzy-match.ts';
 
 test('normalizeName strips a trailing (...) note', () => {
   assert.equal(normalizeName('พี่แวน(พี่ที่ทำงานไกด์)'), 'พี่แวน');
@@ -115,4 +115,19 @@ test('confirmExistingPlayerAlias leaves other players untouched', () => {
   ];
   const after = confirmExistingPlayerAlias(before, 'p1', 'ตัม');
   assert.deepEqual(after[1], { id: 'p2', name: 'เบส', aliases: [] });
+});
+
+test('createNewPlayer appends a new player with the raw pasted text as name and no aliases', () => {
+  const before: Player[] = [{ id: 'p1', name: 'ตั้ม', aliases: [] }];
+  const after = createNewPlayer(before, 'p2', 'เกียร์');
+  assert.deepEqual(after, [
+    { id: 'p1', name: 'ตั้ม', aliases: [] },
+    { id: 'p2', name: 'เกียร์', aliases: [] },
+  ]);
+});
+
+test('createNewPlayer does not mutate the input array', () => {
+  const before: Player[] = [{ id: 'p1', name: 'ตั้ม', aliases: [] }];
+  createNewPlayer(before, 'p2', 'เกียร์');
+  assert.equal(before.length, 1);
 });

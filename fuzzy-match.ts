@@ -104,3 +104,7 @@ export function confirmExistingPlayerAlias(
     return { ...player, aliases: [...player.aliases, rawInputName] };
   });
 }
+
+export function createNewPlayer(players: Player[], newId: string, rawInputName: string): Player[] {
+  return [...players, { id: newId, name: rawInputName, aliases: [] }];
+}

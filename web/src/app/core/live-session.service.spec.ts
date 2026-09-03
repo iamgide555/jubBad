@@ -132,4 +132,55 @@ describe('LiveSessionService', () => {
     expect(service.courts()[0]).toEqual({ status: 'idle' });
     expect(service.matches()).toHaveLength(0);
   });
+
+  it('finishMatch records the score and frees the court back to idle', () => {
+    setUpSession('sess1', 1, ['p1', 'p2', 'p3', 'p4']);
+    const service = TestBed.inject(LiveSessionService);
+
+    service.proposeMatch(1, () => 0.5);
+    service.confirmMatch(1);
+    service.finishMatch(1, 21, 15);
+
+    expect(service.courts()[0]).toEqual({ status: 'idle' });
+    expect(service.matches()[0]).toMatchObject({ scoreA: 21, scoreB: 15 });
+  });
+
+  it('finishMatch without a score still frees the court, leaving scores null', () => {
+    setUpSession('sess1', 1, ['p1', 'p2', 'p3', 'p4']);
+    const service = TestBed.inject(LiveSessionService);
+
+    service.proposeMatch(1, () => 0.5);
+    service.confirmMatch(1);
+    service.finishMatch(1, null, null);
+
+    expect(service.courts()[0]).toEqual({ status: 'idle' });
+    expect(service.matches()[0]).toMatchObject({ scoreA: null, scoreB: null });
+  });
+
+  it('finishMatch does nothing on an idle court', () => {
+    setUpSession('sess1', 1, ['p1', 'p2', 'p3', 'p4']);
+    const service = TestBed.inject(LiveSessionService);
+
+    service.finishMatch(1, 21, 15);
+
+    expect(service.courts()[0]).toEqual({ status: 'idle' });
+    expect(service.matches()).toHaveLength(0);
+  });
+
+  it('finishMatch updates the correct match when a court has played more than once', () => {
+    setUpSession('sess1', 1, ['p1', 'p2', 'p3', 'p4']);
+    const service = TestBed.inject(LiveSessionService);
+
+    service.proposeMatch(1, () => 0.5);
+    service.confirmMatch(1);
+    service.finishMatch(1, 21, 10);
+
+    service.proposeMatch(1, () => 0.5);
+    service.confirmMatch(1);
+    service.finishMatch(1, 15, 21);
+
+    expect(service.matches()).toHaveLength(2);
+    expect(service.matches()[0]).toMatchObject({ scoreA: 21, scoreB: 10 });
+    expect(service.matches()[1]).toMatchObject({ scoreA: 15, scoreB: 21 });
+  });
 });

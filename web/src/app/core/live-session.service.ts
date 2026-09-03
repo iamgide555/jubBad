@@ -81,4 +81,25 @@ export class LiveSessionService {
     });
     this.persist();
   }
+
+  finishMatch(courtNumber: number, scoreA: number | null, scoreB: number | null): void {
+    const index = courtNumber - 1;
+    const court = this.courts()[index];
+    if (court.status !== 'active') return;
+
+    this.matches.update((matches) => {
+      const reversedIndex = [...matches].reverse().findIndex((m) => m.courtNumber === courtNumber);
+      if (reversedIndex === -1) return matches;
+      const actualIndex = matches.length - 1 - reversedIndex;
+      const next = [...matches];
+      next[actualIndex] = { ...next[actualIndex], scoreA, scoreB };
+      return next;
+    });
+    this.courts.update((courts) => {
+      const next = [...courts];
+      next[index] = { status: 'idle' };
+      return next;
+    });
+    this.persist();
+  }
 }

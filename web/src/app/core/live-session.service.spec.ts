@@ -109,4 +109,27 @@ describe('LiveSessionService', () => {
     );
     expect(second.courts()).toEqual(first.courts());
   });
+
+  it('confirmMatch moves a pending court to active and logs a match record', () => {
+    setUpSession('sess1', 1, ['p1', 'p2', 'p3', 'p4']);
+    const service = TestBed.inject(LiveSessionService);
+
+    service.proposeMatch(1, () => 0.5);
+    service.confirmMatch(1);
+
+    const court = service.courts()[0];
+    expect(court.status).toBe('active');
+    expect(service.matches()).toHaveLength(1);
+    expect(service.matches()[0]).toMatchObject({ courtNumber: 1, scoreA: null, scoreB: null });
+  });
+
+  it('confirmMatch does nothing on an idle court', () => {
+    setUpSession('sess1', 1, ['p1', 'p2', 'p3', 'p4']);
+    const service = TestBed.inject(LiveSessionService);
+
+    service.confirmMatch(1);
+
+    expect(service.courts()[0]).toEqual({ status: 'idle' });
+    expect(service.matches()).toHaveLength(0);
+  });
 });

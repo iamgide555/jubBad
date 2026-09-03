@@ -64,4 +64,21 @@ export class LiveSessionService {
     });
     this.persist();
   }
+
+  confirmMatch(courtNumber: number): void {
+    const index = courtNumber - 1;
+    const court = this.courts()[index];
+    if (court.status !== 'pending') return;
+
+    this.matches.update((matches) => [
+      ...matches,
+      { courtNumber, teamA: court.teamA, teamB: court.teamB, scoreA: null, scoreB: null },
+    ]);
+    this.courts.update((courts) => {
+      const next = [...courts];
+      next[index] = { status: 'active', teamA: court.teamA, teamB: court.teamB };
+      return next;
+    });
+    this.persist();
+  }
 }

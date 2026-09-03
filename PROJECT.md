@@ -131,16 +131,46 @@ guess" principle rather than inventing new tolerance rules.
 5. Implement inline in TS (~15 lines, no npm dep) — matches
    `parser.ts`'s no-dependency style.
 
-### 6.3 Pairing/rotation engine — **not designed**
+### 6.3 Pairing/rotation engine — **decided, not built**
 
-Input: confirmed roster + court count + partner-history from prior
-`Pairing` records for the group. Output: this round's court
-assignments, minimizing repeat partners and balancing who sits out.
+Input: confirmed roster + court count + partner-history AND
+opponent-history from prior `Pairing` records for the group. Output:
+this round's court assignments, minimizing repeat partners and
+balancing who sits out.
 
-**Open decision:** repeat-*partner* avoidance is in v1 scope; whether
-repeat-*opponent* balancing (who you've played against, not just with)
-is in or out for v1 is not yet decided — call it explicitly before
-building, don't let it default silently either way.
+**Opponent-balancing decision:** in scope for v1, as a secondary
+soft signal — not an equal-weight constraint. Repeat-*partner*
+avoidance stays the primary goal; repeat-*opponent* balancing only
+ever breaks a tie between arrangements that are already equally good
+on partners. Reasoning: the host (also a player) confirmed people
+care about both, but "if possible" — a hard opponent constraint on
+top of the partner constraint risks making sessions with a lot of
+history unsolvable, since it over-constrains an already-small
+namespace (casual groups, not a large league).
+
+**Algorithm:** score every candidate court arrangement for the round:
+
+```
+score = 10 × (repeat-partner pairs in this arrangement)
+      +  1 × (repeat-opponent pairs in this arrangement)
+```
+
+Pick the arrangement with the lowest score. The 10:1 weight ratio
+means an arrangement never trades away a partner-repeat to save on
+opponent-repeats — the opponent term only decides between arrangements
+already tied on partner-repeats. Example (4 players, 1 court, ตั้ม+เบส
+already partnered twice, ปอม+ไม้ already opponents 3 times):
+
+| Arrangement | Repeat partners | Repeat opponents | Score |
+|---|---|---|---|
+| ตั้ม+เบส vs ปอม+ไม้ | 1 | 0 | 10 |
+| ตั้ม+ปอม vs เบส+ไม้ | 0 | 1 (ปอม-ไม้) | 1 |
+| ตั้ม+ไม้ vs เบส+ปอม | 0 | 1 (ปอม-ไม้) | 1 |
+
+Row 1 loses outright on the partner term alone; rows 2 and 3 tie (both
+still cross ปอม-ไม้ as opponents) — a tie the algorithm breaks
+arbitrarily (e.g. first found), since there's no further signal to
+prefer one over the other.
 
 ## 7. Progress checklist
 
@@ -150,7 +180,7 @@ building, don't let it default silently either way.
 - [x] Fuzzy-match algorithm decided
 - [x] LINE bot (trigger-word or passive) reconsidered — stays out of v1, see §2
 - [x] Cost-splitting/PromptPay dropped from v1 — delegated to KhunThong, see §2
-- [ ] Opponent-balancing scope decision for pairing engine (in/out for v1)
+- [x] Opponent-balancing scope decision for pairing engine — in, as secondary soft signal, see §6.3
 - [ ] Mid-session edit flow designed (reshuffle / late-add / no-show removal)
 
 ### Build order

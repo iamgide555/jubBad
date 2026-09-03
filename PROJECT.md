@@ -6,15 +6,17 @@ Existing apps (Racket Social, Kiki-match, Badminton Match Manager, Qcourt,
 GroupSlam, etc.) already solve fair doubles pairing, rotation, sit-out
 balancing, and cost splitting — well. Not worth rebuilding.
 
-The gap: **nothing is Thai-language + LINE-friendly + PromptPay-native**
-for casual Thai badminton groups. Existing pairing apps are English-first,
-generic multi-sport tools with their own account/PWA/bot ecosystems.
-Existing Thai badminton apps (e.g. Lenkila) are court-booking/partner-finding
-marketplaces, not session-running tools for an existing regular group.
+The gap: **nothing is Thai-language + LINE-friendly, and built to fit
+alongside the tools these groups already use** (LINE for coordination,
+KhunThong for PromptPay splitting) for casual Thai badminton groups.
+Existing pairing apps are English-first, generic multi-sport tools with
+their own account/PWA/bot ecosystems. Existing Thai badminton apps
+(e.g. Lenkila) are court-booking/partner-finding marketplaces, not
+session-running tools for an existing regular group.
 
-The differentiator is localization + fitting into how these groups already
-coordinate (LINE group chat, PromptPay for splitting bills) — not a
-smarter pairing algorithm.
+The differentiator is localization + fitting into how these groups
+already coordinate (LINE group chat, existing bots like KhunThong for
+splitting bills) — not a smarter pairing algorithm or a bigger feature set.
 
 ## 2. Key product decisions (and why)
 
@@ -25,6 +27,8 @@ smarter pairing algorithm.
 | Import is paste-based | App's data footprint = exactly what the host explicitly hands over. No infra (no webhook server, no persistent message store) |
 | No LIFF / LINE Login / LINE platform integration in v1 | Paste-based import + manual share means zero technical touchpoint with LINE's platform is needed. Pure UX polish, addable later |
 | No login/auth in v1 | Groups identified by shareable link/code instead of accounts. Removes a whole feature surface |
+| Trigger-word LINE bot (reconsidered, still rejected) | Idea: bot watches group for a keyword ("Play") then auto-extracts the roster, skipping manual paste. Rejected on inspection — LINE Messaging API has no message-history endpoint (confirmed via LINE docs), so a bot can only look *forward* from when it joins. Real usage is roster posted days before "Play" is typed, so the bot would need to continuously store *all* group messages in a rolling buffer to look backward — that's full passive listening + retention, the exact risk already rejected above, not a lighter trigger-gated version. Also reopens "no infra" and "no posting bot" decisions at once. Revisit only if paste-based friction proves to be a real dealbreaker after real sessions; a lower-risk fix for the "typing/copying name" pain is a tap-to-register roster link instead |
+| No cost-splitting / PromptPay QR generation in-app | KhunThong (ขุนทอง), KBank/KBTG's LINE bot, already does this well — bill split (equal or not), PromptPay QR, and payment verification via e-slip scan, which our planned v1 didn't even have. Same "not worth rebuilding" logic as the pairing-app landscape in §1. Host just invites KhunThong separately; no integration needed |
 | Score logging: final score only, no live scoreboard | Point-by-point/serve-indicator/timers is scope creep nobody asked for. Final score per court is low-friction and still bootstraps match-history data for future skill/Elo balancing |
 | No host role — anyone with the link can edit (**accepted risk**) | No auth means the link doesn't distinguish host from player. Acceptable for a trusted friend-group context; add a host role later only if abuse becomes real |
 | No data-retention/deletion policy in v1 (**accepted risk**) | Names persist indefinitely under a group's link code. Revisit if group turnover or privacy requests make it necessary |
@@ -43,11 +47,7 @@ smarter pairing algorithm.
    sessions (not just within one session).
 4. **Manual sharing** — host views results in-app, shares manually
    (screenshot, or "copy as text" button). No bot, no auto-posting.
-5. **Cost splitting** — host enters court + shuttlecock fees, app splits
-   per person and generates a PromptPay QR to share with just that
-   session's players. Requires the host's PromptPay ID/phone stored on
-   `Group` (see schema).
-6. **Match result logging** — after a round, host optionally enters
+5. **Match result logging** — after a round, host optionally enters
    final score per court (e.g. "21-15"), stored against the pairing
    record. No live scoreboard.
 
@@ -59,21 +59,20 @@ started, add a late arrival, remove a no-show.
 
 - Skill/Elo-based match balancing
 - Multi-sport support (badminton-only, Thai-only — that's the moat)
-- Any LINE bot (posting OR passively listening)
+- Any LINE bot (posting OR passively listening) — reconsidered, still out; see §2
 - LIFF / LINE Login
 - User accounts / login
 - Live point-by-point scoreboard
+- Cost splitting / PromptPay QR generation — delegated to KhunThong (ขุนทอง)
 
 ## 5. Tech stack
 
 - **Frontend:** Angular (plain web app, no LIFF wrapper for v1)
-- **Backend:** NestJS — parsing logic, pairing/rotation engine,
-  PromptPay QR generation (EMV QR spec)
+- **Backend:** NestJS — parsing logic, pairing/rotation engine
 - **DB:** relational
 
 ```
-Group        — id, name/link-code (no user auth), hostPromptPayId
-               (phone/ID for QR generation — required for cost-splitting)
+Group        — id, name/link-code (no user auth)
 Player       — id, groupId, name, aliases[] (fuzzy-match targets;
                populated when host confirms an unmatched import name
                maps to an existing Player)
@@ -143,17 +142,14 @@ repeat-*opponent* balancing (who you've played against, not just with)
 is in or out for v1 is not yet decided — call it explicitly before
 building, don't let it default silently either way.
 
-### 6.4 Cost split + PromptPay QR — **not designed**
-
-Court + shuttlecock fees entered by host → split per session player →
-EMV QR spec generation using `Group.hostPromptPayId`.
-
 ## 7. Progress checklist
 
 ### Design / decisions
 - [x] v1 plan written (scope, tech stack, schema, build order)
 - [x] Plan reviewed for gaps (8 findings folded in)
 - [x] Fuzzy-match algorithm decided
+- [x] LINE bot (trigger-word or passive) reconsidered — stays out of v1, see §2
+- [x] Cost-splitting/PromptPay dropped from v1 — delegated to KhunThong, see §2
 - [ ] Opponent-balancing scope decision for pairing engine (in/out for v1)
 - [ ] Mid-session edit flow designed (reshuffle / late-add / no-show removal)
 
@@ -161,8 +157,7 @@ EMV QR spec generation using `Group.hostPromptPayId`.
 - [x] 1. LINE roster-message parser (`parser.ts`, verified vs 3 real messages)
 - [ ] 2. Fuzzy-match layer (parsed names → `Player` + `aliases[]`)
 - [ ] 3. Pairing/rotation engine (repeat-partner avoidance + sit-out balancing)
-- [ ] 4. Cost split + PromptPay QR generation
-- [ ] 5. Angular screens: paste → confirm → shuffle → share → score → split
+- [ ] 4. Angular screens: paste → confirm → shuffle → share → score
 
 ### Infra
 - [x] Git repo initialized, `.gitignore` added

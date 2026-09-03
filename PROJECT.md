@@ -40,36 +40,44 @@ splitting bills) — not a smarter pairing algorithm or a bigger feature set.
    (สำรอง) separately. Fuzzy-matches names against known players and
    flags new/unmatched names for host confirmation. Nothing is
    auto-committed without host review.
-2. **Roster + shuffle** — host reviews/edits the imported (or manually
-   entered) list, sets court count, taps shuffle.
-3. **Fair pairing engine** — random doubles pairing that avoids repeat
-   partners and balances sit-outs, with history tracked per group across
-   sessions (not just within one session).
+2. **Roster review** — host reviews/edits the imported (or manually
+   entered) list, confirms it. See §7 for the full UI flow.
+3. **Fair pairing engine, per court, independently** — courts rotate
+   on their own schedule (not synchronized "rounds") — whoever finishes
+   first gets the next match right away. Avoids repeat partners,
+   softly balances repeat opponents, and prioritizes whoever's waited
+   longest to play next. History tracked per group across sessions
+   (not just within one session). See §7 for the UI flow, §6.3 for the
+   engine.
 4. **Manual sharing** — host views results in-app, shares manually
-   (screenshot, or "copy as text" button). No bot, no auto-posting.
-5. **Match result logging** — after a round, host optionally enters
-   final score per court (e.g. "21-15"), stored against the pairing
-   record. No live scoreboard.
+   (screenshot, or "copy as text" button), plus a read-only display
+   view for a venue screen/projector. No bot, no auto-posting.
+5. **Match result logging** — after a court's match finishes, host
+   optionally enters final score (e.g. "21-15"), stored against that
+   match's record. No live scoreboard.
 
 **Mid-session edits — decided.** No new algorithmic work — both
 `fuzzy-match.ts` and `pairing.ts` already compose correctly around one
 app-level rule: **history (`partnerCounts`, `opponentCounts`,
-`gamesPlayedThisSession`) only updates when a round is *confirmed*
-(scores or "played" logged), never on generation.**
+`gamesPlayedThisSession`) only updates when a court's match is
+*confirmed* (host taps confirm/start — see §7), never on generation.**
 
-- **Reshuffle** — regenerate the current, not-yet-confirmed round (host
-  doesn't like the draw, taps reshuffle before anyone plays): just call
-  `generateRound` again with a new random seed. Free and unlimited,
-  since nothing has been committed to history yet.
+- **Reshuffle** — regenerate a court's current, not-yet-confirmed
+  match (host doesn't like the draw, taps reshuffle before anyone
+  plays): just call `generateRound` again with a new random seed for
+  that court. Free and unlimited, since nothing has been committed to
+  history yet.
 - **Late arrival** — add the player to the roster array used for the
-  *next* `generateRound` call. Their name goes through the fuzzy-match
+  *next* idle-court fill. Their name goes through the fuzzy-match
   layer like initial import. No engine change needed: a new player
-  naturally has `gamesPlayedThisSession = 0`, so the existing sit-out
-  logic already prioritizes them to play as soon as possible.
-- **No-show removal** — remove the player from the roster array for
-  future rounds. Past confirmed/played rounds are never retroactively
-  edited. If someone assigned to the *current unconfirmed* round turns
-  out to be a no-show, that's just "remove them, then reshuffle."
+  naturally has `gamesPlayedThisSession = 0`, so the existing
+  priority logic already prioritizes them to play as soon as a court
+  frees up.
+- **No-show removal** — remove the player from the roster/waiting pool
+  for future court fills. Past confirmed/played matches are never
+  retroactively edited. If someone assigned to a *current unconfirmed*
+  match turns out to be a no-show, that's just "remove them, then
+  reshuffle that court."
 
 ## 4. Explicitly out of scope for v1
 
@@ -94,9 +102,12 @@ Player       — id, groupId, name, aliases[] (fuzzy-match targets;
                maps to an existing Player)
 Session      — id, groupId, date, courtCount, rawImportText (kept for
                parser debugging)
-Round        — id, sessionId, roundNumber
-Pairing      — id, roundId, courtNumber, teamA[2 playerIds],
-               teamB[2 playerIds], scoreA, scoreB (nullable)
+Pairing      — id, sessionId, courtNumber, matchNumber (sequential
+               per court, since courts rotate independently — no
+               shared "Round" batches them together, see §7),
+               teamA[2 playerIds], teamB[2 playerIds],
+               scoreA, scoreB (nullable), confirmedAt (the
+               history/games-played commit point — see §7)
 Waitlist     — id, sessionId, playerId, position
 ```
 
@@ -220,7 +231,107 @@ no-over-engineering style (`parser.ts`, `fuzzy-match.ts`). A real
 matching-theory optimizer (min-cost perfect matching) would be
 overkill for a casual v1.
 
-## 7. Progress checklist
+**Usage note — courts rotate independently, not as synchronized
+rounds** (decided in §7): `roster` and `courtCount` were never required
+to mean "everyone in the session" and "every court" — they're just
+parameters. The app calls `generateRound` with `courtCount = 1` and
+`roster = ` only the players currently *not* occupying another active
+court, every time a single court frees up. `courtCount > 1` is still
+used when multiple courts are idle at once (e.g. session start, before
+anyone is playing). No engine change was needed for this — see §7 for
+why.
+
+## 7. UI/UX design
+
+Two views, matching how the host actually runs a session: host phone
+(interactive) + a venue screen/projector (read-only, "courts + who's
+waiting").
+
+### 7.1 Routes
+
+- `/g/:groupCode` — group entry point. Host bookmarks this once; opens
+  it weekly to either resume an active session or paste today's roster
+  to start a new one. Each session gets its own URL below (not one
+  mutable "current session" pointer) — cleaner to share/archive as the
+  app scales to more groups.
+- `/s/:sessionCode` — the session dashboard (§7.2). Created once the
+  host confirms a roster.
+- `/s/:sessionCode/display` — read-only variant of the same session,
+  cast to a venue screen/projector separately from the host's phone.
+
+### 7.2 Session dashboard (host phone)
+
+One screen, stacked sections — not a step-by-step wizard, since courts
+rotate in a loop rather than moving through the flow once.
+
+**Roster panel** — one panel, three states:
+1. Paste box (raw text + "Parse") — shown until first parse.
+2. Confirm/review list — fuzzy-match results per name (exact matches
+   auto-linked but still shown, fuzzy suggestions need confirm/reject,
+   new-player flags), "Confirm roster" button. See §6.2.
+3. Collapsed chips — roster locked in. Still allows **+ add late
+   arrival** (re-opens a mini version of state 2 for just that name)
+   and **remove** (no-show), both of which only affect future court
+   fills — see §3's mid-session-edits note.
+
+**Court panels** — one per court, each with its own independent
+lifecycle (no shared "round" state across courts):
+
+```
+IDLE                          ACTIVE
+┌───────────────────┐         ┌───────────────────┐
+│ Court 2            │        │ Court 2            │
+│                    │        │ ตั้ม + ไม้          │
+│                    │        │      vs            │
+│ [Start next match] │        │ เบส + ปอม          │
+└───────────────────┘         │                    │
+                                │ Score: [__]-[__]  │  <- optional
+                                │  [Finish match]   │
+                                └───────────────────┘
+```
+
+- Idle → `[Start next match]` calls `generateRound` scoped to this one
+  court (see §6.3 usage note) → shows the proposed pairing with
+  `[reshuffle]` (free, re-rolls) and `[confirm]`.
+- Confirmed → active: pairing locked, this is the history-commit point
+  (`partnerCounts`/`opponentCounts`/`gamesPlayedThisSession` update
+  here, not on generation — §3).
+- Active → `[Finish match]` is the single action that both saves
+  whatever score was entered (score is optional, never blocks
+  finishing) and returns those 4 players to the waiting pool, freeing
+  the court back to idle.
+
+**Waiting/queue panel** — shows who's currently in the waiting pool,
+ordered by priority (longest-waiting/fewest-games-played first, same
+ranking `generateRound`'s sit-out logic already produces). Transparency
+for host and players, cheap to add since the engine already tracks
+`gamesPlayedThisSession`.
+
+### 7.3 Display view (venue screen/projector)
+
+Read-only, no host controls, big text for cross-room readability:
+
+```
+┌──────────────────────────────────────┐
+│         แบดวินนิ่ง อังคาร              │
+│                                        │
+│  COURT 1            COURT 2           │
+│  ตั้ม + ไม้          เกม + ปอม          │
+│    vs                 vs              │
+│  เบส + ปอม          ไกด์ + บูม         │
+│                                        │
+│  รอคิว: ซัน, ไบรท์                     │
+│                                        │
+│            [↻ refresh]                │
+└────────────────────────────────────────┘
+```
+
+Manual refresh, not auto-polling or live push — matches the app's
+existing no-extra-infra style (no websocket server, no polling loop
+running for the whole session). Whoever's near the screen taps refresh
+after a court's match changes.
+
+## 8. Progress checklist
 
 ### Design / decisions
 - [x] v1 plan written (scope, tech stack, schema, build order)
@@ -230,15 +341,16 @@ overkill for a casual v1.
 - [x] Cost-splitting/PromptPay dropped from v1 — delegated to KhunThong, see §2
 - [x] Opponent-balancing scope decision for pairing engine — in, as secondary soft signal, see §6.3
 - [x] Mid-session edit flow designed (reshuffle / late-add / no-show removal) — see §3
+- [x] UI/UX flow designed — per-court independent rotation, not synchronized rounds; dashboard + display view — see §7
 
 ### Build order
 - [x] 1. LINE roster-message parser (`parser.ts`, verified vs 3 real messages)
 - [x] 2. Fuzzy-match layer (parsed names → `Player` + `aliases[]`, `fuzzy-match.ts`)
 - [x] 3. Pairing/rotation engine (repeat-partner avoidance + sit-out balancing, `pairing.ts`)
-- [ ] 4. Angular screens: paste → confirm → shuffle → share → score
+- [ ] 4. Angular screens: roster panel → per-court panels (idle/active/finish) → waiting queue → display view (see §7)
 
 ### Infra
 - [x] Git repo initialized, `.gitignore` added
 - [ ] NestJS backend scaffolded
 - [ ] Angular frontend scaffolded
-- [ ] DB schema created (Group, Player, Session, Round, Pairing, Waitlist)
+- [ ] DB schema created (Group, Player, Session, Pairing, Waitlist)

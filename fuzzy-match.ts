@@ -34,3 +34,9 @@ export function levenshteinDistance(a: string, b: string): number {
 
   return prev[n];
 }
+
+export function similarity(a: string, b: string): number {
+  const maxLen = Math.max(a.length, b.length);
+  if (maxLen === 0) return 1;
+  return 1 - levenshteinDistance(a, b) / maxLen;
+}

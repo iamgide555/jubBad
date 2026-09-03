@@ -207,4 +207,19 @@ describe('LiveSessionService', () => {
 
     expect(service.waitingPlayerIds().sort()).toEqual(['p1', 'p2', 'p3', 'p4']);
   });
+
+  it('refresh picks up state written to localStorage by another instance', () => {
+    setUpSession('sess1', 1, ['p1', 'p2', 'p3', 'p4']);
+    const first = TestBed.inject(LiveSessionService);
+    expect(first.courts()[0]).toEqual({ status: 'idle' });
+
+    const second = new LiveSessionService(
+      TestBed.inject(ActivatedRoute),
+      TestBed.inject(RosterService)
+    );
+    second.proposeMatch(1, () => 0.5);
+
+    first.refresh();
+    expect(first.courts()).toEqual(second.courts());
+  });
 });

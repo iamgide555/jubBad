@@ -8,6 +8,7 @@ import type { CourtState, MatchRecord } from './live-session.model';
 @Injectable()
 export class LiveSessionService {
   private readonly sessionCode: string;
+  private readonly courtCount: number;
   protected readonly rosterPlayerIds: string[];
   readonly courts = signal<CourtState[]>([]);
   readonly matches = signal<MatchRecord[]>([]);
@@ -31,11 +32,16 @@ export class LiveSessionService {
     this.sessionCode = route.snapshot.paramMap.get('sessionCode')!;
     const session = this.rosterService.getSession(this.sessionCode);
     this.rosterPlayerIds = session?.rosterPlayerIds ?? [];
-    const courtCount = session?.courtCount ?? 0;
+    this.courtCount = session?.courtCount ?? 0;
 
+    this.refresh();
+  }
+
+  refresh(): void {
     const stored = this.load();
     this.courts.set(
-      stored?.courts ?? Array.from({ length: courtCount }, () => ({ status: 'idle' as const }))
+      stored?.courts ??
+        Array.from({ length: this.courtCount }, () => ({ status: 'idle' as const }))
     );
     this.matches.set(stored?.matches ?? []);
   }

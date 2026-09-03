@@ -1,4 +1,4 @@
-import { Injectable, signal } from '@angular/core';
+import { Injectable, computed, signal } from '@angular/core';
 import { ActivatedRoute } from '@angular/router';
 import { generateRound } from '../../../../pairing.ts';
 import { RosterService } from './roster.service';
@@ -11,6 +11,18 @@ export class LiveSessionService {
   protected readonly rosterPlayerIds: string[];
   readonly courts = signal<CourtState[]>([]);
   readonly matches = signal<MatchRecord[]>([]);
+
+  readonly waitingPlayerIds = computed(() => {
+    const reserved = new Set<string>();
+    for (const court of this.courts()) {
+      if (court.status === 'idle') continue;
+      reserved.add(court.teamA[0]);
+      reserved.add(court.teamA[1]);
+      reserved.add(court.teamB[0]);
+      reserved.add(court.teamB[1]);
+    }
+    return this.rosterPlayerIds.filter((id) => !reserved.has(id));
+  });
 
   constructor(
     route: ActivatedRoute,

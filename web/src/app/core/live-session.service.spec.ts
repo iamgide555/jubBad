@@ -183,4 +183,28 @@ describe('LiveSessionService', () => {
     expect(service.matches()[0]).toMatchObject({ scoreA: 21, scoreB: 10 });
     expect(service.matches()[1]).toMatchObject({ scoreA: 15, scoreB: 21 });
   });
+
+  it('waitingPlayerIds excludes players on pending or active courts', () => {
+    setUpSession('sess1', 2, ['p1', 'p2', 'p3', 'p4', 'p5', 'p6']);
+    const service = TestBed.inject(LiveSessionService);
+
+    service.proposeMatch(1, () => 0.1);
+    service.confirmMatch(1);
+
+    const waiting = service.waitingPlayerIds();
+    const firstCourt = service.courts()[0];
+    if (firstCourt.status === 'active') {
+      for (const id of [...firstCourt.teamA, ...firstCourt.teamB]) {
+        expect(waiting).not.toContain(id);
+      }
+    }
+    expect(waiting).toHaveLength(2);
+  });
+
+  it('waitingPlayerIds includes everyone when all courts are idle', () => {
+    setUpSession('sess1', 1, ['p1', 'p2', 'p3', 'p4']);
+    const service = TestBed.inject(LiveSessionService);
+
+    expect(service.waitingPlayerIds().sort()).toEqual(['p1', 'p2', 'p3', 'p4']);
+  });
 });

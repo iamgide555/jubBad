@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { pairKey, shuffle, selectSittingOut } from './pairing.ts';
+import { pairKey, shuffle, selectSittingOut, scoreArrangement } from './pairing.ts';
 
 function makeSeededRandom(seed: number): () => number {
   let state = seed;
@@ -58,4 +58,31 @@ test('selectSittingOut: fewer than 4 players means everyone sits out', () => {
   const result = selectSittingOut(['a', 'b', 'c'], 1, new Map(), makeSeededRandom(1));
   assert.deepEqual(result.playing, []);
   assert.deepEqual(result.sittingOut, ['c', 'a', 'b']);
+});
+
+test('scoreArrangement matches the PROJECT.md §6.3 worked example', () => {
+  const partnerCounts = new Map([[pairKey('tam', 'base'), 2]]);
+  const opponentCounts = new Map([[pairKey('pom', 'mai'), 3]]);
+
+  const repeatsPartner = [{ teamA: ['tam', 'base'] as [string, string], teamB: ['pom', 'mai'] as [string, string] }];
+  const tiedA = [{ teamA: ['tam', 'pom'] as [string, string], teamB: ['base', 'mai'] as [string, string] }];
+  const tiedB = [{ teamA: ['tam', 'mai'] as [string, string], teamB: ['base', 'pom'] as [string, string] }];
+
+  assert.equal(scoreArrangement(repeatsPartner, partnerCounts, opponentCounts), 10);
+  assert.equal(scoreArrangement(tiedA, partnerCounts, opponentCounts), 1);
+  assert.equal(scoreArrangement(tiedB, partnerCounts, opponentCounts), 1);
+});
+
+test('scoreArrangement is 0 when nothing in the arrangement has met before', () => {
+  const arrangement = [{ teamA: ['a', 'b'] as [string, string], teamB: ['c', 'd'] as [string, string] }];
+  assert.equal(scoreArrangement(arrangement, new Map(), new Map()), 0);
+});
+
+test('scoreArrangement sums across multiple courts', () => {
+  const partnerCounts = new Map([[pairKey('a', 'b'), 1]]);
+  const arrangement = [
+    { teamA: ['a', 'b'] as [string, string], teamB: ['c', 'd'] as [string, string] },
+    { teamA: ['e', 'f'] as [string, string], teamB: ['g', 'h'] as [string, string] },
+  ];
+  assert.equal(scoreArrangement(arrangement, partnerCounts, new Map()), 10);
 });

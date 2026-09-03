@@ -339,6 +339,14 @@ existing no-extra-infra style (no websocket server, no polling loop
 running for the whole session). Whoever's near the screen taps refresh
 after a court's match changes.
 
+### 7.4 Build status
+
+Routing is built (`web/`, Angular 22, standalone components, Vitest):
+`/g/:groupCode` → `GroupEntry`, `/s/:sessionCode` → `SessionDashboard`,
+`/s/:sessionCode/display` → `SessionDisplay`, all empty placeholders.
+Panel content (roster panel, court panels, waiting queue, display
+content) is the next plan — not built yet.
+
 ## 8. Progress checklist
 
 ### Design / decisions
@@ -360,5 +368,5 @@ after a court's match changes.
 ### Infra
 - [x] Git repo initialized, `.gitignore` added
 - [ ] NestJS backend scaffolded
-- [ ] Angular frontend scaffolded
+- [x] Angular frontend scaffolded (`web/`, routing skeleton only — see §7.4)
 - [ ] DB schema created (Group, Player, Session, Pairing, Waitlist)

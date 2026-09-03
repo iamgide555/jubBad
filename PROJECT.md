@@ -131,7 +131,7 @@ guess" principle rather than inventing new tolerance rules.
 5. Implement inline in TS (~15 lines, no npm dep) — matches
    `parser.ts`'s no-dependency style.
 
-### 6.3 Pairing/rotation engine — **decided, not built**
+### 6.3 Pairing/rotation engine — **built** (`pairing.ts`)
 
 Input: confirmed roster + court count + partner-history AND
 opponent-history from prior `Pairing` records for the group (**all-time**
@@ -218,7 +218,7 @@ overkill for a casual v1.
 ### Build order
 - [x] 1. LINE roster-message parser (`parser.ts`, verified vs 3 real messages)
 - [x] 2. Fuzzy-match layer (parsed names → `Player` + `aliases[]`, `fuzzy-match.ts`)
-- [ ] 3. Pairing/rotation engine (repeat-partner avoidance + sit-out balancing)
+- [x] 3. Pairing/rotation engine (repeat-partner avoidance + sit-out balancing, `pairing.ts`)
 - [ ] 4. Angular screens: paste → confirm → shuffle → share → score
 
 ### Infra

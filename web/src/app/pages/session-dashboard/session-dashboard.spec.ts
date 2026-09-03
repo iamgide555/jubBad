@@ -51,4 +51,57 @@ describe('SessionDashboard', () => {
     expect(text).toContain('ตั้ม');
     expect(text).toContain('เบส');
   });
+
+  it('renders one CourtPanel per court', () => {
+    const rosterService = TestBed.inject(RosterService);
+    rosterService.savePlayers('group1', [
+      { id: 'p1', name: 'ตั้ม', aliases: [] },
+      { id: 'p2', name: 'เบส', aliases: [] },
+      { id: 'p3', name: 'ปอม', aliases: [] },
+      { id: 'p4', name: 'ไม้', aliases: [] },
+    ]);
+    rosterService.createSession({
+      code: 'sess1',
+      groupCode: 'group1',
+      date: '2026-09-08',
+      venue: null,
+      courtCount: 2,
+      rawImportText: '',
+      rosterPlayerIds: ['p1', 'p2', 'p3', 'p4'],
+      waitlistPlayerIds: [],
+    });
+
+    fixture = TestBed.createComponent(SessionDashboard);
+    fixture.detectChanges();
+
+    const panels = (fixture.nativeElement as HTMLElement).querySelectorAll('app-court-panel');
+    expect(panels).toHaveLength(2);
+  });
+
+  it('renders the waiting queue', () => {
+    const rosterService = TestBed.inject(RosterService);
+    rosterService.savePlayers('group1', [
+      { id: 'p1', name: 'ตั้ม', aliases: [] },
+      { id: 'p2', name: 'เบส', aliases: [] },
+      { id: 'p3', name: 'ปอม', aliases: [] },
+      { id: 'p4', name: 'ไม้', aliases: [] },
+    ]);
+    rosterService.createSession({
+      code: 'sess1',
+      groupCode: 'group1',
+      date: '2026-09-08',
+      venue: null,
+      courtCount: 1,
+      rawImportText: '',
+      rosterPlayerIds: ['p1', 'p2', 'p3', 'p4'],
+      waitlistPlayerIds: [],
+    });
+
+    fixture = TestBed.createComponent(SessionDashboard);
+    fixture.detectChanges();
+
+    const waitingSection = (fixture.nativeElement as HTMLElement).querySelector('.waiting-queue');
+    expect(waitingSection).toBeTruthy();
+    expect(waitingSection?.textContent).toContain('ตั้ม');
+  });
 });

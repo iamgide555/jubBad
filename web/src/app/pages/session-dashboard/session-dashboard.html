@@ -3,3 +3,14 @@
     <span class="chip">{{ name }}</span>
   }
 </div>
+
+@for (courtNumber of courtNumbers(); track courtNumber) {
+  <app-court-panel [courtNumber]="courtNumber" />
+}
+
+<div class="waiting-queue">
+  <h4>Waiting</h4>
+  @for (name of waitingNames(); track name) {
+    <span class="chip">{{ name }}</span>
+  }
+</div>

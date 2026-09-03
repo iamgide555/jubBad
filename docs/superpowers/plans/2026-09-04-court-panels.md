@@ -999,10 +999,13 @@ it('renders the waiting queue', () => {
   fixture = TestBed.createComponent(SessionDashboard);
   fixture.detectChanges();
 
-  const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
-  expect(text).toContain('ตั้ม');
+  const waitingSection = (fixture.nativeElement as HTMLElement).querySelector('.waiting-queue');
+  expect(waitingSection).toBeTruthy();
+  expect(waitingSection?.textContent).toContain('ตั้ม');
 });
 ```
+
+(Checking for `'ตั้ม'` anywhere in the page's text is too weak — that name already appears via the roster chips regardless of whether a waiting queue exists at all, so the test would pass vacuously before this task's implementation. Scoping the check to `.waiting-queue`'s own text content — confirmed by running this exact test against the pre-Task-8 template and seeing it correctly fail with `Received: null` — makes it a real test.)
 
 - [ ] **Step 2: Run test to verify it fails**
 

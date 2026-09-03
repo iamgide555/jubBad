@@ -2,6 +2,7 @@ import { TestBed } from '@angular/core/testing';
 import { RosterService } from './roster.service';
 import type { Player } from '../../../../fuzzy-match.ts';
 import type { Session } from './session.model';
+import type { Group } from './group.model';
 
 describe('RosterService', () => {
   let service: RosterService;
@@ -44,5 +45,15 @@ describe('RosterService', () => {
     };
     service.createSession(session);
     expect(service.getSession('sess1')).toEqual(session);
+  });
+
+  it('getGroup returns null when nothing is stored', () => {
+    expect(service.getGroup('group1')).toBeNull();
+  });
+
+  it('saveGroup then getGroup round-trips', () => {
+    const group: Group = { code: 'group1', name: 'Group A' };
+    service.saveGroup(group);
+    expect(service.getGroup('group1')).toEqual(group);
   });
 });

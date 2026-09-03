@@ -356,8 +356,21 @@ and `web/src/app/core/roster.service.ts` — both call the root-level
 (`allowImportingTsExtensions` + `rewriteRelativeImportExtensions` in
 `web/tsconfig.json` make this work).
 
-Add-late-arrival/remove-no-show interactivity, court panels, waiting
-queue, and display content are the next plan — not built yet.
+Court panels + waiting queue are built on `SessionDashboard`: one
+`CourtPanel` per court (idle → `[Start next match]` → pending →
+`[reshuffle]`/`[confirm]` → active → `[Finish match]`), plus a waiting
+queue listing everyone not currently on a court. `LiveSessionService`
+(component-scoped, fresh per session visit) holds an append-only
+`matches` log and per-court state in `localStorage`, calling
+`pairing.ts`'s `generateRound` directly (`courtCount=1`, scoped to
+whoever isn't reserved by another court) for both starting and
+reshuffling — the same operation either way. History
+(partner/opponent/games-played) is derived from the match log on
+demand via `deriveHistory`, and is **within-session only** for now —
+real cross-session history needs the backend, not built yet.
+
+Add-late-arrival/remove-no-show interactivity and display content are
+the next plan — not built yet.
 
 ## 8. Progress checklist
 

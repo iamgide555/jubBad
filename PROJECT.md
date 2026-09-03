@@ -172,6 +172,27 @@ still cross ปอม-ไม้ as opponents) — a tie the algorithm breaks
 arbitrarily (e.g. first found), since there's no further signal to
 prefer one over the other.
 
+**Sit-out selection — decided.** Deterministic, not part of the
+weighted score: rank roster players by games-played-so-far (from prior
+`Pairing` + `Waitlist` records for the group), and whoever needs to sit
+out this round (roster size exceeds available court capacity) is
+whoever has played the *most* rounds so far, ties broken randomly.
+Predictable to the host ("they've played the most, so they sit") and
+keeps rotation fair without folding another term into the scoring
+formula above.
+
+**Search strategy — decided.** Real groups run 10-20+ players across
+2-3 courts; exhaustively scoring every possible court arrangement (as
+in the 4-player example above) is combinatorially infeasible at that
+size. Use randomized search instead: shuffle the (non-sitting-out)
+roster, greedily build one candidate arrangement from the shuffle,
+score it with the formula above, repeat ~200 times, keep the
+lowest-scoring candidate. "Good enough and fair," not "provably
+optimal" — matches this project's existing no-dependency,
+no-over-engineering style (`parser.ts`, `fuzzy-match.ts`). A real
+matching-theory optimizer (min-cost perfect matching) would be
+overkill for a casual v1.
+
 ## 7. Progress checklist
 
 ### Design / decisions

@@ -1,9 +1,25 @@
-import { Component } from '@angular/core';
+import { Component, signal } from '@angular/core';
+import { ActivatedRoute } from '@angular/router';
+import { FormsModule } from '@angular/forms';
+import { parseLineRosterMessage } from '../../../../../parser.ts';
 
 @Component({
-  imports: [],
   selector: 'app-group-entry',
-  styleUrl: './group-entry.css',
+  imports: [FormsModule],
   templateUrl: './group-entry.html',
+  styleUrl: './group-entry.css',
 })
-export class GroupEntry {}
+export class GroupEntry {
+  protected readonly groupCode: string;
+  readonly state = signal<'paste' | 'confirm'>('paste');
+  readonly rawText = signal('');
+
+  constructor(route: ActivatedRoute) {
+    this.groupCode = route.snapshot.paramMap.get('groupCode')!;
+  }
+
+  parse(): void {
+    parseLineRosterMessage(this.rawText());
+    this.state.set('confirm');
+  }
+}

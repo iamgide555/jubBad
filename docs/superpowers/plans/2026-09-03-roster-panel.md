@@ -483,7 +483,7 @@ import { parseLineRosterMessage } from '../../../../../parser.ts';
 })
 export class GroupEntry {
   protected readonly groupCode: string;
-  protected readonly state = signal<'paste' | 'confirm'>('paste');
+  readonly state = signal<'paste' | 'confirm'>('paste');
   readonly rawText = signal('');
 
   constructor(route: ActivatedRoute) {
@@ -615,7 +615,7 @@ import { RosterService } from '../../core/roster.service';
 })
 export class GroupEntry {
   protected readonly groupCode: string;
-  protected readonly state = signal<'paste' | 'confirm'>('paste');
+  readonly state = signal<'paste' | 'confirm'>('paste');
   readonly rawText = signal('');
   readonly date = signal('');
   readonly venue = signal('');

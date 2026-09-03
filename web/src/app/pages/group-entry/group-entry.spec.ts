@@ -118,4 +118,24 @@ describe('GroupEntry', () => {
     });
     expect(session?.rosterPlayerIds).toHaveLength(2);
   });
+
+  it('groupName is empty when no Group has been saved yet', () => {
+    expect(component.groupName()).toBe('');
+  });
+
+  it('groupName prefills from a previously saved Group', async () => {
+    const rosterService = TestBed.inject(RosterService);
+    rosterService.saveGroup({ code: 'group1', name: 'Group A' });
+
+    const other = TestBed.createComponent(GroupEntry);
+    await other.whenStable();
+    expect(other.componentInstance.groupName()).toBe('Group A');
+  });
+
+  it('saveGroupName persists the current groupName', () => {
+    const rosterService = TestBed.inject(RosterService);
+    component.groupName.set('Group A');
+    component.saveGroupName();
+    expect(rosterService.getGroup('group1')).toEqual({ code: 'group1', name: 'Group A' });
+  });
 });

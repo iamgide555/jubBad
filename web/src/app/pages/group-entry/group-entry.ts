@@ -21,6 +21,7 @@ export class GroupEntry {
   readonly courtCount = signal<number | null>(null);
   readonly rosterReviews = signal<NameReview[]>([]);
   readonly waitlistReviews = signal<NameReview[]>([]);
+  readonly groupName = signal('');
 
   constructor(
     route: ActivatedRoute,
@@ -28,6 +29,11 @@ export class GroupEntry {
     private router: Router
   ) {
     this.groupCode = route.snapshot.paramMap.get('groupCode')!;
+    this.groupName.set(this.rosterService.getGroup(this.groupCode)?.name ?? '');
+  }
+
+  saveGroupName(): void {
+    this.rosterService.saveGroup({ code: this.groupCode, name: this.groupName() || null });
   }
 
   parse(): void {

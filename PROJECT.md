@@ -387,7 +387,163 @@ remove-no-show interactivity (§3's mid-session-edits decision) is not
 built yet — the roster panel only supports the initial paste-and-confirm
 flow.
 
-## 8. Progress checklist
+## 8. Backend design (draft — pending your review)
+
+Written overnight per request, autonomously — no interactive
+back-and-forth on the calls below. Marked **RECOMMENDATION** (low-risk
+default, easy to change) vs **NEEDS YOUR SIGN-OFF** (expensive to
+reverse once built on) so review time goes where it matters.
+
+### 8.1 The big fork: where do the engines run? — **NEEDS YOUR SIGN-OFF**
+
+§5's original tech-stack line says "Backend: NestJS — parsing logic,
+pairing/rotation engine" — i.e. the original intent was for
+`parser.ts`/`fuzzy-match.ts`/`pairing.ts` to run *server-side*. What
+actually got built (§7) runs them *client-side*, bundled straight into
+the Angular app, with the backend never in the loop for computation —
+only for holding data. That was the right call at the time (no backend
+existed yet, and building the UI against real engine logic beat
+building it against nothing), but it's a real fork now that a backend
+is being built for real:
+
+**Option A — persistence-only backend (recommended).** Keep the
+engines exactly where they are (client-side, already built, already
+tested — 39 engine tests + 64 Angular tests passing). NestJS becomes a
+thin CRUD API: `Group`/`Player`/`Session`/`Pairing` persistence only,
+replacing `RosterService`/`LiveSessionService`'s `localStorage` calls
+with HTTP calls. Zero engine code moves. Rationale: these functions
+are pure and isomorphic (no browser-only or Node-only APIs — even
+`crypto.randomUUID()` exists in both), so there's no *technical* need
+to move them, and no security reason either (nothing secret or
+trust-sensitive in a pairing algorithm for a casual friend group).
+Moving them later, if ever needed, is a bounded refactor since
+components already only touch them through the`RosterService`/
+`LiveSessionService` boundary.
+
+**Option B — move engines server-side, matching §5's original wording
+literally.** Client sends raw actions (paste text, "start next
+match") to NestJS, server runs `parser.ts`/`fuzzy-match.ts`/
+`pairing.ts`, returns results. Real cost: re-plumbing every
+`GroupEntry`/`CourtPanel`/`SessionDisplay` call site from a direct
+function call to an HTTP round-trip, redoing a meaningful slice of the
+last 4 implementation plans' work, for a workload (parsing one pasted
+message, computing one court's pairing) that's milliseconds either
+way and has no confidentiality requirement.
+
+Recommend **Option A** — re-reading §5's "parsing logic on the
+backend" line as an artifact of when it was written (before any UI
+existed to prove out client-side execution), not a requirement worth
+paying real rework cost for now. But this is the one call in this
+whole doc that's genuinely expensive to reverse later, so it's flagged
+for your explicit yes/no rather than assumed.
+
+### 8.2 Schema refinement — `Pairing` needs an explicit lifecycle
+
+The client-side `CourtState` (`idle`/`pending`/`active`) doesn't map
+cleanly onto §5's `Pairing` row as originally specified — `confirmedAt`
+alone can't distinguish "confirmed and currently being played" from
+"confirmed and finished," which the schema needs once `Pairing` is the
+real source of truth instead of a `courts[]` array with an
+implicit pointer to "the current one":
+
+```
+Pairing — id, sessionId, courtNumber, matchNumber, teamA[2], teamB[2],
+          scoreA, scoreB (nullable), confirmedAt (nullable — null =
+          pending/not yet confirmed, matches §7's "reshuffle is free
+          before confirm"), endedAt (nullable — new field; null =
+          still active/being played, set = finished, court is free)
+```
+
+Court status is then always derivable, never stored separately:
+`idle` = no `Pairing` row for that court with `confirmedAt` set and
+`endedAt` null; `pending` = a row with `confirmedAt` null;
+`active` = a row with `confirmedAt` set, `endedAt` null. This is a
+small addition (`endedAt`), not a rework — **RECOMMENDATION**, low
+risk to change later if it turns out wrong.
+
+### 8.3 API surface — **RECOMMENDATION**
+
+REST, matching the CRUD shape `RosterService`/`LiveSessionService`
+already assume (this needs to be a fairly direct swap, not a redesign,
+so the frontend work already done isn't disturbed):
+
+```
+GET/PUT   /groups/:code                     — read/rename
+GET       /groups/:code/players             — list
+PUT       /groups/:code/players             — bulk replace (matches
+                                               current savePlayers
+                                               semantics exactly — one
+                                               editor at a time is
+                                               already an accepted
+                                               risk, see §2)
+POST      /sessions                         — create (paste-confirm)
+GET       /sessions/:code                   — read
+GET       /sessions/:code/pairings          — list (derives courts[]
+                                               + history client-side,
+                                               same as today)
+POST      /sessions/:code/pairings          — create pending (propose)
+PATCH     /sessions/:code/pairings/:id      — confirm (set confirmedAt)
+                                               or finish (set endedAt +
+                                               scores) — two distinct
+                                               actions, same verb
+```
+
+No websockets, no polling — `[↻ refresh]` re-fetches from the API
+instead of `localStorage`, same manual-refresh UX already decided in
+§7.3, now backed by a real network call instead of a local read.
+
+### 8.4 DB engine + ORM — **RECOMMENDATION**
+
+- **SQLite**, not Postgres. Casual-friend-group scale, single-host
+  deployment implied throughout this doc (no mention of scaling
+  needs anywhere) — zero ops, zero separate service to run, matches
+  the project's consistent no-extra-infra ethos (`parser.ts`
+  onward). Trivial to swap for Postgres later if a real multi-host
+  deployment ever becomes necessary — nothing here locks that in.
+- **Prisma** over TypeORM. Lighter mental model, generates types
+  directly from the schema (one source of truth), and the project has
+  consistently favored explicit/typed over decorator-heavy magic
+  (`fuzzy-match.ts`/`pairing.ts`'s plain-function style over classes
+  where possible).
+- Lives at `server/` (sibling to `web/`) — `server/prisma/schema.prisma`
+  defines the four tables from §8.2/§5.
+
+### 8.5 New gap found while writing this: no group-creation flow
+
+`GroupEntry` (`/g/:groupCode`) only ever *reads* whatever `groupCode`
+is already in the URL — nothing anywhere generates a new one. There's
+also no `''` (root) route at all in `app.routes.ts`. This means: right
+now, a brand-new group has no way to come into existence through the
+UI. This predates the backend work (it's a client-side gap from the
+roster-panel plan) but matters more once a real `Group` table exists
+server-side, since an unknown `groupCode` needs a defined behavior
+(auto-create on first visit? Require an explicit "create group"
+action first?). **NEEDS YOUR SIGN-OFF** — two reasonable options:
+
+- **Auto-create on first visit** — visiting `/g/<any-new-code>` creates
+  that `Group` row on the spot if it doesn't exist. Simplest, zero new
+  UI, but means a typo'd URL silently creates a new empty group rather
+  than erroring.
+- **Explicit creation** — a real `/` landing page with a "Start a new
+  group" action that generates a fresh code (e.g.
+  `crypto.randomUUID().slice(0, 8)`, matching `Session.code`'s
+  existing pattern) and redirects to `/g/:code`. One new screen, but
+  makes "does this group exist" an intentional question instead of
+  implicit.
+
+### 8.6 Migration path
+
+Both `RosterService` and `LiveSessionService` already isolate every
+`localStorage` call behind a method (`getGroup`/`saveGroup`/
+`getPlayers`/`savePlayers`/`getSession`/`createSession`/`proposeMatch`/
+`confirmMatch`/`finishMatch`/`refresh`) — no component anywhere calls
+`localStorage` directly. Swapping the backend in means rewriting the
+*bodies* of those methods to call the API in §8.3 instead of
+`localStorage.getItem`/`setItem`, using Angular's `HttpClient`. No
+component, template, or test file needs to change shape — this was the
+explicit reason that boundary was drawn back in the roster-panel plan.
+
+## 9. Progress checklist
 
 ### Design / decisions
 - [x] v1 plan written (scope, tech stack, schema, build order)
@@ -398,6 +554,7 @@ flow.
 - [x] Opponent-balancing scope decision for pairing engine — in, as secondary soft signal, see §6.3
 - [x] Mid-session edit flow designed (reshuffle / late-add / no-show removal) — see §3
 - [x] UI/UX flow designed — per-court independent rotation, not synchronized rounds; dashboard + display view — see §7
+- [ ] Backend design drafted — **awaiting your review**: engines client-side vs server-side (§8.1), group-creation flow (§8.5) — see §8
 
 ### Build order
 - [x] 1. LINE roster-message parser (`parser.ts`, verified vs 3 real messages)

@@ -105,7 +105,7 @@ Design principles:
 - **`@All`/`@all` excluded from venue detection** — looks like an
   `@venue` tag syntactically but means something different.
 
-### 6.2 Fuzzy-match layer — **decided, not built**
+### 6.2 Fuzzy-match layer — **built** (`fuzzy-match.ts`)
 
 Parsed roster/waitlist names → known `Player` records for the group.
 
@@ -155,7 +155,7 @@ building, don't let it default silently either way.
 
 ### Build order
 - [x] 1. LINE roster-message parser (`parser.ts`, verified vs 3 real messages)
-- [ ] 2. Fuzzy-match layer (parsed names → `Player` + `aliases[]`)
+- [x] 2. Fuzzy-match layer (parsed names → `Player` + `aliases[]`, `fuzzy-match.ts`)
 - [ ] 3. Pairing/rotation engine (repeat-partner avoidance + sit-out balancing)
 - [ ] 4. Angular screens: paste → confirm → shuffle → share → score
 

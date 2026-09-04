@@ -14,23 +14,25 @@ import { CourtPanel } from './court-panel/court-panel';
 })
 export class SessionDashboard {
   private readonly sessionCode: string;
+
+  protected readonly players = computed(() => {
+    const session = this.rosterService.getSession(this.sessionCode);
+    return session ? this.rosterService.getPlayers(session.groupCode) : [];
+  });
+
   readonly rosterNames = computed(() => {
     const session = this.rosterService.getSession(this.sessionCode);
     if (!session) return [];
-    const players = this.rosterService.getPlayers(session.groupCode);
-    return resolvePlayerNames(session.rosterPlayerIds, players);
+    return resolvePlayerNames(session.rosterPlayerIds, this.players());
   });
 
   readonly courtNumbers = computed(() =>
     this.liveSession.courts().map((_, i) => i + 1)
   );
 
-  readonly waitingNames = computed(() => {
-    const session = this.rosterService.getSession(this.sessionCode);
-    if (!session) return [];
-    const players = this.rosterService.getPlayers(session.groupCode);
-    return resolvePlayerNames(this.liveSession.waitingPlayerIds(), players);
-  });
+  readonly waitingNames = computed(() =>
+    resolvePlayerNames(this.liveSession.waitingPlayerIds(), this.players())
+  );
 
   constructor(
     route: ActivatedRoute,

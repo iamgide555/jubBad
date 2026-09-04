@@ -36,6 +36,12 @@ describe('CourtPanel', () => {
     service = TestBed.inject(LiveSessionService);
     fixture = TestBed.createComponent(CourtPanel);
     fixture.componentRef.setInput('courtNumber', 1);
+    fixture.componentRef.setInput('players', [
+      { id: 'p1', name: 'ตั้ม', aliases: [] },
+      { id: 'p2', name: 'เบส', aliases: [] },
+      { id: 'p3', name: 'ปอม', aliases: [] },
+      { id: 'p4', name: 'ไม้', aliases: [] },
+    ]);
     await fixture.whenStable();
   });
 
@@ -51,6 +57,14 @@ describe('CourtPanel', () => {
     const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
     expect(text).toContain('reshuffle');
     expect(text).toContain('confirm');
+  });
+
+  it('shows player names, not raw ids, once a pairing is proposed', () => {
+    service.proposeMatch(1, () => 0.5);
+    fixture.detectChanges();
+    const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
+    expect(text).toContain('ตั้ม');
+    expect(text).not.toContain('p1');
   });
 
   it('shows a "Finish match" control once active', () => {

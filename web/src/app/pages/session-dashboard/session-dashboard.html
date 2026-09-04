@@ -5,7 +5,7 @@
 </div>
 
 @for (courtNumber of courtNumbers(); track courtNumber) {
-  <app-court-panel [courtNumber]="courtNumber" />
+  <app-court-panel [courtNumber]="courtNumber" [players]="players()" />
 }
 
 <div class="waiting-queue">

@@ -1,84 +1,108 @@
-<label>
-  Group name
-  <input type="text" [(ngModel)]="groupName" (blur)="saveGroupName()" placeholder="e.g. Group A" />
-</label>
-
-@if (lastSessionCode()) {
-  <p><a [routerLink]="['/s', lastSessionCode()]">Resume last session</a></p>
-}
-
-@if (state() === 'paste') {
-  <textarea [(ngModel)]="rawText" rows="15" placeholder="Paste the LINE roster message here"></textarea>
-  @if (pasteError()) {
-    <p class="paste-error">⚠ {{ pasteError() }}</p>
-  }
-  <button type="button" (click)="parse()">Parse</button>
-}
-
-@if (state() === 'confirm') {
-  @if (warnings().length > 0) {
-    <div class="warnings">
-      @for (w of warnings(); track w) {
-        <p>⚠ {{ w }}</p>
-      }
-    </div>
-  }
-
-  @if (unrecognizedLines().length > 0) {
-    <div class="unrecognized">
-      <h4>Notes</h4>
-      @for (line of unrecognizedLines(); track line) {
-        <p>{{ line }}</p>
-      }
-    </div>
-  }
-
+<div class="page group-entry">
   <label>
-    Date
-    <input type="date" [(ngModel)]="date" required />
-  </label>
-  <label>
-    Court count
-    <input type="number" [ngModel]="courtCount()" (ngModelChange)="courtCount.set($event)" required />
-  </label>
-  <label>
-    Venue
-    <input type="text" [(ngModel)]="venue" />
+    Group name
+    <input type="text" [(ngModel)]="groupName" (blur)="saveGroupName()" placeholder="e.g. Group A" />
   </label>
 
-  <h3>Roster</h3>
-  @for (review of rosterReviews(); track review.inputName) {
-    <div>
-      {{ review.inputName }} —
-      @switch (review.match.type) {
-        @case ('exact') { <span>matched</span> }
-        @case ('fuzzy') {
-          <span>ใช่ [{{ playerName(review.match.playerId) }}] ไหม?</span>
-          <button type="button" (click)="toggleDecision(review)">
-            {{ review.decision === 'accept' ? 'confirmed' : 'treat as new' }}
-          </button>
+  @if (lastSessionCode()) {
+    <p><a [routerLink]="['/s', lastSessionCode()]">Resume last session →</a></p>
+  }
+
+  @if (state() === 'paste') {
+    <hr class="rule" />
+    <label>
+      Roster message
+      <textarea [(ngModel)]="rawText" rows="15" placeholder="Paste the LINE roster message here"></textarea>
+    </label>
+    @if (pasteError()) {
+      <p class="error">{{ pasteError() }}</p>
+    }
+    <button type="button" (click)="parse()">Parse</button>
+  }
+
+  @if (state() === 'confirm') {
+    @if (warnings().length > 0) {
+      <div class="notice-block warnings">
+        @for (w of warnings(); track w) {
+          <p>{{ w }}</p>
         }
-        @case ('new') { <span>new player</span> }
-      }
-    </div>
-  }
+      </div>
+    }
 
-  <h3>Waitlist</h3>
-  @for (review of waitlistReviews(); track review.inputName) {
-    <div>
-      {{ review.inputName }} —
-      @switch (review.match.type) {
-        @case ('exact') { <span>matched</span> }
-        @case ('fuzzy') {
-          <span>ใช่ [{{ playerName(review.match.playerId) }}] ไหม?</span>
-          <button type="button" (click)="toggleDecision(review)">
-            {{ review.decision === 'accept' ? 'confirmed' : 'treat as new' }}
-          </button>
+    @if (unrecognizedLines().length > 0) {
+      <div class="notice-block unrecognized">
+        <h4>Notes</h4>
+        @for (line of unrecognizedLines(); track line) {
+          <p>{{ line }}</p>
         }
-        @case ('new') { <span>new player</span> }
-      }
-    </div>
-  }
+      </div>
+    }
 
-  <button type="button" [disabled]="!canConfirm()" (click)="confirmRoster()">Confirm roster</button>
-}
+    <hr class="rule" />
+
+    <div class="field-row">
+      <label>
+        Date
+        <input type="date" [(ngModel)]="date" required />
+      </label>
+      <label>
+        Court count
+        <input type="number" [ngModel]="courtCount()" (ngModelChange)="courtCount.set($event)" required />
+      </label>
+    </div>
+    <label>
+      Venue
+      <input type="text" [(ngModel)]="venue" />
+    </label>
+
+    <hr class="rule" />
+
+    <h3>Roster</h3>
+    <ol class="review-list">
+      @for (review of rosterReviews(); track review.inputName; let i = $index) {
+        <li class="review-row">
+          <span class="review-index">{{ i + 1 }}</span>
+          <span class="review-name">{{ review.inputName }}</span>
+          @switch (review.match.type) {
+            @case ('exact') { <span class="review-tag matched">known player</span> }
+            @case ('fuzzy') {
+              <span class="review-tag fuzzy">
+                is this {{ playerName(review.match.playerId) }}?
+              </span>
+              <button type="button" class="ghost" (click)="toggleDecision(review)">
+                {{ review.decision === 'accept' ? 'yes' : 'no, new player' }}
+              </button>
+            }
+            @case ('new') { <span class="review-tag new">new player</span> }
+          }
+        </li>
+      }
+    </ol>
+
+    @if (waitlistReviews().length > 0) {
+      <h3>Waitlist</h3>
+      <ol class="review-list">
+        @for (review of waitlistReviews(); track review.inputName; let i = $index) {
+          <li class="review-row">
+            <span class="review-index">{{ i + 1 }}</span>
+            <span class="review-name">{{ review.inputName }}</span>
+            @switch (review.match.type) {
+              @case ('exact') { <span class="review-tag matched">known player</span> }
+              @case ('fuzzy') {
+                <span class="review-tag fuzzy">
+                  is this {{ playerName(review.match.playerId) }}?
+                </span>
+                <button type="button" class="ghost" (click)="toggleDecision(review)">
+                  {{ review.decision === 'accept' ? 'yes' : 'no, new player' }}
+                </button>
+              }
+              @case ('new') { <span class="review-tag new">new player</span> }
+            }
+          </li>
+        }
+      </ol>
+    }
+
+    <button type="button" [disabled]="!canConfirm()" (click)="confirmRoster()">Confirm roster</button>
+  }
+</div>

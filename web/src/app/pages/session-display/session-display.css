@@ -1,0 +1,68 @@
+.display {
+  max-width: none;
+  display: flex;
+  flex-direction: column;
+}
+
+.display h1 {
+  font-size: clamp(1.8rem, 3.2vw, 2.6rem);
+}
+
+.courts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  margin: var(--space-3) 0;
+}
+
+.court-line {
+  flex: 1 1 20rem;
+  border: 1.5px solid #2a5f58;
+  padding: var(--space-3);
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+}
+
+.court-line.playing {
+  border-color: var(--accent);
+}
+
+.court-number {
+  font-family: 'Archivo', sans-serif;
+  font-weight: 800;
+  font-size: clamp(2.5rem, 5vw, 4rem);
+  line-height: 1;
+  color: var(--ink-on-court-soft);
+}
+
+.court-line.playing .court-number {
+  color: var(--accent);
+}
+
+.court-text {
+  font-size: clamp(1.4rem, 2.6vw, 2rem);
+  font-weight: 600;
+  margin: 0;
+}
+
+.display .rule {
+  border-top-color: #2a5f58;
+}
+
+.waiting-line {
+  color: var(--ink-on-court-soft);
+  font-size: 1.2rem;
+}
+
+.refresh {
+  align-self: flex-start;
+  background: transparent;
+  border: 1px solid #2a5f58;
+  color: var(--ink-on-court-soft);
+}
+
+.refresh:hover {
+  background: #123f39;
+  color: var(--ink-on-court);
+}

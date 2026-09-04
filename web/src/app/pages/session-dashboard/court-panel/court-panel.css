@@ -1,0 +1,117 @@
+.court-panel {
+  position: relative;
+  background: var(--surface);
+  border: 1.5px solid var(--rule);
+  padding: var(--space-2) var(--space-3);
+}
+
+.court-panel::before,
+.court-panel::after {
+  content: '';
+  position: absolute;
+  top: -1.5px;
+  width: 14px;
+  height: 14px;
+  border-top: 2.5px solid var(--waiting);
+  pointer-events: none;
+}
+
+.court-panel::before {
+  left: -1.5px;
+  border-left: 2.5px solid var(--waiting);
+}
+
+.court-panel::after {
+  right: -1.5px;
+  border-right: 2.5px solid var(--waiting);
+}
+
+.court-panel:has(.status-dot.pending)::before,
+.court-panel:has(.status-dot.pending)::after {
+  border-color: var(--accent);
+}
+
+.court-panel:has(.status-dot.active) {
+  border-color: var(--court);
+}
+
+.court-panel:has(.status-dot.active)::before,
+.court-panel:has(.status-dot.active)::after {
+  border-color: var(--court);
+}
+
+.court-panel-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--space-1);
+}
+
+.court-panel-head h4 {
+  margin: 0;
+  font-size: 1.05rem;
+}
+
+.status-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--waiting);
+}
+
+.status-dot.pending {
+  background: var(--accent);
+}
+
+.status-dot.active {
+  background: var(--court);
+}
+
+.matchup {
+  font-weight: 600;
+  font-size: 1.05rem;
+  margin-bottom: var(--space-2);
+}
+
+.matchup .vs {
+  color: var(--ink-soft);
+  font-weight: 400;
+  font-size: 0.85em;
+  margin: 0 0.3em;
+}
+
+.idle-label {
+  color: var(--ink-soft);
+  font-weight: 400;
+}
+
+.hint {
+  font-size: 0.85rem;
+  color: var(--warn);
+  margin-top: var(--space-1);
+}
+
+.button-row {
+  display: flex;
+  gap: var(--space-1);
+}
+
+.score-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  margin-bottom: var(--space-2);
+}
+
+.score-row input {
+  width: 4rem;
+  text-align: center;
+  font-family: 'Archivo', sans-serif;
+  font-weight: 700;
+  font-size: 1.2rem;
+}
+
+.score-sep {
+  color: var(--ink-soft);
+  font-weight: 700;
+}

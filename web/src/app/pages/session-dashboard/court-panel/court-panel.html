@@ -1,35 +1,41 @@
 <div class="court-panel">
-  <h4>Court {{ courtNumber() }}</h4>
-
   @let c = court();
+
+  <div class="court-panel-head">
+    <h4>Court {{ courtNumber() }}</h4>
+    <span class="status-dot" [class]="c.status"></span>
+  </div>
 
   @switch (c.status) {
     @case ('idle') {
+      <p class="matchup idle-label">Idle</p>
       <button type="button" (click)="startOrReshuffle()">Start next match</button>
       @if (notEnoughPlayers()) {
-        <p>Not enough players waiting.</p>
+        <p class="hint">Not enough players waiting.</p>
       }
     }
     @case ('pending') {
       @if (c.status === 'pending') {
         @let aNames = teamNames(c.teamA);
         @let bNames = teamNames(c.teamB);
-        <p>{{ aNames[0] }} + {{ aNames[1] }} vs {{ bNames[0] }} + {{ bNames[1] }}</p>
+        <p class="matchup">{{ aNames[0] }} &amp; {{ aNames[1] }} <span class="vs">vs</span> {{ bNames[0] }} &amp; {{ bNames[1] }}</p>
       }
-      <button type="button" (click)="startOrReshuffle()">reshuffle</button>
-      <button type="button" (click)="confirm()">confirm</button>
+      <div class="button-row">
+        <button type="button" class="ghost" (click)="startOrReshuffle()">Reshuffle</button>
+        <button type="button" (click)="confirm()">Confirm</button>
+      </div>
     }
     @case ('active') {
       @if (c.status === 'active') {
         @let aNames = teamNames(c.teamA);
         @let bNames = teamNames(c.teamB);
-        <p>{{ aNames[0] }} + {{ aNames[1] }} vs {{ bNames[0] }} + {{ bNames[1] }}</p>
+        <p class="matchup">{{ aNames[0] }} &amp; {{ aNames[1] }} <span class="vs">vs</span> {{ bNames[0] }} &amp; {{ bNames[1] }}</p>
       }
-      <label>
-        Score
-        <input type="number" min="0" [ngModel]="scoreA()" (ngModelChange)="scoreA.set($event)" />
-        <input type="number" min="0" [ngModel]="scoreB()" (ngModelChange)="scoreB.set($event)" />
-      </label>
+      <div class="score-row">
+        <input type="number" min="0" [ngModel]="scoreA()" (ngModelChange)="scoreA.set($event)" placeholder="0" />
+        <span class="score-sep">–</span>
+        <input type="number" min="0" [ngModel]="scoreB()" (ngModelChange)="scoreB.set($event)" placeholder="0" />
+      </div>
       <button type="button" (click)="finish()">Finish match</button>
     }
   }

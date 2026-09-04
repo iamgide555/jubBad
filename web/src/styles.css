@@ -1,1 +1,173 @@
-/* You can add global styles to this file, and also import other style files */
+:root {
+  /* Court surface + structure */
+  --court: #0f5b54;
+  --court-dark: #0a3d38;
+  --line-surface: #eff3f1;
+  --surface: #ffffff;
+  --rule: #c9d3cd;
+
+  /* Text */
+  --ink: #16221e;
+  --ink-soft: #4a5a54;
+  --ink-on-court: #f3f6f4;
+  --ink-on-court-soft: #a9c2ba;
+
+  /* Signal colors */
+  --accent: #e3a73e;
+  --accent-dark: #b9822b;
+  --waiting: #6f8880;
+  --warn: #c0503a;
+
+  --radius: 3px;
+  --space-1: 0.4rem;
+  --space-2: 0.8rem;
+  --space-3: 1.4rem;
+  --space-4: 2.2rem;
+
+  font-family: 'Inter', system-ui, sans-serif;
+  color-scheme: light;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--line-surface);
+  color: var(--ink);
+  font-size: 16px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+h1,
+h2,
+h3,
+h4 {
+  font-family: 'Archivo', system-ui, sans-serif;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  color: var(--ink);
+  margin: 0 0 var(--space-2);
+}
+
+p {
+  margin: 0 0 var(--space-2);
+}
+
+a {
+  color: var(--court);
+  font-weight: 600;
+}
+
+button {
+  font-family: inherit;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  border: none;
+  border-radius: var(--radius);
+  padding: 0.65rem 1.1rem;
+  background: var(--court);
+  color: var(--ink-on-court);
+  transition: background-color 120ms ease, transform 80ms ease;
+}
+
+button:hover {
+  background: var(--court-dark);
+}
+
+button:active {
+  transform: scale(0.98);
+}
+
+button:disabled {
+  background: var(--rule);
+  color: var(--ink-soft);
+  cursor: not-allowed;
+}
+
+input,
+textarea {
+  font-family: inherit;
+  font-size: 1rem;
+  color: var(--ink);
+  background: var(--surface);
+  border: 1px solid var(--rule);
+  border-radius: var(--radius);
+  padding: 0.6rem 0.7rem;
+  width: 100%;
+}
+
+input:focus-visible,
+textarea:focus-visible,
+button:focus-visible,
+a:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+label {
+  display: block;
+  font-weight: 600;
+  font-size: 0.9rem;
+  color: var(--ink-soft);
+  margin-bottom: var(--space-2);
+}
+
+label > input,
+label > textarea {
+  margin-top: 0.35rem;
+  font-weight: 400;
+  color: var(--ink);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    transition: none !important;
+  }
+}
+
+/* Shared page shells — host screens are a light, phone-first single column;
+   the venue display screen is a full-bleed dark scoreboard. */
+.page {
+  max-width: 32rem;
+  margin: 0 auto;
+  padding: var(--space-4) var(--space-3) var(--space-4);
+}
+
+.page-dark {
+  min-height: 100dvh;
+  background: var(--court-dark);
+  color: var(--ink-on-court);
+  padding: var(--space-4) var(--space-3);
+}
+
+.page-dark h1,
+.page-dark h2 {
+  color: var(--ink-on-court);
+}
+
+.rule {
+  border: none;
+  border-top: 1px solid var(--rule);
+  margin: var(--space-3) 0;
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.3rem 0.75rem;
+  margin: 0 var(--space-1) var(--space-1) 0;
+  background: var(--surface);
+  border: 1px solid var(--rule);
+  border-radius: 999px;
+  font-size: 0.9rem;
+  font-weight: 500;
+}

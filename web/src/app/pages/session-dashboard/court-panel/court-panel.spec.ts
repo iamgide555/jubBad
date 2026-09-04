@@ -81,8 +81,8 @@ describe('CourtPanel', () => {
     );
     fixture.detectChanges();
     const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
-    expect(text).toContain('reshuffle');
-    expect(text).toContain('confirm');
+    expect(text).toContain('Reshuffle');
+    expect(text).toContain('Confirm');
     expect(text).toContain('ตั้ม');
     expect(text).not.toContain('p1');
   });
@@ -122,7 +122,7 @@ describe('CourtPanel', () => {
     await fixture.whenStable();
     fixture.detectChanges();
 
-    expect((fixture.nativeElement as HTMLElement).textContent).toContain('reshuffle');
+    expect((fixture.nativeElement as HTMLElement).textContent).toContain('Reshuffle');
   });
 
   it('clicking "confirm" posts to confirm with the court\'s pairingId', async () => {
@@ -134,7 +134,7 @@ describe('CourtPanel', () => {
     fixture.detectChanges();
 
     const buttons = (fixture.nativeElement as HTMLElement).querySelectorAll('button');
-    const confirmButton = Array.from(buttons).find((b) => b.textContent === 'confirm') as HTMLButtonElement;
+    const confirmButton = Array.from(buttons).find((b) => b.textContent === 'Confirm') as HTMLButtonElement;
     confirmButton.click();
 
     const req = httpMock.expectOne(`${B}/sessions/sess1/pairings/pair1/confirm`);

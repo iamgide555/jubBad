@@ -1,59 +1,96 @@
+import { provideHttpClient } from '@angular/common/http';
+import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
 import { RosterService } from './roster.service';
-import type { Player } from '../../../../fuzzy-match.ts';
-import type { Session } from './session.model';
-import type { Group } from './group.model';
+import { environment } from '../../environments/environment';
 
 describe('RosterService', () => {
   let service: RosterService;
+  let httpMock: HttpTestingController;
 
   beforeEach(() => {
-    localStorage.clear();
-    TestBed.configureTestingModule({});
+    TestBed.configureTestingModule({
+      providers: [provideHttpClient(), provideHttpClientTesting()],
+    });
     service = TestBed.inject(RosterService);
+    httpMock = TestBed.inject(HttpTestingController);
   });
 
-  it('getPlayers returns an empty array when nothing is stored', () => {
-    expect(service.getPlayers('group1')).toEqual([]);
+  afterEach(() => {
+    httpMock.verify();
   });
 
-  it('savePlayers then getPlayers round-trips', () => {
-    const players: Player[] = [{ id: 'p1', name: 'ตั้ม', aliases: [] }];
-    service.savePlayers('group1', players);
-    expect(service.getPlayers('group1')).toEqual(players);
+  it('getGroup requests GET /groups/:code', () => {
+    let result: unknown;
+    service.getGroup('group1').subscribe((g) => (result = g));
+
+    const req = httpMock.expectOne(`${environment.apiBaseUrl}/groups/group1`);
+    expect(req.request.method).toBe('GET');
+    req.flush({ code: 'group1', name: 'Group A', lastSessionCode: null });
+
+    expect(result).toEqual({ code: 'group1', name: 'Group A', lastSessionCode: null });
   });
 
-  it('players are scoped per group', () => {
-    service.savePlayers('group1', [{ id: 'p1', name: 'ตั้ม', aliases: [] }]);
-    expect(service.getPlayers('group2')).toEqual([]);
+  it('renameGroup sends PUT /groups/:code with just the new name', () => {
+    let result: unknown;
+    service.renameGroup('group1', 'New Name').subscribe((g) => (result = g));
+
+    const req = httpMock.expectOne(`${environment.apiBaseUrl}/groups/group1`);
+    expect(req.request.method).toBe('PUT');
+    expect(req.request.body).toEqual({ name: 'New Name' });
+    req.flush({ code: 'group1', name: 'New Name' });
+
+    expect(result).toEqual({ code: 'group1', name: 'New Name' });
   });
 
-  it('getSession returns null when nothing is stored', () => {
-    expect(service.getSession('sess1')).toBeNull();
+  it('getPlayers requests GET /groups/:code/players', () => {
+    let result: unknown;
+    service.getPlayers('group1').subscribe((p) => (result = p));
+
+    const req = httpMock.expectOne(`${environment.apiBaseUrl}/groups/group1/players`);
+    expect(req.request.method).toBe('GET');
+    req.flush([{ id: 'p1', name: 'ตั้ม', aliases: [] }]);
+
+    expect(result).toEqual([{ id: 'p1', name: 'ตั้ม', aliases: [] }]);
   });
 
-  it('createSession then getSession round-trips', () => {
-    const session: Session = {
-      code: 'sess1',
+  it('createSession sends POST /sessions with the given body', () => {
+    let result: unknown;
+    const dto = {
       groupCode: 'group1',
       date: '2026-09-08',
       venue: 'KIP',
       courtCount: 2,
-      rawImportText: 'raw text',
-      rosterPlayerIds: ['p1', 'p2'],
-      waitlistPlayerIds: [],
+      rawImportText: '1. ตั้ม',
+      rosterReviews: [],
+      waitlistReviews: [],
     };
-    service.createSession(session);
-    expect(service.getSession('sess1')).toEqual(session);
+    service.createSession(dto).subscribe((r) => (result = r));
+
+    const req = httpMock.expectOne(`${environment.apiBaseUrl}/sessions`);
+    expect(req.request.method).toBe('POST');
+    expect(req.request.body).toEqual(dto);
+    req.flush({ code: 'sess1' });
+
+    expect(result).toEqual({ code: 'sess1' });
   });
 
-  it('getGroup returns null when nothing is stored', () => {
-    expect(service.getGroup('group1')).toBeNull();
-  });
+  it('parseRoster sends POST /groups/:code/parse', () => {
+    let result: unknown;
+    service.parseRoster('group1', 'Group A', '1. ตั้ม').subscribe((r) => (result = r));
 
-  it('saveGroup then getGroup round-trips', () => {
-    const group: Group = { code: 'group1', name: 'Group A', lastSessionCode: 'sess1' };
-    service.saveGroup(group);
-    expect(service.getGroup('group1')).toEqual(group);
+    const req = httpMock.expectOne(`${environment.apiBaseUrl}/groups/group1/parse`);
+    expect(req.request.method).toBe('POST');
+    expect(req.request.body).toEqual({ groupName: 'Group A', rawText: '1. ตั้ม' });
+    const response = {
+      header: { isoDate: null, venue: null, courtCount: null },
+      rosterReviews: [{ inputName: 'ตั้ม', match: { type: 'new' } }],
+      waitlistReviews: [],
+      warnings: [],
+      unrecognizedLines: [],
+    };
+    req.flush(response);
+
+    expect(result).toEqual(response);
   });
 });

@@ -1,8 +1,9 @@
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
-import { ActivatedRoute, convertToParamMap, provideRouter } from '@angular/router';
+import { ActivatedRoute, convertToParamMap, provideRouter, Router } from '@angular/router';
 import { SessionDashboard } from './session-dashboard';
+import { routes } from '../../app.routes';
 import { environment } from '../../../environments/environment';
 import type { Session } from '../../core/session.model';
 
@@ -34,7 +35,7 @@ describe('SessionDashboard', () => {
       providers: [
         provideHttpClient(),
         provideHttpClientTesting(),
-        provideRouter([]),
+        provideRouter(routes),
         {
           provide: ActivatedRoute,
           useValue: { snapshot: { paramMap: convertToParamMap({ sessionCode: 'sess1' }) } },
@@ -176,5 +177,37 @@ describe('SessionDashboard', () => {
 
     const text2 = (fixture.nativeElement as HTMLElement).textContent ?? '';
     expect(text2).toContain('Finish all active courts before ending the session.');
+  });
+
+  it('redirects to / once the session ends successfully', async () => {
+    const router = TestBed.inject(Router);
+    const navigateSpy = vi.spyOn(router, 'navigateByUrl').mockResolvedValue(true);
+    fixture = TestBed.createComponent(SessionDashboard);
+    fixture.detectChanges();
+
+    httpMock.expectOne(`${B}/sessions/sess1`).flush(baseSession());
+    await new Promise((r) => setTimeout(r, 0));
+    TestBed.tick();
+    httpMock.expectOne(`${B}/groups/group1/players`).flush([]);
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    const button = Array.from(
+      (fixture.nativeElement as HTMLElement).querySelectorAll('button')
+    ).find((b) => b.textContent === 'End session') as HTMLButtonElement;
+    button.click();
+
+    const req = httpMock.expectOne(`${B}/sessions/sess1/end`);
+    req.flush({ code: 'sess1', endedAt: '2026-09-08T20:00:00.000Z' });
+    await new Promise((r) => setTimeout(r, 0));
+    TestBed.tick();
+    httpMock
+      .expectOne(`${B}/sessions/sess1`)
+      .flush(baseSession({ endedAt: '2026-09-08T20:00:00.000Z' }));
+    await new Promise((r) => setTimeout(r, 0));
+    TestBed.tick();
+    httpMock.expectOne(`${B}/groups/group1/players`).flush([]);
+
+    expect(navigateSpy).toHaveBeenCalledWith('/');
   });
 });

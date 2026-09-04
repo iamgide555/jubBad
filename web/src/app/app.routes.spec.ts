@@ -5,12 +5,19 @@ import { routes } from './app.routes';
 import { GroupEntry } from './pages/group-entry/group-entry';
 import { SessionDashboard } from './pages/session-dashboard/session-dashboard';
 import { SessionDisplay } from './pages/session-display/session-display';
+import { Landing } from './pages/landing/landing';
 
 describe('app routes', () => {
   beforeEach(() => {
     TestBed.configureTestingModule({
       providers: [provideRouter(routes)],
     });
+  });
+
+  it('/ resolves to Landing', async () => {
+    const harness = await RouterTestingHarness.create();
+    const component = await harness.navigateByUrl('/', Landing);
+    expect(component).toBeInstanceOf(Landing);
   });
 
   it('/g/:groupCode resolves to GroupEntry', async () => {

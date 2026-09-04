@@ -508,28 +508,18 @@ instead of `localStorage`, same manual-refresh UX already decided in
 - Lives at `server/` (sibling to `web/`) — `server/prisma/schema.prisma`
   defines the four tables from §8.2/§5.
 
-### 8.5 New gap found while writing this: no group-creation flow
+### 8.5 Group-creation flow — **decided, built**
 
-`GroupEntry` (`/g/:groupCode`) only ever *reads* whatever `groupCode`
-is already in the URL — nothing anywhere generates a new one. There's
-also no `''` (root) route at all in `app.routes.ts`. This means: right
-now, a brand-new group has no way to come into existence through the
-UI. This predates the backend work (it's a client-side gap from the
-roster-panel plan) but matters more once a real `Group` table exists
-server-side, since an unknown `groupCode` needs a defined behavior
-(auto-create on first visit? Require an explicit "create group"
-action first?). **NEEDS YOUR SIGN-OFF** — two reasonable options:
-
-- **Auto-create on first visit** — visiting `/g/<any-new-code>` creates
-  that `Group` row on the spot if it doesn't exist. Simplest, zero new
-  UI, but means a typo'd URL silently creates a new empty group rather
-  than erroring.
-- **Explicit creation** — a real `/` landing page with a "Start a new
-  group" action that generates a fresh code (e.g.
-  `crypto.randomUUID().slice(0, 8)`, matching `Session.code`'s
-  existing pattern) and redirects to `/g/:code`. One new screen, but
-  makes "does this group exist" an intentional question instead of
-  implicit.
+Was a gap: `GroupEntry` only ever read whatever `groupCode` was
+already in the URL, with no `''` (root) route and nothing to generate
+a new one. Decided against auto-create-on-any-URL (bad UX — a typo'd
+URL would silently create a new empty group). Built explicit creation
+instead: `Landing` (`/`, `web/src/app/pages/landing/`) — one "Start a
+new group" button, generates a fresh code
+(`crypto.randomUUID().slice(0, 8)`, matching `Session.code`'s existing
+pattern) and navigates to `/g/:code`. No manual "enter an existing
+code" field — a returning host uses their bookmarked `/g/:code` link,
+same as before.
 
 ### 8.6 Migration path
 
@@ -554,7 +544,8 @@ explicit reason that boundary was drawn back in the roster-panel plan.
 - [x] Opponent-balancing scope decision for pairing engine — in, as secondary soft signal, see §6.3
 - [x] Mid-session edit flow designed (reshuffle / late-add / no-show removal) — see §3
 - [x] UI/UX flow designed — per-court independent rotation, not synchronized rounds; dashboard + display view — see §7
-- [ ] Backend design drafted — **awaiting your review**: engines client-side vs server-side (§8.1), group-creation flow (§8.5) — see §8
+- [ ] Backend design drafted — **awaiting your review**: engines client-side vs server-side (§8.1) — see §8
+- [x] Group-creation flow decided — explicit `/` landing page, see §8.5
 
 ### Build order
 - [x] 1. LINE roster-message parser (`parser.ts`, verified vs 3 real messages)

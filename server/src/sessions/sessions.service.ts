@@ -5,6 +5,7 @@ import { generateRound } from '../../../pairing.ts';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { deriveHistory } from './derive-history.js';
 import type { CreateSessionDto, NameReviewDto } from './dto/create-session.dto.js';
+import type { FinishPairingDto } from './dto/finish-pairing.dto.js';
 
 @Injectable()
 export class SessionsService {
@@ -180,5 +181,20 @@ export class SessionsService {
         teamB: proposed.teamB,
       },
     };
+  }
+
+  async confirmPairing(id: string) {
+    const pairing = await this.prisma.pairing.findUnique({ where: { id } });
+    if (!pairing) throw new NotFoundException();
+    return this.prisma.pairing.update({ where: { id }, data: { confirmedAt: new Date() } });
+  }
+
+  async finishPairing(id: string, dto: FinishPairingDto) {
+    const pairing = await this.prisma.pairing.findUnique({ where: { id } });
+    if (!pairing) throw new NotFoundException();
+    return this.prisma.pairing.update({
+      where: { id },
+      data: { endedAt: new Date(), scoreA: dto.scoreA, scoreB: dto.scoreB },
+    });
   }
 }

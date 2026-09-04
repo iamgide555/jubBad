@@ -1,5 +1,6 @@
 import { Body, Controller, Get, Param, ParseIntPipe, Post } from '@nestjs/common';
 import { CreateSessionDto } from './dto/create-session.dto.js';
+import { FinishPairingDto } from './dto/finish-pairing.dto.js';
 import { SessionsService } from './sessions.service.js';
 
 @Controller('sessions')
@@ -19,5 +20,15 @@ export class SessionsController {
   @Post(':code/courts/:n/propose')
   propose(@Param('code') code: string, @Param('n', ParseIntPipe) courtNumber: number) {
     return this.sessionsService.propose(code, courtNumber);
+  }
+
+  @Post(':code/pairings/:id/confirm')
+  confirmPairing(@Param('id') id: string) {
+    return this.sessionsService.confirmPairing(id);
+  }
+
+  @Post(':code/pairings/:id/finish')
+  finishPairing(@Param('id') id: string, @Body() dto: FinishPairingDto) {
+    return this.sessionsService.finishPairing(id, dto);
   }
 }

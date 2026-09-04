@@ -196,4 +196,48 @@ describe('SessionsController', () => {
       await prisma.group.deleteMany({ where: { code: groupCode } });
     }
   });
+
+  it('confirms then finishes a pairing', async () => {
+    const groupCode = randomUUID();
+    const sessionCode = randomUUID();
+    await prisma.group.create({ data: { code: groupCode, name: 'G' } });
+    const players = await Promise.all(
+      ['A', 'B', 'C', 'D'].map((name) =>
+        prisma.player.create({ data: { groupId: groupCode, name, aliases: '[]' } })
+      )
+    );
+    await prisma.session.create({
+      data: { code: sessionCode, groupId: groupCode, courtCount: 1, rawImportText: '' },
+    });
+    const pairing = await prisma.pairing.create({
+      data: {
+        sessionId: sessionCode,
+        courtNumber: 1,
+        matchNumber: 1,
+        teamA: JSON.stringify([players[0].id, players[1].id]),
+        teamB: JSON.stringify([players[2].id, players[3].id]),
+      },
+    });
+
+    try {
+      const confirmRes = await request(app.getHttpServer())
+        .post(`/sessions/${sessionCode}/pairings/${pairing.id}/confirm`)
+        .expect(201);
+      expect(confirmRes.body.confirmedAt).not.toBeNull();
+      expect(confirmRes.body.endedAt).toBeNull();
+
+      const finishRes = await request(app.getHttpServer())
+        .post(`/sessions/${sessionCode}/pairings/${pairing.id}/finish`)
+        .send({ scoreA: 21, scoreB: 15 })
+        .expect(201);
+      expect(finishRes.body.endedAt).not.toBeNull();
+      expect(finishRes.body.scoreA).toBe(21);
+      expect(finishRes.body.scoreB).toBe(15);
+    } finally {
+      await prisma.pairing.deleteMany({ where: { sessionId: sessionCode } });
+      await prisma.session.deleteMany({ where: { code: sessionCode } });
+      await prisma.player.deleteMany({ where: { groupId: groupCode } });
+      await prisma.group.deleteMany({ where: { code: groupCode } });
+    }
+  });
 });

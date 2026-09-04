@@ -10,6 +10,15 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
 
   async onModuleInit(): Promise<void> {
     await this.$connect();
+    // Multiple PrismaService instances (one per NestJS TestingModule in the
+    // test suite) open separate connections to the same physical SQLite
+    // file. The default rollback-journal mode serializes writers and throws
+    // SQLITE_BUSY under concurrent write load - observed intermittently once
+    // enough spec files ran concurrently. WAL mode allows concurrent
+    // readers alongside a single writer; busy_timeout makes a writer wait
+    // for a lock instead of failing immediately.
+    await this.$executeRawUnsafe('PRAGMA journal_mode = WAL;');
+    await this.$executeRawUnsafe('PRAGMA busy_timeout = 5000;');
   }
 
   async onModuleDestroy(): Promise<void> {

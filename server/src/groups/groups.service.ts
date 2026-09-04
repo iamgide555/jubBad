@@ -1,6 +1,9 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
+import { matchRoster } from '../../../fuzzy-match.ts';
+import { parseLineRosterMessage } from '../../../parser.ts';
 import { PrismaService } from '../prisma/prisma.service.js';
 import type { UpdateGroupDto } from './dto/update-group.dto.js';
+import type { ParseRosterDto } from './dto/parse-roster.dto.js';
 
 @Injectable()
 export class GroupsService {
@@ -36,5 +39,36 @@ export class GroupsService {
 
     const players = await this.prisma.player.findMany({ where: { groupId: code } });
     return players.map((p) => ({ id: p.id, name: p.name, aliases: JSON.parse(p.aliases) as string[] }));
+  }
+
+  async parse(code: string, dto: ParseRosterDto) {
+    await this.prisma.group.upsert({
+      where: { code },
+      create: { code, name: dto.groupName },
+      update: {},
+    });
+
+    const result = parseLineRosterMessage(dto.rawText);
+    const players = await this.prisma.player.findMany({ where: { groupId: code } });
+    const fuzzyPlayers = players.map((p) => ({
+      id: p.id,
+      name: p.name,
+      aliases: JSON.parse(p.aliases) as string[],
+    }));
+
+    const rosterNames = result.roster.map((s) => s.name).filter((n): n is string => n !== null);
+    const waitlistNames = result.waitlist.map((s) => s.name).filter((n): n is string => n !== null);
+
+    return {
+      header: {
+        isoDate: result.header.isoDate,
+        venue: result.header.venue,
+        courtCount: result.header.timeSlots[0]?.courtCount ?? null,
+      },
+      rosterReviews: matchRoster(rosterNames, fuzzyPlayers),
+      waitlistReviews: matchRoster(waitlistNames, fuzzyPlayers),
+      warnings: result.warnings,
+      unrecognizedLines: result.unrecognizedLines,
+    };
   }
 }

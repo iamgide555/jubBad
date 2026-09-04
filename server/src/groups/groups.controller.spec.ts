@@ -64,4 +64,53 @@ describe('GroupsController', () => {
       await prisma.group.deleteMany({ where: { code } });
     }
   });
+
+  it('parses a roster message, upserting the group but never renaming it on re-parse', async () => {
+    const code = randomUUID();
+    // Verified directly against parseLineRosterMessage before writing this test:
+    // header.venue and header.timeSlots[0].courtCount are null for this exact
+    // input (the parser doesn't recognize "Court A"/"2 courts" in this phrasing)
+    // - this test asserts the real output, not an assumed one.
+    const rawText = '8/9/26 Court A\n19.00-20.00 2 courts\n1. Alice\n2. Bob';
+
+    const firstRes = await request(app.getHttpServer())
+      .post(`/groups/${code}/parse`)
+      .send({ groupName: 'First Name', rawText })
+      .expect(201);
+
+    expect(firstRes.body.header).toEqual({
+      isoDate: '2026-09-08',
+      venue: null,
+      courtCount: null,
+    });
+    expect(firstRes.body.rosterReviews).toEqual([
+      { inputName: 'Alice', match: { type: 'new' } },
+      { inputName: 'Bob', match: { type: 'new' } },
+    ]);
+    expect(firstRes.body.waitlistReviews).toEqual([]);
+    expect(firstRes.body.warnings).toEqual([]);
+    expect(firstRes.body.unrecognizedLines).toEqual([]);
+
+    try {
+      const group = await prisma.group.findUniqueOrThrow({ where: { code } });
+      expect(group.name).toBe('First Name');
+
+      await request(app.getHttpServer())
+        .post(`/groups/${code}/parse`)
+        .send({ groupName: 'Second Name', rawText })
+        .expect(201);
+
+      const groupAfter = await prisma.group.findUniqueOrThrow({ where: { code } });
+      expect(groupAfter.name).toBe('First Name');
+    } finally {
+      await prisma.group.deleteMany({ where: { code } });
+    }
+  });
+
+  it('rejects an empty roster message on parse', async () => {
+    await request(app.getHttpServer())
+      .post(`/groups/${randomUUID()}/parse`)
+      .send({ groupName: 'X', rawText: '' })
+      .expect(400);
+  });
 });

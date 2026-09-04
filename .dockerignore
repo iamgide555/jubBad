@@ -1,0 +1,14 @@
+node_modules/
+**/node_modules/
+dist/
+**/dist/
+.angular/
+.git/
+.DS_Store
+**/.env
+server/prisma/dev.db
+server/prisma/dev.db-journal
+server/prisma/dev.db-wal
+server/prisma/dev.db-shm
+*.tsbuildinfo
+docs/

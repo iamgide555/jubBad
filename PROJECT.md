@@ -591,26 +591,36 @@ pattern) and navigates to `/g/:code`. No manual "enter an existing
 code" field — a returning host uses their bookmarked `/g/:code` link,
 same as before.
 
-### 8.6 Migration path
+### 8.6 Migration path — **decided, built**
 
-Two different amounts of rework, now that engines move server-side
-(§8.1):
+Two different amounts of rework, now that engines moved server-side
+(§8.1) — both done. `RosterService` is a thin `HttpClient` wrapper
+(`getGroup`/`renameGroup`/`getPlayers`/`createSession`/`parseRoster`);
+`LiveSessionService` wraps one `httpResource<Session>` plus the three
+mutating actions (`proposeMatch`/`confirmMatch`/`finishMatch`, POST
+then `.reload()`). Every `localStorage` call is gone from `web/` —
+confirmed by checking that no file still imports `matchName`/
+`matchRoster`/`confirmExistingPlayerAlias`/`createNewPlayer`/
+`parseLineRosterMessage`/`generateRound` as a runtime value; only
+type-only imports of `fuzzy-match.ts`'s types remain, for DTO shapes.
+Dead code removed as a direct consequence: `history-derivation.ts`
+(server now derives history) and `roster-review.ts`'s `resolveReviews`
+(server now resolves reviews) — both had server-side equivalents
+already built in the API layer plan.
 
-- **Pure persistence** (`getGroup`/`saveGroup`/`getPlayers`/
-  `savePlayers`/`getSession`/`createSession`) — cheap. Both
-  `RosterService` and `LiveSessionService` already isolate every
-  `localStorage` call behind a method, no component calls
-  `localStorage` directly. Rewriting the *bodies* of those methods to
-  call the API instead of `localStorage.getItem`/`setItem` (Angular's
-  `HttpClient`) doesn't change any component/template/test shape.
-- **Engine-backed actions** (`GroupEntry.parse()`/`confirmRoster()`,
-  `LiveSessionService.proposeMatch()`) — real rework. These currently
-  call `parser.ts`/`fuzzy-match.ts`/`pairing.ts` directly and return
-  synchronously; once the engines run server-side, these become async
-  HTTP calls (`POST /groups/:code/parse`, `POST /sessions/:code/courts/:n/propose`).
-  Every call site and its tests need updating for the async round-trip
-  — this is the cost that was explicitly accepted in §8.1, not
-  something the service boundary alone absorbs for free.
+Real findings from building this (see
+`docs/superpowers/plans/2026-09-04-client-migration.md`): Angular's
+`httpResource()` throws from `.value()` when in an error state rather
+than returning `undefined`, even from a template binding — every read
+must check `.error()` first; `.reload()` and *dependent* resources
+(one resource's URL computed from another's resolved value) both need
+explicit `TestBed.tick()` + a microtask wait in tests, since
+`fixture.whenStable()` deadlocks the moment settling one resource
+fires another's request without anything to flush it. `GET
+/sessions/:code`'s court derivation needed a `pairingId` field added
+(confirm/finish need the `Pairing` row's id, which a court number
+alone doesn't give them) — a small, required addition to the
+already-shipped API layer, not scope creep.
 
 ## 9. Progress checklist
 
@@ -631,6 +641,7 @@ Two different amounts of rework, now that engines move server-side
 - [x] 2. Fuzzy-match layer (parsed names → `Player` + `aliases[]`, `fuzzy-match.ts`)
 - [x] 3. Pairing/rotation engine (repeat-partner avoidance + sit-out balancing, `pairing.ts`)
 - [x] 4. Angular screens: roster panel → per-court panels (idle/active/finish) → waiting queue → display view (see §7)
+- [x] 5. Migrated Angular services off `localStorage` to the real API — see §8.6
 
 ### Infra
 - [x] Git repo initialized, `.gitignore` added

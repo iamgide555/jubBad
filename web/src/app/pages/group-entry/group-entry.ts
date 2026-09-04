@@ -77,7 +77,12 @@ export class GroupEntry {
   }
 
   canConfirm(): boolean {
-    return this.date().length > 0 && this.courtCount() !== null && this.courtCount()! > 0;
+    return (
+      this.date().length > 0 &&
+      this.courtCount() !== null &&
+      this.courtCount()! > 0 &&
+      this.rosterReviews().length > 0
+    );
   }
 
   toggleDecision(review: NameReview): void {

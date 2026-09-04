@@ -77,5 +77,9 @@
     </div>
   }
 
+  @if (rosterReviews().length === 0) {
+    <p>Add at least one player to the roster before confirming.</p>
+  }
+
   <button type="button" [disabled]="!canConfirm()" (click)="confirmRoster()">Confirm roster</button>
 }

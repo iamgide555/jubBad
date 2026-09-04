@@ -77,6 +77,22 @@ describe('GroupEntry', () => {
     expect(component.canConfirm()).toBe(true);
   });
 
+  it('canConfirm is false when the roster ended up empty', () => {
+    component.rawText.set('ไกด์\nเตย'); // no numbered list -> nothing parsed as roster
+    component.parse();
+    component.date.set('2026-09-08');
+    component.courtCount.set(1);
+    expect(component.canConfirm()).toBe(false);
+  });
+
+  it('shows a message explaining why confirm is disabled when the roster is empty', () => {
+    component.rawText.set('ไกด์\nเตย');
+    component.parse();
+    fixture.detectChanges();
+    const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
+    expect(text).toContain('Add at least one player');
+  });
+
   it('toggleDecision flips a fuzzy review between accept and reject-new', () => {
     const rosterService = TestBed.inject(RosterService);
     rosterService.savePlayers('group1', [{ id: 'p1', name: 'ตั้ม', aliases: [] }]);

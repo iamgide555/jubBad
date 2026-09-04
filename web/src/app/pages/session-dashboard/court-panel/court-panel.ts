@@ -28,17 +28,21 @@ export class CourtPanel {
     return resolvePlayerNames(ids, this.players());
   }
 
-  protected startOrReshuffle(): void {
-    const success = this.liveSession.proposeMatch(this.courtNumber());
+  protected async startOrReshuffle(): Promise<void> {
+    const success = await this.liveSession.proposeMatch(this.courtNumber());
     this.notEnoughPlayers.set(!success);
   }
 
-  protected confirm(): void {
-    this.liveSession.confirmMatch(this.courtNumber());
+  protected async confirm(): Promise<void> {
+    const c = this.court();
+    if (c.status !== 'pending') return;
+    await this.liveSession.confirmMatch(c.pairingId);
   }
 
-  protected finish(): void {
-    this.liveSession.finishMatch(this.courtNumber(), this.scoreA(), this.scoreB());
+  protected async finish(): Promise<void> {
+    const c = this.court();
+    if (c.status !== 'active') return;
+    await this.liveSession.finishMatch(c.pairingId, this.scoreA(), this.scoreB());
     this.scoreA.set(null);
     this.scoreB.set(null);
   }

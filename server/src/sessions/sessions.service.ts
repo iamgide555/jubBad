@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
-import { confirmExistingPlayerAlias, createNewPlayer, type Player as FuzzyPlayer } from '../../../fuzzy-match.ts';
-import { generateRound } from '../../../pairing.ts';
+import { confirmExistingPlayerAlias, createNewPlayer, type Player as FuzzyPlayer } from '../../../engines/fuzzy-match.ts';
+import { generateRound } from '../../../engines/pairing.ts';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { deriveHistory } from './derive-history.js';
 import type { CreateSessionDto, NameReviewDto } from './dto/create-session.dto.js';

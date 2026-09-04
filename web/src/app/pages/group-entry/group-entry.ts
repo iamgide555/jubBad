@@ -5,7 +5,7 @@ import { firstValueFrom } from 'rxjs';
 import { attachDecisions, type NameReview } from '../../core/roster-review';
 import { RosterService } from '../../core/roster.service';
 import { resolvePlayerNames } from '../../core/player-names';
-import type { Player } from '../../../../../fuzzy-match.ts';
+import type { Player } from '../../../../../engines/fuzzy-match.ts';
 
 @Component({
   selector: 'app-group-entry',

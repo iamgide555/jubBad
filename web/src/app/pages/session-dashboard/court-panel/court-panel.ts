@@ -3,7 +3,7 @@ import { FormsModule } from '@angular/forms';
 import { LiveSessionService } from '../../../core/live-session.service';
 import { resolvePlayerNames } from '../../../core/player-names';
 import type { CourtState } from '../../../core/live-session.model';
-import type { Player } from '../../../../../../fuzzy-match.ts';
+import type { Player } from '../../../../../../engines/fuzzy-match.ts';
 
 @Component({
   selector: 'app-court-panel',

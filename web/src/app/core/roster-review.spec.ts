@@ -1,5 +1,5 @@
 import { attachDecisions } from './roster-review';
-import type { RosterNameMatch } from '../../../../fuzzy-match.ts';
+import type { RosterNameMatch } from '../../../../engines/fuzzy-match.ts';
 
 describe('attachDecisions', () => {
   it('defaults every review to accept', () => {

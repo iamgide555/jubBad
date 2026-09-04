@@ -57,7 +57,7 @@ splitting bills) — not a smarter pairing algorithm or a bigger feature set.
    match's record. No live scoreboard.
 
 **Mid-session edits — decided.** No new algorithmic work — both
-`fuzzy-match.ts` and `pairing.ts` already compose correctly around one
+`engines/fuzzy-match.ts` and `engines/pairing.ts` already compose correctly around one
 app-level rule: **history (`partnerCounts`, `opponentCounts`,
 `gamesPlayedThisSession`) only updates when a court's match is
 *confirmed* (host taps confirm/start — see §7), never on generation.**
@@ -121,11 +121,11 @@ Waitlist     — id, sessionId, playerId, position
 
 ## 6. Core engines — design notes
 
-### 6.1 LINE roster-message parser — **built** (`parser.ts`)
+### 6.1 LINE roster-message parser — **built** (`engines/parser.ts`)
 
 Parses a LINE badminton-session roster message (Thai format) into
 structured data: header (date, time slots, court count/numbers, venue),
-main roster, waitlist. Source: `src/parser.ts`. Verified against 3 real
+main roster, waitlist. Source: `engines/parser.ts`. Verified against 3 real
 example messages from the user's actual LINE groups: `src/test-examples.ts`.
 
 Design principles:
@@ -140,7 +140,7 @@ Design principles:
 - **`@All`/`@all` excluded from venue detection** — looks like an
   `@venue` tag syntactically but means something different.
 
-### 6.2 Fuzzy-match layer — **built** (`fuzzy-match.ts`)
+### 6.2 Fuzzy-match layer — **built** (`engines/fuzzy-match.ts`)
 
 Parsed roster/waitlist names → known `Player` records for the group.
 
@@ -164,9 +164,9 @@ guess" principle rather than inventing new tolerance rules.
 4. Host confirms a fuzzy/new mapping → pasted text saved as new
    `Player.alias`.
 5. Implement inline in TS (~15 lines, no npm dep) — matches
-   `parser.ts`'s no-dependency style.
+   `engines/parser.ts`'s no-dependency style.
 
-### 6.3 Pairing/rotation engine — **built** (`pairing.ts`)
+### 6.3 Pairing/rotation engine — **built** (`engines/pairing.ts`)
 
 Input: confirmed roster + court count + partner-history AND
 opponent-history from prior `Pairing` records for the group (**all-time**
@@ -235,7 +235,7 @@ roster, greedily build one candidate arrangement from the shuffle,
 score it with the formula above, repeat ~200 times, keep the
 lowest-scoring candidate. "Good enough and fair," not "provably
 optimal" — matches this project's existing no-dependency,
-no-over-engineering style (`parser.ts`, `fuzzy-match.ts`). A real
+no-over-engineering style (`engines/parser.ts`, `engines/fuzzy-match.ts`). A real
 matching-theory optimizer (min-cost perfect matching) would be
 overkill for a casual v1.
 
@@ -352,7 +352,7 @@ navigates to `/s/:sessionCode`, where `SessionDashboard` renders the
 confirmed roster as chips. Business logic lives in
 `web/src/app/core/roster-review.ts` (`buildReviews`, `resolveReviews`)
 and `web/src/app/core/roster.service.ts` — both call the root-level
-`parser.ts`/`fuzzy-match.ts` engines directly by relative import
+`engines/parser.ts`/`engines/fuzzy-match.ts` engines directly by relative import
 (`allowImportingTsExtensions` + `rewriteRelativeImportExtensions` in
 `web/tsconfig.json` make this work).
 
@@ -362,7 +362,7 @@ Court panels + waiting queue are built on `SessionDashboard`: one
 queue listing everyone not currently on a court. `LiveSessionService`
 (component-scoped, fresh per session visit) holds an append-only
 `matches` log and per-court state in `localStorage`, calling
-`pairing.ts`'s `generateRound` directly (`courtCount=1`, scoped to
+`engines/pairing.ts`'s `generateRound` directly (`courtCount=1`, scoped to
 whoever isn't reserved by another court) for both starting and
 reshuffling — the same operation either way. History
 (partner/opponent/games-played) is derived from the match log on
@@ -398,7 +398,7 @@ reverse once built on) so review time goes where it matters.
 
 §5's original tech-stack line says "Backend: NestJS — parsing logic,
 pairing/rotation engine" — i.e. the original intent was for
-`parser.ts`/`fuzzy-match.ts`/`pairing.ts` to run *server-side*. What
+`engines/parser.ts`/`engines/fuzzy-match.ts`/`engines/pairing.ts` to run *server-side*. What
 actually got built (§7) runs them *client-side*, bundled straight into
 the Angular app, with the backend never in the loop for computation —
 only for holding data. That was the right call at the time (no backend
@@ -408,7 +408,7 @@ is being built for real.
 
 **Decided: move them server-side**, matching §5's original wording.
 Client sends raw actions (paste text, "start next match") to NestJS,
-server runs `parser.ts`/`fuzzy-match.ts`/`pairing.ts`, returns results.
+server runs `engines/parser.ts`/`engines/fuzzy-match.ts`/`engines/pairing.ts`, returns results.
 Reasoning: the deciding factor was a real correctness gap in the
 client-side alternative — if two different devices both trigger
 "start next match" for two different courts at nearly the same
@@ -425,8 +425,8 @@ Real cost, accepted: re-plumbing every `GroupEntry`/`CourtPanel`/
 `SessionDisplay` call site from a direct function call to an HTTP
 round-trip — a meaningful slice of the last 4 implementation plans'
 work gets redone at the call-site level (the pure engine logic itself
-doesn't change at all, just who calls it and how). `parser.ts`/
-`fuzzy-match.ts`/`pairing.ts` stay exactly as built and tested (39
+doesn't change at all, just who calls it and how). `engines/parser.ts`/
+`engines/fuzzy-match.ts`/`engines/pairing.ts` stay exactly as built and tested (39
 engine tests unaffected) — they're isomorphic, so NestJS imports them
 by relative path the same way Angular did, no source changes needed.
 
@@ -472,7 +472,7 @@ risk to change later if it turns out wrong.
 
 Now that engines run server-side (§8.1), the API has two kinds of
 endpoints — plain persistence, and ones that actually run
-`parser.ts`/`fuzzy-match.ts`/`pairing.ts` server-side and return a
+`engines/parser.ts`/`engines/fuzzy-match.ts`/`engines/pairing.ts` server-side and return a
 computed result:
 
 ```
@@ -546,13 +546,13 @@ services off `localStorage` to call this API (§8.6).
 - **SQLite**, not Postgres. Casual-friend-group scale, single-host
   deployment implied throughout this doc (no mention of scaling
   needs anywhere) — zero ops, zero separate service to run, matches
-  the project's consistent no-extra-infra ethos (`parser.ts`
+  the project's consistent no-extra-infra ethos (`engines/parser.ts`
   onward). Trivial to swap for Postgres later if a real multi-host
   deployment ever becomes necessary — nothing here locks that in.
 - **Prisma** over TypeORM. Lighter mental model, generates types
   directly from the schema (one source of truth), and the project has
   consistently favored explicit/typed over decorator-heavy magic
-  (`fuzzy-match.ts`/`pairing.ts`'s plain-function style over classes
+  (`engines/fuzzy-match.ts`/`engines/pairing.ts`'s plain-function style over classes
   where possible).
 - Lives at `server/` (sibling to `web/`) — `server/prisma/schema.prisma`
   defines the tables from §8.2/§5.
@@ -602,7 +602,7 @@ then `.reload()`). Every `localStorage` call is gone from `web/` —
 confirmed by checking that no file still imports `matchName`/
 `matchRoster`/`confirmExistingPlayerAlias`/`createNewPlayer`/
 `parseLineRosterMessage`/`generateRound` as a runtime value; only
-type-only imports of `fuzzy-match.ts`'s types remain, for DTO shapes.
+type-only imports of `engines/fuzzy-match.ts`'s types remain, for DTO shapes.
 Dead code removed as a direct consequence: `history-derivation.ts`
 (server now derives history) and `roster-review.ts`'s `resolveReviews`
 (server now resolves reviews) — both had server-side equivalents
@@ -637,16 +637,16 @@ already-shipped API layer, not scope creep.
 - [x] Group-creation flow decided — explicit `/` landing page, see §8.5
 
 ### Build order
-- [x] 1. LINE roster-message parser (`parser.ts`, verified vs 3 real messages)
-- [x] 2. Fuzzy-match layer (parsed names → `Player` + `aliases[]`, `fuzzy-match.ts`)
-- [x] 3. Pairing/rotation engine (repeat-partner avoidance + sit-out balancing, `pairing.ts`)
+- [x] 1. LINE roster-message parser (`engines/parser.ts`, verified vs 3 real messages)
+- [x] 2. Fuzzy-match layer (parsed names → `Player` + `aliases[]`, `engines/fuzzy-match.ts`)
+- [x] 3. Pairing/rotation engine (repeat-partner avoidance + sit-out balancing, `engines/pairing.ts`)
 - [x] 4. Angular screens: roster panel → per-court panels (idle/active/finish) → waiting queue → display view (see §7)
 - [x] 5. Migrated Angular services off `localStorage` to the real API — see §8.6
-- [x] 6. End session action + reshuffle fairness fix (root-caused from manual testing: with exactly 4 players available, only 3 possible team-splits exist and score equally with no history yet, so reshuffle could repeat the same split — `pairing.ts`'s `generateRound` now penalizes reproducing the immediately-previous split; `Session.endedAt` added, blocked while any court is unfinished)
+- [x] 6. End session action + reshuffle fairness fix (root-caused from manual testing: with exactly 4 players available, only 3 possible team-splits exist and score equally with no history yet, so reshuffle could repeat the same split — `engines/pairing.ts`'s `generateRound` now penalizes reproducing the immediately-previous split; `Session.endedAt` added, blocked while any court is unfinished)
 
 ### Infra
 - [x] Git repo initialized, `.gitignore` added
-- [x] NestJS backend scaffolded (`server/`, cross-boundary import of `parser.ts`/`fuzzy-match.ts`/`pairing.ts` proven at build and runtime — see §8.1)
+- [x] NestJS backend scaffolded (`server/`, cross-boundary import of `engines/parser.ts`/`engines/fuzzy-match.ts`/`engines/pairing.ts` proven at build and runtime — see §8.1)
 - [x] Angular frontend scaffolded (`web/`, routing skeleton only — see §7.4)
 - [x] DB schema created (Group, Player, Session, Pairing, Waitlist) — `server/prisma/schema.prisma`, round-trip proven — see §8.4
 - [x] API layer built (groups/parse/sessions/propose/pairings) — see §8.3

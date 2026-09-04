@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
-import { matchRoster } from '../../../fuzzy-match.ts';
-import { parseLineRosterMessage } from '../../../parser.ts';
+import { matchRoster } from '../../../engines/fuzzy-match.ts';
+import { parseLineRosterMessage } from '../../../engines/parser.ts';
 import { PrismaService } from '../prisma/prisma.service.js';
 import type { UpdateGroupDto } from './dto/update-group.dto.js';
 import type { ParseRosterDto } from './dto/parse-roster.dto.js';

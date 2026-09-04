@@ -1,7 +1,7 @@
 import { HttpClient } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { environment } from '../../environments/environment';
-import type { Player, RosterNameMatch } from '../../../../fuzzy-match.ts';
+import type { Player, RosterNameMatch } from '../../../../engines/fuzzy-match.ts';
 import type { Group } from './group.model';
 import type { NameReview } from './roster-review';
 

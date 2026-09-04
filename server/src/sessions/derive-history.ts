@@ -1,4 +1,4 @@
-import { pairKey, type MatchHistory } from '../../../pairing.ts';
+import { pairKey, type MatchHistory } from '../../../engines/pairing.ts';
 
 export interface ConfirmedPairing {
   teamA: [string, string];

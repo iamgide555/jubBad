@@ -1,5 +1,5 @@
 import { resolvePlayerNames } from './player-names';
-import type { Player } from '../../../../fuzzy-match.ts';
+import type { Player } from '../../../../engines/fuzzy-match.ts';
 
 const players: Player[] = [
   { id: 'p1', name: 'ตั้ม', aliases: [] },

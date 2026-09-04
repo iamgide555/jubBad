@@ -1,4 +1,4 @@
-import type { NameMatch, RosterNameMatch } from '../../../../fuzzy-match.ts';
+import type { NameMatch, RosterNameMatch } from '../../../../engines/fuzzy-match.ts';
 
 export interface NameReview {
   inputName: string;

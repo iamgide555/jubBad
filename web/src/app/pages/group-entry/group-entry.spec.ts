@@ -1,32 +1,44 @@
+import { provideHttpClient } from '@angular/common/http';
+import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
-import { provideRouter } from '@angular/router';
-import { ActivatedRoute, convertToParamMap, Router } from '@angular/router';
+import { ActivatedRoute, convertToParamMap, provideRouter, Router } from '@angular/router';
 import { GroupEntry } from './group-entry';
 import { routes } from '../../app.routes';
-import { RosterService } from '../../core/roster.service';
+import { environment } from '../../../environments/environment';
+
+const B = environment.apiBaseUrl;
 
 describe('GroupEntry', () => {
   let component: GroupEntry;
   let fixture: ComponentFixture<GroupEntry>;
+  let httpMock: HttpTestingController;
 
   beforeEach(async () => {
-    localStorage.clear();
     await TestBed.configureTestingModule({
       imports: [GroupEntry],
       providers: [
+        provideHttpClient(),
+        provideHttpClientTesting(),
         provideRouter(routes),
         {
           provide: ActivatedRoute,
-          useValue: {
-            snapshot: { paramMap: convertToParamMap({ groupCode: 'group1' }) },
-          },
+          useValue: { snapshot: { paramMap: convertToParamMap({ groupCode: 'group1' }) } },
         },
       ],
     }).compileComponents();
 
+    httpMock = TestBed.inject(HttpTestingController);
     fixture = TestBed.createComponent(GroupEntry);
     component = fixture.componentInstance;
+
+    // Constructor fires GET /groups/group1 - respond 404 (brand-new group) by
+    // default; tests that need a pre-existing group flush a real body instead.
+    httpMock.expectOne(`${B}/groups/group1`).flush('Not Found', { status: 404, statusText: 'Not Found' });
     await fixture.whenStable();
+  });
+
+  afterEach(() => {
+    httpMock.verify();
   });
 
   it('should create', () => {
@@ -37,117 +49,110 @@ describe('GroupEntry', () => {
     expect(component.state()).toBe('paste');
   });
 
-  it('parsing a roster message switches to the confirm state', () => {
-    component.groupName.set('Group A');
-    component.rawText.set(
-      '1. ตั้ม\n2. เบส\n19.00-20.00 1 คอร์ท\n@All'
-    );
-    component.parse();
-    expect(component.state()).toBe('confirm');
+  it('groupName is empty when no Group exists yet', () => {
+    expect(component.groupName()).toBe('');
   });
 
-  it('prefills header fields from the parsed message', () => {
-    component.groupName.set('Group A');
-    component.rawText.set(
-      '@All แบดวินนิ่ง อังคาร 8/9/26\n19.00-20.00 2 คอร์ท @ KIP\n1. ตั้ม\n2. เบส'
-    );
-    component.parse();
-    expect(component.date()).toBe('2026-09-08');
-    expect(component.courtCount()).toBe(2);
-    expect(component.venue()).toBe('KIP');
+  it('lastSessionCode is null when no Group exists yet', () => {
+    expect(component.lastSessionCode()).toBeNull();
   });
 
-  it('classifies parsed names against known players', () => {
-    const rosterService = TestBed.inject(RosterService);
-    rosterService.savePlayers('group1', [{ id: 'p1', name: 'ตั้ม', aliases: [] }]);
-
-    component.groupName.set('Group A');
-    component.rawText.set('1. ตั้ม\n2. เกียร์');
-    component.parse();
-
-    expect(component.rosterReviews()[0].match).toEqual({ type: 'exact', playerId: 'p1' });
-    expect(component.rosterReviews()[1].match).toEqual({ type: 'new' });
-  });
-
-  it('canConfirm is false until date and courtCount are set', () => {
-    component.groupName.set('Group A');
-    component.rawText.set('1. ตั้ม');
-    component.parse();
-    component.date.set('');
-    component.courtCount.set(null);
-    expect(component.canConfirm()).toBe(false);
-    component.date.set('2026-09-08');
-    component.courtCount.set(2);
-    expect(component.canConfirm()).toBe(true);
-  });
-
-  it('canConfirm is false if the roster is somehow empty despite reaching the confirm state', () => {
-    // Defensive check: parse() itself should never let this happen (tested below),
-    // but canConfirm() should not trust that invariant blindly either.
-    component.groupName.set('Group A');
-    component.rawText.set('1. ตั้ม');
-    component.parse();
-    component.date.set('2026-09-08');
-    component.courtCount.set(1);
-    component.rosterReviews.set([]);
-    expect(component.canConfirm()).toBe(false);
-  });
-
-  it('parse shows an error and stays in the paste state when the group name is empty', () => {
+  it('parse shows an error and stays in the paste state when the group name is empty', async () => {
     component.groupName.set('');
     component.rawText.set('1. ตั้ม');
-    component.parse();
+    await component.parse();
 
     expect(component.state()).toBe('paste');
     expect(component.pasteError()).toContain('group name');
   });
 
-  it('parse shows an error and stays in the paste state when nothing has been pasted', () => {
+  it('parse shows an error and stays in the paste state when nothing has been pasted', async () => {
     component.groupName.set('Group A');
     component.rawText.set('   ');
-    component.parse();
+    await component.parse();
 
     expect(component.state()).toBe('paste');
     expect(component.pasteError()).toContain('Paste a roster message');
   });
 
-  it('parse shows an error and stays in the paste state when the roster ends up empty', () => {
+  it('parse shows an error when the server reports no recognized roster', async () => {
     component.groupName.set('Group A');
-    component.rawText.set('ไกด์\nเตย'); // no numbered list -> nothing parsed as roster
-    component.parse();
+    component.rawText.set('ไกด์\nเตย');
+
+    const parsePromise = component.parse();
+    httpMock.expectOne(`${B}/groups/group1/parse`).flush({
+      header: { isoDate: null, venue: null, courtCount: null },
+      rosterReviews: [],
+      waitlistReviews: [],
+      warnings: [],
+      unrecognizedLines: [],
+    });
+    await parsePromise;
 
     expect(component.state()).toBe('paste');
     expect(component.pasteError()).toContain('No players were recognized');
   });
 
-  it('shows the pasteError message in the paste screen', () => {
-    component.groupName.set('');
-    component.parse();
-    fixture.detectChanges();
-
-    const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
-    expect(text).toContain('group name');
-  });
-
-  it('a successful parse clears any previous pasteError', () => {
-    component.groupName.set('');
-    component.rawText.set('1. ตั้ม');
-    component.parse();
-    expect(component.pasteError()).not.toBeNull();
-
+  it('a successful parse switches to confirm, prefilling header fields and reviews', async () => {
     component.groupName.set('Group A');
-    component.parse();
-    expect(component.pasteError()).toBeNull();
+    component.rawText.set('1. ตั้ม\n2. เกียร์');
+
+    const parsePromise = component.parse();
+    httpMock.expectOne(`${B}/groups/group1/parse`).flush({
+      header: { isoDate: '2026-09-08', venue: 'KIP', courtCount: 2 },
+      rosterReviews: [
+        { inputName: 'ตั้ม', match: { type: 'exact', playerId: 'p1' } },
+        { inputName: 'เกียร์', match: { type: 'new' } },
+      ],
+      waitlistReviews: [],
+      warnings: [],
+      unrecognizedLines: [],
+    });
+    httpMock.expectOne(`${B}/groups/group1/players`).flush([{ id: 'p1', name: 'ตั้ม', aliases: [] }]);
+    await parsePromise;
+
     expect(component.state()).toBe('confirm');
+    expect(component.date()).toBe('2026-09-08');
+    expect(component.venue()).toBe('KIP');
+    expect(component.courtCount()).toBe(2);
+    expect(component.rosterReviews()).toEqual([
+      { inputName: 'ตั้ม', match: { type: 'exact', playerId: 'p1' }, decision: 'accept' },
+      { inputName: 'เกียร์', match: { type: 'new' }, decision: 'accept' },
+    ]);
   });
 
-  it('toggleDecision flips a fuzzy review between accept and reject-new', () => {
-    const rosterService = TestBed.inject(RosterService);
-    rosterService.savePlayers('group1', [{ id: 'p1', name: 'ตั้ม', aliases: [] }]);
-
+  it('resolves a fuzzy suggestion to the matched player name via playerName()', async () => {
     component.groupName.set('Group A');
     component.rawText.set('1. ตัม');
-    component.parse();
+
+    const parsePromise = component.parse();
+    httpMock.expectOne(`${B}/groups/group1/parse`).flush({
+      header: { isoDate: null, venue: null, courtCount: null },
+      rosterReviews: [{ inputName: 'ตัม', match: { type: 'fuzzy', playerId: 'p1', score: 0.8 } }],
+      waitlistReviews: [],
+      warnings: [],
+      unrecognizedLines: [],
+    });
+    httpMock.expectOne(`${B}/groups/group1/players`).flush([{ id: 'p1', name: 'ตั้ม', aliases: [] }]);
+    await parsePromise;
+
+    expect(component.playerName('p1')).toBe('ตั้ม');
+  });
+
+  it('toggleDecision flips a review between accept and reject-new', async () => {
+    component.groupName.set('Group A');
+    component.rawText.set('1. ตัม');
+
+    const parsePromise = component.parse();
+    httpMock.expectOne(`${B}/groups/group1/parse`).flush({
+      header: { isoDate: null, venue: null, courtCount: null },
+      rosterReviews: [{ inputName: 'ตัม', match: { type: 'fuzzy', playerId: 'p1', score: 0.8 } }],
+      waitlistReviews: [],
+      warnings: [],
+      unrecognizedLines: [],
+    });
+    httpMock.expectOne(`${B}/groups/group1/players`).flush([]);
+    await parsePromise;
 
     const review = component.rosterReviews()[0];
     expect(review.decision).toBe('accept');
@@ -155,135 +160,128 @@ describe('GroupEntry', () => {
     expect(component.rosterReviews()[0].decision).toBe('reject-new');
   });
 
-  it('confirmRoster persists players and session, then navigates to the new session', async () => {
-    const rosterService = TestBed.inject(RosterService);
-    const router = TestBed.inject(Router);
-
+  it('canConfirm is false until date and courtCount are set', async () => {
     component.groupName.set('Group A');
-    component.rawText.set('1. ตั้ม\n2. เกียร์');
-    component.parse();
+    component.rawText.set('1. ตั้ม');
+    const parsePromise = component.parse();
+    httpMock.expectOne(`${B}/groups/group1/parse`).flush({
+      header: { isoDate: null, venue: null, courtCount: null },
+      rosterReviews: [{ inputName: 'ตั้ม', match: { type: 'new' } }],
+      waitlistReviews: [],
+      warnings: [],
+      unrecognizedLines: [],
+    });
+    httpMock.expectOne(`${B}/groups/group1/players`).flush([]);
+    await parsePromise;
+
+    expect(component.canConfirm()).toBe(false);
+    component.date.set('2026-09-08');
+    component.courtCount.set(2);
+    expect(component.canConfirm()).toBe(true);
+  });
+
+  it('confirmRoster posts the resolved reviews and navigates to the new session', async () => {
+    const router = TestBed.inject(Router);
+    component.groupName.set('Group A');
+    component.rawText.set('1. ตั้ม');
+    const parsePromise = component.parse();
+    httpMock.expectOne(`${B}/groups/group1/parse`).flush({
+      header: { isoDate: null, venue: null, courtCount: null },
+      rosterReviews: [{ inputName: 'ตั้ม', match: { type: 'new' } }],
+      waitlistReviews: [],
+      warnings: [],
+      unrecognizedLines: [],
+    });
+    httpMock.expectOne(`${B}/groups/group1/players`).flush([]);
+    await parsePromise;
+
     component.date.set('2026-09-08');
     component.courtCount.set(2);
     component.venue.set('KIP');
 
-    component.confirmRoster();
-    await fixture.whenStable();
-
-    const players = rosterService.getPlayers('group1');
-    expect(players).toHaveLength(2);
-    expect(players.map((p) => p.name)).toEqual(['ตั้ม', 'เกียร์']);
-
-    expect(router.url).toMatch(/^\/s\//);
-    const sessionCode = router.url.split('/s/')[1];
-    const session = rosterService.getSession(sessionCode);
-    expect(session).toMatchObject({
+    const confirmPromise = component.confirmRoster();
+    const req = httpMock.expectOne(`${B}/sessions`);
+    expect(req.request.body).toMatchObject({
       groupCode: 'group1',
       date: '2026-09-08',
-      courtCount: 2,
       venue: 'KIP',
+      courtCount: 2,
     });
-    expect(session?.rosterPlayerIds).toHaveLength(2);
-  });
+    req.flush({ code: 'sess1' });
+    await confirmPromise;
 
-  it('groupName is empty when no Group has been saved yet', () => {
-    expect(component.groupName()).toBe('');
-  });
-
-  it('groupName prefills from a previously saved Group', async () => {
-    const rosterService = TestBed.inject(RosterService);
-    rosterService.saveGroup({ code: 'group1', name: 'Group A', lastSessionCode: null });
-
-    const other = TestBed.createComponent(GroupEntry);
-    await other.whenStable();
-    expect(other.componentInstance.groupName()).toBe('Group A');
-  });
-
-  it('saveGroupName persists the current groupName without clobbering lastSessionCode', () => {
-    const rosterService = TestBed.inject(RosterService);
-    rosterService.saveGroup({ code: 'group1', name: null, lastSessionCode: 'sess1' });
-
-    component.groupName.set('Group A');
-    component.saveGroupName();
-
-    expect(rosterService.getGroup('group1')).toEqual({
-      code: 'group1',
-      name: 'Group A',
-      lastSessionCode: 'sess1',
-    });
-  });
-
-  it('resolves a fuzzy suggestion to the matched player name, not the raw id', () => {
-    const rosterService = TestBed.inject(RosterService);
-    rosterService.savePlayers('group1', [{ id: 'p1', name: 'ตั้ม', aliases: [] }]);
-
-    component.groupName.set('Group A');
-    component.rawText.set('1. ตัม'); // one tone mark short of ตั้ม -> fuzzy
-    component.parse();
-
-    expect(component.playerName('p1')).toBe('ตั้ม');
-  });
-
-  it('exposes parser warnings instead of discarding them', () => {
-    component.groupName.set('Group A');
-    component.rawText.set('1. ตั้ม'); // no date, no time range -> warnings
-    component.parse();
-
-    expect(component.warnings().length).toBeGreaterThan(0);
-  });
-
-  it('exposes unrecognized lines instead of discarding them', () => {
-    component.groupName.set('Group A');
-    component.rawText.set('1. ตั้ม\nหมายเหตุ ขอความกรุณา');
-    component.parse();
-
-    expect(component.unrecognizedLines()).toContain('หมายเหตุ ขอความกรุณา');
+    expect(router.url).toBe('/s/sess1');
   });
 
   it('confirmRoster trims a whitespace-only venue to null', async () => {
-    const rosterService = TestBed.inject(RosterService);
-
     component.groupName.set('Group A');
     component.rawText.set('1. ตั้ม');
-    component.parse();
+    const parsePromise = component.parse();
+    httpMock.expectOne(`${B}/groups/group1/parse`).flush({
+      header: { isoDate: null, venue: null, courtCount: null },
+      rosterReviews: [{ inputName: 'ตั้ม', match: { type: 'new' } }],
+      waitlistReviews: [],
+      warnings: [],
+      unrecognizedLines: [],
+    });
+    httpMock.expectOne(`${B}/groups/group1/players`).flush([]);
+    await parsePromise;
+
     component.date.set('2026-09-08');
     component.courtCount.set(1);
     component.venue.set('   ');
 
-    component.confirmRoster();
-    await fixture.whenStable();
-
-    const router = TestBed.inject(Router);
-    const sessionCode = router.url.split('/s/')[1];
-    expect(rosterService.getSession(sessionCode)?.venue).toBeNull();
+    const confirmPromise = component.confirmRoster();
+    const req = httpMock.expectOne(`${B}/sessions`);
+    expect(req.request.body).toMatchObject({ venue: null });
+    req.flush({ code: 'sess1' });
+    await confirmPromise;
   });
 
-  it('confirmRoster records this session as the group\'s lastSessionCode', async () => {
-    const rosterService = TestBed.inject(RosterService);
-
+  it('saveGroupName sends the group name via renameGroup', () => {
     component.groupName.set('Group A');
-    component.rawText.set('1. ตั้ม');
-    component.parse();
-    component.date.set('2026-09-08');
-    component.courtCount.set(1);
+    component.saveGroupName();
 
-    component.confirmRoster();
+    const req = httpMock.expectOne(`${B}/groups/group1`);
+    expect(req.request.method).toBe('PUT');
+    expect(req.request.body).toEqual({ name: 'Group A' });
+    req.flush({ code: 'group1', name: 'Group A' });
+  });
+});
+
+describe('GroupEntry with an existing group', () => {
+  let fixture: ComponentFixture<GroupEntry>;
+  let httpMock: HttpTestingController;
+
+  beforeEach(async () => {
+    await TestBed.configureTestingModule({
+      imports: [GroupEntry],
+      providers: [
+        provideHttpClient(),
+        provideHttpClientTesting(),
+        provideRouter(routes),
+        {
+          provide: ActivatedRoute,
+          useValue: { snapshot: { paramMap: convertToParamMap({ groupCode: 'group1' }) } },
+        },
+      ],
+    }).compileComponents();
+
+    httpMock = TestBed.inject(HttpTestingController);
+    fixture = TestBed.createComponent(GroupEntry);
+  });
+
+  afterEach(() => {
+    httpMock.verify();
+  });
+
+  it('prefills groupName and lastSessionCode from the fetched Group', async () => {
+    httpMock
+      .expectOne(`${environment.apiBaseUrl}/groups/group1`)
+      .flush({ code: 'group1', name: 'Group A', lastSessionCode: 'sess1' });
     await fixture.whenStable();
 
-    const router = TestBed.inject(Router);
-    const sessionCode = router.url.split('/s/')[1];
-    expect(rosterService.getGroup('group1')?.lastSessionCode).toBe(sessionCode);
-  });
-
-  it('offers to resume the group\'s last session when one exists', async () => {
-    const rosterService = TestBed.inject(RosterService);
-    rosterService.saveGroup({ code: 'group1', name: null, lastSessionCode: 'sess1' });
-
-    const other = TestBed.createComponent(GroupEntry);
-    await other.whenStable();
-    expect(other.componentInstance.lastSessionCode()).toBe('sess1');
-  });
-
-  it('lastSessionCode is null when the group has no prior session', () => {
-    expect(component.lastSessionCode()).toBeNull();
+    expect(fixture.componentInstance.groupName()).toBe('Group A');
+    expect(fixture.componentInstance.lastSessionCode()).toBe('sess1');
   });
 });

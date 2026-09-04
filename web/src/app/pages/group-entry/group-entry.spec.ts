@@ -108,6 +108,7 @@ describe('GroupEntry', () => {
       warnings: [],
       unrecognizedLines: [],
     });
+    await new Promise((r) => setTimeout(r, 0));
     httpMock.expectOne(`${B}/groups/group1/players`).flush([{ id: 'p1', name: 'ตั้ม', aliases: [] }]);
     await parsePromise;
 
@@ -133,6 +134,7 @@ describe('GroupEntry', () => {
       warnings: [],
       unrecognizedLines: [],
     });
+    await new Promise((r) => setTimeout(r, 0));
     httpMock.expectOne(`${B}/groups/group1/players`).flush([{ id: 'p1', name: 'ตั้ม', aliases: [] }]);
     await parsePromise;
 
@@ -151,6 +153,7 @@ describe('GroupEntry', () => {
       warnings: [],
       unrecognizedLines: [],
     });
+    await new Promise((r) => setTimeout(r, 0));
     httpMock.expectOne(`${B}/groups/group1/players`).flush([]);
     await parsePromise;
 
@@ -171,6 +174,7 @@ describe('GroupEntry', () => {
       warnings: [],
       unrecognizedLines: [],
     });
+    await new Promise((r) => setTimeout(r, 0));
     httpMock.expectOne(`${B}/groups/group1/players`).flush([]);
     await parsePromise;
 
@@ -192,6 +196,7 @@ describe('GroupEntry', () => {
       warnings: [],
       unrecognizedLines: [],
     });
+    await new Promise((r) => setTimeout(r, 0));
     httpMock.expectOne(`${B}/groups/group1/players`).flush([]);
     await parsePromise;
 
@@ -209,6 +214,7 @@ describe('GroupEntry', () => {
     });
     req.flush({ code: 'sess1' });
     await confirmPromise;
+    await fixture.whenStable();
 
     expect(router.url).toBe('/s/sess1');
   });
@@ -224,6 +230,7 @@ describe('GroupEntry', () => {
       warnings: [],
       unrecognizedLines: [],
     });
+    await new Promise((r) => setTimeout(r, 0));
     httpMock.expectOne(`${B}/groups/group1/players`).flush([]);
     await parsePromise;
 

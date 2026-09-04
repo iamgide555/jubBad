@@ -55,7 +55,8 @@ describe('SessionDashboard', () => {
     httpMock
       .expectOne(`${B}/sessions/sess1`)
       .flush(baseSession({ rosterPlayerIds: ['p1', 'p2'] }));
-    await fixture.whenStable();
+    await new Promise((r) => setTimeout(r, 0));
+    TestBed.tick();
     httpMock
       .expectOne(`${B}/groups/group1/players`)
       .flush([
@@ -83,7 +84,8 @@ describe('SessionDashboard', () => {
           courts: [{ status: 'idle' }, { status: 'idle' }],
         })
       );
-    await fixture.whenStable();
+    await new Promise((r) => setTimeout(r, 0));
+    TestBed.tick();
     httpMock.expectOne(`${B}/groups/group1/players`).flush([]);
     await fixture.whenStable();
 
@@ -99,7 +101,8 @@ describe('SessionDashboard', () => {
     httpMock
       .expectOne(`${B}/sessions/sess1`)
       .flush(baseSession({ rosterPlayerIds: ['p1', 'p2', 'p3', 'p4'] }));
-    await fixture.whenStable();
+    await new Promise((r) => setTimeout(r, 0));
+    TestBed.tick();
     httpMock
       .expectOne(`${B}/groups/group1/players`)
       .flush([{ id: 'p1', name: 'ตั้ม', aliases: [] }]);
@@ -117,7 +120,8 @@ describe('SessionDashboard', () => {
     httpMock
       .expectOne(`${B}/sessions/sess1`)
       .flush(baseSession({ rosterPlayerIds: ['p1'], waitlistPlayerIds: ['p2'] }));
-    await fixture.whenStable();
+    await new Promise((r) => setTimeout(r, 0));
+    TestBed.tick();
     httpMock
       .expectOne(`${B}/groups/group1/players`)
       .flush([

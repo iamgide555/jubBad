@@ -68,6 +68,8 @@ describe('LiveSessionService', () => {
       ok: true,
       pairing: { id: 'pair1', courtNumber: 1, matchNumber: 1, teamA: ['p1', 'p2'], teamB: ['p3', 'p4'] },
     });
+    await new Promise((r) => setTimeout(r, 0));
+    TestBed.tick();
 
     const reloadReq = httpMock.expectOne(`${environment.apiBaseUrl}/sessions/sess1`);
     reloadReq.flush(
@@ -90,6 +92,8 @@ describe('LiveSessionService', () => {
     httpMock
       .expectOne(`${environment.apiBaseUrl}/sessions/sess1/courts/1/propose`)
       .flush({ ok: false, reason: 'not-enough-players' });
+    await new Promise((r) => setTimeout(r, 0));
+    TestBed.tick();
     httpMock.expectOne(`${environment.apiBaseUrl}/sessions/sess1`).flush(baseSession());
 
     expect(await promise).toBe(false);
@@ -104,6 +108,8 @@ describe('LiveSessionService', () => {
     );
     expect(confirmReq.request.method).toBe('POST');
     confirmReq.flush({});
+    await new Promise((r) => setTimeout(r, 0));
+    TestBed.tick();
     httpMock.expectOne(`${environment.apiBaseUrl}/sessions/sess1`).flush(baseSession());
 
     await promise;
@@ -119,6 +125,8 @@ describe('LiveSessionService', () => {
     expect(finishReq.request.method).toBe('POST');
     expect(finishReq.request.body).toEqual({ scoreA: 21, scoreB: 15 });
     finishReq.flush({});
+    await new Promise((r) => setTimeout(r, 0));
+    TestBed.tick();
     httpMock.expectOne(`${environment.apiBaseUrl}/sessions/sess1`).flush(baseSession());
 
     await promise;
@@ -137,6 +145,8 @@ describe('LiveSessionService', () => {
   it('refresh triggers a reload', async () => {
     await flushSession(baseSession());
     service.refresh();
+    await new Promise((r) => setTimeout(r, 0));
+    TestBed.tick();
     httpMock.expectOne(`${environment.apiBaseUrl}/sessions/sess1`).flush(baseSession());
   });
 });

@@ -2,6 +2,7 @@ import { Component, computed, input, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { LiveSessionService } from '../../../core/live-session.service';
 import { resolvePlayerNames } from '../../../core/player-names';
+import type { CourtState } from '../../../core/live-session.model';
 import type { Player } from '../../../../../../fuzzy-match.ts';
 
 @Component({
@@ -20,8 +21,8 @@ export class CourtPanel {
 
   constructor(protected liveSession: LiveSessionService) {}
 
-  protected readonly court = computed(
-    () => this.liveSession.courts()[this.courtNumber() - 1]
+  protected readonly court = computed<CourtState>(
+    () => this.liveSession.courts()[this.courtNumber() - 1] ?? { status: 'idle' }
   );
 
   protected teamNames(ids: [string, string]): string[] {

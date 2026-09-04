@@ -31,23 +31,10 @@ const players = [
   { id: 'p4', name: 'ไม้', aliases: [] },
 ];
 
-async function setUp(session = baseSession()): Promise<{
+async function createPanel(session = baseSession()): Promise<{
   fixture: ComponentFixture<CourtPanel>;
   httpMock: HttpTestingController;
 }> {
-  await TestBed.configureTestingModule({
-    imports: [CourtPanel],
-    providers: [
-      provideHttpClient(),
-      provideHttpClientTesting(),
-      LiveSessionService,
-      {
-        provide: ActivatedRoute,
-        useValue: { snapshot: { paramMap: convertToParamMap({ sessionCode: 'sess1' }) } },
-      },
-    ],
-  }).compileComponents();
-
   const httpMock = TestBed.inject(HttpTestingController);
   const fixture = TestBed.createComponent(CourtPanel);
   fixture.componentRef.setInput('courtNumber', 1);
@@ -61,18 +48,33 @@ async function setUp(session = baseSession()): Promise<{
 }
 
 describe('CourtPanel', () => {
+  beforeEach(async () => {
+    await TestBed.configureTestingModule({
+      imports: [CourtPanel],
+      providers: [
+        provideHttpClient(),
+        provideHttpClientTesting(),
+        LiveSessionService,
+        {
+          provide: ActivatedRoute,
+          useValue: { snapshot: { paramMap: convertToParamMap({ sessionCode: 'sess1' }) } },
+        },
+      ],
+    }).compileComponents();
+  });
+
   afterEach(() => {
     TestBed.inject(HttpTestingController).verify();
   });
 
   it('shows a "Start next match" button when idle', async () => {
-    const { fixture } = await setUp();
+    const { fixture } = await createPanel();
     fixture.detectChanges();
     expect((fixture.nativeElement as HTMLElement).textContent).toContain('Start next match');
   });
 
   it('shows reshuffle and confirm controls, and player names not ids, once pending', async () => {
-    const { fixture } = await setUp(
+    const { fixture } = await createPanel(
       baseSession({
         courts: [{ status: 'pending', pairingId: 'pair1', teamA: ['p1', 'p2'], teamB: ['p3', 'p4'] }],
       })
@@ -86,7 +88,7 @@ describe('CourtPanel', () => {
   });
 
   it('shows a "Finish match" control once active', async () => {
-    const { fixture } = await setUp(
+    const { fixture } = await createPanel(
       baseSession({
         courts: [{ status: 'active', pairingId: 'pair1', teamA: ['p1', 'p2'], teamB: ['p3', 'p4'] }],
       })
@@ -96,7 +98,7 @@ describe('CourtPanel', () => {
   });
 
   it('clicking "Start next match" calls proposeMatch and reflects the pending court', async () => {
-    const { fixture, httpMock } = await setUp();
+    const { fixture, httpMock } = await createPanel();
     fixture.detectChanges();
 
     const button = (fixture.nativeElement as HTMLElement).querySelector('button') as HTMLButtonElement;
@@ -108,6 +110,8 @@ describe('CourtPanel', () => {
         ok: true,
         pairing: { id: 'pair1', courtNumber: 1, matchNumber: 1, teamA: ['p1', 'p2'], teamB: ['p3', 'p4'] },
       });
+    await new Promise((r) => setTimeout(r, 0));
+    TestBed.tick();
     httpMock
       .expectOne(`${B}/sessions/sess1`)
       .flush(
@@ -122,7 +126,7 @@ describe('CourtPanel', () => {
   });
 
   it('clicking "confirm" posts to confirm with the court\'s pairingId', async () => {
-    const { fixture, httpMock } = await setUp(
+    const { fixture, httpMock } = await createPanel(
       baseSession({
         courts: [{ status: 'pending', pairingId: 'pair1', teamA: ['p1', 'p2'], teamB: ['p3', 'p4'] }],
       })
@@ -136,6 +140,8 @@ describe('CourtPanel', () => {
     const req = httpMock.expectOne(`${B}/sessions/sess1/pairings/pair1/confirm`);
     expect(req.request.method).toBe('POST');
     req.flush({});
+    await new Promise((r) => setTimeout(r, 0));
+    TestBed.tick();
     httpMock.expectOne(`${B}/sessions/sess1`).flush(
       baseSession({
         courts: [{ status: 'active', pairingId: 'pair1', teamA: ['p1', 'p2'], teamB: ['p3', 'p4'] }],
@@ -146,12 +152,27 @@ describe('CourtPanel', () => {
 });
 
 describe('CourtPanel with too few players', () => {
+  beforeEach(async () => {
+    await TestBed.configureTestingModule({
+      imports: [CourtPanel],
+      providers: [
+        provideHttpClient(),
+        provideHttpClientTesting(),
+        LiveSessionService,
+        {
+          provide: ActivatedRoute,
+          useValue: { snapshot: { paramMap: convertToParamMap({ sessionCode: 'sess1' }) } },
+        },
+      ],
+    }).compileComponents();
+  });
+
   afterEach(() => {
     TestBed.inject(HttpTestingController).verify();
   });
 
   it('shows a message when there are not enough players to start a match', async () => {
-    const { fixture, httpMock } = await setUp(baseSession({ rosterPlayerIds: ['p1', 'p2'] }));
+    const { fixture, httpMock } = await createPanel(baseSession({ rosterPlayerIds: ['p1', 'p2'] }));
     fixture.detectChanges();
 
     const button = (fixture.nativeElement as HTMLElement).querySelector('button') as HTMLButtonElement;
@@ -160,6 +181,8 @@ describe('CourtPanel with too few players', () => {
     httpMock
       .expectOne(`${B}/sessions/sess1/courts/1/propose`)
       .flush({ ok: false, reason: 'not-enough-players' });
+    await new Promise((r) => setTimeout(r, 0));
+    TestBed.tick();
     httpMock.expectOne(`${B}/sessions/sess1`).flush(baseSession({ rosterPlayerIds: ['p1', 'p2'] }));
     await fixture.whenStable();
     fixture.detectChanges();

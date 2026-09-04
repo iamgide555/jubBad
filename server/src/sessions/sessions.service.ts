@@ -1,7 +1,9 @@
 import { randomUUID } from 'node:crypto';
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { confirmExistingPlayerAlias, createNewPlayer, type Player as FuzzyPlayer } from '../../../fuzzy-match.ts';
+import { generateRound } from '../../../pairing.ts';
 import { PrismaService } from '../prisma/prisma.service.js';
+import { deriveHistory } from './derive-history.js';
 import type { CreateSessionDto, NameReviewDto } from './dto/create-session.dto.js';
 
 @Injectable()
@@ -103,6 +105,80 @@ export class SessionsService {
       rosterPlayerIds: session.roster.map((r) => r.playerId),
       waitlistPlayerIds: session.waitlist.map((w) => w.playerId),
       courts,
+    };
+  }
+
+  async propose(sessionCode: string, courtNumber: number) {
+    const session = await this.prisma.session.findUnique({ where: { code: sessionCode } });
+    if (!session) throw new NotFoundException();
+
+    const roster = await this.prisma.sessionRoster.findMany({ where: { sessionId: sessionCode } });
+    const rosterPlayerIds = roster.map((r) => r.playerId);
+
+    const nonEnded = await this.prisma.pairing.findMany({
+      where: { sessionId: sessionCode, endedAt: null },
+    });
+    const reserved = new Set<string>();
+    for (const p of nonEnded) {
+      if (p.courtNumber === courtNumber) continue;
+      const [a1, a2] = JSON.parse(p.teamA) as [string, string];
+      const [b1, b2] = JSON.parse(p.teamB) as [string, string];
+      reserved.add(a1);
+      reserved.add(a2);
+      reserved.add(b1);
+      reserved.add(b2);
+    }
+    const available = rosterPlayerIds.filter((id) => !reserved.has(id));
+
+    const confirmed = await this.prisma.pairing.findMany({
+      where: { sessionId: sessionCode, confirmedAt: { not: null } },
+    });
+    const history = deriveHistory(
+      confirmed.map((p) => ({
+        teamA: JSON.parse(p.teamA) as [string, string],
+        teamB: JSON.parse(p.teamB) as [string, string],
+      }))
+    );
+
+    const result = generateRound(available, 1, history);
+    if (result.courts.length === 0) {
+      return { ok: false as const, reason: 'not-enough-players' as const };
+    }
+    const [proposed] = result.courts;
+    const teamA = JSON.stringify(proposed.teamA);
+    const teamB = JSON.stringify(proposed.teamB);
+
+    const existingPending = await this.prisma.pairing.findFirst({
+      where: { sessionId: sessionCode, courtNumber, confirmedAt: null, endedAt: null },
+    });
+
+    const pairing = existingPending
+      ? await this.prisma.pairing.update({
+          where: { id: existingPending.id },
+          data: { teamA, teamB },
+        })
+      : await this.prisma.pairing.create({
+          data: {
+            sessionId: sessionCode,
+            courtNumber,
+            matchNumber:
+              (await this.prisma.pairing.count({
+                where: { sessionId: sessionCode, courtNumber, confirmedAt: { not: null } },
+              })) + 1,
+            teamA,
+            teamB,
+          },
+        });
+
+    return {
+      ok: true as const,
+      pairing: {
+        id: pairing.id,
+        courtNumber: pairing.courtNumber,
+        matchNumber: pairing.matchNumber,
+        teamA: proposed.teamA,
+        teamB: proposed.teamB,
+      },
     };
   }
 }

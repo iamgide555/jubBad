@@ -145,4 +145,55 @@ describe('SessionsController', () => {
       await prisma.group.deleteMany({ where: { code: groupCode } });
     }
   });
+
+  it('proposes a match, reshuffles in place before confirm, and reports not-enough-players', async () => {
+    const groupCode = randomUUID();
+    const sessionCode = randomUUID();
+    await prisma.group.create({ data: { code: groupCode, name: 'G' } });
+    const players = await Promise.all(
+      ['A', 'B', 'C', 'D'].map((name) =>
+        prisma.player.create({ data: { groupId: groupCode, name, aliases: '[]' } })
+      )
+    );
+    await prisma.session.create({
+      data: { code: sessionCode, groupId: groupCode, courtCount: 1, rawImportText: '' },
+    });
+    for (const p of players) {
+      await prisma.sessionRoster.create({ data: { sessionId: sessionCode, playerId: p.id } });
+    }
+
+    try {
+      const first = await request(app.getHttpServer())
+        .post(`/sessions/${sessionCode}/courts/1/propose`)
+        .expect(201);
+      expect(first.body.ok).toBe(true);
+      const firstPairingId = first.body.pairing.id;
+      expect(first.body.pairing.matchNumber).toBe(1);
+
+      const rowsAfterFirst = await prisma.pairing.findMany({ where: { sessionId: sessionCode } });
+      expect(rowsAfterFirst).toHaveLength(1);
+
+      const second = await request(app.getHttpServer())
+        .post(`/sessions/${sessionCode}/courts/1/propose`)
+        .expect(201);
+      expect(second.body.ok).toBe(true);
+      expect(second.body.pairing.id).toBe(firstPairingId);
+      expect(second.body.pairing.matchNumber).toBe(1);
+
+      const rowsAfterSecond = await prisma.pairing.findMany({ where: { sessionId: sessionCode } });
+      expect(rowsAfterSecond).toHaveLength(1);
+
+      await prisma.sessionRoster.deleteMany({ where: { sessionId: sessionCode } });
+      const notEnough = await request(app.getHttpServer())
+        .post(`/sessions/${sessionCode}/courts/1/propose`)
+        .expect(201);
+      expect(notEnough.body).toEqual({ ok: false, reason: 'not-enough-players' });
+    } finally {
+      await prisma.pairing.deleteMany({ where: { sessionId: sessionCode } });
+      await prisma.sessionRoster.deleteMany({ where: { sessionId: sessionCode } });
+      await prisma.session.deleteMany({ where: { code: sessionCode } });
+      await prisma.player.deleteMany({ where: { groupId: groupCode } });
+      await prisma.group.deleteMany({ where: { code: groupCode } });
+    }
+  });
 });

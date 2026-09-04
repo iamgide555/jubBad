@@ -8,7 +8,7 @@
 
 **Tech Stack:** No new dependencies — same NestJS/Prisma/Angular stack already in place.
 
-**Spec:** `docs/superpowers/specs/2026-09-04-end-session-and-reshuffle-fairness-design.md`
+**Spec:** `docs/active/specs/2026-09-04-end-session-and-reshuffle-fairness-design.md`
 
 ## Global Constraints
 

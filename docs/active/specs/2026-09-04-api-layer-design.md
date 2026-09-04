@@ -4,7 +4,7 @@
 
 Build the NestJS API surface sketched at "shape only" in `PROJECT.md`
 §8.3, backed by the Prisma schema/client from
-`docs/superpowers/specs/2026-09-04-prisma-schema-design.md`. This is
+`docs/active/specs/2026-09-04-prisma-schema-design.md`. This is
 the layer that runs `parser.ts`/`fuzzy-match.ts`/`pairing.ts`
 server-side (§8.1's decision) and persists through Prisma. Out of
 scope: migrating the Angular services off `localStorage` to call this
@@ -34,7 +34,7 @@ Both engine-calling endpoints (`/groups/:code/parse`,
 `/sessions/:code/courts/:n/propose`) import `parser.ts`/
 `fuzzy-match.ts`/`pairing.ts` by the same relative-path pattern the
 NestJS scaffold plan already proved works
-(`docs/superpowers/plans/2026-09-04-nestjs-scaffold.md`).
+(`docs/active/plans/2026-09-04-nestjs-scaffold.md`).
 
 ## Decisions
 

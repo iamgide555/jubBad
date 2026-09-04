@@ -431,7 +431,7 @@ engine tests unaffected) — they're isomorphic, so NestJS imports them
 by relative path the same way Angular did, no source changes needed.
 
 **Scaffold built and cross-boundary import proven** (`server/`, see
-`docs/superpowers/plans/2026-09-04-nestjs-scaffold.md`). NestJS's `tsc`-based
+`docs/active/plans/2026-09-04-nestjs-scaffold.md`). NestJS's `tsc`-based
 build is stricter than Angular's esbuild bundler about this: needed
 `allowImportingTsExtensions`/`rewriteRelativeImportExtensions` plus a
 `rootDir` widened to the repo root in `tsconfig.build.json` (Angular's
@@ -518,8 +518,8 @@ instead of `localStorage`, same manual-refresh UX already decided in
 §7.3, now backed by a real network call instead of a local read.
 
 **Built** (`server/src/groups/`, `server/src/sessions/`; see
-`docs/superpowers/specs/2026-09-04-api-layer-design.md` and
-`docs/superpowers/plans/2026-09-04-api-layer.md`). The above sketch
+`docs/active/specs/2026-09-04-api-layer-design.md` and
+`docs/active/plans/2026-09-04-api-layer.md`). The above sketch
 left several shapes open, resolved during design: `/parse` upserts the
 `Group` row implicitly (no separate create endpoint) but never renames
 an existing group; `propose`'s "not enough players" outcome is a 200
@@ -558,8 +558,8 @@ services off `localStorage` to call this API (§8.6).
   defines the tables from §8.2/§5.
 
 **Built and round-trip proven** (see
-`docs/superpowers/specs/2026-09-04-prisma-schema-design.md` and
-`docs/superpowers/plans/2026-09-04-prisma-schema.md`). Six models:
+`docs/active/specs/2026-09-04-prisma-schema-design.md` and
+`docs/active/plans/2026-09-04-prisma-schema.md`). Six models:
 `Group`, `Player`, `Session`, `SessionRoster` (join table, new — makes
 the roster symmetric with `Waitlist`), `Waitlist`, `Pairing`. Three
 representation decisions beyond §8.2's sketch: arrays
@@ -609,7 +609,7 @@ Dead code removed as a direct consequence: `history-derivation.ts`
 already built in the API layer plan.
 
 Real findings from building this (see
-`docs/superpowers/plans/2026-09-04-client-migration.md`): Angular's
+`docs/active/plans/2026-09-04-client-migration.md`): Angular's
 `httpResource()` throws from `.value()` when in an error state rather
 than returning `undefined`, even from a template binding — every read
 must check `.error()` first; `.reload()` and *dependent* resources

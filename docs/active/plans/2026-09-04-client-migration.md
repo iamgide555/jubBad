@@ -8,7 +8,7 @@
 
 **Tech Stack:** Angular `HttpClient`/`httpResource()` (new to this app), `HttpClientTestingModule`/`HttpTestingController` for tests, RxJS `firstValueFrom` for one-shot Observable→Promise conversion.
 
-**Spec:** `docs/superpowers/specs/2026-09-04-client-migration-design.md`
+**Spec:** `docs/active/specs/2026-09-04-client-migration-design.md`
 
 ## Global Constraints
 

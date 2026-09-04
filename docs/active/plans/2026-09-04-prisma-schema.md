@@ -8,7 +8,7 @@
 
 **Tech Stack:** Prisma 7.10.0 (schema + migrate + generated client — pinned, see Global Constraints), `@prisma/client` 7.10.0, `@prisma/adapter-better-sqlite3` 7.10.0 (Prisma 7 requires an explicit driver adapter at runtime, even for SQLite), SQLite (`server/prisma/dev.db`, gitignored), Vitest (existing).
 
-**Spec:** `docs/superpowers/specs/2026-09-04-prisma-schema-design.md`
+**Spec:** `docs/active/specs/2026-09-04-prisma-schema-design.md`
 
 ## Global Constraints
 
@@ -21,7 +21,7 @@
 - **`PrismaClient` requires an explicit driver adapter at runtime, even for SQLite** — `new PrismaClient()` with no arguments throws `PrismaClientInitializationError: ... A driver adapter is required`. Use `@prisma/adapter-better-sqlite3`: `new PrismaClient({ adapter: new PrismaBetterSqlite3({ url: process.env.DATABASE_URL! }) })`. Note the adapter class is exported as `PrismaBetterSqlite3` (lowercase `ql3`), not `PrismaBetterSQLite3`.
 - **`file:./dev.db` in `DATABASE_URL` resolves relative to `process.cwd()`, not `schema.prisma`'s directory** — the driver adapter is a generic SQLite driver, not Prisma-schema-aware, so it resolves the path the way any Node file access would. Running `prisma migrate dev` from `server/` with `DATABASE_URL="file:./dev.db"` puts the database at `server/dev.db`, not `server/prisma/dev.db`. Use `file:./prisma/dev.db` explicitly so the db file lands next to `prisma/migrations/` as intended.
 - The Prisma CLI (`migrate`, `generate`, `validate`, etc.) loads env vars via `server/prisma7.config.ts`'s own `import 'dotenv/config'` — not automatically from `.env` on its own in this version. Vitest does **not** auto-load `.env` either; Task 2 handles that explicitly via `dotenv` in `vitest.config.ts`.
-- This plan must not regress the NestJS scaffold's cross-boundary engine import (`docs/superpowers/plans/2026-09-04-nestjs-scaffold.md`, Task 2) — the full `npm test` and `npx nest build` must stay green throughout.
+- This plan must not regress the NestJS scaffold's cross-boundary engine import (`docs/active/plans/2026-09-04-nestjs-scaffold.md`, Task 2) — the full `npm test` and `npx nest build` must stay green throughout.
 
 ---
 

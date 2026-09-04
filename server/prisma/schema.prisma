@@ -1,0 +1,70 @@
+datasource db {
+  provider = "sqlite"
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model Group {
+  code      String    @id
+  name      String?
+  createdAt DateTime  @default(now())
+  players   Player[]
+  sessions  Session[]
+}
+
+model Player {
+  id      String @id @default(cuid())
+  groupId String
+  name    String
+  aliases String // JSON-encoded string[]
+  group   Group  @relation(fields: [groupId], references: [code])
+}
+
+model Session {
+  code          String          @id
+  groupId       String
+  date          String?
+  venue         String?
+  courtCount    Int?
+  rawImportText String
+  createdAt     DateTime        @default(now())
+  group         Group           @relation(fields: [groupId], references: [code])
+  roster        SessionRoster[]
+  waitlist      Waitlist[]
+  pairings      Pairing[]
+}
+
+model SessionRoster {
+  id        String  @id @default(cuid())
+  sessionId String
+  playerId  String
+  session   Session @relation(fields: [sessionId], references: [code])
+
+  @@unique([sessionId, playerId])
+}
+
+model Waitlist {
+  id        String  @id @default(cuid())
+  sessionId String
+  playerId  String
+  position  Int
+  session   Session @relation(fields: [sessionId], references: [code])
+
+  @@unique([sessionId, playerId])
+}
+
+model Pairing {
+  id          String    @id @default(cuid())
+  sessionId   String
+  courtNumber Int
+  matchNumber Int
+  teamA       String // JSON-encoded [playerId, playerId]
+  teamB       String // JSON-encoded [playerId, playerId]
+  scoreA      Int?
+  scoreB      Int?
+  confirmedAt DateTime?
+  endedAt     DateTime?
+  session     Session   @relation(fields: [sessionId], references: [code])
+}

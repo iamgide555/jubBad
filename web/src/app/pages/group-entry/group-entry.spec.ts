@@ -85,12 +85,24 @@ describe('GroupEntry', () => {
     expect(component.canConfirm()).toBe(false);
   });
 
-  it('shows a message explaining why confirm is disabled when the roster is empty', () => {
+  it('shows a message explaining why confirm is disabled when the roster is empty, right after parsing', () => {
     component.rawText.set('ไกด์\nเตย');
     component.parse();
     fixture.detectChanges();
     const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
-    expect(text).toContain('Add at least one player');
+    expect(text).toContain('No players were recognized');
+  });
+
+  it('places the empty-roster warning before the header fields, not buried near the confirm button', () => {
+    component.rawText.set('ไกด์\nเตย');
+    component.parse();
+    fixture.detectChanges();
+
+    const html = (fixture.nativeElement as HTMLElement).innerHTML;
+    const warningIndex = html.indexOf('No players were recognized');
+    const dateFieldIndex = html.indexOf('Date');
+    expect(warningIndex).toBeGreaterThan(-1);
+    expect(warningIndex).toBeLessThan(dateFieldIndex);
   });
 
   it('toggleDecision flips a fuzzy review between accept and reject-new', () => {

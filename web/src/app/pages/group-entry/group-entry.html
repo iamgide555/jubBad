@@ -30,6 +30,13 @@
     </div>
   }
 
+  @if (rosterReviews().length === 0) {
+    <p class="empty-roster-warning">
+      ⚠ No players were recognized — check that each name is on its own
+      numbered line (e.g. "1. name").
+    </p>
+  }
+
   <label>
     Date
     <input type="date" [(ngModel)]="date" required />
@@ -75,10 +82,6 @@
         @case ('new') { <span>new player</span> }
       }
     </div>
-  }
-
-  @if (rosterReviews().length === 0) {
-    <p>Add at least one player to the roster before confirming.</p>
   }
 
   <button type="button" [disabled]="!canConfirm()" (click)="confirmRoster()">Confirm roster</button>

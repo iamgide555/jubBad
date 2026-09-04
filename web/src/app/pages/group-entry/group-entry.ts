@@ -27,6 +27,7 @@ export class GroupEntry {
   readonly lastSessionCode = signal<string | null>(null);
   readonly warnings = signal<string[]>([]);
   readonly unrecognizedLines = signal<string[]>([]);
+  readonly pasteError = signal<string | null>(null);
 
   private players: Player[] = [];
 
@@ -55,7 +56,29 @@ export class GroupEntry {
   }
 
   parse(): void {
+    this.pasteError.set(null);
+
+    if (!this.groupName().trim()) {
+      this.pasteError.set('Please enter a group name first.');
+      return;
+    }
+    if (!this.rawText().trim()) {
+      this.pasteError.set('Paste a roster message first.');
+      return;
+    }
+
     const result = parseLineRosterMessage(this.rawText());
+    const rosterNames = result.roster
+      .map((slot) => slot.name)
+      .filter((name): name is string => name !== null);
+
+    if (rosterNames.length === 0) {
+      this.pasteError.set(
+        'No players were recognized — check that each name is on its own numbered line (e.g. "1. name").'
+      );
+      return;
+    }
+
     this.date.set(result.header.isoDate ?? '');
     this.venue.set(result.header.venue ?? '');
     this.courtCount.set(result.header.timeSlots[0]?.courtCount ?? null);
@@ -63,9 +86,6 @@ export class GroupEntry {
     this.unrecognizedLines.set(result.unrecognizedLines);
 
     this.players = this.rosterService.getPlayers(this.groupCode);
-    const rosterNames = result.roster
-      .map((slot) => slot.name)
-      .filter((name): name is string => name !== null);
     const waitlistNames = result.waitlist
       .map((slot) => slot.name)
       .filter((name): name is string => name !== null);

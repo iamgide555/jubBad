@@ -38,6 +38,7 @@ describe('GroupEntry', () => {
   });
 
   it('parsing a roster message switches to the confirm state', () => {
+    component.groupName.set('Group A');
     component.rawText.set(
       '1. ตั้ม\n2. เบส\n19.00-20.00 1 คอร์ท\n@All'
     );
@@ -46,6 +47,7 @@ describe('GroupEntry', () => {
   });
 
   it('prefills header fields from the parsed message', () => {
+    component.groupName.set('Group A');
     component.rawText.set(
       '@All แบดวินนิ่ง อังคาร 8/9/26\n19.00-20.00 2 คอร์ท @ KIP\n1. ตั้ม\n2. เบส'
     );
@@ -59,6 +61,7 @@ describe('GroupEntry', () => {
     const rosterService = TestBed.inject(RosterService);
     rosterService.savePlayers('group1', [{ id: 'p1', name: 'ตั้ม', aliases: [] }]);
 
+    component.groupName.set('Group A');
     component.rawText.set('1. ตั้ม\n2. เกียร์');
     component.parse();
 
@@ -67,6 +70,7 @@ describe('GroupEntry', () => {
   });
 
   it('canConfirm is false until date and courtCount are set', () => {
+    component.groupName.set('Group A');
     component.rawText.set('1. ตั้ม');
     component.parse();
     component.date.set('');
@@ -77,38 +81,71 @@ describe('GroupEntry', () => {
     expect(component.canConfirm()).toBe(true);
   });
 
-  it('canConfirm is false when the roster ended up empty', () => {
-    component.rawText.set('ไกด์\nเตย'); // no numbered list -> nothing parsed as roster
+  it('canConfirm is false if the roster is somehow empty despite reaching the confirm state', () => {
+    // Defensive check: parse() itself should never let this happen (tested below),
+    // but canConfirm() should not trust that invariant blindly either.
+    component.groupName.set('Group A');
+    component.rawText.set('1. ตั้ม');
     component.parse();
     component.date.set('2026-09-08');
     component.courtCount.set(1);
+    component.rosterReviews.set([]);
     expect(component.canConfirm()).toBe(false);
   });
 
-  it('shows a message explaining why confirm is disabled when the roster is empty, right after parsing', () => {
-    component.rawText.set('ไกด์\nเตย');
+  it('parse shows an error and stays in the paste state when the group name is empty', () => {
+    component.groupName.set('');
+    component.rawText.set('1. ตั้ม');
     component.parse();
-    fixture.detectChanges();
-    const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
-    expect(text).toContain('No players were recognized');
+
+    expect(component.state()).toBe('paste');
+    expect(component.pasteError()).toContain('group name');
   });
 
-  it('places the empty-roster warning before the header fields, not buried near the confirm button', () => {
-    component.rawText.set('ไกด์\nเตย');
+  it('parse shows an error and stays in the paste state when nothing has been pasted', () => {
+    component.groupName.set('Group A');
+    component.rawText.set('   ');
+    component.parse();
+
+    expect(component.state()).toBe('paste');
+    expect(component.pasteError()).toContain('Paste a roster message');
+  });
+
+  it('parse shows an error and stays in the paste state when the roster ends up empty', () => {
+    component.groupName.set('Group A');
+    component.rawText.set('ไกด์\nเตย'); // no numbered list -> nothing parsed as roster
+    component.parse();
+
+    expect(component.state()).toBe('paste');
+    expect(component.pasteError()).toContain('No players were recognized');
+  });
+
+  it('shows the pasteError message in the paste screen', () => {
+    component.groupName.set('');
     component.parse();
     fixture.detectChanges();
 
-    const html = (fixture.nativeElement as HTMLElement).innerHTML;
-    const warningIndex = html.indexOf('No players were recognized');
-    const dateFieldIndex = html.indexOf('Date');
-    expect(warningIndex).toBeGreaterThan(-1);
-    expect(warningIndex).toBeLessThan(dateFieldIndex);
+    const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
+    expect(text).toContain('group name');
+  });
+
+  it('a successful parse clears any previous pasteError', () => {
+    component.groupName.set('');
+    component.rawText.set('1. ตั้ม');
+    component.parse();
+    expect(component.pasteError()).not.toBeNull();
+
+    component.groupName.set('Group A');
+    component.parse();
+    expect(component.pasteError()).toBeNull();
+    expect(component.state()).toBe('confirm');
   });
 
   it('toggleDecision flips a fuzzy review between accept and reject-new', () => {
     const rosterService = TestBed.inject(RosterService);
     rosterService.savePlayers('group1', [{ id: 'p1', name: 'ตั้ม', aliases: [] }]);
 
+    component.groupName.set('Group A');
     component.rawText.set('1. ตัม');
     component.parse();
 
@@ -122,6 +159,7 @@ describe('GroupEntry', () => {
     const rosterService = TestBed.inject(RosterService);
     const router = TestBed.inject(Router);
 
+    component.groupName.set('Group A');
     component.rawText.set('1. ตั้ม\n2. เกียร์');
     component.parse();
     component.date.set('2026-09-08');
@@ -178,6 +216,7 @@ describe('GroupEntry', () => {
     const rosterService = TestBed.inject(RosterService);
     rosterService.savePlayers('group1', [{ id: 'p1', name: 'ตั้ม', aliases: [] }]);
 
+    component.groupName.set('Group A');
     component.rawText.set('1. ตัม'); // one tone mark short of ตั้ม -> fuzzy
     component.parse();
 
@@ -185,6 +224,7 @@ describe('GroupEntry', () => {
   });
 
   it('exposes parser warnings instead of discarding them', () => {
+    component.groupName.set('Group A');
     component.rawText.set('1. ตั้ม'); // no date, no time range -> warnings
     component.parse();
 
@@ -192,6 +232,7 @@ describe('GroupEntry', () => {
   });
 
   it('exposes unrecognized lines instead of discarding them', () => {
+    component.groupName.set('Group A');
     component.rawText.set('1. ตั้ม\nหมายเหตุ ขอความกรุณา');
     component.parse();
 
@@ -201,6 +242,7 @@ describe('GroupEntry', () => {
   it('confirmRoster trims a whitespace-only venue to null', async () => {
     const rosterService = TestBed.inject(RosterService);
 
+    component.groupName.set('Group A');
     component.rawText.set('1. ตั้ม');
     component.parse();
     component.date.set('2026-09-08');
@@ -218,6 +260,7 @@ describe('GroupEntry', () => {
   it('confirmRoster records this session as the group\'s lastSessionCode', async () => {
     const rosterService = TestBed.inject(RosterService);
 
+    component.groupName.set('Group A');
     component.rawText.set('1. ตั้ม');
     component.parse();
     component.date.set('2026-09-08');

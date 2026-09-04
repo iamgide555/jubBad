@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { confirmExistingPlayerAlias, createNewPlayer, type Player as FuzzyPlayer } from '../../../fuzzy-match.ts';
 import { PrismaService } from '../prisma/prisma.service.js';
 import type { CreateSessionDto, NameReviewDto } from './dto/create-session.dto.js';
@@ -69,5 +69,40 @@ export class SessionsService {
     ]);
 
     return { code };
+  }
+
+  async getSession(code: string) {
+    const session = await this.prisma.session.findUnique({
+      where: { code },
+      include: { roster: true, waitlist: { orderBy: { position: 'asc' } }, pairings: true },
+    });
+    if (!session) throw new NotFoundException();
+
+    const courtCount = session.courtCount ?? 0;
+    const courts = Array.from({ length: courtCount }, (_, i) => {
+      const courtNumber = i + 1;
+      const current = session.pairings
+        .filter((p) => p.courtNumber === courtNumber && p.endedAt === null)
+        .sort((a, b) => b.matchNumber - a.matchNumber)[0];
+
+      if (!current) return { courtNumber, status: 'idle' as const };
+
+      const teamA = JSON.parse(current.teamA) as [string, string];
+      const teamB = JSON.parse(current.teamB) as [string, string];
+      return current.confirmedAt
+        ? { courtNumber, status: 'active' as const, teamA, teamB }
+        : { courtNumber, status: 'pending' as const, teamA, teamB };
+    });
+
+    return {
+      code: session.code,
+      groupCode: session.groupId,
+      date: session.date,
+      venue: session.venue,
+      courtCount: session.courtCount,
+      rosterPlayerIds: session.roster.map((r) => r.playerId),
+      waitlistPlayerIds: session.waitlist.map((w) => w.playerId),
+      courts,
+    };
   }
 }

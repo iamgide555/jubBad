@@ -52,13 +52,23 @@ describe('LiveSessionService', () => {
     }
   });
 
-  it('proposeMatch does nothing when fewer than 4 players are available', () => {
+  it('proposeMatch does nothing and returns false when fewer than 4 players are available', () => {
     setUpSession('sess1', 1, ['p1', 'p2']);
     const service = TestBed.inject(LiveSessionService);
 
-    service.proposeMatch(1, () => 0.5);
+    const result = service.proposeMatch(1, () => 0.5);
 
+    expect(result).toBe(false);
     expect(service.courts()[0]).toEqual({ status: 'idle' });
+  });
+
+  it('proposeMatch returns true when a match is successfully proposed', () => {
+    setUpSession('sess1', 1, ['p1', 'p2', 'p3', 'p4']);
+    const service = TestBed.inject(LiveSessionService);
+
+    const result = service.proposeMatch(1, () => 0.5);
+
+    expect(result).toBe(true);
   });
 
   it('proposeMatch excludes players reserved by other pending/active courts', () => {

@@ -6,6 +6,9 @@
   @switch (c.status) {
     @case ('idle') {
       <button type="button" (click)="startOrReshuffle()">Start next match</button>
+      @if (notEnoughPlayers()) {
+        <p>Not enough players waiting.</p>
+      }
     }
     @case ('pending') {
       @if (c.status === 'pending') {

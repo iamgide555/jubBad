@@ -16,6 +16,7 @@ export class CourtPanel {
 
   readonly scoreA = signal<number | null>(null);
   readonly scoreB = signal<number | null>(null);
+  readonly notEnoughPlayers = signal(false);
 
   constructor(protected liveSession: LiveSessionService) {}
 
@@ -28,7 +29,8 @@ export class CourtPanel {
   }
 
   protected startOrReshuffle(): void {
-    this.liveSession.proposeMatch(this.courtNumber());
+    const success = this.liveSession.proposeMatch(this.courtNumber());
+    this.notEnoughPlayers.set(!success);
   }
 
   protected confirm(): void {

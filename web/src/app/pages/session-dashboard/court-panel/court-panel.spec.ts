@@ -84,4 +84,53 @@ describe('CourtPanel', () => {
     fixture.detectChanges();
     expect(service.courts()[0].status).toBe('pending');
   });
+
+});
+
+describe('CourtPanel with too few players', () => {
+  it('shows a message when there are not enough players to start a match', async () => {
+    localStorage.clear();
+    await TestBed.configureTestingModule({
+      imports: [CourtPanel],
+      providers: [
+        LiveSessionService,
+        {
+          provide: ActivatedRoute,
+          useValue: { snapshot: { paramMap: convertToParamMap({ sessionCode: 'sess1' }) } },
+        },
+      ],
+    }).compileComponents();
+
+    const rosterService = TestBed.inject(RosterService);
+    rosterService.createSession({
+      code: 'sess1',
+      groupCode: 'group1',
+      date: '2026-09-08',
+      venue: null,
+      courtCount: 1,
+      rawImportText: '',
+      rosterPlayerIds: ['p1', 'p2'],
+      waitlistPlayerIds: [],
+    });
+
+    const service = TestBed.inject(LiveSessionService);
+    const fixture = TestBed.createComponent(CourtPanel);
+    fixture.componentRef.setInput('courtNumber', 1);
+    fixture.componentRef.setInput('players', [
+      { id: 'p1', name: 'ตั้ม', aliases: [] },
+      { id: 'p2', name: 'เบส', aliases: [] },
+    ]);
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    const button = (fixture.nativeElement as HTMLElement).querySelector(
+      'button'
+    ) as HTMLButtonElement;
+    button.click();
+    fixture.detectChanges();
+
+    expect(service.courts()[0]).toEqual({ status: 'idle' });
+    const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
+    expect(text).toContain('Not enough players waiting');
+  });
 });

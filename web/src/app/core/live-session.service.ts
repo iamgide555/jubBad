@@ -58,7 +58,7 @@ export class LiveSessionService {
     );
   }
 
-  proposeMatch(courtNumber: number, random: () => number = Math.random): void {
+  proposeMatch(courtNumber: number, random: () => number = Math.random): boolean {
     const index = courtNumber - 1;
     const reservedByOtherCourts = new Set<string>();
     this.courts().forEach((court, i) => {
@@ -72,7 +72,7 @@ export class LiveSessionService {
 
     const history = deriveHistory(this.matches());
     const result = generateRound(available, 1, history, random);
-    if (result.courts.length === 0) return;
+    if (result.courts.length === 0) return false;
 
     const [proposed] = result.courts;
     this.courts.update((courts) => {
@@ -81,6 +81,7 @@ export class LiveSessionService {
       return next;
     });
     this.persist();
+    return true;
   }
 
   confirmMatch(courtNumber: number): void {

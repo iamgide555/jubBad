@@ -642,6 +642,7 @@ already-shipped API layer, not scope creep.
 - [x] 3. Pairing/rotation engine (repeat-partner avoidance + sit-out balancing, `pairing.ts`)
 - [x] 4. Angular screens: roster panel → per-court panels (idle/active/finish) → waiting queue → display view (see §7)
 - [x] 5. Migrated Angular services off `localStorage` to the real API — see §8.6
+- [x] 6. End session action + reshuffle fairness fix (root-caused from manual testing: with exactly 4 players available, only 3 possible team-splits exist and score equally with no history yet, so reshuffle could repeat the same split — `pairing.ts`'s `generateRound` now penalizes reproducing the immediately-previous split; `Session.endedAt` added, blocked while any court is unfinished)
 
 ### Infra
 - [x] Git repo initialized, `.gitignore` added

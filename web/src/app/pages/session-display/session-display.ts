@@ -14,6 +14,10 @@ import { resolvePlayerNames } from '../../core/player-names';
 export class SessionDisplay {
   private readonly sessionCode: string;
 
+  readonly sessionExists = computed(
+    () => this.rosterService.getSession(this.sessionCode) !== null
+  );
+
   readonly header = computed(() => {
     const session = this.rosterService.getSession(this.sessionCode);
     if (!session) return '';

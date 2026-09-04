@@ -1,16 +1,29 @@
-<div class="roster-chips">
-  @for (name of rosterNames(); track name) {
-    <span class="chip">{{ name }}</span>
-  }
-</div>
+@if (sessionExists()) {
+  <div class="roster-chips">
+    @for (name of rosterNames(); track name) {
+      <span class="chip">{{ name }}</span>
+    }
+  </div>
 
-@for (courtNumber of courtNumbers(); track courtNumber) {
-  <app-court-panel [courtNumber]="courtNumber" [players]="players()" />
+  @for (courtNumber of courtNumbers(); track courtNumber) {
+    <app-court-panel [courtNumber]="courtNumber" [players]="players()" />
+  }
+
+  <div class="waiting-queue">
+    <h4>Waiting</h4>
+    @for (name of waitingNames(); track name) {
+      <span class="chip">{{ name }}</span>
+    }
+  </div>
+
+  @if (waitlistNames().length > 0) {
+    <div class="waitlist">
+      <h4>Waitlist</h4>
+      @for (name of waitlistNames(); track name) {
+        <span class="chip">{{ name }}</span>
+      }
+    </div>
+  }
+} @else {
+  <p>Session not found.</p>
 }
-
-<div class="waiting-queue">
-  <h4>Waiting</h4>
-  @for (name of waitingNames(); track name) {
-    <span class="chip">{{ name }}</span>
-  }
-</div>

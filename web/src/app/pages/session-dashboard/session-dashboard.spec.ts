@@ -104,4 +104,37 @@ describe('SessionDashboard', () => {
     expect(waitingSection).toBeTruthy();
     expect(waitingSection?.textContent).toContain('ตั้ม');
   });
+
+  it('renders the waitlist as chips', () => {
+    const rosterService = TestBed.inject(RosterService);
+    rosterService.savePlayers('group1', [
+      { id: 'p1', name: 'ตั้ม', aliases: [] },
+      { id: 'p2', name: 'เบส', aliases: [] },
+    ]);
+    rosterService.createSession({
+      code: 'sess1',
+      groupCode: 'group1',
+      date: '2026-09-08',
+      venue: null,
+      courtCount: 1,
+      rawImportText: '',
+      rosterPlayerIds: ['p1'],
+      waitlistPlayerIds: ['p2'],
+    });
+
+    fixture = TestBed.createComponent(SessionDashboard);
+    fixture.detectChanges();
+
+    const waitlistSection = (fixture.nativeElement as HTMLElement).querySelector('.waitlist');
+    expect(waitlistSection).toBeTruthy();
+    expect(waitlistSection?.textContent).toContain('เบส');
+  });
+
+  it('shows a "session not found" message for an unknown sessionCode', () => {
+    fixture = TestBed.createComponent(SessionDashboard);
+    fixture.detectChanges();
+
+    const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
+    expect(text).toContain('Session not found');
+  });
 });

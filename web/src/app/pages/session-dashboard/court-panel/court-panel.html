@@ -24,8 +24,8 @@
       }
       <label>
         Score
-        <input type="number" [ngModel]="scoreA()" (ngModelChange)="scoreA.set($event)" />
-        <input type="number" [ngModel]="scoreB()" (ngModelChange)="scoreB.set($event)" />
+        <input type="number" min="0" [ngModel]="scoreA()" (ngModelChange)="scoreA.set($event)" />
+        <input type="number" min="0" [ngModel]="scoreB()" (ngModelChange)="scoreB.set($event)" />
       </label>
       <button type="button" (click)="finish()">Finish match</button>
     }

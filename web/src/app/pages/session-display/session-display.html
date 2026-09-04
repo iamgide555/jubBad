@@ -1,14 +1,18 @@
-<h1>{{ header() }}</h1>
+@if (sessionExists()) {
+  <h1>{{ header() }}</h1>
 
-<div class="courts">
-  @for (line of courtLines(); track line.courtNumber) {
-    <div class="court-line">
-      <h2>COURT {{ line.courtNumber }}</h2>
-      <p>{{ line.text }}</p>
-    </div>
-  }
-</div>
+  <div class="courts">
+    @for (line of courtLines(); track line.courtNumber) {
+      <div class="court-line">
+        <h2>COURT {{ line.courtNumber }}</h2>
+        <p>{{ line.text }}</p>
+      </div>
+    }
+  </div>
 
-<p class="waiting-queue">รอคิว: {{ waitingNames().join(', ') }}</p>
+  <p class="waiting-queue">รอคิว: {{ waitingNames().join(', ') }}</p>
 
-<button type="button" (click)="refresh()">↻ refresh</button>
+  <button type="button" (click)="refresh()">↻ refresh</button>
+} @else {
+  <p>Session not found.</p>
+}

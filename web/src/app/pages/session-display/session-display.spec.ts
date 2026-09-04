@@ -104,3 +104,25 @@ describe('SessionDisplay', () => {
     expect(component.waitingNames().sort()).toEqual(['ตั้ม', 'ปอม', 'เบส', 'ไม้'].sort());
   });
 });
+
+describe('SessionDisplay with an unknown sessionCode', () => {
+  it('shows a "session not found" message', async () => {
+    localStorage.clear();
+    await TestBed.configureTestingModule({
+      imports: [SessionDisplay],
+      providers: [
+        {
+          provide: ActivatedRoute,
+          useValue: { snapshot: { paramMap: convertToParamMap({ sessionCode: 'ghost' }) } },
+        },
+      ],
+    }).compileComponents();
+
+    const fixture = TestBed.createComponent(SessionDisplay);
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
+    expect(text).toContain('Session not found');
+  });
+});

@@ -15,6 +15,10 @@ import { CourtPanel } from './court-panel/court-panel';
 export class SessionDashboard {
   private readonly sessionCode: string;
 
+  protected readonly sessionExists = computed(
+    () => this.rosterService.getSession(this.sessionCode) !== null
+  );
+
   protected readonly players = computed(() => {
     const session = this.rosterService.getSession(this.sessionCode);
     return session ? this.rosterService.getPlayers(session.groupCode) : [];
@@ -24,6 +28,12 @@ export class SessionDashboard {
     const session = this.rosterService.getSession(this.sessionCode);
     if (!session) return [];
     return resolvePlayerNames(session.rosterPlayerIds, this.players());
+  });
+
+  readonly waitlistNames = computed(() => {
+    const session = this.rosterService.getSession(this.sessionCode);
+    if (!session) return [];
+    return resolvePlayerNames(session.waitlistPlayerIds, this.players());
   });
 
   readonly courtNumbers = computed(() =>

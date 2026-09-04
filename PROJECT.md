@@ -430,6 +430,20 @@ doesn't change at all, just who calls it and how). `parser.ts`/
 engine tests unaffected) — they're isomorphic, so NestJS imports them
 by relative path the same way Angular did, no source changes needed.
 
+**Scaffold built and cross-boundary import proven** (`server/`, see
+`docs/superpowers/plans/2026-09-04-nestjs-scaffold.md`). NestJS's `tsc`-based
+build is stricter than Angular's esbuild bundler about this: needed
+`allowImportingTsExtensions`/`rewriteRelativeImportExtensions` plus a
+`rootDir` widened to the repo root in `tsconfig.build.json` (Angular's
+bundler never enforced `rootDir` at all), and a root-level
+`package.json` (`{"private": true, "type": "module"}`) so the engines
+compile to ESM matching `server/`'s own output — without it, the build
+succeeds but the app crashes at runtime with a missing-export
+`SyntaxError`. One layout consequence: the widened `rootDir` means
+compiled app files land at `dist/server/src/*.js`, not the default
+`dist/src/*.js` — `start:prod` points at the former. Next up: the API
+endpoints (§8.3) and Prisma schema (§8.2/§8.4).
+
 ### 8.2 Schema refinement — `Pairing` needs an explicit lifecycle
 
 The client-side `CourtState` (`idle`/`pending`/`active`) doesn't map
@@ -575,6 +589,6 @@ Two different amounts of rework, now that engines move server-side
 
 ### Infra
 - [x] Git repo initialized, `.gitignore` added
-- [ ] NestJS backend scaffolded
+- [x] NestJS backend scaffolded (`server/`, cross-boundary import of `parser.ts`/`fuzzy-match.ts`/`pairing.ts` proven at build and runtime — see §8.1)
 - [x] Angular frontend scaffolded (`web/`, routing skeleton only — see §7.4)
 - [ ] DB schema created (Group, Player, Session, Pairing, Waitlist)

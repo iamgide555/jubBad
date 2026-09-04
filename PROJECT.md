@@ -468,7 +468,7 @@ Court status is then always derivable, never stored separately:
 small addition (`endedAt`), not a rework — **RECOMMENDATION**, low
 risk to change later if it turns out wrong.
 
-### 8.3 API surface — **RECOMMENDATION, shape only** (full design when the backend plan gets written)
+### 8.3 API surface — **decided, built**
 
 Now that engines run server-side (§8.1), the API has two kinds of
 endpoints — plain persistence, and ones that actually run
@@ -516,6 +516,30 @@ submits via `POST /sessions`.
 No websockets, no polling — `[↻ refresh]` re-fetches from the API
 instead of `localStorage`, same manual-refresh UX already decided in
 §7.3, now backed by a real network call instead of a local read.
+
+**Built** (`server/src/groups/`, `server/src/sessions/`; see
+`docs/superpowers/specs/2026-09-04-api-layer-design.md` and
+`docs/superpowers/plans/2026-09-04-api-layer.md`). The above sketch
+left several shapes open, resolved during design: `/parse` upserts the
+`Group` row implicitly (no separate create endpoint) but never renames
+an existing group; `propose`'s "not enough players" outcome is a 200
+with `{ok: false, reason: 'not-enough-players'}`, not an HTTP error;
+confirm/finish are two explicit `POST` actions, not one overloaded
+`PATCH`; `lastSessionCode` is computed on `GET /groups/:code` (queried,
+not stored, matching §8.2's already-derived-field pattern). `propose`
+also upserts the single pending `Pairing` row per court in place on a
+reshuffle rather than inserting a new row every time — `matchNumber`
+only increments once a match is actually confirmed.
+
+Two real Prisma 7 + `better-sqlite3` findings surfaced while building
+and testing this layer, beyond what the schema plan already found:
+`$queryRaw` returns SQLite integers as `BigInt`, not `number`; and
+running the test suite's `@nestjs/testing` modules concurrently (each
+opening its own connection to the same `dev.db`) intermittently threw
+`SQLITE_BUSY` under the default rollback-journal mode — fixed by
+setting `PRAGMA journal_mode = WAL` and `PRAGMA busy_timeout = 5000`
+in `PrismaService.onModuleInit`. Next up: migrating the Angular
+services off `localStorage` to call this API (§8.6).
 
 ### 8.4 DB engine + ORM — **decided, built**
 
@@ -613,3 +637,4 @@ Two different amounts of rework, now that engines move server-side
 - [x] NestJS backend scaffolded (`server/`, cross-boundary import of `parser.ts`/`fuzzy-match.ts`/`pairing.ts` proven at build and runtime — see §8.1)
 - [x] Angular frontend scaffolded (`web/`, routing skeleton only — see §7.4)
 - [x] DB schema created (Group, Player, Session, Pairing, Waitlist) — `server/prisma/schema.prisma`, round-trip proven — see §8.4
+- [x] API layer built (groups/parse/sessions/propose/pairings) — see §8.3

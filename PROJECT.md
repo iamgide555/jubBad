@@ -394,7 +394,7 @@ back-and-forth on the calls below. Marked **RECOMMENDATION** (low-risk
 default, easy to change) vs **NEEDS YOUR SIGN-OFF** (expensive to
 reverse once built on) so review time goes where it matters.
 
-### 8.1 The big fork: where do the engines run? — **NEEDS YOUR SIGN-OFF**
+### 8.1 The big fork: where do the engines run? — **decided: server-side**
 
 §5's original tech-stack line says "Backend: NestJS — parsing logic,
 pairing/rotation engine" — i.e. the original intent was for
@@ -404,38 +404,31 @@ the Angular app, with the backend never in the loop for computation —
 only for holding data. That was the right call at the time (no backend
 existed yet, and building the UI against real engine logic beat
 building it against nothing), but it's a real fork now that a backend
-is being built for real:
+is being built for real.
 
-**Option A — persistence-only backend (recommended).** Keep the
-engines exactly where they are (client-side, already built, already
-tested — 39 engine tests + 64 Angular tests passing). NestJS becomes a
-thin CRUD API: `Group`/`Player`/`Session`/`Pairing` persistence only,
-replacing `RosterService`/`LiveSessionService`'s `localStorage` calls
-with HTTP calls. Zero engine code moves. Rationale: these functions
-are pure and isomorphic (no browser-only or Node-only APIs — even
-`crypto.randomUUID()` exists in both), so there's no *technical* need
-to move them, and no security reason either (nothing secret or
-trust-sensitive in a pairing algorithm for a casual friend group).
-Moving them later, if ever needed, is a bounded refactor since
-components already only touch them through the`RosterService`/
-`LiveSessionService` boundary.
+**Decided: move them server-side**, matching §5's original wording.
+Client sends raw actions (paste text, "start next match") to NestJS,
+server runs `parser.ts`/`fuzzy-match.ts`/`pairing.ts`, returns results.
+Reasoning: the deciding factor was a real correctness gap in the
+client-side alternative — if two different devices both trigger
+"start next match" for two different courts at nearly the same
+moment, each computes its proposal against its own locally-fetched
+snapshot of "who's already on a court." If both snapshots are
+slightly stale, the *same player* could get assigned to two courts at
+once — a server computing the decision itself can serialize writes
+and avoid this; client-side fundamentally can't. Chosen for
+future-proofing multi-device use (host's phone + others potentially
+interacting with the same session), even though today's actual usage
+is closer to single-host-at-a-time.
 
-**Option B — move engines server-side, matching §5's original wording
-literally.** Client sends raw actions (paste text, "start next
-match") to NestJS, server runs `parser.ts`/`fuzzy-match.ts`/
-`pairing.ts`, returns results. Real cost: re-plumbing every
-`GroupEntry`/`CourtPanel`/`SessionDisplay` call site from a direct
-function call to an HTTP round-trip, redoing a meaningful slice of the
-last 4 implementation plans' work, for a workload (parsing one pasted
-message, computing one court's pairing) that's milliseconds either
-way and has no confidentiality requirement.
-
-Recommend **Option A** — re-reading §5's "parsing logic on the
-backend" line as an artifact of when it was written (before any UI
-existed to prove out client-side execution), not a requirement worth
-paying real rework cost for now. But this is the one call in this
-whole doc that's genuinely expensive to reverse later, so it's flagged
-for your explicit yes/no rather than assumed.
+Real cost, accepted: re-plumbing every `GroupEntry`/`CourtPanel`/
+`SessionDisplay` call site from a direct function call to an HTTP
+round-trip — a meaningful slice of the last 4 implementation plans'
+work gets redone at the call-site level (the pure engine logic itself
+doesn't change at all, just who calls it and how). `parser.ts`/
+`fuzzy-match.ts`/`pairing.ts` stay exactly as built and tested (39
+engine tests unaffected) — they're isomorphic, so NestJS imports them
+by relative path the same way Angular did, no source changes needed.
 
 ### 8.2 Schema refinement — `Pairing` needs an explicit lifecycle
 
@@ -461,32 +454,50 @@ Court status is then always derivable, never stored separately:
 small addition (`endedAt`), not a rework — **RECOMMENDATION**, low
 risk to change later if it turns out wrong.
 
-### 8.3 API surface — **RECOMMENDATION**
+### 8.3 API surface — **RECOMMENDATION, shape only** (full design when the backend plan gets written)
 
-REST, matching the CRUD shape `RosterService`/`LiveSessionService`
-already assume (this needs to be a fairly direct swap, not a redesign,
-so the frontend work already done isn't disturbed):
+Now that engines run server-side (§8.1), the API has two kinds of
+endpoints — plain persistence, and ones that actually run
+`parser.ts`/`fuzzy-match.ts`/`pairing.ts` server-side and return a
+computed result:
 
 ```
-GET/PUT   /groups/:code                     — read/rename
-GET       /groups/:code/players             — list
-PUT       /groups/:code/players             — bulk replace (matches
-                                               current savePlayers
-                                               semantics exactly — one
-                                               editor at a time is
-                                               already an accepted
-                                               risk, see §2)
-POST      /sessions                         — create (paste-confirm)
-GET       /sessions/:code                   — read
-GET       /sessions/:code/pairings          — list (derives courts[]
-                                               + history client-side,
-                                               same as today)
-POST      /sessions/:code/pairings          — create pending (propose)
+GET/PUT   /groups/:code                     — read/rename [data]
+GET       /groups/:code/players             — list [data]
+POST      /groups/:code/parse               — runs parseLineRosterMessage
+                                               + matchName against this
+                                               group's known players;
+                                               returns header fields,
+                                               warnings, unrecognizedLines,
+                                               and roster/waitlist name
+                                               reviews [engine]
+POST      /sessions                         — resolves host's review
+                                               decisions (confirmExisting-
+                                               PlayerAlias/createNewPlayer),
+                                               creates the Session [engine
+                                               + data]
+GET       /sessions/:code                   — read [data]
+POST      /sessions/:code/courts/:n/propose — runs generateRound against
+                                               the server's own current
+                                               Pairing state (courtCount=1,
+                                               scoped to whoever isn't on
+                                               another open court);
+                                               creates a pending Pairing
+                                               row or reports "not enough
+                                               players" [engine] — this is
+                                               the endpoint the whole
+                                               server-side move was for:
+                                               no stale-snapshot race
+                                               between devices
 PATCH     /sessions/:code/pairings/:id      — confirm (set confirmedAt)
                                                or finish (set endedAt +
-                                               scores) — two distinct
-                                               actions, same verb
+                                               scores) [data]
 ```
+
+`toggleDecision` (flipping a fuzzy-match suggestion between accept/
+reject) stays purely client-side — it's local UI state over an
+already-fetched `/parse` result, no engine call needed until the host
+submits via `POST /sessions`.
 
 No websockets, no polling — `[↻ refresh]` re-fetches from the API
 instead of `localStorage`, same manual-refresh UX already decided in
@@ -523,15 +534,24 @@ same as before.
 
 ### 8.6 Migration path
 
-Both `RosterService` and `LiveSessionService` already isolate every
-`localStorage` call behind a method (`getGroup`/`saveGroup`/
-`getPlayers`/`savePlayers`/`getSession`/`createSession`/`proposeMatch`/
-`confirmMatch`/`finishMatch`/`refresh`) — no component anywhere calls
-`localStorage` directly. Swapping the backend in means rewriting the
-*bodies* of those methods to call the API in §8.3 instead of
-`localStorage.getItem`/`setItem`, using Angular's `HttpClient`. No
-component, template, or test file needs to change shape — this was the
-explicit reason that boundary was drawn back in the roster-panel plan.
+Two different amounts of rework, now that engines move server-side
+(§8.1):
+
+- **Pure persistence** (`getGroup`/`saveGroup`/`getPlayers`/
+  `savePlayers`/`getSession`/`createSession`) — cheap. Both
+  `RosterService` and `LiveSessionService` already isolate every
+  `localStorage` call behind a method, no component calls
+  `localStorage` directly. Rewriting the *bodies* of those methods to
+  call the API instead of `localStorage.getItem`/`setItem` (Angular's
+  `HttpClient`) doesn't change any component/template/test shape.
+- **Engine-backed actions** (`GroupEntry.parse()`/`confirmRoster()`,
+  `LiveSessionService.proposeMatch()`) — real rework. These currently
+  call `parser.ts`/`fuzzy-match.ts`/`pairing.ts` directly and return
+  synchronously; once the engines run server-side, these become async
+  HTTP calls (`POST /groups/:code/parse`, `POST /sessions/:code/courts/:n/propose`).
+  Every call site and its tests need updating for the async round-trip
+  — this is the cost that was explicitly accepted in §8.1, not
+  something the service boundary alone absorbs for free.
 
 ## 9. Progress checklist
 
@@ -544,7 +564,7 @@ explicit reason that boundary was drawn back in the roster-panel plan.
 - [x] Opponent-balancing scope decision for pairing engine — in, as secondary soft signal, see §6.3
 - [x] Mid-session edit flow designed (reshuffle / late-add / no-show removal) — see §3
 - [x] UI/UX flow designed — per-court independent rotation, not synchronized rounds; dashboard + display view — see §7
-- [ ] Backend design drafted — **awaiting your review**: engines client-side vs server-side (§8.1) — see §8
+- [x] Backend design drafted and engine-location decision made — server-side, see §8.1
 - [x] Group-creation flow decided — explicit `/` landing page, see §8.5
 
 ### Build order

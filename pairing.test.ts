@@ -125,6 +125,25 @@ test('generateRound picks the lowest-scoring arrangement out of its search trial
   assert.equal(scoreArrangement(result.courts, history.partnerCounts, history.opponentCounts), 1);
 });
 
+test('generateRound avoids reproducing the exact split passed as avoidSplit', () => {
+  const history: MatchHistory = {
+    partnerCounts: new Map(),
+    opponentCounts: new Map(),
+    gamesPlayedThisSession: new Map(),
+  };
+  const roster = ['tam', 'base', 'pom', 'mai'];
+
+  const first = generateRound(roster, 1, history, makeSeededRandom(1));
+  const avoidSplit = first.courts[0];
+
+  const second = generateRound(roster, 1, history, makeSeededRandom(1), avoidSplit);
+
+  const keysOf = (c: { teamA: [string, string]; teamB: [string, string] }) =>
+    [pairKey(c.teamA[0], c.teamA[1]), pairKey(c.teamB[0], c.teamB[1])].sort();
+
+  assert.notDeepEqual(keysOf(second.courts[0]), keysOf(first.courts[0]));
+});
+
 test('generateRound integrates sit-out selection: 10 players, 3 courts', () => {
   const history: MatchHistory = {
     partnerCounts: new Map(),

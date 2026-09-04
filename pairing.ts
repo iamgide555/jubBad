@@ -52,6 +52,7 @@ export interface CourtAssignment {
 
 const PARTNER_WEIGHT = 10;
 const OPPONENT_WEIGHT = 1;
+const AVOID_SPLIT_PENALTY = 1000;
 
 export function scoreArrangement(
   courts: { teamA: [PlayerId, PlayerId]; teamB: [PlayerId, PlayerId] }[],
@@ -118,7 +119,8 @@ export function generateRound(
   roster: PlayerId[],
   courtCount: number,
   history: MatchHistory,
-  random: () => number = Math.random
+  random: () => number = Math.random,
+  avoidSplit?: { teamA: [PlayerId, PlayerId]; teamB: [PlayerId, PlayerId] }
 ): RoundResult {
   const { playing, sittingOut } = selectSittingOut(
     roster,
@@ -133,12 +135,33 @@ export function generateRound(
     return { courts: [], sittingOut };
   }
 
+  const avoidKeys =
+    avoidSplit && usableCourts === 1
+      ? new Set([
+          pairKey(avoidSplit.teamA[0], avoidSplit.teamA[1]),
+          pairKey(avoidSplit.teamB[0], avoidSplit.teamB[1]),
+        ])
+      : null;
+
   let best: CourtAssignment[] | null = null;
   let bestScore = Infinity;
 
   for (let trial = 0; trial < SEARCH_TRIALS; trial++) {
     const candidate = buildRandomArrangement(playing, usableCourts, random);
-    const score = scoreArrangement(candidate, history.partnerCounts, history.opponentCounts);
+    let score = scoreArrangement(candidate, history.partnerCounts, history.opponentCounts);
+
+    if (avoidKeys) {
+      const [c] = candidate;
+      const candidateKeys = new Set([
+        pairKey(c.teamA[0], c.teamA[1]),
+        pairKey(c.teamB[0], c.teamB[1]),
+      ]);
+      const isSameSplit =
+        candidateKeys.size === avoidKeys.size &&
+        [...candidateKeys].every((k) => avoidKeys.has(k));
+      if (isSameSplit) score += AVOID_SPLIT_PENALTY;
+    }
+
     if (score < bestScore) {
       bestScore = score;
       best = candidate;

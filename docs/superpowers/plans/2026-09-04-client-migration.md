@@ -14,7 +14,13 @@
 
 - Run Angular commands with `PATH="$HOME/.nvm/versions/node/v22.22.3/bin:$PATH"` prefixed, from `web/`. Run server commands the same way from `server/`.
 - **`resource.value()` throws if the resource is in an error state** — confirmed by direct testing (a 404 response makes `.value()` throw `Resource is currently in an error state`, even from a template binding, not return `undefined`). Every computed/template that reads a resource's `.value()` must check `.error()` (or `.status() === 'error'`) first and use a fallback. Never write `resource.value()?.foo` unguarded.
-- **The verified `httpResource()` test pattern**: `fixture.detectChanges()` (kicks off the request) → `httpMock.expectOne(url).flush(data)` → `await fixture.whenStable()` → now safe to read `.value()`/`.error()`. Calling `await fixture.whenStable()` *before* the mock request is flushed hangs indefinitely (confirmed by direct testing) — never await stability before flushing a pending resource's request. **Not independently verified**: whether `.reload()` (called imperatively from `proposeMatch`/`confirmMatch`/`finishMatch`, outside a component fixture's own change-detection cycle) needs an extra `TestBed.tick()` before its follow-up request can be `expectOne`'d, the way the *initial* resource construction did. Task 3's own test run is where this gets settled — if `httpMock.expectOne()` for a reload request comes back empty, add `TestBed.tick()` right before it and note the finding in this file once confirmed.
+- **The verified `httpResource()` test pattern**: `fixture.detectChanges()` (kicks off the request) → `httpMock.expectOne(url).flush(data)` → `await fixture.whenStable()` → now safe to read `.value()`/`.error()`. Calling `await fixture.whenStable()` *before* the mock request is flushed hangs indefinitely — never await stability before flushing a pending resource's request.
+- **Confirmed via execution: `.reload()` (called from `proposeMatch`/`confirmMatch`/`finishMatch`/`refresh`, outside a component's own change-detection cycle) needs its own `await new Promise((r) => setTimeout(r, 0)); TestBed.tick();` before its follow-up request is registered with the mock backend** — without it, `httpMock.expectOne()` for the reload finds nothing. This applies every time this plan's own code calls `.reload()`, in both `LiveSessionService`'s own spec (raw `TestBed.inject`) and every component spec that clicks a button triggering an action.
+- **`fixture.whenStable()` deadlocks on *dependent/chained* resources** — `SessionDashboard`/`SessionDisplay` each have a `playersResource` (and `SessionDisplay` a `groupResource`) whose URL is computed from `session()?.groupCode`. The instant the session resource settles, Angular's reactivity fires the now-defined dependent request *as part of that same settling pass* — `whenStable()` won't return until that new request is also handled, but the test hasn't gotten control back yet to flush it. Fixed the same way as the `.reload()` case: replace the `await fixture.whenStable()` that immediately follows flushing the *parent* resource with the explicit `setTimeout(0)` + `TestBed.tick()` pair, then `expectOne` the dependent resource's request. `whenStable()` stays safe for the *last* resource in a chain (nothing fires after it settles).
+- **`GroupEntry.parse()` awaits two sequential HTTP calls** (`parseRoster`, then `getPlayers`) — the second request isn't issued until the first `firstValueFrom` promise's continuation runs, which needs a microtask tick. Insert `await new Promise((r) => setTimeout(r, 0));` between flushing the parse response and expecting the players request in every test that exercises a successful `parse()`.
+- **`CourtPanel`'s template reads `court().status` unconditionally** (`@switch (c.status)`), which crashes (`Cannot read properties of undefined`) during the real async window where `courts()` is still `[]` (before the session resource resolves) — impossible under the old synchronous `localStorage` code, but real once loading is async. `court` must fall back to `{status: 'idle'}` when `courts()[courtNumber() - 1]` is `undefined`, even though `SessionDashboard`'s own `courtNumbers()` normally prevents a `CourtPanel` from existing before data loads — a standalone-tested (or otherwise independently rendered) `CourtPanel` needs to survive that window on its own.
+- `confirmRoster()`'s `router.navigateByUrl` is async — after `await`ing its own `firstValueFrom`-based promise, a test asserting `router.url` still needs one more `await fixture.whenStable()` for the navigation itself to land (the same class of bug already fixed once earlier this session for the pre-migration synchronous `GroupEntry`, resurfacing here for the same underlying reason).
+- **`nest start` assumes the default `dist/main` entry point** and fails (`MODULE_NOT_FOUND`) on this project's widened `rootDir` (from the scaffold plan), whose real entry is `dist/server/src/main.js`. For manual runs, `nest build` then run `node dist/server/src/main.js` directly. Also: the compiled runtime does not load `.env` on its own (only the Prisma CLI and Vitest do) — export `DATABASE_URL` in the shell, or the app throws `TypeError: Cannot read properties of undefined (reading 'replace')` trying to open the (undefined) database URL. Both are pre-existing gaps from earlier plans, not something this plan's scope covers fixing — noted here because Task 7's manual CORS check is what surfaces them.
 - **This migration's tasks intentionally leave the full app red between Task 2 and Task 7.** Changing `RosterService`'s public API (Task 2) breaks every consumer's compilation until each is migrated in turn. Each task's own spec file(s) must pass at that task's own verification step — but do **not** run the whole-app `ng build`/`ng test` until Task 7 completes; a partial build failure between tasks is expected, not a regression to chase.
 - `import type` for `Player`/`NameMatch`/`RosterNameMatch` from the root-level `fuzzy-match.ts` stays fine to use for typing (fully erased at compile time) — but no file in `web/` may import `matchName`/`matchRoster`/`confirmExistingPlayerAlias`/`createNewPlayer`/`parseLineRosterMessage`/`generateRound` as *runtime* values after this plan completes. If any task still needs one of those imported as a value, something in this plan's design is wrong — stop and reconsider rather than pushing through.
 - `environment.apiBaseUrl` is `http://localhost:3000` for local dev — this plan does not add a production environment file or build configuration; that's out of scope (see spec's Non-goals).
@@ -429,7 +435,6 @@ function baseSession(overrides: Partial<Session> = {}): Session {
 describe('LiveSessionService', () => {
   let service: LiveSessionService;
   let httpMock: HttpTestingController;
-  let fixtureLoaded: () => Promise<void>;
 
   function setUp() {
     TestBed.configureTestingModule({
@@ -474,6 +479,8 @@ describe('LiveSessionService', () => {
       ok: true,
       pairing: { id: 'pair1', courtNumber: 1, matchNumber: 1, teamA: ['p1', 'p2'], teamB: ['p3', 'p4'] },
     });
+    await new Promise((r) => setTimeout(r, 0));
+    TestBed.tick();
 
     const reloadReq = httpMock.expectOne(`${environment.apiBaseUrl}/sessions/sess1`);
     reloadReq.flush(
@@ -496,6 +503,8 @@ describe('LiveSessionService', () => {
     httpMock
       .expectOne(`${environment.apiBaseUrl}/sessions/sess1/courts/1/propose`)
       .flush({ ok: false, reason: 'not-enough-players' });
+    await new Promise((r) => setTimeout(r, 0));
+    TestBed.tick();
     httpMock.expectOne(`${environment.apiBaseUrl}/sessions/sess1`).flush(baseSession());
 
     expect(await promise).toBe(false);
@@ -510,6 +519,8 @@ describe('LiveSessionService', () => {
     );
     expect(confirmReq.request.method).toBe('POST');
     confirmReq.flush({});
+    await new Promise((r) => setTimeout(r, 0));
+    TestBed.tick();
     httpMock.expectOne(`${environment.apiBaseUrl}/sessions/sess1`).flush(baseSession());
 
     await promise;
@@ -525,6 +536,8 @@ describe('LiveSessionService', () => {
     expect(finishReq.request.method).toBe('POST');
     expect(finishReq.request.body).toEqual({ scoreA: 21, scoreB: 15 });
     finishReq.flush({});
+    await new Promise((r) => setTimeout(r, 0));
+    TestBed.tick();
     httpMock.expectOne(`${environment.apiBaseUrl}/sessions/sess1`).flush(baseSession());
 
     await promise;
@@ -543,6 +556,8 @@ describe('LiveSessionService', () => {
   it('refresh triggers a reload', async () => {
     await flushSession(baseSession());
     service.refresh();
+    await new Promise((r) => setTimeout(r, 0));
+    TestBed.tick();
     httpMock.expectOne(`${environment.apiBaseUrl}/sessions/sess1`).flush(baseSession());
   });
 });
@@ -852,6 +867,7 @@ describe('GroupEntry', () => {
       warnings: [],
       unrecognizedLines: [],
     });
+    await new Promise((r) => setTimeout(r, 0));
     httpMock.expectOne(`${B}/groups/group1/players`).flush([{ id: 'p1', name: 'ตั้ม', aliases: [] }]);
     await parsePromise;
 
@@ -877,6 +893,7 @@ describe('GroupEntry', () => {
       warnings: [],
       unrecognizedLines: [],
     });
+    await new Promise((r) => setTimeout(r, 0));
     httpMock.expectOne(`${B}/groups/group1/players`).flush([{ id: 'p1', name: 'ตั้ม', aliases: [] }]);
     await parsePromise;
 
@@ -895,6 +912,7 @@ describe('GroupEntry', () => {
       warnings: [],
       unrecognizedLines: [],
     });
+    await new Promise((r) => setTimeout(r, 0));
     httpMock.expectOne(`${B}/groups/group1/players`).flush([]);
     await parsePromise;
 
@@ -915,6 +933,7 @@ describe('GroupEntry', () => {
       warnings: [],
       unrecognizedLines: [],
     });
+    await new Promise((r) => setTimeout(r, 0));
     httpMock.expectOne(`${B}/groups/group1/players`).flush([]);
     await parsePromise;
 
@@ -936,6 +955,7 @@ describe('GroupEntry', () => {
       warnings: [],
       unrecognizedLines: [],
     });
+    await new Promise((r) => setTimeout(r, 0));
     httpMock.expectOne(`${B}/groups/group1/players`).flush([]);
     await parsePromise;
 
@@ -953,6 +973,7 @@ describe('GroupEntry', () => {
     });
     req.flush({ code: 'sess1' });
     await confirmPromise;
+    await fixture.whenStable();
 
     expect(router.url).toBe('/s/sess1');
   });
@@ -968,6 +989,7 @@ describe('GroupEntry', () => {
       warnings: [],
       unrecognizedLines: [],
     });
+    await new Promise((r) => setTimeout(r, 0));
     httpMock.expectOne(`${B}/groups/group1/players`).flush([]);
     await parsePromise;
 
@@ -1266,7 +1288,8 @@ describe('SessionDashboard', () => {
     httpMock
       .expectOne(`${B}/sessions/sess1`)
       .flush(baseSession({ rosterPlayerIds: ['p1', 'p2'] }));
-    await fixture.whenStable();
+    await new Promise((r) => setTimeout(r, 0));
+    TestBed.tick();
     httpMock
       .expectOne(`${B}/groups/group1/players`)
       .flush([
@@ -1294,7 +1317,8 @@ describe('SessionDashboard', () => {
           courts: [{ status: 'idle' }, { status: 'idle' }],
         })
       );
-    await fixture.whenStable();
+    await new Promise((r) => setTimeout(r, 0));
+    TestBed.tick();
     httpMock.expectOne(`${B}/groups/group1/players`).flush([]);
     await fixture.whenStable();
 
@@ -1310,7 +1334,8 @@ describe('SessionDashboard', () => {
     httpMock
       .expectOne(`${B}/sessions/sess1`)
       .flush(baseSession({ rosterPlayerIds: ['p1', 'p2', 'p3', 'p4'] }));
-    await fixture.whenStable();
+    await new Promise((r) => setTimeout(r, 0));
+    TestBed.tick();
     httpMock
       .expectOne(`${B}/groups/group1/players`)
       .flush([{ id: 'p1', name: 'ตั้ม', aliases: [] }]);
@@ -1328,7 +1353,8 @@ describe('SessionDashboard', () => {
     httpMock
       .expectOne(`${B}/sessions/sess1`)
       .flush(baseSession({ rosterPlayerIds: ['p1'], waitlistPlayerIds: ['p2'] }));
-    await fixture.whenStable();
+    await new Promise((r) => setTimeout(r, 0));
+    TestBed.tick();
     httpMock
       .expectOne(`${B}/groups/group1/players`)
       .flush([
@@ -1492,23 +1518,10 @@ const players = [
   { id: 'p4', name: 'ไม้', aliases: [] },
 ];
 
-async function setUp(session = baseSession()): Promise<{
+async function createPanel(session = baseSession()): Promise<{
   fixture: ComponentFixture<CourtPanel>;
   httpMock: HttpTestingController;
 }> {
-  await TestBed.configureTestingModule({
-    imports: [CourtPanel],
-    providers: [
-      provideHttpClient(),
-      provideHttpClientTesting(),
-      LiveSessionService,
-      {
-        provide: ActivatedRoute,
-        useValue: { snapshot: { paramMap: convertToParamMap({ sessionCode: 'sess1' }) } },
-      },
-    ],
-  }).compileComponents();
-
   const httpMock = TestBed.inject(HttpTestingController);
   const fixture = TestBed.createComponent(CourtPanel);
   fixture.componentRef.setInput('courtNumber', 1);
@@ -1522,18 +1535,33 @@ async function setUp(session = baseSession()): Promise<{
 }
 
 describe('CourtPanel', () => {
+  beforeEach(async () => {
+    await TestBed.configureTestingModule({
+      imports: [CourtPanel],
+      providers: [
+        provideHttpClient(),
+        provideHttpClientTesting(),
+        LiveSessionService,
+        {
+          provide: ActivatedRoute,
+          useValue: { snapshot: { paramMap: convertToParamMap({ sessionCode: 'sess1' }) } },
+        },
+      ],
+    }).compileComponents();
+  });
+
   afterEach(() => {
     TestBed.inject(HttpTestingController).verify();
   });
 
   it('shows a "Start next match" button when idle', async () => {
-    const { fixture } = await setUp();
+    const { fixture } = await createPanel();
     fixture.detectChanges();
     expect((fixture.nativeElement as HTMLElement).textContent).toContain('Start next match');
   });
 
   it('shows reshuffle and confirm controls, and player names not ids, once pending', async () => {
-    const { fixture } = await setUp(
+    const { fixture } = await createPanel(
       baseSession({
         courts: [{ status: 'pending', pairingId: 'pair1', teamA: ['p1', 'p2'], teamB: ['p3', 'p4'] }],
       })
@@ -1547,7 +1575,7 @@ describe('CourtPanel', () => {
   });
 
   it('shows a "Finish match" control once active', async () => {
-    const { fixture } = await setUp(
+    const { fixture } = await createPanel(
       baseSession({
         courts: [{ status: 'active', pairingId: 'pair1', teamA: ['p1', 'p2'], teamB: ['p3', 'p4'] }],
       })
@@ -1557,7 +1585,7 @@ describe('CourtPanel', () => {
   });
 
   it('clicking "Start next match" calls proposeMatch and reflects the pending court', async () => {
-    const { fixture, httpMock } = await setUp();
+    const { fixture, httpMock } = await createPanel();
     fixture.detectChanges();
 
     const button = (fixture.nativeElement as HTMLElement).querySelector('button') as HTMLButtonElement;
@@ -1569,6 +1597,8 @@ describe('CourtPanel', () => {
         ok: true,
         pairing: { id: 'pair1', courtNumber: 1, matchNumber: 1, teamA: ['p1', 'p2'], teamB: ['p3', 'p4'] },
       });
+    await new Promise((r) => setTimeout(r, 0));
+    TestBed.tick();
     httpMock
       .expectOne(`${B}/sessions/sess1`)
       .flush(
@@ -1583,7 +1613,7 @@ describe('CourtPanel', () => {
   });
 
   it('clicking "confirm" posts to confirm with the court\'s pairingId', async () => {
-    const { fixture, httpMock } = await setUp(
+    const { fixture, httpMock } = await createPanel(
       baseSession({
         courts: [{ status: 'pending', pairingId: 'pair1', teamA: ['p1', 'p2'], teamB: ['p3', 'p4'] }],
       })
@@ -1597,6 +1627,8 @@ describe('CourtPanel', () => {
     const req = httpMock.expectOne(`${B}/sessions/sess1/pairings/pair1/confirm`);
     expect(req.request.method).toBe('POST');
     req.flush({});
+    await new Promise((r) => setTimeout(r, 0));
+    TestBed.tick();
     httpMock.expectOne(`${B}/sessions/sess1`).flush(
       baseSession({
         courts: [{ status: 'active', pairingId: 'pair1', teamA: ['p1', 'p2'], teamB: ['p3', 'p4'] }],
@@ -1607,12 +1639,27 @@ describe('CourtPanel', () => {
 });
 
 describe('CourtPanel with too few players', () => {
+  beforeEach(async () => {
+    await TestBed.configureTestingModule({
+      imports: [CourtPanel],
+      providers: [
+        provideHttpClient(),
+        provideHttpClientTesting(),
+        LiveSessionService,
+        {
+          provide: ActivatedRoute,
+          useValue: { snapshot: { paramMap: convertToParamMap({ sessionCode: 'sess1' }) } },
+        },
+      ],
+    }).compileComponents();
+  });
+
   afterEach(() => {
     TestBed.inject(HttpTestingController).verify();
   });
 
   it('shows a message when there are not enough players to start a match', async () => {
-    const { fixture, httpMock } = await setUp(baseSession({ rosterPlayerIds: ['p1', 'p2'] }));
+    const { fixture, httpMock } = await createPanel(baseSession({ rosterPlayerIds: ['p1', 'p2'] }));
     fixture.detectChanges();
 
     const button = (fixture.nativeElement as HTMLElement).querySelector('button') as HTMLButtonElement;
@@ -1621,6 +1668,8 @@ describe('CourtPanel with too few players', () => {
     httpMock
       .expectOne(`${B}/sessions/sess1/courts/1/propose`)
       .flush({ ok: false, reason: 'not-enough-players' });
+    await new Promise((r) => setTimeout(r, 0));
+    TestBed.tick();
     httpMock.expectOne(`${B}/sessions/sess1`).flush(baseSession({ rosterPlayerIds: ['p1', 'p2'] }));
     await fixture.whenStable();
     fixture.detectChanges();
@@ -1647,6 +1696,7 @@ import { Component, computed, input, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { LiveSessionService } from '../../../core/live-session.service';
 import { resolvePlayerNames } from '../../../core/player-names';
+import type { CourtState } from '../../../core/live-session.model';
 import type { Player } from '../../../../../../fuzzy-match.ts';
 
 @Component({
@@ -1665,8 +1715,8 @@ export class CourtPanel {
 
   constructor(protected liveSession: LiveSessionService) {}
 
-  protected readonly court = computed(
-    () => this.liveSession.courts()[this.courtNumber() - 1]
+  protected readonly court = computed<CourtState>(
+    () => this.liveSession.courts()[this.courtNumber() - 1] ?? { status: 'idle' }
   );
 
   protected teamNames(ids: [string, string]): string[] {
@@ -1758,79 +1808,86 @@ const players = [
   { id: 'p4', name: 'ไม้', aliases: [] },
 ];
 
-async function setUp(session = baseSession()): Promise<{
+async function createDisplay(session = baseSession()): Promise<{
   fixture: ComponentFixture<SessionDisplay>;
   httpMock: HttpTestingController;
 }> {
-  await TestBed.configureTestingModule({
-    imports: [SessionDisplay],
-    providers: [
-      provideHttpClient(),
-      provideHttpClientTesting(),
-      {
-        provide: ActivatedRoute,
-        useValue: { snapshot: { paramMap: convertToParamMap({ sessionCode: 'sess1' }) } },
-      },
-    ],
-  }).compileComponents();
-
   const httpMock = TestBed.inject(HttpTestingController);
   const fixture = TestBed.createComponent(SessionDisplay);
   fixture.detectChanges();
 
   httpMock.expectOne(`${B}/sessions/sess1`).flush(session);
-  await fixture.whenStable();
+  await new Promise((r) => setTimeout(r, 0));
+  TestBed.tick();
 
   return { fixture, httpMock };
 }
 
 describe('SessionDisplay', () => {
+  beforeEach(async () => {
+    await TestBed.configureTestingModule({
+      imports: [SessionDisplay],
+      providers: [
+        provideHttpClient(),
+        provideHttpClientTesting(),
+        {
+          provide: ActivatedRoute,
+          useValue: { snapshot: { paramMap: convertToParamMap({ sessionCode: 'sess1' }) } },
+        },
+      ],
+    }).compileComponents();
+  });
+
   afterEach(() => {
     TestBed.inject(HttpTestingController).verify();
   });
 
   it('shows the Group name as the header when one is set', async () => {
-    const { fixture, httpMock } = await setUp();
+    const { fixture, httpMock } = await createDisplay();
     httpMock
       .expectOne(`${B}/groups/group1`)
       .flush({ code: 'group1', name: 'Group A', lastSessionCode: null });
     httpMock.expectOne(`${B}/groups/group1/players`).flush(players);
-    await fixture.whenStable();
+    await new Promise((r) => setTimeout(r, 0));
+    TestBed.tick();
 
     expect(fixture.componentInstance.header()).toBe('Group A');
   });
 
   it('falls back to date + venue when no Group name is set', async () => {
-    const { fixture, httpMock } = await setUp();
+    const { fixture, httpMock } = await createDisplay();
     httpMock.expectOne(`${B}/groups/group1`).flush({ code: 'group1', name: null, lastSessionCode: null });
     httpMock.expectOne(`${B}/groups/group1/players`).flush(players);
-    await fixture.whenStable();
+    await new Promise((r) => setTimeout(r, 0));
+    TestBed.tick();
 
     expect(fixture.componentInstance.header()).toBe('2026-09-08 · KIP');
   });
 
   it('shows "waiting" for an idle or pending court, never a proposed pairing', async () => {
-    const { fixture, httpMock } = await setUp(
+    const { fixture, httpMock } = await createDisplay(
       baseSession({
         courts: [{ status: 'pending', pairingId: 'pair1', teamA: ['p1', 'p2'], teamB: ['p3', 'p4'] }],
       })
     );
     httpMock.expectOne(`${B}/groups/group1`).flush({ code: 'group1', name: null, lastSessionCode: null });
     httpMock.expectOne(`${B}/groups/group1/players`).flush(players);
-    await fixture.whenStable();
+    await new Promise((r) => setTimeout(r, 0));
+    TestBed.tick();
 
     expect(fixture.componentInstance.courtLines()[0].text).toBe('waiting');
   });
 
   it('shows the pairing for an active court', async () => {
-    const { fixture, httpMock } = await setUp(
+    const { fixture, httpMock } = await createDisplay(
       baseSession({
         courts: [{ status: 'active', pairingId: 'pair1', teamA: ['p1', 'p2'], teamB: ['p3', 'p4'] }],
       })
     );
     httpMock.expectOne(`${B}/groups/group1`).flush({ code: 'group1', name: null, lastSessionCode: null });
     httpMock.expectOne(`${B}/groups/group1/players`).flush(players);
-    await fixture.whenStable();
+    await new Promise((r) => setTimeout(r, 0));
+    TestBed.tick();
 
     const line = fixture.componentInstance.courtLines()[0];
     expect(line.text).toContain('vs');
@@ -1838,23 +1895,27 @@ describe('SessionDisplay', () => {
   });
 
   it('clicking refresh calls liveSession.refresh', async () => {
-    const { fixture, httpMock } = await setUp();
+    const { fixture, httpMock } = await createDisplay();
     httpMock.expectOne(`${B}/groups/group1`).flush({ code: 'group1', name: null, lastSessionCode: null });
     httpMock.expectOne(`${B}/groups/group1/players`).flush(players);
-    await fixture.whenStable();
+    await new Promise((r) => setTimeout(r, 0));
+    TestBed.tick();
     fixture.detectChanges();
 
     const button = (fixture.nativeElement as HTMLElement).querySelector('button') as HTMLButtonElement;
     button.click();
 
+    await new Promise((r) => setTimeout(r, 0));
+    TestBed.tick();
     httpMock.expectOne(`${B}/sessions/sess1`).flush(baseSession());
   });
 
   it('lists waiting players by name', async () => {
-    const { fixture, httpMock } = await setUp();
+    const { fixture, httpMock } = await createDisplay();
     httpMock.expectOne(`${B}/groups/group1`).flush({ code: 'group1', name: null, lastSessionCode: null });
     httpMock.expectOne(`${B}/groups/group1/players`).flush(players);
-    await fixture.whenStable();
+    await new Promise((r) => setTimeout(r, 0));
+    TestBed.tick();
 
     expect(fixture.componentInstance.waitingNames().sort()).toEqual(
       ['ตั้ม', 'ปอม', 'เบส', 'ไม้'].sort()
@@ -1863,7 +1924,7 @@ describe('SessionDisplay', () => {
 });
 
 describe('SessionDisplay with an unknown sessionCode', () => {
-  it('shows a "session not found" message', async () => {
+  beforeEach(async () => {
     await TestBed.configureTestingModule({
       imports: [SessionDisplay],
       providers: [
@@ -1875,7 +1936,13 @@ describe('SessionDisplay with an unknown sessionCode', () => {
         },
       ],
     }).compileComponents();
+  });
 
+  afterEach(() => {
+    TestBed.inject(HttpTestingController).verify();
+  });
+
+  it('shows a "session not found" message', async () => {
     const httpMock = TestBed.inject(HttpTestingController);
     const fixture = TestBed.createComponent(SessionDisplay);
     fixture.detectChanges();
@@ -1889,7 +1956,6 @@ describe('SessionDisplay with an unknown sessionCode', () => {
     fixture.detectChanges();
     const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
     expect(text).toContain('Session not found');
-    httpMock.verify();
   });
 });
 ```
@@ -1996,7 +2062,22 @@ Expected: every spec across `web/` passes, and the production build succeeds. If
 
 - [ ] **Step 6: Manual cross-origin smoke check**
 
-With the NestJS server running (`server/`: `PATH="$HOME/.nvm/versions/node/v22.22.3/bin:$PATH" npx nest start`) and the Angular dev server running (`web/`: `PATH="$HOME/.nvm/versions/node/v22.22.3/bin:$PATH" npx ng serve`), open the app in a browser, create a group, paste a roster, confirm, and propose/confirm/finish a match on the dashboard. This is the first real end-to-end exercise of Task 1's `app.enableCors()` — confirm no CORS error appears in the browser console. Report back before considering this plan complete; this step can't be verified by an automated test in either app on its own.
+`nest start` fails on this project (`MODULE_NOT_FOUND`) — it assumes the default `dist/main` entry, but the widened `rootDir` (scaffold plan) puts the real entry at `dist/server/src/main.js`. Start the server with:
+
+```bash
+cd server
+PATH="$HOME/.nvm/versions/node/v22.22.3/bin:$PATH" npx nest build
+DATABASE_URL="file:./prisma/dev.db" PATH="$HOME/.nvm/versions/node/v22.22.3/bin:$PATH" node dist/server/src/main.js
+```
+
+(the compiled runtime doesn't load `.env` on its own — `DATABASE_URL` must be exported directly, or `$connect()` throws trying to open an undefined database URL). Confirmed once with a direct cross-origin `curl` request during this plan's own execution:
+
+```bash
+curl -s -i -X OPTIONS http://localhost:3000/groups/test-cors \
+  -H "Origin: http://localhost:4200" -H "Access-Control-Request-Method: GET"
+```
+
+Expected: `Access-Control-Allow-Origin: *` in the response headers. With the Angular dev server also running (`web/`: `PATH="$HOME/.nvm/versions/node/v22.22.3/bin:$PATH" npx ng serve`), open the app in a browser, create a group, paste a roster, confirm, and propose/confirm/finish a match on the dashboard — the fuller, real end-to-end exercise of Task 1's `app.enableCors()` the `curl` check only partially covers. Confirm no CORS error appears in the browser console.
 
 - [ ] **Step 7: Commit**
 

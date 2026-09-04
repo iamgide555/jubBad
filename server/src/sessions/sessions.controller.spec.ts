@@ -132,6 +132,7 @@ describe('SessionsController', () => {
         {
           courtNumber: 1,
           status: 'active',
+          pairingId: expect.any(String),
           teamA: [players[0].id, players[1].id],
           teamB: [players[2].id, players[3].id],
         },

@@ -1,34 +1,56 @@
-import { Injectable } from '@angular/core';
-import type { Player } from '../../../../fuzzy-match.ts';
-import type { Session } from './session.model';
+import { HttpClient } from '@angular/common/http';
+import { Injectable, inject } from '@angular/core';
+import { environment } from '../../environments/environment';
+import type { Player, RosterNameMatch } from '../../../../fuzzy-match.ts';
 import type { Group } from './group.model';
+import type { NameReview } from './roster-review';
+
+export interface CreateSessionRequest {
+  groupCode: string;
+  date: string | null;
+  venue: string | null;
+  courtCount: number | null;
+  rawImportText: string;
+  rosterReviews: NameReview[];
+  waitlistReviews: NameReview[];
+}
+
+export interface ParseRosterResponse {
+  header: { isoDate: string | null; venue: string | null; courtCount: number | null };
+  rosterReviews: RosterNameMatch[];
+  waitlistReviews: RosterNameMatch[];
+  warnings: string[];
+  unrecognizedLines: string[];
+}
 
 @Injectable({ providedIn: 'root' })
 export class RosterService {
-  getPlayers(groupCode: string): Player[] {
-    const raw = localStorage.getItem(`players:${groupCode}`);
-    return raw ? JSON.parse(raw) : [];
+  private readonly http = inject(HttpClient);
+  private readonly base = environment.apiBaseUrl;
+
+  getGroup(code: string) {
+    return this.http.get<Group>(`${this.base}/groups/${code}`);
   }
 
-  savePlayers(groupCode: string, players: Player[]): void {
-    localStorage.setItem(`players:${groupCode}`, JSON.stringify(players));
+  renameGroup(code: string, name: string) {
+    return this.http.put<{ code: string; name: string | null }>(
+      `${this.base}/groups/${code}`,
+      { name }
+    );
   }
 
-  createSession(session: Session): void {
-    localStorage.setItem(`session:${session.code}`, JSON.stringify(session));
+  getPlayers(groupCode: string) {
+    return this.http.get<Player[]>(`${this.base}/groups/${groupCode}/players`);
   }
 
-  getSession(sessionCode: string): Session | null {
-    const raw = localStorage.getItem(`session:${sessionCode}`);
-    return raw ? JSON.parse(raw) : null;
+  createSession(dto: CreateSessionRequest) {
+    return this.http.post<{ code: string }>(`${this.base}/sessions`, dto);
   }
 
-  getGroup(groupCode: string): Group | null {
-    const raw = localStorage.getItem(`group:${groupCode}`);
-    return raw ? JSON.parse(raw) : null;
-  }
-
-  saveGroup(group: Group): void {
-    localStorage.setItem(`group:${group.code}`, JSON.stringify(group));
+  parseRoster(code: string, groupName: string, rawText: string) {
+    return this.http.post<ParseRosterResponse>(`${this.base}/groups/${code}/parse`, {
+      groupName,
+      rawText,
+    });
   }
 }

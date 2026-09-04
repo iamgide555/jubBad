@@ -93,8 +93,8 @@ export class SessionsService {
       const teamA = JSON.parse(current.teamA) as [string, string];
       const teamB = JSON.parse(current.teamB) as [string, string];
       return current.confirmedAt
-        ? { courtNumber, status: 'active' as const, teamA, teamB }
-        : { courtNumber, status: 'pending' as const, teamA, teamB };
+        ? { courtNumber, status: 'active' as const, pairingId: current.id, teamA, teamB }
+        : { courtNumber, status: 'pending' as const, pairingId: current.id, teamA, teamB };
     });
 
     return {

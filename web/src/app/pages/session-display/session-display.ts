@@ -1,8 +1,10 @@
 import { Component, computed } from '@angular/core';
-import { ActivatedRoute } from '@angular/router';
-import { RosterService } from '../../core/roster.service';
+import { httpResource } from '@angular/common/http';
+import { environment } from '../../../environments/environment';
 import { LiveSessionService } from '../../core/live-session.service';
 import { resolvePlayerNames } from '../../core/player-names';
+import type { Group } from '../../core/group.model';
+import type { Player } from '../../../../../fuzzy-match.ts';
 
 @Component({
   selector: 'app-session-display',
@@ -12,23 +14,38 @@ import { resolvePlayerNames } from '../../core/player-names';
   styleUrl: './session-display.css',
 })
 export class SessionDisplay {
-  private readonly sessionCode: string;
+  protected readonly session = computed(() => {
+    if (this.liveSession.sessionResource.error()) return undefined;
+    return this.liveSession.sessionResource.value();
+  });
 
-  readonly sessionExists = computed(
-    () => this.rosterService.getSession(this.sessionCode) !== null
-  );
+  readonly sessionExists = computed(() => this.session() !== undefined);
+
+  private readonly groupResource = httpResource<Group>(() => {
+    const groupCode = this.session()?.groupCode;
+    return groupCode ? `${environment.apiBaseUrl}/groups/${groupCode}` : undefined;
+  });
+
+  private readonly playersResource = httpResource<Player[]>(() => {
+    const groupCode = this.session()?.groupCode;
+    return groupCode ? `${environment.apiBaseUrl}/groups/${groupCode}/players` : undefined;
+  });
+
+  private readonly players = computed<Player[]>(() => {
+    if (this.playersResource.error()) return [];
+    return this.playersResource.value() ?? [];
+  });
 
   readonly header = computed(() => {
-    const session = this.rosterService.getSession(this.sessionCode);
+    const session = this.session();
     if (!session) return '';
-    const group = this.rosterService.getGroup(session.groupCode);
+    const group = this.groupResource.error() ? undefined : this.groupResource.value();
     if (group?.name) return group.name;
     return session.venue ? `${session.date} · ${session.venue}` : (session.date ?? '');
   });
 
   readonly courtLines = computed(() => {
-    const session = this.rosterService.getSession(this.sessionCode);
-    const players = session ? this.rosterService.getPlayers(session.groupCode) : [];
+    const players = this.players();
     return this.liveSession.courts().map((court, i) => {
       if (court.status !== 'active') {
         return { courtNumber: i + 1, text: 'waiting' };
@@ -39,20 +56,11 @@ export class SessionDisplay {
     });
   });
 
-  readonly waitingNames = computed(() => {
-    const session = this.rosterService.getSession(this.sessionCode);
-    if (!session) return [];
-    const players = this.rosterService.getPlayers(session.groupCode);
-    return resolvePlayerNames(this.liveSession.waitingPlayerIds(), players);
-  });
+  readonly waitingNames = computed(() =>
+    resolvePlayerNames(this.liveSession.waitingPlayerIds(), this.players())
+  );
 
-  constructor(
-    route: ActivatedRoute,
-    private rosterService: RosterService,
-    protected liveSession: LiveSessionService
-  ) {
-    this.sessionCode = route.snapshot.paramMap.get('sessionCode')!;
-  }
+  constructor(protected liveSession: LiveSessionService) {}
 
   refresh(): void {
     this.liveSession.refresh();

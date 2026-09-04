@@ -1,127 +1,181 @@
+import { provideHttpClient } from '@angular/common/http';
+import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { ActivatedRoute, convertToParamMap } from '@angular/router';
 import { SessionDisplay } from './session-display';
-import { LiveSessionService } from '../../core/live-session.service';
-import { RosterService } from '../../core/roster.service';
+import { environment } from '../../../environments/environment';
+import type { Session } from '../../core/session.model';
+
+const B = environment.apiBaseUrl;
+
+function baseSession(overrides: Partial<Session> = {}): Session {
+  return {
+    code: 'sess1',
+    groupCode: 'group1',
+    date: '2026-09-08',
+    venue: 'KIP',
+    courtCount: 1,
+    rawImportText: '',
+    rosterPlayerIds: ['p1', 'p2', 'p3', 'p4'],
+    waitlistPlayerIds: [],
+    courts: [{ status: 'idle' }],
+    ...overrides,
+  };
+}
+
+const players = [
+  { id: 'p1', name: 'ตั้ม', aliases: [] },
+  { id: 'p2', name: 'เบส', aliases: [] },
+  { id: 'p3', name: 'ปอม', aliases: [] },
+  { id: 'p4', name: 'ไม้', aliases: [] },
+];
+
+async function createDisplay(session = baseSession()): Promise<{
+  fixture: ComponentFixture<SessionDisplay>;
+  httpMock: HttpTestingController;
+}> {
+  const httpMock = TestBed.inject(HttpTestingController);
+  const fixture = TestBed.createComponent(SessionDisplay);
+  fixture.detectChanges();
+
+  httpMock.expectOne(`${B}/sessions/sess1`).flush(session);
+  await new Promise((r) => setTimeout(r, 0));
+  TestBed.tick();
+
+  return { fixture, httpMock };
+}
 
 describe('SessionDisplay', () => {
-  let fixture: ComponentFixture<SessionDisplay>;
-  let component: SessionDisplay;
-  let rosterService: RosterService;
-
   beforeEach(async () => {
-    localStorage.clear();
     await TestBed.configureTestingModule({
       imports: [SessionDisplay],
       providers: [
+        provideHttpClient(),
+        provideHttpClientTesting(),
         {
           provide: ActivatedRoute,
           useValue: { snapshot: { paramMap: convertToParamMap({ sessionCode: 'sess1' }) } },
         },
       ],
     }).compileComponents();
+  });
 
-    rosterService = TestBed.inject(RosterService);
-    rosterService.savePlayers('group1', [
-      { id: 'p1', name: 'ตั้ม', aliases: [] },
-      { id: 'p2', name: 'เบส', aliases: [] },
-      { id: 'p3', name: 'ปอม', aliases: [] },
-      { id: 'p4', name: 'ไม้', aliases: [] },
-    ]);
-    rosterService.createSession({
-      code: 'sess1',
-      groupCode: 'group1',
-      date: '2026-09-08',
-      venue: 'KIP',
-      courtCount: 1,
-      rawImportText: '',
-      rosterPlayerIds: ['p1', 'p2', 'p3', 'p4'],
-      waitlistPlayerIds: [],
-    });
+  afterEach(() => {
+    TestBed.inject(HttpTestingController).verify();
   });
 
   it('shows the Group name as the header when one is set', async () => {
-    rosterService.saveGroup({ code: 'group1', name: 'Group A', lastSessionCode: null });
-    fixture = TestBed.createComponent(SessionDisplay);
-    component = fixture.componentInstance;
-    await fixture.whenStable();
-    expect(component.header()).toBe('Group A');
+    const { fixture, httpMock } = await createDisplay();
+    httpMock
+      .expectOne(`${B}/groups/group1`)
+      .flush({ code: 'group1', name: 'Group A', lastSessionCode: null });
+    httpMock.expectOne(`${B}/groups/group1/players`).flush(players);
+    await new Promise((r) => setTimeout(r, 0));
+    TestBed.tick();
+
+    expect(fixture.componentInstance.header()).toBe('Group A');
   });
 
   it('falls back to date + venue when no Group name is set', async () => {
-    fixture = TestBed.createComponent(SessionDisplay);
-    component = fixture.componentInstance;
-    await fixture.whenStable();
-    expect(component.header()).toBe('2026-09-08 · KIP');
+    const { fixture, httpMock } = await createDisplay();
+    httpMock.expectOne(`${B}/groups/group1`).flush({ code: 'group1', name: null, lastSessionCode: null });
+    httpMock.expectOne(`${B}/groups/group1/players`).flush(players);
+    await new Promise((r) => setTimeout(r, 0));
+    TestBed.tick();
+
+    expect(fixture.componentInstance.header()).toBe('2026-09-08 · KIP');
   });
 
   it('shows "waiting" for an idle or pending court, never a proposed pairing', async () => {
-    fixture = TestBed.createComponent(SessionDisplay);
-    component = fixture.componentInstance;
-    await fixture.whenStable();
+    const { fixture, httpMock } = await createDisplay(
+      baseSession({
+        courts: [{ status: 'pending', pairingId: 'pair1', teamA: ['p1', 'p2'], teamB: ['p3', 'p4'] }],
+      })
+    );
+    httpMock.expectOne(`${B}/groups/group1`).flush({ code: 'group1', name: null, lastSessionCode: null });
+    httpMock.expectOne(`${B}/groups/group1/players`).flush(players);
+    await new Promise((r) => setTimeout(r, 0));
+    TestBed.tick();
 
-    const liveSession = fixture.debugElement.injector.get(LiveSessionService);
-    liveSession.proposeMatch(1, () => 0.5); // pending, not confirmed
-
-    expect(component.courtLines()[0].text).toBe('waiting');
+    expect(fixture.componentInstance.courtLines()[0].text).toBe('waiting');
   });
 
   it('shows the pairing for an active court', async () => {
-    fixture = TestBed.createComponent(SessionDisplay);
-    component = fixture.componentInstance;
-    await fixture.whenStable();
+    const { fixture, httpMock } = await createDisplay(
+      baseSession({
+        courts: [{ status: 'active', pairingId: 'pair1', teamA: ['p1', 'p2'], teamB: ['p3', 'p4'] }],
+      })
+    );
+    httpMock.expectOne(`${B}/groups/group1`).flush({ code: 'group1', name: null, lastSessionCode: null });
+    httpMock.expectOne(`${B}/groups/group1/players`).flush(players);
+    await new Promise((r) => setTimeout(r, 0));
+    TestBed.tick();
 
-    const liveSession = fixture.debugElement.injector.get(LiveSessionService);
-    liveSession.proposeMatch(1, () => 0.5);
-    liveSession.confirmMatch(1);
-
-    const line = component.courtLines()[0];
+    const line = fixture.componentInstance.courtLines()[0];
     expect(line.text).toContain('vs');
     expect(line.text).not.toBe('waiting');
   });
 
   it('clicking refresh calls liveSession.refresh', async () => {
-    fixture = TestBed.createComponent(SessionDisplay);
-    component = fixture.componentInstance;
-    await fixture.whenStable();
+    const { fixture, httpMock } = await createDisplay();
+    httpMock.expectOne(`${B}/groups/group1`).flush({ code: 'group1', name: null, lastSessionCode: null });
+    httpMock.expectOne(`${B}/groups/group1/players`).flush(players);
+    await new Promise((r) => setTimeout(r, 0));
+    TestBed.tick();
     fixture.detectChanges();
 
-    const liveSession = fixture.debugElement.injector.get(LiveSessionService);
-    const spy = vi.spyOn(liveSession, 'refresh');
-
-    const button = (fixture.nativeElement as HTMLElement).querySelector(
-      'button'
-    ) as HTMLButtonElement;
+    const button = (fixture.nativeElement as HTMLElement).querySelector('button') as HTMLButtonElement;
     button.click();
 
-    expect(spy).toHaveBeenCalled();
+    await new Promise((r) => setTimeout(r, 0));
+    TestBed.tick();
+    httpMock.expectOne(`${B}/sessions/sess1`).flush(baseSession());
   });
 
   it('lists waiting players by name', async () => {
-    fixture = TestBed.createComponent(SessionDisplay);
-    component = fixture.componentInstance;
-    await fixture.whenStable();
-    expect(component.waitingNames().sort()).toEqual(['ตั้ม', 'ปอม', 'เบส', 'ไม้'].sort());
+    const { fixture, httpMock } = await createDisplay();
+    httpMock.expectOne(`${B}/groups/group1`).flush({ code: 'group1', name: null, lastSessionCode: null });
+    httpMock.expectOne(`${B}/groups/group1/players`).flush(players);
+    await new Promise((r) => setTimeout(r, 0));
+    TestBed.tick();
+
+    expect(fixture.componentInstance.waitingNames().sort()).toEqual(
+      ['ตั้ม', 'ปอม', 'เบส', 'ไม้'].sort()
+    );
   });
 });
 
 describe('SessionDisplay with an unknown sessionCode', () => {
-  it('shows a "session not found" message', async () => {
-    localStorage.clear();
+  beforeEach(async () => {
     await TestBed.configureTestingModule({
       imports: [SessionDisplay],
       providers: [
+        provideHttpClient(),
+        provideHttpClientTesting(),
         {
           provide: ActivatedRoute,
           useValue: { snapshot: { paramMap: convertToParamMap({ sessionCode: 'ghost' }) } },
         },
       ],
     }).compileComponents();
+  });
 
+  afterEach(() => {
+    TestBed.inject(HttpTestingController).verify();
+  });
+
+  it('shows a "session not found" message', async () => {
+    const httpMock = TestBed.inject(HttpTestingController);
     const fixture = TestBed.createComponent(SessionDisplay);
-    await fixture.whenStable();
     fixture.detectChanges();
 
+    httpMock.expectOne(`${environment.apiBaseUrl}/sessions/ghost`).flush('Not Found', {
+      status: 404,
+      statusText: 'Not Found',
+    });
+    await fixture.whenStable();
+
+    fixture.detectChanges();
     const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
     expect(text).toContain('Session not found');
   });

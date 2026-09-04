@@ -1,3 +1,5 @@
+import type { CourtState } from './live-session.model';
+
 export interface Session {
   code: string;
   groupCode: string;
@@ -7,4 +9,5 @@ export interface Session {
   rawImportText: string;
   rosterPlayerIds: string[];
   waitlistPlayerIds: string[];
+  courts: CourtState[];
 }

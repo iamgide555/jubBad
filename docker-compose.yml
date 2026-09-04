@@ -27,6 +27,6 @@ services:
     depends_on:
       - web
     user: "${PUID}:${PGID}"
-    command: tunnel --config /etc/cloudflared/config.yml run
+    command: tunnel --config /etc/cloudflared/jubbad.yml run
     volumes:
       - ~/.cloudflared:/etc/cloudflared:ro

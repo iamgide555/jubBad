@@ -31,6 +31,17 @@
         }
       </div>
     }
+
+    @if (!ended()) {
+      <hr class="rule" />
+      <button type="button" (click)="endSession()">End session</button>
+      @if (endSessionError()) {
+        <p class="error">{{ endSessionError() }}</p>
+      }
+    } @else {
+      <hr class="rule" />
+      <p class="ended-notice">Session ended.</p>
+    }
   </div>
 } @else {
   <div class="page">

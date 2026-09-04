@@ -21,6 +21,8 @@ export class SessionDisplay {
 
   readonly sessionExists = computed(() => this.session() !== undefined);
 
+  readonly ended = computed(() => this.session()?.endedAt != null);
+
   private readonly groupResource = httpResource<Group>(() => {
     const groupCode = this.session()?.groupCode;
     return groupCode ? `${environment.apiBaseUrl}/groups/${groupCode}` : undefined;

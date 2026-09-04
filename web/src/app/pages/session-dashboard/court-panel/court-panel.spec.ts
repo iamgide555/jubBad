@@ -16,6 +16,7 @@ function baseSession(overrides: Partial<Session> = {}): Session {
     date: '2026-09-08',
     venue: null,
     courtCount: 1,
+    endedAt: null,
     rawImportText: '',
     rosterPlayerIds: ['p1', 'p2', 'p3', 'p4'],
     waitlistPlayerIds: [],
@@ -95,6 +96,14 @@ describe('CourtPanel', () => {
     );
     fixture.detectChanges();
     expect((fixture.nativeElement as HTMLElement).textContent).toContain('Finish match');
+  });
+
+  it('shows a plain ended state instead of controls once the session has ended', async () => {
+    const { fixture } = await createPanel(baseSession({ endedAt: '2026-09-08T20:00:00.000Z' }));
+    fixture.detectChanges();
+    const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
+    expect(text).toContain('Session ended');
+    expect(text).not.toContain('Start next match');
   });
 
   it('clicking "Start next match" calls proposeMatch and reflects the pending court', async () => {

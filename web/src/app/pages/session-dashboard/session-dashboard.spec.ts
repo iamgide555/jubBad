@@ -15,6 +15,7 @@ function baseSession(overrides: Partial<Session> = {}): Session {
     date: '2026-09-08',
     venue: null,
     courtCount: 1,
+    endedAt: null,
     rawImportText: '',
     rosterPlayerIds: ['p1', 'p2'],
     waitlistPlayerIds: [],
@@ -147,5 +148,33 @@ describe('SessionDashboard', () => {
     fixture.detectChanges();
     const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
     expect(text).toContain('Session not found');
+  });
+
+  it('End session button calls endSession and shows the server error on failure', async () => {
+    fixture = TestBed.createComponent(SessionDashboard);
+    fixture.detectChanges();
+
+    httpMock.expectOne(`${B}/sessions/sess1`).flush(baseSession());
+    await new Promise((r) => setTimeout(r, 0));
+    TestBed.tick();
+    httpMock.expectOne(`${B}/groups/group1/players`).flush([]);
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    const button = Array.from(
+      (fixture.nativeElement as HTMLElement).querySelectorAll('button')
+    ).find((b) => b.textContent === 'End session') as HTMLButtonElement;
+    button.click();
+
+    const req = httpMock.expectOne(`${B}/sessions/sess1/end`);
+    req.flush(
+      { message: 'Finish all active courts before ending the session.' },
+      { status: 409, statusText: 'Conflict' }
+    );
+    await new Promise((r) => setTimeout(r, 0));
+    fixture.detectChanges();
+
+    const text2 = (fixture.nativeElement as HTMLElement).textContent ?? '';
+    expect(text2).toContain('Finish all active courts before ending the session.');
   });
 });

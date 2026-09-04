@@ -2,20 +2,24 @@
   <div class="page-dark display">
     <h1>{{ header() }}</h1>
 
-    <div class="courts">
-      @for (line of courtLines(); track line.courtNumber) {
-        <div class="court-line" [class.playing]="line.text !== 'waiting'">
-          <span class="court-number">{{ line.courtNumber }}</span>
-          <p class="court-text">{{ line.text }}</p>
-        </div>
-      }
-    </div>
+    @if (ended()) {
+      <p class="ended-notice">Session ended.</p>
+    } @else {
+      <div class="courts">
+        @for (line of courtLines(); track line.courtNumber) {
+          <div class="court-line" [class.playing]="line.text !== 'waiting'">
+            <span class="court-number">{{ line.courtNumber }}</span>
+            <p class="court-text">{{ line.text }}</p>
+          </div>
+        }
+      </div>
 
-    <hr class="rule" />
+      <hr class="rule" />
 
-    <p class="waiting-line">รอคิว: {{ waitingNames().join(', ') }}</p>
+      <p class="waiting-line">รอคิว: {{ waitingNames().join(', ') }}</p>
 
-    <button type="button" class="refresh" (click)="refresh()">↻ Refresh</button>
+      <button type="button" class="refresh" (click)="refresh()">↻ Refresh</button>
+    }
   </div>
 } @else {
   <div class="page-dark">

@@ -25,6 +25,11 @@ export class CourtPanel {
     () => this.liveSession.courts()[this.courtNumber() - 1] ?? { status: 'idle' }
   );
 
+  protected readonly ended = computed(() => {
+    if (this.liveSession.sessionResource.error()) return false;
+    return this.liveSession.sessionResource.value()?.endedAt != null;
+  });
+
   protected teamNames(ids: [string, string]): string[] {
     return resolvePlayerNames(ids, this.players());
   }

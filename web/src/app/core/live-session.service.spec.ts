@@ -13,6 +13,7 @@ function baseSession(overrides: Partial<Session> = {}): Session {
     date: '2026-09-08',
     venue: null,
     courtCount: 1,
+    endedAt: null,
     rawImportText: '',
     rosterPlayerIds: ['p1', 'p2', 'p3', 'p4'],
     waitlistPlayerIds: [],
@@ -148,5 +149,36 @@ describe('LiveSessionService', () => {
     await new Promise((r) => setTimeout(r, 0));
     TestBed.tick();
     httpMock.expectOne(`${environment.apiBaseUrl}/sessions/sess1`).flush(baseSession());
+  });
+
+  it('endSession posts to the end endpoint and reloads on success', async () => {
+    await flushSession(baseSession());
+
+    const promise = service.endSession();
+    const req = httpMock.expectOne(`${environment.apiBaseUrl}/sessions/sess1/end`);
+    expect(req.request.method).toBe('POST');
+    req.flush({ code: 'sess1', endedAt: '2026-09-08T20:00:00.000Z' });
+    await new Promise((r) => setTimeout(r, 0));
+    TestBed.tick();
+    httpMock.expectOne(`${environment.apiBaseUrl}/sessions/sess1`).flush(
+      baseSession({ endedAt: '2026-09-08T20:00:00.000Z' })
+    );
+
+    expect(await promise).toEqual({ ok: true });
+  });
+
+  it('endSession surfaces the server error on failure without throwing', async () => {
+    await flushSession(baseSession());
+
+    const promise = service.endSession();
+    httpMock.expectOne(`${environment.apiBaseUrl}/sessions/sess1/end`).flush(
+      { message: 'Finish all active courts before ending the session.' },
+      { status: 409, statusText: 'Conflict' }
+    );
+
+    expect(await promise).toEqual({
+      ok: false,
+      error: 'Finish all active courts before ending the session.',
+    });
   });
 });

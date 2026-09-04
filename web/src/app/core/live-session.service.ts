@@ -1,4 +1,4 @@
-import { HttpClient, httpResource } from '@angular/common/http';
+import { HttpClient, HttpErrorResponse, httpResource } from '@angular/common/http';
 import { Injectable, computed, inject } from '@angular/core';
 import { ActivatedRoute } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
@@ -74,5 +74,24 @@ export class LiveSessionService {
       })
     );
     this.sessionResource.reload();
+  }
+
+  async endSession(): Promise<{ ok: true } | { ok: false; error: string }> {
+    try {
+      await firstValueFrom(
+        this.http.post<{ code: string; endedAt: string }>(
+          `${this.base}/sessions/${this.sessionCode}/end`,
+          {}
+        )
+      );
+      this.sessionResource.reload();
+      return { ok: true };
+    } catch (err) {
+      const message =
+        err instanceof HttpErrorResponse && typeof err.error?.message === 'string'
+          ? err.error.message
+          : 'Could not end the session.';
+      return { ok: false, error: message };
+    }
   }
 }

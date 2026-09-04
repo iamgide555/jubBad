@@ -15,6 +15,7 @@ function baseSession(overrides: Partial<Session> = {}): Session {
     date: '2026-09-08',
     venue: 'KIP',
     courtCount: 1,
+    endedAt: null,
     rawImportText: '',
     rosterPlayerIds: ['p1', 'p2', 'p3', 'p4'],
     waitlistPlayerIds: [],
@@ -114,6 +115,20 @@ describe('SessionDisplay', () => {
     const line = fixture.componentInstance.courtLines()[0];
     expect(line.text).toContain('vs');
     expect(line.text).not.toBe('waiting');
+  });
+
+  it('shows a plain ended state instead of the live court grid once the session has ended', async () => {
+    const { fixture, httpMock } = await createDisplay(
+      baseSession({ endedAt: '2026-09-08T20:00:00.000Z' })
+    );
+    httpMock.expectOne(`${B}/groups/group1`).flush({ code: 'group1', name: null, lastSessionCode: null });
+    httpMock.expectOne(`${B}/groups/group1/players`).flush(players);
+    await new Promise((r) => setTimeout(r, 0));
+    TestBed.tick();
+    fixture.detectChanges();
+
+    const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
+    expect(text).toContain('Session ended');
   });
 
   it('clicking refresh calls liveSession.refresh', async () => {

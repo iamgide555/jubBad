@@ -1,4 +1,4 @@
-import { Component, computed } from '@angular/core';
+import { Component, computed, signal } from '@angular/core';
 import { httpResource } from '@angular/common/http';
 import { environment } from '../../../environments/environment';
 import { LiveSessionService } from '../../core/live-session.service';
@@ -49,5 +49,16 @@ export class SessionDashboard {
     resolvePlayerNames(this.liveSession.waitingPlayerIds(), this.players())
   );
 
+  readonly ended = computed(() => this.session()?.endedAt != null);
+  readonly endSessionError = signal<string | null>(null);
+
   constructor(protected liveSession: LiveSessionService) {}
+
+  async endSession(): Promise<void> {
+    this.endSessionError.set(null);
+    const result = await this.liveSession.endSession();
+    if (!result.ok) {
+      this.endSessionError.set(result.error);
+    }
+  }
 }

@@ -6,6 +6,7 @@ export interface Session {
   date: string | null;
   venue: string | null;
   courtCount: number | null;
+  endedAt: string | null;
   rawImportText: string;
   rosterPlayerIds: string[];
   waitlistPlayerIds: string[];

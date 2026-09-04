@@ -1,27 +1,35 @@
+import { provideHttpClient } from '@angular/common/http';
+import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
 import { ActivatedRoute, convertToParamMap } from '@angular/router';
 import { LiveSessionService } from './live-session.service';
-import { RosterService } from './roster.service';
+import { environment } from '../../environments/environment';
+import type { Session } from './session.model';
 
-function setUpSession(sessionCode: string, courtCount: number, rosterPlayerIds: string[]) {
-  const rosterService = TestBed.inject(RosterService);
-  rosterService.createSession({
-    code: sessionCode,
+function baseSession(overrides: Partial<Session> = {}): Session {
+  return {
+    code: 'sess1',
     groupCode: 'group1',
     date: '2026-09-08',
     venue: null,
-    courtCount,
+    courtCount: 1,
     rawImportText: '',
-    rosterPlayerIds,
+    rosterPlayerIds: ['p1', 'p2', 'p3', 'p4'],
     waitlistPlayerIds: [],
-  });
+    courts: [{ status: 'idle' }],
+    ...overrides,
+  };
 }
 
 describe('LiveSessionService', () => {
-  beforeEach(() => {
-    localStorage.clear();
+  let service: LiveSessionService;
+  let httpMock: HttpTestingController;
+
+  function setUp() {
     TestBed.configureTestingModule({
       providers: [
+        provideHttpClient(),
+        provideHttpClientTesting(),
         LiveSessionService,
         {
           provide: ActivatedRoute,
@@ -29,207 +37,106 @@ describe('LiveSessionService', () => {
         },
       ],
     });
+    service = TestBed.inject(LiveSessionService);
+    httpMock = TestBed.inject(HttpTestingController);
+  }
+
+  async function flushSession(session: Session) {
+    TestBed.tick();
+    httpMock.expectOne(`${environment.apiBaseUrl}/sessions/sess1`).flush(session);
+    await new Promise((r) => setTimeout(r, 0));
+  }
+
+  beforeEach(() => {
+    setUp();
   });
 
-  it('initializes one idle court per courtCount, no matches', () => {
-    setUpSession('sess1', 2, ['p1', 'p2', 'p3', 'p4']);
-    const service = TestBed.inject(LiveSessionService);
-    expect(service.courts()).toEqual([{ status: 'idle' }, { status: 'idle' }]);
-    expect(service.matches()).toEqual([]);
+  it('exposes courts from the fetched session', async () => {
+    await flushSession(baseSession());
+    expect(service.courts()).toEqual([{ status: 'idle' }]);
   });
 
-  it('proposeMatch fills an idle court from the roster', () => {
-    setUpSession('sess1', 1, ['p1', 'p2', 'p3', 'p4']);
-    const service = TestBed.inject(LiveSessionService);
+  it('proposeMatch posts to the propose endpoint and reloads the session', async () => {
+    await flushSession(baseSession());
 
-    service.proposeMatch(1, () => 0.5);
-
-    const court = service.courts()[0];
-    expect(court.status).toBe('pending');
-    if (court.status === 'pending') {
-      const allAssigned = [...court.teamA, ...court.teamB].sort();
-      expect(allAssigned).toEqual(['p1', 'p2', 'p3', 'p4']);
-    }
-  });
-
-  it('proposeMatch does nothing and returns false when fewer than 4 players are available', () => {
-    setUpSession('sess1', 1, ['p1', 'p2']);
-    const service = TestBed.inject(LiveSessionService);
-
-    const result = service.proposeMatch(1, () => 0.5);
-
-    expect(result).toBe(false);
-    expect(service.courts()[0]).toEqual({ status: 'idle' });
-  });
-
-  it('proposeMatch returns true when a match is successfully proposed', () => {
-    setUpSession('sess1', 1, ['p1', 'p2', 'p3', 'p4']);
-    const service = TestBed.inject(LiveSessionService);
-
-    const result = service.proposeMatch(1, () => 0.5);
-
-    expect(result).toBe(true);
-  });
-
-  it('proposeMatch excludes players reserved by other pending/active courts', () => {
-    setUpSession('sess1', 2, ['p1', 'p2', 'p3', 'p4', 'p5', 'p6', 'p7', 'p8']);
-    const service = TestBed.inject(LiveSessionService);
-
-    service.proposeMatch(1, () => 0.1);
-    const firstCourt = service.courts()[0];
-    expect(firstCourt.status).toBe('pending');
-
-    service.proposeMatch(2, () => 0.1);
-    const secondCourt = service.courts()[1];
-    expect(secondCourt.status).toBe('pending');
-
-    if (firstCourt.status === 'pending' && secondCourt.status === 'pending') {
-      const firstIds = new Set([...firstCourt.teamA, ...firstCourt.teamB]);
-      const secondIds = [...secondCourt.teamA, ...secondCourt.teamB];
-      for (const id of secondIds) {
-        expect(firstIds.has(id)).toBe(false);
-      }
-    }
-  });
-
-  it('proposeMatch on an already-pending court reconsiders its own occupants (reshuffle)', () => {
-    setUpSession('sess1', 1, ['p1', 'p2', 'p3', 'p4']);
-    const service = TestBed.inject(LiveSessionService);
-
-    service.proposeMatch(1, () => 0.1);
-    service.proposeMatch(1, () => 0.9); // reshuffle with a different random stream
-
-    const court = service.courts()[0];
-    expect(court.status).toBe('pending');
-    if (court.status === 'pending') {
-      const allAssigned = [...court.teamA, ...court.teamB].sort();
-      expect(allAssigned).toEqual(['p1', 'p2', 'p3', 'p4']); // still only these 4 players exist
-    }
-  });
-
-  it('persists after proposeMatch, reloadable by a fresh instance under the same session key', () => {
-    setUpSession('sess1', 1, ['p1', 'p2', 'p3', 'p4']);
-    const first = TestBed.inject(LiveSessionService);
-    first.proposeMatch(1, () => 0.5);
-    expect(first.courts()[0].status).toBe('pending');
-
-    const second = new LiveSessionService(
-      TestBed.inject(ActivatedRoute),
-      TestBed.inject(RosterService)
+    const promise = service.proposeMatch(1);
+    const proposeReq = httpMock.expectOne(
+      `${environment.apiBaseUrl}/sessions/sess1/courts/1/propose`
     );
-    expect(second.courts()).toEqual(first.courts());
-  });
+    expect(proposeReq.request.method).toBe('POST');
+    proposeReq.flush({
+      ok: true,
+      pairing: { id: 'pair1', courtNumber: 1, matchNumber: 1, teamA: ['p1', 'p2'], teamB: ['p3', 'p4'] },
+    });
 
-  it('confirmMatch moves a pending court to active and logs a match record', () => {
-    setUpSession('sess1', 1, ['p1', 'p2', 'p3', 'p4']);
-    const service = TestBed.inject(LiveSessionService);
-
-    service.proposeMatch(1, () => 0.5);
-    service.confirmMatch(1);
-
-    const court = service.courts()[0];
-    expect(court.status).toBe('active');
-    expect(service.matches()).toHaveLength(1);
-    expect(service.matches()[0]).toMatchObject({ courtNumber: 1, scoreA: null, scoreB: null });
-  });
-
-  it('confirmMatch does nothing on an idle court', () => {
-    setUpSession('sess1', 1, ['p1', 'p2', 'p3', 'p4']);
-    const service = TestBed.inject(LiveSessionService);
-
-    service.confirmMatch(1);
-
-    expect(service.courts()[0]).toEqual({ status: 'idle' });
-    expect(service.matches()).toHaveLength(0);
-  });
-
-  it('finishMatch records the score and frees the court back to idle', () => {
-    setUpSession('sess1', 1, ['p1', 'p2', 'p3', 'p4']);
-    const service = TestBed.inject(LiveSessionService);
-
-    service.proposeMatch(1, () => 0.5);
-    service.confirmMatch(1);
-    service.finishMatch(1, 21, 15);
-
-    expect(service.courts()[0]).toEqual({ status: 'idle' });
-    expect(service.matches()[0]).toMatchObject({ scoreA: 21, scoreB: 15 });
-  });
-
-  it('finishMatch without a score still frees the court, leaving scores null', () => {
-    setUpSession('sess1', 1, ['p1', 'p2', 'p3', 'p4']);
-    const service = TestBed.inject(LiveSessionService);
-
-    service.proposeMatch(1, () => 0.5);
-    service.confirmMatch(1);
-    service.finishMatch(1, null, null);
-
-    expect(service.courts()[0]).toEqual({ status: 'idle' });
-    expect(service.matches()[0]).toMatchObject({ scoreA: null, scoreB: null });
-  });
-
-  it('finishMatch does nothing on an idle court', () => {
-    setUpSession('sess1', 1, ['p1', 'p2', 'p3', 'p4']);
-    const service = TestBed.inject(LiveSessionService);
-
-    service.finishMatch(1, 21, 15);
-
-    expect(service.courts()[0]).toEqual({ status: 'idle' });
-    expect(service.matches()).toHaveLength(0);
-  });
-
-  it('finishMatch updates the correct match when a court has played more than once', () => {
-    setUpSession('sess1', 1, ['p1', 'p2', 'p3', 'p4']);
-    const service = TestBed.inject(LiveSessionService);
-
-    service.proposeMatch(1, () => 0.5);
-    service.confirmMatch(1);
-    service.finishMatch(1, 21, 10);
-
-    service.proposeMatch(1, () => 0.5);
-    service.confirmMatch(1);
-    service.finishMatch(1, 15, 21);
-
-    expect(service.matches()).toHaveLength(2);
-    expect(service.matches()[0]).toMatchObject({ scoreA: 21, scoreB: 10 });
-    expect(service.matches()[1]).toMatchObject({ scoreA: 15, scoreB: 21 });
-  });
-
-  it('waitingPlayerIds excludes players on pending or active courts', () => {
-    setUpSession('sess1', 2, ['p1', 'p2', 'p3', 'p4', 'p5', 'p6']);
-    const service = TestBed.inject(LiveSessionService);
-
-    service.proposeMatch(1, () => 0.1);
-    service.confirmMatch(1);
-
-    const waiting = service.waitingPlayerIds();
-    const firstCourt = service.courts()[0];
-    if (firstCourt.status === 'active') {
-      for (const id of [...firstCourt.teamA, ...firstCourt.teamB]) {
-        expect(waiting).not.toContain(id);
-      }
-    }
-    expect(waiting).toHaveLength(2);
-  });
-
-  it('waitingPlayerIds includes everyone when all courts are idle', () => {
-    setUpSession('sess1', 1, ['p1', 'p2', 'p3', 'p4']);
-    const service = TestBed.inject(LiveSessionService);
-
-    expect(service.waitingPlayerIds().sort()).toEqual(['p1', 'p2', 'p3', 'p4']);
-  });
-
-  it('refresh picks up state written to localStorage by another instance', () => {
-    setUpSession('sess1', 1, ['p1', 'p2', 'p3', 'p4']);
-    const first = TestBed.inject(LiveSessionService);
-    expect(first.courts()[0]).toEqual({ status: 'idle' });
-
-    const second = new LiveSessionService(
-      TestBed.inject(ActivatedRoute),
-      TestBed.inject(RosterService)
+    const reloadReq = httpMock.expectOne(`${environment.apiBaseUrl}/sessions/sess1`);
+    reloadReq.flush(
+      baseSession({
+        courts: [{ status: 'pending', pairingId: 'pair1', teamA: ['p1', 'p2'], teamB: ['p3', 'p4'] }],
+      })
     );
-    second.proposeMatch(1, () => 0.5);
 
-    first.refresh();
-    expect(first.courts()).toEqual(second.courts());
+    expect(await promise).toBe(true);
+    await new Promise((r) => setTimeout(r, 0));
+    expect(service.courts()).toEqual([
+      { status: 'pending', pairingId: 'pair1', teamA: ['p1', 'p2'], teamB: ['p3', 'p4'] },
+    ]);
+  });
+
+  it('proposeMatch returns false when the server reports not-enough-players', async () => {
+    await flushSession(baseSession());
+
+    const promise = service.proposeMatch(1);
+    httpMock
+      .expectOne(`${environment.apiBaseUrl}/sessions/sess1/courts/1/propose`)
+      .flush({ ok: false, reason: 'not-enough-players' });
+    httpMock.expectOne(`${environment.apiBaseUrl}/sessions/sess1`).flush(baseSession());
+
+    expect(await promise).toBe(false);
+  });
+
+  it('confirmMatch posts to the confirm endpoint with the given pairingId and reloads', async () => {
+    await flushSession(baseSession());
+
+    const promise = service.confirmMatch('pair1');
+    const confirmReq = httpMock.expectOne(
+      `${environment.apiBaseUrl}/sessions/sess1/pairings/pair1/confirm`
+    );
+    expect(confirmReq.request.method).toBe('POST');
+    confirmReq.flush({});
+    httpMock.expectOne(`${environment.apiBaseUrl}/sessions/sess1`).flush(baseSession());
+
+    await promise;
+  });
+
+  it('finishMatch posts scores to the finish endpoint and reloads', async () => {
+    await flushSession(baseSession());
+
+    const promise = service.finishMatch('pair1', 21, 15);
+    const finishReq = httpMock.expectOne(
+      `${environment.apiBaseUrl}/sessions/sess1/pairings/pair1/finish`
+    );
+    expect(finishReq.request.method).toBe('POST');
+    expect(finishReq.request.body).toEqual({ scoreA: 21, scoreB: 15 });
+    finishReq.flush({});
+    httpMock.expectOne(`${environment.apiBaseUrl}/sessions/sess1`).flush(baseSession());
+
+    await promise;
+  });
+
+  it('waitingPlayerIds excludes players on non-idle courts', async () => {
+    await flushSession(
+      baseSession({
+        rosterPlayerIds: ['p1', 'p2', 'p3', 'p4', 'p5', 'p6'],
+        courts: [{ status: 'active', pairingId: 'pair1', teamA: ['p1', 'p2'], teamB: ['p3', 'p4'] }],
+      })
+    );
+    expect(service.waitingPlayerIds().sort()).toEqual(['p5', 'p6']);
+  });
+
+  it('refresh triggers a reload', async () => {
+    await flushSession(baseSession());
+    service.refresh();
+    httpMock.expectOne(`${environment.apiBaseUrl}/sessions/sess1`).flush(baseSession());
   });
 });

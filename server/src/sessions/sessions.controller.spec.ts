@@ -198,6 +198,45 @@ describe('SessionsController', () => {
     }
   });
 
+  it('reshuffle never immediately repeats the same team split', async () => {
+    const groupCode = randomUUID();
+    const sessionCode = randomUUID();
+    await prisma.group.create({ data: { code: groupCode, name: 'G' } });
+    const players = await Promise.all(
+      ['A', 'B', 'C', 'D'].map((name) =>
+        prisma.player.create({ data: { groupId: groupCode, name, aliases: '[]' } })
+      )
+    );
+    await prisma.session.create({
+      data: { code: sessionCode, groupId: groupCode, courtCount: 1, rawImportText: '' },
+    });
+    for (const p of players) {
+      await prisma.sessionRoster.create({ data: { sessionId: sessionCode, playerId: p.id } });
+    }
+
+    try {
+      let previousKeys: string[] | null = null;
+      for (let i = 0; i < 20; i++) {
+        const res = await request(app.getHttpServer())
+          .post(`/sessions/${sessionCode}/courts/1/propose`)
+          .expect(201);
+        expect(res.body.ok).toBe(true);
+        const { teamA, teamB } = res.body.pairing as { teamA: string[]; teamB: string[] };
+        const keys = [[...teamA].sort().join('|'), [...teamB].sort().join('|')].sort();
+        if (previousKeys) {
+          expect(keys).not.toEqual(previousKeys);
+        }
+        previousKeys = keys;
+      }
+    } finally {
+      await prisma.pairing.deleteMany({ where: { sessionId: sessionCode } });
+      await prisma.sessionRoster.deleteMany({ where: { sessionId: sessionCode } });
+      await prisma.session.deleteMany({ where: { code: sessionCode } });
+      await prisma.player.deleteMany({ where: { groupId: groupCode } });
+      await prisma.group.deleteMany({ where: { code: groupCode } });
+    }
+  });
+
   it('confirms then finishes a pairing', async () => {
     const groupCode = randomUUID();
     const sessionCode = randomUUID();

@@ -120,8 +120,12 @@ export class SessionsService {
       where: { sessionId: sessionCode, endedAt: null },
     });
     const reserved = new Set<string>();
+    let existingPending: (typeof nonEnded)[number] | undefined;
     for (const p of nonEnded) {
-      if (p.courtNumber === courtNumber) continue;
+      if (p.courtNumber === courtNumber) {
+        if (p.confirmedAt === null) existingPending = p;
+        continue;
+      }
       const [a1, a2] = JSON.parse(p.teamA) as [string, string];
       const [b1, b2] = JSON.parse(p.teamB) as [string, string];
       reserved.add(a1);
@@ -141,17 +145,20 @@ export class SessionsService {
       }))
     );
 
-    const result = generateRound(available, 1, history);
+    const avoidSplit = existingPending
+      ? {
+          teamA: JSON.parse(existingPending.teamA) as [string, string],
+          teamB: JSON.parse(existingPending.teamB) as [string, string],
+        }
+      : undefined;
+
+    const result = generateRound(available, 1, history, undefined, avoidSplit);
     if (result.courts.length === 0) {
       return { ok: false as const, reason: 'not-enough-players' as const };
     }
     const [proposed] = result.courts;
     const teamA = JSON.stringify(proposed.teamA);
     const teamB = JSON.stringify(proposed.teamB);
-
-    const existingPending = await this.prisma.pairing.findFirst({
-      where: { sessionId: sessionCode, courtNumber, confirmedAt: null, endedAt: null },
-    });
 
     const pairing = existingPending
       ? await this.prisma.pairing.update({

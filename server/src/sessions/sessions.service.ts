@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { confirmExistingPlayerAlias, createNewPlayer, type Player as FuzzyPlayer } from '../../../fuzzy-match.ts';
 import { generateRound } from '../../../pairing.ts';
 import { PrismaService } from '../prisma/prisma.service.js';
@@ -103,6 +103,7 @@ export class SessionsService {
       date: session.date,
       venue: session.venue,
       courtCount: session.courtCount,
+      endedAt: session.endedAt,
       rosterPlayerIds: session.roster.map((r) => r.playerId),
       waitlistPlayerIds: session.waitlist.map((w) => w.playerId),
       courts,
@@ -203,5 +204,23 @@ export class SessionsService {
       where: { id },
       data: { endedAt: new Date(), scoreA: dto.scoreA, scoreB: dto.scoreB },
     });
+  }
+
+  async endSession(code: string) {
+    const session = await this.prisma.session.findUnique({ where: { code } });
+    if (!session) throw new NotFoundException();
+
+    const unfinished = await this.prisma.pairing.findFirst({
+      where: { sessionId: code, endedAt: null },
+    });
+    if (unfinished) {
+      throw new ConflictException('Finish all active courts before ending the session.');
+    }
+
+    const updated = await this.prisma.session.update({
+      where: { code },
+      data: { endedAt: new Date() },
+    });
+    return { code: updated.code, endedAt: updated.endedAt };
   }
 }

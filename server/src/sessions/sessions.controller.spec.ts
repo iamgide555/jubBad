@@ -280,4 +280,80 @@ describe('SessionsController', () => {
       await prisma.group.deleteMany({ where: { code: groupCode } });
     }
   });
+
+  it('GET /sessions/:code includes endedAt', async () => {
+    const groupCode = randomUUID();
+    const sessionCode = randomUUID();
+    await prisma.group.create({ data: { code: groupCode, name: 'G' } });
+    await prisma.session.create({
+      data: { code: sessionCode, groupId: groupCode, courtCount: 1, rawImportText: '' },
+    });
+
+    try {
+      const res = await request(app.getHttpServer()).get(`/sessions/${sessionCode}`).expect(200);
+      expect(res.body.endedAt).toBeNull();
+    } finally {
+      await prisma.session.deleteMany({ where: { code: sessionCode } });
+      await prisma.group.deleteMany({ where: { code: groupCode } });
+    }
+  });
+
+  it('ends a session with no unfinished courts', async () => {
+    const groupCode = randomUUID();
+    const sessionCode = randomUUID();
+    await prisma.group.create({ data: { code: groupCode, name: 'G' } });
+    await prisma.session.create({
+      data: { code: sessionCode, groupId: groupCode, courtCount: 1, rawImportText: '' },
+    });
+
+    try {
+      const res = await request(app.getHttpServer())
+        .post(`/sessions/${sessionCode}/end`)
+        .expect(201);
+      expect(res.body.code).toBe(sessionCode);
+      expect(res.body.endedAt).not.toBeNull();
+
+      const getRes = await request(app.getHttpServer()).get(`/sessions/${sessionCode}`).expect(200);
+      expect(getRes.body.endedAt).not.toBeNull();
+    } finally {
+      await prisma.session.deleteMany({ where: { code: sessionCode } });
+      await prisma.group.deleteMany({ where: { code: groupCode } });
+    }
+  });
+
+  it('rejects ending a session with an unfinished court', async () => {
+    const groupCode = randomUUID();
+    const sessionCode = randomUUID();
+    await prisma.group.create({ data: { code: groupCode, name: 'G' } });
+    const players = await Promise.all(
+      ['A', 'B', 'C', 'D'].map((name) =>
+        prisma.player.create({ data: { groupId: groupCode, name, aliases: '[]' } })
+      )
+    );
+    await prisma.session.create({
+      data: { code: sessionCode, groupId: groupCode, courtCount: 1, rawImportText: '' },
+    });
+    await prisma.pairing.create({
+      data: {
+        sessionId: sessionCode,
+        courtNumber: 1,
+        matchNumber: 1,
+        teamA: JSON.stringify([players[0].id, players[1].id]),
+        teamB: JSON.stringify([players[2].id, players[3].id]),
+      },
+    });
+
+    try {
+      const res = await request(app.getHttpServer()).post(`/sessions/${sessionCode}/end`).expect(409);
+      expect(res.body.message).toContain('Finish all active courts');
+
+      const getRes = await request(app.getHttpServer()).get(`/sessions/${sessionCode}`).expect(200);
+      expect(getRes.body.endedAt).toBeNull();
+    } finally {
+      await prisma.pairing.deleteMany({ where: { sessionId: sessionCode } });
+      await prisma.player.deleteMany({ where: { groupId: groupCode } });
+      await prisma.session.deleteMany({ where: { code: sessionCode } });
+      await prisma.group.deleteMany({ where: { code: groupCode } });
+    }
+  });
 });

@@ -30,6 +30,7 @@ model Session {
   courtCount    Int?
   rawImportText String
   createdAt     DateTime        @default(now())
+  endedAt       DateTime?
   group         Group           @relation(fields: [groupId], references: [code])
   roster        SessionRoster[]
   waitlist      Waitlist[]

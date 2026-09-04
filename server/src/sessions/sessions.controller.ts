@@ -31,4 +31,9 @@ export class SessionsController {
   finishPairing(@Param('id') id: string, @Body() dto: FinishPairingDto) {
     return this.sessionsService.finishPairing(id, dto);
   }
+
+  @Post(':code/end')
+  endSession(@Param('code') code: string) {
+    return this.sessionsService.endSession(code);
+  }
 }

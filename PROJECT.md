@@ -517,7 +517,7 @@ No websockets, no polling — `[↻ refresh]` re-fetches from the API
 instead of `localStorage`, same manual-refresh UX already decided in
 §7.3, now backed by a real network call instead of a local read.
 
-### 8.4 DB engine + ORM — **RECOMMENDATION**
+### 8.4 DB engine + ORM — **decided, built**
 
 - **SQLite**, not Postgres. Casual-friend-group scale, single-host
   deployment implied throughout this doc (no mention of scaling
@@ -531,7 +531,28 @@ instead of `localStorage`, same manual-refresh UX already decided in
   (`fuzzy-match.ts`/`pairing.ts`'s plain-function style over classes
   where possible).
 - Lives at `server/` (sibling to `web/`) — `server/prisma/schema.prisma`
-  defines the four tables from §8.2/§5.
+  defines the tables from §8.2/§5.
+
+**Built and round-trip proven** (see
+`docs/superpowers/specs/2026-09-04-prisma-schema-design.md` and
+`docs/superpowers/plans/2026-09-04-prisma-schema.md`). Six models:
+`Group`, `Player`, `Session`, `SessionRoster` (join table, new — makes
+the roster symmetric with `Waitlist`), `Waitlist`, `Pairing`. Three
+representation decisions beyond §8.2's sketch: arrays
+(`Player.aliases`, `Pairing.teamA`/`teamB`) are JSON-encoded `String`
+columns (SQLite/Prisma has no array column type); `Group`/`Session`
+use their existing `code` as primary key, no separate internal id;
+`Group.lastSessionCode` is dropped from the schema entirely — derived
+via a query (`Session` where `groupId=X` order `createdAt desc`), not
+stored, to avoid a second source of truth.
+
+Prisma 7 (pinned to `7.10.0` — its `latest` npm tag is currently an
+`8.0.0-rc` pre-release with an incompatible CLI) removed
+`datasource.url` from `schema.prisma` and requires `PrismaClient` to
+take an explicit driver adapter at runtime even for SQLite
+(`@prisma/adapter-better-sqlite3`) — connection config for CLI
+commands now lives in `server/prisma7.config.ts`. Next up: the API
+layer (§8.3) that builds on this client.
 
 ### 8.5 Group-creation flow — **decided, built**
 
@@ -591,4 +612,4 @@ Two different amounts of rework, now that engines move server-side
 - [x] Git repo initialized, `.gitignore` added
 - [x] NestJS backend scaffolded (`server/`, cross-boundary import of `parser.ts`/`fuzzy-match.ts`/`pairing.ts` proven at build and runtime — see §8.1)
 - [x] Angular frontend scaffolded (`web/`, routing skeleton only — see §7.4)
-- [ ] DB schema created (Group, Player, Session, Pairing, Waitlist)
+- [x] DB schema created (Group, Player, Session, Pairing, Waitlist) — `server/prisma/schema.prisma`, round-trip proven — see §8.4

@@ -1,0 +1,8 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "rootDir": ".."
+  },
+  "include": ["src", "../parser.ts", "../fuzzy-match.ts", "../pairing.ts"],
+  "exclude": ["node_modules", "test", "dist", "**/*spec.ts"]
+}

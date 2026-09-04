@@ -1,4 +1,4 @@
-# Badminton court pairing app
+# JubBad — Badminton court pairing app
 
 ## 1. Opportunity
 

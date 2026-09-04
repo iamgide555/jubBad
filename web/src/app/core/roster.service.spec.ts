@@ -52,7 +52,7 @@ describe('RosterService', () => {
   });
 
   it('saveGroup then getGroup round-trips', () => {
-    const group: Group = { code: 'group1', name: 'Group A' };
+    const group: Group = { code: 'group1', name: 'Group A', lastSessionCode: 'sess1' };
     service.saveGroup(group);
     expect(service.getGroup('group1')).toEqual(group);
   });

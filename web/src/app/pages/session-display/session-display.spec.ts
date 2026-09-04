@@ -41,7 +41,7 @@ describe('SessionDisplay', () => {
   });
 
   it('shows the Group name as the header when one is set', async () => {
-    rosterService.saveGroup({ code: 'group1', name: 'Group A' });
+    rosterService.saveGroup({ code: 'group1', name: 'Group A', lastSessionCode: null });
     fixture = TestBed.createComponent(SessionDisplay);
     component = fixture.componentInstance;
     await fixture.whenStable();

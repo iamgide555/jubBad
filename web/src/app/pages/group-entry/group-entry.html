@@ -3,12 +3,33 @@
   <input type="text" [(ngModel)]="groupName" (blur)="saveGroupName()" placeholder="e.g. Group A" />
 </label>
 
+@if (lastSessionCode()) {
+  <p><a [routerLink]="['/s', lastSessionCode()]">Resume last session</a></p>
+}
+
 @if (state() === 'paste') {
   <textarea [(ngModel)]="rawText" rows="15" placeholder="Paste the LINE roster message here"></textarea>
   <button type="button" (click)="parse()">Parse</button>
 }
 
 @if (state() === 'confirm') {
+  @if (warnings().length > 0) {
+    <div class="warnings">
+      @for (w of warnings(); track w) {
+        <p>⚠ {{ w }}</p>
+      }
+    </div>
+  }
+
+  @if (unrecognizedLines().length > 0) {
+    <div class="unrecognized">
+      <h4>Notes</h4>
+      @for (line of unrecognizedLines(); track line) {
+        <p>{{ line }}</p>
+      }
+    </div>
+  }
+
   <label>
     Date
     <input type="date" [(ngModel)]="date" required />
@@ -29,7 +50,7 @@
       @switch (review.match.type) {
         @case ('exact') { <span>matched</span> }
         @case ('fuzzy') {
-          <span>ใช่ [{{ review.match.playerId }}] ไหม?</span>
+          <span>ใช่ [{{ playerName(review.match.playerId) }}] ไหม?</span>
           <button type="button" (click)="toggleDecision(review)">
             {{ review.decision === 'accept' ? 'confirmed' : 'treat as new' }}
           </button>
@@ -46,7 +67,7 @@
       @switch (review.match.type) {
         @case ('exact') { <span>matched</span> }
         @case ('fuzzy') {
-          <span>ใช่ [{{ review.match.playerId }}] ไหม?</span>
+          <span>ใช่ [{{ playerName(review.match.playerId) }}] ไหม?</span>
           <button type="button" (click)="toggleDecision(review)">
             {{ review.decision === 'accept' ? 'confirmed' : 'treat as new' }}
           </button>

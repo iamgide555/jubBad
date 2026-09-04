@@ -2,3 +2,6 @@
 /node_modules
 npm-debug.log
 *.tsbuildinfo
+.env
+prisma/dev.db
+prisma/dev.db-journal

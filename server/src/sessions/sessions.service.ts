@@ -7,6 +7,7 @@ import { deriveHistory } from './derive-history.js';
 import { SessionLock } from './session-lock.js';
 import type { CreateSessionDto, NameReviewDto } from './dto/create-session.dto.js';
 import type { FinishPairingDto } from './dto/finish-pairing.dto.js';
+import type { SetRosterActiveDto } from './dto/set-roster-active.dto.js';
 import type { SwapPlayerDto } from './dto/swap-player.dto.js';
 
 @Injectable()
@@ -109,6 +110,7 @@ export class SessionsService {
       courtCount: session.courtCount,
       endedAt: session.endedAt,
       rosterPlayerIds: session.roster.map((r) => r.playerId),
+      restingPlayerIds: session.roster.filter((r) => !r.active).map((r) => r.playerId),
       waitlistPlayerIds: session.waitlist.map((w) => w.playerId),
       courts,
     };
@@ -150,7 +152,9 @@ export class SessionsService {
       throw new ConflictException('ก๊วนนี้จบแล้ว');
     }
 
-    const roster = await this.prisma.sessionRoster.findMany({ where: { sessionId: sessionCode } });
+    const roster = await this.prisma.sessionRoster.findMany({
+      where: { sessionId: sessionCode, active: true },
+    });
     const rosterPlayerIds = roster.map((r) => r.playerId);
 
     const nonEnded = await this.prisma.pairing.findMany({
@@ -289,7 +293,7 @@ export class SessionsService {
     if (!currentFour.has(dto.playerId)) throw new NotFoundException('ไม่มีผู้เล่นคนนี้ในแมตช์');
 
     const roster = await this.prisma.sessionRoster.findMany({
-      where: { sessionId: pairing.sessionId },
+      where: { sessionId: pairing.sessionId, active: true },
     });
     const rosterPlayerIds = roster.map((r) => r.playerId);
 
@@ -359,6 +363,26 @@ export class SessionsService {
         teamB: newTeamB,
       },
     };
+  }
+
+  /**
+   * Sits a player out for the rest of tonight, or brings them back. The only
+   * effect is on *future* court fills: a player rested mid-match plays that
+   * match out, because `propose` reads the roster fresh each time and nothing
+   * here touches an existing pairing. That is what makes this one control
+   * cover a no-show, an early leaver and someone resting a few rounds.
+   */
+  async setRosterActive(sessionCode: string, playerId: string, dto: SetRosterActiveDto) {
+    const entry = await this.prisma.sessionRoster.findUnique({
+      where: { sessionId_playerId: { sessionId: sessionCode, playerId } },
+    });
+    if (!entry) throw new NotFoundException('ไม่มีผู้เล่นคนนี้ในรายชื่อ');
+
+    const updated = await this.prisma.sessionRoster.update({
+      where: { id: entry.id },
+      data: { active: dto.active },
+    });
+    return { playerId: updated.playerId, active: updated.active };
   }
 
   async getStats(code: string, scope: 'session' | 'all') {

@@ -41,6 +41,11 @@ export class LiveSessionService {
     return this.sessionResource.value()?.courts ?? [];
   });
 
+  readonly restingPlayerIds = computed(() => {
+    if (this.sessionResource.error()) return [];
+    return this.sessionResource.value()?.restingPlayerIds ?? [];
+  });
+
   readonly waitingPlayerIds = computed(() => {
     if (this.sessionResource.error()) return [];
     const session = this.sessionResource.value();
@@ -53,7 +58,9 @@ export class LiveSessionService {
       reserved.add(court.teamB[0]);
       reserved.add(court.teamB[1]);
     }
-    return session.rosterPlayerIds.filter((id) => !reserved.has(id));
+    // Resting players are waiting for nothing — they are not in the queue.
+    const resting = new Set(session.restingPlayerIds);
+    return session.rosterPlayerIds.filter((id) => !reserved.has(id) && !resting.has(id));
   });
 
   constructor(route: ActivatedRoute) {
@@ -117,6 +124,15 @@ export class LiveSessionService {
       `pairings/${pairingId}/finish`,
       { scoreA, scoreB, winner },
       $localize`:@@err.finish:บันทึกผลไม่สำเร็จ`
+    );
+  }
+
+  /** `active` is the desired state, not a flip — two taps in flight are safe. */
+  setPlayerActive(playerId: string, active: boolean): Promise<ActionResult> {
+    return this.post(
+      `roster/${playerId}/active`,
+      { active },
+      $localize`:@@err.setActive:เปลี่ยนสถานะผู้เล่นไม่สำเร็จ`
     );
   }
 

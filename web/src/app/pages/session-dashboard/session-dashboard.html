@@ -1,10 +1,21 @@
 @if (sessionExists()) {
   <div class="page dashboard">
     <div class="roster-chips">
-      @for (name of rosterNames(); track name) {
-        <span class="chip">{{ name }}</span>
+      @for (p of rosterEntries(); track p.id) {
+        <button
+          type="button"
+          class="chip"
+          [class.resting]="p.resting"
+          [disabled]="ended()"
+          [attr.aria-pressed]="p.resting"
+          [attr.aria-label]="restLabel(p.name, p.resting)"
+          (click)="toggleResting(p.id, !p.resting)"
+        >{{ p.name }}</button>
       }
     </div>
+    @if (rosterError()) {
+      <p class="error">{{ rosterError() }}</p>
+    }
 
     <hr class="rule" />
 

@@ -17,9 +17,9 @@ the spec the project had already written for itself) and **B. v2 candidates**
 
 **Status:** every bug is fixed except A7 and A8, which are unbuilt features
 rather than defects and stay bundled into B3. A6 turned out not to be a bug at
-all — see its entry. **B1 (Thai UI) is also done and shipped.** Suite: 40
-engine + 49 server + 75 web = 164 tests, all passing, both packages building
-clean.
+all — see its entry. **B1 (Thai UI) and B3 (rest toggle) are also done.**
+Suite: 40 engine + 56 server + 78 web = 174 tests, all passing, both packages
+building clean.
 
 ---
 
@@ -163,9 +163,8 @@ Both happen at essentially every real session. Note §3 already established
 that no engine change is needed — a new player has
 `gamesPlayedThisSession = 0`, so existing priority logic handles them.
 
-**Not fixed — feature, not defect.** Both halves are answered by B3's toggle:
-a no-show is toggled out, and a rostered player who turns up late is toggled
-back in.
+**Answered by B3's rest toggle**, now built: a no-show is toggled out, and a
+rostered player who turns up late is toggled back in.
 
 ### - [ ] A8. "Copy as text" share button is missing
 
@@ -320,7 +319,7 @@ The app is used one-handed, in a noisy hall, mid-game. A mis-tapped
 "X & Y won" is currently permanent, and silently corrupts the data any future
 rating model (B4) would depend on. Single-step undo on confirm and finish.
 
-### - [ ] B3. Toggle a player in or out for tonight
+### - [x] B3. Toggle a player in or out for tonight
 
 One control per rostered player: sit them out, or bring them back. Replaces
 what was first scoped as "remove a no-show" — a toggle is strictly better, for
@@ -350,7 +349,15 @@ Sketch:
   name to swap as they already can; the toggle deliberately does not do this
   implicitly, so it keeps its single meaning.
 - Thai: **พัก** for sitting out, **กลับมาเล่น** to bring back — พัก is what
-  players actually say. Confirm the wording before building.
+  players actually say.
+
+**Done.** Built as sketched. `SessionRoster.active` (migration
+`20260905174000_add_session_roster_active`), `POST
+/sessions/:code/roster/:playerId/active` taking the desired state rather than a
+flip so two taps in flight are idempotent, and the roster chips as the control
+— a resting chip renders muted, dashed and struck through, stays legible so the
+host can find it to tap back, and drops out of the waiting queue.
+`generateRound` was untouched, as predicted.
 
 ### - [ ] B4. Skill / Elo balancing
 
@@ -416,7 +423,7 @@ worth building if abuse actually appears, exactly as §2 concluded.
 
 1. ~~A1 → A3 → A2, then A4, A5, A11, A10.~~ **Done**, plus A12.
 2. ~~**B1 (Thai).**~~ Done.
-3. **B3** — toggle a player in or out for tonight. One small feature.
+3. ~~**B3** — toggle a player in or out for tonight.~~ Done.
 4. **B2, B5, B6, B7.** Host ergonomics.
 5. **B4 (Elo)** once B2 has protected the data quality it depends on.
 6. **A13** whenever the flakes start costing time.

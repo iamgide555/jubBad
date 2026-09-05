@@ -1,6 +1,7 @@
 import { Body, Controller, Get, Param, ParseIntPipe, Post, Query } from '@nestjs/common';
 import { CreateSessionDto } from './dto/create-session.dto.js';
 import { FinishPairingDto } from './dto/finish-pairing.dto.js';
+import { SetRosterActiveDto } from './dto/set-roster-active.dto.js';
 import { SwapPlayerDto } from './dto/swap-player.dto.js';
 import { SessionsService } from './sessions.service.js';
 
@@ -36,6 +37,15 @@ export class SessionsController {
   @Post(':code/pairings/:id/swap')
   swapPlayer(@Param('id') id: string, @Body() dto: SwapPlayerDto) {
     return this.sessionsService.swapPlayer(id, dto);
+  }
+
+  @Post(':code/roster/:playerId/active')
+  setRosterActive(
+    @Param('code') code: string,
+    @Param('playerId') playerId: string,
+    @Body() dto: SetRosterActiveDto
+  ) {
+    return this.sessionsService.setRosterActive(code, playerId, dto);
   }
 
   @Post(':code/end')

@@ -41,6 +41,11 @@ model SessionRoster {
   id        String  @id @default(cuid())
   sessionId String
   playerId  String
+  /// Whether this player is available for court fills tonight. A no-show, an
+  /// early leaver, or someone resting a few rounds is set false and back to
+  /// true when they return. It lives here rather than on Player because it is
+  /// a fact about this session, not about the person.
+  active    Boolean @default(true)
   session   Session @relation(fields: [sessionId], references: [code])
 
   @@unique([sessionId, playerId])

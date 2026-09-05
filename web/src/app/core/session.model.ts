@@ -9,6 +9,8 @@ export interface Session {
   endedAt: string | null;
   rawImportText: string;
   rosterPlayerIds: string[];
+  /** Roster players sitting out; still on the roster, skipped for court fills. */
+  restingPlayerIds: string[];
   waitlistPlayerIds: string[];
   courts: CourtState[];
 }

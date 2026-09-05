@@ -33,10 +33,20 @@ export class SessionDashboard {
     return this.playersResource.value() ?? [];
   });
 
-  readonly rosterNames = computed(() => {
+  /**
+   * The roster chips double as the rest control, so each one needs its id and
+   * whether it is resting — not just a display name.
+   */
+  readonly rosterEntries = computed(() => {
     const session = this.session();
     if (!session) return [];
-    return resolvePlayerNames(session.rosterPlayerIds, this.players());
+    const resting = new Set(session.restingPlayerIds);
+    const names = resolvePlayerNames(session.rosterPlayerIds, this.players());
+    return session.rosterPlayerIds.map((id, i) => ({
+      id,
+      name: names[i],
+      resting: resting.has(id),
+    }));
   });
 
   readonly waitlistNames = computed(() => {
@@ -58,6 +68,22 @@ export class SessionDashboard {
     protected liveSession: LiveSessionService,
     private router: Router
   ) {}
+
+  readonly rosterError = signal<string | null>(null);
+
+  /** In TS, not an i18n attribute: the label interpolates a player name. */
+  restLabel(name: string, resting: boolean): string {
+    return resting
+      ? $localize`:@@dashboard.bringBack:ให้ ${name}:name: กลับมาเล่น`
+      : $localize`:@@dashboard.rest:ให้ ${name}:name: พัก`;
+  }
+
+  /** `resting` is the state being asked for; the API takes its inverse. */
+  async toggleResting(playerId: string, resting: boolean): Promise<void> {
+    this.rosterError.set(null);
+    const result = await this.liveSession.setPlayerActive(playerId, !resting);
+    this.rosterError.set(result.error ?? null);
+  }
 
   async endSession(): Promise<void> {
     this.endSessionError.set(null);

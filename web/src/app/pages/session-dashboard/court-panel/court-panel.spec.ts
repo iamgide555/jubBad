@@ -19,6 +19,7 @@ function baseSession(overrides: Partial<Session> = {}): Session {
     endedAt: null,
     rawImportText: '',
     rosterPlayerIds: ['p1', 'p2', 'p3', 'p4'],
+    restingPlayerIds: [],
     waitlistPlayerIds: [],
     courts: [{ status: 'idle' }],
     ...overrides,

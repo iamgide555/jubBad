@@ -21,3 +21,32 @@
 .waitlist {
   margin-top: var(--space-3);
 }
+
+/* The roster chips are the rest control. A resting player stays visible and
+   legible — the host still needs to find them to tap them back in — so this is
+   a struck-through muted state, not a hidden one. */
+.roster-chips .chip {
+  cursor: pointer;
+  min-height: 44px;
+  font: inherit;
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: var(--ink);
+}
+
+.roster-chips .chip:hover {
+  border-color: var(--ink-soft);
+  background: var(--surface);
+}
+
+.roster-chips .chip.resting {
+  background: transparent;
+  color: var(--ink-soft);
+  border-style: dashed;
+  text-decoration: line-through;
+}
+
+.roster-chips .chip:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}

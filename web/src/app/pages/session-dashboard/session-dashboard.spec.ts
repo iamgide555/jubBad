@@ -19,6 +19,7 @@ function baseSession(overrides: Partial<Session> = {}): Session {
     endedAt: null,
     rawImportText: '',
     rosterPlayerIds: ['p1', 'p2'],
+    restingPlayerIds: [],
     waitlistPlayerIds: [],
     courts: [{ status: 'idle' }],
     ...overrides,
@@ -73,6 +74,130 @@ describe('SessionDashboard', () => {
     expect(text).toContain('ตั้ม');
     expect(text).toContain('เบส');
   });
+
+
+  it('tapping a roster chip rests that player', async () => {
+    fixture = TestBed.createComponent(SessionDashboard);
+    fixture.detectChanges();
+    httpMock.expectOne(`${B}/sessions/sess1`).flush(baseSession());
+    await new Promise((r) => setTimeout(r, 0));
+    TestBed.tick();
+    httpMock
+      .expectOne(`${B}/groups/group1/players`)
+      .flush([
+        { id: 'p1', name: 'ตั้ม', aliases: [] },
+        { id: 'p2', name: 'เบส', aliases: [] },
+      ]);
+    httpMock.expectOne(`${B}/sessions/sess1/stats?scope=session`).flush([]);
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    const chip = Array.from(
+      (fixture.nativeElement as HTMLElement).querySelectorAll('.roster-chips button')
+    ).find((b) => b.textContent?.includes('ตั้ม')) as HTMLButtonElement;
+    chip.click();
+
+    const req = httpMock.expectOne(`${B}/sessions/sess1/roster/p1/active`);
+    expect(req.request.body).toEqual({ active: false });
+    req.flush({ playerId: 'p1', active: false });
+    await new Promise((r) => setTimeout(r, 0));
+    TestBed.tick();
+    // whenStable() deadlocks here: settling this reload fires the dependent
+    // players/stats resources with nothing left to flush them.
+    httpMock
+      .expectOne(`${B}/sessions/sess1`)
+      .flush(baseSession({ restingPlayerIds: ['p1'] }));
+    await new Promise((r) => setTimeout(r, 0));
+    TestBed.tick();
+    // The reload gives the dependent resources a new session value, so they
+    // refire; leaving them unflushed trips httpMock.verify() in afterEach.
+    for (const r of httpMock.match(`${B}/groups/group1/players`)) {
+      r.flush([
+        { id: 'p1', name: 'ตั้ม', aliases: [] },
+        { id: 'p2', name: 'เบส', aliases: [] },
+      ]);
+    }
+    for (const r of httpMock.match(`${B}/sessions/sess1/stats?scope=session`)) r.flush([]);
+    await new Promise((r) => setTimeout(r, 0));
+    fixture.detectChanges();
+
+    const after = Array.from(
+      (fixture.nativeElement as HTMLElement).querySelectorAll('.roster-chips button')
+    ).find((b) => b.textContent?.includes('ตั้ม')) as HTMLButtonElement;
+    expect(after.classList.contains('resting')).toBe(true);
+  });
+
+  it('tapping a resting chip brings that player back', async () => {
+    fixture = TestBed.createComponent(SessionDashboard);
+    fixture.detectChanges();
+    httpMock.expectOne(`${B}/sessions/sess1`).flush(baseSession({ restingPlayerIds: ['p1'] }));
+    await new Promise((r) => setTimeout(r, 0));
+    TestBed.tick();
+    httpMock
+      .expectOne(`${B}/groups/group1/players`)
+      .flush([
+        { id: 'p1', name: 'ตั้ม', aliases: [] },
+        { id: 'p2', name: 'เบส', aliases: [] },
+      ]);
+    httpMock.expectOne(`${B}/sessions/sess1/stats?scope=session`).flush([]);
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    const chip = Array.from(
+      (fixture.nativeElement as HTMLElement).querySelectorAll('.roster-chips button')
+    ).find((b) => b.textContent?.includes('ตั้ม')) as HTMLButtonElement;
+    expect(chip.classList.contains('resting')).toBe(true);
+    chip.click();
+
+    const req = httpMock.expectOne(`${B}/sessions/sess1/roster/p1/active`);
+    expect(req.request.body).toEqual({ active: true });
+    req.flush({ playerId: 'p1', active: true });
+    await new Promise((r) => setTimeout(r, 0));
+    TestBed.tick();
+    httpMock.expectOne(`${B}/sessions/sess1`).flush(baseSession());
+    await new Promise((r) => setTimeout(r, 0));
+    TestBed.tick();
+    // The reload gives the dependent resources a new session value, so they
+    // refire; leaving them unflushed trips httpMock.verify() in afterEach.
+    for (const r of httpMock.match(`${B}/groups/group1/players`)) {
+      r.flush([
+        { id: 'p1', name: 'ตั้ม', aliases: [] },
+        { id: 'p2', name: 'เบส', aliases: [] },
+      ]);
+    }
+    for (const r of httpMock.match(`${B}/sessions/sess1/stats?scope=session`)) r.flush([]);
+    await new Promise((r) => setTimeout(r, 0));
+    fixture.detectChanges();
+
+    const after = Array.from(
+      (fixture.nativeElement as HTMLElement).querySelectorAll('.roster-chips button')
+    ).find((b) => b.textContent?.includes('ตั้ม')) as HTMLButtonElement;
+    expect(after.classList.contains('resting')).toBe(false);
+  });
+
+  it('keeps a resting player out of the waiting queue', async () => {
+    fixture = TestBed.createComponent(SessionDashboard);
+    fixture.detectChanges();
+    httpMock
+      .expectOne(`${B}/sessions/sess1`)
+      .flush(baseSession({ rosterPlayerIds: ['p1', 'p2'], restingPlayerIds: ['p1'] }));
+    await new Promise((r) => setTimeout(r, 0));
+    TestBed.tick();
+    httpMock
+      .expectOne(`${B}/groups/group1/players`)
+      .flush([
+        { id: 'p1', name: 'ตั้ม', aliases: [] },
+        { id: 'p2', name: 'เบส', aliases: [] },
+      ]);
+    httpMock.expectOne(`${B}/sessions/sess1/stats?scope=session`).flush([]);
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    const waiting = (fixture.nativeElement as HTMLElement).querySelector('.waiting-queue');
+    expect(waiting?.textContent).toContain('เบส');
+    expect(waiting?.textContent).not.toContain('ตั้ม');
+  });
+
 
   it('renders one CourtPanel per court', async () => {
     fixture = TestBed.createComponent(SessionDashboard);

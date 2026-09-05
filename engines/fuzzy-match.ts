@@ -1,7 +1,8 @@
 /**
  * Matches parsed roster/waitlist names against known Player records for a
  * group. Exact match (post-normalize) auto-links; fuzzy match only ever
- * surfaces as a suggestion — never auto-links. See PROJECT.md §6.2.
+ * surfaces as a suggestion — never auto-links. See docs/overview.md, "How the
+ * engines think — Fuzzy matching".
  */
 
 const TRAILING_PAREN_NOTE_RE = /\s*\([^)]*\)\s*$/;
@@ -52,6 +53,15 @@ export type NameMatch =
   | { type: 'fuzzy'; playerId: string; score: number }
   | { type: 'new' };
 
+/**
+ * Above this, a near-miss is worth *suggesting* to the host — never
+ * auto-linking. Normalized Levenshtein rather than bigram/Dice similarity
+ * because Thai nicknames here run 2-4 characters (ปอม, ตี๋, เบส), where one
+ * edit destroys most bigrams. The namespace is small and dense enough that
+ * near-misses are often genuinely different people — เกีย and เกียร์ are two
+ * different players in the real example messages — so a wrong silent merge is
+ * the failure mode to avoid.
+ */
 const FUZZY_THRESHOLD = 0.7;
 
 export function matchName(inputName: string, players: Player[]): NameMatch {

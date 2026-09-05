@@ -68,7 +68,7 @@ test('selectSittingOut: fewer than 4 players means everyone sits out', () => {
   assert.deepEqual(result.sittingOut, ['c', 'a', 'b']);
 });
 
-test('scoreArrangement matches the PROJECT.md §6.3 worked example', () => {
+test('scoreArrangement matches the documented worked example', () => {
   const partnerCounts = new Map([[pairKey('tam', 'base'), 2]]);
   const opponentCounts = new Map([[pairKey('pom', 'mai'), 3]]);
 

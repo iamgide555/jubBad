@@ -6,10 +6,11 @@ export interface ConfirmedPairing {
 }
 
 /**
- * The two scopes are deliberately different (PROJECT.md §6.3): partner and
- * opponent counts are all-time across the group's sessions, so variety is
- * spread over the group's whole life; games-played is this session only, so
- * sit-out rotation is fair within tonight and not carried over from weeks ago.
+ * The two scopes are deliberately different: partner and opponent counts are
+ * all-time across the group's sessions, so variety is spread over the group's
+ * whole life; games-played is this session only, so sit-out rotation is fair
+ * within tonight and not carried over from weeks ago.
+ * See docs/overview.md, "How the engines think — Pairing".
  */
 export function deriveHistory(
   allTimePairings: ConfirmedPairing[],

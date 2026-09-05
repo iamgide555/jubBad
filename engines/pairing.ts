@@ -1,7 +1,7 @@
 /**
  * Pairing/rotation engine: given a confirmed roster, court count, and
  * cross-session partner/opponent history, produces one round's court
- * assignments. See PROJECT.md §6.3.
+ * assignments. See docs/overview.md, "How the engines think — Pairing".
  */
 
 export type PlayerId = string;
@@ -50,8 +50,22 @@ export interface CourtAssignment {
   teamB: [PlayerId, PlayerId];
 }
 
+/**
+ * Repeat-partner avoidance is the primary goal; opponent balancing is only a
+ * secondary soft signal. The 10:1 ratio is what enforces that: no arrangement
+ * can ever trade away a partner-repeat to save on opponent-repeats, so the
+ * opponent term only decides between arrangements already tied on partners.
+ * Making opponents a hard constraint too would risk leaving a group with a lot
+ * of history unsolvable — the namespace is small and dense.
+ */
 const PARTNER_WEIGHT = 10;
 const OPPONENT_WEIGHT = 1;
+/**
+ * Far above any achievable real score, so avoiding an immediate repeat of the
+ * previous split always wins. Needed because with exactly 4 players available
+ * there are only 3 possible splits, and with no history they all score 0 —
+ * without this, reshuffle could hand back the same pairing it just rejected.
+ */
 const AVOID_SPLIT_PENALTY = 1000;
 
 export function scoreArrangement(
@@ -113,6 +127,13 @@ export interface RoundResult {
   sittingOut: PlayerId[];
 }
 
+/**
+ * Randomized search, not exhaustive enumeration: real groups run 10-20+
+ * players, where scoring every possible arrangement is combinatorially
+ * infeasible. Shuffle, greedily build one candidate, score it, repeat, keep
+ * the best — "good enough and fair", not "provably optimal". A real min-cost
+ * matching optimizer would be overkill for a casual group.
+ */
 const SEARCH_TRIALS = 200;
 
 export function generateRound(

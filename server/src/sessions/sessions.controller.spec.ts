@@ -370,7 +370,7 @@ describe('SessionsController', () => {
       },
     });
     // A-D each played last week; E did not. That must not decide who sits out
-    // today — games-played is a this-session-only signal (PROJECT.md §6.3).
+    // today — games-played is a this-session-only signal (docs/overview.md, "Pairing").
     await prisma.pairing.create({
       data: {
         sessionId: oldSessionCode,

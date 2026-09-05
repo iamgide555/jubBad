@@ -4,8 +4,16 @@ Reviewed 2026-09-05 against `PROJECT.md`. Baseline at review time: all tests
 pass (server 32, web 71 — 103 total), branch `main` clean at `0aac515`.
 
 Two sections: **A. Bugs / spec drift** (things that are wrong *now*, against
-the spec the project already wrote for itself) and **B. v2 candidates** (new
-scope). Suggested order at the bottom.
+the spec the project had already written for itself) and **B. v2 candidates**
+(new scope). Suggested order at the bottom.
+
+> **On the `§` references below.** They point into `PROJECT.md` as it stood at
+> review time. That file has since been replaced: its durable content — the
+> product decisions and the engine reasoning — is now `docs/overview.md`, and
+> its build log and progress checklist (§7.4, §8, §9) were dropped as recorded
+> better by `git log` and `docs/active/`. The numbers are left as written
+> rather than remapped, since this is a point-in-time review; the original is
+> `git show 0aac515:PROJECT.md`.
 
 **Status:** every bug below is fixed except A7 and A8, which are unbuilt
 features rather than defects and stay bundled into B3. A6 turned out not to be
@@ -26,7 +34,7 @@ const confirmed = await this.prisma.pairing.findMany({
 });
 ```
 
-PROJECT.md §6.3 specifies partner/opponent history as **all-time across
+The spec specifies partner/opponent history as **all-time across
 sessions** ("the whole point is spreading out variety over the group's life,
 not just one evening"), and `gamesPlayedThisSession` as **this session only**.
 The code derives both from a single session-scoped query, so partner/opponent
@@ -257,7 +265,7 @@ Two unrelated failures appeared once each across roughly a dozen full runs and
 did not reproduce:
 
 - `groups.controller.spec.ts` → 500, consistent with the `SQLITE_BUSY` under
-  concurrent `@nestjs/testing` modules that PROJECT.md §8.3 already describes
+  concurrent `@nestjs/testing` modules already described in the API-layer design notes
   (`WAL` + `busy_timeout` reduced it but did not eliminate it).
 - `sessions.controller.spec.ts` → `Parse Error: Expected HTTP/, RTSP/ or ICE/`,
   a supertest/keep-alive artifact.

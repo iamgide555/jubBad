@@ -4,8 +4,9 @@
  * `propose` and `swapPlayer` both read who is already on a court and then
  * write a pairing built from that read. Two of them interleaving at an await
  * boundary can each compute against the same pre-write snapshot and assign the
- * same player to two courts — the exact race PROJECT.md §8.1 moved the engines
- * server-side to prevent.
+ * same player to two courts — the exact race the engines were moved
+ * server-side to prevent (docs/overview.md, "Why the engines run on the
+ * server").
  *
  * This is in-process, so it holds for the single-API-container deployment in
  * `docker-compose.yml`. Running more than one API process would need a

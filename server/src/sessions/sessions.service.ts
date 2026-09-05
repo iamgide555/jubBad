@@ -116,8 +116,8 @@ export class SessionsService {
 
   /**
    * Partner/opponent counts come from every session this group has ever
-   * played; games-played comes from this session alone. See PROJECT.md §6.3
-   * and the note on `deriveHistory`.
+   * played; games-played comes from this session alone. See the note on
+   * `deriveHistory`, and docs/overview.md, "How the engines think — Pairing".
    */
   private async loadHistory(groupCode: string, sessionCode: string) {
     const toPairing = (p: { teamA: string; teamB: string }) => ({

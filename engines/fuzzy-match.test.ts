@@ -24,7 +24,7 @@ test('levenshteinDistance counts one substitution', () => {
 });
 
 test('levenshteinDistance counts appended characters', () => {
-  // real example from PROJECT.md §6.2: เกีย -> เกียร์ is 2 chars appended (ร, ์)
+  // real example from docs/overview.md "Fuzzy matching": เกีย -> เกียร์ is 2 chars appended (ร, ์)
   assert.equal(levenshteinDistance('เกีย', 'เกียร์'), 2);
 });
 
@@ -43,7 +43,7 @@ test('similarity of a one-char-off pair clears the 0.7 threshold', () => {
 });
 
 test('similarity of เกีย vs เกียร์ falls below the 0.7 threshold', () => {
-  // distance 2, maxLen 6 -> 0.6667 — PROJECT.md §6.2 calls these distinct players
+  // distance 2, maxLen 6 -> 0.6667 — docs/overview.md "Fuzzy matching" calls these distinct players
   assert.ok(similarity('เกีย', 'เกียร์') < 0.7);
 });
 
@@ -80,7 +80,7 @@ test('matchName suggests a fuzzy match above the 0.7 threshold', () => {
 });
 
 test('matchName flags a name below the 0.7 threshold as new', () => {
-  const result = matchName('เกียร์', players); // real example from PROJECT.md §6.2 — no close match here
+  const result = matchName('เกียร์', players); // real example from docs/overview.md "Fuzzy matching" — no close match here
   assert.deepEqual(result, { type: 'new' });
 });
 

@@ -8,7 +8,7 @@
 
 **Tech Stack:** NestJS 12 (server), Prisma 7 + `@prisma/adapter-better-sqlite3`, Angular 22 (web), nginx, Docker Compose, Cloudflare Tunnel (`cloudflared`).
 
-**Spec:** `docs/superpowers/specs/2026-09-05-jubbad-docker-deploy-design.md`
+**Spec:** `docs/active/specs/2026-09-05-jubbad-docker-deploy-design.md`
 
 ## Global Constraints
 

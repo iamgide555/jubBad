@@ -8,7 +8,7 @@
 
 **Tech Stack:** NestJS + Prisma (`better-sqlite3` adapter) on the server, Angular (standalone components, signals, `httpResource`) on the client. Server tests: Vitest + Supertest against the real dev SQLite DB (cleaned up per-test via `finally`). Client tests: Angular `TestBed` + `HttpTestingController`.
 
-**Spec:** `docs/superpowers/specs/2026-09-05-match-flow-and-stats-design.md`
+**Spec:** `docs/active/specs/2026-09-05-match-flow-and-stats-design.md`
 
 ## Global Constraints
 

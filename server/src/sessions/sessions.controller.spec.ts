@@ -424,4 +424,133 @@ describe('SessionsController', () => {
       await prisma.group.deleteMany({ where: { code: groupCode } });
     }
   });
+
+  it('GET /sessions/:code/stats aggregates played/won for the current session', async () => {
+    const groupCode = randomUUID();
+    const sessionCode = randomUUID();
+    await prisma.group.create({ data: { code: groupCode, name: 'G' } });
+    const players = await Promise.all(
+      ['A', 'B', 'C', 'D'].map((name) =>
+        prisma.player.create({ data: { groupId: groupCode, name, aliases: '[]' } })
+      )
+    );
+    await prisma.session.create({
+      data: { code: sessionCode, groupId: groupCode, courtCount: 1, rawImportText: '' },
+    });
+    await prisma.pairing.create({
+      data: {
+        sessionId: sessionCode,
+        courtNumber: 1,
+        matchNumber: 1,
+        teamA: JSON.stringify([players[0].id, players[1].id]),
+        teamB: JSON.stringify([players[2].id, players[3].id]),
+        endedAt: new Date(),
+        winner: 'A',
+      },
+    });
+    // Legacy row: finished before winner existed.
+    await prisma.pairing.create({
+      data: {
+        sessionId: sessionCode,
+        courtNumber: 1,
+        matchNumber: 2,
+        teamA: JSON.stringify([players[0].id, players[2].id]),
+        teamB: JSON.stringify([players[1].id, players[3].id]),
+        endedAt: new Date(),
+        winner: null,
+      },
+    });
+    // Unfinished — must not count.
+    await prisma.pairing.create({
+      data: {
+        sessionId: sessionCode,
+        courtNumber: 1,
+        matchNumber: 3,
+        teamA: JSON.stringify([players[0].id, players[1].id]),
+        teamB: JSON.stringify([players[2].id, players[3].id]),
+      },
+    });
+
+    try {
+      const res = await request(app.getHttpServer())
+        .get(`/sessions/${sessionCode}/stats`)
+        .expect(200);
+      const byId = new Map(res.body.map((r: { playerId: string }) => [r.playerId, r]));
+      expect(byId.get(players[0].id)).toEqual({
+        playerId: players[0].id,
+        name: 'A',
+        played: 2,
+        won: 1,
+      });
+      expect(byId.get(players[2].id)).toEqual({
+        playerId: players[2].id,
+        name: 'C',
+        played: 2,
+        won: 0,
+      });
+    } finally {
+      await prisma.pairing.deleteMany({ where: { sessionId: sessionCode } });
+      await prisma.player.deleteMany({ where: { groupId: groupCode } });
+      await prisma.session.deleteMany({ where: { code: sessionCode } });
+      await prisma.group.deleteMany({ where: { code: groupCode } });
+    }
+  });
+
+  it('GET /sessions/:code/stats?scope=all includes ended sessions in the same group', async () => {
+    const groupCode = randomUUID();
+    const oldSessionCode = randomUUID();
+    const currentSessionCode = randomUUID();
+    await prisma.group.create({ data: { code: groupCode, name: 'G' } });
+    const players = await Promise.all(
+      ['A', 'B', 'C', 'D'].map((name) =>
+        prisma.player.create({ data: { groupId: groupCode, name, aliases: '[]' } })
+      )
+    );
+    await prisma.session.create({
+      data: {
+        code: oldSessionCode,
+        groupId: groupCode,
+        courtCount: 1,
+        rawImportText: '',
+        endedAt: new Date(),
+      },
+    });
+    await prisma.session.create({
+      data: { code: currentSessionCode, groupId: groupCode, courtCount: 1, rawImportText: '' },
+    });
+    await prisma.pairing.create({
+      data: {
+        sessionId: oldSessionCode,
+        courtNumber: 1,
+        matchNumber: 1,
+        teamA: JSON.stringify([players[0].id, players[1].id]),
+        teamB: JSON.stringify([players[2].id, players[3].id]),
+        endedAt: new Date(),
+        winner: 'B',
+      },
+    });
+
+    try {
+      const sessionScoped = await request(app.getHttpServer())
+        .get(`/sessions/${currentSessionCode}/stats`)
+        .expect(200);
+      expect(sessionScoped.body).toEqual([]);
+
+      const allTime = await request(app.getHttpServer())
+        .get(`/sessions/${currentSessionCode}/stats?scope=all`)
+        .expect(200);
+      const byId = new Map(allTime.body.map((r: { playerId: string }) => [r.playerId, r]));
+      expect(byId.get(players[2].id).won).toBe(1);
+      expect(byId.get(players[0].id).won).toBe(0);
+    } finally {
+      await prisma.pairing.deleteMany({ where: { sessionId: oldSessionCode } });
+      await prisma.player.deleteMany({ where: { groupId: groupCode } });
+      await prisma.session.deleteMany({ where: { groupId: groupCode } });
+      await prisma.group.deleteMany({ where: { code: groupCode } });
+    }
+  });
+
+  it('GET /sessions/:code/stats 404s for an unknown session', async () => {
+    await request(app.getHttpServer()).get(`/sessions/${randomUUID()}/stats`).expect(404);
+  });
 });

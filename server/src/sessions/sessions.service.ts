@@ -223,4 +223,46 @@ export class SessionsService {
     });
     return { code: updated.code, endedAt: updated.endedAt };
   }
+
+  async getStats(code: string, scope: 'session' | 'all') {
+    const session = await this.prisma.session.findUnique({ where: { code } });
+    if (!session) throw new NotFoundException();
+
+    const pairings = await this.prisma.pairing.findMany({
+      where:
+        scope === 'all'
+          ? { session: { groupId: session.groupId }, endedAt: { not: null } }
+          : { sessionId: code, endedAt: { not: null } },
+    });
+
+    const played = new Map<string, number>();
+    const won = new Map<string, number>();
+    for (const p of pairings) {
+      const teamA = JSON.parse(p.teamA) as [string, string];
+      const teamB = JSON.parse(p.teamB) as [string, string];
+      for (const id of [...teamA, ...teamB]) {
+        played.set(id, (played.get(id) ?? 0) + 1);
+      }
+      if (p.winner === 'A' || p.winner === 'B') {
+        const winningTeam = p.winner === 'A' ? teamA : teamB;
+        for (const id of winningTeam) {
+          won.set(id, (won.get(id) ?? 0) + 1);
+        }
+      }
+    }
+
+    const players = await this.prisma.player.findMany({
+      where: { id: { in: [...played.keys()] } },
+    });
+    const nameById = new Map(players.map((p) => [p.id, p.name]));
+
+    return [...played.entries()]
+      .map(([playerId, count]) => ({
+        playerId,
+        name: nameById.get(playerId) ?? 'Unknown',
+        played: count,
+        won: won.get(playerId) ?? 0,
+      }))
+      .sort((a, b) => b.played - a.played);
+  }
 }

@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, ParseIntPipe, Post } from '@nestjs/common';
+import { Body, Controller, Get, Param, ParseIntPipe, Post, Query } from '@nestjs/common';
 import { CreateSessionDto } from './dto/create-session.dto.js';
 import { FinishPairingDto } from './dto/finish-pairing.dto.js';
 import { SessionsService } from './sessions.service.js';
@@ -35,5 +35,10 @@ export class SessionsController {
   @Post(':code/end')
   endSession(@Param('code') code: string) {
     return this.sessionsService.endSession(code);
+  }
+
+  @Get(':code/stats')
+  getStats(@Param('code') code: string, @Query('scope') scope?: string) {
+    return this.sessionsService.getStats(code, scope === 'all' ? 'all' : 'session');
   }
 }

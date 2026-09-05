@@ -15,10 +15,11 @@ the spec the project had already written for itself) and **B. v2 candidates**
 > rather than remapped, since this is a point-in-time review; the original is
 > `git show 0aac515:PROJECT.md`.
 
-**Status:** every bug below is fixed except A7 and A8, which are unbuilt
-features rather than defects and stay bundled into B3. A6 turned out not to be
-a bug at all — see its entry. Suite after the fixes: 40 engine + 49 server + 72
-web = 161 tests, all passing, both packages building clean.
+**Status:** every bug is fixed except A7 and A8, which are unbuilt features
+rather than defects and stay bundled into B3. A6 turned out not to be a bug at
+all — see its entry. **B1 (Thai UI) is also done and shipped.** Suite: 40
+engine + 49 server + 75 web = 164 tests, all passing, both packages building
+clean.
 
 ---
 
@@ -288,7 +289,7 @@ in `court-panel.css` rather than inheriting the same dead class.)
 
 ## B. v2 candidates
 
-### - [ ] B1. Thai UI
+### - [x] B1. Thai UI
 
 §1 states the *entire* differentiator is Thai-language + LINE-friendly. Every
 user-facing string outside `session-display.html`'s `รอคิว:` is English:
@@ -298,6 +299,17 @@ more.", "Session not found."
 This is the single largest gap between the product as documented and the
 product as built. Ship `@angular/localize` with a `th` locale before any other
 new feature.
+
+**Done** (`931bea6`, `9472d2d`; plan in `docs/active/plans/2026-09-05-thai-ui.md`).
+Thai is the source locale and is served at `/`, English at `/en/`. Server
+messages are Thai too, since several reach the host verbatim. Noto Sans Thai
+was added because Inter and Archivo carry no Thai glyphs at all — every Thai
+string would otherwise have fallen back to each device's default face.
+
+One field check still open: **read the display view from across the hall on
+the real venue screen.** Thai has a smaller apparent x-height than Latin at the
+same size, so `session-display.css` may want a size bump. Cosmetic, and the
+only thing left from B1.
 
 ### - [ ] B2. Undo last action
 
@@ -375,7 +387,7 @@ worth building if abuse actually appears, exactly as §2 concluded.
 ## Suggested order
 
 1. ~~A1 → A3 → A2, then A4, A5, A11, A10.~~ **Done**, plus A12.
-2. **B1 (Thai).** Before showing this to anyone outside the project.
+2. ~~**B1 (Thai).**~~ Done.
 3. **B3** (absorbing A7, A8, waitlist promotion) as one "editable session"
    release.
 4. **B2, B5, B6, B7.** Host ergonomics.

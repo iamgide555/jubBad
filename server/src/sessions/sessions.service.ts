@@ -202,7 +202,7 @@ export class SessionsService {
     if (!pairing) throw new NotFoundException();
     return this.prisma.pairing.update({
       where: { id },
-      data: { endedAt: new Date(), scoreA: dto.scoreA, scoreB: dto.scoreB },
+      data: { endedAt: new Date(), scoreA: dto.scoreA, scoreB: dto.scoreB, winner: dto.winner },
     });
   }
 

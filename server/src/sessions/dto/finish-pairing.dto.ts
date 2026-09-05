@@ -1,4 +1,4 @@
-import { IsInt, IsOptional, Min } from 'class-validator';
+import { IsIn, IsInt, IsOptional, Min } from 'class-validator';
 
 export class FinishPairingDto {
   @IsOptional()
@@ -10,4 +10,7 @@ export class FinishPairingDto {
   @IsInt()
   @Min(0)
   scoreB!: number | null;
+
+  @IsIn(['A', 'B'])
+  winner!: 'A' | 'B';
 }

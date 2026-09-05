@@ -65,6 +65,7 @@ model Pairing {
   teamB       String // JSON-encoded [playerId, playerId]
   scoreA      Int?
   scoreB      Int?
+  winner      String? // 'A' | 'B'
   confirmedAt DateTime?
   endedAt     DateTime?
   session     Session   @relation(fields: [sessionId], references: [code])

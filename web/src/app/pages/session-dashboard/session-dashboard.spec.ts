@@ -152,7 +152,7 @@ describe('SessionDashboard', () => {
 
     fixture.detectChanges();
     const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
-    expect(text).toContain('Session not found');
+    expect(text).toContain('ไม่พบก๊วนนี้');
   });
 
   it('End session button calls endSession and shows the server error on failure', async () => {
@@ -169,19 +169,19 @@ describe('SessionDashboard', () => {
 
     const button = Array.from(
       (fixture.nativeElement as HTMLElement).querySelectorAll('button')
-    ).find((b) => b.textContent === 'End session') as HTMLButtonElement;
+    ).find((b) => b.textContent === 'จบก๊วน') as HTMLButtonElement;
     button.click();
 
     const req = httpMock.expectOne(`${B}/sessions/sess1/end`);
     req.flush(
-      { message: 'Finish all active courts before ending the session.' },
+      { message: 'จบแมตช์ในคอร์ทที่ยังเล่นอยู่ก่อนจบก๊วน' },
       { status: 409, statusText: 'Conflict' }
     );
     await new Promise((r) => setTimeout(r, 0));
     fixture.detectChanges();
 
     const text2 = (fixture.nativeElement as HTMLElement).textContent ?? '';
-    expect(text2).toContain('Finish all active courts before ending the session.');
+    expect(text2).toContain('จบแมตช์ในคอร์ทที่ยังเล่นอยู่ก่อนจบก๊วน');
   });
 
   it('redirects to / once the session ends successfully', async () => {
@@ -200,7 +200,7 @@ describe('SessionDashboard', () => {
 
     const button = Array.from(
       (fixture.nativeElement as HTMLElement).querySelectorAll('button')
-    ).find((b) => b.textContent === 'End session') as HTMLButtonElement;
+    ).find((b) => b.textContent === 'จบก๊วน') as HTMLButtonElement;
     button.click();
 
     const req = httpMock.expectOne(`${B}/sessions/sess1/end`);

@@ -1,18 +1,18 @@
 <div class="stats-table">
   <div class="scope-toggle">
-    <button type="button" [class.active]="scope() === 'session'" (click)="setScope('session')">
-      This session
+    <button type="button" [class.active]="scope() === 'session'" (click)="setScope('session')" i18n="@@stats.thisSession">
+      ก๊วนนี้
     </button>
-    <button type="button" [class.active]="scope() === 'all'" (click)="setScope('all')">
-      All-time
+    <button type="button" [class.active]="scope() === 'all'" (click)="setScope('all')" i18n="@@stats.allTime">
+      ทั้งหมด
     </button>
   </div>
   <table>
     <thead>
       <tr>
-        <th>Player</th>
-        <th>Played</th>
-        <th>Won</th>
+        <th i18n="@@stats.player">ผู้เล่น</th>
+        <th i18n="@@stats.played">เล่น</th>
+        <th i18n="@@stats.won">ชนะ</th>
       </tr>
     </thead>
     <tbody>

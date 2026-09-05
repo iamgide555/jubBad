@@ -12,6 +12,18 @@
       "root": "",
       "sourceRoot": "src",
       "prefix": "app",
+      "i18n": {
+        "sourceLocale": {
+          "code": "th",
+          "baseHref": "/"
+        },
+        "locales": {
+          "en": {
+            "translation": "src/locale/messages.en.xlf",
+            "baseHref": "/en/"
+          }
+        }
+      },
       "architect": {
         "build": {
           "builder": "@angular/build:application",
@@ -26,6 +38,9 @@
             ],
             "styles": [
               "src/styles.css"
+            ],
+            "polyfills": [
+              "@angular/localize/init"
             ]
           },
           "configurations": {
@@ -48,7 +63,8 @@
                   "replace": "src/environments/environment.ts",
                   "with": "src/environments/environment.production.ts"
                 }
-              ]
+              ],
+              "localize": true
             },
             "development": {
               "optimization": false,

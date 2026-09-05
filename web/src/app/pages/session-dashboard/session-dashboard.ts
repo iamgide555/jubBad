@@ -63,7 +63,7 @@ export class SessionDashboard {
     this.endSessionError.set(null);
     const result = await this.liveSession.endSession();
     if (!result.ok) {
-      this.endSessionError.set(result.error);
+      this.endSessionError.set(result.error ?? $localize`:@@err.endSession:จบก๊วนไม่สำเร็จ`);
       return;
     }
     this.router.navigateByUrl('/');

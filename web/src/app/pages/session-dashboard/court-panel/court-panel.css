@@ -146,7 +146,7 @@
   width: 4rem;
   min-height: 44px;
   text-align: center;
-  font-family: 'Archivo', sans-serif;
+  font-family: 'Archivo', 'Noto Sans Thai', sans-serif;
   font-weight: 700;
   font-size: 1.2rem;
 }

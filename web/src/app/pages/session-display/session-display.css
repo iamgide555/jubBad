@@ -29,7 +29,7 @@
 }
 
 .court-number {
-  font-family: 'Archivo', sans-serif;
+  font-family: 'Archivo', 'Noto Sans Thai', sans-serif;
   font-weight: 800;
   font-size: clamp(2.5rem, 5vw, 4rem);
   line-height: 1;

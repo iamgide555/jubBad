@@ -11,7 +11,7 @@
 
 .waiting-queue h4,
 .waitlist h4 {
-  font-family: 'Inter', sans-serif;
+  font-family: 'Inter', 'Noto Sans Thai', sans-serif;
   font-size: 0.85rem;
   text-transform: none;
   color: var(--ink-soft);

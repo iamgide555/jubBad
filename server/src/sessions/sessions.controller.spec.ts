@@ -796,7 +796,7 @@ describe('SessionsController', () => {
 
     try {
       const res = await request(app.getHttpServer()).post(`/sessions/${sessionCode}/end`).expect(409);
-      expect(res.body.message).toContain('Finish all active courts');
+      expect(res.body.message).toContain('จบแมตช์ในคอร์ทที่ยังเล่นอยู่');
 
       const getRes = await request(app.getHttpServer()).get(`/sessions/${sessionCode}`).expect(200);
       expect(getRes.body.endedAt).toBeNull();

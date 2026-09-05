@@ -147,7 +147,7 @@ export class SessionsService {
     const session = await this.prisma.session.findUnique({ where: { code: sessionCode } });
     if (!session) throw new NotFoundException();
     if (session.endedAt !== null) {
-      throw new ConflictException('This session has ended.');
+      throw new ConflictException('ก๊วนนี้จบแล้ว');
     }
 
     const roster = await this.prisma.sessionRoster.findMany({ where: { sessionId: sessionCode } });
@@ -223,10 +223,10 @@ export class SessionsService {
     const pairing = await this.prisma.pairing.findUnique({ where: { id } });
     if (!pairing) throw new NotFoundException();
     if (pairing.endedAt !== null) {
-      throw new ConflictException('This match has already finished.');
+      throw new ConflictException('แมตช์นี้จบไปแล้ว');
     }
     if (pairing.confirmedAt !== null) {
-      throw new ConflictException('This match has already started.');
+      throw new ConflictException('แมตช์นี้เริ่มไปแล้ว');
     }
     return this.prisma.pairing.update({ where: { id }, data: { confirmedAt: new Date() } });
   }
@@ -238,10 +238,10 @@ export class SessionsService {
     // the stats table but is invisible to the pairing history, since the two
     // read different columns. Confirm is the single commit point (§7.2).
     if (pairing.confirmedAt === null) {
-      throw new ConflictException('Confirm this match before finishing it.');
+      throw new ConflictException('ยืนยันแมตช์ก่อนบันทึกผล');
     }
     if (pairing.endedAt !== null) {
-      throw new ConflictException('This match has already finished.');
+      throw new ConflictException('แมตช์นี้จบไปแล้ว');
     }
     return this.prisma.pairing.update({
       where: { id },
@@ -257,7 +257,7 @@ export class SessionsService {
       where: { sessionId: code, endedAt: null },
     });
     if (unfinished) {
-      throw new ConflictException('Finish all active courts before ending the session.');
+      throw new ConflictException('จบแมตช์ในคอร์ทที่ยังเล่นอยู่ก่อนจบก๊วน');
     }
 
     const updated = await this.prisma.session.update({
@@ -280,13 +280,13 @@ export class SessionsService {
     const pairing = await this.prisma.pairing.findUnique({ where: { id: pairingId } });
     if (!pairing) throw new NotFoundException();
     if (pairing.confirmedAt !== null || pairing.endedAt !== null) {
-      throw new ConflictException('Only a pending pairing can be swapped.');
+      throw new ConflictException('เปลี่ยนตัวได้เฉพาะแมตช์ที่ยังไม่ยืนยัน');
     }
 
     const teamA = JSON.parse(pairing.teamA) as [string, string];
     const teamB = JSON.parse(pairing.teamB) as [string, string];
     const currentFour = new Set([...teamA, ...teamB]);
-    if (!currentFour.has(dto.playerId)) throw new NotFoundException('Player is not in this pairing.');
+    if (!currentFour.has(dto.playerId)) throw new NotFoundException('ไม่มีผู้เล่นคนนี้ในแมตช์');
 
     const roster = await this.prisma.sessionRoster.findMany({
       where: { sessionId: pairing.sessionId },

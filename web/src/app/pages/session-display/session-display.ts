@@ -48,13 +48,17 @@ export class SessionDisplay {
 
   readonly courtLines = computed(() => {
     const players = this.players();
+    const idle = $localize`:@@display.courtIdle:ว่าง`;
+    const versus = $localize`:@@display.versus:vs`;
+    // `playing` is a real field rather than the template comparing against the
+    // idle text: that comparison broke the moment the text was translated.
     return this.liveSession.courts().map((court, i) => {
       if (court.status !== 'active') {
-        return { courtNumber: i + 1, text: 'waiting' };
+        return { courtNumber: i + 1, playing: false, text: idle };
       }
       const [a1, a2] = resolvePlayerNames(court.teamA, players);
       const [b1, b2] = resolvePlayerNames(court.teamB, players);
-      return { courtNumber: i + 1, text: `${a1} + ${a2} vs ${b1} + ${b2}` };
+      return { courtNumber: i + 1, playing: true, text: `${a1} + ${a2} ${versus} ${b1} + ${b2}` };
     });
   });
 

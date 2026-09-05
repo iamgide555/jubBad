@@ -63,7 +63,7 @@ describe('GroupEntry', () => {
     await component.parse();
 
     expect(component.state()).toBe('paste');
-    expect(component.pasteError()).toContain('group name');
+    expect(component.pasteError()).toContain('ชื่อก๊วน');
   });
 
   it('parse shows an error and stays in the paste state when nothing has been pasted', async () => {
@@ -72,7 +72,7 @@ describe('GroupEntry', () => {
     await component.parse();
 
     expect(component.state()).toBe('paste');
-    expect(component.pasteError()).toContain('Paste a roster message');
+    expect(component.pasteError()).toContain('วางข้อความรายชื่อ');
   });
 
   it('parse shows an error when the server reports no recognized roster', async () => {
@@ -90,7 +90,7 @@ describe('GroupEntry', () => {
     await parsePromise;
 
     expect(component.state()).toBe('paste');
-    expect(component.pasteError()).toContain('No players were recognized');
+    expect(component.pasteError()).toContain('ไม่พบรายชื่อผู้เล่น');
   });
 
   it('a successful parse switches to confirm, prefilling header fields and reviews', async () => {

@@ -47,7 +47,7 @@ describe('StatsTable', () => {
 
     const buttons = (fixture.nativeElement as HTMLElement).querySelectorAll('button');
     const allTimeButton = Array.from(buttons).find(
-      (b) => b.textContent?.trim() === 'All-time'
+      (b) => b.textContent?.trim() === 'ทั้งหมด'
     ) as HTMLButtonElement;
     allTimeButton.click();
     fixture.detectChanges();

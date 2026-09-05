@@ -4,8 +4,12 @@
 
 .landing h1 {
   font-size: 2.75rem;
-  line-height: 1.05;
-  max-width: 12ch;
+  /* Was 1.05, which clipped the upper and lower vowel marks in the Thai
+     headline where Latin had nothing above the cap line. */
+  line-height: 1.3;
+  /* rem, not ch: the ch unit measures Archivo's "0", which says nothing about
+     how wide the Thai headline runs. */
+  max-width: 20rem;
 }
 
 .landing .lede {

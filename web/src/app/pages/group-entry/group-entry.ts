@@ -52,6 +52,12 @@ export class GroupEntry {
     this.rosterService.renameGroup(this.groupCode, this.groupName()).subscribe();
   }
 
+  decisionLabel(review: NameReview): string {
+    return review.decision === 'accept'
+      ? $localize`:@@entry.decisionYes:ใช่`
+      : $localize`:@@entry.decisionNew:ไม่ใช่ คนใหม่`;
+  }
+
   playerName(id: string): string {
     return resolvePlayerNames([id], this.players)[0];
   }
@@ -60,11 +66,11 @@ export class GroupEntry {
     this.pasteError.set(null);
 
     if (!this.groupName().trim()) {
-      this.pasteError.set('Please enter a group name first.');
+      this.pasteError.set($localize`:@@entry.errNoGroupName:กรุณาใส่ชื่อก๊วนก่อน`);
       return;
     }
     if (!this.rawText().trim()) {
-      this.pasteError.set('Paste a roster message first.');
+      this.pasteError.set($localize`:@@entry.errNoText:วางข้อความรายชื่อก่อน`);
       return;
     }
 
@@ -74,7 +80,7 @@ export class GroupEntry {
 
     if (result.rosterReviews.length === 0) {
       this.pasteError.set(
-        'No players were recognized — check that each name is on its own numbered line (e.g. "1. name").'
+        $localize`:@@entry.errNoPlayers:ไม่พบรายชื่อผู้เล่น — ตรวจว่าแต่ละชื่ออยู่บรรทัดของตัวเองและมีเลขนำหน้า (เช่น "1. ชื่อ")`
       );
       return;
     }

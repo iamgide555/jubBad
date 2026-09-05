@@ -71,7 +71,7 @@ describe('CourtPanel', () => {
   it('shows a "Start next match" button when idle', async () => {
     const { fixture } = await createPanel();
     fixture.detectChanges();
-    expect((fixture.nativeElement as HTMLElement).textContent).toContain('Start next match');
+    expect((fixture.nativeElement as HTMLElement).textContent).toContain('เริ่มแมตช์ถัดไป');
   });
 
   it('shows reshuffle and confirm controls, and player names not ids, once pending', async () => {
@@ -82,8 +82,8 @@ describe('CourtPanel', () => {
     );
     fixture.detectChanges();
     const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
-    expect(text).toContain('Reshuffle');
-    expect(text).toContain('Confirm');
+    expect(text).toContain('สุ่มใหม่');
+    expect(text).toContain('ยืนยัน');
     expect(text).toContain('ตั้ม');
     expect(text).not.toContain('p1');
   });
@@ -96,8 +96,8 @@ describe('CourtPanel', () => {
     );
     fixture.detectChanges();
     const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
-    expect(text).toContain('ตั้ม & เบส won');
-    expect(text).toContain('ปอม & ไม้ won');
+    expect(text).toContain('ตั้ม & เบส ชนะ');
+    expect(text).toContain('ปอม & ไม้ ชนะ');
   });
 
   it('clicking a winner button finishes with that winner and current scores', async () => {
@@ -138,7 +138,7 @@ describe('CourtPanel', () => {
 
     const buttons = (fixture.nativeElement as HTMLElement).querySelectorAll('button');
     const noResult = Array.from(buttons).find((b) =>
-      b.textContent?.includes('No result')
+      b.textContent?.includes('ไม่มีผล')
     ) as HTMLButtonElement;
     noResult.click();
 
@@ -151,12 +151,96 @@ describe('CourtPanel', () => {
     await fixture.whenStable();
   });
 
+  it('shows the server message when confirming a match is rejected', async () => {
+    const { fixture, httpMock } = await createPanel(
+      baseSession({
+        courts: [{ status: 'pending', pairingId: 'pair1', teamA: ['p1', 'p2'], teamB: ['p3', 'p4'] }],
+      })
+    );
+    fixture.detectChanges();
+
+    const buttons = (fixture.nativeElement as HTMLElement).querySelectorAll('button');
+    const confirmButton = Array.from(buttons).find((b) =>
+      b.textContent?.includes('ยืนยัน')
+    ) as HTMLButtonElement;
+    confirmButton.click();
+
+    httpMock
+      .expectOne(`${B}/sessions/sess1/pairings/pair1/confirm`)
+      .flush({ message: 'แมตช์นี้เริ่มไปแล้ว' }, { status: 409, statusText: 'Conflict' });
+    await new Promise((r) => setTimeout(r, 0));
+    TestBed.tick();
+    fixture.detectChanges();
+
+    const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
+    expect(text).toContain('แมตช์นี้เริ่มไปแล้ว');
+  });
+
+  it('shows the server message when finishing a match is rejected', async () => {
+    const { fixture, httpMock } = await createPanel(
+      baseSession({
+        courts: [{ status: 'active', pairingId: 'pair1', teamA: ['p1', 'p2'], teamB: ['p3', 'p4'] }],
+      })
+    );
+    fixture.detectChanges();
+
+    const buttons = (fixture.nativeElement as HTMLElement).querySelectorAll('button');
+    const winButton = Array.from(buttons).find((b) =>
+      b.textContent?.includes('ตั้ม')
+    ) as HTMLButtonElement;
+    winButton.click();
+
+    httpMock
+      .expectOne(`${B}/sessions/sess1/pairings/pair1/finish`)
+      .flush({ message: 'แมตช์นี้จบไปแล้ว' }, { status: 409, statusText: 'Conflict' });
+    await new Promise((r) => setTimeout(r, 0));
+    TestBed.tick();
+    fixture.detectChanges();
+
+    const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
+    expect(text).toContain('แมตช์นี้จบไปแล้ว');
+  });
+
+  it('clears a previous action error when the next action starts', async () => {
+    const { fixture, httpMock } = await createPanel(
+      baseSession({
+        courts: [{ status: 'pending', pairingId: 'pair1', teamA: ['p1', 'p2'], teamB: ['p3', 'p4'] }],
+      })
+    );
+    fixture.detectChanges();
+
+    const findConfirm = () =>
+      Array.from((fixture.nativeElement as HTMLElement).querySelectorAll('button')).find((b) =>
+        b.textContent?.includes('ยืนยัน')
+      ) as HTMLButtonElement;
+
+    findConfirm().click();
+    httpMock
+      .expectOne(`${B}/sessions/sess1/pairings/pair1/confirm`)
+      .flush({ message: 'แมตช์นี้เริ่มไปแล้ว' }, { status: 409, statusText: 'Conflict' });
+    await new Promise((r) => setTimeout(r, 0));
+    TestBed.tick();
+    fixture.detectChanges();
+    expect((fixture.nativeElement as HTMLElement).textContent).toContain('เริ่มไปแล้ว');
+
+    findConfirm().click();
+    const retry = httpMock.expectOne(`${B}/sessions/sess1/pairings/pair1/confirm`);
+    retry.flush({});
+    await new Promise((r) => setTimeout(r, 0));
+    TestBed.tick();
+    httpMock.expectOne(`${B}/sessions/sess1`).flush(baseSession());
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    expect((fixture.nativeElement as HTMLElement).textContent).not.toContain('เริ่มไปแล้ว');
+  });
+
   it('shows a plain ended state instead of controls once the session has ended', async () => {
     const { fixture } = await createPanel(baseSession({ endedAt: '2026-09-08T20:00:00.000Z' }));
     fixture.detectChanges();
     const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
-    expect(text).toContain('Session ended');
-    expect(text).not.toContain('Start next match');
+    expect(text).toContain('จบก๊วนแล้ว');
+    expect(text).not.toContain('เริ่มแมตช์ถัดไป');
   });
 
   it('clicking "Start next match" calls proposeMatch and reflects the pending court', async () => {
@@ -184,7 +268,7 @@ describe('CourtPanel', () => {
     await fixture.whenStable();
     fixture.detectChanges();
 
-    expect((fixture.nativeElement as HTMLElement).textContent).toContain('Reshuffle');
+    expect((fixture.nativeElement as HTMLElement).textContent).toContain('สุ่มใหม่');
   });
 
   it('clicking "confirm" posts to confirm with the court\'s pairingId', async () => {
@@ -196,7 +280,7 @@ describe('CourtPanel', () => {
     fixture.detectChanges();
 
     const buttons = (fixture.nativeElement as HTMLElement).querySelectorAll('button');
-    const confirmButton = Array.from(buttons).find((b) => b.textContent === 'Confirm') as HTMLButtonElement;
+    const confirmButton = Array.from(buttons).find((b) => b.textContent === 'ยืนยัน') as HTMLButtonElement;
     confirmButton.click();
 
     const req = httpMock.expectOne(`${B}/sessions/sess1/pairings/pair1/confirm`);
@@ -265,7 +349,7 @@ describe('CourtPanel', () => {
     await fixture.whenStable();
     fixture.detectChanges();
 
-    expect((fixture.nativeElement as HTMLElement).textContent).toContain('No one waiting to sub in');
+    expect((fixture.nativeElement as HTMLElement).textContent).toContain('ไม่มีคนสำรองให้เปลี่ยน');
   });
 });
 
@@ -305,6 +389,6 @@ describe('CourtPanel with too few players', () => {
     await fixture.whenStable();
     fixture.detectChanges();
 
-    expect((fixture.nativeElement as HTMLElement).textContent).toContain('Not enough players waiting');
+    expect((fixture.nativeElement as HTMLElement).textContent).toContain('ผู้เล่นไม่พอ');
   });
 });

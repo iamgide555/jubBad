@@ -24,7 +24,7 @@
   --space-3: 1.4rem;
   --space-4: 2.2rem;
 
-  font-family: 'Inter', system-ui, sans-serif;
+  font-family: 'Inter', 'Noto Sans Thai', system-ui, sans-serif;
   color-scheme: light;
 }
 
@@ -42,15 +42,27 @@ body {
   background: var(--line-surface);
   color: var(--ink);
   font-size: 16px;
-  line-height: 1.5;
+  /* 1.6 rather than 1.5: Thai stacks vowel and tone marks above and below the
+     baseline, so lines set for Latin alone collide. */
+  line-height: 1.6;
   -webkit-font-smoothing: antialiased;
+}
+
+/* Used by the dashboard's end-session failure and the court panel's rejected
+   actions. Global rather than per-component: view encapsulation would
+   otherwise scope it to whichever component defined it, silently doing
+   nothing in the other. */
+.error {
+  color: var(--warn);
+  font-size: 0.9rem;
+  margin-top: var(--space-1);
 }
 
 h1,
 h2,
 h3,
 h4 {
-  font-family: 'Archivo', system-ui, sans-serif;
+  font-family: 'Archivo', 'Noto Sans Thai', system-ui, sans-serif;
   font-weight: 700;
   letter-spacing: -0.01em;
   color: var(--ink);

@@ -79,14 +79,14 @@ describe('LiveSessionService', () => {
       })
     );
 
-    expect(await promise).toBe(true);
+    expect(await promise).toEqual({ ok: true });
     await new Promise((r) => setTimeout(r, 0));
     expect(service.courts()).toEqual([
       { status: 'pending', pairingId: 'pair1', teamA: ['p1', 'p2'], teamB: ['p3', 'p4'] },
     ]);
   });
 
-  it('proposeMatch returns false when the server reports not-enough-players', async () => {
+  it('proposeMatch reports the not-enough-players reason', async () => {
     await flushSession(baseSession());
 
     const promise = service.proposeMatch(1);
@@ -97,7 +97,7 @@ describe('LiveSessionService', () => {
     TestBed.tick();
     httpMock.expectOne(`${environment.apiBaseUrl}/sessions/sess1`).flush(baseSession());
 
-    expect(await promise).toBe(false);
+    expect(await promise).toEqual({ ok: false, reason: 'not-enough-players' });
   });
 
   it('swapPlayer posts the playerId to the swap endpoint, reloads, and returns ok', async () => {
@@ -117,10 +117,10 @@ describe('LiveSessionService', () => {
     TestBed.tick();
     httpMock.expectOne(`${environment.apiBaseUrl}/sessions/sess1`).flush(baseSession());
 
-    expect(await promise).toBe(true);
+    expect(await promise).toEqual({ ok: true });
   });
 
-  it('swapPlayer returns false when no substitute is available', async () => {
+  it('swapPlayer reports the no-substitute reason', async () => {
     await flushSession(baseSession());
 
     const promise = service.swapPlayer('pair1', 'p1');
@@ -131,7 +131,7 @@ describe('LiveSessionService', () => {
     TestBed.tick();
     httpMock.expectOne(`${environment.apiBaseUrl}/sessions/sess1`).flush(baseSession());
 
-    expect(await promise).toBe(false);
+    expect(await promise).toEqual({ ok: false, reason: 'no-substitute' });
   });
 
   it('confirmMatch posts to the confirm endpoint with the given pairingId and reloads', async () => {

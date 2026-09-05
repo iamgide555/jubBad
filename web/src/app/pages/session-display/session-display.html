@@ -3,11 +3,11 @@
     <h1>{{ header() }}</h1>
 
     @if (ended()) {
-      <p class="ended-notice">Session ended.</p>
+      <p class="ended-notice" i18n="@@display.sessionEnded">จบก๊วนแล้ว</p>
     } @else {
       <div class="courts">
         @for (line of courtLines(); track line.courtNumber) {
-          <div class="court-line" [class.playing]="line.text !== 'waiting'">
+          <div class="court-line" [class.playing]="line.playing">
             <span class="court-number">{{ line.courtNumber }}</span>
             <p class="court-text">{{ line.text }}</p>
           </div>
@@ -16,13 +16,13 @@
 
       <hr class="rule" />
 
-      <p class="waiting-line">รอคิว: {{ waitingNames().join(', ') }}</p>
+      <p class="waiting-line"><ng-container i18n="@@display.waitingLabel">รอคิว</ng-container>: {{ waitingNames().join(', ') }}</p>
 
-      <button type="button" class="refresh" (click)="refresh()">↻ Refresh</button>
+      <button type="button" class="refresh" (click)="refresh()">↻ <ng-container i18n="@@display.refresh">รีเฟรช</ng-container></button>
     }
   </div>
 } @else {
   <div class="page-dark">
-    <p>Session not found.</p>
+    <p i18n="@@display.notFound">ไม่พบก๊วนนี้</p>
   </div>
 }

@@ -1,23 +1,23 @@
 <div class="page group-entry">
   <label>
-    Group name
-    <input type="text" [(ngModel)]="groupName" (blur)="saveGroupName()" placeholder="e.g. Group A" />
+    <ng-container i18n="@@entry.groupName">ชื่อก๊วน</ng-container>
+    <input type="text" [(ngModel)]="groupName" (blur)="saveGroupName()" i18n-placeholder="@@entry.groupNamePlaceholder" placeholder="เช่น ก๊วนอังคาร" />
   </label>
 
   @if (lastSessionCode()) {
-    <p><a [routerLink]="['/s', lastSessionCode()]">Resume last session →</a></p>
+    <p><a [routerLink]="['/s', lastSessionCode()]" i18n="@@entry.resumeLast">กลับไปก๊วนล่าสุด →</a></p>
   }
 
   @if (state() === 'paste') {
     <hr class="rule" />
     <label>
-      Roster message
-      <textarea [(ngModel)]="rawText" rows="15" placeholder="Paste the LINE roster message here"></textarea>
+      <ng-container i18n="@@entry.rosterMessage">ข้อความรายชื่อ</ng-container>
+      <textarea [(ngModel)]="rawText" rows="15" i18n-placeholder="@@entry.rosterPlaceholder" placeholder="วางข้อความรายชื่อจากไลน์ที่นี่"></textarea>
     </label>
     @if (pasteError()) {
       <p class="error">{{ pasteError() }}</p>
     }
-    <button type="button" (click)="parse()">Parse</button>
+    <button type="button" (click)="parse()" i18n="@@entry.parse">อ่านรายชื่อ</button>
   }
 
   @if (state() === 'confirm') {
@@ -31,7 +31,7 @@
 
     @if (unrecognizedLines().length > 0) {
       <div class="notice-block unrecognized">
-        <h4>Notes</h4>
+        <h4 i18n="@@entry.notes">หมายเหตุ</h4>
         @for (line of unrecognizedLines(); track line) {
           <p>{{ line }}</p>
         }
@@ -42,67 +42,67 @@
 
     <div class="field-row">
       <label>
-        Date
+        <ng-container i18n="@@entry.date">วันที่</ng-container>
         <input type="date" [(ngModel)]="date" required />
       </label>
       <label>
-        Court count
+        <ng-container i18n="@@entry.courtCount">จำนวนคอร์ท</ng-container>
         <input type="number" [ngModel]="courtCount()" (ngModelChange)="courtCount.set($event)" required />
       </label>
     </div>
     <label>
-      Venue
+      <ng-container i18n="@@entry.venue">สนาม</ng-container>
       <input type="text" [(ngModel)]="venue" />
     </label>
 
     <hr class="rule" />
 
-    <h3>Roster</h3>
+    <h3 i18n="@@entry.roster">รายชื่อ</h3>
     <ol class="review-list">
       @for (review of rosterReviews(); track review.inputName; let i = $index) {
         <li class="review-row">
           <span class="review-index">{{ i + 1 }}</span>
           <span class="review-name">{{ review.inputName }}</span>
           @switch (review.match.type) {
-            @case ('exact') { <span class="review-tag matched">known player</span> }
+            @case ('exact') { <span class="review-tag matched" i18n="@@entry.knownPlayer">มีอยู่แล้ว</span> }
             @case ('fuzzy') {
-              <span class="review-tag fuzzy">
-                is this {{ playerName(review.match.playerId) }}?
+              <span class="review-tag fuzzy" i18n="@@entry.isThis">
+                ใช่ {{ playerName(review.match.playerId) }} ไหม?
               </span>
               <button type="button" class="ghost" (click)="toggleDecision(review)">
-                {{ review.decision === 'accept' ? 'yes' : 'no, new player' }}
+                {{ decisionLabel(review) }}
               </button>
             }
-            @case ('new') { <span class="review-tag new">new player</span> }
+            @case ('new') { <span class="review-tag new" i18n="@@entry.newPlayer">คนใหม่</span> }
           }
         </li>
       }
     </ol>
 
     @if (waitlistReviews().length > 0) {
-      <h3>Waitlist</h3>
+      <h3 i18n="@@entry.waitlist">สำรอง</h3>
       <ol class="review-list">
         @for (review of waitlistReviews(); track review.inputName; let i = $index) {
           <li class="review-row">
             <span class="review-index">{{ i + 1 }}</span>
             <span class="review-name">{{ review.inputName }}</span>
             @switch (review.match.type) {
-              @case ('exact') { <span class="review-tag matched">known player</span> }
+              @case ('exact') { <span class="review-tag matched" i18n="@@entry.knownPlayer">มีอยู่แล้ว</span> }
               @case ('fuzzy') {
-                <span class="review-tag fuzzy">
-                  is this {{ playerName(review.match.playerId) }}?
+                <span class="review-tag fuzzy" i18n="@@entry.isThis">
+                  ใช่ {{ playerName(review.match.playerId) }} ไหม?
                 </span>
                 <button type="button" class="ghost" (click)="toggleDecision(review)">
-                  {{ review.decision === 'accept' ? 'yes' : 'no, new player' }}
+                  {{ decisionLabel(review) }}
                 </button>
               }
-              @case ('new') { <span class="review-tag new">new player</span> }
+              @case ('new') { <span class="review-tag new" i18n="@@entry.newPlayer">คนใหม่</span> }
             }
           </li>
         }
       </ol>
     }
 
-    <button type="button" [disabled]="!canConfirm()" (click)="confirmRoster()">Confirm roster</button>
+    <button type="button" [disabled]="!canConfirm()" (click)="confirmRoster()" i18n="@@entry.confirmRoster">ยืนยันรายชื่อ</button>
   }
 </div>

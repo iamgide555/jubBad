@@ -16,6 +16,18 @@ interface SwapResponse {
   reason?: string;
 }
 
+/**
+ * Every mutating action reports the same shape, so no caller can accidentally
+ * drop a failure. `reason` is a domain outcome the server returned as a 200
+ * (nobody free to sub in); `error` is a request that failed outright, carrying
+ * a message meant for the host — the pairing-lifecycle 409s, mostly.
+ */
+export interface ActionResult {
+  ok: boolean;
+  reason?: string;
+  error?: string;
+}
+
 @Injectable()
 export class LiveSessionService {
   private readonly http = inject(HttpClient);
@@ -53,67 +65,62 @@ export class LiveSessionService {
     this.sessionResource.reload();
   }
 
-  async proposeMatch(courtNumber: number): Promise<boolean> {
-    const response = await firstValueFrom(
-      this.http.post<ProposeResponse>(
-        `${this.base}/sessions/${this.sessionCode}/courts/${courtNumber}/propose`,
-        {}
-      )
-    );
-    this.sessionResource.reload();
-    return response.ok;
-  }
-
-  async swapPlayer(pairingId: string, playerId: string): Promise<boolean> {
-    const response = await firstValueFrom(
-      this.http.post<SwapResponse>(
-        `${this.base}/sessions/${this.sessionCode}/pairings/${pairingId}/swap`,
-        { playerId }
-      )
-    );
-    this.sessionResource.reload();
-    return response.ok;
-  }
-
-  async confirmMatch(pairingId: string): Promise<void> {
-    await firstValueFrom(
-      this.http.post(`${this.base}/sessions/${this.sessionCode}/pairings/${pairingId}/confirm`, {})
-    );
-    this.sessionResource.reload();
-  }
-
-  async finishMatch(
-    pairingId: string,
-    scoreA: number | null,
-    scoreB: number | null,
-    winner: 'A' | 'B' | null
-  ): Promise<void> {
-    await firstValueFrom(
-      this.http.post(`${this.base}/sessions/${this.sessionCode}/pairings/${pairingId}/finish`, {
-        scoreA,
-        scoreB,
-        winner,
-      })
-    );
-    this.sessionResource.reload();
-  }
-
-  async endSession(): Promise<{ ok: true } | { ok: false; error: string }> {
+  private async post<T extends { ok?: boolean; reason?: string }>(
+    path: string,
+    body: unknown,
+    fallbackError: string
+  ): Promise<ActionResult> {
     try {
-      await firstValueFrom(
-        this.http.post<{ code: string; endedAt: string }>(
-          `${this.base}/sessions/${this.sessionCode}/end`,
-          {}
-        )
+      const response = await firstValueFrom(
+        this.http.post<T>(`${this.base}/sessions/${this.sessionCode}/${path}`, body)
       );
       this.sessionResource.reload();
-      return { ok: true };
+      return response?.ok === false
+        ? { ok: false, reason: response.reason }
+        : { ok: true };
     } catch (err) {
       const message =
         err instanceof HttpErrorResponse && typeof err.error?.message === 'string'
           ? err.error.message
-          : 'Could not end the session.';
+          : fallbackError;
       return { ok: false, error: message };
     }
+  }
+
+  proposeMatch(courtNumber: number): Promise<ActionResult> {
+    return this.post<ProposeResponse>(
+      `courts/${courtNumber}/propose`,
+      {},
+      $localize`:@@err.propose:เริ่มแมตช์ไม่สำเร็จ`
+    );
+  }
+
+  swapPlayer(pairingId: string, playerId: string): Promise<ActionResult> {
+    return this.post<SwapResponse>(
+      `pairings/${pairingId}/swap`,
+      { playerId },
+      $localize`:@@err.swap:เปลี่ยนตัวไม่สำเร็จ`
+    );
+  }
+
+  confirmMatch(pairingId: string): Promise<ActionResult> {
+    return this.post(`pairings/${pairingId}/confirm`, {}, $localize`:@@err.confirm:ยืนยันแมตช์ไม่สำเร็จ`);
+  }
+
+  finishMatch(
+    pairingId: string,
+    scoreA: number | null,
+    scoreB: number | null,
+    winner: 'A' | 'B' | null
+  ): Promise<ActionResult> {
+    return this.post(
+      `pairings/${pairingId}/finish`,
+      { scoreA, scoreB, winner },
+      $localize`:@@err.finish:บันทึกผลไม่สำเร็จ`
+    );
+  }
+
+  endSession(): Promise<ActionResult> {
+    return this.post('end', {}, $localize`:@@err.endSession:จบก๊วนไม่สำเร็จ`);
   }
 }

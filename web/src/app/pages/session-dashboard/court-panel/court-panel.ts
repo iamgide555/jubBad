@@ -20,6 +20,8 @@ export class CourtPanel {
   readonly notEnoughPlayers = signal(false);
   readonly noSubstitute = signal(false);
   readonly busy = signal(false);
+  /** A rejected request — mostly the pairing-lifecycle 409s. */
+  readonly actionError = signal<string | null>(null);
 
   constructor(protected liveSession: LiveSessionService) {}
 
@@ -36,12 +38,23 @@ export class CourtPanel {
     return resolvePlayerNames(ids, this.players());
   }
 
+  /**
+   * In TS rather than an `i18n-aria-label` attribute: the label interpolates a
+   * player name, so it has to be a binding, and Angular only extracts static
+   * attributes.
+   */
+  protected swapLabel(name: string): string {
+    return $localize`:@@court.swapOut:เปลี่ยน ${name}:name: ออก`;
+  }
+
   protected async startOrReshuffle(): Promise<void> {
     if (this.busy()) return;
     this.busy.set(true);
+    this.actionError.set(null);
     try {
-      const success = await this.liveSession.proposeMatch(this.courtNumber());
-      this.notEnoughPlayers.set(!success);
+      const result = await this.liveSession.proposeMatch(this.courtNumber());
+      this.notEnoughPlayers.set(!result.ok && result.reason === 'not-enough-players');
+      this.actionError.set(result.error ?? null);
     } finally {
       this.busy.set(false);
     }
@@ -50,9 +63,11 @@ export class CourtPanel {
   protected async swap(pairingId: string, playerId: string): Promise<void> {
     if (this.busy()) return;
     this.busy.set(true);
+    this.actionError.set(null);
     try {
-      const ok = await this.liveSession.swapPlayer(pairingId, playerId);
-      this.noSubstitute.set(!ok);
+      const result = await this.liveSession.swapPlayer(pairingId, playerId);
+      this.noSubstitute.set(!result.ok && result.reason === 'no-substitute');
+      this.actionError.set(result.error ?? null);
     } finally {
       this.busy.set(false);
     }
@@ -62,8 +77,10 @@ export class CourtPanel {
     const c = this.court();
     if (c.status !== 'pending' || this.busy()) return;
     this.busy.set(true);
+    this.actionError.set(null);
     try {
-      await this.liveSession.confirmMatch(c.pairingId);
+      const result = await this.liveSession.confirmMatch(c.pairingId);
+      this.actionError.set(result.error ?? null);
     } finally {
       this.busy.set(false);
     }
@@ -74,9 +91,12 @@ export class CourtPanel {
     const c = this.court();
     if (c.status !== 'active' || this.busy()) return;
     this.busy.set(true);
+    this.actionError.set(null);
     try {
       const scores = winner === null ? [null, null] : [this.scoreA(), this.scoreB()];
-      await this.liveSession.finishMatch(c.pairingId, scores[0], scores[1], winner);
+      const result = await this.liveSession.finishMatch(c.pairingId, scores[0], scores[1], winner);
+      this.actionError.set(result.error ?? null);
+      if (!result.ok) return;
       this.scoreA.set(null);
       this.scoreB.set(null);
     } finally {

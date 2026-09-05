@@ -2,19 +2,19 @@
   @let c = court();
 
   <div class="court-panel-head">
-    <h4>Court {{ courtNumber() }}</h4>
+    <h4 i18n="@@court.number">คอร์ท {{ courtNumber() }}</h4>
     <span class="status-dot" [class]="c.status"></span>
   </div>
 
   @if (ended()) {
-    <p class="matchup idle-label">Session ended</p>
+    <p class="matchup idle-label" i18n="@@court.sessionEnded">จบก๊วนแล้ว</p>
   } @else {
     @switch (c.status) {
       @case ('idle') {
-        <p class="matchup idle-label">Idle</p>
-        <button type="button" [disabled]="busy()" (click)="startOrReshuffle()">Start next match</button>
+        <p class="matchup idle-label" i18n="@@court.idle">ว่าง</p>
+        <button type="button" [disabled]="busy()" (click)="startOrReshuffle()" i18n="@@court.startNext">เริ่มแมตช์ถัดไป</button>
         @if (notEnoughPlayers()) {
-          <p class="hint">Not enough players waiting.</p>
+          <p class="hint" i18n="@@court.notEnoughPlayers">ผู้เล่นไม่พอ</p>
         }
       }
       @case ('pending') {
@@ -22,46 +22,50 @@
           @let aNames = teamNames(c.teamA);
           @let bNames = teamNames(c.teamB);
           <p class="matchup">
-            <button type="button" class="name-tap" [disabled]="busy()" [attr.aria-label]="'Swap out ' + aNames[0]" (click)="swap(c.pairingId, c.teamA[0])">{{ aNames[0] }}</button>
+            <button type="button" class="name-tap" [disabled]="busy()" [attr.aria-label]="swapLabel(aNames[0])" (click)="swap(c.pairingId, c.teamA[0])">{{ aNames[0] }}</button>
             &amp;
-            <button type="button" class="name-tap" [disabled]="busy()" [attr.aria-label]="'Swap out ' + aNames[1]" (click)="swap(c.pairingId, c.teamA[1])">{{ aNames[1] }}</button>
-            <span class="vs">vs</span>
-            <button type="button" class="name-tap" [disabled]="busy()" [attr.aria-label]="'Swap out ' + bNames[0]" (click)="swap(c.pairingId, c.teamB[0])">{{ bNames[0] }}</button>
+            <button type="button" class="name-tap" [disabled]="busy()" [attr.aria-label]="swapLabel(aNames[1])" (click)="swap(c.pairingId, c.teamA[1])">{{ aNames[1] }}</button>
+            <span class="vs" i18n="@@court.vs">vs</span>
+            <button type="button" class="name-tap" [disabled]="busy()" [attr.aria-label]="swapLabel(bNames[0])" (click)="swap(c.pairingId, c.teamB[0])">{{ bNames[0] }}</button>
             &amp;
-            <button type="button" class="name-tap" [disabled]="busy()" [attr.aria-label]="'Swap out ' + bNames[1]" (click)="swap(c.pairingId, c.teamB[1])">{{ bNames[1] }}</button>
+            <button type="button" class="name-tap" [disabled]="busy()" [attr.aria-label]="swapLabel(bNames[1])" (click)="swap(c.pairingId, c.teamB[1])">{{ bNames[1] }}</button>
           </p>
           @if (noSubstitute()) {
-            <p class="hint">No one waiting to sub in.</p>
+            <p class="hint" i18n="@@court.noSubstitute">ไม่มีคนสำรองให้เปลี่ยน</p>
           }
         }
         <div class="button-row">
-          <button type="button" class="ghost" [disabled]="busy()" (click)="startOrReshuffle()">Reshuffle</button>
-          <button type="button" [disabled]="busy()" (click)="confirm()">Confirm</button>
+          <button type="button" class="ghost" [disabled]="busy()" (click)="startOrReshuffle()" i18n="@@court.reshuffle">สุ่มใหม่</button>
+          <button type="button" [disabled]="busy()" (click)="confirm()" i18n="@@court.confirm">ยืนยัน</button>
         </div>
       }
       @case ('active') {
         @if (c.status === 'active') {
           @let aNames = teamNames(c.teamA);
           @let bNames = teamNames(c.teamB);
-          <p class="matchup">{{ aNames[0] }} &amp; {{ aNames[1] }} <span class="vs">vs</span> {{ bNames[0] }} &amp; {{ bNames[1] }}</p>
+          <p class="matchup">{{ aNames[0] }} &amp; {{ aNames[1] }} <span class="vs" i18n="@@court.vs">vs</span> {{ bNames[0] }} &amp; {{ bNames[1] }}</p>
         }
         <div class="score-row">
-          <label class="sr-only" [attr.for]="'scoreA-' + courtNumber()">Team A score</label>
+          <label class="sr-only" [attr.for]="'scoreA-' + courtNumber()" i18n="@@court.scoreA">คะแนนทีม A</label>
           <input [attr.id]="'scoreA-' + courtNumber()" type="number" min="0" [ngModel]="scoreA()" (ngModelChange)="scoreA.set($event)" placeholder="0" />
           <span class="score-sep">–</span>
-          <label class="sr-only" [attr.for]="'scoreB-' + courtNumber()">Team B score</label>
+          <label class="sr-only" [attr.for]="'scoreB-' + courtNumber()" i18n="@@court.scoreB">คะแนนทีม B</label>
           <input [attr.id]="'scoreB-' + courtNumber()" type="number" min="0" [ngModel]="scoreB()" (ngModelChange)="scoreB.set($event)" placeholder="0" />
         </div>
         @if (c.status === 'active') {
           @let aNames = teamNames(c.teamA);
           @let bNames = teamNames(c.teamB);
           <div class="button-row">
-            <button type="button" [disabled]="busy()" (click)="finish('A')">{{ aNames[0] }} &amp; {{ aNames[1] }} won</button>
-            <button type="button" [disabled]="busy()" (click)="finish('B')">{{ bNames[0] }} &amp; {{ bNames[1] }} won</button>
+            <button type="button" [disabled]="busy()" (click)="finish('A')">{{ aNames[0] }} &amp; {{ aNames[1] }} <ng-container i18n="@@court.won">ชนะ</ng-container></button>
+            <button type="button" [disabled]="busy()" (click)="finish('B')">{{ bNames[0] }} &amp; {{ bNames[1] }} <ng-container i18n="@@court.won">ชนะ</ng-container></button>
           </div>
-          <button type="button" class="no-result" [disabled]="busy()" (click)="finish(null)">No result</button>
         }
+        <button type="button" class="no-result" [disabled]="busy()" (click)="finish(null)" i18n="@@court.noResult">ไม่มีผล</button>
       }
+    }
+
+    @if (actionError()) {
+      <p class="hint error" role="alert">{{ actionError() }}</p>
     }
   }
 </div>

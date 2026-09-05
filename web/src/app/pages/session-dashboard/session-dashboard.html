@@ -17,7 +17,7 @@
     <hr class="rule" />
 
     <div class="waiting-queue">
-      <h4>Waiting</h4>
+      <h4 i18n="@@dashboard.waiting">รอคิว</h4>
       @for (name of waitingNames(); track name) {
         <span class="chip">{{ name }}</span>
       }
@@ -25,7 +25,7 @@
 
     @if (waitlistNames().length > 0) {
       <div class="waitlist">
-        <h4>Waitlist</h4>
+        <h4 i18n="@@dashboard.waitlist">สำรอง</h4>
         @for (name of waitlistNames(); track name) {
           <span class="chip">{{ name }}</span>
         }
@@ -37,17 +37,17 @@
 
     @if (!ended()) {
       <hr class="rule" />
-      <button type="button" (click)="endSession()">End session</button>
+      <button type="button" (click)="endSession()" i18n="@@dashboard.endSession">จบก๊วน</button>
       @if (endSessionError()) {
         <p class="error">{{ endSessionError() }}</p>
       }
     } @else {
       <hr class="rule" />
-      <p class="ended-notice">Session ended.</p>
+      <p class="ended-notice" i18n="@@dashboard.sessionEnded">จบก๊วนแล้ว</p>
     }
   </div>
 } @else {
   <div class="page">
-    <p>Session not found.</p>
+    <p i18n="@@dashboard.notFound">ไม่พบก๊วนนี้</p>
   </div>
 }

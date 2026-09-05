@@ -98,7 +98,7 @@ describe('SessionDisplay', () => {
     await new Promise((r) => setTimeout(r, 0));
     TestBed.tick();
 
-    expect(fixture.componentInstance.courtLines()[0].text).toBe('waiting');
+    expect(fixture.componentInstance.courtLines()[0].text).toBe('ว่าง');
   });
 
   it('shows the pairing for an active court', async () => {
@@ -114,7 +114,7 @@ describe('SessionDisplay', () => {
 
     const line = fixture.componentInstance.courtLines()[0];
     expect(line.text).toContain('vs');
-    expect(line.text).not.toBe('waiting');
+    expect(line.text).not.toBe('ว่าง');
   });
 
   it('shows a plain ended state instead of the live court grid once the session has ended', async () => {
@@ -128,7 +128,7 @@ describe('SessionDisplay', () => {
     fixture.detectChanges();
 
     const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
-    expect(text).toContain('Session ended');
+    expect(text).toContain('จบก๊วนแล้ว');
   });
 
   it('clicking refresh calls liveSession.refresh', async () => {
@@ -192,6 +192,6 @@ describe('SessionDisplay with an unknown sessionCode', () => {
 
     fixture.detectChanges();
     const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
-    expect(text).toContain('Session not found');
+    expect(text).toContain('ไม่พบก๊วนนี้');
   });
 });

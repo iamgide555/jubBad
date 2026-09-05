@@ -116,15 +116,15 @@ describe('LiveSessionService', () => {
     await promise;
   });
 
-  it('finishMatch posts scores to the finish endpoint and reloads', async () => {
+  it('finishMatch posts scores and winner to the finish endpoint and reloads', async () => {
     await flushSession(baseSession());
 
-    const promise = service.finishMatch('pair1', 21, 15);
+    const promise = service.finishMatch('pair1', 21, 15, 'A');
     const finishReq = httpMock.expectOne(
       `${environment.apiBaseUrl}/sessions/sess1/pairings/pair1/finish`
     );
     expect(finishReq.request.method).toBe('POST');
-    expect(finishReq.request.body).toEqual({ scoreA: 21, scoreB: 15 });
+    expect(finishReq.request.body).toEqual({ scoreA: 21, scoreB: 15, winner: 'A' });
     finishReq.flush({});
     await new Promise((r) => setTimeout(r, 0));
     TestBed.tick();

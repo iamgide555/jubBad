@@ -45,10 +45,10 @@ export class CourtPanel {
     await this.liveSession.confirmMatch(c.pairingId);
   }
 
-  protected async finish(): Promise<void> {
+  protected async finish(winner: 'A' | 'B'): Promise<void> {
     const c = this.court();
     if (c.status !== 'active') return;
-    await this.liveSession.finishMatch(c.pairingId, this.scoreA(), this.scoreB());
+    await this.liveSession.finishMatch(c.pairingId, this.scoreA(), this.scoreB(), winner);
     this.scoreA.set(null);
     this.scoreB.set(null);
   }

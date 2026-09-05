@@ -88,14 +88,44 @@ describe('CourtPanel', () => {
     expect(text).not.toContain('p1');
   });
 
-  it('shows a "Finish match" control once active', async () => {
+  it('shows named winner buttons once active', async () => {
     const { fixture } = await createPanel(
       baseSession({
         courts: [{ status: 'active', pairingId: 'pair1', teamA: ['p1', 'p2'], teamB: ['p3', 'p4'] }],
       })
     );
     fixture.detectChanges();
-    expect((fixture.nativeElement as HTMLElement).textContent).toContain('Finish match');
+    const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
+    expect(text).toContain('ตั้ม & เบส won');
+    expect(text).toContain('ปอม & ไม้ won');
+  });
+
+  it('clicking a winner button finishes with that winner and current scores', async () => {
+    const { fixture, httpMock } = await createPanel(
+      baseSession({
+        courts: [{ status: 'active', pairingId: 'pair1', teamA: ['p1', 'p2'], teamB: ['p3', 'p4'] }],
+      })
+    );
+    fixture.detectChanges();
+
+    const scoreInputs = (fixture.nativeElement as HTMLElement).querySelectorAll('input[type="number"]');
+    (scoreInputs[0] as HTMLInputElement).value = '21';
+    (scoreInputs[0] as HTMLInputElement).dispatchEvent(new Event('input'));
+    (scoreInputs[1] as HTMLInputElement).value = '15';
+    (scoreInputs[1] as HTMLInputElement).dispatchEvent(new Event('input'));
+    fixture.detectChanges();
+
+    const buttons = (fixture.nativeElement as HTMLElement).querySelectorAll('button');
+    const winButton = Array.from(buttons).find((b) => b.textContent?.includes('ตั้ม')) as HTMLButtonElement;
+    winButton.click();
+
+    const req = httpMock.expectOne(`${B}/sessions/sess1/pairings/pair1/finish`);
+    expect(req.request.body).toEqual({ scoreA: 21, scoreB: 15, winner: 'A' });
+    req.flush({});
+    await new Promise((r) => setTimeout(r, 0));
+    TestBed.tick();
+    httpMock.expectOne(`${B}/sessions/sess1`).flush(baseSession());
+    await fixture.whenStable();
   });
 
   it('shows a plain ended state instead of controls once the session has ended', async () => {

@@ -66,11 +66,17 @@ export class LiveSessionService {
     this.sessionResource.reload();
   }
 
-  async finishMatch(pairingId: string, scoreA: number | null, scoreB: number | null): Promise<void> {
+  async finishMatch(
+    pairingId: string,
+    scoreA: number | null,
+    scoreB: number | null,
+    winner: 'A' | 'B'
+  ): Promise<void> {
     await firstValueFrom(
       this.http.post(`${this.base}/sessions/${this.sessionCode}/pairings/${pairingId}/finish`, {
         scoreA,
         scoreB,
+        winner,
       })
     );
     this.sessionResource.reload();

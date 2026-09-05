@@ -81,14 +81,25 @@
 }
 
 .name-tap {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
   background: none;
   border: none;
-  padding: 0;
+  padding: 0.4rem 0.3rem;
+  margin: -0.4rem -0.3rem;
   font: inherit;
   font-weight: 600;
   text-decoration: underline dotted;
   cursor: pointer;
   color: inherit;
+}
+
+.name-tap:disabled {
+  background: none;
+  color: inherit;
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 
 .idle-label {
@@ -116,6 +127,7 @@
 
 .score-row input {
   width: 4rem;
+  min-height: 44px;
   text-align: center;
   font-family: 'Archivo', sans-serif;
   font-weight: 700;

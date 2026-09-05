@@ -12,7 +12,7 @@
     @switch (c.status) {
       @case ('idle') {
         <p class="matchup idle-label">Idle</p>
-        <button type="button" (click)="startOrReshuffle()">Start next match</button>
+        <button type="button" [disabled]="busy()" (click)="startOrReshuffle()">Start next match</button>
         @if (notEnoughPlayers()) {
           <p class="hint">Not enough players waiting.</p>
         }
@@ -22,21 +22,21 @@
           @let aNames = teamNames(c.teamA);
           @let bNames = teamNames(c.teamB);
           <p class="matchup">
-            <button type="button" class="name-tap" (click)="swap(c.pairingId, c.teamA[0])">{{ aNames[0] }}</button>
+            <button type="button" class="name-tap" [disabled]="busy()" [attr.aria-label]="'Swap out ' + aNames[0]" (click)="swap(c.pairingId, c.teamA[0])">{{ aNames[0] }}</button>
             &amp;
-            <button type="button" class="name-tap" (click)="swap(c.pairingId, c.teamA[1])">{{ aNames[1] }}</button>
+            <button type="button" class="name-tap" [disabled]="busy()" [attr.aria-label]="'Swap out ' + aNames[1]" (click)="swap(c.pairingId, c.teamA[1])">{{ aNames[1] }}</button>
             <span class="vs">vs</span>
-            <button type="button" class="name-tap" (click)="swap(c.pairingId, c.teamB[0])">{{ bNames[0] }}</button>
+            <button type="button" class="name-tap" [disabled]="busy()" [attr.aria-label]="'Swap out ' + bNames[0]" (click)="swap(c.pairingId, c.teamB[0])">{{ bNames[0] }}</button>
             &amp;
-            <button type="button" class="name-tap" (click)="swap(c.pairingId, c.teamB[1])">{{ bNames[1] }}</button>
+            <button type="button" class="name-tap" [disabled]="busy()" [attr.aria-label]="'Swap out ' + bNames[1]" (click)="swap(c.pairingId, c.teamB[1])">{{ bNames[1] }}</button>
           </p>
           @if (noSubstitute()) {
             <p class="hint">No one waiting to sub in.</p>
           }
         }
         <div class="button-row">
-          <button type="button" class="ghost" (click)="startOrReshuffle()">Reshuffle</button>
-          <button type="button" (click)="confirm()">Confirm</button>
+          <button type="button" class="ghost" [disabled]="busy()" (click)="startOrReshuffle()">Reshuffle</button>
+          <button type="button" [disabled]="busy()" (click)="confirm()">Confirm</button>
         </div>
       }
       @case ('active') {
@@ -46,16 +46,18 @@
           <p class="matchup">{{ aNames[0] }} &amp; {{ aNames[1] }} <span class="vs">vs</span> {{ bNames[0] }} &amp; {{ bNames[1] }}</p>
         }
         <div class="score-row">
-          <input type="number" min="0" [ngModel]="scoreA()" (ngModelChange)="scoreA.set($event)" placeholder="0" />
+          <label class="sr-only" [attr.for]="'scoreA-' + courtNumber()">Team A score</label>
+          <input [attr.id]="'scoreA-' + courtNumber()" type="number" min="0" [ngModel]="scoreA()" (ngModelChange)="scoreA.set($event)" placeholder="0" />
           <span class="score-sep">–</span>
-          <input type="number" min="0" [ngModel]="scoreB()" (ngModelChange)="scoreB.set($event)" placeholder="0" />
+          <label class="sr-only" [attr.for]="'scoreB-' + courtNumber()">Team B score</label>
+          <input [attr.id]="'scoreB-' + courtNumber()" type="number" min="0" [ngModel]="scoreB()" (ngModelChange)="scoreB.set($event)" placeholder="0" />
         </div>
         @if (c.status === 'active') {
           @let aNames = teamNames(c.teamA);
           @let bNames = teamNames(c.teamB);
           <div class="button-row">
-            <button type="button" (click)="finish('A')">{{ aNames[0] }} &amp; {{ aNames[1] }} won</button>
-            <button type="button" (click)="finish('B')">{{ bNames[0] }} &amp; {{ bNames[1] }} won</button>
+            <button type="button" [disabled]="busy()" (click)="finish('A')">{{ aNames[0] }} &amp; {{ aNames[1] }} won</button>
+            <button type="button" [disabled]="busy()" (click)="finish('B')">{{ bNames[0] }} &amp; {{ bNames[1] }} won</button>
           </div>
         }
       }

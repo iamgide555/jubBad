@@ -19,6 +19,7 @@ export class CourtPanel {
   readonly scoreB = signal<number | null>(null);
   readonly notEnoughPlayers = signal(false);
   readonly noSubstitute = signal(false);
+  readonly busy = signal(false);
 
   constructor(protected liveSession: LiveSessionService) {}
 
@@ -36,26 +37,48 @@ export class CourtPanel {
   }
 
   protected async startOrReshuffle(): Promise<void> {
-    const success = await this.liveSession.proposeMatch(this.courtNumber());
-    this.notEnoughPlayers.set(!success);
+    if (this.busy()) return;
+    this.busy.set(true);
+    try {
+      const success = await this.liveSession.proposeMatch(this.courtNumber());
+      this.notEnoughPlayers.set(!success);
+    } finally {
+      this.busy.set(false);
+    }
   }
 
   protected async swap(pairingId: string, playerId: string): Promise<void> {
-    const ok = await this.liveSession.swapPlayer(pairingId, playerId);
-    this.noSubstitute.set(!ok);
+    if (this.busy()) return;
+    this.busy.set(true);
+    try {
+      const ok = await this.liveSession.swapPlayer(pairingId, playerId);
+      this.noSubstitute.set(!ok);
+    } finally {
+      this.busy.set(false);
+    }
   }
 
   protected async confirm(): Promise<void> {
     const c = this.court();
-    if (c.status !== 'pending') return;
-    await this.liveSession.confirmMatch(c.pairingId);
+    if (c.status !== 'pending' || this.busy()) return;
+    this.busy.set(true);
+    try {
+      await this.liveSession.confirmMatch(c.pairingId);
+    } finally {
+      this.busy.set(false);
+    }
   }
 
   protected async finish(winner: 'A' | 'B'): Promise<void> {
     const c = this.court();
-    if (c.status !== 'active') return;
-    await this.liveSession.finishMatch(c.pairingId, this.scoreA(), this.scoreB(), winner);
-    this.scoreA.set(null);
-    this.scoreB.set(null);
+    if (c.status !== 'active' || this.busy()) return;
+    this.busy.set(true);
+    try {
+      await this.liveSession.finishMatch(c.pairingId, this.scoreA(), this.scoreB(), winner);
+      this.scoreA.set(null);
+      this.scoreB.set(null);
+    } finally {
+      this.busy.set(false);
+    }
   }
 }

@@ -163,8 +163,9 @@ Both happen at essentially every real session. Note §3 already established
 that no engine change is needed — a new player has
 `gamesPlayedThisSession = 0`, so existing priority logic handles them.
 
-**Not fixed — feature, not defect.** Half of it (no-show removal) is B3; the
-late-arrival half is dropped, see B3.
+**Not fixed — feature, not defect.** Both halves are answered by B3's toggle:
+a no-show is toggled out, and a rostered player who turns up late is toggled
+back in.
 
 ### - [ ] A8. "Copy as text" share button is missing
 
@@ -319,39 +320,37 @@ The app is used one-handed, in a noisy hall, mid-game. A mis-tapped
 "X & Y won" is currently permanent, and silently corrupts the data any future
 rating model (B4) would depend on. Single-step undo on confirm and finish.
 
-### - [ ] B3. Remove a no-show
+### - [ ] B3. Toggle a player in or out for tonight
 
-Scoped down from "editable mid-session roster" — see below for what came out
-and why. What remains: the host removes a rostered player who did not turn up,
-so they stop being picked for future court fills. Past matches they already
-played are never retroactively edited (§3).
+One control per rostered player: sit them out, or bring them back. Replaces
+what was first scoped as "remove a no-show" — a toggle is strictly better, for
+three reasons:
 
-Design points worth settling before building:
+- **One control covers every case.** No-show, arrived late, left early, resting
+  a few rounds, injured, wrongly toggled. Removal needed a separate re-add path
+  to undo itself; a toggle *is* its own undo.
+- **It needs no special case for a player already on a court.** The rule is
+  simply "excluded from future court fills", so someone toggled off mid-match
+  plays that match out and is then skipped. Removal had to choose between
+  refusing on an active pairing or mutating a confirmed one — see the git
+  history of this entry for that dead end.
+- **Nothing is destroyed.** Removal raised "does this delete the Player?"; a
+  toggle obviously doesn't.
 
-- **A no-show can already be on a court.** If they are on a *pending* pairing,
-  removal should behave like the existing 1-for-1 swap and pull in a
-  substitute. If the pairing is *active*, the match is being played by three
-  people and a ghost — the host's real recourse is "ไม่มีผล", so removal should
-  probably refuse rather than mutate a confirmed pairing.
-- **Removal is not deletion.** The `Player` row stays (it carries the group's
-  history); only the `SessionRoster` entry for tonight goes.
-- **Reversible?** A player wrongly removed should be re-addable, which is the
-  same mechanism as "add a late arrival" minus the fuzzy-match step. Worth
-  building the undo even though the add-a-stranger case is out.
+Sketch:
 
-**Dropped from this item — waitlist promotion.** The สำรอง list is resolved in
-LINE before the session, so a waitlisted player was told not to come and is not
-at the venue to promote. Now recorded in `docs/overview.md`'s decision table so
-it doesn't get re-proposed.
-
-**Dropped — add a late arrival.** A rostered player who merely arrives late is
-already in the roster, and the existing 1-for-1 swap covers keeping them off a
-court until they show. The remaining case — someone not on the roster turning
-up — is out of scope by the same logic as waitlist promotion.
-
-**Split out — A8, copy as text.** Independent of roster editing; it only shared
-this item because it touches the same screen. Now its own entry below,
-unscheduled.
+- Schema: a boolean on `SessionRoster` (default true). It belongs on the join
+  row, not on `Player` — it is a fact about tonight, not about the person.
+- `propose` and `swapPlayer` draw their pools from active roster entries only.
+  That is the entire engine-side change; `generateRound` itself is untouched,
+  since it already takes the roster as a parameter.
+- The dashboard's roster chips become the control — tap a chip to toggle.
+  Inactive chips render muted and drop out of the waiting queue.
+- If the player is on a *pending* pairing when toggled off, the host taps their
+  name to swap as they already can; the toggle deliberately does not do this
+  implicitly, so it keeps its single meaning.
+- Thai: **พัก** for sitting out, **กลับมาเล่น** to bring back — พัก is what
+  players actually say. Confirm the wording before building.
 
 ### - [ ] B4. Skill / Elo balancing
 
@@ -417,7 +416,7 @@ worth building if abuse actually appears, exactly as §2 concluded.
 
 1. ~~A1 → A3 → A2, then A4, A5, A11, A10.~~ **Done**, plus A12.
 2. ~~**B1 (Thai).**~~ Done.
-3. **B3** — remove a no-show. Now a single small feature, not a release.
+3. **B3** — toggle a player in or out for tonight. One small feature.
 4. **B2, B5, B6, B7.** Host ergonomics.
 5. **B4 (Elo)** once B2 has protected the data quality it depends on.
 6. **A13** whenever the flakes start costing time.

@@ -70,6 +70,11 @@ engines/     Pure, dependency-free TypeScript. No framework, no npm deps.
 server/      NestJS + Prisma + SQLite. Imports engines/ by relative path.
              The engines run server-side, so the server can serialize
              decisions — see "Why the engines run on the server" below.
+             Importing engines/ needs tsconfig.build.json's rootDir widened
+             to the repo root, which pushes the build output down to
+             dist/server/src/ rather than the usual dist/src/. That is why
+             nest-cli.json sets an explicit entryFile and why start:prod
+             names that longer path.
 
 web/         Angular, standalone components, signals. Talks to the API only;
              holds no business logic and no localStorage state.

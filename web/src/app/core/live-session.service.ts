@@ -86,7 +86,7 @@ export class LiveSessionService {
     pairingId: string,
     scoreA: number | null,
     scoreB: number | null,
-    winner: 'A' | 'B'
+    winner: 'A' | 'B' | null
   ): Promise<void> {
     await firstValueFrom(
       this.http.post(`${this.base}/sessions/${this.sessionCode}/pairings/${pairingId}/finish`, {

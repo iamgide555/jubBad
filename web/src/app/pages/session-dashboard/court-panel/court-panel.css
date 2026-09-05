@@ -118,6 +118,23 @@
   gap: var(--space-1);
 }
 
+/* Deliberately quieter than the two winner buttons: ending with no result is
+   the rare case, but it has to be reachable without inventing a fake score. */
+.no-result {
+  width: 100%;
+  min-height: 44px;
+  margin-top: var(--space-1);
+  background: none;
+  border: 1px solid var(--rule);
+  color: var(--ink-soft);
+  font-weight: 500;
+}
+
+.no-result:hover {
+  background: var(--rule);
+  color: var(--ink);
+}
+
 .score-row {
   display: flex;
   align-items: center;

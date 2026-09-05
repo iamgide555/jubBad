@@ -128,6 +128,29 @@ describe('CourtPanel', () => {
     await fixture.whenStable();
   });
 
+  it('finishes with no winner when the match is ended without a result', async () => {
+    const { fixture, httpMock } = await createPanel(
+      baseSession({
+        courts: [{ status: 'active', pairingId: 'pair1', teamA: ['p1', 'p2'], teamB: ['p3', 'p4'] }],
+      })
+    );
+    fixture.detectChanges();
+
+    const buttons = (fixture.nativeElement as HTMLElement).querySelectorAll('button');
+    const noResult = Array.from(buttons).find((b) =>
+      b.textContent?.includes('No result')
+    ) as HTMLButtonElement;
+    noResult.click();
+
+    const req = httpMock.expectOne(`${B}/sessions/sess1/pairings/pair1/finish`);
+    expect(req.request.body).toEqual({ scoreA: null, scoreB: null, winner: null });
+    req.flush({});
+    await new Promise((r) => setTimeout(r, 0));
+    TestBed.tick();
+    httpMock.expectOne(`${B}/sessions/sess1`).flush(baseSession());
+    await fixture.whenStable();
+  });
+
   it('shows a plain ended state instead of controls once the session has ended', async () => {
     const { fixture } = await createPanel(baseSession({ endedAt: '2026-09-08T20:00:00.000Z' }));
     fixture.detectChanges();

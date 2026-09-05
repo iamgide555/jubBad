@@ -1,15 +1,18 @@
 import { randomUUID } from 'node:crypto';
 import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { confirmExistingPlayerAlias, createNewPlayer, type Player as FuzzyPlayer } from '../../../engines/fuzzy-match.ts';
-import { generateRound } from '../../../engines/pairing.ts';
+import { generateRound, scoreArrangement } from '../../../engines/pairing.ts';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { deriveHistory } from './derive-history.js';
+import { SessionLock } from './session-lock.js';
 import type { CreateSessionDto, NameReviewDto } from './dto/create-session.dto.js';
 import type { FinishPairingDto } from './dto/finish-pairing.dto.js';
 import type { SwapPlayerDto } from './dto/swap-player.dto.js';
 
 @Injectable()
 export class SessionsService {
+  private readonly lock = new SessionLock();
+
   constructor(private readonly prisma: PrismaService) {}
 
   async createSession(dto: CreateSessionDto): Promise<{ code: string }> {
@@ -111,9 +114,41 @@ export class SessionsService {
     };
   }
 
-  async propose(sessionCode: string, courtNumber: number) {
+  /**
+   * Partner/opponent counts come from every session this group has ever
+   * played; games-played comes from this session alone. See PROJECT.md §6.3
+   * and the note on `deriveHistory`.
+   */
+  private async loadHistory(groupCode: string, sessionCode: string) {
+    const toPairing = (p: { teamA: string; teamB: string }) => ({
+      teamA: JSON.parse(p.teamA) as [string, string],
+      teamB: JSON.parse(p.teamB) as [string, string],
+    });
+
+    const [allTime, thisSession] = await Promise.all([
+      this.prisma.pairing.findMany({
+        where: { session: { groupId: groupCode }, confirmedAt: { not: null } },
+        select: { teamA: true, teamB: true },
+      }),
+      this.prisma.pairing.findMany({
+        where: { sessionId: sessionCode, confirmedAt: { not: null } },
+        select: { teamA: true, teamB: true },
+      }),
+    ]);
+
+    return deriveHistory(allTime.map(toPairing), thisSession.map(toPairing));
+  }
+
+  propose(sessionCode: string, courtNumber: number) {
+    return this.lock.run(sessionCode, () => this.proposeExclusively(sessionCode, courtNumber));
+  }
+
+  private async proposeExclusively(sessionCode: string, courtNumber: number) {
     const session = await this.prisma.session.findUnique({ where: { code: sessionCode } });
     if (!session) throw new NotFoundException();
+    if (session.endedAt !== null) {
+      throw new ConflictException('This session has ended.');
+    }
 
     const roster = await this.prisma.sessionRoster.findMany({ where: { sessionId: sessionCode } });
     const rosterPlayerIds = roster.map((r) => r.playerId);
@@ -137,15 +172,7 @@ export class SessionsService {
     }
     const available = rosterPlayerIds.filter((id) => !reserved.has(id));
 
-    const confirmed = await this.prisma.pairing.findMany({
-      where: { sessionId: sessionCode, confirmedAt: { not: null } },
-    });
-    const history = deriveHistory(
-      confirmed.map((p) => ({
-        teamA: JSON.parse(p.teamA) as [string, string],
-        teamB: JSON.parse(p.teamB) as [string, string],
-      }))
-    );
+    const history = await this.loadHistory(session.groupId, sessionCode);
 
     const avoidSplit = existingPending
       ? {
@@ -195,12 +222,27 @@ export class SessionsService {
   async confirmPairing(id: string) {
     const pairing = await this.prisma.pairing.findUnique({ where: { id } });
     if (!pairing) throw new NotFoundException();
+    if (pairing.endedAt !== null) {
+      throw new ConflictException('This match has already finished.');
+    }
+    if (pairing.confirmedAt !== null) {
+      throw new ConflictException('This match has already started.');
+    }
     return this.prisma.pairing.update({ where: { id }, data: { confirmedAt: new Date() } });
   }
 
   async finishPairing(id: string, dto: FinishPairingDto) {
     const pairing = await this.prisma.pairing.findUnique({ where: { id } });
     if (!pairing) throw new NotFoundException();
+    // Finishing a pairing nobody confirmed would leave a row that counts in
+    // the stats table but is invisible to the pairing history, since the two
+    // read different columns. Confirm is the single commit point (§7.2).
+    if (pairing.confirmedAt === null) {
+      throw new ConflictException('Confirm this match before finishing it.');
+    }
+    if (pairing.endedAt !== null) {
+      throw new ConflictException('This match has already finished.');
+    }
     return this.prisma.pairing.update({
       where: { id },
       data: { endedAt: new Date(), scoreA: dto.scoreA, scoreB: dto.scoreB, winner: dto.winner },
@@ -226,6 +268,15 @@ export class SessionsService {
   }
 
   async swapPlayer(pairingId: string, dto: SwapPlayerDto) {
+    const target = await this.prisma.pairing.findUnique({
+      where: { id: pairingId },
+      select: { sessionId: true },
+    });
+    if (!target) throw new NotFoundException();
+    return this.lock.run(target.sessionId, () => this.swapPlayerExclusively(pairingId, dto));
+  }
+
+  private async swapPlayerExclusively(pairingId: string, dto: SwapPlayerDto) {
     const pairing = await this.prisma.pairing.findUnique({ where: { id: pairingId } });
     if (!pairing) throw new NotFoundException();
     if (pairing.confirmedAt !== null || pairing.endedAt !== null) {
@@ -259,33 +310,39 @@ export class SessionsService {
       return { ok: false as const, reason: 'no-substitute' as const };
     }
 
-    const confirmed = await this.prisma.pairing.findMany({
-      where: { sessionId: pairing.sessionId, confirmedAt: { not: null } },
+    const session = await this.prisma.session.findUniqueOrThrow({
+      where: { code: pairing.sessionId },
     });
-    const history = deriveHistory(
-      confirmed.map((p) => ({
-        teamA: JSON.parse(p.teamA) as [string, string],
-        teamB: JSON.parse(p.teamB) as [string, string],
-      }))
-    );
-    const substitute = [...pool].sort(
-      (a, b) =>
-        (history.gamesPlayedThisSession.get(a) ?? 0) - (history.gamesPlayedThisSession.get(b) ?? 0)
-    )[0];
+    const history = await this.loadHistory(session.groupId, pairing.sessionId);
 
-    const isTeamA = teamA.includes(dto.playerId);
-    const newTeamA: [string, string] = isTeamA
-      ? [
-          teamA[0] === dto.playerId ? substitute : teamA[0],
-          teamA[1] === dto.playerId ? substitute : teamA[1],
-        ]
-      : teamA;
-    const newTeamB: [string, string] = !isTeamA
-      ? [
-          teamB[0] === dto.playerId ? substitute : teamB[0],
-          teamB[1] === dto.playerId ? substitute : teamB[1],
-        ]
-      : teamB;
+    const swapIn = (candidate: string): [[string, string], [string, string]] => {
+      const replace = (team: [string, string]): [string, string] => [
+        team[0] === dto.playerId ? candidate : team[0],
+        team[1] === dto.playerId ? candidate : team[1],
+      ];
+      return [replace(teamA), replace(teamB)];
+    };
+
+    // Ranked the same way `generateRound` ranks a whole arrangement — repeat
+    // partners dominate, repeat opponents break ties (§6.3) — so a swap can't
+    // undo the avoidance the proposal just achieved. Games played tonight only
+    // separates candidates the history term rates equally.
+    const [{ substitute }] = pool
+      .map((candidate) => {
+        const [candidateA, candidateB] = swapIn(candidate);
+        return {
+          substitute: candidate,
+          score: scoreArrangement(
+            [{ teamA: candidateA, teamB: candidateB }],
+            history.partnerCounts,
+            history.opponentCounts
+          ),
+          games: history.gamesPlayedThisSession.get(candidate) ?? 0,
+        };
+      })
+      .sort((one, other) => one.score - other.score || one.games - other.games);
+
+    const [newTeamA, newTeamB] = swapIn(substitute);
 
     const updated = await this.prisma.pairing.update({
       where: { id: pairingId },
@@ -308,11 +365,15 @@ export class SessionsService {
     const session = await this.prisma.session.findUnique({ where: { code } });
     if (!session) throw new NotFoundException();
 
+    // Both `confirmedAt` and `endedAt`: a match counts once it was actually
+    // played and finished. Filtering on `endedAt` alone would let a row that
+    // skipped confirm into the stats while the pairing history ignored it.
+    const finishedMatch = { confirmedAt: { not: null }, endedAt: { not: null } } as const;
     const pairings = await this.prisma.pairing.findMany({
       where:
         scope === 'all'
-          ? { session: { groupId: session.groupId }, endedAt: { not: null } }
-          : { sessionId: code, endedAt: { not: null } },
+          ? { session: { groupId: session.groupId }, ...finishedMatch }
+          : { sessionId: code, ...finishedMatch },
     });
 
     const played = new Map<string, number>();

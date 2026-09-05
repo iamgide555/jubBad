@@ -69,12 +69,14 @@ export class CourtPanel {
     }
   }
 
-  protected async finish(winner: 'A' | 'B'): Promise<void> {
+  /** `winner: null` frees the court for a match abandoned without a result. */
+  protected async finish(winner: 'A' | 'B' | null): Promise<void> {
     const c = this.court();
     if (c.status !== 'active' || this.busy()) return;
     this.busy.set(true);
     try {
-      await this.liveSession.finishMatch(c.pairingId, this.scoreA(), this.scoreB(), winner);
+      const scores = winner === null ? [null, null] : [this.scoreA(), this.scoreB()];
+      await this.liveSession.finishMatch(c.pairingId, scores[0], scores[1], winner);
       this.scoreA.set(null);
       this.scoreB.set(null);
     } finally {

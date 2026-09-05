@@ -188,6 +188,62 @@ describe('CourtPanel', () => {
     );
     await fixture.whenStable();
   });
+
+  it('tapping a player name on a pending court swaps them out', async () => {
+    const { fixture, httpMock } = await createPanel(
+      baseSession({
+        courts: [{ status: 'pending', pairingId: 'pair1', teamA: ['p1', 'p2'], teamB: ['p3', 'p4'] }],
+      })
+    );
+    fixture.detectChanges();
+
+    const buttons = (fixture.nativeElement as HTMLElement).querySelectorAll('button.name-tap');
+    const nameButton = Array.from(buttons).find((b) => b.textContent === 'ตั้ม') as HTMLButtonElement;
+    nameButton.click();
+
+    const req = httpMock.expectOne(`${B}/sessions/sess1/pairings/pair1/swap`);
+    expect(req.request.body).toEqual({ playerId: 'p1' });
+    req.flush({
+      ok: true,
+      pairing: { id: 'pair1', courtNumber: 1, matchNumber: 1, teamA: ['p5', 'p2'], teamB: ['p3', 'p4'] },
+    });
+    await new Promise((r) => setTimeout(r, 0));
+    TestBed.tick();
+    httpMock.expectOne(`${B}/sessions/sess1`).flush(
+      baseSession({
+        courts: [{ status: 'pending', pairingId: 'pair1', teamA: ['p5', 'p2'], teamB: ['p3', 'p4'] }],
+      })
+    );
+    await fixture.whenStable();
+  });
+
+  it('shows a hint when swap reports no substitute available', async () => {
+    const { fixture, httpMock } = await createPanel(
+      baseSession({
+        courts: [{ status: 'pending', pairingId: 'pair1', teamA: ['p1', 'p2'], teamB: ['p3', 'p4'] }],
+      })
+    );
+    fixture.detectChanges();
+
+    const buttons = (fixture.nativeElement as HTMLElement).querySelectorAll('button.name-tap');
+    const nameButton = Array.from(buttons).find((b) => b.textContent === 'ตั้ม') as HTMLButtonElement;
+    nameButton.click();
+
+    httpMock
+      .expectOne(`${B}/sessions/sess1/pairings/pair1/swap`)
+      .flush({ ok: false, reason: 'no-substitute' });
+    await new Promise((r) => setTimeout(r, 0));
+    TestBed.tick();
+    httpMock.expectOne(`${B}/sessions/sess1`).flush(
+      baseSession({
+        courts: [{ status: 'pending', pairingId: 'pair1', teamA: ['p1', 'p2'], teamB: ['p3', 'p4'] }],
+      })
+    );
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    expect((fixture.nativeElement as HTMLElement).textContent).toContain('No one waiting to sub in');
+  });
 });
 
 describe('CourtPanel with too few players', () => {

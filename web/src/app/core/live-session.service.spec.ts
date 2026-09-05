@@ -100,6 +100,40 @@ describe('LiveSessionService', () => {
     expect(await promise).toBe(false);
   });
 
+  it('swapPlayer posts the playerId to the swap endpoint, reloads, and returns ok', async () => {
+    await flushSession(baseSession());
+
+    const promise = service.swapPlayer('pair1', 'p1');
+    const swapReq = httpMock.expectOne(
+      `${environment.apiBaseUrl}/sessions/sess1/pairings/pair1/swap`
+    );
+    expect(swapReq.request.method).toBe('POST');
+    expect(swapReq.request.body).toEqual({ playerId: 'p1' });
+    swapReq.flush({
+      ok: true,
+      pairing: { id: 'pair1', courtNumber: 1, matchNumber: 1, teamA: ['p5', 'p2'], teamB: ['p3', 'p4'] },
+    });
+    await new Promise((r) => setTimeout(r, 0));
+    TestBed.tick();
+    httpMock.expectOne(`${environment.apiBaseUrl}/sessions/sess1`).flush(baseSession());
+
+    expect(await promise).toBe(true);
+  });
+
+  it('swapPlayer returns false when no substitute is available', async () => {
+    await flushSession(baseSession());
+
+    const promise = service.swapPlayer('pair1', 'p1');
+    httpMock
+      .expectOne(`${environment.apiBaseUrl}/sessions/sess1/pairings/pair1/swap`)
+      .flush({ ok: false, reason: 'no-substitute' });
+    await new Promise((r) => setTimeout(r, 0));
+    TestBed.tick();
+    httpMock.expectOne(`${environment.apiBaseUrl}/sessions/sess1`).flush(baseSession());
+
+    expect(await promise).toBe(false);
+  });
+
   it('confirmMatch posts to the confirm endpoint with the given pairingId and reloads', async () => {
     await flushSession(baseSession());
 

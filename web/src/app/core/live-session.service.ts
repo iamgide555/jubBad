@@ -11,6 +11,11 @@ interface ProposeResponse {
   reason?: string;
 }
 
+interface SwapResponse {
+  ok: boolean;
+  reason?: string;
+}
+
 @Injectable()
 export class LiveSessionService {
   private readonly http = inject(HttpClient);
@@ -53,6 +58,17 @@ export class LiveSessionService {
       this.http.post<ProposeResponse>(
         `${this.base}/sessions/${this.sessionCode}/courts/${courtNumber}/propose`,
         {}
+      )
+    );
+    this.sessionResource.reload();
+    return response.ok;
+  }
+
+  async swapPlayer(pairingId: string, playerId: string): Promise<boolean> {
+    const response = await firstValueFrom(
+      this.http.post<SwapResponse>(
+        `${this.base}/sessions/${this.sessionCode}/pairings/${pairingId}/swap`,
+        { playerId }
       )
     );
     this.sessionResource.reload();

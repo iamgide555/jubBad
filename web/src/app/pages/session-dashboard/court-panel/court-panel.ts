@@ -18,6 +18,7 @@ export class CourtPanel {
   readonly scoreA = signal<number | null>(null);
   readonly scoreB = signal<number | null>(null);
   readonly notEnoughPlayers = signal(false);
+  readonly noSubstitute = signal(false);
 
   constructor(protected liveSession: LiveSessionService) {}
 
@@ -37,6 +38,11 @@ export class CourtPanel {
   protected async startOrReshuffle(): Promise<void> {
     const success = await this.liveSession.proposeMatch(this.courtNumber());
     this.notEnoughPlayers.set(!success);
+  }
+
+  protected async swap(pairingId: string, playerId: string): Promise<void> {
+    const ok = await this.liveSession.swapPlayer(pairingId, playerId);
+    this.noSubstitute.set(!ok);
   }
 
   protected async confirm(): Promise<void> {

@@ -7,7 +7,13 @@ services:
     env_file: ./server/.env
     user: "${PUID}:${PGID}"
     volumes:
-      - ./server/prisma/dev.db:/app/prisma/dev.db
+      # The whole directory, not just dev.db: WAL mode (PrismaService
+      # .onModuleInit) writes dev.db-wal and dev.db-shm alongside the
+      # database, and mounting only the file leaves those two in the
+      # container's ephemeral layer — a restart before a checkpoint then
+      # loses committed writes. The directory also carries schema.prisma and
+      # migrations/, which `prisma migrate deploy` reads at startup.
+      - ./server/prisma:/app/prisma
     expose:
       - "3000"
 

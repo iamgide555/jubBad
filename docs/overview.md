@@ -41,6 +41,7 @@ coordinate — not a smarter pairing algorithm or a bigger feature set.**
 | Score logging: final score only, no live scoreboard | Point-by-point, serve indicators and timers are scope creep nobody asked for. A final score per court is low-friction and still bootstraps the match history that future skill/Elo balancing would need |
 | No host role — anyone with the link can edit (**accepted risk**) | With no auth the link can't distinguish host from player. Acceptable for a trusted friend group; add a host role later only if abuse becomes real |
 | No data-retention/deletion policy (**accepted risk**) | Names persist indefinitely under a group's link code. Revisit if group turnover or privacy requests make it necessary |
+| No promoting a waitlisted (สำรอง) player mid-session | The สำรอง list is resolved in LINE *before* the session — a waitlisted player was told not to come, so there is nobody at the venue to promote. The feature would serve a situation that cannot occur. Waitlisted names are still imported and shown, so the host can see who was turned away |
 
 ## Explicitly out of scope
 

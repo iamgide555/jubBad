@@ -163,7 +163,8 @@ Both happen at essentially every real session. Note §3 already established
 that no engine change is needed — a new player has
 `gamesPlayedThisSession = 0`, so existing priority logic handles them.
 
-**Not fixed — feature, not defect.** Tracked in B3.
+**Not fixed — feature, not defect.** Half of it (no-show removal) is B3; the
+late-arrival half is dropped, see B3.
 
 ### - [ ] A8. "Copy as text" share button is missing
 
@@ -172,7 +173,8 @@ manually (screenshot, or 'copy as text' button)"). Not present in
 `session-dashboard.html`. Sharing back to LINE is screenshot-only today, which
 undercuts the LINE-friendly positioning in §1.
 
-**Not fixed — feature, not defect.** Tracked in B3.
+**Not fixed — feature, not defect.** Was bundled into B3; now stands alone and
+unscheduled, since it has nothing to do with roster editing.
 
 ### - [x] A9. `swapPlayer` ignores pairing history
 
@@ -317,12 +319,39 @@ The app is used one-handed, in a noisy hall, mid-game. A mis-tapped
 "X & Y won" is currently permanent, and silently corrupts the data any future
 rating model (B4) would depend on. Single-step undo on confirm and finish.
 
-### - [ ] B3. Editable mid-session roster
+### - [ ] B3. Remove a no-show
 
-Bundle A7 + A8 plus waitlist promotion into one release: promote a สำรอง into
-the roster when someone drops, add a late arrival, remove a no-show, copy the
-current state as text. This is finishing v1's own §3 decisions rather than new
-scope, and it is the only remaining work from section A.
+Scoped down from "editable mid-session roster" — see below for what came out
+and why. What remains: the host removes a rostered player who did not turn up,
+so they stop being picked for future court fills. Past matches they already
+played are never retroactively edited (§3).
+
+Design points worth settling before building:
+
+- **A no-show can already be on a court.** If they are on a *pending* pairing,
+  removal should behave like the existing 1-for-1 swap and pull in a
+  substitute. If the pairing is *active*, the match is being played by three
+  people and a ghost — the host's real recourse is "ไม่มีผล", so removal should
+  probably refuse rather than mutate a confirmed pairing.
+- **Removal is not deletion.** The `Player` row stays (it carries the group's
+  history); only the `SessionRoster` entry for tonight goes.
+- **Reversible?** A player wrongly removed should be re-addable, which is the
+  same mechanism as "add a late arrival" minus the fuzzy-match step. Worth
+  building the undo even though the add-a-stranger case is out.
+
+**Dropped from this item — waitlist promotion.** The สำรอง list is resolved in
+LINE before the session, so a waitlisted player was told not to come and is not
+at the venue to promote. Now recorded in `docs/overview.md`'s decision table so
+it doesn't get re-proposed.
+
+**Dropped — add a late arrival.** A rostered player who merely arrives late is
+already in the roster, and the existing 1-for-1 swap covers keeping them off a
+court until they show. The remaining case — someone not on the roster turning
+up — is out of scope by the same logic as waitlist promotion.
+
+**Split out — A8, copy as text.** Independent of roster editing; it only shared
+this item because it touches the same screen. Now its own entry below,
+unscheduled.
 
 ### - [ ] B4. Skill / Elo balancing
 
@@ -388,8 +417,7 @@ worth building if abuse actually appears, exactly as §2 concluded.
 
 1. ~~A1 → A3 → A2, then A4, A5, A11, A10.~~ **Done**, plus A12.
 2. ~~**B1 (Thai).**~~ Done.
-3. **B3** (absorbing A7, A8, waitlist promotion) as one "editable session"
-   release.
+3. **B3** — remove a no-show. Now a single small feature, not a release.
 4. **B2, B5, B6, B7.** Host ergonomics.
 5. **B4 (Elo)** once B2 has protected the data quality it depends on.
 6. **A13** whenever the flakes start costing time.

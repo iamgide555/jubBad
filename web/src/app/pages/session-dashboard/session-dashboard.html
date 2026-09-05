@@ -32,6 +32,9 @@
       </div>
     }
 
+    <hr class="rule" />
+    <app-stats-table [sessionCode]="session()!.code" />
+
     @if (!ended()) {
       <hr class="rule" />
       <button type="button" (click)="endSession()">End session</button>

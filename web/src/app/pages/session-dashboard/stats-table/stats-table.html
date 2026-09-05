@@ -1,0 +1,28 @@
+<div class="stats-table">
+  <div class="scope-toggle">
+    <button type="button" [class.active]="scope() === 'session'" (click)="setScope('session')">
+      This session
+    </button>
+    <button type="button" [class.active]="scope() === 'all'" (click)="setScope('all')">
+      All-time
+    </button>
+  </div>
+  <table>
+    <thead>
+      <tr>
+        <th>Player</th>
+        <th>Played</th>
+        <th>Won</th>
+      </tr>
+    </thead>
+    <tbody>
+      @for (row of stats(); track row.playerId) {
+        <tr>
+          <td>{{ row.name }}</td>
+          <td>{{ row.played }}</td>
+          <td>{{ row.won }}</td>
+        </tr>
+      }
+    </tbody>
+  </table>
+</div>

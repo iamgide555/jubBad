@@ -65,6 +65,7 @@ describe('SessionDashboard', () => {
         { id: 'p1', name: 'ตั้ม', aliases: [] },
         { id: 'p2', name: 'เบส', aliases: [] },
       ]);
+    httpMock.expectOne(`${B}/sessions/sess1/stats?scope=session`).flush([]);
     await fixture.whenStable();
 
     fixture.detectChanges();
@@ -89,6 +90,7 @@ describe('SessionDashboard', () => {
     await new Promise((r) => setTimeout(r, 0));
     TestBed.tick();
     httpMock.expectOne(`${B}/groups/group1/players`).flush([]);
+    httpMock.expectOne(`${B}/sessions/sess1/stats?scope=session`).flush([]);
     await fixture.whenStable();
 
     fixture.detectChanges();
@@ -108,6 +110,7 @@ describe('SessionDashboard', () => {
     httpMock
       .expectOne(`${B}/groups/group1/players`)
       .flush([{ id: 'p1', name: 'ตั้ม', aliases: [] }]);
+    httpMock.expectOne(`${B}/sessions/sess1/stats?scope=session`).flush([]);
     await fixture.whenStable();
 
     fixture.detectChanges();
@@ -130,6 +133,7 @@ describe('SessionDashboard', () => {
         { id: 'p1', name: 'ตั้ม', aliases: [] },
         { id: 'p2', name: 'เบส', aliases: [] },
       ]);
+    httpMock.expectOne(`${B}/sessions/sess1/stats?scope=session`).flush([]);
     await fixture.whenStable();
 
     fixture.detectChanges();
@@ -159,6 +163,7 @@ describe('SessionDashboard', () => {
     await new Promise((r) => setTimeout(r, 0));
     TestBed.tick();
     httpMock.expectOne(`${B}/groups/group1/players`).flush([]);
+    httpMock.expectOne(`${B}/sessions/sess1/stats?scope=session`).flush([]);
     await fixture.whenStable();
     fixture.detectChanges();
 
@@ -189,6 +194,7 @@ describe('SessionDashboard', () => {
     await new Promise((r) => setTimeout(r, 0));
     TestBed.tick();
     httpMock.expectOne(`${B}/groups/group1/players`).flush([]);
+    httpMock.expectOne(`${B}/sessions/sess1/stats?scope=session`).flush([]);
     await fixture.whenStable();
     fixture.detectChanges();
 

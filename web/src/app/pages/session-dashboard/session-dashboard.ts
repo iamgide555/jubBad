@@ -5,11 +5,12 @@ import { environment } from '../../../environments/environment';
 import { LiveSessionService } from '../../core/live-session.service';
 import { resolvePlayerNames } from '../../core/player-names';
 import { CourtPanel } from './court-panel/court-panel';
+import { StatsTable } from './stats-table/stats-table';
 import type { Player } from '../../../../../engines/fuzzy-match.ts';
 
 @Component({
   selector: 'app-session-dashboard',
-  imports: [CourtPanel],
+  imports: [CourtPanel, StatsTable],
   providers: [LiveSessionService],
   templateUrl: './session-dashboard.html',
   styleUrl: './session-dashboard.css',

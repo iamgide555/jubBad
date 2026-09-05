@@ -1,0 +1,26 @@
+.stats-table {
+  margin-top: var(--space-2);
+}
+
+.scope-toggle {
+  display: flex;
+  gap: var(--space-1);
+  margin-bottom: var(--space-1);
+}
+
+.scope-toggle button.active {
+  background: var(--accent);
+  color: var(--surface);
+}
+
+.stats-table table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.stats-table th,
+.stats-table td {
+  text-align: left;
+  padding: var(--space-1);
+  border-bottom: 1px solid var(--rule);
+}

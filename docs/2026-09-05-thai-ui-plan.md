@@ -83,6 +83,31 @@ Correct anything that sounds wrong; the rest of the plan is mechanical.
 | Please enter a group name first. | กรุณาใส่ชื่อก๊วนก่อน |
 | Paste a roster message first. | วางข้อความรายชื่อก่อน |
 | No players were recognized — check that each name is on its own numbered line (e.g. "1. name"). | ไม่พบรายชื่อผู้เล่น — ตรวจว่าแต่ละชื่ออยู่บรรทัดของตัวเองและมีเลขนำหน้า (เช่น "1. ชื่อ") |
+| Group name | ชื่อก๊วน |
+| e.g. Tuesday group *(placeholder)* | เช่น ก๊วนอังคาร |
+| Resume last session → | กลับไปก๊วนล่าสุด → |
+| Roster message | ข้อความรายชื่อ |
+| Paste the LINE roster message here *(placeholder)* | วางข้อความรายชื่อจากไลน์ที่นี่ |
+| Read roster | อ่านรายชื่อ |
+| Notes | หมายเหตุ |
+| Date | วันที่ |
+| Court count | จำนวนคอร์ท |
+| Venue | สนาม |
+| Roster | รายชื่อ |
+| Waitlist | สำรอง |
+| known player | มีอยู่แล้ว |
+| new player | คนใหม่ |
+| is this {name}? | ใช่ {name} ไหม? |
+| yes *(fuzzy toggle, accepted)* | ใช่ |
+| no, new player *(fuzzy toggle, rejected)* | ไม่ใช่ เพิ่มใหม่ |
+| Confirm roster | ยืนยันรายชื่อ |
+
+> The fuzzy toggle's second state was first written `ไม่ใช่ คนใหม่`, which
+> parses as "is not a new person" — the opposite of what it does, since
+> rejecting the match is what creates a new player. Corrected to
+> `ไม่ใช่ เพิ่มใหม่`, where the negation and the consequence can't collide.
+> These group-entry strings were missing from this table on first review,
+> which is how that one reached the branch unchecked.
 
 ### Stats table
 

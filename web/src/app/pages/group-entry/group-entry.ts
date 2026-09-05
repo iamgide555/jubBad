@@ -55,7 +55,7 @@ export class GroupEntry {
   decisionLabel(review: NameReview): string {
     return review.decision === 'accept'
       ? $localize`:@@entry.decisionYes:ใช่`
-      : $localize`:@@entry.decisionNew:ไม่ใช่ คนใหม่`;
+      : $localize`:@@entry.decisionNew:ไม่ใช่ เพิ่มใหม่`;
   }
 
   playerName(id: string): string {

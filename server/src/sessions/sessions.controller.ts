@@ -1,6 +1,7 @@
 import { Body, Controller, Get, Param, ParseIntPipe, Post, Query } from '@nestjs/common';
 import { CreateSessionDto } from './dto/create-session.dto.js';
 import { FinishPairingDto } from './dto/finish-pairing.dto.js';
+import { SwapPlayerDto } from './dto/swap-player.dto.js';
 import { SessionsService } from './sessions.service.js';
 
 @Controller('sessions')
@@ -30,6 +31,11 @@ export class SessionsController {
   @Post(':code/pairings/:id/finish')
   finishPairing(@Param('id') id: string, @Body() dto: FinishPairingDto) {
     return this.sessionsService.finishPairing(id, dto);
+  }
+
+  @Post(':code/pairings/:id/swap')
+  swapPlayer(@Param('id') id: string, @Body() dto: SwapPlayerDto) {
+    return this.sessionsService.swapPlayer(id, dto);
   }
 
   @Post(':code/end')

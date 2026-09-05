@@ -6,6 +6,7 @@ import { PrismaService } from '../prisma/prisma.service.js';
 import { deriveHistory } from './derive-history.js';
 import type { CreateSessionDto, NameReviewDto } from './dto/create-session.dto.js';
 import type { FinishPairingDto } from './dto/finish-pairing.dto.js';
+import type { SwapPlayerDto } from './dto/swap-player.dto.js';
 
 @Injectable()
 export class SessionsService {
@@ -222,6 +223,85 @@ export class SessionsService {
       data: { endedAt: new Date() },
     });
     return { code: updated.code, endedAt: updated.endedAt };
+  }
+
+  async swapPlayer(pairingId: string, dto: SwapPlayerDto) {
+    const pairing = await this.prisma.pairing.findUnique({ where: { id: pairingId } });
+    if (!pairing) throw new NotFoundException();
+    if (pairing.confirmedAt !== null || pairing.endedAt !== null) {
+      throw new ConflictException('Only a pending pairing can be swapped.');
+    }
+
+    const teamA = JSON.parse(pairing.teamA) as [string, string];
+    const teamB = JSON.parse(pairing.teamB) as [string, string];
+    const currentFour = new Set([...teamA, ...teamB]);
+    if (!currentFour.has(dto.playerId)) throw new NotFoundException('Player is not in this pairing.');
+
+    const roster = await this.prisma.sessionRoster.findMany({
+      where: { sessionId: pairing.sessionId },
+    });
+    const rosterPlayerIds = roster.map((r) => r.playerId);
+
+    const nonEnded = await this.prisma.pairing.findMany({
+      where: { sessionId: pairing.sessionId, endedAt: null, id: { not: pairingId } },
+    });
+    const reserved = new Set<string>();
+    for (const p of nonEnded) {
+      const [a1, a2] = JSON.parse(p.teamA) as [string, string];
+      const [b1, b2] = JSON.parse(p.teamB) as [string, string];
+      reserved.add(a1);
+      reserved.add(a2);
+      reserved.add(b1);
+      reserved.add(b2);
+    }
+    const pool = rosterPlayerIds.filter((id) => !reserved.has(id) && !currentFour.has(id));
+    if (pool.length === 0) {
+      return { ok: false as const, reason: 'no-substitute' as const };
+    }
+
+    const confirmed = await this.prisma.pairing.findMany({
+      where: { sessionId: pairing.sessionId, confirmedAt: { not: null } },
+    });
+    const history = deriveHistory(
+      confirmed.map((p) => ({
+        teamA: JSON.parse(p.teamA) as [string, string],
+        teamB: JSON.parse(p.teamB) as [string, string],
+      }))
+    );
+    const substitute = [...pool].sort(
+      (a, b) =>
+        (history.gamesPlayedThisSession.get(a) ?? 0) - (history.gamesPlayedThisSession.get(b) ?? 0)
+    )[0];
+
+    const isTeamA = teamA.includes(dto.playerId);
+    const newTeamA: [string, string] = isTeamA
+      ? [
+          teamA[0] === dto.playerId ? substitute : teamA[0],
+          teamA[1] === dto.playerId ? substitute : teamA[1],
+        ]
+      : teamA;
+    const newTeamB: [string, string] = !isTeamA
+      ? [
+          teamB[0] === dto.playerId ? substitute : teamB[0],
+          teamB[1] === dto.playerId ? substitute : teamB[1],
+        ]
+      : teamB;
+
+    const updated = await this.prisma.pairing.update({
+      where: { id: pairingId },
+      data: { teamA: JSON.stringify(newTeamA), teamB: JSON.stringify(newTeamB) },
+    });
+
+    return {
+      ok: true as const,
+      pairing: {
+        id: updated.id,
+        courtNumber: updated.courtNumber,
+        matchNumber: updated.matchNumber,
+        teamA: newTeamA,
+        teamB: newTeamB,
+      },
+    };
   }
 
   async getStats(code: string, scope: 'session' | 'all') {

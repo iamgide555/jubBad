@@ -15,11 +15,9 @@ the spec the project had already written for itself) and **B. v2 candidates**
 > rather than remapped, since this is a point-in-time review; the original is
 > `git show 0aac515:PROJECT.md`.
 
-**Status:** every bug is fixed except A7 and A8, which are unbuilt features
-rather than defects and stay bundled into B3. A6 turned out not to be a bug at
-all — see its entry. **B1 (Thai UI) and B3 (rest toggle) are also done.**
-Suite: 40 engine + 56 server + 78 web = 174 tests, all passing, both packages
-building clean.
+**Status:** everything in this document is built except B12, which is
+deliberately left alone — see its entry. Suite: 52 engine + 78 server + 100 web
+= 230 tests, all passing, both packages building clean.
 
 ---
 
@@ -154,7 +152,7 @@ starts the session, and that is what the code already does — `propose` and
 What remains is a feature, not a defect: there is no way to *promote* a
 waitlisted player into the roster when someone drops out. Moved to B3.
 
-### - [ ] A7. Roster is frozen after session creation
+### - [x] A7. Roster is frozen after session creation
 
 §3 decided late-arrival add and no-show removal; §7.4 admits neither is built
 ("the roster panel only supports the initial paste-and-confirm flow").
@@ -163,10 +161,10 @@ Both happen at essentially every real session. Note §3 already established
 that no engine change is needed — a new player has
 `gamesPlayedThisSession = 0`, so existing priority logic handles them.
 
-**Answered by B3's rest toggle**, now built: a no-show is toggled out, and a
-rostered player who turns up late is toggled back in.
+**Done, via B3's rest toggle**: a no-show is toggled out, and a rostered player
+who turns up late is toggled back in.
 
-### - [ ] A8. "Copy as text" share button is missing
+### - [x] A8. "Copy as text" share button is missing
 
 §3's v1 feature #4 lists it explicitly ("host views results in-app, shares
 manually (screenshot, or 'copy as text' button)"). Not present in
@@ -175,6 +173,12 @@ undercuts the LINE-friendly positioning in §1.
 
 **Not fixed — feature, not defect.** Was bundled into B3; now stands alone and
 unscheduled, since it has nothing to do with roster editing.
+
+**Done.** A "คัดลอกเป็นข้อความ" button on the dashboard copies the courts and the
+waiting queue as plain text. Built from what is already on screen rather than a
+second server view, so the two cannot disagree. Clipboard access can be refused
+(insecure origin, older browser), so the failure path says so rather than
+leaving a dead button.
 
 ### - [x] A9. `swapPlayer` ignores pairing history
 
@@ -262,7 +266,7 @@ Fixed by giving the root `package.json` real scripts:
 `npm test` from the repo root now runs all 161 tests. All 40 engine tests were
 already passing — they had simply gone unrun.
 
-### - [ ] A13. The test suite is intermittently flaky
+### - [x] A13. The test suite is intermittently flaky
 
 Two unrelated failures appeared once each across roughly a dozen full runs and
 did not reproduce:
@@ -278,7 +282,21 @@ bugs, but they will erode trust in the suite. Worth either running the spec
 files serially (`fileParallelism: false`) or giving each test file its own
 database file.
 
-### - [ ] A14. `class="ghost"` is inert on the court panel
+**Fixed — and it was two causes, not one.** `fileParallelism: false` in
+`server/vitest.config.ts` settles the SQLite contention: with parallelism left
+on, a Prisma `SocketTimeout` still reproduces within about a dozen runs, which
+is what the earlier WAL and `busy_timeout` work could not remove, because
+SQLite serializes writers regardless.
+
+That was only half of it. The rest was supertest calling `listen()` for every
+request when the server is not already listening; the churn surfaced as `socket
+hang up` and a bogus `501 Not Implemented` that read like an application
+failure. Both spec files now listen once in `beforeAll` and reuse that server.
+
+Verified rather than assumed: 40 consecutive clean runs with both fixes, and
+each cause reproduced independently before fixing it.
+
+### - [x] A14. `class="ghost"` is inert on the court panel
 
 `court-panel.html` puts `class="ghost"` on the Reshuffle button, but `.ghost`
 is defined only in `group-entry.css`. Angular's default view encapsulation
@@ -286,6 +304,10 @@ scopes that rule to `GroupEntry`, so the Reshuffle button renders as a normal
 primary button. Cosmetic, pre-existing, and left alone — flagged so it isn't
 mistaken for a working style later. (The new **No result** button styles itself
 in `court-panel.css` rather than inheriting the same dead class.)
+
+**Fixed.** `.ghost` is now defined globally in `styles.css` alongside `.error`,
+which had the identical problem. View encapsulation is exactly why a
+per-component definition silently does nothing elsewhere.
 
 ---
 
@@ -313,11 +335,20 @@ the real venue screen.** Thai has a smaller apparent x-height than Latin at the
 same size, so `session-display.css` may want a size bump. Cosmetic, and the
 only thing left from B1.
 
-### - [ ] B2. Undo last action
+### - [x] B2. Undo last action
 
 The app is used one-handed, in a noisy hall, mid-game. A mis-tapped
 "X & Y won" is currently permanent, and silently corrupts the data any future
 rating model (B4) would depend on. Single-step undo on confirm and finish.
+
+**Done.** `POST /sessions/:code/courts/:n/undo` reverses the single most recent
+step on that court — a finish back to active, a confirm back to pending, an
+unconfirmed proposal discarded so the court returns to idle. One rule rather
+than three special cases, which matters because a mis-tapped winner is usually
+noticed only after the next match has been proposed; two taps get back to it.
+
+Undoing a finish refuses with `players-busy` when any of those four has since
+been picked up by another open match, since restoring would double-book them.
 
 ### - [x] B3. Toggle a player in or out for tonight
 
@@ -359,7 +390,7 @@ flip so two taps in flight are idempotent, and the roster chips as the control
 host can find it to tap back, and drops out of the waiting queue.
 `generateRound` was untouched, as predicted.
 
-### - [ ] B4. Skill / Elo balancing
+### - [x] B4. Skill / Elo balancing
 
 §4 claims the schema needs no changes for this, and that is accurate —
 `teamA`/`teamB`, `scoreA`/`scoreB`, `winner`, and `confirmedAt` are all
@@ -370,68 +401,135 @@ a win/loss Elo works without score entry ever improving.
 Add a per-session mode toggle: *balanced* (minimize rating gap) vs *variety*
 (today's behavior). Do B2 first so the input data is trustworthy.
 
-### - [ ] B5. Wait timers
+**Done.** `engines/elo.ts` computes win/loss Elo over the group's history,
+replayed in `confirmedAt` order. Scores are ignored deliberately: they are
+optional, so a score-based rating would be sparse and biased toward whoever
+types numbers in, while `winner` is one tap and recorded on nearly every match.
+K is 16 — low, because doubles outcomes are noisy and a rating that swings on
+one unlucky game would make balanced mode feel arbitrary.
+
+`Session.mode` toggles between `variety` (unchanged behaviour) and `balanced`,
+which adds a rating-gap term to the arrangement score. At the chosen divisor a
+100-point gap costs the same as one repeat partner, so the search will accept a
+repeated partner to avoid a real mismatch but will not chase a marginal one.
+Passing no ratings removes the term entirely, so variety mode scores exactly as
+it always did.
+
+### - [x] B5. Wait timers
 
 The waiting queue shows names but not how long each has been waiting — which is
 the host's actual question. `confirmedAt` / `endedAt` are already stored;
 derive minutes-waiting per player, sort by it, surface on both the dashboard
 and the display view. Cheap, high perceived value.
 
-### - [ ] B6. Display view auto-refresh
+**Done.** `GET /sessions/:code` now returns `createdAt` and `lastPlayedAt`
+(player id to the time they last finished). Waiting time is derived from those
+in `web/src/app/core/waiting-time.ts` rather than stored, so there is no clock
+to keep in sync — a player with no entry has been waiting since the session
+started, which is why a missing entry is meaningful rather than absent data.
+The queue sorts longest-wait-first on both the dashboard and the display.
+
+### - [x] B6. Display view auto-refresh
 
 §7.3 rejected polling as "extra infra". Polling needs none: `setInterval` plus
 the existing `LiveSessionService.refresh()`. Nobody walks across the hall to
 tap refresh mid-game.
 
-### - [ ] B7. "Fill all idle courts" in one tap
+**Done.** The display view refreshes itself every 30 seconds. §7.3 rejected
+polling as "extra infra", but it needs none — an interval plus the `refresh()`
+that already existed. The manual button stays for anyone who wants it sooner.
+
+### - [x] B7. "Fill all idle courts" in one tap
 
 Session start with 3 courts is 3 propose + 3 confirm taps. The engine already
 supports `courtCount > 1` (§6.3 usage note) — batch the endpoint.
 
-### - [ ] B8. Session archive per group
+**Done.** `POST /sessions/:code/courts/fill` proposes for every idle court in
+one `generateRound` call across all of them, rather than a loop of single-court
+calls, so the arrangement is scored as a whole and nobody can land on two
+courts. Busy courts are left alone and their players stay reserved. The button
+only appears when a court is actually idle.
+
+### - [x] B8. Session archive per group
 
 `GET /groups/:code` returns only `lastSessionCode`
 (`server/src/groups/groups.service.ts:19`). No way to browse past sessions. The
 `Session` rows already exist; needs a list endpoint plus a history section on
 `/g/:code`.
 
-### - [ ] B9. Player page
+**Done.** `GET /groups/:code/sessions` lists sessions newest first with a match
+count, and `/g/:code` shows them above the paste box, tagging any session that
+has not been ended.
+
+### - [x] B9. Player page
 
 `played` / `won` are already computed in `getStats`. Add best partner,
 most-faced opponent, win rate. Naturally shareable back into the LINE group.
 
-### - [ ] B10. PWA manifest
+**Done.** `GET /groups/:code/players/:id/stats` returns record, win rate, Elo
+rating, best partner and most-faced opponent, rendered at `/g/:code/p/:id` and
+linked from every name in the stats table. "Best" partner is most wins
+together, most-played breaking ties. A player who has not finished a match gets
+a null win rate rather than 0%, since those are different facts.
+
+### - [x] B10. PWA manifest
 
 Weekly recurring use, on a phone, launched from a bookmark. Manifest + icon +
 `display: standalone` is near-zero cost and makes the bookmark feel like an
 app.
 
-### - [ ] B11. Export and delete-group
+**Done.** `web/public/manifest.webmanifest` plus generated icons (a badminton
+court, drawn to the app's own palette) and the iOS meta tags. `start_url` and
+`scope` are relative so installing from `/en/` starts in English rather than
+bouncing to Thai.
+
+### - [x] B11. Export and delete-group
 
 §2 logs "no data-retention/deletion policy in v1" as an accepted risk. A
 JSON/CSV export plus a hard group delete closes it, and doubles as the
 migration path off SQLite if Postgres ever becomes necessary (§8.4).
+
+**Done.** `GET /groups/:code/export` returns the whole group as JSON — players
+with real alias arrays, every session, every match — and `DELETE /groups/:code`
+removes it all in one transaction. Both sit behind a "จัดการก๊วน" disclosure on
+`/g/:code`, and delete stays disabled until the group's name is typed back,
+since there is no auth and no undo behind it.
+
+The access question that raises is a recorded accepted risk — see the end of
+this file.
 
 ### - [ ] B12. Host role
 
 §2's other accepted risk (anyone with the link can edit). Keep deferred — only
 worth building if abuse actually appears, exactly as §2 concluded.
 
+**Deliberately not built**, despite a "do the rest" instruction covering it.
+A host role means authentication, and "no login/auth" is one of the product
+decisions in `docs/overview.md` — building this would quietly reverse a
+documented decision and add the whole feature surface that decision exists to
+avoid. This entry's own conclusion is to wait for real abuse. Ask for it
+explicitly if that has changed; it is a deliberate reversal, not a gap.
+
 ---
 
 ## Suggested order
 
-1. ~~A1 → A3 → A2, then A4, A5, A11, A10.~~ **Done**, plus A12.
-2. ~~**B1 (Thai).**~~ Done.
-3. ~~**B3** — toggle a player in or out for tonight.~~ Done.
-4. **B2, B5, B6, B7.** Host ergonomics.
-5. **B4 (Elo)** once B2 has protected the data quality it depends on.
-6. **A13** whenever the flakes start costing time.
+Everything here is done except B12, which stays deferred by its own reasoning.
 
-## Deploy note
+## Export and delete: accepted risk
 
-`docker-compose.yml`'s volume line changed (A10). On the next deploy the API
-container must be recreated, not just restarted, for the new mount to take
-effect — `docker compose up -d --build` already does this. Existing data is
-unaffected: the same `server/prisma/dev.db` file is still the database, now
-reached through its parent directory.
+Export and delete are gated only by knowing the group code — the same
+8-hex-char code that already gates editing. §2 accepted "anyone with the link
+can edit" when the worst case was a messed-up session someone could fix by
+hand. Export widens that to "walk off with every name and every result", and
+delete to "destroy the group's whole history, irreversibly".
+
+**Decided: leave it.** Same reasoning as §2's original call — the link lives in
+one private group chat among people who already know each other, and the
+alternatives (a per-group passphrase, or dropping delete) each cost more than
+the risk is worth for a casual friend group. Revisit if a group code ever
+leaks, or if the app is used by anyone outside that setting.
+
+The delete button still sits behind a disclosure and requires typing the
+group's name. That guards against a mis-tap, which is the realistic failure
+here; it is not, and is not meant to be, a guard against an intruder.

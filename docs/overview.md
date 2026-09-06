@@ -40,7 +40,8 @@ coordinate — not a smarter pairing algorithm or a bigger feature set.**
 | No cost-splitting / PromptPay QR in-app | KhunThong (ขุนทอง), KBank/KBTG's LINE bot, already does this well — bill split (equal or not), PromptPay QR, and payment verification by e-slip scan, which the planned v1 didn't even have. The host invites KhunThong separately; no integration needed |
 | Score logging: final score only, no live scoreboard | Point-by-point, serve indicators and timers are scope creep nobody asked for. A final score per court is low-friction and still bootstraps the match history that future skill/Elo balancing would need |
 | No host role — anyone with the link can edit (**accepted risk**) | With no auth the link can't distinguish host from player. Acceptable for a trusted friend group; add a host role later only if abuse becomes real |
-| No data-retention/deletion policy (**accepted risk**) | Names persist indefinitely under a group's link code. Revisit if group turnover or privacy requests make it necessary |
+| No data-retention/deletion policy (**accepted risk**) | Names persist indefinitely under a group's link code. A host can now export the group as JSON or delete it outright, which covers the practical need without a policy |
+| Export and delete gated only by the group code (**accepted risk**) | Same reasoning as "anyone with the link can edit": the link lives in one private group chat. Export means the code is enough to take every name and result; delete means it is enough to destroy them. A passphrase or dropping delete would each cost more than the risk is worth for a casual friend group. Revisit if a code ever leaks |
 | No promoting a waitlisted (สำรอง) player mid-session | The สำรอง list is resolved in LINE *before* the session — a waitlisted player was told not to come, so there is nobody at the venue to promote. The feature would serve a situation that cannot occur. Waitlisted names are still imported and shown, so the host can see who was turned away |
 
 ## Explicitly out of scope
@@ -50,13 +51,7 @@ coordinate — not a smarter pairing algorithm or a bigger feature set.**
 - LIFF / LINE Login, user accounts, login.
 - Live point-by-point scoreboard.
 - Cost splitting / PromptPay QR — delegated to KhunThong.
-- Skill/Elo match balancing. Deliberately deferred, not designed out: the
-  schema already captures everything a rating model would replay —
-  `Pairing.teamA`/`teamB` (who played with and against whom), `scoreA`/`scoreB`
-  (outcome and margin), `winner`, and `confirmedAt` (a real timestamp, giving
-  the chronological order Elo needs). The one soft dependency is that scores
-  are optional, so ranking quality would depend on how consistently hosts enter
-  them; `winner` is one tap and far better populated.
+- User accounts and a host role. Still out — see the decision table above.
 
 ## Stack and layout
 
@@ -149,6 +144,12 @@ Two scopes, deliberately different:
 - **Games played is this session only.** Sit-out rotation should be fair within
   tonight, not carried over from weeks ago.
 
+**Two pairing modes.** *Variety* is the behaviour described above. *Balanced*
+adds a rating-gap term so the two sides of a match come out close in strength;
+at the weight chosen, a 100-point gap costs the same as one repeat partner, so
+the search trades a repeated partner for a fair game but not for a marginal
+one. The mode is per session and defaults to variety.
+
 Sit-out selection is deterministic and outside the weighted score: whoever has
 played the most so far today sits, ties broken randomly. Predictable to the
 host ("they've played the most, so they sit"). A court always needs exactly 4,
@@ -159,6 +160,20 @@ The search is randomized — shuffle, greedily build a candidate, score it,
 repeat ~200 times, keep the best. "Good enough and fair", not "provably
 optimal". Exhaustive enumeration is infeasible at 10-20 players, and a real
 min-cost matching optimizer would be overkill here.
+
+### Ratings
+
+Win/loss Elo (`engines/elo.ts`), replayed over the group's whole history in the
+order matches were confirmed — Elo is path dependent, so that ordering is part
+of the answer rather than a detail. Ratings are always recomputed, never
+stored, so there is no second source of truth to drift.
+
+**Scores are deliberately ignored.** They are optional, so a score-based rating
+would be sparse and biased toward whichever hosts bother typing numbers in.
+`winner` is a single tap and is recorded on essentially every finished match,
+which makes it the honest signal. K is deliberately low (16): a casual group
+plays a handful of matches a week, doubles outcomes are noisy, and a rating
+that swung hard on one unlucky game would make balanced mode feel arbitrary.
 
 ### Why the engines run on the server
 
@@ -194,8 +209,20 @@ player can be tapped to swap in a substitute → *Confirm* → **active**, then
 
 **Confirm is the commit point.** History — partner counts, opponent counts,
 games played — updates only when a match is confirmed, never when one is
-proposed. That single rule is what makes free reshuffling, late arrivals and
-no-show removal compose correctly without any extra engine work.
+proposed. That single rule is what makes free reshuffling, resting a player and
+undo compose correctly without any extra engine work.
+
+Two controls fall out of it. **Rest** excludes a player from future court fills
+and back again — one toggle covering a no-show, an early leaver, someone
+sitting a few rounds out, and a mis-tap; a player rested mid-match simply plays
+that match out. **Undo** reverses the most recent step on one court, whatever
+it was, so a mis-tapped winner is recoverable even after the next match has been
+proposed. It refuses when the players involved have already started elsewhere,
+since restoring would double-book them.
+
+The waiting queue shows how long each player has been off court, derived from
+when their last match ended (or when the session started, for anyone yet to
+play) rather than stored.
 
 The display view shows only *active* courts, so a proposed-but-unconfirmed
 pairing never reaches the venue screen. It refreshes manually, matching the
@@ -203,11 +230,13 @@ app's no-extra-infra style — no websockets, no polling loop.
 
 ## Current state
 
-v1 is built and deployed: parser, fuzzy matching, pairing engine, the API, the
-Angular client, the display view, end-session, per-player stats, and targeted
-player swaps.
+Everything described above is built: the three engines, the API, the Angular
+client in Thai with English as a second locale, the display view, per-court
+undo, resting players, wait timers, one-tap fill, both pairing modes, session
+archive, player pages, export and delete, and a PWA manifest.
 
-Known gaps, with reasoning and suggested order, are in
-**`docs/2026-09-05-review-and-v2-backlog.md`**. The largest one is that the UI
-is currently English throughout, while the whole differentiator above is
-Thai-language support.
+`docs/2026-09-05-review-and-v2-backlog.md` records the review that drove most
+of it. One item there is deliberately unbuilt — a host role, which would mean
+reversing the no-auth decision above — and one open question is flagged at the
+bottom of that file: export and delete are gated only by knowing the group
+code, which changes what the accepted "anyone with the link" risk costs.

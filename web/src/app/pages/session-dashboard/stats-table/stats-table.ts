@@ -1,15 +1,18 @@
 import { Component, computed, input, signal } from '@angular/core';
+import { RouterLink } from '@angular/router';
 import { httpResource } from '@angular/common/http';
 import { environment } from '../../../../environments/environment';
 import type { PlayerStat } from '../../../core/stats.model';
 
 @Component({
   selector: 'app-stats-table',
+  imports: [RouterLink],
   templateUrl: './stats-table.html',
   styleUrl: './stats-table.css',
 })
 export class StatsTable {
   readonly sessionCode = input.required<string>();
+  readonly groupCode = input.required<string>();
   protected readonly scope = signal<'session' | 'all'>('session');
 
   private readonly statsResource = httpResource<PlayerStat[]>(

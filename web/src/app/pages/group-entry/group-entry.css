@@ -77,18 +77,53 @@
   color: var(--accent-dark);
 }
 
-button.ghost {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-height: 44px;
-  background: transparent;
-  color: var(--court);
-  border: 1px solid var(--rule);
-  padding: 0.5rem 0.9rem;
+
+
+.session-list {
+  list-style: none;
+  padding: 0;
+  margin: 0 0 var(--space-2);
+}
+
+.session-list li {
+  padding: 0.4rem 0;
+  border-bottom: 1px solid var(--rule);
+}
+
+.muted {
+  color: var(--ink-soft);
   font-size: 0.85rem;
 }
 
-button.ghost:hover {
-  background: var(--line-surface);
+.live-tag {
+  margin-left: 0.4rem;
+  padding: 0.1rem 0.4rem;
+  border-radius: 999px;
+  background: var(--accent);
+  color: var(--ink);
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+/* Deliberately plain until opened, and the delete stays disabled until the
+   group's name is typed — there is no auth and no undo behind this. */
+.danger-zone {
+  margin-top: var(--space-2);
+  padding: var(--space-2);
+  border: 1px dashed var(--warn);
+  border-radius: var(--radius);
+}
+
+.danger-zone button {
+  min-height: 44px;
+}
+
+button.danger {
+  background: var(--warn);
+  color: #fff;
+}
+
+button.danger:disabled {
+  background: var(--rule);
+  color: var(--ink-soft);
 }

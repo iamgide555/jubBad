@@ -1,0 +1,53 @@
+@if (profile(); as p) {
+  <div class="page profile">
+    <p><a [routerLink]="['/g', groupCode]" i18n="@@profile.back">← กลับ</a></p>
+    <h1>{{ p.name }}</h1>
+
+    <div class="stat-row">
+      <div class="stat">
+        <span class="stat-value">{{ p.played }}</span>
+        <span class="stat-label" i18n="@@profile.played">เล่น</span>
+      </div>
+      <div class="stat">
+        <span class="stat-value">{{ p.won }}</span>
+        <span class="stat-label" i18n="@@profile.won">ชนะ</span>
+      </div>
+      <div class="stat">
+        <span class="stat-value">
+          @if (winPercent() === null) { – } @else { {{ winPercent() }}% }
+        </span>
+        <span class="stat-label" i18n="@@profile.winRate">อัตราชนะ</span>
+      </div>
+      <div class="stat">
+        <span class="stat-value">{{ p.rating }}</span>
+        <span class="stat-label" i18n="@@profile.rating">เรตติ้ง</span>
+      </div>
+    </div>
+
+    @if (p.bestPartner; as partner) {
+      <hr class="rule" />
+      <h4 i18n="@@profile.bestPartner">คู่ที่เข้ากันดีที่สุด</h4>
+      <p>
+        <a [routerLink]="['/g', groupCode, 'p', partner.playerId]">{{ partner.name }}</a>
+        <span class="muted"> — <ng-container i18n="@@profile.wonOf">ชนะ</ng-container> {{ partner.won }}/{{ partner.played }}</span>
+      </p>
+    }
+
+    @if (p.mostFacedOpponent; as foe) {
+      <h4 i18n="@@profile.mostFaced">เจอบ่อยที่สุด</h4>
+      <p>
+        <a [routerLink]="['/g', groupCode, 'p', foe.playerId]">{{ foe.name }}</a>
+        <span class="muted"> — {{ foe.played }} <ng-container i18n="@@profile.matches">แมตช์</ng-container></span>
+      </p>
+    }
+
+    @if (p.played === 0) {
+      <hr class="rule" />
+      <p class="muted" i18n="@@profile.noMatches">ยังไม่ได้ลงเล่น</p>
+    }
+  </div>
+} @else if (notFound()) {
+  <div class="page">
+    <p i18n="@@profile.notFound">ไม่พบผู้เล่นคนนี้</p>
+  </div>
+}

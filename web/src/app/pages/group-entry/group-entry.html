@@ -8,6 +8,21 @@
     <p><a [routerLink]="['/s', lastSessionCode()]" i18n="@@entry.resumeLast">กลับไปก๊วนล่าสุด →</a></p>
   }
 
+  @if (state() === 'paste' && pastSessions().length > 0) {
+    <hr class="rule" />
+    <h4 i18n="@@entry.pastSessions">ก๊วนที่ผ่านมา</h4>
+    <ul class="session-list">
+      @for (s of pastSessions(); track s.code) {
+        <li>
+          <a [routerLink]="['/s', s.code]">{{ s.date ?? s.code }}</a>
+          @if (s.venue) { <span class="muted">· {{ s.venue }}</span> }
+          <span class="muted">· {{ s.matchCount }} <ng-container i18n="@@entry.matches">แมตช์</ng-container></span>
+          @if (!s.endedAt) { <span class="live-tag" i18n="@@entry.stillOpen">ยังไม่จบ</span> }
+        </li>
+      }
+    </ul>
+  }
+
   @if (state() === 'paste') {
     <hr class="rule" />
     <label>
@@ -18,6 +33,23 @@
       <p class="error">{{ pasteError() }}</p>
     }
     <button type="button" (click)="parse()" i18n="@@entry.parse">อ่านรายชื่อ</button>
+
+    <hr class="rule" />
+    <button type="button" class="ghost" (click)="showDanger.set(!showDanger())" i18n="@@entry.manageGroup">จัดการก๊วน</button>
+    @if (showDanger()) {
+      <div class="danger-zone">
+        <button type="button" class="ghost" (click)="exportGroup()" i18n="@@entry.export">ดาวน์โหลดข้อมูล (JSON)</button>
+        <p class="muted" i18n="@@entry.deleteWarning">ลบก๊วนนี้ถาวร รวมผู้เล่นและประวัติทั้งหมด กู้คืนไม่ได้</p>
+        <label>
+          <ng-container i18n="@@entry.typeNameToDelete">พิมพ์ชื่อก๊วนเพื่อยืนยัน</ng-container>
+          <input type="text" [ngModel]="deleteConfirmText()" (ngModelChange)="deleteConfirmText.set($event)" />
+        </label>
+        <button type="button" class="danger" [disabled]="!canDelete()" (click)="deleteGroup()" i18n="@@entry.deleteGroup">ลบก๊วนนี้</button>
+        @if (dangerError()) {
+          <p class="error">{{ dangerError() }}</p>
+        }
+      </div>
+    }
   }
 
   @if (state() === 'confirm') {

@@ -34,6 +34,8 @@ describe('GroupEntry', () => {
     // Constructor fires GET /groups/group1 - respond 404 (brand-new group) by
     // default; tests that need a pre-existing group flush a real body instead.
     httpMock.expectOne(`${B}/groups/group1`).flush('Not Found', { status: 404, statusText: 'Not Found' });
+    // The constructor also asks for the group's past sessions.
+    httpMock.expectOne(`${B}/groups/group1/sessions`).flush([]);
     await fixture.whenStable();
   });
 
@@ -254,6 +256,62 @@ describe('GroupEntry', () => {
     expect(req.request.body).toEqual({ name: 'Group A' });
     req.flush({ code: 'group1', name: 'Group A' });
   });
+
+  it('lists past sessions for the group', async () => {
+    // The default beforeEach flushed an empty list; re-create with real rows.
+    httpMock.verify();
+    fixture = TestBed.createComponent(GroupEntry);
+    component = fixture.componentInstance;
+    httpMock.expectOne(`${B}/groups/group1`).flush({ code: 'group1', name: 'G', lastSessionCode: null });
+    httpMock.expectOne(`${B}/groups/group1/sessions`).flush([
+      {
+        code: 'sess9',
+        date: '2026-09-08',
+        venue: 'ยิมกลาง',
+        courtCount: 2,
+        createdAt: '2026-09-08T10:00:00.000Z',
+        endedAt: null,
+        matchCount: 4,
+      },
+    ]);
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
+    expect(text).toContain('2026-09-08');
+    expect(text).toContain('ยิมกลาง');
+    expect(text).toContain('ยังไม่จบ');
+  });
+
+  it('only enables delete once the group name is typed back', async () => {
+    component.groupName.set('ก๊วนอังคาร');
+    expect(component.canDelete()).toBe(false);
+
+    component.deleteConfirmText.set('ผิด');
+    expect(component.canDelete()).toBe(false);
+
+    component.deleteConfirmText.set('ก๊วนอังคาร');
+    expect(component.canDelete()).toBe(true);
+  });
+
+  it('does not delete when the confirmation does not match', async () => {
+    component.groupName.set('ก๊วนอังคาร');
+    component.deleteConfirmText.set('อะไรก็ไม่รู้');
+    await component.deleteGroup();
+    // No request at all — httpMock.verify() in afterEach proves it.
+    expect(component.canDelete()).toBe(false);
+  });
+
+  it('deletes the group and returns to the landing page', async () => {
+    component.groupName.set('ก๊วนอังคาร');
+    component.deleteConfirmText.set('ก๊วนอังคาร');
+    const promise = component.deleteGroup();
+
+    const req = httpMock.expectOne(`${B}/groups/group1`);
+    expect(req.request.method).toBe('DELETE');
+    req.flush({ code: 'group1', deleted: true });
+    await promise;
+  });
 });
 
 describe('GroupEntry with an existing group', () => {
@@ -286,6 +344,7 @@ describe('GroupEntry with an existing group', () => {
     httpMock
       .expectOne(`${environment.apiBaseUrl}/groups/group1`)
       .flush({ code: 'group1', name: 'Group A', lastSessionCode: 'sess1' });
+    httpMock.expectOne(`${environment.apiBaseUrl}/groups/group1/sessions`).flush([]);
     await fixture.whenStable();
 
     expect(fixture.componentInstance.groupName()).toBe('Group A');

@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Post, Put } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Post, Put } from '@nestjs/common';
 import { GroupsService } from './groups.service.js';
 import { UpdateGroupDto } from './dto/update-group.dto.js';
 import { ParseRosterDto } from './dto/parse-roster.dto.js';
@@ -20,6 +20,26 @@ export class GroupsController {
   @Get(':code/players')
   listPlayers(@Param('code') code: string) {
     return this.groupsService.listPlayers(code);
+  }
+
+  @Get(':code/sessions')
+  listSessions(@Param('code') code: string) {
+    return this.groupsService.listSessions(code);
+  }
+
+  @Get(':code/players/:playerId/stats')
+  playerStats(@Param('code') code: string, @Param('playerId') playerId: string) {
+    return this.groupsService.playerStats(code, playerId);
+  }
+
+  @Get(':code/export')
+  export(@Param('code') code: string) {
+    return this.groupsService.exportGroup(code);
+  }
+
+  @Delete(':code')
+  remove(@Param('code') code: string) {
+    return this.groupsService.deleteGroup(code);
   }
 
   @Post(':code/parse')

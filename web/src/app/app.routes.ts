@@ -7,6 +7,12 @@ export const routes: Routes = [
       import('./pages/landing/landing').then((m) => m.Landing),
   },
   {
+    // Before 'g/:groupCode' so the deeper path wins the match.
+    path: 'g/:groupCode/p/:playerId',
+    loadComponent: () =>
+      import('./pages/player-profile/player-profile').then((m) => m.PlayerProfile),
+  },
+  {
     path: 'g/:groupCode',
     loadComponent: () =>
       import('./pages/group-entry/group-entry').then((m) => m.GroupEntry),

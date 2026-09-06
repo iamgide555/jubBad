@@ -18,7 +18,7 @@
     <tbody>
       @for (row of stats(); track row.playerId) {
         <tr>
-          <td>{{ row.name }}</td>
+          <td><a [routerLink]="['/g', groupCode(), 'p', row.playerId]">{{ row.name }}</a></td>
           <td>{{ row.played }}</td>
           <td>{{ row.won }}</td>
         </tr>

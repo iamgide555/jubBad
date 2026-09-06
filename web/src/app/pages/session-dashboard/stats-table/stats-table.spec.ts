@@ -1,6 +1,7 @@
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { provideRouter } from '@angular/router';
 import { StatsTable } from './stats-table';
 import { environment } from '../../../../environments/environment';
 
@@ -13,12 +14,13 @@ describe('StatsTable', () => {
   beforeEach(async () => {
     await TestBed.configureTestingModule({
       imports: [StatsTable],
-      providers: [provideHttpClient(), provideHttpClientTesting()],
+      providers: [provideHttpClient(), provideHttpClientTesting(), provideRouter([])],
     }).compileComponents();
 
     httpMock = TestBed.inject(HttpTestingController);
     fixture = TestBed.createComponent(StatsTable);
     fixture.componentRef.setInput('sessionCode', 'sess1');
+    fixture.componentRef.setInput('groupCode', 'group1');
   });
 
   afterEach(() => {

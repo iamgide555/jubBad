@@ -1,0 +1,42 @@
+.profile {
+  max-width: 32rem;
+}
+
+.stat-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  margin: var(--space-3) 0;
+}
+
+.stat {
+  display: flex;
+  flex-direction: column;
+  min-width: 4.5rem;
+}
+
+.stat-value {
+  font-family: 'Archivo', 'Noto Sans Thai', sans-serif;
+  font-weight: 800;
+  font-size: 1.8rem;
+  line-height: 1.3;
+  font-variant-numeric: tabular-nums;
+}
+
+.stat-label {
+  font-size: 0.8rem;
+  color: var(--ink-soft);
+}
+
+.profile h4 {
+  font-family: 'Inter', 'Noto Sans Thai', sans-serif;
+  font-size: 0.85rem;
+  color: var(--ink-soft);
+  margin-top: var(--space-2);
+  margin-bottom: 0.25rem;
+}
+
+.muted {
+  color: var(--ink-soft);
+  font-size: 0.9rem;
+}

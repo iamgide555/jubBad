@@ -1,8 +1,9 @@
-import { Component, signal } from '@angular/core';
+import { Component, computed, signal } from '@angular/core';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { firstValueFrom } from 'rxjs';
 import { attachDecisions, type NameReview } from '../../core/roster-review';
+import type { GroupSession } from '../../core/group-session.model';
 import { RosterService } from '../../core/roster.service';
 import { resolvePlayerNames } from '../../core/player-names';
 import type { Player } from '../../../../../engines/fuzzy-match.ts';
@@ -27,6 +28,10 @@ export class GroupEntry {
   readonly warnings = signal<string[]>([]);
   readonly unrecognizedLines = signal<string[]>([]);
   readonly pasteError = signal<string | null>(null);
+  readonly pastSessions = signal<GroupSession[]>([]);
+  readonly showDanger = signal(false);
+  readonly deleteConfirmText = signal('');
+  readonly dangerError = signal<string | null>(null);
 
   private players: Player[] = [];
 
@@ -45,6 +50,50 @@ export class GroupEntry {
         // Brand-new group - nothing to prefill, stays at defaults.
       },
     });
+    this.rosterService.listSessions(this.groupCode).subscribe({
+      next: (sessions) => this.pastSessions.set(sessions),
+      error: () => {
+        // Same as above: a group that does not exist yet simply has none.
+      },
+    });
+  }
+
+  /**
+   * Typing the group's name is the guard on an irreversible delete. A plain
+   * confirm() dialog is too easy to dismiss by reflex, and there is no auth to
+   * fall back on.
+   */
+  readonly canDelete = computed(
+    () =>
+      this.groupName().trim().length > 0 &&
+      this.deleteConfirmText().trim() === this.groupName().trim()
+  );
+
+  async exportGroup(): Promise<void> {
+    this.dangerError.set(null);
+    try {
+      const data = await firstValueFrom(this.rosterService.exportGroup(this.groupCode));
+      const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `jubbad-${this.groupCode}.json`;
+      link.click();
+      URL.revokeObjectURL(url);
+    } catch {
+      this.dangerError.set($localize`:@@entry.exportFailed:ดาวน์โหลดไม่สำเร็จ`);
+    }
+  }
+
+  async deleteGroup(): Promise<void> {
+    if (!this.canDelete()) return;
+    this.dangerError.set(null);
+    try {
+      await firstValueFrom(this.rosterService.deleteGroup(this.groupCode));
+      this.router.navigateByUrl('/');
+    } catch {
+      this.dangerError.set($localize`:@@entry.deleteFailed:ลบก๊วนไม่สำเร็จ`);
+    }
   }
 
   saveGroupName(): void {

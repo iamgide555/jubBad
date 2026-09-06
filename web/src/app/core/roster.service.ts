@@ -3,6 +3,7 @@ import { Injectable, inject } from '@angular/core';
 import { environment } from '../../environments/environment';
 import type { Player, RosterNameMatch } from '../../../../engines/fuzzy-match.ts';
 import type { Group } from './group.model';
+import type { GroupSession } from './group-session.model';
 import type { NameReview } from './roster-review';
 
 export interface CreateSessionRequest {
@@ -41,6 +42,20 @@ export class RosterService {
 
   getPlayers(groupCode: string) {
     return this.http.get<Player[]>(`${this.base}/groups/${groupCode}/players`);
+  }
+
+  listSessions(groupCode: string) {
+    return this.http.get<GroupSession[]>(`${this.base}/groups/${groupCode}/sessions`);
+  }
+
+  exportGroup(groupCode: string) {
+    return this.http.get<unknown>(`${this.base}/groups/${groupCode}/export`);
+  }
+
+  deleteGroup(groupCode: string) {
+    return this.http.delete<{ code: string; deleted: boolean }>(
+      `${this.base}/groups/${groupCode}`
+    );
   }
 
   createSession(dto: CreateSessionRequest) {

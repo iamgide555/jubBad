@@ -19,6 +19,9 @@ function baseSession(overrides: Partial<Session> = {}): Session {
     rawImportText: '',
     rosterPlayerIds: ['p1', 'p2', 'p3', 'p4'],
     restingPlayerIds: [],
+    createdAt: '2026-09-08T12:00:00.000Z',
+    mode: 'variety',
+    lastPlayedAt: {},
     waitlistPlayerIds: [],
     courts: [{ status: 'idle' }],
     ...overrides,
@@ -155,9 +158,12 @@ describe('SessionDisplay', () => {
     await new Promise((r) => setTimeout(r, 0));
     TestBed.tick();
 
-    expect(fixture.componentInstance.waitingNames().sort()).toEqual(
-      ['ตั้ม', 'ปอม', 'เบส', 'ไม้'].sort()
-    );
+    expect(
+      fixture.componentInstance
+        .waiting()
+        .map((w) => w.name)
+        .sort()
+    ).toEqual(['ตั้ม', 'ปอม', 'เบส', 'ไม้'].sort());
   });
 });
 

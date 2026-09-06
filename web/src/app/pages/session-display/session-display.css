@@ -66,3 +66,14 @@
   background: #123f39;
   color: var(--ink-on-court);
 }
+
+.waiting-name:not(:last-child)::after {
+  content: ',';
+  margin-right: 0.35rem;
+}
+
+.waiting-line .wait-mins {
+  color: var(--ink-on-court-soft);
+  font-size: 0.85em;
+  font-variant-numeric: tabular-nums;
+}

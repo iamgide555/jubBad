@@ -20,6 +20,9 @@ function baseSession(overrides: Partial<Session> = {}): Session {
     rawImportText: '',
     rosterPlayerIds: ['p1', 'p2'],
     restingPlayerIds: [],
+    createdAt: '2026-09-08T12:00:00.000Z',
+    mode: 'variety',
+    lastPlayedAt: {},
     waitlistPlayerIds: [],
     courts: [{ status: 'idle' }],
     ...overrides,
@@ -340,5 +343,103 @@ describe('SessionDashboard', () => {
     httpMock.expectOne(`${B}/groups/group1/players`).flush([]);
 
     expect(navigateSpy).toHaveBeenCalledWith('/');
+  });
+  async function settled(session = baseSession()) {
+    fixture = TestBed.createComponent(SessionDashboard);
+    fixture.detectChanges();
+    httpMock.expectOne(`${B}/sessions/sess1`).flush(session);
+    await new Promise((r) => setTimeout(r, 0));
+    TestBed.tick();
+    httpMock
+      .expectOne(`${B}/groups/group1/players`)
+      .flush([
+        { id: 'p1', name: 'ตั้ม', aliases: [] },
+        { id: 'p2', name: 'เบส', aliases: [] },
+      ]);
+    httpMock.expectOne(`${B}/sessions/sess1/stats?scope=session`).flush([]);
+    await fixture.whenStable();
+    fixture.detectChanges();
+  }
+
+  function buttonWith(text: string): HTMLButtonElement {
+    return Array.from(
+      (fixture.nativeElement as HTMLElement).querySelectorAll('button')
+    ).find((b) => b.textContent?.includes(text)) as HTMLButtonElement;
+  }
+
+  it('shows how long each waiting player has been off court', async () => {
+    const start = new Date(Date.now() - 20 * 60_000).toISOString();
+    const lastPlayed = new Date(Date.now() - 5 * 60_000).toISOString();
+    await settled(
+      baseSession({
+        createdAt: start,
+        rosterPlayerIds: ['p1', 'p2'],
+        lastPlayedAt: { p1: lastPlayed },
+      })
+    );
+
+    const waiting = fixture.componentInstance.waiting();
+    // p2 never played, so their wait runs from the session start and is longer.
+    expect(waiting.map((w) => w.name)).toEqual(['เบส', 'ตั้ม']);
+    expect(waiting[0].minutes).toBe(20);
+    expect(waiting[1].minutes).toBe(5);
+  });
+
+  it('fills every idle court in one tap', async () => {
+    await settled();
+    buttonWith('จัดคู่ทุกคอร์ทว่าง').click();
+
+    const req = httpMock.expectOne(`${B}/sessions/sess1/courts/fill`);
+    expect(req.request.method).toBe('POST');
+    req.flush({ ok: true, filled: [1] });
+    await new Promise((r) => setTimeout(r, 0));
+    TestBed.tick();
+    for (const r of httpMock.match(`${B}/sessions/sess1`)) r.flush(baseSession());
+    for (const r of httpMock.match(`${B}/groups/group1/players`)) r.flush([]);
+    for (const r of httpMock.match(`${B}/sessions/sess1/stats?scope=session`)) r.flush([]);
+    await new Promise((r) => setTimeout(r, 0));
+  });
+
+  it('hides the fill button when no court is idle', async () => {
+    await settled(
+      baseSession({
+        courts: [{ status: 'active', pairingId: 'x', teamA: ['p1', 'p2'], teamB: ['p3', 'p4'] }],
+      })
+    );
+    expect(buttonWith('จัดคู่ทุกคอร์ทว่าง')).toBeUndefined();
+  });
+
+  it('switches the pairing mode', async () => {
+    await settled();
+    buttonWith('สูสี').click();
+
+    const req = httpMock.expectOne(`${B}/sessions/sess1/mode`);
+    expect(req.request.body).toEqual({ mode: 'balanced' });
+    req.flush({ code: 'sess1', mode: 'balanced' });
+    await new Promise((r) => setTimeout(r, 0));
+    TestBed.tick();
+    for (const r of httpMock.match(`${B}/sessions/sess1`)) r.flush(baseSession({ mode: 'balanced' }));
+    for (const r of httpMock.match(`${B}/groups/group1/players`)) r.flush([]);
+    for (const r of httpMock.match(`${B}/sessions/sess1/stats?scope=session`)) r.flush([]);
+    await new Promise((r) => setTimeout(r, 0));
+  });
+
+  it('builds share text listing the courts and who is waiting', async () => {
+    await settled(
+      baseSession({
+        rosterPlayerIds: ['p1', 'p2'],
+        courts: [{ status: 'active', pairingId: 'x', teamA: ['p1', 'p2'], teamB: ['p3', 'p4'] }],
+      })
+    );
+
+    const text = fixture.componentInstance.shareText();
+    expect(text).toContain('คอร์ท 1');
+    expect(text).toContain('ตั้ม');
+    expect(text).toContain('vs');
+  });
+
+  it('marks an idle court as idle in the share text', async () => {
+    await settled();
+    expect(fixture.componentInstance.shareText()).toContain('ว่าง');
   });
 });

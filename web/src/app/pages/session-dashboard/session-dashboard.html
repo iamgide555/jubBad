@@ -19,6 +19,10 @@
 
     <hr class="rule" />
 
+    @if (!ended() && anyCourtIdle()) {
+      <button type="button" class="fill-all" (click)="fillCourts()" i18n="@@dashboard.fillAll">จัดคู่ทุกคอร์ทว่าง</button>
+    }
+
     <div class="courts-list">
       @for (courtNumber of courtNumbers(); track courtNumber) {
         <app-court-panel [courtNumber]="courtNumber" [players]="players()" />
@@ -29,8 +33,10 @@
 
     <div class="waiting-queue">
       <h4 i18n="@@dashboard.waiting">รอคิว</h4>
-      @for (name of waitingNames(); track name) {
-        <span class="chip">{{ name }}</span>
+      @for (w of waiting(); track w.id) {
+        <span class="chip">{{ w.name }} <span class="wait-mins">{{ w.minutes }}<ng-container i18n="@@dashboard.minutesShort">น.</ng-container></span></span>
+      } @empty {
+        <p class="muted" i18n="@@dashboard.nobodyWaiting">ไม่มีคนรอ</p>
       }
     </div>
 
@@ -44,7 +50,32 @@
     }
 
     <hr class="rule" />
-    <app-stats-table [sessionCode]="session()!.code" />
+
+    <div class="mode-toggle">
+      <h4 i18n="@@dashboard.modeLabel">โหมดจัดคู่</h4>
+      <div class="scope-toggle">
+        <button type="button" [class.active]="mode() === 'variety'" [disabled]="ended()" (click)="setMode('variety')" i18n="@@dashboard.modeVariety">สลับคู่</button>
+        <button type="button" [class.active]="mode() === 'balanced'" [disabled]="ended()" (click)="setMode('balanced')" i18n="@@dashboard.modeBalanced">สูสี</button>
+      </div>
+      @if (mode() === 'balanced') {
+        <p class="muted" i18n="@@dashboard.modeBalancedHint">จัดให้สองฝั่งฝีมือใกล้เคียงกัน</p>
+      } @else {
+        <p class="muted" i18n="@@dashboard.modeVarietyHint">เน้นไม่ให้ซ้ำคู่เดิม</p>
+      }
+    </div>
+
+    <hr class="rule" />
+
+    <button type="button" class="share" (click)="copyShareText()">
+      @if (copied()) {
+        <ng-container i18n="@@dashboard.copied">คัดลอกแล้ว</ng-container>
+      } @else {
+        <ng-container i18n="@@dashboard.copy">คัดลอกเป็นข้อความ</ng-container>
+      }
+    </button>
+
+    <hr class="rule" />
+    <app-stats-table [sessionCode]="session()!.code" [groupCode]="session()!.groupCode" />
 
     @if (!ended()) {
       <hr class="rule" />

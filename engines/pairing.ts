@@ -4,6 +4,8 @@
  * assignments. See docs/overview.md, "How the engines think — Pairing".
  */
 
+import { ratingGap } from './elo.ts';
+
 export type PlayerId = string;
 
 export function pairKey(a: PlayerId, b: PlayerId): string {
@@ -68,10 +70,19 @@ const OPPONENT_WEIGHT = 1;
  */
 const AVOID_SPLIT_PENALTY = 1000;
 
+/**
+ * Rating points per unit of penalty in balanced mode. At 10, a 100-point gap
+ * costs the same as one repeat partner — so the search will accept playing
+ * with the same partner again to avoid a clear mismatch, but will not chase a
+ * marginal 20-point improvement at that cost.
+ */
+const BALANCE_DIVISOR = 10;
+
 export function scoreArrangement(
   courts: { teamA: [PlayerId, PlayerId]; teamB: [PlayerId, PlayerId] }[],
   partnerCounts: Map<string, number>,
-  opponentCounts: Map<string, number>
+  opponentCounts: Map<string, number>,
+  ratings?: Map<PlayerId, number>
 ): number {
   let score = 0;
 
@@ -89,6 +100,12 @@ export function scoreArrangement(
     ];
     for (const key of opponentPairs) {
       if ((opponentCounts.get(key) ?? 0) > 0) score += OPPONENT_WEIGHT;
+    }
+
+    // Only in balanced mode. Without ratings the term vanishes entirely, so
+    // variety mode scores exactly as it always did.
+    if (ratings) {
+      score += ratingGap(teamA, teamB, ratings) / BALANCE_DIVISOR;
     }
   }
 
@@ -141,7 +158,9 @@ export function generateRound(
   courtCount: number,
   history: MatchHistory,
   random: () => number = Math.random,
-  avoidSplit?: { teamA: [PlayerId, PlayerId]; teamB: [PlayerId, PlayerId] }
+  avoidSplit?: { teamA: [PlayerId, PlayerId]; teamB: [PlayerId, PlayerId] },
+  /** Supplied only in balanced mode; omitted, behaviour is unchanged. */
+  ratings?: Map<PlayerId, number>
 ): RoundResult {
   const { playing, sittingOut } = selectSittingOut(
     roster,
@@ -169,7 +188,12 @@ export function generateRound(
 
   for (let trial = 0; trial < SEARCH_TRIALS; trial++) {
     const candidate = buildRandomArrangement(playing, usableCourts, random);
-    let score = scoreArrangement(candidate, history.partnerCounts, history.opponentCounts);
+    let score = scoreArrangement(
+      candidate,
+      history.partnerCounts,
+      history.opponentCounts,
+      ratings
+    );
 
     if (avoidKeys) {
       const [c] = candidate;

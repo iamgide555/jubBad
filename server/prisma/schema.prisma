@@ -31,6 +31,9 @@ model Session {
   rawImportText String
   createdAt     DateTime        @default(now())
   endedAt       DateTime?
+  /// 'variety' (default) spreads partners and opponents; 'balanced' also
+  /// pulls the two sides of each match together on Elo rating.
+  mode          String          @default("variety")
   group         Group           @relation(fields: [groupId], references: [code])
   roster        SessionRoster[]
   waitlist      Waitlist[]

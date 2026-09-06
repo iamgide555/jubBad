@@ -175,3 +175,46 @@ test('generateRound returns no courts when fewer than 4 players are available to
   assert.deepEqual(result.courts, []);
   assert.equal(result.sittingOut.length, 3);
 });
+
+test('balanced mode splits strong and weak players across the two teams', () => {
+  // Two clearly strong, two clearly weak. The only arrangement with a small
+  // rating gap pairs one strong with one weak on each side.
+  const ratings = new Map([
+    ['strong1', 1400],
+    ['strong2', 1400],
+    ['weak1', 1000],
+    ['weak2', 1000],
+  ]);
+  const history = {
+    partnerCounts: new Map<string, number>(),
+    opponentCounts: new Map<string, number>(),
+    gamesPlayedThisSession: new Map<string, number>(),
+  };
+
+  const { courts } = generateRound(
+    ['strong1', 'strong2', 'weak1', 'weak2'],
+    1,
+    history,
+    undefined,
+    undefined,
+    ratings
+  );
+
+  const [court] = courts;
+  const strongOnA = court.teamA.filter((p) => p.startsWith('strong')).length;
+  assert.equal(strongOnA, 1);
+});
+
+test('variety mode ignores ratings entirely', () => {
+  const history = {
+    partnerCounts: new Map<string, number>(),
+    opponentCounts: new Map<string, number>(),
+    gamesPlayedThisSession: new Map<string, number>(),
+  };
+  const lopsided = [
+    { teamA: ['strong1', 'strong2'] as [string, string], teamB: ['weak1', 'weak2'] as [string, string] },
+  ];
+
+  // No ratings argument -> the gap term never enters the score.
+  assert.equal(scoreArrangement(lopsided, history.partnerCounts, history.opponentCounts), 0);
+});

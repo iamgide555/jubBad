@@ -10,6 +10,7 @@ import { SessionsService } from './sessions.service.js';
 describe('SessionsController', () => {
   let app: INestApplication;
   let prisma: PrismaService;
+  let server: ReturnType<INestApplication['getHttpServer']>;
   let service: SessionsService;
 
   beforeAll(async () => {
@@ -19,6 +20,12 @@ describe('SessionsController', () => {
     app = moduleRef.createNestApplication();
     app.useGlobalPipes(new ValidationPipe({ whitelist: true, transform: true }));
     await app.init();
+    // supertest calls listen() itself for every request when the server is not
+    // already listening. Under a few hundred requests that churn intermittently
+    // produced "socket hang up" and bogus 501s that looked like app failures.
+    // Listening once here keeps a single server for the file.
+    server = app.getHttpServer();
+    await new Promise<void>((resolve) => server.listen(0, resolve));
     prisma = app.get(PrismaService);
     service = app.get(SessionsService);
   });
@@ -34,7 +41,7 @@ describe('SessionsController', () => {
       data: { groupId: groupCode, name: 'Bob', aliases: '[]' },
     });
 
-    const res = await request(app.getHttpServer())
+    const res = await request(server)
       .post('/sessions')
       .send({
         groupCode,
@@ -79,7 +86,7 @@ describe('SessionsController', () => {
 
   it('rejects a request with an unrecognized decision value', async () => {
     const groupCode = randomUUID();
-    await request(app.getHttpServer())
+    await request(server)
       .post('/sessions')
       .send({
         groupCode,
@@ -94,7 +101,7 @@ describe('SessionsController', () => {
   });
 
   it('returns 404 for a session that does not exist', async () => {
-    await request(app.getHttpServer()).get(`/sessions/${randomUUID()}`).expect(404);
+    await request(server).get(`/sessions/${randomUUID()}`).expect(404);
   });
 
   it('derives court status from Pairing rows', async () => {
@@ -129,7 +136,7 @@ describe('SessionsController', () => {
     });
 
     try {
-      const res = await request(app.getHttpServer()).get(`/sessions/${sessionCode}`).expect(200);
+      const res = await request(server).get(`/sessions/${sessionCode}`).expect(200);
       expect(res.body.rosterPlayerIds).toHaveLength(4);
       expect(res.body.courts).toEqual([
         {
@@ -167,7 +174,7 @@ describe('SessionsController', () => {
     }
 
     try {
-      const first = await request(app.getHttpServer())
+      const first = await request(server)
         .post(`/sessions/${sessionCode}/courts/1/propose`)
         .expect(201);
       expect(first.body.ok).toBe(true);
@@ -177,7 +184,7 @@ describe('SessionsController', () => {
       const rowsAfterFirst = await prisma.pairing.findMany({ where: { sessionId: sessionCode } });
       expect(rowsAfterFirst).toHaveLength(1);
 
-      const second = await request(app.getHttpServer())
+      const second = await request(server)
         .post(`/sessions/${sessionCode}/courts/1/propose`)
         .expect(201);
       expect(second.body.ok).toBe(true);
@@ -188,7 +195,7 @@ describe('SessionsController', () => {
       expect(rowsAfterSecond).toHaveLength(1);
 
       await prisma.sessionRoster.deleteMany({ where: { sessionId: sessionCode } });
-      const notEnough = await request(app.getHttpServer())
+      const notEnough = await request(server)
         .post(`/sessions/${sessionCode}/courts/1/propose`)
         .expect(201);
       expect(notEnough.body).toEqual({ ok: false, reason: 'not-enough-players' });
@@ -256,7 +263,7 @@ describe('SessionsController', () => {
     try {
       let previousKeys: string[] | null = null;
       for (let i = 0; i < 20; i++) {
-        const res = await request(app.getHttpServer())
+        const res = await request(server)
           .post(`/sessions/${sessionCode}/courts/1/propose`)
           .expect(201);
         expect(res.body.ok).toBe(true);
@@ -331,7 +338,7 @@ describe('SessionsController', () => {
       // Repeated because with no cross-session history the engine picks one of
       // three splits at random — a single round would pass by luck.
       for (let i = 0; i < 8; i++) {
-        const res = await request(app.getHttpServer())
+        const res = await request(server)
           .post(`/sessions/${sessionCode}/courts/1/propose`)
           .expect(201);
         expect(res.body.ok).toBe(true);
@@ -391,8 +398,12 @@ describe('SessionsController', () => {
 
     try {
       let everSatOut = false;
-      for (let i = 0; i < 30 && !everSatOut; i++) {
-        const res = await request(app.getHttpServer())
+      // 5 players, 1 court: exactly one sits each round, chosen by a shuffle
+      // among equals. At 30 rounds this missed roughly 1 run in 800; at 80 it
+      // is about 1 in 50 million, which is the difference between a test and
+      // an occasional lie.
+      for (let i = 0; i < 80 && !everSatOut; i++) {
+        const res = await request(server)
           .post(`/sessions/${sessionCode}/courts/1/propose`)
           .expect(201);
         const { teamA, teamB } = res.body.pairing as { teamA: string[]; teamB: string[] };
@@ -426,14 +437,14 @@ describe('SessionsController', () => {
     }
 
     try {
-      await request(app.getHttpServer())
+      await request(server)
         .post(`/sessions/${sessionCode}/roster/${players[4].id}/active`)
         .send({ active: false })
         .expect(201);
 
       // Exactly 4 remain active, so every proposal must be those 4 and never E.
       for (let i = 0; i < 6; i++) {
-        const res = await request(app.getHttpServer())
+        const res = await request(server)
           .post(`/sessions/${sessionCode}/courts/1/propose`)
           .expect(201);
         expect(res.body.ok).toBe(true);
@@ -467,21 +478,21 @@ describe('SessionsController', () => {
     }
 
     try {
-      await request(app.getHttpServer())
+      await request(server)
         .post(`/sessions/${sessionCode}/roster/${players[0].id}/active`)
         .send({ active: false })
         .expect(201);
       // Three active players can't fill a court.
-      const short = await request(app.getHttpServer())
+      const short = await request(server)
         .post(`/sessions/${sessionCode}/courts/1/propose`)
         .expect(201);
       expect(short.body).toEqual({ ok: false, reason: 'not-enough-players' });
 
-      await request(app.getHttpServer())
+      await request(server)
         .post(`/sessions/${sessionCode}/roster/${players[0].id}/active`)
         .send({ active: true })
         .expect(201);
-      const full = await request(app.getHttpServer())
+      const full = await request(server)
         .post(`/sessions/${sessionCode}/courts/1/propose`)
         .expect(201);
       expect(full.body.ok).toBe(true);
@@ -522,7 +533,7 @@ describe('SessionsController', () => {
     });
 
     try {
-      await request(app.getHttpServer())
+      await request(server)
         .post(`/sessions/${sessionCode}/roster/${players[0].id}/active`)
         .send({ active: false })
         .expect(201);
@@ -531,7 +542,7 @@ describe('SessionsController', () => {
       expect(JSON.parse(row.teamA)).toEqual([players[0].id, players[1].id]);
       expect(row.endedAt).toBeNull();
 
-      const res = await request(app.getHttpServer()).get(`/sessions/${sessionCode}`).expect(200);
+      const res = await request(server).get(`/sessions/${sessionCode}`).expect(200);
       expect(res.body.courts[0].status).toBe('active');
     } finally {
       await prisma.pairing.deleteMany({ where: { sessionId: sessionCode } });
@@ -568,12 +579,12 @@ describe('SessionsController', () => {
     });
 
     try {
-      await request(app.getHttpServer())
+      await request(server)
         .post(`/sessions/${sessionCode}/roster/${players[4].id}/active`)
         .send({ active: false })
         .expect(201);
 
-      const res = await request(app.getHttpServer())
+      const res = await request(server)
         .post(`/sessions/${sessionCode}/pairings/${pending.id}/swap`)
         .send({ playerId: players[0].id })
         .expect(201);
@@ -604,16 +615,16 @@ describe('SessionsController', () => {
     }
 
     try {
-      const before = await request(app.getHttpServer()).get(`/sessions/${sessionCode}`).expect(200);
+      const before = await request(server).get(`/sessions/${sessionCode}`).expect(200);
       expect(before.body.restingPlayerIds).toEqual([]);
       expect(before.body.rosterPlayerIds).toHaveLength(2);
 
-      await request(app.getHttpServer())
+      await request(server)
         .post(`/sessions/${sessionCode}/roster/${players[1].id}/active`)
         .send({ active: false })
         .expect(201);
 
-      const after = await request(app.getHttpServer()).get(`/sessions/${sessionCode}`).expect(200);
+      const after = await request(server).get(`/sessions/${sessionCode}`).expect(200);
       expect(after.body.restingPlayerIds).toEqual([players[1].id]);
       // The roster still lists everyone — resting is a state, not a removal.
       expect(after.body.rosterPlayerIds).toHaveLength(2);
@@ -634,7 +645,7 @@ describe('SessionsController', () => {
     });
 
     try {
-      await request(app.getHttpServer())
+      await request(server)
         .post(`/sessions/${sessionCode}/roster/${randomUUID()}/active`)
         .send({ active: false })
         .expect(404);
@@ -653,12 +664,589 @@ describe('SessionsController', () => {
     });
 
     try {
-      await request(app.getHttpServer())
+      await request(server)
         .post(`/sessions/${sessionCode}/roster/anyone/active`)
         .send({ active: 'nope' })
         .expect(400);
     } finally {
       await prisma.session.deleteMany({ where: { code: sessionCode } });
+      await prisma.group.deleteMany({ where: { code: groupCode } });
+    }
+  });
+
+  it('undoes a finish, putting the match back on court', async () => {
+    const groupCode = randomUUID();
+    const sessionCode = randomUUID();
+    await prisma.group.create({ data: { code: groupCode, name: 'G' } });
+    const players = await Promise.all(
+      ['A', 'B', 'C', 'D'].map((name) =>
+        prisma.player.create({ data: { groupId: groupCode, name, aliases: '[]' } })
+      )
+    );
+    await prisma.session.create({
+      data: { code: sessionCode, groupId: groupCode, courtCount: 1, rawImportText: '' },
+    });
+    for (const p of players) {
+      await prisma.sessionRoster.create({ data: { sessionId: sessionCode, playerId: p.id } });
+    }
+    const pairing = await prisma.pairing.create({
+      data: {
+        sessionId: sessionCode,
+        courtNumber: 1,
+        matchNumber: 1,
+        teamA: JSON.stringify([players[0].id, players[1].id]),
+        teamB: JSON.stringify([players[2].id, players[3].id]),
+        confirmedAt: new Date(),
+        endedAt: new Date(),
+        scoreA: 21,
+        scoreB: 15,
+        winner: 'A',
+      },
+    });
+
+    try {
+      const res = await request(server)
+        .post(`/sessions/${sessionCode}/courts/1/undo`)
+        .expect(201);
+      expect(res.body).toEqual({ ok: true, undone: 'finish' });
+
+      const row = await prisma.pairing.findUniqueOrThrow({ where: { id: pairing.id } });
+      expect(row.endedAt).toBeNull();
+      expect(row.winner).toBeNull();
+      expect(row.scoreA).toBeNull();
+      expect(row.scoreB).toBeNull();
+      expect(row.confirmedAt).not.toBeNull();
+
+      const sess = await request(server).get(`/sessions/${sessionCode}`).expect(200);
+      expect(sess.body.courts[0].status).toBe('active');
+    } finally {
+      await prisma.pairing.deleteMany({ where: { sessionId: sessionCode } });
+      await prisma.sessionRoster.deleteMany({ where: { sessionId: sessionCode } });
+      await prisma.session.deleteMany({ where: { code: sessionCode } });
+      await prisma.player.deleteMany({ where: { groupId: groupCode } });
+      await prisma.group.deleteMany({ where: { code: groupCode } });
+    }
+  });
+
+  it('undoes a confirm, putting the match back to pending', async () => {
+    const groupCode = randomUUID();
+    const sessionCode = randomUUID();
+    await prisma.group.create({ data: { code: groupCode, name: 'G' } });
+    await prisma.session.create({
+      data: { code: sessionCode, groupId: groupCode, courtCount: 1, rawImportText: '' },
+    });
+    const pairing = await prisma.pairing.create({
+      data: {
+        sessionId: sessionCode,
+        courtNumber: 1,
+        matchNumber: 1,
+        teamA: JSON.stringify(['p1', 'p2']),
+        teamB: JSON.stringify(['p3', 'p4']),
+        confirmedAt: new Date(),
+      },
+    });
+
+    try {
+      const res = await request(server)
+        .post(`/sessions/${sessionCode}/courts/1/undo`)
+        .expect(201);
+      expect(res.body).toEqual({ ok: true, undone: 'confirm' });
+
+      const row = await prisma.pairing.findUniqueOrThrow({ where: { id: pairing.id } });
+      expect(row.confirmedAt).toBeNull();
+      expect(row.endedAt).toBeNull();
+    } finally {
+      await prisma.pairing.deleteMany({ where: { sessionId: sessionCode } });
+      await prisma.session.deleteMany({ where: { code: sessionCode } });
+      await prisma.group.deleteMany({ where: { code: groupCode } });
+    }
+  });
+
+  it('reports nothing-to-undo on a court that has never played', async () => {
+    const groupCode = randomUUID();
+    const sessionCode = randomUUID();
+    await prisma.group.create({ data: { code: groupCode, name: 'G' } });
+    await prisma.session.create({
+      data: { code: sessionCode, groupId: groupCode, courtCount: 1, rawImportText: '' },
+    });
+
+    try {
+      const res = await request(server)
+        .post(`/sessions/${sessionCode}/courts/1/undo`)
+        .expect(201);
+      expect(res.body).toEqual({ ok: false, reason: 'nothing-to-undo' });
+    } finally {
+      await prisma.session.deleteMany({ where: { code: sessionCode } });
+      await prisma.group.deleteMany({ where: { code: groupCode } });
+    }
+  });
+
+  it('refuses to undo a finish whose players have already started another match', async () => {
+    const groupCode = randomUUID();
+    const sessionCode = randomUUID();
+    await prisma.group.create({ data: { code: groupCode, name: 'G' } });
+    const players = await Promise.all(
+      ['A', 'B', 'C', 'D'].map((name) =>
+        prisma.player.create({ data: { groupId: groupCode, name, aliases: '[]' } })
+      )
+    );
+    await prisma.session.create({
+      data: { code: sessionCode, groupId: groupCode, courtCount: 2, rawImportText: '' },
+    });
+    await prisma.pairing.create({
+      data: {
+        sessionId: sessionCode,
+        courtNumber: 1,
+        matchNumber: 1,
+        teamA: JSON.stringify([players[0].id, players[1].id]),
+        teamB: JSON.stringify([players[2].id, players[3].id]),
+        confirmedAt: new Date(),
+        endedAt: new Date(),
+        winner: 'A',
+      },
+    });
+    // The same four are now on court 2, so restoring court 1 would double-book.
+    await prisma.pairing.create({
+      data: {
+        sessionId: sessionCode,
+        courtNumber: 2,
+        matchNumber: 1,
+        teamA: JSON.stringify([players[0].id, players[2].id]),
+        teamB: JSON.stringify([players[1].id, players[3].id]),
+        confirmedAt: new Date(),
+      },
+    });
+
+    try {
+      const res = await request(server)
+        .post(`/sessions/${sessionCode}/courts/1/undo`)
+        .expect(201);
+      expect(res.body).toEqual({ ok: false, reason: 'players-busy' });
+    } finally {
+      await prisma.pairing.deleteMany({ where: { sessionId: sessionCode } });
+      await prisma.session.deleteMany({ where: { code: sessionCode } });
+      await prisma.player.deleteMany({ where: { groupId: groupCode } });
+      await prisma.group.deleteMany({ where: { code: groupCode } });
+    }
+  });
+
+  it('undoes only the most recent match on that court', async () => {
+    const groupCode = randomUUID();
+    const sessionCode = randomUUID();
+    await prisma.group.create({ data: { code: groupCode, name: 'G' } });
+    const players = await Promise.all(
+      ['A', 'B', 'C', 'D'].map((name) =>
+        prisma.player.create({ data: { groupId: groupCode, name, aliases: '[]' } })
+      )
+    );
+    await prisma.session.create({
+      data: { code: sessionCode, groupId: groupCode, courtCount: 1, rawImportText: '' },
+    });
+    const first = await prisma.pairing.create({
+      data: {
+        sessionId: sessionCode,
+        courtNumber: 1,
+        matchNumber: 1,
+        teamA: JSON.stringify([players[0].id, players[1].id]),
+        teamB: JSON.stringify([players[2].id, players[3].id]),
+        confirmedAt: new Date(),
+        endedAt: new Date(),
+        winner: 'A',
+      },
+    });
+    const second = await prisma.pairing.create({
+      data: {
+        sessionId: sessionCode,
+        courtNumber: 1,
+        matchNumber: 2,
+        teamA: JSON.stringify([players[0].id, players[2].id]),
+        teamB: JSON.stringify([players[1].id, players[3].id]),
+        confirmedAt: new Date(),
+        endedAt: new Date(),
+        winner: 'B',
+      },
+    });
+
+    try {
+      await request(server)
+        .post(`/sessions/${sessionCode}/courts/1/undo`)
+        .expect(201);
+
+      const older = await prisma.pairing.findUniqueOrThrow({ where: { id: first.id } });
+      expect(older.endedAt).not.toBeNull();
+      expect(older.winner).toBe('A');
+
+      const newer = await prisma.pairing.findUniqueOrThrow({ where: { id: second.id } });
+      expect(newer.endedAt).toBeNull();
+    } finally {
+      await prisma.pairing.deleteMany({ where: { sessionId: sessionCode } });
+      await prisma.session.deleteMany({ where: { code: sessionCode } });
+      await prisma.player.deleteMany({ where: { groupId: groupCode } });
+      await prisma.group.deleteMany({ where: { code: groupCode } });
+    }
+  });
+
+  it('defaults to variety mode and switches to balanced', async () => {
+    const groupCode = randomUUID();
+    const sessionCode = randomUUID();
+    await prisma.group.create({ data: { code: groupCode, name: 'G' } });
+    await prisma.session.create({
+      data: { code: sessionCode, groupId: groupCode, courtCount: 1, rawImportText: '' },
+    });
+
+    try {
+      const before = await request(server).get(`/sessions/${sessionCode}`).expect(200);
+      expect(before.body.mode).toBe('variety');
+
+      await request(server)
+        .post(`/sessions/${sessionCode}/mode`)
+        .send({ mode: 'balanced' })
+        .expect(201);
+
+      const after = await request(server).get(`/sessions/${sessionCode}`).expect(200);
+      expect(after.body.mode).toBe('balanced');
+    } finally {
+      await prisma.session.deleteMany({ where: { code: sessionCode } });
+      await prisma.group.deleteMany({ where: { code: groupCode } });
+    }
+  });
+
+  it('rejects an unknown mode', async () => {
+    const groupCode = randomUUID();
+    const sessionCode = randomUUID();
+    await prisma.group.create({ data: { code: groupCode, name: 'G' } });
+    await prisma.session.create({
+      data: { code: sessionCode, groupId: groupCode, courtCount: 1, rawImportText: '' },
+    });
+
+    try {
+      await request(server)
+        .post(`/sessions/${sessionCode}/mode`)
+        .send({ mode: 'sideways' })
+        .expect(400);
+    } finally {
+      await prisma.session.deleteMany({ where: { code: sessionCode } });
+      await prisma.group.deleteMany({ where: { code: groupCode } });
+    }
+  });
+
+  it('balanced mode splits the strong players up, using group-wide Elo', async () => {
+    const groupCode = randomUUID();
+    const oldSessionCode = randomUUID();
+    const sessionCode = randomUUID();
+    await prisma.group.create({ data: { code: groupCode, name: 'G' } });
+    const [s1, s2, w1, w2] = await Promise.all(
+      ['S1', 'S2', 'W1', 'W2'].map((name) =>
+        prisma.player.create({ data: { groupId: groupCode, name, aliases: '[]' } })
+      )
+    );
+    await prisma.session.create({
+      data: {
+        code: oldSessionCode,
+        groupId: groupCode,
+        courtCount: 1,
+        rawImportText: '',
+        endedAt: new Date(),
+      },
+    });
+    // S1+S2 beat W1+W2 repeatedly last week, so the ratings diverge.
+    for (let i = 0; i < 8; i++) {
+      await prisma.pairing.create({
+        data: {
+          sessionId: oldSessionCode,
+          courtNumber: 1,
+          matchNumber: i + 1,
+          teamA: JSON.stringify([s1.id, s2.id]),
+          teamB: JSON.stringify([w1.id, w2.id]),
+          confirmedAt: new Date(Date.now() + i * 1000),
+          endedAt: new Date(),
+          winner: 'A',
+        },
+      });
+    }
+    await prisma.session.create({
+      data: {
+        code: sessionCode,
+        groupId: groupCode,
+        courtCount: 1,
+        rawImportText: '',
+        mode: 'balanced',
+      },
+    });
+    for (const p of [s1, s2, w1, w2]) {
+      await prisma.sessionRoster.create({ data: { sessionId: sessionCode, playerId: p.id } });
+    }
+
+    try {
+      // Repeated: with no balancing this split is one of three picked at random.
+      for (let i = 0; i < 6; i++) {
+        const res = await request(server)
+          .post(`/sessions/${sessionCode}/courts/1/propose`)
+          .expect(201);
+        expect(res.body.ok).toBe(true);
+        const { teamA } = res.body.pairing as { teamA: string[] };
+        const strongOnA = teamA.filter((id) => id === s1.id || id === s2.id).length;
+        expect(strongOnA).toBe(1);
+        await prisma.pairing.deleteMany({ where: { sessionId: sessionCode } });
+      }
+    } finally {
+      await prisma.pairing.deleteMany({ where: { sessionId: { in: [sessionCode, oldSessionCode] } } });
+      await prisma.sessionRoster.deleteMany({ where: { sessionId: sessionCode } });
+      await prisma.session.deleteMany({ where: { groupId: groupCode } });
+      await prisma.player.deleteMany({ where: { groupId: groupCode } });
+      await prisma.group.deleteMany({ where: { code: groupCode } });
+    }
+  });
+
+  it('reports when each waiting player last finished a match', async () => {
+    const groupCode = randomUUID();
+    const sessionCode = randomUUID();
+    const finishedAt = new Date('2026-09-08T13:00:00.000Z');
+    await prisma.group.create({ data: { code: groupCode, name: 'G' } });
+    const players = await Promise.all(
+      ['A', 'B', 'C', 'D'].map((name) =>
+        prisma.player.create({ data: { groupId: groupCode, name, aliases: '[]' } })
+      )
+    );
+    await prisma.session.create({
+      data: { code: sessionCode, groupId: groupCode, courtCount: 1, rawImportText: '' },
+    });
+    for (const p of players) {
+      await prisma.sessionRoster.create({ data: { sessionId: sessionCode, playerId: p.id } });
+    }
+    await prisma.pairing.create({
+      data: {
+        sessionId: sessionCode,
+        courtNumber: 1,
+        matchNumber: 1,
+        teamA: JSON.stringify([players[0].id, players[1].id]),
+        teamB: JSON.stringify([players[2].id, players[3].id]),
+        confirmedAt: new Date(),
+        endedAt: finishedAt,
+        winner: 'A',
+      },
+    });
+
+    try {
+      const res = await request(server).get(`/sessions/${sessionCode}`).expect(200);
+      expect(res.body.lastPlayedAt[players[0].id]).toBe(finishedAt.toISOString());
+      // Never played tonight -> no entry, so the client falls back to the
+      // session start rather than showing a bogus wait of zero.
+      expect(res.body.lastPlayedAt[randomUUID()]).toBeUndefined();
+      expect(typeof res.body.createdAt).toBe('string');
+    } finally {
+      await prisma.pairing.deleteMany({ where: { sessionId: sessionCode } });
+      await prisma.sessionRoster.deleteMany({ where: { sessionId: sessionCode } });
+      await prisma.session.deleteMany({ where: { code: sessionCode } });
+      await prisma.player.deleteMany({ where: { groupId: groupCode } });
+      await prisma.group.deleteMany({ where: { code: groupCode } });
+    }
+  });
+
+  it('fills every idle court in one call', async () => {
+    const groupCode = randomUUID();
+    const sessionCode = randomUUID();
+    await prisma.group.create({ data: { code: groupCode, name: 'G' } });
+    const players = await Promise.all(
+      ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'].map((name) =>
+        prisma.player.create({ data: { groupId: groupCode, name, aliases: '[]' } })
+      )
+    );
+    await prisma.session.create({
+      data: { code: sessionCode, groupId: groupCode, courtCount: 2, rawImportText: '' },
+    });
+    for (const p of players) {
+      await prisma.sessionRoster.create({ data: { sessionId: sessionCode, playerId: p.id } });
+    }
+
+    try {
+      const res = await request(server)
+        .post(`/sessions/${sessionCode}/courts/fill`)
+        .expect(201);
+      expect(res.body.filled).toEqual([1, 2]);
+
+      const rows = await prisma.pairing.findMany({ where: { sessionId: sessionCode } });
+      expect(rows).toHaveLength(2);
+      const assigned = rows.flatMap((r) => [
+        ...(JSON.parse(r.teamA) as string[]),
+        ...(JSON.parse(r.teamB) as string[]),
+      ]);
+      expect(new Set(assigned).size).toBe(8);
+    } finally {
+      await prisma.pairing.deleteMany({ where: { sessionId: sessionCode } });
+      await prisma.sessionRoster.deleteMany({ where: { sessionId: sessionCode } });
+      await prisma.session.deleteMany({ where: { code: sessionCode } });
+      await prisma.player.deleteMany({ where: { groupId: groupCode } });
+      await prisma.group.deleteMany({ where: { code: groupCode } });
+    }
+  });
+
+  it('fills only what the roster can support and leaves the rest idle', async () => {
+    const groupCode = randomUUID();
+    const sessionCode = randomUUID();
+    await prisma.group.create({ data: { code: groupCode, name: 'G' } });
+    const players = await Promise.all(
+      ['A', 'B', 'C', 'D', 'E'].map((name) =>
+        prisma.player.create({ data: { groupId: groupCode, name, aliases: '[]' } })
+      )
+    );
+    await prisma.session.create({
+      data: { code: sessionCode, groupId: groupCode, courtCount: 3, rawImportText: '' },
+    });
+    for (const p of players) {
+      await prisma.sessionRoster.create({ data: { sessionId: sessionCode, playerId: p.id } });
+    }
+
+    try {
+      const res = await request(server)
+        .post(`/sessions/${sessionCode}/courts/fill`)
+        .expect(201);
+      expect(res.body.filled).toEqual([1]);
+    } finally {
+      await prisma.pairing.deleteMany({ where: { sessionId: sessionCode } });
+      await prisma.sessionRoster.deleteMany({ where: { sessionId: sessionCode } });
+      await prisma.session.deleteMany({ where: { code: sessionCode } });
+      await prisma.player.deleteMany({ where: { groupId: groupCode } });
+      await prisma.group.deleteMany({ where: { code: groupCode } });
+    }
+  });
+
+  it('leaves a busy court alone when filling', async () => {
+    const groupCode = randomUUID();
+    const sessionCode = randomUUID();
+    await prisma.group.create({ data: { code: groupCode, name: 'G' } });
+    const players = await Promise.all(
+      ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'].map((name) =>
+        prisma.player.create({ data: { groupId: groupCode, name, aliases: '[]' } })
+      )
+    );
+    await prisma.session.create({
+      data: { code: sessionCode, groupId: groupCode, courtCount: 2, rawImportText: '' },
+    });
+    for (const p of players) {
+      await prisma.sessionRoster.create({ data: { sessionId: sessionCode, playerId: p.id } });
+    }
+    await prisma.pairing.create({
+      data: {
+        sessionId: sessionCode,
+        courtNumber: 1,
+        matchNumber: 1,
+        teamA: JSON.stringify([players[0].id, players[1].id]),
+        teamB: JSON.stringify([players[2].id, players[3].id]),
+        confirmedAt: new Date(),
+      },
+    });
+
+    try {
+      const res = await request(server)
+        .post(`/sessions/${sessionCode}/courts/fill`)
+        .expect(201);
+      expect(res.body.filled).toEqual([2]);
+
+      const onCourt2 = await prisma.pairing.findFirstOrThrow({
+        where: { sessionId: sessionCode, courtNumber: 2 },
+      });
+      const four = [
+        ...(JSON.parse(onCourt2.teamA) as string[]),
+        ...(JSON.parse(onCourt2.teamB) as string[]),
+      ];
+      // Court 1's players are still playing and must not be double-booked.
+      expect(four).not.toContain(players[0].id);
+    } finally {
+      await prisma.pairing.deleteMany({ where: { sessionId: sessionCode } });
+      await prisma.sessionRoster.deleteMany({ where: { sessionId: sessionCode } });
+      await prisma.session.deleteMany({ where: { code: sessionCode } });
+      await prisma.player.deleteMany({ where: { groupId: groupCode } });
+      await prisma.group.deleteMany({ where: { code: groupCode } });
+    }
+  });
+
+  it('undoes an unconfirmed proposal by discarding it', async () => {
+    const groupCode = randomUUID();
+    const sessionCode = randomUUID();
+    await prisma.group.create({ data: { code: groupCode, name: 'G' } });
+    await prisma.session.create({
+      data: { code: sessionCode, groupId: groupCode, courtCount: 1, rawImportText: '' },
+    });
+    await prisma.pairing.create({
+      data: {
+        sessionId: sessionCode,
+        courtNumber: 1,
+        matchNumber: 1,
+        teamA: JSON.stringify(['p1', 'p2']),
+        teamB: JSON.stringify(['p3', 'p4']),
+      },
+    });
+
+    try {
+      const res = await request(server)
+        .post(`/sessions/${sessionCode}/courts/1/undo`)
+        .expect(201);
+      expect(res.body).toEqual({ ok: true, undone: 'propose' });
+
+      const sess = await request(server).get(`/sessions/${sessionCode}`).expect(200);
+      expect(sess.body.courts[0].status).toBe('idle');
+    } finally {
+      await prisma.pairing.deleteMany({ where: { sessionId: sessionCode } });
+      await prisma.session.deleteMany({ where: { code: sessionCode } });
+      await prisma.group.deleteMany({ where: { code: groupCode } });
+    }
+  });
+
+  it('reaches a finished match by undoing the proposal stacked on top of it', async () => {
+    const groupCode = randomUUID();
+    const sessionCode = randomUUID();
+    await prisma.group.create({ data: { code: groupCode, name: 'G' } });
+    const players = await Promise.all(
+      ['A', 'B', 'C', 'D'].map((name) =>
+        prisma.player.create({ data: { groupId: groupCode, name, aliases: '[]' } })
+      )
+    );
+    await prisma.session.create({
+      data: { code: sessionCode, groupId: groupCode, courtCount: 1, rawImportText: '' },
+    });
+    const finished = await prisma.pairing.create({
+      data: {
+        sessionId: sessionCode,
+        courtNumber: 1,
+        matchNumber: 1,
+        teamA: JSON.stringify([players[0].id, players[1].id]),
+        teamB: JSON.stringify([players[2].id, players[3].id]),
+        confirmedAt: new Date(),
+        endedAt: new Date(),
+        winner: 'A',
+      },
+    });
+    // The host has already proposed the next match before noticing the wrong
+    // winner on the one before.
+    await prisma.pairing.create({
+      data: {
+        sessionId: sessionCode,
+        courtNumber: 1,
+        matchNumber: 2,
+        teamA: JSON.stringify([players[0].id, players[2].id]),
+        teamB: JSON.stringify([players[1].id, players[3].id]),
+      },
+    });
+
+    try {
+      const first = await request(server)
+        .post(`/sessions/${sessionCode}/courts/1/undo`)
+        .expect(201);
+      expect(first.body.undone).toBe('propose');
+
+      const second = await request(server)
+        .post(`/sessions/${sessionCode}/courts/1/undo`)
+        .expect(201);
+      expect(second.body.undone).toBe('finish');
+
+      const row = await prisma.pairing.findUniqueOrThrow({ where: { id: finished.id } });
+      expect(row.endedAt).toBeNull();
+      expect(row.winner).toBeNull();
+    } finally {
+      await prisma.pairing.deleteMany({ where: { sessionId: sessionCode } });
+      await prisma.session.deleteMany({ where: { code: sessionCode } });
+      await prisma.player.deleteMany({ where: { groupId: groupCode } });
       await prisma.group.deleteMany({ where: { code: groupCode } });
     }
   });
@@ -686,13 +1274,13 @@ describe('SessionsController', () => {
     });
 
     try {
-      const confirmRes = await request(app.getHttpServer())
+      const confirmRes = await request(server)
         .post(`/sessions/${sessionCode}/pairings/${pairing.id}/confirm`)
         .expect(201);
       expect(confirmRes.body.confirmedAt).not.toBeNull();
       expect(confirmRes.body.endedAt).toBeNull();
 
-      const finishRes = await request(app.getHttpServer())
+      const finishRes = await request(server)
         .post(`/sessions/${sessionCode}/pairings/${pairing.id}/finish`)
         .send({ scoreA: 21, scoreB: 15, winner: 'A' })
         .expect(201);
@@ -732,7 +1320,7 @@ describe('SessionsController', () => {
     });
 
     try {
-      const res = await request(app.getHttpServer())
+      const res = await request(server)
         .post(`/sessions/${sessionCode}/pairings/${pairing.id}/finish`)
         .send({ winner: 'B' })
         .expect(201);
@@ -766,7 +1354,7 @@ describe('SessionsController', () => {
     });
 
     try {
-      const res = await request(app.getHttpServer())
+      const res = await request(server)
         .post(`/sessions/${sessionCode}/pairings/${pairing.id}/finish`)
         .send({ scoreA: null, scoreB: null, winner: null })
         .expect(201);
@@ -798,7 +1386,7 @@ describe('SessionsController', () => {
     });
 
     try {
-      await request(app.getHttpServer())
+      await request(server)
         .post(`/sessions/${sessionCode}/pairings/${pairing.id}/finish`)
         .send({ winner: 'C' })
         .expect(400);
@@ -827,7 +1415,7 @@ describe('SessionsController', () => {
     });
 
     try {
-      await request(app.getHttpServer())
+      await request(server)
         .post(`/sessions/${sessionCode}/pairings/${pairing.id}/finish`)
         .send({ winner: 'A' })
         .expect(409);
@@ -863,7 +1451,7 @@ describe('SessionsController', () => {
     });
 
     try {
-      await request(app.getHttpServer())
+      await request(server)
         .post(`/sessions/${sessionCode}/pairings/${pairing.id}/finish`)
         .send({ winner: 'B' })
         .expect(409);
@@ -898,7 +1486,7 @@ describe('SessionsController', () => {
     });
 
     try {
-      await request(app.getHttpServer())
+      await request(server)
         .post(`/sessions/${sessionCode}/pairings/${pairing.id}/confirm`)
         .expect(409);
 
@@ -934,7 +1522,7 @@ describe('SessionsController', () => {
     }
 
     try {
-      await request(app.getHttpServer())
+      await request(server)
         .post(`/sessions/${sessionCode}/courts/1/propose`)
         .expect(409);
 
@@ -974,7 +1562,7 @@ describe('SessionsController', () => {
     });
 
     try {
-      const res = await request(app.getHttpServer())
+      const res = await request(server)
         .get(`/sessions/${sessionCode}/stats`)
         .expect(200);
       expect(res.body).toEqual([]);
@@ -995,7 +1583,7 @@ describe('SessionsController', () => {
     });
 
     try {
-      const res = await request(app.getHttpServer()).get(`/sessions/${sessionCode}`).expect(200);
+      const res = await request(server).get(`/sessions/${sessionCode}`).expect(200);
       expect(res.body.endedAt).toBeNull();
     } finally {
       await prisma.session.deleteMany({ where: { code: sessionCode } });
@@ -1012,13 +1600,13 @@ describe('SessionsController', () => {
     });
 
     try {
-      const res = await request(app.getHttpServer())
+      const res = await request(server)
         .post(`/sessions/${sessionCode}/end`)
         .expect(201);
       expect(res.body.code).toBe(sessionCode);
       expect(res.body.endedAt).not.toBeNull();
 
-      const getRes = await request(app.getHttpServer()).get(`/sessions/${sessionCode}`).expect(200);
+      const getRes = await request(server).get(`/sessions/${sessionCode}`).expect(200);
       expect(getRes.body.endedAt).not.toBeNull();
     } finally {
       await prisma.session.deleteMany({ where: { code: sessionCode } });
@@ -1049,10 +1637,10 @@ describe('SessionsController', () => {
     });
 
     try {
-      const res = await request(app.getHttpServer()).post(`/sessions/${sessionCode}/end`).expect(409);
+      const res = await request(server).post(`/sessions/${sessionCode}/end`).expect(409);
       expect(res.body.message).toContain('จบแมตช์ในคอร์ทที่ยังเล่นอยู่');
 
-      const getRes = await request(app.getHttpServer()).get(`/sessions/${sessionCode}`).expect(200);
+      const getRes = await request(server).get(`/sessions/${sessionCode}`).expect(200);
       expect(getRes.body.endedAt).toBeNull();
     } finally {
       await prisma.pairing.deleteMany({ where: { sessionId: sessionCode } });
@@ -1112,7 +1700,7 @@ describe('SessionsController', () => {
     });
 
     try {
-      const res = await request(app.getHttpServer())
+      const res = await request(server)
         .get(`/sessions/${sessionCode}/stats`)
         .expect(200);
       const byId = new Map(res.body.map((r: { playerId: string }) => [r.playerId, r]));
@@ -1172,12 +1760,12 @@ describe('SessionsController', () => {
     });
 
     try {
-      const sessionScoped = await request(app.getHttpServer())
+      const sessionScoped = await request(server)
         .get(`/sessions/${currentSessionCode}/stats`)
         .expect(200);
       expect(sessionScoped.body).toEqual([]);
 
-      const allTime = await request(app.getHttpServer())
+      const allTime = await request(server)
         .get(`/sessions/${currentSessionCode}/stats?scope=all`)
         .expect(200);
       const byId = new Map(allTime.body.map((r: { playerId: string }) => [r.playerId, r]));
@@ -1192,7 +1780,7 @@ describe('SessionsController', () => {
   });
 
   it('GET /sessions/:code/stats 404s for an unknown session', async () => {
-    await request(app.getHttpServer()).get(`/sessions/${randomUUID()}/stats`).expect(404);
+    await request(server).get(`/sessions/${randomUUID()}/stats`).expect(404);
   });
 
   it('swaps one player on a pending pairing for a waiting substitute, leaving the other 3 untouched', async () => {
@@ -1221,7 +1809,7 @@ describe('SessionsController', () => {
     });
 
     try {
-      const res = await request(app.getHttpServer())
+      const res = await request(server)
         .post(`/sessions/${sessionCode}/pairings/${pairing.id}/swap`)
         .send({ playerId: players[0].id })
         .expect(201);
@@ -1303,7 +1891,7 @@ describe('SessionsController', () => {
     });
 
     try {
-      const res = await request(app.getHttpServer())
+      const res = await request(server)
         .post(`/sessions/${sessionCode}/pairings/${pending.id}/swap`)
         .send({ playerId: a.id })
         .expect(201);
@@ -1357,7 +1945,7 @@ describe('SessionsController', () => {
     });
 
     try {
-      const res = await request(app.getHttpServer())
+      const res = await request(server)
         .post(`/sessions/${sessionCode}/pairings/${pending.id}/swap`)
         .send({ playerId: a.id })
         .expect(201);
@@ -1398,7 +1986,7 @@ describe('SessionsController', () => {
     });
 
     try {
-      const res = await request(app.getHttpServer())
+      const res = await request(server)
         .post(`/sessions/${sessionCode}/pairings/${pairing.id}/swap`)
         .send({ playerId: players[0].id })
         .expect(201);
@@ -1439,7 +2027,7 @@ describe('SessionsController', () => {
     });
 
     try {
-      await request(app.getHttpServer())
+      await request(server)
         .post(`/sessions/${sessionCode}/pairings/${pairing.id}/swap`)
         .send({ playerId: players[0].id })
         .expect(409);

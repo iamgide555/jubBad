@@ -37,15 +37,36 @@
           <context context-type="linenumber">135</context>
         </context-group>
       </trans-unit>
+      <trans-unit id="err.undo" datatype="html">
+        <source>ย้อนกลับไม่สำเร็จ</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/core/live-session.service.ts</context>
+          <context context-type="linenumber">143</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="err.fill" datatype="html">
+        <source>จัดคู่ไม่สำเร็จ</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/core/live-session.service.ts</context>
+          <context context-type="linenumber">148</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="err.mode" datatype="html">
+        <source>เปลี่ยนโหมดไม่สำเร็จ</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/core/live-session.service.ts</context>
+          <context context-type="linenumber">152</context>
+        </context-group>
+      </trans-unit>
       <trans-unit id="err.endSession" datatype="html">
         <source>จบก๊วนไม่สำเร็จ</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/core/live-session.service.ts</context>
-          <context context-type="linenumber">140</context>
+          <context context-type="linenumber">156</context>
         </context-group>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/session-dashboard/session-dashboard.ts</context>
-          <context context-type="linenumber">92</context>
+          <context context-type="linenumber">172</context>
         </context-group>
       </trans-unit>
       <trans-unit id="entry.groupName" datatype="html">
@@ -69,142 +90,212 @@
           <context context-type="linenumber">8,11</context>
         </context-group>
       </trans-unit>
+      <trans-unit id="entry.pastSessions" datatype="html">
+        <source>ก๊วนที่ผ่านมา</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/group-entry/group-entry.html</context>
+          <context context-type="linenumber">13,14</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="entry.matches" datatype="html">
+        <source>แมตช์</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/group-entry/group-entry.html</context>
+          <context context-type="linenumber">19,20</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="entry.stillOpen" datatype="html">
+        <source>ยังไม่จบ</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/group-entry/group-entry.html</context>
+          <context context-type="linenumber">20,22</context>
+        </context-group>
+      </trans-unit>
       <trans-unit id="entry.rosterMessage" datatype="html">
         <source>ข้อความรายชื่อ</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/group-entry/group-entry.html</context>
-          <context context-type="linenumber">14,15</context>
+          <context context-type="linenumber">29,30</context>
         </context-group>
       </trans-unit>
       <trans-unit id="entry.rosterPlaceholder" datatype="html">
         <source>วางข้อความรายชื่อจากไลน์ที่นี่</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/group-entry/group-entry.html</context>
-          <context context-type="linenumber">15,17</context>
+          <context context-type="linenumber">30,32</context>
         </context-group>
       </trans-unit>
       <trans-unit id="entry.parse" datatype="html">
         <source>อ่านรายชื่อ</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/group-entry/group-entry.html</context>
-          <context context-type="linenumber">20,23</context>
+          <context context-type="linenumber">35,37</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="entry.manageGroup" datatype="html">
+        <source>จัดการก๊วน</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/group-entry/group-entry.html</context>
+          <context context-type="linenumber">38,39</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="entry.export" datatype="html">
+        <source>ดาวน์โหลดข้อมูล (JSON)</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/group-entry/group-entry.html</context>
+          <context context-type="linenumber">41,42</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="entry.deleteWarning" datatype="html">
+        <source>ลบก๊วนนี้ถาวร รวมผู้เล่นและประวัติทั้งหมด กู้คืนไม่ได้</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/group-entry/group-entry.html</context>
+          <context context-type="linenumber">42,44</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="entry.typeNameToDelete" datatype="html">
+        <source>พิมพ์ชื่อก๊วนเพื่อยืนยัน</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/group-entry/group-entry.html</context>
+          <context context-type="linenumber">44,45</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="entry.deleteGroup" datatype="html">
+        <source>ลบก๊วนนี้</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/group-entry/group-entry.html</context>
+          <context context-type="linenumber">47,48</context>
         </context-group>
       </trans-unit>
       <trans-unit id="entry.notes" datatype="html">
         <source>หมายเหตุ</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/group-entry/group-entry.html</context>
-          <context context-type="linenumber">34,35</context>
+          <context context-type="linenumber">66,67</context>
         </context-group>
       </trans-unit>
       <trans-unit id="entry.date" datatype="html">
         <source>วันที่</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/group-entry/group-entry.html</context>
-          <context context-type="linenumber">45,46</context>
+          <context context-type="linenumber">77,78</context>
         </context-group>
       </trans-unit>
       <trans-unit id="entry.courtCount" datatype="html">
         <source>จำนวนคอร์ท</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/group-entry/group-entry.html</context>
-          <context context-type="linenumber">49,50</context>
+          <context context-type="linenumber">81,82</context>
         </context-group>
       </trans-unit>
       <trans-unit id="entry.venue" datatype="html">
         <source>สนาม</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/group-entry/group-entry.html</context>
-          <context context-type="linenumber">54,55</context>
+          <context context-type="linenumber">86,87</context>
         </context-group>
       </trans-unit>
       <trans-unit id="entry.roster" datatype="html">
         <source>รายชื่อ</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/group-entry/group-entry.html</context>
-          <context context-type="linenumber">60,61</context>
+          <context context-type="linenumber">92,93</context>
         </context-group>
       </trans-unit>
       <trans-unit id="entry.knownPlayer" datatype="html">
         <source>มีอยู่แล้ว</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/group-entry/group-entry.html</context>
-          <context context-type="linenumber">67,68</context>
+          <context context-type="linenumber">99,100</context>
         </context-group>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/group-entry/group-entry.html</context>
-          <context context-type="linenumber">90,91</context>
+          <context context-type="linenumber">122,123</context>
         </context-group>
       </trans-unit>
       <trans-unit id="entry.isThis" datatype="html">
         <source> ใช่ <x id="INTERPOLATION" equiv-text="{{ playerName(review.match.playerId) }}"/> ไหม? </source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/group-entry/group-entry.html</context>
-          <context context-type="linenumber">70,71</context>
+          <context context-type="linenumber">102,103</context>
         </context-group>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/group-entry/group-entry.html</context>
-          <context context-type="linenumber">93,94</context>
+          <context context-type="linenumber">125,126</context>
         </context-group>
       </trans-unit>
       <trans-unit id="entry.newPlayer" datatype="html">
         <source>คนใหม่</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/group-entry/group-entry.html</context>
-          <context context-type="linenumber">76,78</context>
+          <context context-type="linenumber">108,110</context>
         </context-group>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/group-entry/group-entry.html</context>
-          <context context-type="linenumber">99,101</context>
+          <context context-type="linenumber">131,133</context>
         </context-group>
       </trans-unit>
       <trans-unit id="entry.waitlist" datatype="html">
         <source>สำรอง</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/group-entry/group-entry.html</context>
-          <context context-type="linenumber">83,84</context>
+          <context context-type="linenumber">115,116</context>
         </context-group>
       </trans-unit>
       <trans-unit id="entry.confirmRoster" datatype="html">
         <source>ยืนยันรายชื่อ</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/group-entry/group-entry.html</context>
-          <context context-type="linenumber">106,109</context>
+          <context context-type="linenumber">138,141</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="entry.exportFailed" datatype="html">
+        <source>ดาวน์โหลดไม่สำเร็จ</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/group-entry/group-entry.ts</context>
+          <context context-type="linenumber">84</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="entry.deleteFailed" datatype="html">
+        <source>ลบก๊วนไม่สำเร็จ</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/group-entry/group-entry.ts</context>
+          <context context-type="linenumber">95</context>
         </context-group>
       </trans-unit>
       <trans-unit id="entry.decisionYes" datatype="html">
         <source>ใช่</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/group-entry/group-entry.ts</context>
-          <context context-type="linenumber">57</context>
+          <context context-type="linenumber">106</context>
         </context-group>
       </trans-unit>
       <trans-unit id="entry.decisionNew" datatype="html">
         <source>ไม่ใช่ เพิ่มใหม่</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/group-entry/group-entry.ts</context>
-          <context context-type="linenumber">58</context>
+          <context context-type="linenumber">107</context>
         </context-group>
       </trans-unit>
       <trans-unit id="entry.errNoGroupName" datatype="html">
         <source>กรุณาใส่ชื่อก๊วนก่อน</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/group-entry/group-entry.ts</context>
-          <context context-type="linenumber">69</context>
+          <context context-type="linenumber">118</context>
         </context-group>
       </trans-unit>
       <trans-unit id="entry.errNoText" datatype="html">
         <source>วางข้อความรายชื่อก่อน</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/group-entry/group-entry.ts</context>
-          <context context-type="linenumber">73</context>
+          <context context-type="linenumber">122</context>
         </context-group>
       </trans-unit>
       <trans-unit id="entry.errNoPlayers" datatype="html">
         <source>ไม่พบรายชื่อผู้เล่น — ตรวจว่าแต่ละชื่ออยู่บรรทัดของตัวเองและมีเลขนำหน้า (เช่น &quot;1. ชื่อ&quot;)</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/group-entry/group-entry.ts</context>
-          <context context-type="linenumber">83</context>
+          <context context-type="linenumber">132</context>
         </context-group>
       </trans-unit>
       <trans-unit id="landing.headline" datatype="html">
@@ -226,6 +317,83 @@
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/landing/landing.html</context>
           <context context-type="linenumber">4,6</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="profile.back" datatype="html">
+        <source>← กลับ</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/player-profile/player-profile.html</context>
+          <context context-type="linenumber">3,4</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="profile.played" datatype="html">
+        <source>เล่น</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/player-profile/player-profile.html</context>
+          <context context-type="linenumber">9,11</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="profile.won" datatype="html">
+        <source>ชนะ</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/player-profile/player-profile.html</context>
+          <context context-type="linenumber">13,15</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="profile.winRate" datatype="html">
+        <source>อัตราชนะ</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/player-profile/player-profile.html</context>
+          <context context-type="linenumber">19,21</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="profile.rating" datatype="html">
+        <source>เรตติ้ง</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/player-profile/player-profile.html</context>
+          <context context-type="linenumber">23,25</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="profile.bestPartner" datatype="html">
+        <source>คู่ที่เข้ากันดีที่สุด</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/player-profile/player-profile.html</context>
+          <context context-type="linenumber">29,31</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="profile.wonOf" datatype="html">
+        <source>ชนะ</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/player-profile/player-profile.html</context>
+          <context context-type="linenumber">32</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="profile.mostFaced" datatype="html">
+        <source>เจอบ่อยที่สุด</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/player-profile/player-profile.html</context>
+          <context context-type="linenumber">37,39</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="profile.matches" datatype="html">
+        <source>แมตช์</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/player-profile/player-profile.html</context>
+          <context context-type="linenumber">40,41</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="profile.noMatches" datatype="html">
+        <source>ยังไม่ได้ลงเล่น</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/player-profile/player-profile.html</context>
+          <context context-type="linenumber">46,49</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="profile.notFound" datatype="html">
+        <source>ไม่พบผู้เล่นคนนี้</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/player-profile/player-profile.html</context>
+          <context context-type="linenumber">51,54</context>
         </context-group>
       </trans-unit>
       <trans-unit id="court.number" datatype="html">
@@ -327,6 +495,13 @@
           <context context-type="linenumber">63,67</context>
         </context-group>
       </trans-unit>
+      <trans-unit id="court.undo" datatype="html">
+        <source>↶ ย้อนกลับ</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/session-dashboard/court-panel/court-panel.html</context>
+          <context context-type="linenumber">67,69</context>
+        </context-group>
+      </trans-unit>
       <trans-unit id="court.swapOut" datatype="html">
         <source>เปลี่ยน <x id="name" equiv-text="name"/> ออก</source>
         <context-group purpose="location">
@@ -334,53 +509,172 @@
           <context context-type="linenumber">47</context>
         </context-group>
       </trans-unit>
+      <trans-unit id="court.undoBusy" datatype="html">
+        <source>ผู้เล่นลงคอร์ทอื่นแล้ว ย้อนกลับไม่ได้</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/session-dashboard/court-panel/court-panel.ts</context>
+          <context context-type="linenumber">89</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="court.nothingToUndo" datatype="html">
+        <source>ไม่มีอะไรให้ย้อนกลับ</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/session-dashboard/court-panel/court-panel.ts</context>
+          <context context-type="linenumber">94</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="dashboard.fillAll" datatype="html">
+        <source>จัดคู่ทุกคอร์ทว่าง</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/session-dashboard/session-dashboard.html</context>
+          <context context-type="linenumber">23,26</context>
+        </context-group>
+      </trans-unit>
       <trans-unit id="dashboard.waiting" datatype="html">
         <source>รอคิว</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/session-dashboard/session-dashboard.html</context>
-          <context context-type="linenumber">31,32</context>
+          <context context-type="linenumber">35,36</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="dashboard.minutesShort" datatype="html">
+        <source>น.</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/session-dashboard/session-dashboard.html</context>
+          <context context-type="linenumber">37,38</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="dashboard.nobodyWaiting" datatype="html">
+        <source>ไม่มีคนรอ</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/session-dashboard/session-dashboard.html</context>
+          <context context-type="linenumber">39,43</context>
         </context-group>
       </trans-unit>
       <trans-unit id="dashboard.waitlist" datatype="html">
         <source>สำรอง</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/session-dashboard/session-dashboard.html</context>
-          <context context-type="linenumber">39,40</context>
+          <context context-type="linenumber">45,46</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="dashboard.modeLabel" datatype="html">
+        <source>โหมดจัดคู่</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/session-dashboard/session-dashboard.html</context>
+          <context context-type="linenumber">55,56</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="dashboard.modeVariety" datatype="html">
+        <source>สลับคู่</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/session-dashboard/session-dashboard.html</context>
+          <context context-type="linenumber">57,58</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="dashboard.modeBalanced" datatype="html">
+        <source>สูสี</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/session-dashboard/session-dashboard.html</context>
+          <context context-type="linenumber">58,60</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="dashboard.modeBalancedHint" datatype="html">
+        <source>จัดให้สองฝั่งฝีมือใกล้เคียงกัน</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/session-dashboard/session-dashboard.html</context>
+          <context context-type="linenumber">61,63</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="dashboard.modeVarietyHint" datatype="html">
+        <source>เน้นไม่ให้ซ้ำคู่เดิม</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/session-dashboard/session-dashboard.html</context>
+          <context context-type="linenumber">63,67</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="dashboard.copied" datatype="html">
+        <source>คัดลอกแล้ว</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/session-dashboard/session-dashboard.html</context>
+          <context context-type="linenumber">71,72</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="dashboard.copy" datatype="html">
+        <source>คัดลอกเป็นข้อความ</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/session-dashboard/session-dashboard.html</context>
+          <context context-type="linenumber">73,75</context>
         </context-group>
       </trans-unit>
       <trans-unit id="dashboard.endSession" datatype="html">
         <source>จบก๊วน</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/session-dashboard/session-dashboard.html</context>
-          <context context-type="linenumber">51,52</context>
+          <context context-type="linenumber">82,83</context>
         </context-group>
       </trans-unit>
       <trans-unit id="dashboard.sessionEnded" datatype="html">
         <source>จบก๊วนแล้ว</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/session-dashboard/session-dashboard.html</context>
-          <context context-type="linenumber">57,61</context>
+          <context context-type="linenumber">88,92</context>
         </context-group>
       </trans-unit>
       <trans-unit id="dashboard.notFound" datatype="html">
         <source>ไม่พบก๊วนนี้</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/session-dashboard/session-dashboard.html</context>
-          <context context-type="linenumber">62,65</context>
+          <context context-type="linenumber">93,96</context>
         </context-group>
       </trans-unit>
       <trans-unit id="dashboard.bringBack" datatype="html">
         <source>ให้ <x id="name" equiv-text="name"/> กลับมาเล่น</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/session-dashboard/session-dashboard.ts</context>
-          <context context-type="linenumber">77</context>
+          <context context-type="linenumber">99</context>
         </context-group>
       </trans-unit>
       <trans-unit id="dashboard.rest" datatype="html">
         <source>ให้ <x id="name" equiv-text="name"/> พัก</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/session-dashboard/session-dashboard.ts</context>
-          <context context-type="linenumber">78</context>
+          <context context-type="linenumber">100</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="dashboard.notEnoughToFill" datatype="html">
+        <source>ผู้เล่นไม่พอ</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/session-dashboard/session-dashboard.ts</context>
+          <context context-type="linenumber">114</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="share.courtIdle" datatype="html">
+        <source>คอร์ท <x id="n" equiv-text="number"/>: ว่าง</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/session-dashboard/session-dashboard.ts</context>
+          <context context-type="linenumber">137</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="share.court" datatype="html">
+        <source>คอร์ท <x id="n" equiv-text="number"/></source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/session-dashboard/session-dashboard.ts</context>
+          <context context-type="linenumber">142</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="share.waiting" datatype="html">
+        <source>รอคิว</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/session-dashboard/session-dashboard.ts</context>
+          <context context-type="linenumber">146</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="share.failed" datatype="html">
+        <source>คัดลอกไม่ได้ ลองเลือกข้อความเอง</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/session-dashboard/session-dashboard.ts</context>
+          <context context-type="linenumber">160</context>
         </context-group>
       </trans-unit>
       <trans-unit id="stats.thisSession" datatype="html">
@@ -429,35 +723,42 @@
         <source>รอคิว</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/session-display/session-display.html</context>
-          <context context-type="linenumber">19</context>
+          <context context-type="linenumber">20,21</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="display.minutesShort" datatype="html">
+        <source>น.</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/session-display/session-display.html</context>
+          <context context-type="linenumber">21,22</context>
         </context-group>
       </trans-unit>
       <trans-unit id="display.refresh" datatype="html">
         <source>รีเฟรช</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/session-display/session-display.html</context>
-          <context context-type="linenumber">21,22</context>
+          <context context-type="linenumber">24,25</context>
         </context-group>
       </trans-unit>
       <trans-unit id="display.notFound" datatype="html">
         <source>ไม่พบก๊วนนี้</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/session-display/session-display.html</context>
-          <context context-type="linenumber">26,29</context>
+          <context context-type="linenumber">29,32</context>
         </context-group>
       </trans-unit>
       <trans-unit id="display.courtIdle" datatype="html">
         <source>ว่าง</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/session-display/session-display.ts</context>
-          <context context-type="linenumber">51</context>
+          <context context-type="linenumber">52</context>
         </context-group>
       </trans-unit>
       <trans-unit id="display.versus" datatype="html">
         <source>vs</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/session-display/session-display.ts</context>
-          <context context-type="linenumber">52</context>
+          <context context-type="linenumber">53</context>
         </context-group>
       </trans-unit>
     </body>

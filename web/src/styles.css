@@ -58,6 +58,25 @@ body {
   margin-top: var(--space-1);
 }
 
+/* Global for the same reason as .error: view encapsulation scoped this to
+   GroupEntry, so the court panel's Reshuffle button silently rendered as a
+   normal primary button. */
+button.ghost {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  background: transparent;
+  color: var(--court);
+  border: 1px solid var(--rule);
+  padding: 0.5rem 0.9rem;
+  font-size: 0.85rem;
+}
+
+button.ghost:hover {
+  background: var(--line-surface);
+}
+
 h1,
 h2,
 h3,

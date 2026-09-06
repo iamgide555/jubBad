@@ -136,6 +136,22 @@ export class LiveSessionService {
     );
   }
 
+  undoCourt(courtNumber: number): Promise<ActionResult> {
+    return this.post(
+      `courts/${courtNumber}/undo`,
+      {},
+      $localize`:@@err.undo:ย้อนกลับไม่สำเร็จ`
+    );
+  }
+
+  fillCourts(): Promise<ActionResult> {
+    return this.post('courts/fill', {}, $localize`:@@err.fill:จัดคู่ไม่สำเร็จ`);
+  }
+
+  setMode(mode: 'variety' | 'balanced'): Promise<ActionResult> {
+    return this.post('mode', { mode }, $localize`:@@err.mode:เปลี่ยนโหมดไม่สำเร็จ`);
+  }
+
   endSession(): Promise<ActionResult> {
     return this.post('end', {}, $localize`:@@err.endSession:จบก๊วนไม่สำเร็จ`);
   }

@@ -1,6 +1,7 @@
 import { Body, Controller, Get, Param, ParseIntPipe, Post, Query } from '@nestjs/common';
 import { CreateSessionDto } from './dto/create-session.dto.js';
 import { FinishPairingDto } from './dto/finish-pairing.dto.js';
+import { SetModeDto } from './dto/set-mode.dto.js';
 import { SetRosterActiveDto } from './dto/set-roster-active.dto.js';
 import { SwapPlayerDto } from './dto/swap-player.dto.js';
 import { SessionsService } from './sessions.service.js';
@@ -19,9 +20,19 @@ export class SessionsController {
     return this.sessionsService.getSession(code);
   }
 
+  @Post(':code/courts/fill')
+  fill(@Param('code') code: string) {
+    return this.sessionsService.fillIdleCourts(code);
+  }
+
   @Post(':code/courts/:n/propose')
   propose(@Param('code') code: string, @Param('n', ParseIntPipe) courtNumber: number) {
     return this.sessionsService.propose(code, courtNumber);
+  }
+
+  @Post(':code/courts/:n/undo')
+  undo(@Param('code') code: string, @Param('n', ParseIntPipe) courtNumber: number) {
+    return this.sessionsService.undoLastOnCourt(code, courtNumber);
   }
 
   @Post(':code/pairings/:id/confirm')
@@ -46,6 +57,11 @@ export class SessionsController {
     @Body() dto: SetRosterActiveDto
   ) {
     return this.sessionsService.setRosterActive(code, playerId, dto);
+  }
+
+  @Post(':code/mode')
+  setMode(@Param('code') code: string, @Body() dto: SetModeDto) {
+    return this.sessionsService.setMode(code, dto);
   }
 
   @Post(':code/end')

@@ -155,3 +155,21 @@
   color: var(--ink-soft);
   font-weight: 700;
 }
+
+/* Quiet: it is the escape hatch, not a normal step of the flow. */
+.undo {
+  margin-top: var(--space-1);
+  min-height: 44px;
+  padding-inline: 0.7rem;
+  background: none;
+  border: none;
+  color: var(--ink-soft);
+  font-size: 0.85rem;
+  font-weight: 500;
+}
+
+.undo:hover {
+  background: none;
+  color: var(--ink);
+  text-decoration: underline;
+}

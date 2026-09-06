@@ -64,6 +64,8 @@
       }
     }
 
+    <button type="button" class="undo" [disabled]="busy()" (click)="undo()" i18n="@@court.undo">↶ ย้อนกลับ</button>
+
     @if (actionError()) {
       <p class="hint error" role="alert">{{ actionError() }}</p>
     }

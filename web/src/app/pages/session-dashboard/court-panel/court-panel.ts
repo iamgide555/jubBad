@@ -73,6 +73,33 @@ export class CourtPanel {
     }
   }
 
+  /**
+   * Reverses this court's last step — a mis-tapped winner, or a confirm the
+   * host did not mean. Offered on every state because the mistake is only
+   * noticed after the court has already moved on.
+   */
+  protected async undo(): Promise<void> {
+    if (this.busy()) return;
+    this.busy.set(true);
+    this.actionError.set(null);
+    try {
+      const result = await this.liveSession.undoCourt(this.courtNumber());
+      if (!result.ok && result.reason === 'players-busy') {
+        this.actionError.set(
+          $localize`:@@court.undoBusy:ผู้เล่นลงคอร์ทอื่นแล้ว ย้อนกลับไม่ได้`
+        );
+        return;
+      }
+      if (!result.ok && result.reason === 'nothing-to-undo') {
+        this.actionError.set($localize`:@@court.nothingToUndo:ไม่มีอะไรให้ย้อนกลับ`);
+        return;
+      }
+      this.actionError.set(result.error ?? null);
+    } finally {
+      this.busy.set(false);
+    }
+  }
+
   protected async confirm(): Promise<void> {
     const c = this.court();
     if (c.status !== 'pending' || this.busy()) return;

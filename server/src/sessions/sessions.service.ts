@@ -1,12 +1,14 @@
 import { randomUUID } from 'node:crypto';
 import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { confirmExistingPlayerAlias, createNewPlayer, type Player as FuzzyPlayer } from '../../../engines/fuzzy-match.ts';
+import { computeRatings } from '../../../engines/elo.ts';
 import { generateRound, scoreArrangement } from '../../../engines/pairing.ts';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { deriveHistory } from './derive-history.js';
 import { SessionLock } from './session-lock.js';
 import type { CreateSessionDto, NameReviewDto } from './dto/create-session.dto.js';
 import type { FinishPairingDto } from './dto/finish-pairing.dto.js';
+import type { SetModeDto } from './dto/set-mode.dto.js';
 import type { SetRosterActiveDto } from './dto/set-roster-active.dto.js';
 import type { SwapPlayerDto } from './dto/swap-player.dto.js';
 
@@ -109,6 +111,19 @@ export class SessionsService {
       venue: session.venue,
       courtCount: session.courtCount,
       endedAt: session.endedAt,
+      createdAt: session.createdAt,
+      mode: session.mode,
+      // Waiting time is derived, not stored: the client subtracts this from
+      // now, falling back to createdAt for anyone who has not played yet.
+      lastPlayedAt: Object.fromEntries(
+        session.pairings
+          .filter((p) => p.endedAt !== null)
+          .sort((a, b) => a.endedAt!.getTime() - b.endedAt!.getTime())
+          .flatMap((p) => [
+            ...(JSON.parse(p.teamA) as [string, string]),
+            ...(JSON.parse(p.teamB) as [string, string]),
+          ].map((id) => [id, p.endedAt!.toISOString()] as const))
+      ),
       rosterPlayerIds: session.roster.map((r) => r.playerId),
       restingPlayerIds: session.roster.filter((r) => !r.active).map((r) => r.playerId),
       waitlistPlayerIds: session.waitlist.map((w) => w.playerId),
@@ -185,7 +200,10 @@ export class SessionsService {
         }
       : undefined;
 
-    const result = generateRound(available, 1, history, undefined, avoidSplit);
+    const ratings =
+      session.mode === 'balanced' ? await this.loadRatings(session.groupId) : undefined;
+
+    const result = generateRound(available, 1, history, undefined, avoidSplit, ratings);
     if (result.courts.length === 0) {
       return { ok: false as const, reason: 'not-enough-players' as const };
     }
@@ -372,6 +390,189 @@ export class SessionsService {
    * here touches an existing pairing. That is what makes this one control
    * cover a no-show, an early leaver and someone resting a few rounds.
    */
+  /**
+   * Elo over every finished, confirmed match this group has played, replayed in
+   * the order they were confirmed — Elo is path dependent, so the ordering is
+   * part of the result, not a detail.
+   */
+  private async loadRatings(groupCode: string) {
+    const played = await this.prisma.pairing.findMany({
+      where: {
+        session: { groupId: groupCode },
+        confirmedAt: { not: null },
+        endedAt: { not: null },
+        winner: { not: null },
+      },
+      orderBy: { confirmedAt: 'asc' },
+      select: { teamA: true, teamB: true, winner: true },
+    });
+
+    return computeRatings(
+      played.map((p) => ({
+        teamA: JSON.parse(p.teamA) as [string, string],
+        teamB: JSON.parse(p.teamB) as [string, string],
+        winner: p.winner as 'A' | 'B',
+      }))
+    );
+  }
+
+  async setMode(code: string, dto: SetModeDto) {
+    const session = await this.prisma.session.findUnique({ where: { code } });
+    if (!session) throw new NotFoundException();
+    if (session.endedAt !== null) throw new ConflictException('ก๊วนนี้จบแล้ว');
+
+    const updated = await this.prisma.session.update({
+      where: { code },
+      data: { mode: dto.mode },
+    });
+    return { code: updated.code, mode: updated.mode };
+  }
+
+  /**
+   * Reverses the single most recent step on one court, whatever it was: a
+   * finish goes back to active, a confirm back to pending, and an unconfirmed
+   * proposal is discarded so the court returns to idle. One rule rather than
+   * three special cases, which matters because the common mistake — a
+   * mis-tapped winner — is usually noticed only after the host has already
+   * proposed the next match. Two taps get back to it.
+   *
+   * Scoped to a court rather than a global undo stack because that is how the
+   * host thinks ("court 2, wrong winner"), and because a session-wide "last
+   * action" is ambiguous with several courts running at once.
+   *
+   * Undoing a finish puts four players back on court, so it refuses when any of
+   * them has since been picked up by another open match — restoring would
+   * double-book them.
+   */
+  undoLastOnCourt(sessionCode: string, courtNumber: number) {
+    return this.lock.run(sessionCode, () => this.undoExclusively(sessionCode, courtNumber));
+  }
+
+  private async undoExclusively(sessionCode: string, courtNumber: number) {
+    const session = await this.prisma.session.findUnique({ where: { code: sessionCode } });
+    if (!session) throw new NotFoundException();
+    if (session.endedAt !== null) {
+      throw new ConflictException('ก๊วนนี้จบแล้ว');
+    }
+
+    const latest = await this.prisma.pairing.findFirst({
+      where: { sessionId: sessionCode, courtNumber },
+      orderBy: { matchNumber: 'desc' },
+    });
+    if (!latest) {
+      return { ok: false as const, reason: 'nothing-to-undo' as const };
+    }
+
+    if (latest.confirmedAt === null) {
+      await this.prisma.pairing.delete({ where: { id: latest.id } });
+      return { ok: true as const, undone: 'propose' as const };
+    }
+
+    if (latest.endedAt !== null) {
+      const four = [
+        ...(JSON.parse(latest.teamA) as [string, string]),
+        ...(JSON.parse(latest.teamB) as [string, string]),
+      ];
+      const openElsewhere = await this.prisma.pairing.findMany({
+        where: { sessionId: sessionCode, endedAt: null, id: { not: latest.id } },
+        select: { teamA: true, teamB: true },
+      });
+      const busy = new Set(
+        openElsewhere.flatMap((p) => [
+          ...(JSON.parse(p.teamA) as [string, string]),
+          ...(JSON.parse(p.teamB) as [string, string]),
+        ])
+      );
+      if (four.some((id) => busy.has(id))) {
+        return { ok: false as const, reason: 'players-busy' as const };
+      }
+
+      await this.prisma.pairing.update({
+        where: { id: latest.id },
+        data: { endedAt: null, scoreA: null, scoreB: null, winner: null },
+      });
+      return { ok: true as const, undone: 'finish' as const };
+    }
+
+    await this.prisma.pairing.update({
+      where: { id: latest.id },
+      data: { confirmedAt: null },
+    });
+    return { ok: true as const, undone: 'confirm' as const };
+  }
+
+  /**
+   * Proposes for every idle court at once — the session-start case, where
+   * three courts meant six taps. One `generateRound` call across all of them
+   * rather than a loop of single-court calls, so the arrangement is scored as
+   * a whole and a player cannot land on two courts.
+   */
+  fillIdleCourts(sessionCode: string) {
+    return this.lock.run(sessionCode, () => this.fillExclusively(sessionCode));
+  }
+
+  private async fillExclusively(sessionCode: string) {
+    const session = await this.prisma.session.findUnique({ where: { code: sessionCode } });
+    if (!session) throw new NotFoundException();
+    if (session.endedAt !== null) throw new ConflictException('ก๊วนนี้จบแล้ว');
+
+    const roster = await this.prisma.sessionRoster.findMany({
+      where: { sessionId: sessionCode, active: true },
+    });
+    const nonEnded = await this.prisma.pairing.findMany({
+      where: { sessionId: sessionCode, endedAt: null },
+    });
+
+    const busyCourts = new Set(nonEnded.map((p) => p.courtNumber));
+    const reserved = new Set(
+      nonEnded.flatMap((p) => [
+        ...(JSON.parse(p.teamA) as [string, string]),
+        ...(JSON.parse(p.teamB) as [string, string]),
+      ])
+    );
+    const idleCourts = Array.from({ length: session.courtCount ?? 0 }, (_, i) => i + 1).filter(
+      (n) => !busyCourts.has(n)
+    );
+    const available = roster.map((r) => r.playerId).filter((id) => !reserved.has(id));
+
+    if (idleCourts.length === 0 || available.length < 4) {
+      return { ok: false as const, reason: 'not-enough-players' as const, filled: [] as number[] };
+    }
+
+    const history = await this.loadHistory(session.groupId, sessionCode);
+    const ratings =
+      session.mode === 'balanced' ? await this.loadRatings(session.groupId) : undefined;
+    const result = generateRound(
+      available,
+      idleCourts.length,
+      history,
+      undefined,
+      undefined,
+      ratings
+    );
+
+    const filled: number[] = [];
+    for (const [i, assignment] of result.courts.entries()) {
+      const courtNumber = idleCourts[i];
+      const matchNumber =
+        (await this.prisma.pairing.count({
+          where: { sessionId: sessionCode, courtNumber, confirmedAt: { not: null } },
+        })) + 1;
+      await this.prisma.pairing.create({
+        data: {
+          sessionId: sessionCode,
+          courtNumber,
+          matchNumber,
+          teamA: JSON.stringify(assignment.teamA),
+          teamB: JSON.stringify(assignment.teamB),
+        },
+      });
+      filled.push(courtNumber);
+    }
+
+    return { ok: true as const, filled };
+  }
+
   async setRosterActive(sessionCode: string, playerId: string, dto: SetRosterActiveDto) {
     const entry = await this.prisma.sessionRoster.findUnique({
       where: { sessionId_playerId: { sessionId: sessionCode, playerId } },

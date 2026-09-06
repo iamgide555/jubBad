@@ -20,6 +20,9 @@ function baseSession(overrides: Partial<Session> = {}): Session {
     rawImportText: '',
     rosterPlayerIds: ['p1', 'p2', 'p3', 'p4'],
     restingPlayerIds: [],
+    createdAt: '2026-09-08T12:00:00.000Z',
+    mode: 'variety',
+    lastPlayedAt: {},
     waitlistPlayerIds: [],
     courts: [{ status: 'idle' }],
     ...overrides,
@@ -391,5 +394,47 @@ describe('CourtPanel with too few players', () => {
     fixture.detectChanges();
 
     expect((fixture.nativeElement as HTMLElement).textContent).toContain('ผู้เล่นไม่พอ');
+  });
+  it('undo posts to the court undo endpoint', async () => {
+    const { fixture, httpMock } = await createPanel(
+      baseSession({
+        courts: [{ status: 'active', pairingId: 'pair1', teamA: ['p1', 'p2'], teamB: ['p3', 'p4'] }],
+      })
+    );
+    fixture.detectChanges();
+
+    const undo = Array.from(
+      (fixture.nativeElement as HTMLElement).querySelectorAll('button')
+    ).find((b) => b.textContent?.includes('ย้อนกลับ')) as HTMLButtonElement;
+    undo.click();
+
+    const req = httpMock.expectOne(`${B}/sessions/sess1/courts/1/undo`);
+    expect(req.request.method).toBe('POST');
+    req.flush({ ok: true, undone: 'finish' });
+    await new Promise((r) => setTimeout(r, 0));
+    TestBed.tick();
+    httpMock.expectOne(`${B}/sessions/sess1`).flush(baseSession());
+    await new Promise((r) => setTimeout(r, 0));
+  });
+
+  it('explains when undo is blocked by players already on another court', async () => {
+    const { fixture, httpMock } = await createPanel();
+    fixture.detectChanges();
+
+    const undo = Array.from(
+      (fixture.nativeElement as HTMLElement).querySelectorAll('button')
+    ).find((b) => b.textContent?.includes('ย้อนกลับ')) as HTMLButtonElement;
+    undo.click();
+
+    httpMock
+      .expectOne(`${B}/sessions/sess1/courts/1/undo`)
+      .flush({ ok: false, reason: 'players-busy' });
+    await new Promise((r) => setTimeout(r, 0));
+    TestBed.tick();
+    httpMock.expectOne(`${B}/sessions/sess1`).flush(baseSession());
+    await new Promise((r) => setTimeout(r, 0));
+    fixture.detectChanges();
+
+    expect((fixture.nativeElement as HTMLElement).textContent).toContain('ลงคอร์ทอื่นแล้ว');
   });
 });

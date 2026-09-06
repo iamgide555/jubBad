@@ -142,7 +142,7 @@ export class SessionsService {
       teamB: JSON.parse(p.teamB) as [string, string],
     });
 
-    const [allTime, thisSession] = await Promise.all([
+    const [allTime, thisSession, roster] = await Promise.all([
       this.prisma.pairing.findMany({
         where: { session: { groupId: groupCode }, confirmedAt: { not: null } },
         select: { teamA: true, teamB: true },
@@ -151,9 +151,27 @@ export class SessionsService {
         where: { sessionId: sessionCode, confirmedAt: { not: null } },
         select: { teamA: true, teamB: true },
       }),
+      this.prisma.sessionRoster.findMany({
+        where: { sessionId: sessionCode },
+        select: { playerId: true, gamesOffset: true },
+      }),
     ]);
 
-    return deriveHistory(allTime.map(toPairing), thisSession.map(toPairing));
+    const history = deriveHistory(allTime.map(toPairing), thisSession.map(toPairing));
+
+    // Rotation fairness only. The offset credits a player who joined part-way
+    // through with the games they were not here for, so they queue alongside
+    // everyone instead of ahead of them. Stats read the Pairing rows directly
+    // and never see this.
+    for (const { playerId, gamesOffset } of roster) {
+      if (gamesOffset === 0) continue;
+      history.gamesPlayedThisSession.set(
+        playerId,
+        (history.gamesPlayedThisSession.get(playerId) ?? 0) + gamesOffset
+      );
+    }
+
+    return history;
   }
 
   propose(sessionCode: string, courtNumber: number) {
@@ -203,7 +221,30 @@ export class SessionsService {
     const ratings =
       session.mode === 'balanced' ? await this.loadRatings(session.groupId) : undefined;
 
-    const result = generateRound(available, 1, history, undefined, avoidSplit, ratings);
+    // Plan across every idle court, then commit only the one asked for.
+    //
+    // Solving one court in isolation takes the four least-played and leaves
+    // whoever remains to be shovelled onto the next court together — that
+    // court gets no choice of players at all, only of how to split them. When
+    // two courts finish together that reliably recreates the same opponents,
+    // which is what players actually noticed. Planning across all of them and
+    // committing one keeps the per-court flow the host is used to while giving
+    // the engine the freedom it needs.
+    const idleCourtCount = Math.max(
+      1,
+      Array.from({ length: session.courtCount ?? 1 }, (_, i) => i + 1).filter(
+        (n) => n === courtNumber || !nonEnded.some((p) => p.courtNumber === n)
+      ).length
+    );
+
+    const result = generateRound(
+      available,
+      idleCourtCount,
+      history,
+      undefined,
+      avoidSplit,
+      ratings
+    );
     if (result.courts.length === 0) {
       return { ok: false as const, reason: 'not-enough-players' as const };
     }
@@ -579,9 +620,38 @@ export class SessionsService {
     });
     if (!entry) throw new NotFoundException('ไม่มีผู้เล่นคนนี้ในรายชื่อ');
 
+    // Coming back needs a credit; going out never does.
+    //
+    // Without one, someone enabled part-way through sits on zero games while
+    // everyone else is on five, and wins every draw until they catch up — which
+    // is what players noticed. They are credited up to the highest count
+    // already on court so they rejoin at the back of the rotation rather than
+    // the front; everyone still playing passes them within a round or two, so
+    // it costs them one wait, not their evening.
+    //
+    // max() rather than a plain assignment so toggling someone off and back on
+    // can never *lower* them into a free turn.
+    let gamesOffset = entry.gamesOffset;
+    if (dto.active && !entry.active) {
+      const session = await this.prisma.session.findUniqueOrThrow({
+        where: { code: sessionCode },
+      });
+      const history = await this.loadHistory(session.groupId, sessionCode);
+      const others = await this.prisma.sessionRoster.findMany({
+        where: { sessionId: sessionCode, active: true, playerId: { not: playerId } },
+        select: { playerId: true },
+      });
+      const highest = others.reduce(
+        (max, o) => Math.max(max, history.gamesPlayedThisSession.get(o.playerId) ?? 0),
+        0
+      );
+      const own = history.gamesPlayedThisSession.get(playerId) ?? 0;
+      gamesOffset = Math.max(entry.gamesOffset, highest - own + entry.gamesOffset);
+    }
+
     const updated = await this.prisma.sessionRoster.update({
       where: { id: entry.id },
-      data: { active: dto.active },
+      data: { active: dto.active, gamesOffset },
     });
     return { playerId: updated.playerId, active: updated.active };
   }

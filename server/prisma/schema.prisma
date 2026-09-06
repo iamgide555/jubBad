@@ -49,6 +49,11 @@ model SessionRoster {
   /// true when they return. It lives here rather than on Player because it is
   /// a fact about this session, not about the person.
   active    Boolean @default(true)
+  /// Games credited to this player for rotation fairness only, never shown.
+  /// Someone re-enabled part-way through would otherwise sit on zero games
+  /// while everyone else is on five, and win every draw until they caught up.
+  /// See SessionsService.setRosterActive.
+  gamesOffset Int   @default(0)
   session   Session @relation(fields: [sessionId], references: [code])
 
   @@unique([sessionId, playerId])

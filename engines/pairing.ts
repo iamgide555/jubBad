@@ -54,11 +54,19 @@ export interface CourtAssignment {
 
 /**
  * Repeat-partner avoidance is the primary goal; opponent balancing is only a
- * secondary soft signal. The 10:1 ratio is what enforces that: no arrangement
- * can ever trade away a partner-repeat to save on opponent-repeats, so the
- * opponent term only decides between arrangements already tied on partners.
- * Making opponents a hard constraint too would risk leaving a group with a lot
- * of history unsolvable — the namespace is small and dense.
+ * secondary soft signal. The 10:1 ratio is what enforces that: one repeat
+ * partner costs more than all four opponent pairings of a court combined, so
+ * the opponent term only ever separates arrangements already close on
+ * partners. Making opponents a hard constraint too would risk leaving a group
+ * with a lot of history unsolvable — the namespace is small and dense.
+ *
+ * Both terms scale with how many times a pair has actually met, not whether
+ * they ever have. A yes/no test looks equivalent and is not: every pair in a
+ * 12-player group has partnered at least once by the second session, after
+ * which a binary term scores every possible arrangement identically and stops
+ * steering anything. Measured over ten sessions that left some pairs together
+ * three times as often as others, which is exactly the "I always play with the
+ * same person" complaint. Counting keeps the spread near one game.
  */
 const PARTNER_WEIGHT = 10;
 const OPPONENT_WEIGHT = 1;
@@ -89,7 +97,7 @@ export function scoreArrangement(
   for (const { teamA, teamB } of courts) {
     const partnerPairs = [pairKey(teamA[0], teamA[1]), pairKey(teamB[0], teamB[1])];
     for (const key of partnerPairs) {
-      if ((partnerCounts.get(key) ?? 0) > 0) score += PARTNER_WEIGHT;
+      score += PARTNER_WEIGHT * (partnerCounts.get(key) ?? 0);
     }
 
     const opponentPairs = [
@@ -99,7 +107,7 @@ export function scoreArrangement(
       pairKey(teamA[1], teamB[1]),
     ];
     for (const key of opponentPairs) {
-      if ((opponentCounts.get(key) ?? 0) > 0) score += OPPONENT_WEIGHT;
+      score += OPPONENT_WEIGHT * (opponentCounts.get(key) ?? 0);
     }
 
     // Only in balanced mode. Without ratings the term vanishes entirely, so

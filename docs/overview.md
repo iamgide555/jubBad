@@ -120,15 +120,30 @@ guess" rule rather than inventing new tolerance.
 ### Pairing
 
 Courts rotate **independently, not as synchronized rounds** — whoever finishes
-first gets the next match right away. There is no shared "round" object; the
-app calls `generateRound` with `courtCount = 1` and a roster of whoever isn't
-currently on another court, every time a single court frees up.
+first gets the next match right away. There is no shared "round" object.
+
+Proposing for one court still plans across every idle court and commits only
+the one asked for. Solving a court in isolation takes the four least-played and
+leaves whoever remains to be shovelled onto the next court together — that
+court then gets no choice of players at all, only of how to split them, which
+recreates the same opponents whenever two courts finish together. Planning
+across the idle courts keeps the per-court flow while giving the engine the
+freedom it needs.
 
 Arrangements are scored, lowest wins:
 
 ```
-score = 10 × (repeat-partner pairs) + 1 × (repeat-opponent pairs)
+score = 10 × (times these partners have played together)
+      +  1 × (times these opponents have faced each other)
 ```
+
+**The terms count repeats; they are not yes/no.** This looks like a detail and
+is not. Every pair in a 12-player group has partnered at least once by the
+second session, so a binary "have they met?" scores every possible arrangement
+identically from then on and silently stops steering anything. Measured over
+ten sessions that left some pairs together three times as often as others —
+which is exactly what players report as "I always play with the same person".
+Counting keeps the spread to about one game.
 
 **Repeat-partner avoidance is the primary goal; opponent balancing is a
 secondary soft signal.** The 10:1 ratio exists so an arrangement can never
@@ -215,7 +230,11 @@ undo compose correctly without any extra engine work.
 Two controls fall out of it. **Rest** excludes a player from future court fills
 and back again — one toggle covering a no-show, an early leaver, someone
 sitting a few rounds out, and a mis-tap; a player rested mid-match simply plays
-that match out. **Undo** reverses the most recent step on one court, whatever
+that match out. Bringing someone back credits them with the games they were
+absent for, so they rejoin the rotation rather than jumping it — without that
+credit a player enabled part-way through sits on zero games and wins every
+draw until they catch up. The credit is for rotation only; the stats table
+always shows what someone actually played. **Undo** reverses the most recent step on one court, whatever
 it was, so a mis-tapped winner is recoverable even after the next match has been
 proposed. It refuses when the players involved have already started elsewhere,
 since restoring would double-book them.

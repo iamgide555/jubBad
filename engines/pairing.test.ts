@@ -76,9 +76,13 @@ test('scoreArrangement matches the documented worked example', () => {
   const tiedA = [{ teamA: ['tam', 'pom'] as [string, string], teamB: ['base', 'mai'] as [string, string] }];
   const tiedB = [{ teamA: ['tam', 'mai'] as [string, string], teamB: ['base', 'pom'] as [string, string] }];
 
-  assert.equal(scoreArrangement(repeatsPartner, partnerCounts, opponentCounts), 10);
-  assert.equal(scoreArrangement(tiedA, partnerCounts, opponentCounts), 1);
-  assert.equal(scoreArrangement(tiedB, partnerCounts, opponentCounts), 1);
+  // Counts, not yes/no: ตั้ม+เบส have partnered twice (2 x 10) and ปอม-ไม้ have
+  // met three times as opponents (3 x 1). The example's conclusion is
+  // unchanged — row 1 loses outright, rows 2 and 3 tie — only the magnitudes
+  // now reflect how often each pairing actually happened.
+  assert.equal(scoreArrangement(repeatsPartner, partnerCounts, opponentCounts), 20);
+  assert.equal(scoreArrangement(tiedA, partnerCounts, opponentCounts), 3);
+  assert.equal(scoreArrangement(tiedB, partnerCounts, opponentCounts), 3);
 });
 
 test('scoreArrangement is 0 when nothing in the arrangement has met before', () => {
@@ -122,7 +126,7 @@ test('generateRound picks the lowest-scoring arrangement out of its search trial
     courts: [{ court: 1, teamA: ['base', 'mai'], teamB: ['tam', 'pom'] }],
     sittingOut: [],
   });
-  assert.equal(scoreArrangement(result.courts, history.partnerCounts, history.opponentCounts), 1);
+  assert.equal(scoreArrangement(result.courts, history.partnerCounts, history.opponentCounts), 3);
 });
 
 test('generateRound avoids reproducing the exact split passed as avoidSplit', () => {
@@ -217,4 +221,57 @@ test('variety mode ignores ratings entirely', () => {
 
   // No ratings argument -> the gap term never enters the score.
   assert.equal(scoreArrangement(lopsided, history.partnerCounts, history.opponentCounts), 0);
+});
+
+test('a pair who have partnered often is avoided over a pair who partnered once', () => {
+  const partnerCounts = new Map([
+    [pairKey('a', 'b'), 9],
+    [pairKey('c', 'd'), 1],
+  ]);
+  const often = scoreArrangement(
+    [{ teamA: ['a', 'b'], teamB: ['x', 'y'] }],
+    partnerCounts,
+    new Map()
+  );
+  const once = scoreArrangement(
+    [{ teamA: ['c', 'd'], teamB: ['x', 'y'] }],
+    partnerCounts,
+    new Map()
+  );
+  assert.ok(often > once, 'nine times together must cost more than one');
+});
+
+test('repeat opponents scale with how often they have met', () => {
+  const opponentCounts = new Map([[pairKey('a', 'x'), 5]]);
+  const met = scoreArrangement(
+    [{ teamA: ['a', 'b'], teamB: ['x', 'y'] }],
+    new Map(),
+    opponentCounts
+  );
+  const fresh = scoreArrangement(
+    [{ teamA: ['a', 'b'], teamB: ['w', 'z'] }],
+    new Map(),
+    opponentCounts
+  );
+  assert.ok(met > fresh);
+});
+
+test('one repeat partner still outweighs many repeat opponents', () => {
+  // The 10:1 ratio has to survive counting: a pair who partnered once must
+  // still cost more than four opponent pairings, or variety collapses into
+  // opponent-chasing.
+  const onePartnerRepeat = scoreArrangement(
+    [{ teamA: ['a', 'b'], teamB: ['x', 'y'] }],
+    new Map([[pairKey('a', 'b'), 1]]),
+    new Map()
+  );
+  const fourOpponentRepeats = scoreArrangement(
+    [{ teamA: ['a', 'b'], teamB: ['x', 'y'] }],
+    new Map(),
+    new Map([
+      [pairKey('a', 'x'), 1], [pairKey('a', 'y'), 1],
+      [pairKey('b', 'x'), 1], [pairKey('b', 'y'), 1],
+    ])
+  );
+  assert.ok(onePartnerRepeat > fourOpponentRepeats);
 });

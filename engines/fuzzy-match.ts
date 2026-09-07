@@ -11,6 +11,10 @@ export function normalizeName(name: string): string {
   return name.replace(TRAILING_PAREN_NOTE_RE, '').trim().normalize('NFC');
 }
 
+function literalName(name: string): string {
+  return name.trim().normalize('NFC');
+}
+
 export function levenshteinDistance(a: string, b: string): number {
   const m = a.length;
   const n = b.length;
@@ -71,17 +75,43 @@ export type NameMatch =
 const FUZZY_THRESHOLD = 0.7;
 
 export function matchName(inputName: string, players: Player[]): NameMatch {
+  const literalInput = literalName(inputName);
   const normalizedInput = normalizeName(inputName);
 
+  // Parenthetical suffixes can identify a distinct person ("ตั้ม (2)").
+  // A literal name or alias therefore always wins over normalization.
+  const literalMatches = new Set<string>();
+  for (const player of players) {
+    const candidates = [player.name, ...player.aliases];
+    if (candidates.some((c) => literalName(c) === literalInput)) literalMatches.add(player.id);
+  }
+  if (literalMatches.size === 1) {
+    return { type: 'exact', playerId: [...literalMatches][0] };
+  }
+  if (literalMatches.size > 1) {
+    // Conflicting aliases must be reviewed rather than resolved by database
+    // ordering.
+    return { type: 'new' };
+  }
+
+  const normalizedMatches = new Set<string>();
   for (const player of players) {
     const candidates = [player.name, ...player.aliases];
     if (candidates.some((c) => normalizeName(c) === normalizedInput)) {
-      return { type: 'exact', playerId: player.id };
+      normalizedMatches.add(player.id);
     }
+  }
+  if (normalizedMatches.size === 1) {
+    return { type: 'exact', playerId: [...normalizedMatches][0] };
+  }
+  if (normalizedMatches.size > 1) {
+    // Stripping a parenthetical note has collapsed separate identities.
+    return { type: 'new' };
   }
 
   let bestPlayerId: string | null = null;
   let bestScore = 0;
+  let tiedBest = false;
   for (const player of players) {
     const candidates = [player.name, ...player.aliases];
     for (const candidate of candidates) {
@@ -89,11 +119,14 @@ export function matchName(inputName: string, players: Player[]): NameMatch {
       if (score > bestScore) {
         bestScore = score;
         bestPlayerId = player.id;
+        tiedBest = false;
+      } else if (score === bestScore && player.id !== bestPlayerId) {
+        tiedBest = true;
       }
     }
   }
 
-  if (bestPlayerId !== null && bestScore >= FUZZY_THRESHOLD) {
+  if (bestPlayerId !== null && !tiedBest && bestScore >= FUZZY_THRESHOLD) {
     return { type: 'fuzzy', playerId: bestPlayerId, score: bestScore };
   }
 

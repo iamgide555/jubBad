@@ -86,7 +86,16 @@ export class GroupsService {
     const sessions = await this.prisma.session.findMany({
       where: { groupId: code },
       orderBy: { createdAt: 'desc' },
-      include: { _count: { select: { pairings: true } } },
+      include: {
+        _count: {
+          select: {
+            // A proposed match has not happened and must not inflate archive
+            // history. Confirmed active matches count as matches; completed
+            // ones remain counted after the session ends.
+            pairings: { where: { confirmedAt: { not: null } } },
+          },
+        },
+      },
     });
 
     return sessions.map((s) => ({
@@ -101,13 +110,12 @@ export class GroupsService {
   }
 
   /** Every finished, confirmed match in the group, oldest first. */
-  private async playedMatches(groupCode: string) {
+  private async finishedMatches(groupCode: string) {
     const rows = await this.prisma.pairing.findMany({
       where: {
         session: { groupId: groupCode },
         confirmedAt: { not: null },
         endedAt: { not: null },
-        winner: { not: null },
       },
       orderBy: { confirmedAt: 'asc' },
       select: { teamA: true, teamB: true, winner: true },
@@ -115,7 +123,7 @@ export class GroupsService {
     return rows.map((p) => ({
       teamA: JSON.parse(p.teamA) as [string, string],
       teamB: JSON.parse(p.teamB) as [string, string],
-      winner: p.winner as 'A' | 'B',
+      winner: p.winner as 'A' | 'B' | null,
     }));
   }
 
@@ -125,10 +133,11 @@ export class GroupsService {
     });
     if (!player) throw new NotFoundException();
 
-    const matches = await this.playedMatches(groupCode);
+    const matches = await this.finishedMatches(groupCode);
 
     let played = 0;
     let won = 0;
+    let decisivePlayed = 0;
     // Tallies keyed by the other player: who I win with, and who I face.
     const withCounts = new Map<string, { played: number; won: number }>();
     const againstCounts = new Map<string, { played: number; won: number }>();
@@ -146,6 +155,7 @@ export class GroupsService {
 
       const win = (onA && match.winner === 'A') || (onB && match.winner === 'B');
       played += 1;
+      if (match.winner !== null) decisivePlayed += 1;
       if (win) won += 1;
 
       const mine = onA ? match.teamA : match.teamB;
@@ -160,8 +170,13 @@ export class GroupsService {
         p.name,
       ])
     );
-    // "Best" is most wins together, with most-played breaking ties — a partner
-    // you have won 2 of 2 with beats one you have won 2 of 9 with.
+    // Ranked on wins together, with most-played breaking ties. That is a
+    // count, not a rate: a partner you have won 2 of 9 with outranks one you
+    // have won 2 of 2 with, because the tie on 2 wins is broken by games
+    // played. Deliberate — with a handful of matches a rate is mostly noise,
+    // and "we've won the most together" is the claim a player recognises. It
+    // is also why this is named for what it counts rather than called a
+    // "best" partner, which would promise a judgement it does not make.
     const pick = (
       counts: Map<string, { played: number; won: number }>,
       by: 'won' | 'played'
@@ -174,16 +189,22 @@ export class GroupsService {
       return { playerId: id, name: names.get(id) ?? 'Unknown', played: row.played, won: row.won };
     };
 
-    const ratings = computeRatings(matches);
+    // An abandoned/no-result match was played, but does not imply an Elo
+    // outcome or a win/loss. Keep those metrics decisive-result-only.
+    const ratings = computeRatings(
+      matches.filter(
+        (match): match is typeof match & { winner: 'A' | 'B' } => match.winner !== null
+      )
+    );
 
     return {
       playerId,
       name: player.name,
       played,
       won,
-      winRate: played === 0 ? null : won / played,
+      winRate: decisivePlayed === 0 ? null : won / decisivePlayed,
       rating: Math.round(ratings.get(playerId) ?? STARTING_RATING),
-      bestPartner: pick(withCounts, 'won'),
+      mostWinsWith: pick(withCounts, 'won'),
       mostFacedOpponent: pick(againstCounts, 'played'),
     };
   }

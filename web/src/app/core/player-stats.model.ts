@@ -13,6 +13,6 @@ export interface PlayerProfile {
   /** null when they have not finished a match yet — not zero. */
   winRate: number | null;
   rating: number;
-  bestPartner: PartnerStat | null;
+  mostWinsWith: PartnerStat | null;
   mostFacedOpponent: PartnerStat | null;
 }

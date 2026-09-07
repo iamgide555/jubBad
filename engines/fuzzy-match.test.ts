@@ -73,6 +73,26 @@ test('matchName exact-matches on an alias', () => {
   assert.deepEqual(result, { type: 'exact', playerId: 'p1' });
 });
 
+test('literal exact identity wins before lossy parenthetical normalization', () => {
+  const collidingPlayers: Player[] = [
+    { id: 'p1', name: 'ตั้ม', aliases: [] },
+    { id: 'p2', name: 'ตั้ม (2)', aliases: [] },
+  ];
+  assert.deepEqual(matchName('ตั้ม (2)', collidingPlayers), {
+    type: 'exact',
+    playerId: 'p2',
+  });
+});
+
+test('does not attribute a new numbered name to either normalized-name collision', () => {
+  const collidingPlayers: Player[] = [
+    { id: 'p1', name: 'ตั้ม', aliases: ['นัท'] },
+    { id: 'p2', name: 'ตั้ม (2)', aliases: ['นัท (2)'] },
+  ];
+  assert.deepEqual(matchName('ตั้ม (1)', collidingPlayers), { type: 'new' });
+  assert.deepEqual(matchName('นัท (1)', collidingPlayers), { type: 'new' });
+});
+
 test('matchName suggests a fuzzy match above the 0.7 threshold', () => {
   const result = matchName('ตัม', players); // one tone mark short of ตั้ม
   assert.equal(result.type, 'fuzzy');

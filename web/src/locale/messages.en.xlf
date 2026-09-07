@@ -2,6 +2,132 @@
 <xliff version="1.2" xmlns="urn:oasis:names:tc:xliff:document:1.2">
   <file source-language="th" target-language="en" datatype="plaintext" original="ng2.template">
     <body>
+      <trans-unit id="err.code.sessionEnded" datatype="html">
+        <source>ก๊วนนี้จบไปแล้ว</source><target>This session has already ended.</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/core/live-session.service.ts</context>
+          <context context-type="linenumber">40</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="err.code.sessionNotFound" datatype="html">
+        <source>ไม่พบก๊วนนี้</source><target>Session not found.</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/core/live-session.service.ts</context>
+          <context context-type="linenumber">41</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="err.code.sessionHasUnfinishedPairings" datatype="html">
+        <source>ยังมีแมตช์ที่ยังไม่จบ กรุณาบันทึกผลให้ครบก่อน</source><target>Finish all active courts before ending the session.</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/core/live-session.service.ts</context>
+          <context context-type="linenumber">42</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="err.code.courtActive" datatype="html">
+        <source>คอร์ทนี้มีแมตช์อยู่แล้ว</source><target>That court already has a match.</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/core/live-session.service.ts</context>
+          <context context-type="linenumber">43</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="err.code.invalidCourtNumber" datatype="html">
+        <source>หมายเลขคอร์ทไม่ถูกต้อง</source><target>That court number is not valid.</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/core/live-session.service.ts</context>
+          <context context-type="linenumber">44</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="err.code.stale" datatype="html">
+        <source>ข้อมูลถูกแก้ไขจากอุปกรณ์อื่นแล้ว กรุณาลองใหม่อีกครั้ง</source><target>Someone else changed this first. Please try again.</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/core/live-session.service.ts</context>
+          <context context-type="linenumber">45</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="err.code.pairingNotFound" datatype="html">
+        <source>ไม่พบแมตช์นี้</source><target>Match not found.</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/core/live-session.service.ts</context>
+          <context context-type="linenumber">46</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="err.code.pairingEnded" datatype="html">
+        <source>แมตช์นี้จบไปแล้ว</source><target>This match has already finished.</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/core/live-session.service.ts</context>
+          <context context-type="linenumber">47</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="err.code.pairingConfirmed" datatype="html">
+        <source>แมตช์นี้ยืนยันไปแล้ว</source><target>This match has already been confirmed.</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/core/live-session.service.ts</context>
+          <context context-type="linenumber">48</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="err.code.pairingConfirmationRequired" datatype="html">
+        <source>ต้องยืนยันแมตช์ก่อนบันทึกผล</source><target>Confirm the match before recording a result.</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/core/live-session.service.ts</context>
+          <context context-type="linenumber">49</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="err.code.pairingNotPending" datatype="html">
+        <source>เปลี่ยนตัวได้เฉพาะแมตช์ที่ยังไม่ยืนยัน</source><target>You can only swap players before the match is confirmed.</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/core/live-session.service.ts</context>
+          <context context-type="linenumber">50</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="err.code.pairingPlayerNotFound" datatype="html">
+        <source>ไม่พบผู้เล่นคนนี้ในแมตช์</source><target>That player is not in this match.</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/core/live-session.service.ts</context>
+          <context context-type="linenumber">51</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="err.code.rosterPlayerNotFound" datatype="html">
+        <source>ไม่พบผู้เล่นคนนี้ในก๊วน</source><target>That player is not in this session.</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/core/live-session.service.ts</context>
+          <context context-type="linenumber">52</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="err.code.incompleteScores" datatype="html">
+        <source>กรุณากรอกคะแนนให้ครบทั้งสองฝั่ง</source><target>Enter a score for both sides.</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/core/live-session.service.ts</context>
+          <context context-type="linenumber">53</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="err.code.invalidScore" datatype="html">
+        <source>คะแนนไม่ถูกต้อง</source><target>That score is not valid.</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/core/live-session.service.ts</context>
+          <context context-type="linenumber">54</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="err.code.invalidWinner" datatype="html">
+        <source>ผู้ชนะไม่ถูกต้อง</source><target>That winner is not valid.</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/core/live-session.service.ts</context>
+          <context context-type="linenumber">55</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="err.code.winnerRequired" datatype="html">
+        <source>กรุณาเลือกผู้ชนะเมื่อกรอกคะแนน</source><target>Pick a winner when you enter scores.</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/core/live-session.service.ts</context>
+          <context context-type="linenumber">56</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="err.code.winnerScoreMismatch" datatype="html">
+        <source>ผู้ชนะไม่ตรงกับคะแนนที่กรอก</source><target>The winner does not match the scores entered.</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/core/live-session.service.ts</context>
+          <context context-type="linenumber">57</context>
+        </context-group>
+      </trans-unit>
       <trans-unit id="err.propose" datatype="html">
         <source>เริ่มแมตช์ไม่สำเร็จ</source><target>Could not start the match.</target>
         <context-group purpose="location">
@@ -270,6 +396,12 @@
           <context context-type="linenumber">106</context>
         </context-group>
       </trans-unit>
+      <trans-unit id="entry.decisionUseExisting" datatype="html">
+        <source>ใช้ผู้เล่นเดิม</source><target>use existing player</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/group-entry/group-entry.ts</context>
+        </context-group>
+      </trans-unit>
       <trans-unit id="entry.decisionNew" datatype="html">
         <source>ไม่ใช่ เพิ่มใหม่</source><target>no, new player</target>
         <context-group purpose="location">
@@ -298,6 +430,30 @@
           <context context-type="linenumber">108</context>
         </context-group>
       </trans-unit>
+      <trans-unit id="entry.confirmingRoster" datatype="html">
+        <source>กำลังบันทึกรายชื่อ...</source><target>Saving roster...</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/group-entry/group-entry.html</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="entry.parsingRoster" datatype="html">
+        <source>กำลังอ่านรายชื่อ...</source><target>Reading roster...</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/group-entry/group-entry.html</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="entry.savingGroup" datatype="html">
+        <source>กำลังบันทึกชื่อก๊วน...</source><target>Saving group name...</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/group-entry/group-entry.html</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="entry.retry" datatype="html">
+        <source>ลองอีกครั้ง</source><target>Retry</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/group-entry/group-entry.html</context>
+        </context-group>
+      </trans-unit>
       <trans-unit id="entry.errNoGroupName" datatype="html">
         <source>กรุณาใส่ชื่อก๊วนก่อน</source><target>Please enter a group name first.</target>
         <context-group purpose="location">
@@ -317,6 +473,24 @@
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/group-entry/group-entry.ts</context>
           <context context-type="linenumber">132</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="entry.renameFailed" datatype="html">
+        <source>บันทึกชื่อก๊วนไม่สำเร็จ</source><target>Could not save the group name.</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/group-entry/group-entry.ts</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="entry.parseFailed" datatype="html">
+        <source>อ่านรายชื่อไม่สำเร็จ กรุณาลองอีกครั้ง</source><target>Could not read the roster. Please try again.</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/group-entry/group-entry.ts</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="entry.createFailed" datatype="html">
+        <source>สร้างก๊วนไม่สำเร็จ กรุณาลองอีกครั้ง</source><target>Could not create the session. Please try again.</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/group-entry/group-entry.ts</context>
         </context-group>
       </trans-unit>
       <trans-unit id="landing.headline" datatype="html">
@@ -375,8 +549,8 @@
           <context context-type="linenumber">23,25</context>
         </context-group>
       </trans-unit>
-      <trans-unit id="profile.bestPartner" datatype="html">
-        <source>คู่ที่เข้ากันดีที่สุด</source><target>Best partner</target>
+      <trans-unit id="profile.mostWinsWith" datatype="html">
+        <source>ชนะด้วยกันมากที่สุด</source><target>Most wins together</target>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/player-profile/player-profile.html</context>
           <context context-type="linenumber">29,31</context>
@@ -705,6 +879,12 @@
           <context context-type="linenumber">160</context>
         </context-group>
       </trans-unit>
+      <trans-unit id="share.fallbackLabel" datatype="html">
+        <source>ข้อความสำหรับคัดลอก</source><target>Text to copy</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/session-dashboard/session-dashboard.html</context>
+        </context-group>
+      </trans-unit>
       <trans-unit id="stats.thisSession" datatype="html">
         <source> ก๊วนนี้ </source><target>This session</target>
         <context-group purpose="location">
@@ -892,6 +1072,18 @@
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/landing/landing.html</context>
           <context context-type="linenumber">50</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="home.loadFailed" datatype="html">
+        <source>โหลดก๊วนไม่สำเร็จ</source><target>Could not load groups.</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/landing/landing.html</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="home.retry" datatype="html">
+        <source>ลองอีกครั้ง</source><target>Try again</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/landing/landing.html</context>
         </context-group>
       </trans-unit>
       <trans-unit id="home.startNewGroup" datatype="html">

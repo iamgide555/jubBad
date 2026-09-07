@@ -17,6 +17,12 @@ export interface Session {
   rosterPlayerIds: string[];
   /** Roster players sitting out; still on the roster, skipped for court fills. */
   restingPlayerIds: string[];
+  /**
+   * Player id -> games as the rotation counts them (matches tonight plus any
+   * fairness offset). Orders the waiting list to match how the engine actually
+   * selects. Not a statistic — the stats endpoints never apply the offset.
+   */
+  queueGames: Record<string, number>;
   waitlistPlayerIds: string[];
   courts: CourtState[];
 }

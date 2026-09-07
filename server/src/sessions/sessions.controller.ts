@@ -1,6 +1,8 @@
 import { Body, Controller, Get, Param, ParseIntPipe, Post, Query } from '@nestjs/common';
 import { CreateSessionDto } from './dto/create-session.dto.js';
 import { FinishPairingDto } from './dto/finish-pairing.dto.js';
+import { PairingRevisionDto } from './dto/pairing-revision.dto.js';
+import { SetCourtCountDto } from './dto/set-court-count.dto.js';
 import { SetModeDto } from './dto/set-mode.dto.js';
 import { SetRosterActiveDto } from './dto/set-roster-active.dto.js';
 import { SwapPlayerDto } from './dto/swap-player.dto.js';
@@ -43,8 +45,12 @@ export class SessionsController {
   }
 
   @Post(':code/pairings/:id/confirm')
-  confirmPairing(@Param('code') code: string, @Param('id') id: string) {
-    return this.sessionsService.confirmPairing(code, id);
+  confirmPairing(
+    @Param('code') code: string,
+    @Param('id') id: string,
+    @Body() dto: PairingRevisionDto
+  ) {
+    return this.sessionsService.confirmPairing(code, id, dto.expectedRevision);
   }
 
   @Post(':code/pairings/:id/finish')
@@ -72,6 +78,11 @@ export class SessionsController {
     @Body() dto: SetRosterActiveDto
   ) {
     return this.sessionsService.setRosterActive(code, playerId, dto);
+  }
+
+  @Post(':code/court-count')
+  setCourtCount(@Param('code') code: string, @Body() dto: SetCourtCountDto) {
+    return this.sessionsService.setCourtCount(code, dto);
   }
 
   @Post(':code/mode')

@@ -93,6 +93,15 @@ function isNoteMarker(line: string): boolean {
   return NOTE_MARKERS.some((m) => trimmed.startsWith(m));
 }
 
+function isAllMention(value: string): boolean {
+  return /^@\s*all\b/i.test(value.trim());
+}
+
+function isNumberedAllMention(line: string): boolean {
+  const match = line.trim().match(NUMBERED_LINE_RE);
+  return match !== null && isAllMention(match[2]);
+}
+
 function isLikelyTimeOrHeaderLine(line: string): boolean {
   // A line like "19.00-20.00  1 คอร์ท" starts with a number but is a
   // time range / header, not a roster entry — never treat as a player slot.
@@ -127,6 +136,23 @@ function parseTimeSlotLine(line: string): ParsedTimeSlot | null {
   };
 }
 
+function isCalendarDate(year: number, month: number, day: number): boolean {
+  if (year < 1 || year > 9999 || month < 1 || month > 12 || day < 1) return false;
+  const date = new Date(0);
+  date.setUTCFullYear(year, month - 1, day);
+  return (
+    date.getUTCFullYear() === year &&
+    date.getUTCMonth() === month - 1 &&
+    date.getUTCDate() === day
+  );
+}
+
+export function isValidIsoDate(value: string): boolean {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
+  if (!match) return false;
+  return isCalendarDate(Number(match[1]), Number(match[2]), Number(match[3]));
+}
+
 function tryResolveIsoDate(rawDate: string): string | null {
   const match = rawDate.match(DATE_RE);
   if (!match) return null;
@@ -135,14 +161,11 @@ function tryResolveIsoDate(rawDate: string): string | null {
   const month = parseInt(mStr, 10);
   let year = parseInt(yStr, 10);
 
-  if (day < 1 || day > 31 || month < 1 || month > 12) return null;
-
   if (year < 100) {
-    // Thai Buddhist 2-digit year (e.g. 69 -> 2569 BE -> 2026 CE) OR
-    // Gregorian 2-digit year (e.g. 26 -> 2026). Both examples in practice
-    // resolve to the same CE year range for this group's messages, but we
-    // can't be 100% sure which convention a given message uses — flag it
-    // as best-effort rather than asserting confidently.
+    // Two digits are genuinely ambiguous: "26" could be 2026 CE, "69" could be
+    // 2569 BE. Resolve on the convention these groups actually use — a value
+    // above 60 can only be Buddhist, anything lower can only be Gregorian —
+    // and let parseHeader warn so the host confirms the result.
     year = year > 60 ? 2500 + year - 543 : 2000 + year;
   } else if (year > 2400) {
     // 4-digit Buddhist year
@@ -150,7 +173,7 @@ function tryResolveIsoDate(rawDate: string): string | null {
   }
 
   const iso = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-  return iso;
+  return isValidIsoDate(iso) ? iso : null;
 }
 
 function parseHeader(headerLines: string[], warnings: string[]): ParsedHeader {
@@ -160,7 +183,13 @@ function parseHeader(headerLines: string[], warnings: string[]): ParsedHeader {
   const rawDate = dateMatch ? dateMatch[0] : null;
   const isoDate = rawDate ? tryResolveIsoDate(rawDate) : null;
   if (rawDate && !isoDate) {
-    warnings.push(`Found a date-like string "${rawDate}" but could not confidently resolve it — please confirm the session date.`);
+    warnings.push(
+      `Found a date-like string "${rawDate}" but it is not a real calendar date — please confirm the session date.`
+    );
+  } else if (rawDate && Number(rawDate.match(DATE_RE)?.[3]) < 100) {
+    warnings.push(
+      `The date "${rawDate}" has an ambiguous two-digit year — read as ${isoDate}, please confirm the session date.`
+    );
   }
   if (!rawDate) {
     warnings.push('No date found in the header — please set the session date manually.');
@@ -187,6 +216,24 @@ function parseHeader(headerLines: string[], warnings: string[]): ParsedHeader {
     warnings.push('No time range (e.g. "19.00-20.00") found — please set the session time manually.');
   }
 
+  // A session runs on one court count. When the message books a different
+  // number of courts later in the evening we cannot honour that yet, and
+  // silently taking the first (or the largest) count would either waste courts
+  // or hand out courts that are not booked. Say so instead of guessing.
+  const slotCounts = timeSlots
+    .map((s) => s.courtCount)
+    .filter((c): c is number => c !== null);
+  if (new Set(slotCounts).size > 1) {
+    const described = timeSlots
+      .filter((s) => s.courtCount !== null)
+      .map((s) => `${s.raw} → ${s.courtCount} courts`)
+      .join(', ');
+    warnings.push(
+      `The court count changes during the session (${described}). Only the first slot's count is applied — ` +
+        'adjust the court count on the session when the later slot starts.',
+    );
+  }
+
   // Best-effort "title" = the first header line that isn't a pure @mention
   // or a pure time-range line. A line CAN contain a date (e.g. "แบดวินนิ่ง
   // อังคาร 8/9/26") and still be the title — only exclude lines that are
@@ -195,7 +242,7 @@ function parseHeader(headerLines: string[], warnings: string[]): ParsedHeader {
     headerLines.find((l) => {
       const trimmed = l.trim();
       if (trimmed.length === 0) return false;
-      if (/^@\s*(all)?\s*$/i.test(trimmed)) return false; // bare "@" or "@All"
+      if (/^@\s*(all)?\s*$/i.test(trimmed) || isNumberedAllMention(trimmed)) return false;
       TIME_RANGE_RE.lastIndex = 0;
       if (TIME_RANGE_RE.test(trimmed)) return false;
       return true;
@@ -240,6 +287,10 @@ function parseNumberedBlock(
 
     const position = parseInt(match[1], 10);
     const name = match[2].trim();
+    if (isAllMention(name)) {
+      i++;
+      continue;
+    }
     slots.push({ position, name: name.length > 0 ? name : null });
     i++;
   }
@@ -258,6 +309,7 @@ export function parseLineRosterMessage(text: string): ParseResult {
   for (let i = 0; i < lines.length; i++) {
     const trimmed = lines[i].trim();
     if (isLikelyTimeOrHeaderLine(trimmed)) continue;
+    if (isNumberedAllMention(trimmed)) continue;
     const match = trimmed.match(NUMBERED_LINE_RE);
     if (match && parseInt(match[1], 10) === 1) {
       rosterStart = i;

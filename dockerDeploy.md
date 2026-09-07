@@ -78,6 +78,64 @@ docker compose ps                   # api/web show Up, no host ports listed (e.g
 curl -I https://jubbad.wongnok.dev  # 200 via tunnel
 ```
 
+## Backup and restore
+
+The database is the only thing on this box that cannot be rebuilt from git, and
+it is a single SQLite file. **Do not back it up by copying `dev.db`.** The
+database runs in WAL mode, so committed writes sit in `dev.db-wal` until a
+checkpoint, and copying the three files reads them at three different instants
+while the API is still writing — a torn snapshot that looks fine until you try
+to use it. `server/scripts/backup-db.mjs` uses SQLite's online backup API
+instead: one consistent, self-contained file, taken without stopping play.
+
+```bash
+# PC — one backup now, into server/prisma/backups on the host bind mount
+cd "$APP_DIR"
+docker compose exec -T api npm run db:backup
+```
+
+Every backup is verified with `PRAGMA integrity_check` before the script
+reports success, so a bad snapshot fails loudly tonight rather than during a
+restore. Retention is 30 days but never fewer than 7 files (`--keep`,
+`--min-keep`): age alone would mean that if the scheduler ever stopped, the job
+would eventually delete the last copy of the data it exists to protect.
+
+Schedule it nightly, after play has finished:
+
+```bash
+# PC — crontab -e
+30 2 * * * cd /home/iamgide/jubBad && /usr/bin/docker compose exec -T api npm run db:backup >> /home/iamgide/jubBad-backup.log 2>&1
+```
+
+Backups live in the bind-mounted `server/prisma/backups` and are gitignored.
+They are on the same disk as the database, which protects against a bad
+migration or a mistaken delete but not against losing the machine — copy them
+off the box (rsync to another host, or any cloud sync) if that matters.
+
+### Restore
+
+```bash
+# PC
+cd "$APP_DIR"
+ls server/prisma/backups                       # pick one
+docker compose stop api                        # nothing may hold the file open
+docker compose run --rm --no-deps -T api \
+  node scripts/restore-db.mjs prisma/backups/jubbad-<timestamp>.db
+docker compose start api
+docker compose logs -f api                     # then open a recent session and check it
+```
+
+The restore script refuses a backup that fails `integrity_check`, moves the
+current database aside as `dev.db.replaced-<timestamp>` rather than
+overwriting it (restoring the *wrong* backup must itself be recoverable), and
+deletes the stale `-wal`/`-shm` files. That last step is the one people miss by
+hand: leave the journal behind and SQLite replays it over the restored file,
+handing back some of the data you were trying to discard.
+
+Note that the group JSON export in the app is **not** a restore path — it omits
+fairness offsets and activation timestamps, so it cannot reconstruct a session's
+rotation state. It is for reading, not recovery.
+
 ## Rollback
 ```bash
 git checkout <prev-sha>

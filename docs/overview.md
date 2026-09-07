@@ -35,13 +35,13 @@ coordinate — not a smarter pairing algorithm or a bigger feature set.**
 | No passive "listener" bot | Even listen-only, it technically sees the *entire* conversation; the host's consent doesn't cover the other ~15-20 people in the chat. Bigger trust risk than the convenience is worth for a casual friend group |
 | Import is paste-based | The app's data footprint = exactly what the host explicitly hands over. No infra (no webhook server, no persistent message store) |
 | No LIFF / LINE Login / LINE platform integration | Paste-based import plus manual share means zero technical touchpoint with LINE's platform is needed. Pure UX polish, addable later |
-| No login/auth | Groups are identified by a shareable link/code instead of accounts. Removes a whole feature surface |
+| Shared admin authentication, not player accounts | Administrative screens and writes require one venue-admin token stored in an httpOnly cookie. There are still no individual player accounts, profiles, or per-group host roles. |
 | Trigger-word LINE bot (reconsidered, still rejected) | The idea: a bot watches the group for a keyword ("Play") then auto-extracts the roster, skipping the manual paste. Rejected on inspection — the LINE Messaging API has no message-history endpoint (confirmed in LINE's docs), so a bot can only look *forward* from when it joins. In real use the roster is posted days before "Play" is typed, so the bot would have to continuously store *all* group messages in a rolling buffer to look backward — that is full passive listening plus retention, the exact risk rejected above, not a lighter trigger-gated version. It also reopens "no infra" and "no posting bot" at once. Revisit only if paste friction proves to be a real dealbreaker; the lower-risk fix for the typing/copying pain is a tap-to-register roster link |
 | No cost-splitting / PromptPay QR in-app | KhunThong (ขุนทอง), KBank/KBTG's LINE bot, already does this well — bill split (equal or not), PromptPay QR, and payment verification by e-slip scan, which the planned v1 didn't even have. The host invites KhunThong separately; no integration needed |
 | Score logging: final score only, no live scoreboard | Point-by-point, serve indicators and timers are scope creep nobody asked for. A final score per court is low-friction and still bootstraps the match history that future skill/Elo balancing would need |
-| No host role — anyone with the link can edit (**accepted risk**) | With no auth the link can't distinguish host from player. Acceptable for a trusted friend group; add a host role later only if abuse becomes real |
+| No per-group host role | The shared admin token protects every administrative route, but it does not distinguish one group member from another or assign ownership of a particular group. One secret means equal power for everyone holding it — including deleting a group — and revocation is all-or-nothing. Acceptable while the token holder is the person who runs the sessions; add roles when a second group with a different host shares the deployment. |
 | No data-retention/deletion policy (**accepted risk**) | Names persist indefinitely under a group's link code. A host can now export the group as JSON or delete it outright, which covers the practical need without a policy |
-| Export and delete gated only by the group code (**accepted risk**) | Same reasoning as "anyone with the link can edit": the link lives in one private group chat. Export means the code is enough to take every name and result; delete means it is enough to destroy them. A passphrase or dropping delete would each cost more than the risk is worth for a casual friend group. Revisit if a code ever leaks |
+| Export and delete require the shared admin token | They are administrative operations; the client also requires typing the group name to prevent an accidental delete. The token is shared rather than per-user, so revocation means changing it and signing every admin device out. |
 | No promoting a waitlisted (สำรอง) player mid-session | The สำรอง list is resolved in LINE *before* the session — a waitlisted player was told not to come, so there is nobody at the venue to promote. The feature would serve a situation that cannot occur. Waitlisted names are still imported and shown, so the host can see who was turned away |
 
 ## Explicitly out of scope
@@ -51,7 +51,7 @@ coordinate — not a smarter pairing algorithm or a bigger feature set.**
 - LIFF / LINE Login, user accounts, login.
 - Live point-by-point scoreboard.
 - Cost splitting / PromptPay QR — delegated to KhunThong.
-- User accounts and a host role. Still out — see the decision table above.
+- Individual player accounts and per-group roles. Still out — see the decision table above.
 
 ## Stack and layout
 
@@ -89,6 +89,16 @@ SQLite rather than Postgres: casual-friend-group scale, single-host deployment,
 zero ops. Nothing locks that in — swapping to Postgres later is a config
 change. Deployment is Docker Compose behind a Cloudflare Tunnel; see
 `dockerDeploy.md`.
+
+"Zero ops" stops at backups, because the database is the only thing on the box
+that git cannot rebuild. `npm run db:backup` takes a consistent snapshot
+through SQLite's online backup API while the API keeps serving — a file copy
+would not do, since WAL mode leaves committed writes in a sidecar and copying
+three files while they are being written is a torn read. Restores are scripted
+too, mostly so that the `-wal` removal cannot be forgotten: leave the journal
+behind and SQLite replays it over the restored file. The group JSON export is
+deliberately not a restore path — it omits fairness offsets and activation
+times, so it can be read but not reloaded.
 
 ## How the engines think
 
@@ -140,6 +150,18 @@ and not the default.
 Courts rotate **independently, not as synchronized rounds** — whoever finishes
 first gets the next match right away. There is no shared "round" object.
 
+How many courts there are is a session-level number, and it is editable during
+the evening rather than fixed at import. Bookings routinely change part-way
+through — one court from 19:00, three from 20:00 is normal — and the imported
+message can only give the session one count. The parser warns when the message
+books different counts in different slots, so nobody is left guessing why the
+extra courts never appeared, and the host adds them when the later slot starts.
+Growing is unconditional; shrinking is refused while an unfinished match sits on
+a court above the new count, because those players are physically on that court
+and a mis-typed number must not delete a match in progress. There is no
+scheduled-availability feature: it would need the session to watch the wall
+clock, and a two-tap change covers the actual booking pattern.
+
 Proposing for one court still plans across every idle court and commits only
 the one asked for. Solving a court in isolation takes the four least-played and
 leaves whoever remains to be shovelled onto the next court together — that
@@ -171,11 +193,16 @@ reshuffle guard when it was still a penalty — quietly stops meaning what it wa
 set to mean.
 
 **Repeat-partner avoidance is the primary goal; opponent balancing is a
-secondary soft signal.** The 10:1 ratio exists so an arrangement can never
-trade away a partner-repeat to save on opponent-repeats — the opponent term
-only decides between arrangements already tied on partners. A hard opponent
-constraint on top of the partner constraint would risk making sessions with a
-lot of history unsolvable, since it over-constrains an already-small namespace.
+secondary soft signal.** In variety mode the two are compared
+lexicographically: fewer partner repeats always wins, and the opponent count
+only separates arrangements already tied on partners. A 10:1 weighting was
+used for this originally and could not actually guarantee it — ten
+opponent-repeats outweigh one partner-repeat, and history grows without bound,
+so the trade the ratio was meant to forbid became reachable. The weighted
+score is still what balanced mode optimises, and it remains useful for
+diagnostics. A hard opponent constraint on top of the partner constraint would
+risk making sessions with a lot of history unsolvable, since it over-constrains
+an already-small namespace.
 
 Two scopes, deliberately different:
 
@@ -183,6 +210,16 @@ Two scopes, deliberately different:
   point is spreading variety over the group's life, not just one evening.
 - **Games played is this session only.** Sit-out rotation should be fair within
   tonight, not carried over from weeks ago.
+
+**Bad input fails loudly.** The engine checks its arguments before doing any
+work and throws rather than coping: a duplicated or empty player id, a
+fractional or negative court count, a negative or non-finite count in any
+history map. Coping was the old behaviour and it was worse than useless — a
+corrupt count made every candidate score `NaN`, no candidate was ever chosen,
+and the empty result surfaced as "not enough players". That sends the host
+looking around the hall for people who are not missing while the actual fault
+sits in the database, unnoticed. The API reports it as `INVALID_SESSION_STATE`
+instead. An empty roster is not an error, only an empty round.
 
 **Two pairing modes.** *Variety* is the behaviour described above. *Balanced*
 adds a rating-gap term so the two sides come out close in strength. Balance
@@ -193,18 +230,48 @@ variety.
 
 Reshuffling excludes the split it was asked to avoid outright, rather than
 taxing it. A tax has to be larger than any real score difference, and no fixed
-number stays larger as a group accumulates history.
+number stays larger as a group accumulates history. The exclusion applies to
+one split of court 1, not to a whole candidate arrangement, so a legal
+alternative always survives — the engine can no longer be forced to hand back
+the very split it was asked to avoid.
 
 Sit-out selection is deterministic and outside the weighted score: whoever has
-played the most so far today sits, ties broken randomly. Predictable to the
-host ("they've played the most, so they sit"). A court always needs exactly 4,
-so a roster that isn't a multiple of 4 leaves a remainder sitting out even when
-the court count itself isn't the limit.
+played the most so far today sits, and **among players level on games the
+shortest wait sits** — so the longest waiter goes on first. Only a full tie is
+broken randomly, which is what the start of a session is, when nobody has
+played and everyone's wait began together. Predictable to the host ("they've
+played the most, so they sit"), and it matches the waiting list on screen: that
+list is sorted the same way, by games then wait, because a queue the engine
+ignores is worse than no queue. A court always needs exactly 4, so a roster
+that isn't a multiple of 4 leaves a remainder sitting out even when the court
+count itself isn't the limit.
 
-The search is randomized — shuffle, greedily build a candidate, score it,
-repeat ~200 times, keep the best. "Good enough and fair", not "provably
-optimal". Exhaustive enumeration is infeasible at 10-20 players, and a real
-min-cost matching optimizer would be overkill here.
+A wait starts at the latest of the session start, the end of that player's last
+match, and the moment they joined or returned (`engines/waiting.ts`, shared by
+the engine, the API and both screens). Taking the latest is what stops someone
+who arrived an hour late from being owed an hour they were not here for.
+
+**The search is exact when it can afford to be, and local otherwise.** A
+court's score reads only within-court pairs, so a court's contribution is
+independent of the others — which means that once you know who shares a court,
+the best way to split those four into teams can be chosen court by court and
+is genuinely optimal, not greedy. All that is left to search is *who shares a
+court*.
+
+With eight or fewer players on court that space is 315 arrangements, so the
+engine enumerates it and returns a provably optimal round. Larger rosters use
+random restarts feeding a steepest-descent local search: repeatedly exchange
+two players across two courts, keep the best improving exchange, stop when
+none improves. A swap only touches two courts, so each candidate is scored by
+re-splitting those two and reusing the rest.
+
+This replaced a fixed 200-candidate random sample, which was measurably weak:
+against exhaustive enumeration it never once found the best twelve-player
+round in 100 seeded attempts and averaged 41% above optimum. The current
+search reaches the optimum in 98 of those 100 runs.
+`engines/pairing-quality.test.ts` re-checks that against exhaustive
+enumeration on every run, so the engine cannot quietly regress while its
+behavioural tests keep passing.
 
 ### Ratings
 
@@ -260,7 +327,11 @@ undo compose correctly without any extra engine work.
 Two controls fall out of it. **Rest** excludes a player from future court fills
 and back again — one toggle covering a no-show, an early leaver, someone
 sitting a few rounds out, and a mis-tap; a player rested mid-match simply plays
-that match out. Bringing someone back credits them with the games they were
+that match out. A *pending* proposal they are standing in is a different case:
+it is left on screen rather than rewritten underneath a host who may be reading
+it aloud, but confirming it is refused, the court panel names them, and either
+swapping that name or reshuffling clears it. Both draw only from active
+players. Bringing someone back credits them with the games they were
 absent for, so they rejoin the rotation rather than jumping it — without that
 credit a player enabled part-way through sits on zero games and wins every
 draw until they catch up. The credit is for rotation only; the stats table
@@ -277,8 +348,9 @@ an hour, contradicting the rotation, which deliberately does not owe them that
 time.
 
 The display view shows only *active* courts, so a proposed-but-unconfirmed
-pairing never reaches the venue screen. It refreshes manually, matching the
-app's no-extra-infra style — no websockets, no polling loop.
+pairing never reaches the venue screen. It refreshes every 30 seconds and has
+a manual refresh control; neither needs extra server infrastructure such as
+websockets.
 
 ## Current state
 
@@ -288,7 +360,11 @@ undo, resting players, wait timers, one-tap fill, both pairing modes, session
 archive, player pages, export and delete, and a PWA manifest.
 
 `docs/2026-09-05-review-and-v2-backlog.md` records the review that drove most
-of it. One item there is deliberately unbuilt — a host role, which would mean
-reversing the no-auth decision above — and one open question is flagged at the
-bottom of that file: export and delete are gated only by knowing the group
-code, which changes what the accepted "anyone with the link" risk costs.
+of it. One item there is deliberately unbuilt — a host role. Its original
+justification (that a host role would reverse a "no auth" decision, and that
+export and delete were gated only by knowing the group code) no longer holds:
+admin authentication was built, `AdminGuard` closes every route by default, and
+export and delete sit behind it. That entry was revised on 2026-09-07 to defer
+on what is actually still missing — per-user identity and per-group ownership,
+which one shared token cannot express. The trigger for revisiting is a second
+group with a different host sharing the deployment, not abuse.

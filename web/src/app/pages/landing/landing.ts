@@ -34,6 +34,7 @@ export class Landing {
 
   readonly groups = signal<GroupSummary[]>([]);
   readonly loaded = signal(false);
+  readonly loadError = signal(false);
 
   readonly removingCode = signal<string | null>(null);
   readonly removeConfirmText = signal('');
@@ -46,9 +47,17 @@ export class Landing {
   private async load(): Promise<void> {
     try {
       this.groups.set(await firstValueFrom(this.http.get<GroupSummary[]>(`${this.base}/groups`)));
+      this.loadError.set(false);
+    } catch {
+      this.loadError.set(true);
     } finally {
       this.loaded.set(true);
     }
+  }
+
+  retryLoad(): void {
+    this.loaded.set(false);
+    void this.load();
   }
 
   startNewGroup(): void {

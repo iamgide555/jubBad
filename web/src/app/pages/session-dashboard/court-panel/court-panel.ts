@@ -39,6 +39,20 @@ export class CourtPanel {
   }
 
   /**
+   * A player rested after this proposal was made is still standing in it — the
+   * server refuses the confirm, and without this the host only finds out by
+   * tapping. Named on screen so the fix (swap that name, or reshuffle) is
+   * obvious. Active matches are untouched: those players are on court.
+   */
+  protected readonly restingInProposal = computed<string[]>(() => {
+    const c = this.court();
+    if (c.status !== 'pending') return [];
+    const resting = new Set(this.liveSession.sessionResource.value()?.restingPlayerIds ?? []);
+    const inProposal = [...c.teamA, ...c.teamB].filter((id) => resting.has(id));
+    return resolvePlayerNames(inProposal, this.players());
+  });
+
+  /**
    * In TS rather than an `i18n-aria-label` attribute: the label interpolates a
    * player name, so it has to be a binding, and Angular only extracts static
    * attributes.

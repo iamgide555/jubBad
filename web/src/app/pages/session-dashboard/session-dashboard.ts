@@ -65,6 +65,8 @@ export class SessionDashboard implements OnDestroy {
    */
   private readonly now = signal(Date.now());
   private readonly clock = setInterval(() => this.now.set(Date.now()), 30_000);
+  private readonly refreshInterval = setInterval(() => this.liveSession.refresh(), 30_000);
+  private readonly onWindowFocus = () => this.liveSession.refresh();
 
   readonly waiting = computed(() => {
     const session = this.session();
@@ -75,23 +77,28 @@ export class SessionDashboard implements OnDestroy {
       resolvePlayerNames(ids, this.players()),
       session.lastPlayedAt,
       session.createdAt,
-      this.now(),
-      session.activatedAt
+      session.endedAt ? new Date(session.endedAt).getTime() : this.now(),
+      session.activatedAt,
+      session.queueGames
     );
   });
 
   readonly ended = computed(() => this.session()?.endedAt != null);
   readonly mode = computed(() => this.session()?.mode ?? 'variety');
+  readonly courtCount = computed(() => this.courtNumbers().length);
   readonly anyCourtIdle = computed(() =>
     this.liveSession.courts().some((c) => c.status === 'idle')
   );
   readonly copied = signal(false);
   readonly endSessionError = signal<string | null>(null);
+  readonly clipboardFallback = signal<string | null>(null);
 
   constructor(
     protected liveSession: LiveSessionService,
     private router: Router
-  ) {}
+  ) {
+    window.addEventListener('focus', this.onWindowFocus);
+  }
 
   readonly rosterError = signal<string | null>(null);
 
@@ -122,6 +129,20 @@ export class SessionDashboard implements OnDestroy {
   async setMode(mode: 'variety' | 'balanced'): Promise<void> {
     this.rosterError.set(null);
     const result = await this.liveSession.setMode(mode);
+    this.rosterError.set(result.error ?? null);
+  }
+
+  /**
+   * Court bookings change mid-evening (one court at 19:00, three at 20:00 is a
+   * normal booking), so the host adjusts the count when the later slot starts.
+   * Stepping rather than free text: the value is small and the host is on a
+   * phone at courtside.
+   */
+  async changeCourtCount(delta: number): Promise<void> {
+    const next = this.courtCount() + delta;
+    if (next < 1 || next > 20) return;
+    this.rosterError.set(null);
+    const result = await this.liveSession.setCourtCount(next);
     this.rosterError.set(result.error ?? null);
   }
 
@@ -159,9 +180,12 @@ export class SessionDashboard implements OnDestroy {
    * it, so this hands over something pasteable.
    */
   async copyDisplayLink(): Promise<void> {
-    const ok = await copyToClipboard(absoluteUrl(`/s/${this.session()!.code}/display`));
+    const url = absoluteUrl(`/s/${this.session()!.code}/display`);
+    this.clipboardFallback.set(null);
+    const ok = await copyToClipboard(url);
     if (!ok) {
       this.rosterError.set($localize`:@@share.failed:คัดลอกไม่ได้ ลองเลือกข้อความเอง`);
+      this.clipboardFallback.set(url);
       return;
     }
     this.displayLinkCopied.set(true);
@@ -170,19 +194,20 @@ export class SessionDashboard implements OnDestroy {
 
   async copyShareText(): Promise<void> {
     const text = this.shareText();
-    try {
-      await navigator.clipboard.writeText(text);
+    this.clipboardFallback.set(null);
+    if (await copyToClipboard(text)) {
       this.copied.set(true);
       setTimeout(() => this.copied.set(false), 2000);
-    } catch {
-      // Clipboard access can be denied or unavailable (older browsers, an
-      // insecure origin). Surfacing the text is more useful than a dead button.
+    } else {
       this.rosterError.set($localize`:@@share.failed:คัดลอกไม่ได้ ลองเลือกข้อความเอง`);
+      this.clipboardFallback.set(text);
     }
   }
 
   ngOnDestroy(): void {
     clearInterval(this.clock);
+    clearInterval(this.refreshInterval);
+    window.removeEventListener('focus', this.onWindowFocus);
   }
 
   async endSession(): Promise<void> {

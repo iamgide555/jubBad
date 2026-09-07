@@ -1,8 +1,17 @@
 <div class="page group-entry">
   <label>
     <ng-container i18n="@@entry.groupName">ชื่อก๊วน</ng-container>
-    <input type="text" [(ngModel)]="groupName" (blur)="saveGroupName()" i18n-placeholder="@@entry.groupNamePlaceholder" placeholder="เช่น ก๊วนอังคาร" />
+    <input type="text" [(ngModel)]="groupName" [disabled]="isRenaming()" [attr.aria-busy]="isRenaming()" (blur)="saveGroupName()" i18n-placeholder="@@entry.groupNamePlaceholder" placeholder="เช่น ก๊วนอังคาร" />
   </label>
+  @if (isRenaming()) {
+    <p class="muted" i18n="@@entry.savingGroup">กำลังบันทึกชื่อก๊วน...</p>
+  }
+  @if (renameError()) {
+    <p class="error">
+      {{ renameError() }}
+      <button type="button" class="ghost" [disabled]="isRenaming()" (click)="saveGroupName()" i18n="@@entry.retry">ลองอีกครั้ง</button>
+    </p>
+  }
 
   @if (lastSessionCode()) {
     <p><a [routerLink]="['/s', lastSessionCode()]" i18n="@@entry.resumeLast">กลับไปก๊วนล่าสุด →</a></p>
@@ -32,7 +41,13 @@
     @if (pasteError()) {
       <p class="error">{{ pasteError() }}</p>
     }
-    <button type="button" (click)="parse()" i18n="@@entry.parse">อ่านรายชื่อ</button>
+    <button type="button" [disabled]="isParsing()" [attr.aria-busy]="isParsing()" (click)="parse()">
+      @if (isParsing()) {
+        <ng-container i18n="@@entry.parsingRoster">กำลังอ่านรายชื่อ...</ng-container>
+      } @else {
+        <ng-container i18n="@@entry.parse">อ่านรายชื่อ</ng-container>
+      }
+    </button>
 
     <hr class="rule" />
     <button type="button" class="ghost" (click)="showDanger.set(!showDanger())" i18n="@@entry.manageGroup">จัดการก๊วน</button>
@@ -96,7 +111,16 @@
           <span class="review-index">{{ i + 1 }}</span>
           <span class="review-name">{{ review.inputName }}</span>
           @switch (review.match.type) {
-            @case ('exact') { <span class="review-tag matched" i18n="@@entry.knownPlayer">มีอยู่แล้ว</span> }
+            @case ('exact') {
+              @if (review.decision === 'accept') {
+                <span class="review-tag matched" i18n="@@entry.knownPlayer">มีอยู่แล้ว</span>
+              } @else {
+                <span class="review-tag new" i18n="@@entry.newPlayer">คนใหม่</span>
+              }
+              <button type="button" class="ghost" (click)="toggleDecision(review)">
+                {{ decisionLabel(review) }}
+              </button>
+            }
             @case ('fuzzy') {
               <span class="review-tag fuzzy" i18n="@@entry.isThis">
                 ใช่ {{ playerName(review.match.playerId) }} ไหม?
@@ -127,7 +151,16 @@
             <span class="review-index">{{ i + 1 }}</span>
             <span class="review-name">{{ review.inputName }}</span>
             @switch (review.match.type) {
-              @case ('exact') { <span class="review-tag matched" i18n="@@entry.knownPlayer">มีอยู่แล้ว</span> }
+              @case ('exact') {
+                @if (review.decision === 'accept') {
+                  <span class="review-tag matched" i18n="@@entry.knownPlayer">มีอยู่แล้ว</span>
+                } @else {
+                  <span class="review-tag new" i18n="@@entry.newPlayer">คนใหม่</span>
+                }
+                <button type="button" class="ghost" (click)="toggleDecision(review)">
+                  {{ decisionLabel(review) }}
+                </button>
+              }
               @case ('fuzzy') {
                 <span class="review-tag fuzzy" i18n="@@entry.isThis">
                   ใช่ {{ playerName(review.match.playerId) }} ไหม?
@@ -151,6 +184,18 @@
       </ol>
     }
 
-    <button type="button" [disabled]="!canConfirm()" (click)="confirmRoster()" i18n="@@entry.confirmRoster">ยืนยันรายชื่อ</button>
+    <button type="button" [disabled]="isSubmitting() || !canConfirm()" [attr.aria-busy]="isSubmitting()" (click)="confirmRoster()">
+      @if (isSubmitting()) {
+        <ng-container i18n="@@entry.confirmingRoster">กำลังบันทึกรายชื่อ...</ng-container>
+      } @else {
+        <ng-container i18n="@@entry.confirmRoster">ยืนยันรายชื่อ</ng-container>
+      }
+    </button>
+    @if (confirmError()) {
+      <p class="error">
+        {{ confirmError() }}
+        <button type="button" class="ghost" [disabled]="isSubmitting()" (click)="confirmRoster()" i18n="@@entry.retry">ลองอีกครั้ง</button>
+      </p>
+    }
   }
 </div>

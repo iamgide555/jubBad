@@ -100,6 +100,36 @@ describe('GroupEntry', () => {
     expect(component.pasteError()).toContain('ไม่พบรายชื่อผู้เล่น');
   });
 
+  it('keeps pasted input and allows a retry when parsing fails', async () => {
+    component.groupName.set('Group A');
+    component.rawText.set('1. Alice');
+
+    const failedParse = component.parse();
+    expect(component.isParsing()).toBe(true);
+    httpMock
+      .expectOne(`${B}/groups/group1/parse`)
+      .flush('Server error', { status: 500, statusText: 'Server Error' });
+    await failedParse;
+
+    expect(component.state()).toBe('paste');
+    expect(component.rawText()).toBe('1. Alice');
+    expect(component.pasteError()).toContain('อ่านรายชื่อไม่สำเร็จ');
+    expect(component.isParsing()).toBe(false);
+
+    const retry = component.parse();
+    httpMock.expectOne(`${B}/groups/group1/parse`).flush({
+      header: { isoDate: '2026-09-08', venue: null, courtCount: 1 },
+      rosterReviews: [{ inputName: 'Alice', match: { type: 'new' } }],
+      waitlistReviews: [],
+      warnings: [],
+      unrecognizedLines: [],
+    });
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    httpMock.expectOne(`${B}/groups/group1/players`).flush([]);
+    await retry;
+    expect(component.state()).toBe('confirm');
+  });
+
   it('a successful parse switches to confirm, prefilling header fields and reviews', async () => {
     component.groupName.set('Group A');
     component.rawText.set('1. ตั้ม\n2. เกียร์');
@@ -201,7 +231,7 @@ describe('GroupEntry', () => {
     const labels = Array.from(
       fixture.nativeElement.querySelectorAll('.review-list .review-row button')
     ).map((b) => (b as HTMLElement).textContent!.trim());
-    expect(labels).toEqual(['คนเดียวกัน']);
+    expect(labels).toEqual(['ใช้ผู้เล่นเดิม', 'คนเดียวกัน']);
     expect(component.rosterReviews().map((r) => r.decision)).toEqual(['accept', 'accept']);
   });
 
@@ -279,12 +309,61 @@ describe('GroupEntry', () => {
       date: '2026-09-08',
       venue: 'KIP',
       courtCount: 2,
+      idempotencyKey: expect.any(String),
     });
     req.flush({ code: 'sess1' });
     await confirmPromise;
     await fixture.whenStable();
 
     expect(router.url).toBe('/s/sess1');
+  });
+
+  it('disables confirmation and sends only one request while creation is in flight', async () => {
+    component.date.set('2026-09-08');
+    component.courtCount.set(1);
+    component.rawText.set('1. Alice');
+    component.rosterReviews.set([
+      { inputName: 'Alice', match: { type: 'new' }, decision: 'accept' },
+    ]);
+    component.state.set('confirm');
+    fixture.detectChanges();
+
+    const pending = component.confirmRoster();
+    fixture.detectChanges();
+    expect(component.isSubmitting()).toBe(true);
+    expect(fixture.nativeElement.querySelector('button[aria-busy="true"]').disabled).toBe(true);
+
+    await component.confirmRoster();
+    const req = httpMock.expectOne(`${B}/sessions`);
+    req.flush({ code: 'sess1' });
+    await pending;
+    expect(component.isSubmitting()).toBe(false);
+  });
+
+  it('preserves reviews and idempotency key when creation fails, then retries safely', async () => {
+    component.date.set('2026-09-08');
+    component.courtCount.set(1);
+    component.rawText.set('1. Alice');
+    component.rosterReviews.set([
+      { inputName: 'Alice', match: { type: 'new' }, decision: 'accept' },
+    ]);
+    component.state.set('confirm');
+
+    const failedCreate = component.confirmRoster();
+    const first = httpMock.expectOne(`${B}/sessions`);
+    const idempotencyKey = first.request.body.idempotencyKey;
+    first.flush('Server error', { status: 500, statusText: 'Server Error' });
+    await failedCreate;
+
+    expect(component.confirmError()).toContain('สร้างก๊วนไม่สำเร็จ');
+    expect(component.isSubmitting()).toBe(false);
+    expect(component.rosterReviews()).toHaveLength(1);
+
+    const retry = component.confirmRoster();
+    const second = httpMock.expectOne(`${B}/sessions`);
+    expect(second.request.body.idempotencyKey).toBe(idempotencyKey);
+    second.flush({ code: 'sess1' });
+    await retry;
   });
 
   it('confirmRoster trims a whitespace-only venue to null', async () => {
@@ -313,14 +392,34 @@ describe('GroupEntry', () => {
     await confirmPromise;
   });
 
-  it('saveGroupName sends the group name via renameGroup', () => {
+  it('saveGroupName sends the group name via renameGroup', async () => {
     component.groupName.set('Group A');
-    component.saveGroupName();
+    const save = component.saveGroupName();
 
     const req = httpMock.expectOne(`${B}/groups/group1`);
     expect(req.request.method).toBe('PUT');
     expect(req.request.body).toEqual({ name: 'Group A' });
     req.flush({ code: 'group1', name: 'Group A' });
+    await save;
+  });
+
+  it('preserves the group name and allows a retry when renaming fails', async () => {
+    component.groupName.set('Group A');
+    const failedSave = component.saveGroupName();
+    expect(component.isRenaming()).toBe(true);
+    httpMock
+      .expectOne(`${B}/groups/group1`)
+      .flush('Server error', { status: 500, statusText: 'Server Error' });
+    await failedSave;
+
+    expect(component.groupName()).toBe('Group A');
+    expect(component.renameError()).toContain('บันทึกชื่อก๊วนไม่สำเร็จ');
+    expect(component.isRenaming()).toBe(false);
+
+    const retry = component.saveGroupName();
+    httpMock.expectOne(`${B}/groups/group1`).flush({ code: 'group1', name: 'Group A' });
+    await retry;
+    expect(component.renameError()).toBeNull();
   });
 
   it('lists past sessions for the group', async () => {

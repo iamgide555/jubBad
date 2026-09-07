@@ -1,13 +1,27 @@
 import { randomUUID } from 'node:crypto';
-import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  Injectable,
+  InternalServerErrorException,
+  NotFoundException,
+} from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { confirmExistingPlayerAlias, createNewPlayer, type Player as FuzzyPlayer } from '../../../engines/fuzzy-match.ts';
 import { computeRatings } from '../../../engines/elo.ts';
-import { generateRound, scoreArrangement } from '../../../engines/pairing.ts';
+import {
+  compareArrangements,
+  generateRound,
+  InvalidRoundInputError,
+} from '../../../engines/pairing.ts';
+import { isValidIsoDate } from '../../../engines/parser.ts';
+import { waitingSinceMap } from '../../../engines/waiting.ts';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { deriveHistory } from './derive-history.js';
 import { SessionLock } from './session-lock.js';
 import type { CreateSessionDto, NameReviewDto } from './dto/create-session.dto.js';
 import type { FinishPairingDto } from './dto/finish-pairing.dto.js';
+import type { SetCourtCountDto } from './dto/set-court-count.dto.js';
 import type { SetModeDto } from './dto/set-mode.dto.js';
 import type { SetRosterActiveDto } from './dto/set-roster-active.dto.js';
 import type { SwapPlayerDto } from './dto/swap-player.dto.js';
@@ -18,93 +32,165 @@ export class SessionsService {
 
   constructor(private readonly prisma: PrismaService) {}
 
-  async createSession(dto: CreateSessionDto): Promise<{ code: string }> {
-    const dbPlayers = await this.prisma.player.findMany({ where: { groupId: dto.groupCode } });
-    let players: FuzzyPlayer[] = dbPlayers.map((p) => ({
-      id: p.id,
-      name: p.name,
-      aliases: JSON.parse(p.aliases) as string[],
-    }));
+  private badRequest(code: string): BadRequestException {
+    return new BadRequestException({ code });
+  }
 
-    const newPlayerWrites: { id: string; name: string }[] = [];
-    const aliasWrites = new Map<string, string[]>();
-
-    /**
-     * A player can hold only one slot in a list — `sessionRoster` and
-     * `waitlist` both carry a per-player uniqueness constraint, so a repeated
-     * id aborts the transaction and the host loses the whole import. Reviews
-     * arrive from the client, so this cannot lean on the engine having
-     * deduplicated them: `seen` is the guard that makes the write safe
-     * whatever it is sent.
-     */
-    const resolve = (reviews: NameReviewDto[]): string[] => {
-      const seen = new Set<string>();
-      const ids: string[] = [];
-
-      for (const review of reviews) {
-        // A duplicate the host confirmed is the same person adds no second
-        // slot; left as a different person it becomes a player of its own,
-        // which is the default and the safer way to be wrong — a merge that
-        // should have been two people is the one this cannot undo.
-        if (review.match.type === 'duplicate' && review.decision === 'accept') {
-          continue;
-        }
-
-        let id: string;
-        if (review.match.type === 'exact') {
-          id = review.match.playerId!;
-        } else if (review.match.type === 'fuzzy' && review.decision === 'accept') {
-          players = confirmExistingPlayerAlias(players, review.match.playerId!, review.inputName);
-          const updated = players.find((p) => p.id === review.match.playerId)!;
-          aliasWrites.set(updated.id, updated.aliases);
-          id = updated.id;
-        } else {
-          id = randomUUID();
-          players = createNewPlayer(players, id, review.inputName);
-          newPlayerWrites.push({ id, name: review.inputName });
-        }
-
-        if (seen.has(id)) continue;
-        seen.add(id);
-        ids.push(id);
+  /**
+   * The engine refuses input it cannot mean anything about — a duplicated
+   * roster entry, a negative game count. Those are corrupt server state, not
+   * something the host did, so they must not come back as the ordinary
+   * "not enough players" answer: that reads as "go find more people" and hides
+   * the real fault indefinitely. 500 with a distinct code, and the detail is
+   * kept because these endpoints are already admin-only.
+   */
+  private runGenerateRound(...args: Parameters<typeof generateRound>) {
+    try {
+      return generateRound(...args);
+    } catch (error) {
+      if (error instanceof InvalidRoundInputError) {
+        throw new InternalServerErrorException({
+          code: 'INVALID_SESSION_STATE',
+          detail: error.message,
+        });
       }
+      throw error;
+    }
+  }
 
-      return ids;
-    };
+  private conflict(code: string, details?: Record<string, unknown>): ConflictException {
+    return new ConflictException({ code, ...details });
+  }
 
-    const rosterPlayerIds = resolve(dto.rosterReviews);
-    const waitlistPlayerIds = resolve(dto.waitlistReviews);
+  private notFound(code: string): NotFoundException {
+    return new NotFoundException({ code });
+  }
 
-    const code = randomUUID().slice(0, 8);
+  async createSession(dto: CreateSessionDto): Promise<{ code: string }> {
+    if (dto.date != null && !isValidIsoDate(dto.date)) {
+      throw new BadRequestException('Session date must be a valid ISO calendar date.');
+    }
 
-    await this.prisma.$transaction([
-      ...newPlayerWrites.map((p) =>
-        this.prisma.player.create({
-          data: { id: p.id, groupId: dto.groupCode, name: p.name, aliases: '[]' },
-        })
-      ),
-      ...[...aliasWrites.entries()].map(([id, aliases]) =>
-        this.prisma.player.update({ where: { id }, data: { aliases: JSON.stringify(aliases) } })
-      ),
-      this.prisma.session.create({
-        data: {
-          code,
-          groupId: dto.groupCode,
-          date: dto.date,
-          venue: dto.venue,
-          courtCount: dto.courtCount,
-          rawImportText: dto.rawImportText,
-        },
-      }),
-      ...rosterPlayerIds.map((playerId) =>
-        this.prisma.sessionRoster.create({ data: { sessionId: code, playerId } })
-      ),
-      ...waitlistPlayerIds.map((playerId, i) =>
-        this.prisma.waitlist.create({ data: { sessionId: code, playerId, position: i } })
-      ),
-    ]);
+    try {
+      return await this.prisma.$transaction(async (tx) => {
+        const prior = await tx.sessionCreation.findUnique({
+          where: {
+            groupId_idempotencyKey: {
+              groupId: dto.groupCode,
+              idempotencyKey: dto.idempotencyKey,
+            },
+          },
+          select: { sessionId: true },
+        });
+        if (prior) return { code: prior.sessionId };
 
-    return { code };
+        const group = await tx.group.findUnique({
+          where: { code: dto.groupCode },
+          select: { code: true },
+        });
+        if (!group) throw new BadRequestException('The requested group does not exist.');
+
+        const dbPlayers = await tx.player.findMany({ where: { groupId: dto.groupCode } });
+        const playersById = new Map(dbPlayers.map((player) => [player.id, player]));
+        let players: FuzzyPlayer[] = dbPlayers.map((player) => ({
+          id: player.id,
+          name: player.name,
+          aliases: JSON.parse(player.aliases) as string[],
+        }));
+        const newPlayerWrites: { id: string; name: string }[] = [];
+        const aliasWrites = new Map<string, string[]>();
+
+        // Resolve all choices before deduplicating IDs. An earlier fuzzy
+        // suggestion may become a new player while a later duplicate is
+        // accepted as the real existing player.
+        const resolve = (reviews: NameReviewDto[]): string[] => {
+          const resolvedIds: string[] = [];
+          for (const review of reviews) {
+            const useExisting = review.decision === 'accept' && review.match.type !== 'new';
+            if (useExisting) {
+              const playerId = review.match.playerId;
+              if (!playerId || !playersById.has(playerId)) {
+                throw new BadRequestException(
+                  'Each accepted player must exist in the requested group.'
+                );
+              }
+
+              if (review.match.type === 'fuzzy' || review.match.type === 'duplicate') {
+                players = confirmExistingPlayerAlias(players, playerId, review.inputName);
+                const updated = players.find((player) => player.id === playerId)!;
+                aliasWrites.set(playerId, updated.aliases);
+              }
+              resolvedIds.push(playerId);
+            } else {
+              const id = randomUUID();
+              players = createNewPlayer(players, id, review.inputName);
+              newPlayerWrites.push({ id, name: review.inputName });
+              resolvedIds.push(id);
+            }
+          }
+          return [...new Set(resolvedIds)];
+        };
+
+        const rosterPlayerIds = resolve(dto.rosterReviews);
+        const waitlistPlayerIds = resolve(dto.waitlistReviews);
+        const code = randomUUID().slice(0, 8);
+
+        await Promise.all(
+          newPlayerWrites.map((player) =>
+            tx.player.create({
+              data: { id: player.id, groupId: dto.groupCode, name: player.name, aliases: '[]' },
+            })
+          )
+        );
+        await Promise.all(
+          [...aliasWrites.entries()].map(([id, aliases]) =>
+            tx.player.update({ where: { id }, data: { aliases: JSON.stringify(aliases) } })
+          )
+        );
+        await tx.session.create({
+          data: {
+            code,
+            groupId: dto.groupCode,
+            date: dto.date,
+            venue: dto.venue,
+            courtCount: dto.courtCount,
+            rawImportText: dto.rawImportText,
+          },
+        });
+        await tx.sessionCreation.create({
+          data: {
+            groupId: dto.groupCode,
+            idempotencyKey: dto.idempotencyKey,
+            sessionId: code,
+          },
+        });
+        await Promise.all(
+          rosterPlayerIds.map((playerId) =>
+            tx.sessionRoster.create({ data: { sessionId: code, playerId } })
+          )
+        );
+        await Promise.all(
+          waitlistPlayerIds.map((playerId, position) =>
+            tx.waitlist.create({ data: { sessionId: code, playerId, position } })
+          )
+        );
+        return { code };
+      });
+    } catch (error) {
+      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
+        const prior = await this.prisma.sessionCreation.findUnique({
+          where: {
+            groupId_idempotencyKey: {
+              groupId: dto.groupCode,
+              idempotencyKey: dto.idempotencyKey,
+            },
+          },
+          select: { sessionId: true },
+        });
+        if (prior) return { code: prior.sessionId };
+      }
+      throw error;
+    }
   }
 
   async getSession(code: string) {
@@ -112,7 +198,7 @@ export class SessionsService {
       where: { code },
       include: { roster: true, waitlist: { orderBy: { position: 'asc' } }, pairings: true },
     });
-    if (!session) throw new NotFoundException();
+    if (!session) throw this.notFound('SESSION_NOT_FOUND');
 
     const courtCount = session.courtCount ?? 0;
     const courts = Array.from({ length: courtCount }, (_, i) => {
@@ -126,8 +212,22 @@ export class SessionsService {
       const teamA = JSON.parse(current.teamA) as [string, string];
       const teamB = JSON.parse(current.teamB) as [string, string];
       return current.confirmedAt
-        ? { courtNumber, status: 'active' as const, pairingId: current.id, teamA, teamB }
-        : { courtNumber, status: 'pending' as const, pairingId: current.id, teamA, teamB };
+        ? {
+            courtNumber,
+            status: 'active' as const,
+            pairingId: current.id,
+            revision: current.revision,
+            teamA,
+            teamB,
+          }
+        : {
+            courtNumber,
+            status: 'pending' as const,
+            pairingId: current.id,
+            revision: current.revision,
+            teamA,
+            teamB,
+          };
     });
 
     return {
@@ -152,6 +252,27 @@ export class SessionsService {
       ),
       rosterPlayerIds: session.roster.map((r) => r.playerId),
       restingPlayerIds: session.roster.filter((r) => !r.active).map((r) => r.playerId),
+      /**
+       * Games as the *rotation* counts them: matches played tonight plus the
+       * fairness offset a late arrival was credited with. This exists so the
+       * waiting list can be ordered the way the engine actually selects, and
+       * is deliberately not a statistic — the stats endpoints read the Pairing
+       * rows and never see the offset.
+       */
+      queueGames: Object.fromEntries(
+        session.roster.map((r) => [
+          r.playerId,
+          r.gamesOffset +
+            session.pairings.filter(
+              (p) =>
+                p.confirmedAt !== null &&
+                [
+                  ...(JSON.parse(p.teamA) as [string, string]),
+                  ...(JSON.parse(p.teamB) as [string, string]),
+                ].includes(r.playerId)
+            ).length,
+        ])
+      ),
       // Only set for players who joined or returned part-way through. Their
       // wait runs from here rather than from the session start, which would
       // otherwise credit a late arrival with hours they were not present for.
@@ -176,7 +297,7 @@ export class SessionsService {
       teamB: JSON.parse(p.teamB) as [string, string],
     });
 
-    const [allTime, thisSession, roster] = await Promise.all([
+    const [allTime, thisSession, roster, session, finished] = await Promise.all([
       this.prisma.pairing.findMany({
         where: { session: { groupId: groupCode }, confirmedAt: { not: null } },
         select: { teamA: true, teamB: true },
@@ -187,7 +308,16 @@ export class SessionsService {
       }),
       this.prisma.sessionRoster.findMany({
         where: { sessionId: sessionCode },
-        select: { playerId: true, gamesOffset: true },
+        select: { playerId: true, gamesOffset: true, activatedAt: true },
+      }),
+      this.prisma.session.findUnique({
+        where: { code: sessionCode },
+        select: { createdAt: true },
+      }),
+      this.prisma.pairing.findMany({
+        where: { sessionId: sessionCode, endedAt: { not: null } },
+        select: { teamA: true, teamB: true, endedAt: true },
+        orderBy: { endedAt: 'asc' },
       }),
     ]);
 
@@ -205,7 +335,43 @@ export class SessionsService {
       );
     }
 
+    // Breaks ties between players level on games, so the person who has been
+    // sitting longest goes on first — the order the host already sees in the
+    // waiting list. Built from the same three moments the client uses.
+    if (session) {
+      const lastPlayedAt: Record<string, string> = {};
+      for (const pairing of finished) {
+        for (const id of [
+          ...(JSON.parse(pairing.teamA) as [string, string]),
+          ...(JSON.parse(pairing.teamB) as [string, string]),
+        ]) {
+          lastPlayedAt[id] = pairing.endedAt!.toISOString();
+        }
+      }
+      const activatedAt: Record<string, string> = {};
+      for (const entry of roster) {
+        if (entry.activatedAt) activatedAt[entry.playerId] = entry.activatedAt.toISOString();
+      }
+      history.waitingSince = waitingSinceMap(
+        roster.map((r) => r.playerId),
+        lastPlayedAt,
+        session.createdAt.toISOString(),
+        activatedAt
+      );
+    }
+
     return history;
+  }
+
+  private assertCourtNumber(courtCount: number | null, courtNumber: number): void {
+    if (
+      !Number.isInteger(courtNumber) ||
+      courtNumber < 1 ||
+      courtCount === null ||
+      courtNumber > courtCount
+    ) {
+      throw this.badRequest('INVALID_COURT_NUMBER');
+    }
   }
 
   propose(sessionCode: string, courtNumber: number) {
@@ -214,10 +380,11 @@ export class SessionsService {
 
   private async proposeExclusively(sessionCode: string, courtNumber: number) {
     const session = await this.prisma.session.findUnique({ where: { code: sessionCode } });
-    if (!session) throw new NotFoundException();
+    if (!session) throw this.notFound('SESSION_NOT_FOUND');
     if (session.endedAt !== null) {
-      throw new ConflictException('ก๊วนนี้จบแล้ว');
+      throw this.conflict('SESSION_ENDED');
     }
+    this.assertCourtNumber(session.courtCount, courtNumber);
 
     const roster = await this.prisma.sessionRoster.findMany({
       where: { sessionId: sessionCode, active: true },
@@ -231,7 +398,10 @@ export class SessionsService {
     let existingPending: (typeof nonEnded)[number] | undefined;
     for (const p of nonEnded) {
       if (p.courtNumber === courtNumber) {
-        if (p.confirmedAt === null) existingPending = p;
+        if (p.confirmedAt !== null) {
+          throw this.conflict('COURT_ACTIVE');
+        }
+        existingPending = p;
         continue;
       }
       const [a1, a2] = JSON.parse(p.teamA) as [string, string];
@@ -255,25 +425,9 @@ export class SessionsService {
     const ratings =
       session.mode === 'balanced' ? await this.loadRatings(session.groupId) : undefined;
 
-    // Plan across every idle court, then commit only the one asked for.
-    //
-    // Solving one court in isolation takes the four least-played and leaves
-    // whoever remains to be shovelled onto the next court together — that
-    // court gets no choice of players at all, only of how to split them. When
-    // two courts finish together that reliably recreates the same opponents,
-    // which is what players actually noticed. Planning across all of them and
-    // committing one keeps the per-court flow the host is used to while giving
-    // the engine the freedom it needs.
-    const idleCourtCount = Math.max(
-      1,
-      Array.from({ length: session.courtCount ?? 1 }, (_, i) => i + 1).filter(
-        (n) => n === courtNumber || !nonEnded.some((p) => p.courtNumber === n)
-      ).length
-    );
-
-    const result = generateRound(
+    const result = this.runGenerateRound(
       available,
-      idleCourtCount,
+      1,
       history,
       undefined,
       avoidSplit,
@@ -286,23 +440,35 @@ export class SessionsService {
     const teamA = JSON.stringify(proposed.teamA);
     const teamB = JSON.stringify(proposed.teamB);
 
-    const pairing = existingPending
-      ? await this.prisma.pairing.update({
-          where: { id: existingPending.id },
-          data: { teamA, teamB },
-        })
-      : await this.prisma.pairing.create({
-          data: {
-            sessionId: sessionCode,
-            courtNumber,
-            matchNumber:
-              (await this.prisma.pairing.count({
-                where: { sessionId: sessionCode, courtNumber, confirmedAt: { not: null } },
-              })) + 1,
-            teamA,
-            teamB,
-          },
-        });
+    let pairing;
+    if (existingPending) {
+      const updated = await this.prisma.pairing.updateMany({
+        where: {
+          id: existingPending.id,
+          confirmedAt: null,
+          endedAt: null,
+          revision: existingPending.revision,
+        },
+        data: { teamA, teamB, revision: { increment: 1 } },
+      });
+      if (updated.count !== 1) {
+        throw this.conflict('PAIRING_STALE');
+      }
+      pairing = await this.prisma.pairing.findUniqueOrThrow({ where: { id: existingPending.id } });
+    } else {
+      pairing = await this.prisma.pairing.create({
+        data: {
+          sessionId: sessionCode,
+          courtNumber,
+          matchNumber:
+            (await this.prisma.pairing.count({
+              where: { sessionId: sessionCode, courtNumber, confirmedAt: { not: null } },
+            })) + 1,
+          teamA,
+          teamB,
+        },
+      });
+    }
 
     return {
       ok: true as const,
@@ -310,6 +476,7 @@ export class SessionsService {
         id: pairing.id,
         courtNumber: pairing.courtNumber,
         matchNumber: pairing.matchNumber,
+        revision: pairing.revision,
         teamA: proposed.teamA,
         teamB: proposed.teamB,
       },
@@ -331,74 +498,194 @@ export class SessionsService {
    */
   private async pairingInSession(sessionCode: string, id: string) {
     const pairing = await this.prisma.pairing.findUnique({ where: { id } });
-    if (!pairing || pairing.sessionId !== sessionCode) throw new NotFoundException();
+    if (!pairing || pairing.sessionId !== sessionCode) throw this.notFound('PAIRING_NOT_FOUND');
     return pairing;
   }
 
-  async confirmPairing(sessionCode: string, id: string) {
-    const pairing = await this.pairingInSession(sessionCode, id);
-    if (pairing.endedAt !== null) {
-      throw new ConflictException('แมตช์นี้จบไปแล้ว');
-    }
-    if (pairing.confirmedAt !== null) {
-      throw new ConflictException('แมตช์นี้เริ่มไปแล้ว');
-    }
-    return this.prisma.pairing.update({ where: { id }, data: { confirmedAt: new Date() } });
+  confirmPairing(sessionCode: string, id: string, expectedRevision?: number) {
+    return this.lock.run(sessionCode, () =>
+      this.confirmPairingExclusively(sessionCode, id, expectedRevision)
+    );
   }
 
-  async finishPairing(sessionCode: string, id: string, dto: FinishPairingDto) {
+  private async confirmPairingExclusively(
+    sessionCode: string,
+    id: string,
+    expectedRevision?: number
+  ) {
     const pairing = await this.pairingInSession(sessionCode, id);
+    const session = await this.prisma.session.findUniqueOrThrow({ where: { code: sessionCode } });
+    if (session.endedAt !== null) {
+      throw this.conflict('SESSION_ENDED');
+    }
+    if (pairing.endedAt !== null) {
+      throw this.conflict('PAIRING_ENDED');
+    }
+    if (pairing.confirmedAt !== null) {
+      throw this.conflict('PAIRING_CONFIRMED');
+    }
+
+    // Availability is checked here, not when the player was rested. Resting
+    // someone must never disturb a match already being played — they are on
+    // court — but a *pending* proposal is only a suggestion, and confirming it
+    // would put a player who has gone home onto a court. Checking at
+    // confirmation covers both without the host having to remember which
+    // courts had proposals open. The fix is a swap or a reshuffle, both of
+    // which already draw only from active players.
+    const four = [
+      ...(JSON.parse(pairing.teamA) as [string, string]),
+      ...(JSON.parse(pairing.teamB) as [string, string]),
+    ];
+    const unavailable = await this.prisma.sessionRoster.findMany({
+      where: { sessionId: sessionCode, playerId: { in: four }, active: false },
+      select: { playerId: true },
+    });
+    if (unavailable.length > 0) {
+      throw this.conflict('PLAYER_UNAVAILABLE', {
+        playerIds: unavailable.map((r) => r.playerId),
+      });
+    }
+
+    const updated = await this.prisma.pairing.updateMany({
+      where: {
+        id,
+        confirmedAt: null,
+        endedAt: null,
+        revision: expectedRevision ?? pairing.revision,
+      },
+      data: { confirmedAt: new Date(), revision: { increment: 1 } },
+    });
+    if (updated.count !== 1) {
+      throw this.conflict('PAIRING_STALE');
+    }
+    return this.prisma.pairing.findUniqueOrThrow({ where: { id } });
+  }
+
+  finishPairing(sessionCode: string, id: string, dto: FinishPairingDto) {
+    return this.lock.run(sessionCode, () => this.finishPairingExclusively(sessionCode, id, dto));
+  }
+
+  private async finishPairingExclusively(
+    sessionCode: string,
+    id: string,
+    dto: FinishPairingDto
+  ) {
+    const pairing = await this.pairingInSession(sessionCode, id);
+    const session = await this.prisma.session.findUniqueOrThrow({ where: { code: sessionCode } });
+    if (session.endedAt !== null) {
+      throw this.conflict('SESSION_ENDED');
+    }
     // Finishing a pairing nobody confirmed would leave a row that counts in
     // the stats table but is invisible to the pairing history, since the two
     // read different columns. Confirm is the single commit point (§7.2).
     if (pairing.confirmedAt === null) {
-      throw new ConflictException('ยืนยันแมตช์ก่อนบันทึกผล');
+      throw this.conflict('PAIRING_CONFIRMATION_REQUIRED');
     }
     if (pairing.endedAt !== null) {
-      throw new ConflictException('แมตช์นี้จบไปแล้ว');
+      throw this.conflict('PAIRING_ENDED');
     }
-    return this.prisma.pairing.update({
-      where: { id },
-      data: { endedAt: new Date(), scoreA: dto.scoreA, scoreB: dto.scoreB, winner: dto.winner },
+    this.assertCoherentResult(dto);
+
+    const updated = await this.prisma.pairing.updateMany({
+      where: {
+        id,
+        confirmedAt: { not: null },
+        endedAt: null,
+        revision: dto.expectedRevision ?? pairing.revision,
+      },
+      data: {
+        endedAt: new Date(),
+        scoreA: dto.scoreA ?? null,
+        scoreB: dto.scoreB ?? null,
+        winner: dto.winner ?? null,
+        revision: { increment: 1 },
+      },
     });
+    if (updated.count !== 1) {
+      throw this.conflict('PAIRING_STALE');
+    }
+    return this.prisma.pairing.findUniqueOrThrow({ where: { id } });
   }
 
-  async endSession(code: string) {
+  private assertCoherentResult(dto: FinishPairingDto): void {
+    const scoreA = dto.scoreA ?? null;
+    const scoreB = dto.scoreB ?? null;
+    const winner = dto.winner ?? null;
+    const hasScoreA = scoreA !== null;
+    const hasScoreB = scoreB !== null;
+
+    if (hasScoreA !== hasScoreB) {
+      throw this.badRequest('INCOMPLETE_SCORES');
+    }
+    if (
+      (hasScoreA && (!Number.isInteger(scoreA) || scoreA! < 0)) ||
+      (hasScoreB && (!Number.isInteger(scoreB) || scoreB! < 0))
+    ) {
+      throw this.badRequest('INVALID_SCORE');
+    }
+    if (winner !== null && winner !== 'A' && winner !== 'B') {
+      throw this.badRequest('INVALID_WINNER');
+    }
+    if (hasScoreA && winner === null) {
+      throw this.badRequest('WINNER_REQUIRED_FOR_SCORES');
+    }
+    if (
+      hasScoreA &&
+      ((winner === 'A' && scoreA! <= scoreB!) || (winner === 'B' && scoreB! <= scoreA!))
+    ) {
+      throw this.badRequest('WINNER_SCORE_MISMATCH');
+    }
+  }
+
+  endSession(code: string) {
+    return this.lock.run(code, () => this.endSessionExclusively(code));
+  }
+
+  private async endSessionExclusively(code: string) {
     const session = await this.prisma.session.findUnique({ where: { code } });
-    if (!session) throw new NotFoundException();
+    if (!session) throw this.notFound('SESSION_NOT_FOUND');
 
     const unfinished = await this.prisma.pairing.findFirst({
       where: { sessionId: code, endedAt: null },
     });
     if (unfinished) {
-      throw new ConflictException('จบแมตช์ในคอร์ทที่ยังเล่นอยู่ก่อนจบก๊วน');
+      throw this.conflict('SESSION_HAS_UNFINISHED_PAIRINGS');
     }
 
-    const updated = await this.prisma.session.update({
-      where: { code },
+    const updated = await this.prisma.session.updateMany({
+      where: { code, endedAt: null },
       data: { endedAt: new Date() },
     });
-    return { code: updated.code, endedAt: updated.endedAt };
+    if (updated.count !== 1) {
+      throw this.conflict('SESSION_ENDED');
+    }
+    const ended = await this.prisma.session.findUniqueOrThrow({ where: { code } });
+    return { code: ended.code, endedAt: ended.endedAt };
   }
 
   async swapPlayer(sessionCode: string, pairingId: string, dto: SwapPlayerDto) {
     // Checked before taking the lock, so a request for the wrong session is
     // refused without queueing behind that session's work.
     const target = await this.pairingInSession(sessionCode, pairingId);
-    return this.lock.run(target.sessionId, () => this.swapPlayerExclusively(pairingId, dto));
+    return this.lock.run(target.sessionId, () =>
+      this.swapPlayerExclusively(sessionCode, pairingId, dto)
+    );
   }
 
-  private async swapPlayerExclusively(pairingId: string, dto: SwapPlayerDto) {
-    const pairing = await this.prisma.pairing.findUnique({ where: { id: pairingId } });
-    if (!pairing) throw new NotFoundException();
+  private async swapPlayerExclusively(
+    sessionCode: string,
+    pairingId: string,
+    dto: SwapPlayerDto
+  ) {
+    const pairing = await this.pairingInSession(sessionCode, pairingId);
     if (pairing.confirmedAt !== null || pairing.endedAt !== null) {
-      throw new ConflictException('เปลี่ยนตัวได้เฉพาะแมตช์ที่ยังไม่ยืนยัน');
+      throw this.conflict('PAIRING_NOT_PENDING');
     }
 
     const teamA = JSON.parse(pairing.teamA) as [string, string];
     const teamB = JSON.parse(pairing.teamB) as [string, string];
     const currentFour = new Set([...teamA, ...teamB]);
-    if (!currentFour.has(dto.playerId)) throw new NotFoundException('ไม่มีผู้เล่นคนนี้ในแมตช์');
+    if (!currentFour.has(dto.playerId)) throw this.notFound('PAIRING_PLAYER_NOT_FOUND');
 
     const roster = await this.prisma.sessionRoster.findMany({
       where: { sessionId: pairing.sessionId, active: true },
@@ -425,7 +712,10 @@ export class SessionsService {
     const session = await this.prisma.session.findUniqueOrThrow({
       where: { code: pairing.sessionId },
     });
+    if (session.endedAt !== null) throw this.conflict('SESSION_ENDED');
     const history = await this.loadHistory(session.groupId, pairing.sessionId);
+    const ratings =
+      session.mode === 'balanced' ? await this.loadRatings(session.groupId) : undefined;
 
     const swapIn = (candidate: string): [[string, string], [string, string]] => {
       const replace = (team: [string, string]): [string, string] => [
@@ -435,31 +725,48 @@ export class SessionsService {
       return [replace(teamA), replace(teamB)];
     };
 
-    // Ranked the same way `generateRound` ranks a whole arrangement — repeat
-    // partners dominate, repeat opponents break ties (§6.3) — so a swap can't
-    // undo the avoidance the proposal just achieved. Games played tonight only
-    // separates candidates the history term rates equally.
+    // The playing-pool choice follows normal rotation first. Pairing quality
+    // only breaks ties between people with equally few games tonight.
     const [{ substitute }] = pool
       .map((candidate) => {
         const [candidateA, candidateB] = swapIn(candidate);
         return {
           substitute: candidate,
-          score: scoreArrangement(
-            [{ teamA: candidateA, teamB: candidateB }],
-            history.partnerCounts,
-            history.opponentCounts
-          ),
           games: history.gamesPlayedThisSession.get(candidate) ?? 0,
+          assignment: { teamA: candidateA, teamB: candidateB },
         };
       })
-      .sort((one, other) => one.score - other.score || one.games - other.games);
+      .sort(
+        (one, other) =>
+          one.games - other.games ||
+          compareArrangements(
+            [one.assignment],
+            [other.assignment],
+            history.partnerCounts,
+            history.opponentCounts,
+            ratings
+          )
+      );
 
     const [newTeamA, newTeamB] = swapIn(substitute);
 
-    const updated = await this.prisma.pairing.update({
-      where: { id: pairingId },
-      data: { teamA: JSON.stringify(newTeamA), teamB: JSON.stringify(newTeamB) },
+    const write = await this.prisma.pairing.updateMany({
+      where: {
+        id: pairingId,
+        confirmedAt: null,
+        endedAt: null,
+        revision: dto.expectedRevision ?? pairing.revision,
+      },
+      data: {
+        teamA: JSON.stringify(newTeamA),
+        teamB: JSON.stringify(newTeamB),
+        revision: { increment: 1 },
+      },
     });
+    if (write.count !== 1) {
+      throw this.conflict('PAIRING_STALE');
+    }
+    const updated = await this.prisma.pairing.findUniqueOrThrow({ where: { id: pairingId } });
 
     return {
       ok: true as const,
@@ -467,6 +774,7 @@ export class SessionsService {
         id: updated.id,
         courtNumber: updated.courtNumber,
         matchNumber: updated.matchNumber,
+        revision: updated.revision,
         teamA: newTeamA,
         teamB: newTeamB,
       },
@@ -506,10 +814,52 @@ export class SessionsService {
     );
   }
 
-  async setMode(code: string, dto: SetModeDto) {
+  setMode(code: string, dto: SetModeDto) {
+    return this.lock.run(code, () => this.setModeExclusively(code, dto));
+  }
+
+  /**
+   * Court bookings change during an evening — one court from 19:00, three from
+   * 20:00 is a normal booking. The imported message is parsed for a single
+   * count, so the host adjusts it here when the later slot starts.
+   *
+   * Shrinking is refused while a court above the new count is in use, rather
+   * than cancelling those matches: the players are physically on that court,
+   * and a mis-typed count must not wipe a match in progress. Finish or undo
+   * first, then shrink.
+   */
+  setCourtCount(code: string, dto: SetCourtCountDto) {
+    return this.lock.run(code, () => this.setCourtCountExclusively(code, dto));
+  }
+
+  private async setCourtCountExclusively(code: string, dto: SetCourtCountDto) {
     const session = await this.prisma.session.findUnique({ where: { code } });
-    if (!session) throw new NotFoundException();
-    if (session.endedAt !== null) throw new ConflictException('ก๊วนนี้จบแล้ว');
+    if (!session) throw this.notFound('SESSION_NOT_FOUND');
+    if (session.endedAt !== null) throw this.conflict('SESSION_ENDED');
+
+    const occupied = await this.prisma.pairing.findMany({
+      where: { sessionId: code, endedAt: null, courtNumber: { gt: dto.courtCount } },
+      select: { courtNumber: true },
+      orderBy: { courtNumber: 'asc' },
+    });
+    if (occupied.length > 0) {
+      const courts = [...new Set(occupied.map((p) => p.courtNumber))];
+      throw this.conflict('COURT_IN_USE', {
+        courtNumbers: courts,
+      });
+    }
+
+    const updated = await this.prisma.session.update({
+      where: { code },
+      data: { courtCount: dto.courtCount },
+    });
+    return { code: updated.code, courtCount: updated.courtCount };
+  }
+
+  private async setModeExclusively(code: string, dto: SetModeDto) {
+    const session = await this.prisma.session.findUnique({ where: { code } });
+    if (!session) throw this.notFound('SESSION_NOT_FOUND');
+    if (session.endedAt !== null) throw this.conflict('SESSION_ENDED');
 
     const updated = await this.prisma.session.update({
       where: { code },
@@ -540,10 +890,11 @@ export class SessionsService {
 
   private async undoExclusively(sessionCode: string, courtNumber: number) {
     const session = await this.prisma.session.findUnique({ where: { code: sessionCode } });
-    if (!session) throw new NotFoundException();
+    if (!session) throw this.notFound('SESSION_NOT_FOUND');
     if (session.endedAt !== null) {
-      throw new ConflictException('ก๊วนนี้จบแล้ว');
+      throw this.conflict('SESSION_ENDED');
     }
+    this.assertCourtNumber(session.courtCount, courtNumber);
 
     const latest = await this.prisma.pairing.findFirst({
       where: { sessionId: sessionCode, courtNumber },
@@ -554,7 +905,12 @@ export class SessionsService {
     }
 
     if (latest.confirmedAt === null) {
-      await this.prisma.pairing.delete({ where: { id: latest.id } });
+      const deleted = await this.prisma.pairing.deleteMany({
+        where: { id: latest.id, confirmedAt: null, endedAt: null, revision: latest.revision },
+      });
+      if (deleted.count !== 1) {
+        throw this.conflict('PAIRING_STALE');
+      }
       return { ok: true as const, undone: 'propose' as const };
     }
 
@@ -577,17 +933,29 @@ export class SessionsService {
         return { ok: false as const, reason: 'players-busy' as const };
       }
 
-      await this.prisma.pairing.update({
-        where: { id: latest.id },
-        data: { endedAt: null, scoreA: null, scoreB: null, winner: null },
+      const restored = await this.prisma.pairing.updateMany({
+        where: { id: latest.id, confirmedAt: { not: null }, endedAt: { not: null }, revision: latest.revision },
+        data: {
+          endedAt: null,
+          scoreA: null,
+          scoreB: null,
+          winner: null,
+          revision: { increment: 1 },
+        },
       });
+      if (restored.count !== 1) {
+        throw this.conflict('PAIRING_STALE');
+      }
       return { ok: true as const, undone: 'finish' as const };
     }
 
-    await this.prisma.pairing.update({
-      where: { id: latest.id },
-      data: { confirmedAt: null },
+    const unconfirmed = await this.prisma.pairing.updateMany({
+      where: { id: latest.id, confirmedAt: { not: null }, endedAt: null, revision: latest.revision },
+      data: { confirmedAt: null, revision: { increment: 1 } },
     });
+    if (unconfirmed.count !== 1) {
+      throw this.conflict('PAIRING_STALE');
+    }
     return { ok: true as const, undone: 'confirm' as const };
   }
 
@@ -603,8 +971,8 @@ export class SessionsService {
 
   private async fillExclusively(sessionCode: string) {
     const session = await this.prisma.session.findUnique({ where: { code: sessionCode } });
-    if (!session) throw new NotFoundException();
-    if (session.endedAt !== null) throw new ConflictException('ก๊วนนี้จบแล้ว');
+    if (!session) throw this.notFound('SESSION_NOT_FOUND');
+    if (session.endedAt !== null) throw this.conflict('SESSION_ENDED');
 
     const roster = await this.prisma.sessionRoster.findMany({
       where: { sessionId: sessionCode, active: true },
@@ -632,7 +1000,7 @@ export class SessionsService {
     const history = await this.loadHistory(session.groupId, sessionCode);
     const ratings =
       session.mode === 'balanced' ? await this.loadRatings(session.groupId) : undefined;
-    const result = generateRound(
+    const result = this.runGenerateRound(
       available,
       idleCourts.length,
       history,
@@ -641,33 +1009,50 @@ export class SessionsService {
       ratings
     );
 
-    const filled: number[] = [];
-    for (const [i, assignment] of result.courts.entries()) {
-      const courtNumber = idleCourts[i];
-      const matchNumber =
-        (await this.prisma.pairing.count({
-          where: { sessionId: sessionCode, courtNumber, confirmedAt: { not: null } },
-        })) + 1;
-      await this.prisma.pairing.create({
-        data: {
-          sessionId: sessionCode,
-          courtNumber,
-          matchNumber,
-          teamA: JSON.stringify(assignment.teamA),
-          teamB: JSON.stringify(assignment.teamB),
-        },
-      });
-      filled.push(courtNumber);
-    }
+    const filled = await this.prisma.$transaction(async (tx) => {
+      const written: number[] = [];
+      for (const [i, assignment] of result.courts.entries()) {
+        const courtNumber = idleCourts[i];
+        const matchNumber =
+          (await tx.pairing.count({
+            where: { sessionId: sessionCode, courtNumber, confirmedAt: { not: null } },
+          })) + 1;
+        await tx.pairing.create({
+          data: {
+            sessionId: sessionCode,
+            courtNumber,
+            matchNumber,
+            teamA: JSON.stringify(assignment.teamA),
+            teamB: JSON.stringify(assignment.teamB),
+          },
+        });
+        written.push(courtNumber);
+      }
+      return written;
+    });
 
     return { ok: true as const, filled };
   }
 
-  async setRosterActive(sessionCode: string, playerId: string, dto: SetRosterActiveDto) {
+  setRosterActive(sessionCode: string, playerId: string, dto: SetRosterActiveDto) {
+    return this.lock.run(sessionCode, () =>
+      this.setRosterActiveExclusively(sessionCode, playerId, dto)
+    );
+  }
+
+  private async setRosterActiveExclusively(
+    sessionCode: string,
+    playerId: string,
+    dto: SetRosterActiveDto
+  ) {
+    const session = await this.prisma.session.findUnique({ where: { code: sessionCode } });
+    if (!session) throw this.notFound('SESSION_NOT_FOUND');
+    if (session.endedAt !== null) throw this.conflict('SESSION_ENDED');
+
     const entry = await this.prisma.sessionRoster.findUnique({
       where: { sessionId_playerId: { sessionId: sessionCode, playerId } },
     });
-    if (!entry) throw new NotFoundException('ไม่มีผู้เล่นคนนี้ในรายชื่อ');
+    if (!entry) throw this.notFound('ROSTER_PLAYER_NOT_FOUND');
 
     // Coming back needs a credit; going out never does.
     //
@@ -682,9 +1067,6 @@ export class SessionsService {
     // can never *lower* them into a free turn.
     let gamesOffset = entry.gamesOffset;
     if (dto.active && !entry.active) {
-      const session = await this.prisma.session.findUniqueOrThrow({
-        where: { code: sessionCode },
-      });
       const history = await this.loadHistory(session.groupId, sessionCode);
       const others = await this.prisma.sessionRoster.findMany({
         where: { sessionId: sessionCode, active: true, playerId: { not: playerId } },
@@ -698,8 +1080,8 @@ export class SessionsService {
       gamesOffset = Math.max(entry.gamesOffset, highest - own + entry.gamesOffset);
     }
 
-    const updated = await this.prisma.sessionRoster.update({
-      where: { id: entry.id },
+    const result = await this.prisma.sessionRoster.updateMany({
+      where: { id: entry.id, active: entry.active, gamesOffset: entry.gamesOffset },
       data: {
         active: dto.active,
         gamesOffset,
@@ -707,12 +1089,16 @@ export class SessionsService {
         activatedAt: dto.active && !entry.active ? new Date() : entry.activatedAt,
       },
     });
+    if (result.count !== 1) {
+      throw this.conflict('ROSTER_STALE');
+    }
+    const updated = await this.prisma.sessionRoster.findUniqueOrThrow({ where: { id: entry.id } });
     return { playerId: updated.playerId, active: updated.active };
   }
 
   async getStats(code: string, scope: 'session' | 'all') {
     const session = await this.prisma.session.findUnique({ where: { code } });
-    if (!session) throw new NotFoundException();
+    if (!session) throw this.notFound('SESSION_NOT_FOUND');
 
     // Both `confirmedAt` and `endedAt`: a match counts once it was actually
     // played and finished. Filtering on `endedAt` alone would let a row that

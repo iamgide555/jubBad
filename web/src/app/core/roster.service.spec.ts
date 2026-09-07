@@ -62,6 +62,7 @@ describe('RosterService', () => {
       venue: 'KIP',
       courtCount: 2,
       rawImportText: '1. ตั้ม',
+      idempotencyKey: '0f8fad5b-d9cb-469f-a165-70867728950e',
       rosterReviews: [],
       waitlistReviews: [],
     };

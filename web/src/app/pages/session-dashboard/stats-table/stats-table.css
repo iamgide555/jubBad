@@ -50,6 +50,13 @@
   font-weight: 500;
 }
 
+.clipboard-fallback {
+  width: 100%;
+  min-height: 4rem;
+  margin-top: var(--space-1);
+  resize: vertical;
+}
+
 @media (hover: hover) {
   .share-player:hover {
     border-color: var(--court);

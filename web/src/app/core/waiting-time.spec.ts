@@ -70,4 +70,37 @@ describe('buildWaitingList', () => {
   it('is empty when nobody is waiting', () => {
     expect(buildWaitingList([], [], {}, START, NOW)).toEqual([]);
   });
+
+  /**
+   * Finding 30: this list is a queue, so it has to be the order the engine
+   * actually selects in — fewest games first, longest wait only to break ties.
+   * Sorting on wait alone put the longest-waiting player on top even when they
+   * had already played the most and would be picked last.
+   */
+  it('orders by games played before waiting time', () => {
+    const list = buildWaitingList(
+      ['played-lots', 'fresh'],
+      ['ตั้ม', 'เบส'],
+      // 'ตั้ม' has waited the longest, but has also played the most.
+      { 'played-lots': '2026-09-08T12:10:00.000Z', fresh: '2026-09-08T12:45:00.000Z' },
+      START,
+      NOW,
+      {},
+      { 'played-lots': 4, fresh: 1 }
+    );
+    expect(list.map((e) => e.name)).toEqual(['เบส', 'ตั้ม']);
+  });
+
+  it('falls back to longest wait first when games are level', () => {
+    const list = buildWaitingList(
+      ['p1', 'p2'],
+      ['ตั้ม', 'เบส'],
+      { p1: '2026-09-08T12:25:00.000Z' },
+      START,
+      NOW,
+      {},
+      { p1: 2, p2: 2 }
+    );
+    expect(list.map((e) => e.name)).toEqual(['เบส', 'ตั้ม']);
+  });
 });

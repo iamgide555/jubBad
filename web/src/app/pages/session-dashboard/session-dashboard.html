@@ -37,6 +37,16 @@
           <p class="mode-hint" i18n="@@dashboard.modeVarietyHint">เน้นไม่ให้ซ้ำคู่เดิม</p>
         }
       </div>
+
+      <div class="court-count">
+        <span class="mode-label" i18n="@@dashboard.courtCountLabel">จำนวนคอร์ท</span>
+        <div class="scope-toggle">
+          <button type="button" [disabled]="ended() || courtCount() <= 1" (click)="changeCourtCount(-1)" aria-label="ลดจำนวนคอร์ท" i18n-aria-label="@@dashboard.courtCountLess">−</button>
+          <span class="court-count-value">{{ courtCount() }}</span>
+          <button type="button" [disabled]="ended() || courtCount() >= 20" (click)="changeCourtCount(1)" aria-label="เพิ่มจำนวนคอร์ท" i18n-aria-label="@@dashboard.courtCountMore">+</button>
+        </div>
+        <p class="mode-hint" i18n="@@dashboard.courtCountHint">ปรับได้เมื่อจองคอร์ทเพิ่มหรือคืนคอร์ท</p>
+      </div>
     </div>
 
     <div class="courts-list">
@@ -85,6 +95,9 @@
         }
       </button>
     </div>
+    @if (clipboardFallback()) {
+      <textarea class="clipboard-fallback" readonly [value]="clipboardFallback()" i18n-aria-label="@@share.fallbackLabel" aria-label="ข้อความสำหรับคัดลอก"></textarea>
+    }
 
     <hr class="rule" />
     <app-stats-table [sessionCode]="session()!.code" [groupCode]="session()!.groupCode" />

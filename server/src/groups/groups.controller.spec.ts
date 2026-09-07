@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { INestApplication, ValidationPipe } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import request from 'supertest';
+import { computeRatings } from '../../../engines/elo.ts';
 import { PrismaModule } from '../prisma/prisma.module.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { GroupsModule } from './groups.module.js';
@@ -95,7 +96,9 @@ describe('GroupsController', () => {
       { inputName: 'Bob', match: { type: 'new' } },
     ]);
     expect(firstRes.body.waitlistReviews).toEqual([]);
-    expect(firstRes.body.warnings).toEqual([]);
+    expect(firstRes.body.warnings).toEqual([
+      'The date "8/9/26" has an ambiguous two-digit year — read as 2026-09-08, please confirm the session date.',
+    ]);
     expect(firstRes.body.unrecognizedLines).toEqual([]);
 
     try {
@@ -149,6 +152,16 @@ describe('GroupsController', () => {
     });
     await prisma.pairing.create({
       data: {
+        // This proposal must not count in archive history.
+        sessionId: newer,
+        courtNumber: 1,
+        matchNumber: 1,
+        teamA: JSON.stringify(['p1', 'p2']),
+        teamB: JSON.stringify(['p3', 'p4']),
+      },
+    });
+    await prisma.pairing.create({
+      data: {
         sessionId: older,
         courtNumber: 1,
         matchNumber: 1,
@@ -170,7 +183,7 @@ describe('GroupsController', () => {
       expect(res.body[1].matchCount).toBe(1);
       expect(res.body[0].matchCount).toBe(0);
     } finally {
-      await prisma.pairing.deleteMany({ where: { sessionId: older } });
+      await prisma.pairing.deleteMany({ where: { sessionId: { in: [older, newer] } } });
       await prisma.session.deleteMany({ where: { groupId: code } });
       await prisma.group.deleteMany({ where: { code } });
     }
@@ -212,19 +225,98 @@ describe('GroupsController', () => {
         },
       });
     }
+    // This match was played but abandoned before a result. It belongs in
+    // played/partner/opponent totals, but must not create an Elo or win/loss.
+    await prisma.pairing.create({
+      data: {
+        sessionId: sessionCode,
+        courtNumber: 1,
+        matchNumber: 4,
+        teamA: JSON.stringify([me.id, ally.id]),
+        teamB: JSON.stringify([foe.id, other.id]),
+        confirmedAt: new Date(Date.now() + 4_000),
+        endedAt: new Date(),
+      },
+    });
 
     try {
       const res = await request(server)
         .get(`/groups/${code}/players/${me.id}/stats`)
         .expect(200);
       expect(res.body.name).toBe('Me');
-      expect(res.body.played).toBe(3);
+      expect(res.body.played).toBe(4);
       expect(res.body.won).toBe(2);
       expect(res.body.winRate).toBeCloseTo(2 / 3, 5);
-      expect(res.body.bestPartner).toEqual({ playerId: ally.id, name: 'Ally', played: 2, won: 2 });
+      expect(res.body.mostWinsWith).toEqual({ playerId: ally.id, name: 'Ally', played: 3, won: 2 });
       expect(res.body.mostFacedOpponent.playerId).toBe(foe.id);
-      expect(res.body.mostFacedOpponent.played).toBe(3);
-      expect(typeof res.body.rating).toBe('number');
+      expect(res.body.mostFacedOpponent.played).toBe(4);
+      const decisiveRating = computeRatings(
+        played.map((match) => ({
+          teamA: match.a as [string, string],
+          teamB: match.b as [string, string],
+          winner: match.w as 'A' | 'B',
+        }))
+      );
+      expect(res.body.rating).toBe(Math.round(decisiveRating.get(me.id)!));
+    } finally {
+      await prisma.pairing.deleteMany({ where: { sessionId: sessionCode } });
+      await prisma.session.deleteMany({ where: { code: sessionCode } });
+      await prisma.player.deleteMany({ where: { groupId: code } });
+      await prisma.group.deleteMany({ where: { code } });
+    }
+  });
+
+  /**
+   * Finding 33: the field used to be called "best partner", which promises a
+   * judgement the number does not make. It counts wins together and breaks
+   * ties on games played, so a partner you have won 2 of 6 with outranks one
+   * you have won 2 of 2 with. That is the intended rule — with this few
+   * matches a win rate is mostly noise — and this test pins it so the name and
+   * the arithmetic cannot drift apart again.
+   */
+  it('ranks partners by wins together, breaking ties on games played, not win rate', async () => {
+    const code = randomUUID();
+    const sessionCode = randomUUID();
+    await prisma.group.create({ data: { code, name: 'G' } });
+    const [me, frequent, flawless, foeA, foeB] = await Promise.all(
+      ['Me', 'Frequent', 'Flawless', 'FoeA', 'FoeB'].map((name) =>
+        prisma.player.create({ data: { groupId: code, name, aliases: '[]' } })
+      )
+    );
+    await prisma.session.create({
+      data: { code: sessionCode, groupId: code, courtCount: 1, rawImportText: '' },
+    });
+    // With Frequent: 2 wins from 6 (33%). With Flawless: 2 wins from 2 (100%).
+    const matches = [
+      ...Array.from({ length: 2 }, () => ({ mate: frequent.id, win: true })),
+      ...Array.from({ length: 4 }, () => ({ mate: frequent.id, win: false })),
+      ...Array.from({ length: 2 }, () => ({ mate: flawless.id, win: true })),
+    ];
+    for (const [i, m] of matches.entries()) {
+      await prisma.pairing.create({
+        data: {
+          sessionId: sessionCode,
+          courtNumber: 1,
+          matchNumber: i + 1,
+          teamA: JSON.stringify([me.id, m.mate]),
+          teamB: JSON.stringify([foeA.id, foeB.id]),
+          confirmedAt: new Date(Date.now() + i * 1000),
+          endedAt: new Date(),
+          winner: m.win ? 'A' : 'B',
+        },
+      });
+    }
+
+    try {
+      const res = await request(server)
+        .get(`/groups/${code}/players/${me.id}/stats`)
+        .expect(200);
+      expect(res.body.mostWinsWith).toEqual({
+        playerId: frequent.id,
+        name: 'Frequent',
+        played: 6,
+        won: 2,
+      });
     } finally {
       await prisma.pairing.deleteMany({ where: { sessionId: sessionCode } });
       await prisma.session.deleteMany({ where: { code: sessionCode } });
@@ -246,7 +338,7 @@ describe('GroupsController', () => {
         .expect(200);
       expect(res.body.played).toBe(0);
       expect(res.body.winRate).toBeNull();
-      expect(res.body.bestPartner).toBeNull();
+      expect(res.body.mostWinsWith).toBeNull();
       expect(res.body.mostFacedOpponent).toBeNull();
     } finally {
       await prisma.player.deleteMany({ where: { groupId: code } });

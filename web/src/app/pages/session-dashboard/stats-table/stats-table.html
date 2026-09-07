@@ -43,5 +43,6 @@
 
   @if (shareFailed()) {
     <p class="error" role="alert" i18n="@@share.failed">คัดลอกไม่ได้ ลองเลือกข้อความเอง</p>
+    <textarea class="clipboard-fallback" readonly [value]="clipboardFallback()" aria-label="Link to copy"></textarea>
   }
 </div>

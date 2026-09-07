@@ -28,12 +28,18 @@ export class GroupEntry {
   readonly warnings = signal<string[]>([]);
   readonly unrecognizedLines = signal<string[]>([]);
   readonly pasteError = signal<string | null>(null);
+  readonly renameError = signal<string | null>(null);
+  readonly confirmError = signal<string | null>(null);
   readonly pastSessions = signal<GroupSession[]>([]);
   readonly showDanger = signal(false);
   readonly deleteConfirmText = signal('');
   readonly dangerError = signal<string | null>(null);
+  readonly isParsing = signal(false);
+  readonly isRenaming = signal(false);
+  readonly isSubmitting = signal(false);
 
   private players: Player[] = [];
+  private creationIdempotencyKey: string | null = null;
 
   constructor(
     route: ActivatedRoute,
@@ -96,9 +102,18 @@ export class GroupEntry {
     }
   }
 
-  saveGroupName(): void {
-    if (!this.groupName().trim()) return;
-    this.rosterService.renameGroup(this.groupCode, this.groupName()).subscribe();
+  async saveGroupName(): Promise<void> {
+    if (!this.groupName().trim() || this.isRenaming()) return;
+
+    this.renameError.set(null);
+    this.isRenaming.set(true);
+    try {
+      await firstValueFrom(this.rosterService.renameGroup(this.groupCode, this.groupName()));
+    } catch {
+      this.renameError.set($localize`:@@entry.renameFailed:บันทึกชื่อก๊วนไม่สำเร็จ`);
+    } finally {
+      this.isRenaming.set(false);
+    }
   }
 
   decisionLabel(review: NameReview): string {
@@ -112,6 +127,11 @@ export class GroupEntry {
         ? $localize`:@@entry.decisionSamePerson:คนเดียวกัน`
         : $localize`:@@entry.decisionDifferentPerson:คนละคน`;
     }
+    if (review.match.type === 'exact') {
+      return review.decision === 'accept'
+        ? $localize`:@@entry.decisionUseExisting:ใช้ผู้เล่นเดิม`
+        : $localize`:@@entry.decisionNew:ไม่ใช่ เพิ่มใหม่`;
+    }
     return review.decision === 'accept'
       ? $localize`:@@entry.decisionYes:ใช่`
       : $localize`:@@entry.decisionNew:ไม่ใช่ เพิ่มใหม่`;
@@ -122,6 +142,7 @@ export class GroupEntry {
   }
 
   async parse(): Promise<void> {
+    if (this.isParsing()) return;
     this.pasteError.set(null);
 
     if (!this.groupName().trim()) {
@@ -133,29 +154,35 @@ export class GroupEntry {
       return;
     }
 
-    const result = await firstValueFrom(
-      this.rosterService.parseRoster(this.groupCode, this.groupName(), this.rawText())
-    );
-
-    if (result.rosterReviews.length === 0) {
-      this.pasteError.set(
-        $localize`:@@entry.errNoPlayers:ไม่พบรายชื่อผู้เล่น — ตรวจว่าแต่ละชื่ออยู่บรรทัดของตัวเองและมีเลขนำหน้า (เช่น "1. ชื่อ")`
+    this.isParsing.set(true);
+    try {
+      const result = await firstValueFrom(
+        this.rosterService.parseRoster(this.groupCode, this.groupName(), this.rawText())
       );
-      return;
+
+      if (result.rosterReviews.length === 0) {
+        this.pasteError.set(
+          $localize`:@@entry.errNoPlayers:ไม่พบรายชื่อผู้เล่น — ตรวจว่าแต่ละชื่ออยู่บรรทัดของตัวเองและมีเลขนำหน้า (เช่น "1. ชื่อ")`
+        );
+        return;
+      }
+
+      this.date.set(result.header.isoDate ?? '');
+      this.venue.set(result.header.venue ?? '');
+      this.courtCount.set(result.header.courtCount);
+      this.warnings.set(result.warnings);
+      this.unrecognizedLines.set(result.unrecognizedLines);
+
+      this.rosterReviews.set(attachDecisions(result.rosterReviews));
+      this.waitlistReviews.set(attachDecisions(result.waitlistReviews));
+      this.players = await firstValueFrom(this.rosterService.getPlayers(this.groupCode));
+
+      this.state.set('confirm');
+    } catch {
+      this.pasteError.set($localize`:@@entry.parseFailed:อ่านรายชื่อไม่สำเร็จ กรุณาลองอีกครั้ง`);
+    } finally {
+      this.isParsing.set(false);
     }
-
-    this.date.set(result.header.isoDate ?? '');
-    this.venue.set(result.header.venue ?? '');
-    this.courtCount.set(result.header.courtCount);
-    this.warnings.set(result.warnings);
-    this.unrecognizedLines.set(result.unrecognizedLines);
-
-    this.rosterReviews.set(attachDecisions(result.rosterReviews));
-    this.waitlistReviews.set(attachDecisions(result.waitlistReviews));
-
-    this.players = await firstValueFrom(this.rosterService.getPlayers(this.groupCode));
-
-    this.state.set('confirm');
   }
 
   canConfirm(): boolean {
@@ -179,18 +206,29 @@ export class GroupEntry {
   }
 
   async confirmRoster(): Promise<void> {
-    const result = await firstValueFrom(
-      this.rosterService.createSession({
-        groupCode: this.groupCode,
-        date: this.date(),
-        venue: this.venue().trim() || null,
-        courtCount: this.courtCount(),
-        rawImportText: this.rawText(),
-        rosterReviews: this.rosterReviews(),
-        waitlistReviews: this.waitlistReviews(),
-      })
-    );
+    if (this.isSubmitting() || !this.canConfirm()) return;
 
-    this.router.navigateByUrl(`/s/${result.code}`);
+    this.confirmError.set(null);
+    this.isSubmitting.set(true);
+    this.creationIdempotencyKey ??= crypto.randomUUID();
+    try {
+      const result = await firstValueFrom(
+        this.rosterService.createSession({
+          groupCode: this.groupCode,
+          date: this.date(),
+          venue: this.venue().trim() || null,
+          courtCount: this.courtCount(),
+          rawImportText: this.rawText(),
+          idempotencyKey: this.creationIdempotencyKey,
+          rosterReviews: this.rosterReviews(),
+          waitlistReviews: this.waitlistReviews(),
+        })
+      );
+      await this.router.navigateByUrl(`/s/${result.code}`);
+    } catch {
+      this.confirmError.set($localize`:@@entry.createFailed:สร้างก๊วนไม่สำเร็จ กรุณาลองอีกครั้ง`);
+    } finally {
+      this.isSubmitting.set(false);
+    }
   }
 }

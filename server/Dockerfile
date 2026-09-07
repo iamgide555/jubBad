@@ -17,6 +17,10 @@ COPY --from=build /repo/server/dist ./dist
 COPY --from=build /repo/server/prisma ./prisma
 COPY --from=build /repo/server/package.json ./package.json
 COPY --from=build /repo/server/prisma7.config.ts ./prisma7.config.ts
+# The backup has to run where the database is. Shipping the scripts into the
+# image means `docker compose exec api npm run db:backup` works on the box with
+# no extra tooling installed on the host.
+COPY --from=build /repo/server/scripts ./scripts
 # /app/prisma must be writable by whatever PUID/PGID runs the container —
 # the bind-mounted dev.db lives here, and SQLite's WAL mode (enabled in
 # PrismaService.onModuleInit) creates sibling -wal/-shm files in this same

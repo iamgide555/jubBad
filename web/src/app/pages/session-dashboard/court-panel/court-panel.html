@@ -33,10 +33,13 @@
           @if (noSubstitute()) {
             <p class="hint" i18n="@@court.noSubstitute">ไม่มีคนสำรองให้เปลี่ยน</p>
           }
+          @if (restingInProposal().length > 0) {
+            <p class="hint warn" role="status" i18n="@@court.restingInProposal">{{ restingInProposal().join(', ') }} พักอยู่ — กดชื่อเพื่อเปลี่ยนตัว หรือสุ่มใหม่</p>
+          }
         }
         <div class="button-row">
           <button type="button" class="ghost" [disabled]="busy()" (click)="startOrReshuffle()" i18n="@@court.reshuffle">สุ่มใหม่</button>
-          <button type="button" [disabled]="busy()" (click)="confirm()" i18n="@@court.confirm">ยืนยัน</button>
+          <button type="button" [disabled]="busy() || restingInProposal().length > 0" (click)="confirm()" i18n="@@court.confirm">ยืนยัน</button>
         </div>
       }
       @case ('active') {

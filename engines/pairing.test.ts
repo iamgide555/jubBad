@@ -7,6 +7,7 @@ import {
   scoreArrangement,
   buildRandomArrangement,
   generateRound,
+  InvalidRoundInputError,
   type MatchHistory,
 } from './pairing.ts';
 
@@ -25,6 +26,24 @@ test('pairKey is order-independent', () => {
 test('pairKey produces a stable, distinct key per pair', () => {
   assert.equal(pairKey('a', 'b'), 'a|b');
   assert.notEqual(pairKey('a', 'b'), pairKey('a', 'c'));
+});
+
+test('variety mode never trades a repeat partner for fewer repeat opponents', () => {
+  const history: MatchHistory = {
+    partnerCounts: new Map([[pairKey('a', 'b'), 1]]),
+    opponentCounts: new Map([[pairKey('a', 'b'), 11]]),
+    gamesPlayedThisSession: new Map(),
+  };
+
+  const result = generateRound(['a', 'b', 'c', 'd'], 1, history, makeSeededRandom(42));
+  const partners = new Set([
+    pairKey(result.courts[0].teamA[0], result.courts[0].teamA[1]),
+    pairKey(result.courts[0].teamB[0], result.courts[0].teamB[1]),
+  ]);
+
+  // A+B vs C+D has a lower old weighted score (10 vs. 11), but repeats a
+  // partner. Variety mode compares partner cost before opponent cost.
+  assert.equal(partners.has(pairKey('a', 'b')), false);
 });
 
 test('shuffle is deterministic for a given random source', () => {
@@ -389,18 +408,69 @@ test('equal history across every pair leaves nothing for the history terms to sa
 });
 
 /**
- * A corrupt count poisons every candidate's score, and `score < bestScore` is
- * false for NaN, so neither `best` nor `fallback` is ever set. The cast on the
- * return hid that: callers read `.length` off null and got a TypeError instead
- * of the ordinary "not enough players" path they already handle.
+ * A corrupt count poisons every candidate's score, and every comparison
+ * against NaN is false, so no candidate is ever selected. This used to
+ * degrade to an empty round, which the API reports as "not enough players" —
+ * a lie that sends the host looking for absent players while the real problem
+ * is the history. Finding 34: fail with a distinct error instead.
  */
-test('generateRound returns no courts rather than null when every candidate scores NaN', () => {
+test('generateRound rejects a corrupt history instead of reporting no courts', () => {
   const players = ['a', 'b', 'c', 'd'];
-  // With four players every arrangement has a and b either partnered or
-  // opposed, so poisoning both terms poisons all three possible splits.
-  const result = generateRound(players, 1, {
-    partnerCounts: new Map([[pairKey('a', 'b'), NaN]]),
-    opponentCounts: new Map([[pairKey('a', 'b'), NaN]]),
+  assert.throws(
+    () =>
+      generateRound(players, 1, {
+        partnerCounts: new Map([[pairKey('a', 'b'), NaN]]),
+        opponentCounts: new Map(),
+        gamesPlayedThisSession: new Map(),
+      }),
+    (error: unknown) =>
+      error instanceof InvalidRoundInputError && error.code === 'INVALID_ROUND_INPUT'
+  );
+});
+
+test('generateRound rejects input that cannot mean anything', () => {
+  const empty = () => ({
+    partnerCounts: new Map<string, number>(),
+    opponentCounts: new Map<string, number>(),
+    gamesPlayedThisSession: new Map<string, number>(),
+  });
+
+  // A duplicated id is the dangerous one: it looks like a full court but is
+  // only three people, so the round silently shrinks.
+  assert.throws(
+    () => generateRound(['a', 'b', 'c', 'a'], 1, empty()),
+    /more than once/
+  );
+  assert.throws(() => generateRound(['a', 'b', 'c', ''], 1, empty()), /empty or non-string/);
+  assert.throws(() => generateRound(['a', 'b', 'c', 'd'], 1.5, empty()), /whole number/);
+  assert.throws(() => generateRound(['a', 'b', 'c', 'd'], -1, empty()), /non-negative/);
+  assert.throws(
+    () =>
+      generateRound(['a', 'b', 'c', 'd'], 1, {
+        ...empty(),
+        gamesPlayedThisSession: new Map([['a', -3]]),
+      }),
+    /gamesPlayedThisSession/
+  );
+  assert.throws(
+    () =>
+      generateRound(['a', 'b', 'c', 'd'], 1, empty(), Math.random, {
+        teamA: ['a', 'b'],
+        teamB: ['b', 'c'],
+      }),
+    /four distinct players/
+  );
+  assert.throws(
+    () =>
+      generateRound(['a', 'b', 'c', 'd'], 1, empty(), Math.random, undefined, new Map([['a', NaN]])),
+    /finite number/
+  );
+});
+
+test('an empty roster is not corrupt — it is just an empty round', () => {
+  const result = generateRound([], 2, {
+    partnerCounts: new Map(),
+    opponentCounts: new Map(),
     gamesPlayedThisSession: new Map(),
   });
   assert.deepEqual(result.courts, []);
@@ -419,4 +489,85 @@ test('sit-out ties are broken randomly, not by roster order', () => {
     seen.add(sittingOut[0]);
   }
   assert.ok(seen.size > 1, `sit-out never varied: always ${[...seen]}`);
+});
+
+/**
+ * Finding 30: the host could see a waiting list ordered by how long each
+ * player had been sitting, while the engine broke games-played ties at random
+ * and ignored that order entirely. Someone who had just come off could go
+ * straight back on ahead of a player who had been waiting half an hour.
+ */
+test('players level on games sit out shortest-wait-first', () => {
+  const roster = ['long', 'medium', 'short', 'a', 'b'];
+  // Everyone has played the same amount; only the wait separates them.
+  const waitingSince = new Map([
+    ['long', 1_000],
+    ['medium', 2_000],
+    ['short', 9_000],
+    ['a', 1_500],
+    ['b', 1_800],
+  ]);
+
+  for (let seed = 1; seed <= 25; seed++) {
+    const { sittingOut, playing } = selectSittingOut(
+      roster,
+      1,
+      new Map(),
+      makeSeededRandom(seed),
+      waitingSince
+    );
+    assert.deepEqual(sittingOut, ['short'], 'the most recently finished player sits');
+    assert.ok(playing.includes('long'));
+  }
+});
+
+test('games played still outrank waiting time', () => {
+  // A player who has been sitting all evening but has already had the most
+  // games must not jump the rotation. Games first, wait only to break ties.
+  const roster = ['played-lots', 'a', 'b', 'c', 'd'];
+  const waitingSince = new Map([
+    ['played-lots', 1],
+    ['a', 9_000],
+    ['b', 9_000],
+    ['c', 9_000],
+    ['d', 9_000],
+  ]);
+  const games = new Map([['played-lots', 5]]);
+
+  const { sittingOut } = selectSittingOut(roster, 1, games, makeSeededRandom(4), waitingSince);
+  assert.deepEqual(sittingOut, ['played-lots']);
+});
+
+test('without waiting data the sit-out tiebreak is still random', () => {
+  // The parameter is optional, and omitting it must not quietly make rotation
+  // a function of roster order.
+  const roster = ['a', 'b', 'c', 'd', 'e'];
+  const seen = new Set<string>();
+  for (let seed = 1; seed <= 50; seed++) {
+    const { sittingOut } = selectSittingOut(roster, 1, new Map(), makeSeededRandom(seed), undefined);
+    seen.add(sittingOut[0]);
+  }
+  assert.ok(seen.size > 1);
+});
+
+test('generateRound passes waiting time through to sit-out selection', () => {
+  const roster = ['long', 'a', 'b', 'c', 'short'];
+  const { sittingOut } = generateRound(
+    roster,
+    1,
+    {
+      partnerCounts: new Map(),
+      opponentCounts: new Map(),
+      gamesPlayedThisSession: new Map(),
+      waitingSince: new Map([
+        ['long', 10],
+        ['a', 20],
+        ['b', 30],
+        ['c', 40],
+        ['short', 99_999],
+      ]),
+    },
+    makeSeededRandom(12)
+  );
+  assert.deepEqual(sittingOut, ['short']);
 });

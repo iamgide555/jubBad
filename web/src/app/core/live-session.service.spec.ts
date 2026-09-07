@@ -17,6 +17,7 @@ function baseSession(overrides: Partial<Session> = {}): Session {
     rawImportText: '',
     rosterPlayerIds: ['p1', 'p2', 'p3', 'p4'],
     restingPlayerIds: [],
+    queueGames: {},
     createdAt: '2026-09-08T12:00:00.000Z',
     mode: 'variety',
     lastPlayedAt: {},
@@ -206,18 +207,34 @@ describe('LiveSessionService', () => {
     expect(await promise).toEqual({ ok: true });
   });
 
-  it('endSession surfaces the server error on failure without throwing', async () => {
+  it('endSession maps the server error code to a localized message', async () => {
     await flushSession(baseSession());
 
     const promise = service.endSession();
     httpMock.expectOne(`${environment.apiBaseUrl}/sessions/sess1/end`).flush(
-      { message: 'Finish all active courts before ending the session.' },
+      { code: 'SESSION_HAS_UNFINISHED_PAIRINGS' },
       { status: 409, statusText: 'Conflict' }
     );
 
     expect(await promise).toEqual({
       ok: false,
-      error: 'Finish all active courts before ending the session.',
+      error: 'ยังมีแมตช์ที่ยังไม่จบ กรุณาบันทึกผลให้ครบก่อน',
     });
+  });
+
+  it('falls back to the action message for an unknown or missing error code', async () => {
+    await flushSession(baseSession());
+
+    const unknown = service.endSession();
+    httpMock
+      .expectOne(`${environment.apiBaseUrl}/sessions/sess1/end`)
+      .flush({ code: 'SOMETHING_NEW' }, { status: 409, statusText: 'Conflict' });
+    expect(await unknown).toEqual({ ok: false, error: 'จบก๊วนไม่สำเร็จ' });
+
+    const noCode = service.fillCourts();
+    httpMock
+      .expectOne(`${environment.apiBaseUrl}/sessions/sess1/courts/fill`)
+      .flush({ message: 'raw server prose' }, { status: 500, statusText: 'Server Error' });
+    expect(await noCode).toEqual({ ok: false, error: 'จัดคู่ไม่สำเร็จ' });
   });
 });

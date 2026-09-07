@@ -20,6 +20,7 @@ function baseSession(overrides: Partial<Session> = {}): Session {
     rawImportText: '',
     rosterPlayerIds: ['p1', 'p2', 'p3', 'p4'],
     restingPlayerIds: [],
+    queueGames: {},
     createdAt: '2026-09-08T12:00:00.000Z',
     mode: 'variety',
     lastPlayedAt: {},
@@ -91,6 +92,46 @@ describe('CourtPanel', () => {
     expect(text).toContain('ยืนยัน');
     expect(text).toContain('ตั้ม');
     expect(text).not.toContain('p1');
+  });
+
+  /**
+   * Finding 35: a player rested after the proposal was made is still standing
+   * in it, and the server refuses the confirm. Saying so here means the host
+   * fixes it deliberately rather than discovering it by tapping a button that
+   * fails.
+   */
+  it('names a rested player still standing in a pending proposal and blocks confirm', async () => {
+    const { fixture } = await createPanel(
+      baseSession({
+        courts: [{ status: 'pending', pairingId: 'pair1', teamA: ['p1', 'p2'], teamB: ['p3', 'p4'] }],
+        restingPlayerIds: ['p3'],
+      })
+    );
+    fixture.detectChanges();
+    const el = fixture.nativeElement as HTMLElement;
+    expect(el.textContent ?? '').toContain('ปอม');
+    expect(el.textContent ?? '').toContain('พักอยู่');
+    const confirm = [...el.querySelectorAll('button')].find(
+      (b) => b.textContent?.trim() === 'ยืนยัน'
+    ) as HTMLButtonElement;
+    expect(confirm.disabled).toBe(true);
+  });
+
+  it('leaves confirm alone when the rested player is not in this proposal', async () => {
+    const { fixture } = await createPanel(
+      baseSession({
+        courts: [{ status: 'pending', pairingId: 'pair1', teamA: ['p1', 'p2'], teamB: ['p3', 'p4'] }],
+        rosterPlayerIds: ['p1', 'p2', 'p3', 'p4', 'p5'],
+        restingPlayerIds: ['p5'],
+      })
+    );
+    fixture.detectChanges();
+    const el = fixture.nativeElement as HTMLElement;
+    expect(el.textContent ?? '').not.toContain('พักอยู่');
+    const confirm = [...el.querySelectorAll('button')].find(
+      (b) => b.textContent?.trim() === 'ยืนยัน'
+    ) as HTMLButtonElement;
+    expect(confirm.disabled).toBe(false);
   });
 
   it('shows named winner buttons once active', async () => {
@@ -172,16 +213,16 @@ describe('CourtPanel', () => {
 
     httpMock
       .expectOne(`${B}/sessions/sess1/pairings/pair1/confirm`)
-      .flush({ message: 'แมตช์นี้เริ่มไปแล้ว' }, { status: 409, statusText: 'Conflict' });
+      .flush({ code: 'PAIRING_CONFIRMED' }, { status: 409, statusText: 'Conflict' });
     await new Promise((r) => setTimeout(r, 0));
     TestBed.tick();
     fixture.detectChanges();
 
     const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
-    expect(text).toContain('แมตช์นี้เริ่มไปแล้ว');
+    expect(text).toContain('แมตช์นี้ยืนยันไปแล้ว');
   });
 
-  it('shows the server message when finishing a match is rejected', async () => {
+  it('shows the mapped error when finishing a match is rejected', async () => {
     const { fixture, httpMock } = await createPanel(
       baseSession({
         courts: [{ status: 'active', pairingId: 'pair1', teamA: ['p1', 'p2'], teamB: ['p3', 'p4'] }],
@@ -197,7 +238,7 @@ describe('CourtPanel', () => {
 
     httpMock
       .expectOne(`${B}/sessions/sess1/pairings/pair1/finish`)
-      .flush({ message: 'แมตช์นี้จบไปแล้ว' }, { status: 409, statusText: 'Conflict' });
+      .flush({ code: 'PAIRING_ENDED' }, { status: 409, statusText: 'Conflict' });
     await new Promise((r) => setTimeout(r, 0));
     TestBed.tick();
     fixture.detectChanges();
@@ -222,11 +263,11 @@ describe('CourtPanel', () => {
     findConfirm().click();
     httpMock
       .expectOne(`${B}/sessions/sess1/pairings/pair1/confirm`)
-      .flush({ message: 'แมตช์นี้เริ่มไปแล้ว' }, { status: 409, statusText: 'Conflict' });
+      .flush({ code: 'PAIRING_CONFIRMED' }, { status: 409, statusText: 'Conflict' });
     await new Promise((r) => setTimeout(r, 0));
     TestBed.tick();
     fixture.detectChanges();
-    expect((fixture.nativeElement as HTMLElement).textContent).toContain('เริ่มไปแล้ว');
+    expect((fixture.nativeElement as HTMLElement).textContent).toContain('ยืนยันไปแล้ว');
 
     findConfirm().click();
     const retry = httpMock.expectOne(`${B}/sessions/sess1/pairings/pair1/confirm`);

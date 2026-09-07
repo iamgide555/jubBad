@@ -19,5 +19,6 @@ export default defineConfig({
     // This was only half the flakiness. The other half was supertest calling
     // listen() per request; see the comment in sessions.controller.spec.ts.
     fileParallelism: false,
+    globalSetup: ['./test/vitest-global-setup.ts'],
   },
 });

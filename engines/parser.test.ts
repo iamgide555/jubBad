@@ -16,11 +16,41 @@ const TYPICAL = `@All
 test('parseLineRosterMessage reads the header of a typical message', () => {
   const result = parseLineRosterMessage(TYPICAL);
   assert.equal(result.header.isoDate, '2026-09-08');
+  assert.ok(result.warnings.some((warning) => warning.includes('ambiguous two-digit year')));
   assert.equal(result.header.titleLine, 'แบดวินนิ่ง อังคาร 8/9/26');
   assert.deepEqual(
     result.header.timeSlots.map((s) => s.raw),
     ['19.00-20.00', '20.00-22.00']
   );
+});
+
+test('parses real Gregorian and Buddhist-era calendar dates', () => {
+  assert.equal(
+    parseLineRosterMessage('Badminton 29/2/2024\n1. A').header.isoDate,
+    '2024-02-29'
+  );
+  assert.equal(
+    parseLineRosterMessage('Badminton 29/2/2567\n1. A').header.isoDate,
+    '2024-02-29'
+  );
+});
+
+test('warns and leaves impossible calendar dates unresolved', () => {
+  const result = parseLineRosterMessage('Badminton 31/02/2026\n1. A');
+  assert.equal(result.header.isoDate, null);
+  assert.ok(result.warnings.some((warning) => warning.includes('not a real calendar date')));
+});
+
+test('does not use a numbered @All notification as a roster entry', () => {
+  const result = parseLineRosterMessage(`1. @All
+Badminton 8/9/2026
+19.00-20.00
+1. A
+2. B`);
+  assert.deepEqual(result.roster, [
+    { position: 1, name: 'A' },
+    { position: 2, name: 'B' },
+  ]);
 });
 
 test('parseLineRosterMessage keeps an empty numbered slot as a null name', () => {
@@ -86,4 +116,25 @@ test('parsing is not affected by what a previous call left behind', () => {
 test('unclassifiable trailing lines are surfaced, never dropped', () => {
   const result = parseLineRosterMessage('1. ตั้ม\nหมายเหตุ จ่ายเงินก่อนเล่น\n');
   assert.deepEqual(result.unrecognizedLines, ['หมายเหตุ จ่ายเงินก่อนเล่น']);
+});
+
+test('warns when the court count changes between time slots', () => {
+  const result = parseLineRosterMessage(TYPICAL);
+  const warning = result.warnings.find((w) => w.includes('court count changes'));
+  assert.ok(warning, 'expected a warning about the changing court count');
+  assert.ok(warning.includes('19.00-20.00 → 1 courts'));
+  assert.ok(warning.includes('20.00-22.00 → 3 courts'));
+  // The first slot is still what the session starts on — the warning tells the
+  // host to adjust later, it does not guess a number for them.
+  assert.equal(result.header.timeSlots[0].courtCount, 1);
+});
+
+test('does not warn when every slot books the same number of courts', () => {
+  const result = parseLineRosterMessage(
+    '19.00-20.00  2 คอร์ท\n20.00-22.00  2 คอร์ท\n1. ตั้ม\n'
+  );
+  assert.equal(
+    result.warnings.some((w) => w.includes('court count changes')),
+    false
+  );
 });

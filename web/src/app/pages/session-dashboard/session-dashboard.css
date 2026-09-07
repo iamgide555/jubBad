@@ -130,6 +130,32 @@
   color: var(--ink-soft);
 }
 
+/* Same shape as the mode toggle — both are settings that sit at the trailing
+   edge of the toolbar, so they read as one group rather than two widgets. */
+.court-count {
+  text-align: right;
+}
+
+.court-count .scope-toggle {
+  margin-bottom: 0;
+  align-items: center;
+  justify-content: flex-end;
+}
+
+.court-count .scope-toggle button {
+  flex: 0 0 auto;
+  padding: 0.3rem 0.9rem;
+  font-size: var(--text-xs);
+}
+
+.court-count-value {
+  min-width: 2ch;
+  padding: 0 var(--space-1);
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+}
+
 /* Sharing the roster as text and handing someone the display URL are the same
    kind of act, so they sit together rather than in two separate strips. */
 .share-row {
@@ -141,6 +167,13 @@
 .share-row > * {
   flex: 1;
   min-width: 12rem;
+}
+
+.clipboard-fallback {
+  width: 100%;
+  min-height: 5rem;
+  margin-top: var(--space-1);
+  resize: vertical;
 }
 
 /* Full width on a phone, where it is the primary action and the thumb is at

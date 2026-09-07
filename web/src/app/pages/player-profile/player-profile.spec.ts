@@ -17,7 +17,7 @@ function profile(overrides: Partial<Profile> = {}): Profile {
     won: 2,
     winRate: 2 / 3,
     rating: 1215,
-    bestPartner: { playerId: 'p2', name: 'เบส', played: 2, won: 2 },
+    mostWinsWith: { playerId: 'p2', name: 'เบส', played: 2, won: 2 },
     mostFacedOpponent: { playerId: 'p3', name: 'ปอม', played: 3, won: 1 },
     ...overrides,
   };
@@ -81,7 +81,7 @@ describe('PlayerProfile', () => {
   });
 
   it('shows a dash rather than 0% for someone who has never played', async () => {
-    await load(profile({ played: 0, won: 0, winRate: null, bestPartner: null, mostFacedOpponent: null }));
+    await load(profile({ played: 0, won: 0, winRate: null, mostWinsWith: null, mostFacedOpponent: null }));
     const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
     expect(fixture.componentInstance['winPercent']()).toBeNull();
     expect(text).not.toContain('0%');

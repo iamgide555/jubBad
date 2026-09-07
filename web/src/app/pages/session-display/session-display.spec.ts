@@ -19,6 +19,7 @@ function baseSession(overrides: Partial<Session> = {}): Session {
     rawImportText: '',
     rosterPlayerIds: ['p1', 'p2', 'p3', 'p4'],
     restingPlayerIds: [],
+    queueGames: {},
     createdAt: '2026-09-08T12:00:00.000Z',
     mode: 'variety',
     lastPlayedAt: {},

@@ -21,6 +21,7 @@ function baseSession(overrides: Partial<Session> = {}): Session {
     rawImportText: '',
     rosterPlayerIds: ['p1', 'p2'],
     restingPlayerIds: [],
+    queueGames: {},
     createdAt: '2026-09-08T12:00:00.000Z',
     mode: 'variety',
     lastPlayedAt: {},
@@ -289,7 +290,7 @@ describe('SessionDashboard', () => {
     expect(text).toContain('ไม่พบก๊วนนี้');
   });
 
-  it('End session button calls endSession and shows the server error on failure', async () => {
+  it('End session button calls endSession and shows the mapped error on failure', async () => {
     fixture = TestBed.createComponent(SessionDashboard);
     fixture.detectChanges();
 
@@ -308,14 +309,14 @@ describe('SessionDashboard', () => {
 
     const req = httpMock.expectOne(`${B}/sessions/sess1/end`);
     req.flush(
-      { message: 'จบแมตช์ในคอร์ทที่ยังเล่นอยู่ก่อนจบก๊วน' },
+      { code: 'SESSION_HAS_UNFINISHED_PAIRINGS' },
       { status: 409, statusText: 'Conflict' }
     );
     await new Promise((r) => setTimeout(r, 0));
     fixture.detectChanges();
 
     const text2 = (fixture.nativeElement as HTMLElement).textContent ?? '';
-    expect(text2).toContain('จบแมตช์ในคอร์ทที่ยังเล่นอยู่ก่อนจบก๊วน');
+    expect(text2).toContain('ยังมีแมตช์ที่ยังไม่จบ กรุณาบันทึกผลให้ครบก่อน');
   });
 
   it('redirects to / once the session ends successfully', async () => {
@@ -347,6 +348,9 @@ describe('SessionDashboard', () => {
     await new Promise((r) => setTimeout(r, 0));
     TestBed.tick();
     httpMock.expectOne(`${B}/groups/group1/players`).flush([]);
+    for (const request of httpMock.match(`${B}/sessions/sess1/stats?scope=session`)) {
+      request.flush([]);
+    }
 
     expect(navigateSpy).toHaveBeenCalledWith('/');
   });
@@ -430,6 +434,31 @@ describe('SessionDashboard', () => {
     await new Promise((r) => setTimeout(r, 0));
   });
 
+  /**
+   * Finding 31: a booking commonly opens more courts later in the evening, and
+   * the session carries a single count, so the host has to be able to change it
+   * without re-importing.
+   */
+  it('adds a court when the later booking slot opens', async () => {
+    await settled();
+    buttonWith('+').click();
+
+    const req = httpMock.expectOne(`${B}/sessions/sess1/court-count`);
+    expect(req.request.body).toEqual({ courtCount: 2 });
+    req.flush({ code: 'sess1', courtCount: 2 });
+    await new Promise((r) => setTimeout(r, 0));
+    TestBed.tick();
+    for (const r of httpMock.match(`${B}/sessions/sess1`)) r.flush(baseSession());
+    for (const r of httpMock.match(`${B}/groups/group1/players`)) r.flush([]);
+    for (const r of httpMock.match(`${B}/sessions/sess1/stats?scope=session`)) r.flush([]);
+    await new Promise((r) => setTimeout(r, 0));
+  });
+
+  it('cannot step the court count below one', async () => {
+    await settled();
+    expect(buttonWith('−')?.disabled).toBe(true);
+  });
+
   it('builds share text listing the courts and who is waiting', async () => {
     await settled(
       baseSession({
@@ -476,5 +505,20 @@ describe('SessionDashboard', () => {
 
     expect(fixture.componentInstance.displayLinkCopied()).toBe(false);
     expect(fixture.componentInstance.rosterError()).toBeTruthy();
+  });
+
+  it('exposes the display link when clipboard access is denied', async () => {
+    Object.defineProperty(navigator, 'clipboard', {
+      value: { writeText: () => Promise.reject(new Error('denied')) },
+      configurable: true,
+    });
+    await settled();
+
+    await fixture.componentInstance.copyDisplayLink();
+    fixture.detectChanges();
+
+    expect(
+      (fixture.nativeElement.querySelector('.clipboard-fallback') as HTMLTextAreaElement).value
+    ).toBe(`${location.origin}/s/sess1/display`);
   });
 });

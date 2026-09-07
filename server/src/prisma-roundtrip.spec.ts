@@ -1,13 +1,16 @@
 import { PrismaBetterSqlite3 } from '@prisma/adapter-better-sqlite3';
 import { PrismaClient } from '@prisma/client';
+import { randomUUID } from 'node:crypto';
 
 describe('Prisma schema round-trip', () => {
   it('persists and reads back every model, including JSON-encoded array columns', async () => {
     const adapter = new PrismaBetterSqlite3({ url: process.env.DATABASE_URL! });
     const prisma = new PrismaClient({ adapter });
+    const groupCode = `test-group-${randomUUID()}`;
+    const sessionCode = `test-session-${randomUUID()}`;
     try {
       const group = await prisma.group.create({
-        data: { code: 'test-group', name: 'Test Group' },
+        data: { code: groupCode, name: 'Test Group' },
       });
 
       const player = await prisma.player.create({
@@ -20,7 +23,7 @@ describe('Prisma schema round-trip', () => {
 
       const session = await prisma.session.create({
         data: {
-          code: 'test-session',
+          code: sessionCode,
           groupId: group.code,
           date: '2026-09-04',
           venue: 'Court A',
@@ -58,11 +61,11 @@ describe('Prisma schema round-trip', () => {
       expect(JSON.parse(readBackPairing.teamB)).toEqual([player.id, player.id]);
       expect(roster.map((r) => r.playerId)).toEqual([player.id]);
     } finally {
-      await prisma.pairing.deleteMany({ where: { sessionId: 'test-session' } });
-      await prisma.sessionRoster.deleteMany({ where: { sessionId: 'test-session' } });
-      await prisma.session.deleteMany({ where: { code: 'test-session' } });
-      await prisma.player.deleteMany({ where: { groupId: 'test-group' } });
-      await prisma.group.deleteMany({ where: { code: 'test-group' } });
+      await prisma.pairing.deleteMany({ where: { sessionId: sessionCode } });
+      await prisma.sessionRoster.deleteMany({ where: { sessionId: sessionCode } });
+      await prisma.session.deleteMany({ where: { code: sessionCode } });
+      await prisma.player.deleteMany({ where: { groupId: groupCode } });
+      await prisma.group.deleteMany({ where: { code: groupCode } });
       await prisma.$disconnect();
     }
   });

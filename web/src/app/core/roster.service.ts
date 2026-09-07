@@ -12,6 +12,7 @@ export interface CreateSessionRequest {
   venue: string | null;
   courtCount: number | null;
   rawImportText: string;
+  idempotencyKey: string;
   rosterReviews: NameReview[];
   waitlistReviews: NameReview[];
 }

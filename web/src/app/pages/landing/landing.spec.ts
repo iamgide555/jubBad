@@ -75,6 +75,24 @@ describe('Landing', () => {
     expect(fixture.nativeElement.querySelector('.empty')).toBeTruthy();
   });
 
+  it('shows a retryable error instead of treating a failed load as no groups', async () => {
+    fixture.detectChanges();
+    httpMock
+      .expectOne(`${B}/groups`)
+      .flush('Unavailable', { status: 503, statusText: 'Service Unavailable' });
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.querySelector('.empty')).toBeFalsy();
+    expect(fixture.nativeElement.textContent).toContain('โหลดก๊วนไม่สำเร็จ');
+
+    component.retryLoad();
+    httpMock.expectOne(`${B}/groups`).flush(GROUPS);
+    await fixture.whenStable();
+    fixture.detectChanges();
+    expect(fixture.nativeElement.textContent).toContain('วันอังคาร');
+  });
+
   it('will not delete until the group name is typed back exactly', async () => {
     await loadWith();
     component.startRemove(GROUPS[0]);

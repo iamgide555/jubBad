@@ -5,7 +5,10 @@
   </div>
 
   @if (loaded()) {
-    @if (groups().length > 0) {
+    @if (loadError()) {
+      <p class="error" role="alert" i18n="@@home.loadFailed">โหลดก๊วนไม่สำเร็จ</p>
+      <button type="button" class="ghost" (click)="retryLoad()" i18n="@@home.retry">ลองอีกครั้ง</button>
+    } @else if (groups().length > 0) {
       <ul class="group-list">
         @for (group of groups(); track group.code) {
           <li class="group-row">

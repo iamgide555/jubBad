@@ -11,6 +11,13 @@ import { parseCorsOrigins } from './cors.js';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
+  /**
+   * Production traffic reaches the API through exactly one trusted nginx hop.
+   * nginx overwrites X-Forwarded-For with Cloudflare's client address, so
+   * Express can use that address for login throttling without accepting a
+   * spoofed header from an arbitrary client.
+   */
+  app.getHttpAdapter().getInstance().set('trust proxy', 1);
   app.enableCors({
     origin: parseCorsOrigins(process.env.CORS_ORIGINS),
     /**

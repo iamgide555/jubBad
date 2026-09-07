@@ -1,20 +1,29 @@
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { signal } from '@angular/core';
 import { provideRouter } from '@angular/router';
 import { StatsTable } from './stats-table';
 import { environment } from '../../../../environments/environment';
+import { LiveSessionService } from '../../../core/live-session.service';
 
 const B = environment.apiBaseUrl;
 
 describe('StatsTable', () => {
   let fixture: ComponentFixture<StatsTable>;
   let httpMock: HttpTestingController;
+  let mutationVersion: ReturnType<typeof signal<number>>;
 
   beforeEach(async () => {
+    mutationVersion = signal(0);
     await TestBed.configureTestingModule({
       imports: [StatsTable],
-      providers: [provideHttpClient(), provideHttpClientTesting(), provideRouter([])],
+      providers: [
+        provideHttpClient(),
+        provideHttpClientTesting(),
+        provideRouter([]),
+        { provide: LiveSessionService, useValue: { mutationVersion } },
+      ],
     }).compileComponents();
 
     httpMock = TestBed.inject(HttpTestingController);
@@ -58,6 +67,22 @@ describe('StatsTable', () => {
     await fixture.whenStable();
   });
 
+  it('refreshes when a session mutation changes the shared revision', async () => {
+    fixture.detectChanges();
+    httpMock.expectOne(`${B}/sessions/sess1/stats?scope=session`).flush([]);
+    await fixture.whenStable();
+
+    mutationVersion.set(1);
+    fixture.detectChanges();
+    httpMock.expectOne(`${B}/sessions/sess1/stats?scope=session`).flush([
+      { playerId: 'p1', name: 'Alice', played: 1, won: 1 },
+    ]);
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.textContent).toContain('Alice');
+  });
+
   it('offers a share link for each player and copies their card URL', async () => {
     const copied: string[] = [];
     Object.defineProperty(navigator, 'clipboard', {
@@ -93,5 +118,26 @@ describe('StatsTable', () => {
 
     const button = fixture.nativeElement.querySelector('.share-player') as HTMLButtonElement;
     expect(button.getAttribute('aria-label')).toContain('Alice');
+  });
+
+  it('exposes a selectable link when clipboard access is denied', async () => {
+    Object.defineProperty(navigator, 'clipboard', {
+      value: { writeText: () => Promise.reject(new Error('denied')) },
+      configurable: true,
+    });
+
+    fixture.detectChanges();
+    httpMock
+      .expectOne(`${B}/sessions/sess1/stats?scope=session`)
+      .flush([{ playerId: 'p1', name: 'Alice', played: 3, won: 2 }]);
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    (fixture.nativeElement.querySelector('.share-player') as HTMLButtonElement).click();
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    expect((fixture.nativeElement.querySelector('.clipboard-fallback') as HTMLTextAreaElement).value)
+      .toBe(`${location.origin}/g/group1/p/p1`);
   });
 });

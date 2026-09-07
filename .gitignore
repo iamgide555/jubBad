@@ -8,4 +8,7 @@ server/.env
 server/prisma/dev.db
 server/prisma/dev.db-journal
 server/prisma/dev.db-wal
+# Backups are data, not source. They must never ride along in a git push.
+server/prisma/backups/
+server/prisma/dev.db.replaced-*
 server/prisma/dev.db-shm

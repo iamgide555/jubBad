@@ -1,5 +1,5 @@
 import { HttpClient, HttpErrorResponse, httpResource } from '@angular/common/http';
-import { Injectable, computed, inject } from '@angular/core';
+import { Injectable, computed, inject, signal } from '@angular/core';
 import { ActivatedRoute } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
 import { environment } from '../../environments/environment';
@@ -28,6 +28,61 @@ export interface ActionResult {
   error?: string;
 }
 
+/**
+ * The server answers a rejected mutation with a stable `code`, never with prose.
+ * Anything unmapped falls back to the per-action message so a new server code
+ * can never leak an untranslated string into the host's screen.
+ */
+function messageForCode(code: string): string | null {
+  switch (code) {
+    case 'SESSION_ENDED':
+      return $localize`:@@err.code.sessionEnded:ก๊วนนี้จบไปแล้ว`;
+    case 'SESSION_NOT_FOUND':
+      return $localize`:@@err.code.sessionNotFound:ไม่พบก๊วนนี้`;
+    case 'SESSION_HAS_UNFINISHED_PAIRINGS':
+      return $localize`:@@err.code.sessionHasUnfinishedPairings:ยังมีแมตช์ที่ยังไม่จบ กรุณาบันทึกผลให้ครบก่อน`;
+    case 'COURT_ACTIVE':
+      return $localize`:@@err.code.courtActive:คอร์ทนี้มีแมตช์อยู่แล้ว`;
+    case 'PLAYER_UNAVAILABLE':
+      return $localize`:@@err.code.playerUnavailable:มีผู้เล่นในแมตช์นี้พักอยู่ กรุณาเปลี่ยนตัวหรือสุ่มใหม่`;
+    case 'COURT_IN_USE':
+      return $localize`:@@err.code.courtInUse:ยังมีแมตช์เล่นอยู่บนคอร์ทที่จะตัดออก กรุณาบันทึกผลก่อน`;
+    case 'INVALID_COURT_NUMBER':
+      return $localize`:@@err.code.invalidCourtNumber:หมายเลขคอร์ทไม่ถูกต้อง`;
+    case 'INVALID_SESSION_STATE':
+      return $localize`:@@err.code.invalidSessionState:ข้อมูลก๊วนนี้ผิดปกติ จัดคู่ต่อไม่ได้ กรุณาแจ้งผู้ดูแล`;
+    case 'PAIRING_STALE':
+    case 'ROSTER_STALE':
+      return $localize`:@@err.code.stale:ข้อมูลถูกแก้ไขจากอุปกรณ์อื่นแล้ว กรุณาลองใหม่อีกครั้ง`;
+    case 'PAIRING_NOT_FOUND':
+      return $localize`:@@err.code.pairingNotFound:ไม่พบแมตช์นี้`;
+    case 'PAIRING_ENDED':
+      return $localize`:@@err.code.pairingEnded:แมตช์นี้จบไปแล้ว`;
+    case 'PAIRING_CONFIRMED':
+      return $localize`:@@err.code.pairingConfirmed:แมตช์นี้ยืนยันไปแล้ว`;
+    case 'PAIRING_CONFIRMATION_REQUIRED':
+      return $localize`:@@err.code.pairingConfirmationRequired:ต้องยืนยันแมตช์ก่อนบันทึกผล`;
+    case 'PAIRING_NOT_PENDING':
+      return $localize`:@@err.code.pairingNotPending:เปลี่ยนตัวได้เฉพาะแมตช์ที่ยังไม่ยืนยัน`;
+    case 'PAIRING_PLAYER_NOT_FOUND':
+      return $localize`:@@err.code.pairingPlayerNotFound:ไม่พบผู้เล่นคนนี้ในแมตช์`;
+    case 'ROSTER_PLAYER_NOT_FOUND':
+      return $localize`:@@err.code.rosterPlayerNotFound:ไม่พบผู้เล่นคนนี้ในก๊วน`;
+    case 'INCOMPLETE_SCORES':
+      return $localize`:@@err.code.incompleteScores:กรุณากรอกคะแนนให้ครบทั้งสองฝั่ง`;
+    case 'INVALID_SCORE':
+      return $localize`:@@err.code.invalidScore:คะแนนไม่ถูกต้อง`;
+    case 'INVALID_WINNER':
+      return $localize`:@@err.code.invalidWinner:ผู้ชนะไม่ถูกต้อง`;
+    case 'WINNER_REQUIRED_FOR_SCORES':
+      return $localize`:@@err.code.winnerRequired:กรุณาเลือกผู้ชนะเมื่อกรอกคะแนน`;
+    case 'WINNER_SCORE_MISMATCH':
+      return $localize`:@@err.code.winnerScoreMismatch:ผู้ชนะไม่ตรงกับคะแนนที่กรอก`;
+    default:
+      return null;
+  }
+}
+
 @Injectable()
 export class LiveSessionService {
   private readonly http = inject(HttpClient);
@@ -35,6 +90,12 @@ export class LiveSessionService {
   private readonly sessionCode: string;
 
   readonly sessionResource: ReturnType<typeof httpResource<Session>>;
+  /**
+   * Dependent resources consume this instead of polling a second endpoint
+   * blindly. A successful mutation is the moment stats and other derived
+   * views become stale.
+   */
+  readonly mutationVersion = signal(0);
 
   readonly courts = computed<CourtState[]>(() => {
     if (this.sessionResource.error()) return [];
@@ -82,15 +143,15 @@ export class LiveSessionService {
         this.http.post<T>(`${this.base}/sessions/${this.sessionCode}/${path}`, body)
       );
       this.sessionResource.reload();
-      return response?.ok === false
-        ? { ok: false, reason: response.reason }
-        : { ok: true };
+      if (response?.ok === false) return { ok: false, reason: response.reason };
+      this.mutationVersion.update((version) => version + 1);
+      return { ok: true };
     } catch (err) {
-      const message =
-        err instanceof HttpErrorResponse && typeof err.error?.message === 'string'
-          ? err.error.message
-          : fallbackError;
-      return { ok: false, error: message };
+      const code =
+        err instanceof HttpErrorResponse && typeof err.error?.code === 'string'
+          ? err.error.code
+          : null;
+      return { ok: false, error: (code && messageForCode(code)) || fallbackError };
     }
   }
 
@@ -150,6 +211,19 @@ export class LiveSessionService {
 
   setMode(mode: 'variety' | 'balanced'): Promise<ActionResult> {
     return this.post('mode', { mode }, $localize`:@@err.mode:เปลี่ยนโหมดไม่สำเร็จ`);
+  }
+
+  /**
+   * Court bookings often change part-way through the evening, so the count is
+   * editable rather than fixed at import. The server refuses to shrink past a
+   * court that is still playing.
+   */
+  setCourtCount(courtCount: number): Promise<ActionResult> {
+    return this.post(
+      'court-count',
+      { courtCount },
+      $localize`:@@err.courtCount:เปลี่ยนจำนวนคอร์ทไม่สำเร็จ`
+    );
   }
 
   endSession(): Promise<ActionResult> {

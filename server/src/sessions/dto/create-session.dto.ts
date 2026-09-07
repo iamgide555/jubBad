@@ -1,10 +1,13 @@
 import { Type } from 'class-transformer';
 import {
   IsArray,
+  IsDefined,
   IsIn,
   IsInt,
   IsOptional,
   IsString,
+  IsUUID,
+  Matches,
   Min,
   ValidateNested,
 } from 'class-validator';
@@ -14,6 +17,7 @@ export class NameReviewDto {
   @IsString()
   inputName!: string;
 
+  @IsDefined()
   @ValidateNested()
   @Type(() => NameMatchDto)
   match!: NameMatchDto;
@@ -28,6 +32,7 @@ export class CreateSessionDto {
 
   @IsOptional()
   @IsString()
+  @Matches(/^\d{4}-\d{2}-\d{2}$/)
   date!: string | null;
 
   @IsOptional()
@@ -41,6 +46,9 @@ export class CreateSessionDto {
 
   @IsString()
   rawImportText!: string;
+
+  @IsUUID()
+  idempotencyKey!: string;
 
   @IsArray()
   @ValidateNested({ each: true })

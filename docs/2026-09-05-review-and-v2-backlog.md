@@ -467,10 +467,15 @@ has not been ended.
 most-faced opponent, win rate. Naturally shareable back into the LINE group.
 
 **Done.** `GET /groups/:code/players/:id/stats` returns record, win rate, Elo
-rating, best partner and most-faced opponent, rendered at `/g/:code/p/:id` and
-linked from every name in the stats table. "Best" partner is most wins
-together, most-played breaking ties. A player who has not finished a match gets
-a null win rate rather than 0%, since those are different facts.
+rating, most-wins-with partner and most-faced opponent, rendered at
+`/g/:code/p/:id` and linked from every name in the stats table. The partner
+metric is most wins together, most-played breaking ties — so a partner you have
+won 2 of 6 with outranks one you have won 2 of 2 with, because a win rate over
+two matches is noise. It is named `mostWinsWith` and labelled "ชนะด้วยกันมากที่สุด"
+rather than "best partner" (2026-09-07, finding 33): the count is the honest
+claim, and calling it "best" promised a judgement it never made. A player who
+has not finished a match gets a null win rate rather than 0%, since those are
+different facts.
 
 ### - [x] B10. PWA manifest
 
@@ -500,36 +505,67 @@ this file.
 
 ### - [ ] B12. Host role
 
-§2's other accepted risk (anyone with the link can edit). Keep deferred — only
-worth building if abuse actually appears, exactly as §2 concluded.
+**Still deferred, but the original reason no longer applies** (revised
+2026-09-07). This entry used to defer on §2's accepted risk, "anyone with the
+link can edit", and to argue that a host role would reverse a documented
+"no login/auth" decision. Both premises are now out of date: admin
+authentication was built, and `docs/overview.md` records the decision as
+"shared admin authentication, not player accounts" rather than no auth at all.
 
-**Deliberately not built**, despite a "do the rest" instruction covering it.
-A host role means authentication, and "no login/auth" is one of the product
-decisions in `docs/overview.md` — building this would quietly reverse a
-documented decision and add the whole feature surface that decision exists to
-avoid. This entry's own conclusion is to wait for real abuse. Ask for it
-explicitly if that has changed; it is a deliberate reversal, not a gap.
+What exists now is a global default-deny guard (`AdminGuard`, registered as an
+`APP_GUARD`): every route requires the admin cookie unless it is explicitly
+`@Public()`, and only four read-only routes are — the venue display's session
+poll, the group name, the player-name lookup, and a player's stat card.
+`auth.boundary.spec.ts` walks the router Express actually built rather than a
+hand-kept list, so a route added later is closed by default and provably so.
+Editing, importing, resting players, exporting and deleting all require the
+token. "Anyone with the link can edit" is closed.
+
+What is genuinely still missing is *identity*, which is what a host role would
+add and what the token cannot express:
+
+- The token is one shared secret, so everyone given it has equal power,
+  including deleting a group.
+- It grants access to every group, not the one someone hosts. There is no
+  concept of owning a group.
+- Revocation is all-or-nothing: changing the token signs out every device.
+
+**Defer on those grounds.** For one badminton group where the token holder is
+the person who runs the sessions, per-user identity distinguishes nobody from
+nobody — it would add accounts, ownership and a permission model to express a
+distinction that does not currently exist socially. It becomes worth building
+when the token is genuinely shared with people who should *not* have equal
+power, most likely when a second group with a different host starts using the
+same deployment. That is the trigger to watch for, not "abuse".
 
 ---
 
 ## Suggested order
 
-Everything here is done except B12, which stays deferred by its own reasoning.
+Everything here is done except B12, which stays deferred — see its entry for
+why the original reasoning was revised on 2026-09-07.
 
-## Export and delete: accepted risk
+## Export and delete: accepted risk (resolved 2026-09-07)
 
-Export and delete are gated only by knowing the group code — the same
-8-hex-char code that already gates editing. §2 accepted "anyone with the link
-can edit" when the worst case was a messed-up session someone could fix by
-hand. Export widens that to "walk off with every name and every result", and
-delete to "destroy the group's whole history, irreversibly".
+**This risk is closed.** It is kept here because the reasoning is worth
+retaining, not because it is still live.
 
-**Decided: leave it.** Same reasoning as §2's original call — the link lives in
-one private group chat among people who already know each other, and the
-alternatives (a per-group passphrase, or dropping delete) each cost more than
-the risk is worth for a casual friend group. Revisit if a group code ever
-leaks, or if the app is used by anyone outside that setting.
+Originally, export and delete were gated only by knowing the group code — the
+same 8-hex-char code that gated editing. §2 accepted "anyone with the link can
+edit" when the worst case was a messed-up session someone could fix by hand.
+Export widened that to "walk off with every name and every result", and delete
+to "destroy the group's whole history, irreversibly". The call at the time was
+to leave it: the link lives in one private group chat among people who already
+know each other, and the alternatives each cost more than the risk was worth.
+
+Admin authentication was subsequently built, which resolved this without the
+per-group passphrase that was considered and rejected. `GET /groups/:code/export`
+and `DELETE /groups/:code` carry no `@Public()` marker, so the global
+`AdminGuard` closes them: knowing a group code is no longer sufficient to read
+or destroy a group. A leaked code is now an editing-surface question at worst,
+not a data-exfiltration one.
 
 The delete button still sits behind a disclosure and requires typing the
 group's name. That guards against a mis-tap, which is the realistic failure
-here; it is not, and is not meant to be, a guard against an intruder.
+now that an intruder has to get past the token first — and it was never meant
+to be the guard against the intruder.

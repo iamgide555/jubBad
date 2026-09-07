@@ -12,6 +12,7 @@ model Group {
   createdAt DateTime  @default(now())
   players   Player[]
   sessions  Session[]
+  sessionCreations SessionCreation[]
 }
 
 model Player {
@@ -20,6 +21,8 @@ model Player {
   name    String
   aliases String // JSON-encoded string[]
   group   Group  @relation(fields: [groupId], references: [code])
+  rosterEntries SessionRoster[]
+  waitlistEntries Waitlist[]
 }
 
 model Session {
@@ -38,6 +41,7 @@ model Session {
   roster        SessionRoster[]
   waitlist      Waitlist[]
   pairings      Pairing[]
+  creation      SessionCreation?
 }
 
 model SessionRoster {
@@ -59,6 +63,7 @@ model SessionRoster {
   /// late is not credited with an hour of waiting they did not do.
   activatedAt DateTime?
   session   Session @relation(fields: [sessionId], references: [code])
+  player    Player  @relation(fields: [playerId], references: [id])
 
   @@unique([sessionId, playerId])
 }
@@ -69,6 +74,7 @@ model Waitlist {
   playerId  String
   position  Int
   session   Session @relation(fields: [sessionId], references: [code])
+  player    Player  @relation(fields: [playerId], references: [id])
 
   @@unique([sessionId, playerId])
 }
@@ -83,7 +89,21 @@ model Pairing {
   scoreA      Int?
   scoreB      Int?
   winner      String? // 'A' | 'B'
+  /// Incremented by every mutation so stale admin tabs cannot confirm or
+  /// finish a proposal that has since been changed.
+  revision    Int       @default(0)
   confirmedAt DateTime?
   endedAt     DateTime?
   session     Session   @relation(fields: [sessionId], references: [code])
+}
+
+model SessionCreation {
+  groupId        String
+  idempotencyKey String
+  sessionId      String @unique
+  createdAt      DateTime @default(now())
+  group          Group @relation(fields: [groupId], references: [code], onDelete: Cascade)
+  session        Session @relation(fields: [sessionId], references: [code], onDelete: Cascade)
+
+  @@id([groupId, idempotencyKey])
 }

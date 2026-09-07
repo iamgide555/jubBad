@@ -117,6 +117,24 @@ different players in the real example messages). Auto-linking on a fuzzy score
 would risk a wrong, silent merge. This extends the parser's "never silently
 guess" rule rather than inventing new tolerance.
 
+**One player can only hold one slot in a list.** A second name resolving to an
+already-claimed player is reported as `duplicate` and defaults to being its own
+new player, for the host to override. Exact hits claim first across the whole
+list, before any fuzzy hit is considered — an exact hit is evidence about who
+the player is, a fuzzy hit is only a suggestion, so resolving in list order
+would let a suggestion one line higher take the player and demote the real name.
+
+The reason is the same wrong-merge risk arriving by the other door. Hosts
+number two people with the same nickname as "ตั้ม (1)" and "ตั้ม (2)";
+`normalizeName` strips the note, so both hit the one stored ตั้ม *exactly*,
+where the fuzzy threshold never gets a say. Left alone that silently merges two
+people into one rating and one partner history, and it also fails hard —
+`SessionRoster` and `Waitlist` are unique per player, so the repeated id aborts
+the write and the host loses the entire import. The two mistakes are not
+symmetric: a spurious extra player is visible and editable afterwards, while a
+merge cannot be pulled apart, which is why "same person" is the deliberate tap
+and not the default.
+
 ### Pairing
 
 Courts rotate **independently, not as synchronized rounds** — whoever finishes

@@ -102,6 +102,16 @@ export class GroupEntry {
   }
 
   decisionLabel(review: NameReview): string {
+    // A duplicate asks a different question from a fuzzy suggestion. Fuzzy is
+    // "did you mean this player?"; duplicate is "is this the same person as
+    // the slot above?", where accepting removes a slot rather than adding one.
+    // Sharing the yes/no wording made the destructive answer read as the
+    // agreeable one.
+    if (review.match.type === 'duplicate') {
+      return review.decision === 'accept'
+        ? $localize`:@@entry.decisionSamePerson:คนเดียวกัน`
+        : $localize`:@@entry.decisionDifferentPerson:คนละคน`;
+    }
     return review.decision === 'accept'
       ? $localize`:@@entry.decisionYes:ใช่`
       : $localize`:@@entry.decisionNew:ไม่ใช่ เพิ่มใหม่`;

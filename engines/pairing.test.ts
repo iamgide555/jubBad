@@ -387,3 +387,36 @@ test('equal history across every pair leaves nothing for the history terms to sa
   });
   assert.equal(scoreArrangement(courts, partnerCounts, new Map(), undefined, { partner: 7, opponent: 0 }), 0);
 });
+
+/**
+ * A corrupt count poisons every candidate's score, and `score < bestScore` is
+ * false for NaN, so neither `best` nor `fallback` is ever set. The cast on the
+ * return hid that: callers read `.length` off null and got a TypeError instead
+ * of the ordinary "not enough players" path they already handle.
+ */
+test('generateRound returns no courts rather than null when every candidate scores NaN', () => {
+  const players = ['a', 'b', 'c', 'd'];
+  // With four players every arrangement has a and b either partnered or
+  // opposed, so poisoning both terms poisons all three possible splits.
+  const result = generateRound(players, 1, {
+    partnerCounts: new Map([[pairKey('a', 'b'), NaN]]),
+    opponentCounts: new Map([[pairKey('a', 'b'), NaN]]),
+    gamesPlayedThisSession: new Map(),
+  });
+  assert.deepEqual(result.courts, []);
+  assert.deepEqual(result.sittingOut, []);
+});
+
+test('sit-out ties are broken randomly, not by roster order', () => {
+  // Everyone is on the same number of games, so the sort has nothing to
+  // separate them by and only the shuffle decides. Stable sorting is what
+  // preserves that shuffle; without it this is fixed for a fixed seed.
+  const roster = ['a', 'b', 'c', 'd', 'e'];
+  const seen = new Set<string>();
+  for (let seed = 1; seed <= 50; seed++) {
+    const { sittingOut } = selectSittingOut(roster, 1, new Map(), makeSeededRandom(seed));
+    assert.equal(sittingOut.length, 1);
+    seen.add(sittingOut[0]);
+  }
+  assert.ok(seen.size > 1, `sit-out never varied: always ${[...seen]}`);
+});

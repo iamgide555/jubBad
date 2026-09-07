@@ -100,6 +100,126 @@ describe('SessionsController', () => {
       .expect(400);
   });
 
+  it('creates a new player for a duplicate the host left as a different person', async () => {
+    const groupCode = randomUUID();
+    await prisma.group.create({ data: { code: groupCode, name: 'G' } });
+    const existing = await prisma.player.create({
+      data: { groupId: groupCode, name: 'ตั้ม', aliases: '[]' },
+    });
+
+    // Two people the host numbered "ตั้ม (1)" / "ตั้ม (2)". Both normalize to
+    // the one stored ตั้ม, so the second arrives flagged as a duplicate and
+    // defaults to being its own player.
+    const res = await request(server)
+      .post('/sessions')
+      .send({
+        groupCode,
+        date: '2026-09-04',
+        venue: null,
+        courtCount: 1,
+        rawImportText: '1. ตั้ม (1)\n2. ตั้ม (2)',
+        rosterReviews: [
+          { inputName: 'ตั้ม (1)', match: { type: 'exact', playerId: existing.id }, decision: 'accept' },
+          {
+            inputName: 'ตั้ม (2)',
+            match: { type: 'duplicate', playerId: existing.id },
+            decision: 'reject-new',
+          },
+        ],
+        waitlistReviews: [],
+      })
+      .expect(201);
+
+    try {
+      const roster = await prisma.sessionRoster.findMany({ where: { sessionId: res.body.code } });
+      expect(roster).toHaveLength(2);
+      expect(new Set(roster.map((r) => r.playerId)).size).toBe(2);
+
+      const players = await prisma.player.findMany({ where: { groupId: groupCode } });
+      expect(players.map((p) => p.name).sort()).toEqual(['ตั้ม', 'ตั้ม (2)']);
+    } finally {
+      await prisma.sessionRoster.deleteMany({ where: { sessionId: res.body.code } });
+      await prisma.session.deleteMany({ where: { code: res.body.code } });
+      await prisma.player.deleteMany({ where: { groupId: groupCode } });
+      await prisma.group.deleteMany({ where: { code: groupCode } });
+    }
+  });
+
+  it('drops a duplicate slot the host confirmed is the same person', async () => {
+    const groupCode = randomUUID();
+    await prisma.group.create({ data: { code: groupCode, name: 'G' } });
+    const existing = await prisma.player.create({
+      data: { groupId: groupCode, name: 'ตั้ม', aliases: '[]' },
+    });
+
+    const res = await request(server)
+      .post('/sessions')
+      .send({
+        groupCode,
+        date: '2026-09-04',
+        venue: null,
+        courtCount: 1,
+        rawImportText: '1. ตั้ม\n2. ตั้ม',
+        rosterReviews: [
+          { inputName: 'ตั้ม', match: { type: 'exact', playerId: existing.id }, decision: 'accept' },
+          { inputName: 'ตั้ม', match: { type: 'duplicate', playerId: existing.id }, decision: 'accept' },
+        ],
+        waitlistReviews: [],
+      })
+      .expect(201);
+
+    try {
+      const roster = await prisma.sessionRoster.findMany({ where: { sessionId: res.body.code } });
+      expect(roster).toHaveLength(1);
+      expect(roster[0].playerId).toBe(existing.id);
+
+      const players = await prisma.player.findMany({ where: { groupId: groupCode } });
+      expect(players).toHaveLength(1);
+    } finally {
+      await prisma.sessionRoster.deleteMany({ where: { sessionId: res.body.code } });
+      await prisma.session.deleteMany({ where: { code: res.body.code } });
+      await prisma.player.deleteMany({ where: { groupId: groupCode } });
+      await prisma.group.deleteMany({ where: { code: groupCode } });
+    }
+  });
+
+  it('does not abort the import when a client sends the same player twice', async () => {
+    const groupCode = randomUUID();
+    await prisma.group.create({ data: { code: groupCode, name: 'G' } });
+    const existing = await prisma.player.create({
+      data: { groupId: groupCode, name: 'ตั้ม', aliases: '[]' },
+    });
+
+    // The roster carries a per-player uniqueness constraint, so a repeated id
+    // used to abort the whole transaction and lose the import. Reviews are
+    // client-supplied, so the server cannot rely on them being deduplicated.
+    const res = await request(server)
+      .post('/sessions')
+      .send({
+        groupCode,
+        date: '2026-09-04',
+        venue: null,
+        courtCount: 1,
+        rawImportText: '1. ตั้ม\n2. ตั้ม',
+        rosterReviews: [
+          { inputName: 'ตั้ม', match: { type: 'exact', playerId: existing.id }, decision: 'accept' },
+          { inputName: 'ตั้ม', match: { type: 'exact', playerId: existing.id }, decision: 'accept' },
+        ],
+        waitlistReviews: [],
+      })
+      .expect(201);
+
+    try {
+      const roster = await prisma.sessionRoster.findMany({ where: { sessionId: res.body.code } });
+      expect(roster).toHaveLength(1);
+    } finally {
+      await prisma.sessionRoster.deleteMany({ where: { sessionId: res.body.code } });
+      await prisma.session.deleteMany({ where: { code: res.body.code } });
+      await prisma.player.deleteMany({ where: { groupId: groupCode } });
+      await prisma.group.deleteMany({ where: { code: groupCode } });
+    }
+  });
+
   it('returns 404 for a session that does not exist', async () => {
     await request(server).get(`/sessions/${randomUUID()}`).expect(404);
   });

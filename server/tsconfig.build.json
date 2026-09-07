@@ -3,6 +3,12 @@
   "compilerOptions": {
     "rootDir": ".."
   },
-  "include": ["src", "../engines/parser.ts", "../engines/fuzzy-match.ts", "../engines/pairing.ts"],
+  "include": [
+    "src",
+    "../engines/parser.ts",
+    "../engines/fuzzy-match.ts",
+    "../engines/pairing.ts",
+    "../engines/elo.ts"
+  ],
   "exclude": ["node_modules", "test", "dist", "**/*spec.ts"]
 }

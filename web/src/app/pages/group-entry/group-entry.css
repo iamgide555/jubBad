@@ -77,6 +77,14 @@
   color: var(--accent-dark);
 }
 
+/* The one row on this screen the host has to make a call on: two slots have
+   landed on the same player, and confirming the list as-is quietly drops one
+   of them. It reads as a warning rather than as another status tag. */
+.review-tag.duplicate {
+  color: var(--warn);
+  font-weight: 600;
+}
+
 
 
 .session-list {

@@ -165,6 +165,67 @@ describe('GroupEntry', () => {
     expect(component.rosterReviews()[0].decision).toBe('reject-new');
   });
 
+  it('renders a row per slot when two entries share a name', async () => {
+    component.groupName.set('Group A');
+    component.rawText.set('1. ตั้ม (1)\n2. ตั้ม (2)');
+
+    const parsePromise = component.parse();
+    httpMock.expectOne(`${B}/groups/group1/parse`).flush({
+      header: { isoDate: '2026-09-08', venue: null, courtCount: 1 },
+      rosterReviews: [
+        { inputName: 'ตั้ม', match: { type: 'exact', playerId: 'p1' } },
+        { inputName: 'ตั้ม', match: { type: 'duplicate', playerId: 'p1' } },
+      ],
+      waitlistReviews: [],
+      warnings: [],
+      unrecognizedLines: [],
+    });
+    await new Promise((r) => setTimeout(r, 0));
+    httpMock.expectOne(`${B}/groups/group1/players`).flush([{ id: 'p1', name: 'ตั้ม', aliases: [] }]);
+    await parsePromise;
+    fixture.detectChanges();
+
+    const rows = fixture.nativeElement.querySelectorAll('.review-list .review-row');
+    expect(rows.length).toBe(2);
+
+    // Both slots carry the same pasted text, so it cannot be what identifies a
+    // row. Toggling the second must change the second, not redraw the first.
+    component.toggleDecision(component.rosterReviews()[1]);
+    fixture.detectChanges();
+
+    const labels = Array.from(
+      fixture.nativeElement.querySelectorAll('.review-list .review-row button')
+    ).map((b) => (b as HTMLElement).textContent!.trim());
+    expect(labels).toEqual(['คนเดียวกัน']);
+    expect(component.rosterReviews().map((r) => r.decision)).toEqual(['accept', 'accept']);
+  });
+
+  it('labels a duplicate by whether it is the same person, not by yes/no', async () => {
+    component.groupName.set('Group A');
+    component.rawText.set('1. ตั้ม (1)\n2. ตั้ม (2)');
+
+    const parsePromise = component.parse();
+    httpMock.expectOne(`${B}/groups/group1/parse`).flush({
+      header: { isoDate: null, venue: null, courtCount: null },
+      rosterReviews: [
+        { inputName: 'ตั้ม (1)', match: { type: 'exact', playerId: 'p1' } },
+        { inputName: 'ตั้ม (2)', match: { type: 'duplicate', playerId: 'p1' } },
+      ],
+      waitlistReviews: [],
+      warnings: [],
+      unrecognizedLines: [],
+    });
+    await new Promise((r) => setTimeout(r, 0));
+    httpMock.expectOne(`${B}/groups/group1/players`).flush([{ id: 'p1', name: 'ตั้ม', aliases: [] }]);
+    await parsePromise;
+
+    const duplicate = component.rosterReviews()[1];
+    expect(duplicate.decision).toBe('reject-new');
+    expect(component.decisionLabel(duplicate)).toBe('คนละคน');
+    component.toggleDecision(duplicate);
+    expect(component.decisionLabel(component.rosterReviews()[1])).toBe('คนเดียวกัน');
+  });
+
   it('canConfirm is false until date and courtCount are set', async () => {
     component.groupName.set('Group A');
     component.rawText.set('1. ตั้ม');

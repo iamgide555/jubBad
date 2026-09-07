@@ -91,7 +91,7 @@
 
     <h3 i18n="@@entry.roster">รายชื่อ</h3>
     <ol class="review-list">
-      @for (review of rosterReviews(); track review.inputName; let i = $index) {
+      @for (review of rosterReviews(); track $index; let i = $index) {
         <li class="review-row">
           <span class="review-index">{{ i + 1 }}</span>
           <span class="review-name">{{ review.inputName }}</span>
@@ -100,6 +100,14 @@
             @case ('fuzzy') {
               <span class="review-tag fuzzy" i18n="@@entry.isThis">
                 ใช่ {{ playerName(review.match.playerId) }} ไหม?
+              </span>
+              <button type="button" class="ghost" (click)="toggleDecision(review)">
+                {{ decisionLabel(review) }}
+              </button>
+            }
+            @case ('duplicate') {
+              <span class="review-tag duplicate" i18n="@@entry.duplicateOf">
+                ซ้ำกับ {{ playerName(review.match.playerId) }}
               </span>
               <button type="button" class="ghost" (click)="toggleDecision(review)">
                 {{ decisionLabel(review) }}
@@ -114,7 +122,7 @@
     @if (waitlistReviews().length > 0) {
       <h3 i18n="@@entry.waitlist">สำรอง</h3>
       <ol class="review-list">
-        @for (review of waitlistReviews(); track review.inputName; let i = $index) {
+        @for (review of waitlistReviews(); track $index; let i = $index) {
           <li class="review-row">
             <span class="review-index">{{ i + 1 }}</span>
             <span class="review-name">{{ review.inputName }}</span>
@@ -123,6 +131,14 @@
               @case ('fuzzy') {
                 <span class="review-tag fuzzy" i18n="@@entry.isThis">
                   ใช่ {{ playerName(review.match.playerId) }} ไหม?
+                </span>
+                <button type="button" class="ghost" (click)="toggleDecision(review)">
+                  {{ decisionLabel(review) }}
+                </button>
+              }
+              @case ('duplicate') {
+                <span class="review-tag duplicate" i18n="@@entry.duplicateOf">
+                  ซ้ำกับ {{ playerName(review.match.playerId) }}
                 </span>
                 <button type="button" class="ghost" (click)="toggleDecision(review)">
                   {{ decisionLabel(review) }}

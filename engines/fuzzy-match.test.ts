@@ -96,6 +96,50 @@ test('matchRoster returns an empty array for an empty input', () => {
   assert.deepEqual(matchRoster([], players), []);
 });
 
+test('matchRoster flags a second exact hit on an already-claimed player as duplicate', () => {
+  // Hosts number two different people with the same nickname as "ตั้ม (1)" /
+  // "ตั้ม (2)"; normalizeName strips the note, so both hit p1 exactly.
+  const result = matchRoster(['ตั้ม (1)', 'ตั้ม (2)'], players);
+  assert.deepEqual(result, [
+    { inputName: 'ตั้ม (1)', match: { type: 'exact', playerId: 'p1' } },
+    { inputName: 'ตั้ม (2)', match: { type: 'duplicate', playerId: 'p1' } },
+  ]);
+});
+
+test('matchRoster flags a fuzzy hit on an already-claimed player as duplicate', () => {
+  const result = matchRoster(['ตั้ม', 'ตัม'], players);
+  assert.deepEqual(result[1], {
+    inputName: 'ตัม',
+    match: { type: 'duplicate', playerId: 'p1' },
+  });
+});
+
+test('matchRoster lets an exact hit claim a player over an earlier fuzzy suggestion', () => {
+  // ตัม is only a suggestion; ตั้ม is the player's actual name. The exact hit
+  // owns p1 wherever it appears in the list, and the fuzzy line is the
+  // duplicate — otherwise position alone decides who the real player is.
+  const result = matchRoster(['ตัม', 'ตั้ม'], players);
+  assert.deepEqual(result, [
+    { inputName: 'ตัม', match: { type: 'duplicate', playerId: 'p1' } },
+    { inputName: 'ตั้ม', match: { type: 'exact', playerId: 'p1' } },
+  ]);
+});
+
+test('matchRoster leaves distinct players untouched', () => {
+  const result = matchRoster(['ตั้ม', 'เบส'], players);
+  assert.deepEqual(result, [
+    { inputName: 'ตั้ม', match: { type: 'exact', playerId: 'p1' } },
+    { inputName: 'เบส', match: { type: 'exact', playerId: 'p2' } },
+  ]);
+});
+
+test('matchName on its own has no duplicate concept', () => {
+  // The claim is a property of a roster, not of a name. Two calls to matchName
+  // with the same name must still both resolve to the player.
+  assert.deepEqual(matchName('ตั้ม', players), { type: 'exact', playerId: 'p1' });
+  assert.deepEqual(matchName('ตั้ม', players), { type: 'exact', playerId: 'p1' });
+});
+
 test('confirmExistingPlayerAlias adds the raw pasted text as a new alias', () => {
   const before: Player[] = [{ id: 'p1', name: 'ตั้ม', aliases: [] }];
   const after = confirmExistingPlayerAlias(before, 'p1', 'ตัม');

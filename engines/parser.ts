@@ -96,6 +96,14 @@ function isNoteMarker(line: string): boolean {
 function isLikelyTimeOrHeaderLine(line: string): boolean {
   // A line like "19.00-20.00  1 คอร์ท" starts with a number but is a
   // time range / header, not a roster entry — never treat as a player slot.
+  //
+  // TIME_RANGE_RE is /g, so `.test()` leaves lastIndex past the match it
+  // found. Resetting is not optional here: without it a second time-range
+  // line that matches earlier in its own string than the previous line's
+  // lastIndex is missed, and "1.00-3.00  3 คอร์ท" then reads as roster entry
+  // number 1 — the roster start lands on the time line, the block breaks on
+  // it at once, and every real name is dropped with no warning.
+  TIME_RANGE_RE.lastIndex = 0;
   return TIME_RANGE_RE.test(line) || /^\s*\d{1,2}\/\d{1,2}\/\d{2,4}/.test(line);
 }
 
@@ -291,21 +299,9 @@ export function parseLineRosterMessage(text: string): ParseResult {
   }
 
   const filledRosterCount = roster.filter((s) => s.name).length;
-  const filledWaitlistCount = waitlist.filter((s) => s.name).length;
   if (filledRosterCount === 0) {
     warnings.push('No names were found in the main roster — please check the pasted text.');
   }
 
-  return {
-    header,
-    roster,
-    waitlist,
-    unrecognizedLines,
-    warnings: [
-      ...warnings,
-      ...(filledWaitlistCount > 0 || waitlist.length > 0
-        ? []
-        : []), // placeholder for future waitlist-specific checks
-    ],
-  };
+  return { header, roster, waitlist, unrecognizedLines, warnings };
 }

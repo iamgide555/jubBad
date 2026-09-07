@@ -29,22 +29,48 @@ export class SessionsService {
     const newPlayerWrites: { id: string; name: string }[] = [];
     const aliasWrites = new Map<string, string[]>();
 
-    const resolve = (reviews: NameReviewDto[]): string[] =>
-      reviews.map((review) => {
-        if (review.match.type === 'exact') {
-          return review.match.playerId!;
+    /**
+     * A player can hold only one slot in a list — `sessionRoster` and
+     * `waitlist` both carry a per-player uniqueness constraint, so a repeated
+     * id aborts the transaction and the host loses the whole import. Reviews
+     * arrive from the client, so this cannot lean on the engine having
+     * deduplicated them: `seen` is the guard that makes the write safe
+     * whatever it is sent.
+     */
+    const resolve = (reviews: NameReviewDto[]): string[] => {
+      const seen = new Set<string>();
+      const ids: string[] = [];
+
+      for (const review of reviews) {
+        // A duplicate the host confirmed is the same person adds no second
+        // slot; left as a different person it becomes a player of its own,
+        // which is the default and the safer way to be wrong — a merge that
+        // should have been two people is the one this cannot undo.
+        if (review.match.type === 'duplicate' && review.decision === 'accept') {
+          continue;
         }
-        if (review.match.type === 'fuzzy' && review.decision === 'accept') {
+
+        let id: string;
+        if (review.match.type === 'exact') {
+          id = review.match.playerId!;
+        } else if (review.match.type === 'fuzzy' && review.decision === 'accept') {
           players = confirmExistingPlayerAlias(players, review.match.playerId!, review.inputName);
           const updated = players.find((p) => p.id === review.match.playerId)!;
           aliasWrites.set(updated.id, updated.aliases);
-          return updated.id;
+          id = updated.id;
+        } else {
+          id = randomUUID();
+          players = createNewPlayer(players, id, review.inputName);
+          newPlayerWrites.push({ id, name: review.inputName });
         }
-        const newId = randomUUID();
-        players = createNewPlayer(players, newId, review.inputName);
-        newPlayerWrites.push({ id: newId, name: review.inputName });
-        return newId;
-      });
+
+        if (seen.has(id)) continue;
+        seen.add(id);
+        ids.push(id);
+      }
+
+      return ids;
+    };
 
     const rosterPlayerIds = resolve(dto.rosterReviews);
     const waitlistPlayerIds = resolve(dto.waitlistReviews);

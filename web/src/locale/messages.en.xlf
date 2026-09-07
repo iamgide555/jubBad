@@ -277,6 +277,27 @@
           <context context-type="linenumber">107</context>
         </context-group>
       </trans-unit>
+      <trans-unit id="entry.decisionSamePerson" datatype="html">
+        <source>คนเดียวกัน</source><target>same person</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/group-entry/group-entry.ts</context>
+          <context context-type="linenumber">112</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="entry.decisionDifferentPerson" datatype="html">
+        <source>คนละคน</source><target>a different person</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/group-entry/group-entry.ts</context>
+          <context context-type="linenumber">113</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="entry.duplicateOf" datatype="html">
+        <source>ซ้ำกับ <x id="INTERPOLATION" equiv-text="{{ playerName(review.match.playerId) }}"/></source><target>same as <x id="INTERPOLATION" equiv-text="{{ playerName(review.match.playerId) }}"/></target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/group-entry/group-entry.html</context>
+          <context context-type="linenumber">108</context>
+        </context-group>
+      </trans-unit>
       <trans-unit id="entry.errNoGroupName" datatype="html">
         <source>กรุณาใส่ชื่อก๊วนก่อน</source><target>Please enter a group name first.</target>
         <context-group purpose="location">

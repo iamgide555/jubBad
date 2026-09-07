@@ -51,6 +51,12 @@ export interface Player {
 export type NameMatch =
   | { type: 'exact'; playerId: string }
   | { type: 'fuzzy'; playerId: string; score: number }
+  /**
+   * An earlier entry in the same list already resolved to this player. Only
+   * `matchRoster` produces it — being a duplicate is a property of a roster,
+   * not of a name.
+   */
+  | { type: 'duplicate'; playerId: string }
   | { type: 'new' };
 
 /**
@@ -99,8 +105,50 @@ export interface RosterNameMatch {
   match: NameMatch;
 }
 
+/**
+ * One player can only occupy one slot in a list, so a second name resolving to
+ * an already-claimed player is reported as `duplicate` rather than resolving
+ * again. Two things go wrong without this, and both are ordinary input:
+ *
+ * A host numbering two different people with the same nickname writes
+ * "ตั้ม (1)" and "ตั้ม (2)". `normalizeName` strips the note, so both hit the
+ * one stored ตั้ม exactly — the silent wrong merge that the fuzzy threshold
+ * exists to prevent, arriving through the exact-match path where the threshold
+ * never applies. Downstream it is also a hard failure: the roster carries a
+ * uniqueness constraint per player, so the repeated id aborts the write and
+ * the host loses the whole import.
+ *
+ * Exact hits claim first, across the entire list, before any fuzzy hit is
+ * considered. An exact hit is evidence about who the player is; a fuzzy hit is
+ * only a suggestion. Resolving in list order instead would let a suggestion
+ * sitting one line higher take the player and demote the real name to a
+ * duplicate.
+ */
 export function matchRoster(names: string[], players: Player[]): RosterNameMatch[] {
-  return names.map((inputName) => ({ inputName, match: matchName(inputName, players) }));
+  const matches = names.map((inputName) => ({ inputName, match: matchName(inputName, players) }));
+
+  // Seeded with every exact hit up front, so a fuzzy hit anywhere in the list
+  // never takes a player some exact hit is going to want.
+  const claimed = new Set<string>();
+  for (const { match } of matches) {
+    if (match.type === 'exact') claimed.add(match.playerId);
+  }
+  const kept = new Set<string>();
+
+  return matches.map(({ inputName, match }) => {
+    if (match.type === 'new') return { inputName, match };
+
+    // The first hit of either kind keeps the player; later ones are duplicates.
+    const takenByAnEarlierEntry =
+      kept.has(match.playerId) || (match.type === 'fuzzy' && claimed.has(match.playerId));
+    if (takenByAnEarlierEntry) {
+      return { inputName, match: { type: 'duplicate' as const, playerId: match.playerId } };
+    }
+
+    kept.add(match.playerId);
+    claimed.add(match.playerId);
+    return { inputName, match };
+  });
 }
 
 export function confirmExistingPlayerAlias(

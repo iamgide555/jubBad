@@ -34,6 +34,11 @@ export function selectSittingOut(
     return { playing: [...roster], sittingOut: [] };
   }
 
+  // Shuffle first, then sort by games played. Array.prototype.sort is stable
+  // (ES2019 onward), so players level on games keep their shuffled order —
+  // that is the whole random tiebreak. Swapping these two lines, or moving to
+  // an unstable sort, silently makes "who sits out" a function of roster
+  // position, and the same people sit every week.
   const shuffled = shuffle(roster, random);
   const sorted = [...shuffled].sort(
     (a, b) => (gamesPlayedThisSession.get(b) ?? 0) - (gamesPlayedThisSession.get(a) ?? 0)
@@ -273,5 +278,10 @@ export function generateRound(
     }
   }
 
-  return { courts: (best ?? fallback) as CourtAssignment[], sittingOut };
+  // `best` and `fallback` are both null only if no trial ever scored lower
+  // than Infinity, which means every score was NaN — a corrupt count somewhere
+  // upstream. Reporting no courts hands that to the caller's existing
+  // "not enough players" path; the cast this replaces let a null through to be
+  // read as an array.
+  return { courts: best ?? fallback ?? [], sittingOut };
 }

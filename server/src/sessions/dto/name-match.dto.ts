@@ -1,8 +1,8 @@
 import { IsIn, IsNumber, IsOptional, IsString, Max, Min } from 'class-validator';
 
 export class NameMatchDto {
-  @IsIn(['exact', 'fuzzy', 'new'])
-  type!: 'exact' | 'fuzzy' | 'new';
+  @IsIn(['exact', 'fuzzy', 'duplicate', 'new'])
+  type!: 'exact' | 'fuzzy' | 'duplicate' | 'new';
 
   @IsOptional()
   @IsString()

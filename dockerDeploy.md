@@ -19,9 +19,17 @@ export APP_DIR=/home/iamgide/jubBad
 2. Clone: `git clone git@github.com:iamgide555/jubBad.git /home/iamgide/jubBad && cd $_`
 3. App env: `cp server/.env.example server/.env`, then set:
    ```
+   ADMIN_TOKEN=<paste the output of: openssl rand -base64 32>
    DATABASE_URL="file:/app/prisma/dev.db"
    CORS_ORIGINS=https://jubbad.wongnok.dev
    ```
+   **`ADMIN_TOKEN` is the admin login.** The API refuses to start without it,
+   deliberately: an unset secret must never degrade to "no auth configured, so
+   let everyone in", which would be invisible in production — the site would
+   come up and work perfectly with the door open. If the `api` container exits
+   immediately on a deploy, check this first (`docker compose logs api` shows
+   `ADMIN_TOKEN is not set`). Changing the value signs every browser out, which
+   is also how you revoke access.
    **`DATABASE_URL` must be the container-internal path (`/app/prisma/dev.db`)** — matches the `docker-compose.yml` bind mount. `server/.env.example`'s default (`file:./prisma/dev.db`) is for local dev only (`nest start`, run from `server/`) — using it verbatim in Docker causes "unable to open database file" even though the host file exists, since the container only ever sees the file at `/app/prisma/dev.db`.
 4. Root env (PUID/PGID for compose): `printf 'PUID=%s\nPGID=%s\n' "$(id -u iamgide)" "$(id -g iamgide)" > .env`
 5. DB directory: `sudo chown -R "$(id -u):$(id -g)" server/prisma`

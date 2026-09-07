@@ -1,5 +1,56 @@
 <div class="page landing">
-  <h1 i18n="@@landing.headline">จับคู่ง่าย เล่นได้เยอะ</h1>
-  <p class="lede" i18n="@@landing.lede">วางรายชื่อจากไลน์ จัดคู่ให้อัตโนมัติ คุมก๊วนได้จากมือถือ</p>
-  <button type="button" (click)="startNewGroup()" i18n="@@landing.startNewGroup">สร้างก๊วนใหม่</button>
+  <div class="home-head">
+    <h1 i18n="@@home.title">ก๊วนของฉัน</h1>
+    <button type="button" class="ghost" (click)="signOut()" i18n="@@home.signOut">ออกจากระบบ</button>
+  </div>
+
+  @if (loaded()) {
+    @if (groups().length > 0) {
+      <ul class="group-list">
+        @for (group of groups(); track group.code) {
+          <li class="group-row">
+            <div class="group-main">
+              <a class="group-name" [routerLink]="['/g', group.code]">{{ group.name || group.code }}</a>
+              <p class="group-meta muted">
+                {{ group.playerCount }}<ng-container i18n="@@home.playersSuffix"> คน</ng-container>
+                ·
+                {{ group.sessionCount }}<ng-container i18n="@@home.sessionsSuffix"> ก๊วน</ng-container>
+              </p>
+            </div>
+
+            <div class="group-actions">
+              @if (group.lastSessionCode) {
+                <a class="ghost-link" [routerLink]="['/s', group.lastSessionCode]" i18n="@@home.continue">ไปก๊วนล่าสุด</a>
+              }
+              <button type="button" class="ghost remove" (click)="startRemove(group)" i18n="@@home.remove">ลบ</button>
+            </div>
+
+            @if (removingCode() === group.code) {
+              <div class="remove-confirm">
+                <p class="muted" i18n="@@home.removeWarning">ลบแล้วกู้คืนไม่ได้ — ทั้งผู้เล่น ก๊วนย้อนหลัง และผลแมตช์จะหายทั้งหมด</p>
+                <label [attr.for]="'confirm-' + group.code" i18n="@@home.removePrompt">พิมพ์ชื่อก๊วนเพื่อยืนยัน</label>
+                <input
+                  [attr.id]="'confirm-' + group.code"
+                  type="text"
+                  [ngModel]="removeConfirmText()"
+                  (ngModelChange)="removeConfirmText.set($event)"
+                />
+                @if (removeError()) {
+                  <p class="error" role="alert">{{ removeError() }}</p>
+                }
+                <div class="remove-actions">
+                  <button type="button" class="ghost" (click)="cancelRemove()" i18n="@@home.cancel">ยกเลิก</button>
+                  <button type="button" class="danger" [disabled]="!canRemove()" (click)="confirmRemove()" i18n="@@home.removeConfirm">ลบก๊วนนี้</button>
+                </div>
+              </div>
+            }
+          </li>
+        }
+      </ul>
+    } @else {
+      <p class="empty muted" i18n="@@home.empty">ยังไม่มีก๊วน — สร้างก๊วนแรกได้เลย</p>
+    }
+  }
+
+  <button type="button" class="new-group" (click)="startNewGroup()" i18n="@@home.startNewGroup">สร้างก๊วนใหม่</button>
 </div>

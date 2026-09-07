@@ -4,6 +4,7 @@ import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { ActivatedRoute, convertToParamMap, provideRouter, Router } from '@angular/router';
 import { GroupEntry } from './group-entry';
 import { routes } from '../../app.routes';
+import { AuthService } from '../../core/auth.service';
 import { environment } from '../../../environments/environment';
 
 const B = environment.apiBaseUrl;
@@ -20,6 +21,10 @@ describe('GroupEntry', () => {
         provideHttpClient(),
         provideHttpClientTesting(),
         provideRouter(routes),
+        // The real route table is used here, and its guarded routes would
+        // otherwise fire a real GET /auth/me the moment a test navigates. These
+        // specs are not about auth; the guard has its own tests.
+        { provide: AuthService, useValue: { check: () => Promise.resolve(true) } },
         {
           provide: ActivatedRoute,
           useValue: { snapshot: { paramMap: convertToParamMap({ groupCode: 'group1' }) } },

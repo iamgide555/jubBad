@@ -10,6 +10,43 @@ import type { ParseRosterDto } from './dto/parse-roster.dto.js';
 export class GroupsService {
   constructor(private readonly prisma: PrismaService) {}
 
+  /**
+   * Every group, for the admin home page. The first query in this codebase that
+   * is not scoped to a known code — until now a group was reachable only by
+   * already having its URL, which is why losing a bookmark lost the group.
+   *
+   * Sorted by most recent session rather than by creation, so the group being
+   * played tonight is at the top rather than whichever was made first. Groups
+   * with no sessions yet sort last but are never dropped: a group exists from
+   * the moment a roster is parsed into it, before any session is created.
+   */
+  async listGroups() {
+    const groups = await this.prisma.group.findMany({
+      include: {
+        _count: { select: { sessions: true, players: true } },
+        sessions: {
+          orderBy: { createdAt: 'desc' },
+          take: 1,
+          select: { code: true, createdAt: true },
+        },
+      },
+    });
+
+    return groups
+      .map((group) => {
+        const last = group.sessions[0] ?? null;
+        return {
+          code: group.code,
+          name: group.name,
+          sessionCount: group._count.sessions,
+          playerCount: group._count.players,
+          lastSessionCode: last?.code ?? null,
+          lastSessionAt: last?.createdAt.toISOString() ?? null,
+        };
+      })
+      .sort((a, b) => (b.lastSessionAt ?? '').localeCompare(a.lastSessionAt ?? ''));
+  }
+
   async findOne(code: string) {
     const group = await this.prisma.group.findUnique({ where: { code } });
     if (!group) throw new NotFoundException();

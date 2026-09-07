@@ -3,6 +3,7 @@ import { HttpTestingController, provideHttpClientTesting } from '@angular/common
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { ActivatedRoute, convertToParamMap, provideRouter } from '@angular/router';
 import { PlayerProfile } from './player-profile';
+import { AuthService } from '../../core/auth.service';
 import { environment } from '../../../environments/environment';
 import type { PlayerProfile as Profile } from '../../core/player-stats.model';
 
@@ -32,6 +33,12 @@ describe('PlayerProfile', () => {
       providers: [
         provideHttpClient(),
         provideHttpClientTesting(),
+
+        // The page asks whether the visitor is signed in, to decide whether the
+
+        // back link (which points at an admin-only screen) is worth showing.
+
+        { provide: AuthService, useValue: { check: () => Promise.resolve(false) } },
         provideRouter([]),
         {
           provide: ActivatedRoute,

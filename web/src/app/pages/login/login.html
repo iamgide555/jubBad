@@ -1,0 +1,30 @@
+<div class="page login">
+  <h1 i18n="@@login.title">JubBad</h1>
+  <p class="lede" i18n="@@login.lede">หน้านี้สำหรับผู้ดูแลก๊วนเท่านั้น</p>
+
+  <form (ngSubmit)="submit()">
+    <label for="token" i18n="@@login.tokenLabel">โทเคนผู้ดูแล</label>
+    <input
+      id="token"
+      name="token"
+      type="password"
+      autocomplete="current-password"
+      [ngModel]="token()"
+      (ngModelChange)="token.set($event)"
+      [attr.aria-invalid]="error() ? 'true' : null"
+      [attr.aria-describedby]="error() ? 'login-error' : null"
+    />
+
+    @if (error()) {
+      <p class="error" id="login-error" role="alert">{{ error() }}</p>
+    }
+
+    <button type="submit" [disabled]="busy() || !token().trim()">
+      @if (busy()) {
+        <ng-container i18n="@@login.signingIn">กำลังเข้าสู่ระบบ…</ng-container>
+      } @else {
+        <ng-container i18n="@@login.signIn">เข้าสู่ระบบ</ng-container>
+      }
+    </button>
+  </form>
+</div>

@@ -1,6 +1,8 @@
 @if (profile(); as p) {
   <div class="page profile">
-    <p><a [routerLink]="['/g', groupCode]" i18n="@@profile.back">← กลับ</a></p>
+    @if (canGoBack()) {
+      <p><a [routerLink]="['/g', groupCode]" i18n="@@profile.back">← กลับ</a></p>
+    }
     <h1>{{ p.name }}</h1>
 
     <div class="stat-row">

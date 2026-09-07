@@ -1,6 +1,7 @@
-import { Component, computed } from '@angular/core';
+import { Component, computed, inject, signal } from '@angular/core';
 import { httpResource } from '@angular/common/http';
 import { ActivatedRoute, RouterLink } from '@angular/router';
+import { AuthService } from '../../core/auth.service';
 import { environment } from '../../../environments/environment';
 import type { PlayerProfile as Profile } from '../../core/player-stats.model';
 
@@ -31,7 +32,18 @@ export class PlayerProfile {
     return rate == null ? null : Math.round(rate * 100);
   });
 
+  /**
+   * This page is public, so a player can hold a link to it. The back link goes
+   * to the group's admin screen, which they cannot open — following it would
+   * bounce them to a login page they have no token for and leave them stranded.
+   * Shown only to someone who can actually use it.
+   */
+  protected readonly canGoBack = signal(false);
+
   constructor(route: ActivatedRoute) {
+    const auth = inject(AuthService);
+    void auth.check().then((authed) => this.canGoBack.set(authed));
+
     this.groupCode = route.snapshot.paramMap.get('groupCode')!;
     this.playerId = route.snapshot.paramMap.get('playerId')!;
     this.profileResource = httpResource<Profile>(

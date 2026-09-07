@@ -1,0 +1,28 @@
+/* The only screen a stranger can reach, so it says what this is and asks for
+   one thing. No group names, no session codes, nothing that leaks what lives
+   behind it. */
+.login {
+  padding-top: 18vh;
+  max-width: 24rem;
+}
+
+.login h1 {
+  font-size: clamp(2rem, 8vw, 2.75rem);
+  margin-bottom: var(--space-1);
+}
+
+.login .lede {
+  color: var(--ink-soft);
+  margin-bottom: var(--space-4);
+}
+
+.login form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.login button {
+  width: 100%;
+  margin-top: var(--space-1);
+}

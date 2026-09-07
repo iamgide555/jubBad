@@ -4,6 +4,7 @@ import { FinishPairingDto } from './dto/finish-pairing.dto.js';
 import { SetModeDto } from './dto/set-mode.dto.js';
 import { SetRosterActiveDto } from './dto/set-roster-active.dto.js';
 import { SwapPlayerDto } from './dto/swap-player.dto.js';
+import { Public } from '../auth/public.decorator.js';
 import { SessionsService } from './sessions.service.js';
 
 @Controller('sessions')
@@ -15,6 +16,12 @@ export class SessionsController {
     return this.sessionsService.createSession(dto);
   }
 
+  /**
+   * Public: this is what the venue display polls. The only read the wall TV
+   * needs from this controller, and it exposes nothing a player in the hall
+   * cannot already see by looking at the courts.
+   */
+  @Public()
   @Get(':code')
   findOne(@Param('code') code: string) {
     return this.sessionsService.getSession(code);

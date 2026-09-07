@@ -796,6 +796,146 @@
           <context context-type="linenumber">53</context>
         </context-group>
       </trans-unit>
+      <trans-unit id="login.title" datatype="html">
+        <source>JubBad</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/login/login.html</context>
+          <context context-type="linenumber">2</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="login.lede" datatype="html">
+        <source>หน้านี้สำหรับผู้ดูแลก๊วนเท่านั้น</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/login/login.html</context>
+          <context context-type="linenumber">3</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="login.tokenLabel" datatype="html">
+        <source>โทเคนผู้ดูแล</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/login/login.html</context>
+          <context context-type="linenumber">6</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="login.signIn" datatype="html">
+        <source>เข้าสู่ระบบ</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/login/login.html</context>
+          <context context-type="linenumber">24</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="login.signingIn" datatype="html">
+        <source>กำลังเข้าสู่ระบบ…</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/login/login.html</context>
+          <context context-type="linenumber">22</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="login.wrongToken" datatype="html">
+        <source>โทเคนไม่ถูกต้อง</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/login/login.ts</context>
+          <context context-type="linenumber">41</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="login.throttled" datatype="html">
+        <source>ลองมากเกินไป รอสักครู่แล้วลองใหม่</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/login/login.ts</context>
+          <context context-type="linenumber">40</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="home.title" datatype="html">
+        <source>ก๊วนของฉัน</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/landing/landing.html</context>
+          <context context-type="linenumber">3</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="home.signOut" datatype="html">
+        <source>ออกจากระบบ</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/landing/landing.html</context>
+          <context context-type="linenumber">4</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="home.continue" datatype="html">
+        <source>ไปก๊วนล่าสุด</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/landing/landing.html</context>
+          <context context-type="linenumber">24</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="home.remove" datatype="html">
+        <source>ลบ</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/landing/landing.html</context>
+          <context context-type="linenumber">26</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="home.playersSuffix" datatype="html">
+        <source> คน</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/landing/landing.html</context>
+          <context context-type="linenumber">17</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="home.sessionsSuffix" datatype="html">
+        <source> ก๊วน</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/landing/landing.html</context>
+          <context context-type="linenumber">19</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="home.empty" datatype="html">
+        <source>ยังไม่มีก๊วน — สร้างก๊วนแรกได้เลย</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/landing/landing.html</context>
+          <context context-type="linenumber">50</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="home.startNewGroup" datatype="html">
+        <source>สร้างก๊วนใหม่</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/landing/landing.html</context>
+          <context context-type="linenumber">54</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="home.removeWarning" datatype="html">
+        <source>ลบแล้วกู้คืนไม่ได้ — ทั้งผู้เล่น ก๊วนย้อนหลัง และผลแมตช์จะหายทั้งหมด</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/landing/landing.html</context>
+          <context context-type="linenumber">32</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="home.removePrompt" datatype="html">
+        <source>พิมพ์ชื่อก๊วนเพื่อยืนยัน</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/landing/landing.html</context>
+          <context context-type="linenumber">33</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="home.cancel" datatype="html">
+        <source>ยกเลิก</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/landing/landing.html</context>
+          <context context-type="linenumber">43</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="home.removeConfirm" datatype="html">
+        <source>ลบก๊วนนี้</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/landing/landing.html</context>
+          <context context-type="linenumber">44</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="home.removeFailed" datatype="html">
+        <source>ลบก๊วนไม่สำเร็จ</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/landing/landing.ts</context>
+          <context context-type="linenumber">91</context>
+        </context-group>
+      </trans-unit>
     </body>
   </file>
 </xliff>

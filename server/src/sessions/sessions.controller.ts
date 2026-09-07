@@ -43,18 +43,26 @@ export class SessionsController {
   }
 
   @Post(':code/pairings/:id/confirm')
-  confirmPairing(@Param('id') id: string) {
-    return this.sessionsService.confirmPairing(id);
+  confirmPairing(@Param('code') code: string, @Param('id') id: string) {
+    return this.sessionsService.confirmPairing(code, id);
   }
 
   @Post(':code/pairings/:id/finish')
-  finishPairing(@Param('id') id: string, @Body() dto: FinishPairingDto) {
-    return this.sessionsService.finishPairing(id, dto);
+  finishPairing(
+    @Param('code') code: string,
+    @Param('id') id: string,
+    @Body() dto: FinishPairingDto
+  ) {
+    return this.sessionsService.finishPairing(code, id, dto);
   }
 
   @Post(':code/pairings/:id/swap')
-  swapPlayer(@Param('id') id: string, @Body() dto: SwapPlayerDto) {
-    return this.sessionsService.swapPlayer(id, dto);
+  swapPlayer(
+    @Param('code') code: string,
+    @Param('id') id: string,
+    @Body() dto: SwapPlayerDto
+  ) {
+    return this.sessionsService.swapPlayer(code, id, dto);
   }
 
   @Post(':code/roster/:playerId/active')

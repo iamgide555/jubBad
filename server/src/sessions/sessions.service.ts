@@ -316,9 +316,27 @@ export class SessionsService {
     };
   }
 
-  async confirmPairing(id: string) {
+  /**
+   * Loads a pairing, insisting it belongs to the session named in the URL.
+   *
+   * These routes are declared /sessions/:code/pairings/:id/... but used to read
+   * only :id, so the session segment was decorative and a request naming one
+   * session could drive a pairing in another. That is reachable without malice
+   * — a tab left open on last week's session has buttons pointing at a code
+   * whose pairings have long since moved on.
+   *
+   * A pairing in another session reports the same 404 as one that does not
+   * exist: whether some other session holds that id is not something the answer
+   * should disclose.
+   */
+  private async pairingInSession(sessionCode: string, id: string) {
     const pairing = await this.prisma.pairing.findUnique({ where: { id } });
-    if (!pairing) throw new NotFoundException();
+    if (!pairing || pairing.sessionId !== sessionCode) throw new NotFoundException();
+    return pairing;
+  }
+
+  async confirmPairing(sessionCode: string, id: string) {
+    const pairing = await this.pairingInSession(sessionCode, id);
     if (pairing.endedAt !== null) {
       throw new ConflictException('แมตช์นี้จบไปแล้ว');
     }
@@ -328,9 +346,8 @@ export class SessionsService {
     return this.prisma.pairing.update({ where: { id }, data: { confirmedAt: new Date() } });
   }
 
-  async finishPairing(id: string, dto: FinishPairingDto) {
-    const pairing = await this.prisma.pairing.findUnique({ where: { id } });
-    if (!pairing) throw new NotFoundException();
+  async finishPairing(sessionCode: string, id: string, dto: FinishPairingDto) {
+    const pairing = await this.pairingInSession(sessionCode, id);
     // Finishing a pairing nobody confirmed would leave a row that counts in
     // the stats table but is invisible to the pairing history, since the two
     // read different columns. Confirm is the single commit point (§7.2).
@@ -364,12 +381,10 @@ export class SessionsService {
     return { code: updated.code, endedAt: updated.endedAt };
   }
 
-  async swapPlayer(pairingId: string, dto: SwapPlayerDto) {
-    const target = await this.prisma.pairing.findUnique({
-      where: { id: pairingId },
-      select: { sessionId: true },
-    });
-    if (!target) throw new NotFoundException();
+  async swapPlayer(sessionCode: string, pairingId: string, dto: SwapPlayerDto) {
+    // Checked before taking the lock, so a request for the wrong session is
+    // refused without queueing behind that session's work.
+    const target = await this.pairingInSession(sessionCode, pairingId);
     return this.lock.run(target.sessionId, () => this.swapPlayerExclusively(pairingId, dto));
   }
 

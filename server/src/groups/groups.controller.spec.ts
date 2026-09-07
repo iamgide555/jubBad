@@ -247,7 +247,7 @@ describe('GroupsController', () => {
       expect(res.body.played).toBe(4);
       expect(res.body.won).toBe(2);
       expect(res.body.winRate).toBeCloseTo(2 / 3, 5);
-      expect(res.body.mostWinsWith).toEqual({ playerId: ally.id, name: 'Ally', played: 3, won: 2 });
+      expect(res.body.bestPartner.playerId).toBe(ally.id);
       expect(res.body.mostFacedOpponent.playerId).toBe(foe.id);
       expect(res.body.mostFacedOpponent.played).toBe(4);
       const decisiveRating = computeRatings(
@@ -267,14 +267,13 @@ describe('GroupsController', () => {
   });
 
   /**
-   * Finding 33: the field used to be called "best partner", which promises a
-   * judgement the number does not make. It counts wins together and breaks
-   * ties on games played, so a partner you have won 2 of 6 with outranks one
-   * you have won 2 of 2 with. That is the intended rule — with this few
-   * matches a win rate is mostly noise — and this test pins it so the name and
-   * the arithmetic cannot drift apart again.
+   * Best partner is a win rate, but only above a floor of 5 decisive games
+   * together. Without the floor this fixture would crown Flawless on 2-from-2
+   * at 100%. With it, Flawless is not eligible at all and Frequent wins on
+   * 33% — a worse rate, but the only one measured over enough games to mean
+   * anything. This pins the floor: delete it and this test crowns Flawless.
    */
-  it('ranks partners by wins together, breaking ties on games played, not win rate', async () => {
+  it('ignores a perfect record set over too few games together', async () => {
     const code = randomUUID();
     const sessionCode = randomUUID();
     await prisma.group.create({ data: { code, name: 'G' } });
@@ -311,12 +310,9 @@ describe('GroupsController', () => {
       const res = await request(server)
         .get(`/groups/${code}/players/${me.id}/stats`)
         .expect(200);
-      expect(res.body.mostWinsWith).toEqual({
-        playerId: frequent.id,
-        name: 'Frequent',
-        played: 6,
-        won: 2,
-      });
+      expect(res.body.bestPartner.playerId).toBe(frequent.id);
+      expect(res.body.bestPartner.winRate).toBeCloseTo(2 / 6, 5);
+      expect(res.body.bestPartner.provisional).toBe(false);
     } finally {
       await prisma.pairing.deleteMany({ where: { sessionId: sessionCode } });
       await prisma.session.deleteMany({ where: { code: sessionCode } });
@@ -338,7 +334,7 @@ describe('GroupsController', () => {
         .expect(200);
       expect(res.body.played).toBe(0);
       expect(res.body.winRate).toBeNull();
-      expect(res.body.mostWinsWith).toBeNull();
+      expect(res.body.bestPartner).toBeNull();
       expect(res.body.mostFacedOpponent).toBeNull();
     } finally {
       await prisma.player.deleteMany({ where: { groupId: code } });
@@ -439,4 +435,150 @@ describe('GroupsController', () => {
   it('404s deleting a group that does not exist', async () => {
     await request(server).delete(`/groups/${randomUUID()}`).expect(404);
   });
+
+  /**
+   * Builds a group where `me` partners each named mate for a run of matches,
+   * so a test only has to state the win/loss shape it cares about.
+   */
+  const partnerFixture = async (runs: { name: string; wins: number; losses: number }[]) => {
+    const code = randomUUID();
+    const sessionCode = randomUUID();
+    await prisma.group.create({ data: { code, name: 'G' } });
+    const me = await prisma.player.create({
+      data: { groupId: code, name: 'Me', aliases: '[]' },
+    });
+    const foeA = await prisma.player.create({
+      data: { groupId: code, name: 'FoeA', aliases: '[]' },
+    });
+    const foeB = await prisma.player.create({
+      data: { groupId: code, name: 'FoeB', aliases: '[]' },
+    });
+    await prisma.session.create({
+      data: { code: sessionCode, groupId: code, courtCount: 1, rawImportText: '' },
+    });
+
+    const mates = new Map<string, string>();
+    let matchNumber = 0;
+    for (const run of runs) {
+      const mate = await prisma.player.create({
+        data: { groupId: code, name: run.name, aliases: '[]' },
+      });
+      mates.set(run.name, mate.id);
+      const outcomes = [
+        ...Array.from({ length: run.wins }, () => true),
+        ...Array.from({ length: run.losses }, () => false),
+      ];
+      for (const win of outcomes) {
+        matchNumber += 1;
+        await prisma.pairing.create({
+          data: {
+            sessionId: sessionCode,
+            courtNumber: 1,
+            matchNumber,
+            teamA: JSON.stringify([me.id, mate.id]),
+            teamB: JSON.stringify([foeA.id, foeB.id]),
+            confirmedAt: new Date(Date.now() + matchNumber * 1000),
+            endedAt: new Date(),
+            winner: win ? 'A' : 'B',
+          },
+        });
+      }
+    }
+
+    const cleanup = async () => {
+      await prisma.pairing.deleteMany({ where: { sessionId: sessionCode } });
+      await prisma.session.deleteMany({ where: { code: sessionCode } });
+      await prisma.player.deleteMany({ where: { groupId: code } });
+      await prisma.group.deleteMany({ where: { code } });
+    };
+    return { code, me, foes: [foeA.id, foeB.id] as const, mates, cleanup };
+  };
+
+  it('prefers the better rate once both partners clear the floor', async () => {
+    // Steady: 5 of 8 (62%). Sharp: 5 of 6 (83%) on fewer games. Under the old
+    // wins-then-games-played rule these tie on 5 wins and Steady takes it.
+    const { code, me, mates, cleanup } = await partnerFixture([
+      { name: 'Steady', wins: 5, losses: 3 },
+      { name: 'Sharp', wins: 5, losses: 1 },
+    ]);
+    try {
+      const res = await request(server)
+        .get(`/groups/${code}/players/${me.id}/stats`)
+        .expect(200);
+      expect(res.body.bestPartner.playerId).toBe(mates.get('Sharp'));
+      expect(res.body.bestPartner.winRate).toBeCloseTo(5 / 6, 5);
+    } finally {
+      await cleanup();
+    }
+  });
+
+  it('breaks an equal rate towards the pair that has played more', async () => {
+    const { code, me, mates, cleanup } = await partnerFixture([
+      { name: 'Proven', wins: 6, losses: 3 },
+      { name: 'Newer', wins: 4, losses: 2 },
+    ]);
+    try {
+      const res = await request(server)
+        .get(`/groups/${code}/players/${me.id}/stats`)
+        .expect(200);
+      expect(res.body.bestPartner.winRate).toBeCloseTo(2 / 3, 5);
+      expect(res.body.bestPartner.playerId).toBe(mates.get('Proven'));
+    } finally {
+      await cleanup();
+    }
+  });
+
+  it('falls back to most wins together, flagged provisional, below the floor', async () => {
+    // Nobody has 5 games with anyone yet, which is every new group for its
+    // first few nights. Showing nothing would leave the panel empty, so the
+    // old count stands in and says so.
+    const { code, me, mates, cleanup } = await partnerFixture([
+      { name: 'Some', wins: 2, losses: 1 },
+      { name: 'Fewer', wins: 1, losses: 0 },
+    ]);
+    try {
+      const res = await request(server)
+        .get(`/groups/${code}/players/${me.id}/stats`)
+        .expect(200);
+      expect(res.body.bestPartner.playerId).toBe(mates.get('Some'));
+      expect(res.body.bestPartner.provisional).toBe(true);
+    } finally {
+      await cleanup();
+    }
+  });
+
+  it('does not let an abandoned match count against a pairing rate', async () => {
+    const { code, me, foes, mates, cleanup } = await partnerFixture([
+      { name: 'Solid', wins: 5, losses: 1 },
+    ]);
+    try {
+      const before = await request(server)
+        .get(`/groups/${code}/players/${me.id}/stats`)
+        .expect(200);
+      expect(before.body.bestPartner.winRate).toBeCloseTo(5 / 6, 5);
+
+      const session = await prisma.session.findFirstOrThrow({ where: { groupId: code } });
+      await prisma.pairing.create({
+        data: {
+          sessionId: session.code,
+          courtNumber: 1,
+          matchNumber: 99,
+          teamA: JSON.stringify([me.id, mates.get('Solid')!]),
+          teamB: JSON.stringify(foes),
+          confirmedAt: new Date(),
+          endedAt: new Date(),
+          winner: null,
+        },
+      });
+
+      const after = await request(server)
+        .get(`/groups/${code}/players/${me.id}/stats`)
+        .expect(200);
+      expect(after.body.bestPartner.winRate).toBeCloseTo(5 / 6, 5);
+      expect(after.body.bestPartner.played).toBe(7);
+    } finally {
+      await cleanup();
+    }
+  });
+
 });

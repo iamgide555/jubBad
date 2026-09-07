@@ -6,6 +6,15 @@ import { PrismaService } from '../prisma/prisma.service.js';
 import type { UpdateGroupDto } from './dto/update-group.dto.js';
 import type { ParseRosterDto } from './dto/parse-roster.dto.js';
 
+type PairCount = { played: number; won: number; decisive: number };
+
+/**
+ * Decisive games a pairing needs before its win rate is trusted. Five is about
+ * two evenings together: enough that one lucky night does not crown a partner,
+ * few enough that a regular pair qualifies within a month.
+ */
+const MIN_GAMES_TOGETHER = 5;
+
 @Injectable()
 export class GroupsService {
   constructor(private readonly prisma: PrismaService) {}
@@ -139,11 +148,12 @@ export class GroupsService {
     let won = 0;
     let decisivePlayed = 0;
     // Tallies keyed by the other player: who I win with, and who I face.
-    const withCounts = new Map<string, { played: number; won: number }>();
-    const againstCounts = new Map<string, { played: number; won: number }>();
-    const bump = (m: Map<string, { played: number; won: number }>, id: string, win: boolean) => {
-      const row = m.get(id) ?? { played: 0, won: 0 };
+    const withCounts = new Map<string, PairCount>();
+    const againstCounts = new Map<string, PairCount>();
+    const bump = (m: Map<string, PairCount>, id: string, win: boolean, decisive: boolean) => {
+      const row = m.get(id) ?? { played: 0, won: 0, decisive: 0 };
       row.played += 1;
+      if (decisive) row.decisive += 1;
       if (win) row.won += 1;
       m.set(id, row);
     };
@@ -160,8 +170,9 @@ export class GroupsService {
 
       const mine = onA ? match.teamA : match.teamB;
       const theirs = onA ? match.teamB : match.teamA;
-      for (const id of mine) if (id !== playerId) bump(withCounts, id, win);
-      for (const id of theirs) bump(againstCounts, id, win);
+      const decisive = match.winner !== null;
+      for (const id of mine) if (id !== playerId) bump(withCounts, id, win, decisive);
+      for (const id of theirs) bump(againstCounts, id, win, decisive);
     }
 
     const names = new Map(
@@ -170,17 +181,43 @@ export class GroupsService {
         p.name,
       ])
     );
-    // Ranked on wins together, with most-played breaking ties. That is a
-    // count, not a rate: a partner you have won 2 of 9 with outranks one you
-    // have won 2 of 2 with, because the tie on 2 wins is broken by games
-    // played. Deliberate — with a handful of matches a rate is mostly noise,
-    // and "we've won the most together" is the claim a player recognises. It
-    // is also why this is named for what it counts rather than called a
-    // "best" partner, which would promise a judgement it does not make.
-    const pick = (
-      counts: Map<string, { played: number; won: number }>,
-      by: 'won' | 'played'
-    ) => {
+    // Ranked on win rate together, not on raw wins. A rate needs a floor or a
+    // partner you have won one game with shows as the best at 100%, so a pair
+    // must have MIN_GAMES_TOGETHER decisive games before it is eligible, and
+    // ties go to the pair that has played more — the proven partnership, not
+    // the newer one. Rate is computed over decisive games only: an abandoned
+    // match was played but says nothing about whether the pairing wins.
+    //
+    // If nobody clears the floor, fall back to most wins together and say so
+    // via `provisional`, because a new group would otherwise see an empty
+    // panel for weeks. The client labels the fallback differently.
+    const bestPartner = (() => {
+      const eligible = [...withCounts.entries()].filter(
+        ([, row]) => row.decisive >= MIN_GAMES_TOGETHER
+      );
+      const provisional = eligible.length === 0;
+      const ranked = (provisional ? [...withCounts.entries()] : eligible).sort((a, b) => {
+        if (!provisional) {
+          const rate = b[1].won / b[1].decisive - a[1].won / a[1].decisive;
+          if (rate !== 0) return rate;
+        } else if (b[1].won !== a[1].won) {
+          return b[1].won - a[1].won;
+        }
+        return b[1].played - a[1].played;
+      });
+      if (ranked.length === 0) return null;
+      const [id, row] = ranked[0];
+      return {
+        playerId: id,
+        name: names.get(id) ?? 'Unknown',
+        played: row.played,
+        won: row.won,
+        winRate: row.decisive === 0 ? null : row.won / row.decisive,
+        provisional,
+      };
+    })();
+
+    const pick = (counts: Map<string, PairCount>, by: 'won' | 'played') => {
       const ranked = [...counts.entries()].sort(
         (a, b) => b[1][by] - a[1][by] || b[1].played - a[1].played
       );
@@ -204,7 +241,7 @@ export class GroupsService {
       won,
       winRate: decisivePlayed === 0 ? null : won / decisivePlayed,
       rating: Math.round(ratings.get(playerId) ?? STARTING_RATING),
-      mostWinsWith: pick(withCounts, 'won'),
+      bestPartner,
       mostFacedOpponent: pick(againstCounts, 'played'),
     };
   }

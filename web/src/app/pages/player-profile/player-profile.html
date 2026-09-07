@@ -26,13 +26,24 @@
       </div>
     </div>
 
-    @if (p.mostWinsWith; as partner) {
+    @if (p.bestPartner; as partner) {
       <hr class="rule" />
-      <h4 class="label" i18n="@@profile.mostWinsWith">ชนะด้วยกันมากที่สุด</h4>
+      @if (partner.provisional) {
+        <h4 class="label" i18n="@@profile.mostWinsWith">ชนะด้วยกันมากที่สุด</h4>
+      } @else {
+        <h4 class="label" i18n="@@profile.bestPartner">คู่ที่ดีที่สุด</h4>
+      }
       <p>
         <a [routerLink]="['/g', groupCode, 'p', partner.playerId]">{{ partner.name }}</a>
-        <span class="muted"> — <ng-container i18n="@@profile.wonOf">ชนะ</ng-container> {{ partner.won }}/{{ partner.played }}</span>
+        <span class="muted">
+          @if (!partner.provisional && partnerPercent(partner.winRate) !== null) {
+            — {{ partnerPercent(partner.winRate) }}%
+          }
+          <ng-container i18n="@@profile.wonOf">ชนะ</ng-container> {{ partner.won }}/{{ partner.played }}</span>
       </p>
+      @if (partner.provisional) {
+        <p class="muted hint" i18n="@@profile.partnerProvisional">ยังเล่นด้วยกันไม่ถึง 5 เกม จึงยังไม่คิดเป็นอัตราชนะ</p>
+      }
     }
 
     @if (p.mostFacedOpponent; as foe) {

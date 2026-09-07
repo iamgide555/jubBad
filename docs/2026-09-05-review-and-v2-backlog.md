@@ -469,11 +469,18 @@ most-faced opponent, win rate. Naturally shareable back into the LINE group.
 **Done.** `GET /groups/:code/players/:id/stats` returns record, win rate, Elo
 rating, most-wins-with partner and most-faced opponent, rendered at
 `/g/:code/p/:id` and linked from every name in the stats table. The partner
-metric is most wins together, most-played breaking ties — so a partner you have
-won 2 of 6 with outranks one you have won 2 of 2 with, because a win rate over
-two matches is noise. It is named `mostWinsWith` and labelled "ชนะด้วยกันมากที่สุด"
-rather than "best partner" (2026-09-07, finding 33): the count is the honest
-claim, and calling it "best" promised a judgement it never made. A player who
+metric is **win rate together** over a floor of 5 decisive games, ties going to
+the pair that has played more (2026-09-08). It is named `bestPartner` and
+labelled "คู่ที่ดีที่สุด". Two earlier attempts are worth recording: it began as
+a raw count called "best partner", which promised a judgement it did not make;
+finding 33 renamed it to `mostWinsWith` to match the arithmetic; the owner then
+confirmed that best partner really did mean best win rate, so the arithmetic
+moved to meet the name instead. The floor is what makes that safe — without it
+a single lucky game shows as a 100% partner. Below the floor the response falls
+back to most wins together and sets `provisional`, and the profile drops the
+percentage and says why, so a new group sees an honest count rather than an
+empty panel. The rate counts decisive games only, since an abandoned match was
+played but proves nothing about the pairing. A player who
 has not finished a match gets a null win rate rather than 0%, since those are
 different facts.
 

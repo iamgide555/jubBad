@@ -17,7 +17,7 @@ function profile(overrides: Partial<Profile> = {}): Profile {
     won: 2,
     winRate: 2 / 3,
     rating: 1215,
-    mostWinsWith: { playerId: 'p2', name: 'เบส', played: 2, won: 2 },
+    bestPartner: { playerId: 'p2', name: 'เบส', played: 8, won: 6, winRate: 0.75, provisional: false },
     mostFacedOpponent: { playerId: 'p3', name: 'ปอม', played: 3, won: 1 },
     ...overrides,
   };
@@ -81,7 +81,7 @@ describe('PlayerProfile', () => {
   });
 
   it('shows a dash rather than 0% for someone who has never played', async () => {
-    await load(profile({ played: 0, won: 0, winRate: null, mostWinsWith: null, mostFacedOpponent: null }));
+    await load(profile({ played: 0, won: 0, winRate: null, bestPartner: null, mostFacedOpponent: null }));
     const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
     expect(fixture.componentInstance['winPercent']()).toBeNull();
     expect(text).not.toContain('0%');
@@ -91,5 +91,40 @@ describe('PlayerProfile', () => {
   it('shows a not-found message when the player is unknown', async () => {
     await load(null);
     expect((fixture.nativeElement as HTMLElement).textContent).toContain('ไม่พบผู้เล่น');
+  });
+
+  it('shows the partner win rate once the pairing has enough games', async () => {
+    await load(profile());
+    const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
+    expect(text).toContain('คู่ที่ดีที่สุด');
+    expect(text).toContain('75%');
+    expect(text).toContain('6/8');
+  });
+
+  it('labels a below-the-floor partner as a count, not a rate', async () => {
+    // Guards the honesty of the panel: with 2 of 3 games the heading must not
+    // claim "best partner" or print a 67% that reads as a measured rate.
+    await load(
+      profile({
+        // Own rate held distinct from the partner's so the assertion below
+        // cannot pass by reading the player's own percentage.
+        played: 4,
+        won: 2,
+        winRate: 0.5,
+        bestPartner: {
+          playerId: 'p2',
+          name: 'เบส',
+          played: 3,
+          won: 2,
+          winRate: 2 / 3,
+          provisional: true,
+        },
+      })
+    );
+    const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
+    expect(text).toContain('ชนะด้วยกันมากที่สุด');
+    expect(text).not.toContain('คู่ที่ดีที่สุด');
+    expect(text).not.toContain('67%');
+    expect(text).toContain('ยังเล่นด้วยกันไม่ถึง 5 เกม');
   });
 });

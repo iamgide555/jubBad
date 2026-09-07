@@ -32,6 +32,10 @@ export class PlayerProfile {
     return rate == null ? null : Math.round(rate * 100);
   });
 
+  protected partnerPercent(rate: number | null): number | null {
+    return rate == null ? null : Math.round(rate * 100);
+  }
+
   /**
    * This page is public, so a player can hold a link to it. The back link goes
    * to the group's admin screen, which they cannot open — following it would

@@ -556,6 +556,20 @@
           <context context-type="linenumber">29,31</context>
         </context-group>
       </trans-unit>
+      <trans-unit id="profile.bestPartner" datatype="html">
+        <source>คู่ที่ดีที่สุด</source><target>Best partner</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/player-profile/player-profile.html</context>
+          <context context-type="linenumber">34</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="profile.partnerProvisional" datatype="html">
+        <source>ยังเล่นด้วยกันไม่ถึง 5 เกม จึงยังไม่คิดเป็นอัตราชนะ</source><target>Fewer than 5 games together, so this is not a win rate yet</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/player-profile/player-profile.html</context>
+          <context context-type="linenumber">46</context>
+        </context-group>
+      </trans-unit>
       <trans-unit id="profile.wonOf" datatype="html">
         <source>ชนะ</source><target>won</target>
         <context-group purpose="location">
@@ -1161,6 +1175,69 @@
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/session-dashboard/session-dashboard.html</context>
           <context context-type="linenumber">82</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="err.code.playerUnavailable" datatype="html">
+        <source>มีผู้เล่นในแมตช์นี้พักอยู่ กรุณาเปลี่ยนตัวหรือสุ่มใหม่</source><target>A player in this match is resting — swap them out or reshuffle</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/core/live-session.service.ts</context>
+          <context context-type="linenumber">47</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="err.code.courtInUse" datatype="html">
+        <source>ยังมีแมตช์เล่นอยู่บนคอร์ทที่จะตัดออก กรุณาบันทึกผลก่อน</source><target>A match is still running on the court being removed — record its result first</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/core/live-session.service.ts</context>
+          <context context-type="linenumber">49</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="err.code.invalidSessionState" datatype="html">
+        <source>ข้อมูลก๊วนนี้ผิดปกติ จัดคู่ต่อไม่ได้ กรุณาแจ้งผู้ดูแล</source><target>This session’s data is inconsistent, so pairing cannot continue. Please tell the admin.</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/core/live-session.service.ts</context>
+          <context context-type="linenumber">53</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="err.courtCount" datatype="html">
+        <source>เปลี่ยนจำนวนคอร์ทไม่สำเร็จ</source><target>Could not change the court count</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/core/live-session.service.ts</context>
+          <context context-type="linenumber">225</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="court.restingInProposal" datatype="html">
+        <source><x id="INTERPOLATION" equiv-text="{{ restingInProposal().join(&apos;, &apos;) }}"/> พักอยู่ — กดชื่อเพื่อเปลี่ยนตัว หรือสุ่มใหม่</source><target><x id="INTERPOLATION" equiv-text="{{ restingInProposal().join(&apos;, &apos;) }}"/> is resting — tap the name to swap, or reshuffle</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/session-dashboard/court-panel/court-panel.html</context>
+          <context context-type="linenumber">37,39</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="dashboard.courtCountLabel" datatype="html">
+        <source>จำนวนคอร์ท</source><target>Courts</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/session-dashboard/session-dashboard.html</context>
+          <context context-type="linenumber">42,43</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="dashboard.courtCountLess" datatype="html">
+        <source>ลดจำนวนคอร์ท</source><target>Fewer courts</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/session-dashboard/session-dashboard.html</context>
+          <context context-type="linenumber">44</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="dashboard.courtCountMore" datatype="html">
+        <source>เพิ่มจำนวนคอร์ท</source><target>More courts</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/session-dashboard/session-dashboard.html</context>
+          <context context-type="linenumber">46</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="dashboard.courtCountHint" datatype="html">
+        <source>ปรับได้เมื่อจองคอร์ทเพิ่มหรือคืนคอร์ท</source><target>Adjust when you book another court or give one back</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/session-dashboard/session-dashboard.html</context>
+          <context context-type="linenumber">48,52</context>
         </context-group>
       </trans-unit>
     </body>

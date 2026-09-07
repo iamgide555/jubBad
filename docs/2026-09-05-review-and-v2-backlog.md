@@ -510,14 +510,18 @@ since there is no auth and no undo behind it.
 The access question that raises is a recorded accepted risk — see the end of
 this file.
 
-### - [ ] B12. Host role
+### - [ ] B12. Per-user login (host role)
 
-**Still deferred, but the original reason no longer applies** (revised
-2026-09-07). This entry used to defer on §2's accepted risk, "anyone with the
-link can edit", and to argue that a host role would reverse a documented
-"no login/auth" decision. Both premises are now out of date: admin
-authentication was built, and `docs/overview.md` records the decision as
-"shared admin authentication, not player accounts" rather than no auth at all.
+**Accepted work, not yet started.** This entry has been rewritten twice and the
+history matters, because the reason for holding it changed completely. It
+originally deferred on §2's accepted risk, "anyone with the link can edit", and
+argued that a host role would reverse a documented "no login/auth" decision.
+Both premises went out of date once admin authentication was built;
+`docs/overview.md` now records the decision as "shared admin authentication,
+not player accounts" rather than no auth at all. The entry then deferred on the
+genuine remaining gap — identity — and waited for a trigger. As of 2026-09-08
+the owner has decided to build it regardless of any trigger, so what remains is
+purely a question of when.
 
 What exists now is a global default-deny guard (`AdminGuard`, registered as an
 `APP_GUARD`): every route requires the admin cookie unless it is explicitly
@@ -537,20 +541,36 @@ add and what the token cannot express:
   concept of owning a group.
 - Revocation is all-or-nothing: changing the token signs out every device.
 
-**Defer on those grounds.** For one badminton group where the token holder is
-the person who runs the sessions, per-user identity distinguishes nobody from
-nobody — it would add accounts, ownership and a permission model to express a
-distinction that does not currently exist socially. It becomes worth building
-when the token is genuinely shared with people who should *not* have equal
-power, most likely when a second group with a different host starts using the
-same deployment. That is the trigger to watch for, not "abuse".
+**Planned, and sequenced behind real-world validation** (owner decision,
+2026-09-08). This is no longer "deferred until a trigger appears" — the owner
+intends to build per-user login. What holds it is ordering, not doubt: the
+audit fixes, the win-rate partner metric and manual swap are all implemented
+but have only ever run against tests. None has been used in a live session yet.
+
+Authentication is the wrong thing to change while that is true. It touches
+every route, so a fault in it looks like a fault in everything, and debugging
+"the app is broken" is far harder when the login layer changed in the same
+week. Proving the core first means a later auth bug has an obvious cause.
+
+**Do not start this until the deployed build has run real sessions**, including
+the parts no test can cover: manual swap under a thumb on a phone, the backup
+and restore scripts against the real database, and the partner metric once
+pairs actually cross five games together.
+
+When it is built, the three gaps above are the specification: identity,
+per-group ownership, and per-user revocation. Note that the second implies a
+data change — groups currently have no owner column — so it is a migration, not
+only a login screen.
 
 ---
 
 ## Suggested order
 
-Everything here is done except B12, which stays deferred — see its entry for
-why the original reasoning was revised on 2026-09-07.
+Everything here is done except B12, which is accepted work rather than a
+deferral. It is sequenced last on purpose: it changes the layer every route
+passes through, so it should not move until the current build has been proven
+in real sessions. See its entry for the full reasoning and for what "proven"
+means concretely.
 
 ## Export and delete: accepted risk (resolved 2026-09-07)
 

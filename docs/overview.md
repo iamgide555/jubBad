@@ -39,7 +39,7 @@ coordinate — not a smarter pairing algorithm or a bigger feature set.**
 | Trigger-word LINE bot (reconsidered, still rejected) | The idea: a bot watches the group for a keyword ("Play") then auto-extracts the roster, skipping the manual paste. Rejected on inspection — the LINE Messaging API has no message-history endpoint (confirmed in LINE's docs), so a bot can only look *forward* from when it joins. In real use the roster is posted days before "Play" is typed, so the bot would have to continuously store *all* group messages in a rolling buffer to look backward — that is full passive listening plus retention, the exact risk rejected above, not a lighter trigger-gated version. It also reopens "no infra" and "no posting bot" at once. Revisit only if paste friction proves to be a real dealbreaker; the lower-risk fix for the typing/copying pain is a tap-to-register roster link |
 | No cost-splitting / PromptPay QR in-app | KhunThong (ขุนทอง), KBank/KBTG's LINE bot, already does this well — bill split (equal or not), PromptPay QR, and payment verification by e-slip scan, which the planned v1 didn't even have. The host invites KhunThong separately; no integration needed |
 | Score logging: final score only, no live scoreboard | Point-by-point, serve indicators and timers are scope creep nobody asked for. A final score per court is low-friction and still bootstraps the match history that future skill/Elo balancing would need |
-| No per-group host role | The shared admin token protects every administrative route, but it does not distinguish one group member from another or assign ownership of a particular group. One secret means equal power for everyone holding it — including deleting a group — and revocation is all-or-nothing. Acceptable while the token holder is the person who runs the sessions; add roles when a second group with a different host shares the deployment. |
+| No per-group host role | The shared admin token protects every administrative route, but it does not distinguish one group member from another or assign ownership of a particular group. One secret means equal power for everyone holding it — including deleting a group — and revocation is all-or-nothing. Acceptable only while the token holder is the person who runs the sessions. The owner decided on 2026-09-08 to build per-user login (backlog B12), sequenced after the current build has been validated in real sessions — it changes the layer every route passes through, so it should not move while the core is still unproven in the field. |
 | No data-retention/deletion policy (**accepted risk**) | Names persist indefinitely under a group's link code. A host can now export the group as JSON or delete it outright, which covers the practical need without a policy |
 | Export and delete require the shared admin token | They are administrative operations; the client also requires typing the group name to prevent an accidental delete. The token is shared rather than per-user, so revocation means changing it and signing every admin device out. |
 | No promoting a waitlisted (สำรอง) player mid-session | The สำรอง list is resolved in LINE *before* the session — a waitlisted player was told not to come, so there is nobody at the venue to promote. The feature would serve a situation that cannot occur. Waitlisted names are still imported and shown, so the host can see who was turned away |
@@ -48,7 +48,10 @@ coordinate — not a smarter pairing algorithm or a bigger feature set.**
 
 - Multi-sport support — badminton-only, Thai-only. That is the moat.
 - Any LINE bot, posting or passively listening (reconsidered once; still out).
-- LIFF / LINE Login, user accounts, login.
+- LIFF / LINE Login as an identity provider. Note that plain user accounts left
+  this list on 2026-09-08: per-user login is now planned work (backlog B12).
+  What stays out of scope is *player* accounts — players never log in. The
+  accounts being added are for whoever administers a group.
 - Live point-by-point scoreboard.
 - Cost splitting / PromptPay QR — delegated to KhunThong.
 - Individual player accounts and per-group roles. Still out — see the decision table above.

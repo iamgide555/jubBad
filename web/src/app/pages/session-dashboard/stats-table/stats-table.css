@@ -1,21 +1,14 @@
+/* .scope-toggle now lives in styles.css — this file had its own copy whose
+   active segment was amber, which read as "needs your attention" on a control
+   that is only choosing which numbers to show. */
 .stats-table {
   margin-top: var(--space-2);
-}
-
-.scope-toggle {
-  display: flex;
-  gap: var(--space-1);
-  margin-bottom: var(--space-1);
-}
-
-.scope-toggle button.active {
-  background: var(--accent);
-  color: var(--surface);
 }
 
 .stats-table table {
   width: 100%;
   border-collapse: collapse;
+  font-variant-numeric: tabular-nums;
 }
 
 .stats-table th,
@@ -23,4 +16,19 @@
   text-align: left;
   padding: var(--space-1);
   border-bottom: 1px solid var(--rule);
+}
+
+.stats-table th {
+  font-family: var(--font-text);
+  font-size: var(--text-xs);
+  font-weight: 600;
+  color: var(--ink-soft);
+}
+
+/* Names are the column you scan; the counts are read once you have found the
+   row, so they sit quieter and right-aligned against the number beside them. */
+.stats-table td:not(:first-child),
+.stats-table th:not(:first-child) {
+  text-align: right;
+  width: 4.5rem;
 }

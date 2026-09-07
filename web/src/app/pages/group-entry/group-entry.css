@@ -10,7 +10,7 @@
 .error {
   color: var(--warn);
   font-weight: 600;
-  font-size: 0.9rem;
+  font-size: var(--text-sm);
 }
 
 .notice-block {
@@ -22,7 +22,7 @@
 
 .notice-block p {
   margin: 0;
-  font-size: 0.9rem;
+  font-size: var(--text-sm);
   color: var(--ink-soft);
 }
 
@@ -31,10 +31,10 @@
 }
 
 .notice-block h4 {
-  font-family: 'Inter', 'Noto Sans Thai', sans-serif;
-  font-size: 0.85rem;
+  font-family: var(--font-text);
+  font-size: var(--text-sm);
   font-weight: 700;
-  margin: 0 0 0.3rem;
+  margin: 0 0 var(--space-0);
 }
 
 .review-list {
@@ -48,15 +48,20 @@
   display: flex;
   align-items: center;
   gap: var(--space-2);
-  padding: 0.65rem 0;
+  /* Row padding, not row height: a row with a wrapped Thai name and a tag
+     that pills onto a second line must not clip. */
+  padding: var(--space-1) var(--space-1) var(--space-1) 0;
   border-bottom: 1px solid var(--rule);
+  min-height: var(--tap);
+  flex-wrap: wrap;
 }
 
 .review-index {
-  font-family: 'Archivo', 'Noto Sans Thai', sans-serif;
+  font-family: var(--font-display);
   font-weight: 700;
   color: var(--ink-soft);
-  min-width: 1.5rem;
+  font-variant-numeric: tabular-nums;
+  min-width: 1.75rem;
 }
 
 .review-name {
@@ -65,10 +70,16 @@
 }
 
 .review-tag {
-  font-size: 0.85rem;
+  font-size: var(--text-sm);
   color: var(--ink-soft);
 }
 
+/* Three of these are statuses the host only skims; two are questions aimed at
+   them. The skimmable ones stay as plain coloured text so the eye slides past
+   a list of twenty, and only the rows wanting an answer take a tinted pill and
+   sit against a washed row. Before this, `fuzzy` had no styling at all — the
+   one row asking "did you mean X?" looked identical to a row saying "known
+   player". */
 .review-tag.matched {
   color: var(--court);
 }
@@ -77,12 +88,29 @@
   color: var(--accent-dark);
 }
 
-/* The one row on this screen the host has to make a call on: two slots have
-   landed on the same player, and confirming the list as-is quietly drops one
-   of them. It reads as a warning rather than as another status tag. */
+/* A tinted pill, because this row is asking a question rather than reporting
+   a state, and it sits on an untinted row where the pill is what catches the
+   eye. */
+.review-tag.fuzzy {
+  padding: 0.15rem 0.5rem;
+  border-radius: var(--radius-pill);
+  background: color-mix(in srgb, var(--accent) 18%, transparent);
+  color: var(--accent-dark);
+  font-weight: 600;
+  line-height: 1.4;
+}
+
+/* The only row that can silently lose a slot: confirming as-is drops it. The
+   washed row behind it is what makes it findable while scrolling a long
+   roster, so the tag itself is just the warning colour — a tinted pill on top
+   of a tinted row cancels itself out and reads as neither. */
 .review-tag.duplicate {
   color: var(--warn);
   font-weight: 600;
+}
+
+.review-row:has(.review-tag.duplicate) {
+  background: color-mix(in srgb, var(--warn-wash) 55%, transparent);
 }
 
 
@@ -94,22 +122,17 @@
 }
 
 .session-list li {
-  padding: 0.4rem 0;
+  padding: var(--space-1) 0;
   border-bottom: 1px solid var(--rule);
 }
 
-.muted {
-  color: var(--ink-soft);
-  font-size: 0.85rem;
-}
-
 .live-tag {
-  margin-left: 0.4rem;
-  padding: 0.1rem 0.4rem;
-  border-radius: 999px;
+  margin-left: var(--space-1);
+  padding: 0.1rem 0.45rem;
+  border-radius: var(--radius-pill);
   background: var(--accent);
   color: var(--ink);
-  font-size: 0.75rem;
+  font-size: var(--text-xs);
   font-weight: 600;
 }
 
@@ -123,7 +146,7 @@
 }
 
 .danger-zone button {
-  min-height: 44px;
+  min-height: var(--tap);
 }
 
 button.danger {

@@ -1,21 +1,42 @@
-.dashboard {
-  max-width: 40rem;
+/* Courts stack on a phone. On a tablet they sit side by side: a host with
+   three courts running had to scroll past court 1 to see whether court 3 was
+   free, on a screen with room for all three at once. This is the whole reason
+   the dashboard opts into .page-wide. */
+/* minmax(0, 1fr), never a bare 1fr. A bare `1fr` is `minmax(auto, 1fr)`, so a
+   column refuses to shrink below its content's min-content width — and a court
+   panel's min-content is its two side-by-side buttons with Thai labels. That
+   pushed the grid wider than the phone viewport and took the whole page with
+   it: panels clipped at the right edge, and the roster chips above wrapped to
+   the blown-out width instead of the screen. */
+.courts-list {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-2);
+  margin: var(--space-3) 0;
 }
 
-.courts-list {
+@media (min-width: 48rem) {
+  .courts-list {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: var(--space-3);
+  }
+}
+
+/* Matches the shell's 64rem tier: on a 1024px iPad in landscape all three
+   courts belong on one row, which was the entire point of widening the page.
+   At 68rem this fired one device too late and court 3 sat alone. */
+@media (min-width: 64rem) {
+  .courts-list {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+/* The component host is the grid child, so the panel inside it can only fill
+   the stretched row height if the host stretches too. */
+.courts-list app-court-panel {
   display: flex;
   flex-direction: column;
-  gap: var(--space-2);
-  margin: var(--space-2) 0;
-}
-
-.waiting-queue h4,
-.waitlist h4 {
-  font-family: 'Inter', 'Noto Sans Thai', sans-serif;
-  font-size: 0.85rem;
-  text-transform: none;
-  color: var(--ink-soft);
-  margin-bottom: 0.5rem;
+  min-width: 0;
 }
 
 .waitlist {
@@ -27,16 +48,11 @@
    a struck-through muted state, not a hidden one. */
 .roster-chips .chip {
   cursor: pointer;
-  min-height: 44px;
+  min-height: var(--tap);
   font: inherit;
-  font-size: 0.9rem;
+  font-size: var(--text-sm);
   font-weight: 500;
   color: var(--ink);
-}
-
-.roster-chips .chip:hover {
-  border-color: var(--ink-soft);
-  background: var(--surface);
 }
 
 .roster-chips .chip.resting {
@@ -51,46 +67,86 @@
   opacity: 0.6;
 }
 
+@media (hover: hover) {
+  .roster-chips .chip:hover:not(:disabled) {
+    border-color: var(--court);
+    background: var(--surface);
+  }
+}
+
 .wait-mins {
-  margin-left: 0.35rem;
+  margin-left: var(--space-0);
   color: var(--ink-soft);
-  font-variant-numeric: tabular-nums;
-  font-size: 0.8rem;
+  font-size: var(--text-xs);
 }
 
-.muted {
-  color: var(--ink-soft);
-  font-size: 0.85rem;
+/* The two controls that decide how courts get filled, sitting together on one
+   line directly above the courts they act on. The mode switch used to live far
+   below the courts, between the waitlist and the share button, at full page
+   width — a setting the size of a primary action, nowhere near what it
+   affects. */
+.court-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-2);
+  margin-top: var(--space-3);
 }
 
+.mode-toggle {
+  /* Sizes to its content instead of stretching, and sits at the end of the
+     toolbar so the primary action keeps the leading edge. */
+  margin-left: auto;
+  text-align: right;
+}
+
+.mode-label {
+  display: block;
+  font-size: var(--text-xs);
+  font-weight: 600;
+  color: var(--ink-soft);
+  margin-bottom: var(--space-0);
+}
+
+/* A setting, not an action. What made it look oversized was width — two
+   segments stretched across the whole page — so this takes the width back and
+   leaves the height alone: it is still a finger target, and still matches the
+   height of the action it sits beside so the toolbar reads as one row. */
+.mode-toggle .scope-toggle {
+  margin-bottom: 0;
+  justify-content: flex-end;
+}
+
+.mode-toggle .scope-toggle button {
+  flex: 0 0 auto;
+  padding: 0.3rem 0.9rem;
+  font-size: var(--text-xs);
+}
+
+.mode-hint {
+  margin: var(--space-0) 0 0;
+  font-size: var(--text-xs);
+  color: var(--ink-soft);
+}
+
+/* Full width on a phone, where it is the primary action and the thumb is at
+   the bottom of the screen. On a tablet a 56rem-wide button looks broken. */
 .fill-all,
 .share {
   width: 100%;
 }
 
-.mode-toggle h4 {
-  font-family: 'Inter', 'Noto Sans Thai', sans-serif;
-  font-size: 0.85rem;
-  color: var(--ink-soft);
-  margin-bottom: 0.5rem;
+@media (min-width: 30rem) {
+  .fill-all {
+    width: auto;
+    min-width: 14rem;
+  }
 }
 
-.mode-toggle .scope-toggle {
-  display: flex;
-  gap: var(--space-1);
-  margin-bottom: var(--space-1);
-}
-
-.mode-toggle .scope-toggle button {
-  flex: 1;
-  min-height: 44px;
-  background: var(--surface);
-  color: var(--ink-soft);
-  border: 1px solid var(--rule);
-}
-
-.mode-toggle .scope-toggle button.active {
-  background: var(--court);
-  color: var(--ink-on-court);
-  border-color: var(--court);
+@media (min-width: 48rem) {
+  .share {
+    width: auto;
+    min-width: 16rem;
+  }
 }

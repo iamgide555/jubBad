@@ -2,6 +2,11 @@
   /* Court surface + structure */
   --court: #0f5b54;
   --court-dark: #0a3d38;
+  /* Lines drawn *on* the dark court: the display screen had #2a5f58 and
+     #123f39 hardcoded in three places, which is why its borders drifted from
+     everything else. */
+  --court-line: #2a5f58;
+  --court-hover: #123f39;
   --line-surface: #eff3f1;
   --surface: #ffffff;
   --rule: #c9d3cd;
@@ -12,19 +17,54 @@
   --ink-on-court: #f3f6f4;
   --ink-on-court-soft: #a9c2ba;
 
-  /* Signal colors */
+  /* Signal colors. One meaning each, used the same way on every screen:
+     accent = waiting for the host to act, court = in play, waiting = idle. */
   --accent: #e3a73e;
   --accent-dark: #b9822b;
   --waiting: #6f8880;
   --warn: #c0503a;
+  --warn-wash: #fbeeea;
 
+  /* Two families, two jobs. Named because six component files had the stack
+     spelled out by hand, and any change had to be made in all six. Archivo
+     carries headings, court numbers and scores — the things read at a glance
+     or from across the hall; Inter carries everything read up close. Noto
+     Sans Thai answers every Thai character in both roles, since neither Latin
+     face has Thai glyphs. */
+  --font-display: 'Archivo', 'Noto Sans Thai', system-ui, sans-serif;
+  --font-text: 'Inter', 'Noto Sans Thai', system-ui, sans-serif;
+
+  /* A 1.25 scale from 16px, rounded to whole pixels. Modest on purpose: this
+     is a dense utility screen held at arm's length, not a landing page. */
+  --text-xs: 0.8125rem;
+  --text-sm: 0.9375rem;
+  --text-base: 1rem;
+  --text-lg: 1.125rem;
+  --text-xl: 1.375rem;
+  --text-2xl: 1.75rem;
+  --text-3xl: 2.25rem;
+
+  /* 4px rhythm. The old values (6.4 / 12.8 / 22.4 / 35.2px) were close to
+     these but landed on no grid, so nothing lined up with anything else.
+     Deliberately kept within a couple of pixels of what they replace: this is
+     a ruler, not a redesign, and no screen should visibly jump. */
+  --space-0: 0.25rem;
+  --space-1: 0.5rem;
+  --space-2: 0.75rem;
+  --space-3: 1.5rem;
+  --space-4: 2rem;
+  --space-5: 3rem;
+
+  /* Square-ish by intent — the app's visual language is court markings, and
+     court lines do not have rounded corners. --radius-pill is for chips,
+     which read as tokens for people rather than as structure. */
   --radius: 3px;
-  --space-1: 0.4rem;
-  --space-2: 0.8rem;
-  --space-3: 1.4rem;
-  --space-4: 2.2rem;
+  --radius-pill: 999px;
 
-  font-family: 'Inter', 'Noto Sans Thai', system-ui, sans-serif;
+  /* Anything a finger has to hit. */
+  --tap: 44px;
+
+  font-family: var(--font-text);
   color-scheme: light;
 }
 
@@ -54,7 +94,7 @@ body {
    nothing in the other. */
 .error {
   color: var(--warn);
-  font-size: 0.9rem;
+  font-size: var(--text-sm);
   margin-top: var(--space-1);
 }
 
@@ -65,27 +105,80 @@ button.ghost {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-height: 44px;
+  min-height: var(--tap);
   background: transparent;
   color: var(--court);
   border: 1px solid var(--rule);
   padding: 0.5rem 0.9rem;
-  font-size: 0.85rem;
+  font-size: var(--text-sm);
 }
 
-button.ghost:hover {
-  background: var(--line-surface);
+@media (hover: hover) {
+  button.ghost:hover {
+    background: var(--line-surface);
+    border-color: var(--court);
+  }
 }
 
 h1,
 h2,
 h3,
 h4 {
-  font-family: 'Archivo', 'Noto Sans Thai', system-ui, sans-serif;
+  font-family: var(--font-display);
   font-weight: 700;
   letter-spacing: -0.01em;
   color: var(--ink);
   margin: 0 0 var(--space-2);
+  /* Thai stacks vowel and tone marks above and below the baseline, so headings
+     set tight for Latin clip them. 1.25 is the floor that clears both. */
+  line-height: 1.25;
+}
+
+/* Sizes, which these never had. Every heading fell back to the browser's
+   defaults, so h3 (a section heading) sat at 18.7px against 16px body and h4
+   — the court number, the most important thing on the live screen — was the
+   exact size of body text. Four component files then re-styled h4 by hand to
+   work around that, each landing somewhere slightly different. */
+h1 {
+  font-size: var(--text-3xl);
+}
+
+h2 {
+  font-size: var(--text-2xl);
+}
+
+h3 {
+  font-size: var(--text-xl);
+}
+
+h4 {
+  font-size: var(--text-lg);
+}
+
+/* The small grey caption those four files were actually reaching for. Not
+   ALL-CAPS: Thai has no case, so tracking out capitals styles the Latin half
+   of a bilingual interface and does nothing for the other half. */
+.label {
+  font-family: var(--font-text);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--ink-soft);
+  letter-spacing: 0;
+  margin: 0 0 var(--space-1);
+}
+
+.muted {
+  color: var(--ink-soft);
+  font-size: var(--text-sm);
+}
+
+/* Scores, wait minutes, court numbers, stat values: digits that change in
+   place must not reflow the text around them. */
+.tabular,
+.stat-value,
+.wait-mins,
+.score-row input {
+  font-variant-numeric: tabular-nums;
 }
 
 p {
@@ -99,19 +192,27 @@ a {
 
 button {
   font-family: inherit;
-  font-size: 1rem;
+  font-size: var(--text-base);
   font-weight: 600;
   cursor: pointer;
   border: none;
   border-radius: var(--radius);
+  /* Floored rather than derived from padding, so a button with a shorter label
+     or a smaller font can never quietly drop under the tap target. */
+  min-height: var(--tap);
   padding: 0.65rem 1.1rem;
   background: var(--court);
   color: var(--ink-on-court);
   transition: background-color 120ms ease, transform 80ms ease;
 }
 
-button:hover {
-  background: var(--court-dark);
+/* Hover is a mouse affordance. On the phone and iPad this app is actually used
+   on, :hover sticks after a tap until you touch something else, which left
+   buttons looking pressed. */
+@media (hover: hover) {
+  button:hover {
+    background: var(--court-dark);
+  }
 }
 
 button:active {
@@ -127,13 +228,28 @@ button:disabled {
 input,
 textarea {
   font-family: inherit;
-  font-size: 1rem;
+  /* Must not drop below 16px: iOS Safari zooms the whole page in on focus for
+     anything smaller, and the host is one-handed at the side of a court. */
+  font-size: var(--text-base);
   color: var(--ink);
   background: var(--surface);
   border: 1px solid var(--rule);
   border-radius: var(--radius);
   padding: 0.6rem 0.7rem;
+  min-height: var(--tap);
   width: 100%;
+}
+
+@media (hover: hover) {
+  input:hover,
+  textarea:hover {
+    border-color: var(--ink-soft);
+  }
+}
+
+input:focus,
+textarea:focus {
+  border-color: var(--court);
 }
 
 input:focus-visible,
@@ -147,7 +263,7 @@ a:focus-visible {
 label {
   display: block;
   font-weight: 600;
-  font-size: 0.9rem;
+  font-size: var(--text-sm);
   color: var(--ink-soft);
   margin-bottom: var(--space-2);
 }
@@ -170,7 +286,32 @@ label > textarea {
 .page {
   max-width: 32rem;
   margin: 0 auto;
-  padding: var(--space-4) var(--space-3) var(--space-4);
+  padding: var(--space-4) var(--space-3) var(--space-5);
+  /* Home-screen PWA on a notched iPhone: without this the column runs under
+     the rounded corners in landscape. */
+  padding-left: max(var(--space-3), env(safe-area-inset-left));
+  padding-right: max(var(--space-3), env(safe-area-inset-right));
+}
+
+/* Reading measure, not page width. A 32rem column of Thai body text is right;
+   a 32rem column of *court panels* on an iPad is a ribbon down the middle of
+   a 1024px screen with 380px of empty background either side, which is the
+   single most obviously unfinished thing about this app on a tablet. Screens
+   that lay out panels opt into the wider shell and grid their own content. */
+@media (min-width: 48rem) {
+  .page-wide {
+    max-width: 56rem;
+    padding-top: var(--space-5);
+  }
+}
+
+/* 64rem is 1024px, which is iPad landscape exactly — the device this app is
+   most likely to be propped up on beside a court. The tier above it has to
+   *include* that width, not start past it. */
+@media (min-width: 64rem) {
+  .page-wide {
+    max-width: 68rem;
+  }
 }
 
 .page-dark {
@@ -178,6 +319,8 @@ label > textarea {
   background: var(--court-dark);
   color: var(--ink-on-court);
   padding: var(--space-4) var(--space-3);
+  padding-left: max(var(--space-3), env(safe-area-inset-left));
+  padding-right: max(var(--space-3), env(safe-area-inset-right));
 }
 
 .page-dark h1,
@@ -210,7 +353,44 @@ label > textarea {
   margin: 0 var(--space-1) var(--space-1) 0;
   background: var(--surface);
   border: 1px solid var(--rule);
-  border-radius: 999px;
-  font-size: 0.9rem;
+  border-radius: var(--radius-pill);
+  font-size: var(--text-sm);
   font-weight: 500;
+}
+
+/* The one control that appears on two screens with two different meanings —
+   the stats table tinted its active segment amber while the dashboard's mode
+   switch tinted the same control green. Amber means "waiting for you" every-
+   where else in the app, so green is the correct one and this is now the only
+   definition. */
+.scope-toggle {
+  display: flex;
+  gap: var(--space-1);
+  margin-bottom: var(--space-1);
+  /* A two-way switch stretched across a 1024px tablet stops reading as a
+     control and starts reading as two banners. It only needs to be as wide as
+     a thumb can comfortably cross. */
+  max-width: 28rem;
+}
+
+.scope-toggle button {
+  flex: 1;
+  min-height: var(--tap);
+  background: var(--surface);
+  color: var(--ink-soft);
+  border: 1px solid var(--rule);
+  font-size: var(--text-sm);
+}
+
+.scope-toggle button.active {
+  background: var(--court);
+  color: var(--ink-on-court);
+  border-color: var(--court);
+}
+
+@media (hover: hover) {
+  .scope-toggle button:not(.active):hover {
+    border-color: var(--court);
+    color: var(--ink);
+  }
 }

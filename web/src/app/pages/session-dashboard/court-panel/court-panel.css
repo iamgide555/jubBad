@@ -1,8 +1,20 @@
+/* A panel is a court seen from above: the border is the boundary line and the
+   marks at the top corners are the service-court corners. That motif is the
+   one place this app spends any boldness, so everything else here stays flat
+   and quiet — no shadows, no rounded cards, no second accent.
+
+   On a tablet the panels sit in a grid, so they stretch to a common height
+   and their action rows line up along the bottom instead of floating at
+   whatever height each court's content happens to end. */
 .court-panel {
   position: relative;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
   background: var(--surface);
   border: 1.5px solid var(--rule);
-  padding: var(--space-2) var(--space-3);
+  padding: var(--space-2) var(--space-3) var(--space-3);
+  transition: border-color 160ms ease;
 }
 
 .court-panel::before,
@@ -44,17 +56,23 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: var(--space-1);
+  gap: var(--space-2);
+  margin-bottom: var(--space-2);
 }
 
+/* The court number is what the host looks for first when three panels are on
+   screen at once. It was 1.05rem — a hair over body text — which is why every
+   panel read as an undifferentiated block. */
 .court-panel-head h4 {
   margin: 0;
-  font-size: 1.05rem;
+  font-size: var(--text-xl);
+  line-height: 1.1;
 }
 
 .status-dot {
-  width: 9px;
-  height: 9px;
+  flex: none;
+  width: 10px;
+  height: 10px;
   border-radius: 50%;
   background: var(--waiting);
 }
@@ -67,32 +85,56 @@
   background: var(--court);
 }
 
+/* Player names are the content of a court; the action row below is how you
+   change it. Names get the size, so a glance across three panels reads who is
+   on rather than which buttons are available. */
 .matchup {
   font-weight: 600;
-  font-size: 1.05rem;
+  font-size: var(--text-lg);
+  line-height: 1.45;
   margin-bottom: var(--space-2);
 }
 
 .matchup .vs {
   color: var(--ink-soft);
   font-weight: 400;
-  font-size: 0.85em;
-  margin: 0 0.3em;
+  font-size: 0.8em;
+  margin: 0 0.4em;
+}
+
+/* In the tablet grid every panel stretches to its row's height. Undo is the
+   one element present in all three states and always last, so pinning it to
+   the bottom gives the row a shared baseline without any state-dependent
+   selector — and puts the escape hatch out of the way of the live controls,
+   which is where it belongs anyway. */
+.court-panel .undo {
+  margin-top: auto;
+  align-self: flex-start;
 }
 
 .name-tap {
   display: inline-flex;
   align-items: center;
-  min-height: 44px;
+  min-height: var(--tap);
   background: none;
   border: none;
   padding: 0.4rem 0.3rem;
   margin: -0.4rem -0.3rem;
   font: inherit;
   font-weight: 600;
+  /* Dotted rather than solid: every name is tappable to swap, so a solid rule
+     under all four would read as four links in a sentence. */
   text-decoration: underline dotted;
+  text-underline-offset: 0.2em;
   cursor: pointer;
   color: inherit;
+}
+
+@media (hover: hover) {
+  .name-tap:hover:not(:disabled) {
+    text-decoration-style: solid;
+    color: var(--court);
+  }
 }
 
 .name-tap:disabled {
@@ -108,7 +150,7 @@
 }
 
 .hint {
-  font-size: 0.85rem;
+  font-size: var(--text-sm);
   color: var(--warn);
   margin-top: var(--space-1);
 }
@@ -118,21 +160,29 @@
   gap: var(--space-1);
 }
 
+/* min-width: 0 or a long Thai button label sets the flex item's floor at its
+   own text width and the row refuses to fit the panel. */
+.button-row > * {
+  flex: 1;
+  min-width: 0;
+}
+
 /* Deliberately quieter than the two winner buttons: ending with no result is
    the rare case, but it has to be reachable without inventing a fake score. */
 .no-result {
   width: 100%;
-  min-height: 44px;
-  margin-top: var(--space-1);
+  min-height: var(--tap);
   background: none;
   border: 1px solid var(--rule);
   color: var(--ink-soft);
   font-weight: 500;
 }
 
-.no-result:hover {
-  background: var(--rule);
-  color: var(--ink);
+@media (hover: hover) {
+  .no-result:hover {
+    background: var(--rule);
+    color: var(--ink);
+  }
 }
 
 .score-row {
@@ -143,12 +193,12 @@
 }
 
 .score-row input {
-  width: 4rem;
-  min-height: 44px;
+  width: 4.5rem;
+  min-height: var(--tap);
   text-align: center;
-  font-family: 'Archivo', 'Noto Sans Thai', sans-serif;
+  font-family: var(--font-display);
   font-weight: 700;
-  font-size: 1.2rem;
+  font-size: var(--text-xl);
 }
 
 .score-sep {
@@ -159,17 +209,19 @@
 /* Quiet: it is the escape hatch, not a normal step of the flow. */
 .undo {
   margin-top: var(--space-1);
-  min-height: 44px;
+  min-height: var(--tap);
   padding-inline: 0.7rem;
   background: none;
   border: none;
   color: var(--ink-soft);
-  font-size: 0.85rem;
+  font-size: var(--text-sm);
   font-weight: 500;
 }
 
-.undo:hover {
-  background: none;
-  color: var(--ink);
-  text-decoration: underline;
+@media (hover: hover) {
+  .undo:hover {
+    background: none;
+    color: var(--ink);
+    text-decoration: underline;
+  }
 }

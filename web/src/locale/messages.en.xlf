@@ -551,6 +551,13 @@
           <context context-type="linenumber">23,26</context>
         </context-group>
       </trans-unit>
+      <trans-unit id="dashboard.rosterLabel" datatype="html">
+        <source>ผู้เล่นวันนี้ — แตะเพื่อพัก</source><target>Playing today — tap to rest</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/session-dashboard/session-dashboard.html</context>
+          <context context-type="linenumber">3</context>
+        </context-group>
+      </trans-unit>
       <trans-unit id="dashboard.waiting" datatype="html">
         <source>รอคิว</source><target>Waiting</target>
         <context-group purpose="location">
@@ -752,6 +759,13 @@
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/session-display/session-display.html</context>
           <context context-type="linenumber">21,22</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="display.nobodyWaiting" datatype="html">
+        <source>ไม่มีคนรอ</source><target>nobody waiting</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/session-display/session-display.html</context>
+          <context context-type="linenumber">21</context>
         </context-group>
       </trans-unit>
       <trans-unit id="display.refresh" datatype="html">

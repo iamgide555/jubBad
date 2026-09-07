@@ -10,7 +10,7 @@
 
   @if (state() === 'paste' && pastSessions().length > 0) {
     <hr class="rule" />
-    <h4 i18n="@@entry.pastSessions">ก๊วนที่ผ่านมา</h4>
+    <h4 class="label" i18n="@@entry.pastSessions">ก๊วนที่ผ่านมา</h4>
     <ul class="session-list">
       @for (s of pastSessions(); track s.code) {
         <li>
@@ -63,7 +63,7 @@
 
     @if (unrecognizedLines().length > 0) {
       <div class="notice-block unrecognized">
-        <h4 i18n="@@entry.notes">หมายเหตุ</h4>
+        <h4 class="label" i18n="@@entry.notes">หมายเหตุ</h4>
         @for (line of unrecognizedLines(); track line) {
           <p>{{ line }}</p>
         }

@@ -1,7 +1,5 @@
-.profile {
-  max-width: 32rem;
-}
-
+/* The numbers are the point of this screen, so they get the display face and
+   real size while their captions stay quiet underneath. */
 .stat-row {
   display: flex;
   flex-wrap: wrap;
@@ -16,27 +14,13 @@
 }
 
 .stat-value {
-  font-family: 'Archivo', 'Noto Sans Thai', sans-serif;
+  font-family: var(--font-display);
   font-weight: 800;
-  font-size: 1.8rem;
-  line-height: 1.3;
-  font-variant-numeric: tabular-nums;
+  font-size: var(--text-2xl);
+  line-height: 1.25;
 }
 
 .stat-label {
-  font-size: 0.8rem;
+  font-size: var(--text-xs);
   color: var(--ink-soft);
-}
-
-.profile h4 {
-  font-family: 'Inter', 'Noto Sans Thai', sans-serif;
-  font-size: 0.85rem;
-  color: var(--ink-soft);
-  margin-top: var(--space-2);
-  margin-bottom: 0.25rem;
-}
-
-.muted {
-  color: var(--ink-soft);
-  font-size: 0.9rem;
 }

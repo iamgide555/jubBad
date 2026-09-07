@@ -18,7 +18,7 @@
 
       <p class="waiting-line">
         <ng-container i18n="@@display.waitingLabel">รอคิว</ng-container>:
-        @for (w of waiting(); track w.id) {<span class="waiting-name">{{ w.name }} <span class="wait-mins">{{ w.minutes }}<ng-container i18n="@@display.minutesShort">น.</ng-container></span></span>}
+        @for (w of waiting(); track w.id) {<span class="waiting-name">{{ w.name }} <span class="wait-mins">{{ w.minutes }}<ng-container i18n="@@display.minutesShort">น.</ng-container></span></span>} @empty {<ng-container i18n="@@display.nobodyWaiting">ไม่มีคนรอ</ng-container>}
       </p>
 
       <button type="button" class="refresh" (click)="refresh()">↻ <ng-container i18n="@@display.refresh">รีเฟรช</ng-container></button>

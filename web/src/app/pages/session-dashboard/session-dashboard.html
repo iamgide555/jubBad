@@ -1,5 +1,6 @@
 @if (sessionExists()) {
-  <div class="page dashboard">
+  <div class="page page-wide dashboard">
+    <h4 class="label" i18n="@@dashboard.rosterLabel">ผู้เล่นวันนี้ — แตะเพื่อพัก</h4>
     <div class="roster-chips">
       @for (p of rosterEntries(); track p.id) {
         <button
@@ -19,9 +20,24 @@
 
     <hr class="rule" />
 
-    @if (!ended() && anyCourtIdle()) {
-      <button type="button" class="fill-all" (click)="fillCourts()" i18n="@@dashboard.fillAll">จัดคู่ทุกคอร์ทว่าง</button>
-    }
+    <div class="court-toolbar">
+      @if (!ended() && anyCourtIdle()) {
+        <button type="button" class="fill-all" (click)="fillCourts()" i18n="@@dashboard.fillAll">จัดคู่ทุกคอร์ทว่าง</button>
+      }
+
+      <div class="mode-toggle">
+        <span class="mode-label" i18n="@@dashboard.modeLabel">โหมดจัดคู่</span>
+        <div class="scope-toggle">
+          <button type="button" [class.active]="mode() === 'variety'" [disabled]="ended()" (click)="setMode('variety')" i18n="@@dashboard.modeVariety">สลับคู่</button>
+          <button type="button" [class.active]="mode() === 'balanced'" [disabled]="ended()" (click)="setMode('balanced')" i18n="@@dashboard.modeBalanced">สูสี</button>
+        </div>
+        @if (mode() === 'balanced') {
+          <p class="mode-hint" i18n="@@dashboard.modeBalancedHint">จัดให้สองฝั่งฝีมือใกล้เคียงกัน</p>
+        } @else {
+          <p class="mode-hint" i18n="@@dashboard.modeVarietyHint">เน้นไม่ให้ซ้ำคู่เดิม</p>
+        }
+      </div>
+    </div>
 
     <div class="courts-list">
       @for (courtNumber of courtNumbers(); track courtNumber) {
@@ -32,7 +48,7 @@
     <hr class="rule" />
 
     <div class="waiting-queue">
-      <h4 i18n="@@dashboard.waiting">รอคิว</h4>
+      <h4 class="label" i18n="@@dashboard.waiting">รอคิว</h4>
       @for (w of waiting(); track w.id) {
         <span class="chip">{{ w.name }} <span class="wait-mins">{{ w.minutes }}<ng-container i18n="@@dashboard.minutesShort">น.</ng-container></span></span>
       } @empty {
@@ -42,27 +58,13 @@
 
     @if (waitlistNames().length > 0) {
       <div class="waitlist">
-        <h4 i18n="@@dashboard.waitlist">สำรอง</h4>
+        <h4 class="label" i18n="@@dashboard.waitlist">สำรอง</h4>
         @for (name of waitlistNames(); track name) {
           <span class="chip">{{ name }}</span>
         }
       </div>
     }
 
-    <hr class="rule" />
-
-    <div class="mode-toggle">
-      <h4 i18n="@@dashboard.modeLabel">โหมดจัดคู่</h4>
-      <div class="scope-toggle">
-        <button type="button" [class.active]="mode() === 'variety'" [disabled]="ended()" (click)="setMode('variety')" i18n="@@dashboard.modeVariety">สลับคู่</button>
-        <button type="button" [class.active]="mode() === 'balanced'" [disabled]="ended()" (click)="setMode('balanced')" i18n="@@dashboard.modeBalanced">สูสี</button>
-      </div>
-      @if (mode() === 'balanced') {
-        <p class="muted" i18n="@@dashboard.modeBalancedHint">จัดให้สองฝั่งฝีมือใกล้เคียงกัน</p>
-      } @else {
-        <p class="muted" i18n="@@dashboard.modeVarietyHint">เน้นไม่ให้ซ้ำคู่เดิม</p>
-      }
-    </div>
 
     <hr class="rule" />
 

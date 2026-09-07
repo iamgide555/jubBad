@@ -26,7 +26,7 @@
 
     @if (p.bestPartner; as partner) {
       <hr class="rule" />
-      <h4 i18n="@@profile.bestPartner">คู่ที่เข้ากันดีที่สุด</h4>
+      <h4 class="label" i18n="@@profile.bestPartner">คู่ที่เข้ากันดีที่สุด</h4>
       <p>
         <a [routerLink]="['/g', groupCode, 'p', partner.playerId]">{{ partner.name }}</a>
         <span class="muted"> — <ng-container i18n="@@profile.wonOf">ชนะ</ng-container> {{ partner.won }}/{{ partner.played }}</span>
@@ -34,7 +34,7 @@
     }
 
     @if (p.mostFacedOpponent; as foe) {
-      <h4 i18n="@@profile.mostFaced">เจอบ่อยที่สุด</h4>
+      <h4 class="label" i18n="@@profile.mostFaced">เจอบ่อยที่สุด</h4>
       <p>
         <a [routerLink]="['/g', groupCode, 'p', foe.playerId]">{{ foe.name }}</a>
         <span class="muted"> — {{ foe.played }} <ng-container i18n="@@profile.matches">แมตช์</ng-container></span>

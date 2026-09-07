@@ -1,38 +1,78 @@
+/* This screen is furniture, not an interface: it hangs on a wall or sits on a
+   tablet propped at the side of the hall, and its whole job is answering "am I
+   on next?" from ten feet away while you are still holding a racket. So it
+   scales with the *smaller* viewport axis rather than width alone — a landscape
+   tablet and a wall TV both fill, and neither overflows. */
 .display {
   max-width: none;
+  min-height: 100dvh;
   display: flex;
   flex-direction: column;
 }
 
 .display h1 {
-  font-size: clamp(1.8rem, 3.2vw, 2.6rem);
+  font-size: clamp(1.75rem, 4vmin, 3rem);
+  margin-bottom: var(--space-3);
 }
 
+/* A grid, not wrapping flex. Flex with `flex: 1 1 20rem` left a trailing court
+   stretched across a whole row on its own, so a three-court night rendered as
+   two courts then one double-width — which read as though the last court was
+   somehow more important. */
+/* Fills the screen rather than sitting in a band at the top. This is the only
+   view whose height is worth using: it hangs on a wall with nothing else on
+   it, so a court read from ten feet away should be as tall as the space
+   allows instead of leaving two thirds of the screen empty. */
 .courts {
-  display: flex;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: var(--space-3);
   margin: var(--space-3) 0;
+  flex: 1;
 }
 
+@media (min-width: 40rem) {
+  .courts {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 64rem) {
+  .courts {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+/* Number over names, always — not beside them. Side by side, whether a court
+   wrapped to a second line depended on how long that court's four nicknames
+   happened to be, so one panel in a row would silently change shape and the
+   numbers stopped lining up across the wall. Stacking makes every court the
+   same shape whatever is in it. */
 .court-line {
-  flex: 1 1 20rem;
-  border: 1.5px solid #2a5f58;
+  border: 1.5px solid var(--court-line);
   padding: var(--space-3);
   display: flex;
-  align-items: baseline;
-  gap: var(--space-2);
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  text-align: center;
+  gap: var(--space-1);
 }
 
+/* Amber is "look here" everywhere else in the app; a court in play is the
+   thing worth looking at on this screen. */
 .court-line.playing {
   border-color: var(--accent);
 }
 
 .court-number {
-  font-family: 'Archivo', 'Noto Sans Thai', sans-serif;
+  font-family: var(--font-display);
   font-weight: 800;
-  font-size: clamp(2.5rem, 5vw, 4rem);
+  /* vmin so a wide-but-short wall TV scales on the axis that actually
+     limits it. 8vmin is ~64px at 720p, legible down the length of a hall. */
+  font-size: clamp(2.5rem, 8vmin, 6rem);
   line-height: 1;
+  font-variant-numeric: tabular-nums;
   color: var(--ink-on-court-soft);
 }
 
@@ -41,30 +81,20 @@
 }
 
 .court-text {
-  font-size: clamp(1.4rem, 2.6vw, 2rem);
+  font-size: clamp(1.25rem, 4vmin, 3rem);
   font-weight: 600;
+  line-height: 1.35;
   margin: 0;
 }
 
 .display .rule {
-  border-top-color: #2a5f58;
+  border-top-color: var(--court-line);
 }
 
 .waiting-line {
   color: var(--ink-on-court-soft);
-  font-size: 1.2rem;
-}
-
-.refresh {
-  align-self: flex-start;
-  background: transparent;
-  border: 1px solid #2a5f58;
-  color: var(--ink-on-court-soft);
-}
-
-.refresh:hover {
-  background: #123f39;
-  color: var(--ink-on-court);
+  font-size: clamp(1rem, 2.4vmin, 1.75rem);
+  line-height: 1.6;
 }
 
 .waiting-name:not(:last-child)::after {
@@ -76,4 +106,28 @@
   color: var(--ink-on-court-soft);
   font-size: 0.85em;
   font-variant-numeric: tabular-nums;
+}
+
+/* The only control on the screen, and nobody should be tempted to walk over
+   and press it — it sits at the bottom, quiet, out of the reading path. */
+.refresh {
+  align-self: flex-start;
+  margin-top: auto;
+  background: transparent;
+  border: 1px solid var(--court-line);
+  color: var(--ink-on-court-soft);
+}
+
+@media (hover: hover) {
+  .refresh:hover {
+    background: var(--court-hover);
+    color: var(--ink-on-court);
+  }
+}
+
+.ended-notice {
+  font-size: clamp(1.5rem, 4vmin, 2.5rem);
+  font-family: var(--font-display);
+  font-weight: 700;
+  color: var(--ink-on-court-soft);
 }

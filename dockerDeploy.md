@@ -63,6 +63,62 @@ git pull
 docker compose up -d --build
 ```
 
+### When the release contains a migration
+
+`server/Dockerfile` runs `prisma migrate deploy` at container start, so
+migrations apply themselves on deploy — there is no separate command to run,
+and no prompt if one is going to fail. Check first when `git pull` brought in
+anything under `server/prisma/migrations/`:
+
+```bash
+# PC — snapshot before a schema change. The API is still running, so use the
+# online backup rather than copying the file.
+cd "$APP_DIR"
+docker compose exec -T api npm run db:backup
+
+# If that fails because the image predates the backup script (first deploy of
+# it), stop the API and copy the directory instead — with the API down there
+# are no in-flight writes to tear.
+docker compose stop api
+cp -a server/prisma "server/prisma.before-$(date +%Y%m%d-%H%M%S)"
+docker compose start api
+```
+
+A migration that adds a `UNIQUE` index fails if the existing rows already
+violate it, and the container then crash-loops on every restart rather than
+starting with an unmigrated schema. The data is not lost — each migration runs
+in a transaction and rolls back — but the site is down until the rows are
+fixed. Every one of these should return `0`:
+
+```bash
+# PC
+docker compose exec -T api npx prisma db execute --stdin <<'SQL'
+SELECT 'open pairings sharing a court', COUNT(*) FROM
+  (SELECT 1 FROM Pairing WHERE endedAt IS NULL GROUP BY sessionId, courtNumber HAVING COUNT(*)>1);
+SELECT 'duplicate roster rows', COUNT(*) FROM
+  (SELECT 1 FROM SessionRoster GROUP BY sessionId, playerId HAVING COUNT(*)>1);
+SELECT 'duplicate waitlist rows', COUNT(*) FROM
+  (SELECT 1 FROM Waitlist GROUP BY sessionId, playerId HAVING COUNT(*)>1);
+SELECT 'roster rows with no player', COUNT(*) FROM
+  SessionRoster r LEFT JOIN Player p ON p.id = r.playerId WHERE p.id IS NULL;
+SELECT 'waitlist rows with no player', COUNT(*) FROM
+  Waitlist w LEFT JOIN Player p ON p.id = w.playerId WHERE p.id IS NULL;
+SQL
+```
+
+Then deploy, and confirm the migration actually applied rather than assuming a
+running container means a migrated one:
+
+```bash
+# PC
+docker compose up -d --build
+docker compose logs api | grep -i "migration"   # names each migration applied
+docker compose ps                               # api Up, not Restarting
+```
+
+If `api` is restarting, `docker compose logs api` names the failing migration.
+Restore from the snapshot taken above before retrying — see **Restore**.
+
 ## Manage
 ```bash
 docker compose ps

@@ -2,9 +2,17 @@
 
 Reviewed: 2026-09-07  
 Reviewed commit: `e1a55211029a32e181e6a0e28a4cd5bc9b617481`  
-Status: All 35 findings implemented and verified on 2026-09-07. Findings 29-35
+Status: **Closed.** All 35 findings implemented and verified on 2026-09-07;
+moved here from `docs/` on 2026-09-08 as a completed record. Findings 29-35
 each required a product decision; the decision taken is recorded in that
 finding's row and in the design-constraints section below.
+
+Two of those decisions were later revisited by the owner, and the rows say so:
+finding 33 was superseded (the partner metric became a win rate rather than a
+rename) and finding 35 was extended (manual swap now completes what blocking
+the confirm only reported). Both landed 2026-09-08. Read the rows as a record
+of what was decided and when, not as current behaviour — `docs/overview.md` is
+the source of truth for how the app works today.
 
 ## Purpose and implementation handoff
 

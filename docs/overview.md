@@ -6,8 +6,8 @@ already knows, and then runs the night: each court proposes its own fair
 doubles pairing, the host confirms it, plays, and records who won.
 
 This file is the durable part of the project — what it is, what was decided,
-and why. It is not a status log: `git log`, `docs/active/plans/` and
-`docs/active/specs/` record how it got built, and
+and why. It is not a status log: `git log`, `docs/archive/plans/` and
+`docs/archive/specs/` record how it got built, and
 `docs/2026-09-05-review-and-v2-backlog.md` records what is still open.
 
 ## The gap this fills
@@ -378,11 +378,17 @@ undo, resting players, wait timers, one-tap fill, both pairing modes, session
 archive, player pages, export and delete, and a PWA manifest.
 
 `docs/2026-09-05-review-and-v2-backlog.md` records the review that drove most
-of it. One item there is deliberately unbuilt — a host role. Its original
-justification (that a host role would reverse a "no auth" decision, and that
-export and delete were gated only by knowing the group code) no longer holds:
-admin authentication was built, `AdminGuard` closes every route by default, and
-export and delete sit behind it. That entry was revised on 2026-09-07 to defer
-on what is actually still missing — per-user identity and per-group ownership,
-which one shared token cannot express. The trigger for revisiting is a second
-group with a different host sharing the deployment, not abuse.
+of it, and holds the one item still open: per-user login (B12). Its original
+justification for staying unbuilt (that a host role would reverse a "no auth"
+decision, and that export and delete were gated only by knowing the group code)
+stopped holding once admin authentication was built — `AdminGuard` closes every
+route by default and both operations sit behind it. What one shared token still
+cannot express is identity: per-group ownership, unequal power between holders,
+and per-user revocation. The owner accepted that work on 2026-09-08. It is
+sequenced after the current build has been validated in real sessions, because
+authentication touches every route and changing it while the core is unproven
+would give any later fault two plausible causes.
+
+A separate audit on 2026-09-07 found 35 issues across the engine, the API and
+the docs, all since implemented; it is archived at
+`docs/archive/plans/2026-09-07-project-audit-and-matchmaking-gaps.md`.

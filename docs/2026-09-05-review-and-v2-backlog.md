@@ -11,7 +11,7 @@ the spec the project had already written for itself) and **B. v2 candidates**
 > review time. That file has since been replaced: its durable content — the
 > product decisions and the engine reasoning — is now `docs/overview.md`, and
 > its build log and progress checklist (§7.4, §8, §9) were dropped as recorded
-> better by `git log` and `docs/active/`. The numbers are left as written
+> better by `git log` and `docs/archive/`. The numbers are left as written
 > rather than remapped, since this is a point-in-time review; the original is
 > `git show 0aac515:PROJECT.md`.
 
@@ -250,7 +250,7 @@ served same-origin through nginx, so this costs nothing operationally.
 ### - [x] A12. The engine tests ran in no package at all
 
 `engines/fuzzy-match.test.ts` and `engines/pairing.test.ts` use `node:test`
-(deliberately, per `docs/active/plans/2026-09-03-pairing-engine.md` — zero npm
+(deliberately, per `docs/archive/plans/2026-09-03-pairing-engine.md` — zero npm
 dependencies). But `server`'s vitest only collects `**/*.spec.ts` under
 `server/`, and `web`'s `ng test` only looks under `web/src`, so **nothing ran
 these 40 tests** — including the tests for `generateRound`, the piece most of
@@ -324,7 +324,7 @@ This is the single largest gap between the product as documented and the
 product as built. Ship `@angular/localize` with a `th` locale before any other
 new feature.
 
-**Done** (`931bea6`, `9472d2d`; plan in `docs/active/plans/2026-09-05-thai-ui.md`).
+**Done** (`931bea6`, `9472d2d`; plan in `docs/archive/plans/2026-09-05-thai-ui.md`).
 Thai is the source locale and is served at `/`, English at `/en/`. Server
 messages are Thai too, since several reach the host verbatim. Noto Sans Thai
 was added because Inter and Archivo carry no Thai glyphs at all — every Thai

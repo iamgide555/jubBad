@@ -448,4 +448,33 @@ describe('SessionDashboard', () => {
     await settled();
     expect(fixture.componentInstance.shareText()).toContain('ว่าง');
   });
+
+  it('copies a link to the venue display, which nothing else in the app links to', async () => {
+    const copied: string[] = [];
+    Object.defineProperty(navigator, 'clipboard', {
+      value: { writeText: async (t: string) => void copied.push(t) },
+      configurable: true,
+    });
+    await settled();
+
+    await fixture.componentInstance.copyDisplayLink();
+
+    // The display route has never been reachable from anywhere in the UI — the
+    // host had to know to type /display onto the end of the session URL.
+    expect(copied).toEqual([`${location.origin}/s/sess1/display`]);
+    expect(fixture.componentInstance.displayLinkCopied()).toBe(true);
+  });
+
+  it('says so when the clipboard refuses rather than silently doing nothing', async () => {
+    Object.defineProperty(navigator, 'clipboard', {
+      value: { writeText: () => Promise.reject(new Error('denied')) },
+      configurable: true,
+    });
+    await settled();
+
+    await fixture.componentInstance.copyDisplayLink();
+
+    expect(fixture.componentInstance.displayLinkCopied()).toBe(false);
+    expect(fixture.componentInstance.rosterError()).toBeTruthy();
+  });
 });

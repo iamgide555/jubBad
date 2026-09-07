@@ -32,3 +32,27 @@
   text-align: right;
   width: 4.5rem;
 }
+
+/* The share column carries no header text — the button says what it does — so
+   it stays narrow and does not push the names it sits beside. */
+.share-cell {
+  width: 1%;
+  white-space: nowrap;
+}
+
+.share-player {
+  min-height: var(--tap);
+  padding: 0.2rem 0.6rem;
+  background: none;
+  border: 1px solid var(--rule);
+  color: var(--ink-soft);
+  font-size: var(--text-xs);
+  font-weight: 500;
+}
+
+@media (hover: hover) {
+  .share-player:hover {
+    border-color: var(--court);
+    color: var(--court);
+  }
+}

@@ -130,6 +130,19 @@
   color: var(--ink-soft);
 }
 
+/* Sharing the roster as text and handing someone the display URL are the same
+   kind of act, so they sit together rather than in two separate strips. */
+.share-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+}
+
+.share-row > * {
+  flex: 1;
+  min-width: 12rem;
+}
+
 /* Full width on a phone, where it is the primary action and the thumb is at
    the bottom of the screen. On a tablet a 56rem-wide button looks broken. */
 .fill-all,

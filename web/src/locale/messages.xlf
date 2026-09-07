@@ -936,6 +936,41 @@
           <context context-type="linenumber">91</context>
         </context-group>
       </trans-unit>
+      <trans-unit id="stats.shareLink" datatype="html">
+        <source>ลิงก์</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/session-dashboard/stats-table/stats-table.html</context>
+          <context context-type="linenumber">30</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="stats.shareCopied" datatype="html">
+        <source>คัดลอกแล้ว</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/session-dashboard/stats-table/stats-table.html</context>
+          <context context-type="linenumber">28</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="stats.shareColumn" datatype="html">
+        <source>แชร์</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/session-dashboard/stats-table/stats-table.html</context>
+          <context context-type="linenumber">16</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="stats.sharePlayerLabel" datatype="html">
+        <source>คัดลอกลิงก์ของ {$name}</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/session-dashboard/stats-table/stats-table.ts</context>
+          <context context-type="linenumber">54</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="dashboard.copyDisplayLink" datatype="html">
+        <source>ลิงก์จอแสดงผล</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/session-dashboard/session-dashboard.html</context>
+          <context context-type="linenumber">82</context>
+        </context-group>
+      </trans-unit>
     </body>
   </file>
 </xliff>

@@ -68,13 +68,23 @@
 
     <hr class="rule" />
 
-    <button type="button" class="share" (click)="copyShareText()">
-      @if (copied()) {
-        <ng-container i18n="@@dashboard.copied">คัดลอกแล้ว</ng-container>
-      } @else {
-        <ng-container i18n="@@dashboard.copy">คัดลอกเป็นข้อความ</ng-container>
-      }
-    </button>
+    <div class="share-row">
+      <button type="button" class="share" (click)="copyShareText()">
+        @if (copied()) {
+          <ng-container i18n="@@dashboard.copied">คัดลอกแล้ว</ng-container>
+        } @else {
+          <ng-container i18n="@@dashboard.copy">คัดลอกเป็นข้อความ</ng-container>
+        }
+      </button>
+
+      <button type="button" class="ghost share-display" (click)="copyDisplayLink()">
+        @if (displayLinkCopied()) {
+          <ng-container i18n="@@dashboard.copied">คัดลอกแล้ว</ng-container>
+        } @else {
+          <ng-container i18n="@@dashboard.copyDisplayLink">ลิงก์จอแสดงผล</ng-container>
+        }
+      </button>
+    </div>
 
     <hr class="rule" />
     <app-stats-table [sessionCode]="session()!.code" [groupCode]="session()!.groupCode" />

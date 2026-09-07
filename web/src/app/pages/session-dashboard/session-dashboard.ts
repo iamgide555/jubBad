@@ -3,6 +3,7 @@ import { httpResource } from '@angular/common/http';
 import { Router } from '@angular/router';
 import { environment } from '../../../environments/environment';
 import { LiveSessionService } from '../../core/live-session.service';
+import { absoluteUrl, copyToClipboard } from '../../core/share-link';
 import { resolvePlayerNames } from '../../core/player-names';
 import { buildWaitingList } from '../../core/waiting-time';
 import { CourtPanel } from './court-panel/court-panel';
@@ -147,6 +148,24 @@ export class SessionDashboard implements OnDestroy {
       lines.push(`${$localize`:@@share.waiting:รอคิว`}: ${waiting.join(', ')}`);
     }
     return lines.join('\n');
+  }
+
+  readonly displayLinkCopied = signal(false);
+
+  /**
+   * Nothing in the app has ever linked to the venue display — the host had to
+   * know to type /display onto the end of the session URL. A read-only screen
+   * meant for a wall is not much use if only the person who built it can find
+   * it, so this hands over something pasteable.
+   */
+  async copyDisplayLink(): Promise<void> {
+    const ok = await copyToClipboard(absoluteUrl(`/s/${this.session()!.code}/display`));
+    if (!ok) {
+      this.rosterError.set($localize`:@@share.failed:คัดลอกไม่ได้ ลองเลือกข้อความเอง`);
+      return;
+    }
+    this.displayLinkCopied.set(true);
+    setTimeout(() => this.displayLinkCopied.set(false), 2000);
   }
 
   async copyShareText(): Promise<void> {

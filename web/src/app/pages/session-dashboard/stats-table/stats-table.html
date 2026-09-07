@@ -13,6 +13,7 @@
         <th i18n="@@stats.player">ผู้เล่น</th>
         <th i18n="@@stats.played">เล่น</th>
         <th i18n="@@stats.won">ชนะ</th>
+        <th><span class="sr-only" i18n="@@stats.shareColumn">แชร์</span></th>
       </tr>
     </thead>
     <tbody>
@@ -21,8 +22,26 @@
           <td><a [routerLink]="['/g', groupCode(), 'p', row.playerId]">{{ row.name }}</a></td>
           <td>{{ row.played }}</td>
           <td>{{ row.won }}</td>
+          <td class="share-cell">
+            <button
+              type="button"
+              class="share-player"
+              [attr.aria-label]="shareLabel(row.name)"
+              (click)="sharePlayer(row.playerId)"
+            >
+              @if (sharedPlayerId() === row.playerId) {
+                <ng-container i18n="@@stats.shareCopied">คัดลอกแล้ว</ng-container>
+              } @else {
+                <ng-container i18n="@@stats.shareLink">ลิงก์</ng-container>
+              }
+            </button>
+          </td>
         </tr>
       }
     </tbody>
   </table>
+
+  @if (shareFailed()) {
+    <p class="error" role="alert" i18n="@@share.failed">คัดลอกไม่ได้ ลองเลือกข้อความเอง</p>
+  }
 </div>

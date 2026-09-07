@@ -11,6 +11,8 @@ export interface Session {
   mode: 'variety' | 'balanced';
   /** Player id -> ISO time they last finished a match tonight. */
   lastPlayedAt: Record<string, string>;
+  /** Player id -> when they joined or returned; absent for the original roster. */
+  activatedAt: Record<string, string>;
   rawImportText: string;
   rosterPlayerIds: string[];
   /** Roster players sitting out; still on the roster, skipped for court fills. */

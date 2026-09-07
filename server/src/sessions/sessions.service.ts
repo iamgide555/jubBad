@@ -126,6 +126,14 @@ export class SessionsService {
       ),
       rosterPlayerIds: session.roster.map((r) => r.playerId),
       restingPlayerIds: session.roster.filter((r) => !r.active).map((r) => r.playerId),
+      // Only set for players who joined or returned part-way through. Their
+      // wait runs from here rather than from the session start, which would
+      // otherwise credit a late arrival with hours they were not present for.
+      activatedAt: Object.fromEntries(
+        session.roster
+          .filter((r) => r.activatedAt !== null)
+          .map((r) => [r.playerId, r.activatedAt!.toISOString()])
+      ),
       waitlistPlayerIds: session.waitlist.map((w) => w.playerId),
       courts,
     };
@@ -651,7 +659,12 @@ export class SessionsService {
 
     const updated = await this.prisma.sessionRoster.update({
       where: { id: entry.id },
-      data: { active: dto.active, gamesOffset },
+      data: {
+        active: dto.active,
+        gamesOffset,
+        // Their wait restarts now; going out does not reset anything.
+        activatedAt: dto.active && !entry.active ? new Date() : entry.activatedAt,
+      },
     });
     return { playerId: updated.playerId, active: updated.active };
   }

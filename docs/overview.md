@@ -145,6 +145,13 @@ ten sessions that left some pairs together three times as often as others —
 which is exactly what players report as "I always play with the same person".
 Counting keeps the spread to about one game.
 
+**Counts are measured against the group's floor, not from zero.** A group where
+everyone has partnered everyone forty times is perfectly varied and scores the
+same as one on its first night. Without that normalisation the scores grow
+without bound, and every other number here — the balance weight, and the
+reshuffle guard when it was still a penalty — quietly stops meaning what it was
+set to mean.
+
 **Repeat-partner avoidance is the primary goal; opponent balancing is a
 secondary soft signal.** The 10:1 ratio exists so an arrangement can never
 trade away a partner-repeat to save on opponent-repeats — the opponent term
@@ -160,10 +167,15 @@ Two scopes, deliberately different:
   tonight, not carried over from weeks ago.
 
 **Two pairing modes.** *Variety* is the behaviour described above. *Balanced*
-adds a rating-gap term so the two sides of a match come out close in strength;
-at the weight chosen, a 100-point gap costs the same as one repeat partner, so
-the search trades a repeated partner for a fair game but not for a marginal
-one. The mode is per session and defaults to variety.
+adds a rating-gap term so the two sides come out close in strength. Balance
+leads there — one repeat partnership is worth about five rating points — which
+is the reason for choosing the mode at all; variety still separates
+arrangements that are level on skill. The mode is per session and defaults to
+variety.
+
+Reshuffling excludes the split it was asked to avoid outright, rather than
+taxing it. A tax has to be larger than any real score difference, and no fixed
+number stays larger as a group accumulates history.
 
 Sit-out selection is deterministic and outside the weighted score: whoever has
 played the most so far today sits, ties broken randomly. Predictable to the
@@ -239,9 +251,12 @@ it was, so a mis-tapped winner is recoverable even after the next match has been
 proposed. It refuses when the players involved have already started elsewhere,
 since restoring would double-book them.
 
-The waiting queue shows how long each player has been off court, derived from
-when their last match ended (or when the session started, for anyone yet to
-play) rather than stored.
+The waiting queue shows how long each player has been off court, derived rather
+than stored: the wait runs from the latest of their last match ending, the
+moment they joined, and the session start. Counting from the session start
+alone would tell a player who arrived an hour late that they had been waiting
+an hour, contradicting the rotation, which deliberately does not owe them that
+time.
 
 The display view shows only *active* courts, so a proposed-but-unconfirmed
 pairing never reaches the venue screen. It refreshes manually, matching the

@@ -1549,6 +1549,53 @@ describe('SessionsController', () => {
     }
   });
 
+  it('measures a late arrival\'s wait from when they arrived, not the session start', async () => {
+    const groupCode = randomUUID();
+    const sessionCode = randomUUID();
+    await prisma.group.create({ data: { code: groupCode, name: 'G' } });
+    const players = await Promise.all(
+      ['A', 'LATE'].map((name) =>
+        prisma.player.create({ data: { groupId: groupCode, name, aliases: '[]' } })
+      )
+    );
+    const late = players[1];
+    // The session started two hours ago.
+    await prisma.session.create({
+      data: {
+        code: sessionCode,
+        groupId: groupCode,
+        courtCount: 1,
+        rawImportText: '',
+        createdAt: new Date(Date.now() - 2 * 60 * 60 * 1000),
+      },
+    });
+    for (const p of players) {
+      await prisma.sessionRoster.create({
+        data: { sessionId: sessionCode, playerId: p.id, active: p.id !== late.id },
+      });
+    }
+
+    try {
+      const before = await request(server).get(`/sessions/${sessionCode}`).expect(200);
+      expect(before.body.activatedAt[late.id]).toBeUndefined();
+
+      await request(server)
+        .post(`/sessions/${sessionCode}/roster/${late.id}/active`)
+        .send({ active: true })
+        .expect(201);
+
+      const after = await request(server).get(`/sessions/${sessionCode}`).expect(200);
+      const activated = new Date(after.body.activatedAt[late.id]).getTime();
+      // Just now, not two hours ago.
+      expect(Date.now() - activated).toBeLessThan(60_000);
+    } finally {
+      await prisma.sessionRoster.deleteMany({ where: { sessionId: sessionCode } });
+      await prisma.session.deleteMany({ where: { code: sessionCode } });
+      await prisma.player.deleteMany({ where: { groupId: groupCode } });
+      await prisma.group.deleteMany({ where: { code: groupCode } });
+    }
+  });
+
   it('confirms then finishes a pairing', async () => {
     const groupCode = randomUUID();
     const sessionCode = randomUUID();

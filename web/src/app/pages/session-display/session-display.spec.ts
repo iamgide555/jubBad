@@ -22,6 +22,7 @@ function baseSession(overrides: Partial<Session> = {}): Session {
     createdAt: '2026-09-08T12:00:00.000Z',
     mode: 'variety',
     lastPlayedAt: {},
+    activatedAt: {},
     waitlistPlayerIds: [],
     courts: [{ status: 'idle' }],
     ...overrides,

@@ -275,3 +275,115 @@ test('one repeat partner still outweighs many repeat opponents', () => {
   );
   assert.ok(onePartnerRepeat > fourOpponentRepeats);
 });
+
+test('avoidSplit is respected when more than one court is being planned', () => {
+  // Regression: the guard used to apply only when exactly one court was
+  // planned, so proposing a court while another sat idle silently lost it.
+  const roster = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'];
+  // Make one split overwhelmingly the cheapest, so a merely-large penalty
+  // cannot outweigh it and the guard has to be a real exclusion.
+  const partnerCounts = new Map<string, number>();
+  for (let i = 0; i < roster.length; i++)
+    for (let j = i + 1; j < roster.length; j++)
+      partnerCounts.set(pairKey(roster[i], roster[j]), 500);
+  for (const k of [pairKey('a', 'b'), pairKey('c', 'd')]) partnerCounts.set(k, 0);
+  const history: MatchHistory = {
+    partnerCounts,
+    opponentCounts: new Map(),
+    gamesPlayedThisSession: new Map(),
+  };
+  const first = generateRound(roster, 2, history).courts[0];
+  const splitOf = (c: { teamA: [string, string]; teamB: [string, string] }) =>
+    [pairKey(c.teamA[0], c.teamA[1]), pairKey(c.teamB[0], c.teamB[1])].sort().join(' ');
+
+  for (let i = 0; i < 40; i++) {
+    const again = generateRound(roster, 2, history, undefined, first).courts[0];
+    assert.notEqual(splitOf(again), splitOf(first));
+  }
+});
+
+test('avoidSplit still holds once a group has years of history', () => {
+  // Regression: the guard was a fixed 1000-point penalty, while scores grow
+  // without bound as counts accumulate. It stopped being decisive.
+  const partnerCounts = new Map<string, number>();
+  const opponentCounts = new Map<string, number>();
+  const roster = ['a', 'b', 'c', 'd'];
+  for (let i = 0; i < roster.length; i++) {
+    for (let j = i + 1; j < roster.length; j++) {
+      partnerCounts.set(pairKey(roster[i], roster[j]), 500);
+    }
+  }
+  // a+b and c+d have never partnered, so that split is cheapest by 10000 —
+  // far more than any fixed penalty could ever offset.
+  for (const k of [pairKey('a', 'b'), pairKey('c', 'd')]) partnerCounts.set(k, 0);
+  const history: MatchHistory = {
+    partnerCounts,
+    opponentCounts,
+    gamesPlayedThisSession: new Map(),
+  };
+  const first = generateRound(roster, 1, history).courts[0];
+  const splitOf = (c: { teamA: [string, string]; teamB: [string, string] }) =>
+    [pairKey(c.teamA[0], c.teamA[1]), pairKey(c.teamB[0], c.teamB[1])].sort().join(' ');
+
+  for (let i = 0; i < 40; i++) {
+    const again = generateRound(roster, 1, history, undefined, first).courts[0];
+    assert.notEqual(splitOf(again), splitOf(first));
+  }
+});
+
+test('avoidSplit yields rather than failing when there is no other option', () => {
+  // Four players and every alternative already excluded is not a real
+  // situation, but returning nothing would be worse than repeating a split.
+  const history: MatchHistory = {
+    partnerCounts: new Map(),
+    opponentCounts: new Map(),
+    gamesPlayedThisSession: new Map(),
+  };
+  const roster = ['a', 'b', 'c', 'd'];
+  const result = generateRound(roster, 1, history, () => 0, {
+    teamA: ['a', 'b'],
+    teamB: ['c', 'd'],
+  });
+  assert.equal(result.courts.length, 1);
+});
+
+test('history that is uniformly heavy does not swamp the balance term', () => {
+  // Regression: raw counts grow without bound, so in balanced mode the rating
+  // gap became rounding error next to the partner term and stopped balancing.
+  const players = ['s1', 's2', 'w1', 'w2'];
+  const partnerCounts = new Map<string, number>();
+  const opponentCounts = new Map<string, number>();
+  for (let i = 0; i < players.length; i++) {
+    for (let j = i + 1; j < players.length; j++) {
+      partnerCounts.set(pairKey(players[i], players[j]), 50);
+      opponentCounts.set(pairKey(players[i], players[j]), 100);
+    }
+  }
+  const ratings = new Map([
+    ['s1', 1400], ['s2', 1400], ['w1', 1000], ['w2', 1000],
+  ]);
+  const { courts } = generateRound(
+    players, 1,
+    { partnerCounts, opponentCounts, gamesPlayedThisSession: new Map() },
+    undefined, undefined, ratings
+  );
+  const strongOnA = courts[0].teamA.filter((p) => p.startsWith('s')).length;
+  assert.equal(strongOnA, 1, 'balanced mode must still split the strong pair');
+});
+
+test('equal history across every pair leaves nothing for the history terms to say', () => {
+  const players = ['a', 'b', 'c', 'd'];
+  const partnerCounts = new Map<string, number>();
+  for (let i = 0; i < players.length; i++)
+    for (let j = i + 1; j < players.length; j++)
+      partnerCounts.set(pairKey(players[i], players[j]), 7);
+
+  // Everyone has partnered everyone exactly as often, so no arrangement is
+  // more repetitive than another and the term should contribute nothing.
+  const { courts } = generateRound(players, 1, {
+    partnerCounts,
+    opponentCounts: new Map(),
+    gamesPlayedThisSession: new Map(),
+  });
+  assert.equal(scoreArrangement(courts, partnerCounts, new Map(), undefined, { partner: 7, opponent: 0 }), 0);
+});

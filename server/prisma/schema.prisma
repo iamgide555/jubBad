@@ -54,6 +54,10 @@ model SessionRoster {
   /// while everyone else is on five, and win every draw until they caught up.
   /// See SessionsService.setRosterActive.
   gamesOffset Int   @default(0)
+  /// When this player last became available. Their wait is measured from here
+  /// rather than from the start of the session, so someone who arrived an hour
+  /// late is not credited with an hour of waiting they did not do.
+  activatedAt DateTime?
   session   Session @relation(fields: [sessionId], references: [code])
 
   @@unique([sessionId, playerId])

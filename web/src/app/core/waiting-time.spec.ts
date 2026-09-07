@@ -20,6 +20,32 @@ describe('minutesWaiting', () => {
     ).toBe(0);
   });
 
+  it('measures a late arrival from when they joined, not the session start', () => {
+    // The session began 30 minutes ago; they walked in 5 minutes ago.
+    expect(
+      minutesWaiting('p1', {}, START, NOW, { p1: '2026-09-08T12:25:00.000Z' })
+    ).toBe(5);
+  });
+
+  it('uses the later of joining and their last match', () => {
+    // Joined 20 minutes ago and has played since, so the match is what counts.
+    expect(
+      minutesWaiting(
+        'p1',
+        { p1: '2026-09-08T12:25:00.000Z' },
+        START,
+        NOW,
+        { p1: '2026-09-08T12:10:00.000Z' }
+      )
+    ).toBe(5);
+  });
+
+  it('ignores an activation recorded before the session started', () => {
+    expect(
+      minutesWaiting('p1', {}, START, NOW, { p1: '2026-09-08T11:00:00.000Z' })
+    ).toBe(30);
+  });
+
   it('never reports a negative wait when a clock runs ahead', () => {
     expect(
       minutesWaiting('p1', { p1: '2026-09-08T12:45:00.000Z' }, START, NOW)

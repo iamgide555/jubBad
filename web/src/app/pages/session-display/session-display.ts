@@ -74,7 +74,8 @@ export class SessionDisplay implements OnDestroy {
       resolvePlayerNames(ids, this.players()),
       session.lastPlayedAt,
       session.createdAt,
-      this.now()
+      this.now(),
+      session.activatedAt
     );
   });
 

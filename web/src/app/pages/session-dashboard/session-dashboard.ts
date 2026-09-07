@@ -1,4 +1,5 @@
-import { Component, OnDestroy, computed, signal } from '@angular/core';
+import { Component, OnDestroy, computed, inject, signal } from '@angular/core';
+import { CdkDrag } from '@angular/cdk/drag-drop';
 import { httpResource } from '@angular/common/http';
 import { Router } from '@angular/router';
 import { environment } from '../../../environments/environment';
@@ -6,13 +7,14 @@ import { LiveSessionService } from '../../core/live-session.service';
 import { absoluteUrl, copyToClipboard } from '../../core/share-link';
 import { resolvePlayerNames } from '../../core/player-names';
 import { buildWaitingList } from '../../core/waiting-time';
+import { SwapSelectionService, type SwapPick } from '../../core/swap-selection.service';
 import { CourtPanel } from './court-panel/court-panel';
 import { StatsTable } from './stats-table/stats-table';
 import type { Player } from '../../../../../engines/fuzzy-match.ts';
 
 @Component({
   selector: 'app-session-dashboard',
-  imports: [CourtPanel, StatsTable],
+  imports: [CourtPanel, StatsTable, CdkDrag],
   providers: [LiveSessionService],
   templateUrl: './session-dashboard.html',
   styleUrl: './session-dashboard.css',
@@ -67,6 +69,24 @@ export class SessionDashboard implements OnDestroy {
   private readonly clock = setInterval(() => this.now.set(Date.now()), 30_000);
   private readonly refreshInterval = setInterval(() => this.liveSession.refresh(), 30_000);
   private readonly onWindowFocus = () => this.liveSession.refresh();
+
+  protected readonly selection = inject(SwapSelectionService);
+
+  /**
+   * A waiting player carries no pairing id — they are on nobody's court, so a
+   * drop involving them is a plain substitution rather than a trade.
+   */
+  protected waitingPick(id: string, name: string): SwapPick {
+    return { playerId: id, name, pairingId: null };
+  }
+
+  protected pickWaiting(id: string, name: string): void {
+    this.selection.toggle(this.waitingPick(id, name));
+  }
+
+  protected waitingPickLabel(name: string): string {
+    return $localize`:@@dashboard.pickWaiting:เลือก ${name}:name: ลงคอร์ท`;
+  }
 
   readonly waiting = computed(() => {
     const session = this.session();

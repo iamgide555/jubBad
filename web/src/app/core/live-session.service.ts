@@ -45,6 +45,8 @@ function messageForCode(code: string): string | null {
       return $localize`:@@err.code.courtActive:คอร์ทนี้มีแมตช์อยู่แล้ว`;
     case 'PLAYER_UNAVAILABLE':
       return $localize`:@@err.code.playerUnavailable:มีผู้เล่นในแมตช์นี้พักอยู่ กรุณาเปลี่ยนตัวหรือสุ่มใหม่`;
+    case 'SWAP_SAME_PLAYER':
+      return $localize`:@@err.code.swapSamePlayer:เลือกคนเดิม ไม่ได้เปลี่ยนตัว`;
     case 'COURT_IN_USE':
       return $localize`:@@err.code.courtInUse:ยังมีแมตช์เล่นอยู่บนคอร์ทที่จะตัดออก กรุณาบันทึกผลก่อน`;
     case 'INVALID_COURT_NUMBER':
@@ -163,10 +165,10 @@ export class LiveSessionService {
     );
   }
 
-  swapPlayer(pairingId: string, playerId: string): Promise<ActionResult> {
+  swapPlayer(pairingId: string, playerId: string, withPlayerId?: string): Promise<ActionResult> {
     return this.post<SwapResponse>(
       `pairings/${pairingId}/swap`,
-      { playerId },
+      withPlayerId === undefined ? { playerId } : { playerId, withPlayerId },
       $localize`:@@err.swap:เปลี่ยนตัวไม่สำเร็จ`
     );
   }

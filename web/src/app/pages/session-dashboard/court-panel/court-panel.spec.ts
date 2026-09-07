@@ -397,6 +397,120 @@ describe('CourtPanel', () => {
 
     expect((fixture.nativeElement as HTMLElement).textContent).toContain('ไม่มีคนสำรองให้เปลี่ยน');
   });
+
+  const pendingCourt = () =>
+    baseSession({
+      courts: [{ status: 'pending', pairingId: 'pair1', teamA: ['p1', 'p2'], teamB: ['p3', 'p4'] }],
+    });
+
+  const nameButton = (fixture: ComponentFixture<CourtPanel>, name: string) =>
+    Array.from(
+      (fixture.nativeElement as HTMLElement).querySelectorAll('button.name-tap')
+    ).find((b) => b.textContent?.trim() === name) as HTMLButtonElement;
+
+  const handleFor = (fixture: ComponentFixture<CourtPanel>, name: string) =>
+    nameButton(fixture, name).parentElement!.querySelector(
+      'button.pick-handle'
+    ) as HTMLButtonElement;
+
+  it('sends the chosen player when one is picked up first', async () => {
+    const { fixture, httpMock } = await createPanel(pendingCourt());
+    fixture.detectChanges();
+
+    // Pick เบส up, then tap ตั้ม: เบส takes ตั้ม's place.
+    handleFor(fixture, 'เบส').click();
+    fixture.detectChanges();
+    nameButton(fixture, 'ตั้ม').click();
+
+    const req = httpMock.expectOne(`${B}/sessions/sess1/pairings/pair1/swap`);
+    expect(req.request.body).toEqual({ playerId: 'p1', withPlayerId: 'p2' });
+    req.flush({
+      ok: true,
+      pairing: { id: 'pair1', courtNumber: 1, matchNumber: 1, teamA: ['p2', 'p1'], teamB: ['p3', 'p4'] },
+    });
+    await new Promise((r) => setTimeout(r, 0));
+    TestBed.tick();
+    httpMock.expectOne(`${B}/sessions/sess1`).flush(pendingCourt());
+  });
+
+  it('still lets the server choose when nothing has been picked up', async () => {
+    // The fast gesture must not change meaning because the feature exists.
+    const { fixture, httpMock } = await createPanel(pendingCourt());
+    fixture.detectChanges();
+
+    nameButton(fixture, 'ตั้ม').click();
+
+    const req = httpMock.expectOne(`${B}/sessions/sess1/pairings/pair1/swap`);
+    expect(req.request.body).toEqual({ playerId: 'p1' });
+    expect(req.request.body.withPlayerId).toBeUndefined();
+    req.flush({ ok: false, reason: 'no-substitute' });
+    await new Promise((r) => setTimeout(r, 0));
+    TestBed.tick();
+    httpMock.expectOne(`${B}/sessions/sess1`).flush(pendingCourt());
+    await fixture.whenStable();
+  });
+
+  it('puts a player back down when their own handle is tapped twice', async () => {
+    const { fixture, httpMock } = await createPanel(pendingCourt());
+    fixture.detectChanges();
+
+    handleFor(fixture, 'เบส').click();
+    fixture.detectChanges();
+    expect(fixture.componentInstance['selection'].isPicked('p2')).toBe(true);
+
+    handleFor(fixture, 'เบส').click();
+    fixture.detectChanges();
+    expect(fixture.componentInstance['selection'].isPicked('p2')).toBe(false);
+
+    // Nothing held means nothing was sent.
+    httpMock.expectNone(`${B}/sessions/sess1/pairings/pair1/swap`);
+  });
+
+  it('does not swap a player with themselves', async () => {
+    const { fixture, httpMock } = await createPanel(pendingCourt());
+    fixture.detectChanges();
+
+    handleFor(fixture, 'ตั้ม').click();
+    fixture.detectChanges();
+    nameButton(fixture, 'ตั้ม').click();
+
+    httpMock.expectNone(`${B}/sessions/sess1/pairings/pair1/swap`);
+    expect(fixture.componentInstance['selection'].active()).toBe(false);
+  });
+
+  it('offers a way to put a held player back without finding them again', async () => {
+    const { fixture } = await createPanel(pendingCourt());
+    fixture.detectChanges();
+
+    handleFor(fixture, 'เบส').click();
+    fixture.detectChanges();
+    const host = fixture.nativeElement as HTMLElement;
+    expect(host.textContent).toContain('กำลังถือ');
+
+    (host.querySelector('.pick-hint .link') as HTMLButtonElement).click();
+    fixture.detectChanges();
+    expect(fixture.componentInstance['selection'].active()).toBe(false);
+  });
+
+  it('clears the pick after a swap so the next tap is not captured', async () => {
+    // Leaving the selection set would silently turn the following quick tap
+    // into a second manual swap.
+    const { fixture, httpMock } = await createPanel(pendingCourt());
+    fixture.detectChanges();
+
+    handleFor(fixture, 'เบส').click();
+    fixture.detectChanges();
+    nameButton(fixture, 'ตั้ม').click();
+
+    httpMock.expectOne(`${B}/sessions/sess1/pairings/pair1/swap`).flush({
+      ok: true,
+      pairing: { id: 'pair1', courtNumber: 1, matchNumber: 1, teamA: ['p2', 'p1'], teamB: ['p3', 'p4'] },
+    });
+    await new Promise((r) => setTimeout(r, 0));
+    TestBed.tick();
+    httpMock.expectOne(`${B}/sessions/sess1`).flush(pendingCourt());
+    expect(fixture.componentInstance['selection'].active()).toBe(false);
+  });
 });
 
 describe('CourtPanel with too few players', () => {
@@ -480,3 +594,4 @@ describe('CourtPanel with too few players', () => {
     expect((fixture.nativeElement as HTMLElement).textContent).toContain('ลงคอร์ทอื่นแล้ว');
   });
 });
+

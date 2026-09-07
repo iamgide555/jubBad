@@ -319,6 +319,21 @@ pairing → **pending**, where reshuffling is free and unlimited and a single
 player can be tapped to swap in a substitute → *Confirm* → **active**, then
 *Finish* records the winner (or "No result") and frees the court.
 
+**Swapping has two speeds.** Tapping a name means "take this player off, you
+choose the replacement", which follows normal rotation and is one tap. Choosing
+the replacement yourself is the deliberate version: pick a player up — by the
+handle beside their name, or from the waiting list — then drop or tap them onto
+whoever they replace. If the player picked up was on another *pending* court,
+the two trade places, and both rows are written in one transaction so a
+rejected swap cannot leave one player on two courts. A trade is refused once
+the far court is confirmed: pulling someone out of a running match would mean
+the score being entered no longer belongs to the players it names.
+
+Drag and tap are deliberately both supported rather than drag alone. HTML5
+drag-and-drop does not fire on touch at all, and this app is used one-handed at
+the court, so drag runs through Angular CDK (which uses pointer events) and the
+tap path doubles as the keyboard-accessible route.
+
 **Confirm is the commit point.** History — partner counts, opponent counts,
 games played — updates only when a match is confirmed, never when one is
 proposed. That single rule is what makes free reshuffling, resting a player and

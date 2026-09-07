@@ -60,7 +60,17 @@
     <div class="waiting-queue">
       <h4 class="label" i18n="@@dashboard.waiting">รอคิว</h4>
       @for (w of waiting(); track w.id) {
-        <span class="chip">{{ w.name }} <span class="wait-mins">{{ w.minutes }}<ng-container i18n="@@dashboard.minutesShort">น.</ng-container></span></span>
+        <button
+          type="button"
+          class="chip chip-pick"
+          cdkDrag
+          [cdkDragData]="waitingPick(w.id, w.name)"
+          (cdkDragStarted)="selection.clear()"
+          [class.is-picked]="selection.isPicked(w.id)"
+          [attr.aria-pressed]="selection.isPicked(w.id)"
+          [attr.aria-label]="waitingPickLabel(w.name)"
+          (click)="pickWaiting(w.id, w.name)"
+        >{{ w.name }} <span class="wait-mins">{{ w.minutes }}<ng-container i18n="@@dashboard.minutesShort">น.</ng-container></span></button>
       } @empty {
         <p class="muted" i18n="@@dashboard.nobodyWaiting">ไม่มีคนรอ</p>
       }

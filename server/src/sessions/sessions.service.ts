@@ -695,6 +695,11 @@ export class SessionsService {
     const nonEnded = await this.prisma.pairing.findMany({
       where: { sessionId: pairing.sessionId, endedAt: null, id: { not: pairingId } },
     });
+
+    if (dto.withPlayerId !== undefined) {
+      return this.swapWithChosenPlayer(pairing, dto, dto.withPlayerId, rosterPlayerIds, nonEnded);
+    }
+
     const reserved = new Set<string>();
     for (const p of nonEnded) {
       const [a1, a2] = JSON.parse(p.teamA) as [string, string];
@@ -768,6 +773,102 @@ export class SessionsService {
     }
     const updated = await this.prisma.pairing.findUniqueOrThrow({ where: { id: pairingId } });
 
+    return {
+      ok: true as const,
+      pairing: {
+        id: updated.id,
+        courtNumber: updated.courtNumber,
+        matchNumber: updated.matchNumber,
+        revision: updated.revision,
+        teamA: newTeamA,
+        teamB: newTeamB,
+      },
+    };
+  }
+
+  /**
+   * Manual swap: the caller names who comes on instead of taking rotation's
+   * choice. Two shapes share this path, because from the screen they are the
+   * same gesture — drag a name onto a player. If the incoming player is idle
+   * they simply replace the outgoing one; if they are on another court that is
+   * still pending, the two trade places, which is why this can write two rows.
+   *
+   * A trade is refused once the other court is confirmed or running. Pulling
+   * someone out of a match already in progress is not a scheduling change, it
+   * is rewriting history, and the score being entered would no longer belong
+   * to the players it names.
+   */
+  private async swapWithChosenPlayer(
+    pairing: { id: string; sessionId: string; revision: number; teamA: string; teamB: string },
+    dto: SwapPlayerDto,
+    incomingId: string,
+    rosterPlayerIds: string[],
+    nonEnded: { id: string; revision: number; teamA: string; teamB: string; confirmedAt: Date | null }[]
+  ) {
+    if (incomingId === dto.playerId) throw this.conflict('SWAP_SAME_PLAYER');
+
+    const seat = await this.prisma.sessionRoster.findFirst({
+      where: { sessionId: pairing.sessionId, playerId: incomingId },
+    });
+    if (!seat) throw this.notFound('ROSTER_PLAYER_NOT_FOUND');
+    if (!seat.active) {
+      throw this.conflict('PLAYER_UNAVAILABLE', { playerIds: [incomingId] });
+    }
+    if (!rosterPlayerIds.includes(incomingId)) throw this.notFound('ROSTER_PLAYER_NOT_FOUND');
+
+    const replaceIn = (raw: string, out: string, into: string): [string, string] => {
+      const team = JSON.parse(raw) as [string, string];
+      return [team[0] === out ? into : team[0], team[1] === out ? into : team[1]];
+    };
+
+    const other = nonEnded.find((p) => {
+      const four = [
+        ...(JSON.parse(p.teamA) as string[]),
+        ...(JSON.parse(p.teamB) as string[]),
+      ];
+      return four.includes(incomingId);
+    });
+    if (other && other.confirmedAt !== null) {
+      throw this.conflict('PAIRING_NOT_PENDING');
+    }
+
+    const newTeamA = replaceIn(pairing.teamA, dto.playerId, incomingId);
+    const newTeamB = replaceIn(pairing.teamB, dto.playerId, incomingId);
+
+    // The throw has to happen inside the transaction. An updateMany that
+    // matches nothing is not a database error, so checking the counts after
+    // committing would leave the far court traded and the near one untouched —
+    // one player on two courts, the exact corruption this guards.
+    await this.prisma.$transaction(async (tx) => {
+      const near = await tx.pairing.updateMany({
+        where: {
+          id: pairing.id,
+          confirmedAt: null,
+          endedAt: null,
+          revision: dto.expectedRevision ?? pairing.revision,
+        },
+        data: {
+          teamA: JSON.stringify(newTeamA),
+          teamB: JSON.stringify(newTeamB),
+          revision: { increment: 1 },
+        },
+      });
+      if (near.count !== 1) throw this.conflict('PAIRING_STALE');
+
+      if (other) {
+        const far = await tx.pairing.updateMany({
+          where: { id: other.id, confirmedAt: null, endedAt: null, revision: other.revision },
+          data: {
+            teamA: JSON.stringify(replaceIn(other.teamA, incomingId, dto.playerId)),
+            teamB: JSON.stringify(replaceIn(other.teamB, incomingId, dto.playerId)),
+            revision: { increment: 1 },
+          },
+        });
+        if (far.count !== 1) throw this.conflict('PAIRING_STALE');
+      }
+    });
+
+    const updated = await this.prisma.pairing.findUniqueOrThrow({ where: { id: pairing.id } });
     return {
       ok: true as const,
       pairing: {

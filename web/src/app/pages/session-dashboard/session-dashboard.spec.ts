@@ -521,4 +521,39 @@ describe('SessionDashboard', () => {
       (fixture.nativeElement.querySelector('.clipboard-fallback') as HTMLTextAreaElement).value
     ).toBe(`${location.origin}/s/sess1/display`);
   });
+
+  it('lets a waiting player be picked up for a manual swap', async () => {
+    fixture = TestBed.createComponent(SessionDashboard);
+    fixture.detectChanges();
+    httpMock
+      .expectOne(`${B}/sessions/sess1`)
+      .flush(baseSession({ rosterPlayerIds: ['p1', 'p2'] }));
+    await new Promise((r) => setTimeout(r, 0));
+    TestBed.tick();
+    for (const r of httpMock.match(`${B}/groups/group1/players`)) {
+      r.flush([
+        { id: 'p1', name: 'ตั้ม', aliases: [] },
+        { id: 'p2', name: 'เบส', aliases: [] },
+      ]);
+    }
+    for (const r of httpMock.match(`${B}/sessions/sess1/stats?scope=session`)) r.flush([]);
+    await new Promise((r) => setTimeout(r, 0));
+    fixture.detectChanges();
+
+    const chip = (fixture.nativeElement as HTMLElement).querySelector(
+      '.waiting-queue .chip-pick'
+    ) as HTMLButtonElement;
+    expect(chip).toBeTruthy();
+
+    chip.click();
+    fixture.detectChanges();
+    expect(fixture.componentInstance['selection'].active()).toBe(true);
+    expect(chip.getAttribute('aria-pressed')).toBe('true');
+
+    // Tapping again puts them back, so a mis-tap costs nothing.
+    chip.click();
+    fixture.detectChanges();
+    expect(fixture.componentInstance['selection'].active()).toBe(false);
+  });
+
 });

@@ -196,3 +196,24 @@
     min-width: 16rem;
   }
 }
+
+/* A waiting player can be dragged or tapped onto a court, so the chip is a
+   button now. It keeps the chip's look; only the affordances are new. */
+.waiting-queue .chip-pick {
+  font: inherit;
+  min-height: var(--tap);
+  cursor: grab;
+  touch-action: none;
+}
+
+.waiting-queue .chip-pick.is-picked {
+  outline: 2px solid var(--court);
+  background: var(--court-wash, #e6f2f0);
+}
+
+.cdk-drag-preview {
+  padding: 0.3rem 0.6rem;
+  border-radius: 999px;
+  background: var(--surface, #fff);
+  box-shadow: 0 4px 12px rgb(0 0 0 / 25%);
+}

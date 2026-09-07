@@ -3124,4 +3124,202 @@ describe('SessionsController', () => {
     }
   });
 
+
+  /**
+   * Manual swap fixture: `courts` describes pending pairings by player index,
+   * so a test can say "two courts, trade across them" without restating setup.
+   */
+  const manualSwapFixture = async (names: string[], courts: number[][]) => {
+    const groupCode = randomUUID();
+    const sessionCode = randomUUID();
+    await prisma.group.create({ data: { code: groupCode, name: 'G' } });
+    const players = await Promise.all(
+      names.map((name) => prisma.player.create({ data: { groupId: groupCode, name, aliases: '[]' } }))
+    );
+    await prisma.session.create({
+      data: {
+        code: sessionCode,
+        groupId: groupCode,
+        courtCount: Math.max(1, courts.length),
+        rawImportText: '',
+      },
+    });
+    for (const p of players) {
+      await prisma.sessionRoster.create({ data: { sessionId: sessionCode, playerId: p.id } });
+    }
+    const pairings = [];
+    for (const [i, four] of courts.entries()) {
+      pairings.push(
+        await prisma.pairing.create({
+          data: {
+            sessionId: sessionCode,
+            courtNumber: i + 1,
+            matchNumber: i + 1,
+            teamA: JSON.stringify([players[four[0]].id, players[four[1]].id]),
+            teamB: JSON.stringify([players[four[2]].id, players[four[3]].id]),
+          },
+        })
+      );
+    }
+    const cleanup = async () => {
+      await prisma.pairing.deleteMany({ where: { sessionId: sessionCode } });
+      await prisma.sessionRoster.deleteMany({ where: { sessionId: sessionCode } });
+      await prisma.session.deleteMany({ where: { code: sessionCode } });
+      await prisma.player.deleteMany({ where: { groupId: groupCode } });
+      await prisma.group.deleteMany({ where: { code: groupCode } });
+    };
+    return { groupCode, sessionCode, players, pairings, cleanup };
+  };
+
+  it('swaps in the named player rather than rotation\'s choice', async () => {
+    // E is waiting behind F, so automatic rotation would not pick F. Naming F
+    // is the whole point of the manual gesture.
+    const { sessionCode, players, pairings, cleanup } = await manualSwapFixture(
+      ['A', 'B', 'C', 'D', 'E', 'F'],
+      [[0, 1, 2, 3]]
+    );
+    try {
+      const res = await request(server)
+        .post(`/sessions/${sessionCode}/pairings/${pairings[0].id}/swap`)
+        .send({ playerId: players[0].id, withPlayerId: players[5].id })
+        .expect(201);
+      expect(res.body.pairing.teamA).toEqual([players[5].id, players[1].id]);
+      expect(res.body.pairing.teamB).toEqual([players[2].id, players[3].id]);
+    } finally {
+      await cleanup();
+    }
+  });
+
+  it('trades two players who are on different pending courts', async () => {
+    const { sessionCode, players, pairings, cleanup } = await manualSwapFixture(
+      ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'],
+      [
+        [0, 1, 2, 3],
+        [4, 5, 6, 7],
+      ]
+    );
+    try {
+      const res = await request(server)
+        .post(`/sessions/${sessionCode}/pairings/${pairings[0].id}/swap`)
+        .send({ playerId: players[0].id, withPlayerId: players[4].id })
+        .expect(201);
+      expect(res.body.pairing.teamA).toEqual([players[4].id, players[1].id]);
+
+      // The far court must have received A in E's seat — a trade, not a
+      // duplication, and not a court left a player short.
+      const other = await prisma.pairing.findUniqueOrThrow({ where: { id: pairings[1].id } });
+      expect(JSON.parse(other.teamA)).toEqual([players[0].id, players[5].id]);
+      expect(other.revision).toBe(pairings[1].revision + 1);
+    } finally {
+      await cleanup();
+    }
+  });
+
+  it('refuses to pull a player out of a match already under way', async () => {
+    const { sessionCode, players, pairings, cleanup } = await manualSwapFixture(
+      ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'],
+      [
+        [0, 1, 2, 3],
+        [4, 5, 6, 7],
+      ]
+    );
+    try {
+      await prisma.pairing.update({
+        where: { id: pairings[1].id },
+        data: { confirmedAt: new Date() },
+      });
+      const res = await request(server)
+        .post(`/sessions/${sessionCode}/pairings/${pairings[0].id}/swap`)
+        .send({ playerId: players[0].id, withPlayerId: players[4].id })
+        .expect(409);
+      expect(res.body.code).toBe('PAIRING_NOT_PENDING');
+
+      // The running match keeps the players its score will be recorded against.
+      const running = await prisma.pairing.findUniqueOrThrow({ where: { id: pairings[1].id } });
+      expect(JSON.parse(running.teamA)).toEqual([players[4].id, players[5].id]);
+    } finally {
+      await cleanup();
+    }
+  });
+
+  it('refuses to bring on a player who is resting', async () => {
+    const { sessionCode, players, pairings, cleanup } = await manualSwapFixture(
+      ['A', 'B', 'C', 'D', 'E'],
+      [[0, 1, 2, 3]]
+    );
+    try {
+      await prisma.sessionRoster.updateMany({
+        where: { sessionId: sessionCode, playerId: players[4].id },
+        data: { active: false },
+      });
+      const res = await request(server)
+        .post(`/sessions/${sessionCode}/pairings/${pairings[0].id}/swap`)
+        .send({ playerId: players[0].id, withPlayerId: players[4].id })
+        .expect(409);
+      expect(res.body.code).toBe('PLAYER_UNAVAILABLE');
+      expect(res.body.playerIds).toEqual([players[4].id]);
+    } finally {
+      await cleanup();
+    }
+  });
+
+  it('refuses a player who is not in tonight\'s session at all', async () => {
+    const { groupCode, sessionCode, players, pairings, cleanup } = await manualSwapFixture(
+      ['A', 'B', 'C', 'D'],
+      [[0, 1, 2, 3]]
+    );
+    try {
+      const outsider = await prisma.player.create({
+        data: { groupId: groupCode, name: 'Outsider', aliases: '[]' },
+      });
+      await request(server)
+        .post(`/sessions/${sessionCode}/pairings/${pairings[0].id}/swap`)
+        .send({ playerId: players[0].id, withPlayerId: outsider.id })
+        .expect(404);
+    } finally {
+      await cleanup();
+    }
+  });
+
+  it('rejects swapping a player with themselves', async () => {
+    const { sessionCode, players, pairings, cleanup } = await manualSwapFixture(
+      ['A', 'B', 'C', 'D', 'E'],
+      [[0, 1, 2, 3]]
+    );
+    try {
+      const res = await request(server)
+        .post(`/sessions/${sessionCode}/pairings/${pairings[0].id}/swap`)
+        .send({ playerId: players[0].id, withPlayerId: players[0].id })
+        .expect(409);
+      expect(res.body.code).toBe('SWAP_SAME_PLAYER');
+    } finally {
+      await cleanup();
+    }
+  });
+
+  it('does not write half a trade when the round moved on underneath it', async () => {
+    const { sessionCode, players, pairings, cleanup } = await manualSwapFixture(
+      ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'],
+      [
+        [0, 1, 2, 3],
+        [4, 5, 6, 7],
+      ]
+    );
+    try {
+      const res = await request(server)
+        .post(`/sessions/${sessionCode}/pairings/${pairings[0].id}/swap`)
+        .send({ playerId: players[0].id, withPlayerId: players[4].id, expectedRevision: 99 })
+        .expect(409);
+      expect(res.body.code).toBe('PAIRING_STALE');
+
+      // Neither court may have moved: a rolled-back trade that left the far
+      // court written would put one player on two courts at once.
+      const near = await prisma.pairing.findUniqueOrThrow({ where: { id: pairings[0].id } });
+      const far = await prisma.pairing.findUniqueOrThrow({ where: { id: pairings[1].id } });
+      expect(JSON.parse(near.teamA)).toEqual([players[0].id, players[1].id]);
+      expect(JSON.parse(far.teamA)).toEqual([players[4].id, players[5].id]);
+    } finally {
+      await cleanup();
+    }
+  });
 });

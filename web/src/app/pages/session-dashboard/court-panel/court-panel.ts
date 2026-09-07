@@ -1,13 +1,15 @@
-import { Component, computed, input, signal } from '@angular/core';
+import { Component, computed, inject, input, signal } from '@angular/core';
+import { CdkDrag, CdkDropList, type CdkDragDrop } from '@angular/cdk/drag-drop';
 import { FormsModule } from '@angular/forms';
 import { LiveSessionService } from '../../../core/live-session.service';
 import { resolvePlayerNames } from '../../../core/player-names';
+import { SwapSelectionService, type SwapPick } from '../../../core/swap-selection.service';
 import type { CourtState } from '../../../core/live-session.model';
 import type { Player } from '../../../../../../engines/fuzzy-match.ts';
 
 @Component({
   selector: 'app-court-panel',
-  imports: [FormsModule],
+  imports: [FormsModule, CdkDrag, CdkDropList],
   templateUrl: './court-panel.html',
   styleUrl: './court-panel.css',
 })
@@ -23,7 +25,33 @@ export class CourtPanel {
   /** A rejected request — mostly the pairing-lifecycle 409s. */
   readonly actionError = signal<string | null>(null);
 
+  protected readonly selection = inject(SwapSelectionService);
+
   constructor(protected liveSession: LiveSessionService) {}
+
+  /**
+   * The pending pairing's id, or null when there is nothing to swap. Drag and
+   * drop targets read this rather than re-narrowing the court union in the
+   * template at every use.
+   */
+  protected readonly pendingPairingId = computed<string | null>(() => {
+    const c = this.court();
+    return c.status === 'pending' ? c.pairingId : null;
+  });
+
+  protected pickFor(playerId: string): SwapPick {
+    return {
+      playerId,
+      name: resolvePlayerNames([playerId], this.players())[0],
+      pairingId: this.pendingPairingId(),
+    };
+  }
+
+  /** True for a slot that would receive whoever is currently held. */
+  protected isTarget(playerId: string): boolean {
+    const held = this.selection.selection();
+    return held !== null && held.playerId !== playerId && this.pendingPairingId() !== null;
+  }
 
   protected readonly court = computed<CourtState>(
     () => this.liveSession.courts()[this.courtNumber() - 1] ?? { status: 'idle' }
@@ -74,17 +102,74 @@ export class CourtPanel {
     }
   }
 
+  /**
+   * Tapping a name still means "swap this player out, you choose who for" —
+   * the quickest gesture stays on the quickest control. Choosing the
+   * replacement is a deliberate second action: pick someone up first, then
+   * tap or drop them onto the player they replace.
+   */
   protected async swap(pairingId: string, playerId: string): Promise<void> {
+    const held = this.selection.selection();
+    if (held !== null) {
+      if (held.playerId === playerId) {
+        this.selection.clear();
+        return;
+      }
+      await this.applyManualSwap(pairingId, playerId, held);
+      return;
+    }
+    await this.runSwap(pairingId, playerId);
+  }
+
+  /**
+   * Puts a player down onto the slot `playerId` occupies. The request always
+   * names the court being dropped on; when the held player came from another
+   * court the server trades the two, so the far court does not need a second
+   * call that could half-apply.
+   */
+  private async applyManualSwap(
+    pairingId: string,
+    playerId: string,
+    held: SwapPick
+  ): Promise<void> {
+    this.selection.clear();
+    await this.runSwap(pairingId, playerId, held.playerId);
+  }
+
+  private async runSwap(
+    pairingId: string,
+    playerId: string,
+    withPlayerId?: string
+  ): Promise<void> {
     if (this.busy()) return;
     this.busy.set(true);
     this.actionError.set(null);
     try {
-      const result = await this.liveSession.swapPlayer(pairingId, playerId);
+      const result = await this.liveSession.swapPlayer(pairingId, playerId, withPlayerId);
       this.noSubstitute.set(!result.ok && result.reason === 'no-substitute');
       this.actionError.set(result.error ?? null);
     } finally {
       this.busy.set(false);
     }
+  }
+
+  /** Picks a player up, or puts them back if they were already held. */
+  protected pickUp(playerId: string): void {
+    this.selection.toggle(this.pickFor(playerId));
+  }
+
+  protected pickLabel(name: string): string {
+    return $localize`:@@court.pickUp:เลือก ${name}:name: เพื่อสลับตำแหน่ง`;
+  }
+
+  protected async dropOn(playerId: string, event: CdkDragDrop<string>): Promise<void> {
+    const held = event.item.data as SwapPick | undefined;
+    const pairingId = this.pendingPairingId();
+    if (!held || pairingId === null || held.playerId === playerId) {
+      this.selection.clear();
+      return;
+    }
+    await this.applyManualSwap(pairingId, playerId, held);
   }
 
   /**

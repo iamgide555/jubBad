@@ -1240,6 +1240,41 @@
           <context context-type="linenumber">48,52</context>
         </context-group>
       </trans-unit>
+      <trans-unit id="court.pickUp" datatype="html">
+        <source>เลือก <x id="name" equiv-text="name"/> เพื่อสลับตำแหน่ง</source><target>Pick up <x id="name" equiv-text="name"/> to swap</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/session-dashboard/court-panel/court-panel.ts</context>
+          <context context-type="linenumber">162</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="court.holding" datatype="html">
+        <source>กำลังถือ</source><target>Holding</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/session-dashboard/court-panel/court-panel.html</context>
+          <context context-type="linenumber">142,143</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="court.cancelPick" datatype="html">
+        <source>ยกเลิก</source><target>Cancel</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/session-dashboard/court-panel/court-panel.html</context>
+          <context context-type="linenumber">144,146</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="dashboard.pickWaiting" datatype="html">
+        <source>เลือก <x id="name" equiv-text="name"/> ลงคอร์ท</source><target>Send <x id="name" equiv-text="name"/> on</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/session-dashboard/session-dashboard.ts</context>
+          <context context-type="linenumber">88</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="err.code.swapSamePlayer" datatype="html">
+        <source>เลือกคนเดิม ไม่ได้เปลี่ยนตัว</source><target>That is the same player — nothing to swap</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/core/live-session.service.ts</context>
+          <context context-type="linenumber">49</context>
+        </context-group>
+      </trans-unit>
     </body>
   </file>
 </xliff>

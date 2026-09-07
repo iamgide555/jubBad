@@ -22,16 +22,127 @@
           @let aNames = teamNames(c.teamA);
           @let bNames = teamNames(c.teamB);
           <p class="matchup">
-            <button type="button" class="name-tap" [disabled]="busy()" [attr.aria-label]="swapLabel(aNames[0])" (click)="swap(c.pairingId, c.teamA[0])">{{ aNames[0] }}</button>
+            <span
+              class="slot"
+              cdkDropList
+              [cdkDropListData]="'court'"
+              (cdkDropListDropped)="dropOn(c.teamA[0], $event)"
+              [class.is-target]="isTarget(c.teamA[0])"
+              [class.is-picked]="selection.isPicked(c.teamA[0])"
+            >
+              <button
+                type="button"
+                class="name-tap"
+                cdkDrag
+                [cdkDragData]="pickFor(c.teamA[0])"
+                (cdkDragStarted)="selection.clear()"
+                [disabled]="busy()"
+                [attr.aria-label]="swapLabel(aNames[0])"
+                (click)="swap(c.pairingId, c.teamA[0])"
+              >{{ aNames[0] }}<span class="drag-ghost" *cdkDragPlaceholder></span></button>
+              <button
+                type="button"
+                class="pick-handle"
+                [disabled]="busy()"
+                [attr.aria-pressed]="selection.isPicked(c.teamA[0])"
+                [attr.aria-label]="pickLabel(aNames[0])"
+                (click)="pickUp(c.teamA[0])"
+              >⠿</button>
+            </span>
             &amp;
-            <button type="button" class="name-tap" [disabled]="busy()" [attr.aria-label]="swapLabel(aNames[1])" (click)="swap(c.pairingId, c.teamA[1])">{{ aNames[1] }}</button>
+            <span
+              class="slot"
+              cdkDropList
+              [cdkDropListData]="'court'"
+              (cdkDropListDropped)="dropOn(c.teamA[1], $event)"
+              [class.is-target]="isTarget(c.teamA[1])"
+              [class.is-picked]="selection.isPicked(c.teamA[1])"
+            >
+              <button
+                type="button"
+                class="name-tap"
+                cdkDrag
+                [cdkDragData]="pickFor(c.teamA[1])"
+                (cdkDragStarted)="selection.clear()"
+                [disabled]="busy()"
+                [attr.aria-label]="swapLabel(aNames[1])"
+                (click)="swap(c.pairingId, c.teamA[1])"
+              >{{ aNames[1] }}<span class="drag-ghost" *cdkDragPlaceholder></span></button>
+              <button
+                type="button"
+                class="pick-handle"
+                [disabled]="busy()"
+                [attr.aria-pressed]="selection.isPicked(c.teamA[1])"
+                [attr.aria-label]="pickLabel(aNames[1])"
+                (click)="pickUp(c.teamA[1])"
+              >⠿</button>
+            </span>
             <span class="vs" i18n="@@court.vs">vs</span>
-            <button type="button" class="name-tap" [disabled]="busy()" [attr.aria-label]="swapLabel(bNames[0])" (click)="swap(c.pairingId, c.teamB[0])">{{ bNames[0] }}</button>
+            <span
+              class="slot"
+              cdkDropList
+              [cdkDropListData]="'court'"
+              (cdkDropListDropped)="dropOn(c.teamB[0], $event)"
+              [class.is-target]="isTarget(c.teamB[0])"
+              [class.is-picked]="selection.isPicked(c.teamB[0])"
+            >
+              <button
+                type="button"
+                class="name-tap"
+                cdkDrag
+                [cdkDragData]="pickFor(c.teamB[0])"
+                (cdkDragStarted)="selection.clear()"
+                [disabled]="busy()"
+                [attr.aria-label]="swapLabel(bNames[0])"
+                (click)="swap(c.pairingId, c.teamB[0])"
+              >{{ bNames[0] }}<span class="drag-ghost" *cdkDragPlaceholder></span></button>
+              <button
+                type="button"
+                class="pick-handle"
+                [disabled]="busy()"
+                [attr.aria-pressed]="selection.isPicked(c.teamB[0])"
+                [attr.aria-label]="pickLabel(bNames[0])"
+                (click)="pickUp(c.teamB[0])"
+              >⠿</button>
+            </span>
             &amp;
-            <button type="button" class="name-tap" [disabled]="busy()" [attr.aria-label]="swapLabel(bNames[1])" (click)="swap(c.pairingId, c.teamB[1])">{{ bNames[1] }}</button>
+            <span
+              class="slot"
+              cdkDropList
+              [cdkDropListData]="'court'"
+              (cdkDropListDropped)="dropOn(c.teamB[1], $event)"
+              [class.is-target]="isTarget(c.teamB[1])"
+              [class.is-picked]="selection.isPicked(c.teamB[1])"
+            >
+              <button
+                type="button"
+                class="name-tap"
+                cdkDrag
+                [cdkDragData]="pickFor(c.teamB[1])"
+                (cdkDragStarted)="selection.clear()"
+                [disabled]="busy()"
+                [attr.aria-label]="swapLabel(bNames[1])"
+                (click)="swap(c.pairingId, c.teamB[1])"
+              >{{ bNames[1] }}<span class="drag-ghost" *cdkDragPlaceholder></span></button>
+              <button
+                type="button"
+                class="pick-handle"
+                [disabled]="busy()"
+                [attr.aria-pressed]="selection.isPicked(c.teamB[1])"
+                [attr.aria-label]="pickLabel(bNames[1])"
+                (click)="pickUp(c.teamB[1])"
+              >⠿</button>
+            </span>
           </p>
           @if (noSubstitute()) {
             <p class="hint" i18n="@@court.noSubstitute">ไม่มีคนสำรองให้เปลี่ยน</p>
+          }
+          @if (selection.active()) {
+            <p class="hint pick-hint" role="status">
+              <ng-container i18n="@@court.holding">กำลังถือ</ng-container>
+              {{ selection.selection()?.name }} —
+              <button type="button" class="link" (click)="selection.clear()" i18n="@@court.cancelPick">ยกเลิก</button>
+            </p>
           }
           @if (restingInProposal().length > 0) {
             <p class="hint warn" role="status" i18n="@@court.restingInProposal">{{ restingInProposal().join(', ') }} พักอยู่ — กดชื่อเพื่อเปลี่ยนตัว หรือสุ่มใหม่</p>

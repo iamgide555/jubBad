@@ -3221,6 +3221,55 @@ describe('SessionsController', () => {
     }
   });
 
+  it('trades seats when both players are already on this court', async () => {
+    // A & B vs C & D, picking A then C. Nobody joins or leaves — the two just
+    // change sides. The one-way replace used for a substitution produced
+    // "C & B vs C & D" here: a duplicated player and one silently dropped.
+    const { sessionCode, players, pairings, cleanup } = await manualSwapFixture(
+      ['A', 'B', 'C', 'D', 'E', 'F'],
+      [[0, 1, 2, 3]]
+    );
+    try {
+      const res = await request(server)
+        .post(`/sessions/${sessionCode}/pairings/${pairings[0].id}/swap`)
+        .send({ playerId: players[0].id, withPlayerId: players[2].id })
+        .expect(201);
+      expect(res.body.pairing.teamA).toEqual([players[2].id, players[1].id]);
+      expect(res.body.pairing.teamB).toEqual([players[0].id, players[3].id]);
+
+      // The same four are still on the court, each exactly once.
+      const four = [...res.body.pairing.teamA, ...res.body.pairing.teamB];
+      expect(new Set(four).size).toBe(4);
+      expect([...four].sort()).toEqual(
+        [players[0].id, players[1].id, players[2].id, players[3].id].sort()
+      );
+    } finally {
+      await cleanup();
+    }
+  });
+
+  it('keeps the court whole when the two players share a team', async () => {
+    // Partners changing places is a no-op for who is on court, so it must
+    // still leave four distinct players rather than collapsing to a pair.
+    const { sessionCode, players, pairings, cleanup } = await manualSwapFixture(
+      ['A', 'B', 'C', 'D', 'E', 'F'],
+      [[0, 1, 2, 3]]
+    );
+    try {
+      const res = await request(server)
+        .post(`/sessions/${sessionCode}/pairings/${pairings[0].id}/swap`)
+        .send({ playerId: players[0].id, withPlayerId: players[1].id })
+        .expect(201);
+      expect(res.body.pairing.teamA).toEqual([players[1].id, players[0].id]);
+      expect(res.body.pairing.teamB).toEqual([players[2].id, players[3].id]);
+
+      const four = [...res.body.pairing.teamA, ...res.body.pairing.teamB];
+      expect(new Set(four).size).toBe(4);
+    } finally {
+      await cleanup();
+    }
+  });
+
   it('refuses to pull a player out of a match already under way', async () => {
     const { sessionCode, players, pairings, cleanup } = await manualSwapFixture(
       ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'],

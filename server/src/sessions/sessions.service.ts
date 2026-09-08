@@ -840,19 +840,47 @@ export class SessionsService {
       return [team[0] === out ? into : team[0], team[1] === out ? into : team[1]];
     };
 
-    const other = nonEnded.find((p) => {
-      const four = [
-        ...(JSON.parse(p.teamA) as string[]),
-        ...(JSON.parse(p.teamB) as string[]),
-      ];
-      return four.includes(incomingId);
-    });
+    /**
+     * Both players already on this court is a trade of seats, not a
+     * substitution. Running the one-way replace for it rewrote the outgoing
+     * player's seat to the incoming one and left the incoming player's own seat
+     * alone, so picking A then B on the same court produced "B & B vs C & D" —
+     * a court with a duplicate and a player silently dropped out of the match.
+     *
+     * There is no far pairing to trade back against here, which is exactly why
+     * the general path could not catch it: `nonEnded` excludes this pairing.
+     */
+    const tradeIn = (raw: string, x: string, y: string): [string, string] => {
+      const team = JSON.parse(raw) as [string, string];
+      const at = (id: string) => (id === x ? y : id === y ? x : id);
+      return [at(team[0]), at(team[1])];
+    };
+
+    const currentFour = new Set([
+      ...(JSON.parse(pairing.teamA) as string[]),
+      ...(JSON.parse(pairing.teamB) as string[]),
+    ]);
+    const sameCourt = currentFour.has(incomingId);
+
+    const other = sameCourt
+      ? undefined
+      : nonEnded.find((p) => {
+          const four = [
+            ...(JSON.parse(p.teamA) as string[]),
+            ...(JSON.parse(p.teamB) as string[]),
+          ];
+          return four.includes(incomingId);
+        });
     if (other && other.confirmedAt !== null) {
       throw this.conflict('PAIRING_NOT_PENDING');
     }
 
-    const newTeamA = replaceIn(pairing.teamA, dto.playerId, incomingId);
-    const newTeamB = replaceIn(pairing.teamB, dto.playerId, incomingId);
+    const newTeamA = sameCourt
+      ? tradeIn(pairing.teamA, dto.playerId, incomingId)
+      : replaceIn(pairing.teamA, dto.playerId, incomingId);
+    const newTeamB = sameCourt
+      ? tradeIn(pairing.teamB, dto.playerId, incomingId)
+      : replaceIn(pairing.teamB, dto.playerId, incomingId);
 
     // The throw has to happen inside the transaction. An updateMany that
     // matches nothing is not a database error, so checking the counts after

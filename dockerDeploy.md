@@ -192,6 +192,45 @@ Note that the group JSON export in the app is **not** a restore path — it omit
 fairness offsets and activation timestamps, so it cannot reconstruct a session's
 rotation state. It is for reading, not recovery.
 
+### Reset to an empty database
+
+Starting the season over, or clearing test data after a trial run. There is no
+"reset" command and deliberately so: the procedure is to delete the database and
+let the API rebuild it, because `server/Dockerfile` already runs
+`prisma migrate deploy` on every boot.
+
+```bash
+# PC
+cd "$APP_DIR"
+docker compose exec -T api npm run db:backup   # irreversible past this point
+docker compose stop api                        # no writes may be in flight
+rm -f server/prisma/dev.db server/prisma/dev.db-wal server/prisma/dev.db-shm
+docker compose start api
+docker compose logs --tail=20 api              # "All migrations have been successfully applied."
+```
+
+**Delete all three files, not just `dev.db`.** The database runs in WAL mode, so
+committed writes sit in `dev.db-wal` until a checkpoint folds them back. Remove
+the database alone and SQLite replays the journal into the newly created file —
+a half-reset that resurrects some of the very data you meant to discard, which
+is far worse than not resetting at all.
+
+**This does not sign you out.** There is no user table; the admin login is
+`ADMIN_TOKEN` in `server/.env` and nothing under `src/auth/` reads the database.
+Only groups, players, sessions and their pairings are lost.
+
+To reset *and* deploy in one restart, fold it into the routine deploy:
+
+```bash
+# PC
+cd "$APP_DIR"
+docker compose exec -T api npm run db:backup
+git pull
+docker compose down
+rm -f server/prisma/dev.db server/prisma/dev.db-wal server/prisma/dev.db-shm
+docker compose up -d --build
+```
+
 ## Rollback
 ```bash
 git checkout <prev-sha>

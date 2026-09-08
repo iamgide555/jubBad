@@ -373,6 +373,49 @@ rigorous, pass, and quietly forbid correct behaviour. The old test could only
 be created by bypassing the API that makes its premise impossible — which is
 the tell.
 
+### - [x] A16. Notes written above the roster were silently dropped
+
+Found 2026-09-08 by fuzzing the parser against its own contract; fixed the
+same day.
+
+The parser's stated rule is that nothing is discarded — anything it cannot
+classify goes to `unrecognizedLines` or `warnings` for the host to review.
+Everything above the first numbered line was read for a date, a time and a
+venue, and whatever was left was then thrown away. So this message:
+
+```
+@All
+แบดวินนิ่ง อังคาร 8/9/26
+19.00-20.00  1 คอร์ท
+ค่าสนามคนละ 80 บาท
+ใครมาสายบอกด้วยนะ
+1. ตั้ม
+```
+
+imported with `unrecognizedLines` empty. The court fee and the note about
+arriving late were gone, with nothing on screen to say they had ever been
+there. The identical note placed *below* the list was surfaced correctly, so
+the behaviour depended on where in the message the host happened to type it —
+a distinction no host could be expected to know about.
+
+Header lines that the header parser made no use of now go to
+`unrecognizedLines`, which the import screen already displays. A name stranded
+above the roster start is covered by the same change.
+
+Found by asserting the contract directly over 3,000 generated messages: every
+non-empty input line must be traceable to the roster, the waitlist, the header,
+`unrecognizedLines` or a warning. That property is worth more than any
+individual case, because it fails on inputs nobody thought to write a test for
+— which is precisely the population that reaches a parser fed by whatever
+people type into LINE.
+
+The fuzzy matcher was checked the same way over 5,000 rosters and needed no
+change: no player is ever claimed twice, duplicates always point at a genuinely
+earlier claim, fuzzy never fires below threshold, and the similarity metric is
+symmetric and bounded. The double-claim invariant is the load-bearing one — a
+repeat would abort the whole import on the roster's uniqueness constraint and
+lose the host's paste.
+
 ## B. v2 candidates
 
 ### - [x] B1. Thai UI

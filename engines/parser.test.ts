@@ -118,6 +118,47 @@ test('unclassifiable trailing lines are surfaced, never dropped', () => {
   assert.deepEqual(result.unrecognizedLines, ['หมายเหตุ จ่ายเงินก่อนเล่น']);
 });
 
+test('notes above the roster are surfaced too, not only the ones below it', () => {
+  // Everything before the first numbered line was read for a date, a time and
+  // a venue and then discarded, so a note written above the list vanished
+  // while the same note below it was surfaced. Hosts put the court fee up
+  // there, and it disappeared with nothing to indicate it ever existed.
+  const result = parseLineRosterMessage(
+    [
+      '@All',
+      'แบดวินนิ่ง อังคาร 8/9/26',
+      '19.00-20.00  1 คอร์ท',
+      'ค่าสนามคนละ 80 บาท',
+      'ใครมาสายบอกด้วยนะ',
+      '1. ตั้ม',
+      '2. เบส',
+    ].join('\n')
+  );
+
+  assert.deepEqual(result.unrecognizedLines, ['ค่าสนามคนละ 80 บาท', 'ใครมาสายบอกด้วยนะ']);
+  // The title, the time line and the mention are all understood, so none of
+  // them should be reported as leftovers.
+  assert.equal(result.header.titleLine, 'แบดวินนิ่ง อังคาร 8/9/26');
+  assert.deepEqual(result.roster, [
+    { position: 1, name: 'ตั้ม' },
+    { position: 2, name: 'เบส' },
+  ]);
+});
+
+test('a name above the roster start is surfaced rather than swallowed', () => {
+  // A list whose numbering does not reach 1 until part-way down: the earlier
+  // entries fall in the header slice, and a real name there must not vanish.
+  //
+  // Note the deliberate title line. With no title at all the stray name
+  // becomes the title itself, because the title heuristic takes the first line
+  // that is not a mention or a time range. That is still surfaced to the host
+  // rather than lost, which is what matters here, so the heuristic is left
+  // alone — a message with no title is not a shape these groups send.
+  const result = parseLineRosterMessage('แบดวินนิ่ง 8/9/26\n2. เกียร์\n1. ตั้ม\n');
+  assert.deepEqual(result.unrecognizedLines, ['2. เกียร์']);
+  assert.deepEqual(result.roster, [{ position: 1, name: 'ตั้ม' }]);
+});
+
 test('warns when the court count changes between time slots', () => {
   const result = parseLineRosterMessage(TYPICAL);
   const warning = result.warnings.find((w) => w.includes('court count changes'));

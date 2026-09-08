@@ -331,6 +331,23 @@ export function parseLineRosterMessage(text: string): ParseResult {
   const headerLines = lines.slice(0, rosterStart);
   const header = parseHeader(headerLines, warnings);
 
+  // Header lines the header parser made no use of are notes, and notes are
+  // not disposable. Hosts routinely put "ค่าสนามคนละ 80" or "ใครมาสายบอกด้วย"
+  // above the list, and everything above the first numbered line was being
+  // read for a date, a time and a venue and then dropped — so a note placed
+  // before the roster vanished while the identical note placed after it was
+  // surfaced. That asymmetry is invisible to the host, which is exactly the
+  // silent loss this parser is supposed to refuse.
+  for (const line of headerLines) {
+    const trimmed = line.trim();
+    if (trimmed.length === 0) continue;
+    if (header.titleLine !== null && trimmed === header.titleLine.trim()) continue;
+    if (/^@/.test(trimmed) || isNumberedAllMention(trimmed)) continue;
+    TIME_RANGE_RE.lastIndex = 0;
+    if (TIME_RANGE_RE.test(trimmed)) continue;
+    unrecognizedLines.push(trimmed);
+  }
+
   const { slots: roster, nextIndex: afterRoster } = parseNumberedBlock(lines, rosterStart);
 
   // Look for a waitlist marker starting from where the main roster block ended.

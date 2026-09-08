@@ -173,6 +173,15 @@ recreates the same opponents whenever two courts finish together. Planning
 across the idle courts keeps the per-court flow while giving the engine the
 freedom it needs.
 
+**A roster of exactly four per court locks players into fixed fours.** With 12
+players on 3 courts each player partners with 3 of the other 11 all night; one
+spare player takes that to 7-10. It is not a scoring fault and no weighting
+fixes it: in the steady state exactly one court is free at a time, so the only
+available players are the four who just walked off, and four players have three
+possible splits. The engine rotates all three — the pods themselves never mix.
+Reshuffling cannot help for the same reason; dragging a player to another court
+is what breaks a pod, as is playing with a spare. See B13 in the backlog.
+
 Arrangements are scored, lowest wins:
 
 ```

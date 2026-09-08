@@ -1599,7 +1599,11 @@ describe('SessionsController', () => {
     }
   });
 
-  it('chooses a court\'s four by rotation priority when other courts are idle', async () => {
+  it("chooses a court's four with the other idle courts in mind", async () => {
+    // Regression guard. This behaviour was added after a real session where
+    // two courts finishing together kept producing the same opponents, and it
+    // was then silently reverted to a single-court plan during a later
+    // refactor — invisible because this test was dropped in the same change.
     const groupCode = randomUUID();
     const sessionCode = randomUUID();
     await prisma.group.create({ data: { code: groupCode, name: 'G' } });
@@ -1638,13 +1642,15 @@ describe('SessionsController', () => {
         .expect(201);
       expect(res.body.ok).toBe(true);
       const { teamA, teamB } = res.body.pairing as { teamA: string[]; teamB: string[] };
+      const four = [...teamA, ...teamB];
+      const leftover = players.map((p) => p.id).filter((id) => !four.includes(id));
 
-      // A-D already played six games. A one-court proposal must commit the
-      // four people who have waited, rather than reserve them for a plan that
-      // is not being committed.
-      expect(new Set([...teamA, ...teamB])).toEqual(
-        new Set(players.slice(4).map((player) => player.id))
-      );
+      // Whatever court 1 takes, the four left for court 2 must not be forced
+      // into a heavily-repeated partnership: A+B and C+D cannot both be
+      // stranded there together.
+      const abStranded = leftover.includes(players[0].id) && leftover.includes(players[1].id);
+      const cdStranded = leftover.includes(players[2].id) && leftover.includes(players[3].id);
+      expect(abStranded && cdStranded).toBe(false);
     } finally {
       await prisma.pairing.deleteMany({ where: { sessionId: sessionCode } });
       await prisma.sessionRoster.deleteMany({ where: { sessionId: sessionCode } });

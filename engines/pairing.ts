@@ -12,10 +12,18 @@ export function pairKey(a: PlayerId, b: PlayerId): string {
   return [a, b].sort().join('|');
 }
 
+/**
+ * `random` is injected, so it is not always `Math.random`. A generator that
+ * can return exactly 1 — many seeded ones can, and the tests supply their own
+ * — makes `j` fall one past the end, and the swap then *grows* the array and
+ * leaves a hole where a player should be. That hole reaches a court as a null
+ * name rather than an error, which is the worst way for it to surface. Clamp
+ * instead of trusting the contract.
+ */
 export function shuffle<T>(items: T[], random: () => number): T[] {
   const result = [...items];
   for (let i = result.length - 1; i > 0; i--) {
-    const j = Math.floor(random() * (i + 1));
+    const j = Math.min(i, Math.floor(random() * (i + 1)));
     [result[i], result[j]] = [result[j], result[i]];
   }
   return result;

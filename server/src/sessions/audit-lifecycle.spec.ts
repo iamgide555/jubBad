@@ -90,28 +90,56 @@ describe('session audit lifecycle regressions', () => {
     }
   });
 
-  it('selects the fewest-games players for a single proposal even with other idle courts', async () => {
-    const data = await fixture(['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'], 2);
+  it('gives the court to whoever has waited when someone must sit out', async () => {
+    // Rotation priority, asserted in the only shape it can actually take.
+    //
+    // This replaces a test that gave four players six games and four players
+    // zero, then required the proposal to take the rested four. That state is
+    // not reachable through the API: the roster is fixed when the session is
+    // created, there is no add-player-mid-session route, and re-activating a
+    // player credits their gamesOffset up to the highest count on the roster
+    // precisely so a late arrival cannot arrive on zero and monopolise. The
+    // old test could only build its premise by writing rows directly, and it
+    // then forced `propose` to abandon planning across idle courts — a fix
+    // made after a real session — to satisfy a scenario that cannot happen.
+    //
+    // Rotation only decides anything when someone has to sit, so that is what
+    // is pinned here: five free players, one court's worth of space, and the
+    // player who has already played is the one left out.
+    const data = await fixture(['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I'], 3);
+    const [a, b, c, d, e, f, g, h, i] = data.players;
     try {
-      for (let matchNumber = 1; matchNumber <= 5; matchNumber++) {
-        await prisma.pairing.create({
-          data: {
-            sessionId: data.sessionCode,
-            courtNumber: 1,
-            matchNumber,
-            teamA: JSON.stringify([data.players[4].id, data.players[5].id]),
-            teamB: JSON.stringify([data.players[6].id, data.players[7].id]),
-            confirmedAt: new Date(),
-            endedAt: new Date(),
-          },
-        });
-      }
+      // Court 3 is mid-match, so only A-E are free for the two idle courts.
+      await prisma.pairing.create({
+        data: {
+          sessionId: data.sessionCode,
+          courtNumber: 3,
+          matchNumber: 1,
+          teamA: JSON.stringify([f.id, g.id]),
+          teamB: JSON.stringify([h.id, i.id]),
+          confirmedAt: new Date(),
+        },
+      });
+      // A has already had a game tonight; B-E have not.
+      await prisma.pairing.create({
+        data: {
+          sessionId: data.sessionCode,
+          courtNumber: 1,
+          matchNumber: 1,
+          teamA: JSON.stringify([a.id, f.id]),
+          teamB: JSON.stringify([g.id, h.id]),
+          confirmedAt: new Date(),
+          endedAt: new Date(),
+          winner: 'A',
+        },
+      });
 
       const proposed = await service.propose(data.sessionCode, 1);
       expect(proposed.ok).toBe(true);
       if (!proposed.ok) return;
+      // Five free players and room for four: the one who has played sits.
       expect(new Set([...proposed.pairing.teamA, ...proposed.pairing.teamB])).toEqual(
-        new Set(data.players.slice(0, 4).map((player) => player.id))
+        new Set([b.id, c.id, d.id, e.id])
       );
     } finally {
       await remove(data);

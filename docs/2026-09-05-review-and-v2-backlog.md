@@ -311,6 +311,68 @@ per-component definition silently does nothing elsewhere.
 
 ---
 
+### - [x] A15. A matchmaking fix from real play was silently reverted
+
+Found 2026-09-08, while reviewing the engine before deploy. Fixed the same day.
+
+`3af5021` made `propose` plan across every idle court and commit only the one
+asked for. That was not a refinement — it was one of three faults reported
+after an actual session, where two courts finishing together kept producing the
+same opponents. Measured at the time, it moved faced-as-opponent from 3..15x
+down to 6..8x.
+
+The audit commit `2cae74d` replaced `generateRound(...)` with
+`this.runGenerateRound(...)` throughout, and in `propose` it dropped the
+`idleCourtCount` calculation and its explanatory comment along the way, passing
+a literal `1`. The behaviour reverted to exactly what the real session had
+complained about.
+
+Two things made it invisible for a day:
+
+- **The guarding test went with it.** `chooses a court's four with the other
+  idle courts in mind` was deleted in the same commit, so nothing failed.
+  Restored, and verified to fail against the reverted code before being
+  accepted — a regression test that passes either way is worse than none,
+  because it certifies the thing it no longer checks.
+- **`overview.md` still described the intended behaviour**, so reading the
+  documentation confirmed a fix that was no longer running. The docs were right
+  and the code was wrong, which is the direction that survives review longest.
+
+The lesson worth keeping is about the shape of the mistake rather than the line
+of code: a large mechanical refactor across one file is exactly where a
+behavioural fix disappears, because every hunk looks like the same rename. The
+defence is not more care while refactoring — it is that behaviour learned from
+real play should be pinned by a test whose deletion is itself conspicuous.
+
+**Restoring it exposed a second, subtler error.** The audit had not simply
+dropped the old test; it had rewritten it in place with the opposite assertion
+and a new name, keeping the original setup and even the original comment, which
+then contradicted the assertion below it. The audit's reasoning was that a
+one-court proposal should commit the four players who have waited rather than
+reserve them for a plan that is not being committed — sound in the abstract,
+and it justified giving up cross-court planning.
+
+The premise was unreachable. Both versions built their scenario by writing
+roster and pairing rows directly: four players on six games, four on zero. A
+session cannot reach that state. The roster is fixed when the session is
+created, there is no route that adds a player to a running session, and
+re-activating a player credits their `gamesOffset` up to the highest count
+already on the roster — a fix made for exactly this reason (see the returning
+player entries). Within a session the spread stays around one game, and when
+two courts are idle and eight players are free nobody sits out at all, so
+rotation has nothing to decide.
+
+So the audit traded a measured improvement, from real play, for a guarantee
+about a state that cannot occur. Rotation priority is still guarded, but now in
+the only shape it can take: someone free who must be left out is the someone
+who has already played.
+
+Worth naming the general fault, because it is not carelessness and will recur:
+a test written from reasoning rather than from a reachable state will look
+rigorous, pass, and quietly forbid correct behaviour. The old test could only
+be created by bypassing the API that makes its premise impossible — which is
+the tell.
+
 ## B. v2 candidates
 
 ### - [x] B1. Thai UI
@@ -564,13 +626,95 @@ only a login screen.
 
 ---
 
+### B13. A roster of exactly 4 x courts locks players into fixed fours
+
+**Status:** known and accepted for now, 2026-09-08. Measured, not suspected.
+
+With 12 players on 3 courts, each player partners with **3 of the other 11 all
+night**. With 16 on 4 courts, 3 of 15. Give the same group one spare player and
+it jumps to 7-10.
+
+This is not a scoring bug, and no change to the weights will move it. Courts
+finish one at a time, so when court 1 ends and the others are mid-match the
+only free players are the four who just walked off. `propose` correctly offers
+the engine exactly those four, and four players have only three possible
+splits. The engine already rotates all three -- it is extracting everything
+available to it. What never happens is the pods themselves mixing, so the
+groups formed in the first round persist for the whole session.
+
+Worth stating plainly because it defeats the engine's main purpose in the most
+ordinary setup there is: a full roster with nobody resting is precisely the
+case where "I always play with the same people" comes back.
+
+Measured over ten simulated nights, twelve matches per court, staggered finish
+times:
+
+| Roster | Courts | Spare | Distinct partners per player |
+| --- | --- | --- | --- |
+| 8 | 2 | 0 | 3 of 7 |
+| 12 | 3 | 0 | 3 of 11 |
+| 16 | 4 | 0 | 3 of 15 |
+| 13 | 3 | +1 | 7-10 of 12 |
+| 17 | 4 | +1 | 7-10 of 16 |
+
+Games-played fairness is unaffected either way; this costs variety only.
+
+Re-measured after restoring the plan-across-idle-courts behaviour (see A15) and
+the numbers are identical, which is the expected result rather than a
+disappointing one: that fix helps when several courts are idle at once, and in
+the steady state of a full session exactly one court is free at a time.
+
+**Why it is accepted rather than fixed:** the host can break a pod by dragging
+a player between courts, which is now available. Note that **reshuffle does not
+help** -- it re-splits the same four and can only reach the same three
+arrangements. Only the cross-court drag, or a change in roster size, mixes
+pods. Anyone acting on this entry should not substitute the one for the other.
+
+**If it needs solving later**, the cheap option is a dashboard hint when
+`roster == 4 x courts` ("nobody is resting, so the same four keep sharing a
+court -- drop to N-1 courts or add a player"), which turns an invisible
+property into a choice. The thorough option is holding finishers until a second
+court frees so eight players can be mixed at once, which buys real variety at
+the cost of making people wait -- likely the wrong trade for a casual night.
+
+---
+
+### B14. Adding a player mid-session must credit them like a re-activation
+
+Not a defect — a constraint on work that does not exist yet, written down
+because something already depends on it.
+
+There is currently no way to add a player to a running session; the roster is
+fixed when the session is created, and a late arrival is handled by starting
+them inactive and switching them on, which credits their `gamesOffset` up to
+the highest count already on the roster. That single fact is what keeps the
+within-session spread near one game, and A15 leans on it to argue that a large
+games gap is unreachable.
+
+If an add-to-session feature is ever built, it must apply the same credit. A
+player inserted on zero while everyone else is on five would win every rotation
+draw until they caught up — the exact complaint that produced the credit in the
+first place — and it would also quietly invalidate the reasoning in A15, which
+would then be wrong without anyone touching it.
+
+Anything that changes how players enter a session should re-read A15 rather
+than only this entry.
+
 ## Suggested order
 
-Everything here is done except B12, which is accepted work rather than a
-deferral. It is sequenced last on purpose: it changes the layer every route
-passes through, so it should not move until the current build has been proven
-in real sessions. See its entry for the full reasoning and for what "proven"
-means concretely.
+Everything here is done except B12 and B13.
+
+B12 is accepted work rather than a deferral, sequenced last on purpose: it
+changes the layer every route passes through, so it should not move until the
+current build has been proven in real sessions. See its entry for the full
+reasoning and for what "proven" means concretely.
+
+B13 is a measured limitation with a manual workaround, not scheduled work. It
+is worth reading before anyone tunes the pairing weights, because it looks like
+a scoring problem and is not one.
+
+B14 is not work at all — it is a condition that any future change to how
+players enter a session has to meet.
 
 ## Export and delete: accepted risk (resolved 2026-09-07)
 

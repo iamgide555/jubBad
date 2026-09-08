@@ -62,6 +62,16 @@ test('shuffle preserves all elements', () => {
   assert.deepEqual([...result].sort(), ['a', 'b', 'c', 'd']);
 });
 
+test('shuffle survives a random source that returns exactly 1', () => {
+  // Math.random never returns 1, but `random` is injected and seeded
+  // generators can. Unclamped, the swap index lands one past the end and the
+  // array grows a hole — a null where a player's name should be, which then
+  // reaches a court instead of throwing.
+  const result = shuffle(['a', 'b', 'c', 'd'], () => 1);
+  assert.equal(result.length, 4);
+  assert.deepEqual([...result].sort(), ['a', 'b', 'c', 'd']);
+});
+
 test('selectSittingOut: roster not a multiple of 4 leaves a remainder sitting out even when courtCount is not exceeded', () => {
   const roster = Array.from({ length: 10 }, (_, i) => `p${i + 1}`);
   const gamesPlayed = new Map([

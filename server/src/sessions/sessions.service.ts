@@ -425,9 +425,28 @@ export class SessionsService {
     const ratings =
       session.mode === 'balanced' ? await this.loadRatings(session.groupId) : undefined;
 
+    // Plan across every idle court, then commit only the one asked for.
+    //
+    // Solving one court in isolation takes the four least-played and leaves
+    // whoever remains to be shovelled onto the next court together — that
+    // court gets no choice of players at all, only of how to split them. When
+    // two courts finish together that reliably recreates the same opponents,
+    // which is what players actually noticed in a real session. Planning
+    // across all of them and committing one keeps the per-court flow the host
+    // is used to while giving the engine the freedom it needs.
+    //
+    // The requested court counts as idle even when it holds an unconfirmed
+    // proposal, because that proposal is exactly what this call replaces.
+    const idleCourtCount = Math.max(
+      1,
+      Array.from({ length: session.courtCount ?? 1 }, (_, i) => i + 1).filter(
+        (n) => n === courtNumber || !nonEnded.some((p) => p.courtNumber === n)
+      ).length
+    );
+
     const result = this.runGenerateRound(
       available,
-      1,
+      idleCourtCount,
       history,
       undefined,
       avoidSplit,

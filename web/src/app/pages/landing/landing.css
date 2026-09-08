@@ -97,16 +97,6 @@
   flex: 1;
 }
 
-button.danger {
-  background: var(--warn);
-  color: #fff;
-}
-
-button.danger:disabled {
-  background: var(--rule);
-  color: var(--ink-soft);
-}
-
 .empty {
   padding: var(--space-4) 0;
 }

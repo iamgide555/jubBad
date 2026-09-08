@@ -91,15 +91,25 @@
   border-top-color: var(--court-line);
 }
 
+/* The names are the answer to "am I on next?", so they get the full-strength
+   ink; only the label and the minutes beside them stay dimmed. Everything on
+   this line used to be the same muted green and the names read as caption. */
 .waiting-line {
   color: var(--ink-on-court-soft);
   font-size: clamp(1rem, 2.4vmin, 1.75rem);
   line-height: 1.6;
 }
 
+.waiting-name {
+  color: var(--ink-on-court);
+  font-weight: 600;
+}
+
 .waiting-name:not(:last-child)::after {
   content: ',';
   margin-right: 0.35rem;
+  color: var(--ink-on-court-soft);
+  font-weight: 400;
 }
 
 .waiting-line .wait-mins {

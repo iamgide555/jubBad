@@ -1,5 +1,5 @@
 import { Component, computed, inject, input, signal } from '@angular/core';
-import { CdkDrag, CdkDropList, type CdkDragDrop } from '@angular/cdk/drag-drop';
+import { CdkDrag, CdkDragPlaceholder, CdkDropList, type CdkDragDrop } from '@angular/cdk/drag-drop';
 import { FormsModule } from '@angular/forms';
 import { LiveSessionService } from '../../../core/live-session.service';
 import { resolvePlayerNames } from '../../../core/player-names';
@@ -9,7 +9,7 @@ import type { Player } from '../../../../../../engines/fuzzy-match.ts';
 
 @Component({
   selector: 'app-court-panel',
-  imports: [FormsModule, CdkDrag, CdkDropList],
+  imports: [FormsModule, CdkDrag, CdkDragPlaceholder, CdkDropList],
   templateUrl: './court-panel.html',
   styleUrl: './court-panel.css',
 })

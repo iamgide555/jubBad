@@ -131,7 +131,10 @@
 }
 
 @media (hover: hover) {
+  /* Without the background reset the base button rule's dark court green wins
+     on hover, and court-green text on it is unreadable. */
   .name-tap:hover:not(:disabled) {
+    background: none;
     text-decoration-style: solid;
     color: var(--court);
   }
@@ -247,9 +250,21 @@
   margin: 0 -0.2rem;
   font-size: 0.95rem;
   line-height: 1;
-  color: var(--muted, #6b7280);
+  /* --muted was never a declared token, so this was silently rendering an
+     off-palette grey through its fallback. */
+  color: var(--ink-soft);
   cursor: grab;
   touch-action: none;
+}
+
+/* Both of these are bare glyph buttons on a white panel, so they have to opt
+   out of the base button's dark-green hover fill — otherwise the handle turns
+   into a green blob and, once held, its court-green glyph disappears into it. */
+@media (hover: hover) {
+  .pick-handle:hover:not(:disabled) {
+    background: none;
+    color: var(--court);
+  }
 }
 
 .pick-handle[aria-pressed='true'] {
@@ -287,12 +302,20 @@
   cursor: pointer;
 }
 
+@media (hover: hover) {
+  .pick-hint .link:hover {
+    background: none;
+    color: var(--court-dark);
+  }
+}
+
 /* CDK lifts the dragged element out of flow; without a size the name would
    collapse the matchup line while it is in the air. */
 .cdk-drag-preview {
   padding: 0.3rem 0.6rem;
   border-radius: 6px;
   background: var(--surface, #fff);
+  color: var(--ink);
   box-shadow: 0 4px 12px rgb(0 0 0 / 25%);
   font-weight: 600;
 }

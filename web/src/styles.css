@@ -10,6 +10,11 @@
   --line-surface: #eff3f1;
   --surface: #ffffff;
   --rule: #c9d3cd;
+  /* The pale green behind a held player. Two component files reached for it
+     through a fallback (`var(--court-wash, #e6f2f0)`) against a variable that
+     was never declared, so the "picked" state was one typo away from having
+     no tint at all. */
+  --court-wash: #e6f2f0;
 
   /* Text */
   --ink: #16221e;
@@ -389,8 +394,51 @@ label > textarea {
 }
 
 @media (hover: hover) {
+  /* The background has to be restated or the base button rule fills the
+     inactive segment with dark court green and this near-black ink vanishes
+     into it. */
   .scope-toggle button:not(.active):hover {
+    background: var(--surface);
     border-color: var(--court);
     color: var(--ink);
   }
+}
+
+/* These toggles beat `button:disabled` on specificity, so an unavailable
+   segment — the − at one court, the + at twenty, either mode after the
+   session ends — looked exactly as pressable as a live one. */
+.scope-toggle button:disabled,
+.scope-toggle button:disabled:hover {
+  background: var(--line-surface);
+  border-color: var(--rule);
+  color: var(--ink-soft);
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.scope-toggle button.active:disabled {
+  background: var(--court);
+  border-color: var(--court);
+  color: var(--ink-on-court);
+}
+
+/* Global for the same reason as .ghost above: both screens that own an
+   irreversible action had spelled this out by hand, and neither overrode the
+   base button's hover, so the red delete button turned court green under the
+   cursor. */
+button.danger {
+  background: var(--warn);
+  color: #fff;
+}
+
+@media (hover: hover) {
+  button.danger:hover:not(:disabled) {
+    background: #a03f2c;
+  }
+}
+
+button.danger:disabled,
+button.danger:disabled:hover {
+  background: var(--rule);
+  color: var(--ink-soft);
 }

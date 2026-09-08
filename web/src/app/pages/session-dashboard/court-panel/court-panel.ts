@@ -99,6 +99,15 @@ export class CourtPanel {
     return $localize`:@@court.swapWith:สลับ ${held.name}:held: กับ ${name}:name:`;
   }
 
+  /**
+   * The winner buttons say only "ชนะ" — their column is what identifies the
+   * team — so the name has to reach a screen reader some other way.
+   */
+  protected wonLabel(names: string[]): string {
+    const team = `${names[0]} & ${names[1]}`;
+    return $localize`:@@court.wonBy:${team}:team: ชนะ`;
+  }
+
   protected async startOrReshuffle(): Promise<void> {
     if (this.busy()) return;
     this.busy.set(true);

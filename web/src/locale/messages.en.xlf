@@ -571,7 +571,7 @@
         </context-group>
       </trans-unit>
       <trans-unit id="profile.wonOf" datatype="html">
-        <source>ชนะ</source><target>won</target>
+        <source>ชนะ</source><target>Won</target>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/player-profile/player-profile.html</context>
           <context context-type="linenumber">32</context>
@@ -686,6 +686,13 @@
           <context context-type="linenumber">52,53</context>
         </context-group>
       </trans-unit>
+      <trans-unit id="court.wonBy" datatype="html">
+        <source><x id="team" equiv-text="team"/> ชนะ</source><target><x id="team" equiv-text="team"/> won</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/session-dashboard/court-panel/court-panel.ts</context>
+          <context context-type="linenumber">101</context>
+        </context-group>
+      </trans-unit>
       <trans-unit id="court.won" datatype="html">
         <source>ชนะ</source><target>won</target>
         <context-group purpose="location">
@@ -705,7 +712,7 @@
         </context-group>
       </trans-unit>
       <trans-unit id="court.undo" datatype="html">
-        <source>↶ ย้อนกลับ</source><target>↶ Undo</target>
+        <source>↩ ย้อนกลับ</source><target>↩ Undo</target>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/session-dashboard/court-panel/court-panel.html</context>
           <context context-type="linenumber">67,69</context>

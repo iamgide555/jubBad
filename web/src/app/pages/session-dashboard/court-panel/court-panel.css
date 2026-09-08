@@ -188,15 +188,37 @@
   }
 }
 
-.score-row {
-  display: flex;
+/* Score boxes and winner buttons in one grid, so a team's column is the same
+   from top to bottom: score above, "won" below. Fixed columns rather than
+   content-sized ones — a panel's height must not depend on how long the four
+   names in it happen to be, or one court's row towers over its neighbours. */
+.result-grid {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
   align-items: center;
   gap: var(--space-1);
   margin-bottom: var(--space-2);
 }
 
-.score-row input {
-  width: 4.5rem;
+.result-grid .score-a {
+  grid-column: 1;
+  grid-row: 1;
+}
+
+.score-sep {
+  grid-column: 2;
+  grid-row: 1;
+  color: var(--ink-soft);
+  font-weight: 700;
+}
+
+.result-grid .score-b {
+  grid-column: 3;
+  grid-row: 1;
+}
+
+.result-grid input {
+  width: 100%;
   min-height: var(--tap);
   text-align: center;
   font-family: var(--font-display);
@@ -204,10 +226,25 @@
   font-size: var(--text-xl);
 }
 
-.score-sep {
-  color: var(--ink-soft);
-  font-weight: 700;
+/* Each button sits in its own team's column, directly under that team's score
+   box. The narrow middle column keeps them apart so the two cannot be confused
+   for one wide control. */
+.win-a {
+  grid-column: 1;
+  grid-row: 2;
 }
+
+.win-b {
+  grid-column: 3;
+  grid-row: 2;
+}
+
+.win {
+  width: 100%;
+  min-height: var(--tap);
+  font-size: var(--text-sm);
+}
+
 
 /* Quiet: it is the escape hatch, not a normal step of the flow. */
 .undo {

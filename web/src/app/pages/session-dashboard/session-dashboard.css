@@ -29,6 +29,15 @@
   .courts-list {
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
+
+  /* Four courts across three columns leaves the fourth alone beside two empty
+     cells. An even split reads as a deliberate 2x2 block instead of a row that
+     ran out. Five and seven have the same shape, but at those counts the
+     leftover row is a smaller share of the screen and three-up keeps the
+     panels wide enough to read. */
+  .courts-list:has(> app-court-panel:nth-child(4):last-child) {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 
 /* The component host is the grid child, so the panel inside it can only fill
@@ -90,7 +99,9 @@
   flex-wrap: wrap;
   align-items: flex-start;
   justify-content: space-between;
-  gap: var(--space-2);
+  /* The wide gap is doing real work: it is the only thing separating two
+     settings that sit shoulder to shoulder at the same end of the row. */
+  gap: var(--space-2) var(--space-3);
   margin-top: var(--space-3);
 }
 
@@ -124,9 +135,16 @@
   font-size: var(--text-xs);
 }
 
+/* Capped narrow on purpose. Both settings sit at the same end of the toolbar,
+   so two single-line hints ended up abutting and read as one run-on sentence
+   across the top of the screen. Forced to wrap, each reads as its own block
+   under its own control. */
 .mode-hint {
   margin: var(--space-0) 0 0;
+  max-width: 9rem;
+  margin-left: auto;
   font-size: var(--text-xs);
+  line-height: 1.4;
   color: var(--ink-soft);
 }
 

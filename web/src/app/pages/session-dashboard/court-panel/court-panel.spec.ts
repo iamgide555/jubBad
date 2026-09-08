@@ -134,16 +134,26 @@ describe('CourtPanel', () => {
     expect(confirm.disabled).toBe(false);
   });
 
-  it('shows named winner buttons once active', async () => {
+  it('names each winner button for a screen reader without printing it', async () => {
+    // The visible label is only "ชนะ" — the column says which team — so the
+    // names have to survive somewhere a screen reader still reaches.
     const { fixture } = await createPanel(
       baseSession({
         courts: [{ status: 'active', pairingId: 'pair1', teamA: ['p1', 'p2'], teamB: ['p3', 'p4'] }],
       })
     );
     fixture.detectChanges();
-    const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
-    expect(text).toContain('ตั้ม & เบส ชนะ');
-    expect(text).toContain('ปอม & ไม้ ชนะ');
+
+    const host = fixture.nativeElement as HTMLElement;
+    const winA = host.querySelector('.win-a') as HTMLButtonElement;
+    const winB = host.querySelector('.win-b') as HTMLButtonElement;
+    expect(winA.getAttribute('aria-label')).toBe('ตั้ม & เบส ชนะ');
+    expect(winB.getAttribute('aria-label')).toBe('ปอม & ไม้ ชนะ');
+
+    // Long names must not come back as button text: that is what made one
+    // court's panel twice the height of its neighbours.
+    expect(winA.textContent?.trim()).toBe('ชนะ');
+    expect(winB.textContent?.trim()).toBe('ชนะ');
   });
 
   it('clicking a winner button finishes with that winner and current scores', async () => {
@@ -161,8 +171,9 @@ describe('CourtPanel', () => {
     (scoreInputs[1] as HTMLInputElement).dispatchEvent(new Event('input'));
     fixture.detectChanges();
 
-    const buttons = (fixture.nativeElement as HTMLElement).querySelectorAll('button');
-    const winButton = Array.from(buttons).find((b) => b.textContent?.includes('ตั้ม')) as HTMLButtonElement;
+    const winButton = (fixture.nativeElement as HTMLElement).querySelector(
+      '.win-a'
+    ) as HTMLButtonElement;
     winButton.click();
 
     const req = httpMock.expectOne(`${B}/sessions/sess1/pairings/pair1/finish`);
@@ -230,9 +241,8 @@ describe('CourtPanel', () => {
     );
     fixture.detectChanges();
 
-    const buttons = (fixture.nativeElement as HTMLElement).querySelectorAll('button');
-    const winButton = Array.from(buttons).find((b) =>
-      b.textContent?.includes('ตั้ม')
+    const winButton = (fixture.nativeElement as HTMLElement).querySelector(
+      '.win-a'
     ) as HTMLButtonElement;
     winButton.click();
 

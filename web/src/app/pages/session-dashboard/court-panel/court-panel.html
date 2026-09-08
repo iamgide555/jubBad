@@ -107,26 +107,30 @@
           @let bNames = teamNames(c.teamB);
           <p class="matchup">{{ aNames[0] }} &amp; {{ aNames[1] }} <span class="vs" i18n="@@court.vs">vs</span> {{ bNames[0] }} &amp; {{ bNames[1] }}</p>
         }
-        <div class="score-row">
-          <label class="sr-only" [attr.for]="'scoreA-' + courtNumber()" i18n="@@court.scoreA">คะแนนทีม A</label>
-          <input [attr.id]="'scoreA-' + courtNumber()" type="number" min="0" [ngModel]="scoreA()" (ngModelChange)="scoreA.set($event)" placeholder="0" />
-          <span class="score-sep">–</span>
-          <label class="sr-only" [attr.for]="'scoreB-' + courtNumber()" i18n="@@court.scoreB">คะแนนทีม B</label>
-          <input [attr.id]="'scoreB-' + courtNumber()" type="number" min="0" [ngModel]="scoreB()" (ngModelChange)="scoreB.set($event)" placeholder="0" />
-        </div>
         @if (c.status === 'active') {
           @let aNames = teamNames(c.teamA);
           @let bNames = teamNames(c.teamB);
-          <div class="button-row">
-            <button type="button" [disabled]="busy()" (click)="finish('A')">{{ aNames[0] }} &amp; {{ aNames[1] }} <ng-container i18n="@@court.won">ชนะ</ng-container></button>
-            <button type="button" [disabled]="busy()" (click)="finish('B')">{{ bNames[0] }} &amp; {{ bNames[1] }} <ng-container i18n="@@court.won">ชนะ</ng-container></button>
+          <!-- Score and winner share one grid so each team owns a column: the
+               side a button sits on is what says whose team it is, exactly as
+               it already does for the two score boxes. Spelling the names out
+               on the buttons repeated the line directly above and, with names
+               as long as "บอล 19:00", wrapped to three lines and made the panel
+               twice the height of its neighbours. -->
+          <div class="result-grid">
+            <label class="sr-only" [attr.for]="'scoreA-' + courtNumber()" i18n="@@court.scoreA">คะแนนทีม A</label>
+            <input class="score-a" [attr.id]="'scoreA-' + courtNumber()" type="number" min="0" [ngModel]="scoreA()" (ngModelChange)="scoreA.set($event)" placeholder="0" />
+            <span class="score-sep">–</span>
+            <label class="sr-only" [attr.for]="'scoreB-' + courtNumber()" i18n="@@court.scoreB">คะแนนทีม B</label>
+            <input class="score-b" [attr.id]="'scoreB-' + courtNumber()" type="number" min="0" [ngModel]="scoreB()" (ngModelChange)="scoreB.set($event)" placeholder="0" />
+            <button type="button" class="win win-a" [disabled]="busy()" [attr.aria-label]="wonLabel(aNames)" (click)="finish('A')" i18n="@@court.won">ชนะ</button>
+            <button type="button" class="win win-b" [disabled]="busy()" [attr.aria-label]="wonLabel(bNames)" (click)="finish('B')" i18n="@@court.won">ชนะ</button>
           </div>
         }
         <button type="button" class="no-result" [disabled]="busy()" (click)="finish(null)" i18n="@@court.noResult">ไม่มีผล</button>
       }
     }
 
-    <button type="button" class="undo" [disabled]="busy()" (click)="undo()" i18n="@@court.undo">↶ ย้อนกลับ</button>
+    <button type="button" class="undo" [disabled]="busy()" (click)="undo()" i18n="@@court.undo">↩ ย้อนกลับ</button>
 
     @if (actionError()) {
       <p class="hint error" role="alert">{{ actionError() }}</p>

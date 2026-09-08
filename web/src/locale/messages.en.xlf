@@ -1240,11 +1240,18 @@
           <context context-type="linenumber">48,52</context>
         </context-group>
       </trans-unit>
-      <trans-unit id="court.pickUp" datatype="html">
-        <source>เลือก <x id="name" equiv-text="name"/> เพื่อสลับตำแหน่ง</source><target>Pick up <x id="name" equiv-text="name"/> to swap</target>
+      <trans-unit id="court.selectPlayer" datatype="html">
+        <source>เลือก <x id="name" equiv-text="name"/> เพื่อสลับตัว</source><target>Select <x id="name" equiv-text="name"/> to swap</target>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/session-dashboard/court-panel/court-panel.ts</context>
-          <context context-type="linenumber">162</context>
+          <context context-type="linenumber">89</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="court.swapWith" datatype="html">
+        <source>สลับ <x id="held" equiv-text="held"/> กับ <x id="name" equiv-text="name"/></source><target>Swap <x id="held" equiv-text="held"/> with <x id="name" equiv-text="name"/></target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/session-dashboard/court-panel/court-panel.ts</context>
+          <context context-type="linenumber">95</context>
         </context-group>
       </trans-unit>
       <trans-unit id="court.holding" datatype="html">
@@ -1266,6 +1273,13 @@
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/session-dashboard/session-dashboard.ts</context>
           <context context-type="linenumber">88</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="dashboard.swapWithWaiting" datatype="html">
+        <source>สลับ <x id="held" equiv-text="held"/> กับ <x id="name" equiv-text="name"/></source><target>Swap <x id="held" equiv-text="held"/> with <x id="name" equiv-text="name"/></target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/session-dashboard/session-dashboard.ts</context>
+          <context context-type="linenumber">106</context>
         </context-group>
       </trans-unit>
       <trans-unit id="err.code.swapSamePlayer" datatype="html">

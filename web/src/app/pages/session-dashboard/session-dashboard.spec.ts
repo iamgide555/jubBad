@@ -554,6 +554,82 @@ describe('SessionDashboard', () => {
     chip.click();
     fixture.detectChanges();
     expect(fixture.componentInstance['selection'].active()).toBe(false);
+
+    // A second tap on a waiting player must never mean "take them off court" —
+    // that gesture only has meaning on a court, and they are not on one.
+    httpMock.expectNone((r) => r.url.includes('/swap'));
+  });
+
+  it('swaps a held court player with the waiting player that is tapped', async () => {
+    fixture = TestBed.createComponent(SessionDashboard);
+    fixture.detectChanges();
+    httpMock.expectOne(`${B}/sessions/sess1`).flush(
+      baseSession({
+        rosterPlayerIds: ['p1', 'p2', 'p3', 'p4', 'p5'],
+        courts: [
+          { status: 'pending', pairingId: 'pair1', teamA: ['p1', 'p2'], teamB: ['p3', 'p4'] },
+        ],
+      })
+    );
+    await new Promise((r) => setTimeout(r, 0));
+    TestBed.tick();
+    for (const r of httpMock.match(`${B}/groups/group1/players`)) {
+      r.flush([
+        { id: 'p1', name: 'ตั้ม', aliases: [] },
+        { id: 'p2', name: 'เบส', aliases: [] },
+        { id: 'p3', name: 'โอ', aliases: [] },
+        { id: 'p4', name: 'นัท', aliases: [] },
+        { id: 'p5', name: 'ปอ', aliases: [] },
+      ]);
+    }
+    for (const r of httpMock.match(`${B}/sessions/sess1/stats?scope=session`)) r.flush([]);
+    await new Promise((r) => setTimeout(r, 0));
+    fixture.detectChanges();
+
+    // Hold ตั้ม, who is on the court, by tapping their name in the panel.
+    const courtName = Array.from(
+      (fixture.nativeElement as HTMLElement).querySelectorAll('button.name-tap')
+    ).find((b) => b.textContent?.trim() === 'ตั้ม') as HTMLButtonElement;
+    courtName.click();
+    fixture.detectChanges();
+    expect(fixture.componentInstance['selection'].isPicked('p1')).toBe(true);
+
+    // Then tap ปอ, who is waiting: ปอ takes ตั้ม's place.
+    const chip = (fixture.nativeElement as HTMLElement).querySelector(
+      '.waiting-queue .chip-pick'
+    ) as HTMLButtonElement;
+    expect(chip.textContent).toContain('ปอ');
+    chip.click();
+
+    const req = httpMock.expectOne(`${B}/sessions/sess1/pairings/pair1/swap`);
+    expect(req.request.body).toEqual({ playerId: 'p1', withPlayerId: 'p5' });
+    expect(fixture.componentInstance['selection'].active()).toBe(false);
+    req.flush({
+      ok: true,
+      pairing: {
+        id: 'pair1',
+        courtNumber: 1,
+        matchNumber: 1,
+        teamA: ['p5', 'p2'],
+        teamB: ['p3', 'p4'],
+      },
+    });
+    await new Promise((r) => setTimeout(r, 0));
+    TestBed.tick();
+    for (const r of httpMock.match(`${B}/sessions/sess1`)) {
+      r.flush(
+        baseSession({
+          rosterPlayerIds: ['p1', 'p2', 'p3', 'p4', 'p5'],
+          courts: [
+            { status: 'pending', pairingId: 'pair1', teamA: ['p5', 'p2'], teamB: ['p3', 'p4'] },
+          ],
+        })
+      );
+    }
+    await new Promise((r) => setTimeout(r, 0));
+    TestBed.tick();
+    for (const r of httpMock.match(`${B}/groups/group1/players`)) r.flush([]);
+    for (const r of httpMock.match(`${B}/sessions/sess1/stats?scope=session`)) r.flush([]);
   });
 
 });

@@ -1,5 +1,4 @@
 import { Component, OnDestroy, computed, inject, signal } from '@angular/core';
-import { CdkDrag } from '@angular/cdk/drag-drop';
 import { httpResource } from '@angular/common/http';
 import { Router } from '@angular/router';
 import { environment } from '../../../environments/environment';
@@ -14,7 +13,7 @@ import type { Player } from '../../../../../engines/fuzzy-match.ts';
 
 @Component({
   selector: 'app-session-dashboard',
-  imports: [CourtPanel, StatsTable, CdkDrag],
+  imports: [CourtPanel, StatsTable],
   providers: [LiveSessionService],
   templateUrl: './session-dashboard.html',
   styleUrl: './session-dashboard.css',
@@ -74,17 +73,39 @@ export class SessionDashboard implements OnDestroy {
 
   /**
    * A waiting player carries no pairing id — they are on nobody's court, so a
-   * drop involving them is a plain substitution rather than a trade.
+   * swap involving them is a plain substitution rather than a trade.
    */
   protected waitingPick(id: string, name: string): SwapPick {
     return { playerId: id, name, pairingId: null };
   }
 
-  protected pickWaiting(id: string, name: string): void {
+  /**
+   * The waiting-list half of the one swap gesture. Holding someone who is on a
+   * court and then tapping a waiting player substitutes the two — that is the
+   * main way anyone gets on court, so it has to work from this side as well as
+   * from the court panel.
+   *
+   * Tapping a waiting player a second time only puts them back down. It never
+   * triggers the "take them off, server picks a replacement" path that the same
+   * gesture has on a court, because there is no court to take them off of.
+   */
+  protected async pickWaiting(id: string, name: string): Promise<void> {
+    const held = this.selection.selection();
+    if (held !== null && held.pairingId !== null && held.playerId !== id) {
+      this.selection.clear();
+      this.rosterError.set(null);
+      const result = await this.liveSession.swapPlayer(held.pairingId, held.playerId, id);
+      this.rosterError.set(result.error ?? null);
+      return;
+    }
     this.selection.toggle(this.waitingPick(id, name));
   }
 
   protected waitingPickLabel(name: string): string {
+    const held = this.selection.selection();
+    if (held !== null && held.pairingId !== null) {
+      return $localize`:@@dashboard.swapWithWaiting:สลับ ${held.name}:held: กับ ${name}:name:`;
+    }
     return $localize`:@@dashboard.pickWaiting:เลือก ${name}:name: ลงคอร์ท`;
   }
 

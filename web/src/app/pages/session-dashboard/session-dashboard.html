@@ -63,9 +63,6 @@
         <button
           type="button"
           class="chip chip-pick"
-          cdkDrag
-          [cdkDragData]="waitingPick(w.id, w.name)"
-          (cdkDragStarted)="selection.clear()"
           [class.is-picked]="selection.isPicked(w.id)"
           [attr.aria-pressed]="selection.isPicked(w.id)"
           [attr.aria-label]="waitingPickLabel(w.name)"

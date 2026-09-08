@@ -197,9 +197,10 @@
   }
 }
 
-/* A waiting player can be dragged or tapped onto a court, so the chip is a
-   button now. It keeps the chip's look; only the affordances are new. */
-/* The base button colour is light-on-court-green, which left the player's name
+/* A waiting player is tapped onto a court, so the chip is a button. It keeps
+   the chip's look; only the affordances are new.
+
+   The base button colour is light-on-court-green, which left the player's name
    invisible against the chip's pale surface until a hover darkened the
    background. The chip carries its own light background, so it needs the dark
    ink to match — including on hover, where the background must stay light. */
@@ -209,8 +210,7 @@
   font-weight: 500;
   color: var(--ink);
   min-height: var(--tap);
-  cursor: grab;
-  touch-action: none;
+  cursor: pointer;
 }
 
 @media (hover: hover) {
@@ -223,17 +223,5 @@
 .waiting-queue .chip-pick.is-picked,
 .waiting-queue .chip-pick.is-picked:hover {
   outline: 2px solid var(--court);
-  background: var(--court-wash, #e6f2f0);
-}
-
-/* The drag preview is cloned onto the body, out of .waiting-queue, so the
-   chip's ink has to be restated here or the name turns white mid-drag. */
-.cdk-drag-preview {
-  padding: 0.3rem 0.6rem;
-  border-radius: 999px;
-  background: var(--surface, #fff);
-  color: var(--ink);
-  font-size: var(--text-sm);
-  font-weight: 500;
-  box-shadow: 0 4px 12px rgb(0 0 0 / 25%);
+  background: var(--court-wash);
 }

@@ -24,114 +24,62 @@
           <p class="matchup">
             <span
               class="slot"
-              cdkDropList
-              [cdkDropListData]="'court'"
-              (cdkDropListDropped)="dropOn(c.teamA[0], $event)"
               [class.is-target]="isTarget(c.teamA[0])"
               [class.is-picked]="selection.isPicked(c.teamA[0])"
             >
               <button
                 type="button"
                 class="name-tap"
-                cdkDrag
-                [cdkDragData]="pickFor(c.teamA[0])"
-                (cdkDragStarted)="selection.clear()"
-                [disabled]="busy()"
-                [attr.aria-label]="swapLabel(aNames[0])"
-                (click)="swap(c.pairingId, c.teamA[0])"
-              >{{ aNames[0] }}<span class="drag-ghost" *cdkDragPlaceholder></span></button>
-              <button
-                type="button"
-                class="pick-handle"
                 [disabled]="busy()"
                 [attr.aria-pressed]="selection.isPicked(c.teamA[0])"
-                [attr.aria-label]="pickLabel(aNames[0])"
-                (click)="pickUp(c.teamA[0])"
-              >⠿</button>
+                [attr.aria-label]="swapLabel(c.teamA[0], aNames[0])"
+                (click)="swap(c.pairingId, c.teamA[0])"
+              >{{ aNames[0] }}</button>
             </span>
             &amp;
             <span
               class="slot"
-              cdkDropList
-              [cdkDropListData]="'court'"
-              (cdkDropListDropped)="dropOn(c.teamA[1], $event)"
               [class.is-target]="isTarget(c.teamA[1])"
               [class.is-picked]="selection.isPicked(c.teamA[1])"
             >
               <button
                 type="button"
                 class="name-tap"
-                cdkDrag
-                [cdkDragData]="pickFor(c.teamA[1])"
-                (cdkDragStarted)="selection.clear()"
-                [disabled]="busy()"
-                [attr.aria-label]="swapLabel(aNames[1])"
-                (click)="swap(c.pairingId, c.teamA[1])"
-              >{{ aNames[1] }}<span class="drag-ghost" *cdkDragPlaceholder></span></button>
-              <button
-                type="button"
-                class="pick-handle"
                 [disabled]="busy()"
                 [attr.aria-pressed]="selection.isPicked(c.teamA[1])"
-                [attr.aria-label]="pickLabel(aNames[1])"
-                (click)="pickUp(c.teamA[1])"
-              >⠿</button>
+                [attr.aria-label]="swapLabel(c.teamA[1], aNames[1])"
+                (click)="swap(c.pairingId, c.teamA[1])"
+              >{{ aNames[1] }}</button>
             </span>
             <span class="vs" i18n="@@court.vs">vs</span>
             <span
               class="slot"
-              cdkDropList
-              [cdkDropListData]="'court'"
-              (cdkDropListDropped)="dropOn(c.teamB[0], $event)"
               [class.is-target]="isTarget(c.teamB[0])"
               [class.is-picked]="selection.isPicked(c.teamB[0])"
             >
               <button
                 type="button"
                 class="name-tap"
-                cdkDrag
-                [cdkDragData]="pickFor(c.teamB[0])"
-                (cdkDragStarted)="selection.clear()"
-                [disabled]="busy()"
-                [attr.aria-label]="swapLabel(bNames[0])"
-                (click)="swap(c.pairingId, c.teamB[0])"
-              >{{ bNames[0] }}<span class="drag-ghost" *cdkDragPlaceholder></span></button>
-              <button
-                type="button"
-                class="pick-handle"
                 [disabled]="busy()"
                 [attr.aria-pressed]="selection.isPicked(c.teamB[0])"
-                [attr.aria-label]="pickLabel(bNames[0])"
-                (click)="pickUp(c.teamB[0])"
-              >⠿</button>
+                [attr.aria-label]="swapLabel(c.teamB[0], bNames[0])"
+                (click)="swap(c.pairingId, c.teamB[0])"
+              >{{ bNames[0] }}</button>
             </span>
             &amp;
             <span
               class="slot"
-              cdkDropList
-              [cdkDropListData]="'court'"
-              (cdkDropListDropped)="dropOn(c.teamB[1], $event)"
               [class.is-target]="isTarget(c.teamB[1])"
               [class.is-picked]="selection.isPicked(c.teamB[1])"
             >
               <button
                 type="button"
                 class="name-tap"
-                cdkDrag
-                [cdkDragData]="pickFor(c.teamB[1])"
-                (cdkDragStarted)="selection.clear()"
-                [disabled]="busy()"
-                [attr.aria-label]="swapLabel(bNames[1])"
-                (click)="swap(c.pairingId, c.teamB[1])"
-              >{{ bNames[1] }}<span class="drag-ghost" *cdkDragPlaceholder></span></button>
-              <button
-                type="button"
-                class="pick-handle"
                 [disabled]="busy()"
                 [attr.aria-pressed]="selection.isPicked(c.teamB[1])"
-                [attr.aria-label]="pickLabel(bNames[1])"
-                (click)="pickUp(c.teamB[1])"
-              >⠿</button>
+                [attr.aria-label]="swapLabel(c.teamB[1], bNames[1])"
+                (click)="swap(c.pairingId, c.teamB[1])"
+              >{{ bNames[1] }}</button>
             </span>
           </p>
           @if (noSubstitute()) {

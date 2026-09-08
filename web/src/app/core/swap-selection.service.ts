@@ -4,7 +4,7 @@ import { Injectable, computed, signal } from '@angular/core';
  * Who the host has picked up, ready to drop somewhere else.
  *
  * `pairingId` is null for someone waiting rather than on a court. It is what
- * tells a drop whether this is a straight substitution or a trade between two
+ * tells a swap whether this is a straight substitution or a trade between two
  * courts, so it travels with the selection rather than being worked out again
  * at the far end.
  */
@@ -19,10 +19,10 @@ export interface SwapPick {
  * player is picked up in one and put down in another, so the selection cannot
  * live in either.
  *
- * This backs both input methods. Dragging carries the same pick through CDK's
- * drag data, and tapping leaves it here between the two taps, so the drop
- * handler is identical either way and touch, mouse and keyboard cannot drift
- * apart in behaviour.
+ * There is one gesture: tap a name to hold it, tap a second name to swap the
+ * two. What a second tap on the *same* name means differs by surface — a court
+ * takes the player off, the waiting list only puts them down — so that
+ * decision belongs to the caller. This just holds the pick.
  */
 @Injectable({ providedIn: 'root' })
 export class SwapSelectionService {

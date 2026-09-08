@@ -229,51 +229,14 @@
   }
 }
 
-/* Manual swap: pick a player up, then drop or tap them onto the one they
-   replace. The slot wraps the name and its handle so the whole pair is the
-   drop target — aiming at a text baseline on a phone is a miss waiting to
-   happen. */
+/* Manual swap: tap a name to hold that player, then tap the name they should
+   change places with. The slot wraps the name so the highlight is a block
+   rather than a ring around a text baseline. */
 .slot {
   display: inline-flex;
   align-items: center;
-  gap: 0.15rem;
   border-radius: 6px;
   padding: 0 0.15rem;
-}
-
-.pick-handle {
-  min-width: var(--tap);
-  min-height: var(--tap);
-  background: none;
-  border: none;
-  padding: 0 0.35rem;
-  margin: 0 -0.2rem;
-  font-size: 0.95rem;
-  line-height: 1;
-  /* --muted was never a declared token, so this was silently rendering an
-     off-palette grey through its fallback. */
-  color: var(--ink-soft);
-  cursor: grab;
-  touch-action: none;
-}
-
-/* Both of these are bare glyph buttons on a white panel, so they have to opt
-   out of the base button's dark-green hover fill — otherwise the handle turns
-   into a green blob and, once held, its court-green glyph disappears into it. */
-@media (hover: hover) {
-  .pick-handle:hover:not(:disabled) {
-    background: none;
-    color: var(--court);
-  }
-}
-
-.pick-handle[aria-pressed='true'] {
-  color: var(--court);
-}
-
-.pick-handle:disabled {
-  opacity: 0.4;
-  cursor: not-allowed;
 }
 
 /* The held player and the slots that would receive them. Both use a border
@@ -281,7 +244,7 @@
    a washed-out phone screen in a bright hall. */
 .slot.is-picked {
   outline: 2px solid var(--court);
-  background: var(--court-wash, #e6f2f0);
+  background: var(--court-wash);
 }
 
 .slot.is-target {
@@ -307,19 +270,4 @@
     background: none;
     color: var(--court-dark);
   }
-}
-
-/* CDK lifts the dragged element out of flow; without a size the name would
-   collapse the matchup line while it is in the air. */
-.cdk-drag-preview {
-  padding: 0.3rem 0.6rem;
-  border-radius: 6px;
-  background: var(--surface, #fff);
-  color: var(--ink);
-  box-shadow: 0 4px 12px rgb(0 0 0 / 25%);
-  font-weight: 600;
-}
-
-.cdk-drag-placeholder {
-  opacity: 0.4;
 }

@@ -1,5 +1,4 @@
 import { Component, computed, inject, input, signal } from '@angular/core';
-import { CdkDrag, CdkDragPlaceholder, CdkDropList, type CdkDragDrop } from '@angular/cdk/drag-drop';
 import { FormsModule } from '@angular/forms';
 import { LiveSessionService } from '../../../core/live-session.service';
 import { resolvePlayerNames } from '../../../core/player-names';
@@ -9,7 +8,7 @@ import type { Player } from '../../../../../../engines/fuzzy-match.ts';
 
 @Component({
   selector: 'app-court-panel',
-  imports: [FormsModule, CdkDrag, CdkDragPlaceholder, CdkDropList],
+  imports: [FormsModule],
   templateUrl: './court-panel.html',
   styleUrl: './court-panel.css',
 })
@@ -30,9 +29,9 @@ export class CourtPanel {
   constructor(protected liveSession: LiveSessionService) {}
 
   /**
-   * The pending pairing's id, or null when there is nothing to swap. Drag and
-   * drop targets read this rather than re-narrowing the court union in the
-   * template at every use.
+   * The pending pairing's id, or null when there is nothing to swap. The
+   * highlight states read this rather than re-narrowing the court union in
+   * the template at every use.
    */
   protected readonly pendingPairingId = computed<string | null>(() => {
     const c = this.court();
@@ -84,9 +83,20 @@ export class CourtPanel {
    * In TS rather than an `i18n-aria-label` attribute: the label interpolates a
    * player name, so it has to be a binding, and Angular only extracts static
    * attributes.
+   *
+   * The label has to say what *this* tap will do, because one control now has
+   * three meanings depending on what is held. A screen reader announcing
+   * "เปลี่ยน X ออก" on every name would be wrong two times out of three.
    */
-  protected swapLabel(name: string): string {
-    return $localize`:@@court.swapOut:เปลี่ยน ${name}:name: ออก`;
+  protected swapLabel(playerId: string, name: string): string {
+    const held = this.selection.selection();
+    if (held === null) {
+      return $localize`:@@court.selectPlayer:เลือก ${name}:name: เพื่อสลับตัว`;
+    }
+    if (held.playerId === playerId) {
+      return $localize`:@@court.swapOut:เปลี่ยน ${name}:name: ออก`;
+    }
+    return $localize`:@@court.swapWith:สลับ ${held.name}:held: กับ ${name}:name:`;
   }
 
   protected async startOrReshuffle(): Promise<void> {
@@ -103,27 +113,33 @@ export class CourtPanel {
   }
 
   /**
-   * Tapping a name still means "swap this player out, you choose who for" —
-   * the quickest gesture stays on the quickest control. Choosing the
-   * replacement is a deliberate second action: pick someone up first, then
-   * tap or drop them onto the player they replace.
+   * One gesture for the whole screen: tap a name to hold it, tap a second
+   * name to swap the two, or tap the held name again to take them off court
+   * and let the server pick the replacement.
+   *
+   * Drag and drop used to sit on top of this and was removed — CDK lifted the
+   * name out of the flow while a drop only registered on the slot wrapper, so
+   * the gesture both looked broken and frequently missed. Clicking is the only
+   * input now, which also makes it work identically on touch and keyboard.
    */
   protected async swap(pairingId: string, playerId: string): Promise<void> {
     const held = this.selection.selection();
-    if (held !== null) {
-      if (held.playerId === playerId) {
-        this.selection.clear();
-        return;
-      }
-      await this.applyManualSwap(pairingId, playerId, held);
+    if (held === null) {
+      this.selection.toggle(this.pickFor(playerId));
       return;
     }
-    await this.runSwap(pairingId, playerId);
+    if (held.playerId === playerId) {
+      // Second tap on the player already held: take them off, server chooses.
+      this.selection.clear();
+      await this.runSwap(pairingId, playerId);
+      return;
+    }
+    await this.applyManualSwap(pairingId, playerId, held);
   }
 
   /**
    * Puts a player down onto the slot `playerId` occupies. The request always
-   * names the court being dropped on; when the held player came from another
+   * names the court being tapped; when the held player came from another
    * court the server trades the two, so the far court does not need a second
    * call that could half-apply.
    */
@@ -151,25 +167,6 @@ export class CourtPanel {
     } finally {
       this.busy.set(false);
     }
-  }
-
-  /** Picks a player up, or puts them back if they were already held. */
-  protected pickUp(playerId: string): void {
-    this.selection.toggle(this.pickFor(playerId));
-  }
-
-  protected pickLabel(name: string): string {
-    return $localize`:@@court.pickUp:เลือก ${name}:name: เพื่อสลับตำแหน่ง`;
-  }
-
-  protected async dropOn(playerId: string, event: CdkDragDrop<string>): Promise<void> {
-    const held = event.item.data as SwapPick | undefined;
-    const pairingId = this.pendingPairingId();
-    if (!held || pairingId === null || held.playerId === playerId) {
-      this.selection.clear();
-      return;
-    }
-    await this.applyManualSwap(pairingId, playerId, held);
   }
 
   /**

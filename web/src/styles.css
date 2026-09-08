@@ -182,7 +182,7 @@ h4 {
 .tabular,
 .stat-value,
 .wait-mins,
-.score-row input {
+.result-grid input {
   font-variant-numeric: tabular-nums;
 }
 

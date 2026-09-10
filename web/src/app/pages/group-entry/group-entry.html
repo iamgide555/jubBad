@@ -1,4 +1,5 @@
 <div class="page group-entry">
+  <p><a [routerLink]="['/']" i18n="@@entry.back">← กลับ</a></p>
   <label>
     <ng-container i18n="@@entry.groupName">ชื่อก๊วน</ng-container>
     <input type="text" [(ngModel)]="groupName" [disabled]="isRenaming()" [attr.aria-busy]="isRenaming()" (blur)="saveGroupName()" i18n-placeholder="@@entry.groupNamePlaceholder" placeholder="เช่น ก๊วนอังคาร" />

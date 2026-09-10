@@ -52,6 +52,12 @@ describe('GroupEntry', () => {
     expect(component).toBeTruthy();
   });
 
+  it('links back to the group list', () => {
+    const links = [...fixture.nativeElement.querySelectorAll('a')] as HTMLAnchorElement[];
+    const back = links.find((a) => a.textContent?.trim() === '← กลับ');
+    expect(back?.getAttribute('href')).toBe('/');
+  });
+
   it('starts in the paste state', () => {
     expect(component.state()).toBe('paste');
   });

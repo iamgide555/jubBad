@@ -26,6 +26,16 @@ import type { SetModeDto } from './dto/set-mode.dto.js';
 import type { SetRosterActiveDto } from './dto/set-roster-active.dto.js';
 import type { SwapPlayerDto } from './dto/swap-player.dto.js';
 
+export interface SessionMatch {
+  matchNumber: number;
+  courtNumber: number;
+  partnerName: string;
+  opponentNames: [string, string];
+  scoreA: number | null;
+  scoreB: number | null;
+  result: 'win' | 'loss' | 'no-result';
+}
+
 @Injectable()
 export class SessionsService {
   private readonly lock = new SessionLock();
@@ -1288,5 +1298,87 @@ export class SessionsService {
         won: won.get(playerId) ?? 0,
       }))
       .sort((a, b) => b.played - a.played);
+  }
+
+  async getSummary(code: string) {
+    const session = await this.prisma.session.findUnique({ where: { code } });
+    if (!session) throw this.notFound('SESSION_NOT_FOUND');
+
+    const finishedMatch = { confirmedAt: { not: null }, endedAt: { not: null } } as const;
+    const pairings = await this.prisma.pairing.findMany({
+      where: { sessionId: code, ...finishedMatch },
+      orderBy: [{ courtNumber: 'asc' }, { matchNumber: 'asc' }],
+    });
+
+    const allPlayerIds = new Set<string>();
+    for (const p of pairings) {
+      const teamA = JSON.parse(p.teamA) as [string, string];
+      const teamB = JSON.parse(p.teamB) as [string, string];
+      for (const id of [...teamA, ...teamB]) allPlayerIds.add(id);
+    }
+    const players = await this.prisma.player.findMany({
+      where: { id: { in: [...allPlayerIds] } },
+    });
+    const nameById = new Map(players.map((p) => [p.id, p.name]));
+
+    const played = new Map<string, number>();
+    const won = new Map<string, number>();
+    const lost = new Map<string, number>();
+    const matches = new Map<string, SessionMatch[]>();
+
+    for (const p of pairings) {
+      const teamA = JSON.parse(p.teamA) as [string, string];
+      const teamB = JSON.parse(p.teamB) as [string, string];
+
+      for (const [team, letter, opponents] of [
+        [teamA, 'A', teamB],
+        [teamB, 'B', teamA],
+      ] as const) {
+        const teamResult: 'win' | 'loss' | 'no-result' =
+          p.winner === null ? 'no-result' : p.winner === letter ? 'win' : 'loss';
+        for (const id of team) {
+          played.set(id, (played.get(id) ?? 0) + 1);
+          if (teamResult === 'win') won.set(id, (won.get(id) ?? 0) + 1);
+          if (teamResult === 'loss') lost.set(id, (lost.get(id) ?? 0) + 1);
+
+          const partnerId = team.find((otherId) => otherId !== id) ?? id;
+          const entry: SessionMatch = {
+            matchNumber: p.matchNumber,
+            courtNumber: p.courtNumber,
+            partnerName: nameById.get(partnerId) ?? 'Unknown',
+            opponentNames: [
+              nameById.get(opponents[0]) ?? 'Unknown',
+              nameById.get(opponents[1]) ?? 'Unknown',
+            ],
+            scoreA: p.scoreA,
+            scoreB: p.scoreB,
+            result: teamResult,
+          };
+          if (!matches.has(id)) matches.set(id, []);
+          matches.get(id)!.push(entry);
+        }
+      }
+    }
+
+    return {
+      session: {
+        code: session.code,
+        groupCode: session.groupId,
+        date: session.date,
+        venue: session.venue,
+        courtCount: session.courtCount,
+        endedAt: session.endedAt,
+      },
+      players: [...played.entries()]
+        .map(([playerId, count]) => ({
+          playerId,
+          name: nameById.get(playerId) ?? 'Unknown',
+          played: count,
+          won: won.get(playerId) ?? 0,
+          lost: lost.get(playerId) ?? 0,
+          matches: matches.get(playerId) ?? [],
+        }))
+        .sort((a, b) => b.played - a.played),
+    };
   }
 }

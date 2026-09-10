@@ -2482,6 +2482,127 @@ describe('SessionsController', () => {
     await request(server).get(`/sessions/${randomUUID()}/stats`).expect(404);
   });
 
+  it('GET /sessions/:code/summary returns per-player record and match log', async () => {
+    const groupCode = randomUUID();
+    const sessionCode = randomUUID();
+    await prisma.group.create({ data: { code: groupCode, name: 'G' } });
+    const players = await Promise.all(
+      ['A', 'B', 'C', 'D'].map((name) =>
+        prisma.player.create({ data: { groupId: groupCode, name, aliases: '[]' } })
+      )
+    );
+    await prisma.session.create({
+      data: {
+        code: sessionCode,
+        groupId: groupCode,
+        date: '2026-09-10',
+        venue: 'Court X',
+        courtCount: 1,
+        rawImportText: '',
+        endedAt: new Date(),
+      },
+    });
+    await prisma.pairing.create({
+      data: {
+        sessionId: sessionCode,
+        courtNumber: 1,
+        matchNumber: 1,
+        teamA: JSON.stringify([players[0].id, players[1].id]),
+        teamB: JSON.stringify([players[2].id, players[3].id]),
+        confirmedAt: new Date(),
+        endedAt: new Date(),
+        winner: 'A',
+        scoreA: 21,
+        scoreB: 15,
+      },
+    });
+    // Abandoned part-way: played and finished, but with no winner to record.
+    await prisma.pairing.create({
+      data: {
+        sessionId: sessionCode,
+        courtNumber: 1,
+        matchNumber: 2,
+        teamA: JSON.stringify([players[0].id, players[2].id]),
+        teamB: JSON.stringify([players[1].id, players[3].id]),
+        confirmedAt: new Date(),
+        endedAt: new Date(),
+        winner: null,
+      },
+    });
+    // Still being played — must not count.
+    await prisma.pairing.create({
+      data: {
+        sessionId: sessionCode,
+        courtNumber: 1,
+        matchNumber: 3,
+        teamA: JSON.stringify([players[0].id, players[1].id]),
+        teamB: JSON.stringify([players[2].id, players[3].id]),
+        confirmedAt: new Date(),
+      },
+    });
+
+    try {
+      const res = await request(server).get(`/sessions/${sessionCode}/summary`).expect(200);
+
+      expect(res.body.session).toEqual({
+        code: sessionCode,
+        groupCode,
+        date: '2026-09-10',
+        venue: 'Court X',
+        courtCount: 1,
+        endedAt: expect.any(String),
+      });
+
+      const byId = new Map(
+        (res.body.players as { playerId: string }[]).map((r) => [r.playerId, r])
+      );
+
+      const a = byId.get(players[0].id);
+      expect(a).toMatchObject({ name: 'A', played: 2, won: 1, lost: 0 });
+      expect(a.matches).toEqual([
+        {
+          matchNumber: 1,
+          courtNumber: 1,
+          partnerName: 'B',
+          opponentNames: ['C', 'D'],
+          scoreA: 21,
+          scoreB: 15,
+          result: 'win',
+        },
+        {
+          matchNumber: 2,
+          courtNumber: 1,
+          partnerName: 'C',
+          opponentNames: ['B', 'D'],
+          scoreA: null,
+          scoreB: null,
+          result: 'no-result',
+        },
+      ]);
+
+      const c = byId.get(players[2].id);
+      expect(c).toMatchObject({ name: 'C', played: 2, won: 0, lost: 1 });
+      expect(c.matches[0]).toEqual({
+        matchNumber: 1,
+        courtNumber: 1,
+        partnerName: 'D',
+        opponentNames: ['A', 'B'],
+        scoreA: 21,
+        scoreB: 15,
+        result: 'loss',
+      });
+    } finally {
+      await prisma.pairing.deleteMany({ where: { sessionId: sessionCode } });
+      await prisma.player.deleteMany({ where: { groupId: groupCode } });
+      await prisma.session.deleteMany({ where: { code: sessionCode } });
+      await prisma.group.deleteMany({ where: { code: groupCode } });
+    }
+  });
+
+  it('GET /sessions/:code/summary 404s for an unknown session', async () => {
+    await request(server).get(`/sessions/${randomUUID()}/summary`).expect(404);
+  });
+
   it('swaps one player on a pending pairing for a waiting substitute, leaving the other 3 untouched', async () => {
     const groupCode = randomUUID();
     const sessionCode = randomUUID();

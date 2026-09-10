@@ -118,6 +118,14 @@
     } @else {
       <hr class="rule" />
       <p class="ended-notice" i18n="@@dashboard.sessionEnded">จบก๊วนแล้ว</p>
+      <p><a [routerLink]="['/s', session()!.code, 'summary']" i18n="@@dashboard.viewSummary">ดูสรุปก๊วน →</a></p>
+      <button type="button" class="ghost share-display" (click)="copySummaryLink()">
+        @if (summaryLinkCopied()) {
+          <ng-container i18n="@@dashboard.copied">คัดลอกแล้ว</ng-container>
+        } @else {
+          <ng-container i18n="@@dashboard.copySummaryLink">ลิงก์สรุปก๊วน</ng-container>
+        }
+      </button>
     }
   </div>
 } @else {

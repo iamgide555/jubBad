@@ -1,0 +1,76 @@
+@if (summary(); as s) {
+  <div class="page session-summary">
+    @if (canGoBack()) {
+      <p><a [routerLink]="['/g', s.session.groupCode]" i18n="@@summary.back">← กลับ</a></p>
+    }
+    <h1 i18n="@@summary.title">สรุปก๊วน</h1>
+    <p class="muted">
+      {{ s.session.date }}
+      @if (s.session.venue) { · {{ s.session.venue }} }
+    </p>
+
+    @if (s.players.length === 0) {
+      <p class="muted" i18n="@@summary.noMatches">ก๊วนนี้ยังไม่มีการแข่งขัน</p>
+    } @else {
+      <table>
+        <thead>
+          <tr>
+            <th i18n="@@summary.player">ผู้เล่น</th>
+            <th i18n="@@summary.played">เล่น</th>
+            <th i18n="@@summary.won">ชนะ</th>
+            <th i18n="@@summary.lost">แพ้</th>
+            <th i18n="@@summary.winRate">อัตราชนะ</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (row of s.players; track row.playerId) {
+            <tr class="player-row" (click)="togglePlayer(row.playerId)">
+              <td>{{ row.name }}</td>
+              <td>{{ row.played }}</td>
+              <td>{{ row.won }}</td>
+              <td>{{ row.lost }}</td>
+              <td>
+                @if (winPercent(row.played, row.won); as pct) { {{ pct }}% } @else { – }
+              </td>
+            </tr>
+            @if (expandedPlayerId() === row.playerId) {
+              <tr class="matches-row">
+                <td colspan="5">
+                  <ul class="match-list">
+                    @for (m of row.matches; track m.matchNumber) {
+                      <li>
+                        <span class="muted" i18n="@@summary.court">คอร์ท</span> {{ m.courtNumber }}
+                        —
+                        <ng-container i18n="@@summary.withPartner">กับ</ng-container> {{ m.partnerName }}
+                        <ng-container i18n="@@summary.vsOpponents">พบ</ng-container>
+                        {{ m.opponentNames[0] }}/{{ m.opponentNames[1] }}
+                        @if (m.scoreA !== null && m.scoreB !== null) {
+                          ({{ m.scoreA }}-{{ m.scoreB }})
+                        }
+                        <span
+                          class="result-badge"
+                          [class.win]="m.result === 'win'"
+                          [class.loss]="m.result === 'loss'"
+                        >
+                          @switch (m.result) {
+                            @case ('win') { <ng-container i18n="@@summary.resultWin">ชนะ</ng-container> }
+                            @case ('loss') { <ng-container i18n="@@summary.resultLoss">แพ้</ng-container> }
+                            @default { <ng-container i18n="@@summary.resultNone">ไม่มีผล</ng-container> }
+                          }
+                        </span>
+                      </li>
+                    }
+                  </ul>
+                </td>
+              </tr>
+            }
+          }
+        </tbody>
+      </table>
+    }
+  </div>
+} @else if (notFound()) {
+  <div class="page">
+    <p i18n="@@summary.notFound">ไม่พบก๊วนนี้</p>
+  </div>
+}

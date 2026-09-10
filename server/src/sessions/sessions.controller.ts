@@ -99,4 +99,16 @@ export class SessionsController {
   getStats(@Param('code') code: string, @Query('scope') scope?: string) {
     return this.sessionsService.getStats(code, scope === 'all' ? 'all' : 'session');
   }
+
+  /**
+   * Public: the host shares this link (copy-link button on the dashboard)
+   * rather than it being discoverable anywhere else — knowledge of the
+   * session code is what gates access, the same trust model as the player
+   * stat card and the venue display.
+   */
+  @Public()
+  @Get(':code/summary')
+  getSummary(@Param('code') code: string) {
+    return this.sessionsService.getSummary(code);
+  }
 }

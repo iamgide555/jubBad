@@ -30,6 +30,11 @@ const PUBLIC_ROUTES = [
     path: (c: Ctx) => `/groups/${c.groupCode}/players/${c.playerId}/stats`,
     why: 'player stat card',
   },
+  {
+    method: 'get',
+    path: (c: Ctx) => `/sessions/${c.sessionCode}/summary`,
+    why: 'session summary link, shared by the host',
+  },
 ] as const;
 
 interface Ctx {

@@ -37,6 +37,15 @@ export const routes: Routes = [
       import('./pages/session-display/session-display').then((m) => m.SessionDisplay),
   },
   {
+    // Before 's/:sessionCode' so the deeper path wins the match.
+    // Unguarded: the host shares this link; knowledge of the session code
+    // gates access, the same trust model as the display and player-stat
+    // routes above.
+    path: 's/:sessionCode/summary',
+    loadComponent: () =>
+      import('./pages/session-summary/session-summary').then((m) => m.SessionSummary),
+  },
+  {
     path: 's/:sessionCode',
     canActivate: [adminGuard],
     loadComponent: () =>

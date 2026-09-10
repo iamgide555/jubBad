@@ -319,7 +319,7 @@ describe('SessionDashboard', () => {
     expect(text2).toContain('ยังมีแมตช์ที่ยังไม่จบ กรุณาบันทึกผลให้ครบก่อน');
   });
 
-  it('redirects to / once the session ends successfully', async () => {
+  it('redirects to the summary screen once the session ends successfully', async () => {
     const router = TestBed.inject(Router);
     const navigateSpy = vi.spyOn(router, 'navigateByUrl').mockResolvedValue(true);
     fixture = TestBed.createComponent(SessionDashboard);
@@ -352,7 +352,7 @@ describe('SessionDashboard', () => {
       request.flush([]);
     }
 
-    expect(navigateSpy).toHaveBeenCalledWith('/');
+    expect(navigateSpy).toHaveBeenCalledWith('/s/sess1/summary');
   });
   async function settled(session = baseSession()) {
     fixture = TestBed.createComponent(SessionDashboard);
@@ -492,6 +492,20 @@ describe('SessionDashboard', () => {
     // host had to know to type /display onto the end of the session URL.
     expect(copied).toEqual([`${location.origin}/s/sess1/display`]);
     expect(fixture.componentInstance.displayLinkCopied()).toBe(true);
+  });
+
+  it('copies a link to the session summary once the session has ended', async () => {
+    const copied: string[] = [];
+    Object.defineProperty(navigator, 'clipboard', {
+      value: { writeText: async (t: string) => void copied.push(t) },
+      configurable: true,
+    });
+    await settled(baseSession({ endedAt: '2026-09-08T20:00:00.000Z' }));
+
+    await fixture.componentInstance.copySummaryLink();
+
+    expect(copied).toEqual([`${location.origin}/s/sess1/summary`]);
+    expect(fixture.componentInstance.summaryLinkCopied()).toBe(true);
   });
 
   it('says so when the clipboard refuses rather than silently doing nothing', async () => {

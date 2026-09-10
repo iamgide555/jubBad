@@ -1,6 +1,6 @@
 import { Component, OnDestroy, computed, inject, signal } from '@angular/core';
 import { httpResource } from '@angular/common/http';
-import { Router } from '@angular/router';
+import { Router, RouterLink } from '@angular/router';
 import { environment } from '../../../environments/environment';
 import { LiveSessionService } from '../../core/live-session.service';
 import { absoluteUrl, copyToClipboard } from '../../core/share-link';
@@ -13,7 +13,7 @@ import type { Player } from '../../../../../engines/fuzzy-match.ts';
 
 @Component({
   selector: 'app-session-dashboard',
-  imports: [CourtPanel, StatsTable],
+  imports: [CourtPanel, StatsTable, RouterLink],
   providers: [LiveSessionService],
   templateUrl: './session-dashboard.html',
   styleUrl: './session-dashboard.css',
@@ -233,6 +233,21 @@ export class SessionDashboard implements OnDestroy {
     setTimeout(() => this.displayLinkCopied.set(false), 2000);
   }
 
+  readonly summaryLinkCopied = signal(false);
+
+  async copySummaryLink(): Promise<void> {
+    const url = absoluteUrl(`/s/${this.session()!.code}/summary`);
+    this.clipboardFallback.set(null);
+    const ok = await copyToClipboard(url);
+    if (!ok) {
+      this.rosterError.set($localize`:@@share.failed:คัดลอกไม่ได้ ลองเลือกข้อความเอง`);
+      this.clipboardFallback.set(url);
+      return;
+    }
+    this.summaryLinkCopied.set(true);
+    setTimeout(() => this.summaryLinkCopied.set(false), 2000);
+  }
+
   async copyShareText(): Promise<void> {
     const text = this.shareText();
     this.clipboardFallback.set(null);
@@ -258,6 +273,6 @@ export class SessionDashboard implements OnDestroy {
       this.endSessionError.set(result.error ?? $localize`:@@err.endSession:จบก๊วนไม่สำเร็จ`);
       return;
     }
-    this.router.navigateByUrl('/');
+    this.router.navigateByUrl(`/s/${this.session()!.code}/summary`);
   }
 }

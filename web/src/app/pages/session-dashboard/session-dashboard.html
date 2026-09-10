@@ -1,5 +1,22 @@
 @if (sessionExists()) {
   <div class="page page-wide dashboard">
+    @if (ended()) {
+      <div class="ended-banner">
+        <p class="ended-notice" i18n="@@dashboard.sessionEnded">จบก๊วนแล้ว</p>
+        <div class="ended-actions">
+          <a class="btn-link" [routerLink]="['/s', session()!.code, 'summary']" i18n="@@dashboard.viewSummary">ดูสรุปก๊วน</a>
+          <button type="button" class="ghost" (click)="copySummaryLink()">
+            @if (summaryLinkCopied()) {
+              <ng-container i18n="@@dashboard.copied">คัดลอกแล้ว</ng-container>
+            } @else {
+              <ng-container i18n="@@dashboard.copySummaryLink">ลิงก์สรุปก๊วน</ng-container>
+            }
+          </button>
+        </div>
+      </div>
+      <hr class="rule" />
+    }
+
     <h4 class="label" i18n="@@dashboard.rosterLabel">ผู้เล่นวันนี้ — แตะเพื่อพัก</h4>
     <div class="roster-chips">
       @for (p of rosterEntries(); track p.id) {
@@ -20,34 +37,36 @@
 
     <hr class="rule" />
 
-    <div class="court-toolbar">
-      @if (!ended() && anyCourtIdle()) {
-        <button type="button" class="fill-all" (click)="fillCourts()" i18n="@@dashboard.fillAll">จัดคู่ทุกคอร์ทว่าง</button>
-      }
-
-      <div class="mode-toggle">
-        <span class="mode-label" i18n="@@dashboard.modeLabel">โหมดจัดคู่</span>
-        <div class="scope-toggle">
-          <button type="button" [class.active]="mode() === 'variety'" [disabled]="ended()" (click)="setMode('variety')" i18n="@@dashboard.modeVariety">สลับคู่</button>
-          <button type="button" [class.active]="mode() === 'balanced'" [disabled]="ended()" (click)="setMode('balanced')" i18n="@@dashboard.modeBalanced">สูสี</button>
-        </div>
-        @if (mode() === 'balanced') {
-          <p class="mode-hint" i18n="@@dashboard.modeBalancedHint">จัดให้สองฝั่งฝีมือใกล้เคียงกัน</p>
-        } @else {
-          <p class="mode-hint" i18n="@@dashboard.modeVarietyHint">เน้นไม่ให้ซ้ำคู่เดิม</p>
+    @if (!ended()) {
+      <div class="court-toolbar">
+        @if (anyCourtIdle()) {
+          <button type="button" class="fill-all" (click)="fillCourts()" i18n="@@dashboard.fillAll">จัดคู่ทุกคอร์ทว่าง</button>
         }
-      </div>
 
-      <div class="court-count">
-        <span class="mode-label" i18n="@@dashboard.courtCountLabel">จำนวนคอร์ท</span>
-        <div class="scope-toggle">
-          <button type="button" [disabled]="ended() || courtCount() <= 1" (click)="changeCourtCount(-1)" aria-label="ลดจำนวนคอร์ท" i18n-aria-label="@@dashboard.courtCountLess">−</button>
-          <span class="court-count-value">{{ courtCount() }}</span>
-          <button type="button" [disabled]="ended() || courtCount() >= 20" (click)="changeCourtCount(1)" aria-label="เพิ่มจำนวนคอร์ท" i18n-aria-label="@@dashboard.courtCountMore">+</button>
+        <div class="mode-toggle">
+          <span class="mode-label" i18n="@@dashboard.modeLabel">โหมดจัดคู่</span>
+          <div class="scope-toggle">
+            <button type="button" [class.active]="mode() === 'variety'" (click)="setMode('variety')" i18n="@@dashboard.modeVariety">สลับคู่</button>
+            <button type="button" [class.active]="mode() === 'balanced'" (click)="setMode('balanced')" i18n="@@dashboard.modeBalanced">สูสี</button>
+          </div>
+          @if (mode() === 'balanced') {
+            <p class="mode-hint" i18n="@@dashboard.modeBalancedHint">จัดให้สองฝั่งฝีมือใกล้เคียงกัน</p>
+          } @else {
+            <p class="mode-hint" i18n="@@dashboard.modeVarietyHint">เน้นไม่ให้ซ้ำคู่เดิม</p>
+          }
         </div>
-        <p class="mode-hint" i18n="@@dashboard.courtCountHint">ปรับได้เมื่อจองคอร์ทเพิ่มหรือคืนคอร์ท</p>
+
+        <div class="court-count">
+          <span class="mode-label" i18n="@@dashboard.courtCountLabel">จำนวนคอร์ท</span>
+          <div class="scope-toggle">
+            <button type="button" [disabled]="courtCount() <= 1" (click)="changeCourtCount(-1)" aria-label="ลดจำนวนคอร์ท" i18n-aria-label="@@dashboard.courtCountLess">−</button>
+            <span class="court-count-value">{{ courtCount() }}</span>
+            <button type="button" [disabled]="courtCount() >= 20" (click)="changeCourtCount(1)" aria-label="เพิ่มจำนวนคอร์ท" i18n-aria-label="@@dashboard.courtCountMore">+</button>
+          </div>
+          <p class="mode-hint" i18n="@@dashboard.courtCountHint">ปรับได้เมื่อจองคอร์ทเพิ่มหรือคืนคอร์ท</p>
+        </div>
       </div>
-    </div>
+    }
 
     <div class="courts-list">
       @for (courtNumber of courtNumbers(); track courtNumber) {
@@ -55,23 +74,25 @@
       }
     </div>
 
-    <hr class="rule" />
+    @if (!ended()) {
+      <hr class="rule" />
 
-    <div class="waiting-queue">
-      <h4 class="label" i18n="@@dashboard.waiting">รอคิว</h4>
-      @for (w of waiting(); track w.id) {
-        <button
-          type="button"
-          class="chip chip-pick"
-          [class.is-picked]="selection.isPicked(w.id)"
-          [attr.aria-pressed]="selection.isPicked(w.id)"
-          [attr.aria-label]="waitingPickLabel(w.name)"
-          (click)="pickWaiting(w.id, w.name)"
-        >{{ w.name }} <span class="wait-mins">{{ w.minutes }}<ng-container i18n="@@dashboard.minutesShort">น.</ng-container></span></button>
-      } @empty {
-        <p class="muted" i18n="@@dashboard.nobodyWaiting">ไม่มีคนรอ</p>
-      }
-    </div>
+      <div class="waiting-queue">
+        <h4 class="label" i18n="@@dashboard.waiting">รอคิว</h4>
+        @for (w of waiting(); track w.id) {
+          <button
+            type="button"
+            class="chip chip-pick"
+            [class.is-picked]="selection.isPicked(w.id)"
+            [attr.aria-pressed]="selection.isPicked(w.id)"
+            [attr.aria-label]="waitingPickLabel(w.name)"
+            (click)="pickWaiting(w.id, w.name)"
+          >{{ w.name }} <span class="wait-mins">{{ w.minutes }}<ng-container i18n="@@dashboard.minutesShort">น.</ng-container></span></button>
+        } @empty {
+          <p class="muted" i18n="@@dashboard.nobodyWaiting">ไม่มีคนรอ</p>
+        }
+      </div>
+    }
 
     @if (waitlistNames().length > 0) {
       <div class="waitlist">
@@ -115,17 +136,6 @@
       @if (endSessionError()) {
         <p class="error">{{ endSessionError() }}</p>
       }
-    } @else {
-      <hr class="rule" />
-      <p class="ended-notice" i18n="@@dashboard.sessionEnded">จบก๊วนแล้ว</p>
-      <p><a [routerLink]="['/s', session()!.code, 'summary']" i18n="@@dashboard.viewSummary">ดูสรุปก๊วน →</a></p>
-      <button type="button" class="ghost share-display" (click)="copySummaryLink()">
-        @if (summaryLinkCopied()) {
-          <ng-container i18n="@@dashboard.copied">คัดลอกแล้ว</ng-container>
-        } @else {
-          <ng-container i18n="@@dashboard.copySummaryLink">ลิงก์สรุปก๊วน</ng-container>
-        }
-      </button>
     }
   </div>
 } @else {

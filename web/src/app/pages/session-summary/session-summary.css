@@ -1,5 +1,65 @@
-.player-row {
-  cursor: pointer;
+/* Same base table treatment as the dashboard's stats-table: row dividers,
+   tabular figures, numeric columns right-aligned so they read as a column of
+   numbers rather than wrapping text. */
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-variant-numeric: tabular-nums;
+}
+
+th,
+td {
+  text-align: left;
+  padding: var(--space-1);
+  border-bottom: 1px solid var(--rule);
+}
+
+th {
+  font-family: var(--font-text);
+  font-size: var(--text-xs);
+  font-weight: 600;
+  color: var(--ink-soft);
+}
+
+td:not(:first-child),
+th:not(:first-child) {
+  text-align: right;
+  width: 3.5rem;
+}
+
+/* The name doubles as the control that expands the match list — styled like
+   the app's other links (bold, court green) so it reads as tappable, with a
+   chevron that flips instead of two swapped glyphs, so nothing reflows. */
+.row-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-0);
+  min-height: var(--tap);
+  padding: 0;
+  background: none;
+  color: var(--court);
+  font-weight: 600;
+  text-align: left;
+}
+
+@media (hover: hover) {
+  .row-toggle:hover {
+    background: none;
+    text-decoration: underline;
+  }
+}
+
+.chevron {
+  display: inline-block;
+  transition: transform 150ms ease-out;
+}
+
+.chevron.open {
+  transform: rotate(-180deg);
+}
+
+.matches-row td {
+  padding-top: 0;
 }
 
 .match-list {

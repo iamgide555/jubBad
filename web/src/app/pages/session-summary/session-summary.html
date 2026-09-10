@@ -24,8 +24,18 @@
         </thead>
         <tbody>
           @for (row of s.players; track row.playerId) {
-            <tr class="player-row" (click)="togglePlayer(row.playerId)">
-              <td>{{ row.name }}</td>
+            <tr class="player-row">
+              <td>
+                <button
+                  type="button"
+                  class="row-toggle"
+                  [attr.aria-expanded]="expandedPlayerId() === row.playerId"
+                  (click)="togglePlayer(row.playerId)"
+                >
+                  {{ row.name }}
+                  <span class="chevron" [class.open]="expandedPlayerId() === row.playerId" aria-hidden="true">▾</span>
+                </button>
+              </td>
               <td>{{ row.played }}</td>
               <td>{{ row.won }}</td>
               <td>{{ row.lost }}</td>

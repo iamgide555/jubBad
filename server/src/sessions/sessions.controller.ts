@@ -80,6 +80,11 @@ export class SessionsController {
     return this.sessionsService.setRosterActive(code, playerId, dto);
   }
 
+  @Post(':code/roster/deprioritize-waiting')
+  deprioritizeWaiting(@Param('code') code: string) {
+    return this.sessionsService.deprioritizeWaiting(code);
+  }
+
   @Post(':code/court-count')
   setCourtCount(@Param('code') code: string, @Body() dto: SetCourtCountDto) {
     return this.sessionsService.setCourtCount(code, dto);

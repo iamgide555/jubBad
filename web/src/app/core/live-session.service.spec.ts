@@ -222,6 +222,23 @@ describe('LiveSessionService', () => {
     });
   });
 
+  it('deprioritizeWaiting posts to the roster endpoint with no body, reloads, and returns ok', async () => {
+    await flushSession(baseSession());
+
+    const promise = service.deprioritizeWaiting();
+    const req = httpMock.expectOne(
+      `${environment.apiBaseUrl}/sessions/sess1/roster/deprioritize-waiting`
+    );
+    expect(req.request.method).toBe('POST');
+    expect(req.request.body).toEqual({});
+    req.flush({ ok: true, deprioritized: ['p2'] });
+    await new Promise((r) => setTimeout(r, 0));
+    TestBed.tick();
+    httpMock.expectOne(`${environment.apiBaseUrl}/sessions/sess1`).flush(baseSession());
+
+    expect(await promise).toEqual({ ok: true });
+  });
+
   it('falls back to the action message for an unknown or missing error code', async () => {
     await flushSession(baseSession());
 

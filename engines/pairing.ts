@@ -12,6 +12,11 @@ export function pairKey(a: PlayerId, b: PlayerId): string {
   return [a, b].sort().join('|');
 }
 
+/** Order-independent key for a group of players sharing a court, regardless of team split. */
+export function groupKey(players: PlayerId[]): string {
+  return [...players].sort().join('|');
+}
+
 /**
  * `random` is injected, so it is not always `Math.random`. A generator that
  * can return exactly 1 — many seeded ones can, and the tests supply their own
@@ -39,7 +44,15 @@ export function selectSittingOut(
    * tie-break below vanishes and selection is games-then-random exactly as it
    * was before.
    */
-  waitingSince?: Map<PlayerId, number>
+  waitingSince?: Map<PlayerId, number>,
+  /**
+   * Groups that just played together. Only acted on when exactly one court is
+   * being filled: with two or more, the grouping search downstream already
+   * has room to keep a repeat quartet apart. With one, whoever this function
+   * picks to play *is* the group — nothing downstream can fix it — so this is
+   * where the single-court case has to be caught.
+   */
+  recentGroupKeys?: Set<string> | null
 ): { playing: PlayerId[]; sittingOut: PlayerId[] } {
   const usableCourts = Math.min(courtCount, Math.floor(roster.length / 4));
   const sitOutCount = roster.length - usableCourts * 4;
@@ -63,11 +76,37 @@ export function selectSittingOut(
     return (waitingSince?.get(b) ?? 0) - (waitingSince?.get(a) ?? 0);
   });
 
-  const sittingOut = sorted.slice(0, sitOutCount);
-  const sittingOutSet = new Set(sittingOut);
-  const playing = roster.filter((p) => !sittingOutSet.has(p));
+  const groupsFor = (sittingOut: PlayerId[]): { playing: PlayerId[]; sittingOut: PlayerId[] } => {
+    const sittingOutSet = new Set(sittingOut);
+    return { playing: roster.filter((p) => !sittingOutSet.has(p)), sittingOut };
+  };
 
-  return { playing, sittingOut };
+  const natural = groupsFor(sorted.slice(0, sitOutCount));
+
+  if (usableCourts !== 1 || !recentGroupKeys?.has(groupKey(natural.playing))) {
+    return natural;
+  }
+
+  // Real waiting times are wall-clock timestamps and essentially never tie
+  // exactly, so there is usually no genuine tie for a random tiebreak to
+  // exploit — the fix has to perturb the selection itself, not reshuffle it.
+  //
+  // Swap the pair straddling the sit/play boundary: the player who *just*
+  // made the cut to sit out, and the player who *just* made the cut to play.
+  // That is the smallest possible change to who plays, tried at increasing
+  // distance from the boundary only if a closer swap still reproduces a
+  // recent group.
+  const maxSwap = Math.min(sitOutCount, sorted.length - sitOutCount);
+  for (let k = 1; k <= maxSwap; k++) {
+    const sittingOut = sorted.slice(0, sitOutCount);
+    sittingOut[sitOutCount - k] = sorted[sitOutCount - 1 + k];
+    const candidate = groupsFor(sittingOut);
+    if (!recentGroupKeys.has(groupKey(candidate.playing))) {
+      return candidate;
+    }
+  }
+
+  return natural;
 }
 
 export interface CourtAssignment {
@@ -164,6 +203,8 @@ export function scoreArrangement(
 }
 
 export interface ArrangementScoreComponents {
+  /** Courts whose 4 players (any split) match a group that recently played together. */
+  groupRepeat: number;
   partner: number;
   opponent: number;
   balance: number;
@@ -174,13 +215,20 @@ export function arrangementScoreComponents(
   partnerCounts: Map<string, number>,
   opponentCounts: Map<string, number>,
   ratings?: Map<PlayerId, number>,
-  floors: HistoryFloors = { partner: 0, opponent: 0 }
+  floors: HistoryFloors = { partner: 0, opponent: 0 },
+  /** Groups (any split) that just played together and should not immediately reform. */
+  recentGroupKeys?: Set<string> | null
 ): ArrangementScoreComponents {
+  let groupRepeat = 0;
   let partner = 0;
   let opponent = 0;
   let balance = 0;
 
   for (const { teamA, teamB } of courts) {
+    if (recentGroupKeys && recentGroupKeys.has(groupKey([...teamA, ...teamB]))) {
+      groupRepeat += 1;
+    }
+
     const partnerPairs = [pairKey(teamA[0], teamA[1]), pairKey(teamB[0], teamB[1])];
     for (const key of partnerPairs) {
       partner += Math.max(0, (partnerCounts.get(key) ?? 0) - floors.partner);
@@ -203,7 +251,7 @@ export function arrangementScoreComponents(
     }
   }
 
-  return { partner, opponent, balance };
+  return { groupRepeat, partner, opponent, balance };
 }
 
 /**
@@ -211,6 +259,15 @@ export function arrangementScoreComponents(
  * opponents. Numeric weights cannot provide that guarantee once history grows
  * unbounded, so compare the two dimensions lexicographically. Balanced mode
  * intentionally keeps its combined rating-and-variety objective.
+ *
+ * `groupRepeat` — whether a court's 4 players (any split) just played
+ * together as a group — is compared before either mode's own objective, for
+ * the same reason: a plain additive weight, however large, is eventually
+ * swamped as partner/opponent counts accumulate over a season (the failure
+ * `avoidSplit` already hit before it became a real exclusion). Comparing it
+ * first makes it dominate regardless of how large those counts get, while
+ * still falling through to the normal objective — including allowing a
+ * repeat — when every candidate is level on it.
  */
 export function compareArrangements(
   one: { teamA: [PlayerId, PlayerId]; teamB: [PlayerId, PlayerId] }[],
@@ -218,10 +275,27 @@ export function compareArrangements(
   partnerCounts: Map<string, number>,
   opponentCounts: Map<string, number>,
   ratings?: Map<PlayerId, number>,
-  floors: HistoryFloors = { partner: 0, opponent: 0 }
+  floors: HistoryFloors = { partner: 0, opponent: 0 },
+  recentGroupKeys?: Set<string> | null
 ): number {
-  const first = arrangementScoreComponents(one, partnerCounts, opponentCounts, ratings, floors);
-  const second = arrangementScoreComponents(other, partnerCounts, opponentCounts, ratings, floors);
+  const first = arrangementScoreComponents(
+    one,
+    partnerCounts,
+    opponentCounts,
+    ratings,
+    floors,
+    recentGroupKeys
+  );
+  const second = arrangementScoreComponents(
+    other,
+    partnerCounts,
+    opponentCounts,
+    ratings,
+    floors,
+    recentGroupKeys
+  );
+
+  if (first.groupRepeat !== second.groupRepeat) return first.groupRepeat - second.groupRepeat;
 
   if (!ratings) {
     return first.partner - second.partner || first.opponent - second.opponent;
@@ -269,6 +343,13 @@ export interface MatchHistory {
    * it those ties fall back to random, the engine's original behaviour.
    */
   waitingSince?: Map<PlayerId, number>;
+  /**
+   * Keys (via `groupKey`) of groups of 4 that most recently played together,
+   * across every court — not just the one a reshuffle commits. Optional:
+   * without it, group-repeat avoidance is skipped entirely, the engine's
+   * original behaviour.
+   */
+  recentGroupKeys?: Set<string>;
 }
 
 export interface RoundResult {
@@ -330,6 +411,13 @@ interface SearchContext {
   floors: HistoryFloors;
   /** Court 1 is the one a reshuffle commits, so only it can be constrained. */
   avoidKeys: Set<string> | null;
+  /**
+   * Groups that just played together, applied to every court — unlike
+   * avoidKeys this is not limited to the committed court, because the bug it
+   * guards against is specifically players regrouping onto a *different*
+   * court once it frees up.
+   */
+  recentGroupKeys: Set<string> | null;
 }
 
 function courtComponents(
@@ -342,15 +430,18 @@ function courtComponents(
     ctx.partnerCounts,
     ctx.opponentCounts,
     ctx.ratings,
-    ctx.floors
+    ctx.floors,
+    ctx.recentGroupKeys
   );
 }
 
+/** See the comment on compareArrangements: groupRepeat is compared first, in both modes. */
 function compareComponents(
   first: ArrangementScoreComponents,
   second: ArrangementScoreComponents,
   ratings?: Map<PlayerId, number>
 ): number {
+  if (first.groupRepeat !== second.groupRepeat) return first.groupRepeat - second.groupRepeat;
   if (!ratings) {
     return first.partner - second.partner || first.opponent - second.opponent;
   }
@@ -425,15 +516,17 @@ function groupOf(court: CourtAssignment): Group {
 }
 
 function totalComponents(parts: ArrangementScoreComponents[]): ArrangementScoreComponents {
+  let groupRepeat = 0;
   let partner = 0;
   let opponent = 0;
   let balance = 0;
   for (const part of parts) {
+    groupRepeat += part.groupRepeat;
     partner += part.partner;
     opponent += part.opponent;
     balance += part.balance;
   }
-  return { partner, opponent, balance };
+  return { groupRepeat, partner, opponent, balance };
 }
 
 /**
@@ -504,6 +597,7 @@ function improveArrangement(start: CourtAssignment[], ctx: SearchContext): Court
 
 function negate(components: ArrangementScoreComponents): ArrangementScoreComponents {
   return {
+    groupRepeat: -components.groupRepeat,
     partner: -components.partner,
     opponent: -components.opponent,
     balance: -components.balance,
@@ -642,7 +736,8 @@ export function generateRound(
     courtCount,
     history.gamesPlayedThisSession,
     random,
-    history.waitingSince
+    history.waitingSince,
+    history.recentGroupKeys
   );
 
   const usableCourts = Math.min(courtCount, Math.floor(playing.length / 4));
@@ -662,12 +757,14 @@ export function generateRound(
     : null;
 
   const floors = historyFloors(playing, history.partnerCounts, history.opponentCounts);
+  const recentGroupKeys = history.recentGroupKeys ?? null;
   const ctx: SearchContext = {
     partnerCounts: history.partnerCounts,
     opponentCounts: history.opponentCounts,
     ratings,
     floors,
     avoidKeys,
+    recentGroupKeys,
   };
 
   const better = (candidate: CourtAssignment[], incumbent: CourtAssignment[] | null): boolean =>
@@ -678,7 +775,8 @@ export function generateRound(
       history.partnerCounts,
       history.opponentCounts,
       ratings,
-      floors
+      floors,
+      recentGroupKeys
     ) < 0;
 
   let best: CourtAssignment[] | null = null;

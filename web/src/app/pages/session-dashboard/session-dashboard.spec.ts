@@ -410,6 +410,35 @@ describe('SessionDashboard', () => {
     await new Promise((r) => setTimeout(r, 0));
   });
 
+  it('deprioritizes the waiting queue in one tap', async () => {
+    await settled(
+      baseSession({
+        courtCount: 2,
+        rosterPlayerIds: ['p1', 'p2', 'p3', 'p4', 'p5', 'p6', 'p7', 'p8', 'p9', 'p10'],
+        courts: [
+          { status: 'active', pairingId: 'c1', teamA: ['p1', 'p2'], teamB: ['p3', 'p4'] },
+          { status: 'active', pairingId: 'c2', teamA: ['p5', 'p6'], teamB: ['p7', 'p8'] },
+        ],
+      })
+    );
+    buttonWith('จัดคิวใหม่').click();
+
+    const req = httpMock.expectOne(`${B}/sessions/sess1/roster/deprioritize-waiting`);
+    expect(req.request.method).toBe('POST');
+    req.flush({ ok: true, deprioritized: ['p9'] });
+    await new Promise((r) => setTimeout(r, 0));
+    TestBed.tick();
+    for (const r of httpMock.match(`${B}/sessions/sess1`)) r.flush(baseSession());
+    for (const r of httpMock.match(`${B}/groups/group1/players`)) r.flush([]);
+    for (const r of httpMock.match(`${B}/sessions/sess1/stats?scope=session`)) r.flush([]);
+    await new Promise((r) => setTimeout(r, 0));
+  });
+
+  it('hides the deprioritize-waiting button on a single court or with one or fewer waiting', async () => {
+    await settled(baseSession());
+    expect(buttonWith('จัดคิวใหม่')).toBeUndefined();
+  });
+
   it('hides the fill button when no court is idle', async () => {
     await settled(
       baseSession({

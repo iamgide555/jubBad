@@ -167,6 +167,18 @@ export class SessionDashboard implements OnDestroy {
     this.rosterError.set(result.error ?? null);
   }
 
+  /**
+   * Manual escape hatch for when two courts finish out of sync and the host
+   * spots the same group about to land back on a court together: pushes
+   * everyone waiting except the one with the fewest games behind the players
+   * currently on court, so the next draw is forced to pick someone else.
+   */
+  async deprioritizeWaiting(): Promise<void> {
+    this.rosterError.set(null);
+    const result = await this.liveSession.deprioritizeWaiting();
+    this.rosterError.set(result.error ?? null);
+  }
+
   async setMode(mode: 'variety' | 'balanced'): Promise<void> {
     this.rosterError.set(null);
     const result = await this.liveSession.setMode(mode);

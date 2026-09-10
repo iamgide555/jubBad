@@ -1660,6 +1660,90 @@ describe('SessionsController', () => {
     }
   });
 
+  it('does not regroup the same quartet onto the other court when courts finish out of sync', async () => {
+    // Regression for a reported bug: 12 players, 2 courts. Court 1 finishes
+    // round 1 first and correctly rotates in 4 fresh waiting players. Before
+    // court 2 finishes its own round-1 match, proposing court 2 pulled from a
+    // pool where court 1's just-finished quartet and court 2's just-finished
+    // quartet were tied on games played — and the tiebreak could hand court 1's
+    // exact quartet straight back onto court 2, just with the teams swapped.
+    const groupCode = randomUUID();
+    const sessionCode = randomUUID();
+    await prisma.group.create({ data: { code: groupCode, name: 'G' } });
+    const players = await Promise.all(
+      Array.from({ length: 12 }, (_, i) => String.fromCharCode(65 + i)).map((name) =>
+        prisma.player.create({ data: { groupId: groupCode, name, aliases: '[]' } })
+      )
+    );
+    const [p0, p1, p2, p3, p4, p5, p6, p7] = players;
+    await prisma.session.create({
+      data: { code: sessionCode, groupId: groupCode, courtCount: 2, rawImportText: '' },
+    });
+    for (const p of players) {
+      await prisma.sessionRoster.create({ data: { sessionId: sessionCode, playerId: p.id } });
+    }
+    // Court 1's round 1 already finished.
+    await prisma.pairing.create({
+      data: {
+        sessionId: sessionCode,
+        courtNumber: 1,
+        matchNumber: 1,
+        teamA: JSON.stringify([p0.id, p1.id]),
+        teamB: JSON.stringify([p2.id, p3.id]),
+        confirmedAt: new Date(),
+        endedAt: new Date(),
+        winner: 'A',
+      },
+    });
+    // Court 2's round 1 is still in progress.
+    const court2Round1 = await prisma.pairing.create({
+      data: {
+        sessionId: sessionCode,
+        courtNumber: 2,
+        matchNumber: 1,
+        teamA: JSON.stringify([p4.id, p5.id]),
+        teamB: JSON.stringify([p6.id, p7.id]),
+        confirmedAt: new Date(),
+      },
+    });
+
+    try {
+      // Court 1 reshuffles first, rotating in the 4 players who haven't
+      // played yet (p8-p11), since p0-p3 already have a game this session.
+      const court1Next = await request(server)
+        .post(`/sessions/${sessionCode}/courts/1/propose`)
+        .expect(201);
+      const court1Four = [...court1Next.body.pairing.teamA, ...court1Next.body.pairing.teamB];
+      expect(new Set(court1Four)).toEqual(
+        new Set([players[8].id, players[9].id, players[10].id, players[11].id])
+      );
+
+      // Only now does court 2 finish its round-1 match.
+      await prisma.pairing.update({
+        where: { id: court2Round1.id },
+        data: { endedAt: new Date() },
+      });
+
+      const court2Next = await request(server)
+        .post(`/sessions/${sessionCode}/courts/2/propose`)
+        .expect(201);
+      const court2Four = new Set([
+        ...court2Next.body.pairing.teamA,
+        ...court2Next.body.pairing.teamB,
+      ]);
+
+      // p0-p3 just played each other as a group on court 1. They must not be
+      // regrouped as the same quartet on court 2, whatever the team split.
+      expect(court2Four).not.toEqual(new Set([p0.id, p1.id, p2.id, p3.id]));
+    } finally {
+      await prisma.pairing.deleteMany({ where: { sessionId: sessionCode } });
+      await prisma.sessionRoster.deleteMany({ where: { sessionId: sessionCode } });
+      await prisma.session.deleteMany({ where: { code: sessionCode } });
+      await prisma.player.deleteMany({ where: { groupId: groupCode } });
+      await prisma.group.deleteMany({ where: { code: groupCode } });
+    }
+  });
+
   it('does not let a player re-enabled late monopolise the next matches', async () => {
     const groupCode = randomUUID();
     const sessionCode = randomUUID();
@@ -1704,8 +1788,13 @@ describe('SessionsController', () => {
       // fix makes LATE tied with everyone rather than ahead of them — so LATE
       // still plays most rounds, and asserting otherwise would be asserting
       // luck. What must hold is that LATE can now be the one sitting, which
-      // was impossible before: on zero games they won every draw. 60 rounds
-      // makes never-sitting a one-in-a-million event rather than a coin toss.
+      // was impossible before: on zero games they won every draw. Each round
+      // is confirmed and finished (rather than discarded) so games played and
+      // the most-recently-finished group both advance round to round, same as
+      // real play — discarding every proposal would freeze both at their
+      // pre-LATE values and starve the draw of any real tiebreak to sample.
+      // 60 rounds makes never-sitting a one-in-a-million event rather than a
+      // coin toss.
       let lateSatOut = 0;
       for (let i = 0; i < 60; i++) {
         const res = await request(server)
@@ -1713,7 +1802,14 @@ describe('SessionsController', () => {
           .expect(201);
         const four = [...res.body.pairing.teamA, ...res.body.pairing.teamB];
         if (!four.includes(late.id)) lateSatOut += 1;
-        await prisma.pairing.deleteMany({ where: { sessionId: sessionCode, confirmedAt: null } });
+        const pairingId = res.body.pairing.id as string;
+        await request(server)
+          .post(`/sessions/${sessionCode}/pairings/${pairingId}/confirm`)
+          .expect(201);
+        await request(server)
+          .post(`/sessions/${sessionCode}/pairings/${pairingId}/finish`)
+          .send({ winner: 'A' })
+          .expect(201);
       }
       expect(lateSatOut).toBeGreaterThan(0);
     } finally {
@@ -1891,6 +1987,158 @@ describe('SessionsController', () => {
         where: { sessionId: sessionCode, playerId: players[0].id },
       });
       // Already level with everyone, so nothing is credited.
+      expect(row.gamesOffset).toBe(0);
+    } finally {
+      await prisma.pairing.deleteMany({ where: { sessionId: sessionCode } });
+      await prisma.sessionRoster.deleteMany({ where: { sessionId: sessionCode } });
+      await prisma.session.deleteMany({ where: { code: sessionCode } });
+      await prisma.player.deleteMany({ where: { groupId: groupCode } });
+      await prisma.group.deleteMany({ where: { code: groupCode } });
+    }
+  });
+
+  it('deprioritizes waiting players except the one with the fewest games, without touching real stats', async () => {
+    const groupCode = randomUUID();
+    const sessionCode = randomUUID();
+    await prisma.group.create({ data: { code: groupCode, name: 'G' } });
+    const players = await Promise.all(
+      ['A', 'B', 'C', 'D', 'I', 'J', 'F1', 'F2', 'F3'].map((name) =>
+        prisma.player.create({ data: { groupId: groupCode, name, aliases: '[]' } })
+      )
+    );
+    const [a, b, c, d, i, j, f1, f2, f3] = players;
+    await prisma.session.create({
+      data: { code: sessionCode, groupId: groupCode, courtCount: 1, rawImportText: '' },
+    });
+    // Only A, B, C, D, I, J are actually on the roster tonight; F1-F3 just pad
+    // out I and J's match history so their games counts differ.
+    for (const p of [a, b, c, d, i, j]) {
+      await prisma.sessionRoster.create({ data: { sessionId: sessionCode, playerId: p.id } });
+    }
+    // A, B, C, D have played twice and are on court for a third — 3 games each.
+    for (let n = 1; n <= 3; n++) {
+      await prisma.pairing.create({
+        data: {
+          sessionId: sessionCode,
+          courtNumber: 1,
+          matchNumber: n,
+          teamA: JSON.stringify([a.id, b.id]),
+          teamB: JSON.stringify([c.id, d.id]),
+          confirmedAt: new Date(Date.now() + n * 1000),
+          endedAt: n < 3 ? new Date() : null,
+          winner: n < 3 ? 'A' : null,
+        },
+      });
+    }
+    // I has played twice; J has played once. Both are waiting — off any court.
+    for (let n = 1; n <= 2; n++) {
+      await prisma.pairing.create({
+        data: {
+          sessionId: sessionCode,
+          courtNumber: 2,
+          matchNumber: n,
+          teamA: JSON.stringify([i.id, f1.id]),
+          teamB: JSON.stringify([f2.id, f3.id]),
+          confirmedAt: new Date(Date.now() + n * 1000),
+          endedAt: new Date(),
+          winner: 'A',
+        },
+      });
+    }
+    await prisma.pairing.create({
+      data: {
+        sessionId: sessionCode,
+        courtNumber: 2,
+        matchNumber: 3,
+        teamA: JSON.stringify([j.id, f1.id]),
+        teamB: JSON.stringify([f2.id, f3.id]),
+        confirmedAt: new Date(),
+        endedAt: new Date(),
+        winner: 'A',
+      },
+    });
+
+    try {
+      await request(server)
+        .post(`/sessions/${sessionCode}/roster/deprioritize-waiting`)
+        .expect(201);
+
+      // J has the fewest games among the waiting players (1, vs I's 2) and
+      // must be left untouched so they are preferred next draw.
+      const jRow = await prisma.sessionRoster.findFirstOrThrow({
+        where: { sessionId: sessionCode, playerId: j.id },
+      });
+      expect(jRow.gamesOffset).toBe(0);
+
+      // I is credited up to the on-court max (3), same rotation-fairness
+      // credit already used when re-activating a player.
+      const iRow = await prisma.sessionRoster.findFirstOrThrow({
+        where: { sessionId: sessionCode, playerId: i.id },
+      });
+      expect(iRow.gamesOffset).toBe(1);
+
+      // Players currently on court are untouched.
+      const aRow = await prisma.sessionRoster.findFirstOrThrow({
+        where: { sessionId: sessionCode, playerId: a.id },
+      });
+      expect(aRow.gamesOffset).toBe(0);
+
+      // The credit is rotation-only: the stats table must still report what
+      // actually happened.
+      const stats = await request(server).get(`/sessions/${sessionCode}/stats`).expect(200);
+      const iStats = stats.body.find((r: { playerId: string }) => r.playerId === i.id);
+      expect(iStats.played).toBe(2);
+      const jStats = stats.body.find((r: { playerId: string }) => r.playerId === j.id);
+      expect(jStats.played).toBe(1);
+    } finally {
+      await prisma.pairing.deleteMany({ where: { sessionId: sessionCode } });
+      await prisma.sessionRoster.deleteMany({ where: { sessionId: sessionCode } });
+      await prisma.session.deleteMany({ where: { code: sessionCode } });
+      await prisma.player.deleteMany({ where: { groupId: groupCode } });
+      await prisma.group.deleteMany({ where: { code: groupCode } });
+    }
+  });
+
+  it('deprioritize-waiting never lowers an existing offset and leaves a lone waiting player alone', async () => {
+    const groupCode = randomUUID();
+    const sessionCode = randomUUID();
+    await prisma.group.create({ data: { code: groupCode, name: 'G' } });
+    const players = await Promise.all(
+      ['A', 'B', 'C', 'D', 'ONLY'].map((name) =>
+        prisma.player.create({ data: { groupId: groupCode, name, aliases: '[]' } })
+      )
+    );
+    const only = players[4];
+    await prisma.session.create({
+      data: { code: sessionCode, groupId: groupCode, courtCount: 1, rawImportText: '' },
+    });
+    for (const p of players) {
+      await prisma.sessionRoster.create({ data: { sessionId: sessionCode, playerId: p.id } });
+    }
+    await prisma.pairing.create({
+      data: {
+        sessionId: sessionCode,
+        courtNumber: 1,
+        matchNumber: 1,
+        teamA: JSON.stringify([players[0].id, players[1].id]),
+        teamB: JSON.stringify([players[2].id, players[3].id]),
+        confirmedAt: new Date(),
+        endedAt: null,
+        winner: null,
+      },
+    });
+
+    try {
+      // A single waiting player is, trivially, the one with the fewest games
+      // — nobody else is left to bump.
+      const res = await request(server)
+        .post(`/sessions/${sessionCode}/roster/deprioritize-waiting`)
+        .expect(201);
+      expect(res.body.deprioritized).toEqual([]);
+
+      const row = await prisma.sessionRoster.findFirstOrThrow({
+        where: { sessionId: sessionCode, playerId: only.id },
+      });
       expect(row.gamesOffset).toBe(0);
     } finally {
       await prisma.pairing.deleteMany({ where: { sessionId: sessionCode } });

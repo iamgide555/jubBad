@@ -12,6 +12,7 @@ import { computeRatings } from '../../../engines/elo.ts';
 import {
   compareArrangements,
   generateRound,
+  groupKey,
   InvalidRoundInputError,
 } from '../../../engines/pairing.ts';
 import { isValidIsoDate } from '../../../engines/parser.ts';
@@ -322,7 +323,7 @@ export class SessionsService {
       }),
       this.prisma.session.findUnique({
         where: { code: sessionCode },
-        select: { createdAt: true },
+        select: { createdAt: true, courtCount: true },
       }),
       this.prisma.pairing.findMany({
         where: { sessionId: sessionCode, endedAt: { not: null } },
@@ -368,6 +369,23 @@ export class SessionsService {
         session.createdAt.toISOString(),
         activatedAt
       );
+
+      // One round's worth of the most recently finished matches, across every
+      // court — not just the one being reshuffled. Async court finishes are
+      // exactly what ties players level on games and waiting time, which is
+      // when the engine needs this to avoid handing a quartet straight back
+      // onto another court with the teams swapped.
+      const courtCount = session.courtCount ?? 0;
+      if (courtCount > 0) {
+        history.recentGroupKeys = new Set(
+          finished.slice(-courtCount).map((p) =>
+            groupKey([
+              ...(JSON.parse(p.teamA) as [string, string]),
+              ...(JSON.parse(p.teamB) as [string, string]),
+            ])
+          )
+        );
+      }
     }
 
     return history;
@@ -1252,6 +1270,80 @@ export class SessionsService {
     }
     const updated = await this.prisma.sessionRoster.findUniqueOrThrow({ where: { id: entry.id } });
     return { playerId: updated.playerId, active: updated.active };
+  }
+
+  deprioritizeWaiting(sessionCode: string) {
+    return this.lock.run(sessionCode, () => this.deprioritizeWaitingExclusively(sessionCode));
+  }
+
+  /**
+   * Manual escape hatch for the async-court-desync case the pairing engine
+   * now handles automatically (see recentGroupKeys in loadHistory): a host
+   * who spots the engine about to hand a quartet straight back can credit
+   * everyone waiting except the one with the fewest games up to the on-court
+   * max, so the next draw is forced to include that player instead. Reuses
+   * the same gamesOffset rotation-only credit as re-activating a player —
+   * stats read the Pairing rows directly and never see it.
+   */
+  private async deprioritizeWaitingExclusively(sessionCode: string) {
+    const session = await this.prisma.session.findUnique({ where: { code: sessionCode } });
+    if (!session) throw this.notFound('SESSION_NOT_FOUND');
+    if (session.endedAt !== null) throw this.conflict('SESSION_ENDED');
+
+    const roster = await this.prisma.sessionRoster.findMany({
+      where: { sessionId: sessionCode, active: true },
+    });
+    const nonEnded = await this.prisma.pairing.findMany({
+      where: { sessionId: sessionCode, endedAt: null },
+    });
+    const onCourt = new Set<string>();
+    for (const p of nonEnded) {
+      for (const id of [
+        ...(JSON.parse(p.teamA) as [string, string]),
+        ...(JSON.parse(p.teamB) as [string, string]),
+      ]) {
+        onCourt.add(id);
+      }
+    }
+    const waiting = roster.filter((r) => !onCourt.has(r.playerId));
+    if (waiting.length <= 1) {
+      return { ok: true as const, deprioritized: [] as string[] };
+    }
+
+    const history = await this.loadHistory(session.groupId, sessionCode);
+    const effective = (playerId: string, gamesOffset: number) =>
+      (history.gamesPlayedThisSession.get(playerId) ?? 0) + gamesOffset;
+
+    const target = roster.reduce(
+      (max, r) => (onCourt.has(r.playerId) ? Math.max(max, effective(r.playerId, r.gamesOffset)) : max),
+      0
+    );
+    const lowest = waiting.reduce((min, r) =>
+      effective(r.playerId, r.gamesOffset) < effective(min.playerId, min.gamesOffset) ? r : min
+    );
+
+    const updates = waiting
+      .filter((r) => r.id !== lowest.id)
+      .map((r) => ({
+        entry: r,
+        // max() so this can only ever add credit, never take it away.
+        gamesOffset: Math.max(r.gamesOffset, target - effective(r.playerId, r.gamesOffset) + r.gamesOffset),
+      }))
+      .filter(({ entry, gamesOffset }) => gamesOffset !== entry.gamesOffset);
+
+    const results = await Promise.all(
+      updates.map(({ entry, gamesOffset }) =>
+        this.prisma.sessionRoster.updateMany({
+          where: { id: entry.id, gamesOffset: entry.gamesOffset },
+          data: { gamesOffset },
+        })
+      )
+    );
+    if (results.some((r) => r.count !== 1)) {
+      throw this.conflict('ROSTER_STALE');
+    }
+
+    return { ok: true as const, deprioritized: updates.map(({ entry }) => entry.playerId) };
   }
 
   async getStats(code: string, scope: 'session' | 'all') {

@@ -2,6 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   pairKey,
+  groupKey,
   shuffle,
   selectSittingOut,
   scoreArrangement,
@@ -580,4 +581,123 @@ test('generateRound passes waiting time through to sit-out selection', () => {
     makeSeededRandom(12)
   );
   assert.deepEqual(sittingOut, ['short']);
+});
+
+test('groupKey is order-independent', () => {
+  assert.equal(groupKey(['a', 'b', 'c', 'd']), groupKey(['d', 'c', 'b', 'a']));
+});
+
+test('groupKey produces a stable, distinct key per group', () => {
+  assert.equal(groupKey(['a', 'b', 'c', 'd']), 'a|b|c|d');
+  assert.notEqual(groupKey(['a', 'b', 'c', 'd']), groupKey(['a', 'b', 'c', 'e']));
+});
+
+function courtGroupKey(court: { teamA: [string, string]; teamB: [string, string] }): string {
+  return groupKey([court.teamA[0], court.teamA[1], court.teamB[0], court.teamB[1]]);
+}
+
+test('generateRound avoids re-forming a quartet that just played together, regardless of split', () => {
+  // Regression for the reported bug: two courts finishing asynchronously left
+  // the same 4 players tied on games/waitingSince with everyone else, and
+  // nothing stopped the optimizer from regrouping them — just with the teams
+  // swapped, which looked like "matched against the same people, different
+  // team" to the host.
+  const roster = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'];
+  const history: MatchHistory = {
+    partnerCounts: new Map(),
+    opponentCounts: new Map(),
+    gamesPlayedThisSession: new Map(),
+    recentGroupKeys: new Set([groupKey(['a', 'b', 'c', 'd'])]),
+  };
+
+  for (let seed = 0; seed < 40; seed++) {
+    const result = generateRound(roster, 2, history, makeSeededRandom(seed));
+    for (const court of result.courts) {
+      assert.notEqual(courtGroupKey(court), groupKey(['a', 'b', 'c', 'd']));
+    }
+  }
+});
+
+test('group-repeat avoidance wins even when the recent quartet is otherwise the cheapest arrangement by history', () => {
+  // Regression: a fixed score penalty stops being decisive once partner/
+  // opponent counts grow large (the same failure mode avoidSplit had before
+  // it became a real exclusion). Group-repeat avoidance must not be a plain
+  // additive weight that can be swamped the same way.
+  const roster = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'];
+  const partnerCounts = new Map<string, number>();
+  for (let i = 0; i < roster.length; i++) {
+    for (let j = i + 1; j < roster.length; j++) {
+      partnerCounts.set(pairKey(roster[i], roster[j]), 500);
+    }
+  }
+  // a-b-c-d's internal pairs have never partnered — the cheapest possible
+  // grouping by history alone, and yet still the one that must be avoided.
+  for (const [x, y] of [
+    ['a', 'b'],
+    ['a', 'c'],
+    ['a', 'd'],
+    ['b', 'c'],
+    ['b', 'd'],
+    ['c', 'd'],
+  ]) {
+    partnerCounts.set(pairKey(x, y), 0);
+  }
+  const history: MatchHistory = {
+    partnerCounts,
+    opponentCounts: new Map(),
+    gamesPlayedThisSession: new Map(),
+    recentGroupKeys: new Set([groupKey(['a', 'b', 'c', 'd'])]),
+  };
+
+  for (let seed = 0; seed < 40; seed++) {
+    const result = generateRound(roster, 2, history, makeSeededRandom(seed));
+    for (const court of result.courts) {
+      assert.notEqual(courtGroupKey(court), groupKey(['a', 'b', 'c', 'd']));
+    }
+  }
+});
+
+test('generateRound avoids a recent quartet when filling a single idle court, even with no true tie in waiting time', () => {
+  // Regression: real waitingSince values are wall-clock timestamps and are
+  // essentially never exactly equal. When only one court is idle, whoever
+  // selectSittingOut picks to play *is* the group — the grouping search never
+  // runs to fix it — so a mechanism that only reorders genuine ties (like
+  // retrying the random draw) can never find an alternative here. a-d
+  // finished strictly earlier than e-h, so there is no tie for a reshuffle to
+  // exploit, and yet a-d (who just played each other) must not be handed
+  // straight back as the only group for the one court being filled.
+  const roster = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'];
+  const history: MatchHistory = {
+    partnerCounts: new Map(),
+    opponentCounts: new Map(),
+    gamesPlayedThisSession: new Map(roster.map((p) => [p, 1])),
+    waitingSince: new Map([
+      ['a', 1000],
+      ['b', 1000],
+      ['c', 1000],
+      ['d', 1000],
+      ['e', 2000],
+      ['f', 2000],
+      ['g', 2000],
+      ['h', 2000],
+    ]),
+    recentGroupKeys: new Set([groupKey(['a', 'b', 'c', 'd'])]),
+  };
+
+  for (let seed = 0; seed < 20; seed++) {
+    const result = generateRound(roster, 1, history, makeSeededRandom(seed));
+    assert.notEqual(courtGroupKey(result.courts[0]), groupKey(['a', 'b', 'c', 'd']));
+  }
+});
+
+test('generateRound reforms a recent quartet rather than failing when there is no other option', () => {
+  const roster = ['a', 'b', 'c', 'd'];
+  const history: MatchHistory = {
+    partnerCounts: new Map(),
+    opponentCounts: new Map(),
+    gamesPlayedThisSession: new Map(),
+    recentGroupKeys: new Set([groupKey(['a', 'b', 'c', 'd'])]),
+  };
+  const result = generateRound(roster, 1, history, makeSeededRandom(7));
+  assert.equal(result.courts.length, 1);
 });

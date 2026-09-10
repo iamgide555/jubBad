@@ -199,6 +199,20 @@ export class LiveSessionService {
     );
   }
 
+  /**
+   * Manual escape hatch for when two courts finish out of sync: credits every
+   * waiting player except the one with the fewest games up to the on-court
+   * max, so the next draw is forced to include that player instead. Rotation
+   * weight only — never touches the real games-played stat.
+   */
+  deprioritizeWaiting(): Promise<ActionResult> {
+    return this.post(
+      'roster/deprioritize-waiting',
+      {},
+      $localize`:@@err.deprioritizeWaiting:จัดคิวใหม่ไม่สำเร็จ`
+    );
+  }
+
   undoCourt(courtNumber: number): Promise<ActionResult> {
     return this.post(
       `courts/${courtNumber}/undo`,

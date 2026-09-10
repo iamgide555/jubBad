@@ -2149,6 +2149,157 @@ describe('SessionsController', () => {
     }
   });
 
+  it('with nobody on court, still bumps a lagging waiting player up to the roster-wide max', async () => {
+    // Regression: target used to be computed only from on-court players, so
+    // clicking the button at the moment both courts are already idle — the
+    // moment it's actually needed — silently did nothing (target defaulted
+    // to 0, and nobody's effective games can be below that).
+    const groupCode = randomUUID();
+    const sessionCode = randomUUID();
+    await prisma.group.create({ data: { code: groupCode, name: 'G' } });
+    const players = await Promise.all(
+      ['A', 'B', 'C', 'D', 'MID', 'LOW', 'F1', 'F2', 'F3'].map((name) =>
+        prisma.player.create({ data: { groupId: groupCode, name, aliases: '[]' } })
+      )
+    );
+    const [a, b, c, d, mid, low] = players;
+    await prisma.session.create({
+      data: { code: sessionCode, groupId: groupCode, courtCount: 1, rawImportText: '' },
+    });
+    for (const p of [a, b, c, d, mid, low]) {
+      await prisma.sessionRoster.create({ data: { sessionId: sessionCode, playerId: p.id } });
+    }
+    // MID's one match ends first, so it falls outside the 1-match lookback
+    // window and isn't treated as "the last group" — isolates this test to
+    // the target formula alone, independent of the push-2-of-last-group
+    // behaviour covered separately below.
+    await prisma.pairing.create({
+      data: {
+        sessionId: sessionCode,
+        courtNumber: 1,
+        matchNumber: 1,
+        teamA: JSON.stringify([mid.id, players[6].id]),
+        teamB: JSON.stringify([players[7].id, players[8].id]),
+        confirmedAt: new Date(),
+        endedAt: new Date(),
+        winner: 'A',
+      },
+    });
+    // A, B, C, D each play twice after that (all matches ended — nobody on
+    // court), setting the roster-wide max at 2. This is the last-finished
+    // group, but none of its members is the one this test asserts on.
+    for (let n = 1; n <= 2; n++) {
+      await prisma.pairing.create({
+        data: {
+          sessionId: sessionCode,
+          courtNumber: 1,
+          matchNumber: n + 1,
+          teamA: JSON.stringify([a.id, b.id]),
+          teamB: JSON.stringify([c.id, d.id]),
+          confirmedAt: new Date(Date.now() + n * 1000),
+          endedAt: new Date(),
+          winner: 'A',
+        },
+      });
+    }
+    // LOW has never played.
+
+    try {
+      await request(server)
+        .post(`/sessions/${sessionCode}/roster/deprioritize-waiting`)
+        .expect(201);
+
+      // With the bug, target (on-court max) would be 0 and MID — already on
+      // 1 game — would be untouched. Fixed, target is the roster-wide max
+      // (2), so MID is credited up by 1.
+      const midRow = await prisma.sessionRoster.findFirstOrThrow({
+        where: { sessionId: sessionCode, playerId: mid.id },
+      });
+      expect(midRow.gamesOffset).toBe(1);
+
+      const lowRow = await prisma.sessionRoster.findFirstOrThrow({
+        where: { sessionId: sessionCode, playerId: low.id },
+      });
+      expect(lowRow.gamesOffset).toBe(0); // LOW is the protected lowest.
+    } finally {
+      await prisma.pairing.deleteMany({ where: { sessionId: sessionCode } });
+      await prisma.sessionRoster.deleteMany({ where: { sessionId: sessionCode } });
+      await prisma.session.deleteMany({ where: { code: sessionCode } });
+      await prisma.player.deleteMany({ where: { groupId: groupCode } });
+      await prisma.group.deleteMany({ where: { code: groupCode } });
+    }
+  });
+
+  it('pushes exactly 2 of the last-played group above the rest when they are still waiting', async () => {
+    const groupCode = randomUUID();
+    const sessionCode = randomUUID();
+    await prisma.group.create({ data: { code: groupCode, name: 'G' } });
+    const players = await Promise.all(
+      ['A', 'B', 'C', 'D', 'LOW'].map((name) =>
+        prisma.player.create({ data: { groupId: groupCode, name, aliases: '[]' } })
+      )
+    );
+    const [a, b, c, d, low] = players;
+    await prisma.session.create({
+      data: { code: sessionCode, groupId: groupCode, courtCount: 2, rawImportText: '' },
+    });
+    for (const p of players) {
+      await prisma.sessionRoster.create({ data: { sessionId: sessionCode, playerId: p.id } });
+    }
+    // A+B vs C+D just finished (the only finished match) — nobody on court.
+    await prisma.pairing.create({
+      data: {
+        sessionId: sessionCode,
+        courtNumber: 1,
+        matchNumber: 1,
+        teamA: JSON.stringify([a.id, b.id]),
+        teamB: JSON.stringify([c.id, d.id]),
+        confirmedAt: new Date(),
+        endedAt: new Date(),
+        winner: 'A',
+      },
+    });
+    // LOW has never played — the protected lowest, not in the last group.
+
+    try {
+      await request(server)
+        .post(`/sessions/${sessionCode}/roster/deprioritize-waiting`)
+        .expect(201);
+
+      // A and B (first 2 in the stored team order) are pushed to target + 1.
+      const aRow = await prisma.sessionRoster.findFirstOrThrow({
+        where: { sessionId: sessionCode, playerId: a.id },
+      });
+      const bRow = await prisma.sessionRoster.findFirstOrThrow({
+        where: { sessionId: sessionCode, playerId: b.id },
+      });
+      expect(aRow.gamesOffset).toBe(1);
+      expect(bRow.gamesOffset).toBe(1);
+
+      // C and D are left at the ordinary target tier — already there, so
+      // untouched, not pushed above it.
+      const cRow = await prisma.sessionRoster.findFirstOrThrow({
+        where: { sessionId: sessionCode, playerId: c.id },
+      });
+      const dRow = await prisma.sessionRoster.findFirstOrThrow({
+        where: { sessionId: sessionCode, playerId: d.id },
+      });
+      expect(cRow.gamesOffset).toBe(0);
+      expect(dRow.gamesOffset).toBe(0);
+
+      const lowRow = await prisma.sessionRoster.findFirstOrThrow({
+        where: { sessionId: sessionCode, playerId: low.id },
+      });
+      expect(lowRow.gamesOffset).toBe(0);
+    } finally {
+      await prisma.pairing.deleteMany({ where: { sessionId: sessionCode } });
+      await prisma.sessionRoster.deleteMany({ where: { sessionId: sessionCode } });
+      await prisma.session.deleteMany({ where: { code: sessionCode } });
+      await prisma.player.deleteMany({ where: { groupId: groupCode } });
+      await prisma.group.deleteMany({ where: { code: groupCode } });
+    }
+  });
+
   it('measures a late arrival\'s wait from when they arrived, not the session start', async () => {
     const groupCode = randomUUID();
     const sessionCode = randomUUID();

@@ -377,14 +377,20 @@ export class SessionsService {
       // onto another court with the teams swapped.
       const courtCount = session.courtCount ?? 0;
       if (courtCount > 0) {
-        history.recentGroupKeys = new Set(
-          finished.slice(-courtCount).map((p) =>
-            groupKey([
-              ...(JSON.parse(p.teamA) as [string, string]),
-              ...(JSON.parse(p.teamB) as [string, string]),
-            ])
-          )
-        );
+        const recentGroups = finished
+          .slice(-courtCount)
+          .map(
+            (p) =>
+              [
+                ...(JSON.parse(p.teamA) as [string, string]),
+                ...(JSON.parse(p.teamB) as [string, string]),
+              ] as string[]
+          );
+        history.recentGroupKeys = new Set(recentGroups.map((group) => groupKey(group)));
+        // Raw, unhashed — server-only, used by deprioritizeWaitingExclusively
+        // to target the actual players in the last group, not just detect a
+        // repeat. Not part of MatchHistory; the engine never reads it.
+        (history as typeof history & { recentGroups: string[][] }).recentGroups = recentGroups;
       }
     }
 
@@ -1278,12 +1284,17 @@ export class SessionsService {
 
   /**
    * Manual escape hatch for the async-court-desync case the pairing engine
-   * now handles automatically (see recentGroupKeys in loadHistory): a host
-   * who spots the engine about to hand a quartet straight back can credit
-   * everyone waiting except the one with the fewest games up to the on-court
-   * max, so the next draw is forced to include that player instead. Reuses
-   * the same gamesOffset rotation-only credit as re-activating a player —
-   * stats read the Pairing rows directly and never see it.
+   * handles automatically (see recentGroupKeys in loadHistory) but only ever
+   * by swapping the single player nearest the fairness boundary. A host who
+   * wants more than that can credit everyone waiting except the one with the
+   * fewest games up to the roster-wide max, so the next draw favours them —
+   * and additionally push exactly 2 of the last-played group's still-waiting
+   * members above that level, guaranteeing at least 2 of them sit out next.
+   * Only 2, not all 4: pushing the whole group by an identical amount would
+   * just keep them tied to each other and reforming as a unit later, rather
+   * than actually breaking it up. Reuses the same gamesOffset rotation-only
+   * credit as re-activating a player — stats read the Pairing rows directly
+   * and never see it.
    */
   private async deprioritizeWaitingExclusively(sessionCode: string) {
     const session = await this.prisma.session.findUnique({ where: { code: sessionCode } });
@@ -1311,24 +1322,34 @@ export class SessionsService {
     }
 
     const history = await this.loadHistory(session.groupId, sessionCode);
+    const recentGroups = (history as typeof history & { recentGroups?: string[][] }).recentGroups ?? [];
     const effective = (playerId: string, gamesOffset: number) =>
       (history.gamesPlayedThisSession.get(playerId) ?? 0) + gamesOffset;
 
-    const target = roster.reduce(
-      (max, r) => (onCourt.has(r.playerId) ? Math.max(max, effective(r.playerId, r.gamesOffset)) : max),
-      0
-    );
+    // Whole roster, not just who's currently on court — meaningful even when
+    // both courts are already idle, which is exactly when this gets clicked.
+    const target = roster.reduce((max, r) => Math.max(max, effective(r.playerId, r.gamesOffset)), 0);
     const lowest = waiting.reduce((min, r) =>
       effective(r.playerId, r.gamesOffset) < effective(min.playerId, min.gamesOffset) ? r : min
     );
 
+    const waitingIds = new Set(waiting.map((r) => r.playerId));
+    const pushIds = new Set<string>();
+    for (const group of recentGroups) {
+      const candidates = group.filter((id) => waitingIds.has(id) && id !== lowest.playerId);
+      for (const id of candidates.slice(0, 2)) pushIds.add(id);
+    }
+
     const updates = waiting
       .filter((r) => r.id !== lowest.id)
-      .map((r) => ({
-        entry: r,
-        // max() so this can only ever add credit, never take it away.
-        gamesOffset: Math.max(r.gamesOffset, target - effective(r.playerId, r.gamesOffset) + r.gamesOffset),
-      }))
+      .map((r) => {
+        const level = pushIds.has(r.playerId) ? target + 1 : target;
+        return {
+          entry: r,
+          // max() so this can only ever add credit, never take it away.
+          gamesOffset: Math.max(r.gamesOffset, level - effective(r.playerId, r.gamesOffset) + r.gamesOffset),
+        };
+      })
       .filter(({ entry, gamesOffset }) => gamesOffset !== entry.gamesOffset);
 
     const results = await Promise.all(

@@ -25,31 +25,45 @@ describe('AuthService', () => {
   });
 
   it('reports signed in after a successful login', async () => {
-    const result = service.login('a-token');
+    const result = service.login('host@example.test', 'a real password');
     const req = httpMock.expectOne(`${B}/auth/login`);
     expect(req.request.method).toBe('POST');
-    expect(req.request.body).toEqual({ token: 'a-token' });
+    expect(req.request.body).toEqual({ email: 'host@example.test', password: 'a real password' });
     req.flush({ authenticated: true });
+
+    // login() does not carry role/email itself, so it asks /auth/me for them
+    // — a second await inside login(), which needs a microtask tick to reach
+    // the point where that request has actually been issued.
+    await Promise.resolve();
+    httpMock
+      .expectOne(`${B}/auth/me`)
+      .flush({ authenticated: true, role: 'host', email: 'host@example.test' });
 
     expect(await result).toBe(true);
     expect(service.isAuthed()).toBe(true);
+    expect(service.role()).toBe('host');
+    expect(service.email()).toBe('host@example.test');
   });
 
-  it('never stores the token itself — the cookie is the credential', async () => {
-    const result = service.login('a-token');
+  it('never stores the password itself — the cookie is the credential', async () => {
+    const result = service.login('host@example.test', 'a real password');
     httpMock.expectOne(`${B}/auth/login`).flush({ authenticated: true });
+    await Promise.resolve();
+    httpMock
+      .expectOne(`${B}/auth/me`)
+      .flush({ authenticated: true, role: 'host', email: 'host@example.test' });
     await result;
 
-    // If the token were kept anywhere reachable from script, choosing an
+    // If the password were kept anywhere reachable from script, choosing an
     // httpOnly cookie over localStorage would have bought nothing.
     const values = Object.values(service as unknown as Record<string, unknown>);
-    expect(values.filter((v) => typeof v === 'string')).not.toContain('a-token');
+    expect(values.filter((v) => typeof v === 'string')).not.toContain('a real password');
     expect(Object.keys(localStorage)).toHaveLength(0);
     expect(Object.keys(sessionStorage)).toHaveLength(0);
   });
 
-  it('reports failure on a rejected token without throwing', async () => {
-    const result = service.login('wrong');
+  it('reports failure on rejected credentials without throwing', async () => {
+    const result = service.login('host@example.test', 'wrong');
     httpMock
       .expectOne(`${B}/auth/login`)
       .flush({ message: 'nope' }, { status: 401, statusText: 'Unauthorized' });
@@ -59,7 +73,7 @@ describe('AuthService', () => {
   });
 
   it('distinguishes a throttled response so the user can be told to wait', async () => {
-    const result = service.login('wrong');
+    const result = service.login('host@example.test', 'wrong');
     httpMock
       .expectOne(`${B}/auth/login`)
       .flush({ message: 'slow down' }, { status: 429, statusText: 'Too Many Requests' });
@@ -69,9 +83,12 @@ describe('AuthService', () => {
 
   it('checks the server rather than trusting its own flag', async () => {
     const result = service.check();
-    httpMock.expectOne(`${B}/auth/me`).flush({ authenticated: true });
+    httpMock
+      .expectOne(`${B}/auth/me`)
+      .flush({ authenticated: true, role: 'admin', email: 'a@x.test' });
     expect(await result).toBe(true);
     expect(service.isAuthed()).toBe(true);
+    expect(service.role()).toBe('admin');
   });
 
   it('treats an unreachable server as not signed in', async () => {
@@ -82,9 +99,13 @@ describe('AuthService', () => {
     expect(await result).toBe(false);
   });
 
-  it('clears its flag on logout', async () => {
-    const login = service.login('a-token');
+  it('clears its flag and role on logout', async () => {
+    const login = service.login('host@example.test', 'a real password');
     httpMock.expectOne(`${B}/auth/login`).flush({ authenticated: true });
+    await Promise.resolve();
+    httpMock
+      .expectOne(`${B}/auth/me`)
+      .flush({ authenticated: true, role: 'host', email: 'host@example.test' });
     await login;
 
     const out = service.logout();
@@ -92,5 +113,7 @@ describe('AuthService', () => {
     await out;
 
     expect(service.isAuthed()).toBe(false);
+    expect(service.role()).toBeNull();
+    expect(service.email()).toBeNull();
   });
 });

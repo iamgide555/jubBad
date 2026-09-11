@@ -84,7 +84,7 @@ describe('Prisma schema round-trip', () => {
 
       // Group.ownerId is nullable at the schema level, but every group created
       // through the app always has one — see the schema comment on the column.
-      const group = await prisma.group.create({
+      await prisma.group.create({
         data: { code: groupCode, name: 'Owned Group', ownerId: user.id },
       });
 

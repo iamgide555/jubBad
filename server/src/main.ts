@@ -8,6 +8,7 @@ import { NestFactory } from '@nestjs/core';
 import cookieParser from 'cookie-parser';
 import { AppModule } from './app.module.js';
 import { parseCorsOrigins } from './cors.js';
+import { SESSION_SECRET } from './auth/auth.module.js';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
@@ -28,8 +29,15 @@ async function bootstrap() {
      */
     credentials: true,
   });
-  // Must precede the guard, which reads req.cookies.
-  app.use(cookieParser());
+  /**
+   * Must precede the guard, which reads req.signedCookies. Resolved through
+   * the app rather than read from process.env a second time, so this can
+   * never drift from the value AuthModule's SESSION_SECRET provider actually
+   * validated — an unsecreted cookieParser() here would silently fail every
+   * signed-cookie read rather than throw, which is the one failure mode this
+   * duplication exists to rule out.
+   */
+  app.use(cookieParser(app.get(SESSION_SECRET)));
   app.useGlobalPipes(new ValidationPipe({ whitelist: true, transform: true }));
   await app.listen(process.env.PORT ?? 3000);
 }

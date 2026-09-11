@@ -1130,18 +1130,25 @@
           <context context-type="linenumber">2</context>
         </context-group>
       </trans-unit>
-      <trans-unit id="login.lede" datatype="html">
-        <source>หน้านี้สำหรับผู้ดูแลก๊วนเท่านั้น</source><target>This page is for the group admin only.</target>
+      <trans-unit id="login.lede2" datatype="html">
+        <source>เข้าสู่ระบบเพื่อจัดการก๊วนของคุณ</source><target>Sign in to manage your groups.</target>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/login/login.html</context>
           <context context-type="linenumber">3</context>
         </context-group>
       </trans-unit>
-      <trans-unit id="login.tokenLabel" datatype="html">
-        <source>โทเคนผู้ดูแล</source><target>Admin token</target>
+      <trans-unit id="login.emailLabel" datatype="html">
+        <source>อีเมล</source><target>Email</target>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/login/login.html</context>
           <context context-type="linenumber">6</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="login.passwordLabel" datatype="html">
+        <source>รหัสผ่าน</source><target>Password</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/login/login.html</context>
+          <context context-type="linenumber">17</context>
         </context-group>
       </trans-unit>
       <trans-unit id="login.signIn" datatype="html">
@@ -1158,11 +1165,11 @@
           <context context-type="linenumber">22</context>
         </context-group>
       </trans-unit>
-      <trans-unit id="login.wrongToken" datatype="html">
-        <source>โทเคนไม่ถูกต้อง</source><target>That token is not right.</target>
+      <trans-unit id="login.wrongCredentials" datatype="html">
+        <source>อีเมลหรือรหัสผ่านไม่ถูกต้อง</source><target>That email or password is not right.</target>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/login/login.ts</context>
-          <context context-type="linenumber">41</context>
+          <context context-type="linenumber">44</context>
         </context-group>
       </trans-unit>
       <trans-unit id="login.throttled" datatype="html">

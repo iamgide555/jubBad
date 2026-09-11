@@ -1,16 +1,28 @@
 <div class="page login">
   <h1 i18n="@@login.title">JubBad</h1>
-  <p class="lede" i18n="@@login.lede">หน้านี้สำหรับผู้ดูแลก๊วนเท่านั้น</p>
+  <p class="lede" i18n="@@login.lede2">เข้าสู่ระบบเพื่อจัดการก๊วนของคุณ</p>
 
   <form (ngSubmit)="submit()">
-    <label for="token" i18n="@@login.tokenLabel">โทเคนผู้ดูแล</label>
+    <label for="email" i18n="@@login.emailLabel">อีเมล</label>
     <input
-      id="token"
-      name="token"
+      id="email"
+      name="email"
+      type="email"
+      autocomplete="username"
+      [ngModel]="email()"
+      (ngModelChange)="email.set($event)"
+      [attr.aria-invalid]="error() ? 'true' : null"
+      [attr.aria-describedby]="error() ? 'login-error' : null"
+    />
+
+    <label for="password" i18n="@@login.passwordLabel">รหัสผ่าน</label>
+    <input
+      id="password"
+      name="password"
       type="password"
       autocomplete="current-password"
-      [ngModel]="token()"
-      (ngModelChange)="token.set($event)"
+      [ngModel]="password()"
+      (ngModelChange)="password.set($event)"
       [attr.aria-invalid]="error() ? 'true' : null"
       [attr.aria-describedby]="error() ? 'login-error' : null"
     />
@@ -19,7 +31,7 @@
       <p class="error" id="login-error" role="alert">{{ error() }}</p>
     }
 
-    <button type="submit" [disabled]="busy() || !token().trim()">
+    <button type="submit" [disabled]="busy() || !email().trim() || !password()">
       @if (busy()) {
         <ng-container i18n="@@login.signingIn">กำลังเข้าสู่ระบบ…</ng-container>
       } @else {

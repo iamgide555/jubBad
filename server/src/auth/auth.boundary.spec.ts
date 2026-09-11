@@ -5,9 +5,12 @@ import request from 'supertest';
 import cookieParser from 'cookie-parser';
 import { AppModule } from '../app.module.js';
 import { PrismaService } from '../prisma/prisma.service.js';
-import { ADMIN_TOKEN } from './admin.guard.js';
+import { SESSION_SECRET } from './auth.module.js';
+import { AuthBootstrapService } from './bootstrap.service.js';
+import { UsersService } from '../users/users.service.js';
 
-const TOKEN = 'boundary-test-token';
+const SECRET = 'boundary-test-secret';
+const PASSWORD = 'a genuinely correct password';
 
 /**
  * The public surface, exhaustively. Anything not on this list must refuse an
@@ -48,20 +51,32 @@ describe('auth boundary', () => {
   let server: ReturnType<INestApplication['getHttpServer']>;
   let prisma: PrismaService;
   let ctx: Ctx;
+  let email: string;
+  let userId: string;
 
   beforeAll(async () => {
     const moduleRef = await Test.createTestingModule({ imports: [AppModule] })
-      .overrideProvider(ADMIN_TOKEN)
-      .useValue(TOKEN)
+      .overrideProvider(SESSION_SECRET)
+      .useValue(SECRET)
+      // This file seeds its own user directly; it must not depend on
+      // ADMIN_EMAIL / ADMIN_PASSWORD being present in the environment the
+      // test happens to run in (there is no server/.env in a fresh clone or
+      // CI).
+      .overrideProvider(AuthBootstrapService)
+      .useValue({ onModuleInit: async () => {} })
       .compile();
 
     app = moduleRef.createNestApplication();
-    app.use(cookieParser());
+    app.use(cookieParser(SECRET));
     app.useGlobalPipes(new ValidationPipe({ whitelist: true, transform: true }));
     await app.init();
     server = app.getHttpServer();
     await new Promise<void>((resolve) => server.listen(0, resolve));
     prisma = app.get(PrismaService);
+
+    email = `boundary-${randomUUID()}@example.test`;
+    const user = await app.get(UsersService).create(email, PASSWORD);
+    userId = user.id;
 
     const groupCode = randomUUID();
     await prisma.group.create({ data: { code: groupCode, name: 'Boundary' } });
@@ -79,6 +94,7 @@ describe('auth boundary', () => {
     await prisma.session.deleteMany({ where: { groupId: ctx.groupCode } });
     await prisma.player.deleteMany({ where: { groupId: ctx.groupCode } });
     await prisma.group.deleteMany({ where: { code: ctx.groupCode } });
+    await prisma.user.deleteMany({ where: { id: userId } });
     await app.close();
   });
 
@@ -133,7 +149,10 @@ describe('auth boundary', () => {
   });
 
   it('admits the same routes once the caller holds the cookie', async () => {
-    const login = await request(server).post('/auth/login').send({ token: TOKEN }).expect(201);
+    const login = await request(server)
+      .post('/auth/login')
+      .send({ email, password: PASSWORD })
+      .expect(201);
     const cookie = ([] as string[]).concat(login.headers['set-cookie'] ?? [])[0];
 
     await request(server).get('/groups').set('Cookie', cookie).expect(200);

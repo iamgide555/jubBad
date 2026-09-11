@@ -1,40 +1,48 @@
 import { Module } from '@nestjs/common';
 import { APP_GUARD } from '@nestjs/core';
-import { AdminGuard, ADMIN_TOKEN } from './admin.guard.js';
+import { AuthGuard } from './auth.guard.js';
 import { AuthController } from './auth.controller.js';
+import { AuthBootstrapService } from './bootstrap.service.js';
 import { LoginThrottle } from './login-throttle.js';
+import { UsersModule } from '../users/users.module.js';
+
+/** Injection token for the cookie-signing secret, so tests can supply their own. */
+export const SESSION_SECRET = 'SESSION_SECRET';
 
 /**
  * Reads the secret at module construction rather than at import, so tests can
  * replace the provider without ever running this.
  *
- * Throwing is the point. An unset secret must not degrade to "let everyone in":
- * that failure is invisible in production — the app boots, every page works,
- * and nothing indicates the door is open. A container that refuses to start is
- * noticed immediately.
+ * Throwing is the point. An unset secret must not degrade to "sign cookies
+ * with nothing" or "start up unable to verify any cookie": that failure is
+ * invisible in production — the app boots, every page works until someone's
+ * session is silently rejected, and nothing indicates why. A container that
+ * refuses to start is noticed immediately.
  */
-export function requireAdminToken(): string {
-  const token = process.env.ADMIN_TOKEN?.trim();
-  if (!token) {
+export function requireSessionSecret(): string {
+  const secret = process.env.SESSION_SECRET?.trim();
+  if (!secret) {
     throw new Error(
-      'ADMIN_TOKEN is not set. The API will not start without it — see server/.env.example.'
+      'SESSION_SECRET is not set. The API will not start without it — see server/.env.example.'
     );
   }
-  return token;
+  return secret;
 }
 
 @Module({
+  imports: [UsersModule],
   controllers: [AuthController],
   providers: [
-    { provide: ADMIN_TOKEN, useFactory: requireAdminToken },
+    { provide: SESSION_SECRET, useFactory: requireSessionSecret },
     LoginThrottle,
+    AuthBootstrapService,
     /**
      * Global. Registering it here rather than per-controller is what makes the
      * default deny: a route added anywhere in the app is closed until someone
      * marks it @Public().
      */
-    { provide: APP_GUARD, useClass: AdminGuard },
+    { provide: APP_GUARD, useClass: AuthGuard },
   ],
-  exports: [ADMIN_TOKEN],
+  exports: [SESSION_SECRET],
 })
 export class AuthModule {}

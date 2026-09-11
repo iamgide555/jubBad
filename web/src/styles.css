@@ -12,7 +12,9 @@
      itself (a court card, not a button). */
   --court-hover: #2c2a20;
   --line-surface: #242219;
-  --surface: #f3ead6;
+  /* Toned down from an earlier #f3ead6 — read as a little too bright/glowing
+     next to the board. Same warm cream family, just quieter. */
+  --surface: #ece0c4;
   --rule: #cbbd98;
   /* The warm highlighter-marker wash behind a held/picked player — a mark
      made on the sheet, not a tint borrowed from the brand color. */
@@ -26,7 +28,9 @@
   --ink: #efe6d0;
   --ink-soft: #a89f89;
   --ink-on-paper: #2a2418;
-  --ink-on-paper-soft: #6b6250;
+  /* Darkened from an earlier #6b6250 to keep a real margin above 4.5:1 now
+     that --surface reads a shade darker too — the two moved together. */
+  --ink-on-paper-soft: #5a5140;
   /* Light text for the dark, saturated surfaces that are neither the page
      board nor a paper card — a filled button, .page-dark. Keeps its old name
      for continuity with --court, the surface it was named after. */
@@ -316,6 +320,11 @@ textarea {
   padding: 0.6rem 0.7rem;
   min-height: var(--tap);
   width: 100%;
+  /* The root is color-scheme: dark for the page's own dark chrome, but these
+     sit on light paper — without this, the browser paints native form chrome
+     (the date-input calendar glyph, number-input spinners) in dark-mode
+     colors and it disappears against the light field underneath it. */
+  color-scheme: light;
 }
 
 @media (hover: hover) {

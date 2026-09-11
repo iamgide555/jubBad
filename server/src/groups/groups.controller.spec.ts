@@ -12,11 +12,32 @@ describe('GroupsController', () => {
   let prisma: PrismaService;
   let server: ReturnType<INestApplication['getHttpServer']>;
 
+  let testAdminId: string;
+
   beforeAll(async () => {
     const moduleRef = await Test.createTestingModule({
       imports: [PrismaModule, GroupsModule],
     }).compile();
     app = moduleRef.createNestApplication();
+    prisma = app.get(PrismaService);
+
+    // Group.ownerId has a real foreign key to User, so the caller this
+    // middleware injects has to be a real row, not just an object shape.
+    const testAdmin = await prisma.user.create({
+      data: { email: `groups-controller-test-admin-${randomUUID()}@example.test`, passwordHash: 'test', role: 'admin' },
+    });
+    testAdminId = testAdmin.id;
+
+    // This module has no AuthModule, so nothing ever sets req.user — the
+    // controller now reads it for the create-or-own check in parse() and the
+    // per-owner filter in list(). Standing in for AuthGuard here with a fixed
+    // admin caller keeps this file about group/roster logic, not auth; admin
+    // bypasses both checks, matching the unfiltered behaviour these tests
+    // already assume.
+    app.use((req: { user?: unknown }, _res: unknown, next: () => void) => {
+      req.user = { id: testAdminId, role: 'admin' };
+      next();
+    });
     app.useGlobalPipes(new ValidationPipe({ whitelist: true, transform: true }));
     await app.init();
     // supertest calls listen() itself for every request when the server is not
@@ -25,10 +46,10 @@ describe('GroupsController', () => {
     // Listening once here keeps a single server for the file.
     server = app.getHttpServer();
     await new Promise<void>((resolve) => server.listen(0, resolve));
-    prisma = app.get(PrismaService);
   });
 
   afterAll(async () => {
+    await prisma.user.deleteMany({ where: { id: testAdminId } });
     await app.close();
   });
 

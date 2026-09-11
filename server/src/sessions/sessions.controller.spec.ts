@@ -18,6 +18,15 @@ describe('SessionsController', () => {
       imports: [PrismaModule, SessionsModule],
     }).compile();
     app = moduleRef.createNestApplication();
+    // This module has no AuthModule, so nothing ever sets req.user — create()
+    // now reads it for the ownership check in SessionsService.createSession.
+    // Standing in for AuthGuard here with a fixed admin caller keeps this file
+    // about session/pairing logic, not auth; admin bypasses the check,
+    // matching the behaviour these tests already assume.
+    app.use((req: { user?: unknown }, _res: unknown, next: () => void) => {
+      req.user = { id: 'sessions-controller-test-admin', role: 'admin' };
+      next();
+    });
     app.useGlobalPipes(new ValidationPipe({ whitelist: true, transform: true }));
     await app.init();
     // supertest calls listen() itself for every request when the server is not

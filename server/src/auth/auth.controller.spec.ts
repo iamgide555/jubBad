@@ -37,6 +37,12 @@ describe('AuthController', () => {
     app.useGlobalPipes(new ValidationPipe({ whitelist: true, transform: true }));
     await app.init();
     server = app.getHttpServer();
+    // supertest calls listen() itself for every request when the server is
+    // not already listening; under enough requests in one test (the throttle
+    // tests send close to MAX_ATTEMPTS) that churn intermittently produces a
+    // "socket hang up" or a bogus 501 that reads like an application failure
+    // — the same cause A13 documents for the other controller specs.
+    await new Promise<void>((resolve) => server.listen(0, resolve));
 
     prisma = app.get(PrismaService);
     email = `test-${randomUUID()}@example.test`;

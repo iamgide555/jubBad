@@ -7,6 +7,7 @@ import type { UpdateGroupDto } from './dto/update-group.dto.js';
 import type { ParseRosterDto } from './dto/parse-roster.dto.js';
 
 type PairCount = { played: number; won: number; decisive: number };
+type Caller = { id: string; role: string };
 
 /**
  * Decisive games a pairing needs before its win rate is trusted. Five is about
@@ -28,9 +29,13 @@ export class GroupsService {
    * played tonight is at the top rather than whichever was made first. Groups
    * with no sessions yet sort last but are never dropped: a group exists from
    * the moment a roster is parsed into it, before any session is created.
+   *
+   * Scoped to `caller`'s own groups; an admin sees every group, since the
+   * admin console needs exactly that view.
    */
-  async listGroups() {
+  async listGroups(caller: Caller) {
     const groups = await this.prisma.group.findMany({
+      where: caller.role === 'admin' ? undefined : { ownerId: caller.id },
       include: {
         _count: { select: { sessions: true, players: true } },
         sessions: {
@@ -325,12 +330,29 @@ export class GroupsService {
     return { code, deleted: true };
   }
 
-  async parse(code: string, dto: ParseRosterDto) {
-    await this.prisma.group.upsert({
+  /**
+   * The one place a group is created — see the controller comment on this
+   * route for why that makes it the create-or-own point.
+   *
+   * The upsert is what keeps this safe under two hosts racing to claim the
+   * same fresh code at once: SQLite serializes the two writes (see
+   * PrismaService's WAL/busy_timeout comment), so exactly one `create`
+   * branch wins and sets `ownerId`; the loser's `update: {}` is a no-op, and
+   * the ownership check below then correctly refuses the loser rather than
+   * letting them import a roster into someone else's new group.
+   */
+  async parse(code: string, dto: ParseRosterDto, caller: Caller) {
+    const group = await this.prisma.group.upsert({
       where: { code },
-      create: { code, name: dto.groupName },
+      create: { code, name: dto.groupName, ownerId: caller.id },
       update: {},
     });
+    if (group.ownerId !== caller.id && caller.role !== 'admin') {
+      // Same 404 the rest of the ownership boundary uses — OwnershipGuard
+      // already let this through because the code had no group *before* this
+      // upsert ran; this is the one case that can only be caught after.
+      throw new NotFoundException();
+    }
 
     const result = parseLineRosterMessage(dto.rawText);
     const players = await this.prisma.player.findMany({ where: { groupId: code } });

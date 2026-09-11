@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { APP_GUARD } from '@nestjs/core';
 import { AuthGuard } from './auth.guard.js';
+import { OwnershipGuard } from './ownership.guard.js';
 import { AuthController } from './auth.controller.js';
 import { AuthBootstrapService } from './bootstrap.service.js';
 import { LoginThrottle } from './login-throttle.js';
@@ -37,11 +38,14 @@ export function requireSessionSecret(): string {
     LoginThrottle,
     AuthBootstrapService,
     /**
-     * Global. Registering it here rather than per-controller is what makes the
-     * default deny: a route added anywhere in the app is closed until someone
-     * marks it @Public().
+     * Global, and order matters: Nest runs multiple APP_GUARD providers in
+     * registration order, and OwnershipGuard reads request.user, which only
+     * AuthGuard sets. Registering both here rather than per-controller is
+     * what makes the default deny: a route added anywhere in the app is
+     * closed until someone marks it @Public().
      */
     { provide: APP_GUARD, useClass: AuthGuard },
+    { provide: APP_GUARD, useClass: OwnershipGuard },
   ],
   exports: [SESSION_SECRET],
 })

@@ -1,3 +1,28 @@
+/* The one marker-hand moment on this screen — everything below it is dense
+   utility chrome read up close, so the page needs exactly one thing that
+   reads like it was written on the board rather than assembled from parts. */
+.board-head {
+  margin-bottom: var(--space-3);
+}
+
+.board-head h1 {
+  transform: rotate(-0.6deg);
+  transform-origin: left center;
+}
+
+/* Not the inherited h1 marker face: this is an ISO date (or, absent one, a
+   session code) — digits either way, and Permanent Marker has no digit
+   glyphs to give them. Same fix as .court-num in court-panel.css. */
+.board-date {
+  font-family: var(--font-text);
+}
+
+.board-head .sub {
+  margin: 0;
+  color: var(--ink-soft);
+  font-size: var(--text-sm);
+}
+
 /* Courts stack on a phone. On a tablet they sit side by side: a host with
    three courts running had to scroll past court 1 to see whether court 3 was
    free, on a screen with room for all three at once. This is the whole reason
@@ -60,8 +85,8 @@
   min-height: var(--tap);
   font: inherit;
   font-size: var(--text-sm);
-  font-weight: 500;
-  color: var(--ink);
+  font-weight: 700;
+  color: var(--ink-on-paper);
 }
 
 .roster-chips .chip.resting {
@@ -85,7 +110,7 @@
 
 .wait-mins {
   margin-left: var(--space-0);
-  color: var(--ink-soft);
+  color: var(--ink-on-paper-soft);
   font-size: var(--text-xs);
 }
 
@@ -176,16 +201,35 @@
 
 /* The one thing a host revisiting an ended session's dashboard actually wants
    is the recap — top of the page, real buttons, not a wall of now-dead live
-   controls to scroll past first. */
+   controls to scroll past first. Cut from the same paper stock as a court
+   card, since this is the single most important note on the page. */
 .ended-banner {
+  position: relative;
   padding: var(--space-3);
-  background: var(--line-surface);
+  background: var(--surface);
+  color: var(--ink-on-paper);
+  --ink: var(--ink-on-paper);
+  --ink-soft: var(--ink-on-paper-soft);
+  --error-ink: var(--warn);
   border-radius: var(--radius);
+  box-shadow: 0 8px 18px -8px rgba(0, 0, 0, 0.5);
+}
+
+.ended-banner::before {
+  content: '';
+  position: absolute;
+  top: -0.5rem;
+  left: 1.5rem;
+  width: 2.1rem;
+  height: 1rem;
+  background: var(--tape);
+  opacity: 0.85;
+  transform: rotate(-3deg);
 }
 
 .ended-notice {
   margin: 0 0 var(--space-2);
-  font-weight: 600;
+  font-weight: 700;
 }
 
 .ended-actions {
@@ -197,6 +241,20 @@
 .ended-actions > * {
   flex: 1;
   min-width: 10rem;
+}
+
+/* `.ghost` is drawn for the dark board; inside this paper card it needs the
+   paper ink, or the button's own label disappears against its background. */
+.ended-banner .ghost {
+  color: var(--ink-on-paper);
+  border-color: var(--ink-on-paper-soft);
+}
+
+@media (hover: hover) {
+  .ended-banner .ghost:hover {
+    background: var(--surface);
+    border-color: var(--ink-on-paper);
+  }
 }
 
 /* An <a> styled to match the base button, since RouterLink navigation belongs
@@ -271,8 +329,8 @@
 .waiting-queue .chip-pick {
   font: inherit;
   font-size: var(--text-sm);
-  font-weight: 500;
-  color: var(--ink);
+  font-weight: 700;
+  color: var(--ink-on-paper);
   min-height: var(--tap);
   cursor: pointer;
 }

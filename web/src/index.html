@@ -9,20 +9,30 @@
   <link rel="manifest" href="manifest.webmanifest">
   <!-- Matches the manifest's theme_color so the phone chrome does not flash a
        different colour on launch. -->
-  <meta name="theme-color" content="#0f5b54">
+  <meta name="theme-color" content="#242219">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="JubBad">
   <link rel="apple-touch-icon" href="icon-192.png">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <!-- Inter and Archivo carry no Thai glyphs, so Noto Sans Thai answers every
-       Thai character in both roles. One Thai family rather than two: fewer
-       bytes on venue wifi, and one consistent Thai texture next to the Latin
-       digits in scores and court numbers. -->
-  <link href="https://fonts.googleapis.com/css2?family=Archivo:wght@600;700;800&family=Inter:wght@400;500;600;700&family=Noto+Sans+Thai:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <!-- Work Sans and Permanent Marker carry no Thai glyphs, so Noto Sans Thai
+       answers every Thai character in both roles. One Thai family rather
+       than two: fewer bytes on venue wifi, and one consistent Thai texture
+       next to the Latin digits in scores and court numbers. -->
+  <link href="https://fonts.googleapis.com/css2?family=Permanent+Marker&family=Work+Sans:wght@400;500;600;700&family=Noto+Sans+Thai:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 </head>
 <body>
+  <!-- Shared filter defs, referenced from styles.css via filter: url(#rough-edge).
+       Present once here (rather than per-page) since every route shares this
+       shell. A wobbled straight line, not a texture — the hand that marked
+       up the board did not draw a perfectly ruled border either. -->
+  <svg width="0" height="0" style="position: absolute" aria-hidden="true">
+    <filter id="rough-edge" x="-10%" y="-10%" width="120%" height="120%">
+      <feTurbulence type="fractalNoise" baseFrequency="0.045" numOctaves="2" seed="4" result="noise" />
+      <feDisplacementMap in="SourceGraphic" in2="noise" scale="2.2" xChannelSelector="R" yChannelSelector="G" />
+    </filter>
+  </svg>
   <app-root></app-root>
 </body>
 </html>

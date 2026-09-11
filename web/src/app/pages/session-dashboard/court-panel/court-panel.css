@@ -1,7 +1,9 @@
-/* A panel is a court seen from above: the border is the boundary line and the
-   marks at the top corners are the service-court corners. That motif is the
-   one place this app spends any boldness, so everything else here stays flat
-   and quiet — no shadows, no rounded cards, no second accent.
+/* A panel is a torn-paper card taped to the board: cut from the same cream
+   stock as the roster chips, tilted a degree or two off true like something
+   actually pinned up between rounds, not printed. State reads as a glow
+   around the card — quiet at rest, marker-red when it needs the host, green
+   once it is live — never as a color swapped into a straight-ruled border,
+   which is the old court-boundary motif this world replaces outright.
 
    On a tablet the panels sit in a grid, so they stretch to a common height
    and their action rows line up along the bottom instead of floating at
@@ -12,44 +14,45 @@
   flex-direction: column;
   height: 100%;
   background: var(--surface);
-  border: 1.5px solid var(--rule);
+  color: var(--ink-on-paper);
+  /* This card's ground is paper, not the board — anything inside that reads
+     a plain --ink/--ink-soft/--error-ink (a label, .muted, .error) needs the
+     paper-safe values, not the board-safe defaults. Re-scoped here rather
+     than overridden per selector, so nothing inside is missed. */
+  --ink: var(--ink-on-paper);
+  --ink-soft: var(--ink-on-paper-soft);
+  --error-ink: var(--warn);
   padding: var(--space-2) var(--space-3) var(--space-3);
-  transition: border-color 160ms ease;
+  box-shadow: 0 10px 22px -10px rgba(0, 0, 0, 0.55), 0 2px 0 rgba(0, 0, 0, 0.12);
+  transform: rotate(var(--panel-tilt, -0.4deg));
+  transition: box-shadow 160ms ease;
 }
 
-.court-panel::before,
-.court-panel::after {
+.courts-list app-court-panel:nth-child(even) .court-panel {
+  --panel-tilt: 0.5deg;
+}
+
+/* The tape holding the card to the board. Decorative only — the panel's live
+   state is carried by the glow below, never by whether the tape is there. */
+.court-panel::before {
   content: '';
   position: absolute;
-  top: -1.5px;
-  width: 14px;
-  height: 14px;
-  border-top: 2.5px solid var(--waiting);
+  top: -0.55rem;
+  left: 1.4rem;
+  width: 2.2rem;
+  height: 1rem;
+  background: var(--tape);
+  opacity: 0.85;
+  transform: rotate(-3deg);
   pointer-events: none;
 }
 
-.court-panel::before {
-  left: -1.5px;
-  border-left: 2.5px solid var(--waiting);
-}
-
-.court-panel::after {
-  right: -1.5px;
-  border-right: 2.5px solid var(--waiting);
-}
-
-.court-panel:has(.status-dot.pending)::before,
-.court-panel:has(.status-dot.pending)::after {
-  border-color: var(--accent);
+.court-panel:has(.status-dot.pending) {
+  box-shadow: 0 0 0 2px var(--accent), 0 10px 22px -10px rgba(0, 0, 0, 0.55);
 }
 
 .court-panel:has(.status-dot.active) {
-  border-color: var(--court);
-}
-
-.court-panel:has(.status-dot.active)::before,
-.court-panel:has(.status-dot.active)::after {
-  border-color: var(--court);
+  box-shadow: 0 0 0 2px var(--court), 0 10px 22px -10px rgba(0, 0, 0, 0.55);
 }
 
 .court-panel-head {
@@ -67,6 +70,13 @@
   margin: 0;
   font-size: var(--text-xl);
   line-height: 1.1;
+}
+
+/* Not the marker face: Permanent Marker has no digit glyphs, so the number
+   fell back through the stack to Noto Sans Thai — which, under this page's
+   Thai locale, renders Thai numeral forms (๑๒๓) instead of "1 2 3". */
+.court-num {
+  font-family: var(--font-text);
 }
 
 .status-dot {
@@ -96,7 +106,7 @@
 }
 
 .matchup .vs {
-  color: var(--ink-soft);
+  color: var(--ink-on-paper-soft);
   font-weight: 400;
   font-size: 0.8em;
   margin: 0 0.4em;
@@ -148,7 +158,7 @@
 }
 
 .idle-label {
-  color: var(--ink-soft);
+  color: var(--ink-on-paper-soft);
   font-weight: 400;
 }
 
@@ -177,14 +187,14 @@
   min-height: var(--tap);
   background: none;
   border: 1px solid var(--rule);
-  color: var(--ink-soft);
+  color: var(--ink-on-paper-soft);
   font-weight: 500;
 }
 
 @media (hover: hover) {
   .no-result:hover {
     background: var(--rule);
-    color: var(--ink);
+    color: var(--ink-on-paper);
   }
 }
 
@@ -208,7 +218,7 @@
 .score-sep {
   grid-column: 2;
   grid-row: 1;
-  color: var(--ink-soft);
+  color: var(--ink-on-paper-soft);
   font-weight: 700;
 }
 
@@ -217,11 +227,13 @@
   grid-row: 1;
 }
 
+/* Not var(--font-display): a score is read digit by digit under pressure, and
+   a marker-script "6" and "0" are not reliably distinct at a glance. The
+   marker hand belongs to headings, not entered numbers. */
 .result-grid input {
   width: 100%;
   min-height: var(--tap);
   text-align: center;
-  font-family: var(--font-display);
   font-weight: 700;
   font-size: var(--text-xl);
 }
@@ -253,7 +265,7 @@
   padding-inline: 0.7rem;
   background: none;
   border: none;
-  color: var(--ink-soft);
+  color: var(--ink-on-paper-soft);
   font-size: var(--text-sm);
   font-weight: 500;
 }
@@ -261,7 +273,7 @@
 @media (hover: hover) {
   .undo:hover {
     background: none;
-    color: var(--ink);
+    color: var(--ink-on-paper);
     text-decoration: underline;
   }
 }

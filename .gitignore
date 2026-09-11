@@ -12,3 +12,12 @@ server/prisma/dev.db-wal
 server/prisma/backups/
 server/prisma/dev.db.replaced-*
 server/prisma/dev.db-shm
+
+# Impeccable working/scratch state — verification screenshots, machine-local
+# overrides, and the design-hook cache. design.json and surfaces/ are the
+# durable design-system record and stay tracked.
+.impeccable/config.local.json
+.impeccable/hook.cache.json
+.impeccable/review/
+.impeccable/mocks/
+.impeccable/build/

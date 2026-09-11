@@ -2,7 +2,7 @@
   @let c = court();
 
   <div class="court-panel-head">
-    <h4 i18n="@@court.number">คอร์ท {{ courtNumber() }}</h4>
+    <h4 i18n="@@court.number">คอร์ท <span class="court-num">{{ courtNumber() }}</span></h4>
     <span class="status-dot" [class]="c.status"></span>
   </div>
 

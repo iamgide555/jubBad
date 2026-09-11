@@ -1,43 +1,75 @@
 :root {
-  /* Court surface + structure */
-  --court: #0f5b54;
-  --court-dark: #0a3d38;
-  /* Lines drawn *on* the dark court: the display screen had #2a5f58 and
-     #123f39 hardcoded in three places, which is why its borders drifted from
-     everything else. */
-  --court-line: #2a5f58;
-  --court-hover: #123f39;
-  --line-surface: #eff3f1;
-  --surface: #ffffff;
-  --rule: #c9d3cd;
-  /* The pale green behind a held player. Two component files reached for it
-     through a fallback (`var(--court-wash, #e6f2f0)`) against a variable that
-     was never declared, so the "picked" state was one typo away from having
-     no tint at all. */
-  --court-wash: #e6f2f0;
+  /* The board + the paper pinned to it. Chalkboard-dark ground for the page
+     itself; warm cream "paper" for anything that reads as a card, an input,
+     or a control someone would actually write on. */
+  --court: #52703f;
+  --court-dark: #3b5230;
+  /* A rule drawn directly on the dark board (dashed dividers, toolbar
+     separators) rather than on a paper card — see --rule for the paper
+     equivalent. */
+  --court-line: #3a3628;
+  /* Subtle lift for a hovered/focused element sitting on the dark board
+     itself (a court card, not a button). */
+  --court-hover: #2c2a20;
+  --line-surface: #242219;
+  --surface: #f3ead6;
+  --rule: #cbbd98;
+  /* The warm highlighter-marker wash behind a held/picked player — a mark
+     made on the sheet, not a tint borrowed from the brand color. */
+  --court-wash: rgba(226, 87, 44, 0.16);
 
-  /* Text */
-  --ink: #16221e;
-  --ink-soft: #4a5a54;
-  --ink-on-court: #f3f6f4;
-  --ink-on-court-soft: #a9c2ba;
+  /* Text. Two pairs because this world has two grounds: --ink is what sits
+     directly on the dark board (chalk), --ink-on-paper is what sits on the
+     cream paper surface (--surface) that cards, inputs, and chips are cut
+     from. Getting these swapped is the single easiest way to make text
+     vanish in this world — check which ground an element is actually on. */
+  --ink: #efe6d0;
+  --ink-soft: #a89f89;
+  --ink-on-paper: #2a2418;
+  --ink-on-paper-soft: #6b6250;
+  /* Light text for the dark, saturated surfaces that are neither the page
+     board nor a paper card — a filled button, .page-dark. Keeps its old name
+     for continuity with --court, the surface it was named after. */
+  --ink-on-court: #efe6d0;
+  --ink-on-court-soft: #cdbfa0;
 
   /* Signal colors. One meaning each, used the same way on every screen:
-     accent = waiting for the host to act, court = in play, waiting = idle. */
-  --accent: #e3a73e;
-  --accent-dark: #b9822b;
-  --waiting: #6f8880;
-  --warn: #c0503a;
-  --warn-wash: #fbeeea;
+     accent = needs the host's attention right now (a mark in marker pen),
+     waiting = idle/at rest, warn = irreversible. Accent and warn are
+     deliberately different hues — "act on this" and "this destroys
+     something" must never share a color in a courtside, one-handed UI. */
+  --accent: #e2572c;
+  --accent-dark: #b23c1e;
+  --waiting: #8f8571;
+  --warn: #8a2f22;
+  --warn-wash: #f5e3de;
+  /* --accent and --court read fine as borders, outlines, and small badge
+     fills (a 3:1 non-text floor) directly on the dark board, but neither
+     clears 4.5:1 as small *text* there — brightened here for the few places
+     text itself needs that hue on the board (a link, a hovered label).
+     Inside a paper card, the base --accent/--court already clear 4.5:1
+     against cream, so nothing extra is needed there. */
+  --accent-ink: #ec6a3f;
+  --court-ink: #7a9a6a;
+  /* Error text needs enough contrast against whatever it sits on, and this
+     app's two grounds (the dark board, a cream paper card) need opposite
+     ends of the brightness scale to clear 4.5:1 — a single red cannot serve
+     both. Defaults to the board-safe value; anything with a paper surface
+     (see .court-panel) redefines it to --warn, which already clears paper. */
+  --error-ink: var(--accent-ink);
+  /* Masking-tape color — the physical detail that pins a paper card to the
+     board. Decorative only; never carries meaning. */
+  --tape: #d8cdb0;
 
-  /* Two families, two jobs. Named because six component files had the stack
-     spelled out by hand, and any change had to be made in all six. Archivo
-     carries headings, court numbers and scores — the things read at a glance
-     or from across the hall; Inter carries everything read up close. Noto
-     Sans Thai answers every Thai character in both roles, since neither Latin
-     face has Thai glyphs. */
-  --font-display: 'Archivo', 'Noto Sans Thai', system-ui, sans-serif;
-  --font-text: 'Inter', 'Noto Sans Thai', system-ui, sans-serif;
+  /* Two families, two jobs, same as before: one for what's read at a glance
+     (headings, court numbers, the things that read like they were marked on
+     the sheet by hand), one for what's read up close. Permanent Marker only
+     ever carries the first job — it is not legible enough at body sizes to
+     carry the second, and a whole paragraph in marker script reads as a
+     costume, not a hand. Noto Sans Thai answers every Thai character in both
+     roles, since neither Latin face has Thai glyphs. */
+  --font-display: 'Permanent Marker', 'Noto Sans Thai', cursive, sans-serif;
+  --font-text: 'Work Sans', 'Noto Sans Thai', system-ui, sans-serif;
 
   /* A 1.25 scale from 16px, rounded to whole pixels. Modest on purpose: this
      is a dense utility screen held at arm's length, not a landing page. */
@@ -49,10 +81,8 @@
   --text-2xl: 1.75rem;
   --text-3xl: 2.25rem;
 
-  /* 4px rhythm. The old values (6.4 / 12.8 / 22.4 / 35.2px) were close to
-     these but landed on no grid, so nothing lined up with anything else.
-     Deliberately kept within a couple of pixels of what they replace: this is
-     a ruler, not a redesign, and no screen should visibly jump. */
+  /* 4px rhythm, unchanged by the redesign — this is a ruler, not a layout
+     decision, and no screen should visibly jump because the world changed. */
   --space-0: 0.25rem;
   --space-1: 0.5rem;
   --space-2: 0.75rem;
@@ -60,17 +90,18 @@
   --space-4: 2rem;
   --space-5: 3rem;
 
-  /* Square-ish by intent — the app's visual language is court markings, and
-     court lines do not have rounded corners. --radius-pill is for chips,
-     which read as tokens for people rather than as structure. */
-  --radius: 3px;
+  /* Square corners, but the reason changed: this is a torn paper card taped
+     to a board, not a court line, and paper does not round its own corners
+     either. --radius-pill exists only for a control that must read as a
+     capsule rather than a cut card; nothing in this world currently needs it. */
+  --radius: 2px;
   --radius-pill: 999px;
 
   /* Anything a finger has to hit. */
   --tap: 44px;
 
   font-family: var(--font-text);
-  color-scheme: light;
+  color-scheme: dark;
 }
 
 * {
@@ -84,7 +115,8 @@ body {
 
 body {
   margin: 0;
-  background: var(--line-surface);
+  background:
+    radial-gradient(1100px 650px at 18% -8%, #2c2a20 0%, var(--line-surface) 55%, #1a1811 100%);
   color: var(--ink);
   font-size: 16px;
   /* 1.6 rather than 1.5: Thai stacks vowel and tone marks above and below the
@@ -93,35 +125,68 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
+/* Browser surfaces that ship with the page whether or not a design touches
+   them — text selection and the caret are the cheapest signal a page was
+   actually built, not assembled. */
+::selection {
+  background: var(--accent);
+  color: var(--ink-on-court);
+}
+
+input,
+textarea {
+  caret-color: var(--accent);
+}
+
 /* Used by the dashboard's end-session failure and the court panel's rejected
    actions. Global rather than per-component: view encapsulation would
    otherwise scope it to whichever component defined it, silently doing
    nothing in the other. */
 .error {
-  color: var(--warn);
+  color: var(--error-ink);
   font-size: var(--text-sm);
   margin-top: var(--space-1);
 }
 
 /* Global for the same reason as .error: view encapsulation scoped this to
    GroupEntry, so the court panel's Reshuffle button silently rendered as a
-   normal primary button. */
+   normal primary button. An outline mark on the board itself — chalk on
+   slate — rather than a filled button, since most actions on this screen are
+   not the one thing the host must do next. */
+/* The border is drawn by ::before, not this rule, and run through the shared
+   #rough-edge filter (index.html) — a hand marking up a board does not rule
+   a perfectly straight line either. The button's own border stays `none` so
+   the filter's slight displacement never touches the label text sitting on
+   top of it. */
 button.ghost {
+  position: relative;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   min-height: var(--tap);
   background: transparent;
-  color: var(--court);
-  border: 1px solid var(--rule);
+  color: var(--ink);
+  border: none;
   padding: 0.5rem 0.9rem;
   font-size: var(--text-sm);
 }
 
+button.ghost::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border: 1.5px solid var(--ink-soft);
+  filter: url(#rough-edge);
+  pointer-events: none;
+}
+
 @media (hover: hover) {
   button.ghost:hover {
-    background: var(--line-surface);
-    border-color: var(--court);
+    background: var(--court-hover);
+  }
+
+  button.ghost:hover::before {
+    border-color: var(--ink);
   }
 }
 
@@ -130,20 +195,23 @@ h2,
 h3,
 h4 {
   font-family: var(--font-display);
-  font-weight: 700;
-  letter-spacing: -0.01em;
+  font-weight: 400;
+  /* A marker hand does not need negative tracking to read as tight — it
+     already leans and overlaps on its own. Archivo's -0.01em made a script
+     face look cramped rather than confident. */
+  letter-spacing: 0;
   color: var(--ink);
   margin: 0 0 var(--space-2);
-  /* Thai stacks vowel and tone marks above and below the baseline, so headings
-     set tight for Latin clip them. 1.25 is the floor that clears both. */
+  /* Thai stacks vowel and tone marks above and below the baseline, so
+     headings set tight for Latin clip them. 1.25 is the floor that clears
+     both. */
   line-height: 1.25;
 }
 
-/* Sizes, which these never had. Every heading fell back to the browser's
-   defaults, so h3 (a section heading) sat at 18.7px against 16px body and h4
-   — the court number, the most important thing on the live screen — was the
-   exact size of body text. Four component files then re-styled h4 by hand to
-   work around that, each landing somewhere slightly different. */
+/* Sizes, unchanged in scale from the previous system — h4 (the court number,
+   the most important thing on the live screen) still has to out-rank body
+   text on its own rather than depending on four components restyling it by
+   hand to compensate. */
 h1 {
   font-size: var(--text-3xl);
 }
@@ -160,7 +228,7 @@ h4 {
   font-size: var(--text-lg);
 }
 
-/* The small grey caption those four files were actually reaching for. Not
+/* The small caption a plain h3/h4 override was actually reaching for. Not
    ALL-CAPS: Thai has no case, so tracking out capitals styles the Latin half
    of a bilingual interface and does nothing for the other half. */
 .label {
@@ -190,15 +258,20 @@ p {
   margin: 0 0 var(--space-2);
 }
 
+/* Not --accent(-ink): that red is reserved for "the host needs to act on
+   this right now" (a pending court, a warning). Reusing it for ordinary
+   wayfinding — a back-link, a group name, "continue to last session" —
+   diluted it into a generic link color and left nothing distinct for the
+   moments that are actually meant to grab attention. */
 a {
-  color: var(--court);
+  color: var(--court-ink);
   font-weight: 600;
 }
 
 button {
   font-family: inherit;
   font-size: var(--text-base);
-  font-weight: 600;
+  font-weight: 700;
   cursor: pointer;
   border: none;
   border-radius: var(--radius);
@@ -225,7 +298,7 @@ button:active {
 }
 
 button:disabled {
-  background: var(--rule);
+  background: var(--court-line);
   color: var(--ink-soft);
   cursor: not-allowed;
 }
@@ -236,7 +309,7 @@ textarea {
   /* Must not drop below 16px: iOS Safari zooms the whole page in on focus for
      anything smaller, and the host is one-handed at the side of a court. */
   font-size: var(--text-base);
-  color: var(--ink);
+  color: var(--ink-on-paper);
   background: var(--surface);
   border: 1px solid var(--rule);
   border-radius: var(--radius);
@@ -248,13 +321,13 @@ textarea {
 @media (hover: hover) {
   input:hover,
   textarea:hover {
-    border-color: var(--ink-soft);
+    border-color: var(--ink-on-paper-soft);
   }
 }
 
 input:focus,
 textarea:focus {
-  border-color: var(--court);
+  border-color: var(--accent);
 }
 
 input:focus-visible,
@@ -277,7 +350,7 @@ label > input,
 label > textarea {
   margin-top: 0.35rem;
   font-weight: 400;
-  color: var(--ink);
+  color: var(--ink-on-paper);
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -286,8 +359,9 @@ label > textarea {
   }
 }
 
-/* Shared page shells — host screens are a light, phone-first single column;
-   the venue display screen is a full-bleed dark scoreboard. */
+/* Shared page shells — every host screen is now the same dark board; the
+   venue display screen goes one shade deeper still, since it is read from
+   across a room rather than held in a hand. */
 .page {
   max-width: 32rem;
   margin: 0 auto;
@@ -321,7 +395,7 @@ label > textarea {
 
 .page-dark {
   min-height: 100dvh;
-  background: var(--court-dark);
+  background: #14130d;
   color: var(--ink-on-court);
   padding: var(--space-4) var(--space-3);
   padding-left: max(var(--space-3), env(safe-area-inset-left));
@@ -335,7 +409,7 @@ label > textarea {
 
 .rule {
   border: none;
-  border-top: 1px solid var(--rule);
+  border-top: 1px dashed var(--court-line);
   margin: var(--space-3) 0;
 }
 
@@ -351,23 +425,25 @@ label > textarea {
   border: 0;
 }
 
+/* A small paper tag, not a pill — this world's chips are cut from the same
+   cream stock as a court card, not a social-media capsule. */
 .chip {
   display: inline-flex;
   align-items: center;
-  padding: 0.3rem 0.75rem;
+  padding: 0.35rem 0.8rem;
   margin: 0 var(--space-1) var(--space-1) 0;
   background: var(--surface);
-  border: 1px solid var(--rule);
-  border-radius: var(--radius-pill);
+  color: var(--ink-on-paper);
+  border-radius: var(--radius);
   font-size: var(--text-sm);
-  font-weight: 500;
+  font-weight: 700;
+  box-shadow: 0 2px 5px -1px rgba(0, 0, 0, 0.45);
 }
 
 /* The one control that appears on two screens with two different meanings —
-   the stats table tinted its active segment amber while the dashboard's mode
-   switch tinted the same control green. Amber means "waiting for you" every-
-   where else in the app, so green is the correct one and this is now the only
-   definition. */
+   the stats table and the dashboard's mode switch. Accent means "needs the
+   host's attention" everywhere else in the app, so the active segment reads
+   as the quiet ink-on-paper mark it actually is, not an alert. */
 .scope-toggle {
   display: flex;
   gap: var(--space-1);
@@ -378,29 +454,48 @@ label > textarea {
   max-width: 28rem;
 }
 
+/* Border drawn by ::before through #rough-edge, same reasoning as
+   button.ghost — a hand-marked segment boundary, not a ruled one. */
 .scope-toggle button {
+  position: relative;
   flex: 1;
   min-height: var(--tap);
   background: var(--surface);
-  color: var(--ink-soft);
-  border: 1px solid var(--rule);
+  color: var(--ink-on-paper-soft);
+  border: none;
   font-size: var(--text-sm);
+  font-weight: 600;
+}
+
+.scope-toggle button::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border: 1px solid var(--rule);
+  filter: url(#rough-edge);
+  pointer-events: none;
 }
 
 .scope-toggle button.active {
-  background: var(--court);
-  color: var(--ink-on-court);
-  border-color: var(--court);
+  background: var(--ink-on-paper);
+  color: var(--surface);
+}
+
+.scope-toggle button.active::before {
+  border-color: var(--ink-on-paper);
 }
 
 @media (hover: hover) {
   /* The background has to be restated or the base button rule fills the
-     inactive segment with dark court green and this near-black ink vanishes
-     into it. */
+     inactive segment with the board's own dark green and this cream ink
+     vanishes into it. */
   .scope-toggle button:not(.active):hover {
     background: var(--surface);
-    border-color: var(--court);
-    color: var(--ink);
+    color: var(--ink-on-paper);
+  }
+
+  .scope-toggle button:not(.active):hover::before {
+    border-color: var(--ink-on-paper);
   }
 }
 
@@ -409,36 +504,45 @@ label > textarea {
    session ends — looked exactly as pressable as a live one. */
 .scope-toggle button:disabled,
 .scope-toggle button:disabled:hover {
-  background: var(--line-surface);
-  border-color: var(--rule);
-  color: var(--ink-soft);
+  background: var(--rule);
+  color: var(--ink-on-paper-soft);
   opacity: 0.6;
   cursor: not-allowed;
 }
 
+.scope-toggle button:disabled::before,
+.scope-toggle button:disabled:hover::before {
+  border-color: var(--rule);
+}
+
 .scope-toggle button.active:disabled {
-  background: var(--court);
-  border-color: var(--court);
-  color: var(--ink-on-court);
+  background: var(--ink-on-paper);
+  color: var(--surface);
+}
+
+.scope-toggle button.active:disabled::before {
+  border-color: var(--ink-on-paper);
 }
 
 /* Global for the same reason as .ghost above: both screens that own an
    irreversible action had spelled this out by hand, and neither overrode the
-   base button's hover, so the red delete button turned court green under the
-   cursor. */
+   base button's hover, so the delete button turned confirm-green under the
+   cursor. --warn is a separate, deeper red from --accent on purpose — the
+   marker-red "look here" mark must never share a hue with "this cannot be
+   undone." */
 button.danger {
   background: var(--warn);
-  color: #fff;
+  color: #fbeee7;
 }
 
 @media (hover: hover) {
   button.danger:hover:not(:disabled) {
-    background: #a03f2c;
+    background: #6e2419;
   }
 }
 
 button.danger:disabled,
 button.danger:disabled:hover {
-  background: var(--rule);
+  background: var(--court-line);
   color: var(--ink-soft);
 }

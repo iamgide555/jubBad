@@ -59,10 +59,12 @@
 
 @media (hover: hover) {
   /* The background has to be restated: the base button rule fills a hovered
-     button with dark court green, which would hide this button's green text. */
+     button with dark court green, which would hide this button's green text.
+     --court-ink, not --court: this sits directly on the board, and the base
+     green does not clear 4.5:1 there as small text. */
   .share-player:hover {
     background: none;
-    border-color: var(--court);
-    color: var(--court);
+    border-color: var(--court-ink);
+    color: var(--court-ink);
   }
 }

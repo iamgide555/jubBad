@@ -1,5 +1,12 @@
 @if (sessionExists()) {
   <div class="page page-wide dashboard">
+    <div class="board-head">
+      <h1><span class="board-date">{{ session()!.date ?? session()!.code }}</span></h1>
+      @if (session()!.venue) {
+        <p class="sub">{{ session()!.venue }}</p>
+      }
+    </div>
+
     @if (ended()) {
       <div class="ended-banner">
         <p class="ended-notice" i18n="@@dashboard.sessionEnded">จบก๊วนแล้ว</p>

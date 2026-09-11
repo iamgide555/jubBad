@@ -1,5 +1,7 @@
-/* The numbers are the point of this screen, so they get the display face and
-   real size while their captions stay quiet underneath. */
+/* The numbers are the point of this screen, so they get real size while their
+   captions stay quiet underneath — but not the display face: Permanent
+   Marker has no digit glyphs, and a stat value is read as a number, not as
+   handwriting. */
 .stat-row {
   display: flex;
   flex-wrap: wrap;
@@ -14,7 +16,6 @@
 }
 
 .stat-value {
-  font-family: var(--font-display);
   font-weight: 800;
   font-size: var(--text-2xl);
   line-height: 1.25;

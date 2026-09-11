@@ -69,11 +69,16 @@
 
 @media (hover: hover) {
   .remove:hover {
-    color: var(--warn);
-    border-color: var(--warn);
+    color: var(--error-ink);
+    border-color: var(--error-ink);
   }
 }
 
+/* An opaque pale wash directly on the dark board — the one place on this
+   page that reads as a paper note rather than board chrome, so anything
+   inside it (label, input, .muted) needs the paper-side ink, not the
+   board's cream default. Re-scoping --ink/--ink-soft here catches every
+   plain element inside for free instead of overriding each one by hand. */
 .remove-confirm {
   flex-basis: 100%;
   padding: var(--space-2);
@@ -81,6 +86,10 @@
   border: 1px dashed var(--warn);
   border-radius: var(--radius);
   background: var(--warn-wash);
+  color: var(--ink-on-paper);
+  --ink: var(--ink-on-paper);
+  --ink-soft: var(--ink-on-paper-soft);
+  --error-ink: var(--warn);
 }
 
 .remove-confirm .muted {

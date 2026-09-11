@@ -37,7 +37,7 @@ th:not(:first-child) {
   min-height: var(--tap);
   padding: 0;
   background: none;
-  color: var(--court);
+  color: var(--court-ink);
   font-weight: 600;
   text-align: left;
 }
@@ -77,9 +77,9 @@ th:not(:first-child) {
 }
 
 .result-badge.win {
-  color: var(--accent-dark);
+  color: var(--court-ink);
 }
 
 .result-badge.loss {
-  color: var(--warn);
+  color: var(--error-ink);
 }

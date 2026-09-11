@@ -65,8 +65,10 @@
   border-color: var(--accent);
 }
 
+/* Not var(--font-display): Permanent Marker has no digit glyphs, and this is
+   read from across a hall — a font fallback silently swapping in Thai
+   numeral forms is the single worst place for that to happen unnoticed. */
 .court-number {
-  font-family: var(--font-display);
   font-weight: 800;
   /* vmin so a wide-but-short wall TV scales on the axis that actually
      limits it. 8vmin is ~64px at 720p, legible down the length of a hall. */

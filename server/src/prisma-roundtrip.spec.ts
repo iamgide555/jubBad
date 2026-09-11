@@ -69,4 +69,58 @@ describe('Prisma schema round-trip', () => {
       await prisma.$disconnect();
     }
   });
+
+  it('persists and reads back the auth models added for per-user login', async () => {
+    const adapter = new PrismaBetterSqlite3({ url: process.env.DATABASE_URL! });
+    const prisma = new PrismaClient({ adapter });
+    const email = `test-user-${randomUUID()}@example.test`;
+    const groupCode = `test-owned-group-${randomUUID()}`;
+    let userId: string | undefined;
+    try {
+      const user = await prisma.user.create({
+        data: { email, passwordHash: 'scrypt$test$hash' },
+      });
+      userId = user.id;
+
+      // Group.ownerId is nullable at the schema level, but every group created
+      // through the app always has one — see the schema comment on the column.
+      const group = await prisma.group.create({
+        data: { code: groupCode, name: 'Owned Group', ownerId: user.id },
+      });
+
+      const reset = await prisma.passwordReset.create({
+        data: {
+          userId: user.id,
+          tokenHash: `hash-${randomUUID()}`,
+          expiresAt: new Date(Date.now() + 3600_000),
+        },
+      });
+
+      const request = await prisma.passwordResetRequest.create({
+        data: { email },
+      });
+
+      const readBackGroup = await prisma.group.findUniqueOrThrow({
+        where: { code: groupCode },
+      });
+      const readBackReset = await prisma.passwordReset.findUniqueOrThrow({
+        where: { id: reset.id },
+      });
+      const readBackRequest = await prisma.passwordResetRequest.findUniqueOrThrow({
+        where: { id: request.id },
+      });
+
+      expect(readBackGroup.ownerId).toBe(user.id);
+      expect(readBackReset.userId).toBe(user.id);
+      expect(readBackReset.usedAt).toBeNull();
+      expect(readBackRequest.email).toBe(email);
+      expect(readBackRequest.handledAt).toBeNull();
+    } finally {
+      await prisma.passwordResetRequest.deleteMany({ where: { email } });
+      await prisma.passwordReset.deleteMany({ where: { userId } });
+      await prisma.group.deleteMany({ where: { code: groupCode } });
+      if (userId) await prisma.user.deleteMany({ where: { id: userId } });
+      await prisma.$disconnect();
+    }
+  });
 });

@@ -558,9 +558,9 @@ describe('CourtPanel with too few players', () => {
     );
     fixture.detectChanges();
 
-    const undo = Array.from(
-      (fixture.nativeElement as HTMLElement).querySelectorAll('button')
-    ).find((b) => b.textContent?.includes('ย้อนกลับ')) as HTMLButtonElement;
+    const undo = (fixture.nativeElement as HTMLElement).querySelector(
+      'button.undo'
+    ) as HTMLButtonElement;
     undo.click();
 
     const req = httpMock.expectOne(`${B}/sessions/sess1/courts/1/undo`);
@@ -576,9 +576,9 @@ describe('CourtPanel with too few players', () => {
     const { fixture, httpMock } = await createPanel();
     fixture.detectChanges();
 
-    const undo = Array.from(
-      (fixture.nativeElement as HTMLElement).querySelectorAll('button')
-    ).find((b) => b.textContent?.includes('ย้อนกลับ')) as HTMLButtonElement;
+    const undo = (fixture.nativeElement as HTMLElement).querySelector(
+      'button.undo'
+    ) as HTMLButtonElement;
     undo.click();
 
     httpMock

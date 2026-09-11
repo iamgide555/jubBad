@@ -823,6 +823,13 @@
           <context context-type="linenumber">67,69</context>
         </context-group>
       </trans-unit>
+      <trans-unit id="court.voidMatch" datatype="html">
+        <source>↩ ยกเลิกแมตช์</source><target>↩ Void match</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/session-dashboard/court-panel/court-panel.html</context>
+          <context context-type="linenumber">149,151</context>
+        </context-group>
+      </trans-unit>
       <trans-unit id="court.swapOut" datatype="html">
         <source>เปลี่ยน <x id="name" equiv-text="name"/> ออก</source><target>Swap out <x id="name" equiv-text="name"/></target>
         <context-group purpose="location">

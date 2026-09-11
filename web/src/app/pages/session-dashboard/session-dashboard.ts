@@ -8,12 +8,12 @@ import { resolvePlayerNames } from '../../core/player-names';
 import { buildWaitingList } from '../../core/waiting-time';
 import { SwapSelectionService, type SwapPick } from '../../core/swap-selection.service';
 import { CourtPanel } from './court-panel/court-panel';
-import { StatsTable } from './stats-table/stats-table';
 import type { Player } from '../../../../../engines/fuzzy-match.ts';
+import type { PlayerStat } from '../../core/stats.model';
 
 @Component({
   selector: 'app-session-dashboard',
-  imports: [CourtPanel, StatsTable, RouterLink],
+  imports: [CourtPanel, RouterLink],
   providers: [LiveSessionService],
   templateUrl: './session-dashboard.html',
   styleUrl: './session-dashboard.css',
@@ -34,6 +34,29 @@ export class SessionDashboard implements OnDestroy {
   protected readonly players = computed<Player[]>(() => {
     if (this.playersResource.error()) return [];
     return this.playersResource.value() ?? [];
+  });
+
+  /**
+   * Real games-played per player, for the court card tally — deliberately a
+   * separate fetch from `session().queueGames`, which is a rotation-fairness
+   * number that can include an offset credit and is documented as "not a
+   * statistic." Every mutation (`LiveSessionService`'s shared `post()`
+   * helper) reloads `sessionResource` before returning, so reading `session()`
+   * here — the same dependency `players` above already relies on — is
+   * enough to refetch after every confirm/finish/undo without a second,
+   * independently-timed trigger racing it (that raced `mutationVersion` bump
+   * against the session reload it always accompanies, and lost).
+   */
+  private readonly statsResource = httpResource<PlayerStat[]>(() => {
+    const code = this.session()?.code;
+    return code ? `${environment.apiBaseUrl}/sessions/${code}/stats?scope=session` : undefined;
+  });
+
+  protected readonly gamesPlayed = computed<Record<string, number>>(() => {
+    if (this.statsResource.error()) return {};
+    const record: Record<string, number> = {};
+    for (const row of this.statsResource.value() ?? []) record[row.playerId] = row.played;
+    return record;
   });
 
   /**

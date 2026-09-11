@@ -592,5 +592,33 @@ describe('CourtPanel with too few players', () => {
 
     expect((fixture.nativeElement as HTMLElement).textContent).toContain('ลงคอร์ทอื่นแล้ว');
   });
+
+  it('shows each pending player\'s real games-played tally next to their name', async () => {
+    const { fixture } = await createPanel(
+      baseSession({
+        courts: [{ status: 'pending', pairingId: 'pair1', teamA: ['p1', 'p2'], teamB: ['p3', 'p4'] }],
+      })
+    );
+    fixture.componentRef.setInput('gamesPlayed', { p1: 3, p2: 2, p3: 1 });
+    fixture.detectChanges();
+
+    const el = fixture.nativeElement as HTMLElement;
+    const tallies = [...el.querySelectorAll('.tally')].map((t) => t.textContent?.trim());
+    expect(tallies).toEqual(['3 เกม', '2 เกม', '1 เกม', '0 เกม']);
+  });
+
+  it('shows each active player\'s real games-played tally next to their name', async () => {
+    const { fixture } = await createPanel(
+      baseSession({
+        courts: [{ status: 'active', pairingId: 'pair1', teamA: ['p1', 'p2'], teamB: ['p3', 'p4'] }],
+      })
+    );
+    fixture.componentRef.setInput('gamesPlayed', { p1: 5, p4: 4 });
+    fixture.detectChanges();
+
+    const el = fixture.nativeElement as HTMLElement;
+    const tallies = [...el.querySelectorAll('.tally')].map((t) => t.textContent?.trim());
+    expect(tallies).toEqual(['5 เกม', '0 เกม', '0 เกม', '4 เกม']);
+  });
 });
 

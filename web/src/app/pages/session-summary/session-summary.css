@@ -21,10 +21,14 @@ th {
   color: var(--ink-soft);
 }
 
-td:not(:first-child),
-th:not(:first-child) {
+/* :not(.profile-cell) so the narrow profile column below isn't dragged wide
+   by this rule too — a bare specificity tie here previously lost to source
+   order by accident, which is what forced the column wide and the stamp's
+   position off-center in the first place. */
+td:not(:first-child):not(.profile-cell),
+th:not(:first-child):not(.profile-cell) {
   text-align: right;
-  width: 3.5rem;
+  width: 20.5rem;
 }
 
 /* The name doubles as the control that expands the match list — styled like
@@ -82,4 +86,38 @@ th:not(:first-child) {
 
 .result-badge.loss {
   color: var(--error-ink);
+}
+
+/* Host-only: the column doesn't render at all for a non-host viewer, so no
+   disabled/stamped state to style here. No header text — the button says
+   what it does — so it stays narrow and does not fight the numeric columns
+   for width, matching the old stats-table's .share-cell treatment. */
+.profile-cell {
+  width: 1%;
+  white-space: nowrap;
+}
+
+.share-player {
+  min-height: var(--tap);
+  padding: 0.2rem 0.6rem;
+  background: none;
+  border: 1px solid var(--rule);
+  color: var(--ink-soft);
+  font-size: var(--text-xs);
+  font-weight: 500;
+}
+
+@media (hover: hover) {
+  .share-player:hover {
+    background: none;
+    border-color: var(--court-ink);
+    color: var(--court-ink);
+  }
+}
+
+.clipboard-fallback {
+  width: 100%;
+  min-height: 4rem;
+  margin-top: var(--space-1);
+  resize: vertical;
 }

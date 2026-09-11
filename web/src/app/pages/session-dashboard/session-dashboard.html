@@ -85,7 +85,7 @@
 
     <div class="courts-list">
       @for (courtNumber of courtNumbers(); track courtNumber) {
-        <app-court-panel [courtNumber]="courtNumber" [players]="players()" />
+        <app-court-panel [courtNumber]="courtNumber" [players]="players()" [gamesPlayed]="gamesPlayed()" />
       }
     </div>
 
@@ -141,9 +141,6 @@
     @if (clipboardFallback()) {
       <textarea class="clipboard-fallback" readonly [value]="clipboardFallback()" i18n-aria-label="@@share.fallbackLabel" aria-label="ข้อความสำหรับคัดลอก"></textarea>
     }
-
-    <hr class="rule" />
-    <app-stats-table [sessionCode]="session()!.code" [groupCode]="session()!.groupCode" />
 
     @if (!ended()) {
       <hr class="rule" />

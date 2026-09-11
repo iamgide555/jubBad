@@ -23,10 +23,11 @@
   font-size: var(--text-sm);
 }
 
-/* Courts stack on a phone. On a tablet they sit side by side: a host with
-   three courts running had to scroll past court 1 to see whether court 3 was
-   free, on a screen with room for all three at once. This is the whole reason
-   the dashboard opts into .page-wide. */
+/* Courts stack on a phone. From a tablet up they cap at two per row and stay
+   there — a court card carries four names, a tally beside each, and a
+   control row, and three across squeezes all of that below a readable width.
+   .page-wide still earns its place here: it is what makes each of the two
+   columns wide enough for the tally layout to breathe. */
 /* minmax(0, 1fr), never a bare 1fr. A bare `1fr` is `minmax(auto, 1fr)`, so a
    column refuses to shrink below its content's min-content width — and a court
    panel's min-content is its two side-by-side buttons with Thai labels. That
@@ -45,23 +46,15 @@
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: var(--space-3);
   }
-}
 
-/* Matches the shell's 64rem tier: on a 1024px iPad in landscape all three
-   courts belong on one row, which was the entire point of widening the page.
-   At 68rem this fired one device too late and court 3 sat alone. */
-@media (min-width: 64rem) {
-  .courts-list {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-  }
-
-  /* Four courts across three columns leaves the fourth alone beside two empty
-     cells. An even split reads as a deliberate 2x2 block instead of a row that
-     ran out. Five and seven have the same shape, but at those counts the
-     leftover row is a smaller share of the screen and three-up keeps the
-     panels wide enough to read. */
-  .courts-list:has(> app-court-panel:nth-child(4):last-child) {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+  /* An odd court count (1, or 3+) leaves its last card alone in the final
+     row. Left-aligned, that card sits at the left edge beside a dead half —
+     centering it at the same width its neighbours would have makes the lone
+     card read as a deliberate single court, not a row that ran out. */
+  .courts-list > app-court-panel:last-child:nth-child(odd) {
+    grid-column: 1 / -1;
+    justify-self: center;
+    width: calc(50% - var(--space-3) / 2);
   }
 }
 

@@ -15,6 +15,11 @@ import type { Player } from '../../../../../../engines/fuzzy-match.ts';
 export class CourtPanel {
   readonly courtNumber = input.required<number>();
   readonly players = input<Player[]>([]);
+  /** playerId -> real games played this session (from the stats endpoint, not
+   *  the rotation-fairness `queueGames` number) — absent means 0, never a
+   *  dash, since a court is exactly where "how many games has this person
+   *  had" needs to read at a glance. */
+  readonly gamesPlayed = input<Record<string, number>>({});
 
   readonly scoreA = signal<number | null>(null);
   readonly scoreB = signal<number | null>(null);
@@ -63,6 +68,10 @@ export class CourtPanel {
 
   protected teamNames(ids: [string, string]): string[] {
     return resolvePlayerNames(ids, this.players());
+  }
+
+  protected gamesFor(playerId: string): number {
+    return this.gamesPlayed()[playerId] ?? 0;
   }
 
   /**

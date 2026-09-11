@@ -21,67 +21,73 @@
         @if (c.status === 'pending') {
           @let aNames = teamNames(c.teamA);
           @let bNames = teamNames(c.teamB);
-          <p class="matchup">
-            <span
-              class="slot"
-              [class.is-target]="isTarget(c.teamA[0])"
-              [class.is-picked]="selection.isPicked(c.teamA[0])"
-            >
-              <button
-                type="button"
-                class="name-tap"
-                [disabled]="busy()"
-                [attr.aria-pressed]="selection.isPicked(c.teamA[0])"
-                [attr.aria-label]="swapLabel(c.teamA[0], aNames[0])"
-                (click)="swap(c.pairingId, c.teamA[0])"
-              >{{ aNames[0] }}</button>
-            </span>
-            &amp;
-            <span
-              class="slot"
-              [class.is-target]="isTarget(c.teamA[1])"
-              [class.is-picked]="selection.isPicked(c.teamA[1])"
-            >
-              <button
-                type="button"
-                class="name-tap"
-                [disabled]="busy()"
-                [attr.aria-pressed]="selection.isPicked(c.teamA[1])"
-                [attr.aria-label]="swapLabel(c.teamA[1], aNames[1])"
-                (click)="swap(c.pairingId, c.teamA[1])"
-              >{{ aNames[1] }}</button>
-            </span>
+          <div class="matchup-columns">
+            <div class="team">
+              <span
+                class="slot"
+                [class.is-target]="isTarget(c.teamA[0])"
+                [class.is-picked]="selection.isPicked(c.teamA[0])"
+              >
+                <button
+                  type="button"
+                  class="name-tap"
+                  [disabled]="busy()"
+                  [attr.aria-pressed]="selection.isPicked(c.teamA[0])"
+                  [attr.aria-label]="swapLabel(c.teamA[0], aNames[0])"
+                  (click)="swap(c.pairingId, c.teamA[0])"
+                >{{ aNames[0] }}</button>
+                <span class="tally" i18n="@@court.gamesTally">{{ gamesFor(c.teamA[0]) }} เกม</span>
+              </span>
+              <span
+                class="slot"
+                [class.is-target]="isTarget(c.teamA[1])"
+                [class.is-picked]="selection.isPicked(c.teamA[1])"
+              >
+                <button
+                  type="button"
+                  class="name-tap"
+                  [disabled]="busy()"
+                  [attr.aria-pressed]="selection.isPicked(c.teamA[1])"
+                  [attr.aria-label]="swapLabel(c.teamA[1], aNames[1])"
+                  (click)="swap(c.pairingId, c.teamA[1])"
+                >{{ aNames[1] }}</button>
+                <span class="tally" i18n="@@court.gamesTally">{{ gamesFor(c.teamA[1]) }} เกม</span>
+              </span>
+            </div>
             <span class="vs" i18n="@@court.vs">vs</span>
-            <span
-              class="slot"
-              [class.is-target]="isTarget(c.teamB[0])"
-              [class.is-picked]="selection.isPicked(c.teamB[0])"
-            >
-              <button
-                type="button"
-                class="name-tap"
-                [disabled]="busy()"
-                [attr.aria-pressed]="selection.isPicked(c.teamB[0])"
-                [attr.aria-label]="swapLabel(c.teamB[0], bNames[0])"
-                (click)="swap(c.pairingId, c.teamB[0])"
-              >{{ bNames[0] }}</button>
-            </span>
-            &amp;
-            <span
-              class="slot"
-              [class.is-target]="isTarget(c.teamB[1])"
-              [class.is-picked]="selection.isPicked(c.teamB[1])"
-            >
-              <button
-                type="button"
-                class="name-tap"
-                [disabled]="busy()"
-                [attr.aria-pressed]="selection.isPicked(c.teamB[1])"
-                [attr.aria-label]="swapLabel(c.teamB[1], bNames[1])"
-                (click)="swap(c.pairingId, c.teamB[1])"
-              >{{ bNames[1] }}</button>
-            </span>
-          </p>
+            <div class="team">
+              <span
+                class="slot"
+                [class.is-target]="isTarget(c.teamB[0])"
+                [class.is-picked]="selection.isPicked(c.teamB[0])"
+              >
+                <button
+                  type="button"
+                  class="name-tap"
+                  [disabled]="busy()"
+                  [attr.aria-pressed]="selection.isPicked(c.teamB[0])"
+                  [attr.aria-label]="swapLabel(c.teamB[0], bNames[0])"
+                  (click)="swap(c.pairingId, c.teamB[0])"
+                >{{ bNames[0] }}</button>
+                <span class="tally" i18n="@@court.gamesTally">{{ gamesFor(c.teamB[0]) }} เกม</span>
+              </span>
+              <span
+                class="slot"
+                [class.is-target]="isTarget(c.teamB[1])"
+                [class.is-picked]="selection.isPicked(c.teamB[1])"
+              >
+                <button
+                  type="button"
+                  class="name-tap"
+                  [disabled]="busy()"
+                  [attr.aria-pressed]="selection.isPicked(c.teamB[1])"
+                  [attr.aria-label]="swapLabel(c.teamB[1], bNames[1])"
+                  (click)="swap(c.pairingId, c.teamB[1])"
+                >{{ bNames[1] }}</button>
+                <span class="tally" i18n="@@court.gamesTally">{{ gamesFor(c.teamB[1]) }} เกม</span>
+              </span>
+            </div>
+          </div>
           @if (noSubstitute()) {
             <p class="hint" i18n="@@court.noSubstitute">ไม่มีคนสำรองให้เปลี่ยน</p>
           }
@@ -105,7 +111,17 @@
         @if (c.status === 'active') {
           @let aNames = teamNames(c.teamA);
           @let bNames = teamNames(c.teamB);
-          <p class="matchup">{{ aNames[0] }} &amp; {{ aNames[1] }} <span class="vs" i18n="@@court.vs">vs</span> {{ bNames[0] }} &amp; {{ bNames[1] }}</p>
+          <div class="matchup-columns">
+            <div class="team">
+              <span class="slot">{{ aNames[0] }} <span class="tally" i18n="@@court.gamesTally">{{ gamesFor(c.teamA[0]) }} เกม</span></span>
+              <span class="slot">{{ aNames[1] }} <span class="tally" i18n="@@court.gamesTally">{{ gamesFor(c.teamA[1]) }} เกม</span></span>
+            </div>
+            <span class="vs" i18n="@@court.vs">vs</span>
+            <div class="team">
+              <span class="slot">{{ bNames[0] }} <span class="tally" i18n="@@court.gamesTally">{{ gamesFor(c.teamB[0]) }} เกม</span></span>
+              <span class="slot">{{ bNames[1] }} <span class="tally" i18n="@@court.gamesTally">{{ gamesFor(c.teamB[1]) }} เกม</span></span>
+            </div>
+          </div>
         }
         @if (c.status === 'active') {
           @let aNames = teamNames(c.teamA);

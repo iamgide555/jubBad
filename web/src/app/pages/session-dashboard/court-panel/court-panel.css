@@ -97,19 +97,52 @@
 
 /* Player names are the content of a court; the action row below is how you
    change it. Names get the size, so a glance across three panels reads who is
-   on rather than which buttons are available. */
-.matchup {
+   on rather than which buttons are available. Used as-is for the idle/ended
+   one-line states; the pending/active matchup uses .matchup-columns below. */
+.matchup,
+.matchup-columns {
   font-weight: 600;
   font-size: var(--text-lg);
   line-height: 1.45;
   margin-bottom: var(--space-2);
 }
 
-.matchup .vs {
+/* Two teams, side by side, exactly like a scorer's draw sheet: each side is
+   its own column of two names, with "vs" sitting between them rather than
+   run into the same line. */
+.matchup-columns {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  column-gap: var(--space-2);
+}
+
+.matchup-columns .team {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.matchup-columns .vs {
   color: var(--ink-on-paper-soft);
   font-weight: 400;
   font-size: 0.8em;
-  margin: 0 0.4em;
+}
+
+/* Each row is a name and its tally, pushed to opposite ends — the tally reads
+   as a second column of its own once every court does it, not a random
+   trailing note. The dotted rule between a team's two rows is the same
+   dotted language the name-tap underline already uses. */
+.matchup-columns .slot {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-1);
+  padding-block: 0.3rem;
+}
+
+.matchup-columns .team .slot:first-child {
+  border-bottom: 1px dotted var(--rule);
 }
 
 /* In the tablet grid every panel stretches to its row's height. Undo is the
@@ -284,8 +317,19 @@
 .slot {
   display: inline-flex;
   align-items: center;
+  gap: 0.3em;
   border-radius: 6px;
   padding: 0 0.15rem;
+}
+
+/* A caption, not a badge — matches .wait-mins' treatment elsewhere on this
+   screen. Real games played (from the stats endpoint), not the rotation
+   number, so this is the same count the summary page will show later. */
+.tally {
+  font-size: var(--text-xs);
+  font-weight: 400;
+  color: var(--ink-soft);
+  font-variant-numeric: tabular-nums;
 }
 
 /* The held player and the slots that would receive them. Both use a border

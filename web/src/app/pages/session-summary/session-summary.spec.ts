@@ -56,13 +56,13 @@ describe('SessionSummary', () => {
   let fixture: ComponentFixture<SessionSummary>;
   let httpMock: HttpTestingController;
 
-  beforeEach(async () => {
+  async function configure(isHost: boolean): Promise<void> {
     await TestBed.configureTestingModule({
       imports: [SessionSummary],
       providers: [
         provideHttpClient(),
         provideHttpClientTesting(),
-        { provide: AuthService, useValue: { check: () => Promise.resolve(false) } },
+        { provide: AuthService, useValue: { check: () => Promise.resolve(isHost) } },
         provideRouter([]),
         {
           provide: ActivatedRoute,
@@ -75,7 +75,7 @@ describe('SessionSummary', () => {
 
     httpMock = TestBed.inject(HttpTestingController);
     fixture = TestBed.createComponent(SessionSummary);
-  });
+  }
 
   afterEach(() => httpMock.verify());
 
@@ -88,6 +88,9 @@ describe('SessionSummary', () => {
     TestBed.tick();
     fixture.detectChanges();
   }
+
+  describe('as a non-host viewer (default)', () => {
+  beforeEach(() => configure(false));
 
   it('shows the session header and per-player record', async () => {
     await load(summary());
@@ -127,5 +130,53 @@ describe('SessionSummary', () => {
     expect((fixture.nativeElement as HTMLElement).textContent).toContain(
       'ก๊วนนี้ยังไม่มีการแข่งขัน'
     );
+  });
+
+  it('expanded match-list row spans all 5 columns — no profile column for a non-host viewer', async () => {
+    await load(summary());
+    fixture.componentInstance['togglePlayer']('p1');
+    fixture.detectChanges();
+    const cell = (fixture.nativeElement as HTMLElement).querySelector('.matches-row td')!;
+    expect(cell.getAttribute('colspan')).toBe('5');
+  });
+
+  it('does not show the profile column at all', async () => {
+    await load(summary());
+    const el = fixture.nativeElement as HTMLElement;
+    expect(el.querySelector('.profile-cell')).toBeNull();
+    expect(el.querySelectorAll('th').length).toBe(5);
+  });
+  });
+
+  describe('as the authed host', () => {
+    beforeEach(() => configure(true));
+
+    it('shows the profile column with an enabled copy-link button', async () => {
+      await load(summary());
+      const btn = (fixture.nativeElement as HTMLElement).querySelector(
+        '.profile-cell button'
+      ) as HTMLButtonElement;
+      expect(btn.disabled).toBe(false);
+    });
+
+    it('expanded match-list row spans all 6 columns, including the profile column', async () => {
+      await load(summary());
+      fixture.componentInstance['togglePlayer']('p1');
+      fixture.detectChanges();
+      const cell = (fixture.nativeElement as HTMLElement).querySelector('.matches-row td')!;
+      expect(cell.getAttribute('colspan')).toBe('6');
+    });
+
+    it('copies the player profile URL when the profile button is tapped', async () => {
+      const writeText = vi.fn().mockResolvedValue(undefined);
+      Object.assign(navigator, { clipboard: { writeText } });
+      await load(summary());
+      const btn = (fixture.nativeElement as HTMLElement).querySelector(
+        '.profile-cell button'
+      ) as HTMLButtonElement;
+      btn.click();
+      await new Promise((r) => setTimeout(r, 0));
+      expect(writeText).toHaveBeenCalledWith(expect.stringMatching(/\/g\/group1\/p\/p1$/));
+    });
   });
 });

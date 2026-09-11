@@ -1,6 +1,6 @@
 @if (summary(); as s) {
   <div class="page session-summary">
-    @if (canGoBack()) {
+    @if (isHost()) {
       <p><a [routerLink]="['/g', s.session.groupCode]" i18n="@@summary.back">← กลับ</a></p>
     }
     <h1 i18n="@@summary.title">สรุปก๊วน</h1>
@@ -20,6 +20,9 @@
             <th i18n="@@summary.won">ชนะ</th>
             <th i18n="@@summary.lost">แพ้</th>
             <th i18n="@@summary.winRate">อัตราชนะ</th>
+            @if (isHost()) {
+              <th class="profile-cell"><span class="sr-only" i18n="@@summary.profileColumn">โปรไฟล์</span></th>
+            }
           </tr>
         </thead>
         <tbody>
@@ -42,10 +45,26 @@
               <td>
                 @if (winPercent(row.played, row.won); as pct) { {{ pct }}% } @else { – }
               </td>
+              @if (isHost()) {
+                <td class="profile-cell">
+                  <button
+                    type="button"
+                    class="share-player"
+                    [attr.aria-label]="shareLabel(row.name)"
+                    (click)="sharePlayer(row.playerId)"
+                  >
+                    @if (sharedPlayerId() === row.playerId) {
+                      <ng-container i18n="@@summary.shareCopied">คัดลอกแล้ว</ng-container>
+                    } @else {
+                      <ng-container i18n="@@summary.shareLink">ลิงก์</ng-container>
+                    }
+                  </button>
+                </td>
+              }
             </tr>
             @if (expandedPlayerId() === row.playerId) {
               <tr class="matches-row">
-                <td colspan="5">
+                <td [attr.colspan]="isHost() ? 6 : 5">
                   <ul class="match-list">
                     @for (m of row.matches; track m.matchNumber) {
                       <li>
@@ -77,6 +96,10 @@
           }
         </tbody>
       </table>
+      @if (shareFailed()) {
+        <p class="error" role="alert" i18n="@@share.failed">คัดลอกไม่ได้ ลองเลือกข้อความเอง</p>
+        <textarea class="clipboard-fallback" readonly [value]="clipboardFallback()" i18n-aria-label="@@share.fallbackLabel" aria-label="ข้อความสำหรับคัดลอก"></textarea>
+      }
     }
   </div>
 } @else if (notFound()) {

@@ -395,6 +395,38 @@ describe('SessionDashboard', () => {
     expect(waiting[1].minutes).toBe(5);
   });
 
+  it('shows each on-court player\'s real games-played tally, not the rotation number', async () => {
+    fixture = TestBed.createComponent(SessionDashboard);
+    fixture.detectChanges();
+    httpMock.expectOne(`${B}/sessions/sess1`).flush(
+      baseSession({
+        rosterPlayerIds: ['p1', 'p2'],
+        queueGames: { p1: 99, p2: 99 },
+        courts: [{ status: 'active', pairingId: 'c1', teamA: ['p1', 'p2'], teamB: ['p3', 'p4'] }],
+      })
+    );
+    await new Promise((r) => setTimeout(r, 0));
+    TestBed.tick();
+    httpMock
+      .expectOne(`${B}/groups/group1/players`)
+      .flush([
+        { id: 'p1', name: 'ตั้ม', aliases: [] },
+        { id: 'p2', name: 'เบส', aliases: [] },
+      ]);
+    httpMock
+      .expectOne(`${B}/sessions/sess1/stats?scope=session`)
+      .flush([{ playerId: 'p1', name: 'ตั้ม', played: 3, won: 2 }]);
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    const tallies = [...(fixture.nativeElement as HTMLElement).querySelectorAll('.tally')].map(
+      (t) => t.textContent?.trim()
+    );
+    // p1 really played 3 (from /stats) — not 99, the unrelated rotation-fairness
+    // number on the session object. Everyone else is absent from /stats, so 0.
+    expect(tallies).toEqual(['3 เกม', '0 เกม', '0 เกม', '0 เกม']);
+  });
+
   it('fills every idle court in one tap', async () => {
     await settled();
     buttonWith('จัดคู่ทุกคอร์ทว่าง').click();

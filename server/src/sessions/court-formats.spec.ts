@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { formatAt, parseCourtFormats, withFormatAt } from './court-formats.js';
+import { formatAt, InvalidCourtNumberError, parseCourtFormats, withFormatAt } from './court-formats.js';
 
 describe('parseCourtFormats', () => {
   it('reads a null column as no entries', () => {
@@ -47,9 +47,18 @@ describe('withFormatAt', () => {
     expect(JSON.parse(set)).toEqual(['doubles']);
   });
 
-  it('never writes more than 20 entries, even from an already-long array', () => {
+  it('trims pre-existing bloat past 20 entries, without touching the write itself', () => {
     const bloated = JSON.stringify(Array(25).fill('doubles'));
     const result = withFormatAt(bloated, 1, 'singles');
-    expect(JSON.parse(result)).toHaveLength(20);
+    const parsed = JSON.parse(result);
+    expect(parsed).toHaveLength(20);
+    expect(parsed[0]).toBe('singles');
+  });
+
+  it('throws rather than silently dropping a write for a court beyond the maximum', () => {
+    // Regression: this used to pad the array out to `courtNumber` and only
+    // then slice back to 20, truncating away the very entry just set and
+    // reporting success while writing nothing.
+    expect(() => withFormatAt(null, 25, 'singles')).toThrow(InvalidCourtNumberError);
   });
 });

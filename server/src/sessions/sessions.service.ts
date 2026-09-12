@@ -19,7 +19,13 @@ import {
 import { isValidIsoDate } from '../../../engines/parser.ts';
 import { waitingSinceMap } from '../../../engines/waiting.ts';
 import { PrismaService } from '../prisma/prisma.service.js';
-import { courtSizeFor, formatAt, withFormatAt } from './court-formats.js';
+import {
+  courtSizeFor,
+  formatAt,
+  InvalidCourtNumberError,
+  parseCourtFormats,
+  withFormatAt,
+} from './court-formats.js';
 import { deriveHistory } from './derive-history.js';
 import { CorruptPairingError, parseTeam, parseTeams, teamPlayers } from './pairing-teams.js';
 import { SessionLock } from './session-lock.js';
@@ -83,39 +89,36 @@ export class SessionsService {
   }
 
   /**
-   * Parses a pairing's two teams, converting a corrupt row into the same
-   * INVALID_SESSION_STATE 500 the engine's own input validation uses (see
-   * `runGenerateRound`) — a malformed `teamA`/`teamB` is corrupt server
-   * state, not something the host did, and must not surface as an ordinary
-   * "not enough players" or 404 that hides where the fault actually is.
+   * Converts a corrupt row into the same INVALID_SESSION_STATE 500 the
+   * engine's own input validation uses (see `runGenerateRound`) — a
+   * malformed `teamA`/`teamB` is corrupt server state, not something the
+   * host did, and must not surface as an ordinary "not enough players" or
+   * 404 that hides where the fault actually is. Shared by every
+   * pairing-teams parse below so that mapping can't drift between them.
    */
-  private teamsOf(pairing: { teamA: string; teamB: string }): { teamA: string[]; teamB: string[] } {
+  private parseOrThrow<T>(fn: () => T): T {
     try {
-      return parseTeams(pairing);
+      return fn();
     } catch (error) {
       if (error instanceof CorruptPairingError) {
         throw new InternalServerErrorException({ code: 'INVALID_SESSION_STATE', detail: error.message });
       }
       throw error;
     }
+  }
+
+  private teamsOf(pairing: { teamA: string; teamB: string }): { teamA: string[]; teamB: string[] } {
+    return this.parseOrThrow(() => parseTeams(pairing));
   }
 
   /** Every player named by a pairing's two teams, in teamA-then-teamB order. */
   private playersOf(pairing: { teamA: string; teamB: string }): string[] {
-    const { teamA, teamB } = this.teamsOf(pairing);
-    return [...teamA, ...teamB];
+    return this.parseOrThrow(() => teamPlayers(pairing));
   }
 
   /** Parses one already-JSON team string, with the same corrupt-state mapping as `teamsOf`. */
   private oneTeamOf(raw: string): string[] {
-    try {
-      return parseTeam(raw);
-    } catch (error) {
-      if (error instanceof CorruptPairingError) {
-        throw new InternalServerErrorException({ code: 'INVALID_SESSION_STATE', detail: error.message });
-      }
-      throw error;
-    }
+    return this.parseOrThrow(() => parseTeam(raw));
   }
 
   async createSession(
@@ -264,12 +267,16 @@ export class SessionsService {
     if (!session) throw this.notFound('SESSION_NOT_FOUND');
 
     const courtCount = session.courtCount ?? 0;
+    // Parsed once rather than inside the loop below — this is a live-polled
+    // endpoint, and formatAt would otherwise re-parse the identical JSON
+    // string once per court on every poll.
+    const courtFormats = parseCourtFormats(session.courtFormats);
     const courts = Array.from({ length: courtCount }, (_, i) => {
       const courtNumber = i + 1;
       // Authoritative regardless of the court's status: the toggle only ever
       // writes while idle (see setCourtFormatExclusively), so a pending or
       // active pairing's actual team size can never disagree with this.
-      const format = formatAt(session.courtFormats, courtNumber);
+      const format = courtFormats[courtNumber - 1] ?? 'doubles';
       const current = session.pairings
         .filter((p) => p.courtNumber === courtNumber && p.endedAt === null)
         .sort((a, b) => b.matchNumber - a.matchNumber)[0];
@@ -1095,7 +1102,18 @@ export class SessionsService {
     });
     if (occupied) throw this.conflict('COURT_ACTIVE');
 
-    const courtFormats = withFormatAt(session.courtFormats, courtNumber, dto.format);
+    // A session created before CreateSessionDto capped courtCount at 20 could
+    // still have more courts than withFormatAt's storage can hold — the DTO
+    // cap prevents this for every session created from here on, but
+    // assertCourtNumber above only checks against this session's own
+    // (possibly grandfathered) courtCount, not the storage limit.
+    let courtFormats: string;
+    try {
+      courtFormats = withFormatAt(session.courtFormats, courtNumber, dto.format);
+    } catch (error) {
+      if (error instanceof InvalidCourtNumberError) throw this.badRequest('INVALID_COURT_NUMBER');
+      throw error;
+    }
     const updated = await this.prisma.session.update({
       where: { code },
       data: { courtFormats },

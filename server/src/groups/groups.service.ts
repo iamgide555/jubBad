@@ -245,9 +245,14 @@ export class GroupsService {
     // changes. singlesRating is null (not 1200) when the player has never
     // played singles, so a group that never plays it sees exactly today's
     // profile with no new, meaningless number attached.
-    const hasSinglesMatch = matches.some(
-      (match) => match.teamA.length === 1 && (match.teamA.includes(playerId) || match.teamB.includes(playerId))
-    );
+    //
+    // Checked against `ratings.singles` itself, not by re-scanning `matches`
+    // for any singles appearance: that scan would count an abandoned/
+    // no-result singles match, which `ratings.singles` — decisive-only, like
+    // `ratings.doubles` above — never replays, so a player whose only
+    // singles match had no result would get a fabricated 1200 "rating"
+    // instead of the null this comment promises.
+    const hasSinglesMatch = ratings.singles.has(playerId);
 
     return {
       playerId,

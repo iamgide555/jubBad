@@ -105,8 +105,19 @@ export function computeRatings(matches: FinishedMatch[]): Map<PlayerId, number> 
  * enough singles games accumulate. Worth knowing, not a bug.
  */
 export function computeRatingTracks(matches: FinishedMatch[]): RatingTracks {
+  // `=== 2`, not `!== 1`: the 1-or-2 invariant is enforced upstream
+  // (engines/pairing.ts's validateRoundInput, server/src/sessions/
+  // pairing-teams.ts's parseTeams) but this function has no way to check it
+  // itself. Bucketing everything that isn't singles into doubles would mean
+  // a team of some other size — reachable only by a future caller that
+  // builds a FinishedMatch directly rather than through those checks —
+  // silently joins the doubles replay; teamRating then divides by that
+  // length, and a size of 0 produces NaN that permanently poisons every
+  // real player's rating from that match onward. Requiring exactly 2 instead
+  // drops such a match from both tracks, which is a real player missing a
+  // rating rather than a real player's rating turning into NaN.
   const singles = matches.filter((m) => m.teamA.length === 1);
-  const doubles = matches.filter((m) => m.teamA.length !== 1);
+  const doubles = matches.filter((m) => m.teamA.length === 2);
   return { singles: computeRatings(singles), doubles: computeRatings(doubles) };
 }
 

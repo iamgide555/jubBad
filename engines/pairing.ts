@@ -561,7 +561,18 @@ function compareComponents(
   );
 }
 
+/**
+ * `avoidKeys` is only ever built from a doubles (2-per-team) avoidSplit — see
+ * `generateRound` — so this only makes sense for a size-2 team. The one call
+ * site already guards on `teamA.length === 2` before calling this, but that
+ * guard living only in the caller is a footgun: a future call site that
+ * forgets to repeat it would hit `teamA[1]` as `undefined`, producing a bogus
+ * key that can never match `avoidKeys` — the exclusion silently becomes a
+ * no-op instead of failing loudly. Checked here too so this function is safe
+ * on its own terms, not just as currently called.
+ */
 function isAvoidedSplit(teamA: Team, teamB: Team, avoidKeys: Set<string>): boolean {
+  if (teamA.length !== 2 || teamB.length !== 2) return false;
   const keys = new Set([pairKey(teamA[0], teamA[1]), pairKey(teamB[0], teamB[1])]);
   return keys.size === avoidKeys.size && [...keys].every((key) => avoidKeys.has(key));
 }

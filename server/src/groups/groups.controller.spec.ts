@@ -366,6 +366,45 @@ describe('GroupsController', () => {
     }
   });
 
+  it('keeps singlesRating null when the only singles match was abandoned without a result', async () => {
+    // Regression: hasSinglesMatch used to be computed by scanning every
+    // singles appearance in `matches`, including a no-result one, while the
+    // Elo track it read from (`ratings.singles`) only ever replays decisive
+    // matches. A player whose only singles match had no winner got a
+    // fabricated 1200 "rating" instead of the null this field promises.
+    const code = randomUUID();
+    const sessionCode = randomUUID();
+    await prisma.group.create({ data: { code, name: 'G' } });
+    const [me, foe] = await Promise.all(
+      ['Me', 'Foe'].map((name) => prisma.player.create({ data: { groupId: code, name, aliases: '[]' } }))
+    );
+    await prisma.session.create({
+      data: { code: sessionCode, groupId: code, courtCount: 1, rawImportText: '' },
+    });
+    await prisma.pairing.create({
+      data: {
+        sessionId: sessionCode,
+        courtNumber: 1,
+        matchNumber: 1,
+        teamA: JSON.stringify([me.id]),
+        teamB: JSON.stringify([foe.id]),
+        confirmedAt: new Date(),
+        endedAt: new Date(),
+        // No winner — played, but abandoned.
+      },
+    });
+
+    try {
+      const res = await request(server).get(`/groups/${code}/players/${me.id}/stats`).expect(200);
+      expect(res.body.singlesRating).toBeNull();
+    } finally {
+      await prisma.pairing.deleteMany({ where: { sessionId: sessionCode } });
+      await prisma.session.deleteMany({ where: { code: sessionCode } });
+      await prisma.player.deleteMany({ where: { groupId: code } });
+      await prisma.group.deleteMany({ where: { code } });
+    }
+  });
+
   it('gives a player independent singles and doubles ratings', async () => {
     const code = randomUUID();
     const sessionCode = randomUUID();

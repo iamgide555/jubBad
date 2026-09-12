@@ -8,6 +8,7 @@ import {
   IsString,
   IsUUID,
   Matches,
+  Max,
   Min,
   ValidateNested,
 } from 'class-validator';
@@ -39,9 +40,14 @@ export class CreateSessionDto {
   @IsString()
   venue!: string | null;
 
+  /** Same ceiling as SetCourtCountDto — a session created directly at an
+   *  out-of-range court count would otherwise let a later per-court write
+   *  (e.g. setting a court's format) name a court number storage silently
+   *  can't hold. */
   @IsOptional()
   @IsInt()
   @Min(1)
+  @Max(20)
   courtCount!: number | null;
 
   @IsString()

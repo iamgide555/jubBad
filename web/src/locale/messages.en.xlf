@@ -1130,18 +1130,25 @@
           <context context-type="linenumber">2</context>
         </context-group>
       </trans-unit>
-      <trans-unit id="login.lede" datatype="html">
-        <source>หน้านี้สำหรับผู้ดูแลก๊วนเท่านั้น</source><target>This page is for the group admin only.</target>
+      <trans-unit id="login.lede2" datatype="html">
+        <source>เข้าสู่ระบบเพื่อจัดการก๊วนของคุณ</source><target>Sign in to manage your groups.</target>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/login/login.html</context>
           <context context-type="linenumber">3</context>
         </context-group>
       </trans-unit>
-      <trans-unit id="login.tokenLabel" datatype="html">
-        <source>โทเคนผู้ดูแล</source><target>Admin token</target>
+      <trans-unit id="login.emailLabel" datatype="html">
+        <source>อีเมล</source><target>Email</target>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/login/login.html</context>
           <context context-type="linenumber">6</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="login.passwordLabel" datatype="html">
+        <source>รหัสผ่าน</source><target>Password</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/login/login.html</context>
+          <context context-type="linenumber">17</context>
         </context-group>
       </trans-unit>
       <trans-unit id="login.signIn" datatype="html">
@@ -1158,11 +1165,123 @@
           <context context-type="linenumber">22</context>
         </context-group>
       </trans-unit>
-      <trans-unit id="login.wrongToken" datatype="html">
-        <source>โทเคนไม่ถูกต้อง</source><target>That token is not right.</target>
+      <trans-unit id="login.wrongCredentials" datatype="html">
+        <source>อีเมลหรือรหัสผ่านไม่ถูกต้อง</source><target>That email or password is not right.</target>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/login/login.ts</context>
+          <context context-type="linenumber">44</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="login.forgotLink" datatype="html">
+        <source>ลืมรหัสผ่าน?</source><target>Forgot password?</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/login/login.html</context>
+          <context context-type="linenumber">46</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="login.forgotSent" datatype="html">
+        <source>ส่งคำขอแล้ว หากมีบัญชีนี้อยู่ ผู้ดูแลจะได้รับแจ้งและติดต่อกลับด้วยลิงก์ตั้งรหัสผ่านใหม่</source><target>Request sent. If an account exists for this address, the admin has been notified and will follow up with a reset link.</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/login/login.html</context>
+          <context context-type="linenumber">50</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="login.forgotEmailLabel" datatype="html">
+        <source>อีเมลที่ใช้สมัคร</source><target>Account email</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/login/login.html</context>
+          <context context-type="linenumber">55</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="login.forgotSending" datatype="html">
+        <source>กำลังส่ง…</source><target>Sending…</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/login/login.html</context>
+          <context context-type="linenumber">65</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="login.forgotSubmit" datatype="html">
+        <source>ส่งคำขอ</source><target>Send request</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/login/login.html</context>
+          <context context-type="linenumber">67</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="resetPassword.title" datatype="html">
+        <source>ตั้งรหัสผ่านใหม่</source><target>Set a new password</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/reset-password/reset-password.html</context>
+          <context context-type="linenumber">8</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="resetPassword.lede" datatype="html">
+        <source>กรอกรหัสผ่านใหม่สำหรับบัญชีของคุณ</source><target>Enter a new password for your account.</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/reset-password/reset-password.html</context>
+          <context context-type="linenumber">9</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="resetPassword.passwordLabel" datatype="html">
+        <source>รหัสผ่านใหม่</source><target>New password</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/reset-password/reset-password.html</context>
+          <context context-type="linenumber">12</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="resetPassword.confirmLabel" datatype="html">
+        <source>ยืนยันรหัสผ่านใหม่</source><target>Confirm new password</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/reset-password/reset-password.html</context>
+          <context context-type="linenumber">23</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="resetPassword.submit" datatype="html">
+        <source>ตั้งรหัสผ่านใหม่</source><target>Set new password</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/reset-password/reset-password.html</context>
+          <context context-type="linenumber">43</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="resetPassword.submitting" datatype="html">
+        <source>กำลังบันทึก…</source><target>Saving…</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/reset-password/reset-password.html</context>
           <context context-type="linenumber">41</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="resetPassword.doneTitle" datatype="html">
+        <source>ตั้งรหัสผ่านใหม่แล้ว</source><target>Password updated</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/reset-password/reset-password.html</context>
+          <context context-type="linenumber">2</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="resetPassword.doneLede" datatype="html">
+        <source>เข้าสู่ระบบด้วยรหัสผ่านใหม่ได้เลย</source><target>You can sign in with your new password now.</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/reset-password/reset-password.html</context>
+          <context context-type="linenumber">3</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="resetPassword.goToLogin" datatype="html">
+        <source>ไปหน้าเข้าสู่ระบบ</source><target>Go to sign in</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/reset-password/reset-password.html</context>
+          <context context-type="linenumber">4</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="resetPassword.mismatch" datatype="html">
+        <source>รหัสผ่านทั้งสองช่องไม่ตรงกัน</source><target>The two passwords do not match.</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/reset-password/reset-password.ts</context>
+          <context context-type="linenumber">37</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="resetPassword.failed" datatype="html">
+        <source>ลิงก์นี้หมดอายุหรือถูกใช้ไปแล้ว ขอลิงก์ใหม่จากผู้ดูแล</source><target>This link has expired or already been used. Ask the admin for a new one.</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/reset-password/reset-password.ts</context>
+          <context context-type="linenumber">50</context>
         </context-group>
       </trans-unit>
       <trans-unit id="login.throttled" datatype="html">
@@ -1420,6 +1539,349 @@
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/core/live-session.service.ts</context>
           <context context-type="linenumber">49</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="admin.title" datatype="html">
+        <source>ผู้ดูแลระบบ</source><target>Admin</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/admin/admin.html</context>
+          <context context-type="linenumber">3</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="admin.signOut" datatype="html">
+        <source>ออกจากระบบ</source><target>Sign out</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/admin/admin.html</context>
+          <context context-type="linenumber">4</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="admin.loading" datatype="html">
+        <source>กำลังโหลด…</source><target>Loading…</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/admin/admin.html</context>
+          <context context-type="linenumber">8</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="admin.loadFailed" datatype="html">
+        <source>โหลดข้อมูลไม่สำเร็จ</source><target>Failed to load data</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/admin/admin.html</context>
+          <context context-type="linenumber">10</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="admin.resetRequestsTitle" datatype="html">
+        <source>คำขอตั้งรหัสผ่านใหม่</source><target>Password reset requests</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/admin/admin.html</context>
+          <context context-type="linenumber">16</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="admin.resetRequestsEmpty" datatype="html">
+        <source>ไม่มีคำขอค้างอยู่</source><target>No pending requests</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/admin/admin.html</context>
+          <context context-type="linenumber">21</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="admin.markHandled" datatype="html">
+        <source>ทำเครื่องหมายว่าจัดการแล้ว</source><target>Mark handled</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/admin/admin.html</context>
+          <context context-type="linenumber">27</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="admin.createUserTitle" datatype="html">
+        <source>เพิ่มผู้ใช้</source><target>Add user</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/admin/admin.html</context>
+          <context context-type="linenumber">37</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="admin.emailPlaceholder" datatype="html">
+        <source>อีเมล</source><target>Email</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/admin/admin.html</context>
+          <context context-type="linenumber">41</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="admin.passwordPlaceholder" datatype="html">
+        <source>รหัสผ่าน (อย่างน้อย 8 ตัวอักษร)</source><target>Password (at least 8 characters)</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/admin/admin.html</context>
+          <context context-type="linenumber">48</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="admin.roleHost" datatype="html">
+        <source>ผู้ดูแลก๊วน</source><target>Group host</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/admin/admin.html</context>
+          <context context-type="linenumber">55</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="admin.roleAdmin" datatype="html">
+        <source>ผู้ดูแลระบบ</source><target>Admin</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/admin/admin.html</context>
+          <context context-type="linenumber">56</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="admin.createSubmit" datatype="html">
+        <source>เพิ่ม</source><target>Add</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/admin/admin.html</context>
+          <context context-type="linenumber">58</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="admin.createFailed" datatype="html">
+        <source>สร้างผู้ใช้ไม่สำเร็จ — อีเมลนี้อาจถูกใช้แล้ว</source><target>Could not create the user — this email may already be in use.</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/admin/admin.ts</context>
+          <context context-type="linenumber">76</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="admin.usersTitle" datatype="html">
+        <source>ผู้ใช้</source><target>Users</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/admin/admin.html</context>
+          <context context-type="linenumber">70</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="admin.colEmail" datatype="html">
+        <source>อีเมล</source><target>Email</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/admin/admin.html</context>
+          <context context-type="linenumber">73</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="admin.colRole" datatype="html">
+        <source>บทบาท</source><target>Role</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/admin/admin.html</context>
+          <context context-type="linenumber">74</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="admin.colStatus" datatype="html">
+        <source>สถานะ</source><target>Status</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/admin/admin.html</context>
+          <context context-type="linenumber">75</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="admin.colGroups" datatype="html">
+        <source>ก๊วนที่เป็นเจ้าของ</source><target>Groups owned</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/admin/admin.html</context>
+          <context context-type="linenumber">76</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="admin.save" datatype="html">
+        <source>บันทึก</source><target>Save</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/admin/admin.html</context>
+          <context context-type="linenumber">97</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="admin.cancel" datatype="html">
+        <source>ยกเลิก</source><target>Cancel</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/admin/admin.html</context>
+          <context context-type="linenumber">98</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="admin.active" datatype="html">
+        <source>ใช้งานอยู่</source><target>Active</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/admin/admin.html</context>
+          <context context-type="linenumber">115</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="admin.disabled" datatype="html">
+        <source>ปิดใช้งาน</source><target>Disabled</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/admin/admin.html</context>
+          <context context-type="linenumber">113</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="admin.edit" datatype="html">
+        <source>แก้ไข</source><target>Edit</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/admin/admin.html</context>
+          <context context-type="linenumber">128</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="admin.enable" datatype="html">
+        <source>เปิดใช้งาน</source><target>Enable</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/admin/admin.html</context>
+          <context context-type="linenumber">131</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="admin.disable" datatype="html">
+        <source>ปิดใช้งาน</source><target>Disable</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/admin/admin.html</context>
+          <context context-type="linenumber">133</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="admin.resetPassword" datatype="html">
+        <source>ตั้งรหัสผ่านใหม่</source><target>Reset password</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/admin/admin.html</context>
+          <context context-type="linenumber">136</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="admin.delete" datatype="html">
+        <source>ลบ</source><target>Delete</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/admin/admin.html</context>
+          <context context-type="linenumber">139</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="admin.resetLinkLede" datatype="html">
+        <source>ส่งลิงก์นี้ให้ผู้ใช้ด้วยตนเอง (เช่น ทาง LINE) — ใช้ได้ครั้งเดียว หมดอายุใน 1 ชั่วโมง</source><target>Send this link to the user yourself (e.g. via LINE) — single use, expires in 1 hour.</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/admin/admin.html</context>
+          <context context-type="linenumber">150</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="admin.copyLink" datatype="html">
+        <source>คัดลอกลิงก์</source><target>Copy link</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/admin/admin.html</context>
+          <context context-type="linenumber">152</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="admin.copied" datatype="html">
+        <source>คัดลอกแล้ว</source><target>Copied</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/admin/admin.html</context>
+          <context context-type="linenumber">154</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="admin.close" datatype="html">
+        <source>ปิด</source><target>Close</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/admin/admin.html</context>
+          <context context-type="linenumber">158</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="admin.resetFailed" datatype="html">
+        <source>สร้างลิงก์ไม่สำเร็จ</source><target>Could not generate the link</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/admin/admin.ts</context>
+          <context context-type="linenumber">168</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="admin.deleteConfirmEmpty" datatype="html">
+        <source>ผู้ใช้นี้ไม่ได้เป็นเจ้าของก๊วนใด ลบได้ทันที</source><target>This user does not own any groups — safe to delete right away.</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/admin/admin.html</context>
+          <context context-type="linenumber">166</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="admin.deleteConfirmLede" datatype="html">
+        <source>ต้องระบุการจัดการก๊วนที่เป็นเจ้าของให้ครบทุกก๊วนก่อนลบผู้ใช้นี้</source><target>Every group this user owns needs a disposition before they can be deleted.</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/admin/admin.html</context>
+          <context context-type="linenumber">168</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="admin.dispositionChoose" datatype="html">
+        <source>— เลือกการจัดการ —</source><target>— choose what happens —</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/admin/admin.html</context>
+          <context context-type="linenumber">176</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="admin.dispositionDelete" datatype="html">
+        <source>ลบก๊วนนี้ทิ้ง</source><target>Delete this group</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/admin/admin.html</context>
+          <context context-type="linenumber">177</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="admin.dispositionReassign" datatype="html">
+        <source>ย้ายให้ผู้ใช้อื่น</source><target>Reassign to another user</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/admin/admin.html</context>
+          <context context-type="linenumber">178</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="admin.dispositionChooseUser" datatype="html">
+        <source>— เลือกผู้ใช้ —</source><target>— choose a user —</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/admin/admin.html</context>
+          <context context-type="linenumber">182</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="admin.deleteFailed" datatype="html">
+        <source>ลบไม่สำเร็จ — ต้องระบุการจัดการให้ครบทุกก๊วน</source><target>Could not delete — every owned group needs a disposition.</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/admin/admin.ts</context>
+          <context context-type="linenumber">215</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="admin.deleteConfirm" datatype="html">
+        <source>ลบผู้ใช้นี้</source><target>Delete this user</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/admin/admin.html</context>
+          <context context-type="linenumber">200</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="admin.groupsTitle" datatype="html">
+        <source>ก๊วนทั้งหมด</source><target>All groups</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/admin/admin.html</context>
+          <context context-type="linenumber">212</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="admin.colGroupName" datatype="html">
+        <source>ก๊วน</source><target>Group</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/admin/admin.html</context>
+          <context context-type="linenumber">216</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="admin.colOwner" datatype="html">
+        <source>เจ้าของ</source><target>Owner</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/admin/admin.html</context>
+          <context context-type="linenumber">217</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="admin.noOwner" datatype="html">
+        <source>ไม่มีเจ้าของ</source><target>No owner</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/admin/admin.html</context>
+          <context context-type="linenumber">225</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="admin.reassign" datatype="html">
+        <source>ย้ายเจ้าของ</source><target>Reassign owner</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/admin/admin.html</context>
+          <context context-type="linenumber">238</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="admin.reassignFailed" datatype="html">
+        <source>ย้ายเจ้าของไม่สำเร็จ</source><target>Could not reassign the owner</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/admin/admin.ts</context>
+          <context context-type="linenumber">247</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="home.adminLink" datatype="html">
+        <source>ผู้ดูแลระบบ</source><target>Admin</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/landing/landing.html</context>
+          <context context-type="linenumber">5</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="admin.editFailed" datatype="html">
+        <source>บันทึกไม่สำเร็จ — อีเมลนี้อาจถูกใช้แล้ว</source><target>Could not save — this email may already be in use.</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/admin/admin.ts</context>
+          <context context-type="linenumber">121</context>
         </context-group>
       </trans-unit>
     </body>

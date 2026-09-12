@@ -10,9 +10,66 @@ model Group {
   code      String    @id
   name      String?
   createdAt DateTime  @default(now())
+  /// Nullable by necessity, not by design: this column cannot be backfilled in
+  /// the migration itself, because the admin account it points at does not
+  /// exist until password hashing runs in application code. AuthBootstrapService
+  /// fills every null on every boot, so in a running app this is never actually
+  /// null — a future reader should not "fix" this to NOT NULL, which would
+  /// break a fresh deploy before the first boot has run.
+  ownerId   String?
+  owner     User?     @relation(fields: [ownerId], references: [id])
   players   Player[]
   sessions  Session[]
   sessionCreations SessionCreation[]
+}
+
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  passwordHash String
+  /// 'admin' sees and manages every user and group; 'host' sees only the
+  /// groups they own. See OwnershipGuard and the /admin module.
+  role         String   @default("host")
+  disabled     Boolean  @default(false)
+  /// Bumped on disable, password change and password reset. The session
+  /// cookie carries the version it was issued at; a mismatch is a 401. This is
+  /// what makes revocation per-user instead of all-or-nothing — without it a
+  /// disabled user's phone would keep working for the cookie's full 30 days.
+  tokenVersion Int      @default(0)
+  createdAt    DateTime @default(now())
+  groups       Group[]
+  resets       PasswordReset[]
+}
+
+model PasswordReset {
+  id        String    @id @default(cuid())
+  userId    String
+  /// SHA-256 of the raw token, never the token itself — the raw value travels
+  /// through a LINE chat by hand and lives in that scrollback indefinitely,
+  /// the same reasoning that keeps passwords hashed rather than stored plain.
+  tokenHash String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+/// Records that a locked-out host asked for a reset, from the one page they
+/// can still reach with no cookie at all. Deliberately inert: it grants
+/// nothing by itself, and never reveals whether the email belongs to an
+/// account — see AuthController#forgotPassword. An admin turns a request into
+/// an actual PasswordReset by hand.
+model PasswordResetRequest {
+  id        String    @id @default(cuid())
+  /// The email as typed, not a User relation: the request is recorded whether
+  /// or not it matches an account, so a host's own typo is still visible to
+  /// the admin rather than silently discarded.
+  email     String
+  createdAt DateTime  @default(now())
+  handledAt DateTime?
+  /// The handling admin's id as a plain string, not a relation, so this
+  /// remains legible after that admin's own account is deleted.
+  handledBy String?
 }
 
 model Player {

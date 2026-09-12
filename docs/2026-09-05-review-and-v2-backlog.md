@@ -15,9 +15,11 @@ the spec the project had already written for itself) and **B. v2 candidates**
 > rather than remapped, since this is a point-in-time review; the original is
 > `git show 0aac515:PROJECT.md`.
 
-**Status:** everything in this document is built except B12, which is
-deliberately left alone — see its entry. Suite: 52 engine + 78 server + 100 web
-= 230 tests, all passing, both packages building clean.
+**Status:** everything in this document is built, including B12 as of
+2026-09-12 — see its entry for why it sits on an unmerged branch rather than
+`main`. Suite: 52 engine + 78 server + 100 web = 230 tests, all passing, both
+packages building clean, as measured against `main` at review time; B12's
+branch carries its own larger count, noted in its own entry.
 
 ---
 
@@ -615,57 +617,54 @@ since there is no auth and no undo behind it.
 The access question that raises is a recorded accepted risk — see the end of
 this file.
 
-### - [ ] B12. Per-user login (host role)
+### - [x] B12. Per-user login (host role)
 
-**Accepted work, not yet started.** This entry has been rewritten twice and the
-history matters, because the reason for holding it changed completely. It
-originally deferred on §2's accepted risk, "anyone with the link can edit", and
-argued that a host role would reverse a documented "no login/auth" decision.
-Both premises went out of date once admin authentication was built;
-`docs/overview.md` now records the decision as "shared admin authentication,
-not player accounts" rather than no auth at all. The entry then deferred on the
-genuine remaining gap — identity — and waited for a trigger. As of 2026-09-08
-the owner has decided to build it regardless of any trigger, so what remains is
-purely a question of when.
+**Built 2026-09-12, on branch `worktree-per-user-auth` — not yet merged.**
+This entry was rewritten twice while the work was still pending, and that
+history is kept below because the reasoning is what explains why the branch
+sits finished and unmerged rather than being a delay. Design in
+`docs/2026-09-12-b12-per-user-login.md`.
 
-What exists now is a global default-deny guard (`AdminGuard`, registered as an
-`APP_GUARD`): every route requires the admin cookie unless it is explicitly
-`@Public()`, and only four read-only routes are — the venue display's session
-poll, the group name, the player-name lookup, and a player's stat card.
-`auth.boundary.spec.ts` walks the router Express actually built rather than a
-hand-kept list, so a route added later is closed by default and provably so.
-Editing, importing, resting players, exporting and deleting all require the
-token. "Anyone with the link can edit" is closed.
+What existed before: a global default-deny guard (`AdminGuard`, registered as
+an `APP_GUARD`) — every route required the one shared admin cookie unless
+explicitly `@Public()`. `auth.boundary.spec.ts` walked the router Express
+actually built rather than a hand-kept list, so "anyone with the link can
+edit" was already closed. What was genuinely missing was *identity*:
 
-What is genuinely still missing is *identity*, which is what a host role would
-add and what the token cannot express:
-
-- The token is one shared secret, so everyone given it has equal power,
+- The token was one shared secret, so everyone given it had equal power,
   including deleting a group.
-- It grants access to every group, not the one someone hosts. There is no
+- It granted access to every group, not the one someone hosts. There was no
   concept of owning a group.
-- Revocation is all-or-nothing: changing the token signs out every device.
+- Revocation was all-or-nothing: changing the token signed out every device.
 
-**Planned, and sequenced behind real-world validation** (owner decision,
-2026-09-08). This is no longer "deferred until a trigger appears" — the owner
-intends to build per-user login. What holds it is ordering, not doubt: the
-audit fixes, the win-rate partner metric and manual swap are all implemented
-but have only ever run against tests. None has been used in a live session yet.
+All three are closed now. `AuthGuard` replaces the shared-token guard with
+real accounts (email + password, scrypt-hashed, signed session cookie).
+`OwnershipGuard` — a second global guard running after it — resolves
+`Group.ownerId` (a new, nullable-by-necessity column; nullable because the
+migration cannot create the admin account that backfills it, see the schema
+comment) and refuses any non-owner with a 404, never a 403, so a code's mere
+existence is never confirmed to someone who doesn't own it. An admin role
+bypasses ownership entirely and manages every user and group from `/admin`.
+Disabling a user bumps only their `tokenVersion`, so revocation is per-user,
+not all-or-nothing. A new `/admin` console covers user CRUD, the delete-user
+disposition flow (every group a deleted user owns must be explicitly
+reassigned or deleted — never both, in one atomic transaction with the user
+row), group reassignment, and the forgot-password request queue. Password
+reset is a one-time link an admin sends by hand (LINE, usually) — there is no
+SMTP, so there is no automated delivery, matching this app's existing
+paste-based, no-infra posture.
 
-Authentication is the wrong thing to change while that is true. It touches
-every route, so a fault in it looks like a fault in everything, and debugging
-"the app is broken" is far harder when the login layer changed in the same
-week. Proving the core first means a later auth bug has an obvious cause.
-
-**Do not start this until the deployed build has run real sessions**, including
-the parts no test can cover: manual swap under a thumb on a phone, the backup
-and restore scripts against the real database, and the partner metric once
-pairs actually cross five games together.
-
-When it is built, the three gaps above are the specification: identity,
-per-group ownership, and per-user revocation. Note that the second implies a
-data change — groups currently have no owner column — so it is a migration, not
-only a login screen.
+**Why unmerged rather than shipped:** the sequencing the owner set on
+2026-09-08 — behind the current build being validated in real sessions, since
+authentication touches every route and changing it while the core is unproven
+would give any later fault two plausible causes — governs the *merge*, not
+whether the work gets built. Building it on a branch and holding the merge
+satisfies both: the design and tests exist now, and `main` still runs Tuesday
+sessions on the code that has actually been played on. The branch stays
+unmerged until the parts no test can cover have run for real: manual swap
+under a thumb on a phone, the backup and restore scripts against the real
+database, and the partner metric once pairs actually cross five games
+together.
 
 ---
 
@@ -745,12 +744,10 @@ than only this entry.
 
 ## Suggested order
 
-Everything here is done except B12 and B13.
-
-B12 is accepted work rather than a deferral, sequenced last on purpose: it
-changes the layer every route passes through, so it should not move until the
-current build has been proven in real sessions. See its entry for the full
-reasoning and for what "proven" means concretely.
+Everything here is done except B13. B12 is also done, but sequenced last on
+purpose and unmerged: it changes the layer every route passes through, so it
+should not merge until the current build has been proven in real sessions.
+See its entry for the full reasoning and for what "proven" means concretely.
 
 B13 is a measured limitation with a manual workaround, not scheduled work. It
 is worth reading before anyone tunes the pairing weights, because it looks like

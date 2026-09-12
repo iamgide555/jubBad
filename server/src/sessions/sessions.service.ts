@@ -77,7 +77,10 @@ export class SessionsService {
     return new NotFoundException({ code });
   }
 
-  async createSession(dto: CreateSessionDto): Promise<{ code: string }> {
+  async createSession(
+    dto: CreateSessionDto,
+    caller: { id: string; role: string }
+  ): Promise<{ code: string }> {
     if (dto.date != null && !isValidIsoDate(dto.date)) {
       throw new BadRequestException('Session date must be a valid ISO calendar date.');
     }
@@ -97,9 +100,17 @@ export class SessionsService {
 
         const group = await tx.group.findUnique({
           where: { code: dto.groupCode },
-          select: { code: true },
+          select: { code: true, ownerId: true },
         });
-        if (!group) throw new BadRequestException('The requested group does not exist.');
+        // "No such group" and "a real group, not yours" get the identical
+        // 404 — the group is named in the body, so OwnershipGuard could not
+        // check this route by path alone, and this is that check, deferred
+        // here. Telling the two apart (as a plain "does not exist" 400 once
+        // did, before ownership existed to disagree with) would let a caller
+        // probe arbitrary codes for existence by their status code alone.
+        if (!group || (group.ownerId !== caller.id && caller.role !== 'admin')) {
+          throw new NotFoundException();
+        }
 
         const dbPlayers = await tx.player.findMany({ where: { groupId: dto.groupCode } });
         const playersById = new Map(dbPlayers.map((player) => [player.id, player]));

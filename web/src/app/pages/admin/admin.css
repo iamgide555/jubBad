@@ -1,0 +1,139 @@
+/* Wider than the default .page column (32rem, sized for reading Thai body
+   text) — this page is tables, which need the room. */
+.admin {
+  max-width: 64rem;
+}
+
+.admin-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin-bottom: var(--space-3);
+}
+
+.admin-section {
+  margin-bottom: var(--space-4);
+}
+
+.admin-section h2 {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.5rem;
+  height: 1.5rem;
+  padding: 0 var(--space-0);
+  border-radius: 999px;
+  background: var(--ink-on-paper);
+  color: var(--paper, #fff);
+  font-size: 0.8rem;
+}
+
+.request-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.request-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-1) 0;
+  border-bottom: 1px dashed var(--court-line, #ddd);
+}
+
+.request-time {
+  flex: 1;
+}
+
+.inline-form {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+  align-items: center;
+}
+
+.admin-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.admin-table th,
+.admin-table td {
+  text-align: left;
+  padding: var(--space-1);
+  border-bottom: 1px solid var(--court-line, #ddd);
+  vertical-align: top;
+}
+
+.admin-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-0);
+}
+
+.detail-row td {
+  background: color-mix(in srgb, var(--ink-on-paper) 4%, transparent);
+}
+
+.tag {
+  display: inline-block;
+  padding: 0.1rem 0.5rem;
+  border-radius: 999px;
+  font-size: 0.8rem;
+  margin-right: var(--space-0);
+}
+
+.tag-active {
+  background: color-mix(in srgb, green 15%, transparent);
+}
+
+.tag-disabled {
+  background: color-mix(in srgb, gray 20%, transparent);
+}
+
+.tag-owner {
+  background: color-mix(in srgb, orange 20%, transparent);
+}
+
+.disposition-list {
+  list-style: none;
+  padding: 0;
+  margin: var(--space-1) 0;
+}
+
+.disposition-list li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-1);
+  padding: var(--space-0) 0;
+}
+
+.link-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-1);
+  margin: var(--space-1) 0;
+}
+
+.link-row code {
+  word-break: break-all;
+}
+
+/* The page body scrolls, not the table — narrower than ~700px, tables get
+   their own horizontal scroll rather than squeezing the whole page. */
+@media (max-width: 700px) {
+  .admin-table {
+    display: block;
+    overflow-x: auto;
+    white-space: nowrap;
+  }
+}

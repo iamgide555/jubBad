@@ -1,12 +1,18 @@
 import { TestBed } from '@angular/core/testing';
 import { Router, UrlTree } from '@angular/router';
 import { provideRouter } from '@angular/router';
-import { adminGuard } from './admin.guard';
-import { AuthService } from './auth.service';
+import { adminGuard, adminRoleGuard } from './admin.guard';
+import { AuthService, type Role } from './auth.service';
 
 function runGuard(url: string) {
   return TestBed.runInInjectionContext(() =>
     adminGuard({} as never, { url } as never)
+  ) as Promise<boolean | UrlTree>;
+}
+
+function runRoleGuard(url: string) {
+  return TestBed.runInInjectionContext(() =>
+    adminRoleGuard({} as never, { url } as never)
   ) as Promise<boolean | UrlTree>;
 }
 
@@ -67,5 +73,37 @@ describe('adminGuard', () => {
     const router = TestBed.inject(Router);
     const result = (await runGuard('/g/x')) as UrlTree;
     expect(router.serializeUrl(result)).toBe('/login?returnUrl=%2Fg%2Fx');
+  });
+});
+
+describe('adminRoleGuard', () => {
+  function configure(signedIn: boolean, role: Role | null) {
+    TestBed.configureTestingModule({
+      providers: [
+        provideRouter([]),
+        {
+          provide: AuthService,
+          useValue: { check: () => Promise.resolve(signedIn), role: () => role },
+        },
+      ],
+    });
+  }
+
+  it('lets an admin through', async () => {
+    configure(true, 'admin');
+    expect(await runRoleGuard('/admin')).toBe(true);
+  });
+
+  it('sends a signed-out visitor to login, same as adminGuard', async () => {
+    configure(false, null);
+    const result = (await runRoleGuard('/admin')) as UrlTree;
+    expect(result.toString()).toContain('/login');
+  });
+
+  it('sends a signed-in non-admin home, not to login — they are signed in, just not allowed', async () => {
+    configure(true, 'host');
+    const result = (await runRoleGuard('/admin')) as UrlTree;
+    expect(result.toString()).not.toContain('/login');
+    expect(result.toString()).toBe('/');
   });
 });

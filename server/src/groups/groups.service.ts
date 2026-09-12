@@ -7,6 +7,7 @@ import type { UpdateGroupDto } from './dto/update-group.dto.js';
 import type { ParseRosterDto } from './dto/parse-roster.dto.js';
 
 type PairCount = { played: number; won: number; decisive: number };
+type Caller = { id: string; role: string };
 
 /**
  * Decisive games a pairing needs before its win rate is trusted. Five is about
@@ -28,9 +29,13 @@ export class GroupsService {
    * played tonight is at the top rather than whichever was made first. Groups
    * with no sessions yet sort last but are never dropped: a group exists from
    * the moment a roster is parsed into it, before any session is created.
+   *
+   * Scoped to `caller`'s own groups; an admin sees every group, since the
+   * admin console needs exactly that view.
    */
-  async listGroups() {
+  async listGroups(caller: Caller) {
     const groups = await this.prisma.group.findMany({
+      where: caller.role === 'admin' ? undefined : { ownerId: caller.id },
       include: {
         _count: { select: { sessions: true, players: true } },
         sessions: {
@@ -304,8 +309,22 @@ export class GroupsService {
    * typed before calling it.
    */
   async deleteGroup(code: string) {
+    const ops = await this.buildDeleteGroupOps(code);
+    if (!ops) throw new NotFoundException();
+    await this.prisma.$transaction(ops);
+    return { code, deleted: true };
+  }
+
+  /**
+   * The delete operations for one group, unexecuted — null if the group does
+   * not exist. Exists so the admin module can delete several groups and a
+   * user in a single transaction (see AdminService#deleteUser): composing
+   * several independent `$transaction` calls would not be atomic across all
+   * of them, but concatenating their operation arrays into one call is.
+   */
+  async buildDeleteGroupOps(code: string) {
     const group = await this.prisma.group.findUnique({ where: { code } });
-    if (!group) throw new NotFoundException();
+    if (!group) return null;
 
     const sessions = await this.prisma.session.findMany({
       where: { groupId: code },
@@ -313,24 +332,39 @@ export class GroupsService {
     });
     const sessionIds = sessions.map((s) => s.code);
 
-    await this.prisma.$transaction([
+    return [
       this.prisma.pairing.deleteMany({ where: { sessionId: { in: sessionIds } } }),
       this.prisma.sessionRoster.deleteMany({ where: { sessionId: { in: sessionIds } } }),
       this.prisma.waitlist.deleteMany({ where: { sessionId: { in: sessionIds } } }),
       this.prisma.session.deleteMany({ where: { groupId: code } }),
       this.prisma.player.deleteMany({ where: { groupId: code } }),
       this.prisma.group.delete({ where: { code } }),
-    ]);
-
-    return { code, deleted: true };
+    ];
   }
 
-  async parse(code: string, dto: ParseRosterDto) {
-    await this.prisma.group.upsert({
+  /**
+   * The one place a group is created — see the controller comment on this
+   * route for why that makes it the create-or-own point.
+   *
+   * The upsert is what keeps this safe under two hosts racing to claim the
+   * same fresh code at once: SQLite serializes the two writes (see
+   * PrismaService's WAL/busy_timeout comment), so exactly one `create`
+   * branch wins and sets `ownerId`; the loser's `update: {}` is a no-op, and
+   * the ownership check below then correctly refuses the loser rather than
+   * letting them import a roster into someone else's new group.
+   */
+  async parse(code: string, dto: ParseRosterDto, caller: Caller) {
+    const group = await this.prisma.group.upsert({
       where: { code },
-      create: { code, name: dto.groupName },
+      create: { code, name: dto.groupName, ownerId: caller.id },
       update: {},
     });
+    if (group.ownerId !== caller.id && caller.role !== 'admin') {
+      // Same 404 the rest of the ownership boundary uses — OwnershipGuard
+      // already let this through because the code had no group *before* this
+      // upsert ran; this is the one case that can only be caught after.
+      throw new NotFoundException();
+    }
 
     const result = parseLineRosterMessage(dto.rawText);
     const players = await this.prisma.player.findMany({ where: { groupId: code } });

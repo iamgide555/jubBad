@@ -4,6 +4,12 @@ import { PrismaModule } from '../prisma/prisma.module.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { GroupsService } from './groups.service.js';
 
+// Ownership filtering is exercised elsewhere (the auth boundary spec); an
+// admin caller sees every group regardless of owner, which is what keeps
+// these tests about the listing/ordering logic rather than about who owns
+// what.
+const ADMIN_CALLER = { id: 'list-groups-test-admin', role: 'admin' };
+
 describe('GroupsService.listGroups', () => {
   let service: GroupsService;
   let prisma: PrismaService;
@@ -48,7 +54,7 @@ describe('GroupsService.listGroups', () => {
 
   it('reports the counts the admin list needs, so it does not fetch each group', async () => {
     const code = await makeGroup('Counts', [{ createdAt: new Date('2026-01-01') }], 3);
-    const row = (await service.listGroups()).find((g) => g.code === code);
+    const row = (await service.listGroups(ADMIN_CALLER)).find((g) => g.code === code);
     expect(row).toMatchObject({ code, name: 'Counts', sessionCount: 1, playerCount: 3 });
   });
 
@@ -56,7 +62,7 @@ describe('GroupsService.listGroups', () => {
     const older = await makeGroup('Older', [{ createdAt: new Date('2026-01-01') }]);
     const newer = await makeGroup('Newer', [{ createdAt: new Date('2026-06-01') }]);
 
-    const listed = (await service.listGroups()).map((g) => g.code);
+    const listed = (await service.listGroups(ADMIN_CALLER)).map((g) => g.code);
     expect(listed.indexOf(newer)).toBeLessThan(listed.indexOf(older));
   });
 
@@ -64,13 +70,13 @@ describe('GroupsService.listGroups', () => {
     // A group is created the moment a roster is parsed into it, before any
     // session exists. Sorting by session date must not drop those.
     const empty = await makeGroup('Fresh');
-    const row = (await service.listGroups()).find((g) => g.code === empty);
+    const row = (await service.listGroups(ADMIN_CALLER)).find((g) => g.code === empty);
     expect(row).toMatchObject({ code: empty, sessionCount: 0, lastSessionAt: null });
   });
 
   it('gives the last session code so the list can jump straight into it', async () => {
     const code = await makeGroup('Resume', [{ createdAt: new Date('2026-03-03') }]);
-    const row = (await service.listGroups()).find((g) => g.code === code);
+    const row = (await service.listGroups(ADMIN_CALLER)).find((g) => g.code === code);
     expect(typeof row?.lastSessionCode).toBe('string');
   });
 });

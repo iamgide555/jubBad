@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, ParseIntPipe, Post, Query } from '@nestjs/common';
+import { Body, Controller, Get, Param, ParseIntPipe, Post, Query, Req } from '@nestjs/common';
 import { CreateSessionDto } from './dto/create-session.dto.js';
 import { FinishPairingDto } from './dto/finish-pairing.dto.js';
 import { PairingRevisionDto } from './dto/pairing-revision.dto.js';
@@ -7,15 +7,22 @@ import { SetModeDto } from './dto/set-mode.dto.js';
 import { SetRosterActiveDto } from './dto/set-roster-active.dto.js';
 import { SwapPlayerDto } from './dto/swap-player.dto.js';
 import { Public } from '../auth/public.decorator.js';
+import type { AuthenticatedRequest } from '../auth/auth.guard.js';
 import { SessionsService } from './sessions.service.js';
 
 @Controller('sessions')
 export class SessionsController {
   constructor(private readonly sessionsService: SessionsService) {}
 
+  /**
+   * The group is named in the body (`dto.groupCode`), not the URL, so
+   * OwnershipGuard cannot check this route by path alone — it explicitly lets
+   * `POST /sessions` through and defers to the check inside
+   * SessionsService.createSession instead.
+   */
   @Post()
-  create(@Body() dto: CreateSessionDto) {
-    return this.sessionsService.createSession(dto);
+  create(@Body() dto: CreateSessionDto, @Req() req: AuthenticatedRequest) {
+    return this.sessionsService.createSession(dto, req.user);
   }
 
   /**

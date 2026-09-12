@@ -1172,6 +1172,118 @@
           <context context-type="linenumber">44</context>
         </context-group>
       </trans-unit>
+      <trans-unit id="login.forgotLink" datatype="html">
+        <source>ลืมรหัสผ่าน?</source><target>Forgot password?</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/login/login.html</context>
+          <context context-type="linenumber">46</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="login.forgotSent" datatype="html">
+        <source>ส่งคำขอแล้ว หากมีบัญชีนี้อยู่ ผู้ดูแลจะได้รับแจ้งและติดต่อกลับด้วยลิงก์ตั้งรหัสผ่านใหม่</source><target>Request sent. If an account exists for this address, the admin has been notified and will follow up with a reset link.</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/login/login.html</context>
+          <context context-type="linenumber">50</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="login.forgotEmailLabel" datatype="html">
+        <source>อีเมลที่ใช้สมัคร</source><target>Account email</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/login/login.html</context>
+          <context context-type="linenumber">55</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="login.forgotSending" datatype="html">
+        <source>กำลังส่ง…</source><target>Sending…</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/login/login.html</context>
+          <context context-type="linenumber">65</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="login.forgotSubmit" datatype="html">
+        <source>ส่งคำขอ</source><target>Send request</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/login/login.html</context>
+          <context context-type="linenumber">67</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="resetPassword.title" datatype="html">
+        <source>ตั้งรหัสผ่านใหม่</source><target>Set a new password</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/reset-password/reset-password.html</context>
+          <context context-type="linenumber">8</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="resetPassword.lede" datatype="html">
+        <source>กรอกรหัสผ่านใหม่สำหรับบัญชีของคุณ</source><target>Enter a new password for your account.</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/reset-password/reset-password.html</context>
+          <context context-type="linenumber">9</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="resetPassword.passwordLabel" datatype="html">
+        <source>รหัสผ่านใหม่</source><target>New password</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/reset-password/reset-password.html</context>
+          <context context-type="linenumber">12</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="resetPassword.confirmLabel" datatype="html">
+        <source>ยืนยันรหัสผ่านใหม่</source><target>Confirm new password</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/reset-password/reset-password.html</context>
+          <context context-type="linenumber">23</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="resetPassword.submit" datatype="html">
+        <source>ตั้งรหัสผ่านใหม่</source><target>Set new password</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/reset-password/reset-password.html</context>
+          <context context-type="linenumber">43</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="resetPassword.submitting" datatype="html">
+        <source>กำลังบันทึก…</source><target>Saving…</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/reset-password/reset-password.html</context>
+          <context context-type="linenumber">41</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="resetPassword.doneTitle" datatype="html">
+        <source>ตั้งรหัสผ่านใหม่แล้ว</source><target>Password updated</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/reset-password/reset-password.html</context>
+          <context context-type="linenumber">2</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="resetPassword.doneLede" datatype="html">
+        <source>เข้าสู่ระบบด้วยรหัสผ่านใหม่ได้เลย</source><target>You can sign in with your new password now.</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/reset-password/reset-password.html</context>
+          <context context-type="linenumber">3</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="resetPassword.goToLogin" datatype="html">
+        <source>ไปหน้าเข้าสู่ระบบ</source><target>Go to sign in</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/reset-password/reset-password.html</context>
+          <context context-type="linenumber">4</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="resetPassword.mismatch" datatype="html">
+        <source>รหัสผ่านทั้งสองช่องไม่ตรงกัน</source><target>The two passwords do not match.</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/reset-password/reset-password.ts</context>
+          <context context-type="linenumber">37</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="resetPassword.failed" datatype="html">
+        <source>ลิงก์นี้หมดอายุหรือถูกใช้ไปแล้ว ขอลิงก์ใหม่จากผู้ดูแล</source><target>This link has expired or already been used. Ask the admin for a new one.</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/reset-password/reset-password.ts</context>
+          <context context-type="linenumber">50</context>
+        </context-group>
+      </trans-unit>
       <trans-unit id="login.throttled" datatype="html">
         <source>ลองมากเกินไป รอสักครู่แล้วลองใหม่</source><target>Too many attempts. Wait a moment and try again.</target>
         <context-group purpose="location">

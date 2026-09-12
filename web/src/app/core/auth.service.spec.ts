@@ -116,4 +116,36 @@ describe('AuthService', () => {
     expect(service.role()).toBeNull();
     expect(service.email()).toBeNull();
   });
+
+  it('sends a forgot-password request and resolves regardless of outcome', async () => {
+    const result = service.forgotPassword('someone@example.test');
+    const req = httpMock.expectOne(`${B}/auth/forgot`);
+    expect(req.request.body).toEqual({ email: 'someone@example.test' });
+    req.flush({ received: true });
+    await expect(result).resolves.toBeUndefined();
+  });
+
+  it('never throws from forgotPassword even if the request fails', async () => {
+    const result = service.forgotPassword('someone@example.test');
+    httpMock
+      .expectOne(`${B}/auth/forgot`)
+      .flush({ message: 'slow down' }, { status: 429, statusText: 'Too Many Requests' });
+    await expect(result).resolves.toBeUndefined();
+  });
+
+  it('resets a password with a token', async () => {
+    const result = service.resetPassword('a-token', 'a brand new password');
+    const req = httpMock.expectOne(`${B}/auth/reset/a-token`);
+    expect(req.request.body).toEqual({ password: 'a brand new password' });
+    req.flush({ ok: true });
+    expect(await result).toBe(true);
+  });
+
+  it('reports a failed reset as false rather than throwing', async () => {
+    const result = service.resetPassword('bad-token', 'a brand new password');
+    httpMock
+      .expectOne(`${B}/auth/reset/bad-token`)
+      .flush({ message: 'nope' }, { status: 401, statusText: 'Unauthorized' });
+    expect(await result).toBe(false);
+  });
 });

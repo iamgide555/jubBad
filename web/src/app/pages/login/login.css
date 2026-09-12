@@ -26,3 +26,23 @@
   width: 100%;
   margin-top: var(--space-1);
 }
+
+.login .link {
+  width: auto;
+  background: none;
+  border: none;
+  color: var(--ink-soft);
+  text-decoration: underline;
+  padding: 0;
+  margin-top: var(--space-3);
+  font: inherit;
+}
+
+.login .forgot-form {
+  margin-top: var(--space-3);
+}
+
+.login .forgot-sent {
+  margin-top: var(--space-3);
+  color: var(--ink-soft);
+}

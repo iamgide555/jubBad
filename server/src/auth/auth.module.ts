@@ -5,6 +5,7 @@ import { OwnershipGuard } from './ownership.guard.js';
 import { AuthController } from './auth.controller.js';
 import { AuthBootstrapService } from './bootstrap.service.js';
 import { LoginThrottle } from './login-throttle.js';
+import { PasswordResetService } from './password-reset.service.js';
 import { UsersModule } from '../users/users.module.js';
 
 /** Injection token for the cookie-signing secret, so tests can supply their own. */
@@ -37,6 +38,7 @@ export function requireSessionSecret(): string {
     { provide: SESSION_SECRET, useFactory: requireSessionSecret },
     LoginThrottle,
     AuthBootstrapService,
+    PasswordResetService,
     /**
      * Global, and order matters: Nest runs multiple APP_GUARD providers in
      * registration order, and OwnershipGuard reads request.user, which only
@@ -47,6 +49,8 @@ export function requireSessionSecret(): string {
     { provide: APP_GUARD, useClass: AuthGuard },
     { provide: APP_GUARD, useClass: OwnershipGuard },
   ],
-  exports: [SESSION_SECRET],
+  // PasswordResetService is exported for the admin module (phase 5), which
+  // is what actually mints a reset URL — this module only consumes one.
+  exports: [SESSION_SECRET, PasswordResetService],
 })
 export class AuthModule {}

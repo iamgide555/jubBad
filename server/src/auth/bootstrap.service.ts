@@ -22,6 +22,7 @@ export class AuthBootstrapService implements OnModuleInit {
   async onModuleInit(): Promise<void> {
     const admin = await this.ensureAdmin();
     await this.backfillGroupOwners(admin.id);
+    await this.pruneStaleResetRecords();
   }
 
   private async ensureAdmin(): Promise<{ id: string }> {
@@ -57,5 +58,21 @@ export class AuthBootstrapService implements OnModuleInit {
     if (count > 0) {
       this.logger.log(`Assigned ${count} ownerless group(s) to the admin account.`);
     }
+  }
+
+  /**
+   * Neither table has a reason to grow without bound: a `PasswordReset` that
+   * is spent or expired can never be consumed again, and a
+   * `PasswordResetRequest` the admin has already acted on is done being
+   * useful after long enough that nobody is still looking at it.
+   */
+  private async pruneStaleResetRecords(): Promise<void> {
+    const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+    await this.prisma.passwordResetRequest.deleteMany({
+      where: { handledAt: { lt: thirtyDaysAgo } },
+    });
+    await this.prisma.passwordReset.deleteMany({
+      where: { OR: [{ usedAt: { not: null } }, { expiresAt: { lt: new Date() } }] },
+    });
   }
 }

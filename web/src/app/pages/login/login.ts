@@ -19,6 +19,11 @@ export class Login {
   readonly error = signal<string | null>(null);
   readonly busy = signal(false);
 
+  readonly showForgot = signal(false);
+  readonly forgotEmail = signal('');
+  readonly forgotSent = signal(false);
+  readonly forgotBusy = signal(false);
+
   async submit(): Promise<void> {
     if (!this.email().trim() || !this.password() || this.busy()) return;
 
@@ -45,5 +50,27 @@ export class Login {
         : $localize`:@@login.wrongCredentials:อีเมลหรือรหัสผ่านไม่ถูกต้อง`
     );
     this.password.set('');
+  }
+
+  openForgot(): void {
+    this.showForgot.set(true);
+    this.forgotSent.set(false);
+    this.forgotEmail.set(this.email());
+  }
+
+  /**
+   * There is no automated delivery (see docs/2026-09-12-b12-per-user-login.md
+   * — Forgot password): this only ever reaches the admin console as a
+   * pending request. The confirmation says so, and is worded not to reveal
+   * whether the address has an account, matching what the server itself
+   * refuses to reveal.
+   */
+  async submitForgot(): Promise<void> {
+    if (!this.forgotEmail().trim() || this.forgotBusy()) return;
+
+    this.forgotBusy.set(true);
+    await this.auth.forgotPassword(this.forgotEmail().trim());
+    this.forgotBusy.set(false);
+    this.forgotSent.set(true);
   }
 }

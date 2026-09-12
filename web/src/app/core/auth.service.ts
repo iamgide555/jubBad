@@ -58,6 +58,35 @@ export class AuthService {
     }
   }
 
+  /**
+   * Always resolves — there is nothing useful to distinguish for the caller.
+   * The server answers identically whether or not `email` has an account, on
+   * purpose (see AuthController#forgotPassword), so this has no failure mode
+   * worth surfacing beyond a network error, which the login page's copy
+   * already treats the same as "request sent" rather than alarming anyone.
+   */
+  async forgotPassword(email: string): Promise<void> {
+    try {
+      await firstValueFrom(this.http.post(`${this.base}/auth/forgot`, { email }));
+    } catch {
+      // Deliberately swallowed — see above.
+    }
+  }
+
+  /**
+   * Sets a new password from a one-time reset link. False covers every
+   * failure the same way: expired, already used, or simply wrong — a locked-
+   * out host gets one message either way, not a hint about which.
+   */
+  async resetPassword(token: string, password: string): Promise<boolean> {
+    try {
+      await firstValueFrom(this.http.post(`${this.base}/auth/reset/${token}`, { password }));
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
   /** Asks the server, which is the only thing that actually knows. */
   async check(): Promise<boolean> {
     try {

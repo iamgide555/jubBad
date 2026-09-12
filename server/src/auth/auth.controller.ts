@@ -4,6 +4,7 @@ import {
   Get,
   HttpException,
   HttpStatus,
+  Param,
   Post,
   Req,
   Res,
@@ -12,26 +13,31 @@ import {
 import type { Request, Response } from 'express';
 import { resolveSessionUser } from './auth.guard.js';
 import { LoginThrottle } from './login-throttle.js';
+import { PasswordResetService } from './password-reset.service.js';
 import { Public } from './public.decorator.js';
 import { packSession, SESSION_COOKIE } from './session.js';
+import { ForgotPasswordDto } from './dto/forgot-password.dto.js';
 import { LoginDto } from './dto/login.dto.js';
+import { ResetPasswordDto } from './dto/reset-password.dto.js';
 import { UsersService } from '../users/users.service.js';
 
 /** Thirty days: the host should not re-authenticate before every session. */
 const MAX_AGE_MS = 30 * 24 * 60 * 60 * 1000;
 
 /**
- * All three routes are @Public() by necessity — a caller with no cookie has to
- * be able to reach the endpoint that gives them one, and the client's route
- * guard has to be able to ask whether it is signed in without being refused for
- * not being signed in.
+ * Every route on this controller is @Public() by necessity — a caller with no
+ * cookie has to be able to reach the endpoint that gives them one, the client's
+ * route guard has to be able to ask whether it is signed in without being
+ * refused for not being signed in, and a locked-out host has no cookie at all
+ * when asking for a reset.
  */
 @Public()
 @Controller('auth')
 export class AuthController {
   constructor(
     private readonly usersService: UsersService,
-    private readonly throttle: LoginThrottle
+    private readonly throttle: LoginThrottle,
+    private readonly passwordResetService: PasswordResetService
   ) {}
 
   @Post('login')
@@ -78,6 +84,44 @@ export class AuthController {
     const user = await resolveSessionUser(req, this.usersService);
     if (!user) return { authenticated: false };
     return { authenticated: true, role: user.role, email: user.email };
+  }
+
+  /**
+   * Records that someone asked for a reset. Answers identically whether or
+   * not the address matches an account, and grants nothing by itself — the
+   * only thing that ever produces a working reset link is an admin acting on
+   * this request from the admin console. See PasswordResetService for why
+   * that is safe against enumeration by construction rather than by care.
+   */
+  @Post('forgot')
+  async forgotPassword(
+    @Body() dto: ForgotPasswordDto,
+    @Req() req: Request
+  ): Promise<{ received: true }> {
+    const ipKey = `forgot:${req.ip ?? 'unknown'}`;
+    if (!this.throttle.check(ipKey)) {
+      throw new HttpException('ลองใหม่อีกครั้งภายหลัง', HttpStatus.TOO_MANY_REQUESTS);
+    }
+    this.throttle.recordFailure(ipKey);
+
+    await this.passwordResetService.recordRequest(dto.email);
+    return { received: true };
+  }
+
+  /**
+   * A locked-out host has no cookie, so this has to be @Public() — the token
+   * itself, 256 bits and single-use, is the only credential here.
+   */
+  @Post('reset/:token')
+  async resetPassword(
+    @Param('token') token: string,
+    @Body() dto: ResetPasswordDto
+  ): Promise<{ ok: true }> {
+    const ok = await this.passwordResetService.consume(token, dto.password);
+    if (!ok) {
+      throw new UnauthorizedException('ลิงก์นี้หมดอายุหรือถูกใช้ไปแล้ว');
+    }
+    return { ok: true };
   }
 
   private cookieOptions() {

@@ -10,6 +10,7 @@ import { SessionDashboard } from './pages/session-dashboard/session-dashboard';
 import { SessionDisplay } from './pages/session-display/session-display';
 import { PlayerProfile } from './pages/player-profile/player-profile';
 import { Landing } from './pages/landing/landing';
+import { ResetPassword } from './pages/reset-password/reset-password';
 
 /**
  * A stubbed AuthService rather than the real one: these tests are about which
@@ -73,6 +74,13 @@ describe('app routes', () => {
       const harness = await RouterTestingHarness.create();
       expect(await harness.navigateByUrl('/g/abc/p/p1', PlayerProfile)).toBeInstanceOf(
         PlayerProfile
+      );
+    });
+
+    it('still shows the password reset page — a locked-out host has no cookie', async () => {
+      const harness = await RouterTestingHarness.create();
+      expect(await harness.navigateByUrl('/reset/some-token', ResetPassword)).toBeInstanceOf(
+        ResetPassword
       );
     });
 

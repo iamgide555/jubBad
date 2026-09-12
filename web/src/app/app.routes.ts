@@ -14,6 +14,14 @@ export const routes: Routes = [
     loadComponent: () => import('./pages/login/login').then((m) => m.Login),
   },
   {
+    // Unguarded by necessity: a locked-out host reaching this link has no
+    // cookie at all. The token in the URL is the credential — see
+    // AuthController#resetPassword.
+    path: 'reset/:token',
+    loadComponent: () =>
+      import('./pages/reset-password/reset-password').then((m) => m.ResetPassword),
+  },
+  {
     path: '',
     canActivate: [adminGuard],
     loadComponent: () => import('./pages/landing/landing').then((m) => m.Landing),

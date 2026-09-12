@@ -5,5 +5,8 @@ import { GroupsService } from './groups.service.js';
 @Module({
   controllers: [GroupsController],
   providers: [GroupsService],
+  // Exported for the admin module, which reuses buildDeleteGroupOps to
+  // delete several groups and a user in one transaction.
+  exports: [GroupsService],
 })
 export class GroupsModule {}

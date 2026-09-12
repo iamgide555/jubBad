@@ -36,11 +36,16 @@ export class OwnershipGuard implements CanActivate {
 
     const path = request.path;
 
-    // /auth's own routes are all @Public() already; /admin is role-gated on
-    // its own (see the admin module) rather than owning any group. Both are
-    // named here anyway so this guard's own shape stays self-documenting
-    // rather than relying on nothing ever reaching it unhandled.
-    if (path.startsWith('/auth') || path.startsWith('/admin')) return true;
+    // /auth's own routes are all @Public() already, so nothing not already
+    // handled above ever reaches here for them.
+    if (path.startsWith('/auth')) return true;
+
+    // Reaching this line already means role !== 'admin' — the check at the
+    // top of this method would have returned already otherwise. /admin
+    // addresses no group, so this guard is not the one deciding whether an
+    // admin route is allowed; it is simply the wrong caller, refused the
+    // same way an unrecognised route shape would be.
+    if (path.startsWith('/admin')) throw new NotFoundException();
 
     // Addresses no group at all, so ownership has nothing to check: GET /
     // (AppController's scaffold route). GET /groups is filtered by owner at

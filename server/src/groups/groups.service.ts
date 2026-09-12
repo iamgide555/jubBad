@@ -309,8 +309,22 @@ export class GroupsService {
    * typed before calling it.
    */
   async deleteGroup(code: string) {
+    const ops = await this.buildDeleteGroupOps(code);
+    if (!ops) throw new NotFoundException();
+    await this.prisma.$transaction(ops);
+    return { code, deleted: true };
+  }
+
+  /**
+   * The delete operations for one group, unexecuted — null if the group does
+   * not exist. Exists so the admin module can delete several groups and a
+   * user in a single transaction (see AdminService#deleteUser): composing
+   * several independent `$transaction` calls would not be atomic across all
+   * of them, but concatenating their operation arrays into one call is.
+   */
+  async buildDeleteGroupOps(code: string) {
     const group = await this.prisma.group.findUnique({ where: { code } });
-    if (!group) throw new NotFoundException();
+    if (!group) return null;
 
     const sessions = await this.prisma.session.findMany({
       where: { groupId: code },
@@ -318,16 +332,14 @@ export class GroupsService {
     });
     const sessionIds = sessions.map((s) => s.code);
 
-    await this.prisma.$transaction([
+    return [
       this.prisma.pairing.deleteMany({ where: { sessionId: { in: sessionIds } } }),
       this.prisma.sessionRoster.deleteMany({ where: { sessionId: { in: sessionIds } } }),
       this.prisma.waitlist.deleteMany({ where: { sessionId: { in: sessionIds } } }),
       this.prisma.session.deleteMany({ where: { groupId: code } }),
       this.prisma.player.deleteMany({ where: { groupId: code } }),
       this.prisma.group.delete({ where: { code } }),
-    ]);
-
-    return { code, deleted: true };
+    ];
   }
 
   /**

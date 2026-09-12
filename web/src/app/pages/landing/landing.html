@@ -1,7 +1,12 @@
 <div class="page landing">
   <div class="home-head">
     <h1 i18n="@@home.title">ก๊วนของฉัน</h1>
-    <button type="button" class="ghost" (click)="signOut()" i18n="@@home.signOut">ออกจากระบบ</button>
+    <div class="home-head-actions">
+      @if (isAdmin()) {
+        <a class="ghost-link" routerLink="/admin" i18n="@@home.adminLink">ผู้ดูแลระบบ</a>
+      }
+      <button type="button" class="ghost" (click)="signOut()" i18n="@@home.signOut">ออกจากระบบ</button>
+    </div>
   </div>
 
   @if (loaded()) {

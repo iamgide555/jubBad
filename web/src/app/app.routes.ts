@@ -1,5 +1,5 @@
 import { Routes } from '@angular/router';
-import { adminGuard } from './core/admin.guard';
+import { adminGuard, adminRoleGuard } from './core/admin.guard';
 
 /**
  * Two audiences share this app. The host's screens are guarded; the two
@@ -25,6 +25,13 @@ export const routes: Routes = [
     path: '',
     canActivate: [adminGuard],
     loadComponent: () => import('./pages/landing/landing').then((m) => m.Landing),
+  },
+  {
+    // Role-gated, not just signed-in-gated — see adminRoleGuard's own
+    // comment for why a non-admin goes home rather than to /login.
+    path: 'admin',
+    canActivate: [adminRoleGuard],
+    loadComponent: () => import('./pages/admin/admin').then((m) => m.Admin),
   },
   {
     // Before 'g/:groupCode' so the deeper path wins the match.

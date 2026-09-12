@@ -86,10 +86,21 @@ describe('OwnershipGuard', () => {
     ).resolves.toBe(true);
   });
 
-  it('skips /auth and /admin entirely', async () => {
+  it('skips /auth entirely', async () => {
     const g = guard(false, []);
     await expect(g.canActivate(contextFor(OWNER, '/auth/me', {}))).resolves.toBe(true);
-    await expect(g.canActivate(contextFor(OWNER, '/admin/users', {}))).resolves.toBe(true);
+  });
+
+  it('refuses a non-admin on /admin, since this guard is not the one that admits them', async () => {
+    const g = guard(false, []);
+    await expect(
+      g.canActivate(contextFor(OWNER, '/admin/users', {}))
+    ).rejects.toBeInstanceOf(NotFoundException);
+  });
+
+  it('lets an admin through on /admin', async () => {
+    const g = guard(false, []);
+    await expect(g.canActivate(contextFor(ADMIN, '/admin/users', {}))).resolves.toBe(true);
   });
 
   it('lets GET /groups and POST /sessions through — neither has a :code to check here', async () => {

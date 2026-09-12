@@ -40,6 +40,10 @@ export class Landing {
   readonly removeConfirmText = signal('');
   readonly removeError = signal<string | null>(null);
 
+  // Populated as a side effect of adminGuard's auth.check() before this page
+  // ever renders (see app.routes.ts), so this is never stale on first paint.
+  readonly isAdmin = computed(() => this.auth.role() === 'admin');
+
   constructor() {
     void this.load();
   }

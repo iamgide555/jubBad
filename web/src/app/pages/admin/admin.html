@@ -1,0 +1,275 @@
+<div class="page admin">
+  <div class="admin-head">
+    <h1 i18n="@@admin.title">ผู้ดูแลระบบ</h1>
+    <button type="button" class="ghost" (click)="signOut()" i18n="@@admin.signOut">ออกจากระบบ</button>
+  </div>
+
+  @if (!loaded()) {
+    <p class="muted" i18n="@@admin.loading">กำลังโหลด…</p>
+  } @else if (loadError()) {
+    <p class="error" role="alert" i18n="@@admin.loadFailed">โหลดข้อมูลไม่สำเร็จ</p>
+  } @else {
+    <!-- Pending reset requests -->
+    <section class="admin-section">
+      <h2>
+        <ng-container i18n="@@admin.resetRequestsTitle">คำขอตั้งรหัสผ่านใหม่</ng-container>
+        @if (resetRequests().length > 0) {
+          <span class="badge">{{ resetRequests().length }}</span>
+        }
+      </h2>
+      @if (resetRequests().length === 0) {
+        <p class="muted" i18n="@@admin.resetRequestsEmpty">ไม่มีคำขอค้างอยู่</p>
+      } @else {
+        <ul class="request-list">
+          @for (request of resetRequests(); track request.id) {
+            <li class="request-row">
+              <span>{{ request.email }}</span>
+              <span class="muted request-time">{{ request.createdAt | date: 'short' }}</span>
+              <button type="button" class="ghost" (click)="handleResetRequest(request)" i18n="@@admin.markHandled">
+                ทำเครื่องหมายว่าจัดการแล้ว
+              </button>
+            </li>
+          }
+        </ul>
+      }
+    </section>
+
+    <!-- Create user -->
+    <section class="admin-section">
+      <h2 i18n="@@admin.createUserTitle">เพิ่มผู้ใช้</h2>
+      <form class="inline-form" (ngSubmit)="createUser()">
+        <input
+          type="email"
+          placeholder="อีเมล"
+          i18n-placeholder="@@admin.emailPlaceholder"
+          [ngModel]="newEmail()"
+          (ngModelChange)="newEmail.set($event)"
+          name="newEmail"
+        />
+        <input
+          type="password"
+          placeholder="รหัสผ่าน (อย่างน้อย 8 ตัวอักษร)"
+          i18n-placeholder="@@admin.passwordPlaceholder"
+          [ngModel]="newPassword()"
+          (ngModelChange)="newPassword.set($event)"
+          name="newPassword"
+        />
+        <select [ngModel]="newRole()" (ngModelChange)="newRole.set($event)" name="newRole">
+          <option value="host" i18n="@@admin.roleHost">ผู้ดูแลก๊วน</option>
+          <option value="admin" i18n="@@admin.roleAdmin">ผู้ดูแลระบบ</option>
+        </select>
+        <button type="submit" [disabled]="createBusy() || !newEmail().trim() || newPassword().length < 8" i18n="@@admin.createSubmit">
+          เพิ่ม
+        </button>
+      </form>
+      @if (createError()) {
+        <p class="error" role="alert">{{ createError() }}</p>
+      }
+    </section>
+
+    <!-- Users -->
+    <section class="admin-section">
+      <h2 i18n="@@admin.usersTitle">ผู้ใช้</h2>
+      <table class="admin-table">
+        <thead>
+          <tr>
+            <th i18n="@@admin.colEmail">อีเมล</th>
+            <th i18n="@@admin.colRole">บทบาท</th>
+            <th i18n="@@admin.colStatus">สถานะ</th>
+            <th i18n="@@admin.colGroups">ก๊วนที่เป็นเจ้าของ</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (user of users(); track user.id) {
+            <tr>
+              @if (editingId() === user.id) {
+                <td>
+                  <input
+                    type="email"
+                    [ngModel]="editEmail()"
+                    (ngModelChange)="editEmail.set($event)"
+                    name="editEmail-{{ user.id }}"
+                  />
+                </td>
+                <td>
+                  <select [ngModel]="editRole()" (ngModelChange)="editRole.set($event)" name="editRole-{{ user.id }}">
+                    <option value="host" i18n="@@admin.roleHost">ผู้ดูแลก๊วน</option>
+                    <option value="admin" i18n="@@admin.roleAdmin">ผู้ดูแลระบบ</option>
+                  </select>
+                </td>
+                <td colspan="2">
+                  @if (editError()) {
+                    <p class="error" role="alert">{{ editError() }}</p>
+                  }
+                </td>
+                <td class="admin-actions">
+                  <button type="button" [disabled]="editBusy()" (click)="saveEdit(user)" i18n="@@admin.save">บันทึก</button>
+                  <button type="button" class="ghost" (click)="cancelEdit()" i18n="@@admin.cancel">ยกเลิก</button>
+                </td>
+              } @else {
+                <td>{{ user.email }}</td>
+                <td>
+                  @if (user.role === 'admin') {
+                    <ng-container i18n="@@admin.roleAdmin">ผู้ดูแลระบบ</ng-container>
+                  } @else {
+                    <ng-container i18n="@@admin.roleHost">ผู้ดูแลก๊วน</ng-container>
+                  }
+                </td>
+                <td>
+                  @if (user.disabled) {
+                    <span class="tag tag-disabled" i18n="@@admin.disabled">ปิดใช้งาน</span>
+                  } @else {
+                    <span class="tag tag-active" i18n="@@admin.active">ใช้งานอยู่</span>
+                  }
+                </td>
+                <td>
+                  @if (user.ownedGroups.length === 0) {
+                    <span class="muted">—</span>
+                  } @else {
+                    <span class="tag tag-owner">{{ user.ownedGroups.length }}</span>
+                    {{ user.ownedGroups.map((g) => g.name || g.code).join(', ') }}
+                  }
+                </td>
+                <td class="admin-actions">
+                  <button type="button" class="ghost" (click)="startEdit(user)" i18n="@@admin.edit">แก้ไข</button>
+                  <button type="button" class="ghost" (click)="toggleDisabled(user)">
+                    @if (user.disabled) {
+                      <ng-container i18n="@@admin.enable">เปิดใช้งาน</ng-container>
+                    } @else {
+                      <ng-container i18n="@@admin.disable">ปิดใช้งาน</ng-container>
+                    }
+                  </button>
+                  <button type="button" class="ghost" (click)="mintReset(user)" i18n="@@admin.resetPassword">
+                    ตั้งรหัสผ่านใหม่
+                  </button>
+                  <button type="button" class="danger" (click)="startDelete(user)" i18n="@@admin.delete">ลบ</button>
+                </td>
+              }
+            </tr>
+
+            @if (resettingId() === user.id) {
+              <tr class="detail-row">
+                <td colspan="5">
+                  @if (resetError()) {
+                    <p class="error" role="alert">{{ resetError() }}</p>
+                  } @else if (resetLink()) {
+                    <p i18n="@@admin.resetLinkLede">ส่งลิงก์นี้ให้ผู้ใช้ด้วยตนเอง (เช่น ทาง LINE) — ใช้ได้ครั้งเดียว หมดอายุใน 1 ชั่วโมง</p>
+                    <div class="link-row">
+                      <code>{{ resetLink() }}</code>
+                      <button type="button" (click)="copyResetLink()" i18n="@@admin.copyLink">คัดลอกลิงก์</button>
+                      @if (resetCopied()) {
+                        <span class="muted" i18n="@@admin.copied">คัดลอกแล้ว</span>
+                      }
+                    </div>
+                  }
+                  <button type="button" class="ghost" (click)="closeReset()" i18n="@@admin.close">ปิด</button>
+                </td>
+              </tr>
+            }
+
+            @if (deletingUser()?.id === user.id) {
+              <tr class="detail-row">
+                <td colspan="5">
+                  @if (user.ownedGroups.length === 0) {
+                    <p i18n="@@admin.deleteConfirmEmpty">ผู้ใช้นี้ไม่ได้เป็นเจ้าของก๊วนใด ลบได้ทันที</p>
+                  } @else {
+                    <p i18n="@@admin.deleteConfirmLede">
+                      ต้องระบุการจัดการก๊วนที่เป็นเจ้าของให้ครบทุกก๊วนก่อนลบผู้ใช้นี้
+                    </p>
+                    <ul class="disposition-list">
+                      @for (group of user.ownedGroups; track group.code) {
+                        <li>
+                          <span>{{ group.name || group.code }}</span>
+                          <select
+                            (change)="setDispositionAction(group.code, $any($event.target).value)"
+                          >
+                            <option value="" i18n="@@admin.dispositionChoose">— เลือกการจัดการ —</option>
+                            <option value="delete" i18n="@@admin.dispositionDelete">ลบก๊วนนี้ทิ้ง</option>
+                            <option value="reassign" i18n="@@admin.dispositionReassign">ย้ายให้ผู้ใช้อื่น</option>
+                          </select>
+                          @if (dispositions()[group.code]?.action === 'reassign') {
+                            <select (change)="setDispositionTarget(group.code, $any($event.target).value)">
+                              <option value="" i18n="@@admin.dispositionChooseUser">— เลือกผู้ใช้ —</option>
+                              @for (candidate of users(); track candidate.id) {
+                                @if (candidate.id !== user.id) {
+                                  <option [value]="candidate.id">{{ candidate.email }}</option>
+                                }
+                              }
+                            </select>
+                          }
+                        </li>
+                      }
+                    </ul>
+                  }
+                  @if (deleteError()) {
+                    <p class="error" role="alert">{{ deleteError() }}</p>
+                  }
+                  <div class="admin-actions">
+                    <button type="button" class="ghost" (click)="cancelDelete()" i18n="@@admin.cancel">ยกเลิก</button>
+                    <button
+                      type="button"
+                      class="danger"
+                      [disabled]="deleteBusy() || !canConfirmDelete()"
+                      (click)="confirmDelete()"
+                      i18n="@@admin.deleteConfirm"
+                    >
+                      ลบผู้ใช้นี้
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            }
+          }
+        </tbody>
+      </table>
+    </section>
+
+    <!-- Groups -->
+    <section class="admin-section">
+      <h2 i18n="@@admin.groupsTitle">ก๊วนทั้งหมด</h2>
+      <table class="admin-table">
+        <thead>
+          <tr>
+            <th i18n="@@admin.colGroupName">ก๊วน</th>
+            <th i18n="@@admin.colOwner">เจ้าของ</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (group of groups(); track group.code) {
+            <tr>
+              <td>{{ group.name || group.code }}</td>
+              <td>
+                @if (group.owner) {
+                  {{ group.owner.email }}
+                } @else {
+                  <span class="muted" i18n="@@admin.noOwner">ไม่มีเจ้าของ</span>
+                }
+              </td>
+              <td class="admin-actions">
+                @if (reassigningCode() === group.code) {
+                  <select (change)="reassignTarget.set($any($event.target).value)">
+                    <option value="" i18n="@@admin.dispositionChooseUser">— เลือกผู้ใช้ —</option>
+                    @for (candidate of users(); track candidate.id) {
+                      <option [value]="candidate.id">{{ candidate.email }}</option>
+                    }
+                  </select>
+                  <button type="button" (click)="confirmReassign(group)" i18n="@@admin.save">บันทึก</button>
+                  <button type="button" class="ghost" (click)="cancelReassign()" i18n="@@admin.cancel">ยกเลิก</button>
+                } @else {
+                  <button type="button" class="ghost" (click)="startReassign(group)" i18n="@@admin.reassign">
+                    ย้ายเจ้าของ
+                  </button>
+                }
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+      @if (reassignError()) {
+        <p class="error" role="alert">{{ reassignError() }}</p>
+      }
+    </section>
+  }
+</div>

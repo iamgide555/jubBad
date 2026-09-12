@@ -1,85 +1,78 @@
 <div class="page login">
   <h1 i18n="@@login.title">JubBad</h1>
-  <p class="lede" i18n="@@login.lede2">เข้าสู่ระบบเพื่อจัดการก๊วนของคุณ</p>
 
-  <form (ngSubmit)="submit()">
-    <label for="email" i18n="@@login.emailLabel">อีเมล</label>
-    <input
-      id="email"
-      name="email"
-      type="email"
-      autocomplete="username"
-      [ngModel]="email()"
-      (ngModelChange)="email.set($event)"
-      [attr.aria-invalid]="error() ? 'true' : null"
-      [attr.aria-describedby]="error() ? 'login-error' : null"
-    />
-
-    <label for="password" i18n="@@login.passwordLabel">รหัสผ่าน</label>
-    <input
-      id="password"
-      name="password"
-      type="password"
-      autocomplete="current-password"
-      [ngModel]="password()"
-      (ngModelChange)="password.set($event)"
-      [attr.aria-invalid]="error() ? 'true' : null"
-      [attr.aria-describedby]="error() ? 'login-error' : null"
-    />
-
-    @if (error()) {
-      <p class="error" id="login-error" role="alert">{{ error() }}</p>
-    }
-
-    <button type="submit" [disabled]="busy() || !email().trim() || !password()">
-      @if (busy()) {
-        <ng-container i18n="@@login.signingIn">กำลังเข้าสู่ระบบ…</ng-container>
-      } @else {
-        <ng-container i18n="@@login.signIn">เข้าสู่ระบบ</ng-container>
-      }
-    </button>
-  </form>
-
-  <div class="forgot">
-    @if (!showForgot()) {
-      <button type="button" class="link" (click)="openForgot()" i18n="@@login.forgotLink">
-        ลืมรหัสผ่าน?
-      </button>
-    } @else if (forgotSent()) {
-      @if (forgotExists()) {
-        <p class="forgot-result forgot-result-found" i18n="@@login.forgotFound">
-          มีบัญชีนี้อยู่ — แจ้งผู้ดูแลแล้ว รอลิงก์ตั้งรหัสผ่านใหม่จากผู้ดูแลโดยตรง
-        </p>
-      } @else {
-        <p class="forgot-result" i18n="@@login.forgotNotFound">ไม่พบบัญชีที่ใช้อีเมลนี้</p>
-      }
-      <button type="button" class="link" (click)="openForgot()" i18n="@@login.forgotTryAnother">
-        ลองอีเมลอื่น
-      </button>
+  @if (mode() === 'forgot' && forgotSent()) {
+    @if (forgotExists()) {
+      <p class="lede forgot-result-found" i18n="@@login.forgotFound">
+        มีบัญชีนี้อยู่ — แจ้งผู้ดูแลแล้ว รอลิงก์ตั้งรหัสผ่านใหม่จากผู้ดูแลโดยตรง
+      </p>
     } @else {
-      <form class="forgot-form" (ngSubmit)="submitForgot()">
-        <label for="forgotEmail" i18n="@@login.forgotEmailLabel">อีเมลที่ใช้สมัคร</label>
-        <input
-          id="forgotEmail"
-          name="forgotEmail"
-          type="email"
-          autocomplete="username"
-          [ngModel]="forgotEmail()"
-          (ngModelChange)="forgotEmail.set($event)"
-        />
-        <div class="forgot-actions">
-          <button type="submit" [disabled]="forgotBusy() || !forgotEmail().trim()">
-            @if (forgotBusy()) {
-              <ng-container i18n="@@login.forgotSending">กำลังส่ง…</ng-container>
-            } @else {
-              <ng-container i18n="@@login.forgotSubmit">ส่งคำขอ</ng-container>
-            }
-          </button>
-          <button type="button" class="link" (click)="showForgot.set(false)" i18n="@@login.cancel">
-            ยกเลิก
-          </button>
-        </div>
-      </form>
+      <p class="lede" i18n="@@login.forgotNotFound">ไม่พบบัญชีที่ใช้อีเมลนี้</p>
     }
-  </div>
+    <button type="button" class="link" (click)="switchToLogin()" i18n="@@login.backToSignIn">
+      กลับไปเข้าสู่ระบบ
+    </button>
+  } @else {
+    @if (mode() === 'login') {
+      <p class="lede" i18n="@@login.lede2">เข้าสู่ระบบเพื่อจัดการก๊วนของคุณ</p>
+    } @else {
+      <p class="lede" i18n="@@login.forgotLede">กรอกอีเมลที่ใช้สมัคร แล้วผู้ดูแลจะติดต่อกลับ</p>
+    }
+
+    <form (ngSubmit)="onSubmit()">
+      <label for="email" i18n="@@login.emailLabel">อีเมล</label>
+      <input
+        id="email"
+        name="email"
+        type="email"
+        autocomplete="username"
+        [ngModel]="email()"
+        (ngModelChange)="email.set($event)"
+        [attr.aria-invalid]="error() ? 'true' : null"
+        [attr.aria-describedby]="error() ? 'login-error' : null"
+      />
+
+      @if (mode() === 'login') {
+        <label for="password" i18n="@@login.passwordLabel">รหัสผ่าน</label>
+        <input
+          id="password"
+          name="password"
+          type="password"
+          autocomplete="current-password"
+          [ngModel]="password()"
+          (ngModelChange)="password.set($event)"
+          [attr.aria-invalid]="error() ? 'true' : null"
+          [attr.aria-describedby]="error() ? 'login-error' : null"
+        />
+      }
+
+      @if (error()) {
+        <p class="error" id="login-error" role="alert">{{ error() }}</p>
+      }
+
+      @if (mode() === 'login') {
+        <button type="submit" [disabled]="busy() || !email().trim() || !password()">
+          @if (busy()) {
+            <ng-container i18n="@@login.signingIn">กำลังเข้าสู่ระบบ…</ng-container>
+          } @else {
+            <ng-container i18n="@@login.signIn">เข้าสู่ระบบ</ng-container>
+          }
+        </button>
+        <button type="button" class="link" (click)="switchToForgot()" i18n="@@login.forgotLink">
+          ลืมรหัสผ่าน?
+        </button>
+      } @else {
+        <button type="submit" [disabled]="busy() || !email().trim()">
+          @if (busy()) {
+            <ng-container i18n="@@login.forgotSending">กำลังส่ง…</ng-container>
+          } @else {
+            <ng-container i18n="@@login.forgotSubmit">ส่งคำขอ</ng-container>
+          }
+        </button>
+        <button type="button" class="link" (click)="switchToLogin()" i18n="@@login.cancel">
+          ยกเลิก
+        </button>
+      }
+    </form>
+  }
 </div>

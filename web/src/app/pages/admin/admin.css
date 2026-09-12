@@ -21,6 +21,22 @@
   gap: var(--space-1);
 }
 
+.section-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  margin-bottom: var(--space-1);
+}
+
+.section-head h2 {
+  margin: 0;
+}
+
+.section-head button {
+  flex-shrink: 0;
+}
+
 /* A count that needs the admin's attention — same accent used everywhere
    else in this app for "act on this now" (see styles.css's --accent
    comment), not a decorative badge shape borrowed from elsewhere. */
@@ -71,8 +87,52 @@
   color: var(--ink-soft);
 }
 
-.create-user-form button[type='submit'] {
-  align-self: flex-start;
+/* A real overlay dialog — the first in this app, and deliberately so: every
+   other confirmation here reveals in place (the delete-user panel above, the
+   group danger-zone), which suits a decision about something already on
+   screen. Adding a user isn't about anything on screen yet, and the form
+   sitting permanently in the page competed with the users table underneath
+   it for attention. Cut from the same paper stock as an input, the way
+   .ended-banner is elsewhere — the --ink swap is what keeps .field-hint,
+   .muted and .error legible against cream instead of the board's chalk tone. */
+.create-user-dialog {
+  border: none;
+  border-radius: var(--radius);
+  padding: var(--space-3);
+  background: var(--surface);
+  color: var(--ink-on-paper);
+  --ink: var(--ink-on-paper);
+  --ink-soft: var(--ink-on-paper-soft);
+  --error-ink: var(--warn);
+  box-shadow: 0 8px 18px -8px rgba(0, 0, 0, 0.5);
+  width: min(26rem, calc(100vw - 2 * var(--space-3)));
+}
+
+.create-user-dialog::backdrop {
+  background: rgba(0, 0, 0, 0.5);
+}
+
+.create-user-dialog h2 {
+  margin-top: 0;
+}
+
+.create-user-dialog .admin-actions {
+  justify-content: flex-end;
+  margin-top: var(--space-1);
+}
+
+/* `.ghost` is drawn for the dark board (see styles.css); inside this paper
+   dialog it needs the paper ink, the same override .ended-banner uses. */
+.create-user-dialog .ghost {
+  color: var(--ink-on-paper);
+  border-color: var(--ink-on-paper-soft);
+}
+
+@media (hover: hover) {
+  .create-user-dialog .ghost:hover {
+    background: var(--surface);
+    border-color: var(--ink-on-paper);
+  }
 }
 
 .admin-table {

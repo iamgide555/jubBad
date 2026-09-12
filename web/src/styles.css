@@ -119,8 +119,15 @@ body {
 
 body {
   margin: 0;
+  /* Pinned to the viewport rather than scrolling with the page: unpinned, the
+     gradient is positioned relative to the full scrollable height, so a page
+     taller than one screen (the admin console's user table, easily) scrolls
+     past where it has already faded to the flat end color — the background
+     visibly changes shade partway down. Fixed keeps the same framing of the
+     gradient in view the whole time, on every page, regardless of length. */
   background:
     radial-gradient(1100px 650px at 18% -8%, #2c2a20 0%, var(--line-surface) 55%, #1a1811 100%);
+  background-attachment: fixed;
   color: var(--ink);
   font-size: 16px;
   /* 1.6 rather than 1.5: Thai stacks vowel and tone marks above and below the

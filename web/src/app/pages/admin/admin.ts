@@ -1,5 +1,5 @@
 import { DatePipe } from '@angular/common';
-import { Component, computed, inject, signal } from '@angular/core';
+import { Component, ElementRef, ViewChild, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
@@ -59,11 +59,31 @@ export class Admin {
 
   // ---- create user ----
 
+  @ViewChild('createUserDialog') private readonly createUserDialog?: ElementRef<HTMLDialogElement>;
+
   readonly newEmail = signal('');
   readonly newPassword = signal('');
   readonly newRole = signal<Role>('host');
   readonly createBusy = signal(false);
   readonly createError = signal<string | null>(null);
+
+  /**
+   * A modal rather than a form sitting permanently on the page — adding a
+   * user is rare, and a form that is always visible competes for attention
+   * with the users table underneath it, which is what someone opens this
+   * page to actually look at.
+   */
+  openCreateUser(): void {
+    this.newEmail.set('');
+    this.newPassword.set('');
+    this.newRole.set('host');
+    this.createError.set(null);
+    this.createUserDialog?.nativeElement.showModal();
+  }
+
+  closeCreateUser(): void {
+    this.createUserDialog?.nativeElement.close();
+  }
 
   async createUser(): Promise<void> {
     if (!this.newEmail().trim() || this.newPassword().length < 8 || this.createBusy()) return;
@@ -75,9 +95,7 @@ export class Admin {
         this.adminService.createUser(this.newEmail().trim(), this.newPassword(), this.newRole())
       );
       this.users.update((list) => [...list, user]);
-      this.newEmail.set('');
-      this.newPassword.set('');
-      this.newRole.set('host');
+      this.closeCreateUser();
     } catch {
       this.createError.set($localize`:@@admin.createFailed:สร้างผู้ใช้ไม่สำเร็จ — อีเมลนี้อาจถูกใช้แล้ว`);
     } finally {

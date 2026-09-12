@@ -34,10 +34,10 @@
       }
     </section>
 
-    <!-- Create user -->
-    <section class="admin-section">
-      <h2 i18n="@@admin.createUserTitle">เพิ่มผู้ใช้</h2>
-      <form class="form-card create-user-form" (ngSubmit)="createUser()">
+    <!-- Add user: a modal, not a form permanently on the page — see admin.ts. -->
+    <dialog #createUserDialog class="create-user-dialog" (cancel)="closeCreateUser()">
+      <form class="form-card" (ngSubmit)="createUser()">
+        <h2 i18n="@@admin.createUserTitle">เพิ่มผู้ใช้</h2>
         <div class="field">
           <label for="newEmail" i18n="@@admin.emailPlaceholder">อีเมล</label>
           <input
@@ -73,19 +73,25 @@
         @if (createError()) {
           <p class="error" role="alert">{{ createError() }}</p>
         }
-        <button type="submit" [disabled]="createBusy() || !newEmail().trim() || newPassword().length < 8">
-          @if (createBusy()) {
-            <ng-container i18n="@@admin.createSubmitting">กำลังเพิ่ม…</ng-container>
-          } @else {
-            <ng-container i18n="@@admin.createSubmit">เพิ่มผู้ใช้</ng-container>
-          }
-        </button>
+        <div class="admin-actions">
+          <button type="button" class="ghost" (click)="closeCreateUser()" i18n="@@admin.cancel">ยกเลิก</button>
+          <button type="submit" [disabled]="createBusy() || !newEmail().trim() || newPassword().length < 8">
+            @if (createBusy()) {
+              <ng-container i18n="@@admin.createSubmitting">กำลังเพิ่ม…</ng-container>
+            } @else {
+              <ng-container i18n="@@admin.createSubmit">เพิ่มผู้ใช้</ng-container>
+            }
+          </button>
+        </div>
       </form>
-    </section>
+    </dialog>
 
     <!-- Users -->
     <section class="admin-section">
-      <h2 i18n="@@admin.usersTitle">ผู้ใช้</h2>
+      <div class="section-head">
+        <h2 i18n="@@admin.usersTitle">ผู้ใช้</h2>
+        <button type="button" (click)="openCreateUser()" i18n="@@admin.addUser">เพิ่มผู้ใช้</button>
+      </div>
       <table class="admin-table">
         <thead>
           <tr>

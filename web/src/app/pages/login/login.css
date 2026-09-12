@@ -27,6 +27,10 @@
   margin-top: var(--space-1);
 }
 
+/* Sits inside the form as the second action, under the submit button — see
+   .login button above for the full-width default this overrides. One form,
+   two modes (sign in / forgot password): switching mode swaps which fields
+   and buttons render rather than appending a second form beneath the first. */
 .login .link {
   width: auto;
   background: none;
@@ -34,49 +38,14 @@
   color: var(--ink-soft);
   text-decoration: underline;
   padding: 0;
-  margin-top: 0;
+  margin-top: var(--space-2);
   font: inherit;
-}
-
-/* Marked off from the sign-in form by the same dashed rule the rest of the
-   app uses for a divider on the board (see .rule in styles.css), rather than
-   just trailing loose beneath it. */
-.login .forgot {
-  margin-top: var(--space-4);
-  padding-top: var(--space-3);
-  border-top: 1px dashed var(--court-line);
-}
-
-.login .forgot-form {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-}
-
-.login .forgot-actions {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-}
-
-.login .forgot-actions button[type='submit'] {
-  width: auto;
-  flex: 1;
-  margin-top: 0;
-}
-
-.login .forgot-actions .link {
-  margin-top: 0;
-}
-
-.login .forgot-result {
-  color: var(--ink-soft);
-  margin: 0 0 var(--space-2);
+  align-self: flex-start;
 }
 
 /* A real match gets the accent — the same "this needs a next step" signal
    used everywhere else in the app, since a reset link is now genuinely on
-   its way. A miss stays --ink-soft: there is nothing to do next. */
+   its way. A miss keeps the plain .lede color: there is nothing to do next. */
 .login .forgot-result-found {
   color: var(--accent-ink);
 }

@@ -3,6 +3,8 @@ import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
 import { AuthService } from '../../core/auth.service';
 
+type Mode = 'login' | 'forgot';
+
 @Component({
   selector: 'app-login',
   imports: [FormsModule],
@@ -14,18 +16,42 @@ export class Login {
   private readonly router = inject(Router);
   private readonly route = inject(ActivatedRoute);
 
+  /**
+   * One form, two modes — not a second form appended below the first. Forgot
+   * mode is the same email field with the password field hidden, not a
+   * separate flow bolted on underneath.
+   */
+  readonly mode = signal<Mode>('login');
+
   readonly email = signal('');
   readonly password = signal('');
   readonly error = signal<string | null>(null);
   readonly busy = signal(false);
 
-  readonly showForgot = signal(false);
-  readonly forgotEmail = signal('');
   readonly forgotSent = signal(false);
   readonly forgotExists = signal(false);
-  readonly forgotBusy = signal(false);
 
-  async submit(): Promise<void> {
+  switchToForgot(): void {
+    this.mode.set('forgot');
+    this.error.set(null);
+    this.forgotSent.set(false);
+  }
+
+  switchToLogin(): void {
+    this.mode.set('login');
+    this.error.set(null);
+    this.password.set('');
+  }
+
+  async onSubmit(): Promise<void> {
+    if (this.mode() === 'forgot') {
+      await this.submitForgot();
+    } else {
+      await this.submitLogin();
+    }
+  }
+
+  private async submitLogin(): Promise<void> {
     if (!this.email().trim() || !this.password() || this.busy()) return;
 
     this.busy.set(true);
@@ -53,12 +79,6 @@ export class Login {
     this.password.set('');
   }
 
-  openForgot(): void {
-    this.showForgot.set(true);
-    this.forgotSent.set(false);
-    this.forgotEmail.set(this.email());
-  }
-
   /**
    * There is no automated delivery (see docs/2026-09-12-b12-per-user-login.md
    * — Forgot password): a matched request only ever reaches the admin
@@ -67,12 +87,12 @@ export class Login {
    * the safer anti-enumeration default — see AuthController#forgotPassword),
    * so the two outcomes get different confirmations.
    */
-  async submitForgot(): Promise<void> {
-    if (!this.forgotEmail().trim() || this.forgotBusy()) return;
+  private async submitForgot(): Promise<void> {
+    if (!this.email().trim() || this.busy()) return;
 
-    this.forgotBusy.set(true);
-    const exists = await this.auth.forgotPassword(this.forgotEmail().trim());
-    this.forgotBusy.set(false);
+    this.busy.set(true);
+    const exists = await this.auth.forgotPassword(this.email().trim());
+    this.busy.set(false);
     this.forgotExists.set(exists);
     this.forgotSent.set(true);
   }

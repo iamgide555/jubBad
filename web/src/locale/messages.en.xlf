@@ -1961,6 +1961,27 @@
           <context context-type="linenumber">73</context>
         </context-group>
       </trans-unit>
+      <trans-unit id="login.forgotLede" datatype="html">
+        <source>กรอกอีเมลที่ใช้สมัคร แล้วผู้ดูแลจะติดต่อกลับ</source><target>Enter the email you signed up with, and the admin will follow up.</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/login/login.html</context>
+          <context context-type="linenumber">16</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="login.backToSignIn" datatype="html">
+        <source>กลับไปเข้าสู่ระบบ</source><target>Back to sign in</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/login/login.html</context>
+          <context context-type="linenumber">10</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="admin.addUser" datatype="html">
+        <source>เพิ่มผู้ใช้</source><target>Add user</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/admin/admin.html</context>
+          <context context-type="linenumber">84</context>
+        </context-group>
+      </trans-unit>
     </body>
   </file>
 </xliff>

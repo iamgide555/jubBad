@@ -35,13 +35,13 @@ coordinate — not a smarter pairing algorithm or a bigger feature set.**
 | No passive "listener" bot | Even listen-only, it technically sees the *entire* conversation; the host's consent doesn't cover the other ~15-20 people in the chat. Bigger trust risk than the convenience is worth for a casual friend group |
 | Import is paste-based | The app's data footprint = exactly what the host explicitly hands over. No infra (no webhook server, no persistent message store) |
 | No LIFF / LINE Login / LINE platform integration | Paste-based import plus manual share means zero technical touchpoint with LINE's platform is needed. Pure UX polish, addable later |
-| Shared admin authentication, not player accounts | Administrative screens and writes require one venue-admin token stored in an httpOnly cookie. There are still no individual player accounts, profiles, or per-group host roles. |
+| Per-user accounts for hosts, not player accounts | Administrative screens and writes require signing in as a real user (email + password, session cookie signed server-side). Each user owns the groups they create; an admin role sees and manages every user and group. There are still no individual *player* accounts or profiles — this is identity for whoever runs a session, not for who plays in one. Superseded the earlier one-shared-token design (backlog B12, done 2026-09-12); see the per-user-login design doc for the schema and guard design. |
 | Trigger-word LINE bot (reconsidered, still rejected) | The idea: a bot watches the group for a keyword ("Play") then auto-extracts the roster, skipping the manual paste. Rejected on inspection — the LINE Messaging API has no message-history endpoint (confirmed in LINE's docs), so a bot can only look *forward* from when it joins. In real use the roster is posted days before "Play" is typed, so the bot would have to continuously store *all* group messages in a rolling buffer to look backward — that is full passive listening plus retention, the exact risk rejected above, not a lighter trigger-gated version. It also reopens "no infra" and "no posting bot" at once. Revisit only if paste friction proves to be a real dealbreaker; the lower-risk fix for the typing/copying pain is a tap-to-register roster link |
 | No cost-splitting / PromptPay QR in-app | KhunThong (ขุนทอง), KBank/KBTG's LINE bot, already does this well — bill split (equal or not), PromptPay QR, and payment verification by e-slip scan, which the planned v1 didn't even have. The host invites KhunThong separately; no integration needed |
 | Score logging: final score only, no live scoreboard | Point-by-point, serve indicators and timers are scope creep nobody asked for. A final score per court is low-friction and still bootstraps the match history that future skill/Elo balancing would need |
-| No per-group host role | The shared admin token protects every administrative route, but it does not distinguish one group member from another or assign ownership of a particular group. One secret means equal power for everyone holding it — including deleting a group — and revocation is all-or-nothing. Acceptable only while the token holder is the person who runs the sessions. The owner decided on 2026-09-08 to build per-user login (backlog B12), sequenced after the current build has been validated in real sessions — it changes the layer every route passes through, so it should not move while the core is still unproven in the field. |
+| Per-group host role (resolved 2026-09-08 decision, built 2026-09-12) | Was: one shared admin token distinguished no one from anyone else — equal power for every holder, including deleting a group, with all-or-nothing revocation. Closed by backlog B12: `Group.ownerId` names one owner per group, `OwnershipGuard` refuses any other host with a 404 (never a 403 — that would confirm the code exists), and disabling one user bumps only their `tokenVersion`, signing out just that person's devices. An admin role bypasses ownership and manages every user and group from `/admin`. Built on a branch, sequenced behind the same field-validation gate the original decision set — see "Current state" below. |
 | No data-retention/deletion policy (**accepted risk**) | Names persist indefinitely under a group's link code. A host can now export the group as JSON or delete it outright, which covers the practical need without a policy |
-| Export and delete require the shared admin token | They are administrative operations; the client also requires typing the group name to prevent an accidental delete. The token is shared rather than per-user, so revocation means changing it and signing every admin device out. |
+| Export and delete require the group's owner (or an admin) to be signed in | They are administrative operations; the client also requires typing the group name to prevent an accidental delete. Revocation is now per-user (disabling one account bumps only that account's `tokenVersion`) rather than the old shared-token design's all-or-nothing. |
 | No promoting a waitlisted (สำรอง) player mid-session | The สำรอง list is resolved in LINE *before* the session — a waitlisted player was told not to come, so there is nobody at the venue to promote. The feature would serve a situation that cannot occur. Waitlisted names are still imported and shown, so the host can see who was turned away |
 
 ## Explicitly out of scope
@@ -49,12 +49,14 @@ coordinate — not a smarter pairing algorithm or a bigger feature set.**
 - Multi-sport support — badminton-only, Thai-only. That is the moat.
 - Any LINE bot, posting or passively listening (reconsidered once; still out).
 - LIFF / LINE Login as an identity provider. Note that plain user accounts left
-  this list on 2026-09-08: per-user login is now planned work (backlog B12).
-  What stays out of scope is *player* accounts — players never log in. The
-  accounts being added are for whoever administers a group.
+  this list on 2026-09-08 and are now built (backlog B12): per-user login,
+  each host owning the groups they create. What stays out of scope is
+  *player* accounts — players never log in. The accounts that exist are for
+  whoever administers a group.
 - Live point-by-point scoreboard.
 - Cost splitting / PromptPay QR — delegated to KhunThong.
-- Individual player accounts and per-group roles. Still out — see the decision table above.
+- Individual player accounts. Still out — see the decision table above. Host
+  accounts and per-group ownership are no longer on this list; see B12.
 
 ## Stack and layout
 
@@ -387,16 +389,23 @@ undo, resting players, wait timers, one-tap fill, both pairing modes, session
 archive, player pages, export and delete, and a PWA manifest.
 
 `docs/2026-09-05-review-and-v2-backlog.md` records the review that drove most
-of it, and holds the one item still open: per-user login (B12). Its original
+of it. Its one open item, per-user login (B12), is now built — see
+`docs/2026-09-12-b12-per-user-login.md` for the design. Its original
 justification for staying unbuilt (that a host role would reverse a "no auth"
 decision, and that export and delete were gated only by knowing the group code)
-stopped holding once admin authentication was built — `AdminGuard` closes every
-route by default and both operations sit behind it. What one shared token still
-cannot express is identity: per-group ownership, unequal power between holders,
-and per-user revocation. The owner accepted that work on 2026-09-08. It is
-sequenced after the current build has been validated in real sessions, because
-authentication touches every route and changing it while the core is unproven
-would give any later fault two plausible causes.
+stopped holding once admin authentication was built — the old `AdminGuard`
+closed every route by default and both operations sat behind it. What one
+shared token could not express was identity: per-group ownership, unequal
+power between holders, and per-user revocation. `AuthGuard` and
+`OwnershipGuard` now provide exactly that.
+
+Built on branch `worktree-per-user-auth`, not yet merged. The sequencing the
+owner set on 2026-09-08 — behind the current build being validated in real
+sessions, since authentication touches every route and changing it while the
+core is unproven would give any later fault two plausible causes — governs the
+*merge*, not the build. The branch sits finished and unmerged until that
+validation has actually happened; see B12's own entry in the backlog for what
+"validated" means concretely.
 
 A separate audit on 2026-09-07 found 35 issues across the engine, the API and
 the docs, all since implemented; it is archived at

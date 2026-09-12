@@ -19,17 +19,28 @@ export APP_DIR=/home/iamgide/jubBad
 2. Clone: `git clone git@github.com:iamgide555/jubBad.git /home/iamgide/jubBad && cd $_`
 3. App env: `cp server/.env.example server/.env`, then set:
    ```
-   ADMIN_TOKEN=<paste the output of: openssl rand -base64 32>
+   SESSION_SECRET=<paste the output of: openssl rand -base64 32>
+   ADMIN_EMAIL=<the first admin's email>
+   ADMIN_PASSWORD=<a real password — change it from the admin console after first login>
    DATABASE_URL="file:/app/prisma/dev.db"
    CORS_ORIGINS=https://jubbad.wongnok.dev
    ```
-   **`ADMIN_TOKEN` is the admin login.** The API refuses to start without it,
-   deliberately: an unset secret must never degrade to "no auth configured, so
-   let everyone in", which would be invisible in production — the site would
-   come up and work perfectly with the door open. If the `api` container exits
-   immediately on a deploy, check this first (`docker compose logs api` shows
-   `ADMIN_TOKEN is not set`). Changing the value signs every browser out, which
-   is also how you revoke access.
+   **`SESSION_SECRET` signs the session cookie.** The API refuses to start
+   without it, deliberately: an unset secret must never degrade to "sign
+   cookies with nothing" or "verify none of them", which would be invisible in
+   production — the site would come up and work perfectly until a session was
+   silently rejected. If the `api` container exits immediately on a deploy,
+   check this first (`docker compose logs api` shows `SESSION_SECRET is not
+   set`). Changing the value signs out every user on every device at once — the
+   coarse, emergency-only revocation; disabling one user from the admin
+   console is per-user and does not need this.
+   **`ADMIN_EMAIL`/`ADMIN_PASSWORD` seed the first admin account and are read
+   only when no admin exists yet** — on every boot after that, both are safe to
+   remove from `server/.env` entirely. Change the password from the admin
+   console rather than leaving a working one sitting in this file indefinitely.
+   Existing groups (from a prior deploy without accounts) are all assigned to
+   this admin on first boot; reassign each to its real host afterward from the
+   admin console.
    **`DATABASE_URL` must be the container-internal path (`/app/prisma/dev.db`)** — matches the `docker-compose.yml` bind mount. `server/.env.example`'s default (`file:./prisma/dev.db`) is for local dev only (`nest start`, run from `server/`) — using it verbatim in Docker causes "unable to open database file" even though the host file exists, since the container only ever sees the file at `/app/prisma/dev.db`.
 4. Root env (PUID/PGID for compose): `printf 'PUID=%s\nPGID=%s\n' "$(id -u iamgide)" "$(id -g iamgide)" > .env`
 5. DB directory: `sudo chown -R "$(id -u):$(id -g)" server/prisma`
@@ -215,9 +226,17 @@ the database alone and SQLite replays the journal into the newly created file �
 a half-reset that resurrects some of the very data you meant to discard, which
 is far worse than not resetting at all.
 
-**This does not sign you out.** There is no user table; the admin login is
-`ADMIN_TOKEN` in `server/.env` and nothing under `src/auth/` reads the database.
-Only groups, players, sessions and their pairings are lost.
+**This now signs everyone out, and deletes every account.** Before per-user
+login (B12) there was no user table and the admin login was one secret in
+`server/.env` — this reset touched nothing under `src/auth/`. That is no
+longer true: `User`, `PasswordReset` and `PasswordResetRequest` are ordinary
+tables in `dev.db`, so wiping it deletes every account along with the groups,
+players, sessions and pairings. The very next boot re-seeds exactly one admin
+from `ADMIN_EMAIL`/`ADMIN_PASSWORD` if they are still set in `server/.env`
+(harmless if they are — see the note on those variables above); if they were
+already removed after the first real deploy, put them back in `server/.env`
+before running this, or the container will refuse to start with no admin and
+no way to create one.
 
 To reset *and* deploy in one restart, fold it into the routine deploy:
 
@@ -238,6 +257,17 @@ docker compose up -d --build        # data intact (bind mount)
 ```
 
 ## Troubleshooting
+- **Rolling back past the per-user-login deploy (B12):** the older image
+  requires `ADMIN_TOKEN` and does not know `SESSION_SECRET` /
+  `ADMIN_EMAIL` / `ADMIN_PASSWORD` exist — it will crash-loop on boot if
+  `server/.env` has already been updated to the new variables and
+  `ADMIN_TOKEN` removed. Keep the old `ADMIN_TOKEN` value on hand (do not
+  delete it from wherever it was recorded) until this deploy has run a full
+  session; if a rollback is needed, put `ADMIN_TOKEN` back in `server/.env`
+  before `docker compose up -d --build` on the older image. The reverse
+  direction is not a problem: deploying the new image forward again reads
+  `SESSION_SECRET`/`ADMIN_EMAIL`/`ADMIN_PASSWORD` and ignores `ADMIN_TOKEN`
+  if it's still present. Avoid deploying this migration on a session day.
 - **`unable to open database file`** (api crash-loops immediately): two distinct causes, check both —
   1. `server/prisma` on the host isn't writable by `PUID`/`PGID`, so SQLite can't create `dev.db` or its WAL sidecars. Fix: `sudo chown -R "$(id -u):$(id -g)" server/prisma`, then `docker compose up -d --build`.
   2. `server/.env`'s `DATABASE_URL` is the local-dev relative path (`file:./prisma/dev.db`) instead of the container-internal path. Fix: set `DATABASE_URL="file:/app/prisma/dev.db"` in `server/.env`, then `docker compose down && docker compose up -d --build` (a plain `restart` won't reload `env_file` changes — the container must be recreated).

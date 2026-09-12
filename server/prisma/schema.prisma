@@ -94,6 +94,14 @@ model Session {
   /// 'variety' (default) spreads partners and opponents; 'balanced' also
   /// pulls the two sides of each match together on Elo rating.
   mode          String          @default("variety")
+  /// Per-court doubles/singles setting, JSON-encoded ('doubles' | 'singles')[],
+  /// index 0 = court 1. Null, missing, or an unrecognised entry all read as
+  /// 'doubles' — see server/src/sessions/court-formats.ts, the only place
+  /// this column is parsed or written. Deliberately NOT trimmed when
+  /// courtCount shrinks, so a host who drops to fewer courts and grows back
+  /// finds their earlier choice restored — readers must index by court
+  /// number, never read `.length` as a court count.
+  courtFormats  String?
   group         Group           @relation(fields: [groupId], references: [code])
   roster        SessionRoster[]
   waitlist      Waitlist[]

@@ -32,4 +32,33 @@ describe('deriveHistory', () => {
     expect(history.partnerCounts.get(pairKey('a', 'b'))).toBe(1);
     expect(history.gamesPlayedThisSession.get('a')).toBeUndefined();
   });
+
+  describe('a singles match', () => {
+    const singles = [{ teamA: ['a'], teamB: ['b'] }];
+
+    it('adds one opponent count and no partner count', () => {
+      const history = deriveHistory(singles, singles);
+
+      expect(history.opponentCounts.get(pairKey('a', 'b'))).toBe(1);
+      expect(history.partnerCounts.size).toBe(0);
+    });
+
+    it('credits both players with one game played', () => {
+      const history = deriveHistory(singles, singles);
+
+      expect(history.gamesPlayedThisSession.get('a')).toBe(1);
+      expect(history.gamesPlayedThisSession.get('b')).toBe(1);
+    });
+
+    it('keeps a singles opponent count independent of a doubles one between the same two players', () => {
+      const doublesMatch = { teamA: ['a', 'x'], teamB: ['b', 'y'] };
+      const history = deriveHistory([...singles, doublesMatch], []);
+
+      // Both matches put a and b on opposite sides, so the opponent count
+      // between them is 2 regardless of format — opponent history is
+      // deliberately format-agnostic (decision: a singles match still counts
+      // as having faced that opponent).
+      expect(history.opponentCounts.get(pairKey('a', 'b'))).toBe(2);
+    });
+  });
 });

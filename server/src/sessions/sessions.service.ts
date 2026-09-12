@@ -8,21 +8,25 @@ import {
 } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { confirmExistingPlayerAlias, createNewPlayer, type Player as FuzzyPlayer } from '../../../engines/fuzzy-match.ts';
-import { computeRatings } from '../../../engines/elo.ts';
+import { computeRatingTracks } from '../../../engines/elo.ts';
 import {
   compareArrangements,
   generateRound,
   groupKey,
   InvalidRoundInputError,
+  type CourtSize,
 } from '../../../engines/pairing.ts';
 import { isValidIsoDate } from '../../../engines/parser.ts';
 import { waitingSinceMap } from '../../../engines/waiting.ts';
 import { PrismaService } from '../prisma/prisma.service.js';
+import { courtSizeFor, formatAt, withFormatAt } from './court-formats.js';
 import { deriveHistory } from './derive-history.js';
+import { CorruptPairingError, parseTeam, parseTeams, teamPlayers } from './pairing-teams.js';
 import { SessionLock } from './session-lock.js';
 import type { CreateSessionDto, NameReviewDto } from './dto/create-session.dto.js';
 import type { FinishPairingDto } from './dto/finish-pairing.dto.js';
 import type { SetCourtCountDto } from './dto/set-court-count.dto.js';
+import type { SetCourtFormatDto } from './dto/set-court-format.dto.js';
 import type { SetModeDto } from './dto/set-mode.dto.js';
 import type { SetRosterActiveDto } from './dto/set-roster-active.dto.js';
 import type { SwapPlayerDto } from './dto/swap-player.dto.js';
@@ -30,8 +34,9 @@ import type { SwapPlayerDto } from './dto/swap-player.dto.js';
 export interface SessionMatch {
   matchNumber: number;
   courtNumber: number;
-  partnerName: string;
-  opponentNames: [string, string];
+  /** Null for a singles match — there is no partner to name. */
+  partnerName: string | null;
+  opponentNames: string[];
   scoreA: number | null;
   scoreB: number | null;
   result: 'win' | 'loss' | 'no-result';
@@ -75,6 +80,42 @@ export class SessionsService {
 
   private notFound(code: string): NotFoundException {
     return new NotFoundException({ code });
+  }
+
+  /**
+   * Parses a pairing's two teams, converting a corrupt row into the same
+   * INVALID_SESSION_STATE 500 the engine's own input validation uses (see
+   * `runGenerateRound`) — a malformed `teamA`/`teamB` is corrupt server
+   * state, not something the host did, and must not surface as an ordinary
+   * "not enough players" or 404 that hides where the fault actually is.
+   */
+  private teamsOf(pairing: { teamA: string; teamB: string }): { teamA: string[]; teamB: string[] } {
+    try {
+      return parseTeams(pairing);
+    } catch (error) {
+      if (error instanceof CorruptPairingError) {
+        throw new InternalServerErrorException({ code: 'INVALID_SESSION_STATE', detail: error.message });
+      }
+      throw error;
+    }
+  }
+
+  /** Every player named by a pairing's two teams, in teamA-then-teamB order. */
+  private playersOf(pairing: { teamA: string; teamB: string }): string[] {
+    const { teamA, teamB } = this.teamsOf(pairing);
+    return [...teamA, ...teamB];
+  }
+
+  /** Parses one already-JSON team string, with the same corrupt-state mapping as `teamsOf`. */
+  private oneTeamOf(raw: string): string[] {
+    try {
+      return parseTeam(raw);
+    } catch (error) {
+      if (error instanceof CorruptPairingError) {
+        throw new InternalServerErrorException({ code: 'INVALID_SESSION_STATE', detail: error.message });
+      }
+      throw error;
+    }
   }
 
   async createSession(
@@ -225,20 +266,24 @@ export class SessionsService {
     const courtCount = session.courtCount ?? 0;
     const courts = Array.from({ length: courtCount }, (_, i) => {
       const courtNumber = i + 1;
+      // Authoritative regardless of the court's status: the toggle only ever
+      // writes while idle (see setCourtFormatExclusively), so a pending or
+      // active pairing's actual team size can never disagree with this.
+      const format = formatAt(session.courtFormats, courtNumber);
       const current = session.pairings
         .filter((p) => p.courtNumber === courtNumber && p.endedAt === null)
         .sort((a, b) => b.matchNumber - a.matchNumber)[0];
 
-      if (!current) return { courtNumber, status: 'idle' as const };
+      if (!current) return { courtNumber, status: 'idle' as const, format };
 
-      const teamA = JSON.parse(current.teamA) as [string, string];
-      const teamB = JSON.parse(current.teamB) as [string, string];
+      const { teamA, teamB } = this.teamsOf(current);
       return current.confirmedAt
         ? {
             courtNumber,
             status: 'active' as const,
             pairingId: current.id,
             revision: current.revision,
+            format,
             teamA,
             teamB,
           }
@@ -247,6 +292,7 @@ export class SessionsService {
             status: 'pending' as const,
             pairingId: current.id,
             revision: current.revision,
+            format,
             teamA,
             teamB,
           };
@@ -267,10 +313,7 @@ export class SessionsService {
         session.pairings
           .filter((p) => p.endedAt !== null)
           .sort((a, b) => a.endedAt!.getTime() - b.endedAt!.getTime())
-          .flatMap((p) => [
-            ...(JSON.parse(p.teamA) as [string, string]),
-            ...(JSON.parse(p.teamB) as [string, string]),
-          ].map((id) => [id, p.endedAt!.toISOString()] as const))
+          .flatMap((p) => this.playersOf(p).map((id) => [id, p.endedAt!.toISOString()] as const))
       ),
       rosterPlayerIds: session.roster.map((r) => r.playerId),
       restingPlayerIds: session.roster.filter((r) => !r.active).map((r) => r.playerId),
@@ -286,12 +329,7 @@ export class SessionsService {
           r.playerId,
           r.gamesOffset +
             session.pairings.filter(
-              (p) =>
-                p.confirmedAt !== null &&
-                [
-                  ...(JSON.parse(p.teamA) as [string, string]),
-                  ...(JSON.parse(p.teamB) as [string, string]),
-                ].includes(r.playerId)
+              (p) => p.confirmedAt !== null && this.playersOf(p).includes(r.playerId)
             ).length,
         ])
       ),
@@ -314,10 +352,7 @@ export class SessionsService {
    * `deriveHistory`, and docs/overview.md, "How the engines think — Pairing".
    */
   private async loadHistory(groupCode: string, sessionCode: string) {
-    const toPairing = (p: { teamA: string; teamB: string }) => ({
-      teamA: JSON.parse(p.teamA) as [string, string],
-      teamB: JSON.parse(p.teamB) as [string, string],
-    });
+    const toPairing = (p: { teamA: string; teamB: string }) => this.teamsOf(p);
 
     const [allTime, thisSession, roster, session, finished] = await Promise.all([
       this.prisma.pairing.findMany({
@@ -363,10 +398,7 @@ export class SessionsService {
     if (session) {
       const lastPlayedAt: Record<string, string> = {};
       for (const pairing of finished) {
-        for (const id of [
-          ...(JSON.parse(pairing.teamA) as [string, string]),
-          ...(JSON.parse(pairing.teamB) as [string, string]),
-        ]) {
+        for (const id of this.playersOf(pairing)) {
           lastPlayedAt[id] = pairing.endedAt!.toISOString();
         }
       }
@@ -388,15 +420,7 @@ export class SessionsService {
       // onto another court with the teams swapped.
       const courtCount = session.courtCount ?? 0;
       if (courtCount > 0) {
-        const recentGroups = finished
-          .slice(-courtCount)
-          .map(
-            (p) =>
-              [
-                ...(JSON.parse(p.teamA) as [string, string]),
-                ...(JSON.parse(p.teamB) as [string, string]),
-              ] as string[]
-          );
+        const recentGroups = finished.slice(-courtCount).map((p) => this.playersOf(p));
         history.recentGroupKeys = new Set(recentGroups.map((group) => groupKey(group)));
         // Raw, unhashed — server-only, used by deprioritizeWaitingExclusively
         // to target the actual players in the last group, not just detect a
@@ -449,30 +473,20 @@ export class SessionsService {
         existingPending = p;
         continue;
       }
-      const [a1, a2] = JSON.parse(p.teamA) as [string, string];
-      const [b1, b2] = JSON.parse(p.teamB) as [string, string];
-      reserved.add(a1);
-      reserved.add(a2);
-      reserved.add(b1);
-      reserved.add(b2);
+      for (const id of this.playersOf(p)) reserved.add(id);
     }
     const available = rosterPlayerIds.filter((id) => !reserved.has(id));
 
     const history = await this.loadHistory(session.groupId, sessionCode);
 
-    const avoidSplit = existingPending
-      ? {
-          teamA: JSON.parse(existingPending.teamA) as [string, string],
-          teamB: JSON.parse(existingPending.teamB) as [string, string],
-        }
-      : undefined;
+    const avoidSplit = existingPending ? this.teamsOf(existingPending) : undefined;
 
     const ratings =
       session.mode === 'balanced' ? await this.loadRatings(session.groupId) : undefined;
 
     // Plan across every idle court, then commit only the one asked for.
     //
-    // Solving one court in isolation takes the four least-played and leaves
+    // Solving one court in isolation takes the least-played and leaves
     // whoever remains to be shovelled onto the next court together — that
     // court gets no choice of players at all, only of how to split them. When
     // two courts finish together that reliably recreates the same opponents,
@@ -482,23 +496,33 @@ export class SessionsService {
     //
     // The requested court counts as idle even when it holds an unconfirmed
     // proposal, because that proposal is exactly what this call replaces.
-    const idleCourtCount = Math.max(
-      1,
-      Array.from({ length: session.courtCount ?? 1 }, (_, i) => i + 1).filter(
-        (n) => n === courtNumber || !nonEnded.some((p) => p.courtNumber === n)
-      ).length
+    //
+    // The requested court is offered *first* and every other idle court
+    // follows in ascending number order. generateRound consumes offered
+    // sizes as a strict prefix with no skipping, so this is what guarantees
+    // the requested court is never starved by another idle court ahead of
+    // it, and — since a prefix's first entry is always position 0 in
+    // whatever the engine returns — that `result.courts[0]`, when present,
+    // is always this court.
+    const idleCourtNumbers = Array.from({ length: session.courtCount ?? 1 }, (_, i) => i + 1).filter(
+      (n) => n === courtNumber || !nonEnded.some((p) => p.courtNumber === n)
+    );
+    const orderedCourtNumbers = [
+      courtNumber,
+      ...idleCourtNumbers.filter((n) => n !== courtNumber),
+    ];
+    const sizes: CourtSize[] = orderedCourtNumbers.map((n) =>
+      courtSizeFor(formatAt(session.courtFormats, n))
     );
 
-    const result = this.runGenerateRound(
-      available,
-      idleCourtCount,
-      history,
-      undefined,
-      avoidSplit,
-      ratings
-    );
+    const result = this.runGenerateRound(available, sizes, history, undefined, avoidSplit, ratings);
     if (result.courts.length === 0) {
-      return { ok: false as const, reason: 'not-enough-players' as const };
+      return {
+        ok: false as const,
+        reason: 'not-enough-players' as const,
+        available: available.length,
+        format: formatAt(session.courtFormats, courtNumber),
+      };
     }
     const [proposed] = result.courts;
     const teamA = JSON.stringify(proposed.teamA);
@@ -596,12 +620,9 @@ export class SessionsService {
     // confirmation covers both without the host having to remember which
     // courts had proposals open. The fix is a swap or a reshuffle, both of
     // which already draw only from active players.
-    const four = [
-      ...(JSON.parse(pairing.teamA) as [string, string]),
-      ...(JSON.parse(pairing.teamB) as [string, string]),
-    ];
+    const players = this.playersOf(pairing);
     const unavailable = await this.prisma.sessionRoster.findMany({
-      where: { sessionId: sessionCode, playerId: { in: four }, active: false },
+      where: { sessionId: sessionCode, playerId: { in: players }, active: false },
       select: { playerId: true },
     });
     if (unavailable.length > 0) {
@@ -746,10 +767,9 @@ export class SessionsService {
       throw this.conflict('PAIRING_NOT_PENDING');
     }
 
-    const teamA = JSON.parse(pairing.teamA) as [string, string];
-    const teamB = JSON.parse(pairing.teamB) as [string, string];
-    const currentFour = new Set([...teamA, ...teamB]);
-    if (!currentFour.has(dto.playerId)) throw this.notFound('PAIRING_PLAYER_NOT_FOUND');
+    const { teamA, teamB } = this.teamsOf(pairing);
+    const onThisCourt = new Set([...teamA, ...teamB]);
+    if (!onThisCourt.has(dto.playerId)) throw this.notFound('PAIRING_PLAYER_NOT_FOUND');
 
     const roster = await this.prisma.sessionRoster.findMany({
       where: { sessionId: pairing.sessionId, active: true },
@@ -766,14 +786,9 @@ export class SessionsService {
 
     const reserved = new Set<string>();
     for (const p of nonEnded) {
-      const [a1, a2] = JSON.parse(p.teamA) as [string, string];
-      const [b1, b2] = JSON.parse(p.teamB) as [string, string];
-      reserved.add(a1);
-      reserved.add(a2);
-      reserved.add(b1);
-      reserved.add(b2);
+      for (const id of this.playersOf(p)) reserved.add(id);
     }
-    const pool = rosterPlayerIds.filter((id) => !reserved.has(id) && !currentFour.has(id));
+    const pool = rosterPlayerIds.filter((id) => !reserved.has(id) && !onThisCourt.has(id));
     if (pool.length === 0) {
       return { ok: false as const, reason: 'no-substitute' as const };
     }
@@ -786,11 +801,9 @@ export class SessionsService {
     const ratings =
       session.mode === 'balanced' ? await this.loadRatings(session.groupId) : undefined;
 
-    const swapIn = (candidate: string): [[string, string], [string, string]] => {
-      const replace = (team: [string, string]): [string, string] => [
-        team[0] === dto.playerId ? candidate : team[0],
-        team[1] === dto.playerId ? candidate : team[1],
-      ];
+    const swapIn = (candidate: string): [string[], string[]] => {
+      const replace = (team: string[]): string[] =>
+        team.map((id) => (id === dto.playerId ? candidate : id));
       return [replace(teamA), replace(teamB)];
     };
 
@@ -880,9 +893,9 @@ export class SessionsService {
     }
     if (!rosterPlayerIds.includes(incomingId)) throw this.notFound('ROSTER_PLAYER_NOT_FOUND');
 
-    const replaceIn = (raw: string, out: string, into: string): [string, string] => {
-      const team = JSON.parse(raw) as [string, string];
-      return [team[0] === out ? into : team[0], team[1] === out ? into : team[1]];
+    const replaceIn = (raw: string, out: string, into: string): string[] => {
+      const team = this.oneTeamOf(raw);
+      return team.map((id) => (id === out ? into : id));
     };
 
     /**
@@ -895,27 +908,18 @@ export class SessionsService {
      * There is no far pairing to trade back against here, which is exactly why
      * the general path could not catch it: `nonEnded` excludes this pairing.
      */
-    const tradeIn = (raw: string, x: string, y: string): [string, string] => {
-      const team = JSON.parse(raw) as [string, string];
+    const tradeIn = (raw: string, x: string, y: string): string[] => {
+      const team = this.oneTeamOf(raw);
       const at = (id: string) => (id === x ? y : id === y ? x : id);
-      return [at(team[0]), at(team[1])];
+      return team.map(at);
     };
 
-    const currentFour = new Set([
-      ...(JSON.parse(pairing.teamA) as string[]),
-      ...(JSON.parse(pairing.teamB) as string[]),
-    ]);
-    const sameCourt = currentFour.has(incomingId);
+    const onThisCourt = new Set(this.playersOf(pairing));
+    const sameCourt = onThisCourt.has(incomingId);
 
     const other = sameCourt
       ? undefined
-      : nonEnded.find((p) => {
-          const four = [
-            ...(JSON.parse(p.teamA) as string[]),
-            ...(JSON.parse(p.teamB) as string[]),
-          ];
-          return four.includes(incomingId);
-        });
+      : nonEnded.find((p) => this.playersOf(p).includes(incomingId));
     if (other && other.confirmedAt !== null) {
       throw this.conflict('PAIRING_NOT_PENDING');
     }
@@ -985,6 +989,12 @@ export class SessionsService {
    * Elo over every finished, confirmed match this group has played, replayed in
    * the order they were confirmed — Elo is path dependent, so the ordering is
    * part of the result, not a detail.
+   *
+   * Returns both tracks; a singles result never moves the doubles map or vice
+   * versa (see engines/elo.ts `computeRatingTracks`). Callers pass the whole
+   * result straight through to the pairing engine, which picks the track
+   * matching each court's own format — this is what lets one balanced-mode
+   * round mix formats correctly.
    */
   private async loadRatings(groupCode: string) {
     const played = await this.prisma.pairing.findMany({
@@ -998,10 +1008,9 @@ export class SessionsService {
       select: { teamA: true, teamB: true, winner: true },
     });
 
-    return computeRatings(
+    return computeRatingTracks(
       played.map((p) => ({
-        teamA: JSON.parse(p.teamA) as [string, string],
-        teamB: JSON.parse(p.teamB) as [string, string],
+        ...this.teamsOf(p),
         winner: p.winner as 'A' | 'B',
       }))
     );
@@ -1061,6 +1070,43 @@ export class SessionsService {
     return { code: updated.code, mode: updated.mode };
   }
 
+  setCourtFormat(code: string, courtNumber: number, dto: SetCourtFormatDto) {
+    return this.lock.run(code, () => this.setCourtFormatExclusively(code, courtNumber, dto));
+  }
+
+  /**
+   * Idle-only, enforced here rather than left to the client: a live pairing's
+   * actual team size must never disagree with its court's configured format,
+   * and idle is the only state where nothing in progress depends on it. Reuses
+   * the existing COURT_ACTIVE code — it already means "this court has a match
+   * on it" for both a pending and an active pairing, which is exactly the
+   * refusal condition here too. COURT_IN_USE is deliberately not reused: its
+   * Thai copy is written for shrinking the court count, not this.
+   */
+  private async setCourtFormatExclusively(code: string, courtNumber: number, dto: SetCourtFormatDto) {
+    const session = await this.prisma.session.findUnique({ where: { code } });
+    if (!session) throw this.notFound('SESSION_NOT_FOUND');
+    if (session.endedAt !== null) throw this.conflict('SESSION_ENDED');
+    this.assertCourtNumber(session.courtCount, courtNumber);
+
+    const occupied = await this.prisma.pairing.findFirst({
+      where: { sessionId: code, courtNumber, endedAt: null },
+      select: { id: true },
+    });
+    if (occupied) throw this.conflict('COURT_ACTIVE');
+
+    const courtFormats = withFormatAt(session.courtFormats, courtNumber, dto.format);
+    const updated = await this.prisma.session.update({
+      where: { code },
+      data: { courtFormats },
+    });
+    return {
+      code: updated.code,
+      courtNumber,
+      format: formatAt(updated.courtFormats, courtNumber),
+    };
+  }
+
   /**
    * Reverses the single most recent step on one court, whatever it was: a
    * finish goes back to active, a confirm back to pending, and an unconfirmed
@@ -1108,21 +1154,13 @@ export class SessionsService {
     }
 
     if (latest.endedAt !== null) {
-      const four = [
-        ...(JSON.parse(latest.teamA) as [string, string]),
-        ...(JSON.parse(latest.teamB) as [string, string]),
-      ];
+      const players = this.playersOf(latest);
       const openElsewhere = await this.prisma.pairing.findMany({
         where: { sessionId: sessionCode, endedAt: null, id: { not: latest.id } },
         select: { teamA: true, teamB: true },
       });
-      const busy = new Set(
-        openElsewhere.flatMap((p) => [
-          ...(JSON.parse(p.teamA) as [string, string]),
-          ...(JSON.parse(p.teamB) as [string, string]),
-        ])
-      );
-      if (four.some((id) => busy.has(id))) {
+      const busy = new Set(openElsewhere.flatMap((p) => this.playersOf(p)));
+      if (players.some((id) => busy.has(id))) {
         return { ok: false as const, reason: 'players-busy' as const };
       }
 
@@ -1175,37 +1213,38 @@ export class SessionsService {
     });
 
     const busyCourts = new Set(nonEnded.map((p) => p.courtNumber));
-    const reserved = new Set(
-      nonEnded.flatMap((p) => [
-        ...(JSON.parse(p.teamA) as [string, string]),
-        ...(JSON.parse(p.teamB) as [string, string]),
-      ])
-    );
+    const reserved = new Set(nonEnded.flatMap((p) => this.playersOf(p)));
     const idleCourts = Array.from({ length: session.courtCount ?? 0 }, (_, i) => i + 1).filter(
       (n) => !busyCourts.has(n)
     );
     const available = roster.map((r) => r.playerId).filter((id) => !reserved.has(id));
 
-    if (idleCourts.length === 0 || available.length < 4) {
+    // Idle courts are offered smallest-first (ties by court number) so a
+    // short bench still fills as many courts as it can — the fixed offer
+    // order in `proposeExclusively` has a reason to prioritize one specific
+    // court; this call has no single court to favour, so it should maximize
+    // how many get a match instead.
+    const sortedIdle = [...idleCourts].sort(
+      (a, b) =>
+        courtSizeFor(formatAt(session.courtFormats, a)) -
+          courtSizeFor(formatAt(session.courtFormats, b)) || a - b
+    );
+    const sizes: CourtSize[] = sortedIdle.map((n) => courtSizeFor(formatAt(session.courtFormats, n)));
+    const smallestIdleSize = sizes.length > 0 ? Math.min(...sizes) : Infinity;
+
+    if (idleCourts.length === 0 || available.length < smallestIdleSize) {
       return { ok: false as const, reason: 'not-enough-players' as const, filled: [] as number[] };
     }
 
     const history = await this.loadHistory(session.groupId, sessionCode);
     const ratings =
       session.mode === 'balanced' ? await this.loadRatings(session.groupId) : undefined;
-    const result = this.runGenerateRound(
-      available,
-      idleCourts.length,
-      history,
-      undefined,
-      undefined,
-      ratings
-    );
+    const result = this.runGenerateRound(available, sizes, history, undefined, undefined, ratings);
 
     const filled = await this.prisma.$transaction(async (tx) => {
       const written: number[] = [];
-      for (const [i, assignment] of result.courts.entries()) {
-        const courtNumber = idleCourts[i];
+      for (const assignment of result.courts) {
+        const courtNumber = sortedIdle[assignment.court - 1];
         const matchNumber =
           (await tx.pairing.count({
             where: { sessionId: sessionCode, courtNumber, confirmedAt: { not: null } },
@@ -1299,11 +1338,12 @@ export class SessionsService {
    * by swapping the single player nearest the fairness boundary. A host who
    * wants more than that can credit everyone waiting except the one with the
    * fewest games up to the roster-wide max, so the next draw favours them —
-   * and additionally push exactly 2 of the last-played group's still-waiting
-   * members above that level, guaranteeing at least 2 of them sit out next.
-   * Only 2, not all 4: pushing the whole group by an identical amount would
-   * just keep them tied to each other and reforming as a unit later, rather
-   * than actually breaking it up. Reuses the same gamesOffset rotation-only
+   * and additionally push half of the last-played group's still-waiting
+   * members above that level (2 of 4 for a doubles group, 1 of 2 for
+   * singles), guaranteeing at least that many sit out next. Half, not the
+   * whole group: pushing everyone by an identical amount would just keep
+   * them tied to each other and reforming as a unit later, rather than
+   * actually breaking it up. Reuses the same gamesOffset rotation-only
    * credit as re-activating a player — stats read the Pairing rows directly
    * and never see it.
    */
@@ -1320,12 +1360,7 @@ export class SessionsService {
     });
     const onCourt = new Set<string>();
     for (const p of nonEnded) {
-      for (const id of [
-        ...(JSON.parse(p.teamA) as [string, string]),
-        ...(JSON.parse(p.teamB) as [string, string]),
-      ]) {
-        onCourt.add(id);
-      }
+      for (const id of this.playersOf(p)) onCourt.add(id);
     }
     const waiting = roster.filter((r) => !onCourt.has(r.playerId));
     if (waiting.length <= 1) {
@@ -1348,7 +1383,13 @@ export class SessionsService {
     const pushIds = new Set<string>();
     for (const group of recentGroups) {
       const candidates = group.filter((id) => waitingIds.has(id) && id !== lowest.playerId);
-      for (const id of candidates.slice(0, 2)) pushIds.add(id);
+      // Half the group, not all of it — pushing everyone by an identical
+      // amount would just keep them tied to each other, reforming as a unit
+      // later, rather than actually breaking it up. `slice(0, 2)` for a
+      // 4-player group; for a 2-player singles group that generalizes to 1,
+      // since pushing both would push the whole group after all.
+      const pushCount = Math.max(1, Math.floor(group.length / 2));
+      for (const id of candidates.slice(0, pushCount)) pushIds.add(id);
     }
 
     const updates = waiting
@@ -1396,8 +1437,7 @@ export class SessionsService {
     const played = new Map<string, number>();
     const won = new Map<string, number>();
     for (const p of pairings) {
-      const teamA = JSON.parse(p.teamA) as [string, string];
-      const teamB = JSON.parse(p.teamB) as [string, string];
+      const { teamA, teamB } = this.teamsOf(p);
       for (const id of [...teamA, ...teamB]) {
         played.set(id, (played.get(id) ?? 0) + 1);
       }
@@ -1436,9 +1476,7 @@ export class SessionsService {
 
     const allPlayerIds = new Set<string>();
     for (const p of pairings) {
-      const teamA = JSON.parse(p.teamA) as [string, string];
-      const teamB = JSON.parse(p.teamB) as [string, string];
-      for (const id of [...teamA, ...teamB]) allPlayerIds.add(id);
+      for (const id of this.playersOf(p)) allPlayerIds.add(id);
     }
     const players = await this.prisma.player.findMany({
       where: { id: { in: [...allPlayerIds] } },
@@ -1451,8 +1489,7 @@ export class SessionsService {
     const matches = new Map<string, SessionMatch[]>();
 
     for (const p of pairings) {
-      const teamA = JSON.parse(p.teamA) as [string, string];
-      const teamB = JSON.parse(p.teamB) as [string, string];
+      const { teamA, teamB } = this.teamsOf(p);
 
       for (const [team, letter, opponents] of [
         [teamA, 'A', teamB],
@@ -1465,15 +1502,15 @@ export class SessionsService {
           if (teamResult === 'win') won.set(id, (won.get(id) ?? 0) + 1);
           if (teamResult === 'loss') lost.set(id, (lost.get(id) ?? 0) + 1);
 
-          const partnerId = team.find((otherId) => otherId !== id) ?? id;
+          // Null for a singles team: `find` has no other member to return,
+          // so this already generalizes correctly — the old `?? id` fallback
+          // is what silently made a singles player their own partner instead.
+          const partnerId = team.find((otherId) => otherId !== id) ?? null;
           const entry: SessionMatch = {
             matchNumber: p.matchNumber,
             courtNumber: p.courtNumber,
-            partnerName: nameById.get(partnerId) ?? 'Unknown',
-            opponentNames: [
-              nameById.get(opponents[0]) ?? 'Unknown',
-              nameById.get(opponents[1]) ?? 'Unknown',
-            ],
+            partnerName: partnerId === null ? null : nameById.get(partnerId) ?? 'Unknown',
+            opponentNames: opponents.map((opponentId) => nameById.get(opponentId) ?? 'Unknown'),
             scoreA: p.scoreA,
             scoreB: p.scoreB,
             result: teamResult,

@@ -3,6 +3,7 @@ import { CreateSessionDto } from './dto/create-session.dto.js';
 import { FinishPairingDto } from './dto/finish-pairing.dto.js';
 import { PairingRevisionDto } from './dto/pairing-revision.dto.js';
 import { SetCourtCountDto } from './dto/set-court-count.dto.js';
+import { SetCourtFormatDto } from './dto/set-court-format.dto.js';
 import { SetModeDto } from './dto/set-mode.dto.js';
 import { SetRosterActiveDto } from './dto/set-roster-active.dto.js';
 import { SwapPlayerDto } from './dto/swap-player.dto.js';
@@ -49,6 +50,22 @@ export class SessionsController {
   @Post(':code/courts/:n/undo')
   undo(@Param('code') code: string, @Param('n', ParseIntPipe) courtNumber: number) {
     return this.sessionsService.undoLastOnCourt(code, courtNumber);
+  }
+
+  /**
+   * Per-court, not a whole-array write: a stale tab overwriting every
+   * court's format at once would silently revert a neighbour's toggle since
+   * the last time that tab loaded. This shape's read-modify-write happens
+   * server-side, inside the session lock, so a neighbouring court's change
+   * can never be lost.
+   */
+  @Post(':code/courts/:n/format')
+  setCourtFormat(
+    @Param('code') code: string,
+    @Param('n', ParseIntPipe) courtNumber: number,
+    @Body() dto: SetCourtFormatDto
+  ) {
+    return this.sessionsService.setCourtFormat(code, courtNumber, dto);
   }
 
   @Post(':code/pairings/:id/confirm')

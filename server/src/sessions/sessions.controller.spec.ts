@@ -500,10 +500,11 @@ describe('SessionsController', () => {
           status: 'active',
           pairingId: expect.any(String),
           revision: 0,
+          format: 'doubles',
           teamA: [players[0].id, players[1].id],
           teamB: [players[2].id, players[3].id],
         },
-        { courtNumber: 2, status: 'idle' },
+        { courtNumber: 2, status: 'idle', format: 'doubles' },
       ]);
     } finally {
       await prisma.pairing.deleteMany({ where: { sessionId: sessionCode } });
@@ -555,7 +556,12 @@ describe('SessionsController', () => {
       const notEnough = await request(server)
         .post(`/sessions/${sessionCode}/courts/1/propose`)
         .expect(201);
-      expect(notEnough.body).toEqual({ ok: false, reason: 'not-enough-players' });
+      expect(notEnough.body).toEqual({
+        ok: false,
+        reason: 'not-enough-players',
+        available: 0,
+        format: 'doubles',
+      });
     } finally {
       await prisma.pairing.deleteMany({ where: { sessionId: sessionCode } });
       await prisma.sessionRoster.deleteMany({ where: { sessionId: sessionCode } });
@@ -843,7 +849,12 @@ describe('SessionsController', () => {
       const short = await request(server)
         .post(`/sessions/${sessionCode}/courts/1/propose`)
         .expect(201);
-      expect(short.body).toEqual({ ok: false, reason: 'not-enough-players' });
+      expect(short.body).toEqual({
+        ok: false,
+        reason: 'not-enough-players',
+        available: 3,
+        format: 'doubles',
+      });
 
       await request(server)
         .post(`/sessions/${sessionCode}/roster/${players[0].id}/active`)
@@ -3902,6 +3913,243 @@ describe('SessionsController', () => {
       const far = await prisma.pairing.findUniqueOrThrow({ where: { id: pairings[1].id } });
       expect(JSON.parse(near.teamA)).toEqual([players[0].id, players[1].id]);
       expect(JSON.parse(far.teamA)).toEqual([players[4].id, players[5].id]);
+    } finally {
+      await cleanup();
+    }
+  });
+
+  // --- Per-court singles/doubles format --------------------------------
+
+  const formatFixture = async (playerCount: number, courtCount: number) => {
+    const groupCode = randomUUID();
+    const sessionCode = randomUUID();
+    await prisma.group.create({ data: { code: groupCode, name: 'G' } });
+    const players = await Promise.all(
+      Array.from({ length: playerCount }, (_, i) =>
+        prisma.player.create({ data: { groupId: groupCode, name: `P${i}`, aliases: '[]' } })
+      )
+    );
+    await prisma.session.create({
+      data: { code: sessionCode, groupId: groupCode, courtCount, rawImportText: '' },
+    });
+    for (const p of players) {
+      await prisma.sessionRoster.create({ data: { sessionId: sessionCode, playerId: p.id } });
+    }
+    const cleanup = async () => {
+      await prisma.pairing.deleteMany({ where: { sessionId: sessionCode } });
+      await prisma.sessionRoster.deleteMany({ where: { sessionId: sessionCode } });
+      await prisma.session.deleteMany({ where: { code: sessionCode } });
+      await prisma.player.deleteMany({ where: { groupId: groupCode } });
+      await prisma.group.deleteMany({ where: { code: groupCode } });
+    };
+    return { groupCode, sessionCode, players, cleanup };
+  };
+
+  it('sets a court to singles, persists it, and reads it back from GET', async () => {
+    const { sessionCode, cleanup } = await formatFixture(4, 2);
+    try {
+      const res = await request(server)
+        .post(`/sessions/${sessionCode}/courts/2/format`)
+        .send({ format: 'singles' })
+        .expect(201);
+      expect(res.body).toEqual({ code: sessionCode, courtNumber: 2, format: 'singles' });
+
+      const session = await request(server).get(`/sessions/${sessionCode}`).expect(200);
+      expect(session.body.courts[0].format).toBe('doubles');
+      expect(session.body.courts[1].format).toBe('singles');
+    } finally {
+      await cleanup();
+    }
+  });
+
+  it('refuses to change a court\'s format while a match is pending or active', async () => {
+    const { sessionCode, players, cleanup } = await formatFixture(4, 1);
+    try {
+      await prisma.pairing.create({
+        data: {
+          sessionId: sessionCode,
+          courtNumber: 1,
+          matchNumber: 1,
+          teamA: JSON.stringify([players[0].id, players[1].id]),
+          teamB: JSON.stringify([players[2].id, players[3].id]),
+        },
+      });
+
+      const pending = await request(server)
+        .post(`/sessions/${sessionCode}/courts/1/format`)
+        .send({ format: 'singles' })
+        .expect(409);
+      expect(pending.body.code).toBe('COURT_ACTIVE');
+
+      await prisma.pairing.updateMany({
+        where: { sessionId: sessionCode },
+        data: { confirmedAt: new Date() },
+      });
+      const active = await request(server)
+        .post(`/sessions/${sessionCode}/courts/1/format`)
+        .send({ format: 'singles' })
+        .expect(409);
+      expect(active.body.code).toBe('COURT_ACTIVE');
+    } finally {
+      await cleanup();
+    }
+  });
+
+  it('rejects an invalid format value', async () => {
+    const { sessionCode, cleanup } = await formatFixture(4, 1);
+    try {
+      await request(server)
+        .post(`/sessions/${sessionCode}/courts/1/format`)
+        .send({ format: 'triples' })
+        .expect(400);
+    } finally {
+      await cleanup();
+    }
+  });
+
+  it('404s setting the format of an unknown session, and 400s an out-of-range court', async () => {
+    const { sessionCode, cleanup } = await formatFixture(4, 1);
+    try {
+      await request(server)
+        .post(`/sessions/${randomUUID()}/courts/1/format`)
+        .send({ format: 'singles' })
+        .expect(404);
+      await request(server)
+        .post(`/sessions/${sessionCode}/courts/2/format`)
+        .send({ format: 'singles' })
+        .expect(400);
+    } finally {
+      await cleanup();
+    }
+  });
+
+  it('proposes a 1-vs-1 match on a singles court', async () => {
+    const { sessionCode, cleanup } = await formatFixture(2, 1);
+    try {
+      await request(server)
+        .post(`/sessions/${sessionCode}/courts/1/format`)
+        .send({ format: 'singles' })
+        .expect(201);
+
+      const res = await request(server)
+        .post(`/sessions/${sessionCode}/courts/1/propose`)
+        .expect(201);
+      expect(res.body.ok).toBe(true);
+      expect(res.body.pairing.teamA).toHaveLength(1);
+      expect(res.body.pairing.teamB).toHaveLength(1);
+    } finally {
+      await cleanup();
+    }
+  });
+
+  it('fills a mixed doubles/singles round and each court gets the right team sizes', async () => {
+    const { sessionCode, cleanup } = await formatFixture(6, 2);
+    try {
+      await request(server)
+        .post(`/sessions/${sessionCode}/courts/2/format`)
+        .send({ format: 'singles' })
+        .expect(201);
+
+      const res = await request(server).post(`/sessions/${sessionCode}/courts/fill`).expect(201);
+      expect(res.body.ok).toBe(true);
+      expect(res.body.filled.sort()).toEqual([1, 2]);
+
+      const session = await request(server).get(`/sessions/${sessionCode}`).expect(200);
+      const court1 = session.body.courts.find((c: { courtNumber: number }) => c.courtNumber === 1);
+      const court2 = session.body.courts.find((c: { courtNumber: number }) => c.courtNumber === 2);
+      expect(court1.teamA.length + court1.teamB.length).toBe(4);
+      expect(court2.teamA.length + court2.teamB.length).toBe(2);
+    } finally {
+      await cleanup();
+    }
+  });
+
+  it('confirms, finishes, and undoes a singles match like any other', async () => {
+    const { sessionCode, players, cleanup } = await formatFixture(2, 1);
+    try {
+      await request(server)
+        .post(`/sessions/${sessionCode}/courts/1/format`)
+        .send({ format: 'singles' })
+        .expect(201);
+      const proposed = await request(server)
+        .post(`/sessions/${sessionCode}/courts/1/propose`)
+        .expect(201);
+      const pairingId = proposed.body.pairing.id;
+
+      await request(server)
+        .post(`/sessions/${sessionCode}/pairings/${pairingId}/confirm`)
+        .expect(201);
+      await request(server)
+        .post(`/sessions/${sessionCode}/pairings/${pairingId}/finish`)
+        .send({ scoreA: 21, scoreB: 15, winner: 'A' })
+        .expect(201);
+
+      const stats = await request(server)
+        .get(`/sessions/${sessionCode}/stats`)
+        .expect(200);
+      const byId = new Map(stats.body.map((r: { playerId: string; played: number }) => [r.playerId, r]));
+      expect(byId.get(players[0].id)?.played).toBe(1);
+      expect(byId.get(players[1].id)?.played).toBe(1);
+
+      const undone = await request(server)
+        .post(`/sessions/${sessionCode}/courts/1/undo`)
+        .expect(201);
+      expect(undone.body).toEqual({ ok: true, undone: 'finish' });
+    } finally {
+      await cleanup();
+    }
+  });
+
+  it('swaps a substitute into a singles pairing', async () => {
+    const { sessionCode, players, cleanup } = await formatFixture(3, 1);
+    try {
+      await request(server)
+        .post(`/sessions/${sessionCode}/courts/1/format`)
+        .send({ format: 'singles' })
+        .expect(201);
+      const proposed = await request(server)
+        .post(`/sessions/${sessionCode}/courts/1/propose`)
+        .expect(201);
+      const pairingId = proposed.body.pairing.id;
+      const onCourt = new Set([...proposed.body.pairing.teamA, ...proposed.body.pairing.teamB]);
+      const outgoing = [...onCourt][0];
+      const waitingPlayer = players.find((p) => !onCourt.has(p.id))!;
+
+      const swapped = await request(server)
+        .post(`/sessions/${sessionCode}/pairings/${pairingId}/swap`)
+        .send({ playerId: outgoing, withPlayerId: waitingPlayer.id })
+        .expect(201);
+      expect(swapped.body.ok).toBe(true);
+      const newOnCourt = [...swapped.body.pairing.teamA, ...swapped.body.pairing.teamB];
+      expect(newOnCourt).toContain(waitingPlayer.id);
+      expect(newOnCourt).not.toContain(outgoing);
+      expect(newOnCourt).toHaveLength(2);
+    } finally {
+      await cleanup();
+    }
+  });
+
+  it('summary shows no partner for a singles match, and the right opponent', async () => {
+    const { sessionCode, players, cleanup } = await formatFixture(2, 1);
+    try {
+      await prisma.pairing.create({
+        data: {
+          sessionId: sessionCode,
+          courtNumber: 1,
+          matchNumber: 1,
+          teamA: JSON.stringify([players[0].id]),
+          teamB: JSON.stringify([players[1].id]),
+          confirmedAt: new Date(),
+          endedAt: new Date(),
+          winner: 'A',
+        },
+      });
+
+      const summary = await request(server).get(`/sessions/${sessionCode}/summary`).expect(200);
+      const me = summary.body.players.find((p: { playerId: string }) => p.playerId === players[0].id);
+      expect(me.matches[0].partnerName).toBeNull();
+      expect(me.matches[0].opponentNames).toEqual([players[1].name]);
+      expect(me.matches[0].result).toBe('win');
     } finally {
       await cleanup();
     }

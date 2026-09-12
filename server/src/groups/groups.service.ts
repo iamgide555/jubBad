@@ -1,8 +1,10 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
-import { computeRatings, STARTING_RATING } from '../../../engines/elo.ts';
+import { computeRatingTracks, STARTING_RATING } from '../../../engines/elo.ts';
 import { matchRoster } from '../../../engines/fuzzy-match.ts';
 import { parseLineRosterMessage } from '../../../engines/parser.ts';
 import { PrismaService } from '../prisma/prisma.service.js';
+import { parseCourtFormats } from '../sessions/court-formats.js';
+import { parseTeams } from '../sessions/pairing-teams.js';
 import type { UpdateGroupDto } from './dto/update-group.dto.js';
 import type { ParseRosterDto } from './dto/parse-roster.dto.js';
 
@@ -135,8 +137,7 @@ export class GroupsService {
       select: { teamA: true, teamB: true, winner: true },
     });
     return rows.map((p) => ({
-      teamA: JSON.parse(p.teamA) as [string, string],
-      teamB: JSON.parse(p.teamB) as [string, string],
+      ...parseTeams(p),
       winner: p.winner as 'A' | 'B' | null,
     }));
   }
@@ -233,10 +234,19 @@ export class GroupsService {
 
     // An abandoned/no-result match was played, but does not imply an Elo
     // outcome or a win/loss. Keep those metrics decisive-result-only.
-    const ratings = computeRatings(
+    const ratings = computeRatingTracks(
       matches.filter(
         (match): match is typeof match & { winner: 'A' | 'B' } => match.winner !== null
       )
+    );
+
+    // `rating` keeps meaning the doubles rating — the default format, and
+    // what nearly every row will be — so no existing consumer's meaning
+    // changes. singlesRating is null (not 1200) when the player has never
+    // played singles, so a group that never plays it sees exactly today's
+    // profile with no new, meaningless number attached.
+    const hasSinglesMatch = matches.some(
+      (match) => match.teamA.length === 1 && (match.teamA.includes(playerId) || match.teamB.includes(playerId))
     );
 
     return {
@@ -245,7 +255,8 @@ export class GroupsService {
       played,
       won,
       winRate: decisivePlayed === 0 ? null : won / decisivePlayed,
-      rating: Math.round(ratings.get(playerId) ?? STARTING_RATING),
+      rating: Math.round(ratings.doubles.get(playerId) ?? STARTING_RATING),
+      singlesRating: hasSinglesMatch ? Math.round(ratings.singles.get(playerId) ?? STARTING_RATING) : null,
       bestPartner,
       mostFacedOpponent: pick(againstCounts, 'played'),
     };
@@ -282,6 +293,7 @@ export class GroupsService {
         venue: s.venue,
         courtCount: s.courtCount,
         mode: s.mode,
+        courtFormats: parseCourtFormats(s.courtFormats),
         createdAt: s.createdAt,
         endedAt: s.endedAt,
         rawImportText: s.rawImportText,
@@ -291,8 +303,7 @@ export class GroupsService {
         matches: s.pairings.map((p) => ({
           courtNumber: p.courtNumber,
           matchNumber: p.matchNumber,
-          teamA: JSON.parse(p.teamA) as [string, string],
-          teamB: JSON.parse(p.teamB) as [string, string],
+          ...parseTeams(p),
           scoreA: p.scoreA,
           scoreB: p.scoreB,
           winner: p.winner,

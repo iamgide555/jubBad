@@ -1,8 +1,9 @@
 import { pairKey, type MatchHistory } from '../../../engines/pairing.ts';
 
+/** A team is 1 player (singles) or 2 (doubles); both teams on a court agree. */
 export interface ConfirmedPairing {
-  teamA: [string, string];
-  teamB: [string, string];
+  teamA: string[];
+  teamB: string[];
 }
 
 /**
@@ -11,6 +12,11 @@ export interface ConfirmedPairing {
  * whole life; games-played is this session only, so sit-out rotation is fair
  * within tonight and not carried over from weeks ago.
  * See docs/overview.md, "How the engines think — Pairing".
+ *
+ * Partner counts come from every within-team pair — none for a 1-player
+ * (singles) team, since there is no partner to repeat. Opponent counts come
+ * from the full team-A x team-B cross product: one pair for singles, the same
+ * four as always for doubles.
  */
 export function deriveHistory(
   allTimePairings: ConfirmedPairing[],
@@ -21,14 +27,19 @@ export function deriveHistory(
   const gamesPlayedThisSession = new Map<string, number>();
 
   for (const pairing of allTimePairings) {
-    const [a1, a2] = pairing.teamA;
-    const [b1, b2] = pairing.teamB;
-
-    for (const key of [pairKey(a1, a2), pairKey(b1, b2)]) {
-      partnerCounts.set(key, (partnerCounts.get(key) ?? 0) + 1);
+    for (const team of [pairing.teamA, pairing.teamB]) {
+      for (let i = 0; i < team.length; i++) {
+        for (let j = i + 1; j < team.length; j++) {
+          const key = pairKey(team[i], team[j]);
+          partnerCounts.set(key, (partnerCounts.get(key) ?? 0) + 1);
+        }
+      }
     }
-    for (const key of [pairKey(a1, b1), pairKey(a1, b2), pairKey(a2, b1), pairKey(a2, b2)]) {
-      opponentCounts.set(key, (opponentCounts.get(key) ?? 0) + 1);
+    for (const a of pairing.teamA) {
+      for (const b of pairing.teamB) {
+        const key = pairKey(a, b);
+        opponentCounts.set(key, (opponentCounts.get(key) ?? 0) + 1);
+      }
     }
   }
 

@@ -287,6 +287,96 @@ describe('GroupsController', () => {
     }
   });
 
+  it('omits singlesRating for a player who has never played singles', async () => {
+    const code = randomUUID();
+    const sessionCode = randomUUID();
+    await prisma.group.create({ data: { code, name: 'G' } });
+    const [me, ally, foe, other] = await Promise.all(
+      ['Me', 'Ally', 'Foe', 'Other'].map((name) =>
+        prisma.player.create({ data: { groupId: code, name, aliases: '[]' } })
+      )
+    );
+    await prisma.session.create({
+      data: { code: sessionCode, groupId: code, courtCount: 1, rawImportText: '' },
+    });
+    await prisma.pairing.create({
+      data: {
+        sessionId: sessionCode,
+        courtNumber: 1,
+        matchNumber: 1,
+        teamA: JSON.stringify([me.id, ally.id]),
+        teamB: JSON.stringify([foe.id, other.id]),
+        confirmedAt: new Date(),
+        endedAt: new Date(),
+        winner: 'A',
+      },
+    });
+
+    try {
+      const res = await request(server).get(`/groups/${code}/players/${me.id}/stats`).expect(200);
+      expect(res.body.singlesRating).toBeNull();
+    } finally {
+      await prisma.pairing.deleteMany({ where: { sessionId: sessionCode } });
+      await prisma.session.deleteMany({ where: { code: sessionCode } });
+      await prisma.player.deleteMany({ where: { groupId: code } });
+      await prisma.group.deleteMany({ where: { code } });
+    }
+  });
+
+  it('gives a player independent singles and doubles ratings', async () => {
+    const code = randomUUID();
+    const sessionCode = randomUUID();
+    await prisma.group.create({ data: { code, name: 'G' } });
+    const [me, ally, foe, other] = await Promise.all(
+      ['Me', 'Ally', 'Foe', 'Other'].map((name) =>
+        prisma.player.create({ data: { groupId: code, name, aliases: '[]' } })
+      )
+    );
+    await prisma.session.create({
+      data: { code: sessionCode, groupId: code, courtCount: 1, rawImportText: '' },
+    });
+    // Me loses every singles match against Foe, but wins every doubles match
+    // partnered with Ally against Foe+Other — the two ratings must diverge.
+    await Promise.all([
+      prisma.pairing.create({
+        data: {
+          sessionId: sessionCode,
+          courtNumber: 1,
+          matchNumber: 1,
+          teamA: JSON.stringify([me.id]),
+          teamB: JSON.stringify([foe.id]),
+          confirmedAt: new Date(),
+          endedAt: new Date(),
+          winner: 'B',
+        },
+      }),
+      prisma.pairing.create({
+        data: {
+          sessionId: sessionCode,
+          courtNumber: 1,
+          matchNumber: 2,
+          teamA: JSON.stringify([me.id, ally.id]),
+          teamB: JSON.stringify([foe.id, other.id]),
+          confirmedAt: new Date(),
+          endedAt: new Date(),
+          winner: 'A',
+        },
+      }),
+    ]);
+
+    try {
+      const res = await request(server).get(`/groups/${code}/players/${me.id}/stats`).expect(200);
+      expect(res.body.singlesRating).not.toBeNull();
+      expect(res.body.singlesRating).toBeLessThan(1200);
+      expect(res.body.rating).toBeGreaterThan(1200);
+    } finally {
+      await prisma.pairing.deleteMany({ where: { sessionId: sessionCode } });
+      await prisma.session.deleteMany({ where: { code: sessionCode } });
+      await prisma.player.deleteMany({ where: { groupId: code } });
+      await prisma.group.deleteMany({ where: { code } });
+    }
+  });
+
   /**
    * Best partner is a win rate, but only above a floor of 5 decisive games
    * together. Without the floor this fixture would crown Flawless on 2-from-2

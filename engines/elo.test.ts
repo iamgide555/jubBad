@@ -2,6 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   computeRatings,
+  computeRatingTracks,
   ratingGap,
   teamRating,
   STARTING_RATING,
@@ -98,4 +99,50 @@ test('ratingGap is symmetric', () => {
     ratingGap(['a', 'b'], ['c', 'd'], ratings),
     ratingGap(['c', 'd'], ['a', 'b'], ratings)
   );
+});
+
+test('teamRating averages a singles "team" of one', () => {
+  const ratings = new Map([['a', 1300]]);
+  assert.equal(teamRating(['a'], ratings), 1300);
+});
+
+test('computeRatings moves a singles match exactly like a doubles one, one member per side', () => {
+  const ratings = computeRatings([{ teamA: ['a'], teamB: ['b'], winner: 'A' }]);
+  assert.ok(ratings.get('a')! > STARTING_RATING);
+  assert.ok(ratings.get('b')! < STARTING_RATING);
+});
+
+test('computeRatingTracks: a singles result never moves the doubles track', () => {
+  const tracks = computeRatingTracks([
+    { teamA: ['a'], teamB: ['b'], winner: 'A' },
+    { teamA: ['c', 'd'], teamB: ['e', 'f'], winner: 'A' },
+  ]);
+  assert.equal(tracks.doubles.get('a'), undefined);
+  assert.equal(tracks.doubles.has('a'), false);
+  assert.ok(tracks.singles.get('a')! > STARTING_RATING);
+});
+
+test('computeRatingTracks: a doubles result never moves the singles track', () => {
+  const tracks = computeRatingTracks([
+    { teamA: ['a', 'b'], teamB: ['c', 'd'], winner: 'A' },
+    { teamA: ['e'], teamB: ['f'], winner: 'A' },
+  ]);
+  assert.equal(tracks.singles.has('a'), false);
+  assert.ok(tracks.doubles.get('a')! > STARTING_RATING);
+});
+
+test('computeRatingTracks: a first-time player on either track starts at STARTING_RATING', () => {
+  const tracks = computeRatingTracks([]);
+  assert.equal(teamRating(['a'], tracks.singles), STARTING_RATING);
+  assert.equal(teamRating(['a', 'b'], tracks.doubles), STARTING_RATING);
+});
+
+test('computeRatingTracks: a player active in both formats keeps two independent ratings', () => {
+  const tracks = computeRatingTracks([
+    { teamA: ['a'], teamB: ['x'], winner: 'A' },
+    { teamA: ['a'], teamB: ['x'], winner: 'A' },
+    { teamA: ['a', 'b'], teamB: ['c', 'd'], winner: 'B' },
+  ]);
+  assert.ok(tracks.singles.get('a')! > STARTING_RATING);
+  assert.ok(tracks.doubles.get('a')! < STARTING_RATING);
 });

@@ -193,6 +193,133 @@ test('a full twenty-four player, six-court roster is paired without stalling', (
   assert.ok(elapsed < 2000, `pairing took ${elapsed.toFixed(0)}ms, expected well under 2000ms`);
 });
 
+/**
+ * Mixed-format optimality, checked independently of the doubles-only helpers
+ * above (`SPLITS`, `bestForGroup`, `exhaustiveOptimum`) rather than by
+ * generalizing them — those exist specifically to be the fixed, trusted
+ * oracle for the all-doubles numbers quoted at the top of this file, and
+ * must stay exactly as they are for that guarantee to mean anything.
+ */
+function exhaustiveOptimumMixed(
+  players: PlayerId[],
+  sizes: number[],
+  partnerCounts: Map<string, number>,
+  opponentCounts: Map<string, number>,
+  floors: { partner: number; opponent: number }
+): number {
+  const splitsFor = (size: number): number[][][] => {
+    // Every way to split a group of `size` into two equal halves, index 0
+    // fixed to the first half to avoid double-counting A/B vs B/A.
+    const half = size / 2;
+    const rest = Array.from({ length: size - 1 }, (_, i) => i + 1);
+    const patterns: number[][][] = [];
+    const combo: number[] = [];
+    const choose = (start: number): void => {
+      if (combo.length === half - 1) {
+        const aSet = new Set([0, ...combo]);
+        const a = [0, ...combo];
+        const b = Array.from({ length: size }, (_, i) => i).filter((i) => !aSet.has(i));
+        patterns.push([a, b]);
+        return;
+      }
+      for (let i = start; i < rest.length; i++) {
+        combo.push(rest[i]);
+        choose(i + 1);
+        combo.pop();
+      }
+    };
+    choose(0);
+    return patterns;
+  };
+
+  const bestForGroup = (group: PlayerId[]): number => {
+    let best = Infinity;
+    for (const [a, b] of splitsFor(group.length)) {
+      const score = scoreArrangement(
+        [{ teamA: a.map((i) => group[i]), teamB: b.map((i) => group[i]) }],
+        partnerCounts,
+        opponentCounts,
+        undefined,
+        floors
+      );
+      if (score < best) best = score;
+    }
+    return best;
+  };
+
+  // Enumerate every way to partition `players` into groups matching `sizes`
+  // in order (position matters no more than it does for the engine itself —
+  // the sum over courts is order-independent, so any assignment of groups to
+  // positions with the right sizes reaches the same total).
+  const search = (remaining: PlayerId[], position: number): number => {
+    if (position === sizes.length) return 0;
+    const size = sizes[position];
+    let best = Infinity;
+    const combo: number[] = [];
+    const choose = (start: number): void => {
+      if (combo.length === size) {
+        const comboSet = new Set(combo);
+        const group = combo.map((i) => remaining[i]);
+        const rest = remaining.filter((_, i) => !comboSet.has(i));
+        const total = bestForGroup(group) + search(rest, position + 1);
+        if (total < best) best = total;
+        return;
+      }
+      for (let i = start; i < remaining.length; i++) {
+        combo.push(i);
+        choose(i + 1);
+        combo.pop();
+      }
+    };
+    choose(0);
+    return best;
+  };
+
+  return search(players, 0);
+}
+
+function countsFromMixedRounds(rounds: CourtAssignment[][]) {
+  const partnerCounts = new Map<string, number>();
+  const opponentCounts = new Map<string, number>();
+  const bump = (map: Map<string, number>, key: string) => map.set(key, (map.get(key) ?? 0) + 1);
+
+  for (const round of rounds) {
+    for (const { teamA, teamB } of round) {
+      for (const team of [teamA, teamB]) {
+        for (let i = 0; i < team.length; i++) {
+          for (let j = i + 1; j < team.length; j++) bump(partnerCounts, pairKey(team[i], team[j]));
+        }
+      }
+      for (const a of teamA) for (const b of teamB) bump(opponentCounts, pairKey(a, b));
+    }
+  }
+  return { partnerCounts, opponentCounts };
+}
+
+test('a mixed singles/doubles round is paired optimally, every time', () => {
+  const players = ['a', 'b', 'c', 'd', 'e', 'f'];
+  const sizes = [4, 2];
+  const historyStream = makeSeededRandom(21);
+  const rounds: CourtAssignment[][] = [];
+  for (let i = 0; i < 30; i++) {
+    rounds.push(generateRound(players, sizes, { partnerCounts: new Map(), opponentCounts: new Map(), gamesPlayedThisSession: new Map() }, historyStream).courts);
+  }
+  const { partnerCounts, opponentCounts } = countsFromMixedRounds(rounds);
+  const floors = historyFloors(players, partnerCounts, opponentCounts);
+  const optimum = exhaustiveOptimumMixed(players, sizes, partnerCounts, opponentCounts, floors);
+
+  for (let seed = 1; seed <= 40; seed++) {
+    const { courts } = generateRound(
+      players,
+      sizes,
+      { partnerCounts, opponentCounts, gamesPlayedThisSession: new Map() },
+      makeSeededRandom(seed)
+    );
+    const score = scoreArrangement(courts, partnerCounts, opponentCounts, undefined, floors);
+    assert.equal(score, optimum, `seed ${seed}: score ${score} must equal optimum ${optimum}`);
+  }
+});
+
 test('the same seed always produces the same round', () => {
   // Reproducibility is what makes every measurement above meaningful, and what
   // lets a reported bad round be replayed.

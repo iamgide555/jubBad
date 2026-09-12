@@ -2,11 +2,21 @@
  * Pairing/rotation engine: given a confirmed roster, court count, and
  * cross-session partner/opponent history, produces one round's court
  * assignments. See docs/overview.md, "How the engines think — Pairing".
+ *
+ * A court's size is 4 (doubles, two per team) or 2 (singles, one per team).
+ * `courtCount` accepts either a plain number — "that many doubles courts",
+ * kept for every existing caller and test — or a `number[]` of per-court
+ * sizes in offer order. A bare number is exactly `Array(n).fill(4)`
+ * internally, so nothing about the doubles-only path changes shape.
  */
 
-import { ratingGap } from './elo.ts';
+import { ratingGap, type RatingTracks } from './elo.ts';
 
 export type PlayerId = string;
+/** A team is 1 player (singles) or 2 (doubles). Both teams on a court are
+ *  always the same size. */
+export type Team = PlayerId[];
+export type CourtSize = 2 | 4;
 
 export function pairKey(a: PlayerId, b: PlayerId): string {
   return [a, b].sort().join('|');
@@ -34,9 +44,37 @@ export function shuffle<T>(items: T[], random: () => number): T[] {
   return result;
 }
 
+/** A plain number means "that many doubles (4-player) courts" — the shape
+ *  every pre-existing caller and test already passes. */
+function normalizeSizes(courtCount: number | CourtSize[]): CourtSize[] {
+  return Array.isArray(courtCount) ? courtCount : Array(courtCount).fill(4);
+}
+
+/**
+ * The prefix of `sizes` that fits within `available` players, consumed in
+ * order with no skipping: once a court's size no longer fits what's left,
+ * neither it nor anything after it is offered a match this round. This is
+ * the direct generalization of the old `Math.floor(roster.length / 4)` — that
+ * was already "how many size-4 courts fit before running out," just for a
+ * uniform size. Order is the caller's lever: `proposeExclusively` puts the
+ * requested court first so it is never starved by others ahead of it, and
+ * `fillExclusively` offers idle courts smallest-first so a short bench still
+ * fills as many courts as it can.
+ */
+function consumedSizes(sizes: CourtSize[], available: number): CourtSize[] {
+  const consumed: CourtSize[] = [];
+  let used = 0;
+  for (const size of sizes) {
+    if (used + size > available) break;
+    consumed.push(size);
+    used += size;
+  }
+  return consumed;
+}
+
 export function selectSittingOut(
   roster: PlayerId[],
-  courtCount: number,
+  courtCount: number | CourtSize[],
   gamesPlayedThisSession: Map<PlayerId, number>,
   random: () => number,
   /**
@@ -54,8 +92,10 @@ export function selectSittingOut(
    */
   recentGroupKeys?: Set<string> | null
 ): { playing: PlayerId[]; sittingOut: PlayerId[] } {
-  const usableCourts = Math.min(courtCount, Math.floor(roster.length / 4));
-  const sitOutCount = roster.length - usableCourts * 4;
+  const sizes = normalizeSizes(courtCount);
+  const offered = consumedSizes(sizes, roster.length);
+  const usableCourts = offered.length;
+  const sitOutCount = roster.length - offered.reduce((sum, s) => sum + s, 0);
 
   if (sitOutCount <= 0) {
     return { playing: [...roster], sittingOut: [] };
@@ -111,8 +151,8 @@ export function selectSittingOut(
 
 export interface CourtAssignment {
   court: number;
-  teamA: [PlayerId, PlayerId];
-  teamB: [PlayerId, PlayerId];
+  teamA: Team;
+  teamB: Team;
 }
 
 /**
@@ -181,11 +221,28 @@ export function historyFloors(
   };
 }
 
+/**
+ * Ratings for a single arrangement's balance term. Either a plain map — the
+ * caller has already picked the one format in play, as every external call
+ * site does — or both tracks, so a round mixing formats can pick the right
+ * one per court. `ratingsMapFor` below is the only place that resolves which.
+ */
+export type RatingsInput = Map<PlayerId, number> | RatingTracks;
+
+function ratingsMapFor(
+  ratings: RatingsInput | undefined,
+  teamSize: number
+): Map<PlayerId, number> | undefined {
+  if (!ratings) return undefined;
+  if (ratings instanceof Map) return ratings;
+  return teamSize === 1 ? ratings.singles : ratings.doubles;
+}
+
 export function scoreArrangement(
-  courts: { teamA: [PlayerId, PlayerId]; teamB: [PlayerId, PlayerId] }[],
+  courts: { teamA: Team; teamB: Team }[],
   partnerCounts: Map<string, number>,
   opponentCounts: Map<string, number>,
-  ratings?: Map<PlayerId, number>,
+  ratings?: RatingsInput,
   floors: HistoryFloors = { partner: 0, opponent: 0 }
 ): number {
   const components = arrangementScoreComponents(
@@ -203,7 +260,7 @@ export function scoreArrangement(
 }
 
 export interface ArrangementScoreComponents {
-  /** Courts whose 4 players (any split) match a group that recently played together. */
+  /** Courts whose players (any split) match a group that recently played together. */
   groupRepeat: number;
   partner: number;
   opponent: number;
@@ -211,10 +268,10 @@ export interface ArrangementScoreComponents {
 }
 
 export function arrangementScoreComponents(
-  courts: { teamA: [PlayerId, PlayerId]; teamB: [PlayerId, PlayerId] }[],
+  courts: { teamA: Team; teamB: Team }[],
   partnerCounts: Map<string, number>,
   opponentCounts: Map<string, number>,
-  ratings?: Map<PlayerId, number>,
+  ratings?: RatingsInput,
   floors: HistoryFloors = { partner: 0, opponent: 0 },
   /** Groups (any split) that just played together and should not immediately reform. */
   recentGroupKeys?: Set<string> | null
@@ -229,25 +286,32 @@ export function arrangementScoreComponents(
       groupRepeat += 1;
     }
 
-    const partnerPairs = [pairKey(teamA[0], teamA[1]), pairKey(teamB[0], teamB[1])];
-    for (const key of partnerPairs) {
-      partner += Math.max(0, (partnerCounts.get(key) ?? 0) - floors.partner);
+    // Partner pairs: every within-team pair. A 1-player team (singles)
+    // contributes none — there is no partner to repeat.
+    for (const team of [teamA, teamB]) {
+      for (let i = 0; i < team.length; i++) {
+        for (let j = i + 1; j < team.length; j++) {
+          const key = pairKey(team[i], team[j]);
+          partner += Math.max(0, (partnerCounts.get(key) ?? 0) - floors.partner);
+        }
+      }
     }
 
-    const opponentPairs = [
-      pairKey(teamA[0], teamB[0]),
-      pairKey(teamA[0], teamB[1]),
-      pairKey(teamA[1], teamB[0]),
-      pairKey(teamA[1], teamB[1]),
-    ];
-    for (const key of opponentPairs) {
-      opponent += Math.max(0, (opponentCounts.get(key) ?? 0) - floors.opponent);
+    // Opponent pairs: the full cross product of the two teams. One pair for
+    // singles, the same four as always for doubles.
+    for (const a of teamA) {
+      for (const b of teamB) {
+        const key = pairKey(a, b);
+        opponent += Math.max(0, (opponentCounts.get(key) ?? 0) - floors.opponent);
+      }
     }
 
-    // Only in balanced mode. Without ratings the term vanishes entirely, so
-    // variety mode scores exactly as it always did.
-    if (ratings) {
-      balance += ratingGap(teamA, teamB, ratings);
+    // Only when ratings are supplied for this court's format. Without them
+    // the term vanishes entirely, so variety mode (and a round with no
+    // ratings at all) scores exactly as it always did.
+    const ratingsMap = ratingsMapFor(ratings, teamA.length);
+    if (ratingsMap) {
+      balance += ratingGap(teamA, teamB, ratingsMap);
     }
   }
 
@@ -260,21 +324,21 @@ export function arrangementScoreComponents(
  * unbounded, so compare the two dimensions lexicographically. Balanced mode
  * intentionally keeps its combined rating-and-variety objective.
  *
- * `groupRepeat` — whether a court's 4 players (any split) just played
- * together as a group — is compared before either mode's own objective, for
- * the same reason: a plain additive weight, however large, is eventually
- * swamped as partner/opponent counts accumulate over a season (the failure
- * `avoidSplit` already hit before it became a real exclusion). Comparing it
- * first makes it dominate regardless of how large those counts get, while
- * still falling through to the normal objective — including allowing a
- * repeat — when every candidate is level on it.
+ * `groupRepeat` — whether a court's players (any split) just played together
+ * as a group — is compared before either mode's own objective, for the same
+ * reason: a plain additive weight, however large, is eventually swamped as
+ * partner/opponent counts accumulate over a season (the failure `avoidSplit`
+ * already hit before it became a real exclusion). Comparing it first makes it
+ * dominate regardless of how large those counts get, while still falling
+ * through to the normal objective — including allowing a repeat — when every
+ * candidate is level on it.
  */
 export function compareArrangements(
-  one: { teamA: [PlayerId, PlayerId]; teamB: [PlayerId, PlayerId] }[],
-  other: { teamA: [PlayerId, PlayerId]; teamB: [PlayerId, PlayerId] }[],
+  one: { teamA: Team; teamB: Team }[],
+  other: { teamA: Team; teamB: Team }[],
   partnerCounts: Map<string, number>,
   opponentCounts: Map<string, number>,
-  ratings?: Map<PlayerId, number>,
+  ratings?: RatingsInput,
   floors: HistoryFloors = { partner: 0, opponent: 0 },
   recentGroupKeys?: Set<string> | null
 ): number {
@@ -313,17 +377,22 @@ export function compareArrangements(
 
 export function buildRandomArrangement(
   playing: PlayerId[],
-  usableCourts: number,
+  usableCourts: number | CourtSize[],
   random: () => number
 ): CourtAssignment[] {
+  const sizes = normalizeSizes(usableCourts);
   const shuffled = shuffle(playing, random);
   const courts: CourtAssignment[] = [];
-  for (let i = 0; i < usableCourts; i++) {
-    const group = shuffled.slice(i * 4, i * 4 + 4);
+  let offset = 0;
+  for (let i = 0; i < sizes.length; i++) {
+    const size = sizes[i];
+    const group = shuffled.slice(offset, offset + size);
+    offset += size;
+    const half = size / 2;
     courts.push({
       court: i + 1,
-      teamA: [group[0], group[1]],
-      teamB: [group[2], group[3]],
+      teamA: group.slice(0, half),
+      teamB: group.slice(half),
     });
   }
   return courts;
@@ -344,7 +413,7 @@ export interface MatchHistory {
    */
   waitingSince?: Map<PlayerId, number>;
   /**
-   * Keys (via `groupKey`) of groups of 4 that most recently played together,
+   * Keys (via `groupKey`) of groups that most recently played together,
    * across every court — not just the one a reshuffle commits. Optional:
    * without it, group-repeat avoidance is skipped entirely, the engine's
    * original behaviour.
@@ -383,20 +452,57 @@ const SEARCH_RESTART_PATIENCE = 12;
 const MAX_IMPROVEMENT_PASSES = 40;
 
 /**
- * Eight players over two courts is 70 ordered court fillings times nine team
- * splits — small enough to enumerate outright and return a provably optimal
- * round. Twelve players is 155,925 before ordering, which is not.
+ * Eight players over two doubles courts is 70 ordered court fillings times
+ * nine team splits — small enough to enumerate outright and return a
+ * provably optimal round. Twelve players is 155,925 before ordering, which is
+ * not. Mixed-size rounds at the same player count are comparable or smaller
+ * (e.g. eight players as [4,2,2] is 420 fillings before splits), so the same
+ * threshold on `playing.length` still separates "enumerate exactly" from
+ * "search" the way it always has.
  */
 const EXACT_ENUMERATION_MAX_PLAYING = 8;
 
-type Group = [PlayerId, PlayerId, PlayerId, PlayerId];
+type Group = PlayerId[];
 
-/** Every way to split four players into two doubles teams. */
-const SPLIT_PATTERNS: [number, number, number, number][] = [
-  [0, 1, 2, 3],
-  [0, 2, 1, 3],
-  [0, 3, 1, 2],
-];
+const splitPatternCache = new Map<number, [number[], number[]][]>();
+
+/**
+ * Every way to split a group of `size` players into two equal teams,
+ * expressed as index pairs into the group. Index 0 is always fixed to teamA
+ * to avoid enumerating the same split twice (A/B and B/A), and the remaining
+ * teamA indices are chosen from what's left in increasing order — which for
+ * size 4 reproduces the historical `SPLIT_PATTERNS` table
+ * (`{0,1}|{2,3}`, `{0,2}|{1,3}`, `{0,3}|{1,2}`) exactly, in exactly that
+ * order. For size 2 there is exactly one split: `{0}|{1}`.
+ */
+function splitPatternsFor(size: number): [number[], number[]][] {
+  const cached = splitPatternCache.get(size);
+  if (cached) return cached;
+
+  const half = size / 2;
+  const patterns: [number[], number[]][] = [];
+  const rest = Array.from({ length: size - 1 }, (_, i) => i + 1);
+  const combo: number[] = [];
+
+  const choose = (start: number): void => {
+    if (combo.length === half - 1) {
+      const teamASet = new Set([0, ...combo]);
+      const teamA = [0, ...combo];
+      const teamB = Array.from({ length: size }, (_, i) => i).filter((i) => !teamASet.has(i));
+      patterns.push([teamA, teamB]);
+      return;
+    }
+    for (let i = start; i < rest.length; i++) {
+      combo.push(rest[i]);
+      choose(i + 1);
+      combo.pop();
+    }
+  };
+  choose(0);
+
+  splitPatternCache.set(size, patterns);
+  return patterns;
+}
 
 /**
  * The score is a sum over courts and every term reads only within-court pairs,
@@ -407,9 +513,13 @@ const SPLIT_PATTERNS: [number, number, number, number][] = [
 interface SearchContext {
   partnerCounts: Map<string, number>;
   opponentCounts: Map<string, number>;
-  ratings?: Map<PlayerId, number>;
+  ratings?: RatingsInput;
   floors: HistoryFloors;
-  /** Court 1 is the one a reshuffle commits, so only it can be constrained. */
+  /** Court 1 is the one a reshuffle commits, so only it can be constrained.
+   *  Only ever set for a doubles (2-per-team) exclusion — a singles reshuffle
+   *  routes its avoidance through `recentGroupKeys` instead (see
+   *  `generateRound`), because a 2-player group has only one possible split
+   *  and excluding it would leave no legal arrangement at all. */
   avoidKeys: Set<string> | null;
   /**
    * Groups that just played together, applied to every court — unlike
@@ -420,11 +530,7 @@ interface SearchContext {
   recentGroupKeys: Set<string> | null;
 }
 
-function courtComponents(
-  teamA: [PlayerId, PlayerId],
-  teamB: [PlayerId, PlayerId],
-  ctx: SearchContext
-): ArrangementScoreComponents {
+function courtComponents(teamA: Team, teamB: Team, ctx: SearchContext): ArrangementScoreComponents {
   return arrangementScoreComponents(
     [{ teamA, teamB }],
     ctx.partnerCounts,
@@ -439,7 +545,7 @@ function courtComponents(
 function compareComponents(
   first: ArrangementScoreComponents,
   second: ArrangementScoreComponents,
-  ratings?: Map<PlayerId, number>
+  ratings?: RatingsInput
 ): number {
   if (first.groupRepeat !== second.groupRepeat) return first.groupRepeat - second.groupRepeat;
   if (!ratings) {
@@ -455,11 +561,7 @@ function compareComponents(
   );
 }
 
-function isAvoidedSplit(
-  teamA: [PlayerId, PlayerId],
-  teamB: [PlayerId, PlayerId],
-  avoidKeys: Set<string>
-): boolean {
+function isAvoidedSplit(teamA: Team, teamB: Team, avoidKeys: Set<string>): boolean {
   const keys = new Set([pairKey(teamA[0], teamA[1]), pairKey(teamB[0], teamB[1])]);
   return keys.size === avoidKeys.size && [...keys].every((key) => avoidKeys.has(key));
 }
@@ -477,11 +579,16 @@ function bestSplitForGroup(
 ): { assignment: CourtAssignment; components: ArrangementScoreComponents } | null {
   let best: { assignment: CourtAssignment; components: ArrangementScoreComponents } | null = null;
 
-  for (const [a, b, c, d] of SPLIT_PATTERNS) {
-    const teamA: [PlayerId, PlayerId] = [group[a], group[b]];
-    const teamB: [PlayerId, PlayerId] = [group[c], group[d]];
+  for (const [aIdx, bIdx] of splitPatternsFor(group.length)) {
+    const teamA: Team = aIdx.map((i) => group[i]);
+    const teamB: Team = bIdx.map((i) => group[i]);
 
-    if (courtIndex === 0 && ctx.avoidKeys && isAvoidedSplit(teamA, teamB, ctx.avoidKeys)) {
+    if (
+      courtIndex === 0 &&
+      ctx.avoidKeys &&
+      teamA.length === 2 &&
+      isAvoidedSplit(teamA, teamB, ctx.avoidKeys)
+    ) {
       continue;
     }
 
@@ -512,7 +619,7 @@ function bestArrangementForGroups(groups: Group[], ctx: SearchContext): CourtAss
 }
 
 function groupOf(court: CourtAssignment): Group {
-  return [court.teamA[0], court.teamA[1], court.teamB[0], court.teamB[1]];
+  return [...court.teamA, ...court.teamB];
 }
 
 function totalComponents(parts: ArrangementScoreComponents[]): ArrangementScoreComponents {
@@ -538,6 +645,11 @@ function totalComponents(parts: ArrangementScoreComponents[]): ArrangementScoreC
  * are independent, so a neighbour is evaluated by re-splitting those two and
  * reusing the rest. Rescoring the whole round instead cost roughly a second
  * per proposal on a twenty-four player, six-court roster.
+ *
+ * A 1-for-1 exchange preserves each court's player count regardless of
+ * whether the two courts are the same size, so this works unchanged across a
+ * mixed-format round: `x`/`y` are bounded by each group's own length, not a
+ * fixed 4.
  */
 function improveArrangement(start: CourtAssignment[], ctx: SearchContext): CourtAssignment[] {
   if (start.length < 2) return start;
@@ -557,10 +669,10 @@ function improveArrangement(start: CourtAssignment[], ctx: SearchContext): Court
 
     for (let i = 0; i < groups.length; i++) {
       for (let j = i + 1; j < groups.length; j++) {
-        for (let x = 0; x < 4; x++) {
-          for (let y = 0; y < 4; y++) {
-            const left = [...groups[i]] as Group;
-            const right = [...groups[j]] as Group;
+        for (let x = 0; x < groups[i].length; x++) {
+          for (let y = 0; y < groups[j].length; y++) {
+            const left = [...groups[i]];
+            const right = [...groups[j]];
             left[x] = groups[j][y];
             right[y] = groups[i][x];
 
@@ -605,37 +717,91 @@ function negate(components: ArrangementScoreComponents): ArrangementScoreCompone
 }
 
 /**
- * Every ordered filling of the courts. Ordered rather than unordered because
- * only court 1 carries the reshuffle exclusion, so which group lands there
- * changes what is legal.
+ * Every ordered filling of the courts, for a given sequence of sizes.
+ *
+ * Two strategies, chosen once per call:
+ *
+ * - **Uniform sizes** (today's only case): the historical head-fixed chooser
+ *   — the first remaining player is always folded into whichever group is
+ *   being filled, and the rest of that group is chosen from what's left in
+ *   increasing index order. Fixing the head removes the redundant work of
+ *   enumerating a group's own members in every order, without losing any
+ *   grouping, and produces exactly today's enumeration order for size 4.
+ * - **Mixed sizes**: head-fixing is unsound here — it would force whichever
+ *   player is first (after the caller's own shuffle) onto whatever court is
+ *   filled first, so a partition where that player plays the *other* size
+ *   court would never be generated. Instead every `size`-subset of what's
+ *   left is tried at each position. Cost stays small at these player counts:
+ *   eight players as `[4,2,2]` is 420 fillings before splits.
  */
 function forEachExactArrangement(
   playing: PlayerId[],
-  usableCourts: number,
+  sizes: number[],
   visit: (groups: Group[]) => void
 ): void {
   const groups: Group[] = [];
+  const uniform = sizes.every((s) => s === sizes[0]);
 
-  const fill = (remaining: PlayerId[]): void => {
-    if (groups.length === usableCourts) {
+  const chooseSubset = (
+    pool: PlayerId[],
+    count: number,
+    fixFirst: boolean,
+    onChosen: (chosen: PlayerId[], rest: PlayerId[]) => void
+  ): void => {
+    if (fixFirst) {
+      const [head, ...rest] = pool;
+      const combo: number[] = [];
+      const pick = (start: number): void => {
+        if (combo.length === count - 1) {
+          const comboSet = new Set(combo);
+          onChosen(
+            [head, ...combo.map((i) => rest[i])],
+            rest.filter((_, i) => !comboSet.has(i))
+          );
+          return;
+        }
+        for (let i = start; i < rest.length; i++) {
+          combo.push(i);
+          pick(i + 1);
+          combo.pop();
+        }
+      };
+      pick(0);
+      return;
+    }
+
+    const combo: number[] = [];
+    const pick = (start: number): void => {
+      if (combo.length === count) {
+        const comboSet = new Set(combo);
+        onChosen(
+          combo.map((i) => pool[i]),
+          pool.filter((_, i) => !comboSet.has(i))
+        );
+        return;
+      }
+      for (let i = start; i < pool.length; i++) {
+        combo.push(i);
+        pick(i + 1);
+        combo.pop();
+      }
+    };
+    pick(0);
+  };
+
+  const fill = (remaining: PlayerId[], position: number): void => {
+    if (position === sizes.length) {
       visit(groups);
       return;
     }
-    // The first remaining player must be in some group; fixing them removes
-    // the permutations of one group's members without losing any grouping.
-    const [head, ...rest] = remaining;
-    for (let a = 0; a < rest.length; a++) {
-      for (let b = a + 1; b < rest.length; b++) {
-        for (let c = b + 1; c < rest.length; c++) {
-          groups.push([head, rest[a], rest[b], rest[c]]);
-          fill(rest.filter((_, index) => index !== a && index !== b && index !== c));
-          groups.pop();
-        }
-      }
-    }
+    chooseSubset(remaining, sizes[position], uniform, (chosen, rest) => {
+      groups.push(chosen);
+      fill(rest, position + 1);
+      groups.pop();
+    });
   };
 
-  fill(playing);
+  fill(playing, 0);
 }
 
 /**
@@ -670,6 +836,14 @@ function assertCountMap(map: Map<string, number>, label: string, integer: boolea
   }
 }
 
+function assertRatingsMap(map: Map<PlayerId, number>): void {
+  for (const [id, rating] of map) {
+    if (typeof rating !== 'number' || !Number.isFinite(rating)) {
+      throw new InvalidRoundInputError(`rating for "${id}" must be a finite number`);
+    }
+  }
+}
+
 /**
  * Checked before any work, so a bad input can never half-produce a round.
  * Deliberately does not check that history keys exist in the roster: history
@@ -677,12 +851,18 @@ function assertCountMap(map: Map<string, number>, label: string, integer: boolea
  */
 export function validateRoundInput(
   roster: PlayerId[],
-  courtCount: number,
+  courtCount: number | CourtSize[],
   history: MatchHistory,
-  avoidSplit?: { teamA: [PlayerId, PlayerId]; teamB: [PlayerId, PlayerId] },
-  ratings?: Map<PlayerId, number>
+  avoidSplit?: { teamA: Team; teamB: Team },
+  ratings?: RatingsInput
 ): void {
-  if (!Number.isInteger(courtCount) || courtCount < 0) {
+  if (Array.isArray(courtCount)) {
+    for (const size of courtCount) {
+      if (size !== 2 && size !== 4) {
+        throw new InvalidRoundInputError(`court size must be 2 or 4, got ${size}`);
+      }
+    }
+  } else if (!Number.isInteger(courtCount) || courtCount < 0) {
     throw new InvalidRoundInputError(`courtCount must be a non-negative whole number, got ${courtCount}`);
   }
 
@@ -705,31 +885,67 @@ export function validateRoundInput(
   }
 
   if (ratings) {
-    for (const [id, rating] of ratings) {
-      if (typeof rating !== 'number' || !Number.isFinite(rating)) {
-        throw new InvalidRoundInputError(`rating for "${id}" must be a finite number`);
-      }
+    if (ratings instanceof Map) {
+      assertRatingsMap(ratings);
+    } else {
+      assertRatingsMap(ratings.singles);
+      assertRatingsMap(ratings.doubles);
     }
   }
 
   if (avoidSplit) {
+    const size = avoidSplit.teamA.length;
+    if (size !== avoidSplit.teamB.length || (size !== 1 && size !== 2)) {
+      throw new InvalidRoundInputError('avoidSplit teams must be the same size, one or two players each');
+    }
     const players = [...avoidSplit.teamA, ...avoidSplit.teamB];
-    if (players.length !== 4 || new Set(players).size !== 4) {
-      throw new InvalidRoundInputError('avoidSplit must name four distinct players');
+    const expected = size * 2;
+    if (players.length !== expected || new Set(players).size !== expected) {
+      throw new InvalidRoundInputError(
+        size === 1 ? 'avoidSplit must name two distinct players' : 'avoidSplit must name four distinct players'
+      );
     }
   }
 }
 
 export function generateRound(
   roster: PlayerId[],
-  courtCount: number,
+  courtCount: number | CourtSize[],
   history: MatchHistory,
   random: () => number = Math.random,
-  avoidSplit?: { teamA: [PlayerId, PlayerId]; teamB: [PlayerId, PlayerId] },
+  avoidSplit?: { teamA: Team; teamB: Team },
   /** Supplied only in balanced mode; omitted, behaviour is unchanged. */
-  ratings?: Map<PlayerId, number>
+  ratings?: RatingsInput
 ): RoundResult {
   validateRoundInput(roster, courtCount, history, avoidSplit, ratings);
+
+  // A singles court's only "split" is the two players facing each other, so a
+  // hard exclusion on it would leave no legal split at all — directly
+  // contradicting the guarantee below that a legal alternative always
+  // remains. Route a singles avoidSplit through the soft groupRepeat signal
+  // instead: it steers away from immediately reforming that exact pair
+  // without ever making the round unsolvable. A doubles avoidSplit keeps the
+  // original hard exclusion, applied only to court 0 — the one a reshuffle
+  // commits — regardless of how many courts are being planned.
+  //
+  // Computed before `selectSittingOut` runs, not after: with exactly two
+  // players free for a singles court, who is chosen to play *is* the match —
+  // there is no split-scoring step left to steer away from it once selection
+  // has already picked that pair. Folding the avoided pair into the same
+  // recentGroupKeys set selectSittingOut already consults (its single-court
+  // boundary-swap escape) is what lets it choose differently up front.
+  const avoidKeys =
+    avoidSplit && avoidSplit.teamA.length === 2
+      ? new Set([
+          pairKey(avoidSplit.teamA[0], avoidSplit.teamA[1]),
+          pairKey(avoidSplit.teamB[0], avoidSplit.teamB[1]),
+        ])
+      : null;
+
+  const recentGroupKeys =
+    avoidSplit && avoidSplit.teamA.length === 1
+      ? new Set([...(history.recentGroupKeys ?? []), groupKey([...avoidSplit.teamA, ...avoidSplit.teamB])])
+      : history.recentGroupKeys ?? null;
 
   const { playing, sittingOut } = selectSittingOut(
     roster,
@@ -737,27 +953,17 @@ export function generateRound(
     history.gamesPlayedThisSession,
     random,
     history.waitingSince,
-    history.recentGroupKeys
+    recentGroupKeys
   );
 
-  const usableCourts = Math.min(courtCount, Math.floor(playing.length / 4));
+  const sizes = normalizeSizes(courtCount);
+  const offered = consumedSizes(sizes, playing.length);
 
-  if (usableCourts === 0) {
+  if (offered.length === 0) {
     return { courts: [], sittingOut };
   }
 
-  // Applies to the first court, which is the one a reshuffle commits — and
-  // regardless of how many courts are being planned. Gating it on a single
-  // court silently lost the guard as soon as a second court sat idle.
-  const avoidKeys = avoidSplit
-    ? new Set([
-        pairKey(avoidSplit.teamA[0], avoidSplit.teamA[1]),
-        pairKey(avoidSplit.teamB[0], avoidSplit.teamB[1]),
-      ])
-    : null;
-
   const floors = historyFloors(playing, history.partnerCounts, history.opponentCounts);
-  const recentGroupKeys = history.recentGroupKeys ?? null;
   const ctx: SearchContext = {
     partnerCounts: history.partnerCounts,
     opponentCounts: history.opponentCounts,
@@ -780,23 +986,46 @@ export function generateRound(
     ) < 0;
 
   let best: CourtAssignment[] | null = null;
+  const uniform = offered.every((s) => s === offered[0]);
 
   if (playing.length <= EXACT_ENUMERATION_MAX_PLAYING) {
     // Shuffled so that equally-scoring arrangements — an untouched history
     // makes every arrangement equal — are still picked at random rather than
     // by roster order.
-    forEachExactArrangement(shuffle(playing, random), usableCourts, (groups) => {
-      for (let lead = 0; lead < groups.length; lead++) {
-        const ordered = [...groups.slice(lead), ...groups.slice(0, lead)];
-        const candidate = bestArrangementForGroups(ordered, ctx);
-        if (candidate && better(candidate, best)) best = candidate;
+    forEachExactArrangement(shuffle(playing, random), offered, (groups) => {
+      if (uniform) {
+        // Every position has the same size, so a full rotation is valid and
+        // gives every group in the partition a turn at position 0 — the only
+        // position `avoidKeys` can ever constrain. This branch is byte-for-
+        // byte identical to the engine's original (all-doubles) behaviour.
+        for (let lead = 0; lead < groups.length; lead++) {
+          const ordered = [...groups.slice(lead), ...groups.slice(0, lead)];
+          const candidate = bestArrangementForGroups(ordered, ctx);
+          if (candidate && better(candidate, best)) best = candidate;
+        }
+      } else {
+        // Sizes differ, so an arbitrary rotation would hand a group of the
+        // wrong size to a position that requires another — only a same-size
+        // group can ever legally sit at position 0. Swapping position 0 with
+        // each same-size position gives every eligible group its turn there
+        // without disturbing any other position's required size. The score
+        // does not depend on how positions other than 0 are ordered among
+        // themselves, so this is exactly as thorough as a full rotation
+        // would be, just restricted to moves that stay legal.
+        for (let j = 0; j < groups.length; j++) {
+          if (offered[j] !== offered[0]) continue;
+          const ordered = [...groups];
+          if (j !== 0) [ordered[0], ordered[j]] = [ordered[j], ordered[0]];
+          const candidate = bestArrangementForGroups(ordered, ctx);
+          if (candidate && better(candidate, best)) best = candidate;
+        }
       }
     });
   } else {
     let sinceImprovement = 0;
     for (let restart = 0; restart < SEARCH_RESTARTS; restart++) {
       const seed = bestArrangementForGroups(
-        buildRandomArrangement(playing, usableCourts, random).map(groupOf),
+        buildRandomArrangement(playing, offered, random).map(groupOf),
         ctx
       );
       if (!seed) continue;

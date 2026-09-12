@@ -6,11 +6,20 @@ import {
   shuffle,
   selectSittingOut,
   scoreArrangement,
+  arrangementScoreComponents,
   buildRandomArrangement,
   generateRound,
   InvalidRoundInputError,
   type MatchHistory,
 } from './pairing.ts';
+
+function empty(): MatchHistory {
+  return {
+    partnerCounts: new Map(),
+    opponentCounts: new Map(),
+    gamesPlayedThisSession: new Map(),
+  };
+}
 
 function makeSeededRandom(seed: number): () => number {
   let state = seed;
@@ -700,4 +709,131 @@ test('generateRound reforms a recent quartet rather than failing when there is n
   };
   const result = generateRound(roster, 1, history, makeSeededRandom(7));
   assert.equal(result.courts.length, 1);
+});
+
+// --- Singles / mixed-format courts -----------------------------------------
+
+test('a singles court seats exactly one player per team', () => {
+  const roster = ['a', 'b'];
+  const result = generateRound(roster, [2], empty(), makeSeededRandom(1));
+  assert.equal(result.courts.length, 1);
+  assert.equal(result.courts[0].teamA.length, 1);
+  assert.equal(result.courts[0].teamB.length, 1);
+  assert.deepEqual(new Set([...result.courts[0].teamA, ...result.courts[0].teamB]), new Set(roster));
+});
+
+test('mixed sizes: a doubles and a singles court each get the right number of players, disjoint', () => {
+  const roster = ['a', 'b', 'c', 'd', 'e', 'f'];
+  for (let seed = 0; seed < 10; seed++) {
+    const result = generateRound(roster, [4, 2], empty(), makeSeededRandom(seed));
+    assert.equal(result.courts.length, 2);
+    const [doublesCourt, singlesCourt] = result.courts;
+    assert.equal(doublesCourt.teamA.length, 2);
+    assert.equal(doublesCourt.teamB.length, 2);
+    assert.equal(singlesCourt.teamA.length, 1);
+    assert.equal(singlesCourt.teamB.length, 1);
+    const seated = [...doublesCourt.teamA, ...doublesCourt.teamB, ...singlesCourt.teamA, ...singlesCourt.teamB];
+    assert.equal(new Set(seated).size, 6);
+    assert.equal(result.sittingOut.length, 0);
+  }
+});
+
+test('capacity is a sum of offered sizes, consumed in prefix order with no skipping', () => {
+  // Three players cannot fill a doubles (4) court, so with [doubles, singles]
+  // offered in that order, capacity stops at the doubles court: nobody plays,
+  // even though the singles court alone would fit two of the three.
+  const roster = ['a', 'b', 'c'];
+  const blocked = generateRound(roster, [4, 2], empty(), makeSeededRandom(1));
+  assert.equal(blocked.courts.length, 0);
+  assert.equal(blocked.sittingOut.length, 3);
+
+  // Offered singles-first, the singles court fits and is filled; the trailing
+  // doubles court is simply not offered a match.
+  const filled = generateRound(roster, [2, 4], empty(), makeSeededRandom(1));
+  assert.equal(filled.courts.length, 1);
+  assert.equal(filled.courts[0].teamA.length + filled.courts[0].teamB.length, 2);
+  assert.equal(filled.sittingOut.length, 1);
+});
+
+test('a singles court contributes no partner history and one opponent pair', () => {
+  const courts = [{ teamA: ['a'], teamB: ['b'] }];
+  const partnerCounts = new Map([[pairKey('a', 'b'), 9]]);
+  const opponentCounts = new Map([[pairKey('a', 'b'), 3]]);
+  const components = arrangementScoreComponents(courts, partnerCounts, opponentCounts);
+  assert.equal(components.partner, 0);
+  assert.equal(components.opponent, 3);
+});
+
+test('avoidSplit on a singles court never leaves the round empty', () => {
+  // A 2-player group has exactly one possible split — excluding it outright
+  // would leave no legal arrangement. The engine must still return a match
+  // when these are the only two players free.
+  const roster = ['a', 'b'];
+  const avoidSplit = { teamA: ['a'], teamB: ['b'] };
+  for (let seed = 0; seed < 20; seed++) {
+    const result = generateRound(roster, [2], empty(), makeSeededRandom(seed), avoidSplit);
+    assert.equal(result.courts.length, 1);
+  }
+});
+
+test('avoidSplit on a singles court steers away from the same pair when an alternative exists', () => {
+  const roster = ['a', 'b', 'c'];
+  const avoidSplit = { teamA: ['a'], teamB: ['b'] };
+  const history: MatchHistory = {
+    ...empty(),
+    gamesPlayedThisSession: new Map([['a', 0], ['b', 0], ['c', 0]]),
+  };
+  for (let seed = 0; seed < 20; seed++) {
+    const result = generateRound(roster, [2], history, makeSeededRandom(seed), avoidSplit);
+    assert.equal(result.courts.length, 1);
+    const seated = new Set([...result.courts[0].teamA, ...result.courts[0].teamB]);
+    assert.equal(seated.has('a') && seated.has('b'), false, 'a and b should not both be seated together');
+  }
+});
+
+test('avoidSplit still hard-excludes a doubles split at court 0 only', () => {
+  const roster = ['a', 'b', 'c', 'd'];
+  const avoidSplit = { teamA: ['a', 'b'], teamB: ['c', 'd'] };
+  for (let seed = 0; seed < 20; seed++) {
+    const result = generateRound(roster, [4], empty(), makeSeededRandom(seed), avoidSplit);
+    const partners = new Set([
+      pairKey(result.courts[0].teamA[0], result.courts[0].teamA[1]),
+      pairKey(result.courts[0].teamB[0], result.courts[0].teamB[1]),
+    ]);
+    assert.equal(partners.has(pairKey('a', 'b')) && partners.has(pairKey('c', 'd')), false);
+  }
+});
+
+test('validateRoundInput accepts a two-entry avoidSplit and names it correctly on failure', () => {
+  assert.throws(
+    () =>
+      generateRound(['a', 'b', 'c'], [2], empty(), Math.random, {
+        teamA: ['a'],
+        teamB: ['a'],
+      }),
+    /two distinct players/
+  );
+});
+
+test('validateRoundInput rejects a court size that is neither 2 nor 4', () => {
+  assert.throws(
+    () => generateRound(['a', 'b', 'c'], [3], empty()),
+    /court size must be 2 or 4/
+  );
+});
+
+test('improveArrangement can exchange players between a doubles and a singles court', () => {
+  // Eight players is past the exact-enumeration threshold for [4,2,2], so
+  // this exercises the local search's cross-court swap with mismatched sizes.
+  const roster = Array.from({ length: 9 }, (_, i) => `p${i + 1}`);
+  const history: MatchHistory = {
+    partnerCounts: new Map([[pairKey('p1', 'p2'), 5]]),
+    opponentCounts: new Map(),
+    gamesPlayedThisSession: new Map(),
+  };
+  const result = generateRound(roster, [4, 2, 2], history, makeSeededRandom(3));
+  assert.equal(result.courts.length, 3);
+  assert.equal(result.courts[0].teamA.length + result.courts[0].teamB.length, 4);
+  assert.equal(result.courts[1].teamA.length + result.courts[1].teamB.length, 2);
+  assert.equal(result.courts[2].teamA.length + result.courts[2].teamB.length, 2);
 });

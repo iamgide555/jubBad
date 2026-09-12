@@ -70,9 +70,13 @@
                       <li>
                         <span class="muted" i18n="@@summary.court">คอร์ท</span> {{ m.courtNumber }}
                         —
-                        <ng-container i18n="@@summary.withPartner">กับ</ng-container> {{ m.partnerName }}
+                        @if (m.partnerName) {
+                          <ng-container i18n="@@summary.withPartner">กับ</ng-container> {{ m.partnerName }}
+                        } @else {
+                          <ng-container i18n="@@summary.singles">เดี่ยว</ng-container>
+                        }
                         <ng-container i18n="@@summary.vsOpponents">พบ</ng-container>
-                        {{ m.opponentNames[0] }}/{{ m.opponentNames[1] }}
+                        {{ m.opponentNames.join('/') }}
                         @if (m.scoreA !== null && m.scoreB !== null) {
                           ({{ m.scoreA }}-{{ m.scoreB }})
                         }

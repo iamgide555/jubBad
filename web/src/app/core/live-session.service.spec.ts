@@ -23,7 +23,7 @@ function baseSession(overrides: Partial<Session> = {}): Session {
     lastPlayedAt: {},
     activatedAt: {},
     waitlistPlayerIds: [],
-    courts: [{ status: 'idle' }],
+    courts: [{ status: 'idle', format: 'doubles' }],
     ...overrides,
   };
 }
@@ -60,7 +60,7 @@ describe('LiveSessionService', () => {
 
   it('exposes courts from the fetched session', async () => {
     await flushSession(baseSession());
-    expect(service.courts()).toEqual([{ status: 'idle' }]);
+    expect(service.courts()).toEqual([{ status: 'idle', format: 'doubles' }]);
   });
 
   it('proposeMatch posts to the propose endpoint and reloads the session', async () => {
@@ -81,14 +81,14 @@ describe('LiveSessionService', () => {
     const reloadReq = httpMock.expectOne(`${environment.apiBaseUrl}/sessions/sess1`);
     reloadReq.flush(
       baseSession({
-        courts: [{ status: 'pending', pairingId: 'pair1', teamA: ['p1', 'p2'], teamB: ['p3', 'p4'] }],
+        courts: [{ status: 'pending', pairingId: 'pair1', format: 'doubles', teamA: ['p1', 'p2'], teamB: ['p3', 'p4'] }],
       })
     );
 
     expect(await promise).toEqual({ ok: true });
     await new Promise((r) => setTimeout(r, 0));
     expect(service.courts()).toEqual([
-      { status: 'pending', pairingId: 'pair1', teamA: ['p1', 'p2'], teamB: ['p3', 'p4'] },
+      { status: 'pending', pairingId: 'pair1', format: 'doubles', teamA: ['p1', 'p2'], teamB: ['p3', 'p4'] },
     ]);
   });
 
@@ -177,7 +177,7 @@ describe('LiveSessionService', () => {
     await flushSession(
       baseSession({
         rosterPlayerIds: ['p1', 'p2', 'p3', 'p4', 'p5', 'p6'],
-        courts: [{ status: 'active', pairingId: 'pair1', teamA: ['p1', 'p2'], teamB: ['p3', 'p4'] }],
+        courts: [{ status: 'active', pairingId: 'pair1', format: 'doubles', teamA: ['p1', 'p2'], teamB: ['p3', 'p4'] }],
       })
     );
     expect(service.waitingPlayerIds().sort()).toEqual(['p5', 'p6']);

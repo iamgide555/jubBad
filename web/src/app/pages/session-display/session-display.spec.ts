@@ -25,7 +25,7 @@ function baseSession(overrides: Partial<Session> = {}): Session {
     lastPlayedAt: {},
     activatedAt: {},
     waitlistPlayerIds: [],
-    courts: [{ status: 'idle' }],
+    courts: [{ status: 'idle', format: 'doubles' }],
     ...overrides,
   };
 }
@@ -96,7 +96,7 @@ describe('SessionDisplay', () => {
   it('shows "waiting" for an idle or pending court, never a proposed pairing', async () => {
     const { fixture, httpMock } = await createDisplay(
       baseSession({
-        courts: [{ status: 'pending', pairingId: 'pair1', teamA: ['p1', 'p2'], teamB: ['p3', 'p4'] }],
+        courts: [{ status: 'pending', pairingId: 'pair1', format: 'doubles', teamA: ['p1', 'p2'], teamB: ['p3', 'p4'] }],
       })
     );
     httpMock.expectOne(`${B}/groups/group1`).flush({ code: 'group1', name: null, lastSessionCode: null });
@@ -110,7 +110,7 @@ describe('SessionDisplay', () => {
   it('shows the pairing for an active court', async () => {
     const { fixture, httpMock } = await createDisplay(
       baseSession({
-        courts: [{ status: 'active', pairingId: 'pair1', teamA: ['p1', 'p2'], teamB: ['p3', 'p4'] }],
+        courts: [{ status: 'active', pairingId: 'pair1', format: 'doubles', teamA: ['p1', 'p2'], teamB: ['p3', 'p4'] }],
       })
     );
     httpMock.expectOne(`${B}/groups/group1`).flush({ code: 'group1', name: null, lastSessionCode: null });
@@ -121,6 +121,21 @@ describe('SessionDisplay', () => {
     const line = fixture.componentInstance.courtLines()[0];
     expect(line.text).toContain('vs');
     expect(line.text).not.toBe('ว่าง');
+  });
+
+  it('shows a singles match as one name per side, with no dangling "+"', async () => {
+    const { fixture, httpMock } = await createDisplay(
+      baseSession({
+        courts: [{ status: 'active', pairingId: 'pair1', format: 'singles', teamA: ['p1'], teamB: ['p2'] }],
+      })
+    );
+    httpMock.expectOne(`${B}/groups/group1`).flush({ code: 'group1', name: null, lastSessionCode: null });
+    httpMock.expectOne(`${B}/groups/group1/players`).flush(players);
+    await new Promise((r) => setTimeout(r, 0));
+    TestBed.tick();
+
+    const line = fixture.componentInstance.courtLines()[0];
+    expect(line.text).toBe('ตั้ม vs เบส');
   });
 
   it('shows a plain ended state instead of the live court grid once the session has ended', async () => {

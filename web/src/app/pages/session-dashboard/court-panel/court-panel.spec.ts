@@ -26,7 +26,7 @@ function baseSession(overrides: Partial<Session> = {}): Session {
     lastPlayedAt: {},
     activatedAt: {},
     waitlistPlayerIds: [],
-    courts: [{ status: 'idle' }],
+    courts: [{ status: 'idle', format: 'doubles' }],
     ...overrides,
   };
 }
@@ -83,7 +83,7 @@ describe('CourtPanel', () => {
   it('shows reshuffle and confirm controls, and player names not ids, once pending', async () => {
     const { fixture } = await createPanel(
       baseSession({
-        courts: [{ status: 'pending', pairingId: 'pair1', teamA: ['p1', 'p2'], teamB: ['p3', 'p4'] }],
+        courts: [{ status: 'pending', pairingId: 'pair1', format: 'doubles', teamA: ['p1', 'p2'], teamB: ['p3', 'p4'] }],
       })
     );
     fixture.detectChanges();
@@ -103,7 +103,7 @@ describe('CourtPanel', () => {
   it('names a rested player still standing in a pending proposal and blocks confirm', async () => {
     const { fixture } = await createPanel(
       baseSession({
-        courts: [{ status: 'pending', pairingId: 'pair1', teamA: ['p1', 'p2'], teamB: ['p3', 'p4'] }],
+        courts: [{ status: 'pending', pairingId: 'pair1', format: 'doubles', teamA: ['p1', 'p2'], teamB: ['p3', 'p4'] }],
         restingPlayerIds: ['p3'],
       })
     );
@@ -120,7 +120,7 @@ describe('CourtPanel', () => {
   it('leaves confirm alone when the rested player is not in this proposal', async () => {
     const { fixture } = await createPanel(
       baseSession({
-        courts: [{ status: 'pending', pairingId: 'pair1', teamA: ['p1', 'p2'], teamB: ['p3', 'p4'] }],
+        courts: [{ status: 'pending', pairingId: 'pair1', format: 'doubles', teamA: ['p1', 'p2'], teamB: ['p3', 'p4'] }],
         rosterPlayerIds: ['p1', 'p2', 'p3', 'p4', 'p5'],
         restingPlayerIds: ['p5'],
       })
@@ -139,7 +139,7 @@ describe('CourtPanel', () => {
     // names have to survive somewhere a screen reader still reaches.
     const { fixture } = await createPanel(
       baseSession({
-        courts: [{ status: 'active', pairingId: 'pair1', teamA: ['p1', 'p2'], teamB: ['p3', 'p4'] }],
+        courts: [{ status: 'active', pairingId: 'pair1', format: 'doubles', teamA: ['p1', 'p2'], teamB: ['p3', 'p4'] }],
       })
     );
     fixture.detectChanges();
@@ -159,7 +159,7 @@ describe('CourtPanel', () => {
   it('clicking a winner button finishes with that winner and current scores', async () => {
     const { fixture, httpMock } = await createPanel(
       baseSession({
-        courts: [{ status: 'active', pairingId: 'pair1', teamA: ['p1', 'p2'], teamB: ['p3', 'p4'] }],
+        courts: [{ status: 'active', pairingId: 'pair1', format: 'doubles', teamA: ['p1', 'p2'], teamB: ['p3', 'p4'] }],
       })
     );
     fixture.detectChanges();
@@ -188,7 +188,7 @@ describe('CourtPanel', () => {
   it('finishes with no winner when the match is ended without a result', async () => {
     const { fixture, httpMock } = await createPanel(
       baseSession({
-        courts: [{ status: 'active', pairingId: 'pair1', teamA: ['p1', 'p2'], teamB: ['p3', 'p4'] }],
+        courts: [{ status: 'active', pairingId: 'pair1', format: 'doubles', teamA: ['p1', 'p2'], teamB: ['p3', 'p4'] }],
       })
     );
     fixture.detectChanges();
@@ -211,7 +211,7 @@ describe('CourtPanel', () => {
   it('shows the server message when confirming a match is rejected', async () => {
     const { fixture, httpMock } = await createPanel(
       baseSession({
-        courts: [{ status: 'pending', pairingId: 'pair1', teamA: ['p1', 'p2'], teamB: ['p3', 'p4'] }],
+        courts: [{ status: 'pending', pairingId: 'pair1', format: 'doubles', teamA: ['p1', 'p2'], teamB: ['p3', 'p4'] }],
       })
     );
     fixture.detectChanges();
@@ -236,7 +236,7 @@ describe('CourtPanel', () => {
   it('shows the mapped error when finishing a match is rejected', async () => {
     const { fixture, httpMock } = await createPanel(
       baseSession({
-        courts: [{ status: 'active', pairingId: 'pair1', teamA: ['p1', 'p2'], teamB: ['p3', 'p4'] }],
+        courts: [{ status: 'active', pairingId: 'pair1', format: 'doubles', teamA: ['p1', 'p2'], teamB: ['p3', 'p4'] }],
       })
     );
     fixture.detectChanges();
@@ -260,7 +260,7 @@ describe('CourtPanel', () => {
   it('clears a previous action error when the next action starts', async () => {
     const { fixture, httpMock } = await createPanel(
       baseSession({
-        courts: [{ status: 'pending', pairingId: 'pair1', teamA: ['p1', 'p2'], teamB: ['p3', 'p4'] }],
+        courts: [{ status: 'pending', pairingId: 'pair1', format: 'doubles', teamA: ['p1', 'p2'], teamB: ['p3', 'p4'] }],
       })
     );
     fixture.detectChanges();
@@ -303,7 +303,7 @@ describe('CourtPanel', () => {
     const { fixture, httpMock } = await createPanel();
     fixture.detectChanges();
 
-    const button = (fixture.nativeElement as HTMLElement).querySelector('button') as HTMLButtonElement;
+    const button = (fixture.nativeElement as HTMLElement).querySelector('.court-panel > button') as HTMLButtonElement;
     button.click();
 
     httpMock
@@ -318,7 +318,7 @@ describe('CourtPanel', () => {
       .expectOne(`${B}/sessions/sess1`)
       .flush(
         baseSession({
-          courts: [{ status: 'pending', pairingId: 'pair1', teamA: ['p1', 'p2'], teamB: ['p3', 'p4'] }],
+          courts: [{ status: 'pending', pairingId: 'pair1', format: 'doubles', teamA: ['p1', 'p2'], teamB: ['p3', 'p4'] }],
         })
       );
     await fixture.whenStable();
@@ -330,7 +330,7 @@ describe('CourtPanel', () => {
   it('clicking "confirm" posts to confirm with the court\'s pairingId', async () => {
     const { fixture, httpMock } = await createPanel(
       baseSession({
-        courts: [{ status: 'pending', pairingId: 'pair1', teamA: ['p1', 'p2'], teamB: ['p3', 'p4'] }],
+        courts: [{ status: 'pending', pairingId: 'pair1', format: 'doubles', teamA: ['p1', 'p2'], teamB: ['p3', 'p4'] }],
       })
     );
     fixture.detectChanges();
@@ -346,7 +346,7 @@ describe('CourtPanel', () => {
     TestBed.tick();
     httpMock.expectOne(`${B}/sessions/sess1`).flush(
       baseSession({
-        courts: [{ status: 'active', pairingId: 'pair1', teamA: ['p1', 'p2'], teamB: ['p3', 'p4'] }],
+        courts: [{ status: 'active', pairingId: 'pair1', format: 'doubles', teamA: ['p1', 'p2'], teamB: ['p3', 'p4'] }],
       })
     );
     await fixture.whenStable();
@@ -355,7 +355,7 @@ describe('CourtPanel', () => {
   it('tapping a player name twice takes them off the court', async () => {
     const { fixture, httpMock } = await createPanel(
       baseSession({
-        courts: [{ status: 'pending', pairingId: 'pair1', teamA: ['p1', 'p2'], teamB: ['p3', 'p4'] }],
+        courts: [{ status: 'pending', pairingId: 'pair1', format: 'doubles', teamA: ['p1', 'p2'], teamB: ['p3', 'p4'] }],
       })
     );
     fixture.detectChanges();
@@ -378,7 +378,7 @@ describe('CourtPanel', () => {
     TestBed.tick();
     httpMock.expectOne(`${B}/sessions/sess1`).flush(
       baseSession({
-        courts: [{ status: 'pending', pairingId: 'pair1', teamA: ['p5', 'p2'], teamB: ['p3', 'p4'] }],
+        courts: [{ status: 'pending', pairingId: 'pair1', format: 'doubles', teamA: ['p5', 'p2'], teamB: ['p3', 'p4'] }],
       })
     );
     await fixture.whenStable();
@@ -387,7 +387,7 @@ describe('CourtPanel', () => {
   it('shows a hint when swap reports no substitute available', async () => {
     const { fixture, httpMock } = await createPanel(
       baseSession({
-        courts: [{ status: 'pending', pairingId: 'pair1', teamA: ['p1', 'p2'], teamB: ['p3', 'p4'] }],
+        courts: [{ status: 'pending', pairingId: 'pair1', format: 'doubles', teamA: ['p1', 'p2'], teamB: ['p3', 'p4'] }],
       })
     );
     fixture.detectChanges();
@@ -405,7 +405,7 @@ describe('CourtPanel', () => {
     TestBed.tick();
     httpMock.expectOne(`${B}/sessions/sess1`).flush(
       baseSession({
-        courts: [{ status: 'pending', pairingId: 'pair1', teamA: ['p1', 'p2'], teamB: ['p3', 'p4'] }],
+        courts: [{ status: 'pending', pairingId: 'pair1', format: 'doubles', teamA: ['p1', 'p2'], teamB: ['p3', 'p4'] }],
       })
     );
     await fixture.whenStable();
@@ -416,7 +416,7 @@ describe('CourtPanel', () => {
 
   const pendingCourt = () =>
     baseSession({
-      courts: [{ status: 'pending', pairingId: 'pair1', teamA: ['p1', 'p2'], teamB: ['p3', 'p4'] }],
+      courts: [{ status: 'pending', pairingId: 'pair1', format: 'doubles', teamA: ['p1', 'p2'], teamB: ['p3', 'p4'] }],
     });
 
   const nameButton = (fixture: ComponentFixture<CourtPanel>, name: string) =>
@@ -536,7 +536,7 @@ describe('CourtPanel with too few players', () => {
     const { fixture, httpMock } = await createPanel(baseSession({ rosterPlayerIds: ['p1', 'p2'] }));
     fixture.detectChanges();
 
-    const button = (fixture.nativeElement as HTMLElement).querySelector('button') as HTMLButtonElement;
+    const button = (fixture.nativeElement as HTMLElement).querySelector('.court-panel > button') as HTMLButtonElement;
     button.click();
 
     httpMock
@@ -553,7 +553,7 @@ describe('CourtPanel with too few players', () => {
   it('undo posts to the court undo endpoint', async () => {
     const { fixture, httpMock } = await createPanel(
       baseSession({
-        courts: [{ status: 'active', pairingId: 'pair1', teamA: ['p1', 'p2'], teamB: ['p3', 'p4'] }],
+        courts: [{ status: 'active', pairingId: 'pair1', format: 'doubles', teamA: ['p1', 'p2'], teamB: ['p3', 'p4'] }],
       })
     );
     fixture.detectChanges();
@@ -596,7 +596,7 @@ describe('CourtPanel with too few players', () => {
   it('shows each pending player\'s real games-played tally next to their name', async () => {
     const { fixture } = await createPanel(
       baseSession({
-        courts: [{ status: 'pending', pairingId: 'pair1', teamA: ['p1', 'p2'], teamB: ['p3', 'p4'] }],
+        courts: [{ status: 'pending', pairingId: 'pair1', format: 'doubles', teamA: ['p1', 'p2'], teamB: ['p3', 'p4'] }],
       })
     );
     fixture.componentRef.setInput('gamesPlayed', { p1: 3, p2: 2, p3: 1 });
@@ -610,7 +610,7 @@ describe('CourtPanel with too few players', () => {
   it('shows each active player\'s real games-played tally next to their name', async () => {
     const { fixture } = await createPanel(
       baseSession({
-        courts: [{ status: 'active', pairingId: 'pair1', teamA: ['p1', 'p2'], teamB: ['p3', 'p4'] }],
+        courts: [{ status: 'active', pairingId: 'pair1', format: 'doubles', teamA: ['p1', 'p2'], teamB: ['p3', 'p4'] }],
       })
     );
     fixture.componentRef.setInput('gamesPlayed', { p1: 5, p4: 4 });
@@ -619,6 +619,135 @@ describe('CourtPanel with too few players', () => {
     const el = fixture.nativeElement as HTMLElement;
     const tallies = [...el.querySelectorAll('.tally')].map((t) => t.textContent?.trim());
     expect(tallies).toEqual(['5 เกม', '0 เกม', '0 เกม', '4 เกม']);
+  });
+
+  // --- Per-court format toggle -------------------------------------------
+
+  function toggleButtons(fixture: ComponentFixture<CourtPanel>): HTMLButtonElement[] {
+    return [...(fixture.nativeElement as HTMLElement).querySelectorAll('.format-toggle button')] as HTMLButtonElement[];
+  }
+
+  it('marks the current format active on an idle court', async () => {
+    const { fixture } = await createPanel(baseSession({ courts: [{ status: 'idle', format: 'singles' }] }));
+    fixture.detectChanges();
+    const [doublesBtn, singlesBtn] = toggleButtons(fixture);
+    expect(doublesBtn.classList).not.toContain('active');
+    expect(singlesBtn.classList).toContain('active');
+  });
+
+  it('posts the new format when the toggle is tapped, and reloads', async () => {
+    const { fixture, httpMock } = await createPanel();
+    fixture.detectChanges();
+    const [, singlesBtn] = toggleButtons(fixture);
+    singlesBtn.click();
+
+    const req = httpMock.expectOne(`${B}/sessions/sess1/courts/1/format`);
+    expect(req.request.body).toEqual({ format: 'singles' });
+    req.flush({ code: 'sess1', courtNumber: 1, format: 'singles' });
+    await new Promise((r) => setTimeout(r, 0));
+    TestBed.tick();
+    httpMock.expectOne(`${B}/sessions/sess1`).flush(baseSession({ courts: [{ status: 'idle', format: 'singles' }] }));
+    await fixture.whenStable();
+  });
+
+  it('disables the toggle while a match is pending', async () => {
+    const { fixture } = await createPanel(
+      baseSession({
+        courts: [{ status: 'pending', pairingId: 'pair1', format: 'doubles', teamA: ['p1', 'p2'], teamB: ['p3', 'p4'] }],
+      })
+    );
+    fixture.detectChanges();
+    for (const button of toggleButtons(fixture)) {
+      expect(button.disabled).toBe(true);
+    }
+  });
+
+  it('disables the toggle while a match is active', async () => {
+    const { fixture } = await createPanel(
+      baseSession({
+        courts: [{ status: 'active', pairingId: 'pair1', format: 'doubles', teamA: ['p1', 'p2'], teamB: ['p3', 'p4'] }],
+      })
+    );
+    fixture.detectChanges();
+    for (const button of toggleButtons(fixture)) {
+      expect(button.disabled).toBe(true);
+    }
+  });
+
+  it('disables the toggle once the session has ended', async () => {
+    const { fixture } = await createPanel(baseSession({ endedAt: '2026-09-08T20:00:00.000Z' }));
+    fixture.detectChanges();
+    for (const button of toggleButtons(fixture)) {
+      expect(button.disabled).toBe(true);
+    }
+  });
+
+  it('renders exactly two slots for a singles pending court, with working pick/target/aria', async () => {
+    const { fixture } = await createPanel(
+      baseSession({
+        rosterPlayerIds: ['p1', 'p2'],
+        courts: [{ status: 'pending', pairingId: 'pair1', format: 'singles', teamA: ['p1'], teamB: ['p2'] }],
+      })
+    );
+    fixture.detectChanges();
+    const el = fixture.nativeElement as HTMLElement;
+    const slots = el.querySelectorAll('.matchup-columns .slot');
+    expect(slots.length).toBe(2);
+    const nameTaps = [...el.querySelectorAll('.name-tap')] as HTMLButtonElement[];
+    expect(nameTaps.map((b) => b.textContent?.trim())).toEqual(['ตั้ม', 'เบส']);
+    expect(nameTaps[0].getAttribute('aria-label')).toContain('ตั้ม');
+  });
+
+  it('joins a singles winner label with just the one name, not "X & undefined"', async () => {
+    const { fixture } = await createPanel(
+      baseSession({
+        rosterPlayerIds: ['p1', 'p2'],
+        courts: [{ status: 'active', pairingId: 'pair1', format: 'singles', teamA: ['p1'], teamB: ['p2'] }],
+      })
+    );
+    fixture.detectChanges();
+    const el = fixture.nativeElement as HTMLElement;
+    const winA = el.querySelector('.win-a') as HTMLButtonElement;
+    expect(winA.getAttribute('aria-label')).not.toContain('undefined');
+    expect(winA.getAttribute('aria-label')).toContain('ตั้ม');
+  });
+
+  it('shows a try-singles hint when a doubles court comes back short by 2-3 players', async () => {
+    const { fixture, httpMock } = await createPanel();
+    fixture.detectChanges();
+    (fixture.nativeElement as HTMLElement).querySelector('.court-panel > button')!.dispatchEvent(new Event('click'));
+
+    httpMock
+      .expectOne(`${B}/sessions/sess1/courts/1/propose`)
+      .flush({ ok: false, reason: 'not-enough-players', available: 2, format: 'doubles' });
+    await new Promise((r) => setTimeout(r, 0));
+    TestBed.tick();
+    httpMock.expectOne(`${B}/sessions/sess1`).flush(baseSession());
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
+    expect(text).toContain('เหลือ 2');
+    expect(text).toContain('สลับเป็นเดี่ยวได้');
+  });
+
+  it('falls back to the plain not-enough-players hint at 0-1 players free', async () => {
+    const { fixture, httpMock } = await createPanel();
+    fixture.detectChanges();
+    (fixture.nativeElement as HTMLElement).querySelector('.court-panel > button')!.dispatchEvent(new Event('click'));
+
+    httpMock
+      .expectOne(`${B}/sessions/sess1/courts/1/propose`)
+      .flush({ ok: false, reason: 'not-enough-players', available: 1, format: 'doubles' });
+    await new Promise((r) => setTimeout(r, 0));
+    TestBed.tick();
+    httpMock.expectOne(`${B}/sessions/sess1`).flush(baseSession());
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
+    expect(text).toContain('ผู้เล่นไม่พอ');
+    expect(text).not.toContain('สลับเป็นเดี่ยวได้');
   });
 });
 

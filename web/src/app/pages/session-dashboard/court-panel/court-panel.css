@@ -57,10 +57,31 @@
 
 .court-panel-head {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
-  gap: var(--space-2);
+  gap: var(--space-1) var(--space-2);
   margin-bottom: var(--space-2);
+}
+
+/* Sits between the court number and the status dot rather than top-left,
+   where the decorative tape strip (::before, below) already lives — DESIGN.md
+   is explicit that the tape stays decorative and never carries state, so a
+   control tucked under it would work against the system as well as be
+   visually crowded. Shrunk to content width like the dashboard's own
+   court-count stepper (session-dashboard.css) rather than the global
+   .scope-toggle's edge-to-edge default — a two-way switch this small must
+   never read as a banner. */
+.court-panel-head .scope-toggle {
+  flex: 0 0 auto;
+  margin-bottom: 0;
+  margin-left: auto;
+}
+
+.court-panel-head .scope-toggle button {
+  flex: 0 0 auto;
+  padding-inline: 0.6rem;
+  font-size: var(--text-xs);
 }
 
 /* The court number is what the host looks for first when three panels are on
@@ -141,7 +162,10 @@
   padding-block: 0.3rem;
 }
 
-.matchup-columns .team .slot:first-child {
+/* :not(:only-child) — a singles team is one slot with nothing to rule off
+   from, and without this exclusion it drew an orphaned dotted line under the
+   court's only name. */
+.matchup-columns .team .slot:first-child:not(:only-child) {
   border-bottom: 1px dotted var(--rule);
 }
 

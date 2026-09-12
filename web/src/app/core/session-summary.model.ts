@@ -1,8 +1,9 @@
 export interface SessionMatch {
   matchNumber: number;
   courtNumber: number;
-  partnerName: string;
-  opponentNames: [string, string];
+  /** Null for a singles match — there is no partner to name. */
+  partnerName: string | null;
+  opponentNames: string[];
   scoreA: number | null;
   scoreB: number | null;
   result: 'win' | 'loss' | 'no-result';

@@ -3,7 +3,7 @@ import { FormsModule } from '@angular/forms';
 import { LiveSessionService } from '../../../core/live-session.service';
 import { resolvePlayerNames } from '../../../core/player-names';
 import { SwapSelectionService, type SwapPick } from '../../../core/swap-selection.service';
-import type { CourtState } from '../../../core/live-session.model';
+import type { CourtFormat, CourtState } from '../../../core/live-session.model';
 import type { Player } from '../../../../../../engines/fuzzy-match.ts';
 
 @Component({
@@ -24,6 +24,13 @@ export class CourtPanel {
   readonly scoreA = signal<number | null>(null);
   readonly scoreB = signal<number | null>(null);
   readonly notEnoughPlayers = signal(false);
+  /**
+   * Set only when a doubles court came back short with 2 or 3 players free —
+   * exactly the case a switch to singles would fix, and exactly the moment
+   * the host wants to be told about it. Null otherwise, including when the
+   * court has 0-1 free (switching would not help) or is already singles.
+   */
+  readonly trySinglesAvailable = signal<number | null>(null);
   readonly noSubstitute = signal(false);
   readonly busy = signal(false);
   /** A rejected request — mostly the pairing-lifecycle 409s. */
@@ -58,15 +65,27 @@ export class CourtPanel {
   }
 
   protected readonly court = computed<CourtState>(
-    () => this.liveSession.courts()[this.courtNumber() - 1] ?? { status: 'idle' }
+    () => this.liveSession.courts()[this.courtNumber() - 1] ?? { status: 'idle', format: 'doubles' }
   );
+
+  /**
+   * The toggle only ever writes while idle — a live pairing's team size must
+   * never disagree with its court's configured format, and idle is the only
+   * state where nothing in progress depends on it. The server enforces this
+   * regardless (a stale tab could still hold an idle read), so this is a
+   * courtesy, not the real guard.
+   */
+  protected readonly formatToggleDisabled = computed(() => this.court().status !== 'idle' || this.ended());
+
+  /** Two 2-glyph segments (คู่/เดี่ยว) carry no meaning alone without this group label. */
+  protected readonly formatGroupLabel = $localize`:@@court.formatLabel:รูปแบบการเล่น`;
 
   protected readonly ended = computed(() => {
     if (this.liveSession.sessionResource.error()) return false;
     return this.liveSession.sessionResource.value()?.endedAt != null;
   });
 
-  protected teamNames(ids: [string, string]): string[] {
+  protected teamNames(ids: string[]): string[] {
     return resolvePlayerNames(ids, this.players());
   }
 
@@ -110,11 +129,18 @@ export class CourtPanel {
 
   /**
    * The winner buttons say only "ชนะ" — their column is what identifies the
-   * team — so the name has to reach a screen reader some other way.
+   * team — so the name has to reach a screen reader some other way. `& `-
+   * joined for doubles; for a singles team this is just the one name, not
+   * "X & undefined".
    */
   protected wonLabel(names: string[]): string {
-    const team = `${names[0]} & ${names[1]}`;
+    const team = names.join(' & ');
     return $localize`:@@court.wonBy:${team}:team: ชนะ`;
+  }
+
+  /** In TS for the same reason as swapLabel: a dynamic count inside the sentence. */
+  protected trySinglesHint(available: number): string {
+    return $localize`:@@court.trySingles:เหลือ ${available}:count: คน — สลับเป็นเดี่ยวได้`;
   }
 
   protected async startOrReshuffle(): Promise<void> {
@@ -123,7 +149,30 @@ export class CourtPanel {
     this.actionError.set(null);
     try {
       const result = await this.liveSession.proposeMatch(this.courtNumber());
-      this.notEnoughPlayers.set(!result.ok && result.reason === 'not-enough-players');
+      const short = !result.ok && result.reason === 'not-enough-players';
+      this.notEnoughPlayers.set(short);
+      const available = result.available;
+      this.trySinglesAvailable.set(
+        short && result.format === 'doubles' && available !== undefined && available >= 2 && available <= 3
+          ? available
+          : null
+      );
+      this.actionError.set(result.error ?? null);
+    } finally {
+      this.busy.set(false);
+    }
+  }
+
+  /**
+   * Idle-only (see `formatToggleDisabled`); the server is the real guard and
+   * refuses with COURT_ACTIVE if a stale read let a disabled tap through.
+   */
+  protected async setFormat(format: CourtFormat): Promise<void> {
+    if (this.busy() || this.formatToggleDisabled() || this.court().format === format) return;
+    this.busy.set(true);
+    this.actionError.set(null);
+    try {
+      const result = await this.liveSession.setCourtFormat(this.courtNumber(), format);
       this.actionError.set(result.error ?? null);
     } finally {
       this.busy.set(false);

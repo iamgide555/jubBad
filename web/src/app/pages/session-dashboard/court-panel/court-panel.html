@@ -3,6 +3,24 @@
 
   <div class="court-panel-head">
     <h4 i18n="@@court.number">คอร์ท <span class="court-num">{{ courtNumber() }}</span></h4>
+    <div class="scope-toggle format-toggle" role="group" [attr.aria-label]="formatGroupLabel">
+      <button
+        type="button"
+        [class.active]="c.format === 'doubles'"
+        [disabled]="formatToggleDisabled() || busy()"
+        [attr.aria-pressed]="c.format === 'doubles'"
+        (click)="setFormat('doubles')"
+        i18n="@@court.formatDoubles"
+      >คู่</button>
+      <button
+        type="button"
+        [class.active]="c.format === 'singles'"
+        [disabled]="formatToggleDisabled() || busy()"
+        [attr.aria-pressed]="c.format === 'singles'"
+        (click)="setFormat('singles')"
+        i18n="@@court.formatSingles"
+      >เดี่ยว</button>
+    </div>
     <span class="status-dot" [class]="c.status"></span>
   </div>
 
@@ -14,7 +32,11 @@
         <p class="matchup idle-label" i18n="@@court.idle">ว่าง</p>
         <button type="button" [disabled]="busy()" (click)="startOrReshuffle()" i18n="@@court.startNext">เริ่มแมตช์ถัดไป</button>
         @if (notEnoughPlayers()) {
-          <p class="hint" i18n="@@court.notEnoughPlayers">ผู้เล่นไม่พอ</p>
+          @if (trySinglesAvailable(); as n) {
+            <p class="hint" role="status">{{ trySinglesHint(n) }}</p>
+          } @else {
+            <p class="hint" i18n="@@court.notEnoughPlayers">ผู้เล่นไม่พอ</p>
+          }
         }
       }
       @case ('pending') {
@@ -23,69 +45,45 @@
           @let bNames = teamNames(c.teamB);
           <div class="matchup-columns">
             <div class="team">
-              <span
-                class="slot"
-                [class.is-target]="isTarget(c.teamA[0])"
-                [class.is-picked]="selection.isPicked(c.teamA[0])"
-              >
-                <button
-                  type="button"
-                  class="name-tap"
-                  [disabled]="busy()"
-                  [attr.aria-pressed]="selection.isPicked(c.teamA[0])"
-                  [attr.aria-label]="swapLabel(c.teamA[0], aNames[0])"
-                  (click)="swap(c.pairingId, c.teamA[0])"
-                >{{ aNames[0] }}</button>
-                <span class="tally" i18n="@@court.gamesTally">{{ gamesFor(c.teamA[0]) }} เกม</span>
-              </span>
-              <span
-                class="slot"
-                [class.is-target]="isTarget(c.teamA[1])"
-                [class.is-picked]="selection.isPicked(c.teamA[1])"
-              >
-                <button
-                  type="button"
-                  class="name-tap"
-                  [disabled]="busy()"
-                  [attr.aria-pressed]="selection.isPicked(c.teamA[1])"
-                  [attr.aria-label]="swapLabel(c.teamA[1], aNames[1])"
-                  (click)="swap(c.pairingId, c.teamA[1])"
-                >{{ aNames[1] }}</button>
-                <span class="tally" i18n="@@court.gamesTally">{{ gamesFor(c.teamA[1]) }} เกม</span>
-              </span>
+              @for (id of c.teamA; track id; let i = $index) {
+                @let name = aNames[i];
+                <span
+                  class="slot"
+                  [class.is-target]="isTarget(id)"
+                  [class.is-picked]="selection.isPicked(id)"
+                >
+                  <button
+                    type="button"
+                    class="name-tap"
+                    [disabled]="busy()"
+                    [attr.aria-pressed]="selection.isPicked(id)"
+                    [attr.aria-label]="swapLabel(id, name)"
+                    (click)="swap(c.pairingId, id)"
+                  >{{ name }}</button>
+                  <span class="tally" i18n="@@court.gamesTally">{{ gamesFor(id) }} เกม</span>
+                </span>
+              }
             </div>
             <span class="vs" i18n="@@court.vs">vs</span>
             <div class="team">
-              <span
-                class="slot"
-                [class.is-target]="isTarget(c.teamB[0])"
-                [class.is-picked]="selection.isPicked(c.teamB[0])"
-              >
-                <button
-                  type="button"
-                  class="name-tap"
-                  [disabled]="busy()"
-                  [attr.aria-pressed]="selection.isPicked(c.teamB[0])"
-                  [attr.aria-label]="swapLabel(c.teamB[0], bNames[0])"
-                  (click)="swap(c.pairingId, c.teamB[0])"
-                >{{ bNames[0] }}</button>
-                <span class="tally" i18n="@@court.gamesTally">{{ gamesFor(c.teamB[0]) }} เกม</span>
-              </span>
-              <span
-                class="slot"
-                [class.is-target]="isTarget(c.teamB[1])"
-                [class.is-picked]="selection.isPicked(c.teamB[1])"
-              >
-                <button
-                  type="button"
-                  class="name-tap"
-                  [disabled]="busy()"
-                  [attr.aria-pressed]="selection.isPicked(c.teamB[1])"
-                  [attr.aria-label]="swapLabel(c.teamB[1], bNames[1])"
-                  (click)="swap(c.pairingId, c.teamB[1])"
-                >{{ bNames[1] }}</button>
-                <span class="tally" i18n="@@court.gamesTally">{{ gamesFor(c.teamB[1]) }} เกม</span>
-              </span>
+              @for (id of c.teamB; track id; let i = $index) {
+                @let name = bNames[i];
+                <span
+                  class="slot"
+                  [class.is-target]="isTarget(id)"
+                  [class.is-picked]="selection.isPicked(id)"
+                >
+                  <button
+                    type="button"
+                    class="name-tap"
+                    [disabled]="busy()"
+                    [attr.aria-pressed]="selection.isPicked(id)"
+                    [attr.aria-label]="swapLabel(id, name)"
+                    (click)="swap(c.pairingId, id)"
+                  >{{ name }}</button>
+                  <span class="tally" i18n="@@court.gamesTally">{{ gamesFor(id) }} เกม</span>
+                </span>
+              }
             </div>
           </div>
           @if (noSubstitute()) {
@@ -113,19 +111,17 @@
           @let bNames = teamNames(c.teamB);
           <div class="matchup-columns">
             <div class="team">
-              <span class="slot">{{ aNames[0] }} <span class="tally" i18n="@@court.gamesTally">{{ gamesFor(c.teamA[0]) }} เกม</span></span>
-              <span class="slot">{{ aNames[1] }} <span class="tally" i18n="@@court.gamesTally">{{ gamesFor(c.teamA[1]) }} เกม</span></span>
+              @for (name of aNames; track $index; let i = $index) {
+                <span class="slot">{{ name }} <span class="tally" i18n="@@court.gamesTally">{{ gamesFor(c.teamA[i]) }} เกม</span></span>
+              }
             </div>
             <span class="vs" i18n="@@court.vs">vs</span>
             <div class="team">
-              <span class="slot">{{ bNames[0] }} <span class="tally" i18n="@@court.gamesTally">{{ gamesFor(c.teamB[0]) }} เกม</span></span>
-              <span class="slot">{{ bNames[1] }} <span class="tally" i18n="@@court.gamesTally">{{ gamesFor(c.teamB[1]) }} เกม</span></span>
+              @for (name of bNames; track $index; let i = $index) {
+                <span class="slot">{{ name }} <span class="tally" i18n="@@court.gamesTally">{{ gamesFor(c.teamB[i]) }} เกม</span></span>
+              }
             </div>
           </div>
-        }
-        @if (c.status === 'active') {
-          @let aNames = teamNames(c.teamA);
-          @let bNames = teamNames(c.teamB);
           <!-- Score and winner share one grid so each team owns a column: the
                side a button sits on is what says whose team it is, exactly as
                it already does for the two score boxes. Spelling the names out

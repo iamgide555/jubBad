@@ -675,6 +675,13 @@
           <context context-type="linenumber">42</context>
         </context-group>
       </trans-unit>
+      <trans-unit id="summary.singles" datatype="html">
+        <source>เดี่ยว</source><target>Singles</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/session-summary/session-summary.html</context>
+          <context context-type="linenumber">76,77</context>
+        </context-group>
+      </trans-unit>
       <trans-unit id="summary.vsOpponents" datatype="html">
         <source>พบ</source><target>vs</target>
         <context-group purpose="location">
@@ -715,6 +722,20 @@
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/session-dashboard/court-panel/court-panel.html</context>
           <context context-type="linenumber">5,6</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="court.formatDoubles" datatype="html">
+        <source>คู่</source><target>Doubles</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/session-dashboard/court-panel/court-panel.html</context>
+          <context context-type="linenumber">14,16</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="court.formatSingles" datatype="html">
+        <source>เดี่ยว</source><target>Singles</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/session-dashboard/court-panel/court-panel.html</context>
+          <context context-type="linenumber">22,24</context>
         </context-group>
       </trans-unit>
       <trans-unit id="court.sessionEnded" datatype="html">
@@ -791,11 +812,25 @@
           <context context-type="linenumber">52,53</context>
         </context-group>
       </trans-unit>
+      <trans-unit id="court.formatLabel" datatype="html">
+        <source>รูปแบบการเล่น</source><target>Match format</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/session-dashboard/court-panel/court-panel.ts</context>
+          <context context-type="linenumber">81</context>
+        </context-group>
+      </trans-unit>
       <trans-unit id="court.wonBy" datatype="html">
         <source><x id="team" equiv-text="team"/> ชนะ</source><target><x id="team" equiv-text="team"/> won</target>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/session-dashboard/court-panel/court-panel.ts</context>
           <context context-type="linenumber">101</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="court.trySingles" datatype="html">
+        <source>เหลือ <x id="count" equiv-text="available"/> คน — สลับเป็นเดี่ยวได้</source><target><x id="count" equiv-text="available"/> free — switch to singles?</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/session-dashboard/court-panel/court-panel.ts</context>
+          <context context-type="linenumber">143</context>
         </context-group>
       </trans-unit>
       <trans-unit id="court.won" datatype="html">
@@ -1455,6 +1490,13 @@
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/core/live-session.service.ts</context>
           <context context-type="linenumber">225</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="err.courtFormat" datatype="html">
+        <source>เปลี่ยนรูปแบบคอร์ทไม่สำเร็จ</source><target>Could not change the court's format</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/core/live-session.service.ts</context>
+          <context context-type="linenumber">249</context>
         </context-group>
       </trans-unit>
       <trans-unit id="court.restingInProposal" datatype="html">

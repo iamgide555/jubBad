@@ -27,7 +27,7 @@ function baseSession(overrides: Partial<Session> = {}): Session {
     lastPlayedAt: {},
     activatedAt: {},
     waitlistPlayerIds: [],
-    courts: [{ status: 'idle' }],
+    courts: [{ status: 'idle', format: 'doubles' }],
     ...overrides,
   };
 }
@@ -219,7 +219,7 @@ describe('SessionDashboard', () => {
         baseSession({
           courtCount: 2,
           rosterPlayerIds: ['p1', 'p2', 'p3', 'p4'],
-          courts: [{ status: 'idle' }, { status: 'idle' }],
+          courts: [{ status: 'idle', format: 'doubles' }, { status: 'idle', format: 'doubles' }],
         })
       );
     await new Promise((r) => setTimeout(r, 0));
@@ -402,7 +402,7 @@ describe('SessionDashboard', () => {
       baseSession({
         rosterPlayerIds: ['p1', 'p2'],
         queueGames: { p1: 99, p2: 99 },
-        courts: [{ status: 'active', pairingId: 'c1', teamA: ['p1', 'p2'], teamB: ['p3', 'p4'] }],
+        courts: [{ status: 'active', pairingId: 'c1', format: 'doubles', teamA: ['p1', 'p2'], teamB: ['p3', 'p4'] }],
       })
     );
     await new Promise((r) => setTimeout(r, 0));
@@ -448,8 +448,8 @@ describe('SessionDashboard', () => {
         courtCount: 2,
         rosterPlayerIds: ['p1', 'p2', 'p3', 'p4', 'p5', 'p6', 'p7', 'p8', 'p9', 'p10'],
         courts: [
-          { status: 'active', pairingId: 'c1', teamA: ['p1', 'p2'], teamB: ['p3', 'p4'] },
-          { status: 'active', pairingId: 'c2', teamA: ['p5', 'p6'], teamB: ['p7', 'p8'] },
+          { status: 'active', pairingId: 'c1', format: 'doubles', teamA: ['p1', 'p2'], teamB: ['p3', 'p4'] },
+          { status: 'active', pairingId: 'c2', format: 'doubles', teamA: ['p5', 'p6'], teamB: ['p7', 'p8'] },
         ],
       })
     );
@@ -474,7 +474,7 @@ describe('SessionDashboard', () => {
   it('hides the fill button when no court is idle', async () => {
     await settled(
       baseSession({
-        courts: [{ status: 'active', pairingId: 'x', teamA: ['p1', 'p2'], teamB: ['p3', 'p4'] }],
+        courts: [{ status: 'active', pairingId: 'x', format: 'doubles', teamA: ['p1', 'p2'], teamB: ['p3', 'p4'] }],
       })
     );
     expect(buttonWith('จัดคู่ทุกคอร์ทว่าง')).toBeUndefined();
@@ -524,7 +524,7 @@ describe('SessionDashboard', () => {
     await settled(
       baseSession({
         rosterPlayerIds: ['p1', 'p2'],
-        courts: [{ status: 'active', pairingId: 'x', teamA: ['p1', 'p2'], teamB: ['p3', 'p4'] }],
+        courts: [{ status: 'active', pairingId: 'x', format: 'doubles', teamA: ['p1', 'p2'], teamB: ['p3', 'p4'] }],
       })
     );
 
@@ -537,6 +537,18 @@ describe('SessionDashboard', () => {
   it('marks an idle court as idle in the share text', async () => {
     await settled();
     expect(fixture.componentInstance.shareText()).toContain('ว่าง');
+  });
+
+  it('writes a singles court as one name per side in the share text', async () => {
+    await settled(
+      baseSession({
+        rosterPlayerIds: ['p1', 'p2'],
+        courts: [{ status: 'active', pairingId: 'x', format: 'singles', teamA: ['p1'], teamB: ['p2'] }],
+      })
+    );
+
+    const text = fixture.componentInstance.shareText();
+    expect(text).toContain('ตั้ม vs เบส');
   });
 
   it('copies a link to the venue display, which nothing else in the app links to', async () => {
@@ -642,7 +654,7 @@ describe('SessionDashboard', () => {
       baseSession({
         rosterPlayerIds: ['p1', 'p2', 'p3', 'p4', 'p5'],
         courts: [
-          { status: 'pending', pairingId: 'pair1', teamA: ['p1', 'p2'], teamB: ['p3', 'p4'] },
+          { status: 'pending', pairingId: 'pair1', format: 'doubles', teamA: ['p1', 'p2'], teamB: ['p3', 'p4'] },
         ],
       })
     );
@@ -696,7 +708,7 @@ describe('SessionDashboard', () => {
         baseSession({
           rosterPlayerIds: ['p1', 'p2', 'p3', 'p4', 'p5'],
           courts: [
-            { status: 'pending', pairingId: 'pair1', teamA: ['p5', 'p2'], teamB: ['p3', 'p4'] },
+            { status: 'pending', pairingId: 'pair1', format: 'doubles', teamA: ['p5', 'p2'], teamB: ['p3', 'p4'] },
           ],
         })
       );

@@ -236,9 +236,9 @@ export class SessionDashboard implements OnDestroy {
         lines.push($localize`:@@share.courtIdle:คอร์ท ${number}:n:: ว่าง`);
         continue;
       }
-      const [a1, a2] = resolvePlayerNames(court.teamA, this.players());
-      const [b1, b2] = resolvePlayerNames(court.teamB, this.players());
-      lines.push(`${$localize`:@@share.court:คอร์ท ${number}:n:`}: ${a1} + ${a2} vs ${b1} + ${b2}`);
+      const teamA = resolvePlayerNames(court.teamA, this.players()).join(' + ');
+      const teamB = resolvePlayerNames(court.teamB, this.players()).join(' + ');
+      lines.push(`${$localize`:@@share.court:คอร์ท ${number}:n:`}: ${teamA} vs ${teamB}`);
     }
     const waiting = this.waiting().map((w) => w.name);
     if (waiting.length > 0) {

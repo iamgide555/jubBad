@@ -112,6 +112,39 @@ describe('SessionSummary', () => {
     expect(text).toContain('21-15');
   });
 
+  it('shows no partner clause for a singles match, and lists its one opponent', async () => {
+    await load(
+      summary({
+        players: [
+          {
+            playerId: 'p1',
+            name: 'ตั้ม',
+            played: 1,
+            won: 1,
+            lost: 0,
+            matches: [
+              {
+                matchNumber: 1,
+                courtNumber: 2,
+                partnerName: null,
+                opponentNames: ['เบส'],
+                scoreA: 21,
+                scoreB: 15,
+                result: 'win',
+              },
+            ],
+          },
+        ],
+      })
+    );
+    fixture.componentInstance['togglePlayer']('p1');
+    fixture.detectChanges();
+    const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
+    expect(text).toContain('เดี่ยว');
+    expect(text).toContain('เบส');
+    expect(text).not.toContain('กับ');
+  });
+
   it('collapses an already-expanded row on a second tap', async () => {
     await load(summary());
     fixture.componentInstance['togglePlayer']('p1');

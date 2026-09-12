@@ -3,12 +3,17 @@ import { Injectable, computed, inject, signal } from '@angular/core';
 import { ActivatedRoute } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
 import { environment } from '../../environments/environment';
-import type { CourtState } from './live-session.model';
+import type { CourtFormat, CourtState } from './live-session.model';
 import type { Session } from './session.model';
 
 interface ProposeResponse {
   ok: boolean;
   reason?: string;
+  /** Only on a `not-enough-players` reason: how many are free, and the
+   *  court's own format — enough for the panel to say "switch to singles"
+   *  rather than just "not enough players" when that would actually help. */
+  available?: number;
+  format?: CourtFormat;
 }
 
 interface SwapResponse {
@@ -26,6 +31,9 @@ export interface ActionResult {
   ok: boolean;
   reason?: string;
   error?: string;
+  /** Carried through from a `not-enough-players` propose response only. */
+  available?: number;
+  format?: CourtFormat;
 }
 
 /**
@@ -116,10 +124,7 @@ export class LiveSessionService {
     const reserved = new Set<string>();
     for (const court of this.courts()) {
       if (court.status === 'idle') continue;
-      reserved.add(court.teamA[0]);
-      reserved.add(court.teamA[1]);
-      reserved.add(court.teamB[0]);
-      reserved.add(court.teamB[1]);
+      for (const id of [...court.teamA, ...court.teamB]) reserved.add(id);
     }
     // Resting players are waiting for nothing — they are not in the queue.
     const resting = new Set(session.restingPlayerIds);
@@ -135,7 +140,7 @@ export class LiveSessionService {
     this.sessionResource.reload();
   }
 
-  private async post<T extends { ok?: boolean; reason?: string }>(
+  private async post<T extends { ok?: boolean; reason?: string; available?: number; format?: CourtFormat }>(
     path: string,
     body: unknown,
     fallbackError: string
@@ -145,7 +150,14 @@ export class LiveSessionService {
         this.http.post<T>(`${this.base}/sessions/${this.sessionCode}/${path}`, body)
       );
       this.sessionResource.reload();
-      if (response?.ok === false) return { ok: false, reason: response.reason };
+      if (response?.ok === false) {
+        return {
+          ok: false,
+          reason: response.reason,
+          available: response.available,
+          format: response.format,
+        };
+      }
       this.mutationVersion.update((version) => version + 1);
       return { ok: true };
     } catch (err) {
@@ -227,6 +239,15 @@ export class LiveSessionService {
 
   setMode(mode: 'variety' | 'balanced'): Promise<ActionResult> {
     return this.post('mode', { mode }, $localize`:@@err.mode:เปลี่ยนโหมดไม่สำเร็จ`);
+  }
+
+  /** Idle-only; the server refuses with COURT_ACTIVE while a match is pending or active. */
+  setCourtFormat(courtNumber: number, format: CourtFormat): Promise<ActionResult> {
+    return this.post(
+      `courts/${courtNumber}/format`,
+      { format },
+      $localize`:@@err.courtFormat:เปลี่ยนรูปแบบคอร์ทไม่สำเร็จ`
+    );
   }
 
   /**

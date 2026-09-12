@@ -57,9 +57,9 @@ export class SessionDisplay implements OnDestroy {
       if (court.status !== 'active') {
         return { courtNumber: i + 1, playing: false, text: idle };
       }
-      const [a1, a2] = resolvePlayerNames(court.teamA, players);
-      const [b1, b2] = resolvePlayerNames(court.teamB, players);
-      return { courtNumber: i + 1, playing: true, text: `${a1} + ${a2} ${versus} ${b1} + ${b2}` };
+      const teamA = resolvePlayerNames(court.teamA, players).join(' + ');
+      const teamB = resolvePlayerNames(court.teamB, players).join(' + ');
+      return { courtNumber: i + 1, playing: true, text: `${teamA} ${versus} ${teamB}` };
     });
   });
 

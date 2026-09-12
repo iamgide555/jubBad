@@ -1219,22 +1219,52 @@ export class SessionsService {
     );
     const available = roster.map((r) => r.playerId).filter((id) => !reserved.has(id));
 
-    // Idle courts are offered smallest-first (ties by court number) so a
-    // short bench still fills as many courts as it can — the fixed offer
-    // order in `proposeExclusively` has a reason to prioritize one specific
-    // court; this call has no single court to favour, so it should maximize
-    // how many get a match instead.
-    const sortedIdle = [...idleCourts].sort(
-      (a, b) =>
-        courtSizeFor(formatAt(session.courtFormats, a)) -
-          courtSizeFor(formatAt(session.courtFormats, b)) || a - b
+    // This call has no single court to favour, unlike `proposeExclusively`,
+    // so it should seat as many players as it can rather than merely fill as
+    // many courts as it can — the two are not the same thing once sizes
+    // differ. Sorting idle courts smallest-first and taking a prefix (the
+    // natural-looking approach) is provably wrong: with a free doubles court
+    // and a free singles court and 4 players waiting, that offers the
+    // singles court first, seats 2, and leaves the doubles court idle with
+    // the other 2 still benched — even though filling the doubles court
+    // instead seats all 4 for the same one court used. Since a court is only
+    // ever 2 or 4, the exact best combination is cheap to find directly:
+    // try every count of doubles courts to use, greedily fill the rest with
+    // singles courts, and keep whichever total seats the most players. Ties
+    // (same total, different mix) keep the first found — iterating fewer
+    // doubles courts first means a tie prefers using more courts of the
+    // idle set rather than fewer, which fits this endpoint's own name.
+    const idleDoublesCourts = idleCourts.filter(
+      (n) => formatAt(session.courtFormats, n) === 'doubles'
     );
-    const sizes: CourtSize[] = sortedIdle.map((n) => courtSizeFor(formatAt(session.courtFormats, n)));
-    const smallestIdleSize = sizes.length > 0 ? Math.min(...sizes) : Infinity;
+    const idleSinglesCourts = idleCourts.filter(
+      (n) => formatAt(session.courtFormats, n) === 'singles'
+    );
 
-    if (idleCourts.length === 0 || available.length < smallestIdleSize) {
+    let bestSeated = 0;
+    let bestDoublesUsed = 0;
+    let bestSinglesUsed = 0;
+    for (let doublesUsed = 0; doublesUsed <= idleDoublesCourts.length; doublesUsed++) {
+      const remaining = available.length - doublesUsed * 4;
+      if (remaining < 0) break;
+      const singlesUsed = Math.min(idleSinglesCourts.length, Math.floor(remaining / 2));
+      const seated = doublesUsed * 4 + singlesUsed * 2;
+      if (seated > bestSeated) {
+        bestSeated = seated;
+        bestDoublesUsed = doublesUsed;
+        bestSinglesUsed = singlesUsed;
+      }
+    }
+
+    if (idleCourts.length === 0 || bestSeated === 0) {
       return { ok: false as const, reason: 'not-enough-players' as const, filled: [] as number[] };
     }
+
+    const chosenCourts = [
+      ...idleDoublesCourts.slice(0, bestDoublesUsed),
+      ...idleSinglesCourts.slice(0, bestSinglesUsed),
+    ];
+    const sizes: CourtSize[] = chosenCourts.map((n) => courtSizeFor(formatAt(session.courtFormats, n)));
 
     const history = await this.loadHistory(session.groupId, sessionCode);
     const ratings =
@@ -1244,7 +1274,7 @@ export class SessionsService {
     const filled = await this.prisma.$transaction(async (tx) => {
       const written: number[] = [];
       for (const assignment of result.courts) {
-        const courtNumber = sortedIdle[assignment.court - 1];
+        const courtNumber = chosenCourts[assignment.court - 1];
         const matchNumber =
           (await tx.pairing.count({
             where: { sessionId: sessionCode, courtNumber, confirmedAt: { not: null } },

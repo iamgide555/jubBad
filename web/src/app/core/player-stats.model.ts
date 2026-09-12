@@ -22,7 +22,11 @@ export interface PlayerProfile {
   won: number;
   /** null when they have not finished a match yet — not zero. */
   winRate: number | null;
+  /** Doubles rating — the default format, and what most rows will be. */
   rating: number;
+  /** Null when this player has never played singles, not 0/1200 — a group
+   *  that never plays singles must see exactly today's profile. */
+  singlesRating: number | null;
   bestPartner: BestPartnerStat | null;
   mostFacedOpponent: PartnerStat | null;
 }

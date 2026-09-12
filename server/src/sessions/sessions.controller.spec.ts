@@ -4064,6 +4064,65 @@ describe('SessionsController', () => {
     }
   });
 
+  it('fill seats every player it can rather than merely filling the smallest idle court first', async () => {
+    // Regression: a free singles court and a free doubles court, with exactly
+    // enough players to fill the doubles court but not both. Offering the
+    // singles court first would seat 2 and leave the doubles court idle with
+    // the other 2 still benched, even though filling the doubles court
+    // instead seats all 4 for the same one court used.
+    const { sessionCode, cleanup } = await formatFixture(4, 2);
+    try {
+      await request(server)
+        .post(`/sessions/${sessionCode}/courts/1/format`)
+        .send({ format: 'singles' })
+        .expect(201);
+
+      const res = await request(server).post(`/sessions/${sessionCode}/courts/fill`).expect(201);
+      expect(res.body.ok).toBe(true);
+      expect(res.body.filled).toEqual([2]);
+
+      const session = await request(server).get(`/sessions/${sessionCode}`).expect(200);
+      const court1 = session.body.courts.find((c: { courtNumber: number }) => c.courtNumber === 1);
+      const court2 = session.body.courts.find((c: { courtNumber: number }) => c.courtNumber === 2);
+      expect(court1.status).toBe('idle');
+      expect(court2.teamA.length + court2.teamB.length).toBe(4);
+    } finally {
+      await cleanup();
+    }
+  });
+
+  it('fill can use two singles courts to seat more players than one doubles court would', async () => {
+    // 5 players, one idle doubles court and two idle singles courts: filling
+    // the doubles court alone seats 4 and benches 1, but two singles courts
+    // seat all 4 of the same players (one still sits — 5 is odd) with the
+    // same one-benched outcome. Either seats 4; this pins that the doubles
+    // court alone is not chosen when a mix seats the same or more.
+    const { sessionCode, cleanup } = await formatFixture(5, 3);
+    try {
+      await request(server)
+        .post(`/sessions/${sessionCode}/courts/2/format`)
+        .send({ format: 'singles' })
+        .expect(201);
+      await request(server)
+        .post(`/sessions/${sessionCode}/courts/3/format`)
+        .send({ format: 'singles' })
+        .expect(201);
+
+      const res = await request(server).post(`/sessions/${sessionCode}/courts/fill`).expect(201);
+      expect(res.body.ok).toBe(true);
+
+      const session = await request(server).get(`/sessions/${sessionCode}`).expect(200);
+      const seated = session.body.courts.reduce(
+        (sum: number, c: { teamA?: string[]; teamB?: string[] }) =>
+          sum + (c.teamA?.length ?? 0) + (c.teamB?.length ?? 0),
+        0
+      );
+      expect(seated).toBe(4);
+    } finally {
+      await cleanup();
+    }
+  });
+
   it('confirms, finishes, and undoes a singles match like any other', async () => {
     const { sessionCode, players, cleanup } = await formatFixture(2, 1);
     try {

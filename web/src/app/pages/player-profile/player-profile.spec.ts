@@ -17,6 +17,7 @@ function profile(overrides: Partial<Profile> = {}): Profile {
     won: 2,
     winRate: 2 / 3,
     rating: 1215,
+    singlesRating: null,
     bestPartner: { playerId: 'p2', name: 'เบส', played: 8, won: 6, winRate: 0.75, provisional: false },
     mostFacedOpponent: { playerId: 'p3', name: 'ปอม', played: 3, won: 1 },
     ...overrides,
@@ -72,6 +73,33 @@ describe('PlayerProfile', () => {
     expect(text).toContain('เบส');
     expect(text).toContain('ปอม');
     expect(text).toContain('1215');
+  });
+
+  function statLabels(): string[] {
+    return [...(fixture.nativeElement as HTMLElement).querySelectorAll('.stat-label')].map(
+      (el) => el.textContent?.trim() ?? ''
+    );
+  }
+
+  it('shows only the doubles rating, unrelabelled, for a player who has never played singles', async () => {
+    await load(profile({ singlesRating: null }));
+    const labels = statLabels();
+    expect(labels).toContain('เรตติ้ง');
+    expect(labels).not.toContain('เรตติ้งคู่');
+    expect(labels).not.toContain('เรตติ้งเดี่ยว');
+  });
+
+  it('shows both ratings, relabelled, once the player has a singles history', async () => {
+    await load(profile({ rating: 1300, singlesRating: 1100 }));
+    const labels = statLabels();
+    expect(labels).toContain('เรตติ้งคู่');
+    expect(labels).toContain('เรตติ้งเดี่ยว');
+    expect(labels).not.toContain('เรตติ้ง');
+    const values = [...(fixture.nativeElement as HTMLElement).querySelectorAll('.stat-value')].map(
+      (el) => el.textContent?.trim()
+    );
+    expect(values).toContain('1300');
+    expect(values).toContain('1100');
   });
 
   it('renders the win rate as a whole percent', async () => {

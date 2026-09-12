@@ -1254,67 +1254,81 @@
           <context context-type="linenumber">21,23</context>
         </context-group>
       </trans-unit>
+      <trans-unit id="profile.ratingDoubles" datatype="html">
+        <source>เรตติ้งคู่</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/player-profile/player-profile.html</context>
+          <context context-type="linenumber">26,28</context>
+        </context-group>
+      </trans-unit>
       <trans-unit id="profile.rating" datatype="html">
         <source>เรตติ้ง</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/player-profile/player-profile.html</context>
-          <context context-type="linenumber">25,27</context>
+          <context context-type="linenumber">28,30</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="profile.ratingSingles" datatype="html">
+        <source>เรตติ้งเดี่ยว</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/player-profile/player-profile.html</context>
+          <context context-type="linenumber">34,37</context>
         </context-group>
       </trans-unit>
       <trans-unit id="profile.mostWinsWith" datatype="html">
         <source>ชนะด้วยกันมากที่สุด</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/player-profile/player-profile.html</context>
-          <context context-type="linenumber">32,34</context>
+          <context context-type="linenumber">42,44</context>
         </context-group>
       </trans-unit>
       <trans-unit id="profile.bestPartner" datatype="html">
         <source>คู่ที่ดีที่สุด</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/player-profile/player-profile.html</context>
-          <context context-type="linenumber">34,37</context>
+          <context context-type="linenumber">44,47</context>
         </context-group>
       </trans-unit>
       <trans-unit id="profile.wonOf" datatype="html">
         <source>ชนะ</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/player-profile/player-profile.html</context>
-          <context context-type="linenumber">42</context>
+          <context context-type="linenumber">52</context>
         </context-group>
       </trans-unit>
       <trans-unit id="profile.partnerProvisional" datatype="html">
         <source>ยังเล่นด้วยกันไม่ถึง 5 เกม จึงยังไม่คิดเป็นอัตราชนะ</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/player-profile/player-profile.html</context>
-          <context context-type="linenumber">45,49</context>
+          <context context-type="linenumber">55,59</context>
         </context-group>
       </trans-unit>
       <trans-unit id="profile.mostFaced" datatype="html">
         <source>เจอบ่อยที่สุด</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/player-profile/player-profile.html</context>
-          <context context-type="linenumber">50,52</context>
+          <context context-type="linenumber">60,62</context>
         </context-group>
       </trans-unit>
       <trans-unit id="profile.matches" datatype="html">
         <source>แมตช์</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/player-profile/player-profile.html</context>
-          <context context-type="linenumber">53,54</context>
+          <context context-type="linenumber">63,64</context>
         </context-group>
       </trans-unit>
       <trans-unit id="profile.noMatches" datatype="html">
         <source>ยังไม่ได้ลงเล่น</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/player-profile/player-profile.html</context>
-          <context context-type="linenumber">59,62</context>
+          <context context-type="linenumber">69,72</context>
         </context-group>
       </trans-unit>
       <trans-unit id="profile.notFound" datatype="html">
         <source>ไม่พบผู้เล่นคนนี้</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/player-profile/player-profile.html</context>
-          <context context-type="linenumber">64,67</context>
+          <context context-type="linenumber">74,77</context>
         </context-group>
       </trans-unit>
       <trans-unit id="resetPassword.doneTitle" datatype="html">

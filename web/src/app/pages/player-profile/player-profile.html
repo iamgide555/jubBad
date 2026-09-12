@@ -22,8 +22,18 @@
       </div>
       <div class="stat">
         <span class="stat-value">{{ p.rating }}</span>
-        <span class="stat-label" i18n="@@profile.rating">เรตติ้ง</span>
+        @if (p.singlesRating !== null) {
+          <span class="stat-label" i18n="@@profile.ratingDoubles">เรตติ้งคู่</span>
+        } @else {
+          <span class="stat-label" i18n="@@profile.rating">เรตติ้ง</span>
+        }
       </div>
+      @if (p.singlesRating !== null) {
+        <div class="stat">
+          <span class="stat-value">{{ p.singlesRating }}</span>
+          <span class="stat-label" i18n="@@profile.ratingSingles">เรตติ้งเดี่ยว</span>
+        </div>
+      }
     </div>
 
     @if (p.bestPartner; as partner) {

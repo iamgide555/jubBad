@@ -542,11 +542,25 @@
           <context context-type="linenumber">19,21</context>
         </context-group>
       </trans-unit>
+      <trans-unit id="profile.ratingDoubles" datatype="html">
+        <source>เรตติ้งคู่</source><target>Doubles rating</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/player-profile/player-profile.html</context>
+          <context context-type="linenumber">26,28</context>
+        </context-group>
+      </trans-unit>
       <trans-unit id="profile.rating" datatype="html">
         <source>เรตติ้ง</source><target>Rating</target>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/player-profile/player-profile.html</context>
-          <context context-type="linenumber">23,25</context>
+          <context context-type="linenumber">28,30</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="profile.ratingSingles" datatype="html">
+        <source>เรตติ้งเดี่ยว</source><target>Singles rating</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/player-profile/player-profile.html</context>
+          <context context-type="linenumber">34,37</context>
         </context-group>
       </trans-unit>
       <trans-unit id="profile.mostWinsWith" datatype="html">

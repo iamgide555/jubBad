@@ -214,6 +214,49 @@ describe('GroupsController', () => {
     await request(server).get(`/groups/${randomUUID()}/sessions`).expect(404);
   });
 
+  it('exports a group with per-court formats and a singles match intact', async () => {
+    const code = randomUUID();
+    const sessionCode = randomUUID();
+    await prisma.group.create({ data: { code, name: 'G' } });
+    const [a, b] = await Promise.all(
+      ['A', 'B'].map((name) => prisma.player.create({ data: { groupId: code, name, aliases: '[]' } }))
+    );
+    await prisma.session.create({
+      data: {
+        code: sessionCode,
+        groupId: code,
+        courtCount: 2,
+        rawImportText: '',
+        courtFormats: JSON.stringify(['doubles', 'singles']),
+      },
+    });
+    await prisma.pairing.create({
+      data: {
+        sessionId: sessionCode,
+        courtNumber: 2,
+        matchNumber: 1,
+        teamA: JSON.stringify([a.id]),
+        teamB: JSON.stringify([b.id]),
+        confirmedAt: new Date(),
+        endedAt: new Date(),
+        winner: 'A',
+      },
+    });
+
+    try {
+      const res = await request(server).get(`/groups/${code}/export`).expect(200);
+      const session = res.body.sessions.find((s: { code: string }) => s.code === sessionCode);
+      expect(session.courtFormats).toEqual(['doubles', 'singles']);
+      expect(session.matches[0].teamA).toEqual([a.id]);
+      expect(session.matches[0].teamB).toEqual([b.id]);
+    } finally {
+      await prisma.pairing.deleteMany({ where: { sessionId: sessionCode } });
+      await prisma.session.deleteMany({ where: { code: sessionCode } });
+      await prisma.player.deleteMany({ where: { groupId: code } });
+      await prisma.group.deleteMany({ where: { code } });
+    }
+  });
+
   it('reports a player\'s record, best partner and most-faced opponent', async () => {
     const code = randomUUID();
     const sessionCode = randomUUID();

@@ -266,13 +266,19 @@ count itself isn't the limit.
 court is idle.** A host can run doubles on courts 1-2 and singles on court 3
 in the same session — set from the toggle in that court's panel, refused with
 `COURT_ACTIVE` while a match is pending or active there. Capacity is a sum
-over whatever sizes the idle courts are offered in, consumed in order with no
-skipping: `propose` offers the requested court first so it is never starved by
-another idle court ahead of it; `fillIdleCourts` offers idle courts
-smallest-first so a short bench still fills as many of them as it can.
-Enabling singles on a court that would otherwise be doubles trades throughput
-for variety — it seats 2 players instead of 4, and everyone else's rotation
-absorbs that.
+over whatever sizes the courts on offer are, consumed in order with no
+skipping — `propose` offers the requested court first so it is never starved
+by another idle court ahead of it. `fillIdleCourts` instead chooses which
+idle courts to offer at all: sorting them smallest-first and taking a prefix
+optimizes for *court count*, not *players seated*, and the two diverge once
+sizes differ — an idle singles court and an idle doubles court with exactly 4
+players free would offer the singles court first, seat 2, and leave the
+doubles court empty with the other 2 still benched, when filling the doubles
+court instead seats all 4 for the same one court used. Since a court is only
+ever 2 or 4, the exact best combination is cheap to find directly, so
+`fillIdleCourts` does that rather than sorting and hoping. Enabling singles on
+a court that would otherwise be doubles trades throughput for variety — it
+seats 2 players instead of 4, and everyone else's rotation absorbs that.
 
 A singles match counts as 1 game played for sit-out rotation, exactly like
 doubles, and its two players are recorded as having faced each other — but,

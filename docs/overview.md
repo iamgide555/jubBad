@@ -43,6 +43,7 @@ coordinate — not a smarter pairing algorithm or a bigger feature set.**
 | No data-retention/deletion policy (**accepted risk**) | Names persist indefinitely under a group's link code. A host can now export the group as JSON or delete it outright, which covers the practical need without a policy |
 | Export and delete require the group's owner (or an admin) to be signed in | They are administrative operations; the client also requires typing the group name to prevent an accidental delete. Revocation is now per-user (disabling one account bumps only that account's `tokenVersion`) rather than the old shared-token design's all-or-nothing. |
 | No promoting a waitlisted (สำรอง) player mid-session | The สำรอง list is resolved in LINE *before* the session — a waitlisted player was told not to come, so there is nobody at the venue to promote. The feature would serve a situation that cannot occur. Waitlisted names are still imported and shown, so the host can see who was turned away |
+| Court format (doubles/singles) is per court, not per session | Courts are booked and run independently already — the app models a court as its own idle/pending/active lifecycle, not as part of a shared session-wide round. A per-session switch would force every court to the same format even though a host's actual need (a short roster, two people wanting a quick game, a court freeing up with only two waiting) is local to one court |
 
 ## Explicitly out of scope
 
@@ -256,9 +257,31 @@ broken randomly, which is what the start of a session is, when nobody has
 played and everyone's wait began together. Predictable to the host ("they've
 played the most, so they sit"), and it matches the waiting list on screen: that
 list is sorted the same way, by games then wait, because a queue the engine
-ignores is worse than no queue. A court always needs exactly 4, so a roster
-that isn't a multiple of 4 leaves a remainder sitting out even when the court
+ignores is worse than no queue. Each court needs exactly its own configured
+size — 4 for doubles, 2 for singles — so a roster that doesn't divide evenly
+across the offered courts leaves a remainder sitting out even when the court
 count itself isn't the limit.
+
+**Court format is per court, not per session, and only changeable while a
+court is idle.** A host can run doubles on courts 1-2 and singles on court 3
+in the same session — set from the toggle in that court's panel, refused with
+`COURT_ACTIVE` while a match is pending or active there. Capacity is a sum
+over whatever sizes the idle courts are offered in, consumed in order with no
+skipping: `propose` offers the requested court first so it is never starved by
+another idle court ahead of it; `fillIdleCourts` offers idle courts
+smallest-first so a short bench still fills as many of them as it can.
+Enabling singles on a court that would otherwise be doubles trades throughput
+for variety — it seats 2 players instead of 4, and everyone else's rotation
+absorbs that.
+
+A singles match counts as 1 game played for sit-out rotation, exactly like
+doubles, and its two players are recorded as having faced each other — but,
+having no partner, it adds nothing to partner history. That also means a
+singles reshuffle can only change *who* plays, never *how* the two split:
+a 2-player group has exactly one possible arrangement, so `avoidSplit` on a
+singles court is routed through the same soft group-repeat signal that steers
+courts away from an immediate rematch, rather than the doubles path's hard
+exclusion, which would otherwise leave no legal split at all.
 
 A wait starts at the latest of the session start, the end of that player's last
 match, and the moment they joined or returned (`engines/waiting.ts`, shared by
@@ -268,16 +291,20 @@ who arrived an hour late from being owed an hour they were not here for.
 **The search is exact when it can afford to be, and local otherwise.** A
 court's score reads only within-court pairs, so a court's contribution is
 independent of the others — which means that once you know who shares a court,
-the best way to split those four into teams can be chosen court by court and
-is genuinely optimal, not greedy. All that is left to search is *who shares a
-court*.
+the best way to split those players into teams can be chosen court by court
+and is genuinely optimal, not greedy. All that is left to search is *who
+shares a court*, and — for a doubles court — which of the three ways to split
+its four into two pairs.
 
-With eight or fewer players on court that space is 315 arrangements, so the
-engine enumerates it and returns a provably optimal round. Larger rosters use
-random restarts feeding a steepest-descent local search: repeatedly exchange
-two players across two courts, keep the best improving exchange, stop when
-none improves. A swap only touches two courts, so each candidate is scored by
-re-splitting those two and reusing the rest.
+With eight or fewer players on court that space is enumerated outright and the
+engine returns a provably optimal round: 315 arrangements for two doubles
+courts, fewer for any mix including a singles court. Larger rosters use random
+restarts feeding a steepest-descent local search: repeatedly exchange one
+player across two courts, keep the best improving exchange, stop when none
+improves. A swap only touches two courts and preserves each court's size
+regardless of whether the two match, so it works unchanged across a mixed
+doubles/singles round; each candidate is scored by re-splitting those two
+courts and reusing the rest.
 
 This replaced a fixed 200-candidate random sample, which was measurably weak:
 against exhaustive enumeration it never once found the best twelve-player
@@ -300,6 +327,18 @@ would be sparse and biased toward whichever hosts bother typing numbers in.
 which makes it the honest signal. K is deliberately low (16): a casual group
 plays a handful of matches a week, doubles outcomes are noisy, and a rating
 that swung hard on one unlucky game would make balanced mode feel arbitrary.
+
+**Singles and doubles are two independent rating tracks**, replayed from the
+same rows split by team size (`computeRatingTracks`). A player's singles
+rating is never moved by a doubles result or vice versa — they are different
+skills, and mixing them would make a rating meaningless for either. A player
+new to a format starts at 1200 on that track rather than being seeded from
+their rating in the other, since seeding would be exactly the cross-pollution
+the split exists to prevent. The practical consequence: a group's first
+singles matches are all 1200-vs-1200, so balanced mode on a singles court is
+close to random until enough singles games accumulate — worth knowing before
+advertising it as doing much. Balanced mode still picks the track matching
+each court's own format, so one round can mix formats correctly.
 
 ### Why the engines run on the server
 
@@ -332,6 +371,12 @@ Each court runs its own lifecycle — **idle** → *Start next match* proposes a
 pairing → **pending**, where reshuffling is free and unlimited and a single
 player can be tapped to swap in a substitute → *Confirm* → **active**, then
 *Finish* records the winner (or "No result") and frees the court.
+
+**A court's format — doubles or singles — is a toggle in its own panel,
+changeable only while that court is idle.** Restricting it to idle is what
+guarantees a live pairing's team size can never disagree with the court's
+current setting; the toggle stays visible but disabled once a match is
+pending or active, so the host can still see what the court is set to.
 
 **Swapping has two speeds.** Tapping a name means "take this player off, you
 choose the replacement", which follows normal rotation and is one tap. Choosing
@@ -385,8 +430,9 @@ websockets.
 
 Everything described above is built: the three engines, the API, the Angular
 client in Thai with English as a second locale, the display view, per-court
-undo, resting players, wait timers, one-tap fill, both pairing modes, session
-archive, player pages, export and delete, and a PWA manifest.
+undo, resting players, wait timers, one-tap fill, both pairing modes, per-court
+singles/doubles format, session archive, player pages, export and delete, and
+a PWA manifest.
 
 `docs/2026-09-05-review-and-v2-backlog.md` records the review that drove most
 of it. Its one open item, per-user login (B12), is now built — see

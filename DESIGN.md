@@ -180,6 +180,7 @@ Square corners throughout (`--radius`, 2px) — paper does not round its own cor
 - **Border:** none — the tilt, tape strip, and shadow carry the "paper card" read instead of an outline.
 - **Internal Padding:** `--space-2` `--space-3` `--space-3` (court panel); `--space-2` (notice block/banner).
 - **Signature detail:** a `::before` masking-tape strip (`--tape`) at the top-left corner and a `rotate(±0.4–0.6deg)` tilt, alternating per nth-child for a natural scatter — decorative only, never carrying state.
+- **Court panel head:** an `<h4>` court number, the per-court format `.scope-toggle` (see below), and the status dot, in that order, `justify-content: space-between`. The toggle sits between the number and the dot rather than top-left — that corner is the tape's, and the tape stays decorative.
 
 ### Inputs / Fields
 - **Style:** cream paper fill (`--surface`), `--ink-on-paper` text, 1px `--rule` border, 2px radius, 44px min-height, 16px+ font size (never smaller, to avoid iOS Safari's auto-zoom-on-focus).
@@ -190,7 +191,7 @@ Square corners throughout (`--radius`, 2px) — paper does not round its own cor
 - **Style:** links (`a`) are bold `--court-ink` green, never accent — accent is reserved for "needs attention," and reusing it for ordinary wayfinding would dilute that signal. No distinct hover state beyond underline/color inherited from browser defaults plus the shared `:focus-visible` outline.
 
 ### Segmented Toggle (`.scope-toggle`) — signature component
-A two-way switch (mode toggle, stats scope) styled as a hand-marked segmented control: cream paper segments with the same rough-edge `::before` border as ghost buttons, an inactive segment in `--ink-on-paper-soft`, and the active segment inverted to a solid `--ink-on-paper` fill with cream text — deliberately not accent-colored, since accent is reserved for "needs attention" and this is a quiet setting, not an alert. Capped to content width (`max-width: 28rem` or `flex: 0 0 auto` per instance) rather than stretching edge-to-edge, so a two-way switch never reads as a banner.
+A two-way switch (mode toggle, stats scope, per-court format) styled as a hand-marked segmented control: cream paper segments with the same rough-edge `::before` border as ghost buttons, an inactive segment in `--ink-on-paper-soft`, and the active segment inverted to a solid `--ink-on-paper` fill with cream text — deliberately not accent-colored, since accent is reserved for "needs attention" and this is a quiet setting, not an alert. Capped to content width (`max-width: 28rem` or `flex: 0 0 auto` per instance) rather than stretching edge-to-edge, so a two-way switch never reads as a banner. The court panel's instance sits on the panel's own cream background rather than the board — a context none of the toggle's other instances are in — so the rough-edge border alone carries the separation; the current format stays visible (not just its label) when disabled, so the host can read a court's setting even while it can't be changed.
 
 ## Do's and Don'ts
 

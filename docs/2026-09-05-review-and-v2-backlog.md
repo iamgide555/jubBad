@@ -719,6 +719,21 @@ property into a choice. The thorough option is holding finishers until a second
 court frees so eight players can be mixed at once, which buys real variety at
 the cost of making people wait -- likely the wrong trade for a casual night.
 
+**Update, 2026-09-12:** the per-court singles/doubles toggle gives a host a
+third lever, cheaper than either option above -- setting one court to singles
+removes 2 players from the doubles pool instead of 4, which is exactly a
+"drop to N-1 courts" for the doubles side without actually losing a court.
+Stated as **expected, not measured**: this entry's 3-of-11 / 7-of-10 numbers
+come from a spare player rotating *through* the doubles pods, and a singles
+court is a different configuration -- it removes 2 players and pairs them
+with each other rather than feeding one spare into the remaining pods. The
+mechanism plausibly produces a similar mixing effect; nobody has re-run the
+ten-night simulation with a singles court in the mix to confirm the size of
+it. Do not mark this entry solved on the strength of the feature existing --
+a full roster on all-doubles courts still locks pods exactly as measured
+above, and enabling singles is the host's choice, not something the engine
+does on its own.
+
 ---
 
 ### B14. Adding a player mid-session must credit them like a re-activation

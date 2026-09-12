@@ -390,7 +390,7 @@ archive, player pages, export and delete, and a PWA manifest.
 
 `docs/2026-09-05-review-and-v2-backlog.md` records the review that drove most
 of it. Its one open item, per-user login (B12), is now built — see
-`docs/2026-09-12-b12-per-user-login.md` for the design. Its original
+`docs/archive/plans/2026-09-12-b12-per-user-login.md` for the design. Its original
 justification for staying unbuilt (that a host role would reverse a "no auth"
 decision, and that export and delete were gated only by knowing the group code)
 stopped holding once admin authentication was built — the old `AdminGuard`

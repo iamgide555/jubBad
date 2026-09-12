@@ -49,7 +49,7 @@ export class AuthController {
     const ipKey = `ip:${req.ip ?? 'unknown'}`;
     // Namespaced separately from the IP bucket so a pool of source addresses
     // cannot each get a fresh budget against the same account — see the
-    // Throttling section of docs/2026-09-12-b12-per-user-login.md.
+    // Throttling section of docs/archive/plans/2026-09-12-b12-per-user-login.md.
     const emailKey = `email:${dto.email.trim().toLowerCase()}`;
 
     if (!this.throttle.check(ipKey) || !this.throttle.check(emailKey)) {

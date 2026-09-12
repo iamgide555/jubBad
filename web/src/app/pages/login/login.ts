@@ -80,7 +80,7 @@ export class Login {
   }
 
   /**
-   * There is no automated delivery (see docs/2026-09-12-b12-per-user-login.md
+   * There is no automated delivery (see docs/archive/plans/2026-09-12-b12-per-user-login.md
    * — Forgot password): a matched request only ever reaches the admin
    * console as a pending item, never an email. This app tells the caller
    * plainly whether the address has an account (a deliberate reversal from

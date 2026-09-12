@@ -623,7 +623,7 @@ this file.
 This entry was rewritten twice while the work was still pending, and that
 history is kept below because the reasoning is what explains why the branch
 sits finished and unmerged rather than being a delay. Design in
-`docs/2026-09-12-b12-per-user-login.md`.
+`docs/archive/plans/2026-09-12-b12-per-user-login.md`.
 
 What existed before: a global default-deny guard (`AdminGuard`, registered as
 an `APP_GUARD`) — every route required the one shared admin cookie unless

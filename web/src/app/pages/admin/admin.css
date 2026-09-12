@@ -21,17 +21,12 @@
   gap: var(--space-1);
 }
 
+/* A count that needs the admin's attention — same accent used everywhere
+   else in this app for "act on this now" (see styles.css's --accent
+   comment), not a decorative badge shape borrowed from elsewhere. */
 .badge {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-width: 1.5rem;
-  height: 1.5rem;
-  padding: 0 var(--space-0);
-  border-radius: 999px;
-  background: var(--ink-on-paper);
-  color: var(--paper, #fff);
-  font-size: 0.8rem;
+  color: var(--accent-ink);
+  font-weight: 700;
 }
 
 .request-list {
@@ -42,21 +37,42 @@
 
 .request-row {
   display: flex;
-  align-items: center;
+  flex-wrap: wrap;
+  align-items: baseline;
   gap: var(--space-2);
   padding: var(--space-1) 0;
-  border-bottom: 1px dashed var(--court-line, #ddd);
+  border-bottom: 1px dashed var(--court-line);
 }
 
 .request-time {
   flex: 1;
+  min-width: 8rem;
 }
 
-.inline-form {
+/* A plain vertical form, the same shape as login/reset-password — this is
+   one deliberate action, not a dashboard panel, so it gets no card chrome
+   of its own. Each field is already its own small paper surface, since
+   input/select carry that globally. */
+.form-card {
   display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-1);
-  align-items: center;
+  flex-direction: column;
+  gap: var(--space-2);
+  max-width: 26rem;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+}
+
+.field-hint {
+  margin: var(--space-0) 0 0;
+  font-size: var(--text-xs);
+  color: var(--ink-soft);
+}
+
+.create-user-form button[type='submit'] {
+  align-self: flex-start;
 }
 
 .admin-table {
@@ -68,52 +84,76 @@
 .admin-table td {
   text-align: left;
   padding: var(--space-1);
-  border-bottom: 1px solid var(--court-line, #ddd);
+  border-bottom: 1px solid var(--court-line);
   vertical-align: top;
+}
+
+.admin-table th {
+  color: var(--ink-soft);
+  font-weight: 600;
+  font-size: var(--text-sm);
 }
 
 .admin-actions {
   display: flex;
   flex-wrap: wrap;
-  gap: var(--space-0);
+  gap: var(--space-1);
 }
 
 .detail-row td {
-  background: color-mix(in srgb, var(--ink-on-paper) 4%, transparent);
+  background: var(--court-hover);
 }
 
-.tag {
-  display: inline-block;
-  padding: 0.1rem 0.5rem;
-  border-radius: 999px;
-  font-size: 0.8rem;
-  margin-right: var(--space-0);
+/* Owning a group is the fact that turns a delete into a decision — flagged
+   in the same accent as the reset-request count, for the same reason:
+   something the admin needs to notice before acting. Not owning one needs no
+   marker at all, which is what makes the marked rows stand out. */
+.owner-flag {
+  color: var(--accent-ink);
+  font-weight: 700;
 }
 
-.tag-active {
-  background: color-mix(in srgb, green 15%, transparent);
-}
-
-.tag-disabled {
-  background: color-mix(in srgb, gray 20%, transparent);
-}
-
-.tag-owner {
-  background: color-mix(in srgb, orange 20%, transparent);
+.status-disabled {
+  color: var(--waiting);
 }
 
 .disposition-list {
   list-style: none;
   padding: 0;
-  margin: var(--space-1) 0;
+  margin: var(--space-2) 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
 }
 
-.disposition-list li {
+.disposition-row {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: var(--space-1);
-  padding: var(--space-0) 0;
+}
+
+.disposition-group-name {
+  flex: 1 1 10rem;
+  min-width: 8rem;
+  font-weight: 600;
+}
+
+.disposition-action,
+.disposition-target {
+  flex: 1 1 12rem;
+  width: auto;
+}
+
+/* Reuses .danger-zone (group-entry.css's own irreversible-action pattern) —
+   deleting a user is exactly that kind of action, not a new box invented for
+   this page. */
+.delete-user-panel {
+  margin-top: var(--space-1);
+}
+
+.delete-user-target {
+  margin-top: 0;
 }
 
 .link-row {
@@ -126,6 +166,7 @@
 
 .link-row code {
   word-break: break-all;
+  color: var(--ink-soft);
 }
 
 /* The page body scrolls, not the table — narrower than ~700px, tables get

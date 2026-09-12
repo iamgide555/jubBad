@@ -37,34 +37,50 @@
     <!-- Create user -->
     <section class="admin-section">
       <h2 i18n="@@admin.createUserTitle">เพิ่มผู้ใช้</h2>
-      <form class="inline-form" (ngSubmit)="createUser()">
-        <input
-          type="email"
-          placeholder="อีเมล"
-          i18n-placeholder="@@admin.emailPlaceholder"
-          [ngModel]="newEmail()"
-          (ngModelChange)="newEmail.set($event)"
-          name="newEmail"
-        />
-        <input
-          type="password"
-          placeholder="รหัสผ่าน (อย่างน้อย 8 ตัวอักษร)"
-          i18n-placeholder="@@admin.passwordPlaceholder"
-          [ngModel]="newPassword()"
-          (ngModelChange)="newPassword.set($event)"
-          name="newPassword"
-        />
-        <select [ngModel]="newRole()" (ngModelChange)="newRole.set($event)" name="newRole">
-          <option value="host" i18n="@@admin.roleHost">ผู้ดูแลก๊วน</option>
-          <option value="admin" i18n="@@admin.roleAdmin">ผู้ดูแลระบบ</option>
-        </select>
-        <button type="submit" [disabled]="createBusy() || !newEmail().trim() || newPassword().length < 8" i18n="@@admin.createSubmit">
-          เพิ่ม
+      <form class="form-card create-user-form" (ngSubmit)="createUser()">
+        <div class="field">
+          <label for="newEmail" i18n="@@admin.emailPlaceholder">อีเมล</label>
+          <input
+            id="newEmail"
+            type="email"
+            [ngModel]="newEmail()"
+            (ngModelChange)="newEmail.set($event)"
+            name="newEmail"
+          />
+        </div>
+        <div class="field">
+          <label for="newPassword" i18n="@@admin.passwordLabel">รหัสผ่านเริ่มต้น</label>
+          <input
+            id="newPassword"
+            type="password"
+            autocomplete="new-password"
+            [ngModel]="newPassword()"
+            (ngModelChange)="newPassword.set($event)"
+            name="newPassword"
+            aria-describedby="newPasswordHint"
+          />
+          <p class="field-hint" id="newPasswordHint" i18n="@@admin.passwordHint">
+            อย่างน้อย 8 ตัวอักษร — ผู้ใช้เปลี่ยนเองได้ภายหลัง
+          </p>
+        </div>
+        <div class="field">
+          <label for="newRole" i18n="@@admin.roleLabel">บทบาท</label>
+          <select id="newRole" [ngModel]="newRole()" (ngModelChange)="newRole.set($event)" name="newRole">
+            <option value="host" i18n="@@admin.roleHost">ผู้ดูแลก๊วน</option>
+            <option value="admin" i18n="@@admin.roleAdmin">ผู้ดูแลระบบ</option>
+          </select>
+        </div>
+        @if (createError()) {
+          <p class="error" role="alert">{{ createError() }}</p>
+        }
+        <button type="submit" [disabled]="createBusy() || !newEmail().trim() || newPassword().length < 8">
+          @if (createBusy()) {
+            <ng-container i18n="@@admin.createSubmitting">กำลังเพิ่ม…</ng-container>
+          } @else {
+            <ng-container i18n="@@admin.createSubmit">เพิ่มผู้ใช้</ng-container>
+          }
         </button>
       </form>
-      @if (createError()) {
-        <p class="error" role="alert">{{ createError() }}</p>
-      }
     </section>
 
     <!-- Users -->
@@ -118,16 +134,16 @@
                 </td>
                 <td>
                   @if (user.disabled) {
-                    <span class="tag tag-disabled" i18n="@@admin.disabled">ปิดใช้งาน</span>
+                    <span class="status-disabled" i18n="@@admin.disabled">ปิดใช้งาน</span>
                   } @else {
-                    <span class="tag tag-active" i18n="@@admin.active">ใช้งานอยู่</span>
+                    <ng-container i18n="@@admin.active">ใช้งานอยู่</ng-container>
                   }
                 </td>
                 <td>
                   @if (user.ownedGroups.length === 0) {
                     <span class="muted">—</span>
                   } @else {
-                    <span class="tag tag-owner">{{ user.ownedGroups.length }}</span>
+                    <span class="owner-flag">{{ user.ownedGroups.length }}</span>
                     {{ user.ownedGroups.map((g) => g.name || g.code).join(', ') }}
                   }
                 </td>
@@ -171,51 +187,68 @@
             @if (deletingUser()?.id === user.id) {
               <tr class="detail-row">
                 <td colspan="5">
-                  @if (user.ownedGroups.length === 0) {
-                    <p i18n="@@admin.deleteConfirmEmpty">ผู้ใช้นี้ไม่ได้เป็นเจ้าของก๊วนใด ลบได้ทันที</p>
-                  } @else {
-                    <p i18n="@@admin.deleteConfirmLede">
-                      ต้องระบุการจัดการก๊วนที่เป็นเจ้าของให้ครบทุกก๊วนก่อนลบผู้ใช้นี้
+                  <div class="danger-zone delete-user-panel">
+                    <p class="delete-user-target">
+                      <ng-container i18n="@@admin.deleteConfirmWho">กำลังจะลบ</ng-container>
+                      <strong>{{ user.email }}</strong>
                     </p>
-                    <ul class="disposition-list">
-                      @for (group of user.ownedGroups; track group.code) {
-                        <li>
-                          <span>{{ group.name || group.code }}</span>
-                          <select
-                            (change)="setDispositionAction(group.code, $any($event.target).value)"
-                          >
-                            <option value="" i18n="@@admin.dispositionChoose">— เลือกการจัดการ —</option>
-                            <option value="delete" i18n="@@admin.dispositionDelete">ลบก๊วนนี้ทิ้ง</option>
-                            <option value="reassign" i18n="@@admin.dispositionReassign">ย้ายให้ผู้ใช้อื่น</option>
-                          </select>
-                          @if (dispositions()[group.code]?.action === 'reassign') {
-                            <select (change)="setDispositionTarget(group.code, $any($event.target).value)">
-                              <option value="" i18n="@@admin.dispositionChooseUser">— เลือกผู้ใช้ —</option>
-                              @for (candidate of users(); track candidate.id) {
-                                @if (candidate.id !== user.id) {
-                                  <option [value]="candidate.id">{{ candidate.email }}</option>
-                                }
-                              }
+                    @if (user.ownedGroups.length === 0) {
+                      <p i18n="@@admin.deleteConfirmEmpty">ผู้ใช้นี้ไม่ได้เป็นเจ้าของก๊วนใด ลบได้ทันที</p>
+                    } @else {
+                      <p i18n="@@admin.deleteConfirmLede">
+                        ต้องระบุการจัดการก๊วนที่เป็นเจ้าของให้ครบทุกก๊วนก่อนลบผู้ใช้นี้
+                      </p>
+                      <ul class="disposition-list">
+                        @for (group of user.ownedGroups; track group.code) {
+                          <li class="disposition-row">
+                            <span class="disposition-group-name">{{ group.name || group.code }}</span>
+                            <select
+                              class="disposition-action"
+                              [attr.aria-label]="group.name || group.code"
+                              (change)="setDispositionAction(group.code, $any($event.target).value)"
+                            >
+                              <option value="" i18n="@@admin.dispositionChoose">— เลือกการจัดการ —</option>
+                              <option value="delete" i18n="@@admin.dispositionDelete">ลบก๊วนนี้ทิ้ง</option>
+                              <option value="reassign" i18n="@@admin.dispositionReassign">ย้ายให้ผู้ใช้อื่น</option>
+                              <option value="unassign" i18n="@@admin.dispositionUnassign">ไม่ต้องระบุเจ้าของตอนนี้</option>
                             </select>
-                          }
-                        </li>
-                      }
-                    </ul>
-                  }
-                  @if (deleteError()) {
-                    <p class="error" role="alert">{{ deleteError() }}</p>
-                  }
-                  <div class="admin-actions">
-                    <button type="button" class="ghost" (click)="cancelDelete()" i18n="@@admin.cancel">ยกเลิก</button>
-                    <button
-                      type="button"
-                      class="danger"
-                      [disabled]="deleteBusy() || !canConfirmDelete()"
-                      (click)="confirmDelete()"
-                      i18n="@@admin.deleteConfirm"
-                    >
-                      ลบผู้ใช้นี้
-                    </button>
+                            @if (dispositions()[group.code]?.action === 'reassign') {
+                              <select
+                                class="disposition-target"
+                                i18n-aria-label="@@admin.dispositionChooseUser"
+                                aria-label="— เลือกผู้ใช้ —"
+                                (change)="setDispositionTarget(group.code, $any($event.target).value)"
+                              >
+                                <option value="" i18n="@@admin.dispositionChooseUser">— เลือกผู้ใช้ —</option>
+                                @for (candidate of users(); track candidate.id) {
+                                  @if (candidate.id !== user.id) {
+                                    <option [value]="candidate.id">{{ candidate.email }}</option>
+                                  }
+                                }
+                              </select>
+                            }
+                          </li>
+                        }
+                      </ul>
+                    }
+                    @if (deleteError()) {
+                      <p class="error" role="alert">{{ deleteError() }}</p>
+                    }
+                    <div class="admin-actions">
+                      <button type="button" class="ghost" (click)="cancelDelete()" i18n="@@admin.cancel">ยกเลิก</button>
+                      <button
+                        type="button"
+                        class="danger"
+                        [disabled]="deleteBusy() || !canConfirmDelete()"
+                        (click)="confirmDelete()"
+                      >
+                        @if (deleteBusy()) {
+                          <ng-container i18n="@@admin.deleteConfirming">กำลังลบ…</ng-container>
+                        } @else {
+                          <ng-container i18n="@@admin.deleteConfirm">ลบผู้ใช้นี้</ng-container>
+                        }
+                      </button>
+                    </div>
                   </div>
                 </td>
               </tr>

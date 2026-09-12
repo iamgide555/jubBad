@@ -183,16 +183,14 @@ export class Admin {
     this.deletingUser.set(null);
   }
 
-  setDispositionAction(code: string, action: 'reassign' | 'delete' | ''): void {
+  setDispositionAction(code: string, action: 'reassign' | 'delete' | 'unassign' | ''): void {
     this.dispositions.update((map) => {
       if (!action) {
         const { [code]: _removed, ...rest } = map;
         return rest;
       }
-      return {
-        ...map,
-        [code]: action === 'delete' ? { action: 'delete' } : { action: 'reassign', toUserId: '' },
-      };
+      if (action === 'reassign') return { ...map, [code]: { action: 'reassign', toUserId: '' } };
+      return { ...map, [code]: { action } };
     });
   }
 
@@ -207,7 +205,11 @@ export class Admin {
     return user.ownedGroups.every((g) => {
       const entry = map[g.code];
       if (!entry) return false;
-      return entry.action === 'delete' || (entry.action === 'reassign' && !!entry.toUserId);
+      return (
+        entry.action === 'delete' ||
+        entry.action === 'unassign' ||
+        (entry.action === 'reassign' && !!entry.toUserId)
+      );
     });
   });
 

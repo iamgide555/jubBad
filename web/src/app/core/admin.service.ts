@@ -25,7 +25,10 @@ export interface ResetRequest {
   handledAt: string | null;
 }
 
-export type GroupDisposition = { action: 'reassign'; toUserId: string } | { action: 'delete' };
+export type GroupDisposition =
+  | { action: 'reassign'; toUserId: string }
+  | { action: 'delete' }
+  | { action: 'unassign' };
 
 /**
  * Every call here hits an /admin/* route. There is no client-side check in

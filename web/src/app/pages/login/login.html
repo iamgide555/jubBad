@@ -40,32 +40,46 @@
     </button>
   </form>
 
-  @if (!showForgot()) {
-    <button type="button" class="link" (click)="openForgot()" i18n="@@login.forgotLink">
-      ลืมรหัสผ่าน?
-    </button>
-  } @else if (forgotSent()) {
-    <p class="forgot-sent" i18n="@@login.forgotSent">
-      ส่งคำขอแล้ว หากมีบัญชีนี้อยู่ ผู้ดูแลจะได้รับแจ้งและติดต่อกลับด้วยลิงก์ตั้งรหัสผ่านใหม่
-    </p>
-  } @else {
-    <form class="forgot-form" (ngSubmit)="submitForgot()">
-      <label for="forgotEmail" i18n="@@login.forgotEmailLabel">อีเมลที่ใช้สมัคร</label>
-      <input
-        id="forgotEmail"
-        name="forgotEmail"
-        type="email"
-        autocomplete="username"
-        [ngModel]="forgotEmail()"
-        (ngModelChange)="forgotEmail.set($event)"
-      />
-      <button type="submit" [disabled]="forgotBusy() || !forgotEmail().trim()">
-        @if (forgotBusy()) {
-          <ng-container i18n="@@login.forgotSending">กำลังส่ง…</ng-container>
-        } @else {
-          <ng-container i18n="@@login.forgotSubmit">ส่งคำขอ</ng-container>
-        }
+  <div class="forgot">
+    @if (!showForgot()) {
+      <button type="button" class="link" (click)="openForgot()" i18n="@@login.forgotLink">
+        ลืมรหัสผ่าน?
       </button>
-    </form>
-  }
+    } @else if (forgotSent()) {
+      @if (forgotExists()) {
+        <p class="forgot-result forgot-result-found" i18n="@@login.forgotFound">
+          มีบัญชีนี้อยู่ — แจ้งผู้ดูแลแล้ว รอลิงก์ตั้งรหัสผ่านใหม่จากผู้ดูแลโดยตรง
+        </p>
+      } @else {
+        <p class="forgot-result" i18n="@@login.forgotNotFound">ไม่พบบัญชีที่ใช้อีเมลนี้</p>
+      }
+      <button type="button" class="link" (click)="openForgot()" i18n="@@login.forgotTryAnother">
+        ลองอีเมลอื่น
+      </button>
+    } @else {
+      <form class="forgot-form" (ngSubmit)="submitForgot()">
+        <label for="forgotEmail" i18n="@@login.forgotEmailLabel">อีเมลที่ใช้สมัคร</label>
+        <input
+          id="forgotEmail"
+          name="forgotEmail"
+          type="email"
+          autocomplete="username"
+          [ngModel]="forgotEmail()"
+          (ngModelChange)="forgotEmail.set($event)"
+        />
+        <div class="forgot-actions">
+          <button type="submit" [disabled]="forgotBusy() || !forgotEmail().trim()">
+            @if (forgotBusy()) {
+              <ng-container i18n="@@login.forgotSending">กำลังส่ง…</ng-container>
+            } @else {
+              <ng-container i18n="@@login.forgotSubmit">ส่งคำขอ</ng-container>
+            }
+          </button>
+          <button type="button" class="link" (click)="showForgot.set(false)" i18n="@@login.cancel">
+            ยกเลิก
+          </button>
+        </div>
+      </form>
+    }
+  </div>
 </div>

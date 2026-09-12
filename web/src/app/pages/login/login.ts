@@ -22,6 +22,7 @@ export class Login {
   readonly showForgot = signal(false);
   readonly forgotEmail = signal('');
   readonly forgotSent = signal(false);
+  readonly forgotExists = signal(false);
   readonly forgotBusy = signal(false);
 
   async submit(): Promise<void> {
@@ -60,17 +61,19 @@ export class Login {
 
   /**
    * There is no automated delivery (see docs/2026-09-12-b12-per-user-login.md
-   * — Forgot password): this only ever reaches the admin console as a
-   * pending request. The confirmation says so, and is worded not to reveal
-   * whether the address has an account, matching what the server itself
-   * refuses to reveal.
+   * — Forgot password): a matched request only ever reaches the admin
+   * console as a pending item, never an email. This app tells the caller
+   * plainly whether the address has an account (a deliberate reversal from
+   * the safer anti-enumeration default — see AuthController#forgotPassword),
+   * so the two outcomes get different confirmations.
    */
   async submitForgot(): Promise<void> {
     if (!this.forgotEmail().trim() || this.forgotBusy()) return;
 
     this.forgotBusy.set(true);
-    await this.auth.forgotPassword(this.forgotEmail().trim());
+    const exists = await this.auth.forgotPassword(this.forgotEmail().trim());
     this.forgotBusy.set(false);
+    this.forgotExists.set(exists);
     this.forgotSent.set(true);
   }
 }

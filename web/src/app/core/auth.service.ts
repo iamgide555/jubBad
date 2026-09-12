@@ -59,17 +59,19 @@ export class AuthService {
   }
 
   /**
-   * Always resolves — there is nothing useful to distinguish for the caller.
-   * The server answers identically whether or not `email` has an account, on
-   * purpose (see AuthController#forgotPassword), so this has no failure mode
-   * worth surfacing beyond a network error, which the login page's copy
-   * already treats the same as "request sent" rather than alarming anyone.
+   * Returns whether `email` actually matches an account — the server reports
+   * this plainly rather than hiding it (a deliberate reversal for this app;
+   * see AuthController#forgotPassword). A network failure reads as "no
+   * account", the safer of the two wrong answers to give on an error.
    */
-  async forgotPassword(email: string): Promise<void> {
+  async forgotPassword(email: string): Promise<boolean> {
     try {
-      await firstValueFrom(this.http.post(`${this.base}/auth/forgot`, { email }));
+      const res = await firstValueFrom(
+        this.http.post<{ received: true; exists: boolean }>(`${this.base}/auth/forgot`, { email })
+      );
+      return res.exists;
     } catch {
-      // Deliberately swallowed — see above.
+      return false;
     }
   }
 

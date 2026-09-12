@@ -97,7 +97,12 @@ export class AdminService {
   /**
    * Deletes a user, but never decides a group's fate as a side effect —
    * `disposition` must name every group this user owns, explicitly, as
-   * either `reassign` (to `toUserId`) or `delete`. Everything — every
+   * `reassign` (to `toUserId`), `delete`, or `unassign` (ownerId set to
+   * null — nobody has to be picked right now). An unassigned group is not
+   * abandoned: it shows in the admin's group list with no owner, and
+   * `AuthBootstrapService` picks up any null owner on the next boot the same
+   * way it backfills a fresh deploy, so it never sits ownerless forever
+   * unless an admin deliberately leaves it that way. Everything — every
    * reassignment, every group's full cascade delete, and the user row
    * itself — runs in one `$transaction`; a half-deleted user with two of
    * four groups gone is the worst outcome available here.
@@ -142,6 +147,8 @@ export class AdminService {
         const target = await this.prisma.user.findUnique({ where: { id: entry.toUserId } });
         if (!target) throw new BadRequestException(`ไม่พบผู้ใช้ปลายทางสำหรับก๊วน ${code}`);
         ops.push(this.prisma.group.update({ where: { code }, data: { ownerId: entry.toUserId } }));
+      } else if (entry.action === 'unassign') {
+        ops.push(this.prisma.group.update({ where: { code }, data: { ownerId: null } }));
       } else {
         throw new BadRequestException(`การจัดการไม่ถูกต้องสำหรับก๊วน ${code}`);
       }

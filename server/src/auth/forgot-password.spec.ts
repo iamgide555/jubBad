@@ -47,15 +47,15 @@ describe('POST /auth/forgot', () => {
     await app.close();
   });
 
-  it('answers identically for a known and an unknown email', async () => {
+  it('reports whether the email matches an account — a deliberate reversal for this app, see the controller comment', async () => {
     const known = await request(server).post('/auth/forgot').send({ email }).expect(201);
     const unknown = await request(server)
       .post('/auth/forgot')
       .send({ email: `nobody-${randomUUID()}@example.test` })
       .expect(201);
 
-    expect(known.body).toEqual(unknown.body);
-    expect(known.status).toBe(unknown.status);
+    expect(known.body).toEqual({ received: true, exists: true });
+    expect(unknown.body).toEqual({ received: true, exists: false });
   });
 
   it('records the request for a known email', async () => {

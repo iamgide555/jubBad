@@ -67,10 +67,12 @@ export class PasswordResetService {
 
   /**
    * Records that someone asked for a reset, from the one page a locked-out
-   * host can still reach with no cookie at all. Deliberately does not look
-   * up whether `email` matches an account — there is no branch here for a
-   * timing difference to hide in, which is the point: this function alone
-   * cannot become an enumeration oracle no matter what calls it.
+   * host can still reach with no cookie at all. Recorded whether or not
+   * `email` matches an account — a typo of a host's own address is still a
+   * real event worth an admin seeing. This function itself does not look the
+   * account up; AuthController#forgotPassword does that separately and
+   * reports it to the caller (a deliberate choice for this app, see its
+   * comment) — kept out of here so this write path stays the same either way.
    */
   async recordRequest(email: string): Promise<void> {
     await this.prisma.passwordResetRequest.create({ data: { email: email.trim() } });

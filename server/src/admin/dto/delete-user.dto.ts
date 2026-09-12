@@ -1,7 +1,7 @@
 import { IsObject } from 'class-validator';
 
 export interface GroupDisposition {
-  action: 'reassign' | 'delete';
+  action: 'reassign' | 'delete' | 'unassign';
   toUserId?: string;
 }
 

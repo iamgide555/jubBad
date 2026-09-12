@@ -114,6 +114,18 @@ describe('AdminService.deleteUser', () => {
     }
   });
 
+  it('leaves an owned group unassigned rather than forcing a destination user', async () => {
+    const { owner, codes } = await makeOwner(1);
+    try {
+      await admin.deleteUser(owner.id, { [codes[0]]: { action: 'unassign' } });
+      expect(await users.findById(owner.id)).toBeNull();
+      const group = await prisma.group.findUniqueOrThrow({ where: { code: codes[0] } });
+      expect(group.ownerId).toBeNull();
+    } finally {
+      await prisma.group.deleteMany({ where: { code: codes[0] } });
+    }
+  });
+
   it('applies a mixed reassign-and-delete batch atomically', async () => {
     const { owner, codes } = await makeOwner(2);
     const [toDelete, toReassign] = codes;

@@ -1884,6 +1884,83 @@
           <context context-type="linenumber">121</context>
         </context-group>
       </trans-unit>
+      <trans-unit id="admin.passwordLabel" datatype="html">
+        <source>รหัสผ่านเริ่มต้น</source><target>Initial password</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/admin/admin.html</context>
+          <context context-type="linenumber">52</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="admin.passwordHint" datatype="html">
+        <source>อย่างน้อย 8 ตัวอักษร — ผู้ใช้เปลี่ยนเองได้ภายหลัง</source><target>At least 8 characters — the user can change it themselves later.</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/admin/admin.html</context>
+          <context context-type="linenumber">58</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="admin.roleLabel" datatype="html">
+        <source>บทบาท</source><target>Role</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/admin/admin.html</context>
+          <context context-type="linenumber">67</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="admin.createSubmitting" datatype="html">
+        <source>กำลังเพิ่ม…</source><target>Adding…</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/admin/admin.html</context>
+          <context context-type="linenumber">78</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="admin.dispositionUnassign" datatype="html">
+        <source>ไม่ต้องระบุเจ้าของตอนนี้</source><target>Leave unassigned for now</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/admin/admin.html</context>
+          <context context-type="linenumber">213</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="admin.deleteConfirmWho" datatype="html">
+        <source>กำลังจะลบ</source><target>About to delete</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/admin/admin.html</context>
+          <context context-type="linenumber">192</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="admin.deleteConfirming" datatype="html">
+        <source>กำลังลบ…</source><target>Deleting…</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/admin/admin.html</context>
+          <context context-type="linenumber">246</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="login.forgotFound" datatype="html">
+        <source>มีบัญชีนี้อยู่ — แจ้งผู้ดูแลแล้ว รอลิงก์ตั้งรหัสผ่านใหม่จากผู้ดูแลโดยตรง</source><target>This account exists — the admin has been notified. Wait for a reset link directly from them.</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/login/login.html</context>
+          <context context-type="linenumber">48</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="login.forgotNotFound" datatype="html">
+        <source>ไม่พบบัญชีที่ใช้อีเมลนี้</source><target>No account uses this email.</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/login/login.html</context>
+          <context context-type="linenumber">51</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="login.forgotTryAnother" datatype="html">
+        <source>ลองอีเมลอื่น</source><target>Try another email</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/login/login.html</context>
+          <context context-type="linenumber">53</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="login.cancel" datatype="html">
+        <source>ยกเลิก</source><target>Cancel</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/login/login.html</context>
+          <context context-type="linenumber">73</context>
+        </context-group>
+      </trans-unit>
     </body>
   </file>
 </xliff>

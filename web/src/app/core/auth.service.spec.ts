@@ -117,12 +117,18 @@ describe('AuthService', () => {
     expect(service.email()).toBeNull();
   });
 
-  it('sends a forgot-password request and resolves regardless of outcome', async () => {
+  it('reports whether the email matched an account', async () => {
     const result = service.forgotPassword('someone@example.test');
     const req = httpMock.expectOne(`${B}/auth/forgot`);
     expect(req.request.body).toEqual({ email: 'someone@example.test' });
-    req.flush({ received: true });
-    await expect(result).resolves.toBeUndefined();
+    req.flush({ received: true, exists: true });
+    expect(await result).toBe(true);
+  });
+
+  it('reports false for an email with no account', async () => {
+    const result = service.forgotPassword('nobody@example.test');
+    httpMock.expectOne(`${B}/auth/forgot`).flush({ received: true, exists: false });
+    expect(await result).toBe(false);
   });
 
   it('never throws from forgotPassword even if the request fails', async () => {
@@ -130,7 +136,7 @@ describe('AuthService', () => {
     httpMock
       .expectOne(`${B}/auth/forgot`)
       .flush({ message: 'slow down' }, { status: 429, statusText: 'Too Many Requests' });
-    await expect(result).resolves.toBeUndefined();
+    expect(await result).toBe(false);
   });
 
   it('resets a password with a token', async () => {

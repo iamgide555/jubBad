@@ -308,7 +308,8 @@ button:disabled {
 }
 
 input,
-textarea {
+textarea,
+select {
   font-family: inherit;
   /* Must not drop below 16px: iOS Safari zooms the whole page in on focus for
      anything smaller, and the host is one-handed at the side of a court. */
@@ -322,25 +323,29 @@ textarea {
   width: 100%;
   /* The root is color-scheme: dark for the page's own dark chrome, but these
      sit on light paper — without this, the browser paints native form chrome
-     (the date-input calendar glyph, number-input spinners) in dark-mode
-     colors and it disappears against the light field underneath it. */
+     (the date-input calendar glyph, number-input spinners, a select's own
+     popup) in dark-mode colors and it disappears against the light field
+     underneath it. */
   color-scheme: light;
 }
 
 @media (hover: hover) {
   input:hover,
-  textarea:hover {
+  textarea:hover,
+  select:hover {
     border-color: var(--ink-on-paper-soft);
   }
 }
 
 input:focus,
-textarea:focus {
+textarea:focus,
+select:focus {
   border-color: var(--accent);
 }
 
 input:focus-visible,
 textarea:focus-visible,
+select:focus-visible,
 button:focus-visible,
 a:focus-visible {
   outline: 2px solid var(--accent);

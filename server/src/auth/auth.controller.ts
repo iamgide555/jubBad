@@ -87,25 +87,32 @@ export class AuthController {
   }
 
   /**
-   * Records that someone asked for a reset. Answers identically whether or
-   * not the address matches an account, and grants nothing by itself — the
-   * only thing that ever produces a working reset link is an admin acting on
-   * this request from the admin console. See PasswordResetService for why
-   * that is safe against enumeration by construction rather than by care.
+   * Records that someone asked for a reset, and reports whether the address
+   * actually matches an account. This is a deliberate reversal of the safer
+   * default: an anti-enumeration response ("we'll notify the admin either
+   * way") was the original design, but the owner asked for a plain answer
+   * instead (2026-09-12) — this app's whole user base is a handful of known
+   * hosts, not a public signup surface, so the clearer feedback was judged
+   * worth more than the enumeration protection here. Still throttled by IP,
+   * and still grants nothing by itself: the only thing that produces a
+   * working reset link is an admin acting on the request from the console.
    */
   @Post('forgot')
   async forgotPassword(
     @Body() dto: ForgotPasswordDto,
     @Req() req: Request
-  ): Promise<{ received: true }> {
+  ): Promise<{ received: true; exists: boolean }> {
     const ipKey = `forgot:${req.ip ?? 'unknown'}`;
     if (!this.throttle.check(ipKey)) {
       throw new HttpException('ลองใหม่อีกครั้งภายหลัง', HttpStatus.TOO_MANY_REQUESTS);
     }
     this.throttle.recordFailure(ipKey);
 
+    const user = await this.usersService.findByEmail(dto.email);
+    // Recorded regardless of a match — a host's own typo is still a real
+    // event worth the admin seeing, per PasswordResetService#recordRequest.
     await this.passwordResetService.recordRequest(dto.email);
-    return { received: true };
+    return { received: true, exists: user !== null };
   }
 
   /**

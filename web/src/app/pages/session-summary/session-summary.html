@@ -20,6 +20,8 @@
             <th i18n="@@summary.won">ชนะ</th>
             <th i18n="@@summary.lost">แพ้</th>
             <th i18n="@@summary.winRate">อัตราชนะ</th>
+            <th class="rate-cell" i18n="@@summary.winRateDoubles">อัตราชนะ (คู่)</th>
+            <th class="rate-cell" i18n="@@summary.winRateSingles">อัตราชนะ (เดี่ยว)</th>
             @if (isHost()) {
               <th class="profile-cell"><span class="sr-only" i18n="@@summary.profileColumn">โปรไฟล์</span></th>
             }
@@ -43,7 +45,19 @@
               <td>{{ row.won }}</td>
               <td>{{ row.lost }}</td>
               <td>
-                @if (winPercent(row.played, row.won); as pct) { {{ pct }}% } @else { – }
+                @if (winPercent(row.played, row.won); as pct) { {{ pct }}% } @else { <span class="no-data">–</span> }
+              </td>
+              <td class="rate-cell">
+                @if (row.doubles && winPercent(row.doubles.played, row.doubles.won) !== null) {
+                  {{ winPercent(row.doubles.played, row.doubles.won) }}%
+                  <span class="muted stat-games" i18n="@@summary.gamesCount">({{ row.doubles.played }} เกม)</span>
+                } @else { <span class="no-data">–</span> }
+              </td>
+              <td class="rate-cell">
+                @if (row.singles && winPercent(row.singles.played, row.singles.won) !== null) {
+                  {{ winPercent(row.singles.played, row.singles.won) }}%
+                  <span class="muted stat-games" i18n="@@summary.gamesCount">({{ row.singles.played }} เกม)</span>
+                } @else { <span class="no-data">–</span> }
               </td>
               @if (isHost()) {
                 <td class="profile-cell">
@@ -64,7 +78,7 @@
             </tr>
             @if (expandedPlayerId() === row.playerId) {
               <tr class="matches-row">
-                <td [attr.colspan]="isHost() ? 6 : 5">
+                <td [attr.colspan]="isHost() ? 8 : 7">
                   <ul class="match-list">
                     @for (m of row.matches; track m.matchNumber) {
                       <li>

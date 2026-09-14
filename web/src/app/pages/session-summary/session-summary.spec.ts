@@ -26,6 +26,8 @@ function summary(overrides: Partial<Summary> = {}): Summary {
         played: 2,
         won: 1,
         lost: 1,
+        singles: null,
+        doubles: null,
         matches: [
           {
             matchNumber: 1,
@@ -122,6 +124,8 @@ describe('SessionSummary', () => {
             played: 1,
             won: 1,
             lost: 0,
+            singles: null,
+            doubles: null,
             matches: [
               {
                 matchNumber: 1,
@@ -145,6 +149,39 @@ describe('SessionSummary', () => {
     expect(text).not.toContain('กับ');
   });
 
+  it('shows separate singles/doubles win-rate columns with the games played', async () => {
+    await load(
+      summary({
+        players: [
+          {
+            playerId: 'p1',
+            name: 'ตั้ม',
+            played: 3,
+            won: 2,
+            lost: 1,
+            singles: { played: 1, won: 0, lost: 1 },
+            doubles: { played: 2, won: 2, lost: 0 },
+            matches: [],
+          },
+        ],
+      })
+    );
+    const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
+    expect(text).toContain('100%');
+    expect(text).toContain('2 เกม');
+    expect(text).toContain('0%');
+    expect(text).toContain('1 เกม');
+  });
+
+  it('shows a dash for the format a player has never played', async () => {
+    await load(summary());
+    const cells = [...(fixture.nativeElement as HTMLElement).querySelectorAll('td')].map(
+      (el) => el.textContent?.trim()
+    );
+    // p1 in the default fixture has no singles/doubles breakdown at all.
+    expect(cells.filter((c) => c === '–').length).toBeGreaterThanOrEqual(2);
+  });
+
   it('collapses an already-expanded row on a second tap', async () => {
     await load(summary());
     fixture.componentInstance['togglePlayer']('p1');
@@ -165,19 +202,19 @@ describe('SessionSummary', () => {
     );
   });
 
-  it('expanded match-list row spans all 5 columns — no profile column for a non-host viewer', async () => {
+  it('expanded match-list row spans all 7 columns — no profile column for a non-host viewer', async () => {
     await load(summary());
     fixture.componentInstance['togglePlayer']('p1');
     fixture.detectChanges();
     const cell = (fixture.nativeElement as HTMLElement).querySelector('.matches-row td')!;
-    expect(cell.getAttribute('colspan')).toBe('5');
+    expect(cell.getAttribute('colspan')).toBe('7');
   });
 
   it('does not show the profile column at all', async () => {
     await load(summary());
     const el = fixture.nativeElement as HTMLElement;
     expect(el.querySelector('.profile-cell')).toBeNull();
-    expect(el.querySelectorAll('th').length).toBe(5);
+    expect(el.querySelectorAll('th').length).toBe(7);
   });
   });
 
@@ -192,12 +229,12 @@ describe('SessionSummary', () => {
       expect(btn.disabled).toBe(false);
     });
 
-    it('expanded match-list row spans all 6 columns, including the profile column', async () => {
+    it('expanded match-list row spans all 8 columns, including the profile column', async () => {
       await load(summary());
       fixture.componentInstance['togglePlayer']('p1');
       fixture.detectChanges();
       const cell = (fixture.nativeElement as HTMLElement).querySelector('.matches-row td')!;
-      expect(cell.getAttribute('colspan')).toBe('6');
+      expect(cell.getAttribute('colspan')).toBe('8');
     });
 
     it('copies the player profile URL when the profile button is tapped', async () => {

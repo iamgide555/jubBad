@@ -156,6 +156,9 @@ export class GroupsService {
     // Tallies keyed by the other player: who I win with, and who I face.
     const withCounts = new Map<string, PairCount>();
     const againstCounts = new Map<string, PairCount>();
+    // Same played/won/decisive shape as withCounts/againstCounts, but keyed
+    // by format (team size 1 = singles, 2 = doubles) instead of by opponent.
+    const formatCounts = new Map<'singles' | 'doubles', PairCount>();
     const bump = (m: Map<string, PairCount>, id: string, win: boolean, decisive: boolean) => {
       const row = m.get(id) ?? { played: 0, won: 0, decisive: 0 };
       row.played += 1;
@@ -173,6 +176,7 @@ export class GroupsService {
       played += 1;
       if (match.winner !== null) decisivePlayed += 1;
       if (win) won += 1;
+      bump(formatCounts, match.teamA.length === 1 ? 'singles' : 'doubles', win, match.winner !== null);
 
       const mine = onA ? match.teamA : match.teamB;
       const theirs = onA ? match.teamB : match.teamA;
@@ -254,6 +258,19 @@ export class GroupsService {
     // instead of the null this comment promises.
     const hasSinglesMatch = ratings.singles.has(playerId);
 
+    // Null when this format was never played, not zero — same convention as
+    // singlesRating, so a doubles-only player's profile looks exactly as it
+    // did before this split existed.
+    const formatStat = (format: 'singles' | 'doubles') => {
+      const row = formatCounts.get(format);
+      if (!row || row.played === 0) return null;
+      return {
+        played: row.played,
+        won: row.won,
+        winRate: row.decisive === 0 ? null : row.won / row.decisive,
+      };
+    };
+
     return {
       playerId,
       name: player.name,
@@ -262,6 +279,8 @@ export class GroupsService {
       winRate: decisivePlayed === 0 ? null : won / decisivePlayed,
       rating: Math.round(ratings.doubles.get(playerId) ?? STARTING_RATING),
       singlesRating: hasSinglesMatch ? Math.round(ratings.singles.get(playerId) ?? STARTING_RATING) : null,
+      singles: formatStat('singles'),
+      doubles: formatStat('doubles'),
       bestPartner,
       mostFacedOpponent: pick(againstCounts, 'played'),
     };

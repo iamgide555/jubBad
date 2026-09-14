@@ -15,6 +15,12 @@ export interface BestPartnerStat extends PartnerStat {
   provisional: boolean;
 }
 
+export interface FormatRecord {
+  played: number;
+  won: number;
+  winRate: number | null;
+}
+
 export interface PlayerProfile {
   playerId: string;
   name: string;
@@ -27,6 +33,9 @@ export interface PlayerProfile {
   /** Null when this player has never played singles, not 0/1200 — a group
    *  that never plays singles must see exactly today's profile. */
   singlesRating: number | null;
+  /** Null when this player has never played that format — not a zeroed record. */
+  singles: FormatRecord | null;
+  doubles: FormatRecord | null;
   bestPartner: BestPartnerStat | null;
   mostFacedOpponent: PartnerStat | null;
 }

@@ -9,12 +9,21 @@ export interface SessionMatch {
   result: 'win' | 'loss' | 'no-result';
 }
 
+export interface FormatRecord {
+  played: number;
+  won: number;
+  lost: number;
+}
+
 export interface PlayerSessionStat {
   playerId: string;
   name: string;
   played: number;
   won: number;
   lost: number;
+  /** Null when this player never played that format this session. */
+  singles: FormatRecord | null;
+  doubles: FormatRecord | null;
   matches: SessionMatch[];
 }
 

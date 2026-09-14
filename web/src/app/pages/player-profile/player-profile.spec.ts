@@ -18,6 +18,8 @@ function profile(overrides: Partial<Profile> = {}): Profile {
     winRate: 2 / 3,
     rating: 1215,
     singlesRating: null,
+    singles: null,
+    doubles: null,
     bestPartner: { playerId: 'p2', name: 'เบส', played: 8, won: 6, winRate: 0.75, provisional: false },
     mostFacedOpponent: { playerId: 'p3', name: 'ปอม', played: 3, won: 1 },
     ...overrides,
@@ -114,6 +116,28 @@ describe('PlayerProfile', () => {
     expect(fixture.componentInstance['winPercent']()).toBeNull();
     expect(text).not.toContain('0%');
     expect(text).toContain('ยังไม่ได้ลงเล่น');
+  });
+
+  it('shows separate singles/doubles win-rate stats with the games played', async () => {
+    await load(
+      profile({
+        singles: { played: 1, won: 0, winRate: 0 },
+        doubles: { played: 2, won: 2, winRate: 1 },
+      })
+    );
+    const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
+    expect(text).toContain('100%');
+    expect(text).toContain('2 เกม');
+    expect(text).toContain('0%');
+    expect(text).toContain('1 เกม');
+  });
+
+  it('shows a dash for the singles/doubles win rate when a format was never played', async () => {
+    await load(profile({ singles: null, doubles: null }));
+    const values = [...(fixture.nativeElement as HTMLElement).querySelectorAll('.format-breakdown .stat-value')].map(
+      (el) => el.textContent?.trim()
+    );
+    expect(values).toEqual(['–', '–']);
   });
 
   it('shows a not-found message when the player is unknown', async () => {

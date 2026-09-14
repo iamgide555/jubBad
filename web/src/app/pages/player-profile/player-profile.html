@@ -36,6 +36,27 @@
       }
     </div>
 
+    <div class="stat-row format-breakdown">
+      <div class="stat">
+        <span class="stat-value">
+          @if (p.doubles && formatPercent(p.doubles) !== null) {
+            {{ formatPercent(p.doubles) }}%
+            <span class="stat-games" i18n="@@profile.gamesCount">({{ p.doubles.played }} เกม)</span>
+          } @else { – }
+        </span>
+        <span class="stat-label" i18n="@@profile.winRateDoubles">อัตราชนะ (คู่)</span>
+      </div>
+      <div class="stat">
+        <span class="stat-value">
+          @if (p.singles && formatPercent(p.singles) !== null) {
+            {{ formatPercent(p.singles) }}%
+            <span class="stat-games" i18n="@@profile.gamesCount">({{ p.singles.played }} เกม)</span>
+          } @else { – }
+        </span>
+        <span class="stat-label" i18n="@@profile.winRateSingles">อัตราชนะ (เดี่ยว)</span>
+      </div>
+    </div>
+
     @if (p.bestPartner; as partner) {
       <hr class="rule" />
       @if (partner.provisional) {

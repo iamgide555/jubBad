@@ -330,6 +330,62 @@ describe('GroupsController', () => {
     }
   });
 
+  it('splits played/won/winRate by singles vs doubles, null when a format was never played', async () => {
+    const code = randomUUID();
+    const sessionCode = randomUUID();
+    await prisma.group.create({ data: { code, name: 'G' } });
+    const [me, ally, foe, other] = await Promise.all(
+      ['Me', 'Ally', 'Foe', 'Other'].map((name) =>
+        prisma.player.create({ data: { groupId: code, name, aliases: '[]' } })
+      )
+    );
+    await prisma.session.create({
+      data: { code: sessionCode, groupId: code, courtCount: 1, rawImportText: '' },
+    });
+    // Me+Ally beat Foe+Other twice (doubles), then Me loses to Foe one-on-one (singles).
+    const rows = [
+      { teamA: [me.id, ally.id], teamB: [foe.id, other.id], winner: 'A' as const, n: 1 },
+      { teamA: [me.id, ally.id], teamB: [foe.id, other.id], winner: 'A' as const, n: 2 },
+      { teamA: [me.id], teamB: [foe.id], winner: 'B' as const, n: 3 },
+    ];
+    for (const r of rows) {
+      await prisma.pairing.create({
+        data: {
+          sessionId: sessionCode,
+          courtNumber: 1,
+          matchNumber: r.n,
+          teamA: JSON.stringify(r.teamA),
+          teamB: JSON.stringify(r.teamB),
+          confirmedAt: new Date(Date.now() + r.n * 1000),
+          endedAt: new Date(),
+          winner: r.winner,
+        },
+      });
+    }
+
+    try {
+      const meRes = await request(server)
+        .get(`/groups/${code}/players/${me.id}/stats`)
+        .expect(200);
+      expect(meRes.body.doubles).toEqual({ played: 2, won: 2, winRate: 1 });
+      expect(meRes.body.singles).toEqual({ played: 1, won: 0, winRate: 0 });
+      // Combined totals stay exactly what they are today.
+      expect(meRes.body.played).toBe(3);
+      expect(meRes.body.won).toBe(2);
+
+      const allyRes = await request(server)
+        .get(`/groups/${code}/players/${ally.id}/stats`)
+        .expect(200);
+      expect(allyRes.body.doubles).toEqual({ played: 2, won: 2, winRate: 1 });
+      expect(allyRes.body.singles).toBeNull();
+    } finally {
+      await prisma.pairing.deleteMany({ where: { sessionId: sessionCode } });
+      await prisma.session.deleteMany({ where: { code: sessionCode } });
+      await prisma.player.deleteMany({ where: { groupId: code } });
+      await prisma.group.deleteMany({ where: { code } });
+    }
+  });
+
   it('omits singlesRating for a player who has never played singles', async () => {
     const code = randomUUID();
     const sessionCode = randomUUID();

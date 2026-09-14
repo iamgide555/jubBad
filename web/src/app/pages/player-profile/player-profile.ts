@@ -3,7 +3,7 @@ import { httpResource } from '@angular/common/http';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { AuthService } from '../../core/auth.service';
 import { environment } from '../../../environments/environment';
-import type { PlayerProfile as Profile } from '../../core/player-stats.model';
+import type { FormatRecord, PlayerProfile as Profile } from '../../core/player-stats.model';
 
 @Component({
   selector: 'app-player-profile',
@@ -34,6 +34,10 @@ export class PlayerProfile {
 
   protected partnerPercent(rate: number | null): number | null {
     return rate == null ? null : Math.round(rate * 100);
+  }
+
+  protected formatPercent(record: FormatRecord | null): number | null {
+    return record?.winRate == null ? null : Math.round(record.winRate * 100);
   }
 
   /**

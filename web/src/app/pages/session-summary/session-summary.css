@@ -24,9 +24,10 @@ th {
 /* :not(.profile-cell) so the narrow profile column below isn't dragged wide
    by this rule too — a bare specificity tie here previously lost to source
    order by accident, which is what forced the column wide and the stamp's
-   position off-center in the first place. */
-td:not(:first-child):not(.profile-cell),
-th:not(:first-child):not(.profile-cell) {
+   position off-center in the first place. :not(.rate-cell) the same way, so
+   the wider singles/doubles rate columns below aren't overridden back down. */
+td:not(:first-child):not(.profile-cell):not(.rate-cell),
+th:not(:first-child):not(.profile-cell):not(.rate-cell) {
   text-align: right;
   width: 20.5rem;
 }
@@ -86,6 +87,29 @@ th:not(:first-child):not(.profile-cell) {
 
 .result-badge.loss {
   color: var(--error-ink);
+}
+
+/* Game count next to a split win rate — a footnote to the percent, not a
+   competing number, so it stays small like the rest of .muted text. */
+.stat-games {
+  font-size: var(--text-xs);
+}
+
+/* The singles/doubles win-rate columns carry "N%  (M เกม)" — wider than a
+   plain percent, so they get extra room and keep that pair on one line
+   instead of wrapping the game count under the percent. */
+.rate-cell {
+  text-align: right;
+  width: 6.5rem;
+  white-space: nowrap;
+}
+
+/* A never-played format reads as a centered placeholder rather than hugging
+   the same right edge a real percent would — it isn't a value, so it
+   shouldn't look aligned like one. */
+.no-data {
+  display: block;
+  text-align: center;
 }
 
 /* Host-only: the column doesn't render at all for a non-host viewer, so no

@@ -1535,9 +1535,24 @@ export class SessionsService {
     const won = new Map<string, number>();
     const lost = new Map<string, number>();
     const matches = new Map<string, SessionMatch[]>();
+    // Same played/won/lost tallies, but split by format (team size 1 =
+    // singles, 2 = doubles) so a mixed session can report each separately.
+    const byFormat = new Map<string, Record<'singles' | 'doubles', { played: number; won: number; lost: number }>>();
+    const formatRow = (playerId: string) => {
+      let row = byFormat.get(playerId);
+      if (!row) {
+        row = {
+          singles: { played: 0, won: 0, lost: 0 },
+          doubles: { played: 0, won: 0, lost: 0 },
+        };
+        byFormat.set(playerId, row);
+      }
+      return row;
+    };
 
     for (const p of pairings) {
       const { teamA, teamB } = this.teamsOf(p);
+      const format = teamA.length === 1 ? 'singles' : 'doubles';
 
       for (const [team, letter, opponents] of [
         [teamA, 'A', teamB],
@@ -1549,6 +1564,11 @@ export class SessionsService {
           played.set(id, (played.get(id) ?? 0) + 1);
           if (teamResult === 'win') won.set(id, (won.get(id) ?? 0) + 1);
           if (teamResult === 'loss') lost.set(id, (lost.get(id) ?? 0) + 1);
+
+          const fRow = formatRow(id)[format];
+          fRow.played += 1;
+          if (teamResult === 'win') fRow.won += 1;
+          if (teamResult === 'loss') fRow.lost += 1;
 
           // Null for a singles team: `find` has no other member to return,
           // so this already generalizes correctly — the old `?? id` fallback
@@ -1579,14 +1599,19 @@ export class SessionsService {
         endedAt: session.endedAt,
       },
       players: [...played.entries()]
-        .map(([playerId, count]) => ({
-          playerId,
-          name: nameById.get(playerId) ?? 'Unknown',
-          played: count,
-          won: won.get(playerId) ?? 0,
-          lost: lost.get(playerId) ?? 0,
-          matches: matches.get(playerId) ?? [],
-        }))
+        .map(([playerId, count]) => {
+          const formats = byFormat.get(playerId);
+          return {
+            playerId,
+            name: nameById.get(playerId) ?? 'Unknown',
+            played: count,
+            won: won.get(playerId) ?? 0,
+            lost: lost.get(playerId) ?? 0,
+            singles: formats && formats.singles.played > 0 ? formats.singles : null,
+            doubles: formats && formats.doubles.played > 0 ? formats.doubles : null,
+            matches: matches.get(playerId) ?? [],
+          };
+        })
         .sort((a, b) => b.played - a.played),
     };
   }

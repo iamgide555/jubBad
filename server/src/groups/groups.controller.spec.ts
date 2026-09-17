@@ -830,4 +830,134 @@ describe('GroupsController', () => {
     }
   });
 
+  describe('GET players/manage', () => {
+    it('returns contact info and rating stats for every player in the group', async () => {
+      const code = randomUUID();
+      await prisma.group.create({ data: { code, name: 'G' } });
+      const player = await prisma.player.create({
+        data: { groupId: code, name: 'Me', aliases: '[]', age: 30, email: 'me@example.test', phone: '0812345678' },
+      });
+
+      try {
+        const res = await request(server).get(`/groups/${code}/players/manage`).expect(200);
+        expect(res.body).toEqual([
+          {
+            id: player.id,
+            name: 'Me',
+            aliases: [],
+            age: 30,
+            email: 'me@example.test',
+            phone: '0812345678',
+            rating: 1200,
+            singlesRating: null,
+            winRate: null,
+          },
+        ]);
+      } finally {
+        await prisma.player.deleteMany({ where: { groupId: code } });
+        await prisma.group.deleteMany({ where: { code } });
+      }
+    });
+
+    it('404s for a group that does not exist', async () => {
+      await request(server).get(`/groups/${randomUUID()}/players/manage`).expect(404);
+    });
+  });
+
+  describe('PUT players/:playerId', () => {
+    it('updates name/age/email/phone', async () => {
+      const code = randomUUID();
+      await prisma.group.create({ data: { code, name: 'G' } });
+      const player = await prisma.player.create({ data: { groupId: code, name: 'Old', aliases: '[]' } });
+
+      try {
+        const res = await request(server)
+          .put(`/groups/${code}/players/${player.id}`)
+          .send({ name: 'New', age: 25, email: 'new@example.test', phone: '0899999999' })
+          .expect(200);
+        expect(res.body).toMatchObject({
+          id: player.id,
+          name: 'New',
+          age: 25,
+          email: 'new@example.test',
+          phone: '0899999999',
+        });
+        const stored = await prisma.player.findUnique({ where: { id: player.id } });
+        expect(stored?.name).toBe('New');
+      } finally {
+        await prisma.player.deleteMany({ where: { groupId: code } });
+        await prisma.group.deleteMany({ where: { code } });
+      }
+    });
+
+    it('clears age/email/phone to null when the request omits them', async () => {
+      const code = randomUUID();
+      await prisma.group.create({ data: { code, name: 'G' } });
+      const player = await prisma.player.create({
+        data: { groupId: code, name: 'Old', aliases: '[]', age: 40, email: 'x@example.test', phone: '0811111111' },
+      });
+
+      try {
+        await request(server).put(`/groups/${code}/players/${player.id}`).send({ name: 'Old' }).expect(200);
+        const stored = await prisma.player.findUnique({ where: { id: player.id } });
+        expect(stored?.age).toBeNull();
+        expect(stored?.email).toBeNull();
+        expect(stored?.phone).toBeNull();
+      } finally {
+        await prisma.player.deleteMany({ where: { groupId: code } });
+        await prisma.group.deleteMany({ where: { code } });
+      }
+    });
+
+    it('rejects an invalid email with 400', async () => {
+      const code = randomUUID();
+      await prisma.group.create({ data: { code, name: 'G' } });
+      const player = await prisma.player.create({ data: { groupId: code, name: 'Old', aliases: '[]' } });
+
+      try {
+        await request(server)
+          .put(`/groups/${code}/players/${player.id}`)
+          .send({ name: 'Old', email: 'not-an-email' })
+          .expect(400);
+      } finally {
+        await prisma.player.deleteMany({ where: { groupId: code } });
+        await prisma.group.deleteMany({ where: { code } });
+      }
+    });
+
+    it('rejects an out-of-range age with 400', async () => {
+      const code = randomUUID();
+      await prisma.group.create({ data: { code, name: 'G' } });
+      const player = await prisma.player.create({ data: { groupId: code, name: 'Old', aliases: '[]' } });
+
+      try {
+        await request(server)
+          .put(`/groups/${code}/players/${player.id}`)
+          .send({ name: 'Old', age: 200 })
+          .expect(400);
+      } finally {
+        await prisma.player.deleteMany({ where: { groupId: code } });
+        await prisma.group.deleteMany({ where: { code } });
+      }
+    });
+
+    it('404s for a player that belongs to a different group', async () => {
+      const code = randomUUID();
+      const otherCode = randomUUID();
+      await prisma.group.create({ data: { code, name: 'G' } });
+      await prisma.group.create({ data: { code: otherCode, name: 'Other' } });
+      const foreign = await prisma.player.create({ data: { groupId: otherCode, name: 'Foreign', aliases: '[]' } });
+
+      try {
+        await request(server)
+          .put(`/groups/${code}/players/${foreign.id}`)
+          .send({ name: 'Hacked' })
+          .expect(404);
+      } finally {
+        await prisma.player.deleteMany({ where: { groupId: { in: [code, otherCode] } } });
+        await prisma.group.deleteMany({ where: { code: { in: [code, otherCode] } } });
+      }
+    });
+  });
+
 });

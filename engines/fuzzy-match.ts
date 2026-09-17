@@ -67,12 +67,18 @@ export type NameMatch =
  * Above this, a near-miss is worth *suggesting* to the host — never
  * auto-linking. Normalized Levenshtein rather than bigram/Dice similarity
  * because Thai nicknames here run 2-4 characters (ปอม, ตี๋, เบส), where one
- * edit destroys most bigrams. The namespace is small and dense enough that
- * near-misses are often genuinely different people — เกีย and เกียร์ are two
- * different players in the real example messages — so a wrong silent merge is
- * the failure mode to avoid.
+ * edit destroys most bigrams.
+ *
+ * A suggestion is never a silent merge — the host sees every fuzzy row
+ * ("ใช่ [X] ไหม?") and taps to confirm or reject before anything is written.
+ * That makes the failure mode of a lower threshold cheap (an extra prompt to
+ * dismiss), while the failure mode of missing a real match is expensive (a
+ * shortened nickname silently becomes its own new player with no rating
+ * history — a real case: previous session's เกียร์ pasted as เกีย the next
+ * time, similarity 0.667). So the threshold is set low enough to catch that
+ * kind of shortening, not tuned to avoid ever asking.
  */
-const FUZZY_THRESHOLD = 0.7;
+const FUZZY_THRESHOLD = 0.5;
 
 export function matchName(inputName: string, players: Player[]): NameMatch {
   const literalInput = literalName(inputName);

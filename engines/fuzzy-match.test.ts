@@ -37,14 +37,14 @@ test('similarity is 1 for identical strings', () => {
   assert.equal(similarity('ตั้ม', 'ตั้ม'), 1);
 });
 
-test('similarity of a one-char-off pair clears the 0.7 threshold', () => {
+test('similarity of a one-char-off pair clears the 0.5 threshold', () => {
   // ตั้ม vs ตัม: distance 1, maxLen 4 -> 0.75
   assert.equal(similarity('ตั้ม', 'ตัม'), 0.75);
 });
 
-test('similarity of เกีย vs เกียร์ falls below the 0.7 threshold', () => {
-  // distance 2, maxLen 6 -> 0.6667 — docs/overview.md "Fuzzy matching" calls these distinct players
-  assert.ok(similarity('เกีย', 'เกียร์') < 0.7);
+test('similarity of เกีย vs เกียร์ clears the 0.5 threshold', () => {
+  // distance 2, maxLen 6 -> 0.6667 — a real shortened-nickname case (see docs/overview.md "Fuzzy matching")
+  assert.ok(similarity('เกีย', 'เกียร์') >= 0.5);
 });
 
 test('similarity handles two empty strings', () => {
@@ -93,15 +93,25 @@ test('does not attribute a new numbered name to either normalized-name collision
   assert.deepEqual(matchName('นัท (1)', collidingPlayers), { type: 'new' });
 });
 
-test('matchName suggests a fuzzy match above the 0.7 threshold', () => {
+test('matchName suggests a fuzzy match above the 0.5 threshold', () => {
   const result = matchName('ตัม', players); // one tone mark short of ตั้ม
   assert.equal(result.type, 'fuzzy');
   assert.equal((result as { playerId: string }).playerId, 'p1');
 });
 
-test('matchName flags a name below the 0.7 threshold as new', () => {
-  const result = matchName('เกียร์', players); // real example from docs/overview.md "Fuzzy matching" — no close match here
+test('matchName flags a name below the 0.5 threshold as new when no candidate is close', () => {
+  const result = matchName('เกียร์', players); // no close match among ตั้ม, เบส, พี่แวน
   assert.deepEqual(result, { type: 'new' });
+});
+
+test('matchName suggests a shortened nickname (เกีย) against a stored เกียร์', () => {
+  // Real case: previous session stored เกียร์; this session's paste shortens
+  // it to เกีย. similarity 0.667 clears the 0.5 floor, so it must surface as
+  // a suggestion rather than silently becoming its own new player.
+  const withKia: Player[] = [...players, { id: 'p4', name: 'เกียร์', aliases: [] }];
+  const result = matchName('เกีย', withKia);
+  assert.equal(result.type, 'fuzzy');
+  assert.equal((result as { playerId: string }).playerId, 'p4');
 });
 
 test('matchRoster maps each name through matchName, preserving order', () => {

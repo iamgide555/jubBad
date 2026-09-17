@@ -1,4 +1,5 @@
 import { Component, computed, signal } from '@angular/core';
+import { NgTemplateOutlet } from '@angular/common';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { firstValueFrom } from 'rxjs';
@@ -10,7 +11,7 @@ import type { Player } from '../../../../../engines/fuzzy-match.ts';
 
 @Component({
   selector: 'app-group-entry',
-  imports: [FormsModule, RouterLink],
+  imports: [FormsModule, RouterLink, NgTemplateOutlet],
   templateUrl: './group-entry.html',
   styleUrl: './group-entry.css',
 })
@@ -40,6 +41,19 @@ export class GroupEntry {
 
   private players: Player[] = [];
   private creationIdempotencyKey: string | null = null;
+
+  /**
+   * Which reviews are showing the open yes/no toggle right now, tracked by
+   * object identity rather than as a field on NameReview — it is pure UI
+   * state, never sent to the server. `fuzzy`/`duplicate` rows start in this
+   * set (a real judgment call the host must make); `exact` rows don't
+   * (already correct, nothing to decide). Any decision change replaces the
+   * review with a new object (see `setDecision`), which drops it out of this
+   * set automatically — so answering a question collapses it back down with
+   * no separate "close" step, and reopening it via the small "change answer"
+   * link is the only way back in.
+   */
+  private readonly openReviews = new Set<NameReview>();
 
   constructor(
     route: ActivatedRoute,
@@ -116,29 +130,62 @@ export class GroupEntry {
     }
   }
 
-  decisionLabel(review: NameReview): string {
-    // A duplicate asks a different question from a fuzzy suggestion. Fuzzy is
-    // "did you mean this player?"; duplicate is "is this the same person as
-    // the slot above?", where accepting removes a slot rather than adding one.
-    // Sharing the yes/no wording made the destructive answer read as the
-    // agreeable one.
+  /**
+   * Labels the button for `decision`, not the review's current decision — the
+   * template renders one button per choice so the host picks between two
+   * visible options rather than reading one button's label to guess what
+   * tapping it will do.
+   *
+   * A duplicate asks a different question from an exact/fuzzy suggestion.
+   * Exact/fuzzy is "did you mean this player?"; duplicate is "is this the
+   * same person as the slot above?", where accepting removes a slot rather
+   * than adding one. Sharing the yes/no wording made the destructive answer
+   * read as the agreeable one.
+   */
+  decisionLabel(review: NameReview, decision: NameReview['decision']): string {
     if (review.match.type === 'duplicate') {
-      return review.decision === 'accept'
+      return decision === 'accept'
         ? $localize`:@@entry.decisionSamePerson:คนเดียวกัน`
         : $localize`:@@entry.decisionDifferentPerson:คนละคน`;
     }
-    if (review.match.type === 'exact') {
-      return review.decision === 'accept'
-        ? $localize`:@@entry.decisionUseExisting:ใช้ผู้เล่นเดิม`
-        : $localize`:@@entry.decisionNew:ไม่ใช่ เพิ่มใหม่`;
-    }
-    return review.decision === 'accept'
+    return decision === 'accept'
       ? $localize`:@@entry.decisionYes:ใช่`
       : $localize`:@@entry.decisionNew:ไม่ใช่ เพิ่มใหม่`;
   }
 
   playerName(id: string): string {
     return resolvePlayerNames([id], this.players)[0];
+  }
+
+  /**
+   * The typed text ("เกีย") is what the host pasted, not what to show once
+   * they've confirmed it is an existing player ("เกียร์") — showing the raw
+   * paste after confirming the match just reads as if the confirmation did
+   * nothing. `duplicate` keeps the typed text even when accepted: its tag
+   * already names the player it merges into, and the row itself disappears
+   * from the roster on submit rather than taking on that player's identity.
+   */
+  displayName(review: NameReview): string {
+    if (review.decision === 'accept' && review.match.type === 'exact') {
+      return this.playerName(review.match.playerId);
+    }
+    if (review.decision === 'accept' && review.match.type === 'fuzzy') {
+      return this.playerName(review.match.playerId);
+    }
+    return review.inputName;
+  }
+
+  /**
+   * `exact` starts closed (nothing to decide) and `fuzzy`/`duplicate` start
+   * open (see `openReviews`); either way, this is what actually shows the
+   * toggle right now, regardless of why.
+   */
+  isOpen(review: NameReview): boolean {
+    return this.openReviews.has(review);
+  }
+
+  openChoice(review: NameReview): void {
+    this.openReviews.add(review);
   }
 
   async parse(): Promise<void> {
@@ -175,6 +222,12 @@ export class GroupEntry {
 
       this.rosterReviews.set(attachDecisions(result.rosterReviews));
       this.waitlistReviews.set(attachDecisions(result.waitlistReviews));
+      this.openReviews.clear();
+      for (const review of [...this.rosterReviews(), ...this.waitlistReviews()]) {
+        if (review.match.type === 'fuzzy' || review.match.type === 'duplicate') {
+          this.openReviews.add(review);
+        }
+      }
       this.players = await firstValueFrom(this.rosterService.getPlayers(this.groupCode));
 
       this.state.set('confirm');
@@ -194,15 +247,11 @@ export class GroupEntry {
     );
   }
 
-  toggleDecision(review: NameReview): void {
-    const flip = (reviews: NameReview[]) =>
-      reviews.map((r) =>
-        r === review
-          ? { ...r, decision: (r.decision === 'accept' ? 'reject-new' : 'accept') as NameReview['decision'] }
-          : r
-      );
-    this.rosterReviews.update(flip);
-    this.waitlistReviews.update(flip);
+  setDecision(review: NameReview, decision: NameReview['decision']): void {
+    const apply = (reviews: NameReview[]) =>
+      reviews.map((r) => (r === review ? { ...r, decision } : r));
+    this.rosterReviews.update(apply);
+    this.waitlistReviews.update(apply);
   }
 
   async confirmRoster(): Promise<void> {

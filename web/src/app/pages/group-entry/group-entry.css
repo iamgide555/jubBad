@@ -138,6 +138,102 @@
   background: color-mix(in srgb, var(--warn-wash) 55%, transparent);
 }
 
+/* Reuses styles.css .scope-toggle (the dashboard's mode switch) rather than
+   a one-off button pair. Forced onto its own line (flex-basis 100% inside
+   the wrapping .review-row) rather than squeezed beside the name and
+   question tag — two real 44px-tall segments next to running text ate about
+   half the row's width and crowded everything else against the edge. */
+.review-decision-toggle {
+  flex: 1 0 100%;
+  margin: var(--space-0) 0 0 1.75rem;
+}
+
+/* Resting/unselected is dim and transparent, not the toggle's default cream
+   fill — with both segments the same bright cream at rest, picking "no" was
+   indistinguishable from not having picked anything, since it already looked
+   exactly like its own resting state. Now only a chosen segment is filled;
+   the other stays a plain outline, so choosing either one visibly changes
+   something. */
+.review-decision-toggle button {
+  flex: 0 0 auto;
+  font-size: var(--text-sm);
+  padding-inline: 0.9rem;
+  /* Fixed rather than content-width: "ใช่" and "ไม่ใช่ เพิ่มใหม่" are wildly
+     different lengths, so content width would make every row's pair of
+     segments a different size and the whole list would look ragged. */
+  min-width: 6.5rem;
+  background: transparent;
+  color: var(--ink-soft);
+}
+
+.review-decision-toggle button::before {
+  border-color: var(--ink-soft);
+}
+
+@media (hover: hover) {
+  .review-decision-toggle button:not(.active):hover {
+    background: var(--court-hover);
+    color: var(--ink);
+  }
+
+  .review-decision-toggle button:not(.active):hover::before {
+    border-color: var(--ink);
+  }
+}
+
+/* "Yes, same person" fills with --court, this app's one confirm/primary
+   color — it's the choice that actually changes something (merges into an
+   existing player's rating history). "No, add as new" fills with plain
+   cream paper — it needs no alert color since it's already the safe
+   default, just a clear "this one, not that one" mark once chosen. */
+.review-decision-toggle button.accept-choice.active {
+  background: var(--court);
+  color: var(--ink-on-court);
+}
+
+.review-decision-toggle button.accept-choice.active::before {
+  border-color: var(--court);
+}
+
+@media (hover: hover) {
+  .review-decision-toggle button.accept-choice.active:hover {
+    background: var(--court-dark);
+  }
+}
+
+.review-decision-toggle button.reject-choice.active {
+  background: var(--surface);
+  color: var(--ink-on-paper-soft);
+}
+
+.review-decision-toggle button.reject-choice.active::before {
+  border-color: var(--rule);
+}
+
+/* A settled row (a confident exact match, or any fuzzy/duplicate the host has
+   already answered) is a status the host skims, not a question — most rows
+   on a long roster end up here and are never touched again. A small muted
+   link to reopen the choice keeps the list skimmable instead of repeating
+   the bold two-button prompt on every already-decided row. Still
+   button.ghost underneath, so it keeps the 44px tap target and a real (if
+   faint) outline — a link that isn't visibly a button fails the same "can I
+   tap this?" test a link-styled button always does. */
+.link-action {
+  color: var(--ink-soft);
+  font-size: var(--text-xs);
+  padding: 0.35rem 0.6rem;
+}
+
+.link-action::before {
+  opacity: 0.55;
+}
+
+@media (hover: hover) {
+  .link-action:hover {
+    color: var(--ink);
+  }
+}
+
 
 
 .session-list {

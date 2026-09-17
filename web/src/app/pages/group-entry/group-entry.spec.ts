@@ -184,7 +184,7 @@ describe('GroupEntry', () => {
     expect(component.playerName('p1')).toBe('ตั้ม');
   });
 
-  it('toggleDecision flips a review between accept and reject-new', async () => {
+  it('setDecision sets a review to the chosen decision', async () => {
     component.groupName.set('Group A');
     component.rawText.set('1. ตัม');
 
@@ -201,8 +201,10 @@ describe('GroupEntry', () => {
     await parsePromise;
 
     const review = component.rosterReviews()[0];
-    expect(review.decision).toBe('accept');
-    component.toggleDecision(review);
+    expect(review.decision).toBe('reject-new');
+    component.setDecision(review, 'accept');
+    expect(component.rosterReviews()[0].decision).toBe('accept');
+    component.setDecision(component.rosterReviews()[0], 'reject-new');
     expect(component.rosterReviews()[0].decision).toBe('reject-new');
   });
 
@@ -230,14 +232,20 @@ describe('GroupEntry', () => {
     expect(rows.length).toBe(2);
 
     // Both slots carry the same pasted text, so it cannot be what identifies a
-    // row. Toggling the second must change the second, not redraw the first.
-    component.toggleDecision(component.rosterReviews()[1]);
+    // row. Setting the second must change the second, not redraw the first.
+    // Answering the (initially open) duplicate row also collapses it, same
+    // as the already-closed exact row above it — both end up as a single
+    // "change answer" link.
+    component.setDecision(component.rosterReviews()[1], 'accept');
     fixture.detectChanges();
 
-    const labels = Array.from(
-      fixture.nativeElement.querySelectorAll('.review-list .review-row button')
-    ).map((b) => (b as HTMLElement).textContent!.trim());
-    expect(labels).toEqual(['ใช้ผู้เล่นเดิม', 'คนเดียวกัน']);
+    const rowLabels = (fixture.nativeElement as HTMLElement).querySelectorAll(
+      '.review-list .review-row'
+    );
+    const labelsPerRow = Array.from(rowLabels).map((row) =>
+      Array.from(row.querySelectorAll('button')).map((b) => b.textContent!.trim())
+    );
+    expect(labelsPerRow).toEqual([['เปลี่ยนคำตอบ'], ['เปลี่ยนคำตอบ']]);
     expect(component.rosterReviews().map((r) => r.decision)).toEqual(['accept', 'accept']);
   });
 
@@ -262,9 +270,10 @@ describe('GroupEntry', () => {
 
     const duplicate = component.rosterReviews()[1];
     expect(duplicate.decision).toBe('reject-new');
-    expect(component.decisionLabel(duplicate)).toBe('คนละคน');
-    component.toggleDecision(duplicate);
-    expect(component.decisionLabel(component.rosterReviews()[1])).toBe('คนเดียวกัน');
+    expect(component.decisionLabel(duplicate, 'accept')).toBe('คนเดียวกัน');
+    expect(component.decisionLabel(duplicate, 'reject-new')).toBe('คนละคน');
+    component.setDecision(duplicate, 'accept');
+    expect(component.rosterReviews()[1].decision).toBe('accept');
   });
 
   it('canConfirm is false until date and courtCount are set', async () => {

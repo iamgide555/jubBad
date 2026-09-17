@@ -127,11 +127,13 @@ suggestion ("ใช่ [X] ไหม?") for the host to confirm or reject.
 
 The reasoning is specific to this domain: Thai nicknames here run 2-4
 characters (ปอม, ตี๋, เบส). Bigram/Dice similarity is weak at that length —
-one edit destroys most bigrams — and the namespace is small and dense enough
-that near-misses are often genuinely different people (เกีย and เกียร์ are two
-different players in the real example messages). Auto-linking on a fuzzy score
-would risk a wrong, silent merge. This extends the parser's "never silently
-guess" rule rather than inventing new tolerance.
+one edit destroys most bigrams. Because a fuzzy hit only ever *asks* — never
+writes anything until the host taps to confirm — the threshold (0.5) is tuned
+to catch a real shortening (a previous session's เกียร์ pasted as เกีย the
+next time, similarity 0.667) rather than to avoid ever prompting. A missed
+prompt silently creates a duplicate player with no rating history; an
+unwanted prompt costs one tap to dismiss. This extends the parser's "never
+silently guess" rule rather than inventing new tolerance.
 
 **One player can only hold one slot in a list.** A second name resolving to an
 already-claimed player is reported as `duplicate` and defaults to being its own

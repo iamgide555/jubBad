@@ -2,7 +2,7 @@ import { attachDecisions } from './roster-review';
 import type { RosterNameMatch } from '../../../../engines/fuzzy-match.ts';
 
 describe('attachDecisions', () => {
-  it('defaults every review to accept', () => {
+  it('defaults exact and new matches to accept', () => {
     const matches: RosterNameMatch[] = [
       { inputName: 'ตั้ม', match: { type: 'exact', playerId: 'p1' } },
       { inputName: 'เกียร์', match: { type: 'new' } },
@@ -23,6 +23,16 @@ describe('attachDecisions', () => {
       { inputName: 'ตั้ม (2)', match: { type: 'duplicate', playerId: 'p1' } },
     ];
     expect(attachDecisions(matches).map((r) => r.decision)).toEqual(['accept', 'reject-new']);
+  });
+
+  it('defaults a fuzzy suggestion to being a different person', () => {
+    // A fuzzy hit is a guess, not evidence — "same person" must be a
+    // deliberate tap, the same as a duplicate, or a host who confirms the
+    // list without reading every row could silently merge two players.
+    const matches: RosterNameMatch[] = [
+      { inputName: 'เกีย', match: { type: 'fuzzy', playerId: 'p1', score: 0.667 } },
+    ];
+    expect(attachDecisions(matches).map((r) => r.decision)).toEqual(['reject-new']);
   });
 
   it('preserves input order', () => {

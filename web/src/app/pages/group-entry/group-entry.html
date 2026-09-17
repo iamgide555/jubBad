@@ -105,41 +105,84 @@
 
     <hr class="rule" />
 
+    <!-- One shared row body for both the roster and waitlist lists — exact,
+         fuzzy, and duplicate all now go through the same open/closed shape,
+         so there is exactly one template to reason about instead of three
+         near-duplicates. -->
+    <ng-template #reviewRow let-review="review">
+      <span class="review-name">{{ displayName(review) }}</span>
+      @if (review.match.type === 'new') {
+        <span class="review-tag new" i18n="@@entry.newPlayer">คนใหม่</span>
+      } @else if (isOpen(review)) {
+        <!-- Open: a real question, answered with the app's existing
+             segmented-toggle component (styles.css .scope-toggle) rather
+             than a one-off button pair — same quiet two-way choice as the
+             dashboard's mode switch, deliberately off the reserved
+             accent-red since answering isn't an alert. Forced onto its own
+             line (flex-basis 100%) rather than squeezed beside the name and
+             tag, which used to eat about half the row's width. -->
+        @if (review.match.type === 'duplicate') {
+          <span class="review-tag duplicate" i18n="@@entry.duplicateOf">
+            ซ้ำกับ {{ playerName(review.match.playerId) }}
+          </span>
+        } @else {
+          <span class="review-tag fuzzy" i18n="@@entry.isThis">
+            ใช่ {{ playerName(review.match.playerId) }} ไหม?
+          </span>
+        }
+        <div class="scope-toggle review-decision-toggle">
+          <button
+            type="button"
+            class="accept-choice"
+            [class.active]="review.decision === 'accept'"
+            [attr.aria-pressed]="review.decision === 'accept'"
+            (click)="setDecision(review, 'accept')"
+          >
+            {{ decisionLabel(review, 'accept') }}
+          </button>
+          <button
+            type="button"
+            class="reject-choice"
+            [class.active]="review.decision === 'reject-new'"
+            [attr.aria-pressed]="review.decision === 'reject-new'"
+            (click)="setDecision(review, 'reject-new')"
+          >
+            {{ decisionLabel(review, 'reject-new') }}
+          </button>
+        </div>
+      } @else {
+        <!-- Closed: a settled status the host skims, not a question — same
+             small link for every match type, naming the action ("change
+             answer") rather than the current state, which is the ambiguity
+             a single toggle button had before any of this existed. The link
+             comes before the tag, not after, so the status word (มีอยู่แล้ว /
+             คนใหม่ / ซ้ำกับ X) is always the row's last, right-flush element —
+             a plain `new` row's tag has no button beside it at all, so it was
+             the only one sitting flush right; every other row's tag sat
+             further left by the width of the button that followed it. -->
+        <button type="button" class="ghost link-action" (click)="openChoice(review)">
+          <ng-container i18n="@@entry.changeAnswer">เปลี่ยนคำตอบ</ng-container>
+        </button>
+        @if (review.decision === 'accept') {
+          @if (review.match.type === 'duplicate') {
+            <span class="review-tag duplicate" i18n="@@entry.duplicateOf">
+              ซ้ำกับ {{ playerName(review.match.playerId) }}
+            </span>
+          } @else {
+            <span class="review-tag matched" i18n="@@entry.knownPlayer">มีอยู่แล้ว</span>
+          }
+        } @else {
+          <span class="review-tag new" i18n="@@entry.newPlayer">คนใหม่</span>
+        }
+      }
+    </ng-template>
+
     <h3 i18n="@@entry.roster">รายชื่อ</h3>
     <ol class="review-list">
       @for (review of rosterReviews(); track $index; let i = $index) {
         <li class="review-row">
           <span class="review-index">{{ i + 1 }}</span>
-          <span class="review-name">{{ review.inputName }}</span>
-          @switch (review.match.type) {
-            @case ('exact') {
-              @if (review.decision === 'accept') {
-                <span class="review-tag matched" i18n="@@entry.knownPlayer">มีอยู่แล้ว</span>
-              } @else {
-                <span class="review-tag new" i18n="@@entry.newPlayer">คนใหม่</span>
-              }
-              <button type="button" class="ghost" (click)="toggleDecision(review)">
-                {{ decisionLabel(review) }}
-              </button>
-            }
-            @case ('fuzzy') {
-              <span class="review-tag fuzzy" i18n="@@entry.isThis">
-                ใช่ {{ playerName(review.match.playerId) }} ไหม?
-              </span>
-              <button type="button" class="ghost" (click)="toggleDecision(review)">
-                {{ decisionLabel(review) }}
-              </button>
-            }
-            @case ('duplicate') {
-              <span class="review-tag duplicate" i18n="@@entry.duplicateOf">
-                ซ้ำกับ {{ playerName(review.match.playerId) }}
-              </span>
-              <button type="button" class="ghost" (click)="toggleDecision(review)">
-                {{ decisionLabel(review) }}
-              </button>
-            }
-            @case ('new') { <span class="review-tag new" i18n="@@entry.newPlayer">คนใหม่</span> }
-          }
+          <ng-container [ngTemplateOutlet]="reviewRow" [ngTemplateOutletContext]="{ review }" />
         </li>
       }
     </ol>
@@ -150,36 +193,7 @@
         @for (review of waitlistReviews(); track $index; let i = $index) {
           <li class="review-row">
             <span class="review-index">{{ i + 1 }}</span>
-            <span class="review-name">{{ review.inputName }}</span>
-            @switch (review.match.type) {
-              @case ('exact') {
-                @if (review.decision === 'accept') {
-                  <span class="review-tag matched" i18n="@@entry.knownPlayer">มีอยู่แล้ว</span>
-                } @else {
-                  <span class="review-tag new" i18n="@@entry.newPlayer">คนใหม่</span>
-                }
-                <button type="button" class="ghost" (click)="toggleDecision(review)">
-                  {{ decisionLabel(review) }}
-                </button>
-              }
-              @case ('fuzzy') {
-                <span class="review-tag fuzzy" i18n="@@entry.isThis">
-                  ใช่ {{ playerName(review.match.playerId) }} ไหม?
-                </span>
-                <button type="button" class="ghost" (click)="toggleDecision(review)">
-                  {{ decisionLabel(review) }}
-                </button>
-              }
-              @case ('duplicate') {
-                <span class="review-tag duplicate" i18n="@@entry.duplicateOf">
-                  ซ้ำกับ {{ playerName(review.match.playerId) }}
-                </span>
-                <button type="button" class="ghost" (click)="toggleDecision(review)">
-                  {{ decisionLabel(review) }}
-                </button>
-              }
-              @case ('new') { <span class="review-tag new" i18n="@@entry.newPlayer">คนใหม่</span> }
-            }
+            <ng-container [ngTemplateOutlet]="reviewRow" [ngTemplateOutletContext]="{ review }" />
           </li>
         }
       </ol>

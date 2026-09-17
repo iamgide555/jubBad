@@ -1,0 +1,83 @@
+<div class="page player-roster">
+  <p><a [routerLink]="['/g', groupCode]" i18n="@@playerRoster.back">← กลับ</a></p>
+  <h1 i18n="@@playerRoster.title">ผู้เล่นในก๊วน</h1>
+
+  @if (!loaded()) {
+    <p class="muted" i18n="@@playerRoster.loading">กำลังโหลด…</p>
+  } @else if (loadError()) {
+    <p class="error" role="alert" i18n="@@playerRoster.loadFailed">โหลดข้อมูลไม่สำเร็จ</p>
+  } @else {
+    <table class="roster-table">
+      <thead>
+        <tr>
+          <th i18n="@@playerRoster.colName">ชื่อ</th>
+          <th i18n="@@playerRoster.colAge">อายุ</th>
+          <th i18n="@@playerRoster.colEmail">อีเมล</th>
+          <th i18n="@@playerRoster.colPhone">เบอร์โทร</th>
+          <th></th>
+          <th>
+            <button type="button" class="ghost sort-head" [class.active]="sortKey() === 'rating'" (click)="setSortKey('rating')">
+              <ng-container i18n="@@playerRoster.colRatingDoubles">เรตติ้งคู่</ng-container>
+            </button>
+          </th>
+          <th>
+            <button type="button" class="ghost sort-head" [class.active]="sortKey() === 'singlesRating'" (click)="setSortKey('singlesRating')">
+              <ng-container i18n="@@playerRoster.colRatingSingles">เรตติ้งเดี่ยว</ng-container>
+            </button>
+          </th>
+          <th>
+            <button type="button" class="ghost sort-head" [class.active]="sortKey() === 'winRate'" (click)="setSortKey('winRate')">
+              <ng-container i18n="@@playerRoster.colWinRate">อัตราชนะ</ng-container>
+            </button>
+          </th>
+          <th i18n="@@playerRoster.colRank">อันดับ</th>
+        </tr>
+      </thead>
+      <tbody>
+        @for (player of sortedPlayers(); track player.id; let i = $index) {
+          <tr>
+            @if (editingId() === player.id) {
+              <td>
+                <input type="text" [ngModel]="editName()" (ngModelChange)="editName.set($event)" name="editName-{{ player.id }}" />
+              </td>
+              <td>
+                <input type="number" min="0" max="120" [ngModel]="editAge()" (ngModelChange)="editAge.set($event)" name="editAge-{{ player.id }}" />
+              </td>
+              <td>
+                <input type="email" [ngModel]="editEmail()" (ngModelChange)="editEmail.set($event)" name="editEmail-{{ player.id }}" />
+              </td>
+              <td>
+                <input type="tel" [ngModel]="editPhone()" (ngModelChange)="editPhone.set($event)" name="editPhone-{{ player.id }}" />
+              </td>
+              <td class="roster-actions" colspan="5">
+                @if (editError()) {
+                  <p class="error" role="alert">{{ editError() }}</p>
+                }
+                <button type="button" [disabled]="editBusy()" (click)="saveEdit(player)" i18n="@@playerRoster.save">บันทึก</button>
+                <button type="button" class="ghost" (click)="cancelEdit()" i18n="@@playerRoster.cancel">ยกเลิก</button>
+              </td>
+            } @else {
+              <td>{{ player.name }}</td>
+              <td>{{ player.age ?? '—' }}</td>
+              <td>{{ player.email ?? '—' }}</td>
+              <td>{{ player.phone ?? '—' }}</td>
+              <td>
+                <button type="button" class="ghost" (click)="startEdit(player)" i18n="@@playerRoster.edit">แก้ไข</button>
+              </td>
+              <td class="tabular">{{ player.rating }}</td>
+              <td class="tabular">{{ player.singlesRating ?? '—' }}</td>
+              <td class="tabular">
+                @if (player.winRate === null) {
+                  —
+                } @else {
+                  {{ player.winRate * 100 | number: '1.0-0' }}%
+                }
+              </td>
+              <td class="tabular">{{ i + 1 }}</td>
+            }
+          </tr>
+        }
+      </tbody>
+    </table>
+  }
+</div>

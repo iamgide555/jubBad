@@ -25,6 +25,25 @@ export interface ParseRosterResponse {
   unrecognizedLines: string[];
 }
 
+export interface ManagedPlayer {
+  id: string;
+  name: string;
+  aliases: string[];
+  age: number | null;
+  email: string | null;
+  phone: string | null;
+  rating: number;
+  singlesRating: number | null;
+  winRate: number | null;
+}
+
+export interface UpdatePlayerRequest {
+  name: string;
+  age?: number;
+  email?: string;
+  phone?: string;
+}
+
 @Injectable({ providedIn: 'root' })
 export class RosterService {
   private readonly http = inject(HttpClient);
@@ -43,6 +62,21 @@ export class RosterService {
 
   getPlayers(groupCode: string) {
     return this.http.get<Player[]>(`${this.base}/groups/${groupCode}/players`);
+  }
+
+  getPlayersManage(groupCode: string) {
+    return this.http.get<ManagedPlayer[]>(`${this.base}/groups/${groupCode}/players/manage`);
+  }
+
+  updatePlayer(groupCode: string, playerId: string, patch: UpdatePlayerRequest) {
+    return this.http.put<{
+      id: string;
+      name: string;
+      aliases: string[];
+      age: number | null;
+      email: string | null;
+      phone: string | null;
+    }>(`${this.base}/groups/${groupCode}/players/${playerId}`, patch);
   }
 
   listSessions(groupCode: string) {

@@ -77,6 +77,9 @@ model Player {
   groupId String
   name    String
   aliases String // JSON-encoded string[]
+  age     Int?
+  email   String?
+  phone   String?
   group   Group  @relation(fields: [groupId], references: [code])
   rosterEntries SessionRoster[]
   waitlistEntries Waitlist[]

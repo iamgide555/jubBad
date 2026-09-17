@@ -58,6 +58,12 @@ describe('GroupEntry', () => {
     expect(back?.getAttribute('href')).toBe('/');
   });
 
+  it('links to the player roster page', () => {
+    const links = [...fixture.nativeElement.querySelectorAll('a')] as HTMLAnchorElement[];
+    const manage = links.find((a) => a.getAttribute('href') === '/g/group1/players');
+    expect(manage).toBeTruthy();
+  });
+
   it('starts in the paste state', () => {
     expect(component.state()).toBe('paste');
   });

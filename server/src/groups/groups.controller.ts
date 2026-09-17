@@ -4,6 +4,7 @@ import { Public } from '../auth/public.decorator.js';
 import type { AuthenticatedRequest } from '../auth/auth.guard.js';
 import { UpdateGroupDto } from './dto/update-group.dto.js';
 import { ParseRosterDto } from './dto/parse-roster.dto.js';
+import { UpdatePlayerDto } from './dto/update-player.dto.js';
 
 @Controller('groups')
 export class GroupsController {
@@ -46,6 +47,24 @@ export class GroupsController {
   @Get(':code/sessions')
   listSessions(@Param('code') code: string) {
     return this.groupsService.listSessions(code);
+  }
+
+  /**
+   * Gated (unlike the @Public() listPlayers above): full contact info, so
+   * this must never be reachable without the host's session cookie.
+   */
+  @Get(':code/players/manage')
+  listPlayersManage(@Param('code') code: string) {
+    return this.groupsService.listPlayersManage(code);
+  }
+
+  @Put(':code/players/:playerId')
+  updatePlayer(
+    @Param('code') code: string,
+    @Param('playerId') playerId: string,
+    @Body() dto: UpdatePlayerDto
+  ) {
+    return this.groupsService.updatePlayer(code, playerId, dto);
   }
 
   /** Public: a player's own stat card, read-only. */

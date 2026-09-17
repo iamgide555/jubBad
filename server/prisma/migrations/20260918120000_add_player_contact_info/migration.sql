@@ -1,0 +1,4 @@
+-- AlterTable
+ALTER TABLE "Player" ADD COLUMN "age" INTEGER;
+ALTER TABLE "Player" ADD COLUMN "email" TEXT;
+ALTER TABLE "Player" ADD COLUMN "phone" TEXT;

@@ -7,6 +7,7 @@ import { parseCourtFormats } from '../sessions/court-formats.js';
 import { parseTeams } from '../sessions/pairing-teams.js';
 import type { UpdateGroupDto } from './dto/update-group.dto.js';
 import type { ParseRosterDto } from './dto/parse-roster.dto.js';
+import type { UpdatePlayerDto } from './dto/update-player.dto.js';
 
 type PairCount = { played: number; won: number; decisive: number };
 type Caller = { id: string; role: string };
@@ -137,6 +138,29 @@ export class GroupsService {
         winRate: !row || row.decisive === 0 ? null : row.won / row.decisive,
       };
     });
+  }
+
+  async updatePlayer(code: string, playerId: string, dto: UpdatePlayerDto) {
+    const player = await this.prisma.player.findFirst({ where: { id: playerId, groupId: code } });
+    if (!player) throw new NotFoundException();
+
+    const updated = await this.prisma.player.update({
+      where: { id: playerId },
+      data: {
+        name: dto.name,
+        age: dto.age ?? null,
+        email: dto.email ?? null,
+        phone: dto.phone ?? null,
+      },
+    });
+    return {
+      id: updated.id,
+      name: updated.name,
+      aliases: JSON.parse(updated.aliases) as string[],
+      age: updated.age,
+      email: updated.email,
+      phone: updated.phone,
+    };
   }
 
   async listSessions(code: string) {

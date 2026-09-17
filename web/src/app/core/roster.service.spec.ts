@@ -94,4 +94,41 @@ describe('RosterService', () => {
 
     expect(result).toEqual(response);
   });
+
+  it('getPlayersManage requests GET /groups/:code/players/manage', () => {
+    let result: unknown;
+    service.getPlayersManage('group1').subscribe((p) => (result = p));
+
+    const req = httpMock.expectOne(`${environment.apiBaseUrl}/groups/group1/players/manage`);
+    expect(req.request.method).toBe('GET');
+    const body = [
+      {
+        id: 'p1',
+        name: 'ตั้ม',
+        aliases: [],
+        age: 30,
+        email: 'tam@example.test',
+        phone: '0812345678',
+        rating: 1200,
+        singlesRating: null,
+        winRate: null,
+      },
+    ];
+    req.flush(body);
+
+    expect(result).toEqual(body);
+  });
+
+  it('updatePlayer sends PUT /groups/:code/players/:playerId with the given fields', () => {
+    let result: unknown;
+    service.updatePlayer('group1', 'p1', { name: 'ตั้ม', age: 31 }).subscribe((p) => (result = p));
+
+    const req = httpMock.expectOne(`${environment.apiBaseUrl}/groups/group1/players/p1`);
+    expect(req.request.method).toBe('PUT');
+    expect(req.request.body).toEqual({ name: 'ตั้ม', age: 31 });
+    const body = { id: 'p1', name: 'ตั้ม', aliases: [], age: 31, email: null, phone: null };
+    req.flush(body);
+
+    expect(result).toEqual(body);
+  });
 });

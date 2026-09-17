@@ -50,6 +50,8 @@
       }
     </button>
 
+    <p><a [routerLink]="['/g', groupCode, 'players']" i18n="@@entry.managePlayers">จัดการผู้เล่น →</a></p>
+
     <hr class="rule" />
     <button type="button" class="ghost" (click)="showDanger.set(!showDanger())" i18n="@@entry.manageGroup">จัดการก๊วน</button>
     @if (showDanger()) {

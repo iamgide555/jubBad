@@ -35,11 +35,25 @@
   font-weight: 700;
 }
 
+.edit-form {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--space-2);
+  padding: var(--space-1) 0;
+}
+
+.edit-form label {
+  flex: 1 1 10rem;
+  min-width: 8rem;
+}
+
 .roster-actions {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: var(--space-1);
+  flex-basis: 100%;
 }
 
 @media (max-width: 700px) {

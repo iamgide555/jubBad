@@ -10,11 +10,8 @@
     <table class="roster-table">
       <thead>
         <tr>
+          <th i18n="@@playerRoster.colRank">ลำดับ</th>
           <th i18n="@@playerRoster.colName">ชื่อ</th>
-          <th i18n="@@playerRoster.colAge">อายุ</th>
-          <th i18n="@@playerRoster.colEmail">อีเมล</th>
-          <th i18n="@@playerRoster.colPhone">เบอร์โทร</th>
-          <th></th>
           <th>
             <button type="button" class="ghost sort-head" [class.active]="sortKey() === 'rating'" (click)="setSortKey('rating')">
               <ng-container i18n="@@playerRoster.colRatingDoubles">เรตติ้งคู่</ng-container>
@@ -30,40 +27,43 @@
               <ng-container i18n="@@playerRoster.colWinRate">อัตราชนะ</ng-container>
             </button>
           </th>
-          <th i18n="@@playerRoster.colRank">อันดับ</th>
+          <th></th>
         </tr>
       </thead>
       <tbody>
         @for (player of sortedPlayers(); track player.id; let i = $index) {
           <tr>
             @if (editingId() === player.id) {
-              <td>
-                <input type="text" [ngModel]="editName()" (ngModelChange)="editName.set($event)" name="editName-{{ player.id }}" />
-              </td>
-              <td>
-                <input type="number" min="0" max="120" [ngModel]="editAge()" (ngModelChange)="editAge.set($event)" name="editAge-{{ player.id }}" />
-              </td>
-              <td>
-                <input type="email" [ngModel]="editEmail()" (ngModelChange)="editEmail.set($event)" name="editEmail-{{ player.id }}" />
-              </td>
-              <td>
-                <input type="tel" [ngModel]="editPhone()" (ngModelChange)="editPhone.set($event)" name="editPhone-{{ player.id }}" />
-              </td>
-              <td class="roster-actions" colspan="5">
-                @if (editError()) {
-                  <p class="error" role="alert">{{ editError() }}</p>
-                }
-                <button type="button" [disabled]="editBusy()" (click)="saveEdit(player)" i18n="@@playerRoster.save">บันทึก</button>
-                <button type="button" class="ghost" (click)="cancelEdit()" i18n="@@playerRoster.cancel">ยกเลิก</button>
+              <td colspan="6">
+                <div class="edit-form">
+                  <label>
+                    <ng-container i18n="@@playerRoster.colName">ชื่อ</ng-container>
+                    <input type="text" [ngModel]="editName()" (ngModelChange)="editName.set($event)" name="editName-{{ player.id }}" />
+                  </label>
+                  <label>
+                    <ng-container i18n="@@playerRoster.colAge">อายุ</ng-container>
+                    <input type="number" min="0" max="120" [ngModel]="editAge()" (ngModelChange)="editAge.set($event)" name="editAge-{{ player.id }}" />
+                  </label>
+                  <label>
+                    <ng-container i18n="@@playerRoster.colEmail">อีเมล</ng-container>
+                    <input type="email" [ngModel]="editEmail()" (ngModelChange)="editEmail.set($event)" name="editEmail-{{ player.id }}" />
+                  </label>
+                  <label>
+                    <ng-container i18n="@@playerRoster.colPhone">เบอร์โทร</ng-container>
+                    <input type="tel" [ngModel]="editPhone()" (ngModelChange)="editPhone.set($event)" name="editPhone-{{ player.id }}" />
+                  </label>
+                  <div class="roster-actions">
+                    @if (editError()) {
+                      <p class="error" role="alert">{{ editError() }}</p>
+                    }
+                    <button type="button" [disabled]="editBusy()" (click)="saveEdit(player)" i18n="@@playerRoster.save">บันทึก</button>
+                    <button type="button" class="ghost" (click)="cancelEdit()" i18n="@@playerRoster.cancel">ยกเลิก</button>
+                  </div>
+                </div>
               </td>
             } @else {
+              <td class="tabular">{{ i + 1 }}</td>
               <td>{{ player.name }}</td>
-              <td>{{ player.age ?? '—' }}</td>
-              <td>{{ player.email ?? '—' }}</td>
-              <td>{{ player.phone ?? '—' }}</td>
-              <td>
-                <button type="button" class="ghost" (click)="startEdit(player)" i18n="@@playerRoster.edit">แก้ไข</button>
-              </td>
               <td class="tabular">{{ player.rating }}</td>
               <td class="tabular">{{ player.singlesRating ?? '—' }}</td>
               <td class="tabular">
@@ -73,7 +73,9 @@
                   {{ player.winRate * 100 | number: '1.0-0' }}%
                 }
               </td>
-              <td class="tabular">{{ i + 1 }}</td>
+              <td>
+                <button type="button" class="ghost" (click)="startEdit(player)" i18n="@@playerRoster.edit">แก้ไข</button>
+              </td>
             }
           </tr>
         }

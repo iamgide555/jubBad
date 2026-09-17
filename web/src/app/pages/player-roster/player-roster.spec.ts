@@ -111,4 +111,43 @@ describe('PlayerRoster', () => {
     component.cancelEdit();
     expect(component.editingId()).toBeNull();
   });
+
+  it('disables other rows’ edit buttons while one row is being edited', () => {
+    component.startEdit(PLAYERS[0]);
+    fixture.detectChanges();
+
+    const editButtons = [...fixture.nativeElement.querySelectorAll('button')].filter(
+      (b: HTMLButtonElement) => b.textContent?.trim() === 'แก้ไข'
+    ) as HTMLButtonElement[];
+    // p1 is mid-edit (its row renders the edit form instead), so the only
+    // remaining "แก้ไข" button belongs to p2 — and must be disabled.
+    expect(editButtons.length).toBe(1);
+    expect(editButtons[0].disabled).toBe(true);
+  });
+
+  it('re-enables edit buttons once editing ends', () => {
+    component.startEdit(PLAYERS[0]);
+    fixture.detectChanges();
+    component.cancelEdit();
+    fixture.detectChanges();
+
+    const editButtons = [...fixture.nativeElement.querySelectorAll('button')].filter(
+      (b: HTMLButtonElement) => b.textContent?.trim() === 'แก้ไข'
+    ) as HTMLButtonElement[];
+    expect(editButtons.every((b) => !b.disabled)).toBe(true);
+  });
+
+  it('replaces the back link with a non-navigable indicator while editing', () => {
+    expect(fixture.nativeElement.querySelector('a[href="/g/group1"]')).toBeTruthy();
+
+    component.startEdit(PLAYERS[0]);
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.querySelector('a[href="/g/group1"]')).toBeNull();
+
+    component.cancelEdit();
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.querySelector('a[href="/g/group1"]')).toBeTruthy();
+  });
 });

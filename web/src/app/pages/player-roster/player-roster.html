@@ -1,5 +1,11 @@
 <div class="page player-roster">
-  <p><a [routerLink]="['/g', groupCode]" i18n="@@playerRoster.back">← กลับ</a></p>
+  <p>
+    @if (editingId() === null) {
+      <a [routerLink]="['/g', groupCode]" i18n="@@playerRoster.back">← กลับ</a>
+    } @else {
+      <span class="muted" i18n-title="@@playerRoster.backDisabledHint" title="บันทึกหรือยกเลิกก่อนออกจากหน้านี้" i18n="@@playerRoster.back">← กลับ</span>
+    }
+  </p>
   <h1 i18n="@@playerRoster.title">ผู้เล่นในก๊วน</h1>
 
   @if (!loaded()) {
@@ -10,24 +16,24 @@
     <table class="roster-table">
       <thead>
         <tr>
-          <th i18n="@@playerRoster.colRank">ลำดับ</th>
-          <th i18n="@@playerRoster.colName">ชื่อ</th>
-          <th>
+          <th scope="col" i18n="@@playerRoster.colRank">ลำดับ</th>
+          <th scope="col" i18n="@@playerRoster.colName">ชื่อ</th>
+          <th scope="col" [attr.aria-sort]="sortKey() === 'rating' ? 'descending' : 'none'">
             <button type="button" class="ghost sort-head" [class.active]="sortKey() === 'rating'" (click)="setSortKey('rating')">
               <ng-container i18n="@@playerRoster.colRatingDoubles">เรตติ้งคู่</ng-container>
             </button>
           </th>
-          <th>
+          <th scope="col" [attr.aria-sort]="sortKey() === 'singlesRating' ? 'descending' : 'none'">
             <button type="button" class="ghost sort-head" [class.active]="sortKey() === 'singlesRating'" (click)="setSortKey('singlesRating')">
               <ng-container i18n="@@playerRoster.colRatingSingles">เรตติ้งเดี่ยว</ng-container>
             </button>
           </th>
-          <th>
+          <th scope="col" [attr.aria-sort]="sortKey() === 'winRate' ? 'descending' : 'none'">
             <button type="button" class="ghost sort-head" [class.active]="sortKey() === 'winRate'" (click)="setSortKey('winRate')">
               <ng-container i18n="@@playerRoster.colWinRate">อัตราชนะ</ng-container>
             </button>
           </th>
-          <th></th>
+          <th scope="col"><span class="sr-only" i18n="@@playerRoster.colActions">การกระทำ</span></th>
         </tr>
       </thead>
       <tbody>
@@ -74,7 +80,7 @@
                 }
               </td>
               <td>
-                <button type="button" class="ghost" (click)="startEdit(player)" i18n="@@playerRoster.edit">แก้ไข</button>
+                <button type="button" class="ghost" [disabled]="editingId() !== null" (click)="startEdit(player)" i18n="@@playerRoster.edit">แก้ไข</button>
               </td>
             }
           </tr>

@@ -95,6 +95,50 @@ export class GroupsService {
     return players.map((p) => ({ id: p.id, name: p.name, aliases: JSON.parse(p.aliases) as string[] }));
   }
 
+  async listPlayersManage(code: string) {
+    const group = await this.prisma.group.findUnique({ where: { code } });
+    if (!group) throw new NotFoundException();
+
+    const players = await this.prisma.player.findMany({ where: { groupId: code } });
+    const matches = await this.finishedMatches(code);
+    const decisiveMatches = matches.filter(
+      (m): m is typeof m & { winner: 'A' | 'B' } => m.winner !== null
+    );
+    const ratings = computeRatingTracks(decisiveMatches);
+
+    // Overall played/won/decisive per player, across both formats, in one
+    // pass over every match — the group-wide equivalent of the per-player
+    // tally playerStats builds for a single target player.
+    const tally = new Map<string, PairCount>();
+    const bump = (id: string, win: boolean, decisive: boolean) => {
+      const row = tally.get(id) ?? { played: 0, won: 0, decisive: 0 };
+      row.played += 1;
+      if (decisive) row.decisive += 1;
+      if (win) row.won += 1;
+      tally.set(id, row);
+    };
+    for (const match of matches) {
+      const decisive = match.winner !== null;
+      for (const id of match.teamA) bump(id, match.winner === 'A', decisive);
+      for (const id of match.teamB) bump(id, match.winner === 'B', decisive);
+    }
+
+    return players.map((p) => {
+      const row = tally.get(p.id);
+      return {
+        id: p.id,
+        name: p.name,
+        aliases: JSON.parse(p.aliases) as string[],
+        age: p.age,
+        email: p.email,
+        phone: p.phone,
+        rating: Math.round(ratings.doubles.get(p.id) ?? STARTING_RATING),
+        singlesRating: ratings.singles.has(p.id) ? Math.round(ratings.singles.get(p.id)!) : null,
+        winRate: !row || row.decisive === 0 ? null : row.won / row.decisive,
+      };
+    });
+  }
+
   async listSessions(code: string) {
     const group = await this.prisma.group.findUnique({ where: { code } });
     if (!group) throw new NotFoundException();

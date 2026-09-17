@@ -9,6 +9,7 @@ import { GroupEntry } from './pages/group-entry/group-entry';
 import { SessionDashboard } from './pages/session-dashboard/session-dashboard';
 import { SessionDisplay } from './pages/session-display/session-display';
 import { PlayerProfile } from './pages/player-profile/player-profile';
+import { PlayerRoster } from './pages/player-roster/player-roster';
 import { Landing } from './pages/landing/landing';
 import { ResetPassword } from './pages/reset-password/reset-password';
 import { Admin } from './pages/admin/admin';
@@ -62,6 +63,45 @@ describe('app routes', () => {
       expect(await harness.navigateByUrl('/s/xyz789/display', SessionDisplay)).toBeInstanceOf(
         SessionDisplay
       );
+    });
+
+    it('/g/:groupCode/players resolves to PlayerRoster', async () => {
+      const harness = await RouterTestingHarness.create();
+      expect(await harness.navigateByUrl('/g/abc123/players', PlayerRoster)).toBeInstanceOf(
+        PlayerRoster
+      );
+    });
+
+    // The guard exists precisely because the in-template back-link swap on
+    // PlayerRoster only covers one navigation trigger; this proves the
+    // Router itself refuses to leave when an edit is open, regardless of
+    // what triggered the attempt — the property player-roster.spec.ts's
+    // own canDeactivate()/beforeunload tests can't demonstrate on their own,
+    // since those call the guard method directly rather than through a real
+    // Router navigation.
+    it('canDeactivate blocks leaving /g/:groupCode/players mid-edit until confirmed', async () => {
+      const harness = await RouterTestingHarness.create();
+      const roster = await harness.navigateByUrl('/g/abc123/players', PlayerRoster);
+      roster.startEdit({
+        id: 'p1',
+        name: 'Test',
+        aliases: [],
+        age: null,
+        email: null,
+        phone: null,
+        rating: 1200,
+        singlesRating: null,
+        winRate: null,
+      });
+
+      const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(false);
+      await harness.navigateByUrl('/');
+      expect(TestBed.inject(Router).url).toBe('/g/abc123/players');
+
+      confirmSpy.mockReturnValue(true);
+      await harness.navigateByUrl('/');
+      expect(TestBed.inject(Router).url).toBe('/');
+      confirmSpy.mockRestore();
     });
   });
 

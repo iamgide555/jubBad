@@ -1,8 +1,9 @@
 import { DecimalPipe } from '@angular/common';
-import { Component, computed, inject, signal } from '@angular/core';
+import { Component, OnDestroy, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
+import type { CanComponentDeactivate } from '../../core/can-deactivate.guard';
 import { RosterService, type ManagedPlayer } from '../../core/roster.service';
 
 type SortKey = 'rating' | 'singlesRating' | 'winRate';
@@ -16,7 +17,7 @@ const PHONE_RE = /^[0-9+\- ]{6,20}$/;
   templateUrl: './player-roster.html',
   styleUrl: './player-roster.css',
 })
-export class PlayerRoster {
+export class PlayerRoster implements CanComponentDeactivate, OnDestroy {
   private readonly rosterService = inject(RosterService);
 
   readonly groupCode: string;
@@ -43,6 +44,34 @@ export class PlayerRoster {
   constructor(route: ActivatedRoute) {
     this.groupCode = route.snapshot.paramMap.get('groupCode')!;
     void this.load();
+    // Covers the navigation paths canDeactivate() cannot: closing the tab,
+    // reloading, or typing a new URL — none of which run the Angular
+    // Router's guards, since the app itself is about to unload.
+    window.addEventListener('beforeunload', this.beforeUnloadHandler);
+  }
+
+  ngOnDestroy(): void {
+    window.removeEventListener('beforeunload', this.beforeUnloadHandler);
+  }
+
+  private readonly beforeUnloadHandler = (event: BeforeUnloadEvent): void => {
+    if (this.editingId() === null) return;
+    event.preventDefault();
+    event.returnValue = '';
+  };
+
+  /**
+   * Runs on every attempt to navigate away via the Angular Router —
+   * browser back/forward, a typed URL that still resolves to a route in
+   * this app, or any in-template link — regardless of whether the link
+   * itself was disabled. The in-template back-link swap (see the template)
+   * is a visual cue only; this is what actually stops the navigation.
+   */
+  canDeactivate(): boolean {
+    if (this.editingId() === null) return true;
+    return window.confirm(
+      $localize`:@@playerRoster.confirmDiscard:คุณกำลังแก้ไขข้อมูลผู้เล่นอยู่ ออกจากหน้านี้โดยไม่บันทึกใช่หรือไม่?`
+    );
   }
 
   private async load(): Promise<void> {

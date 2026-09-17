@@ -150,4 +150,47 @@ describe('PlayerRoster', () => {
 
     expect(fixture.nativeElement.querySelector('a[href="/g/group1"]')).toBeTruthy();
   });
+
+  it('canDeactivate allows navigation with no open edit, without prompting', () => {
+    const confirmSpy = vi.spyOn(window, 'confirm');
+    expect(component.canDeactivate()).toBe(true);
+    expect(confirmSpy).not.toHaveBeenCalled();
+    confirmSpy.mockRestore();
+  });
+
+  it('canDeactivate prompts and honors the answer when an edit is open', () => {
+    component.startEdit(PLAYERS[0]);
+
+    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(false);
+    expect(component.canDeactivate()).toBe(false);
+
+    confirmSpy.mockReturnValue(true);
+    expect(component.canDeactivate()).toBe(true);
+    confirmSpy.mockRestore();
+  });
+
+  it('prevents beforeunload only while an edit is open', () => {
+    const idleEvent = new Event('beforeunload', { cancelable: true });
+    window.dispatchEvent(idleEvent);
+    expect(idleEvent.defaultPrevented).toBe(false);
+
+    component.startEdit(PLAYERS[0]);
+    const editingEvent = new Event('beforeunload', { cancelable: true });
+    window.dispatchEvent(editingEvent);
+    expect(editingEvent.defaultPrevented).toBe(true);
+
+    component.cancelEdit();
+    const afterCancelEvent = new Event('beforeunload', { cancelable: true });
+    window.dispatchEvent(afterCancelEvent);
+    expect(afterCancelEvent.defaultPrevented).toBe(false);
+  });
+
+  it('removes the beforeunload listener on destroy', () => {
+    component.startEdit(PLAYERS[0]);
+    fixture.destroy();
+
+    const eventAfterDestroy = new Event('beforeunload', { cancelable: true });
+    window.dispatchEvent(eventAfterDestroy);
+    expect(eventAfterDestroy.defaultPrevented).toBe(false);
+  });
 });

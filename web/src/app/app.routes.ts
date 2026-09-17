@@ -1,5 +1,6 @@
 import { Routes } from '@angular/router';
 import { adminGuard, adminRoleGuard } from './core/admin.guard';
+import { canDeactivateGuard } from './core/can-deactivate.guard';
 
 /**
  * Two audiences share this app. The host's screens are guarded; the two
@@ -43,8 +44,13 @@ export const routes: Routes = [
   {
     // Before 'g/:groupCode' so the deeper path wins the match.
     // Guarded: full contact info, host-only — never @Public() on the server.
+    // canDeactivate: confirms before navigating away mid-edit (in-template
+    // link disabling alone doesn't cover browser back/forward or a typed
+    // URL — this does, since the Router runs canDeactivate on every
+    // navigation attempt regardless of what triggered it).
     path: 'g/:groupCode/players',
     canActivate: [adminGuard],
+    canDeactivate: [canDeactivateGuard],
     loadComponent: () =>
       import('./pages/player-roster/player-roster').then((m) => m.PlayerRoster),
   },

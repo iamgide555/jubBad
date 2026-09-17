@@ -41,6 +41,14 @@ export const routes: Routes = [
       import('./pages/player-profile/player-profile').then((m) => m.PlayerProfile),
   },
   {
+    // Before 'g/:groupCode' so the deeper path wins the match.
+    // Guarded: full contact info, host-only — never @Public() on the server.
+    path: 'g/:groupCode/players',
+    canActivate: [adminGuard],
+    loadComponent: () =>
+      import('./pages/player-roster/player-roster').then((m) => m.PlayerRoster),
+  },
+  {
     path: 'g/:groupCode',
     canActivate: [adminGuard],
     loadComponent: () => import('./pages/group-entry/group-entry').then((m) => m.GroupEntry),

@@ -134,8 +134,14 @@
   font-weight: 600;
 }
 
+/* 55% used to land this row near mid-gray — close enough to --ink-soft's own
+   lightness (#a89f89) that the row index and the toggle's resting/unselected
+   state both nearly vanished into it. This row is a tint over the dark
+   board, not a paper card (nothing here rescopes --ink/--ink-soft the way
+   .notice-block does), so the fix is keeping the mix dark enough that the
+   board's own chalk-ink contrast still holds, not brightening the text. */
 .review-row:has(.review-tag.duplicate) {
-  background: color-mix(in srgb, var(--warn-wash) 55%, transparent);
+  background: color-mix(in srgb, var(--warn-wash) 22%, transparent);
 }
 
 /* Reuses styles.css .scope-toggle (the dashboard's mode switch) rather than

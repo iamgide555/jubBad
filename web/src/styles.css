@@ -1,82 +1,79 @@
+/* ==========================================================================
+   Daylight Court — the token layer every one of the app's ten routes reads
+   from. Light-first, warm, physical: a real overhead light source, generous
+   rounding, and a court-green/shuttle-orange pair doing all the signalling.
+
+   Light is `:root`. Dark is layered on in two ways, so both an explicit
+   choice and an unset system preference resolve correctly:
+     - `:root:not([data-theme="light"])` + `prefers-color-scheme: dark` —
+       the user has never chosen, so the OS decides.
+     - `:root[data-theme="dark"]` — ThemeService (core/theme/theme.service.ts)
+       wrote an explicit choice to <html data-theme>, overriding the OS.
+   index.html duplicates this resolution inline, before Angular boots, so a
+   system-dark device never flashes the light shell for one frame. ========= */
+
 :root {
-  /* The board + the paper pinned to it. Chalkboard-dark ground for the page
-     itself; warm cream "paper" for anything that reads as a card, an input,
-     or a control someone would actually write on. */
-  --court: #52703f;
-  --court-dark: #3b5230;
-  /* A rule drawn directly on the dark board (dashed dividers, toolbar
-     separators) rather than on a paper card — see --rule for the paper
-     equivalent. */
-  --court-line: #3a3628;
-  /* Subtle lift for a hovered/focused element sitting on the dark board
-     itself (a court card, not a button). */
-  --court-hover: #2c2a20;
-  --line-surface: #242219;
-  /* Toned down from an earlier #f3ead6 — read as a little too bright/glowing
-     next to the board. Same warm cream family, just quieter. */
-  --surface: #ece0c4;
-  --rule: #cbbd98;
-  /* The warm highlighter-marker wash behind a held/picked player — a mark
-     made on the sheet, not a tint borrowed from the brand color. */
-  --court-wash: rgba(226, 87, 44, 0.16);
+  /* Ground vs. surface, not board vs. paper. The old system needed two ink
+     pairs because its board was dark and its cards were light; here ground
+     and surface sit in the same lightness family in both themes, so cards
+     read as "the same light, slightly raised" rather than a second material.
+     Elevation (shadow) carries the depth instead of a color jump. */
+  --ground: #faf8f4;
+  --ground-sunk: #f2eee7;
+  --surface: #ffffff;
+  --surface-raised: #ffffff;
+  --line: #e5dfd5;
 
-  /* Text. Two pairs because this world has two grounds: --ink is what sits
-     directly on the dark board (chalk), --ink-on-paper is what sits on the
-     cream paper surface (--surface) that cards, inputs, and chips are cut
-     from. Getting these swapped is the single easiest way to make text
-     vanish in this world — check which ground an element is actually on. */
-  --ink: #efe6d0;
-  --ink-soft: #a89f89;
-  --ink-on-paper: #2a2418;
-  /* Darkened from an earlier #6b6250 to keep a real margin above 4.5:1 now
-     that --surface reads a shade darker too — the two moved together. */
-  --ink-on-paper-soft: #5a5140;
-  /* Light text for the dark, saturated surfaces that are neither the page
-     board nor a paper card — a filled button, .page-dark. Keeps its old name
-     for continuity with --court, the surface it was named after. */
-  --ink-on-court: #efe6d0;
-  --ink-on-court-soft: #cdbfa0;
+  --ink: #16130f;
+  --ink-soft: #6b6459;
+  --ink-faint: #a49b8c;
+  /* Kept as aliases, not distinct values — see the block comment above.
+     Every component that already rescopes these on a card (.court-panel,
+     .ended-banner, .notice-block, .remove-confirm, .create-user-dialog) still
+     works unchanged; the rescoping is just a no-op safety net now instead of
+     load-bearing. */
+  --ink-on-paper: var(--ink);
+  --ink-on-paper-soft: var(--ink-soft);
+  --ink-on-court: var(--ink);
+  --ink-on-court-soft: var(--ink-soft);
 
-  /* Signal colors. One meaning each, used the same way on every screen:
-     accent = needs the host's attention right now (a mark in marker pen),
-     waiting = idle/at rest, warn = irreversible. Accent and warn are
-     deliberately different hues — "act on this" and "this destroys
-     something" must never share a color in a courtside, one-handed UI. */
-  --accent: #e2572c;
-  --accent-dark: #b23c1e;
-  --waiting: #8f8571;
-  --warn: #8a2f22;
-  --warn-wash: #f5e3de;
-  /* --accent and --court read fine as borders, outlines, and small badge
-     fills (a 3:1 non-text floor) directly on the dark board, but neither
-     clears 4.5:1 as small *text* there — brightened here for the few places
-     text itself needs that hue on the board (a link, a hovered label).
-     Inside a paper card, the base --accent/--court already clear 4.5:1
-     against cream, so nothing extra is needed there. */
-  --accent-ink: #ec6a3f;
-  --court-ink: #7a9a6a;
-  /* Error text needs enough contrast against whatever it sits on, and this
-     app's two grounds (the dark board, a cream paper card) need opposite
-     ends of the brightness scale to clear 4.5:1 — a single red cannot serve
-     both. Defaults to the board-safe value; anything with a paper surface
-     (see .court-panel) redefines it to --warn, which already clears paper. */
-  --error-ink: var(--accent-ink);
-  /* Masking-tape color — the physical detail that pins a paper card to the
-     board. Decorative only; never carries meaning. */
-  --tape: #d8cdb0;
+  /* Structural green: the primary action, the "live" state, ordinary
+     navigation. One hue doing three related jobs on purpose — they are all
+     "this is the good, expected path" — where the old system split
+     navigation into a third color for no reason the product needed. */
+  --court: #1f6b3d;
+  --court-dark: #185530;
+  --court-soft: #e8f3ec;
+  --court-ink: #1c6238;
+  --court-line: var(--line);
+  --court-hover: var(--ground-sunk);
 
-  /* Two families, two jobs, same as before: one for what's read at a glance
-     (headings, court numbers, the things that read like they were marked on
-     the sheet by hand), one for what's read up close. Permanent Marker only
-     ever carries the first job — it is not legible enough at body sizes to
-     carry the second, and a whole paragraph in marker script reads as a
-     costume, not a hand. Noto Sans Thai answers every Thai character in both
-     roles, since neither Latin face has Thai glyphs. */
-  --font-display: 'Permanent Marker', 'Noto Sans Thai', cursive, sans-serif;
-  --font-text: 'Work Sans', 'Noto Sans Thai', system-ui, sans-serif;
+  /* Marker-orange, reserved: "the host must act on this court right now."
+     Never the primary action, never a link — see the One Red Rule below. */
+  --accent: #ff5a36;
+  --accent-dark: #e14a28;
+  --accent-soft: #ffe9e2;
+  /* Darkened from the base --accent (#ff5a36) rather than reusing it as
+     text: the base hue clears only 4.49:1 on white surfaces — just under
+     the 4.5:1 floor — so anything reading it as body text (a matched-review
+     tag, an admin badge, a "reset link sent" line) gets this instead. Dark
+     enough to also clear 4.5:1 on --accent-soft (the fuzzy-match pill's own
+     background), not just on plain white. */
+  --accent-ink: #bd3414;
 
-  /* A 1.25 scale from 16px, rounded to whole pixels. Modest on purpose: this
-     is a dense utility screen held at arm's length, not a landing page. */
+  --warn: #b0201a;
+  --warn-wash: #fdecea;
+  --error-ink: var(--warn);
+  --waiting: #a49b8c;
+  /* The one warm neutral outside the green/orange pair — a winner's stat, a
+     top-of-leaderboard mark. Never a status, never interactive. */
+  --gold: #b3801f;
+
+  --font-display: 'Bai Jamjuree', 'Anuphan', system-ui, sans-serif;
+  --font-text: 'Anuphan', system-ui, sans-serif;
+
+  /* A 1.25 scale from 16px. --text-4xl/5xl are new: court numbers and scores
+     are the content on their screens now, not a label with data beside it. */
   --text-xs: 0.8125rem;
   --text-sm: 0.9375rem;
   --text-base: 1rem;
@@ -84,9 +81,10 @@
   --text-xl: 1.375rem;
   --text-2xl: 1.75rem;
   --text-3xl: 2.25rem;
+  --text-4xl: clamp(2rem, 5vw, 3rem);
+  --text-5xl: clamp(2.5rem, 6vw, 4rem);
 
-  /* 4px rhythm, unchanged by the redesign — this is a ruler, not a layout
-     decision, and no screen should visibly jump because the world changed. */
+  /* 4px rhythm, unchanged by the redesign — this was never the problem. */
   --space-0: 0.25rem;
   --space-1: 0.5rem;
   --space-2: 0.75rem;
@@ -94,18 +92,118 @@
   --space-4: 2rem;
   --space-5: 3rem;
 
-  /* Square corners, but the reason changed: this is a torn paper card taped
-     to a board, not a court line, and paper does not round its own corners
-     either. --radius-pill exists only for a control that must read as a
-     capsule rather than a cut card; nothing in this world currently needs it. */
-  --radius: 2px;
+  /* Real rounding, the deliberate opposite of the outgoing 2px system: this
+     is equipment and courts, not cut paper. --radius covers controls
+     (buttons, inputs, chips); --radius-lg is for anything that reads as a
+     card or panel (court panels, notice blocks, dialogs). */
+  --radius: 12px;
+  --radius-lg: 22px;
   --radius-pill: 999px;
 
-  /* Anything a finger has to hit. */
   --tap: 44px;
 
+  /* One overhead light, three levels plus a focused variant for whatever the
+     host's eye should land on first. Warm, low-alpha near black rather than
+     pure black — a shadow on cream paper is not neutral gray. */
+  --shadow-xs: 0 1px 2px rgba(35, 28, 15, 0.06);
+  --shadow-sm: 0 3px 10px -4px rgba(35, 28, 15, 0.14), 0 1px 2px rgba(35, 28, 15, 0.06);
+  --shadow-md: 0 12px 28px -10px rgba(35, 28, 15, 0.18), 0 2px 6px -2px rgba(35, 28, 15, 0.08);
+  --shadow-lg: 0 24px 56px -18px rgba(35, 28, 15, 0.24), 0 6px 16px -6px rgba(35, 28, 15, 0.1);
+
+  /* Motion. Every duration/easing a directive or component reaches for lives
+     here so the whole app shares one rhythm — see core/motion/motion.ts for
+     the matching JS-side spring presets used by motion.dev. */
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --duration-fast: 140ms;
+  --duration-base: 220ms;
+  --duration-slow: 420ms;
+
   font-family: var(--font-text);
+  color-scheme: light;
+}
+
+/* System preference, only while the visitor has never chosen — ThemeService
+   writes data-theme the instant a choice (explicit or resolved-from-system)
+   exists, so this block is truly the "nobody has decided yet" state. */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) {
+    color-scheme: dark;
+
+    --ground: #0e1310;
+    --ground-sunk: #0a0e0b;
+    --surface: #17201a;
+    --surface-raised: #1e2922;
+    --line: #2a352d;
+
+    --ink: #f2f0eb;
+    --ink-soft: #a3ac9f;
+    --ink-faint: #6c766b;
+
+    --court: #3fd07a;
+    --court-dark: #33b567;
+    --court-soft: #16291e;
+    --court-ink: #4bd984;
+    --court-line: var(--line);
+    --court-hover: #202b23;
+
+    --accent: #ff7a5c;
+    --accent-dark: #ff9179;
+    --accent-soft: #33180f;
+    --accent-ink: #ff8a6c;
+
+    --warn: #ff6b60;
+    --warn-wash: #33130f;
+    --waiting: #6c766b;
+    --gold: #e3b155;
+
+    --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.3);
+    --shadow-sm: 0 3px 10px -4px rgba(0, 0, 0, 0.45), 0 1px 2px rgba(0, 0, 0, 0.3);
+    --shadow-md: 0 12px 28px -10px rgba(0, 0, 0, 0.5), 0 2px 6px -2px rgba(0, 0, 0, 0.3);
+    --shadow-lg: 0 24px 56px -18px rgba(0, 0, 0, 0.6), 0 6px 16px -6px rgba(0, 0, 0, 0.35);
+  }
+}
+
+/* Explicit choice, from the theme toggle — wins over system preference
+   either direction. */
+:root[data-theme='dark'] {
   color-scheme: dark;
+
+  --ground: #0e1310;
+  --ground-sunk: #0a0e0b;
+  --surface: #17201a;
+  --surface-raised: #1e2922;
+  --line: #2a352d;
+
+  --ink: #f2f0eb;
+  --ink-soft: #a3ac9f;
+  --ink-faint: #6c766b;
+
+  --court: #3fd07a;
+  --court-dark: #33b567;
+  --court-soft: #16291e;
+  --court-ink: #4bd984;
+  --court-line: var(--line);
+  --court-hover: #202b23;
+
+  --accent: #ff7a5c;
+  --accent-dark: #ff9179;
+  --accent-soft: #33180f;
+  --accent-ink: #ff8a6c;
+
+  --warn: #ff6b60;
+  --warn-wash: #33130f;
+  --waiting: #6c766b;
+  --gold: #e3b155;
+
+  --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.3);
+  --shadow-sm: 0 3px 10px -4px rgba(0, 0, 0, 0.45), 0 1px 2px rgba(0, 0, 0, 0.3);
+  --shadow-md: 0 12px 28px -10px rgba(0, 0, 0, 0.5), 0 2px 6px -2px rgba(0, 0, 0, 0.3);
+  --shadow-lg: 0 24px 56px -18px rgba(0, 0, 0, 0.6), 0 6px 16px -6px rgba(0, 0, 0, 0.35);
+}
+
+:root[data-theme='light'] {
+  color-scheme: light;
 }
 
 * {
@@ -119,29 +217,19 @@ body {
 
 body {
   margin: 0;
-  /* Pinned to the viewport rather than scrolling with the page: unpinned, the
-     gradient is positioned relative to the full scrollable height, so a page
-     taller than one screen (the admin console's user table, easily) scrolls
-     past where it has already faded to the flat end color — the background
-     visibly changes shade partway down. Fixed keeps the same framing of the
-     gradient in view the whole time, on every page, regardless of length. */
-  background:
-    radial-gradient(1100px 650px at 18% -8%, #2c2a20 0%, var(--line-surface) 55%, #1a1811 100%);
-  background-attachment: fixed;
+  background: var(--ground);
   color: var(--ink);
   font-size: 16px;
   /* 1.6 rather than 1.5: Thai stacks vowel and tone marks above and below the
      baseline, so lines set for Latin alone collide. */
   line-height: 1.6;
   -webkit-font-smoothing: antialiased;
+  transition: background-color var(--duration-base) var(--ease-out), color var(--duration-base) var(--ease-out);
 }
 
-/* Browser surfaces that ship with the page whether or not a design touches
-   them — text selection and the caret are the cheapest signal a page was
-   actually built, not assembled. */
 ::selection {
   background: var(--accent);
-  color: var(--ink-on-court);
+  color: #ffffff;
 }
 
 input,
@@ -149,26 +237,16 @@ textarea {
   caret-color: var(--accent);
 }
 
-/* Used by the dashboard's end-session failure and the court panel's rejected
-   actions. Global rather than per-component: view encapsulation would
-   otherwise scope it to whichever component defined it, silently doing
-   nothing in the other. */
 .error {
   color: var(--error-ink);
   font-size: var(--text-sm);
   margin-top: var(--space-1);
 }
 
-/* Global for the same reason as .error: view encapsulation scoped this to
-   GroupEntry, so the court panel's Reshuffle button silently rendered as a
-   normal primary button. An outline mark on the board itself — chalk on
-   slate — rather than a filled button, since most actions on this screen are
-   not the one thing the host must do next. */
-/* The border is drawn by ::before, not this rule, and run through the shared
-   #rough-edge filter (index.html) — a hand marking up a board does not rule
-   a perfectly straight line either. The button's own border stays `none` so
-   the filter's slight displacement never touches the label text sitting on
-   top of it. */
+/* Global for the same reason .error is: view encapsulation would otherwise
+   scope a shared utility class to whichever component happened to declare it
+   first. Ghost now reads as a real outline button — a resting equipment
+   label, not chalk on slate. */
 button.ghost {
   position: relative;
   display: inline-flex;
@@ -177,27 +255,18 @@ button.ghost {
   min-height: var(--tap);
   background: transparent;
   color: var(--ink);
-  border: none;
+  border: 1.5px solid var(--line);
+  border-radius: var(--radius);
   padding: 0.5rem 0.9rem;
   font-size: var(--text-sm);
-}
-
-button.ghost::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  border: 1.5px solid var(--ink-soft);
-  filter: url(#rough-edge);
-  pointer-events: none;
+  transition: border-color var(--duration-fast) ease, background-color var(--duration-fast) ease,
+    color var(--duration-fast) ease;
 }
 
 @media (hover: hover) {
   button.ghost:hover {
     background: var(--court-hover);
-  }
-
-  button.ghost:hover::before {
-    border-color: var(--ink);
+    border-color: var(--ink-faint);
   }
 }
 
@@ -206,11 +275,8 @@ h2,
 h3,
 h4 {
   font-family: var(--font-display);
-  font-weight: 400;
-  /* A marker hand does not need negative tracking to read as tight — it
-     already leans and overlaps on its own. Archivo's -0.01em made a script
-     face look cramped rather than confident. */
-  letter-spacing: 0;
+  font-weight: 700;
+  letter-spacing: -0.01em;
   color: var(--ink);
   margin: 0 0 var(--space-2);
   /* Thai stacks vowel and tone marks above and below the baseline, so
@@ -219,10 +285,6 @@ h4 {
   line-height: 1.25;
 }
 
-/* Sizes, unchanged in scale from the previous system — h4 (the court number,
-   the most important thing on the live screen) still has to out-rank body
-   text on its own rather than depending on four components restyling it by
-   hand to compensate. */
 h1 {
   font-size: var(--text-3xl);
 }
@@ -239,9 +301,6 @@ h4 {
   font-size: var(--text-lg);
 }
 
-/* The small caption a plain h3/h4 override was actually reaching for. Not
-   ALL-CAPS: Thai has no case, so tracking out capitals styles the Latin half
-   of a bilingual interface and does nothing for the other half. */
 .label {
   font-family: var(--font-text);
   font-size: var(--text-sm);
@@ -269,14 +328,10 @@ p {
   margin: 0 0 var(--space-2);
 }
 
-/* Not --accent(-ink): that red is reserved for "the host needs to act on
-   this right now" (a pending court, a warning). Reusing it for ordinary
-   wayfinding — a back-link, a group name, "continue to last session" —
-   diluted it into a generic link color and left nothing distinct for the
-   moments that are actually meant to grab attention. */
 a {
   color: var(--court-ink);
   font-weight: 600;
+  text-decoration-thickness: from-font;
 }
 
 button {
@@ -284,34 +339,40 @@ button {
   font-size: var(--text-base);
   font-weight: 700;
   cursor: pointer;
+  /* Skips the browser's ~300ms double-tap-to-zoom delay before registering
+     a tap as a click — worth having anywhere, and especially here: a host
+     tapping fast between rallies is exactly the rapid-repeat-tap case that
+     delay is felt hardest in. */
+  touch-action: manipulation;
   border: none;
   border-radius: var(--radius);
-  /* Floored rather than derived from padding, so a button with a shorter label
-     or a smaller font can never quietly drop under the tap target. */
   min-height: var(--tap);
   padding: 0.65rem 1.1rem;
   background: var(--court);
-  color: var(--ink-on-court);
-  transition: background-color 120ms ease, transform 80ms ease;
+  color: #ffffff;
+  box-shadow: var(--shadow-xs);
+  transition: background-color var(--duration-fast) ease, box-shadow var(--duration-fast) ease,
+    transform var(--duration-fast) var(--ease-spring);
 }
 
-/* Hover is a mouse affordance. On the phone and iPad this app is actually used
-   on, :hover sticks after a tap until you touch something else, which left
-   buttons looking pressed. */
 @media (hover: hover) {
   button:hover {
     background: var(--court-dark);
+    box-shadow: var(--shadow-sm);
   }
 }
 
 button:active {
-  transform: scale(0.98);
+  transform: scale(0.97);
+  box-shadow: var(--shadow-xs);
 }
 
 button:disabled {
-  background: var(--court-line);
-  color: var(--ink-soft);
+  background: var(--line);
+  color: var(--ink-faint);
+  box-shadow: none;
   cursor: not-allowed;
+  transform: none;
 }
 
 input,
@@ -321,26 +382,21 @@ select {
   /* Must not drop below 16px: iOS Safari zooms the whole page in on focus for
      anything smaller, and the host is one-handed at the side of a court. */
   font-size: var(--text-base);
-  color: var(--ink-on-paper);
+  color: var(--ink);
   background: var(--surface);
-  border: 1px solid var(--rule);
+  border: 1.5px solid var(--line);
   border-radius: var(--radius);
   padding: 0.6rem 0.7rem;
   min-height: var(--tap);
   width: 100%;
-  /* The root is color-scheme: dark for the page's own dark chrome, but these
-     sit on light paper — without this, the browser paints native form chrome
-     (the date-input calendar glyph, number-input spinners, a select's own
-     popup) in dark-mode colors and it disappears against the light field
-     underneath it. */
-  color-scheme: light;
+  transition: border-color var(--duration-fast) ease;
 }
 
 @media (hover: hover) {
   input:hover,
   textarea:hover,
   select:hover {
-    border-color: var(--ink-on-paper-soft);
+    border-color: var(--ink-faint);
   }
 }
 
@@ -348,6 +404,7 @@ input:focus,
 textarea:focus,
 select:focus {
   border-color: var(--accent);
+  outline: none;
 }
 
 input:focus-visible,
@@ -357,6 +414,7 @@ button:focus-visible,
 a:focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 2px;
+  border-radius: var(--radius);
 }
 
 label {
@@ -371,33 +429,51 @@ label > input,
 label > textarea {
   margin-top: 0.35rem;
   font-weight: 400;
-  color: var(--ink-on-paper);
+  color: var(--ink);
 }
 
 @media (prefers-reduced-motion: reduce) {
   * {
     transition: none !important;
+    animation: none !important;
+    scroll-behavior: auto !important;
   }
 }
 
-/* Shared page shells — every host screen is now the same dark board; the
-   venue display screen goes one shade deeper still, since it is read from
-   across a room rather than held in a hand. */
+/* Router cross-fade (withViewTransitions() in app.config.ts). Left unnamed
+   deliberately — a shared view-transition-name across routes whose layouts
+   differ this much (a login card vs. a court-panel grid) would make the
+   browser morph size/position between them instead of a clean cross-fade.
+   `root` is the browser's own default-tree pseudo, always present, so this
+   just retimes the built-in transition rather than replacing it. The pseudo-
+   element tree it generates lives outside the normal DOM, so the blanket
+   `* { animation: none }` above never reaches it — it needs its own rule. */
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation-duration: var(--duration-base);
+  animation-timing-function: var(--ease-out);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-group(*),
+  ::view-transition-old(*),
+  ::view-transition-new(*) {
+    animation: none !important;
+  }
+}
+
+/* ==========================================================================
+   Page shells
+   ========================================================================== */
+
 .page {
   max-width: 32rem;
   margin: 0 auto;
   padding: var(--space-4) var(--space-3) var(--space-5);
-  /* Home-screen PWA on a notched iPhone: without this the column runs under
-     the rounded corners in landscape. */
   padding-left: max(var(--space-3), env(safe-area-inset-left));
   padding-right: max(var(--space-3), env(safe-area-inset-right));
 }
 
-/* Reading measure, not page width. A 32rem column of Thai body text is right;
-   a 32rem column of *court panels* on an iPad is a ribbon down the middle of
-   a 1024px screen with 380px of empty background either side, which is the
-   single most obviously unfinished thing about this app on a tablet. Screens
-   that lay out panels opt into the wider shell and grid their own content. */
 @media (min-width: 48rem) {
   .page-wide {
     max-width: 56rem;
@@ -405,32 +481,37 @@ label > textarea {
   }
 }
 
-/* 64rem is 1024px, which is iPad landscape exactly — the device this app is
-   most likely to be propped up on beside a court. The tier above it has to
-   *include* that width, not start past it. */
 @media (min-width: 64rem) {
   .page-wide {
     max-width: 68rem;
   }
 }
 
+/* The TV/wall display: pinned dark regardless of the visitor's theme choice,
+   since it is furniture in a room, not a screen someone is holding. */
 .page-dark {
   min-height: 100dvh;
-  background: #14130d;
-  color: var(--ink-on-court);
+  background: #0a0e0b;
+  color: #f2f0eb;
   padding: var(--space-4) var(--space-3);
   padding-left: max(var(--space-3), env(safe-area-inset-left));
   padding-right: max(var(--space-3), env(safe-area-inset-right));
+  --ink: #f2f0eb;
+  --ink-soft: #a3ac9f;
+  --line: #2a352d;
 }
 
 .page-dark h1,
 .page-dark h2 {
-  color: var(--ink-on-court);
+  color: #f2f0eb;
 }
 
+/* Court-line geometry: a thin green rule, replacing the old chalk-dash
+   divider. Used as a plain section break and, doubled up, as the display
+   screen's grid motif (session-display.css). */
 .rule {
   border: none;
-  border-top: 1px dashed var(--court-line);
+  border-top: 1px solid var(--line);
   margin: var(--space-3) 0;
 }
 
@@ -446,124 +527,195 @@ label > textarea {
   border: 0;
 }
 
-/* A small paper tag, not a pill — this world's chips are cut from the same
-   cream stock as a court card, not a social-media capsule. */
+/* A small rounded tag — equipment-label shaped, not cut paper. */
 .chip {
   display: inline-flex;
   align-items: center;
-  padding: 0.35rem 0.8rem;
+  padding: 0.35rem 0.9rem;
   margin: 0 var(--space-1) var(--space-1) 0;
   background: var(--surface);
-  color: var(--ink-on-paper);
-  border-radius: var(--radius);
+  color: var(--ink);
+  border: 1.5px solid var(--line);
+  border-radius: var(--radius-pill);
   font-size: var(--text-sm);
   font-weight: 700;
-  box-shadow: 0 2px 5px -1px rgba(0, 0, 0, 0.45);
+  box-shadow: var(--shadow-xs);
+  transition: border-color var(--duration-fast) ease, background-color var(--duration-fast) ease,
+    box-shadow var(--duration-fast) ease, transform var(--duration-fast) var(--ease-spring);
 }
 
-/* The one control that appears on two screens with two different meanings —
-   the stats table and the dashboard's mode switch. Accent means "needs the
-   host's attention" everywhere else in the app, so the active segment reads
-   as the quiet ink-on-paper mark it actually is, not an alert. */
+/* Segmented control: mode toggle, per-court format, stats scope. Two rounded
+   pills sharing one track, the active one filled with court-green. */
 .scope-toggle {
   display: flex;
-  gap: var(--space-1);
+  gap: 2px;
+  padding: 2px;
+  background: var(--ground-sunk);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-pill);
   margin-bottom: var(--space-1);
-  /* A two-way switch stretched across a 1024px tablet stops reading as a
-     control and starts reading as two banners. It only needs to be as wide as
-     a thumb can comfortably cross. */
   max-width: 28rem;
 }
 
-/* Border drawn by ::before through #rough-edge, same reasoning as
-   button.ghost — a hand-marked segment boundary, not a ruled one. */
 .scope-toggle button {
-  position: relative;
   flex: 1;
-  min-height: var(--tap);
-  background: var(--surface);
-  color: var(--ink-on-paper-soft);
+  min-height: calc(var(--tap) - 4px);
+  background: transparent;
+  color: var(--ink-soft);
   border: none;
+  border-radius: var(--radius-pill);
+  box-shadow: none;
   font-size: var(--text-sm);
   font-weight: 600;
 }
 
-.scope-toggle button::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  border: 1px solid var(--rule);
-  filter: url(#rough-edge);
-  pointer-events: none;
-}
-
 .scope-toggle button.active {
-  background: var(--ink-on-paper);
-  color: var(--surface);
-}
-
-.scope-toggle button.active::before {
-  border-color: var(--ink-on-paper);
+  background: var(--surface);
+  color: var(--ink);
+  box-shadow: var(--shadow-xs);
 }
 
 @media (hover: hover) {
-  /* The background has to be restated or the base button rule fills the
-     inactive segment with the board's own dark green and this cream ink
-     vanishes into it. */
   .scope-toggle button:not(.active):hover {
-    background: var(--surface);
-    color: var(--ink-on-paper);
-  }
-
-  .scope-toggle button:not(.active):hover::before {
-    border-color: var(--ink-on-paper);
+    background: transparent;
+    color: var(--ink);
+    box-shadow: none;
   }
 }
 
-/* These toggles beat `button:disabled` on specificity, so an unavailable
-   segment — the − at one court, the + at twenty, either mode after the
-   session ends — looked exactly as pressable as a live one. */
 .scope-toggle button:disabled,
 .scope-toggle button:disabled:hover {
-  background: var(--rule);
-  color: var(--ink-on-paper-soft);
-  opacity: 0.6;
+  background: transparent;
+  color: var(--ink-faint);
+  opacity: 0.7;
   cursor: not-allowed;
-}
-
-.scope-toggle button:disabled::before,
-.scope-toggle button:disabled:hover::before {
-  border-color: var(--rule);
+  box-shadow: none;
 }
 
 .scope-toggle button.active:disabled {
-  background: var(--ink-on-paper);
-  color: var(--surface);
+  background: var(--line);
+  color: var(--ink-soft);
 }
 
-.scope-toggle button.active:disabled::before {
-  border-color: var(--ink-on-paper);
-}
-
-/* Global for the same reason as .ghost above: both screens that own an
-   irreversible action had spelled this out by hand, and neither overrode the
-   base button's hover, so the delete button turned confirm-green under the
-   cursor. --warn is a separate, deeper red from --accent on purpose — the
-   marker-red "look here" mark must never share a hue with "this cannot be
-   undone." */
 button.danger {
   background: var(--warn);
-  color: #fbeee7;
+  color: #ffffff;
 }
 
 @media (hover: hover) {
   button.danger:hover:not(:disabled) {
-    background: #6e2419;
+    background: #8f1a15;
   }
 }
 
 button.danger:disabled,
 button.danger:disabled:hover {
-  background: var(--court-line);
-  color: var(--ink-soft);
+  background: var(--line);
+  color: var(--ink-faint);
+}
+
+/* ==========================================================================
+   Feather arc — the one signature device, used structurally: the app mark,
+   a live-court progress ring, the loading indicator, and empty-state art.
+   A single inline symbol so every use shares one silhouette; components
+   reference #feather-arc via <use>. See shared/icon/icon.ts.
+   ========================================================================== */
+
+.icon {
+  display: inline-flex;
+  flex: none;
+  vertical-align: middle;
+  color: currentColor;
+}
+
+.feather-arc {
+  color: var(--court);
+}
+
+.feather-arc.spin {
+  animation: feather-spin 1.1s linear infinite;
+  transform-origin: 50% 50%;
+}
+
+@keyframes feather-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* ==========================================================================
+   Shared motion keyframes — applied by the directives in core/motion/, kept
+   here so every component shares one physical vocabulary instead of each
+   inventing its own curve. All are skipped outright under reduced motion
+   (see the global rule above).
+   ========================================================================== */
+
+@keyframes rise-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Applied by core/motion/reveal.directive.ts. `both` so the element stays at
+   its 0% state (invisible) for however long `animation-delay` holds it back
+   — without it, a staggered item would flash at its final, visible state for
+   one frame before the delay even starts. */
+.reveal-in {
+  animation: rise-in var(--duration-slow) var(--ease-out) both;
+}
+
+@keyframes pop-in {
+  from {
+    opacity: 0;
+    transform: scale(0.92);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes ring-pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--court) 45%, transparent), var(--shadow-md);
+  }
+  50% {
+    box-shadow: 0 0 0 6px color-mix(in srgb, var(--court) 0%, transparent), var(--shadow-md);
+  }
+}
+
+@keyframes toast-in {
+  from {
+    opacity: 0;
+    transform: translate(-50%, 12px);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, 0);
+  }
+}
+
+/* A lightweight toast host, populated by core/motion/toast.ts. Not currently
+   templated on every page — added where a copy/confirm action needs quiet
+   feedback instead of an inline text swap. */
+.toast {
+  position: fixed;
+  left: 50%;
+  bottom: max(var(--space-3), env(safe-area-inset-bottom));
+  transform: translateX(-50%);
+  background: var(--ink);
+  color: var(--ground);
+  padding: 0.65rem 1.1rem;
+  border-radius: var(--radius-pill);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  box-shadow: var(--shadow-lg);
+  z-index: 100;
+  animation: toast-in var(--duration-base) var(--ease-out);
 }

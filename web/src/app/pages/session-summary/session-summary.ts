@@ -4,11 +4,12 @@ import { ActivatedRoute, RouterLink } from '@angular/router';
 import { AuthService } from '../../core/auth.service';
 import { absoluteUrl, copyToClipboard } from '../../core/share-link';
 import { environment } from '../../../environments/environment';
+import { SceneHost } from '../../core/three/scene-host';
 import type { SessionSummary as Summary } from '../../core/session-summary.model';
 
 @Component({
   selector: 'app-session-summary',
-  imports: [RouterLink],
+  imports: [RouterLink, SceneHost],
   templateUrl: './session-summary.html',
   styleUrl: './session-summary.css',
 })

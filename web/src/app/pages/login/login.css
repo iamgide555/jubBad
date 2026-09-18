@@ -1,12 +1,19 @@
 /* The only screen a stranger can reach, so it says what this is and asks for
    one thing. No group names, no session codes, nothing that leaks what lives
-   behind it. */
+   behind it. The 3D shuttle hero is the one deliberately expressive moment
+   in the whole app — everything below it stays a plain, quiet form. */
 .login {
-  padding-top: 18vh;
+  padding-top: var(--space-4);
   max-width: 24rem;
 }
 
+.login-hero {
+  height: clamp(9rem, 32vh, 14rem);
+  margin-bottom: var(--space-2);
+}
+
 .login h1 {
+  font-family: var(--font-display);
   font-size: clamp(2rem, 8vw, 2.75rem);
   margin-bottom: var(--space-1);
 }

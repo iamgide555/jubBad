@@ -1,0 +1,49 @@
+/* A slim bar above every route's own .page/.page-wide/.page-dark shell — not
+   a header inside them, so a route's own max-width and padding stay exactly
+   what they were. Sticky so the theme toggle is reachable one-handed
+   without scrolling back to the top of a long roster or admin table. */
+.shell-bar {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-1) max(var(--space-3), env(safe-area-inset-left)) var(--space-1)
+    max(var(--space-3), env(safe-area-inset-right));
+  background: color-mix(in srgb, var(--ground) 88%, transparent);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border-bottom: 1px solid var(--line);
+}
+
+.shell-mark {
+  display: inline-flex;
+  padding: var(--space-0);
+  color: var(--court);
+}
+
+.theme-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--tap);
+  height: var(--tap);
+  min-height: 0;
+  padding: 0;
+  background: transparent;
+  color: var(--ink-soft);
+  box-shadow: none;
+}
+
+@media (hover: hover) {
+  .theme-toggle:hover {
+    background: var(--court-hover);
+    color: var(--ink);
+    box-shadow: none;
+  }
+}
+
+.theme-toggle:active {
+  transform: none;
+}

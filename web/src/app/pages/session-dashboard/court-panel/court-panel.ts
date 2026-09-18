@@ -1,14 +1,16 @@
 import { Component, computed, inject, input, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { PressDirective } from '../../../core/motion/press.directive';
 import { LiveSessionService } from '../../../core/live-session.service';
 import { resolvePlayerNames } from '../../../core/player-names';
 import { SwapSelectionService, type SwapPick } from '../../../core/swap-selection.service';
 import type { CourtFormat, CourtState } from '../../../core/live-session.model';
 import type { Player } from '../../../../../../engines/fuzzy-match.ts';
+import { Icon } from '../../../shared/icon/icon';
 
 @Component({
   selector: 'app-court-panel',
-  imports: [FormsModule],
+  imports: [FormsModule, PressDirective, Icon],
   templateUrl: './court-panel.html',
   styleUrl: './court-panel.css',
 })

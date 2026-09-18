@@ -8,46 +8,49 @@
     <link rel="icon" type="image/x-icon" href="jubbad.png" />
     <link rel="manifest" href="manifest.webmanifest" />
     <!-- Matches the manifest's theme_color so the phone chrome does not flash a
-       different colour on launch. -->
-    <meta name="theme-color" content="#242219" />
+       different colour on launch. Overwritten immediately below once the
+       resolved theme (light/dark) is known, before first paint. -->
+    <meta name="theme-color" content="#FAF8F4" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="apple-mobile-web-app-title" content="JubBad" />
     <link rel="apple-touch-icon" href="jubbad.png" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <!-- Work Sans and Permanent Marker carry no Thai glyphs, so Noto Sans Thai
-       answers every Thai character in both roles. One Thai family rather
-       than two: fewer bytes on venue wifi, and one consistent Thai texture
-       next to the Latin digits in scores and court numbers. -->
+    <!-- Bai Jamjuree (display/numerals) and Anuphan (text/UI) are both
+       Cadson Demak families designed to sit together, and both carry full
+       Thai coverage themselves — unlike the retired Permanent Marker/Work
+       Sans pairing, no Noto Sans Thai fallback layer is needed, and no
+       digit ever silently falls back to Thai numeral forms. -->
     <link
-      href="https://fonts.googleapis.com/css2?family=Permanent+Marker&family=Work+Sans:wght@400;500;600;700&family=Noto+Sans+Thai:wght@400;500;600;700;800&display=swap"
+      href="https://fonts.googleapis.com/css2?family=Bai+Jamjuree:wght@600;700&family=Anuphan:wght@400;500;600&display=swap"
       rel="stylesheet"
     />
+    <!-- Resolves and applies the theme before first paint, so a system-dark
+       device never flashes the light shell for one frame. ThemeService
+       (app/core/theme/theme.service.ts) owns this logic afterward; this is
+       just the pre-hydration duplicate every "no flash" theme setup needs. -->
+    <script>
+      (function () {
+        try {
+          var stored = localStorage.getItem('jubbad-theme');
+          var theme =
+            stored === 'light' || stored === 'dark'
+              ? stored
+              : window.matchMedia('(prefers-color-scheme: dark)').matches
+                ? 'dark'
+                : 'light';
+          document.documentElement.setAttribute('data-theme', theme);
+          document
+            .querySelector('meta[name="theme-color"]')
+            .setAttribute('content', theme === 'dark' ? '#0E1310' : '#FAF8F4');
+        } catch (e) {
+          /* localStorage/matchMedia unavailable — default light shell stands. */
+        }
+      })();
+    </script>
   </head>
   <body>
-    <!-- Shared filter defs, referenced from styles.css via filter: url(#rough-edge).
-       Present once here (rather than per-page) since every route shares this
-       shell. A wobbled straight line, not a texture — the hand that marked
-       up the board did not draw a perfectly ruled border either. -->
-    <svg width="0" height="0" style="position: absolute" aria-hidden="true">
-      <filter id="rough-edge" x="-10%" y="-10%" width="120%" height="120%">
-        <feTurbulence
-          type="fractalNoise"
-          baseFrequency="0.045"
-          numOctaves="2"
-          seed="4"
-          result="noise"
-        />
-        <feDisplacementMap
-          in="SourceGraphic"
-          in2="noise"
-          scale="2.2"
-          xChannelSelector="R"
-          yChannelSelector="G"
-        />
-      </filter>
-    </svg>
     <app-root></app-root>
   </body>
 </html>

@@ -7,14 +7,14 @@ related_targets: []
 
 ## Direction contract
 
-THESIS: The dashboard as a courtside chalkboard, not a software console — refuses the clean-card SaaS-dashboard default. The interface itself looks handled, taped-up, and marked-up between rounds, the way a real draw sheet does.
+THESIS: The dashboard as a real court on a bright, well-lit indoor space, not a chalkboard mock-up — refuses the retired paper-and-marker device in favor of equipment-grade material: real rounding, layered elevation, and a colored ring that carries state.
 
-OWN-WORLD: Dark chalkboard ground (#242219 → #1a1811), warm chalk-cream ink (#efe6d0), one marker-red accent (#e2572c) reserved for anything needing the host's attention. Court panels are torn-paper cards taped at a slight tilt. Headings and court labels set in a genuine marker-stroke hand (Permanent Marker); body and data in Work Sans / Noto Sans Thai. Games-played reads as small tally text, never a badge or pill.
+OWN-WORLD: Daylight Court — a shared light ground/surface (`--ground` #faf8f4, `--surface` #ffffff in light theme; both themes share one ink scale), a structural court-green (`--court` #1f6b3d) carrying the primary action, the live state, and navigation, and a reserved shuttle-orange (`--accent` #ff5a36) for "the host must act on this court right now." Court panels are flat rounded cards (`--radius-lg`, 22px) that lift and ring by elevation and color, never tilt or tape. Headings and court numbers are set in Bai Jamjuree; body and data in Anuphan — both with native Thai and Latin digit coverage. Games-played reads as small tally text, never a badge or pill.
 
-STORY: The host glances at the board, sees which court is live (a marker-red glow), which sits idle, taps a paper-tag chip to rest a player, taps the marker-outline button to resync the queue. Every action reads as marking up the sheet, not filling in a form.
+STORY: The host glances at the board, sees which court is live (a green ring + lift) versus pending (an orange ring + one-shot pulse) versus idle (flat, quiet), taps a rounded chip to rest a player, taps a real-bordered ghost button to resync the queue. Every action reads as operating real equipment, not marking up a sheet.
 
-FIRST VIEWPORT: Roster tags (taped paper tags) across the top; a row of chalk-outline toolbar buttons; a two-up grid of taped paper court cards below, each showing both teams and their tally, tilted a degree or two off true; a hand-numbered waiting queue along the bottom.
+FIRST VIEWPORT: Rounded roster chips across the top; a row of outline toolbar buttons with real 1.5px borders; a two-up grid of flat, rounded court cards below, each showing both teams and their tally with a state-colored ring; a waiting queue along the bottom reordered via FLIP animation.
 
-FORM: Direction 1 of 3 author-built candidates (Draw Sheet / Scoreboard / Match Card), published as standalone HTML previews and picked directly by the user — substituted for `concept-seed`'s dice-and-cards roll because no image-generation tool exists in this harness (confirmed via `impeccable context`).
+FORM: Full implementation shipped across all 10 routes; session-dashboard and court-panel received the deepest pass (idle/pending/active/ended state choreography via elevation + ring, not the retired system's three static shadow recipes).
 
-FINISH: unreviewed and undocumented is unfinished; this build ends with the finish review, the verdict, DESIGN.md, and every shipping raster carrying its provenance.
+FINISH: Delivered and documented — see root DESIGN.md and .impeccable/design.json for the carbonized system this surface, and the rest of the app, now draws from.

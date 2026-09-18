@@ -30,7 +30,12 @@
     @switch (c.status) {
       @case ('idle') {
         <p class="matchup idle-label" i18n="@@court.idle">ว่าง</p>
-        <button type="button" [disabled]="busy()" (click)="startOrReshuffle()" i18n="@@court.startNext">เริ่มแมตช์ถัดไป</button>
+        <button type="button" [disabled]="busy()" (click)="startOrReshuffle()">
+          @if (busy()) {
+            <app-icon name="feather" [size]="16" [spin]="true" />
+          }
+          <ng-container i18n="@@court.startNext">เริ่มแมตช์ถัดไป</ng-container>
+        </button>
         @if (notEnoughPlayers()) {
           @if (trySinglesAvailable(); as n) {
             <p class="hint" role="status">{{ trySinglesHint(n) }}</p>
@@ -55,6 +60,7 @@
                   <button
                     type="button"
                     class="name-tap"
+                    appPress
                     [disabled]="busy()"
                     [attr.aria-pressed]="selection.isPicked(id)"
                     [attr.aria-label]="swapLabel(id, name)"
@@ -76,6 +82,7 @@
                   <button
                     type="button"
                     class="name-tap"
+                    appPress
                     [disabled]="busy()"
                     [attr.aria-pressed]="selection.isPicked(id)"
                     [attr.aria-label]="swapLabel(id, name)"
@@ -102,7 +109,12 @@
         }
         <div class="button-row">
           <button type="button" class="ghost" [disabled]="busy()" (click)="startOrReshuffle()" i18n="@@court.reshuffle">สุ่มใหม่</button>
-          <button type="button" [disabled]="busy() || restingInProposal().length > 0" (click)="confirm()" i18n="@@court.confirm">ยืนยัน</button>
+          <button type="button" [disabled]="busy() || restingInProposal().length > 0" (click)="confirm()">
+            @if (busy()) {
+              <app-icon name="feather" [size]="16" [spin]="true" />
+            }
+            <ng-container i18n="@@court.confirm">ยืนยัน</ng-container>
+          </button>
         </div>
       }
       @case ('active') {

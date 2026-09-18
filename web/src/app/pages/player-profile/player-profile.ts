@@ -3,11 +3,13 @@ import { httpResource } from '@angular/common/http';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { AuthService } from '../../core/auth.service';
 import { environment } from '../../../environments/environment';
+import { SceneHost } from '../../core/three/scene-host';
+import { Odometer } from '../../core/motion/odometer';
 import type { FormatRecord, PlayerProfile as Profile } from '../../core/player-stats.model';
 
 @Component({
   selector: 'app-player-profile',
-  imports: [RouterLink],
+  imports: [RouterLink, SceneHost, Odometer],
   templateUrl: './player-profile.html',
   styleUrl: './player-profile.css',
 })

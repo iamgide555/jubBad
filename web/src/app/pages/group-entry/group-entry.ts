@@ -7,11 +7,14 @@ import { attachDecisions, type NameReview } from '../../core/roster-review';
 import type { GroupSession } from '../../core/group-session.model';
 import { RosterService } from '../../core/roster.service';
 import { resolvePlayerNames } from '../../core/player-names';
+import { PressDirective } from '../../core/motion/press.directive';
+import { RevealDirective } from '../../core/motion/reveal.directive';
+import { Icon } from '../../shared/icon/icon';
 import type { Player } from '../../../../../engines/fuzzy-match.ts';
 
 @Component({
   selector: 'app-group-entry',
-  imports: [FormsModule, RouterLink, NgTemplateOutlet],
+  imports: [FormsModule, RouterLink, NgTemplateOutlet, PressDirective, RevealDirective, Icon],
   templateUrl: './group-entry.html',
   styleUrl: './group-entry.css',
 })

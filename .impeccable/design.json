@@ -1,52 +1,57 @@
 {
   "schemaVersion": 2,
-  "generatedAt": "2026-09-11T03:28:55Z",
+  "generatedAt": "2026-09-18T00:00:00Z",
   "title": "Design System: JubBad",
   "extensions": {
     "colorMeta": {
-      "court": { "role": "primary", "displayName": "Confirm Green", "canonical": "#52703f", "tonalRamp": ["#141b0f", "#1f2b17", "#2c3d20", "#3b5230", "#52703f", "#7a9a6a", "#b3c9a3", "#e0ecd8"] },
-      "court-dark": { "role": "primary", "displayName": "Confirm Green (hover)", "canonical": "#3b5230", "tonalRamp": ["#0f150b", "#182014", "#232f1c", "#2c3d24", "#3b5230", "#587343", "#87a06f", "#c4d6b3"] },
-      "court-ink": { "role": "primary", "displayName": "Link Green (board-safe text)", "canonical": "#7a9a6a", "tonalRamp": ["#141b10", "#212c19", "#324025", "#4a5e37", "#7a9a6a", "#9bb68c", "#c1d3b5", "#e6eee1"] },
-      "accent": { "role": "secondary", "displayName": "Marker Red", "canonical": "#e2572c", "tonalRamp": ["#2b1108", "#451c0e", "#6c2c16", "#9c3f1f", "#e2572c", "#ea7c58", "#f2a687", "#fbd9c9"] },
-      "accent-dark": { "role": "secondary", "displayName": "Marker Red (badge fill)", "canonical": "#b23c1e", "tonalRamp": ["#200c05", "#37150a", "#552111", "#7c2e18", "#b23c1e", "#cc6244", "#e29579", "#f3cebd"] },
-      "accent-ink": { "role": "secondary", "displayName": "Marker Red (board-safe text)", "canonical": "#ec6a3f", "tonalRamp": ["#2c1409", "#461f0e", "#6e2f16", "#9d431f", "#ec6a3f", "#f28a67", "#f7b39c", "#fce1d7" ] },
-      "warn": { "role": "tertiary", "displayName": "Chalk Warn Red", "canonical": "#8a2f22", "tonalRamp": ["#1a0906", "#2b0f0a", "#421710", "#601f16", "#8a2f22", "#a85847", "#c88b7d", "#e9c6bd"] },
-      "warn-wash": { "role": "tertiary", "displayName": "Warn Wash", "canonical": "#f5e3de", "tonalRamp": ["#2a130d", "#452114", "#6b3320", "#9a4c34", "#c97e64", "#e4b3a2", "#f5e3de", "#fdf6f3"] },
-      "line-surface": { "role": "neutral", "displayName": "Chalkboard Board", "canonical": "#242219", "tonalRamp": ["#0a0906", "#14130d", "#1a1811", "#242219", "#2c2a20", "#4a4739", "#7c775f", "#c2bda3"] },
-      "surface": { "role": "neutral", "displayName": "Paper Cream", "canonical": "#f3ead6", "tonalRamp": ["#3a3325", "#5c5138", "#7f704e", "#a6926a", "#cbb98d", "#e4d7bc", "#f3ead6", "#faf5ec"] },
-      "rule": { "role": "neutral", "displayName": "Paper Divider Rule", "canonical": "#cbbd98", "tonalRamp": ["#28230f", "#403a1b", "#5f5629", "#83763b", "#a9985a", "#cbbd98", "#e0d6bc", "#f1ebdd"] },
-      "court-line": { "role": "neutral", "displayName": "Board Divider Rule", "canonical": "#3a3628", "tonalRamp": ["#0e0d09", "#181610", "#241f17", "#302a1e", "#3a3628", "#5a5240", "#87805f", "#c2bb9c"] },
-      "ink": { "role": "neutral", "displayName": "Chalk Ink", "canonical": "#efe6d0", "tonalRamp": ["#3a3325", "#5c5138", "#7f704e", "#a6926a", "#cbb98d", "#e4d7bc", "#efe6d0", "#faf5ec"] },
-      "ink-soft": { "role": "neutral", "displayName": "Chalk Ink (soft)", "canonical": "#a89f89", "tonalRamp": ["#231f18", "#39332a", "#514a3d", "#6d6452", "#a89f89", "#c2bba9", "#dad5c8", "#efece5"] },
-      "ink-on-paper": { "role": "neutral", "displayName": "Paper Ink", "canonical": "#2a2418", "tonalRamp": ["#0a0805", "#131009", "#1d190f", "#2a2418", "#453c27", "#6b5e3e", "#998a5f", "#ccbf9a"] },
-      "ink-on-paper-soft": { "role": "neutral", "displayName": "Paper Ink (soft)", "canonical": "#6b6250", "tonalRamp": ["#161310", "#241f19", "#372f26", "#4d4436", "#6b6250", "#8a8069", "#aca289", "#d3ccbc"] },
-      "ink-on-court": { "role": "neutral", "displayName": "Court Ink (light-on-fill)", "canonical": "#efe6d0", "tonalRamp": ["#3a3325", "#5c5138", "#7f704e", "#a6926a", "#cbb98d", "#e4d7bc", "#efe6d0", "#faf5ec"] },
-      "ink-on-court-soft": { "role": "neutral", "displayName": "Court Ink (soft, light-on-fill)", "canonical": "#cdbfa0", "tonalRamp": ["#2a2317", "#443a26", "#655638", "#8a7950", "#cdbfa0", "#dad0ba", "#e7e0d3", "#f5f1e9"] },
-      "waiting": { "role": "neutral", "displayName": "Idle Status Dot", "canonical": "#8f8571", "tonalRamp": ["#1b1811", "#2c281c", "#423c29", "#5d5539", "#8f8571", "#aca497", "#c9c4b8", "#e6e3dc"] },
-      "tape": { "role": "neutral", "displayName": "Masking Tape", "canonical": "#d8cdb0", "tonalRamp": ["#2c2718", "#463e26", "#69603a", "#9a8f66", "#d8cdb0", "#e3dac4", "#eee8da", "#f8f4ec"] },
-      "court-wash": { "role": "neutral", "displayName": "Highlighter Wash (picked player)", "canonical": "rgba(226, 87, 44, 0.16)", "tonalRamp": ["rgba(226,87,44,0.04)", "rgba(226,87,44,0.08)", "rgba(226,87,44,0.12)", "rgba(226,87,44,0.16)", "rgba(226,87,44,0.24)", "rgba(226,87,44,0.32)", "rgba(226,87,44,0.45)", "rgba(226,87,44,0.6)"] }
+      "court": { "role": "primary", "displayName": "Court Green", "canonical": "#1f6b3d", "tonalRamp": ["#0c2416", "#123420", "#194a2c", "#1f6b3d", "#2c8a51", "#4fac71", "#8fcda3", "#d3ecdb"] },
+      "court-dark": { "role": "primary", "displayName": "Court Green (hover)", "canonical": "#185530", "tonalRamp": ["#081c10", "#0e2a19", "#123f22", "#185530", "#227342", "#3f9459", "#7fbb8d", "#c8e2ce"] },
+      "court-ink": { "role": "primary", "displayName": "Link Green", "canonical": "#1c6238", "tonalRamp": ["#0a2013", "#10301b", "#164626", "#1c6238", "#278046", "#4aa063", "#8ac89b", "#d1ecd9"] },
+      "court-soft": { "role": "primary", "displayName": "Court Wash", "canonical": "#e8f3ec", "tonalRamp": ["#123420", "#1f6b3d", "#2c8a51", "#4fac71", "#8fcda3", "#c4e4cf", "#e8f3ec", "#f6faf7"] },
+      "accent": { "role": "secondary", "displayName": "Shuttle Orange", "canonical": "#ff5a36", "tonalRamp": ["#3d1006", "#5e190a", "#8c260f", "#c33716", "#ff5a36", "#ff8264", "#ffb097", "#ffdccf"] },
+      "accent-dark": { "role": "secondary", "displayName": "Shuttle Orange (hover)", "canonical": "#e14a28", "tonalRamp": ["#33100a", "#4f1810", "#742517", "#a83521", "#e14a28", "#f27750", "#f7a483", "#fcd2c0"] },
+      "accent-soft": { "role": "secondary", "displayName": "Shuttle Orange Wash", "canonical": "#ffe9e2", "tonalRamp": ["#5e190a", "#8c260f", "#c33716", "#ff5a36", "#ff8264", "#ffcdbc", "#ffe9e2", "#fff6f3"] },
+      "accent-ink": { "role": "secondary", "displayName": "Shuttle Orange (text-safe, darkened)", "canonical": "#bd3414", "tonalRamp": ["#280b04", "#3d1207", "#5c1c0b", "#8a290f", "#bd3414", "#d55e3a", "#e8896b", "#f6c1af"] },
+      "gold": { "role": "tertiary", "displayName": "Gold (winner/top-stat only)", "canonical": "#b3801f", "tonalRamp": ["#241a05", "#392a08", "#573f0c", "#835e11", "#b3801f", "#cca44f", "#e0c589", "#f2e4c4"] },
+      "warn": { "role": "tertiary", "displayName": "Warn Red", "canonical": "#b0201a", "tonalRamp": ["#230604", "#390a08", "#57100c", "#83180f", "#b0201a", "#cc4b3f", "#e2887c", "#f5cac4"] },
+      "warn-wash": { "role": "tertiary", "displayName": "Warn Wash", "canonical": "#fdecea", "tonalRamp": ["#57100c", "#83180f", "#b0201a", "#cc4b3f", "#e2887c", "#f4c4bc", "#fdecea", "#fef8f7"] },
+      "ground": { "role": "neutral", "displayName": "Ground (light)", "canonical": "#faf8f4", "tonalRamp": ["#211f1a", "#3a372e", "#565246", "#78735f", "#a49c86", "#cec7b3", "#faf8f4", "#fffefc"] },
+      "ground-sunk": { "role": "neutral", "displayName": "Ground Sunk", "canonical": "#f2eee7", "tonalRamp": ["#211f19", "#38352b", "#544f40", "#756e59", "#a19776", "#c9c0a4", "#f2eee7", "#fbfaf7"] },
+      "surface": { "role": "neutral", "displayName": "Surface", "canonical": "#ffffff", "tonalRamp": ["#1a1a1a", "#333333", "#4d4d4d", "#666666", "#999999", "#cccccc", "#ffffff", "#ffffff"] },
+      "line": { "role": "neutral", "displayName": "Line / Border", "canonical": "#e5dfd5", "tonalRamp": ["#28241a", "#413a2b", "#5f5540", "#82755a", "#a99a79", "#cabfa4", "#e5dfd5", "#f6f3ee"] },
+      "ink": { "role": "neutral", "displayName": "Ink", "canonical": "#16130f", "tonalRamp": ["#0a0806", "#16130f", "#26221b", "#3e372b", "#5f5647", "#847968", "#a99e8b", "#d3ccc0"] },
+      "ink-soft": { "role": "neutral", "displayName": "Ink (soft)", "canonical": "#6b6459", "tonalRamp": ["#161310", "#241f1a", "#372f28", "#4d4438", "#6b6459", "#8a8271", "#aca389", "#d3ccbc"] },
+      "ink-faint": { "role": "neutral", "displayName": "Ink (faint)", "canonical": "#a49b8c", "tonalRamp": ["#211e18", "#363126", "#4f4838", "#6c634c", "#a49b8c", "#bfb7a6", "#dad4c8", "#f0ede6"] },
+      "waiting": { "role": "neutral", "displayName": "Idle Status Dot", "canonical": "#a49b8c", "tonalRamp": ["#211e18", "#363126", "#4f4838", "#6c634c", "#a49b8c", "#bfb7a6", "#dad4c8", "#f0ede6"] }
     },
     "typographyMeta": {
-      "display": { "displayName": "Marker Display", "purpose": "h1/h2 headings only — the one marker-hand moment per screen. Never for digits (no glyph coverage)." },
-      "headline": { "displayName": "Marker Headline", "purpose": "Section h2s." },
-      "title": { "displayName": "Marker Title", "purpose": "h3/h4 — court-panel and card headings." },
-      "body": { "displayName": "Work Sans / Noto Sans Thai Body", "purpose": "All body copy, form fields, buttons, data read up close." },
-      "label": { "displayName": "Work Sans Label", "purpose": "Small captions and field labels; not uppercase (Thai has no case)." }
+      "display": { "displayName": "Bai Jamjuree Display", "purpose": "Big content-is-the-point numerals — court numbers, live scores." },
+      "headline": { "displayName": "Bai Jamjuree Headline", "purpose": "h1/h2." },
+      "title": { "displayName": "Bai Jamjuree Title", "purpose": "h3/h4 — court-panel and card headings." },
+      "body": { "displayName": "Anuphan Body", "purpose": "All body copy, form fields, buttons, data read up close." },
+      "label": { "displayName": "Anuphan Label", "purpose": "Small captions and field labels; not uppercase (Thai has no case)." }
     },
     "shadows": [
-      { "name": "panel-lift", "value": "0 10px 22px -10px rgba(0,0,0,0.55), 0 2px 0 rgba(0,0,0,0.12)", "purpose": "Resting torn-paper card lift (court panel, ended banner)." },
-      { "name": "panel-glow-pending", "value": "0 0 0 2px #e2572c, 0 10px 22px -10px rgba(0,0,0,0.55)", "purpose": "Court panel awaiting host action." },
-      { "name": "panel-glow-active", "value": "0 0 0 2px #52703f, 0 10px 22px -10px rgba(0,0,0,0.55)", "purpose": "Court panel currently live." },
-      { "name": "chip-lift", "value": "0 2px 5px -1px rgba(0,0,0,0.45)", "purpose": "Paper chip lift off the board." },
-      { "name": "notice-lift", "value": "0 6px 14px -8px rgba(0,0,0,0.5)", "purpose": "Notice block / group-entry alert lift." }
+      { "name": "shadow-xs", "value": "0 1px 2px rgba(35, 28, 15, 0.06)", "purpose": "Resting buttons, chips, inputs." },
+      { "name": "shadow-sm", "value": "0 3px 10px -4px rgba(35, 28, 15, 0.14), 0 1px 2px rgba(35, 28, 15, 0.06)", "purpose": "Hovered buttons, resting court panel." },
+      { "name": "shadow-md", "value": "0 12px 28px -10px rgba(35, 28, 15, 0.18), 0 2px 6px -2px rgba(35, 28, 15, 0.08)", "purpose": "Pending/active court-panel ring's paired shadow." },
+      { "name": "shadow-lg", "value": "0 24px 56px -18px rgba(35, 28, 15, 0.24), 0 6px 16px -6px rgba(35, 28, 15, 0.1)", "purpose": "Toast." },
+      { "name": "ring-pending", "value": "0 0 0 2px #ff5a36, var(--shadow-md)", "purpose": "Court panel awaiting host action; paired with a one-shot ring-pulse animation." },
+      { "name": "ring-active", "value": "0 0 0 2px #1f6b3d, var(--shadow-md)", "purpose": "Court panel currently live; paired with translateY(-2px) lift." }
     ],
     "motion": [
-      { "name": "button-transition", "value": "background-color 120ms ease, transform 80ms ease", "purpose": "Default button state change; disabled entirely under prefers-reduced-motion." },
-      { "name": "chevron-flip", "value": "transform 150ms ease-out", "purpose": "Stats-table row-toggle chevron rotation, avoids swapping two glyphs." }
+      { "name": "ease-out", "value": "cubic-bezier(0.16, 1, 0.3, 1)", "purpose": "Default deceleration curve for state transitions and view transitions." },
+      { "name": "ease-spring", "value": "cubic-bezier(0.34, 1.56, 0.64, 1)", "purpose": "Overshoot curve for press/active-state scale transforms." },
+      { "name": "duration-fast", "value": "140ms", "purpose": "Hover/border/color transitions." },
+      { "name": "duration-base", "value": "220ms", "purpose": "Panel shadow/transform transitions, theme cross-fade, router view transition." },
+      { "name": "duration-slow", "value": "420ms", "purpose": "appReveal stagger-in rise animation." },
+      { "name": "press-spring", "value": "motion.dev spring, see core/motion/motion.ts PRESS_SPRING", "purpose": "appPress directive: real spring bounce (scale 0.94 -> 1.03 -> 1) on chips and name-taps, layered on top of the base CSS :active scale." }
     ],
     "breakpoints": [
       { "name": "tablet", "value": "48rem" },
-      { "name": "desktop-wide", "value": "64rem" }
+      { "name": "desktop-wide", "value": "64rem" },
+      { "name": "display-2up", "value": "40rem" },
+      { "name": "display-3up", "value": "64rem" }
     ]
   },
   "components": [
@@ -54,87 +59,88 @@
       "name": "Primary Button",
       "kind": "button",
       "refersTo": "button-primary",
-      "description": "Default filled confirm-green action button used across all host surfaces.",
+      "description": "Default filled court-green action button used across all host surfaces.",
       "html": "<button class=\"ds-btn-primary\">ยืนยัน</button>",
-      "css": ".ds-btn-primary { font-family: 'Work Sans', 'Noto Sans Thai', system-ui, sans-serif; font-size: 1rem; font-weight: 700; cursor: pointer; border: none; border-radius: 2px; min-height: 44px; padding: 0.65rem 1.1rem; background: #52703f; color: #efe6d0; transition: background-color 120ms ease, transform 80ms ease; } .ds-btn-primary:hover { background: #3b5230; } .ds-btn-primary:active { transform: scale(0.98); } .ds-btn-primary:focus-visible { outline: 2px solid #e2572c; outline-offset: 2px; }"
+      "css": ".ds-btn-primary { font-family: 'Anuphan', system-ui, sans-serif; font-size: 1rem; font-weight: 700; cursor: pointer; border: none; border-radius: 12px; min-height: 44px; padding: 0.65rem 1.1rem; background: #1f6b3d; color: #ffffff; box-shadow: 0 1px 2px rgba(35,28,15,0.06); transition: background-color 140ms ease, box-shadow 140ms ease, transform 140ms cubic-bezier(0.34,1.56,0.64,1); } .ds-btn-primary:hover { background: #185530; box-shadow: 0 3px 10px -4px rgba(35,28,15,0.14), 0 1px 2px rgba(35,28,15,0.06); } .ds-btn-primary:active { transform: scale(0.97); } .ds-btn-primary:focus-visible { outline: 2px solid #ff5a36; outline-offset: 2px; }"
     },
     {
       "name": "Ghost Button",
       "kind": "button",
       "refersTo": "button-ghost",
-      "description": "Outline action drawn with a hand-marked (rough-edge) border, never a straight CSS border. Used for secondary actions like Reshuffle.",
+      "description": "Outline secondary action — a real straight border, no filter or pseudo-element trickery (unlike the retired system's rough-edge device).",
       "html": "<button class=\"ds-btn-ghost\">สลับใหม่</button>",
-      "css": ".ds-btn-ghost { position: relative; display: inline-flex; align-items: center; justify-content: center; min-height: 44px; background: transparent; color: #efe6d0; border: none; padding: 0.5rem 0.9rem; font-family: 'Work Sans', 'Noto Sans Thai', system-ui, sans-serif; font-size: 0.9375rem; font-weight: 700; cursor: pointer; } .ds-btn-ghost::before { content: ''; position: absolute; inset: 0; border: 1.5px solid #a89f89; pointer-events: none; } .ds-btn-ghost:hover { background: #2c2a20; } .ds-btn-ghost:hover::before { border-color: #efe6d0; } .ds-btn-ghost:focus-visible { outline: 2px solid #e2572c; outline-offset: 2px; }"
+      "css": ".ds-btn-ghost { display: inline-flex; align-items: center; justify-content: center; min-height: 44px; background: transparent; color: #16130f; border: 1.5px solid #e5dfd5; border-radius: 12px; padding: 0.5rem 0.9rem; font-family: 'Anuphan', system-ui, sans-serif; font-size: 0.9375rem; font-weight: 700; cursor: pointer; transition: border-color 140ms ease, background-color 140ms ease, color 140ms ease; } .ds-btn-ghost:hover { background: #f2eee7; border-color: #a49b8c; } .ds-btn-ghost:focus-visible { outline: 2px solid #ff5a36; outline-offset: 2px; }"
     },
     {
       "name": "Danger Button",
       "kind": "button",
       "refersTo": "button-danger",
-      "description": "Filled irreversible-action button (delete group, end session), deliberately a different red hue from the accent.",
+      "description": "Filled irreversible-action button (delete group, end session), a distinct red hue from the accent.",
       "html": "<button class=\"ds-btn-danger\">ลบกลุ่ม</button>",
-      "css": ".ds-btn-danger { font-family: 'Work Sans', 'Noto Sans Thai', system-ui, sans-serif; font-size: 1rem; font-weight: 700; cursor: pointer; border: none; border-radius: 2px; min-height: 44px; padding: 0.65rem 1.1rem; background: #8a2f22; color: #fbeee7; transition: background-color 120ms ease; } .ds-btn-danger:hover { background: #6e2419; }"
+      "css": ".ds-btn-danger { font-family: 'Anuphan', system-ui, sans-serif; font-size: 1rem; font-weight: 700; cursor: pointer; border: none; border-radius: 12px; min-height: 44px; padding: 0.65rem 1.1rem; background: #b0201a; color: #ffffff; transition: background-color 140ms ease; } .ds-btn-danger:hover { background: #8f1a15; }"
     },
     {
       "name": "Text Input",
       "kind": "input",
       "refersTo": "input",
-      "description": "Standard field on a paper ground — used in group entry, login, court score entry.",
+      "description": "Standard field — used in group entry, login, court score entry.",
       "html": "<input class=\"ds-input\" type=\"text\" placeholder=\"ชื่อผู้เล่น\" />",
-      "css": ".ds-input { font-family: 'Work Sans', 'Noto Sans Thai', system-ui, sans-serif; font-size: 1rem; color: #2a2418; background: #f3ead6; border: 1px solid #cbbd98; border-radius: 2px; padding: 0.6rem 0.7rem; min-height: 44px; width: 100%; } .ds-input:hover { border-color: #6b6250; } .ds-input:focus { border-color: #e2572c; } .ds-input:focus-visible { outline: 2px solid #e2572c; outline-offset: 2px; }"
+      "css": ".ds-input { font-family: 'Anuphan', system-ui, sans-serif; font-size: 1rem; color: #16130f; background: #ffffff; border: 1.5px solid #e5dfd5; border-radius: 12px; padding: 0.6rem 0.7rem; min-height: 44px; width: 100%; transition: border-color 140ms ease; } .ds-input:hover { border-color: #a49b8c; } .ds-input:focus { border-color: #ff5a36; outline: none; } .ds-input:focus-visible { outline: 2px solid #ff5a36; outline-offset: 2px; }"
     },
     {
-      "name": "Paper Chip",
+      "name": "Chip",
       "kind": "chip",
       "refersTo": "chip",
-      "description": "Small rectangular paper tag — roster tags, review-list flags. Not a pill.",
+      "description": "Rounded capsule tag — roster tags, review-list flags. A full pill, not the retired system's cut-paper rectangle.",
       "html": "<span class=\"ds-chip\">สมชาย</span>",
-      "css": ".ds-chip { display: inline-flex; align-items: center; padding: 0.35rem 0.8rem; margin: 0 0.5rem 0.5rem 0; background: #f3ead6; color: #2a2418; border-radius: 2px; font-family: 'Work Sans', 'Noto Sans Thai', system-ui, sans-serif; font-size: 0.9375rem; font-weight: 700; box-shadow: 0 2px 5px -1px rgba(0,0,0,0.45); }"
+      "css": ".ds-chip { display: inline-flex; align-items: center; padding: 0.35rem 0.9rem; margin: 0 0.5rem 0.5rem 0; background: #ffffff; color: #16130f; border: 1.5px solid #e5dfd5; border-radius: 999px; font-family: 'Anuphan', system-ui, sans-serif; font-size: 0.9375rem; font-weight: 700; box-shadow: 0 1px 2px rgba(35,28,15,0.06); }"
     },
     {
       "name": "Segmented Toggle",
       "kind": "custom",
       "refersTo": "scope-toggle",
-      "description": "Hand-marked two-way switch (mode toggle, stats scope). Active segment inverts to solid dark-ink fill, never accent-colored.",
+      "description": "Two-way switch (mode toggle, per-court format, stats scope). Pill track, active segment filled surface with a light lift. Capped to content width so it never reads as a banner.",
       "html": "<div class=\"ds-scope-toggle\"><button class=\"ds-scope-btn ds-scope-btn--active\">รอบนี้</button><button class=\"ds-scope-btn\">ทั้งหมด</button></div>",
-      "css": ".ds-scope-toggle { display: flex; gap: 0.5rem; max-width: 28rem; } .ds-scope-btn { position: relative; flex: 1; min-height: 44px; background: #f3ead6; color: #6b6250; border: none; font-family: 'Work Sans', 'Noto Sans Thai', system-ui, sans-serif; font-size: 0.9375rem; font-weight: 600; cursor: pointer; } .ds-scope-btn::before { content: ''; position: absolute; inset: 0; border: 1px solid #cbbd98; pointer-events: none; } .ds-scope-btn--active { background: #2a2418; color: #f3ead6; } .ds-scope-btn--active::before { border-color: #2a2418; } .ds-scope-btn:hover:not(.ds-scope-btn--active) { color: #2a2418; }"
+      "css": ".ds-scope-toggle { display: flex; gap: 2px; padding: 2px; background: #f2eee7; border: 1px solid #e5dfd5; border-radius: 999px; max-width: 28rem; } .ds-scope-btn { flex: 1; min-height: 40px; background: transparent; color: #6b6459; border: none; border-radius: 999px; font-size: 0.9375rem; font-weight: 600; cursor: pointer; } .ds-scope-btn--active { background: #ffffff; color: #16130f; box-shadow: 0 1px 2px rgba(35,28,15,0.06); } .ds-scope-btn:not(.ds-scope-btn--active):hover { color: #16130f; }"
     },
     {
       "name": "Court Panel Card",
       "kind": "card",
       "refersTo": "court-panel",
-      "description": "Signature torn-paper card taped to the board at a slight tilt, with a state-colored glow ring (idle/pending/active) — the app's central recurring component.",
-      "html": "<div class=\"ds-court-panel\"><div class=\"ds-court-panel__tape\"></div><h4 class=\"ds-court-panel__title\">คอร์ท <span class=\"ds-court-num\">1</span></h4><p class=\"ds-court-panel__matchup\">สมชาย &amp; มานะ <span class=\"ds-court-panel__vs\">vs</span> วิชัย &amp; ประยุทธ</p></div>",
-      "css": ".ds-court-panel { position: relative; background: #f3ead6; color: #2a2418; padding: 0.75rem 1.5rem 1.5rem; box-shadow: 0 0 0 2px #52703f, 0 10px 22px -10px rgba(0,0,0,0.55); transform: rotate(-0.4deg); font-family: 'Work Sans', 'Noto Sans Thai', system-ui, sans-serif; } .ds-court-panel__tape { position: absolute; top: -0.55rem; left: 1.4rem; width: 2.2rem; height: 1rem; background: #d8cdb0; opacity: 0.85; transform: rotate(-3deg); } .ds-court-panel__title { font-family: 'Permanent Marker', 'Noto Sans Thai', cursive, sans-serif; font-weight: 400; font-size: 1.375rem; margin: 0 0 0.75rem; } .ds-court-num { font-family: 'Work Sans', 'Noto Sans Thai', system-ui, sans-serif; } .ds-court-panel__matchup { font-weight: 600; font-size: 1.125rem; margin: 0; } .ds-court-panel__vs { color: #6b6250; font-weight: 400; font-size: 0.9em; margin: 0 0.4em; }"
+      "description": "The app's central recurring component: a flat, real-equipment card that lifts and rings orange (pending) or green (active) by elevation and a colored ring, with no tilt or tape.",
+      "html": "<div class=\"ds-court-panel\"><h4 class=\"ds-court-panel__title\">คอร์ท <span class=\"ds-court-num\">1</span></h4><p class=\"ds-court-panel__matchup\">สมชาย &amp; มานะ <span class=\"ds-court-panel__vs\">vs</span> วิชัย &amp; ประยุทธ</p></div>",
+      "css": ".ds-court-panel { position: relative; background: #ffffff; color: #16130f; border-radius: 22px; padding: 0.75rem 1.5rem 1.5rem; box-shadow: 0 0 0 2px #1f6b3d, 0 12px 28px -10px rgba(35,28,15,0.18), 0 2px 6px -2px rgba(35,28,15,0.08); font-family: 'Anuphan', system-ui, sans-serif; } .ds-court-panel__title { font-family: 'Bai Jamjuree', 'Anuphan', system-ui, sans-serif; font-weight: 700; font-size: 1.75rem; color: #1f6b3d; margin: 0 0 0.75rem; } .ds-court-num { font-family: 'Bai Jamjuree', 'Anuphan', system-ui, sans-serif; } .ds-court-panel__matchup { font-weight: 600; font-size: 1.125rem; margin: 0; } .ds-court-panel__vs { color: #6b6459; font-weight: 400; font-size: 0.9em; margin: 0 0.4em; }"
     }
   ],
   "narrative": {
-    "northStar": "The Draw Sheet",
-    "overview": "JubBad's host-facing world is a courtside chalkboard: a dark chalkboard ground carries the page itself, and warm cream paper is reserved for anything that reads as a card, a chip, an input, or a control someone would actually mark up — court panels, roster tags, form fields. Panels are torn-paper cards taped at a slight tilt rather than clean SaaS-dashboard tiles; headings are set in a genuine marker-stroke hand; a single reserved marker-red carries every 'needs the host's attention' signal, and nothing else borrows it. The system explicitly refuses the clean-card software-console default in favor of something that looks handled between rounds, not assembled.\n\nThe public/read surfaces (session display, session summary, player profile) inherit the same board-and-paper world but shift register: the wall-mounted session display goes one shade darker still and scales in vmin for legibility across a room, dropping the tape/shadow paper-card detail since it is invisible at that distance and using plain bordered boxes instead.",
+    "northStar": "Daylight Court",
+    "overview": "JubBad's world is a bright indoor court on a sunny afternoon: one overhead light source, real equipment-grade rounding, and a court-green/shuttle-orange pair that does all the signalling. Ground and surface now sit in the same lightness family in both the light and dark themes — depth is carried by elevation (soft, blurred, warm-tinted shadow) and a colored ring, not by a hard jump between a dark board and light paper. This replaces the retired 'Draw Sheet' world (dark chalkboard, taped paper cards, Permanent Marker) outright: there is no tape, no tilt, no rough-edge filter, and no hand-marked display face anywhere in the shipped system.\n\nTypography pairs Bai Jamjuree (display/numerals) with Anuphan (text/UI) — a single Cadson Demak pairing designed to sit together, both with full Thai and Latin coverage. This retires the old digit-fallback-to-Thai-numerals bug class entirely: there is no longer a font in the stack that lacks Arabic numeral glyphs, so no heading or stat needs a defensive numeral wrapper.\n\nThe system ships two themes (light and dark, auto via prefers-color-scheme or an explicit toggle) and one deliberate exception: the venue/TV display route is pinned dark regardless of the visitor's theme choice, because it is furniture in a room, not a screen someone holds. A recurring feather-arc mark is the one signature device, reused structurally as the app mark, a loading spinner, and — thickened into 3D — the emblem behind five of the app's routes, never as one-off decoration.",
     "keyCharacteristics": [
-      "Dark chalkboard ground (--line-surface, radial #2c2a20→#242219→#1a1811) on every host and display surface; cream paper (--surface) only for card/chip/input surfaces.",
-      "One reserved marker-red accent (--accent) for \"needs the host's attention now\"; ordinary navigation uses a separate green (--court-ink), never accent.",
-      "Two ink pairs (board ink vs. paper ink) plus a brighter \"-ink\" variant set for small text directly on the board, rescoped back to paper-safe values inside any paper container.",
-      "Hand-drawn borders (shared SVG #rough-edge filter) on every ghost button and segmented toggle, added in the fix round after review flagged the toolbar as razor-straight — now load-bearing across all 7 surfaces.",
-      "Torn-paper cards (tilt, tape strip, soft blurred lift shadow) for court panels and notice/banner blocks; square 2px corners throughout, no pills except the reserved --radius-pill for toggle-adjacent tags."
+      "One lightness family for ground and surface in both themes (--ground/--surface); depth comes from --shadow-xs/sm/md/lg and a colored ring, not a ground/surface color jump.",
+      "A structural green (--court) carries the primary action, the \"live\" state, and ordinary navigation on purpose — all three are \"the good, expected path.\" A reserved shuttle-orange (--accent) means \"the host must act on this court right now\" and nothing else.",
+      "Real rounding throughout (--radius 12px controls, --radius-lg 22px cards/panels/dialogs, --radius-pill capsules) — equipment and courts, not cut paper.",
+      "One inline feather-arc SVG symbol, reused as the app mark, the .feather-arc.spin loading indicator, and — extruded from the same bezier paths into a beveled 3D emblem via three.js's ExtrudeGeometry — the hero object on five routes (never on session-dashboard/court-panel, for battery/thermal reasons on a long one-handed session). Three earlier passes sculpted a shuttlecock from primitive geometry and each read as a different wrong object (a spiky cone, a woven basket, a lampshade); extruding the app's own proven 2D mark removed that risk instead of iterating through it.",
+      "A shared CSS motion vocabulary (--ease-out, --ease-spring, --duration-fast/base/slow) plus a small set of Angular motion directives (appPress spring bounce, appReveal CSS-only stagger-in, appFlipList FLIP reorder) — deliberately CSS/timeline-driven rather than per-frame JS state writes, after an earlier JS-tween version intermittently raced test infrastructure."
     ],
     "rules": [
-      { "name": "The Two-Ground Ink Rule", "body": "Every screen has two grounds — the dark board and cream paper — and each has its own ink pair (--ink/--ink-soft for board, --ink-on-paper/--ink-on-paper-soft for paper). Swapping them is the single easiest way to make text vanish in this system; any new paper-surfaced container must rescope --ink, --ink-soft, and --error-ink via custom-property overrides, following .court-panel/.notice-block/.ended-banner/.remove-confirm.", "section": "colors" },
-      { "name": "The One Red Rule", "body": "--accent means \"the host must act on this now\" and only that — never ordinary navigation (that's --court-ink) and never the primary/confirm action (that's --court). Diluting it into a general-purpose highlight removes the one signal the host actually needs at a glance.", "section": "colors" },
-      { "name": "The Digit Fallback Rule", "body": "Permanent Marker has no digit glyphs, so any numeral set in it silently falls back through the stack to Noto Sans Thai, which under lang=\"th\" renders Thai numeral forms (๑๒๓) instead of Arabic digits. Every heading or stat that mixes a Thai/marker label with a raw number wraps the number in its own span forced to --font-text — see .court-num, .board-date, .review-index, .court-number (session display) as the canonical instances. Any new heading containing a number must follow this pattern, not just the four places already fixed.", "section": "typography" },
-      { "name": "The Soft-Lift-Only Rule", "body": "Any shadow in this system is a soft, blurred, offset lift signaling a paper object resting on the board — never a hard-edged or zero-blur shadow, which does not belong to this world's paper-and-chalk material logic.", "section": "elevation" }
+      { "name": "The One Ground Rule", "body": "Ground and surface sit in the same lightness family in both themes; a card reads as \"the same light, slightly raised,\" never a second material. Depth is elevation's job (--shadow-*) and a colored ring, not a color-family jump — the retired system's two-ground/two-ink split (dark board vs. light paper) is gone because this world no longer has two materials to ink for. --ink-on-paper/--ink-on-paper-soft/--ink-on-court/--ink-on-court-soft still exist as CSS custom properties (plain aliases of --ink/--ink-soft) purely so pre-existing component CSS that rescopes them keeps working; they carry no independent value and should not be treated as a live two-ground system in new work.", "section": "colors" },
+      { "name": "The One Orange Rule", "body": "--accent means \"the host must act on this court right now\" and only that — never the primary/confirm action (--court) and never ordinary navigation (--court-ink). Diluting it into a general highlight removes the one signal the host actually needs at a glance.", "section": "colors" },
+      { "name": "The Real Digit Rule", "body": "Both display and body fonts carry native Arabic numeral glyphs, so no numeral in this system silently falls back to another script's digit forms. .court-num and .board-date remain in the DOM only because 19 spec files bind to them via querySelector; they carry no defensive numeral-wrapping behavior and none is required of new work.", "section": "typography" },
+      { "name": "The Ring-Over-Shadow Rule", "body": "State on a court panel is a colored ring (0 0 0 2px var(--accent|--court)) layered in front of the panel's own elevation shadow, animated as a transition rather than a hard cut between three static shadow recipes — pending pulses once (ring-pulse), active settles to a lifted translateY(-2px).", "section": "elevation" }
     ],
     "dos": [
-      "Do keep --accent (marker red) reserved for \"the host must act on this now\" only — pending states, new/fuzzy roster flags, the danger-zone border — never for ordinary navigation or the primary action.",
-      "Do rescope --ink/--ink-soft/--error-ink via CSS custom-property overrides on any new paper-surfaced container (following .court-panel, .notice-block, .ended-banner, .remove-confirm), so nothing inside silently inherits board-ink values against a paper background.",
-      "Do wrap any digit sequence that appears inside a Permanent-Marker-styled heading or label in its own --font-text span, so Thai numeral fallback never silently replaces Arabic digits.",
-      "Do draw outline-button and segmented-toggle borders via the shared #rough-edge filter ::before, keeping the element's own border: none so the filter never displaces the label text itself.",
-      "Do use soft, blurred, offset shadows for anything meant to read as a paper object lifted off the board; never a hard or zero-blur shadow."
+      "Do keep --accent (shuttle orange) reserved for \"the host must act on this court now\" only — the pending ring/pulse, a real password-reset match — never for the primary action or ordinary navigation.",
+      "Do use --accent-ink (#bd3414), not the base --accent, for any accent-hued body text, since the base hue falls just under 4.5:1 contrast on white.",
+      "Do treat elevation (--shadow-xs/sm/md/lg) plus a colored ring as the only way to signal a raised object or its state — never a hard-edged or zero-blur shadow.",
+      "Do gate any new 3D/WebGL mount through <app-scene-host> rather than a bespoke canvas, so the reduced-motion/low-core/data-saver/off-screen fallback to the flat feather-mark poster is never reimplemented per call site.",
+      "Do keep motion that drives visible state (reveals, odometers, live numerals) CSS/timeline-driven rather than a per-frame JS write into a signal — appReveal and Odometer both document a real test race this caused previously."
     ],
     "donts": [
-      "Don't round a court panel, chip, or button beyond the system's 2px --radius — this is cut paper, not a rounded UI kit; reserve --radius-pill for the rare capsule-shaped badge/tag.",
-      "Don't set a whole paragraph, or any numeral, in Permanent Marker — it has no digit glyphs and is legible only at heading sizes, not body-copy length.",
-      "Don't use --accent/--accent-ink for the primary/confirm action or for routine links — that collapses the app's one deliberate \"look here\" signal into generic decoration.",
-      "Don't let a segmented toggle (.scope-toggle) stretch full-width on a wide viewport — it is a setting, not a banner, and must stay thumb-width."
+      "Don't reintroduce a hand-drawn, rough-edge, or wobbled border anywhere — every border in this system is a plain straight --line stroke; the retired system's #rough-edge SVG filter is gone entirely, not an option to bring back for a \"textured\" moment.",
+      "Don't set a court panel, dialog, or notice block to less than --radius-lg (22px), or a control below --radius (12px)/--radius-pill — this is rounded equipment, not the retired system's cut-paper 2px corners.",
+      "Don't mount <app-scene-host> on session-dashboard or court-panel — the always-visible, hours-long, one-handed surface stays WebGL-free for battery and thermal reasons.",
+      "Don't let a segmented toggle (.scope-toggle) stretch full-width on a wide viewport — it is a setting, not a banner, and must stay thumb-width.",
+      "Don't rename or remove .court-num, .board-date, or any other class 19 spec files bind to via querySelector — new classes/attributes are additive only in this codebase."
     ]
   }
 }

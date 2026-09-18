@@ -1,20 +1,13 @@
-/* The one marker-hand moment on this screen — everything below it is dense
-   utility chrome read up close, so the page needs exactly one thing that
-   reads like it was written on the board rather than assembled from parts. */
+/* The one display-face moment on this screen — everything below it is dense
+   utility chrome read up close. No tilt: the retired chalkboard world tilted
+   this a degree off true to read as handwriting; Daylight Court's headings
+   sit straight, the weight of the display face doing the work instead. */
 .board-head {
   margin-bottom: var(--space-3);
 }
 
-.board-head h1 {
-  transform: rotate(-0.6deg);
-  transform-origin: left center;
-}
-
-/* Not the inherited h1 marker face: this is an ISO date (or, absent one, a
-   session code) — digits either way, and Permanent Marker has no digit
-   glyphs to give them. Same fix as .court-num in court-panel.css. */
 .board-date {
-  font-family: var(--font-text);
+  font-family: var(--font-display);
 }
 
 .board-head .sub {
@@ -28,12 +21,6 @@
    control row, and three across squeezes all of that below a readable width.
    .page-wide still earns its place here: it is what makes each of the two
    columns wide enough for the tally layout to breathe. */
-/* minmax(0, 1fr), never a bare 1fr. A bare `1fr` is `minmax(auto, 1fr)`, so a
-   column refuses to shrink below its content's min-content width — and a court
-   panel's min-content is its two side-by-side buttons with Thai labels. That
-   pushed the grid wider than the phone viewport and took the whole page with
-   it: panels clipped at the right edge, and the roster chips above wrapped to
-   the blown-out width instead of the screen. */
 .courts-list {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
@@ -48,9 +35,8 @@
   }
 
   /* An odd court count (1, or 3+) leaves its last card alone in the final
-     row. Left-aligned, that card sits at the left edge beside a dead half —
-     centering it at the same width its neighbours would have makes the lone
-     card read as a deliberate single court, not a row that ran out. */
+     row. Centered at the same width its neighbours would have, so the lone
+     card reads as a deliberate single court, not a row that ran out. */
   .courts-list > app-court-panel:last-child:nth-child(odd) {
     grid-column: 1 / -1;
     justify-self: center;
@@ -58,8 +44,6 @@
   }
 }
 
-/* The component host is the grid child, so the panel inside it can only fill
-   the stretched row height if the host stretches too. */
 .courts-list app-court-panel {
   display: flex;
   flex-direction: column;
@@ -73,20 +57,26 @@
 /* The roster chips are the rest control. A resting player stays visible and
    legible — the host still needs to find them to tap them back in — so this is
    a struck-through muted state, not a hidden one. */
+.roster-chips {
+  display: flex;
+  flex-wrap: wrap;
+}
+
 .roster-chips .chip {
   cursor: pointer;
   min-height: var(--tap);
   font: inherit;
   font-size: var(--text-sm);
   font-weight: 700;
-  color: var(--ink-on-paper);
+  color: var(--ink);
 }
 
 .roster-chips .chip.resting {
   background: transparent;
-  color: var(--ink-soft);
+  color: var(--ink-faint);
   border-style: dashed;
   text-decoration: line-through;
+  box-shadow: none;
 }
 
 .roster-chips .chip:disabled {
@@ -97,35 +87,28 @@
 @media (hover: hover) {
   .roster-chips .chip:hover:not(:disabled) {
     border-color: var(--court);
-    background: var(--surface);
+    background: var(--court-soft);
   }
 }
 
 .wait-mins {
   margin-left: var(--space-0);
-  color: var(--ink-on-paper-soft);
+  color: var(--ink-soft);
   font-size: var(--text-xs);
 }
 
 /* The two controls that decide how courts get filled, sitting together on one
-   line directly above the courts they act on. The mode switch used to live far
-   below the courts, between the waitlist and the share button, at full page
-   width — a setting the size of a primary action, nowhere near what it
-   affects. */
+   line directly above the courts they act on. */
 .court-toolbar {
   display: flex;
   flex-wrap: wrap;
   align-items: flex-start;
   justify-content: space-between;
-  /* The wide gap is doing real work: it is the only thing separating two
-     settings that sit shoulder to shoulder at the same end of the row. */
   gap: var(--space-2) var(--space-3);
   margin-top: var(--space-3);
 }
 
 .mode-toggle {
-  /* Sizes to its content instead of stretching, and sits at the end of the
-     toolbar so the primary action keeps the leading edge. */
   margin-left: auto;
   text-align: right;
 }
@@ -138,10 +121,6 @@
   margin-bottom: var(--space-0);
 }
 
-/* A setting, not an action. What made it look oversized was width — two
-   segments stretched across the whole page — so this takes the width back and
-   leaves the height alone: it is still a finger target, and still matches the
-   height of the action it sits beside so the toolbar reads as one row. */
 .mode-toggle .scope-toggle {
   margin-bottom: 0;
   justify-content: flex-end;
@@ -153,10 +132,6 @@
   font-size: var(--text-xs);
 }
 
-/* Capped narrow on purpose. Both settings sit at the same end of the toolbar,
-   so two single-line hints ended up abutting and read as one run-on sentence
-   across the top of the screen. Forced to wrap, each reads as its own block
-   under its own control. */
 .mode-hint {
   margin: var(--space-0) 0 0;
   max-width: 9rem;
@@ -166,8 +141,6 @@
   color: var(--ink-soft);
 }
 
-/* Same shape as the mode toggle — both are settings that sit at the trailing
-   edge of the toolbar, so they read as one group rather than two widgets. */
 .court-count {
   text-align: right;
 }
@@ -194,34 +167,23 @@
 
 /* The one thing a host revisiting an ended session's dashboard actually wants
    is the recap — top of the page, real buttons, not a wall of now-dead live
-   controls to scroll past first. Cut from the same paper stock as a court
-   card, since this is the single most important note on the page. */
+   controls to scroll past first. A raised card like any other, no more the
+   single most-decorated element on the page — the copy and the gold accent
+   line are what say "this matters", not a taped note. */
 .ended-banner {
   position: relative;
   padding: var(--space-3);
   background: var(--surface);
-  color: var(--ink-on-paper);
-  --ink: var(--ink-on-paper);
-  --ink-soft: var(--ink-on-paper-soft);
-  --error-ink: var(--warn);
-  border-radius: var(--radius);
-  box-shadow: 0 8px 18px -8px rgba(0, 0, 0, 0.5);
-}
-
-.ended-banner::before {
-  content: '';
-  position: absolute;
-  top: -0.5rem;
-  left: 1.5rem;
-  width: 2.1rem;
-  height: 1rem;
-  background: var(--tape);
-  opacity: 0.85;
-  transform: rotate(-3deg);
+  color: var(--ink);
+  border-radius: var(--radius-lg);
+  border-top: 3px solid var(--gold);
+  box-shadow: var(--shadow-md);
 }
 
 .ended-notice {
   margin: 0 0 var(--space-2);
+  font-family: var(--font-display);
+  font-size: var(--text-xl);
   font-weight: 700;
 }
 
@@ -236,20 +198,6 @@
   min-width: 10rem;
 }
 
-/* `.ghost` is drawn for the dark board; inside this paper card it needs the
-   paper ink, or the button's own label disappears against its background. */
-.ended-banner .ghost {
-  color: var(--ink-on-paper);
-  border-color: var(--ink-on-paper-soft);
-}
-
-@media (hover: hover) {
-  .ended-banner .ghost:hover {
-    background: var(--surface);
-    border-color: var(--ink-on-paper);
-  }
-}
-
 /* An <a> styled to match the base button, since RouterLink navigation belongs
    on an anchor while the rest of this row is <button>. */
 .btn-link {
@@ -260,14 +208,17 @@
   padding: 0.65rem 1.1rem;
   border-radius: var(--radius);
   background: var(--court);
-  color: var(--ink-on-court);
+  color: #ffffff;
   font-weight: 600;
   text-decoration: none;
+  box-shadow: var(--shadow-xs);
+  transition: background-color var(--duration-fast) ease;
 }
 
 @media (hover: hover) {
   .btn-link:hover {
     background: var(--court-dark);
+    box-shadow: var(--shadow-sm);
   }
 }
 
@@ -312,31 +263,30 @@
   }
 }
 
-/* A waiting player is tapped onto a court, so the chip is a button. It keeps
-   the chip's look; only the affordances are new.
+/* A waiting player is tapped onto a court, so the chip is a button. */
+.waiting-queue {
+  display: flex;
+  flex-wrap: wrap;
+}
 
-   The base button colour is light-on-court-green, which left the player's name
-   invisible against the chip's pale surface until a hover darkened the
-   background. The chip carries its own light background, so it needs the dark
-   ink to match — including on hover, where the background must stay light. */
 .waiting-queue .chip-pick {
   font: inherit;
   font-size: var(--text-sm);
   font-weight: 700;
-  color: var(--ink-on-paper);
+  color: var(--ink);
   min-height: var(--tap);
   cursor: pointer;
 }
 
 @media (hover: hover) {
   .waiting-queue .chip-pick:hover {
-    background: var(--surface);
+    background: var(--court-soft);
     border-color: var(--court);
   }
 }
 
 .waiting-queue .chip-pick.is-picked,
 .waiting-queue .chip-pick.is-picked:hover {
-  outline: 2px solid var(--court);
-  background: var(--court-wash);
+  box-shadow: 0 0 0 2px var(--court);
+  background: var(--court-soft);
 }

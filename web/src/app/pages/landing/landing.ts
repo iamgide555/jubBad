@@ -4,6 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
 import { AuthService } from '../../core/auth.service';
+import { SceneHost } from '../../core/three/scene-host';
 import { environment } from '../../../environments/environment';
 
 export interface GroupSummary {
@@ -22,7 +23,7 @@ export interface GroupSummary {
  */
 @Component({
   selector: 'app-landing',
-  imports: [FormsModule, RouterLink],
+  imports: [FormsModule, RouterLink, SceneHost],
   templateUrl: './landing.html',
   styleUrl: './landing.css',
 })

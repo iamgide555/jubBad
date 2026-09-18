@@ -24,15 +24,42 @@
   font-size: var(--text-sm);
 }
 
+/* Strips the button.ghost chrome (border, radius, min-height, background)
+   back down to plain header text — a sortable column header should read as
+   a header first, a control second. Without this it rendered as a visible
+   outlined pill next to two plain-text headers (ลำดับ, ชื่อ) in the same
+   row, two visual languages in one header. The `::after` arrow, shown only
+   on the active column, is what still says "this is sortable" instead. */
 .sort-head {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3em;
   padding: 0;
+  min-height: 0;
+  background: none;
+  border: none;
+  box-shadow: none;
   font: inherit;
   color: inherit;
+}
+
+@media (hover: hover) {
+  .sort-head:hover {
+    background: none;
+    border: none;
+    color: var(--ink);
+  }
 }
 
 .sort-head.active {
   color: var(--ink);
   font-weight: 700;
+}
+
+.sort-head.active::after {
+  content: '▾';
+  font-size: 0.75em;
+  color: var(--ink-soft);
 }
 
 .edit-form {

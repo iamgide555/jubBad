@@ -4,10 +4,29 @@
    scales with the *smaller* viewport axis rather than width alone — a landscape
    tablet and a wall TV both fill, and neither overflows. */
 .display {
+  position: relative;
   max-width: none;
   min-height: 100dvh;
   display: flex;
   flex-direction: column;
+}
+
+/* An ambient detail on the wall behind the court data, never competing with
+   it — the shuttle drifts slowly and far back; every actual reading task on
+   this screen (who's up next) is answered by the DOM content in front of it.
+   `transparent: false` on the scene host paints its own near-black ground,
+   matching .page-dark's own #0a0e0b exactly, so there is no seam between the
+   canvas and the page behind it. */
+.display-backdrop {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  opacity: 0.6;
+}
+
+.display > :not(.display-backdrop) {
+  position: relative;
+  z-index: 1;
 }
 
 .display h1 {
@@ -65,9 +84,9 @@
   border-color: var(--accent);
 }
 
-/* Not var(--font-display): Permanent Marker has no digit glyphs, and this is
-   read from across a hall — a font fallback silently swapping in Thai
-   numeral forms is the single worst place for that to happen unnoticed. */
+/* Inherits var(--font-text) (Anuphan) rather than the display face —
+   Bai Jamjuree has real digit glyphs now, unlike the retired Permanent
+   Marker, so this is a style choice rather than a fallback-safety one. */
 .court-number {
   font-weight: 800;
   /* vmin so a wide-but-short wall TV scales on the axis that actually

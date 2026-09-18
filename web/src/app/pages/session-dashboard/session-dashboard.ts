@@ -7,13 +7,17 @@ import { absoluteUrl, copyToClipboard } from '../../core/share-link';
 import { resolvePlayerNames } from '../../core/player-names';
 import { buildWaitingList } from '../../core/waiting-time';
 import { SwapSelectionService, type SwapPick } from '../../core/swap-selection.service';
+import { FlipListDirective } from '../../core/motion/flip-list.directive';
+import { Odometer } from '../../core/motion/odometer';
+import { PressDirective } from '../../core/motion/press.directive';
+import { RevealDirective } from '../../core/motion/reveal.directive';
 import { CourtPanel } from './court-panel/court-panel';
 import type { Player } from '../../../../../engines/fuzzy-match.ts';
 import type { PlayerStat } from '../../core/stats.model';
 
 @Component({
   selector: 'app-session-dashboard',
-  imports: [CourtPanel, RouterLink],
+  imports: [CourtPanel, RouterLink, FlipListDirective, Odometer, PressDirective, RevealDirective],
   providers: [LiveSessionService],
   templateUrl: './session-dashboard.html',
   styleUrl: './session-dashboard.css',

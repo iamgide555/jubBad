@@ -3,6 +3,9 @@
     @if (isHost()) {
       <p><a [routerLink]="['/g', s.session.groupCode]" i18n="@@summary.back">← กลับ</a></p>
     }
+    <div class="summary-hero" aria-hidden="true">
+      <app-scene-host variant="hero" />
+    </div>
     <h1 i18n="@@summary.title">สรุปก๊วน</h1>
     <p class="muted">
       {{ s.session.date }}

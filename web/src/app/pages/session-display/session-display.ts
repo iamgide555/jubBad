@@ -4,12 +4,13 @@ import { environment } from '../../../environments/environment';
 import { LiveSessionService } from '../../core/live-session.service';
 import { resolvePlayerNames } from '../../core/player-names';
 import { buildWaitingList } from '../../core/waiting-time';
+import { SceneHost } from '../../core/three/scene-host';
 import type { Group } from '../../core/group.model';
 import type { Player } from '../../../../../engines/fuzzy-match.ts';
 
 @Component({
   selector: 'app-session-display',
-  imports: [],
+  imports: [SceneHost],
   providers: [LiveSessionService],
   templateUrl: './session-display.html',
   styleUrl: './session-display.css',

@@ -3,25 +3,28 @@
     @if (canGoBack()) {
       <p><a [routerLink]="['/g', groupCode]" i18n="@@profile.back">← กลับ</a></p>
     }
+    <div class="profile-hero" aria-hidden="true">
+      <app-scene-host variant="hero" />
+    </div>
     <h1>{{ p.name }}</h1>
 
     <div class="stat-row">
       <div class="stat">
-        <span class="stat-value">{{ p.played }}</span>
+        <span class="stat-value"><app-odometer [value]="p.played" /></span>
         <span class="stat-label" i18n="@@profile.played">เล่น</span>
       </div>
       <div class="stat">
-        <span class="stat-value">{{ p.won }}</span>
+        <span class="stat-value"><app-odometer [value]="p.won" /></span>
         <span class="stat-label" i18n="@@profile.won">ชนะ</span>
       </div>
       <div class="stat">
         <span class="stat-value">
-          @if (winPercent() === null) { – } @else { {{ winPercent() }}% }
+          @if (winPercent() === null) { – } @else { <app-odometer [value]="winPercent()!" />% }
         </span>
         <span class="stat-label" i18n="@@profile.winRate">อัตราชนะ</span>
       </div>
       <div class="stat">
-        <span class="stat-value">{{ p.rating }}</span>
+        <span class="stat-value"><app-odometer [value]="p.rating" /></span>
         @if (p.singlesRating !== null) {
           <span class="stat-label" i18n="@@profile.ratingDoubles">เรตติ้งคู่</span>
         } @else {
@@ -30,7 +33,7 @@
       </div>
       @if (p.singlesRating !== null) {
         <div class="stat">
-          <span class="stat-value">{{ p.singlesRating }}</span>
+          <span class="stat-value"><app-odometer [value]="p.singlesRating" /></span>
           <span class="stat-label" i18n="@@profile.ratingSingles">เรตติ้งเดี่ยว</span>
         </div>
       }

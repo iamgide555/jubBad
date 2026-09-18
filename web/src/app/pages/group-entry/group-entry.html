@@ -1,54 +1,63 @@
 <div class="page group-entry">
   <p><a [routerLink]="['/']" i18n="@@entry.back">← กลับ</a></p>
-  <label>
-    <ng-container i18n="@@entry.groupName">ชื่อก๊วน</ng-container>
-    <input type="text" [(ngModel)]="groupName" [disabled]="isRenaming()" [attr.aria-busy]="isRenaming()" (blur)="saveGroupName()" i18n-placeholder="@@entry.groupNamePlaceholder" placeholder="เช่น ก๊วนอังคาร" />
-  </label>
-  @if (isRenaming()) {
-    <p class="muted" i18n="@@entry.savingGroup">กำลังบันทึกชื่อก๊วน...</p>
-  }
-  @if (renameError()) {
-    <p class="error">
-      {{ renameError() }}
-      <button type="button" class="ghost" [disabled]="isRenaming()" (click)="saveGroupName()" i18n="@@entry.retry">ลองอีกครั้ง</button>
-    </p>
-  }
 
-  @if (lastSessionCode()) {
-    <p><a [routerLink]="['/s', lastSessionCode()]" i18n="@@entry.resumeLast">กลับไปก๊วนล่าสุด →</a></p>
-  }
+  <div class="entry-card" [appReveal]="0">
+    <label>
+      <ng-container i18n="@@entry.groupName">ชื่อก๊วน</ng-container>
+      <input type="text" [(ngModel)]="groupName" [disabled]="isRenaming()" [attr.aria-busy]="isRenaming()" (blur)="saveGroupName()" i18n-placeholder="@@entry.groupNamePlaceholder" placeholder="เช่น ก๊วนอังคาร" />
+    </label>
+    @if (isRenaming()) {
+      <p class="muted" i18n="@@entry.savingGroup">กำลังบันทึกชื่อก๊วน...</p>
+    }
+    @if (renameError()) {
+      <p class="error">
+        {{ renameError() }}
+        <button type="button" class="ghost" [disabled]="isRenaming()" (click)="saveGroupName()" i18n="@@entry.retry">ลองอีกครั้ง</button>
+      </p>
+    }
+
+    @if (lastSessionCode()) {
+      <p class="resume-link"><a [routerLink]="['/s', lastSessionCode()]" i18n="@@entry.resumeLast">กลับไปก๊วนล่าสุด →</a></p>
+    }
+  </div>
 
   @if (state() === 'paste' && pastSessions().length > 0) {
-    <hr class="rule" />
-    <h4 class="label" i18n="@@entry.pastSessions">ก๊วนที่ผ่านมา</h4>
-    <ul class="session-list">
-      @for (s of pastSessions(); track s.code) {
-        <li>
-          <a [routerLink]="['/s', s.code]">{{ s.date ?? s.code }}</a>
-          @if (s.venue) { <span class="muted">· {{ s.venue }}</span> }
-          <span class="muted">· {{ s.matchCount }} <ng-container i18n="@@entry.matches">แมตช์</ng-container></span>
-          @if (!s.endedAt) { <span class="live-tag" i18n="@@entry.stillOpen">ยังไม่จบ</span> }
-        </li>
-      }
-    </ul>
+    <div class="entry-card" [appReveal]="1">
+      <h4 class="label" i18n="@@entry.pastSessions">ก๊วนที่ผ่านมา</h4>
+      <ul class="session-list">
+        @for (s of pastSessions(); track s.code) {
+          <li>
+            <a [routerLink]="['/s', s.code]">{{ s.date ?? s.code }}</a>
+            @if (s.venue) { <span class="muted">· {{ s.venue }}</span> }
+            <span class="muted">· {{ s.matchCount }} <ng-container i18n="@@entry.matches">แมตช์</ng-container></span>
+            @if (!s.endedAt) { <span class="live-tag" i18n="@@entry.stillOpen">ยังไม่จบ</span> }
+          </li>
+        }
+      </ul>
+    </div>
   }
 
   @if (state() === 'paste') {
-    <hr class="rule" />
-    <label>
-      <ng-container i18n="@@entry.rosterMessage">ข้อความรายชื่อ</ng-container>
+    <div class="entry-card paste-card" [appReveal]="2">
+      <div class="paste-card-head">
+        <app-icon name="feather" [size]="18" />
+        <label>
+          <ng-container i18n="@@entry.rosterMessage">ข้อความรายชื่อ</ng-container>
+        </label>
+      </div>
       <textarea [(ngModel)]="rawText" rows="15" i18n-placeholder="@@entry.rosterPlaceholder" placeholder="วางข้อความรายชื่อจากไลน์ที่นี่"></textarea>
-    </label>
-    @if (pasteError()) {
-      <p class="error">{{ pasteError() }}</p>
-    }
-    <button type="button" [disabled]="isParsing()" [attr.aria-busy]="isParsing()" (click)="parse()">
-      @if (isParsing()) {
-        <ng-container i18n="@@entry.parsingRoster">กำลังอ่านรายชื่อ...</ng-container>
-      } @else {
-        <ng-container i18n="@@entry.parse">อ่านรายชื่อ</ng-container>
+      @if (pasteError()) {
+        <p class="error">{{ pasteError() }}</p>
       }
-    </button>
+      <button type="button" appPress [disabled]="isParsing()" [attr.aria-busy]="isParsing()" (click)="parse()">
+        @if (isParsing()) {
+          <app-icon name="feather" [size]="16" [spin]="true" />
+          <ng-container i18n="@@entry.parsingRoster">กำลังอ่านรายชื่อ...</ng-container>
+        } @else {
+          <ng-container i18n="@@entry.parse">อ่านรายชื่อ</ng-container>
+        }
+      </button>
+    </div>
 
     <p><a [routerLink]="['/g', groupCode, 'players']" i18n="@@entry.managePlayers">จัดการผู้เล่น →</a></p>
 

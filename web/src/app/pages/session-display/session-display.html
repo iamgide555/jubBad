@@ -1,5 +1,8 @@
 @if (sessionExists()) {
   <div class="page-dark display">
+    <div class="display-backdrop" aria-hidden="true">
+      <app-scene-host variant="ambient" [transparent]="false" />
+    </div>
     <h1>{{ header() }}</h1>
 
     @if (ended()) {

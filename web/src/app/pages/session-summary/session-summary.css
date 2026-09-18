@@ -1,3 +1,10 @@
+/* A quiet hero above a page that arrives as a shared link — the recap is
+   worth a moment of craft, not just a bare table. */
+.summary-hero {
+  height: clamp(6rem, 20vh, 8rem);
+  margin-bottom: var(--space-2);
+}
+
 /* Same base table treatment as the dashboard's stats-table: row dividers,
    tabular figures, numeric columns right-aligned so they read as a column of
    numbers rather than wrapping text. */

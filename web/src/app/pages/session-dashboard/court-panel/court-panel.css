@@ -1,9 +1,10 @@
-/* A panel is a torn-paper card taped to the board: cut from the same cream
-   stock as the roster chips, tilted a degree or two off true like something
-   actually pinned up between rounds, not printed. State reads as a glow
-   around the card — quiet at rest, marker-red when it needs the host, green
-   once it is live — never as a color swapped into a straight-ruled border,
-   which is the old court-boundary motif this world replaces outright.
+/* A court panel is real equipment on a bright surface, not a torn paper card
+   pinned to a chalkboard — the retired system's tape strip and degree-or-two
+   tilt are both gone. State now reads entirely through elevation and a
+   colored ring: resting flat and quiet at idle, lifting and glowing
+   marker-orange the instant it needs the host (pending), settling to a
+   confident green glow once a match is live. The ring transition itself is
+   what used to be a hard cut between three static shadow recipes.
 
    On a tablet the panels sit in a grid, so they stretch to a common height
    and their action rows line up along the bottom instead of floating at
@@ -14,45 +15,21 @@
   flex-direction: column;
   height: 100%;
   background: var(--surface);
-  color: var(--ink-on-paper);
-  /* This card's ground is paper, not the board — anything inside that reads
-     a plain --ink/--ink-soft/--error-ink (a label, .muted, .error) needs the
-     paper-safe values, not the board-safe defaults. Re-scoped here rather
-     than overridden per selector, so nothing inside is missed. */
-  --ink: var(--ink-on-paper);
-  --ink-soft: var(--ink-on-paper-soft);
-  --error-ink: var(--warn);
+  color: var(--ink);
+  border-radius: var(--radius-lg);
   padding: var(--space-2) var(--space-3) var(--space-3);
-  box-shadow: 0 10px 22px -10px rgba(0, 0, 0, 0.55), 0 2px 0 rgba(0, 0, 0, 0.12);
-  transform: rotate(var(--panel-tilt, -0.4deg));
-  transition: box-shadow 160ms ease;
-}
-
-.courts-list app-court-panel:nth-child(even) .court-panel {
-  --panel-tilt: 0.5deg;
-}
-
-/* The tape holding the card to the board. Decorative only — the panel's live
-   state is carried by the glow below, never by whether the tape is there. */
-.court-panel::before {
-  content: '';
-  position: absolute;
-  top: -0.55rem;
-  left: 1.4rem;
-  width: 2.2rem;
-  height: 1rem;
-  background: var(--tape);
-  opacity: 0.85;
-  transform: rotate(-3deg);
-  pointer-events: none;
+  box-shadow: var(--shadow-sm);
+  transition: box-shadow var(--duration-base) var(--ease-out), transform var(--duration-base) var(--ease-spring);
 }
 
 .court-panel:has(.status-dot.pending) {
-  box-shadow: 0 0 0 2px var(--accent), 0 10px 22px -10px rgba(0, 0, 0, 0.55);
+  box-shadow: 0 0 0 2px var(--accent), var(--shadow-md);
+  animation: ring-pulse 2.2s var(--ease-out) 1;
 }
 
 .court-panel:has(.status-dot.active) {
-  box-shadow: 0 0 0 2px var(--court), 0 10px 22px -10px rgba(0, 0, 0, 0.55);
+  box-shadow: 0 0 0 2px var(--court), var(--shadow-md);
+  transform: translateY(-2px);
 }
 
 .court-panel-head {
@@ -64,14 +41,10 @@
   margin-bottom: var(--space-2);
 }
 
-/* Sits between the court number and the status dot rather than top-left,
-   where the decorative tape strip (::before, below) already lives — DESIGN.md
-   is explicit that the tape stays decorative and never carries state, so a
-   control tucked under it would work against the system as well as be
-   visually crowded. Shrunk to content width like the dashboard's own
-   court-count stepper (session-dashboard.css) rather than the global
-   .scope-toggle's edge-to-edge default — a two-way switch this small must
-   never read as a banner. */
+/* Sits between the court number and the status dot, shrunk to content width
+   like the dashboard's own court-count stepper (session-dashboard.css)
+   rather than the global .scope-toggle's edge-to-edge default — a two-way
+   switch this small must never read as a banner. */
 .court-panel-head .scope-toggle {
   flex: 0 0 auto;
   margin-bottom: 0;
@@ -85,19 +58,19 @@
 }
 
 /* The court number is what the host looks for first when three panels are on
-   screen at once. It was 1.05rem — a hair over body text — which is why every
-   panel read as an undifferentiated block. */
+   screen at once — real display-face weight and size, the biggest single
+   number on the whole dashboard. */
 .court-panel-head h4 {
   margin: 0;
-  font-size: var(--text-xl);
-  line-height: 1.1;
+  font-family: var(--font-display);
+  font-size: var(--text-2xl);
+  font-weight: 700;
+  line-height: 1;
+  color: var(--court);
 }
 
-/* Not the marker face: Permanent Marker has no digit glyphs, so the number
-   fell back through the stack to Noto Sans Thai — which, under this page's
-   Thai locale, renders Thai numeral forms (๑๒๓) instead of "1 2 3". */
 .court-num {
-  font-family: var(--font-text);
+  font-family: var(--font-display);
 }
 
 .status-dot {
@@ -110,10 +83,12 @@
 
 .status-dot.pending {
   background: var(--accent);
+  box-shadow: 0 0 0 4px var(--accent-soft);
 }
 
 .status-dot.active {
   background: var(--court);
+  box-shadow: 0 0 0 4px var(--court-soft);
 }
 
 /* Player names are the content of a court; the action row below is how you
@@ -145,15 +120,14 @@
 }
 
 .matchup-columns .vs {
-  color: var(--ink-on-paper-soft);
-  font-weight: 400;
-  font-size: 0.8em;
+  color: var(--ink-faint);
+  font-weight: 700;
+  font-family: var(--font-display);
+  font-size: 0.75em;
 }
 
-/* Each row is a name and its tally, pushed to opposite ends — the tally reads
-   as a second column of its own once every court does it, not a random
-   trailing note. The dotted rule between a team's two rows is the same
-   dotted language the name-tap underline already uses. */
+/* Each row is a name and its tally, pushed to opposite ends. The divider
+   between a team's two rows is a hairline, not the old dotted chalk-rule. */
 .matchup-columns .slot {
   display: flex;
   align-items: baseline;
@@ -163,10 +137,10 @@
 }
 
 /* :not(:only-child) — a singles team is one slot with nothing to rule off
-   from, and without this exclusion it drew an orphaned dotted line under the
+   from, and without this exclusion it drew an orphaned line under the
    court's only name. */
 .matchup-columns .team .slot:first-child:not(:only-child) {
-  border-bottom: 1px dotted var(--rule);
+  border-bottom: 1px solid var(--line);
 }
 
 /* In the tablet grid every panel stretches to its row's height. Undo is the
@@ -187,6 +161,7 @@
   border: none;
   padding: 0.4rem 0.3rem;
   margin: -0.4rem -0.3rem;
+  border-radius: var(--radius);
   font: inherit;
   font-weight: 600;
   /* Dotted rather than solid: every name is tappable to swap, so a solid rule
@@ -195,13 +170,13 @@
   text-underline-offset: 0.2em;
   cursor: pointer;
   color: inherit;
+  box-shadow: none;
+  transition: background-color var(--duration-fast) ease, color var(--duration-fast) ease;
 }
 
 @media (hover: hover) {
-  /* Without the background reset the base button rule's dark court green wins
-     on hover, and court-green text on it is unreadable. */
   .name-tap:hover:not(:disabled) {
-    background: none;
+    background: var(--court-soft);
     text-decoration-style: solid;
     color: var(--court);
   }
@@ -215,7 +190,7 @@
 }
 
 .idle-label {
-  color: var(--ink-on-paper-soft);
+  color: var(--ink-soft);
   font-weight: 400;
 }
 
@@ -243,15 +218,17 @@
   width: 100%;
   min-height: var(--tap);
   background: none;
-  border: 1px solid var(--rule);
-  color: var(--ink-on-paper-soft);
+  box-shadow: none;
+  border: 1.5px solid var(--line);
+  color: var(--ink-soft);
   font-weight: 500;
 }
 
 @media (hover: hover) {
   .no-result:hover {
-    background: var(--rule);
-    color: var(--ink-on-paper);
+    background: var(--ground-sunk);
+    color: var(--ink);
+    box-shadow: none;
   }
 }
 
@@ -275,7 +252,7 @@
 .score-sep {
   grid-column: 2;
   grid-row: 1;
-  color: var(--ink-on-paper-soft);
+  color: var(--ink-faint);
   font-weight: 700;
 }
 
@@ -284,13 +261,11 @@
   grid-row: 1;
 }
 
-/* Not var(--font-display): a score is read digit by digit under pressure, and
-   a marker-script "6" and "0" are not reliably distinct at a glance. The
-   marker hand belongs to headings, not entered numbers. */
 .result-grid input {
   width: 100%;
   min-height: var(--tap);
   text-align: center;
+  font-family: var(--font-display);
   font-weight: 700;
   font-size: var(--text-xl);
 }
@@ -314,23 +289,26 @@
   font-size: var(--text-sm);
 }
 
-
 /* Quiet: it is the escape hatch, not a normal step of the flow. */
 .undo {
   margin-top: var(--space-1);
   min-height: var(--tap);
   padding-inline: 0.7rem;
   background: none;
-  border: none;
-  color: var(--ink-on-paper-soft);
+  box-shadow: none;
+  color: var(--ink-soft);
   font-size: var(--text-sm);
   font-weight: 500;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-0);
 }
 
 @media (hover: hover) {
   .undo:hover {
     background: none;
-    color: var(--ink-on-paper);
+    color: var(--ink);
+    box-shadow: none;
     text-decoration: underline;
   }
 }
@@ -342,30 +320,22 @@
   display: inline-flex;
   align-items: center;
   gap: 0.3em;
-  border-radius: 6px;
+  border-radius: var(--radius);
   padding: 0 0.15rem;
-}
-
-/* A caption, not a badge — matches .wait-mins' treatment elsewhere on this
-   screen. Real games played (from the stats endpoint), not the rotation
-   number, so this is the same count the summary page will show later. */
-.tally {
-  font-size: var(--text-xs);
-  font-weight: 400;
-  color: var(--ink-soft);
-  font-variant-numeric: tabular-nums;
+  transition: background-color var(--duration-fast) ease, box-shadow var(--duration-fast) ease;
 }
 
 /* The held player and the slots that would receive them. Both use a border
    rather than colour alone, so the state survives a colour-blind reading and
-   a washed-out phone screen in a bright hall. */
+   a washed-out phone screen in bright daylight. */
 .slot.is-picked {
-  outline: 2px solid var(--court);
-  background: var(--court-wash);
+  box-shadow: 0 0 0 2px var(--court);
+  background: var(--court-soft);
 }
 
 .slot.is-target {
   outline: 2px dashed var(--court-line);
+  outline-offset: 1px;
 }
 
 .pick-hint {
@@ -375,6 +345,7 @@
 .pick-hint .link {
   background: none;
   border: none;
+  box-shadow: none;
   padding: 0.2rem;
   font: inherit;
   color: inherit;
@@ -385,6 +356,17 @@
 @media (hover: hover) {
   .pick-hint .link:hover {
     background: none;
+    box-shadow: none;
     color: var(--court-dark);
   }
+}
+
+/* A caption, not a badge — matches .wait-mins' treatment elsewhere on this
+   screen. Real games played (from the stats endpoint), not the rotation
+   number, so this is the same count the summary page will show later. */
+.tally {
+  font-size: var(--text-xs);
+  font-weight: 400;
+  color: var(--ink-soft);
+  font-variant-numeric: tabular-nums;
 }

@@ -97,14 +97,11 @@
    .muted and .error legible against cream instead of the board's chalk tone. */
 .create-user-dialog {
   border: none;
-  border-radius: var(--radius);
+  border-radius: var(--radius-lg);
   padding: var(--space-3);
   background: var(--surface);
-  color: var(--ink-on-paper);
-  --ink: var(--ink-on-paper);
-  --ink-soft: var(--ink-on-paper-soft);
-  --error-ink: var(--warn);
-  box-shadow: 0 8px 18px -8px rgba(0, 0, 0, 0.5);
+  color: var(--ink);
+  box-shadow: var(--shadow-lg);
   width: min(26rem, calc(100vw - 2 * var(--space-3)));
 }
 
@@ -119,20 +116,6 @@
 .create-user-dialog .admin-actions {
   justify-content: flex-end;
   margin-top: var(--space-1);
-}
-
-/* `.ghost` is drawn for the dark board (see styles.css); inside this paper
-   dialog it needs the paper ink, the same override .ended-banner uses. */
-.create-user-dialog .ghost {
-  color: var(--ink-on-paper);
-  border-color: var(--ink-on-paper-soft);
-}
-
-@media (hover: hover) {
-  .create-user-dialog .ghost:hover {
-    background: var(--surface);
-    border-color: var(--ink-on-paper);
-  }
 }
 
 .admin-table {

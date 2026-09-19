@@ -4,6 +4,7 @@ import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { ActivatedRoute, convertToParamMap } from '@angular/router';
 import { CourtPanel } from './court-panel';
 import { LiveSessionService } from '../../../core/live-session.service';
+import { SwapSelectionService } from '../../../core/swap-selection.service';
 import { environment } from '../../../../environments/environment';
 import type { Session } from '../../../core/session.model';
 
@@ -748,6 +749,137 @@ describe('CourtPanel with too few players', () => {
     const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
     expect(text).toContain('ผู้เล่นไม่พอ');
     expect(text).not.toContain('สลับเป็นเดี่ยวได้');
+  });
+
+  // --- Custom mode: empty seats, seat editing, auto-pair -----------------
+
+  const customPendingCourt = (teamA: (string | null)[], teamB: (string | null)[]) =>
+    baseSession({
+      mode: 'custom',
+      courts: [{ status: 'pending', pairingId: 'pair1', format: 'doubles', teamA, teamB }],
+    });
+
+  it('renders an empty seat distinctly from a named one', async () => {
+    const { fixture } = await createPanel(customPendingCourt(['p1', null], ['p3', 'p4']));
+    fixture.detectChanges();
+    const el = fixture.nativeElement as HTMLElement;
+
+    const emptySlots = el.querySelectorAll('.slot.is-empty');
+    expect(emptySlots.length).toBe(1);
+    const namedSlots = el.querySelectorAll('.slot:not(.is-empty)');
+    expect(namedSlots.length).toBe(3);
+    expect(el.querySelector('.name-tap.seat-empty')?.textContent?.trim()).toBe('ที่ว่าง');
+  });
+
+  it('places the held player into a tapped empty seat', async () => {
+    const { fixture, httpMock } = await createPanel(customPendingCourt(['p1', null], ['p3', 'p4']));
+    fixture.detectChanges();
+
+    // Hold a waiting player (p2) via the roster/waiting chip path is
+    // exercised in session-dashboard.spec.ts; here we simulate the hold
+    // directly through the shared selection service the component reads.
+    const selection = fixture.debugElement.injector.get(SwapSelectionService);
+    selection.toggle({ playerId: 'p2', name: 'เบส', pairingId: null });
+    fixture.detectChanges();
+
+    const emptyButton = (fixture.nativeElement as HTMLElement).querySelector(
+      '.name-tap.seat-empty'
+    ) as HTMLButtonElement;
+    emptyButton.click();
+
+    const req = httpMock.expectOne(`${B}/sessions/sess1/pairings/pair1/seats`);
+    expect(req.request.body).toEqual({ team: 'A', index: 1, playerId: 'p2' });
+    req.flush({ ok: true, pairing: { id: 'pair1', courtNumber: 1, matchNumber: 1, teamA: ['p1', 'p2'], teamB: ['p3', 'p4'] } });
+    await new Promise((r) => setTimeout(r, 0));
+    TestBed.tick();
+    httpMock.expectOne(`${B}/sessions/sess1`).flush(
+      customPendingCourt(['p1', 'p2'], ['p3', 'p4'])
+    );
+    await fixture.whenStable();
+  });
+
+  it('tapping a seated player twice in custom mode vacates the seat, not a rotation swap', async () => {
+    const { fixture, httpMock } = await createPanel(customPendingCourt(['p1', 'p2'], ['p3', 'p4']));
+    fixture.detectChanges();
+
+    const buttons = (fixture.nativeElement as HTMLElement).querySelectorAll('button.name-tap');
+    const nameButton = Array.from(buttons).find((b) => b.textContent === 'ตั้ม') as HTMLButtonElement;
+    nameButton.click();
+    fixture.detectChanges();
+    httpMock.expectNone(`${B}/sessions/sess1/pairings/pair1/swap`);
+    nameButton.click();
+
+    const req = httpMock.expectOne(`${B}/sessions/sess1/pairings/pair1/seats`);
+    expect(req.request.body).toEqual({ team: 'A', index: 0, playerId: null });
+    req.flush({ ok: true, pairing: { id: 'pair1', courtNumber: 1, matchNumber: 1, teamA: [null, 'p2'], teamB: ['p3', 'p4'] } });
+    await new Promise((r) => setTimeout(r, 0));
+    TestBed.tick();
+    httpMock.expectOne(`${B}/sessions/sess1`).flush(customPendingCourt([null, 'p2'], ['p3', 'p4']));
+    await fixture.whenStable();
+  });
+
+  it('disables confirm and shows the empty-seats hint while a seat is unfilled', async () => {
+    const { fixture } = await createPanel(customPendingCourt(['p1', null], ['p3', 'p4']));
+    fixture.detectChanges();
+
+    const confirmBtn = Array.from(
+      (fixture.nativeElement as HTMLElement).querySelectorAll('button')
+    ).find((b) => b.textContent?.includes('ยืนยัน')) as HTMLButtonElement;
+    expect(confirmBtn.disabled).toBe(true);
+    expect((fixture.nativeElement as HTMLElement).textContent).toContain('ยังมีที่ว่าง 1 ที่');
+  });
+
+  it('shows the auto-pair button only while a seat is empty, and it posts to autopair', async () => {
+    const { fixture, httpMock } = await createPanel(customPendingCourt(['p1', null], ['p3', 'p4']));
+    fixture.detectChanges();
+
+    const autoPairBtn = (fixture.nativeElement as HTMLElement).querySelector(
+      '.auto-pair'
+    ) as HTMLButtonElement;
+    expect(autoPairBtn).toBeTruthy();
+    autoPairBtn.click();
+
+    const req = httpMock.expectOne(`${B}/sessions/sess1/pairings/pair1/autopair`);
+    expect(req.request.method).toBe('POST');
+    req.flush({ ok: true, filled: 1, pairing: { id: 'pair1', courtNumber: 1, matchNumber: 1, teamA: ['p1', 'p5'], teamB: ['p3', 'p4'] } });
+    await new Promise((r) => setTimeout(r, 0));
+    TestBed.tick();
+    httpMock.expectOne(`${B}/sessions/sess1`).flush(customPendingCourt(['p1', 'p5'], ['p3', 'p4']));
+    await fixture.whenStable();
+  });
+
+  it('hides the auto-pair button once every seat is filled', async () => {
+    const { fixture } = await createPanel(customPendingCourt(['p1', 'p2'], ['p3', 'p4']));
+    fixture.detectChanges();
+    expect((fixture.nativeElement as HTMLElement).querySelector('.auto-pair')).toBeNull();
+  });
+
+  it('shows "clear court" instead of "reshuffle" in custom mode', async () => {
+    const { fixture } = await createPanel(customPendingCourt(['p1', 'p2'], ['p3', 'p4']));
+    fixture.detectChanges();
+    const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
+    expect(text).toContain('ล้างคอร์ท');
+    expect(text).not.toContain('สุ่มใหม่');
+  });
+
+  it('renders the localized message when confirm reports PAIRING_INCOMPLETE', async () => {
+    const { fixture, httpMock } = await createPanel(customPendingCourt(['p1', 'p2'], ['p3', 'p4']));
+    fixture.detectChanges();
+
+    const confirmBtn = Array.from(
+      (fixture.nativeElement as HTMLElement).querySelectorAll('button')
+    ).find((b) => b.textContent?.includes('ยืนยัน')) as HTMLButtonElement;
+    confirmBtn.click();
+
+    httpMock
+      .expectOne(`${B}/sessions/sess1/pairings/pair1/confirm`)
+      .flush({ code: 'PAIRING_INCOMPLETE', emptySeats: 1 }, { status: 409, statusText: 'Conflict' });
+    await new Promise((r) => setTimeout(r, 0));
+    fixture.detectChanges();
+
+    expect((fixture.nativeElement as HTMLElement).textContent).toContain(
+      'ยังมีที่ว่างในคอร์ท ใส่ผู้เล่นให้ครบก่อนยืนยัน'
+    );
   });
 });
 

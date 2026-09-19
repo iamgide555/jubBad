@@ -46,50 +46,74 @@
       }
       @case ('pending') {
         @if (c.status === 'pending') {
-          @let aNames = teamNames(c.teamA);
-          @let bNames = teamNames(c.teamB);
           <div class="matchup-columns">
             <div class="team">
-              @for (id of c.teamA; track id; let i = $index) {
-                @let name = aNames[i];
-                <span
-                  class="slot"
-                  [class.is-target]="isTarget(id)"
-                  [class.is-picked]="selection.isPicked(id)"
-                >
-                  <button
-                    type="button"
-                    class="name-tap"
-                    appPress
-                    [disabled]="busy()"
-                    [attr.aria-pressed]="selection.isPicked(id)"
-                    [attr.aria-label]="swapLabel(id, name)"
-                    (click)="swap(c.pairingId, id)"
-                  >{{ name }}</button>
-                  <span class="tally" i18n="@@court.gamesTally">{{ gamesFor(id) }} เกม</span>
-                </span>
+              @for (seat of seatsA(); track seat.index) {
+                @if (seat.playerId; as id) {
+                  <span
+                    class="slot"
+                    [class.is-target]="isTarget(id)"
+                    [class.is-picked]="selection.isPicked(id)"
+                  >
+                    <button
+                      type="button"
+                      class="name-tap"
+                      appPress
+                      [disabled]="busy()"
+                      [attr.aria-pressed]="selection.isPicked(id)"
+                      [attr.aria-label]="swapLabel(id, seat.name!)"
+                      (click)="tapSeat(c.pairingId, seat)"
+                    >{{ seat.name }}</button>
+                    <span class="tally" i18n="@@court.gamesTally">{{ gamesFor(id) }} เกม</span>
+                  </span>
+                } @else {
+                  <span class="slot is-empty" [class.is-target]="selection.active()">
+                    <button
+                      type="button"
+                      class="name-tap seat-empty"
+                      appPress
+                      [disabled]="busy()"
+                      [attr.aria-label]="emptySeatLabel()"
+                      (click)="tapSeat(c.pairingId, seat)"
+                      i18n="@@court.emptySeat"
+                    >ที่ว่าง</button>
+                  </span>
+                }
               }
             </div>
             <span class="vs" i18n="@@court.vs">vs</span>
             <div class="team">
-              @for (id of c.teamB; track id; let i = $index) {
-                @let name = bNames[i];
-                <span
-                  class="slot"
-                  [class.is-target]="isTarget(id)"
-                  [class.is-picked]="selection.isPicked(id)"
-                >
-                  <button
-                    type="button"
-                    class="name-tap"
-                    appPress
-                    [disabled]="busy()"
-                    [attr.aria-pressed]="selection.isPicked(id)"
-                    [attr.aria-label]="swapLabel(id, name)"
-                    (click)="swap(c.pairingId, id)"
-                  >{{ name }}</button>
-                  <span class="tally" i18n="@@court.gamesTally">{{ gamesFor(id) }} เกม</span>
-                </span>
+              @for (seat of seatsB(); track seat.index) {
+                @if (seat.playerId; as id) {
+                  <span
+                    class="slot"
+                    [class.is-target]="isTarget(id)"
+                    [class.is-picked]="selection.isPicked(id)"
+                  >
+                    <button
+                      type="button"
+                      class="name-tap"
+                      appPress
+                      [disabled]="busy()"
+                      [attr.aria-pressed]="selection.isPicked(id)"
+                      [attr.aria-label]="swapLabel(id, seat.name!)"
+                      (click)="tapSeat(c.pairingId, seat)"
+                    >{{ seat.name }}</button>
+                    <span class="tally" i18n="@@court.gamesTally">{{ gamesFor(id) }} เกม</span>
+                  </span>
+                } @else {
+                  <span class="slot is-empty" [class.is-target]="selection.active()">
+                    <button
+                      type="button"
+                      class="name-tap seat-empty"
+                      appPress
+                      [disabled]="busy()"
+                      [attr.aria-label]="emptySeatLabel()"
+                      (click)="tapSeat(c.pairingId, seat)"
+                      i18n="@@court.emptySeat"
+                    >ที่ว่าง</button>
+                  </span>
+                }
               }
             </div>
           </div>
@@ -106,16 +130,26 @@
           @if (restingInProposal().length > 0) {
             <p class="hint warn" role="status" i18n="@@court.restingInProposal">{{ restingInProposal().join(', ') }} พักอยู่ — กดชื่อเพื่อเปลี่ยนตัว หรือสุ่มใหม่</p>
           }
-        }
-        <div class="button-row">
-          <button type="button" class="ghost" [disabled]="busy()" (click)="startOrReshuffle()" i18n="@@court.reshuffle">สุ่มใหม่</button>
-          <button type="button" [disabled]="busy() || restingInProposal().length > 0" (click)="confirm()">
-            @if (busy()) {
-              <app-icon name="feather" [size]="16" [spin]="true" />
+          @if (emptySeatCount() > 0) {
+            <p class="hint" role="status" i18n="@@court.seatsEmpty">ยังมีที่ว่าง {{ emptySeatCount() }} ที่</p>
+          }
+          <div class="button-row">
+            @if (isCustom()) {
+              <button type="button" class="ghost" [disabled]="busy()" (click)="startOrReshuffle()" i18n="@@court.clearCourt">ล้างคอร์ท</button>
+              @if (emptySeatCount() > 0) {
+                <button type="button" class="ghost auto-pair" [disabled]="busy()" (click)="autoPair(c.pairingId)" i18n="@@court.autoPair">เติมอัตโนมัติ</button>
+              }
+            } @else {
+              <button type="button" class="ghost" [disabled]="busy()" (click)="startOrReshuffle()" i18n="@@court.reshuffle">สุ่มใหม่</button>
             }
-            <ng-container i18n="@@court.confirm">ยืนยัน</ng-container>
-          </button>
-        </div>
+            <button type="button" [disabled]="busy() || restingInProposal().length > 0 || emptySeatCount() > 0" (click)="confirm()">
+              @if (busy()) {
+                <app-icon name="feather" [size]="16" [spin]="true" />
+              }
+              <ng-container i18n="@@court.confirm">ยืนยัน</ng-container>
+            </button>
+          </div>
+        }
       }
       @case ('active') {
         @if (c.status === 'active') {

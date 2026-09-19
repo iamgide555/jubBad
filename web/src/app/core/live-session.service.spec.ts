@@ -239,6 +239,92 @@ describe('LiveSessionService', () => {
     expect(await promise).toEqual({ ok: true });
   });
 
+  it('exposes mode from the fetched session', async () => {
+    await flushSession(baseSession({ mode: 'custom' }));
+    expect(service.mode()).toBe('custom');
+  });
+
+  it('setSeat posts team/index/playerId to the seats endpoint and reloads', async () => {
+    await flushSession(baseSession());
+
+    const promise = service.setSeat('pair1', 'A', 1, 'p2');
+    const req = httpMock.expectOne(`${environment.apiBaseUrl}/sessions/sess1/pairings/pair1/seats`);
+    expect(req.request.method).toBe('POST');
+    expect(req.request.body).toEqual({ team: 'A', index: 1, playerId: 'p2' });
+    req.flush({
+      ok: true,
+      pairing: { id: 'pair1', courtNumber: 1, matchNumber: 1, teamA: [null, 'p2'], teamB: [null, null] },
+    });
+    await new Promise((r) => setTimeout(r, 0));
+    TestBed.tick();
+    httpMock.expectOne(`${environment.apiBaseUrl}/sessions/sess1`).flush(baseSession());
+
+    expect(await promise).toEqual({ ok: true });
+  });
+
+  it('setSeat with no playerId vacates the seat', async () => {
+    await flushSession(baseSession());
+
+    const promise = service.setSeat('pair1', 'B', 0);
+    const req = httpMock.expectOne(`${environment.apiBaseUrl}/sessions/sess1/pairings/pair1/seats`);
+    expect(req.request.body).toEqual({ team: 'B', index: 0, playerId: null });
+    req.flush({ ok: true, pairing: { id: 'pair1', courtNumber: 1, matchNumber: 1, teamA: [], teamB: [] } });
+    await new Promise((r) => setTimeout(r, 0));
+    TestBed.tick();
+    httpMock.expectOne(`${environment.apiBaseUrl}/sessions/sess1`).flush(baseSession());
+
+    expect(await promise).toEqual({ ok: true });
+  });
+
+  it('autoPair posts to the autopair endpoint and reloads', async () => {
+    await flushSession(baseSession());
+
+    const promise = service.autoPair('pair1');
+    const req = httpMock.expectOne(`${environment.apiBaseUrl}/sessions/sess1/pairings/pair1/autopair`);
+    expect(req.request.method).toBe('POST');
+    expect(req.request.body).toEqual({});
+    req.flush({ ok: true, filled: 2, pairing: { id: 'pair1', courtNumber: 1, matchNumber: 1, teamA: ['p1', 'p2'], teamB: ['p3', 'p4'] } });
+    await new Promise((r) => setTimeout(r, 0));
+    TestBed.tick();
+    httpMock.expectOne(`${environment.apiBaseUrl}/sessions/sess1`).flush(baseSession());
+
+    expect(await promise).toEqual({ ok: true });
+  });
+
+  it('autoPair reports the not-enough-players reason', async () => {
+    await flushSession(baseSession());
+
+    const promise = service.autoPair('pair1');
+    httpMock
+      .expectOne(`${environment.apiBaseUrl}/sessions/sess1/pairings/pair1/autopair`)
+      .flush({ ok: false, reason: 'not-enough-players', available: 1 });
+    await new Promise((r) => setTimeout(r, 0));
+    TestBed.tick();
+    httpMock.expectOne(`${environment.apiBaseUrl}/sessions/sess1`).flush(baseSession());
+
+    expect(await promise).toEqual({ ok: false, reason: 'not-enough-players', available: 1 });
+  });
+
+  it('setMode accepts custom and maps PAIRING_INCOMPLETE to a localized message', async () => {
+    await flushSession(baseSession());
+
+    const modePromise = service.setMode('custom');
+    httpMock.expectOne(`${environment.apiBaseUrl}/sessions/sess1/mode`).flush({});
+    await new Promise((r) => setTimeout(r, 0));
+    TestBed.tick();
+    httpMock.expectOne(`${environment.apiBaseUrl}/sessions/sess1`).flush(baseSession({ mode: 'custom' }));
+    expect(await modePromise).toEqual({ ok: true });
+
+    const confirmPromise = service.confirmMatch('pair1');
+    httpMock
+      .expectOne(`${environment.apiBaseUrl}/sessions/sess1/pairings/pair1/confirm`)
+      .flush({ code: 'PAIRING_INCOMPLETE', emptySeats: 1 }, { status: 409, statusText: 'Conflict' });
+    expect(await confirmPromise).toEqual({
+      ok: false,
+      error: 'ยังมีที่ว่างในคอร์ท ใส่ผู้เล่นให้ครบก่อนยืนยัน',
+    });
+  });
+
   it('falls back to the action message for an unknown or missing error code', async () => {
     await flushSession(baseSession());
 

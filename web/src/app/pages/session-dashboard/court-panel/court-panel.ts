@@ -4,9 +4,18 @@ import { PressDirective } from '../../../core/motion/press.directive';
 import { LiveSessionService } from '../../../core/live-session.service';
 import { resolvePlayerNames } from '../../../core/player-names';
 import { SwapSelectionService, type SwapPick } from '../../../core/swap-selection.service';
-import type { CourtFormat, CourtState } from '../../../core/live-session.model';
+import type { CourtFormat, CourtState, Seat } from '../../../core/live-session.model';
 import type { Player } from '../../../../../../engines/fuzzy-match.ts';
 import { Icon } from '../../../shared/icon/icon';
+
+/** One seat on a pending court: occupied (a player) or empty (custom mode
+ *  only). `team`/`index` are what the seats endpoint addresses. */
+interface SeatView {
+  team: 'A' | 'B';
+  index: number;
+  playerId: string | null;
+  name: string | null;
+}
 
 @Component({
   selector: 'app-court-panel',
@@ -70,6 +79,39 @@ export class CourtPanel {
     () => this.liveSession.courts()[this.courtNumber() - 1] ?? { status: 'idle', format: 'doubles' }
   );
 
+  protected readonly isCustom = computed(() => this.liveSession.mode() === 'custom');
+
+  private seatViewsFor(team: 'A' | 'B'): SeatView[] {
+    const c = this.court();
+    if (c.status !== 'pending') return [];
+    const seats: Seat[] = team === 'A' ? c.teamA : c.teamB;
+    return seats.map((playerId, index) => ({
+      team,
+      index,
+      playerId,
+      name: playerId === null ? null : resolvePlayerNames([playerId], this.players())[0],
+    }));
+  }
+
+  protected readonly seatsA = computed<SeatView[]>(() => this.seatViewsFor('A'));
+  protected readonly seatsB = computed<SeatView[]>(() => this.seatViewsFor('B'));
+
+  protected readonly emptySeatCount = computed(
+    () => [...this.seatsA(), ...this.seatsB()].filter((s) => s.playerId === null).length
+  );
+
+  private seatFor(playerId: string): SeatView | undefined {
+    return [...this.seatsA(), ...this.seatsB()].find((s) => s.playerId === playerId);
+  }
+
+  /** aria-label for an empty seat's button: what tapping it does right now. */
+  protected emptySeatLabel(): string {
+    const held = this.selection.selection();
+    return held === null
+      ? $localize`:@@court.emptySeat:ที่ว่าง`
+      : $localize`:@@court.dropIntoSeat:วาง ${held.name}:name: ลงที่ว่าง`;
+  }
+
   /**
    * The toggle only ever writes while idle — a live pairing's team size must
    * never disagree with its court's configured format, and idle is the only
@@ -105,7 +147,9 @@ export class CourtPanel {
     const c = this.court();
     if (c.status !== 'pending') return [];
     const resting = new Set(this.liveSession.sessionResource.value()?.restingPlayerIds ?? []);
-    const inProposal = [...c.teamA, ...c.teamB].filter((id) => resting.has(id));
+    const inProposal = [...c.teamA, ...c.teamB].filter(
+      (id): id is string => id !== null && resting.has(id)
+    );
     return resolvePlayerNames(inProposal, this.players());
   });
 
@@ -124,7 +168,9 @@ export class CourtPanel {
       return $localize`:@@court.selectPlayer:เลือก ${name}:name: เพื่อสลับตัว`;
     }
     if (held.playerId === playerId) {
-      return $localize`:@@court.swapOut:เปลี่ยน ${name}:name: ออก`;
+      return this.isCustom()
+        ? $localize`:@@court.vacateSeat:เอา ${name}:name: ออกจากที่นั่ง`
+        : $localize`:@@court.swapOut:เปลี่ยน ${name}:name: ออก`;
     }
     return $localize`:@@court.swapWith:สลับ ${held.name}:held: กับ ${name}:name:`;
   }
@@ -198,12 +244,67 @@ export class CourtPanel {
       return;
     }
     if (held.playerId === playerId) {
-      // Second tap on the player already held: take them off, server chooses.
       this.selection.clear();
+      // In custom mode, the second tap vacates the seat — the host opted out
+      // of rotation choosing a replacement, so there is nothing for the
+      // ordinary swap endpoint to pick. Every other mode keeps "take them
+      // off, server chooses."
+      const seat = this.isCustom() ? this.seatFor(playerId) : undefined;
+      if (seat) {
+        await this.runSetSeat(pairingId, seat.team, seat.index);
+        return;
+      }
       await this.runSwap(pairingId, playerId);
       return;
     }
     await this.applyManualSwap(pairingId, playerId, held);
+  }
+
+  /** Tapping an empty seat: places whoever is held, or does nothing if
+   *  nobody is. The button stays enabled either way (see `emptySeatLabel`)
+   *  so it is still reachable by keyboard and announced correctly. */
+  protected async tapSeat(pairingId: string, seat: SeatView): Promise<void> {
+    if (seat.playerId !== null) {
+      await this.swap(pairingId, seat.playerId);
+      return;
+    }
+    const held = this.selection.selection();
+    if (held === null) return;
+    this.selection.clear();
+    await this.runSetSeat(pairingId, seat.team, seat.index, held.playerId);
+  }
+
+  private async runSetSeat(
+    pairingId: string,
+    team: 'A' | 'B',
+    index: number,
+    playerId?: string
+  ): Promise<void> {
+    if (this.busy()) return;
+    this.busy.set(true);
+    this.actionError.set(null);
+    try {
+      const result = await this.liveSession.setSeat(pairingId, team, index, playerId);
+      this.actionError.set(result.error ?? null);
+    } finally {
+      this.busy.set(false);
+    }
+  }
+
+  /** Fills every remaining empty seat on this court from the normal
+   *  rotation pool, leaving already-seated players exactly where they are. */
+  protected async autoPair(pairingId: string): Promise<void> {
+    if (this.busy()) return;
+    this.busy.set(true);
+    this.actionError.set(null);
+    try {
+      const result = await this.liveSession.autoPair(pairingId);
+      const short = !result.ok && result.reason === 'not-enough-players';
+      this.notEnoughPlayers.set(short);
+      this.actionError.set(result.error ?? null);
+    } finally {
+      this.busy.set(false);
+    }
   }
 
   /**

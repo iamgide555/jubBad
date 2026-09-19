@@ -495,6 +495,38 @@ describe('SessionDashboard', () => {
     await new Promise((r) => setTimeout(r, 0));
   });
 
+  it('switches to custom mode and shows its hint', async () => {
+    await settled();
+    buttonWith('เลือกเอง').click();
+
+    const req = httpMock.expectOne(`${B}/sessions/sess1/mode`);
+    expect(req.request.body).toEqual({ mode: 'custom' });
+    req.flush({ code: 'sess1', mode: 'custom' });
+
+    // Reloading after the mutation can trigger more than one wave of
+    // dependent requests (session, then players/stats reacting to the new
+    // mutationVersion); drain until nothing is left pending rather than
+    // assuming a single round.
+    for (let round = 0; round < 5; round++) {
+      await new Promise((r) => setTimeout(r, 0));
+      TestBed.tick();
+      const pending = [
+        ...httpMock.match(`${B}/sessions/sess1`),
+        ...httpMock.match(`${B}/groups/group1/players`),
+        ...httpMock.match(`${B}/sessions/sess1/stats?scope=session`),
+      ];
+      if (pending.length === 0) break;
+      for (const r of pending) {
+        if (r.request.url.endsWith('/sessions/sess1')) r.flush(baseSession({ mode: 'custom' }));
+        else if (r.request.url.endsWith('/players')) r.flush([]);
+        else r.flush([]);
+      }
+    }
+    fixture.detectChanges();
+
+    expect((fixture.nativeElement as HTMLElement).textContent).toContain('จัดคู่เองทีละคน');
+  });
+
   /**
    * Finding 31: a booking commonly opens more courts later in the evening, and
    * the session carries a single count, so the host has to be able to change it

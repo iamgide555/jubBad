@@ -65,11 +65,18 @@
           <div class="scope-toggle">
             <button type="button" [class.active]="mode() === 'variety'" (click)="setMode('variety')" i18n="@@dashboard.modeVariety">สลับคู่</button>
             <button type="button" [class.active]="mode() === 'balanced'" (click)="setMode('balanced')" i18n="@@dashboard.modeBalanced">สูสี</button>
+            <button type="button" [class.active]="mode() === 'custom'" (click)="setMode('custom')" i18n="@@dashboard.modeCustom">เลือกเอง</button>
           </div>
-          @if (mode() === 'balanced') {
-            <p class="mode-hint" i18n="@@dashboard.modeBalancedHint">จัดให้สองฝั่งฝีมือใกล้เคียงกัน</p>
-          } @else {
-            <p class="mode-hint" i18n="@@dashboard.modeVarietyHint">เน้นไม่ให้ซ้ำคู่เดิม</p>
+          @switch (mode()) {
+            @case ('balanced') {
+              <p class="mode-hint" i18n="@@dashboard.modeBalancedHint">จัดให้สองฝั่งฝีมือใกล้เคียงกัน</p>
+            }
+            @case ('custom') {
+              <p class="mode-hint" i18n="@@dashboard.modeCustomHint">จัดคู่เองทีละคน</p>
+            }
+            @default {
+              <p class="mode-hint" i18n="@@dashboard.modeVarietyHint">เน้นไม่ให้ซ้ำคู่เดิม</p>
+            }
           }
         </div>
 

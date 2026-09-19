@@ -95,7 +95,7 @@ export function emptySeatCount(pairing: { teamA: string; teamB: string }): numbe
  */
 export function parseTeam(raw: string): string[] {
   const seats = parseSeats(raw);
-  if (seats.some((seat) => seat === null)) {
+  if (!seats.every((seat): seat is string => seat !== null)) {
     throw new CorruptPairingError(`pairing team has an unfilled seat: ${raw}`);
   }
   return seats;

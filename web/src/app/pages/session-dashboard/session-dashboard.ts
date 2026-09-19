@@ -206,7 +206,7 @@ export class SessionDashboard implements OnDestroy {
     this.rosterError.set(result.error ?? null);
   }
 
-  async setMode(mode: 'variety' | 'balanced'): Promise<void> {
+  async setMode(mode: 'variety' | 'balanced' | 'custom'): Promise<void> {
     this.rosterError.set(null);
     const result = await this.liveSession.setMode(mode);
     this.rosterError.set(result.error ?? null);

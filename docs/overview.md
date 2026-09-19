@@ -238,12 +238,20 @@ looking around the hall for people who are not missing while the actual fault
 sits in the database, unnoticed. The API reports it as `INVALID_SESSION_STATE`
 instead. An empty roster is not an error, only an empty round.
 
-**Two pairing modes.** *Variety* is the behaviour described above. *Balanced*
+**Three pairing modes.** *Variety* is the behaviour described above. *Balanced*
 adds a rating-gap term so the two sides come out close in strength. Balance
 leads there — one repeat partnership is worth about five rating points — which
 is the reason for choosing the mode at all; variety still separates
-arrangements that are level on skill. The mode is per session and defaults to
-variety.
+arrangements that are level on skill. *Custom* hands the whole decision to the
+host: proposing a court creates an empty pairing (every seat unfilled) instead
+of running the engine, and the host fills seats one at a time by tapping a
+player then a seat. Auto-pair fills whatever seats are still empty on that one
+court from the normal rotation pool — games played, then longest wait —
+without moving anyone already seated or touching any other court. Its
+tiebreak among rotation-equal candidates reuses variety's own lexicographic
+partner/opponent objective, never ratings: the host is placing people by
+hand, and a hidden balance term would quietly pull against the seats they
+just chose. The mode is per session and defaults to variety.
 
 Reshuffling excludes the split it was asked to avoid outright, rather than
 taxing it. A tax has to be larger than any real score difference, and no fixed
@@ -405,6 +413,18 @@ tap path doubles as the keyboard-accessible route.
 games played — updates only when a match is confirmed, never when one is
 proposed. That single rule is what makes free reshuffling, resting a player and
 undo compose correctly without any extra engine work.
+
+Custom mode leans on the same rule for its own extra bit of state: an unfilled
+seat is represented as `null` inside `Pairing.teamA`/`teamB`'s existing
+JSON-encoded arrays — no new column, no migration. Confirm refuses with
+`PAIRING_INCOMPLETE` while any seat is still `null`, which is what turns
+"every confirmed pairing has a `null` seat" from a hope into a guarantee
+every downstream reader (history, ratings, stats, export) can rely on without
+its own check. A half-filled draft can outlive a mode switch back to variety
+or balanced — switching mode is a one-column write that never rewrites a
+pending pairing, the same principle as resting a player mid-proposal above —
+so the seat-editing and auto-pair endpoints are deliberately not gated on the
+session still being in custom mode.
 
 Two controls fall out of it. **Rest** excludes a player from future court fills
 and back again — one toggle covering a no-show, an early leaver, someone

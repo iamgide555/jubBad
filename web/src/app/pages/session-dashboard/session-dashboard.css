@@ -126,15 +126,19 @@
   justify-content: flex-end;
 }
 
+/* Three segments now (variety/balanced/custom): tighter side padding than a
+   two-segment toggle so ก๊วน's longest label (เลือกเอง) still fits one
+   thumb-width line beside the court-count stepper at 360px — the toolbar
+   row wraps if it must, but the track itself never does. */
 .mode-toggle .scope-toggle button {
   flex: 0 0 auto;
-  padding: 0.3rem 0.9rem;
+  padding: 0.3rem 0.7rem;
   font-size: var(--text-xs);
 }
 
 .mode-hint {
   margin: var(--space-0) 0 0;
-  max-width: 9rem;
+  max-width: 13rem;
   margin-left: auto;
   font-size: var(--text-xs);
   line-height: 1.4;

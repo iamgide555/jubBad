@@ -338,6 +338,19 @@
   outline-offset: 1px;
 }
 
+/* Custom mode's unfilled seat — a standing dashed border, not the
+   held-vs-target signal above, so an empty seat reads as empty even when
+   nothing is held. is-target (from selection.active()) still layers its own
+   outline on top while something is held, which is the "drop here" cue. */
+.slot.is-empty {
+  border: 1px dashed var(--line);
+}
+
+.name-tap.seat-empty {
+  color: var(--ink-faint, var(--ink-soft));
+  font-style: italic;
+}
+
 .pick-hint {
   color: var(--court);
 }

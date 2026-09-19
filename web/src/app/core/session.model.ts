@@ -8,7 +8,7 @@ export interface Session {
   courtCount: number | null;
   endedAt: string | null;
   createdAt: string;
-  mode: 'variety' | 'balanced';
+  mode: 'variety' | 'balanced' | 'custom';
   /** Player id -> ISO time they last finished a match tonight. */
   lastPlayedAt: Record<string, string>;
   /** Player id -> when they joined or returned; absent for the original roster. */

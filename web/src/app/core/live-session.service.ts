@@ -88,6 +88,14 @@ function messageForCode(code: string): string | null {
       return $localize`:@@err.code.winnerRequired:กรุณาเลือกผู้ชนะเมื่อกรอกคะแนน`;
     case 'WINNER_SCORE_MISMATCH':
       return $localize`:@@err.code.winnerScoreMismatch:ผู้ชนะไม่ตรงกับคะแนนที่กรอก`;
+    case 'PAIRING_INCOMPLETE':
+      return $localize`:@@err.code.pairingIncomplete:ยังมีที่ว่างในคอร์ท ใส่ผู้เล่นให้ครบก่อนยืนยัน`;
+    case 'SEAT_OCCUPIED':
+      return $localize`:@@err.code.seatOccupied:ที่นั่งนี้มีคนอยู่แล้ว`;
+    case 'SEAT_OUT_OF_RANGE':
+      return $localize`:@@err.code.seatOutOfRange:ไม่พบที่นั่งนี้ในคอร์ท`;
+    case 'PLAYER_ALREADY_ON_COURT':
+      return $localize`:@@err.code.playerAlreadyOnCourt:ผู้เล่นคนนี้อยู่ในคอร์ทอื่นแล้ว`;
     default:
       return null;
   }
@@ -117,6 +125,8 @@ export class LiveSessionService {
     return this.sessionResource.value()?.restingPlayerIds ?? [];
   });
 
+  readonly mode = computed<Session['mode']>(() => this.sessionResource.value()?.mode ?? 'variety');
+
   readonly waitingPlayerIds = computed(() => {
     if (this.sessionResource.error()) return [];
     const session = this.sessionResource.value();
@@ -124,7 +134,9 @@ export class LiveSessionService {
     const reserved = new Set<string>();
     for (const court of this.courts()) {
       if (court.status === 'idle') continue;
-      for (const id of [...court.teamA, ...court.teamB]) reserved.add(id);
+      for (const id of [...court.teamA, ...court.teamB]) {
+        if (id !== null) reserved.add(id);
+      }
     }
     // Resting players are waiting for nothing — they are not in the queue.
     const resting = new Set(session.restingPlayerIds);
@@ -185,6 +197,30 @@ export class LiveSessionService {
     );
   }
 
+  /**
+   * Custom mode's seat editor: names a player into one seat, or vacates it
+   * when `playerId` is omitted. Not gated on the session being in custom
+   * mode — see the server-side comment on `setSeat` — so this keeps working
+   * on a half-filled draft left over after switching modes.
+   */
+  setSeat(pairingId: string, team: 'A' | 'B', index: number, playerId?: string): Promise<ActionResult> {
+    return this.post(
+      `pairings/${pairingId}/seats`,
+      { team, index, playerId: playerId ?? null },
+      $localize`:@@err.setSeat:ใส่ผู้เล่นไม่สำเร็จ`
+    );
+  }
+
+  /** Fills only this court's empty seats from the normal rotation pool,
+   *  leaving every seated player exactly where they are. */
+  autoPair(pairingId: string): Promise<ActionResult> {
+    return this.post(
+      `pairings/${pairingId}/autopair`,
+      {},
+      $localize`:@@err.autoPair:เติมอัตโนมัติไม่สำเร็จ`
+    );
+  }
+
   confirmMatch(pairingId: string): Promise<ActionResult> {
     return this.post(`pairings/${pairingId}/confirm`, {}, $localize`:@@err.confirm:ยืนยันแมตช์ไม่สำเร็จ`);
   }
@@ -237,7 +273,7 @@ export class LiveSessionService {
     return this.post('courts/fill', {}, $localize`:@@err.fill:จัดคู่ไม่สำเร็จ`);
   }
 
-  setMode(mode: 'variety' | 'balanced'): Promise<ActionResult> {
+  setMode(mode: Session['mode']): Promise<ActionResult> {
     return this.post('mode', { mode }, $localize`:@@err.mode:เปลี่ยนโหมดไม่สำเร็จ`);
   }
 

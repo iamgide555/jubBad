@@ -63,6 +63,13 @@ export class SessionDashboard implements OnDestroy {
     return record;
   });
 
+  /** Same real games-played count shown on the court cards, looked up for a
+   *  waiting player — so the queue answers "how much have they played" next
+   *  to "how long have they waited", not just the latter. */
+  protected gamesFor(playerId: string): number {
+    return this.gamesPlayed()[playerId] ?? 0;
+  }
+
   /**
    * The roster chips double as the rest control, so each one needs its id and
    * whether it is resting — not just a display name.

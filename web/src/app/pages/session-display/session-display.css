@@ -139,6 +139,12 @@
   font-variant-numeric: tabular-nums;
 }
 
+.waiting-line .tally {
+  color: var(--ink-on-court-soft);
+  font-size: 0.85em;
+  font-variant-numeric: tabular-nums;
+}
+
 /* The only control on the screen, and nobody should be tempted to walk over
    and press it — it sits at the bottom, quiet, out of the reading path. */
 .refresh {

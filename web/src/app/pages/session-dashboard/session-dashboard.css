@@ -97,6 +97,16 @@
   font-size: var(--text-xs);
 }
 
+/* Real games played (from the stats endpoint), matching .tally on the court
+   cards — same count, same look, so the queue reads as one system with the
+   courts. */
+.tally {
+  font-size: var(--text-xs);
+  font-weight: 400;
+  color: var(--ink-soft);
+  font-variant-numeric: tabular-nums;
+}
+
 /* The two controls that decide how courts get filled, sitting together on one
    line directly above the courts they act on. */
 .court-toolbar {

@@ -7,6 +7,7 @@ import { buildWaitingList } from '../../core/waiting-time';
 import { SceneHost } from '../../core/three/scene-host';
 import type { Group } from '../../core/group.model';
 import type { Player } from '../../../../../engines/fuzzy-match.ts';
+import type { PlayerStat } from '../../core/stats.model';
 
 @Component({
   selector: 'app-session-display',
@@ -63,6 +64,24 @@ export class SessionDisplay implements OnDestroy {
       return { courtNumber: i + 1, playing: true, text: `${teamA} ${versus} ${teamB}` };
     });
   });
+
+  /** Real games-played per player, same source and shape as the dashboard's
+   *  `gamesPlayed` — the two screens show the same number. */
+  private readonly statsResource = httpResource<PlayerStat[]>(() => {
+    const code = this.session()?.code;
+    return code ? `${environment.apiBaseUrl}/sessions/${code}/stats?scope=session` : undefined;
+  });
+
+  private readonly gamesPlayed = computed<Record<string, number>>(() => {
+    if (this.statsResource.error()) return {};
+    const record: Record<string, number> = {};
+    for (const row of this.statsResource.value() ?? []) record[row.playerId] = row.played;
+    return record;
+  });
+
+  protected gamesFor(playerId: string): number {
+    return this.gamesPlayed()[playerId] ?? 0;
+  }
 
   private readonly now = signal(Date.now());
 

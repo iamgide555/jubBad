@@ -114,7 +114,7 @@
             [attr.aria-pressed]="selection.isPicked(w.id)"
             [attr.aria-label]="waitingPickLabel(w.name)"
             (click)="pickWaiting(w.id, w.name)"
-          >{{ w.name }} <span class="wait-mins"><app-odometer [value]="w.minutes" /><ng-container i18n="@@dashboard.minutesShort">น.</ng-container></span></button>
+          >{{ w.name }} <span class="wait-mins"><app-odometer [value]="w.minutes" /><ng-container i18n="@@dashboard.minutesShort">น.</ng-container></span> <span class="tally" i18n="@@dashboard.gamesTally">{{ gamesFor(w.id) }} เกม</span></button>
         } @empty {
           <p class="muted" i18n="@@dashboard.nobodyWaiting">ไม่มีคนรอ</p>
         }

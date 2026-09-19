@@ -27,6 +27,7 @@ import {
   withFormatAt,
 } from './court-formats.js';
 import { deriveHistory } from './derive-history.js';
+import { isCustomMode } from './session-mode.js';
 import {
   CorruptPairingError,
   emptySeatCount,
@@ -94,6 +95,48 @@ export class SessionsService {
 
   private notFound(code: string): NotFoundException {
     return new NotFoundException({ code });
+  }
+
+  /**
+   * Writes a court's pending pairing — reused by both `proposeExclusively`
+   * branches (engine-picked and custom-mode empty), since "replace whatever
+   * this court currently holds" is the same write either way: update the
+   * existing pending row under its revision guard, or create the first one.
+   */
+  private async upsertPendingPairing(
+    sessionCode: string,
+    courtNumber: number,
+    existingPending: { id: string; revision: number } | undefined,
+    teamA: string,
+    teamB: string
+  ) {
+    if (existingPending) {
+      const updated = await this.prisma.pairing.updateMany({
+        where: {
+          id: existingPending.id,
+          confirmedAt: null,
+          endedAt: null,
+          revision: existingPending.revision,
+        },
+        data: { teamA, teamB, revision: { increment: 1 } },
+      });
+      if (updated.count !== 1) {
+        throw this.conflict('PAIRING_STALE');
+      }
+      return this.prisma.pairing.findUniqueOrThrow({ where: { id: existingPending.id } });
+    }
+    return this.prisma.pairing.create({
+      data: {
+        sessionId: sessionCode,
+        courtNumber,
+        matchNumber:
+          (await this.prisma.pairing.count({
+            where: { sessionId: sessionCode, courtNumber, confirmedAt: { not: null } },
+          })) + 1,
+        teamA,
+        teamB,
+      },
+    });
   }
 
   /**
@@ -509,6 +552,31 @@ export class SessionsService {
     }
     const available = rosterPlayerIds.filter((id) => !reserved.has(id));
 
+    // Custom mode proposes empty seats and stops — the engine picks nobody.
+    // Reshuffling a custom court is this same call again, which is what
+    // makes it double as "clear the court": the write below always replaces
+    // whatever seats existed with a fresh set of empties. No history, no
+    // ratings, no engine call — the host is about to do that work by hand.
+    if (isCustomMode(session.mode)) {
+      const size = courtSizeFor(formatAt(session.courtFormats, courtNumber));
+      const half = size / 2;
+      const emptyTeam: Seat[] = Array(half).fill(null);
+      const teamA = JSON.stringify(emptyTeam);
+      const teamB = JSON.stringify(emptyTeam);
+      const pairing = await this.upsertPendingPairing(sessionCode, courtNumber, existingPending, teamA, teamB);
+      return {
+        ok: true as const,
+        pairing: {
+          id: pairing.id,
+          courtNumber: pairing.courtNumber,
+          matchNumber: pairing.matchNumber,
+          revision: pairing.revision,
+          teamA: emptyTeam,
+          teamB: emptyTeam,
+        },
+      };
+    }
+
     const history = await this.loadHistory(session.groupId, sessionCode);
 
     // A partly-filled custom draft is not a split worth avoiding — there is
@@ -565,35 +633,7 @@ export class SessionsService {
     const teamA = JSON.stringify(proposed.teamA);
     const teamB = JSON.stringify(proposed.teamB);
 
-    let pairing;
-    if (existingPending) {
-      const updated = await this.prisma.pairing.updateMany({
-        where: {
-          id: existingPending.id,
-          confirmedAt: null,
-          endedAt: null,
-          revision: existingPending.revision,
-        },
-        data: { teamA, teamB, revision: { increment: 1 } },
-      });
-      if (updated.count !== 1) {
-        throw this.conflict('PAIRING_STALE');
-      }
-      pairing = await this.prisma.pairing.findUniqueOrThrow({ where: { id: existingPending.id } });
-    } else {
-      pairing = await this.prisma.pairing.create({
-        data: {
-          sessionId: sessionCode,
-          courtNumber,
-          matchNumber:
-            (await this.prisma.pairing.count({
-              where: { sessionId: sessionCode, courtNumber, confirmedAt: { not: null } },
-            })) + 1,
-          teamA,
-          teamB,
-        },
-      });
-    }
+    const pairing = await this.upsertPendingPairing(sessionCode, courtNumber, existingPending, teamA, teamB);
 
     return {
       ok: true as const,
@@ -650,6 +690,18 @@ export class SessionsService {
       throw this.conflict('PAIRING_CONFIRMED');
     }
 
+    // A custom-mode draft the host hasn't finished seating. Checked before
+    // availability below: an incomplete team's `playersOf` would otherwise
+    // silently answer "who's here" from a partial roster, and the more basic
+    // fault — this isn't even a full match yet — deserves to surface first.
+    // Everything downstream of confirm (deriveHistory, loadRatings, stats,
+    // export's finishedMatches) relies on a confirmed row never having an
+    // empty seat; this is the one place that guarantee is enforced.
+    const empty = emptySeatCount(pairing);
+    if (empty > 0) {
+      throw this.conflict('PAIRING_INCOMPLETE', { emptySeats: empty });
+    }
+
     // Availability is checked here, not when the player was rested. Resting
     // someone must never disturb a match already being played — they are on
     // court — but a *pending* proposal is only a suggestion, and confirming it
@@ -700,6 +752,9 @@ export class SessionsService {
     // Finishing a pairing nobody confirmed would leave a row that counts in
     // the stats table but is invisible to the pairing history, since the two
     // read different columns. Confirm is the single commit point (§7.2).
+    // This also makes an empty-seat check unnecessary here: confirm refuses
+    // while any seat is null (PAIRING_INCOMPLETE), so `confirmedAt !== null`
+    // already guarantees every seat on this row is filled.
     if (pairing.confirmedAt === null) {
       throw this.conflict('PAIRING_CONFIRMATION_REQUIRED');
     }
@@ -1288,6 +1343,39 @@ export class SessionsService {
     const idleCourts = Array.from({ length: session.courtCount ?? 0 }, (_, i) => i + 1).filter(
       (n) => !busyCourts.has(n)
     );
+
+    // Custom mode has no seating decision to make here — every idle court
+    // just gets an empty draft, exactly like a single custom `propose`. This
+    // can never report not-enough-players: nobody is being seated yet.
+    if (isCustomMode(session.mode)) {
+      if (idleCourts.length === 0) {
+        return { ok: false as const, reason: 'not-enough-players' as const, filled: [] as number[] };
+      }
+      const filled = await this.prisma.$transaction(async (tx) => {
+        const written: number[] = [];
+        for (const courtNumber of idleCourts) {
+          const size = courtSizeFor(formatAt(session.courtFormats, courtNumber));
+          const emptyTeam = JSON.stringify(Array(size / 2).fill(null));
+          const matchNumber =
+            (await tx.pairing.count({
+              where: { sessionId: sessionCode, courtNumber, confirmedAt: { not: null } },
+            })) + 1;
+          await tx.pairing.create({
+            data: {
+              sessionId: sessionCode,
+              courtNumber,
+              matchNumber,
+              teamA: emptyTeam,
+              teamB: emptyTeam,
+            },
+          });
+          written.push(courtNumber);
+        }
+        return written;
+      });
+      return { ok: true as const, filled };
+    }
+
     const available = roster.map((r) => r.playerId).filter((id) => !reserved.has(id));
 
     // This call has no single court to favour, unlike `proposeExclusively`,

@@ -257,6 +257,37 @@ describe('GroupsController', () => {
     }
   });
 
+  it('exports a half-filled custom-mode draft with its empty seats intact, rather than throwing', async () => {
+    const code = randomUUID();
+    const sessionCode = randomUUID();
+    await prisma.group.create({ data: { code, name: 'G' } });
+    const a = await prisma.player.create({ data: { groupId: code, name: 'A', aliases: '[]' } });
+    await prisma.session.create({
+      data: { code: sessionCode, groupId: code, courtCount: 1, rawImportText: '', mode: 'custom' },
+    });
+    await prisma.pairing.create({
+      data: {
+        sessionId: sessionCode,
+        courtNumber: 1,
+        matchNumber: 1,
+        teamA: JSON.stringify([a.id, null]),
+        teamB: JSON.stringify([null, null]),
+      },
+    });
+
+    try {
+      const res = await request(server).get(`/groups/${code}/export`).expect(200);
+      const session = res.body.sessions.find((s: { code: string }) => s.code === sessionCode);
+      expect(session.matches[0].teamA).toEqual([a.id, null]);
+      expect(session.matches[0].teamB).toEqual([null, null]);
+    } finally {
+      await prisma.pairing.deleteMany({ where: { sessionId: sessionCode } });
+      await prisma.session.deleteMany({ where: { code: sessionCode } });
+      await prisma.player.deleteMany({ where: { groupId: code } });
+      await prisma.group.deleteMany({ where: { code } });
+    }
+  });
+
   it('reports a player\'s record, best partner and most-faced opponent', async () => {
     const code = randomUUID();
     const sessionCode = randomUUID();

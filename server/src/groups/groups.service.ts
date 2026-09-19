@@ -4,7 +4,7 @@ import { matchRoster } from '../../../engines/fuzzy-match.ts';
 import { parseLineRosterMessage } from '../../../engines/parser.ts';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { parseCourtFormats } from '../sessions/court-formats.js';
-import { parseTeams } from '../sessions/pairing-teams.js';
+import { parseSeatTeams, parseTeams } from '../sessions/pairing-teams.js';
 import type { UpdateGroupDto } from './dto/update-group.dto.js';
 import type { ParseRosterDto } from './dto/parse-roster.dto.js';
 import type { UpdatePlayerDto } from './dto/update-player.dto.js';
@@ -395,7 +395,10 @@ export class GroupsService {
         matches: s.pairings.map((p) => ({
           courtNumber: p.courtNumber,
           matchNumber: p.matchNumber,
-          ...parseTeams(p),
+          // Tolerant: unlike `finishedMatches`, this walks every pairing —
+          // including a still-being-filled custom-mode draft — so an empty
+          // seat must export honestly as null, not throw.
+          ...parseSeatTeams(p),
           scoreA: p.scoreA,
           scoreB: p.scoreB,
           winner: p.winner,

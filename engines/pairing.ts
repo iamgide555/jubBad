@@ -1059,3 +1059,187 @@ export function generateRound(
   // so a legal alternative always remains.
   return { courts: best ?? [], sittingOut };
 }
+
+/** One seat on a court being manually assembled: a player id, or empty. */
+export type Seat = PlayerId | null;
+
+/** A court with zero or more of its seats still unfilled. Both teams are
+ *  always the same length — the court's format — exactly like `Team[]`. */
+export interface SeatedCourt {
+  teamA: Seat[];
+  teamB: Seat[];
+}
+
+function assertSeatedCourtShape(seats: SeatedCourt): void {
+  const { teamA, teamB } = seats;
+  if (teamA.length !== teamB.length || (teamA.length !== 1 && teamA.length !== 2)) {
+    throw new InvalidRoundInputError(
+      `court teams must be the same size, one or two seats each: got ${teamA.length} and ${teamB.length}`
+    );
+  }
+  const seen = new Set<PlayerId>();
+  for (const seat of [...teamA, ...teamB]) {
+    if (seat === null) continue;
+    if (seen.has(seat)) {
+      throw new InvalidRoundInputError(`court seats name "${seat}" more than once`);
+    }
+    seen.add(seat);
+  }
+}
+
+function assertPool(pool: PlayerId[], seated: Set<PlayerId>): void {
+  const seen = new Set<PlayerId>();
+  for (const id of pool) {
+    if (typeof id !== 'string' || id.length === 0) {
+      throw new InvalidRoundInputError('pool contains an empty or non-string player id');
+    }
+    if (seen.has(id)) {
+      throw new InvalidRoundInputError(`pool contains "${id}" more than once`);
+    }
+    if (seated.has(id)) {
+      throw new InvalidRoundInputError(`pool contains "${id}", who is already seated on this court`);
+    }
+    seen.add(id);
+  }
+}
+
+/**
+ * Fills the empty seats of one partly (or fully) seated court, leaving every
+ * already-seated player exactly where the host put them — position included.
+ * The court a host is filling by hand in custom mode; not a replacement for
+ * `generateRound`, which plans a whole round across every idle court.
+ *
+ * Deliberately does not call into `generateRound`'s search machinery
+ * (`selectSittingOut`, `buildRandomArrangement`, `improveArrangement`,
+ * `forEachExactArrangement`): every one of those exists to move players
+ * between courts or decide who sits out, and this function must do neither —
+ * it only ever touches the seats it was asked to fill, on the one court it
+ * was asked to fill them on. Not editing that code path is also what keeps
+ * `generateRound`'s own behaviour (and its golden tests) byte-identical.
+ *
+ * Two decisions, kept separate on purpose:
+ *
+ * - **Rotation decides *who*.** The pool is ordered by games played this
+ *   session (fewest first), then by longest wait — the same priority
+ *   `selectSittingOut` and the on-screen waiting list already use. The
+ *   players actually offered a seat are the top `empties.length` of that
+ *   order, widened to include anyone else exactly tied with the last one on
+ *   both games and wait — the same boundary a real tie would produce, so the
+ *   objective below only ever gets to choose among players rotation
+ *   genuinely cannot separate.
+ * - **The objective decides *seating*.** Among the (usually very small)
+ *   space of ways to seat the offered players into the empty seats, the one
+ *   already-seated players are never moved from — pick whichever scores best
+ *   by the same comparison `generateRound` uses, via the shared
+ *   `compareArrangements`/`arrangementScoreComponents`. No ratings are ever
+ *   passed here (see the module-level note by the call sites): the host is
+ *   placing people by hand, and a hidden rating term would silently pull
+ *   against the seats they just chose.
+ *
+ * Returns `null` when the pool cannot fill every empty seat — the caller
+ * reports that as "not enough players," exactly as `generateRound` does.
+ */
+export function completeCourt(
+  seats: SeatedCourt,
+  pool: PlayerId[],
+  history: MatchHistory,
+  random: () => number = Math.random
+): { teamA: PlayerId[]; teamB: PlayerId[] } | null {
+  assertSeatedCourtShape(seats);
+  const seatedIds = new Set<PlayerId>(
+    [...seats.teamA, ...seats.teamB].filter((s): s is PlayerId => s !== null)
+  );
+  assertPool(pool, seatedIds);
+  assertCountMap(history.gamesPlayedThisSession, 'gamesPlayedThisSession', true);
+  assertCountMap(history.partnerCounts, 'partnerCounts', true);
+  assertCountMap(history.opponentCounts, 'opponentCounts', true);
+  if (history.waitingSince) {
+    assertCountMap(history.waitingSince, 'waitingSince', false);
+  }
+
+  const empties: { team: 'A' | 'B'; index: number }[] = [];
+  seats.teamA.forEach((seat, index) => {
+    if (seat === null) empties.push({ team: 'A', index });
+  });
+  seats.teamB.forEach((seat, index) => {
+    if (seat === null) empties.push({ team: 'B', index });
+  });
+
+  if (empties.length === 0) {
+    return {
+      teamA: seats.teamA as PlayerId[],
+      teamB: seats.teamB as PlayerId[],
+    };
+  }
+
+  if (pool.length < empties.length) return null;
+
+  const priorityKey = (id: PlayerId): [number, number] => [
+    history.gamesPlayedThisSession.get(id) ?? 0,
+    history.waitingSince?.get(id) ?? 0,
+  ];
+
+  const ordered = shuffle(pool, random).sort((a, b) => {
+    const [aGames, aWait] = priorityKey(a);
+    const [bGames, bWait] = priorityKey(b);
+    return aGames - bGames || aWait - bWait;
+  });
+
+  const k = empties.length;
+  const boundaryKey = priorityKey(ordered[k - 1]).join('|');
+  const candidates = [
+    ...ordered.slice(0, k),
+    ...ordered.slice(k).filter((id) => priorityKey(id).join('|') === boundaryKey),
+  ];
+
+  const floors = historyFloors(
+    [...seatedIds, ...candidates],
+    history.partnerCounts,
+    history.opponentCounts
+  );
+
+  const fillWith = (chosen: PlayerId[]): { teamA: Team; teamB: Team } => {
+    const teamA = [...seats.teamA];
+    const teamB = [...seats.teamB];
+    empties.forEach((seat, i) => {
+      (seat.team === 'A' ? teamA : teamB)[seat.index] = chosen[i];
+    });
+    return { teamA: teamA as Team, teamB: teamB as Team };
+  };
+
+  let best: { teamA: Team; teamB: Team } | null = null;
+  const used = new Array<boolean>(candidates.length).fill(false);
+  const chosen: PlayerId[] = [];
+
+  const search = (): void => {
+    if (chosen.length === k) {
+      const candidate = fillWith(chosen);
+      if (
+        !best ||
+        compareArrangements(
+          [candidate],
+          [best],
+          history.partnerCounts,
+          history.opponentCounts,
+          undefined,
+          floors,
+          history.recentGroupKeys ?? null
+        ) < 0
+      ) {
+        best = candidate;
+      }
+      return;
+    }
+    for (let i = 0; i < candidates.length; i++) {
+      if (used[i]) continue;
+      used[i] = true;
+      chosen.push(candidates[i]);
+      search();
+      chosen.pop();
+      used[i] = false;
+    }
+  };
+  search();
+
+  return best;
+}

@@ -515,6 +515,49 @@ describe('SessionsController', () => {
     }
   });
 
+  it('reports a null seat rather than throwing when a pending pairing is only half filled', async () => {
+    const groupCode = randomUUID();
+    const sessionCode = randomUUID();
+    await prisma.group.create({ data: { code: groupCode, name: 'G' } });
+    const players = await Promise.all(
+      ['A', 'B', 'C'].map((name) => prisma.player.create({ data: { groupId: groupCode, name, aliases: '[]' } }))
+    );
+    await prisma.session.create({
+      data: { code: sessionCode, groupId: groupCode, courtCount: 1, rawImportText: '' },
+    });
+    for (const p of players) {
+      await prisma.sessionRoster.create({ data: { sessionId: sessionCode, playerId: p.id } });
+    }
+    await prisma.pairing.create({
+      data: {
+        sessionId: sessionCode,
+        courtNumber: 1,
+        matchNumber: 1,
+        teamA: JSON.stringify([players[0].id, null]),
+        teamB: JSON.stringify([players[1].id, players[2].id]),
+      },
+    });
+
+    try {
+      const res = await request(server).get(`/sessions/${sessionCode}`).expect(200);
+      expect(res.body.courts[0]).toEqual({
+        courtNumber: 1,
+        status: 'pending',
+        pairingId: expect.any(String),
+        revision: 0,
+        format: 'doubles',
+        teamA: [players[0].id, null],
+        teamB: [players[1].id, players[2].id],
+      });
+    } finally {
+      await prisma.pairing.deleteMany({ where: { sessionId: sessionCode } });
+      await prisma.sessionRoster.deleteMany({ where: { sessionId: sessionCode } });
+      await prisma.session.deleteMany({ where: { code: sessionCode } });
+      await prisma.player.deleteMany({ where: { groupId: groupCode } });
+      await prisma.group.deleteMany({ where: { code: groupCode } });
+    }
+  });
+
   it('proposes a match, reshuffles in place before confirm, and reports not-enough-players', async () => {
     const groupCode = randomUUID();
     const sessionCode = randomUUID();
@@ -3125,6 +3168,87 @@ describe('SessionsController', () => {
 
       const row = await prisma.pairing.findUniqueOrThrow({ where: { id: pairing.id } });
       expect(JSON.parse(row.teamA)).toEqual([players[4].id, players[1].id]);
+    } finally {
+      await prisma.pairing.deleteMany({ where: { sessionId: sessionCode } });
+      await prisma.sessionRoster.deleteMany({ where: { sessionId: sessionCode } });
+      await prisma.session.deleteMany({ where: { code: sessionCode } });
+      await prisma.player.deleteMany({ where: { groupId: groupCode } });
+      await prisma.group.deleteMany({ where: { code: groupCode } });
+    }
+  });
+
+  it('refuses an auto-pick swap while another seat on the same court is still empty', async () => {
+    const groupCode = randomUUID();
+    const sessionCode = randomUUID();
+    await prisma.group.create({ data: { code: groupCode, name: 'G' } });
+    const players = await Promise.all(
+      ['A', 'B', 'C', 'D'].map((name) => prisma.player.create({ data: { groupId: groupCode, name, aliases: '[]' } }))
+    );
+    await prisma.session.create({
+      data: { code: sessionCode, groupId: groupCode, courtCount: 1, rawImportText: '' },
+    });
+    for (const p of players) {
+      await prisma.sessionRoster.create({ data: { sessionId: sessionCode, playerId: p.id } });
+    }
+    const pairing = await prisma.pairing.create({
+      data: {
+        sessionId: sessionCode,
+        courtNumber: 1,
+        matchNumber: 1,
+        teamA: JSON.stringify([players[0].id, players[1].id]),
+        teamB: JSON.stringify([players[2].id, null]),
+      },
+    });
+
+    try {
+      const res = await request(server)
+        .post(`/sessions/${sessionCode}/pairings/${pairing.id}/swap`)
+        .send({ playerId: players[0].id })
+        .expect(409);
+      expect(res.body.code).toBe('PAIRING_INCOMPLETE');
+
+      const row = await prisma.pairing.findUniqueOrThrow({ where: { id: pairing.id } });
+      expect(JSON.parse(row.teamA)).toEqual([players[0].id, players[1].id]);
+    } finally {
+      await prisma.pairing.deleteMany({ where: { sessionId: sessionCode } });
+      await prisma.sessionRoster.deleteMany({ where: { sessionId: sessionCode } });
+      await prisma.session.deleteMany({ where: { code: sessionCode } });
+      await prisma.player.deleteMany({ where: { groupId: groupCode } });
+      await prisma.group.deleteMany({ where: { code: groupCode } });
+    }
+  });
+
+  it('swaps a named player in on a court that still has another seat empty, leaving the empty seat untouched', async () => {
+    const groupCode = randomUUID();
+    const sessionCode = randomUUID();
+    await prisma.group.create({ data: { code: groupCode, name: 'G' } });
+    const players = await Promise.all(
+      ['A', 'B', 'C', 'D'].map((name) => prisma.player.create({ data: { groupId: groupCode, name, aliases: '[]' } }))
+    );
+    await prisma.session.create({
+      data: { code: sessionCode, groupId: groupCode, courtCount: 1, rawImportText: '' },
+    });
+    for (const p of players) {
+      await prisma.sessionRoster.create({ data: { sessionId: sessionCode, playerId: p.id } });
+    }
+    const pairing = await prisma.pairing.create({
+      data: {
+        sessionId: sessionCode,
+        courtNumber: 1,
+        matchNumber: 1,
+        teamA: JSON.stringify([players[0].id, players[1].id]),
+        teamB: JSON.stringify([players[2].id, null]),
+      },
+    });
+
+    try {
+      const res = await request(server)
+        .post(`/sessions/${sessionCode}/pairings/${pairing.id}/swap`)
+        .send({ playerId: players[0].id, withPlayerId: players[3].id })
+        .expect(201);
+      expect(res.body.ok).toBe(true);
+      expect(res.body.pairing.teamA).toEqual([players[3].id, players[1].id]);
+      expect(res.body.pairing.teamB).toEqual([players[2].id, null]);
     } finally {
       await prisma.pairing.deleteMany({ where: { sessionId: sessionCode } });
       await prisma.sessionRoster.deleteMany({ where: { sessionId: sessionCode } });

@@ -95,7 +95,9 @@ model Session {
   createdAt     DateTime        @default(now())
   endedAt       DateTime?
   /// 'variety' (default) spreads partners and opponents; 'balanced' also
-  /// pulls the two sides of each match together on Elo rating.
+  /// pulls the two sides of each match together on Elo rating; 'custom'
+  /// proposes empty seats and lets the host fill them by hand (see
+  /// server/src/sessions/session-mode.ts and pairing-teams.ts).
   mode          String          @default("variety")
   /// Per-court doubles/singles setting, JSON-encoded ('doubles' | 'singles')[],
   /// index 0 = court 1. Null, missing, or an unrecognised entry all read as
@@ -152,8 +154,13 @@ model Pairing {
   sessionId   String
   courtNumber Int
   matchNumber Int
-  teamA       String // JSON-encoded [playerId, playerId]
-  teamB       String // JSON-encoded [playerId, playerId]
+  /// JSON-encoded [playerId | null, playerId | null] — a `null` entry is an
+  /// unfilled seat, possible only while `confirmedAt` is null (a custom-mode
+  /// draft the host hasn't finished seating). Always parse through
+  /// server/src/sessions/pairing-teams.ts rather than JSON.parse directly.
+  teamA       String
+  /// See teamA.
+  teamB       String
   scoreA      Int?
   scoreB      Int?
   winner      String? // 'A' | 'B'

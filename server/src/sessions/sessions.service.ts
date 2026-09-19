@@ -27,7 +27,15 @@ import {
   withFormatAt,
 } from './court-formats.js';
 import { deriveHistory } from './derive-history.js';
-import { CorruptPairingError, parseTeam, parseTeams, teamPlayers } from './pairing-teams.js';
+import {
+  CorruptPairingError,
+  emptySeatCount,
+  parseSeats,
+  parseSeatTeams,
+  parseTeams,
+  seatedPlayers,
+  type Seat,
+} from './pairing-teams.js';
 import { SessionLock } from './session-lock.js';
 import type { CreateSessionDto, NameReviewDto } from './dto/create-session.dto.js';
 import type { FinishPairingDto } from './dto/finish-pairing.dto.js';
@@ -107,18 +115,33 @@ export class SessionsService {
     }
   }
 
+  /** Strict: throws if either team has an unfilled seat. Only ever called on
+   *  confirmed rows, where an empty seat would be corrupt state (see the
+   *  confirm guard in `confirmPairingExclusively`). */
   private teamsOf(pairing: { teamA: string; teamB: string }): { teamA: string[]; teamB: string[] } {
     return this.parseOrThrow(() => parseTeams(pairing));
   }
 
-  /** Every player named by a pairing's two teams, in teamA-then-teamB order. */
-  private playersOf(pairing: { teamA: string; teamB: string }): string[] {
-    return this.parseOrThrow(() => teamPlayers(pairing));
+  /** Tolerant: both teams as-is, empty seats included. For reading a pairing
+   *  that may still be a custom-mode draft (getSession, a pending court's
+   *  avoidSplit, a manual swap). */
+  private seatsOf(pairing: { teamA: string; teamB: string }): { teamA: Seat[]; teamB: Seat[] } {
+    return this.parseOrThrow(() => parseSeatTeams(pairing));
   }
 
-  /** Parses one already-JSON team string, with the same corrupt-state mapping as `teamsOf`. */
-  private oneTeamOf(raw: string): string[] {
-    return this.parseOrThrow(() => parseTeam(raw));
+  /** Every *occupied* seat's player id, in teamA-then-teamB order — empty
+   *  seats are dropped. Tolerant, because every call site asks "who is
+   *  actually on this court," which an unfilled seat never answers. */
+  private playersOf(pairing: { teamA: string; teamB: string }): string[] {
+    return this.parseOrThrow(() => seatedPlayers(pairing));
+  }
+
+  /** Parses one already-JSON team string, empty seats included — the two
+   *  callers (`replaceIn`/`tradeIn` in `swapWithChosenPlayer`) only ever
+   *  replace a seat that matches a given id, so a `null` entry just passes
+   *  through untouched. */
+  private oneSeatOf(raw: string): Seat[] {
+    return this.parseOrThrow(() => parseSeats(raw));
   }
 
   async createSession(
@@ -283,7 +306,9 @@ export class SessionsService {
 
       if (!current) return { courtNumber, status: 'idle' as const, format };
 
-      const { teamA, teamB } = this.teamsOf(current);
+      // Tolerant: a pending custom-mode draft may still have unfilled seats,
+      // and the dashboard needs to render them, not have this 500.
+      const { teamA, teamB } = this.seatsOf(current);
       return current.confirmedAt
         ? {
             courtNumber,
@@ -486,10 +511,15 @@ export class SessionsService {
 
     const history = await this.loadHistory(session.groupId, sessionCode);
 
-    const avoidSplit = existingPending ? this.teamsOf(existingPending) : undefined;
+    // A partly-filled custom draft is not a split worth avoiding — there is
+    // no completed pairing yet to avoid reproducing, and `teamsOf` would
+    // throw on its empty seats besides.
+    const avoidSplit =
+      existingPending && emptySeatCount(existingPending) === 0
+        ? this.teamsOf(existingPending)
+        : undefined;
 
-    const ratings =
-      session.mode === 'balanced' ? await this.loadRatings(session.groupId) : undefined;
+    const ratings = await this.ratingsForMode(session);
 
     // Plan across every idle court, then commit only the one asked for.
     //
@@ -774,8 +804,10 @@ export class SessionsService {
       throw this.conflict('PAIRING_NOT_PENDING');
     }
 
-    const { teamA, teamB } = this.teamsOf(pairing);
-    const onThisCourt = new Set([...teamA, ...teamB]);
+    // Tolerant: a custom-mode draft may still have an unfilled seat, and the
+    // named-seat lookup below still has to work when it does.
+    const { teamA, teamB } = this.seatsOf(pairing);
+    const onThisCourt = new Set([...teamA, ...teamB].filter((s): s is string => s !== null));
     if (!onThisCourt.has(dto.playerId)) throw this.notFound('PAIRING_PLAYER_NOT_FOUND');
 
     const roster = await this.prisma.sessionRoster.findMany({
@@ -791,6 +823,17 @@ export class SessionsService {
       return this.swapWithChosenPlayer(pairing, dto, dto.withPlayerId, rosterPlayerIds, nonEnded);
     }
 
+    // Auto-pick asks the engine to choose the replacement, which assumes
+    // every other seat on this court is already filled. A court with a
+    // genuinely empty seat belongs to the seats/autopair flow (custom mode),
+    // not this one — naming who fills *this* seat says nothing about who
+    // should fill that one.
+    if (teamA.includes(null) || teamB.includes(null)) {
+      throw this.conflict('PAIRING_INCOMPLETE');
+    }
+    const filledTeamA = teamA as string[];
+    const filledTeamB = teamB as string[];
+
     const reserved = new Set<string>();
     for (const p of nonEnded) {
       for (const id of this.playersOf(p)) reserved.add(id);
@@ -805,13 +848,12 @@ export class SessionsService {
     });
     if (session.endedAt !== null) throw this.conflict('SESSION_ENDED');
     const history = await this.loadHistory(session.groupId, pairing.sessionId);
-    const ratings =
-      session.mode === 'balanced' ? await this.loadRatings(session.groupId) : undefined;
+    const ratings = await this.ratingsForMode(session);
 
     const swapIn = (candidate: string): [string[], string[]] => {
       const replace = (team: string[]): string[] =>
         team.map((id) => (id === dto.playerId ? candidate : id));
-      return [replace(teamA), replace(teamB)];
+      return [replace(filledTeamA), replace(filledTeamB)];
     };
 
     // The playing-pool choice follows normal rotation first. Pairing quality
@@ -900,8 +942,8 @@ export class SessionsService {
     }
     if (!rosterPlayerIds.includes(incomingId)) throw this.notFound('ROSTER_PLAYER_NOT_FOUND');
 
-    const replaceIn = (raw: string, out: string, into: string): string[] => {
-      const team = this.oneTeamOf(raw);
+    const replaceIn = (raw: string, out: string, into: string): Seat[] => {
+      const team = this.oneSeatOf(raw);
       return team.map((id) => (id === out ? into : id));
     };
 
@@ -915,9 +957,9 @@ export class SessionsService {
      * There is no far pairing to trade back against here, which is exactly why
      * the general path could not catch it: `nonEnded` excludes this pairing.
      */
-    const tradeIn = (raw: string, x: string, y: string): string[] => {
-      const team = this.oneTeamOf(raw);
-      const at = (id: string) => (id === x ? y : id === y ? x : id);
+    const tradeIn = (raw: string, x: string, y: string): Seat[] => {
+      const team = this.oneSeatOf(raw);
+      const at = (id: Seat) => (id === x ? y : id === y ? x : id);
       return team.map(at);
     };
 
@@ -1021,6 +1063,17 @@ export class SessionsService {
         winner: p.winner as 'A' | 'B',
       }))
     );
+  }
+
+  /**
+   * Ratings are the *balanced* objective and nothing else's. Variety compares
+   * partner-then-opponent lexicographically, and custom deliberately does the
+   * same (see `completeCourt` in the engine): the host is placing people by
+   * hand, and a hidden rating term would pull against the seats they just
+   * set. One place, so a fourth mode can't add a fourth copy of this check.
+   */
+  private ratingsForMode(session: { mode: string; groupId: string }) {
+    return session.mode === 'balanced' ? this.loadRatings(session.groupId) : undefined;
   }
 
   setMode(code: string, dto: SetModeDto) {
@@ -1285,8 +1338,7 @@ export class SessionsService {
     const sizes: CourtSize[] = chosenCourts.map((n) => courtSizeFor(formatAt(session.courtFormats, n)));
 
     const history = await this.loadHistory(session.groupId, sessionCode);
-    const ratings =
-      session.mode === 'balanced' ? await this.loadRatings(session.groupId) : undefined;
+    const ratings = await this.ratingsForMode(session);
     const result = this.runGenerateRound(available, sizes, history, undefined, undefined, ratings);
 
     const filled = await this.prisma.$transaction(async (tx) => {

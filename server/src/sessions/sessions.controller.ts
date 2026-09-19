@@ -110,6 +110,15 @@ export class SessionsController {
     return this.sessionsService.setSeat(code, id, dto);
   }
 
+  @Post(':code/pairings/:id/autopair')
+  autoPair(
+    @Param('code') code: string,
+    @Param('id') id: string,
+    @Body() dto: PairingRevisionDto
+  ) {
+    return this.sessionsService.autoPair(code, id, dto.expectedRevision);
+  }
+
   @Post(':code/roster/:playerId/active')
   setRosterActive(
     @Param('code') code: string,

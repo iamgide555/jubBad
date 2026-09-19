@@ -1761,6 +1761,221 @@ describe('SessionsController', () => {
     });
   });
 
+  describe('POST /sessions/:code/pairings/:id/autopair', () => {
+    async function cleanup(groupCode: string, sessionCode: string) {
+      await prisma.pairing.deleteMany({ where: { sessionId: sessionCode } });
+      await prisma.sessionRoster.deleteMany({ where: { sessionId: sessionCode } });
+      await prisma.session.deleteMany({ where: { code: sessionCode } });
+      await prisma.player.deleteMany({ where: { groupId: groupCode } });
+      await prisma.group.deleteMany({ where: { code: groupCode } });
+    }
+
+    it('fills only the empty seats, leaving already-seated players exactly where they were', async () => {
+      const groupCode = randomUUID();
+      const sessionCode = randomUUID();
+      await prisma.group.create({ data: { code: groupCode, name: 'G' } });
+      const players = await Promise.all(
+        ['A', 'B', 'C', 'D'].map((name) => prisma.player.create({ data: { groupId: groupCode, name, aliases: '[]' } }))
+      );
+      await prisma.session.create({
+        data: { code: sessionCode, groupId: groupCode, courtCount: 1, rawImportText: '', mode: 'custom' },
+      });
+      for (const p of players) {
+        await prisma.sessionRoster.create({ data: { sessionId: sessionCode, playerId: p.id } });
+      }
+      const pairing = await prisma.pairing.create({
+        data: {
+          sessionId: sessionCode,
+          courtNumber: 1,
+          matchNumber: 1,
+          teamA: JSON.stringify([players[0].id, null]),
+          teamB: JSON.stringify([players[1].id, players[2].id]),
+        },
+      });
+
+      try {
+        const res = await request(server)
+          .post(`/sessions/${sessionCode}/pairings/${pairing.id}/autopair`)
+          .send({})
+          .expect(201);
+        expect(res.body.ok).toBe(true);
+        expect(res.body.filled).toBe(1);
+        expect(res.body.pairing.teamA[0]).toBe(players[0].id);
+        expect(res.body.pairing.teamB).toEqual([players[1].id, players[2].id]);
+        expect(res.body.pairing.teamA[1]).toBe(players[3].id);
+
+        const row = await prisma.pairing.findUniqueOrThrow({ where: { id: pairing.id } });
+        expect(JSON.parse(row.teamA)).toEqual([players[0].id, players[3].id]);
+      } finally {
+        await cleanup(groupCode, sessionCode);
+      }
+    });
+
+    it('leaves every other court untouched', async () => {
+      const groupCode = randomUUID();
+      const sessionCode = randomUUID();
+      await prisma.group.create({ data: { code: groupCode, name: 'G' } });
+      const players = await Promise.all(
+        ['A', 'B', 'C', 'D', 'E'].map((name) =>
+          prisma.player.create({ data: { groupId: groupCode, name, aliases: '[]' } })
+        )
+      );
+      await prisma.session.create({
+        data: { code: sessionCode, groupId: groupCode, courtCount: 2, rawImportText: '', mode: 'custom' },
+      });
+      for (const p of players) {
+        await prisma.sessionRoster.create({ data: { sessionId: sessionCode, playerId: p.id } });
+      }
+      const target = await prisma.pairing.create({
+        data: {
+          sessionId: sessionCode,
+          courtNumber: 1,
+          matchNumber: 1,
+          teamA: JSON.stringify([players[0].id, null]),
+          teamB: JSON.stringify([null, null]),
+        },
+      });
+      const other = await prisma.pairing.create({
+        data: {
+          sessionId: sessionCode,
+          courtNumber: 2,
+          matchNumber: 1,
+          teamA: JSON.stringify([null, null]),
+          teamB: JSON.stringify([null, null]),
+        },
+      });
+
+      try {
+        await request(server)
+          .post(`/sessions/${sessionCode}/pairings/${target.id}/autopair`)
+          .send({})
+          .expect(201);
+
+        const otherRow = await prisma.pairing.findUniqueOrThrow({ where: { id: other.id } });
+        expect(otherRow.teamA).toBe(other.teamA);
+        expect(otherRow.teamB).toBe(other.teamB);
+        expect(otherRow.revision).toBe(other.revision);
+      } finally {
+        await cleanup(groupCode, sessionCode);
+      }
+    });
+
+    it('reports not-enough-players when the pool cannot fill every empty seat', async () => {
+      const groupCode = randomUUID();
+      const sessionCode = randomUUID();
+      await prisma.group.create({ data: { code: groupCode, name: 'G' } });
+      const players = await Promise.all(
+        ['A', 'B'].map((name) => prisma.player.create({ data: { groupId: groupCode, name, aliases: '[]' } }))
+      );
+      await prisma.session.create({
+        data: { code: sessionCode, groupId: groupCode, courtCount: 1, rawImportText: '', mode: 'custom' },
+      });
+      for (const p of players) {
+        await prisma.sessionRoster.create({ data: { sessionId: sessionCode, playerId: p.id } });
+      }
+      const pairing = await prisma.pairing.create({
+        data: {
+          sessionId: sessionCode,
+          courtNumber: 1,
+          matchNumber: 1,
+          teamA: JSON.stringify([players[0].id, null]),
+          teamB: JSON.stringify([null, null]),
+        },
+      });
+
+      try {
+        const res = await request(server)
+          .post(`/sessions/${sessionCode}/pairings/${pairing.id}/autopair`)
+          .send({})
+          .expect(201);
+        expect(res.body).toEqual({ ok: false, reason: 'not-enough-players', available: 1 });
+
+        const row = await prisma.pairing.findUniqueOrThrow({ where: { id: pairing.id } });
+        expect(JSON.parse(row.teamA)).toEqual([players[0].id, null]);
+      } finally {
+        await cleanup(groupCode, sessionCode);
+      }
+    });
+
+    it('is a no-op on an already-full pairing', async () => {
+      const groupCode = randomUUID();
+      const sessionCode = randomUUID();
+      await prisma.group.create({ data: { code: groupCode, name: 'G' } });
+      const players = await Promise.all(
+        ['A', 'B', 'C', 'D'].map((name) => prisma.player.create({ data: { groupId: groupCode, name, aliases: '[]' } }))
+      );
+      await prisma.session.create({
+        data: { code: sessionCode, groupId: groupCode, courtCount: 1, rawImportText: '', mode: 'custom' },
+      });
+      for (const p of players) {
+        await prisma.sessionRoster.create({ data: { sessionId: sessionCode, playerId: p.id } });
+      }
+      const pairing = await prisma.pairing.create({
+        data: {
+          sessionId: sessionCode,
+          courtNumber: 1,
+          matchNumber: 1,
+          teamA: JSON.stringify([players[0].id, players[1].id]),
+          teamB: JSON.stringify([players[2].id, players[3].id]),
+        },
+      });
+
+      try {
+        const res = await request(server)
+          .post(`/sessions/${sessionCode}/pairings/${pairing.id}/autopair`)
+          .send({})
+          .expect(201);
+        expect(res.body).toEqual({ ok: true, filled: 0, pairing: expect.any(Object) });
+      } finally {
+        await cleanup(groupCode, sessionCode);
+      }
+    });
+
+    it('confirming an autopair-filled match feeds fairness bookkeeping exactly like an engine-picked one', async () => {
+      const groupCode = randomUUID();
+      const sessionCode = randomUUID();
+      await prisma.group.create({ data: { code: groupCode, name: 'G' } });
+      const players = await Promise.all(
+        ['A', 'B', 'C', 'D'].map((name) => prisma.player.create({ data: { groupId: groupCode, name, aliases: '[]' } }))
+      );
+      await prisma.session.create({
+        data: { code: sessionCode, groupId: groupCode, courtCount: 1, rawImportText: '', mode: 'custom' },
+      });
+      for (const p of players) {
+        await prisma.sessionRoster.create({ data: { sessionId: sessionCode, playerId: p.id } });
+      }
+      const pairing = await prisma.pairing.create({
+        data: {
+          sessionId: sessionCode,
+          courtNumber: 1,
+          matchNumber: 1,
+          teamA: JSON.stringify([players[0].id, players[1].id]),
+          teamB: JSON.stringify([null, null]),
+        },
+      });
+
+      try {
+        await request(server)
+          .post(`/sessions/${sessionCode}/pairings/${pairing.id}/autopair`)
+          .send({})
+          .expect(201);
+        await request(server)
+          .post(`/sessions/${sessionCode}/pairings/${pairing.id}/confirm`)
+          .send({})
+          .expect(201);
+
+        const res = await request(server).get(`/sessions/${sessionCode}`).expect(200);
+        // Every roster player is now on the one confirmed court, exactly as
+        // an engine-picked propose would have credited them.
+        for (const p of players) {
+          expect(res.body.queueGames[p.id]).toBe(1);
+        }
+      } finally {
+        await cleanup(groupCode, sessionCode);
+      }
+    });
+  });
+
   it('reports when each waiting player last finished a match', async () => {
     const groupCode = randomUUID();
     const sessionCode = randomUUID();

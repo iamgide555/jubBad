@@ -11,6 +11,7 @@ import { confirmExistingPlayerAlias, createNewPlayer, type Player as FuzzyPlayer
 import { computeRatingTracks } from '../../../engines/elo.ts';
 import {
   compareArrangements,
+  completeCourt,
   generateRound,
   groupKey,
   InvalidRoundInputError,
@@ -76,9 +77,11 @@ export class SessionsService {
    * the real fault indefinitely. 500 with a distinct code, and the detail is
    * kept because these endpoints are already admin-only.
    */
-  private runGenerateRound(...args: Parameters<typeof generateRound>) {
+  /** Shared by every engine entry point, so the corrupt-state mapping above
+   *  can't drift between them. */
+  private runEngine<T>(fn: () => T): T {
     try {
-      return generateRound(...args);
+      return fn();
     } catch (error) {
       if (error instanceof InvalidRoundInputError) {
         throw new InternalServerErrorException({
@@ -88,6 +91,14 @@ export class SessionsService {
       }
       throw error;
     }
+  }
+
+  private runGenerateRound(...args: Parameters<typeof generateRound>) {
+    return this.runEngine(() => generateRound(...args));
+  }
+
+  private runCompleteCourt(...args: Parameters<typeof completeCourt>) {
+    return this.runEngine(() => completeCourt(...args));
   }
 
   private conflict(code: string, details?: Record<string, unknown>): ConflictException {
@@ -1174,6 +1185,77 @@ export class SessionsService {
       revision: pairing.revision,
       teamA: seats.teamA,
       teamB: seats.teamB,
+    };
+  }
+
+  async autoPair(sessionCode: string, pairingId: string, expectedRevision?: number) {
+    const target = await this.pairingInSession(sessionCode, pairingId);
+    return this.lock.run(target.sessionId, () =>
+      this.autoPairExclusively(sessionCode, pairingId, expectedRevision)
+    );
+  }
+
+  /**
+   * Fills only this court's empty seats, touching no other court and moving
+   * no already-seated player — see `completeCourt` in the engine for how.
+   * Like `setSeat`, not gated on custom mode for the same reason (a
+   * half-filled draft can outlive a mode switch).
+   *
+   * Deliberately calls `completeCourt` with no ratings, in every session
+   * mode: see the note by `ratingsForMode` — a hidden balance term would
+   * pull against the seats the host just placed by hand.
+   */
+  private async autoPairExclusively(sessionCode: string, pairingId: string, expectedRevision?: number) {
+    const pairing = await this.pairingInSession(sessionCode, pairingId);
+    const session = await this.prisma.session.findUniqueOrThrow({ where: { code: sessionCode } });
+    if (session.endedAt !== null) throw this.conflict('SESSION_ENDED');
+    if (pairing.confirmedAt !== null || pairing.endedAt !== null) {
+      throw this.conflict('PAIRING_NOT_PENDING');
+    }
+
+    const seats = this.seatsOf(pairing);
+    if (emptySeatCount(pairing) === 0) {
+      return { ok: true as const, filled: 0, pairing: this.seatViewOf(pairing, seats) };
+    }
+
+    const roster = await this.prisma.sessionRoster.findMany({
+      where: { sessionId: sessionCode, active: true },
+    });
+    const nonEnded = await this.prisma.pairing.findMany({
+      where: { sessionId: sessionCode, endedAt: null, id: { not: pairingId } },
+    });
+    const reserved = new Set(nonEnded.flatMap((p) => this.playersOf(p)));
+    const seatedHere = new Set(this.playersOf(pairing));
+    const pool = roster
+      .map((r) => r.playerId)
+      .filter((id) => !reserved.has(id) && !seatedHere.has(id));
+
+    const history = await this.loadHistory(session.groupId, sessionCode);
+    const result = this.runCompleteCourt(seats, pool, history);
+    if (result === null) {
+      return { ok: false as const, reason: 'not-enough-players' as const, available: pool.length };
+    }
+
+    const write = await this.prisma.pairing.updateMany({
+      where: {
+        id: pairingId,
+        confirmedAt: null,
+        endedAt: null,
+        revision: expectedRevision ?? pairing.revision,
+      },
+      data: {
+        teamA: JSON.stringify(result.teamA),
+        teamB: JSON.stringify(result.teamB),
+        revision: { increment: 1 },
+      },
+    });
+    if (write.count !== 1) throw this.conflict('PAIRING_STALE');
+
+    const updated = await this.prisma.pairing.findUniqueOrThrow({ where: { id: pairingId } });
+    return {
+      ok: true as const,
+      filled: emptySeatCount(pairing),
+      pairing: this.seatViewOf(updated, this.seatsOf(updated)),
     };
   }
 

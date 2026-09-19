@@ -6,6 +6,7 @@ import { SetCourtCountDto } from './dto/set-court-count.dto.js';
 import { SetCourtFormatDto } from './dto/set-court-format.dto.js';
 import { SetModeDto } from './dto/set-mode.dto.js';
 import { SetRosterActiveDto } from './dto/set-roster-active.dto.js';
+import { SetSeatDto } from './dto/set-seat.dto.js';
 import { SwapPlayerDto } from './dto/swap-player.dto.js';
 import { Public } from '../auth/public.decorator.js';
 import type { AuthenticatedRequest } from '../auth/auth.guard.js';
@@ -93,6 +94,20 @@ export class SessionsController {
     @Body() dto: SwapPlayerDto
   ) {
     return this.sessionsService.swapPlayer(code, id, dto);
+  }
+
+  /**
+   * Custom mode's seat-by-seat editor: names a player into one seat, or
+   * (omitting `playerId`) vacates it. Not mode-gated — see the comment on
+   * `SessionsService.setSeat`.
+   */
+  @Post(':code/pairings/:id/seats')
+  setSeat(
+    @Param('code') code: string,
+    @Param('id') id: string,
+    @Body() dto: SetSeatDto
+  ) {
+    return this.sessionsService.setSeat(code, id, dto);
   }
 
   @Post(':code/roster/:playerId/active')

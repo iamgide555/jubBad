@@ -1548,6 +1548,219 @@ describe('SessionsController', () => {
     }
   });
 
+  describe('POST /sessions/:code/pairings/:id/seats', () => {
+    async function makeDraftCourt(courtCount = 1) {
+      const groupCode = randomUUID();
+      const sessionCode = randomUUID();
+      await prisma.group.create({ data: { code: groupCode, name: 'G' } });
+      const players = await Promise.all(
+        ['A', 'B', 'C', 'D', 'E'].map((name) =>
+          prisma.player.create({ data: { groupId: groupCode, name, aliases: '[]' } })
+        )
+      );
+      await prisma.session.create({
+        data: { code: sessionCode, groupId: groupCode, courtCount, rawImportText: '', mode: 'custom' },
+      });
+      for (const p of players) {
+        await prisma.sessionRoster.create({ data: { sessionId: sessionCode, playerId: p.id } });
+      }
+      const pairing = await prisma.pairing.create({
+        data: {
+          sessionId: sessionCode,
+          courtNumber: 1,
+          matchNumber: 1,
+          teamA: JSON.stringify([players[0].id, null]),
+          teamB: JSON.stringify([null, null]),
+        },
+      });
+      return { groupCode, sessionCode, players, pairing };
+    }
+
+    async function cleanup(groupCode: string, sessionCode: string) {
+      await prisma.pairing.deleteMany({ where: { sessionId: sessionCode } });
+      await prisma.sessionRoster.deleteMany({ where: { sessionId: sessionCode } });
+      await prisma.session.deleteMany({ where: { code: sessionCode } });
+      await prisma.player.deleteMany({ where: { groupId: groupCode } });
+      await prisma.group.deleteMany({ where: { code: groupCode } });
+    }
+
+    it('places a named player into an empty seat', async () => {
+      const { groupCode, sessionCode, players, pairing } = await makeDraftCourt();
+      try {
+        const res = await request(server)
+          .post(`/sessions/${sessionCode}/pairings/${pairing.id}/seats`)
+          .send({ team: 'A', index: 1, playerId: players[1].id })
+          .expect(201);
+        expect(res.body.ok).toBe(true);
+        expect(res.body.pairing.teamA).toEqual([players[0].id, players[1].id]);
+        expect(res.body.pairing.teamB).toEqual([null, null]);
+        expect(res.body.pairing.revision).toBe(1);
+
+        const row = await prisma.pairing.findUniqueOrThrow({ where: { id: pairing.id } });
+        expect(JSON.parse(row.teamA)).toEqual([players[0].id, players[1].id]);
+      } finally {
+        await cleanup(groupCode, sessionCode);
+      }
+    });
+
+    it('vacates a seat when playerId is omitted', async () => {
+      const { groupCode, sessionCode, pairing } = await makeDraftCourt();
+      try {
+        const res = await request(server)
+          .post(`/sessions/${sessionCode}/pairings/${pairing.id}/seats`)
+          .send({ team: 'A', index: 0 })
+          .expect(201);
+        expect(res.body.pairing.teamA).toEqual([null, null]);
+
+        const row = await prisma.pairing.findUniqueOrThrow({ where: { id: pairing.id } });
+        expect(JSON.parse(row.teamA)).toEqual([null, null]);
+      } finally {
+        await cleanup(groupCode, sessionCode);
+      }
+    });
+
+    it('vacating an already-empty seat is idempotent', async () => {
+      const { groupCode, sessionCode, pairing } = await makeDraftCourt();
+      try {
+        const res = await request(server)
+          .post(`/sessions/${sessionCode}/pairings/${pairing.id}/seats`)
+          .send({ team: 'B', index: 0 })
+          .expect(201);
+        expect(res.body.ok).toBe(true);
+        expect(res.body.pairing.revision).toBe(0);
+        expect(res.body.pairing.teamB).toEqual([null, null]);
+      } finally {
+        await cleanup(groupCode, sessionCode);
+      }
+    });
+
+    it('places a player who just finished a match, ignoring queue position', async () => {
+      // requirement 6: eligibility is active + not on another court; queue
+      // position (games played, wait time) is never consulted here.
+      const { groupCode, sessionCode, players, pairing } = await makeDraftCourt();
+      try {
+        // players[1] has played the most and just finished — worst queue spot.
+        await prisma.pairing.create({
+          data: {
+            sessionId: sessionCode,
+            courtNumber: 2,
+            matchNumber: 1,
+            teamA: JSON.stringify([players[1].id, players[2].id]),
+            teamB: JSON.stringify([players[3].id, players[4].id]),
+            confirmedAt: new Date(),
+            endedAt: new Date(),
+          },
+        });
+        await prisma.session.update({ where: { code: sessionCode }, data: { courtCount: 2 } });
+
+        const res = await request(server)
+          .post(`/sessions/${sessionCode}/pairings/${pairing.id}/seats`)
+          .send({ team: 'A', index: 1, playerId: players[1].id })
+          .expect(201);
+        expect(res.body.pairing.teamA).toEqual([players[0].id, players[1].id]);
+      } finally {
+        await cleanup(groupCode, sessionCode);
+      }
+    });
+
+    it('refuses to place a resting player', async () => {
+      const { groupCode, sessionCode, players, pairing } = await makeDraftCourt();
+      try {
+        await request(server)
+          .post(`/sessions/${sessionCode}/roster/${players[1].id}/active`)
+          .send({ active: false })
+          .expect(201);
+
+        const res = await request(server)
+          .post(`/sessions/${sessionCode}/pairings/${pairing.id}/seats`)
+          .send({ team: 'A', index: 1, playerId: players[1].id })
+          .expect(409);
+        expect(res.body.code).toBe('PLAYER_UNAVAILABLE');
+      } finally {
+        await cleanup(groupCode, sessionCode);
+      }
+    });
+
+    it('refuses to place a player already seated on another open court', async () => {
+      const { groupCode, sessionCode, players, pairing } = await makeDraftCourt(2);
+      try {
+        await prisma.pairing.create({
+          data: {
+            sessionId: sessionCode,
+            courtNumber: 2,
+            matchNumber: 1,
+            teamA: JSON.stringify([players[1].id, players[2].id]),
+            teamB: JSON.stringify([players[3].id, players[4].id]),
+          },
+        });
+
+        const res = await request(server)
+          .post(`/sessions/${sessionCode}/pairings/${pairing.id}/seats`)
+          .send({ team: 'A', index: 1, playerId: players[1].id })
+          .expect(409);
+        expect(res.body.code).toBe('PLAYER_ALREADY_ON_COURT');
+      } finally {
+        await cleanup(groupCode, sessionCode);
+      }
+    });
+
+    it('refuses to place a player into an already-occupied seat', async () => {
+      const { groupCode, sessionCode, players, pairing } = await makeDraftCourt();
+      try {
+        const res = await request(server)
+          .post(`/sessions/${sessionCode}/pairings/${pairing.id}/seats`)
+          .send({ team: 'A', index: 0, playerId: players[1].id })
+          .expect(409);
+        expect(res.body.code).toBe('SEAT_OCCUPIED');
+      } finally {
+        await cleanup(groupCode, sessionCode);
+      }
+    });
+
+    it('rejects a seat index outside the court format', async () => {
+      const { groupCode, sessionCode, players, pairing } = await makeDraftCourt();
+      try {
+        await request(server)
+          .post(`/sessions/${sessionCode}/pairings/${pairing.id}/seats`)
+          .send({ team: 'A', index: 2, playerId: players[1].id })
+          .expect(400);
+      } finally {
+        await cleanup(groupCode, sessionCode);
+      }
+    });
+
+    it('reports stale on a revision mismatch', async () => {
+      const { groupCode, sessionCode, players, pairing } = await makeDraftCourt();
+      try {
+        const res = await request(server)
+          .post(`/sessions/${sessionCode}/pairings/${pairing.id}/seats`)
+          .send({ team: 'A', index: 1, playerId: players[1].id, expectedRevision: 5 })
+          .expect(409);
+        expect(res.body.code).toBe('PAIRING_STALE');
+      } finally {
+        await cleanup(groupCode, sessionCode);
+      }
+    });
+
+    it('works on a half-filled pairing left over after switching out of custom mode', async () => {
+      const { groupCode, sessionCode, players, pairing } = await makeDraftCourt();
+      try {
+        await request(server)
+          .post(`/sessions/${sessionCode}/mode`)
+          .send({ mode: 'variety' })
+          .expect(201);
+
+        const res = await request(server)
+          .post(`/sessions/${sessionCode}/pairings/${pairing.id}/seats`)
+          .send({ team: 'A', index: 1, playerId: players[1].id })
+          .expect(201);
+        expect(res.body.pairing.teamA).toEqual([players[0].id, players[1].id]);
+      } finally {
+        await cleanup(groupCode, sessionCode);
+      }
+    });
+  });
+
   it('reports when each waiting player last finished a match', async () => {
     const groupCode = randomUUID();
     const sessionCode = randomUUID();

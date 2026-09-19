@@ -44,6 +44,7 @@ import type { SetCourtCountDto } from './dto/set-court-count.dto.js';
 import type { SetCourtFormatDto } from './dto/set-court-format.dto.js';
 import type { SetModeDto } from './dto/set-mode.dto.js';
 import type { SetRosterActiveDto } from './dto/set-roster-active.dto.js';
+import type { SetSeatDto } from './dto/set-seat.dto.js';
 import type { SwapPlayerDto } from './dto/swap-player.dto.js';
 
 export interface SessionMatch {
@@ -1079,6 +1080,100 @@ export class SessionsService {
         teamA: newTeamA,
         teamB: newTeamB,
       },
+    };
+  }
+
+  async setSeat(sessionCode: string, pairingId: string, dto: SetSeatDto) {
+    const target = await this.pairingInSession(sessionCode, pairingId);
+    return this.lock.run(target.sessionId, () => this.setSeatExclusively(sessionCode, pairingId, dto));
+  }
+
+  /**
+   * Custom mode's seat-by-seat editor. Deliberately not gated on
+   * `session.mode === 'custom'`: switching mode never rewrites a pending
+   * pairing (see `setModeExclusively`), so a half-filled draft can outlive a
+   * switch back to variety or balanced, and this — along with `autoPair` — is
+   * how the host keeps editing it rather than being stuck with a court
+   * nothing can act on.
+   *
+   * Eligibility deliberately ignores queue position (games played, wait
+   * time): the host is placing someone by hand, on purpose, which is exactly
+   * what a custom mode is for. It still refuses a resting player and a
+   * player already seated elsewhere — those are correctness constraints, not
+   * fairness ones.
+   */
+  private async setSeatExclusively(sessionCode: string, pairingId: string, dto: SetSeatDto) {
+    const pairing = await this.pairingInSession(sessionCode, pairingId);
+    const session = await this.prisma.session.findUniqueOrThrow({ where: { code: sessionCode } });
+    if (session.endedAt !== null) throw this.conflict('SESSION_ENDED');
+    if (pairing.confirmedAt !== null || pairing.endedAt !== null) {
+      throw this.conflict('PAIRING_NOT_PENDING');
+    }
+
+    const seats = this.seatsOf(pairing);
+    const team = dto.team === 'A' ? seats.teamA : seats.teamB;
+    if (dto.index >= team.length) {
+      throw this.badRequest('SEAT_OUT_OF_RANGE');
+    }
+
+    const incomingId = dto.playerId ?? null;
+
+    if (incomingId === null) {
+      // Vacating an already-empty seat is a no-op, not an error — the 30s
+      // poll or a double-tap can replay this request harmlessly.
+      if (team[dto.index] === null) {
+        return { ok: true as const, pairing: this.seatViewOf(pairing, seats) };
+      }
+    } else {
+      const roster = await this.prisma.sessionRoster.findFirst({
+        where: { sessionId: sessionCode, playerId: incomingId },
+      });
+      if (!roster) throw this.notFound('ROSTER_PLAYER_NOT_FOUND');
+      if (!roster.active) {
+        throw this.conflict('PLAYER_UNAVAILABLE', { playerIds: [incomingId] });
+      }
+      if (team[dto.index] !== null) {
+        throw this.conflict('SEAT_OCCUPIED');
+      }
+      const nonEnded = await this.prisma.pairing.findMany({
+        where: { sessionId: sessionCode, endedAt: null, id: { not: pairingId } },
+      });
+      const elsewhere = nonEnded.find((p) => this.playersOf(p).includes(incomingId));
+      if (elsewhere) {
+        throw this.conflict('PLAYER_ALREADY_ON_COURT', { courtNumber: elsewhere.courtNumber });
+      }
+    }
+
+    const nextTeam = [...team];
+    nextTeam[dto.index] = incomingId;
+    const column = dto.team === 'A' ? { teamA: JSON.stringify(nextTeam) } : { teamB: JSON.stringify(nextTeam) };
+
+    const write = await this.prisma.pairing.updateMany({
+      where: {
+        id: pairingId,
+        confirmedAt: null,
+        endedAt: null,
+        revision: dto.expectedRevision ?? pairing.revision,
+      },
+      data: { ...column, revision: { increment: 1 } },
+    });
+    if (write.count !== 1) throw this.conflict('PAIRING_STALE');
+
+    const updated = await this.prisma.pairing.findUniqueOrThrow({ where: { id: pairingId } });
+    return { ok: true as const, pairing: this.seatViewOf(updated, this.seatsOf(updated)) };
+  }
+
+  private seatViewOf(
+    pairing: { id: string; courtNumber: number; matchNumber: number; revision: number },
+    seats: { teamA: Seat[]; teamB: Seat[] }
+  ) {
+    return {
+      id: pairing.id,
+      courtNumber: pairing.courtNumber,
+      matchNumber: pairing.matchNumber,
+      revision: pairing.revision,
+      teamA: seats.teamA,
+      teamB: seats.teamB,
     };
   }
 

@@ -171,6 +171,38 @@ describe('auth boundary', () => {
       .expect(200);
   });
 
+  /**
+   * The refusal walks above prove POST /sessions/:code/shuttle-details (new
+   * this task) gets swept into the generic 401-anonymous and
+   * 404-non-owner checks automatically, since both walk the real declared
+   * router rather than a hand-kept list. Neither walk proves the positive
+   * case though — that the genuine owner is actually admitted, not merely
+   * "not refused" — so this is that missing cell of the matrix. Admin's
+   * bypass of OwnershipGuard is unconditional on `user.role` before any
+   * path is even inspected (ownership.guard.ts), so it is already proven
+   * for every route shape, this one included, by OwnershipGuard's own unit
+   * tests (ownership.guard.spec.ts) rather than needing a duplicate
+   * end-to-end case here.
+   */
+  it('admits the owning host to POST /sessions/:code/shuttle-details', async () => {
+    const login = await request(server)
+      .post('/auth/login')
+      .send({ email, password: PASSWORD })
+      .expect(201);
+    const cookie = ([] as string[]).concat(login.headers['set-cookie'] ?? [])[0];
+
+    const res = await request(server)
+      .post(`/sessions/${ctx.sessionCode}/shuttle-details`)
+      .set('Cookie', cookie)
+      .send({ shuttleCount: 4, shuttlePriceSatang: 850 })
+      .expect(201);
+    expect(res.body).toEqual({
+      code: ctx.sessionCode,
+      shuttleCount: 4,
+      shuttlePriceSatang: 850,
+    });
+  });
+
   it('keeps the full data export behind auth', async () => {
     // An export is every player, session and match in one response — the single
     // most valuable thing to leak, and a GET, which is easy to overlook when

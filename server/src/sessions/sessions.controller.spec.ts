@@ -3412,6 +3412,30 @@ describe('SessionsController', () => {
     }
   });
 
+  it('GET /sessions/:code returns null shuttle fields for a session that predates this migration', async () => {
+    const groupCode = randomUUID();
+    const sessionCode = randomUUID();
+    await prisma.group.create({ data: { code: groupCode, name: 'G' } });
+    // Simulates a pre-migration row: created without ever touching the new
+    // shuttleCount/shuttlePriceSatang columns, which default to null on an
+    // additive migration. GET /sessions/:code/summary's own null-field check
+    // (see 'GET /sessions/:code/summary returns per-player record and match
+    // log') already proves the summary side of this; this is the plain
+    // session-fetch side, which had no equivalent assertion.
+    await prisma.session.create({
+      data: { code: sessionCode, groupId: groupCode, courtCount: 1, rawImportText: '' },
+    });
+
+    try {
+      const res = await request(server).get(`/sessions/${sessionCode}`).expect(200);
+      expect(res.body.shuttleCount).toBeNull();
+      expect(res.body.shuttlePriceSatang).toBeNull();
+    } finally {
+      await prisma.session.deleteMany({ where: { code: sessionCode } });
+      await prisma.group.deleteMany({ where: { code: groupCode } });
+    }
+  });
+
   it('ends a session with no unfinished courts', async () => {
     const groupCode = randomUUID();
     const sessionCode = randomUUID();

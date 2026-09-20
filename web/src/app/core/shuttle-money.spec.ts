@@ -67,6 +67,15 @@ describe('shuttle-money', () => {
     it('accepts an amount right at the server-side int32 ceiling', () => {
       expect(parseShuttlePriceInput('21474836.47')).toEqual({ ok: true, value: 2147483647 });
     });
+
+    it('rejects a trailing decimal point with no digits after it', () => {
+      expect(parseShuttlePriceInput('80.')).toEqual({ ok: false });
+    });
+
+    it('trims leading/trailing whitespace around an otherwise valid amount', () => {
+      expect(parseShuttlePriceInput('  80.50  ')).toEqual({ ok: true, value: 8050 });
+      expect(parseShuttlePriceInput('\t12\n')).toEqual({ ok: true, value: 1200 });
+    });
   });
 
   describe('parseShuttleCountInput', () => {

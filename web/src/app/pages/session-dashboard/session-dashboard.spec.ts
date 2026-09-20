@@ -858,6 +858,13 @@ describe('SessionDashboard', () => {
       expect(price.value).toBe('');
     });
 
+    it('renders genuinely blank inputs, not "0" or the text "null", when neither field has ever been recorded', async () => {
+      await settled(baseSession({ shuttleCount: null, shuttlePriceSatang: null }));
+      const { count, price } = shuttleInputs();
+      expect(count.value).toBe('');
+      expect(price.value).toBe('');
+    });
+
     it('renders a saved price back as baht, not satang', async () => {
       await settled(baseSession({ shuttleCount: 12, shuttlePriceSatang: 8050 }));
       const { count, price } = shuttleInputs();

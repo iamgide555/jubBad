@@ -17,10 +17,14 @@
         <ng-container i18n="@@summary.shuttleLabel">ลูกแบด</ng-container>:
         @if (s.session.shuttleCount !== null) {
           <ng-container i18n="@@summary.shuttleCountValue">{{ s.session.shuttleCount }} ลูก</ng-container>
+        } @else {
+          <ng-container i18n="@@summary.shuttleNotRecorded">ยังไม่ได้บันทึก</ng-container>
         }
-        @if (s.session.shuttleCount !== null && s.session.shuttlePriceSatang !== null) { · }
+        ·
         @if (s.session.shuttlePriceSatang !== null) {
           <ng-container i18n="@@summary.shuttlePriceValue">{{ formatShuttlePriceInput(s.session.shuttlePriceSatang) }} บาท/ลูก</ng-container>
+        } @else {
+          <ng-container i18n="@@summary.shuttleNotRecorded">ยังไม่ได้บันทึก</ng-container>
         }
       </p>
     }

@@ -278,6 +278,42 @@ describe('SessionSummary', () => {
     expect(text).toContain('ไม่มีผล');
     expect(text).toContain('10 น.');
   });
+
+  describe('shuttle count/price section', () => {
+    it('hides the section entirely when both fields are unset', async () => {
+      await load(summary({ session: { ...summary().session, shuttleCount: null, shuttlePriceSatang: null } }));
+      const el = fixture.nativeElement as HTMLElement;
+      expect(el.querySelector('.shuttle-summary')).toBeNull();
+    });
+
+    it('shows both values when both fields are set', async () => {
+      await load(
+        summary({ session: { ...summary().session, shuttleCount: 12, shuttlePriceSatang: 8050 } })
+      );
+      const text = (fixture.nativeElement as HTMLElement).querySelector('.shuttle-summary')?.textContent ?? '';
+      expect(text).toContain('12 ลูก');
+      expect(text).toContain('80.50 บาท/ลูก');
+      expect(text).not.toContain('ยังไม่ได้บันทึก');
+    });
+
+    it('labels the price as not recorded when only the count is set', async () => {
+      await load(
+        summary({ session: { ...summary().session, shuttleCount: 12, shuttlePriceSatang: null } })
+      );
+      const text = (fixture.nativeElement as HTMLElement).querySelector('.shuttle-summary')?.textContent ?? '';
+      expect(text).toContain('12 ลูก');
+      expect(text).toContain('ยังไม่ได้บันทึก');
+    });
+
+    it('labels the count as not recorded when only the price is set', async () => {
+      await load(
+        summary({ session: { ...summary().session, shuttleCount: null, shuttlePriceSatang: 8050 } })
+      );
+      const text = (fixture.nativeElement as HTMLElement).querySelector('.shuttle-summary')?.textContent ?? '';
+      expect(text).toContain('80.50 บาท/ลูก');
+      expect(text).toContain('ยังไม่ได้บันทึก');
+    });
+  });
   });
 
   describe('as the authed host', () => {

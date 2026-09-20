@@ -5,6 +5,7 @@ import { AuthService } from '../../core/auth.service';
 import { absoluteUrl, copyToClipboard } from '../../core/share-link';
 import { environment } from '../../../environments/environment';
 import { SceneHost } from '../../core/three/scene-host';
+import { formatMinutes } from '../../core/game-duration';
 import type { SessionSummary as Summary } from '../../core/session-summary.model';
 
 @Component({
@@ -37,6 +38,13 @@ export class SessionSummary {
   /** Whole percent — a casual group does not need decimal places. */
   protected winPercent(played: number, won: number): number | null {
     return played === 0 ? null : Math.round((won / played) * 100);
+  }
+
+  protected readonly formatMinutes = formatMinutes;
+
+  /** Null when this player never played — same guard as winPercent. */
+  protected averageMinutes(totalSeconds: number, played: number): string | null {
+    return played === 0 ? null : formatMinutes(totalSeconds / played);
   }
 
   /**

@@ -26,6 +26,7 @@ function summary(overrides: Partial<Summary> = {}): Summary {
         played: 2,
         won: 1,
         lost: 1,
+        totalSeconds: 1200,
         singles: null,
         doubles: null,
         matches: [
@@ -37,6 +38,7 @@ function summary(overrides: Partial<Summary> = {}): Summary {
             scoreA: 21,
             scoreB: 15,
             result: 'win',
+            durationSeconds: 720,
           },
           {
             matchNumber: 2,
@@ -46,6 +48,7 @@ function summary(overrides: Partial<Summary> = {}): Summary {
             scoreA: 18,
             scoreB: 21,
             result: 'loss',
+            durationSeconds: 480,
           },
         ],
       },
@@ -124,6 +127,7 @@ describe('SessionSummary', () => {
             played: 1,
             won: 1,
             lost: 0,
+            totalSeconds: 900,
             singles: null,
             doubles: null,
             matches: [
@@ -135,6 +139,7 @@ describe('SessionSummary', () => {
                 scoreA: 21,
                 scoreB: 15,
                 result: 'win',
+                durationSeconds: 900,
               },
             ],
           },
@@ -159,6 +164,7 @@ describe('SessionSummary', () => {
             played: 3,
             won: 2,
             lost: 1,
+            totalSeconds: 5400,
             singles: { played: 1, won: 0, lost: 1 },
             doubles: { played: 2, won: 2, lost: 0 },
             matches: [],
@@ -202,19 +208,73 @@ describe('SessionSummary', () => {
     );
   });
 
-  it('expanded match-list row spans all 7 columns — no profile column for a non-host viewer', async () => {
+  it('expanded match-list row spans all 8 columns — no profile column for a non-host viewer', async () => {
     await load(summary());
     fixture.componentInstance['togglePlayer']('p1');
     fixture.detectChanges();
     const cell = (fixture.nativeElement as HTMLElement).querySelector('.matches-row td')!;
-    expect(cell.getAttribute('colspan')).toBe('7');
+    expect(cell.getAttribute('colspan')).toBe('8');
   });
 
   it('does not show the profile column at all', async () => {
     await load(summary());
     const el = fixture.nativeElement as HTMLElement;
     expect(el.querySelector('.profile-cell')).toBeNull();
-    expect(el.querySelectorAll('th').length).toBe(7);
+    expect(el.querySelectorAll('th').length).toBe(8);
+  });
+
+  it('shows the total play time and average game length for a player', async () => {
+    await load(summary());
+    const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
+    // totalSeconds: 1200 (20 min) across 2 matches -> average 600s (10 min).
+    expect(text).toContain('20 น.');
+    expect(text).toContain('10 น.');
+  });
+
+  it('shows each match\'s own duration in the expanded list', async () => {
+    await load(summary());
+    fixture.componentInstance['togglePlayer']('p1');
+    fixture.detectChanges();
+    const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
+    // durationSeconds: 720 (12 min) and 480 (8 min).
+    expect(text).toContain('12 น.');
+    expect(text).toContain('8 น.');
+  });
+
+  it('still shows a duration for a match with no result', async () => {
+    await load(
+      summary({
+        players: [
+          {
+            playerId: 'p1',
+            name: 'ตั้ม',
+            played: 1,
+            won: 0,
+            lost: 0,
+            totalSeconds: 600,
+            singles: null,
+            doubles: null,
+            matches: [
+              {
+                matchNumber: 1,
+                courtNumber: 1,
+                partnerName: 'เบส',
+                opponentNames: ['ปอม', 'เกีย'],
+                scoreA: null,
+                scoreB: null,
+                result: 'no-result',
+                durationSeconds: 600,
+              },
+            ],
+          },
+        ],
+      })
+    );
+    fixture.componentInstance['togglePlayer']('p1');
+    fixture.detectChanges();
+    const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
+    expect(text).toContain('ไม่มีผล');
+    expect(text).toContain('10 น.');
   });
   });
 
@@ -229,12 +289,12 @@ describe('SessionSummary', () => {
       expect(btn.disabled).toBe(false);
     });
 
-    it('expanded match-list row spans all 8 columns, including the profile column', async () => {
+    it('expanded match-list row spans all 9 columns, including the profile column', async () => {
       await load(summary());
       fixture.componentInstance['togglePlayer']('p1');
       fixture.detectChanges();
       const cell = (fixture.nativeElement as HTMLElement).querySelector('.matches-row td')!;
-      expect(cell.getAttribute('colspan')).toBe('8');
+      expect(cell.getAttribute('colspan')).toBe('9');
     });
 
     it('copies the player profile URL when the profile button is tapped', async () => {

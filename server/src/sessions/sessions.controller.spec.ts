@@ -480,6 +480,7 @@ describe('SessionsController', () => {
     for (const p of players) {
       await prisma.sessionRoster.create({ data: { sessionId: sessionCode, playerId: p.id } });
     }
+    const confirmedAt = new Date();
     await prisma.pairing.create({
       data: {
         sessionId: sessionCode,
@@ -487,7 +488,7 @@ describe('SessionsController', () => {
         matchNumber: 1,
         teamA: JSON.stringify([players[0].id, players[1].id]),
         teamB: JSON.stringify([players[2].id, players[3].id]),
-        confirmedAt: new Date(),
+        confirmedAt,
       },
     });
 
@@ -503,9 +504,11 @@ describe('SessionsController', () => {
           format: 'doubles',
           teamA: [players[0].id, players[1].id],
           teamB: [players[2].id, players[3].id],
+          startedAt: confirmedAt.toISOString(),
         },
         { courtNumber: 2, status: 'idle', format: 'doubles' },
       ]);
+      expect(new Date(res.body.serverNow).getTime()).not.toBeNaN();
     } finally {
       await prisma.pairing.deleteMany({ where: { sessionId: sessionCode } });
       await prisma.sessionRoster.deleteMany({ where: { sessionId: sessionCode } });
@@ -3564,6 +3567,8 @@ describe('SessionsController', () => {
         endedAt: new Date(),
       },
     });
+    const match1Start = new Date('2026-09-10T10:00:00.000Z');
+    const match1End = new Date(match1Start.getTime() + 12 * 60_000); // 720s
     await prisma.pairing.create({
       data: {
         sessionId: sessionCode,
@@ -3571,14 +3576,16 @@ describe('SessionsController', () => {
         matchNumber: 1,
         teamA: JSON.stringify([players[0].id, players[1].id]),
         teamB: JSON.stringify([players[2].id, players[3].id]),
-        confirmedAt: new Date(),
-        endedAt: new Date(),
+        confirmedAt: match1Start,
+        endedAt: match1End,
         winner: 'A',
         scoreA: 21,
         scoreB: 15,
       },
     });
     // Abandoned part-way: played and finished, but with no winner to record.
+    const match2Start = new Date(match1End.getTime() + 60_000);
+    const match2End = new Date(match2Start.getTime() + 8 * 60_000); // 480s
     await prisma.pairing.create({
       data: {
         sessionId: sessionCode,
@@ -3586,8 +3593,8 @@ describe('SessionsController', () => {
         matchNumber: 2,
         teamA: JSON.stringify([players[0].id, players[2].id]),
         teamB: JSON.stringify([players[1].id, players[3].id]),
-        confirmedAt: new Date(),
-        endedAt: new Date(),
+        confirmedAt: match2Start,
+        endedAt: match2End,
         winner: null,
       },
     });
@@ -3620,7 +3627,7 @@ describe('SessionsController', () => {
       );
 
       const a = byId.get(players[0].id);
-      expect(a).toMatchObject({ name: 'A', played: 2, won: 1, lost: 0 });
+      expect(a).toMatchObject({ name: 'A', played: 2, won: 1, lost: 0, totalSeconds: 1200 });
       expect(a.matches).toEqual([
         {
           matchNumber: 1,
@@ -3630,6 +3637,7 @@ describe('SessionsController', () => {
           scoreA: 21,
           scoreB: 15,
           result: 'win',
+          durationSeconds: 720,
         },
         {
           matchNumber: 2,
@@ -3639,11 +3647,12 @@ describe('SessionsController', () => {
           scoreA: null,
           scoreB: null,
           result: 'no-result',
+          durationSeconds: 480,
         },
       ]);
 
       const c = byId.get(players[2].id);
-      expect(c).toMatchObject({ name: 'C', played: 2, won: 0, lost: 1 });
+      expect(c).toMatchObject({ name: 'C', played: 2, won: 0, lost: 1, totalSeconds: 1200 });
       expect(c.matches[0]).toEqual({
         matchNumber: 1,
         courtNumber: 1,
@@ -3652,6 +3661,7 @@ describe('SessionsController', () => {
         scoreA: 21,
         scoreB: 15,
         result: 'loss',
+        durationSeconds: 720,
       });
     } finally {
       await prisma.pairing.deleteMany({ where: { sessionId: sessionCode } });

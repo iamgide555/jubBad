@@ -5,6 +5,7 @@ import { ActivatedRoute, convertToParamMap, provideRouter, Router } from '@angul
 import { SessionDashboard } from './session-dashboard';
 import { routes } from '../../app.routes';
 import { AuthService } from '../../core/auth.service';
+import { ClockService } from '../../core/clock.service';
 import { environment } from '../../../environments/environment';
 import type { Session } from '../../core/session.model';
 
@@ -23,6 +24,7 @@ function baseSession(overrides: Partial<Session> = {}): Session {
     restingPlayerIds: [],
     queueGames: {},
     createdAt: '2026-09-08T12:00:00.000Z',
+    serverNow: '2026-09-08T12:00:00.000Z',
     mode: 'variety',
     lastPlayedAt: {},
     activatedAt: {},
@@ -51,6 +53,13 @@ describe('SessionDashboard', () => {
           provide: ActivatedRoute,
           useValue: { snapshot: { paramMap: convertToParamMap({ sessionCode: 'sess1' }) } },
         },
+        // court-panel.ts injects ClockService for its live timer. The real
+        // implementation's 1Hz interval writes a signal outside Angular's
+        // render cycle, which core/motion/odometer.ts documents as having
+        // intermittently tripped HttpTestingController.verify() in an
+        // unrelated spec — no test here needs the timer to move, so it is
+        // stubbed inert rather than left running for the whole suite.
+        { provide: ClockService, useValue: { now: () => Date.now() } },
       ],
     }).compileComponents();
 
@@ -402,7 +411,16 @@ describe('SessionDashboard', () => {
       baseSession({
         rosterPlayerIds: ['p1', 'p2'],
         queueGames: { p1: 99, p2: 99 },
-        courts: [{ status: 'active', pairingId: 'c1', format: 'doubles', teamA: ['p1', 'p2'], teamB: ['p3', 'p4'] }],
+        courts: [
+          {
+            status: 'active',
+            pairingId: 'c1',
+            format: 'doubles',
+            teamA: ['p1', 'p2'],
+            teamB: ['p3', 'p4'],
+            startedAt: '2026-09-08T12:00:00.000Z',
+          },
+        ],
       })
     );
     await new Promise((r) => setTimeout(r, 0));
@@ -448,8 +466,22 @@ describe('SessionDashboard', () => {
         courtCount: 2,
         rosterPlayerIds: ['p1', 'p2', 'p3', 'p4', 'p5', 'p6', 'p7', 'p8', 'p9', 'p10'],
         courts: [
-          { status: 'active', pairingId: 'c1', format: 'doubles', teamA: ['p1', 'p2'], teamB: ['p3', 'p4'] },
-          { status: 'active', pairingId: 'c2', format: 'doubles', teamA: ['p5', 'p6'], teamB: ['p7', 'p8'] },
+          {
+            status: 'active',
+            pairingId: 'c1',
+            format: 'doubles',
+            teamA: ['p1', 'p2'],
+            teamB: ['p3', 'p4'],
+            startedAt: '2026-09-08T12:00:00.000Z',
+          },
+          {
+            status: 'active',
+            pairingId: 'c2',
+            format: 'doubles',
+            teamA: ['p5', 'p6'],
+            teamB: ['p7', 'p8'],
+            startedAt: '2026-09-08T12:00:00.000Z',
+          },
         ],
       })
     );
@@ -474,7 +506,16 @@ describe('SessionDashboard', () => {
   it('hides the fill button when no court is idle', async () => {
     await settled(
       baseSession({
-        courts: [{ status: 'active', pairingId: 'x', format: 'doubles', teamA: ['p1', 'p2'], teamB: ['p3', 'p4'] }],
+        courts: [
+          {
+            status: 'active',
+            pairingId: 'x',
+            format: 'doubles',
+            teamA: ['p1', 'p2'],
+            teamB: ['p3', 'p4'],
+            startedAt: '2026-09-08T12:00:00.000Z',
+          },
+        ],
       })
     );
     expect(buttonWith('จัดคู่ทุกคอร์ทว่าง')).toBeUndefined();
@@ -556,7 +597,16 @@ describe('SessionDashboard', () => {
     await settled(
       baseSession({
         rosterPlayerIds: ['p1', 'p2'],
-        courts: [{ status: 'active', pairingId: 'x', format: 'doubles', teamA: ['p1', 'p2'], teamB: ['p3', 'p4'] }],
+        courts: [
+          {
+            status: 'active',
+            pairingId: 'x',
+            format: 'doubles',
+            teamA: ['p1', 'p2'],
+            teamB: ['p3', 'p4'],
+            startedAt: '2026-09-08T12:00:00.000Z',
+          },
+        ],
       })
     );
 
@@ -575,7 +625,16 @@ describe('SessionDashboard', () => {
     await settled(
       baseSession({
         rosterPlayerIds: ['p1', 'p2'],
-        courts: [{ status: 'active', pairingId: 'x', format: 'singles', teamA: ['p1'], teamB: ['p2'] }],
+        courts: [
+          {
+            status: 'active',
+            pairingId: 'x',
+            format: 'singles',
+            teamA: ['p1'],
+            teamB: ['p2'],
+            startedAt: '2026-09-08T12:00:00.000Z',
+          },
+        ],
       })
     );
 

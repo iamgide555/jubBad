@@ -21,6 +21,7 @@ function baseSession(overrides: Partial<Session> = {}): Session {
     restingPlayerIds: [],
     queueGames: {},
     createdAt: '2026-09-08T12:00:00.000Z',
+    serverNow: '2026-09-08T12:00:00.000Z',
     mode: 'variety',
     lastPlayedAt: {},
     activatedAt: {},
@@ -110,7 +111,16 @@ describe('SessionDisplay', () => {
   it('shows the pairing for an active court', async () => {
     const { fixture, httpMock } = await createDisplay(
       baseSession({
-        courts: [{ status: 'active', pairingId: 'pair1', format: 'doubles', teamA: ['p1', 'p2'], teamB: ['p3', 'p4'] }],
+        courts: [
+          {
+            status: 'active',
+            pairingId: 'pair1',
+            format: 'doubles',
+            teamA: ['p1', 'p2'],
+            teamB: ['p3', 'p4'],
+            startedAt: '2026-09-08T12:00:00.000Z',
+          },
+        ],
       })
     );
     httpMock.expectOne(`${B}/groups/group1`).flush({ code: 'group1', name: null, lastSessionCode: null });
@@ -126,7 +136,16 @@ describe('SessionDisplay', () => {
   it('shows a singles match as one name per side, with no dangling "+"', async () => {
     const { fixture, httpMock } = await createDisplay(
       baseSession({
-        courts: [{ status: 'active', pairingId: 'pair1', format: 'singles', teamA: ['p1'], teamB: ['p2'] }],
+        courts: [
+          {
+            status: 'active',
+            pairingId: 'pair1',
+            format: 'singles',
+            teamA: ['p1'],
+            teamB: ['p2'],
+            startedAt: '2026-09-08T12:00:00.000Z',
+          },
+        ],
       })
     );
     httpMock.expectOne(`${B}/groups/group1`).flush({ code: 'group1', name: null, lastSessionCode: null });

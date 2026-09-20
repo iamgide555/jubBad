@@ -101,6 +101,7 @@
    cards — same count, same look, so the queue reads as one system with the
    courts. */
 .tally {
+  margin-left: var(--space-0);
   font-size: var(--text-xs);
   font-weight: 400;
   color: var(--ink-soft);

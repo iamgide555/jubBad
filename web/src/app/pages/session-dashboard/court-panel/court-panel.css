@@ -91,6 +91,21 @@
   box-shadow: 0 0 0 4px var(--court-soft);
 }
 
+/* Live stopwatch for the court's current match — ticks every second, so a
+   glance tells the host whether a game is running long. */
+.court-timer {
+  flex: none;
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--ink-soft);
+}
+
+/* Past OVERRUN_MINUTES (court-panel.ts): almost always a score nobody
+   submitted, holding the court hostage — the same warning tone as an error. */
+.court-timer.overrun {
+  color: var(--warn);
+}
+
 /* Player names are the content of a court; the action row below is how you
    change it. Names get the size, so a glance across three panels reads who is
    on rather than which buttons are available. Used as-is for the idle/ended
@@ -378,6 +393,7 @@
    screen. Real games played (from the stats endpoint), not the rotation
    number, so this is the same count the summary page will show later. */
 .tally {
+  margin-left: var(--space-0);
   font-size: var(--text-xs);
   font-weight: 400;
   color: var(--ink-soft);

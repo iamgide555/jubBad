@@ -57,6 +57,7 @@ export interface SessionMatch {
   scoreA: number | null;
   scoreB: number | null;
   result: 'win' | 'loss' | 'no-result';
+  durationSeconds: number;
 }
 
 @Injectable()
@@ -373,6 +374,7 @@ export class SessionsService {
             format,
             teamA,
             teamB,
+            startedAt: current.confirmedAt.toISOString(),
           }
         : {
             courtNumber,
@@ -394,6 +396,10 @@ export class SessionsService {
       endedAt: session.endedAt,
       createdAt: session.createdAt,
       mode: session.mode,
+      // Skew reference: the client compares this to its own Date.now() at
+      // the moment the response lands, so a live court timer reads correctly
+      // even when the host's device clock disagrees with the server's.
+      serverNow: new Date().toISOString(),
       // Waiting time is derived, not stored: the client subtracts this from
       // now, falling back to createdAt for anyone who has not played yet.
       lastPlayedAt: Object.fromEntries(
@@ -1851,6 +1857,7 @@ export class SessionsService {
     const played = new Map<string, number>();
     const won = new Map<string, number>();
     const lost = new Map<string, number>();
+    const totalSeconds = new Map<string, number>();
     const matches = new Map<string, SessionMatch[]>();
     // Same played/won/lost tallies, but split by format (team size 1 =
     // singles, 2 = doubles) so a mixed session can report each separately.
@@ -1870,6 +1877,12 @@ export class SessionsService {
     for (const p of pairings) {
       const { teamA, teamB } = this.teamsOf(p);
       const format = teamA.length === 1 ? 'singles' : 'doubles';
+      // finishedMatch above guarantees both timestamps are set; clamped
+      // against a clock-adjusted row producing a negative duration.
+      const durationSeconds = Math.max(
+        0,
+        Math.round((p.endedAt!.getTime() - p.confirmedAt!.getTime()) / 1000)
+      );
 
       for (const [team, letter, opponents] of [
         [teamA, 'A', teamB],
@@ -1881,6 +1894,7 @@ export class SessionsService {
           played.set(id, (played.get(id) ?? 0) + 1);
           if (teamResult === 'win') won.set(id, (won.get(id) ?? 0) + 1);
           if (teamResult === 'loss') lost.set(id, (lost.get(id) ?? 0) + 1);
+          totalSeconds.set(id, (totalSeconds.get(id) ?? 0) + durationSeconds);
 
           const fRow = formatRow(id)[format];
           fRow.played += 1;
@@ -1899,6 +1913,7 @@ export class SessionsService {
             scoreA: p.scoreA,
             scoreB: p.scoreB,
             result: teamResult,
+            durationSeconds,
           };
           if (!matches.has(id)) matches.set(id, []);
           matches.get(id)!.push(entry);
@@ -1924,6 +1939,7 @@ export class SessionsService {
             played: count,
             won: won.get(playerId) ?? 0,
             lost: lost.get(playerId) ?? 0,
+            totalSeconds: totalSeconds.get(playerId) ?? 0,
             singles: formats && formats.singles.played > 0 ? formats.singles : null,
             doubles: formats && formats.doubles.played > 0 ? formats.doubles : null,
             matches: matches.get(playerId) ?? [],

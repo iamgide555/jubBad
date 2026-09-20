@@ -127,6 +127,17 @@ export class LiveSessionService {
 
   readonly mode = computed<Session['mode']>(() => this.sessionResource.value()?.mode ?? 'variety');
 
+  /**
+   * How far the client's clock is ahead of the server's, in ms — recomputed
+   * each time a fresh response lands. A live court timer adds this to
+   * `Date.now()` so a host's phone running a few minutes fast does not show
+   * an inflated elapsed time.
+   */
+  readonly serverSkewMs = computed(() => {
+    const serverNow = this.sessionResource.value()?.serverNow;
+    return serverNow ? Date.now() - new Date(serverNow).getTime() : 0;
+  });
+
   readonly waitingPlayerIds = computed(() => {
     if (this.sessionResource.error()) return [];
     const session = this.sessionResource.value();

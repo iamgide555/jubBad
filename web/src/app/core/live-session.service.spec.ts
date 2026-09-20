@@ -19,6 +19,7 @@ function baseSession(overrides: Partial<Session> = {}): Session {
     restingPlayerIds: [],
     queueGames: {},
     createdAt: '2026-09-08T12:00:00.000Z',
+    serverNow: '2026-09-08T12:00:00.000Z',
     mode: 'variety',
     lastPlayedAt: {},
     activatedAt: {},
@@ -61,6 +62,17 @@ describe('LiveSessionService', () => {
   it('exposes courts from the fetched session', async () => {
     await flushSession(baseSession());
     expect(service.courts()).toEqual([{ status: 'idle', format: 'doubles' }]);
+  });
+
+  it('serverSkewMs is near 0 when the client and server clocks agree', async () => {
+    await flushSession(baseSession({ serverNow: new Date().toISOString() }));
+    expect(Math.abs(service.serverSkewMs())).toBeLessThan(1000);
+  });
+
+  it('serverSkewMs reflects how far ahead the client clock is', async () => {
+    const serverTime = new Date(Date.now() - 5 * 60_000);
+    await flushSession(baseSession({ serverNow: serverTime.toISOString() }));
+    expect(Math.round(service.serverSkewMs() / 60_000)).toBe(5);
   });
 
   it('proposeMatch posts to the propose endpoint and reloads the session', async () => {
@@ -177,7 +189,7 @@ describe('LiveSessionService', () => {
     await flushSession(
       baseSession({
         rosterPlayerIds: ['p1', 'p2', 'p3', 'p4', 'p5', 'p6'],
-        courts: [{ status: 'active', pairingId: 'pair1', format: 'doubles', teamA: ['p1', 'p2'], teamB: ['p3', 'p4'] }],
+        courts: [{ status: 'active', pairingId: 'pair1', format: 'doubles', teamA: ['p1', 'p2'], teamB: ['p3', 'p4'], startedAt: '2026-09-08T12:00:00.000Z' }],
       })
     );
     expect(service.waitingPlayerIds().sort()).toEqual(['p5', 'p6']);

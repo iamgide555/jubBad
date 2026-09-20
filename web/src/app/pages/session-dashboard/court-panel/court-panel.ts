@@ -1,12 +1,18 @@
 import { Component, computed, inject, input, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { PressDirective } from '../../../core/motion/press.directive';
+import { ClockService } from '../../../core/clock.service';
+import { elapsedSeconds, formatClock } from '../../../core/game-duration';
 import { LiveSessionService } from '../../../core/live-session.service';
 import { resolvePlayerNames } from '../../../core/player-names';
 import { SwapSelectionService, type SwapPick } from '../../../core/swap-selection.service';
 import type { CourtFormat, CourtState, Seat } from '../../../core/live-session.model';
 import type { Player } from '../../../../../../engines/fuzzy-match.ts';
 import { Icon } from '../../../shared/icon/icon';
+
+/** Past this many elapsed minutes, the timer flags the court as likely
+ *  overrun — almost always a score that was never submitted. */
+const OVERRUN_MINUTES = 30;
 
 /** One seat on a pending court: occupied (a player) or empty (custom mode
  *  only). `team`/`index` are what the seats endpoint addresses. */
@@ -48,6 +54,7 @@ export class CourtPanel {
   readonly actionError = signal<string | null>(null);
 
   protected readonly selection = inject(SwapSelectionService);
+  private readonly clock = inject(ClockService);
 
   constructor(protected liveSession: LiveSessionService) {}
 
@@ -128,6 +135,37 @@ export class CourtPanel {
     if (this.liveSession.sessionResource.error()) return false;
     return this.liveSession.sessionResource.value()?.endedAt != null;
   });
+
+  /** Seconds this court's current match has been running, or null when it
+   *  is not active (no timer to show on an idle or pending court).
+   *
+   *  `serverSkewMs` is deviceNow - serverNow at the moment the last response
+   *  landed, so it is *subtracted* from the ticking device clock to get back
+   *  to the server's timeline that `startedAt` was written in. */
+  protected readonly liveElapsedSeconds = computed<number | null>(() => {
+    const c = this.court();
+    if (c.status !== 'active') return null;
+    return elapsedSeconds(c.startedAt, this.clock.now() - this.liveSession.serverSkewMs());
+  });
+
+  protected readonly timerLabel = computed<string | null>(() => {
+    const seconds = this.liveElapsedSeconds();
+    return seconds === null ? null : formatClock(seconds);
+  });
+
+  /** True once the current match has run past OVERRUN_MINUTES — almost
+   *  always a score nobody submitted, blocking the court from freeing up. */
+  protected readonly overrun = computed(() => {
+    const seconds = this.liveElapsedSeconds();
+    return seconds !== null && seconds >= OVERRUN_MINUTES * 60;
+  });
+
+  /** Accessible name for the timer — whole minutes, not ticking seconds;
+   *  announcing a value that changes every second would be hostile. */
+  protected timerAriaLabel(): string {
+    const seconds = this.liveElapsedSeconds() ?? 0;
+    return $localize`:@@court.elapsedMinutes:เล่นมาแล้ว ${Math.floor(seconds / 60)}:minutes: นาที`;
+  }
 
   protected teamNames(ids: string[]): string[] {
     return resolvePlayerNames(ids, this.players());

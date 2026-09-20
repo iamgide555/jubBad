@@ -7,6 +7,7 @@ export interface SessionMatch {
   scoreA: number | null;
   scoreB: number | null;
   result: 'win' | 'loss' | 'no-result';
+  durationSeconds: number;
 }
 
 export interface FormatRecord {
@@ -21,6 +22,8 @@ export interface PlayerSessionStat {
   played: number;
   won: number;
   lost: number;
+  /** Sum of durationSeconds across this player's matches. */
+  totalSeconds: number;
   /** Null when this player never played that format this session. */
   singles: FormatRecord | null;
   doubles: FormatRecord | null;

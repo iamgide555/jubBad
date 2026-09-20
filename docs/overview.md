@@ -449,6 +449,16 @@ alone would tell a player who arrived an hour late that they had been waiting
 an hour, contradicting the rotation, which deliberately does not owe them that
 time.
 
+How long a game took is derived the same way, from the same two `Pairing`
+timestamps: `confirmedAt` (host confirms, players go on court) to `endedAt`
+(score submitted, court freed). The live dashboard shows a ticking stopwatch
+on the active court; the post-session summary shows each match's duration and
+a player's total time on court. Undo reuses this honestly rather than adding
+a pause concept — un-finishing a match clears `endedAt` and the timer keeps
+counting through the gap, and un-confirming clears `confirmedAt` and restarts
+it at zero on the next confirm. There is no cumulative history: elapsed is
+always "latest confirm to latest finish."
+
 The display view shows only *active* courts, so a proposed-but-unconfirmed
 pairing never reaches the venue screen. It refreshes every 30 seconds and has
 a manual refresh control; neither needs extra server infrastructure such as

@@ -1,14 +1,30 @@
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { signal } from '@angular/core';
 import { ActivatedRoute, convertToParamMap } from '@angular/router';
 import { CourtPanel } from './court-panel';
+import { ClockService } from '../../../core/clock.service';
 import { LiveSessionService } from '../../../core/live-session.service';
 import { SwapSelectionService } from '../../../core/swap-selection.service';
 import { environment } from '../../../../environments/environment';
 import type { Session } from '../../../core/session.model';
 
 const B = environment.apiBaseUrl;
+
+/**
+ * Never ticking on its own: the real ClockService's 1Hz interval writes a
+ * signal outside Angular's render cycle, which — per the doc comment on
+ * core/motion/odometer.ts — has intermittently tripped HttpTestingController
+ * .verify() in an unrelated spec. Every test here stubs the clock instead;
+ * tests that need it to move call `clockNow.set(...)` themselves.
+ *
+ * Seeded from the real Date.now() (not a fixed calendar date) because
+ * LiveSessionService.serverSkewMs deliberately reads the real clock to
+ * capture skew at response time — a frozen fixture date would show up as a
+ * many-day "skew" against it.
+ */
+let clockNow: ReturnType<typeof signal<number>>;
 
 function baseSession(overrides: Partial<Session> = {}): Session {
   return {
@@ -23,6 +39,7 @@ function baseSession(overrides: Partial<Session> = {}): Session {
     restingPlayerIds: [],
     queueGames: {},
     createdAt: '2026-09-08T12:00:00.000Z',
+    serverNow: '2026-09-08T12:00:00.000Z',
     mode: 'variety',
     lastPlayedAt: {},
     activatedAt: {},
@@ -57,12 +74,14 @@ async function createPanel(session = baseSession()): Promise<{
 
 describe('CourtPanel', () => {
   beforeEach(async () => {
+    clockNow = signal(Date.now());
     await TestBed.configureTestingModule({
       imports: [CourtPanel],
       providers: [
         provideHttpClient(),
         provideHttpClientTesting(),
         LiveSessionService,
+        { provide: ClockService, useValue: { now: clockNow } },
         {
           provide: ActivatedRoute,
           useValue: { snapshot: { paramMap: convertToParamMap({ sessionCode: 'sess1' }) } },
@@ -140,7 +159,7 @@ describe('CourtPanel', () => {
     // names have to survive somewhere a screen reader still reaches.
     const { fixture } = await createPanel(
       baseSession({
-        courts: [{ status: 'active', pairingId: 'pair1', format: 'doubles', teamA: ['p1', 'p2'], teamB: ['p3', 'p4'] }],
+        courts: [{ status: 'active', pairingId: 'pair1', format: 'doubles', teamA: ['p1', 'p2'], teamB: ['p3', 'p4'], startedAt: '2026-09-08T12:00:00.000Z' }],
       })
     );
     fixture.detectChanges();
@@ -160,7 +179,7 @@ describe('CourtPanel', () => {
   it('clicking a winner button finishes with that winner and current scores', async () => {
     const { fixture, httpMock } = await createPanel(
       baseSession({
-        courts: [{ status: 'active', pairingId: 'pair1', format: 'doubles', teamA: ['p1', 'p2'], teamB: ['p3', 'p4'] }],
+        courts: [{ status: 'active', pairingId: 'pair1', format: 'doubles', teamA: ['p1', 'p2'], teamB: ['p3', 'p4'], startedAt: '2026-09-08T12:00:00.000Z' }],
       })
     );
     fixture.detectChanges();
@@ -189,7 +208,7 @@ describe('CourtPanel', () => {
   it('finishes with no winner when the match is ended without a result', async () => {
     const { fixture, httpMock } = await createPanel(
       baseSession({
-        courts: [{ status: 'active', pairingId: 'pair1', format: 'doubles', teamA: ['p1', 'p2'], teamB: ['p3', 'p4'] }],
+        courts: [{ status: 'active', pairingId: 'pair1', format: 'doubles', teamA: ['p1', 'p2'], teamB: ['p3', 'p4'], startedAt: '2026-09-08T12:00:00.000Z' }],
       })
     );
     fixture.detectChanges();
@@ -237,7 +256,7 @@ describe('CourtPanel', () => {
   it('shows the mapped error when finishing a match is rejected', async () => {
     const { fixture, httpMock } = await createPanel(
       baseSession({
-        courts: [{ status: 'active', pairingId: 'pair1', format: 'doubles', teamA: ['p1', 'p2'], teamB: ['p3', 'p4'] }],
+        courts: [{ status: 'active', pairingId: 'pair1', format: 'doubles', teamA: ['p1', 'p2'], teamB: ['p3', 'p4'], startedAt: '2026-09-08T12:00:00.000Z' }],
       })
     );
     fixture.detectChanges();
@@ -347,7 +366,7 @@ describe('CourtPanel', () => {
     TestBed.tick();
     httpMock.expectOne(`${B}/sessions/sess1`).flush(
       baseSession({
-        courts: [{ status: 'active', pairingId: 'pair1', format: 'doubles', teamA: ['p1', 'p2'], teamB: ['p3', 'p4'] }],
+        courts: [{ status: 'active', pairingId: 'pair1', format: 'doubles', teamA: ['p1', 'p2'], teamB: ['p3', 'p4'], startedAt: '2026-09-08T12:00:00.000Z' }],
       })
     );
     await fixture.whenStable();
@@ -511,16 +530,112 @@ describe('CourtPanel', () => {
     httpMock.expectOne(`${B}/sessions/sess1`).flush(pendingCourt());
     expect(fixture.componentInstance['selection'].active()).toBe(false);
   });
+
+  describe('live court timer', () => {
+    /**
+     * `startedAgoMs`/`serverNowAgoMs` are both relative to a `now` captured
+     * once per test (real Date.now(), matching clockNow's seed) — not a fixed
+     * calendar date. serverSkewMs is `realNow_atFlush - serverNow`, so a
+     * non-zero serverNowAgoMs is exactly how these tests simulate clock skew:
+     * a serverNow reported further in the past than clockNow reads as "ahead".
+     */
+    function activeCourt(now: number, startedAgoMs: number, serverNowAgoMs = 0) {
+      return baseSession({
+        courts: [
+          {
+            status: 'active',
+            pairingId: 'pair1',
+            format: 'doubles',
+            teamA: ['p1', 'p2'],
+            teamB: ['p3', 'p4'],
+            startedAt: new Date(now - startedAgoMs).toISOString(),
+          },
+        ],
+        serverNow: new Date(now - serverNowAgoMs).toISOString(),
+      });
+    }
+
+    it('shows elapsed time as M:SS for an active court', async () => {
+      const now = Date.now();
+      clockNow.set(now);
+      // +500ms padding: a few ms of real wall-clock time pass between capturing
+      // `now` and the resource flush that serverSkewMs measures against, so an
+      // offset exactly on a second boundary can floor down by one.
+      const { fixture } = await createPanel(activeCourt(now, (12 * 60 + 7) * 1000 + 500));
+      fixture.detectChanges();
+      expect(fixture.nativeElement.querySelector('.court-timer')?.textContent?.trim()).toBe('12:07');
+    });
+
+    it('shows no timer on a pending court', async () => {
+      const { fixture } = await createPanel(
+        baseSession({
+          courts: [{ status: 'pending', pairingId: 'pair1', format: 'doubles', teamA: ['p1', 'p2'], teamB: ['p3', 'p4'] }],
+        })
+      );
+      fixture.detectChanges();
+      expect(fixture.nativeElement.querySelector('.court-timer')).toBeNull();
+    });
+
+    it('shows no timer on an idle court', async () => {
+      const { fixture } = await createPanel(baseSession());
+      fixture.detectChanges();
+      expect(fixture.nativeElement.querySelector('.court-timer')).toBeNull();
+    });
+
+    it('shifts the displayed elapsed time by the server clock skew', async () => {
+      // Server says the match started 5 minutes ago, but its own clock is
+      // reported 2 minutes further behind the client's — i.e. the client
+      // clock reads 2 minutes fast — so the true elapsed time is 3 minutes.
+      const now = Date.now();
+      clockNow.set(now);
+      const { fixture } = await createPanel(activeCourt(now, 5 * 60_000 + 500, 2 * 60_000));
+      fixture.detectChanges();
+      expect(fixture.nativeElement.querySelector('.court-timer')?.textContent?.trim()).toBe('3:00');
+    });
+
+    it('flags the court as overrun past 30 minutes', async () => {
+      const now = Date.now();
+      clockNow.set(now);
+      const { fixture } = await createPanel(activeCourt(now, 31 * 60_000));
+      fixture.detectChanges();
+      expect(fixture.nativeElement.querySelector('.court-timer')?.classList.contains('overrun')).toBe(true);
+    });
+
+    it('does not flag a court under 30 minutes as overrun', async () => {
+      const now = Date.now();
+      clockNow.set(now);
+      const { fixture } = await createPanel(activeCourt(now, 5 * 60_000));
+      fixture.detectChanges();
+      expect(fixture.nativeElement.querySelector('.court-timer')?.classList.contains('overrun')).toBe(false);
+    });
+
+    it('ticks the displayed time forward as the clock advances', async () => {
+      const now = Date.now();
+      clockNow.set(now);
+      const { fixture } = await createPanel(activeCourt(now, 0));
+      fixture.detectChanges();
+      expect(fixture.nativeElement.querySelector('.court-timer')?.textContent?.trim()).toBe('0:00');
+
+      // +500ms padding: see the earlier boundary comment — real wall-clock
+      // time passes between capturing `now` and this second flush too.
+      clockNow.set(now + 47_500);
+      TestBed.tick();
+      fixture.detectChanges();
+      expect(fixture.nativeElement.querySelector('.court-timer')?.textContent?.trim()).toBe('0:47');
+    });
+  });
 });
 
 describe('CourtPanel with too few players', () => {
   beforeEach(async () => {
+    clockNow = signal(Date.now());
     await TestBed.configureTestingModule({
       imports: [CourtPanel],
       providers: [
         provideHttpClient(),
         provideHttpClientTesting(),
         LiveSessionService,
+        { provide: ClockService, useValue: { now: clockNow } },
         {
           provide: ActivatedRoute,
           useValue: { snapshot: { paramMap: convertToParamMap({ sessionCode: 'sess1' }) } },
@@ -554,7 +669,7 @@ describe('CourtPanel with too few players', () => {
   it('undo posts to the court undo endpoint', async () => {
     const { fixture, httpMock } = await createPanel(
       baseSession({
-        courts: [{ status: 'active', pairingId: 'pair1', format: 'doubles', teamA: ['p1', 'p2'], teamB: ['p3', 'p4'] }],
+        courts: [{ status: 'active', pairingId: 'pair1', format: 'doubles', teamA: ['p1', 'p2'], teamB: ['p3', 'p4'], startedAt: '2026-09-08T12:00:00.000Z' }],
       })
     );
     fixture.detectChanges();
@@ -611,7 +726,7 @@ describe('CourtPanel with too few players', () => {
   it('shows each active player\'s real games-played tally next to their name', async () => {
     const { fixture } = await createPanel(
       baseSession({
-        courts: [{ status: 'active', pairingId: 'pair1', format: 'doubles', teamA: ['p1', 'p2'], teamB: ['p3', 'p4'] }],
+        courts: [{ status: 'active', pairingId: 'pair1', format: 'doubles', teamA: ['p1', 'p2'], teamB: ['p3', 'p4'], startedAt: '2026-09-08T12:00:00.000Z' }],
       })
     );
     fixture.componentRef.setInput('gamesPlayed', { p1: 5, p4: 4 });
@@ -666,7 +781,7 @@ describe('CourtPanel with too few players', () => {
   it('disables the toggle while a match is active', async () => {
     const { fixture } = await createPanel(
       baseSession({
-        courts: [{ status: 'active', pairingId: 'pair1', format: 'doubles', teamA: ['p1', 'p2'], teamB: ['p3', 'p4'] }],
+        courts: [{ status: 'active', pairingId: 'pair1', format: 'doubles', teamA: ['p1', 'p2'], teamB: ['p3', 'p4'], startedAt: '2026-09-08T12:00:00.000Z' }],
       })
     );
     fixture.detectChanges();
@@ -703,7 +818,7 @@ describe('CourtPanel with too few players', () => {
     const { fixture } = await createPanel(
       baseSession({
         rosterPlayerIds: ['p1', 'p2'],
-        courts: [{ status: 'active', pairingId: 'pair1', format: 'singles', teamA: ['p1'], teamB: ['p2'] }],
+        courts: [{ status: 'active', pairingId: 'pair1', format: 'singles', teamA: ['p1'], teamB: ['p2'], startedAt: '2026-09-08T12:00:00.000Z' }],
       })
     );
     fixture.detectChanges();

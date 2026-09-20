@@ -140,6 +140,7 @@
 }
 
 .waiting-line .tally {
+  margin-left: var(--space-0);
   color: var(--ink-on-court-soft);
   font-size: 0.85em;
   font-variant-numeric: tabular-nums;

@@ -21,6 +21,11 @@
         i18n="@@court.formatSingles"
       >เดี่ยว</button>
     </div>
+    @if (timerLabel(); as label) {
+      <span class="court-timer tabular" [class.overrun]="overrun()" [attr.aria-label]="timerAriaLabel()">{{
+        label
+      }}</span>
+    }
     <span class="status-dot" [class]="c.status"></span>
   </div>
 

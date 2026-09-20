@@ -8,6 +8,8 @@ export interface Session {
   courtCount: number | null;
   endedAt: string | null;
   createdAt: string;
+  /** Server's clock at response time — the skew reference for live court timers. */
+  serverNow: string;
   mode: 'variety' | 'balanced' | 'custom';
   /** Player id -> ISO time they last finished a match tonight. */
   lastPlayedAt: Record<string, string>;

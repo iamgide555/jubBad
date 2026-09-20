@@ -2165,6 +2165,41 @@
           <context context-type="linenumber">220</context>
         </context-group>
       </trans-unit>
+      <trans-unit id="duration.minutesShort" datatype="html">
+        <source><x id="minutes" equiv-text="minutes"/> น.</source><target><x id="minutes" equiv-text="minutes"/> min</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/core/game-duration.ts</context>
+          <context context-type="linenumber">42</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="duration.hoursMinutes" datatype="html">
+        <source><x id="hours" equiv-text="hours"/> ชม. <x id="minutes" equiv-text="minutes"/> น.</source><target><x id="hours" equiv-text="hours"/>h <x id="minutes" equiv-text="minutes"/>m</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/core/game-duration.ts</context>
+          <context context-type="linenumber">44</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="court.elapsedMinutes" datatype="html">
+        <source>เล่นมาแล้ว <x id="minutes" equiv-text="Math.floor(seconds / 60)"/> นาที</source><target>Playing for <x id="minutes" equiv-text="Math.floor(seconds / 60)"/> min</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/session-dashboard/court-panel/court-panel.ts</context>
+          <context context-type="linenumber">167</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="summary.timeTotal" datatype="html">
+        <source>เวลาเล่น</source><target>Play time</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/session-summary/session-summary.html</context>
+          <context context-type="linenumber">28,29</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="summary.avgGameTime" datatype="html">
+        <source>(เฉลี่ย <x id="INTERPOLATION" equiv-text="{{ avg }}"/>/เกม)</source><target>(avg <x id="INTERPOLATION" equiv-text="{{ avg }}"/>/game)</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/session-summary/session-summary.html</context>
+          <context context-type="linenumber">69,70</context>
+        </context-group>
+      </trans-unit>
     </body>
   </file>
 </xliff>

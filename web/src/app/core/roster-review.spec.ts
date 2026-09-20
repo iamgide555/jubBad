@@ -106,6 +106,14 @@ describe('literalNewNameDrafts', () => {
     expect(drafts.has('ตั้ม (2)')).toBe(true);
     expect(drafts.has('ตั้ม')).toBe(false);
   });
+
+  it('includes both a rejected imported row and an accepted new row from the same list', () => {
+    const roster: NameReview[] = [
+      { inputName: 'ตั้ม', match: { type: 'exact', playerId: 'p1' }, decision: 'reject-new' },
+      { inputName: 'เกียร์', match: { type: 'new' }, decision: 'accept' },
+    ];
+    expect(literalNewNameDrafts(roster, [])).toEqual(new Set(['ตั้ม', 'เกียร์']));
+  });
 });
 
 describe('exactPlayerMatch', () => {
@@ -119,6 +127,10 @@ describe('exactPlayerMatch', () => {
   it('returns null for a blank query or no match', () => {
     expect(exactPlayerMatch('   ', players)).toBeNull();
     expect(exactPlayerMatch('เกียร์', players)).toBeNull();
+  });
+
+  it('returns null against an empty player pool without throwing', () => {
+    expect(exactPlayerMatch('ตั้ม', [])).toBeNull();
   });
 });
 
@@ -143,5 +155,48 @@ describe('searchCandidates', () => {
     expect(results.map((c) => c.player.id)).toEqual(['p1', 'p2']);
     expect(results[0].rank).toBe('exact');
     expect(results[1].rank).toBe('prefix');
+  });
+
+  it('returns nothing against an empty player pool without throwing', () => {
+    expect(searchCandidates('ตั้ม', [], new Set())).toEqual([]);
+  });
+
+  it('orders exact, prefix, substring, and fuzzy hits together for one query', () => {
+    // "bottom" contains "tom" but does not start with it (substring, not
+    // prefix); "tam" is one substitution away from "tom" (similarity 0.667,
+    // above the 0.5 search threshold) but shares no "tom" substring at all
+    // (fuzzy only). Deliberately listed out of rank order to prove the sort,
+    // not just the input order, decides the result.
+    const fourRankPlayers: Player[] = [
+      { id: 'fuzzy', name: 'tam', aliases: [] },
+      { id: 'substring', name: 'bottom', aliases: [] },
+      { id: 'prefix', name: 'tommy', aliases: [] },
+      { id: 'exact', name: 'tom', aliases: [] },
+    ];
+
+    const results = searchCandidates('tom', fourRankPlayers, new Set());
+
+    expect(results.map((c) => c.player.id)).toEqual(['exact', 'prefix', 'substring', 'fuzzy']);
+    expect(results.map((c) => c.rank)).toEqual(['exact', 'prefix', 'substring', 'fuzzy']);
+  });
+
+  it('ranks a match found only via an alias as exact', () => {
+    const withAlias: Player[] = [{ id: 'p1', name: 'สมชาย', aliases: ['บอส'] }];
+    const results = searchCandidates('บอส', withAlias, new Set());
+    expect(results).toEqual([{ player: withAlias[0], rank: 'exact', score: 1 }]);
+  });
+
+  it('excludes a player claimed via the waitlist, not just the roster', () => {
+    // claimedPlayerIds is the actual exclusion set the component computes
+    // from both lists together — this proves searchCandidates really honors
+    // an ID that only the waitlist claimed, not just one from the roster.
+    const waitlist: NameReview[] = [
+      { inputName: 'ตั้ม', match: { type: 'exact', playerId: 'p1' }, decision: 'accept' },
+    ];
+    const excluded = claimedPlayerIds([], waitlist);
+    expect(excluded.has('p1')).toBe(true);
+
+    const results = searchCandidates('ตั้ม', players, excluded);
+    expect(results.map((c) => c.player.id)).not.toContain('p1');
   });
 });

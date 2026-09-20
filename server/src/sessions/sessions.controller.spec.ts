@@ -94,6 +94,63 @@ describe('SessionsController', () => {
     }
   });
 
+  // Coverage for the manual roster-add feature (client-only; see
+  // web/src/app/core/roster-review.ts). The controller/service has no field
+  // marking a review as manually staged versus imported — a manual "add
+  // existing" (GroupEntry.addExisting()) produces the exact same
+  // { inputName, match: { type: 'exact', playerId }, decision: 'accept' }
+  // shape as an imported exact match, and a manual "add new"
+  // (GroupEntry.addNew()) produces the same { match: { type: 'new' } } shape
+  // as an imported new name. This proves the existing NameReview handling
+  // already does the right thing for a roster that mixes both origins in one
+  // request, without any backend change.
+  it('creates a session from a roster mixing an imported row with manually-staged existing-player and new-player rows', async () => {
+    const groupCode = randomUUID();
+    await prisma.group.create({ data: { code: groupCode, name: 'G' } });
+    const bob = await prisma.player.create({ data: { groupId: groupCode, name: 'Bob', aliases: '[]' } });
+    const carol = await prisma.player.create({ data: { groupId: groupCode, name: 'Carol', aliases: '[]' } });
+
+    const res = await request(server)
+      .post('/sessions')
+      .send({
+        groupCode,
+        date: '2026-09-04',
+        venue: null,
+        courtCount: 1,
+        rawImportText: '1. Bob',
+        idempotencyKey: randomUUID(),
+        rosterReviews: [
+          // Imported row: the parser resolved "Bob" to the existing player.
+          { inputName: 'Bob', match: { type: 'exact', playerId: bob.id }, decision: 'accept' },
+          // Manually-staged "add existing" row (same shape as an import).
+          { inputName: 'Carol', match: { type: 'exact', playerId: carol.id }, decision: 'accept' },
+          // Manually-staged "add new" row (same shape as an import).
+          { inputName: 'Dave', match: { type: 'new' }, decision: 'accept' },
+        ],
+        waitlistReviews: [],
+      })
+      .expect(201);
+
+    try {
+      const roster = await prisma.sessionRoster.findMany({ where: { sessionId: res.body.code } });
+      expect(roster).toHaveLength(3);
+      const rosterPlayerIds = roster.map((r) => r.playerId);
+      expect(rosterPlayerIds).toContain(bob.id);
+      expect(rosterPlayerIds).toContain(carol.id);
+
+      const players = await prisma.player.findMany({ where: { groupId: groupCode } });
+      expect(players).toHaveLength(3);
+      const dave = players.find((p) => p.name === 'Dave');
+      expect(dave).toBeTruthy();
+      expect(rosterPlayerIds).toContain(dave!.id);
+    } finally {
+      await prisma.sessionRoster.deleteMany({ where: { sessionId: res.body.code } });
+      await prisma.session.deleteMany({ where: { code: res.body.code } });
+      await prisma.player.deleteMany({ where: { groupId: groupCode } });
+      await prisma.group.deleteMany({ where: { code: groupCode } });
+    }
+  });
+
   it('rejects a request with an unrecognized decision value', async () => {
     const groupCode = randomUUID();
     await request(server)

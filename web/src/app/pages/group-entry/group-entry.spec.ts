@@ -699,3 +699,320 @@ describe('GroupEntry manual roster add UI (Task 2)', () => {
     await confirmPromise;
   });
 });
+
+// Exhaustive behavioral coverage for the manual roster-add control (Task 3).
+// Task 1/2 own the focused unit tests and template smoke tests above; these
+// exercise the full end-to-end wiring: typing, selecting, keyboard
+// navigation, submission failure, and reparse reset. Player pool:
+// - p1 "ตั้ม"     — claimed by the imported row from parse()
+// - p2 "เกียร์"    — unclaimed, single exact match for its own name
+// - p3 "มด"       — unclaimed, shares the "ม" prefix with p4
+// - p4 "มะนาว"    — unclaimed, shares the "ม" prefix with p3
+describe('GroupEntry manual roster add — behavior (Task 3)', () => {
+  let component: GroupEntry;
+  let fixture: ComponentFixture<GroupEntry>;
+  let httpMock: HttpTestingController;
+
+  beforeEach(async () => {
+    await TestBed.configureTestingModule({
+      imports: [GroupEntry],
+      providers: [
+        provideHttpClient(),
+        provideHttpClientTesting(),
+        provideRouter(routes),
+        { provide: AuthService, useValue: { check: () => Promise.resolve(true) } },
+        {
+          provide: ActivatedRoute,
+          useValue: { snapshot: { paramMap: convertToParamMap({ groupCode: 'group1' }) } },
+        },
+      ],
+    }).compileComponents();
+
+    httpMock = TestBed.inject(HttpTestingController);
+    fixture = TestBed.createComponent(GroupEntry);
+    component = fixture.componentInstance;
+
+    httpMock.expectOne(`${B}/groups/group1`).flush('Not Found', { status: 404, statusText: 'Not Found' });
+    httpMock.expectOne(`${B}/groups/group1/sessions`).flush([]);
+    await fixture.whenStable();
+
+    component.groupName.set('Group A');
+    component.rawText.set('1. ตั้ม');
+    const parsePromise = component.parse();
+    httpMock.expectOne(`${B}/groups/group1/parse`).flush({
+      header: { isoDate: '2026-09-08', venue: null, courtCount: 1 },
+      rosterReviews: [{ inputName: 'ตั้ม', match: { type: 'exact', playerId: 'p1' } }],
+      waitlistReviews: [],
+      warnings: [],
+      unrecognizedLines: [],
+    });
+    await new Promise((r) => setTimeout(r, 0));
+    httpMock.expectOne(`${B}/groups/group1/players`).flush([
+      { id: 'p1', name: 'ตั้ม', aliases: [] },
+      { id: 'p2', name: 'เกียร์', aliases: [] },
+      { id: 'p3', name: 'มด', aliases: [] },
+      { id: 'p4', name: 'มะนาว', aliases: [] },
+    ]);
+    await parsePromise;
+    fixture.detectChanges();
+  });
+
+  afterEach(() => {
+    httpMock.verify();
+  });
+
+  function manualInput(): HTMLInputElement {
+    return fixture.nativeElement.querySelector('#manual-add-input') as HTMLInputElement;
+  }
+
+  function keydown(key: string, extra: Partial<KeyboardEvent> = {}): void {
+    component.onManualKeydown({
+      isComposing: false,
+      key,
+      target: manualInput(),
+      preventDefault: () => {},
+      ...extra,
+    } as unknown as KeyboardEvent);
+  }
+
+  it('adds an existing player end-to-end via selectManualCandidate and clears the query', () => {
+    component.onManualQueryChange('เกียร์');
+    fixture.detectChanges();
+
+    const candidate = component.manualCandidates().find((c) => c.player.id === 'p2')!;
+    expect(candidate).toBeTruthy();
+    component.selectManualCandidate(candidate, manualInput());
+
+    expect(component.rosterReviews()).toContainEqual({
+      inputName: 'เกียร์',
+      match: { type: 'exact', playerId: 'p2' },
+      decision: 'accept',
+    });
+    expect(component.manualQuery()).toBe('');
+  });
+
+  it('adds a brand-new player end-to-end via confirmAddNew', () => {
+    component.onManualQueryChange('คนใหม่มาก');
+    fixture.detectChanges();
+
+    component.confirmAddNew(manualInput());
+
+    expect(component.rosterReviews()).toContainEqual({
+      inputName: 'คนใหม่มาก',
+      match: { type: 'new' },
+      decision: 'accept',
+    });
+  });
+
+  it('recomputes claimedIds/manualCandidates when an imported decision changes', () => {
+    expect(component.claimedIds().has('p1')).toBe(true);
+    component.manualQuery.set('ตั้ม');
+    expect(component.manualCandidates()).toEqual([]);
+
+    const importedP1 = component.rosterReviews().find((r) => !component.isManualReview(r))!;
+    component.setDecision(importedP1, 'reject-new');
+
+    expect(component.claimedIds().has('p1')).toBe(false);
+    expect(component.manualCandidates().map((c) => c.player.id)).toContain('p1');
+
+    component.setDecision(component.rosterReviews()[0], 'accept');
+    expect(component.claimedIds().has('p1')).toBe(true);
+    expect(component.manualCandidates()).toEqual([]);
+  });
+
+  it('rejects a whitespace-only confirmAddNew with an error and no row added', () => {
+    component.onManualQueryChange('   ');
+    fixture.detectChanges();
+    const before = component.rosterReviews().length;
+
+    component.confirmAddNew(manualInput());
+
+    expect(component.manualAddError()).toBeTruthy();
+    expect(component.rosterReviews().length).toBe(before);
+  });
+
+  it('rejects a second literal-duplicate new draft, case-insensitively', () => {
+    component.onManualQueryChange('Newbie');
+    fixture.detectChanges();
+    component.confirmAddNew(manualInput());
+    const afterFirst = component.rosterReviews().length;
+
+    component.onManualQueryChange('newbie');
+    fixture.detectChanges();
+    component.confirmAddNew(manualInput());
+
+    expect(component.manualAddError()).toBeTruthy();
+    expect(component.rosterReviews().length).toBe(afterFirst);
+  });
+
+  it('removeManualRow removes a manual existing-player addition and makes it searchable again', () => {
+    component.addExisting('p2');
+    fixture.detectChanges();
+    const review = component.rosterReviews().find((r) => r.match.type === 'exact' && r.match.playerId === 'p2')!;
+
+    component.removeManualRow(review);
+
+    expect(component.rosterReviews().some((r) => r.match.type === 'exact' && r.match.playerId === 'p2')).toBe(
+      false
+    );
+    component.manualQuery.set('เกียร์');
+    expect(component.manualCandidates().map((c) => c.player.id)).toContain('p2');
+  });
+
+  it('ignores a rapid second tap on the same candidate — only one row is added', () => {
+    component.onManualQueryChange('เกียร์');
+    fixture.detectChanges();
+    const candidate = component.manualCandidates().find((c) => c.player.id === 'p2')!;
+
+    component.selectManualCandidate(candidate, manualInput());
+    component.selectManualCandidate(candidate, manualInput());
+
+    const p2Rows = component
+      .rosterReviews()
+      .filter((r) => r.match.type === 'exact' && r.match.playerId === 'p2');
+    expect(p2Rows).toHaveLength(1);
+  });
+
+  it('arrow-key navigation wraps at both ends of the combined candidate + add-new list', () => {
+    component.onManualQueryChange('ม');
+    fixture.detectChanges();
+
+    // "มด" and "มะนาว" both match by prefix; no exact match exists for "ม",
+    // so "add as new" is also offered — 3 options total.
+    expect(component.manualCandidates().map((c) => c.player.id).sort()).toEqual(['p3', 'p4']);
+    expect(component.manualShowAddNew()).toBe(true);
+
+    expect(component.manualActiveIndex()).toBe(-1);
+    keydown('ArrowDown');
+    expect(component.manualActiveIndex()).toBe(0);
+    keydown('ArrowDown');
+    expect(component.manualActiveIndex()).toBe(1);
+    keydown('ArrowDown');
+    expect(component.manualActiveIndex()).toBe(2);
+    keydown('ArrowDown');
+    expect(component.manualActiveIndex()).toBe(0); // wraps forward past the end
+
+    keydown('ArrowUp');
+    expect(component.manualActiveIndex()).toBe(2); // wraps backward past the start
+  });
+
+  it('Escape dismisses suggestions and clears the active index without clearing the typed query', () => {
+    component.onManualQueryChange('ม');
+    fixture.detectChanges();
+    component.manualActiveIndex.set(1);
+
+    keydown('Escape');
+
+    expect(component.manualShowSuggestions()).toBe(false);
+    expect(component.manualActiveIndex()).toBe(-1);
+    expect(component.manualQuery()).toBe('ม');
+  });
+
+  it('preserves manual additions on a failed confirmRoster and reuses the idempotency key on retry', async () => {
+    component.addExisting('p2');
+    component.onManualQueryChange('คนใหม่มาก');
+    fixture.detectChanges();
+    component.confirmAddNew(manualInput());
+    component.date.set('2026-09-08');
+    component.courtCount.set(1);
+
+    const failedCreate = component.confirmRoster();
+    const first = httpMock.expectOne(`${B}/sessions`);
+    const idempotencyKey = first.request.body.idempotencyKey;
+    first.flush('Server error', { status: 500, statusText: 'Server Error' });
+    await failedCreate;
+
+    expect(component.confirmError()).toBeTruthy();
+    expect(component.rosterReviews().some((r) => r.match.type === 'exact' && r.match.playerId === 'p2')).toBe(
+      true
+    );
+    expect(component.rosterReviews().some((r) => r.match.type === 'new' && r.inputName === 'คนใหม่มาก')).toBe(
+      true
+    );
+
+    const retry = component.confirmRoster();
+    const second = httpMock.expectOne(`${B}/sessions`);
+    expect(second.request.body.idempotencyKey).toBe(idempotencyKey);
+    second.flush({ code: 'sess1' });
+    await retry;
+  });
+
+  it('a successful reparse clears rosterReviews, manualQuery, and manualAddError', async () => {
+    component.addExisting('p2');
+    component.manualQuery.set('leftover query');
+    component.manualAddError.set('leftover error');
+
+    component.groupName.set('Group A');
+    component.rawText.set('1. เกียร์');
+    const parsePromise = component.parse();
+    httpMock.expectOne(`${B}/groups/group1/parse`).flush({
+      header: { isoDate: '2026-09-09', venue: null, courtCount: 1 },
+      rosterReviews: [{ inputName: 'เกียร์', match: { type: 'exact', playerId: 'p2' } }],
+      waitlistReviews: [],
+      warnings: [],
+      unrecognizedLines: [],
+    });
+    await new Promise((r) => setTimeout(r, 0));
+    httpMock.expectOne(`${B}/groups/group1/players`).flush([
+      { id: 'p1', name: 'ตั้ม', aliases: [] },
+      { id: 'p2', name: 'เกียร์', aliases: [] },
+    ]);
+    await parsePromise;
+
+    expect(component.rosterReviews()).toEqual([
+      { inputName: 'เกียร์', match: { type: 'exact', playerId: 'p2' }, decision: 'accept' },
+    ]);
+    expect(component.manualQuery()).toBe('');
+    expect(component.manualAddError()).toBeNull();
+  });
+
+  it('a failed reparse leaves manual query, error, and rows untouched', async () => {
+    component.addExisting('p2');
+    component.manualQuery.set('leftover query');
+    component.manualAddError.set('leftover error');
+    const before = component.rosterReviews();
+
+    component.rawText.set('1. เกียร์');
+    const failedParse = component.parse();
+    httpMock
+      .expectOne(`${B}/groups/group1/parse`)
+      .flush('Server error', { status: 500, statusText: 'Server Error' });
+    await failedParse;
+
+    expect(component.rosterReviews()).toBe(before);
+    expect(component.manualQuery()).toBe('leftover query');
+    expect(component.manualAddError()).toBe('leftover error');
+  });
+
+  it('adds a Thai name with a parenthetical label through the full add-new flow', () => {
+    component.onManualQueryChange('ตั้ม (2)');
+    fixture.detectChanges();
+
+    component.confirmAddNew(manualInput());
+
+    expect(component.rosterReviews()).toContainEqual({
+      inputName: 'ตั้ม (2)',
+      match: { type: 'new' },
+      decision: 'accept',
+    });
+  });
+
+  it('once every existing player is claimed, manualCandidates is empty but "add as new" stays available for an unmatched name', () => {
+    component.addExisting('p2');
+    component.addExisting('p3');
+    component.addExisting('p4');
+
+    // "ตั้ม" is p1, already claimed by the imported row.
+    component.onManualQueryChange('ตั้ม');
+    fixture.detectChanges();
+    expect(component.manualCandidates()).toEqual([]);
+    expect(component.manualMatchState().kind).toBe('exact-match-already-selected');
+    expect(component.manualShowAddNew()).toBe(false);
+
+    component.onManualQueryChange('คนใหม่มาก');
+    fixture.detectChanges();
+    expect(component.manualCandidates()).toEqual([]);
+    expect(component.manualMatchState().kind).toBe('no-match');
+    expect(component.manualShowAddNew()).toBe(true);
+  });
+});

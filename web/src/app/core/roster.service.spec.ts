@@ -1,7 +1,7 @@
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
-import { RosterService } from './roster.service';
+import { RosterService, type CreateSessionRequest } from './roster.service';
 import { environment } from '../../environments/environment';
 
 describe('RosterService', () => {
@@ -64,6 +64,36 @@ describe('RosterService', () => {
       rawImportText: '1. ตั้ม',
       idempotencyKey: '0f8fad5b-d9cb-469f-a165-70867728950e',
       rosterReviews: [],
+      waitlistReviews: [],
+    };
+    service.createSession(dto).subscribe((r) => (result = r));
+
+    const req = httpMock.expectOne(`${environment.apiBaseUrl}/sessions`);
+    expect(req.request.method).toBe('POST');
+    expect(req.request.body).toEqual(dto);
+    req.flush({ code: 'sess1' });
+
+    expect(result).toEqual({ code: 'sess1' });
+  });
+
+  it('createSession sends a manually-added existing-player/new-player NameReview exactly like an imported one', () => {
+    // No "isManual" marker or different shape here — a manual "add existing"
+    // (2nd row, same shape as GroupEntry.addExisting()'s output) and a manual
+    // "add new" (3rd row, same shape as GroupEntry.addNew()'s output) must
+    // serialize byte-for-byte the same as the imported 1st row.
+    let result: unknown;
+    const dto: CreateSessionRequest = {
+      groupCode: 'group1',
+      date: '2026-09-08',
+      venue: null,
+      courtCount: 1,
+      rawImportText: '1. Alice',
+      idempotencyKey: 'abc-123',
+      rosterReviews: [
+        { inputName: 'Alice', match: { type: 'new' }, decision: 'accept' },
+        { inputName: 'Bob', match: { type: 'exact', playerId: 'p2' }, decision: 'accept' },
+        { inputName: 'Carol', match: { type: 'new' }, decision: 'accept' },
+      ],
       waitlistReviews: [],
     };
     service.createSession(dto).subscribe((r) => (result = r));

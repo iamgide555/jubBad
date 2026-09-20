@@ -13,6 +13,8 @@ function baseSession(overrides: Partial<Session> = {}): Session {
     date: '2026-09-08',
     venue: null,
     courtCount: 1,
+    shuttleCount: null,
+    shuttlePriceSatang: null,
     endedAt: null,
     rawImportText: '',
     rosterPlayerIds: ['p1', 'p2', 'p3', 'p4'],
@@ -335,6 +337,79 @@ describe('LiveSessionService', () => {
       ok: false,
       error: 'ยังมีที่ว่างในคอร์ท ใส่ผู้เล่นให้ครบก่อนยืนยัน',
     });
+  });
+
+  it('setShuttleDetails sends only the changed field(s) and reloads on success', async () => {
+    await flushSession(baseSession());
+
+    const promise = service.setShuttleDetails({ shuttleCount: 12 });
+    const req = httpMock.expectOne(`${environment.apiBaseUrl}/sessions/sess1/shuttle-details`);
+    expect(req.request.method).toBe('POST');
+    // Only the changed key is present — no `shuttlePriceSatang: undefined`
+    // leaking into the JSON body as a key at all.
+    expect(req.request.body).toEqual({ shuttleCount: 12 });
+    expect(Object.keys(req.request.body as object)).toEqual(['shuttleCount']);
+    req.flush({ code: 'sess1', shuttleCount: 12, shuttlePriceSatang: null });
+    await new Promise((r) => setTimeout(r, 0));
+    TestBed.tick();
+    httpMock
+      .expectOne(`${environment.apiBaseUrl}/sessions/sess1`)
+      .flush(baseSession({ shuttleCount: 12, shuttlePriceSatang: null }));
+
+    expect(await promise).toEqual({ ok: true });
+  });
+
+  it('setShuttleDetails sends an explicit null to clear a field', async () => {
+    await flushSession(baseSession({ shuttleCount: 12 }));
+
+    const promise = service.setShuttleDetails({ shuttleCount: null });
+    const req = httpMock.expectOne(`${environment.apiBaseUrl}/sessions/sess1/shuttle-details`);
+    expect(req.request.body).toEqual({ shuttleCount: null });
+    req.flush({ code: 'sess1', shuttleCount: null, shuttlePriceSatang: null });
+    await new Promise((r) => setTimeout(r, 0));
+    TestBed.tick();
+    httpMock.expectOne(`${environment.apiBaseUrl}/sessions/sess1`).flush(baseSession());
+
+    expect(await promise).toEqual({ ok: true });
+  });
+
+  it('setShuttleDetails can send both fields together', async () => {
+    await flushSession(baseSession());
+
+    const promise = service.setShuttleDetails({ shuttleCount: 10, shuttlePriceSatang: 8050 });
+    const req = httpMock.expectOne(`${environment.apiBaseUrl}/sessions/sess1/shuttle-details`);
+    expect(req.request.body).toEqual({ shuttleCount: 10, shuttlePriceSatang: 8050 });
+    req.flush({ code: 'sess1', shuttleCount: 10, shuttlePriceSatang: 8050 });
+    await new Promise((r) => setTimeout(r, 0));
+    TestBed.tick();
+    httpMock
+      .expectOne(`${environment.apiBaseUrl}/sessions/sess1`)
+      .flush(baseSession({ shuttleCount: 10, shuttlePriceSatang: 8050 }));
+
+    expect(await promise).toEqual({ ok: true });
+  });
+
+  it('setShuttleDetails maps SESSION_NOT_FOUND to a localized message', async () => {
+    await flushSession(baseSession());
+
+    const promise = service.setShuttleDetails({ shuttleCount: 5 });
+    httpMock
+      .expectOne(`${environment.apiBaseUrl}/sessions/sess1/shuttle-details`)
+      .flush({ statusCode: 404, code: 'SESSION_NOT_FOUND' }, { status: 404, statusText: 'Not Found' });
+
+    expect(await promise).toEqual({ ok: false, error: 'ไม่พบก๊วนนี้' });
+  });
+
+  it('setShuttleDetails falls back to a generic error on a validation failure with no code', async () => {
+    await flushSession(baseSession());
+
+    const promise = service.setShuttleDetails({ shuttleCount: -1 });
+    httpMock.expectOne(`${environment.apiBaseUrl}/sessions/sess1/shuttle-details`).flush(
+      { statusCode: 400, message: ['shuttleCount must not be less than 0'], error: 'Bad Request' },
+      { status: 400, statusText: 'Bad Request' }
+    );
+
+    expect(await promise).toEqual({ ok: false, error: 'บันทึกข้อมูลลูกแบดไม่สำเร็จ' });
   });
 
   it('falls back to the action message for an unknown or missing error code', async () => {

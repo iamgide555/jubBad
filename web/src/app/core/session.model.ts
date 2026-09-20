@@ -6,6 +6,10 @@ export interface Session {
   date: string | null;
   venue: string | null;
   courtCount: number | null;
+  /** Total shuttlecocks used this session. Null means never recorded, distinct from 0. */
+  shuttleCount: number | null;
+  /** Price per shuttlecock, in satang (1 THB = 100 satang) — same null-vs-0 distinction. */
+  shuttlePriceSatang: number | null;
   endedAt: string | null;
   createdAt: string;
   /** Server's clock at response time — the skew reference for live court timers. */

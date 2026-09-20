@@ -6,6 +6,7 @@ import { absoluteUrl, copyToClipboard } from '../../core/share-link';
 import { environment } from '../../../environments/environment';
 import { SceneHost } from '../../core/three/scene-host';
 import { formatMinutes } from '../../core/game-duration';
+import { formatShuttlePriceInput } from '../../core/shuttle-money';
 import type { SessionSummary as Summary } from '../../core/session-summary.model';
 
 @Component({
@@ -41,6 +42,10 @@ export class SessionSummary {
   }
 
   protected readonly formatMinutes = formatMinutes;
+
+  /** Public, ordinary session data now — same visibility as date/venue/court
+   *  count — per the approved decision this task's brief carries forward. */
+  protected readonly formatShuttlePriceInput = formatShuttlePriceInput;
 
   /** Null when this player never played — same guard as winPercent. */
   protected averageMinutes(totalSeconds: number, played: number): string | null {

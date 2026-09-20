@@ -313,4 +313,25 @@ export class LiveSessionService {
   endSession(): Promise<ActionResult> {
     return this.post('end', {}, $localize`:@@err.endSession:จบก๊วนไม่สำเร็จ`);
   }
+
+  /**
+   * Shuttle count and price-per-shuttle are independent, purely-informational
+   * fields — no total-cost or bill-splitting logic anywhere reads them. Both
+   * halves of `dto` are optional: the caller includes only the key(s) the
+   * host actually changed (an explicit `null` to clear one), and this method
+   * forwards the object as-is rather than filling in the other side, so a
+   * one-field edit here can never clobber a concurrent edit to the other
+   * field from another tab. Available on an ended session's dashboard too —
+   * this endpoint has no session-active guard on the server.
+   */
+  setShuttleDetails(dto: {
+    shuttleCount?: number | null;
+    shuttlePriceSatang?: number | null;
+  }): Promise<ActionResult> {
+    return this.post(
+      'shuttle-details',
+      dto,
+      $localize`:@@err.shuttleDetails:บันทึกข้อมูลลูกแบดไม่สำเร็จ`
+    );
+  }
 }

@@ -17,6 +17,8 @@ function summary(overrides: Partial<Summary> = {}): Summary {
       date: '2026-09-10',
       venue: 'ยิมกลาง',
       courtCount: 1,
+      shuttleCount: null,
+      shuttlePriceSatang: null,
       endedAt: '2026-09-10T20:00:00.000Z',
     },
     players: [

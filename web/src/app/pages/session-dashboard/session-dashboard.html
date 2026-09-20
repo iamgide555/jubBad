@@ -46,6 +46,67 @@
 
     <hr class="rule" />
 
+    <!--
+      Metadata-only, so it stays available on the ended-session dashboard too
+      (unlike the court toolbar right below it, which only makes sense while
+      the session is live) — the two approved decisions this feature rests
+      on are "editable after the session ends" and "shown on the public
+      summary", not just "editable while live".
+    -->
+    <div class="shuttle-details">
+      <h4 class="label" i18n="@@dashboard.shuttleDetailsLabel">ลูกแบด</h4>
+      <div class="shuttle-fields">
+        <label>
+          <span i18n="@@dashboard.shuttleCountLabel">จำนวนที่ใช้ (ลูก)</span>
+          <input
+            type="text"
+            inputmode="numeric"
+            autocomplete="off"
+            placeholder="—"
+            [ngModel]="shuttleCountText()"
+            (ngModelChange)="onShuttleCountInput($event)"
+            [disabled]="shuttleDetailsSaving()"
+            name="shuttleCount"
+          />
+        </label>
+        <label>
+          <span i18n="@@dashboard.shuttlePriceLabel">ราคาต่อลูก (บาท)</span>
+          <input
+            type="text"
+            inputmode="decimal"
+            autocomplete="off"
+            placeholder="—"
+            [ngModel]="shuttlePriceText()"
+            (ngModelChange)="onShuttlePriceInput($event)"
+            [disabled]="shuttleDetailsSaving()"
+            name="shuttlePrice"
+          />
+        </label>
+      </div>
+      @if (shuttleDetailsError()) {
+        <p class="error" role="alert">{{ shuttleDetailsError() }}</p>
+      }
+      @if (shuttleDetailsDirty()) {
+        <div class="shuttle-actions">
+          <button
+            type="button"
+            [disabled]="shuttleDetailsSaving()"
+            (click)="saveShuttleDetails()"
+            i18n="@@dashboard.shuttleSave"
+          >บันทึก</button>
+          <button
+            type="button"
+            class="ghost"
+            [disabled]="shuttleDetailsSaving()"
+            (click)="cancelShuttleDetails()"
+            i18n="@@dashboard.shuttleCancel"
+          >ยกเลิก</button>
+        </div>
+      }
+    </div>
+
+    <hr class="rule" />
+
     @if (!ended()) {
       <div class="court-toolbar">
         @if (anyCourtIdle()) {

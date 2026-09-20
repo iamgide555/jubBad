@@ -12,6 +12,19 @@
       @if (s.session.venue) { · {{ s.session.venue }} }
     </p>
 
+    @if (s.session.shuttleCount !== null || s.session.shuttlePriceSatang !== null) {
+      <p class="muted shuttle-summary">
+        <ng-container i18n="@@summary.shuttleLabel">ลูกแบด</ng-container>:
+        @if (s.session.shuttleCount !== null) {
+          <ng-container i18n="@@summary.shuttleCountValue">{{ s.session.shuttleCount }} ลูก</ng-container>
+        }
+        @if (s.session.shuttleCount !== null && s.session.shuttlePriceSatang !== null) { · }
+        @if (s.session.shuttlePriceSatang !== null) {
+          <ng-container i18n="@@summary.shuttlePriceValue">{{ formatShuttlePriceInput(s.session.shuttlePriceSatang) }} บาท/ลูก</ng-container>
+        }
+      </p>
+    }
+
     @if (s.players.length === 0) {
       <p class="muted" i18n="@@summary.noMatches">ก๊วนนี้ยังไม่มีการแข่งขัน</p>
     } @else {

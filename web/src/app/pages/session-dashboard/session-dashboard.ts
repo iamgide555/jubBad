@@ -1,11 +1,18 @@
 import { Component, OnDestroy, computed, inject, signal } from '@angular/core';
 import { httpResource } from '@angular/common/http';
+import { FormsModule } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
 import { environment } from '../../../environments/environment';
 import { LiveSessionService } from '../../core/live-session.service';
 import { absoluteUrl, copyToClipboard } from '../../core/share-link';
 import { resolvePlayerNames } from '../../core/player-names';
 import { buildWaitingList } from '../../core/waiting-time';
+import {
+  formatShuttleCountInput,
+  formatShuttlePriceInput,
+  parseShuttleCountInput,
+  parseShuttlePriceInput,
+} from '../../core/shuttle-money';
 import { SwapSelectionService, type SwapPick } from '../../core/swap-selection.service';
 import { FlipListDirective } from '../../core/motion/flip-list.directive';
 import { Odometer } from '../../core/motion/odometer';
@@ -17,7 +24,15 @@ import type { PlayerStat } from '../../core/stats.model';
 
 @Component({
   selector: 'app-session-dashboard',
-  imports: [CourtPanel, RouterLink, FlipListDirective, Odometer, PressDirective, RevealDirective],
+  imports: [
+    CourtPanel,
+    RouterLink,
+    FlipListDirective,
+    Odometer,
+    PressDirective,
+    RevealDirective,
+    FormsModule,
+  ],
   providers: [LiveSessionService],
   templateUrl: './session-dashboard.html',
   styleUrl: './session-dashboard.css',
@@ -231,6 +246,103 @@ export class SessionDashboard implements OnDestroy {
     this.rosterError.set(null);
     const result = await this.liveSession.setCourtCount(next);
     this.rosterError.set(result.error ?? null);
+  }
+
+  // ---- shuttle count / price editor ----
+  //
+  // `null` in either draft signal means "no unsaved edit — show the
+  // committed value from the session"; any string (including `''`) means
+  // the host has touched that field and it now shows exactly what they
+  // typed, regardless of what the 30s poll or a window-focus refresh pulls
+  // in behind it. This is the same trick the court score inputs use
+  // (`court-panel.ts`'s `scoreA`/`scoreB`): the draft is a plain signal that
+  // is never derived from the live session data, so a background reload
+  // updating `session()` cannot silently overwrite it. The draft is only
+  // ever cleared back to `null` by an explicit Save (on success) or Cancel.
+  readonly shuttleCountDraft = signal<string | null>(null);
+  readonly shuttlePriceDraft = signal<string | null>(null);
+  readonly shuttleDetailsSaving = signal(false);
+  readonly shuttleDetailsError = signal<string | null>(null);
+
+  protected readonly shuttleCountText = computed(
+    () => this.shuttleCountDraft() ?? formatShuttleCountInput(this.session()?.shuttleCount ?? null)
+  );
+  protected readonly shuttlePriceText = computed(
+    () =>
+      this.shuttlePriceDraft() ?? formatShuttlePriceInput(this.session()?.shuttlePriceSatang ?? null)
+  );
+  protected readonly shuttleDetailsDirty = computed(
+    () => this.shuttleCountDraft() !== null || this.shuttlePriceDraft() !== null
+  );
+
+  protected onShuttleCountInput(text: string): void {
+    this.shuttleCountDraft.set(text);
+  }
+
+  protected onShuttlePriceInput(text: string): void {
+    this.shuttlePriceDraft.set(text);
+  }
+
+  protected cancelShuttleDetails(): void {
+    this.shuttleCountDraft.set(null);
+    this.shuttlePriceDraft.set(null);
+    this.shuttleDetailsError.set(null);
+  }
+
+  /**
+   * Only a field the host actually touched (its draft is non-null) is ever
+   * added to the request body — an untouched field is genuinely absent from
+   * the JSON, not sent as `undefined`, matching the server's
+   * omit-means-unchanged contract. Client-side validation mirrors the
+   * server's own (nonnegative, integer count, at most 2 decimal places on
+   * price) so a normal edit should never round-trip to a 400.
+   */
+  protected async saveShuttleDetails(): Promise<void> {
+    if (this.shuttleDetailsSaving()) return;
+
+    const dto: { shuttleCount?: number | null; shuttlePriceSatang?: number | null } = {};
+
+    const countDraft = this.shuttleCountDraft();
+    if (countDraft !== null) {
+      const parsed = parseShuttleCountInput(countDraft);
+      if (!parsed.ok) {
+        this.shuttleDetailsError.set(
+          $localize`:@@dashboard.shuttleCountInvalid:จำนวนลูกแบดต้องเป็นจำนวนเต็มไม่ติดลบ`
+        );
+        return;
+      }
+      dto.shuttleCount = parsed.value;
+    }
+
+    const priceDraft = this.shuttlePriceDraft();
+    if (priceDraft !== null) {
+      const parsed = parseShuttlePriceInput(priceDraft);
+      if (!parsed.ok) {
+        this.shuttleDetailsError.set(
+          $localize`:@@dashboard.shuttlePriceInvalid:ราคาต่อลูกต้องไม่ติดลบ และมีทศนิยมไม่เกิน 2 ตำแหน่ง`
+        );
+        return;
+      }
+      dto.shuttlePriceSatang = parsed.value;
+    }
+
+    if (countDraft === null && priceDraft === null) return;
+
+    this.shuttleDetailsSaving.set(true);
+    this.shuttleDetailsError.set(null);
+    try {
+      const result = await this.liveSession.setShuttleDetails(dto);
+      if (!result.ok) {
+        this.shuttleDetailsError.set(
+          result.error ?? $localize`:@@err.shuttleDetails:บันทึกข้อมูลลูกแบดไม่สำเร็จ`
+        );
+        return; // Keep the draft so the host does not have to retype it.
+      }
+      this.shuttleCountDraft.set(null);
+      this.shuttlePriceDraft.set(null);
+    } finally {
+      this.shuttleDetailsSaving.set(false);
+    }
   }
 
   /**

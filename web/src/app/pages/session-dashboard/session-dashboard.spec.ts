@@ -18,6 +18,8 @@ function baseSession(overrides: Partial<Session> = {}): Session {
     date: '2026-09-08',
     venue: null,
     courtCount: 1,
+    shuttleCount: null,
+    shuttlePriceSatang: null,
     endedAt: null,
     rawImportText: '',
     rosterPlayerIds: ['p1', 'p2'],
@@ -384,6 +386,30 @@ describe('SessionDashboard', () => {
     return Array.from(
       (fixture.nativeElement as HTMLElement).querySelectorAll('button')
     ).find((b) => b.textContent?.includes(text)) as HTMLButtonElement;
+  }
+
+  /**
+   * Drains the session/players/stats requests a mutation's reload can
+   * trigger, round by round, the same way 'switches to custom mode' above
+   * does — a single flush pass is not always enough since the players/stats
+   * resources can refire once the reloaded session lands.
+   */
+  async function drainReload(nextSession: Session): Promise<void> {
+    for (let round = 0; round < 5; round++) {
+      await new Promise((r) => setTimeout(r, 0));
+      TestBed.tick();
+      const pending = [
+        ...httpMock.match(`${B}/sessions/sess1`),
+        ...httpMock.match(`${B}/groups/group1/players`),
+        ...httpMock.match(`${B}/sessions/sess1/stats?scope=session`),
+      ];
+      if (pending.length === 0) break;
+      for (const r of pending) {
+        if (r.request.url.endsWith('/sessions/sess1')) r.flush(nextSession);
+        else r.flush([]);
+      }
+    }
+    fixture.detectChanges();
   }
 
   it('shows how long each waiting player has been off court', async () => {
@@ -810,4 +836,155 @@ describe('SessionDashboard', () => {
     for (const r of httpMock.match(`${B}/sessions/sess1/stats?scope=session`)) r.flush([]);
   });
 
+  describe('shuttle count/price editor', () => {
+    function shuttleInputs() {
+      const el = fixture.nativeElement as HTMLElement;
+      return {
+        count: el.querySelector('input[name="shuttleCount"]') as HTMLInputElement,
+        price: el.querySelector('input[name="shuttlePrice"]') as HTMLInputElement,
+      };
+    }
+
+    function type(input: HTMLInputElement, value: string) {
+      input.value = value;
+      input.dispatchEvent(new Event('input'));
+      fixture.detectChanges();
+    }
+
+    it('renders null as blank, distinct from 0', async () => {
+      await settled(baseSession({ shuttleCount: 0, shuttlePriceSatang: null }));
+      const { count, price } = shuttleInputs();
+      expect(count.value).toBe('0');
+      expect(price.value).toBe('');
+    });
+
+    it('renders a saved price back as baht, not satang', async () => {
+      await settled(baseSession({ shuttleCount: 12, shuttlePriceSatang: 8050 }));
+      const { count, price } = shuttleInputs();
+      expect(count.value).toBe('12');
+      expect(price.value).toBe('80.50');
+    });
+
+    it('hides the save/cancel actions until a field is touched', async () => {
+      await settled();
+      expect(buttonWith('บันทึก')).toBeUndefined();
+      expect(buttonWith('ยกเลิก')).toBeUndefined();
+    });
+
+    it('saves only the field the host actually changed', async () => {
+      await settled(baseSession({ shuttleCount: 5, shuttlePriceSatang: 1000 }));
+      const { count } = shuttleInputs();
+      type(count, '12');
+
+      buttonWith('บันทึก').click();
+      const req = httpMock.expectOne(`${B}/sessions/sess1/shuttle-details`);
+      expect(req.request.body).toEqual({ shuttleCount: 12 });
+      expect(Object.keys(req.request.body as object)).toEqual(['shuttleCount']);
+      req.flush({ code: 'sess1', shuttleCount: 12, shuttlePriceSatang: 1000 });
+      await drainReload(baseSession({ shuttleCount: 12, shuttlePriceSatang: 1000 }));
+
+      // The draft cleared on success, and no save/cancel row remains.
+      expect(buttonWith('บันทึก')).toBeUndefined();
+    });
+
+    it('sends an explicit null when the host clears a field back to blank', async () => {
+      await settled(baseSession({ shuttleCount: 5, shuttlePriceSatang: null }));
+      const { count } = shuttleInputs();
+      type(count, '');
+
+      buttonWith('บันทึก').click();
+      const req = httpMock.expectOne(`${B}/sessions/sess1/shuttle-details`);
+      expect(req.request.body).toEqual({ shuttleCount: null });
+      req.flush({ code: 'sess1', shuttleCount: null, shuttlePriceSatang: null });
+      await drainReload(baseSession());
+    });
+
+    it('converts 80.50 baht to exactly 8050 satang on save', async () => {
+      await settled();
+      const { price } = shuttleInputs();
+      type(price, '80.50');
+
+      buttonWith('บันทึก').click();
+      const req = httpMock.expectOne(`${B}/sessions/sess1/shuttle-details`);
+      expect(req.request.body).toEqual({ shuttlePriceSatang: 8050 });
+      req.flush({ code: 'sess1', shuttleCount: null, shuttlePriceSatang: 8050 });
+      await drainReload(baseSession({ shuttlePriceSatang: 8050 }));
+    });
+
+    it('rejects a price with more than 2 decimal places instead of rounding, without calling the API', async () => {
+      await settled();
+      const { price } = shuttleInputs();
+      type(price, '80.505');
+
+      buttonWith('บันทึก').click();
+      httpMock.expectNone(`${B}/sessions/sess1/shuttle-details`);
+      fixture.detectChanges();
+      expect((fixture.nativeElement as HTMLElement).textContent).toContain(
+        'ราคาต่อลูกต้องไม่ติดลบ และมีทศนิยมไม่เกิน 2 ตำแหน่ง'
+      );
+    });
+
+    it('keeps the draft on a failed save instead of clearing it', async () => {
+      await settled();
+      const { count } = shuttleInputs();
+      type(count, '7');
+
+      buttonWith('บันทึก').click();
+      httpMock
+        .expectOne(`${B}/sessions/sess1/shuttle-details`)
+        .flush({ statusCode: 400, message: ['bad'], error: 'Bad Request' }, { status: 400, statusText: 'Bad Request' });
+      await new Promise((r) => setTimeout(r, 0));
+      fixture.detectChanges();
+
+      const { count: countAfter } = shuttleInputs();
+      expect(countAfter.value).toBe('7');
+      expect((fixture.nativeElement as HTMLElement).textContent).toContain('บันทึกข้อมูลลูกแบดไม่สำเร็จ');
+    });
+
+    it('cancel discards the draft and restores the committed value', async () => {
+      await settled(baseSession({ shuttleCount: 5 }));
+      const { count } = shuttleInputs();
+      type(count, '99');
+      buttonWith('ยกเลิก').click();
+      fixture.detectChanges();
+      // NgModel defers its DOM write (`_updateValue`) to a microtask to avoid
+      // an ExpressionChangedAfterChecked error, so the input's `.value` only
+      // reflects the reverted signal after that microtask has drained.
+      await Promise.resolve();
+      fixture.detectChanges();
+
+      const { count: countAfter } = shuttleInputs();
+      expect(countAfter.value).toBe('5');
+      expect(buttonWith('บันทึก')).toBeUndefined();
+    });
+
+    it('does not let a background refresh clobber an in-progress unsaved edit', async () => {
+      await settled(baseSession({ shuttleCount: 5 }));
+      const { count } = shuttleInputs();
+      type(count, '99');
+
+      // Simulate the window-focus background refresh this dashboard already
+      // polls with — it must not silently overwrite the host's typed draft.
+      window.dispatchEvent(new Event('focus'));
+      // The server now reports a different value from another tab/host.
+      await drainReload(baseSession({ shuttleCount: 42 }));
+
+      const { count: countAfter } = shuttleInputs();
+      expect(countAfter.value).toBe('99');
+    });
+
+    it('the editor stays enabled and functional on an ended session', async () => {
+      await settled(baseSession({ endedAt: '2026-09-08T20:00:00.000Z', shuttleCount: null }));
+      const { count, price } = shuttleInputs();
+      expect(count.disabled).toBe(false);
+      expect(price.disabled).toBe(false);
+
+      type(count, '3');
+      buttonWith('บันทึก').click();
+      const req = httpMock.expectOne(`${B}/sessions/sess1/shuttle-details`);
+      expect(req.request.body).toEqual({ shuttleCount: 3 });
+      req.flush({ code: 'sess1', shuttleCount: 3, shuttlePriceSatang: null });
+      await drainReload(baseSession({ endedAt: '2026-09-08T20:00:00.000Z', shuttleCount: 3 }));
+    });
+  });
 });

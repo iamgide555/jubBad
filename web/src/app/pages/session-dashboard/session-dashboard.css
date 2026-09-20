@@ -180,6 +180,35 @@
   font-weight: 600;
 }
 
+/* Compact two-field editor, styled to sit quietly among the other dense
+   utility rows on this screen rather than announcing itself as a form. */
+.shuttle-fields {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.shuttle-fields label {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-0);
+  font-size: var(--text-xs);
+  font-weight: 600;
+  color: var(--ink-soft);
+}
+
+.shuttle-fields input {
+  min-height: var(--tap);
+  min-width: 8rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.shuttle-actions {
+  display: flex;
+  gap: var(--space-1);
+  margin-top: var(--space-1);
+}
+
 /* The one thing a host revisiting an ended session's dashboard actually wants
    is the recap — top of the page, real buttons, not a wall of now-dead live
    controls to scroll past first. A raised card like any other, no more the

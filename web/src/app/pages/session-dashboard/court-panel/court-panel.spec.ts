@@ -33,6 +33,8 @@ function baseSession(overrides: Partial<Session> = {}): Session {
     date: '2026-09-08',
     venue: null,
     courtCount: 1,
+    shuttleCount: null,
+    shuttlePriceSatang: null,
     endedAt: null,
     rawImportText: '',
     rosterPlayerIds: ['p1', 'p2', 'p3', 'p4'],

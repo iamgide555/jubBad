@@ -3,7 +3,17 @@ import { NgTemplateOutlet } from '@angular/common';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { firstValueFrom } from 'rxjs';
-import { attachDecisions, type NameReview } from '../../core/roster-review';
+import {
+  attachDecisions,
+  claimedPlayerIds,
+  exactPlayerMatch,
+  literalKey,
+  literalNewNameDrafts,
+  searchCandidates,
+  type ManualMatchState,
+  type NameReview,
+  type PlayerCandidate,
+} from '../../core/roster-review';
 import type { GroupSession } from '../../core/group-session.model';
 import { RosterService } from '../../core/roster.service';
 import { resolvePlayerNames } from '../../core/player-names';
@@ -42,8 +52,48 @@ export class GroupEntry {
   readonly isRenaming = signal(false);
   readonly isSubmitting = signal(false);
 
-  private players: Player[] = [];
+  /** Group's known players, loaded once by `parse()`; converted to a signal
+   * so the manual-add search/candidate state below can be computed from it. */
+  private readonly players = signal<Player[]>([]);
   private creationIdempotencyKey: string | null = null;
+
+  /** Manual roster add — search field text (Task 2 binds this two-way). */
+  readonly manualQuery = signal('');
+  /** Manual roster add — surfaces a whitespace-only/duplicate-draft rejection. */
+  readonly manualAddError = signal<string | null>(null);
+
+  /**
+   * Same tracking pattern as `openReviews` below: object identity, not a
+   * field on `NameReview` — manual bookkeeping is client-only and must never
+   * appear on the wire. A manual addition is otherwise a plain accepted
+   * `NameReview`, indistinguishable from an imported one.
+   */
+  private readonly manualReviews = new Set<NameReview>();
+
+  /** Existing player IDs already accepted by either list — imported or
+   * manual, no distinction. Recomputed from the review signals, so removing
+   * a manual addition (or flipping an imported decision) makes an ID
+   * searchable again automatically. */
+  readonly claimedIds = computed(() => claimedPlayerIds(this.rosterReviews(), this.waitlistReviews()));
+
+  /** Ranked search results for the manual-add field, excluding already
+   * claimed players. Empty when the query is blank. */
+  readonly manualCandidates = computed<PlayerCandidate[]>(() =>
+    searchCandidates(this.manualQuery(), this.players(), this.claimedIds())
+  );
+
+  /** Which of no-match / exact-match-available / exact-match-already-selected
+   * the current query is in — drives whether Task 2's UI shows "Add as new",
+   * "select existing", or "already selected". */
+  readonly manualMatchState = computed<ManualMatchState>(() => {
+    const query = this.manualQuery().trim();
+    if (!query) return { kind: 'no-match' };
+    const player = exactPlayerMatch(query, this.players());
+    if (!player) return { kind: 'no-match' };
+    return this.claimedIds().has(player.id)
+      ? { kind: 'exact-match-already-selected', player }
+      : { kind: 'exact-match-available', player };
+  });
 
   /**
    * Which reviews are showing the open yes/no toggle right now, tracked by
@@ -157,7 +207,7 @@ export class GroupEntry {
   }
 
   playerName(id: string): string {
-    return resolvePlayerNames([id], this.players)[0];
+    return resolvePlayerNames([id], this.players())[0];
   }
 
   /**
@@ -231,7 +281,14 @@ export class GroupEntry {
           this.openReviews.add(review);
         }
       }
-      this.players = await firstValueFrom(this.rosterService.getPlayers(this.groupCode));
+      this.players.set(await firstValueFrom(this.rosterService.getPlayers(this.groupCode)));
+
+      // A successful reparse replaces the whole review, so any manual
+      // additions/search state from a previous parse no longer refer to
+      // anything real and must not carry over.
+      this.manualReviews.clear();
+      this.manualQuery.set('');
+      this.manualAddError.set(null);
 
       this.state.set('confirm');
     } catch {
@@ -255,6 +312,90 @@ export class GroupEntry {
       reviews.map((r) => (r === review ? { ...r, decision } : r));
     this.rosterReviews.update(apply);
     this.waitlistReviews.update(apply);
+  }
+
+  /**
+   * A manual addition/removal is otherwise a plain `NameReview`,
+   * indistinguishable from an imported row — this is the only way Task 2's
+   * template can tell the two apart, e.g. to show remove/reselect instead of
+   * the imported-name yes/no toggle.
+   */
+  isManualReview(review: NameReview): boolean {
+    return this.manualReviews.has(review);
+  }
+
+  /**
+   * Selects an existing player found via `manualCandidates`. Re-validates
+   * eligibility at the moment of the call rather than trusting the rendered
+   * list, so a rapid double-click/tap on a candidate that a first click just
+   * claimed is a no-op instead of a double add. Always lands in the main
+   * roster, never the waitlist (manual additions never go to the waitlist).
+   */
+  addExisting(playerId: string): void {
+    if (this.isSubmitting()) return;
+    if (this.claimedIds().has(playerId)) return;
+    const player = this.players().find((p) => p.id === playerId);
+    if (!player) return;
+
+    const review: NameReview = {
+      inputName: player.name,
+      match: { type: 'exact', playerId },
+      decision: 'accept',
+    };
+    this.rosterReviews.update((rs) => [...rs, review]);
+    this.manualReviews.add(review);
+    this.manualQuery.set('');
+    this.manualAddError.set(null);
+  }
+
+  /**
+   * Stages the current search text as a brand-new player (`match.type ===
+   * 'new'`) — no player record or ID is created yet, that happens on the
+   * server at confirmation. Rejects whitespace-only input and a literal
+   * repeat of a draft already staged in either list. Re-checks for a live
+   * exact player match as a defensive guard: an exact match should always be
+   * offered/selected instead of creating a duplicate profile, even if this
+   * is invoked past a stale render.
+   */
+  addNew(): void {
+    if (this.isSubmitting()) return;
+    this.manualAddError.set(null);
+
+    const trimmed = this.manualQuery().trim();
+    if (!trimmed) {
+      this.manualAddError.set($localize`:@@entry.manualAddEmpty:กรุณาพิมพ์ชื่อก่อน`);
+      return;
+    }
+    if (exactPlayerMatch(trimmed, this.players())) {
+      this.manualAddError.set(
+        $localize`:@@entry.manualAddExactExists:มีผู้เล่นชื่อนี้อยู่แล้ว กรุณาเลือกจากรายการ`
+      );
+      return;
+    }
+    const drafts = literalNewNameDrafts(this.rosterReviews(), this.waitlistReviews());
+    if (drafts.has(literalKey(trimmed))) {
+      this.manualAddError.set($localize`:@@entry.manualAddDuplicate:เพิ่มชื่อนี้ไปแล้ว`);
+      return;
+    }
+
+    const review: NameReview = { inputName: trimmed, match: { type: 'new' }, decision: 'accept' };
+    this.rosterReviews.update((rs) => [...rs, review]);
+    this.manualReviews.add(review);
+    this.manualQuery.set('');
+  }
+
+  /**
+   * Removes a manual addition before confirmation. Manual additions only
+   * ever land in `rosterReviews` (never the waitlist), so that's the only
+   * list this touches. If it was an existing-player addition, the player
+   * becomes searchable again automatically once removed — `claimedIds` is
+   * derived from the review lists, not tracked separately — unless another
+   * accepted row still references the same ID.
+   */
+  removeManual(review: NameReview): void {
+    if (this.isSubmitting() || !this.manualReviews.has(review)) return;
+    this.rosterReviews.update((rs) => rs.filter((r) => r !== review));
+    this.manualReviews.delete(review);
   }
 
   async confirmRoster(): Promise<void> {

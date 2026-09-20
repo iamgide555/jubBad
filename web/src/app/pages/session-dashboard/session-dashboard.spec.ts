@@ -1008,7 +1008,21 @@ describe('SessionDashboard', () => {
       const { count } = shuttleInputs();
       type(count, '12');
 
-      buttonWith('บันทึก').click();
+      // Fire both clicks back-to-back, with no detectChanges() in between.
+      // Waiting for a detectChanges() after the first click would write the
+      // button's `disabled` DOM property to true before the second click —
+      // and jsdom's <button>.click() silently no-ops on a disabled element
+      // (see HTMLElement-impl.js's isDisabled() check), which would make the
+      // "only one request" assertion below pass even with
+      // saveShuttleDetails()'s own guard deleted. Clicking twice before any
+      // render lets the second click really reach the (click) handler, so
+      // what actually stops the duplicate is the component's own
+      // `if (this.shuttleDetailsSaving()) return;` (session-dashboard.ts),
+      // not the DOM refusing to dispatch the event.
+      const saveButton = buttonWith('บันทึก');
+      saveButton.click();
+      saveButton.click();
+
       fixture.detectChanges();
       // NgModel defers some of its own DOM writes to a microtask (see the
       // 'cancel discards the draft' test above), so — like that test — a
@@ -1017,7 +1031,7 @@ describe('SessionDashboard', () => {
       await Promise.resolve();
       fixture.detectChanges();
 
-      // Pending: both fields and both actions must be disabled so the host
+      // Pending: both fields and both actions are disabled so the host
       // cannot edit or resubmit while the request is in flight.
       const { count: countWhileSaving, price: priceWhileSaving } = shuttleInputs();
       expect(countWhileSaving.disabled).toBe(true);
@@ -1025,12 +1039,8 @@ describe('SessionDashboard', () => {
       expect(buttonWith('บันทึก').disabled).toBe(true);
       expect(buttonWith('ยกเลิก').disabled).toBe(true);
 
-      // Simulate a duplicate submission attempt (e.g. a double-click) while
-      // still pending. This must not merely look blocked — it must not reach
-      // the server as a second HTTP request.
-      buttonWith('บันทึก').click();
-      fixture.detectChanges();
-
+      // The component's guard — not any DOM disabled-click suppression — is
+      // what kept the duplicate click from reaching the server.
       const reqs = httpMock.match(`${B}/sessions/sess1/shuttle-details`);
       expect(reqs.length).toBe(1);
       expect(reqs[0].request.body).toEqual({ shuttleCount: 12 });

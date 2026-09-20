@@ -3677,6 +3677,8 @@ describe('SessionsController', () => {
         venue: 'Court X',
         courtCount: 1,
         endedAt: expect.any(String),
+        shuttleCount: null,
+        shuttlePriceSatang: null,
       });
 
       const byId = new Map(
@@ -5070,5 +5072,145 @@ describe('SessionsController', () => {
     } finally {
       await cleanup();
     }
+  });
+
+  describe('POST /sessions/:code/shuttle-details', () => {
+    it('sets both fields, persists them, and reflects them in GET and summary', async () => {
+      const { sessionCode, cleanup } = await formatFixture(2, 1);
+      try {
+        const res = await request(server)
+          .post(`/sessions/${sessionCode}/shuttle-details`)
+          .send({ shuttleCount: 5, shuttlePriceSatang: 900 })
+          .expect(201);
+        expect(res.body).toEqual({
+          code: sessionCode,
+          shuttleCount: 5,
+          shuttlePriceSatang: 900,
+        });
+
+        const session = await request(server).get(`/sessions/${sessionCode}`).expect(200);
+        expect(session.body.shuttleCount).toBe(5);
+        expect(session.body.shuttlePriceSatang).toBe(900);
+
+        const summary = await request(server).get(`/sessions/${sessionCode}/summary`).expect(200);
+        expect(summary.body.session.shuttleCount).toBe(5);
+        expect(summary.body.session.shuttlePriceSatang).toBe(900);
+      } finally {
+        await cleanup();
+      }
+    });
+
+    it('leaves an omitted field untouched but clears an explicit null', async () => {
+      const { sessionCode, cleanup } = await formatFixture(2, 1);
+      try {
+        await request(server)
+          .post(`/sessions/${sessionCode}/shuttle-details`)
+          .send({ shuttleCount: 3, shuttlePriceSatang: 500 })
+          .expect(201);
+
+        // Omitting shuttlePriceSatang here must leave 500 in place.
+        const partial = await request(server)
+          .post(`/sessions/${sessionCode}/shuttle-details`)
+          .send({ shuttleCount: 7 })
+          .expect(201);
+        expect(partial.body).toEqual({
+          code: sessionCode,
+          shuttleCount: 7,
+          shuttlePriceSatang: 500,
+        });
+
+        // Explicit null clears shuttleCount back to "not recorded" while
+        // leaving shuttlePriceSatang alone.
+        const cleared = await request(server)
+          .post(`/sessions/${sessionCode}/shuttle-details`)
+          .send({ shuttleCount: null })
+          .expect(201);
+        expect(cleared.body).toEqual({
+          code: sessionCode,
+          shuttleCount: null,
+          shuttlePriceSatang: 500,
+        });
+      } finally {
+        await cleanup();
+      }
+    });
+
+    it('zero is a valid, distinct-from-null value for both fields', async () => {
+      const { sessionCode, cleanup } = await formatFixture(2, 1);
+      try {
+        const res = await request(server)
+          .post(`/sessions/${sessionCode}/shuttle-details`)
+          .send({ shuttleCount: 0, shuttlePriceSatang: 0 })
+          .expect(201);
+        expect(res.body).toEqual({ code: sessionCode, shuttleCount: 0, shuttlePriceSatang: 0 });
+      } finally {
+        await cleanup();
+      }
+    });
+
+    it('rejects negative, fractional, string, and out-of-range values', async () => {
+      const { sessionCode, cleanup } = await formatFixture(2, 1);
+      try {
+        await request(server)
+          .post(`/sessions/${sessionCode}/shuttle-details`)
+          .send({ shuttleCount: -1 })
+          .expect(400);
+        await request(server)
+          .post(`/sessions/${sessionCode}/shuttle-details`)
+          .send({ shuttleCount: 1.5 })
+          .expect(400);
+        await request(server)
+          .post(`/sessions/${sessionCode}/shuttle-details`)
+          .send({ shuttleCount: 'five' })
+          .expect(400);
+        await request(server)
+          .post(`/sessions/${sessionCode}/shuttle-details`)
+          .send({ shuttlePriceSatang: 2147483648 })
+          .expect(400);
+        // Upper bound itself is valid.
+        await request(server)
+          .post(`/sessions/${sessionCode}/shuttle-details`)
+          .send({ shuttlePriceSatang: 2147483647 })
+          .expect(201);
+      } finally {
+        await cleanup();
+      }
+    });
+
+    it('returns 404 for a session that does not exist', async () => {
+      await request(server)
+        .post(`/sessions/${randomUUID()}/shuttle-details`)
+        .send({ shuttleCount: 1 })
+        .expect(404);
+    });
+
+    it('is permitted on an ended session, unlike other mutations', async () => {
+      const { sessionCode, cleanup } = await formatFixture(2, 1);
+      try {
+        await request(server).post(`/sessions/${sessionCode}/end`).expect(201);
+
+        // Sanity: an ordinary mutation is still blocked post-end.
+        await request(server)
+          .post(`/sessions/${sessionCode}/court-count`)
+          .send({ courtCount: 2 })
+          .expect(409)
+          .expect((res) => {
+            expect(res.body.code).toBe('SESSION_ENDED');
+          });
+
+        // The narrow exception: shuttle details still write after end.
+        const res = await request(server)
+          .post(`/sessions/${sessionCode}/shuttle-details`)
+          .send({ shuttleCount: 10, shuttlePriceSatang: 1000 })
+          .expect(201);
+        expect(res.body).toEqual({ code: sessionCode, shuttleCount: 10, shuttlePriceSatang: 1000 });
+
+        const session = await request(server).get(`/sessions/${sessionCode}`).expect(200);
+        expect(session.body.shuttleCount).toBe(10);
+        expect(session.body.shuttlePriceSatang).toBe(1000);
+      } finally {
+        await cleanup();
+      }
+    });
   });
 });

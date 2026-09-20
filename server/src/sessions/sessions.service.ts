@@ -46,6 +46,7 @@ import type { SetCourtFormatDto } from './dto/set-court-format.dto.js';
 import type { SetModeDto } from './dto/set-mode.dto.js';
 import type { SetRosterActiveDto } from './dto/set-roster-active.dto.js';
 import type { SetSeatDto } from './dto/set-seat.dto.js';
+import type { SetShuttleDetailsDto } from './dto/set-shuttle-details.dto.js';
 import type { SwapPlayerDto } from './dto/swap-player.dto.js';
 
 export interface SessionMatch {
@@ -396,6 +397,10 @@ export class SessionsService {
       endedAt: session.endedAt,
       createdAt: session.createdAt,
       mode: session.mode,
+      // Host-editable metadata (see SessionsService.setShuttleDetails), public
+      // like the rest of this response — only writing them requires auth.
+      shuttleCount: session.shuttleCount,
+      shuttlePriceSatang: session.shuttlePriceSatang,
       // Skew reference: the client compares this to its own Date.now() at
       // the moment the response lands, so a live court timer reads correctly
       // even when the host's device clock disagrees with the server's.
@@ -1356,6 +1361,48 @@ export class SessionsService {
     return { code: updated.code, courtCount: updated.courtCount };
   }
 
+  /**
+   * Host-editable session metadata: total shuttlecocks used tonight and the
+   * price per shuttle, both counted/corrected after the fact rather than
+   * during play. Deliberately allowed on an ended session — unlike every
+   * other mutation in this service, this one does NOT check
+   * `session.endedAt`. It still touches nothing else (no games, no roster,
+   * no reopening), so it cannot be used to work around the ended-session
+   * guard elsewhere.
+   */
+  setShuttleDetails(code: string, dto: SetShuttleDetailsDto) {
+    return this.lock.run(code, () => this.setShuttleDetailsExclusively(code, dto));
+  }
+
+  private async setShuttleDetailsExclusively(code: string, dto: SetShuttleDetailsDto) {
+    const session = await this.prisma.session.findUnique({ where: { code } });
+    if (!session) throw this.notFound('SESSION_NOT_FOUND');
+
+    // Partial update: a field key absent from the body (dto.<field> ===
+    // undefined) is left untouched. An explicit `null` in the body survives
+    // whitelist+transform and clears the field back to "not recorded" — see
+    // SetShuttleDetailsDto.
+    const hasShuttleCount = dto.shuttleCount !== undefined;
+    const hasShuttlePriceSatang = dto.shuttlePriceSatang !== undefined;
+
+    const updated =
+      hasShuttleCount || hasShuttlePriceSatang
+        ? await this.prisma.session.update({
+            where: { code },
+            data: {
+              ...(hasShuttleCount ? { shuttleCount: dto.shuttleCount } : {}),
+              ...(hasShuttlePriceSatang ? { shuttlePriceSatang: dto.shuttlePriceSatang } : {}),
+            },
+          })
+        : session;
+
+    return {
+      code: updated.code,
+      shuttleCount: updated.shuttleCount,
+      shuttlePriceSatang: updated.shuttlePriceSatang,
+    };
+  }
+
   private async setModeExclusively(code: string, dto: SetModeDto) {
     const session = await this.prisma.session.findUnique({ where: { code } });
     if (!session) throw this.notFound('SESSION_NOT_FOUND');
@@ -1929,6 +1976,8 @@ export class SessionsService {
         venue: session.venue,
         courtCount: session.courtCount,
         endedAt: session.endedAt,
+        shuttleCount: session.shuttleCount,
+        shuttlePriceSatang: session.shuttlePriceSatang,
       },
       players: [...played.entries()]
         .map(([playerId, count]) => {

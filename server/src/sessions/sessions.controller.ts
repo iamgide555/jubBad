@@ -7,6 +7,7 @@ import { SetCourtFormatDto } from './dto/set-court-format.dto.js';
 import { SetModeDto } from './dto/set-mode.dto.js';
 import { SetRosterActiveDto } from './dto/set-roster-active.dto.js';
 import { SetSeatDto } from './dto/set-seat.dto.js';
+import { SetShuttleDetailsDto } from './dto/set-shuttle-details.dto.js';
 import { SwapPlayerDto } from './dto/swap-player.dto.js';
 import { Public } from '../auth/public.decorator.js';
 import type { AuthenticatedRequest } from '../auth/auth.guard.js';
@@ -146,6 +147,17 @@ export class SessionsController {
   @Post(':code/end')
   endSession(@Param('code') code: string) {
     return this.sessionsService.endSession(code);
+  }
+
+  /**
+   * Host-only metadata, deliberately allowed after the session has ended —
+   * the host counts shuttles at the end, so this is the one narrow exception
+   * to the ended-session guard every other mutation on this controller
+   * enforces. See SessionsService.setShuttleDetails.
+   */
+  @Post(':code/shuttle-details')
+  setShuttleDetails(@Param('code') code: string, @Body() dto: SetShuttleDetailsDto) {
+    return this.sessionsService.setShuttleDetails(code, dto);
   }
 
   @Get(':code/stats')

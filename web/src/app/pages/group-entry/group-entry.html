@@ -122,7 +122,27 @@
          near-duplicates. -->
     <ng-template #reviewRow let-review="review">
       <span class="review-name">{{ displayName(review) }}</span>
-      @if (review.match.type === 'new') {
+      @if (isManualReview(review)) {
+        <!-- Carried finding from Task 1's review: a manually added row must
+             never fall into the imported-name yes/no "เปลี่ยนคำตอบ" toggle
+             below — it has nothing to confirm, only to undo. Reuses the
+             existing new/matched tag wording so the row still communicates
+             whether it landed as a brand-new player or an existing one. -->
+        <button
+          type="button"
+          class="ghost link-action"
+          [disabled]="isSubmitting()"
+          (click)="removeManualRow(review)"
+        >
+          <app-icon name="minus" [size]="14" />
+          <ng-container i18n="@@entry.manualRemove">นำออก</ng-container>
+        </button>
+        @if (review.match.type === 'new') {
+          <span class="review-tag new" i18n="@@entry.newPlayer">คนใหม่</span>
+        } @else {
+          <span class="review-tag matched" i18n="@@entry.knownPlayer">มีอยู่แล้ว</span>
+        }
+      } @else if (review.match.type === 'new') {
         <span class="review-tag new" i18n="@@entry.newPlayer">คนใหม่</span>
       } @else if (isOpen(review)) {
         <!-- Open: a real question, answered with the app's existing
@@ -197,6 +217,100 @@
         </li>
       }
     </ol>
+
+    <!-- Manual roster add: search an existing group player (preserves their
+         identity/history) or stage a brand-new one. Always lands on the
+         main roster above, never the waitlist. Client-only until the host
+         confirms the whole session — see GroupEntry's manualQuery /
+         manualCandidates / manualMatchState / addExisting / addNew /
+         removeManual (Task 1) for the reactive data this wires up. -->
+    <div class="manual-add">
+      <label for="manual-add-input" i18n="@@entry.manualAddLabel"
+        >เพิ่มผู้เล่นด้วยตนเอง</label
+      >
+      <input
+        #manualInput
+        id="manual-add-input"
+        type="text"
+        role="combobox"
+        aria-autocomplete="list"
+        aria-controls="manual-suggestions"
+        autocomplete="off"
+        [attr.aria-expanded]="manualShowSuggestions()"
+        [attr.aria-activedescendant]="activeOptionId()"
+        [ngModel]="manualQuery()"
+        (ngModelChange)="onManualQueryChange($event)"
+        (keydown)="onManualKeydown($event)"
+        (focus)="onManualFocus()"
+        (blur)="onManualBlur()"
+        [attr.disabled]="isSubmitting() || null"
+        i18n-placeholder="@@entry.manualAddPlaceholder"
+        placeholder="ค้นหาชื่อผู้เล่น หรือพิมพ์ชื่อใหม่"
+      />
+
+      <!-- Screen-reader-only: result count as the host types, and the
+           added/removed confirmation once an action completes. Two separate
+           live regions so the two kinds of feedback don't run together into
+           one confusing sentence. -->
+      <span class="sr-only" aria-live="polite">
+        @if (manualQuery().trim().length > 0) {
+          {{ manualCandidates().length }}
+          <ng-container i18n="@@entry.manualResultsCount">ผลการค้นหา</ng-container>
+        }
+      </span>
+      <span class="sr-only" aria-live="polite">{{ manualStatusMessage() }}</span>
+
+      @if (manualShowSuggestions()) {
+        <ul
+          class="manual-suggestions"
+          id="manual-suggestions"
+          role="listbox"
+          i18n-aria-label="@@entry.manualSuggestionsLabel"
+          aria-label="ผลการค้นหา"
+        >
+          @for (candidate of manualCandidates(); track candidate.player.id; let i = $index) {
+            <li
+              role="option"
+              class="manual-option"
+              [id]="'manual-option-' + i"
+              [class.active]="manualActiveIndex() === i"
+              [attr.aria-selected]="manualActiveIndex() === i"
+              (mousedown)="$event.preventDefault()"
+              (click)="selectManualCandidate(candidate, manualInput)"
+            >
+              <span class="manual-option-name">{{ candidate.player.name }}</span>
+              @if (candidate.rank === 'fuzzy') {
+                <span class="review-tag fuzzy" i18n="@@entry.manualFuzzyHint">คล้ายกัน</span>
+              }
+            </li>
+          }
+          @if (manualShowAddNew()) {
+            <li
+              role="option"
+              class="manual-option manual-option-add"
+              [id]="'manual-option-' + manualCandidates().length"
+              [class.active]="manualActiveIndex() === manualCandidates().length"
+              [attr.aria-selected]="manualActiveIndex() === manualCandidates().length"
+              (mousedown)="$event.preventDefault()"
+              (click)="confirmAddNew(manualInput)"
+            >
+              <app-icon name="plus" [size]="14" />
+              <span i18n="@@entry.manualAddAsNew">เพิ่มเป็นคนใหม่: {{ manualQuery().trim() }}</span>
+            </li>
+          }
+        </ul>
+      }
+
+      @if (manualAlreadySelectedName(); as name) {
+        <p class="muted manual-note" i18n="@@entry.manualAlreadySelected">
+          {{ name }} ถูกเลือกไว้แล้ว
+        </p>
+      }
+
+      @if (manualAddError()) {
+        <p class="error">{{ manualAddError() }}</p>
+      }
+    </div>
 
     @if (waitlistReviews().length > 0) {
       <h3 i18n="@@entry.waitlist">สำรอง</h3>

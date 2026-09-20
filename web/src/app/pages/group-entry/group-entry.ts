@@ -63,6 +63,21 @@ export class GroupEntry {
   readonly manualAddError = signal<string | null>(null);
 
   /**
+   * Task 2 — combobox UI state for the manual-add field. None of this is
+   * part of Task 1's interface; it is pure presentation bookkeeping the
+   * template needs to implement an accessible combobox on top of Task 1's
+   * reactive data. `manualActiveIndex` is the keyboard-highlighted option
+   * (-1 = none), indexing into `manualCandidates()` and then, one past the
+   * end, the trailing "add as new" option. `manualSuggestionsDismissed` lets
+   * Escape (or blur) close the popup without erasing the typed query.
+   * `manualStatusMessage` feeds the added/removed screen-reader
+   * announcement.
+   */
+  readonly manualActiveIndex = signal(-1);
+  readonly manualSuggestionsDismissed = signal(false);
+  readonly manualStatusMessage = signal('');
+
+  /**
    * Same tracking pattern as `openReviews` below: object identity, not a
    * field on `NameReview` — manual bookkeeping is client-only and must never
    * appear on the wire. A manual addition is otherwise a plain accepted
@@ -94,6 +109,31 @@ export class GroupEntry {
       ? { kind: 'exact-match-already-selected', player }
       : { kind: 'exact-match-available', player };
   });
+
+  /**
+   * Task 2 — gates the "Add as new" affordance. `manualMatchState().kind ===
+   * 'no-match'` alone can't tell "nothing typed" apart from "genuinely no
+   * match", so this checks the trimmed query directly; it also hides the
+   * affordance once the query is an already-claimed exact match (offering to
+   * create a duplicate of a player already on the list makes no sense).
+   */
+  readonly manualShowAddNew = computed(
+    () =>
+      this.manualQuery().trim().length > 0 &&
+      this.manualMatchState().kind !== 'exact-match-already-selected'
+  );
+
+  /**
+   * Task 2 — whether the suggestion popup should render: something to show
+   * (a candidate or the add-new option), not dismissed via Escape/blur, and
+   * not while a submit is in flight.
+   */
+  readonly manualShowSuggestions = computed(
+    () =>
+      !this.isSubmitting() &&
+      !this.manualSuggestionsDismissed() &&
+      (this.manualCandidates().length > 0 || this.manualShowAddNew())
+  );
 
   /**
    * Which reviews are showing the open yes/no toggle right now, tracked by
@@ -289,6 +329,9 @@ export class GroupEntry {
       this.manualReviews.clear();
       this.manualQuery.set('');
       this.manualAddError.set(null);
+      this.manualActiveIndex.set(-1);
+      this.manualSuggestionsDismissed.set(false);
+      this.manualStatusMessage.set('');
 
       this.state.set('confirm');
     } catch {
@@ -396,6 +439,142 @@ export class GroupEntry {
     if (this.isSubmitting() || !this.manualReviews.has(review)) return;
     this.rosterReviews.update((rs) => rs.filter((r) => r !== review));
     this.manualReviews.delete(review);
+  }
+
+  /**
+   * Task 2 wiring: two-way binds `manualQuery`, and — the carried-over
+   * finding from Task 1's review — clears a stale `manualAddError` the
+   * moment the host edits the query again, since Task 1 only clears it at
+   * the start of a successful `addExisting`/`addNew` call. Also resets the
+   * combobox's keyboard highlight and un-dismisses the popup so a fresh
+   * keystroke always reopens suggestions.
+   */
+  onManualQueryChange(value: string): void {
+    this.manualQuery.set(value);
+    this.manualAddError.set(null);
+    this.manualActiveIndex.set(-1);
+    this.manualSuggestionsDismissed.set(false);
+  }
+
+  onManualFocus(): void {
+    this.manualSuggestionsDismissed.set(false);
+  }
+
+  onManualBlur(): void {
+    this.manualSuggestionsDismissed.set(true);
+  }
+
+  /**
+   * Task 2 template helper: the exact-match player's name when the query
+   * matches a player already claimed by another row, for the "already
+   * selected" inline note — null otherwise. Keeps the template from having
+   * to narrow `ManualMatchState`'s union itself.
+   */
+  manualAlreadySelectedName(): string | null {
+    const state = this.manualMatchState();
+    return state.kind === 'exact-match-already-selected' ? state.player.name : null;
+  }
+
+  activeOptionId(): string | null {
+    const idx = this.manualActiveIndex();
+    return idx >= 0 ? `manual-option-${idx}` : null;
+  }
+
+  /**
+   * Task 2 — accessible combobox keyboard support: arrow-key navigation
+   * through `manualCandidates()` plus the trailing "add as new" option,
+   * Enter to act on whichever is highlighted, Escape to dismiss. Guarded by
+   * `event.isComposing` so committing Thai IME composition with Enter never
+   * doubles as "select" — no existing input in this codebase already
+   * guards this, so this follows the standard DOM `isComposing` check
+   * directly.
+   */
+  onManualKeydown(event: KeyboardEvent): void {
+    if (event.isComposing || this.isSubmitting()) return;
+    const input = event.target as HTMLInputElement;
+    const candidates = this.manualCandidates();
+    const optionCount = candidates.length + (this.manualShowAddNew() ? 1 : 0);
+
+    switch (event.key) {
+      case 'ArrowDown':
+        if (optionCount === 0) return;
+        event.preventDefault();
+        this.manualSuggestionsDismissed.set(false);
+        this.manualActiveIndex.update((i) => (i + 1) % optionCount);
+        return;
+      case 'ArrowUp':
+        if (optionCount === 0) return;
+        event.preventDefault();
+        this.manualSuggestionsDismissed.set(false);
+        this.manualActiveIndex.update((i) => (i - 1 + optionCount) % optionCount);
+        return;
+      case 'Escape':
+        event.preventDefault();
+        this.manualSuggestionsDismissed.set(true);
+        this.manualActiveIndex.set(-1);
+        return;
+      case 'Enter': {
+        const idx = this.manualActiveIndex();
+        if (idx < 0) return;
+        event.preventDefault();
+        if (idx < candidates.length) {
+          this.selectManualCandidate(candidates[idx], input);
+        } else if (this.manualShowAddNew()) {
+          this.confirmAddNew(input);
+        }
+        return;
+      }
+    }
+  }
+
+  /**
+   * Task 2 wrapper around Task 1's `addExisting`: also returns keyboard
+   * focus to the search input (a DOM concern Task 1 explicitly left to this
+   * task) and announces the addition for screen readers. Comparing
+   * `rosterReviews` length before/after detects a no-op (a stale
+   * double-click/tap on a candidate a first click already claimed, which
+   * `addExisting` silently ignores) without re-deriving Task 1's own
+   * eligibility check.
+   */
+  selectManualCandidate(candidate: PlayerCandidate, input: HTMLInputElement): void {
+    const before = this.rosterReviews().length;
+    this.addExisting(candidate.player.id);
+    if (this.rosterReviews().length > before) {
+      this.manualStatusMessage.set(
+        $localize`:@@entry.manualAddedAnnounce:เพิ่ม ${candidate.player.name}:name: แล้ว`
+      );
+    }
+    this.manualActiveIndex.set(-1);
+    input.focus();
+  }
+
+  /**
+   * Task 2 wrapper around Task 1's `addNew` — same reasoning as
+   * `selectManualCandidate` above. Captures the typed name before calling
+   * `addNew`, since a successful call clears `manualQuery`.
+   */
+  confirmAddNew(input: HTMLInputElement): void {
+    const name = this.manualQuery().trim();
+    const before = this.rosterReviews().length;
+    this.addNew();
+    if (this.rosterReviews().length > before) {
+      this.manualStatusMessage.set($localize`:@@entry.manualAddedAnnounce:เพิ่ม ${name}:name: แล้ว`);
+    }
+    this.manualActiveIndex.set(-1);
+    input.focus();
+  }
+
+  /**
+   * Task 2 wrapper around Task 1's `removeManual` — adds the screen-reader
+   * removal announcement.
+   */
+  removeManualRow(review: NameReview): void {
+    const before = this.rosterReviews().length;
+    const name = this.displayName(review);
+    this.removeManual(review);
+    if (this.rosterReviews().length < before) {
+      this.manualStatusMessage.set($localize`:@@entry.manualRemovedAnnounce:ลบ ${name}:name: แล้ว`);
+    }
   }
 
   async confirmRoster(): Promise<void> {

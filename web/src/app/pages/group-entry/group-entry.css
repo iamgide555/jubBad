@@ -216,6 +216,73 @@
   }
 }
 
+/* Manual roster add — the search/create field that lets the host attach an
+   existing player (identity + history preserved) or stage a new one,
+   without a second page or dialog. Sits directly under the roster it feeds,
+   plain like the rest of the confirm-state fields rather than another
+   raised card. */
+.manual-add {
+  position: relative;
+  margin-bottom: var(--space-3);
+}
+
+/* Floats over whatever follows (the waitlist heading) rather than pushing it
+   down, the same way a native autocomplete list does — the roster
+   underneath must not reflow on every keystroke. */
+.manual-suggestions {
+  position: absolute;
+  z-index: 5;
+  left: 0;
+  right: 0;
+  margin: 0.3rem 0 0;
+  padding: var(--space-0);
+  list-style: none;
+  background: var(--surface);
+  border: 1.5px solid var(--line);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-md);
+  max-height: 14rem;
+  overflow-y: auto;
+}
+
+/* Not a <button> — the ARIA combobox pattern keeps every option
+   non-focusable so keyboard focus stays on the input the whole time;
+   `.manual-option`'s "active" state is a plain class toggle
+   (aria-activedescendant), not native :focus. */
+.manual-option {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  min-height: var(--tap);
+  padding: 0.5rem var(--space-1);
+  border-radius: var(--radius);
+  cursor: pointer;
+}
+
+.manual-option-name {
+  flex: 1;
+  font-weight: 600;
+}
+
+@media (hover: hover) {
+  .manual-option:hover {
+    background: var(--court-hover);
+  }
+}
+
+.manual-option.active {
+  background: var(--court-soft);
+}
+
+.manual-option-add {
+  color: var(--court-ink);
+  font-weight: 700;
+}
+
+.manual-note {
+  margin-top: var(--space-1);
+}
+
 .session-list {
   list-style: none;
   padding: 0;

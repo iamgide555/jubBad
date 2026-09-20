@@ -537,3 +537,165 @@ describe('GroupEntry with an existing group', () => {
     expect(fixture.componentInstance.lastSessionCode()).toBe('sess1');
   });
 });
+
+// Template-level smoke tests for Task 2's manual-add UI. Task 1's own
+// signals/actions (manualQuery, manualCandidates, manualMatchState,
+// addExisting, addNew, removeManual) have their own coverage above and in
+// roster-review.spec.ts; these only check the template wiring Task 2 adds on
+// top, per the brief's three required self-review items. Task 3 owns the
+// exhaustive behavioral suite.
+describe('GroupEntry manual roster add UI (Task 2)', () => {
+  let component: GroupEntry;
+  let fixture: ComponentFixture<GroupEntry>;
+  let httpMock: HttpTestingController;
+
+  beforeEach(async () => {
+    await TestBed.configureTestingModule({
+      imports: [GroupEntry],
+      providers: [
+        provideHttpClient(),
+        provideHttpClientTesting(),
+        provideRouter(routes),
+        { provide: AuthService, useValue: { check: () => Promise.resolve(true) } },
+        {
+          provide: ActivatedRoute,
+          useValue: { snapshot: { paramMap: convertToParamMap({ groupCode: 'group1' }) } },
+        },
+      ],
+    }).compileComponents();
+
+    httpMock = TestBed.inject(HttpTestingController);
+    fixture = TestBed.createComponent(GroupEntry);
+    component = fixture.componentInstance;
+
+    httpMock.expectOne(`${B}/groups/group1`).flush('Not Found', { status: 404, statusText: 'Not Found' });
+    httpMock.expectOne(`${B}/groups/group1/sessions`).flush([]);
+    await fixture.whenStable();
+
+    component.groupName.set('Group A');
+    component.rawText.set('1. ตั้ม');
+    const parsePromise = component.parse();
+    httpMock.expectOne(`${B}/groups/group1/parse`).flush({
+      header: { isoDate: '2026-09-08', venue: null, courtCount: 1 },
+      rosterReviews: [{ inputName: 'ตั้ม', match: { type: 'exact', playerId: 'p1' } }],
+      waitlistReviews: [],
+      warnings: [],
+      unrecognizedLines: [],
+    });
+    await new Promise((r) => setTimeout(r, 0));
+    httpMock.expectOne(`${B}/groups/group1/players`).flush([
+      { id: 'p1', name: 'ตั้ม', aliases: [] },
+      { id: 'p2', name: 'เกียร์', aliases: [] },
+    ]);
+    await parsePromise;
+    fixture.detectChanges();
+  });
+
+  afterEach(() => {
+    httpMock.verify();
+  });
+
+  function reviewRowFor(name: string): HTMLElement {
+    const rows = [...fixture.nativeElement.querySelectorAll('.review-row')] as HTMLElement[];
+    const row = rows.find((r) => r.textContent?.includes(name));
+    if (!row) throw new Error(`no review row found containing "${name}"`);
+    return row;
+  }
+
+  it('shows a remove control instead of the imported yes/no toggle for a manually added existing player', () => {
+    component.addExisting('p2');
+    fixture.detectChanges();
+
+    const row = reviewRowFor('เกียร์');
+    const buttonLabels = [...row.querySelectorAll('button')].map((b) => b.textContent?.trim());
+    expect(buttonLabels.some((t) => t?.includes('เปลี่ยนคำตอบ'))).toBe(false);
+    expect(buttonLabels.some((t) => t?.includes('นำออก'))).toBe(true);
+  });
+
+  it('shows a remove control instead of any toggle for a manually staged new player', () => {
+    component.manualQuery.set('น้องใหม่');
+    component.addNew();
+    fixture.detectChanges();
+
+    const row = reviewRowFor('น้องใหม่');
+    expect(row.textContent).toContain('คนใหม่');
+    const buttonLabels = [...row.querySelectorAll('button')].map((b) => b.textContent?.trim());
+    expect(buttonLabels.some((t) => t?.includes('เปลี่ยนคำตอบ'))).toBe(false);
+    expect(buttonLabels.some((t) => t?.includes('นำออก'))).toBe(true);
+  });
+
+  it('removes only the manual row when its remove control is clicked', () => {
+    component.addExisting('p2');
+    fixture.detectChanges();
+    const before = component.rosterReviews().length;
+
+    const row = reviewRowFor('เกียร์');
+    const removeBtn = [...row.querySelectorAll('button')].find((b) =>
+      b.textContent?.includes('นำออก')
+    )!;
+    removeBtn.click();
+    fixture.detectChanges();
+
+    expect(component.rosterReviews().length).toBe(before - 1);
+    expect(component.rosterReviews().some((r) => r.inputName === 'เกียร์')).toBe(false);
+    expect(component.rosterReviews().some((r) => r.inputName === 'ตั้ม')).toBe(true);
+  });
+
+  it('does not offer "add as new" for an empty query, and offers it once non-empty text has no exact match', () => {
+    expect(component.manualQuery()).toBe('');
+    expect(component.manualShowAddNew()).toBe(false);
+
+    component.onManualQueryChange('ผู้เล่นใหม่');
+    fixture.detectChanges();
+
+    // manualMatchState() alone reports 'no-match' both for a blank query and
+    // a genuine miss — manualShowAddNew must not rely on that distinction.
+    expect(component.manualMatchState().kind).toBe('no-match');
+    expect(component.manualShowAddNew()).toBe(true);
+  });
+
+  it('hides "add as new" once the query exactly matches an already-selected player', () => {
+    // p1 ("ตั้ม") is already claimed by the imported row from parse().
+    component.onManualQueryChange('ตั้ม');
+    fixture.detectChanges();
+
+    expect(component.manualMatchState().kind).toBe('exact-match-already-selected');
+    expect(component.manualShowAddNew()).toBe(false);
+  });
+
+  it('clears a stale manualAddError as soon as the query is edited', () => {
+    component.manualAddError.set('ข้อผิดพลาดเก่า');
+    component.onManualQueryChange('x');
+    expect(component.manualAddError()).toBeNull();
+  });
+
+  it('ignores Enter while IME composition is in progress', () => {
+    component.onManualQueryChange('ตั้มมี่');
+    fixture.detectChanges();
+    const before = component.rosterReviews().length;
+    const input = fixture.nativeElement.querySelector('#manual-add-input') as HTMLInputElement;
+    component.manualActiveIndex.set(0);
+
+    component.onManualKeydown({
+      isComposing: true,
+      key: 'Enter',
+      target: input,
+      preventDefault: () => {},
+    } as unknown as KeyboardEvent);
+
+    expect(component.rosterReviews().length).toBe(before);
+  });
+
+  it('disables the manual-add input while isSubmitting is true', async () => {
+    component.date.set('2026-09-08');
+    component.courtCount.set(1);
+    const confirmPromise = component.confirmRoster();
+    fixture.detectChanges();
+
+    const input = fixture.nativeElement.querySelector('#manual-add-input') as HTMLInputElement;
+    expect(input.disabled).toBe(true);
+
+    httpMock.expectOne(`${B}/sessions`).flush({ code: 'sess1' });
+    await confirmPromise;
+  });
+});

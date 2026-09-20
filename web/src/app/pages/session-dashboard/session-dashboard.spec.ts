@@ -993,5 +993,56 @@ describe('SessionDashboard', () => {
       req.flush({ code: 'sess1', shuttleCount: 3, shuttlePriceSatang: null });
       await drainReload(baseSession({ endedAt: '2026-09-08T20:00:00.000Z', shuttleCount: 3 }));
     });
+
+    /**
+     * Plan step 3 ("Focused Validation") names five frontend test targets:
+     * request units, decimal validation, pending state, draft retention, and
+     * nullable values. This is the "pending state" one — the others already
+     * had coverage above. `saveShuttleDetails()`'s early
+     * `if (this.shuttleDetailsSaving()) return;` guard and the template's
+     * `[disabled]="shuttleDetailsSaving()"` bindings were already correct;
+     * only the test was missing.
+     */
+    it('disables the inputs and Save while a save is pending, and drops a duplicate click without a second request', async () => {
+      await settled(baseSession({ shuttleCount: 5, shuttlePriceSatang: 1000 }));
+      const { count } = shuttleInputs();
+      type(count, '12');
+
+      buttonWith('บันทึก').click();
+      fixture.detectChanges();
+      // NgModel defers some of its own DOM writes to a microtask (see the
+      // 'cancel discards the draft' test above), so — like that test — a
+      // microtask flush is needed before the disabled state is reliably
+      // observable on the input elements.
+      await Promise.resolve();
+      fixture.detectChanges();
+
+      // Pending: both fields and both actions must be disabled so the host
+      // cannot edit or resubmit while the request is in flight.
+      const { count: countWhileSaving, price: priceWhileSaving } = shuttleInputs();
+      expect(countWhileSaving.disabled).toBe(true);
+      expect(priceWhileSaving.disabled).toBe(true);
+      expect(buttonWith('บันทึก').disabled).toBe(true);
+      expect(buttonWith('ยกเลิก').disabled).toBe(true);
+
+      // Simulate a duplicate submission attempt (e.g. a double-click) while
+      // still pending. This must not merely look blocked — it must not reach
+      // the server as a second HTTP request.
+      buttonWith('บันทึก').click();
+      fixture.detectChanges();
+
+      const reqs = httpMock.match(`${B}/sessions/sess1/shuttle-details`);
+      expect(reqs.length).toBe(1);
+      expect(reqs[0].request.body).toEqual({ shuttleCount: 12 });
+
+      reqs[0].flush({ code: 'sess1', shuttleCount: 12, shuttlePriceSatang: 1000 });
+      await drainReload(baseSession({ shuttleCount: 12, shuttlePriceSatang: 1000 }));
+
+      // Settles back into the normal, non-saving state once the single
+      // request resolves.
+      const { count: countAfter } = shuttleInputs();
+      expect(countAfter.disabled).toBe(false);
+      expect(buttonWith('บันทึก')).toBeUndefined();
+    });
   });
 });

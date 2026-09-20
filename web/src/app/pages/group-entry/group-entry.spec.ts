@@ -663,6 +663,18 @@ describe('GroupEntry manual roster add UI (Task 2)', () => {
     expect(component.manualShowAddNew()).toBe(false);
   });
 
+  it('hides "add as new" when the query exactly matches an unclaimed existing player', () => {
+    // p2 ("เกียร์") is a real player but not yet claimed by any review row —
+    // addNew()'s own exactPlayerMatch guard would reject this query, so the
+    // UI must not dangle a clickable "add as new" option for it; the query
+    // should instead route the user to select the existing player.
+    component.onManualQueryChange('เกียร์');
+    fixture.detectChanges();
+
+    expect(component.manualMatchState().kind).toBe('exact-match-available');
+    expect(component.manualShowAddNew()).toBe(false);
+  });
+
   it('clears a stale manualAddError as soon as the query is edited', () => {
     component.manualAddError.set('ข้อผิดพลาดเก่า');
     component.onManualQueryChange('x');

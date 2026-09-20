@@ -113,14 +113,13 @@ export class GroupEntry {
   /**
    * Task 2 — gates the "Add as new" affordance. `manualMatchState().kind ===
    * 'no-match'` alone can't tell "nothing typed" apart from "genuinely no
-   * match", so this checks the trimmed query directly; it also hides the
-   * affordance once the query is an already-claimed exact match (offering to
-   * create a duplicate of a player already on the list makes no sense).
+   * match", so this checks the trimmed query directly; it only shows the
+   * affordance in the genuine no-match state — an exact match (claimed or
+   * not) should always be offered/selected instead of creating a duplicate
+   * profile, and `addNew()`'s own guard would reject it anyway.
    */
   readonly manualShowAddNew = computed(
-    () =>
-      this.manualQuery().trim().length > 0 &&
-      this.manualMatchState().kind !== 'exact-match-already-selected'
+    () => this.manualQuery().trim().length > 0 && this.manualMatchState().kind === 'no-match'
   );
 
   /**

@@ -1,4 +1,4 @@
-import { Component, computed, inject, input, signal } from '@angular/core';
+import { Component, computed, effect, inject, input, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { PressDirective } from '../../../core/motion/press.directive';
 import { ClockService } from '../../../core/clock.service';
@@ -56,7 +56,20 @@ export class CourtPanel {
   protected readonly selection = inject(SwapSelectionService);
   private readonly clock = inject(ClockService);
 
-  constructor(protected liveSession: LiveSessionService) {}
+  constructor(protected liveSession: LiveSessionService) {
+    // About 6s past the deadline — comfortably after the server's 5s sweep
+    // interval — ask the server once for the now-active court, rather than
+    // waiting for the dashboard's ordinary 30s poll.
+    effect(() => {
+      const c = this.court();
+      if (c.status !== 'pending' || c.autoStartAt === null) return;
+      const seconds = this.autoStartSecondsRemaining();
+      if (seconds !== null && seconds <= -6 && this.refreshedForAutoStartAt !== c.autoStartAt) {
+        this.refreshedForAutoStartAt = c.autoStartAt;
+        this.liveSession.refresh();
+      }
+    });
+  }
 
   /**
    * The pending pairing's id, or null when there is nothing to swap. The
@@ -190,6 +203,31 @@ export class CourtPanel {
     );
     return resolvePlayerNames(inProposal, this.players());
   });
+
+  /** Seconds until this pending court auto-confirms, or null when it isn't
+   *  going to (see CourtState.autoStartAt). Not clamped to 0 — negative
+   *  means overdue, which `refreshOnceOverdue`'s effect below uses to know
+   *  when to ask the server for the now-active court. */
+  protected readonly autoStartSecondsRemaining = computed<number | null>(() => {
+    const c = this.court();
+    if (c.status !== 'pending' || c.autoStartAt === null) return null;
+    const deadline = new Date(c.autoStartAt).getTime();
+    const now = this.clock.now() - this.liveSession.serverSkewMs();
+    return Math.round((deadline - now) / 1000);
+  });
+
+  protected readonly autoStartLabel = computed<string | null>(() => {
+    const seconds = this.autoStartSecondsRemaining();
+    if (seconds === null) return null;
+    if (seconds <= 0) return $localize`:@@court.autoStarting:กำลังเริ่ม…`;
+    return $localize`:@@court.autoStartIn:เริ่มอัตโนมัติใน ${seconds}:seconds: วิ`;
+  });
+
+  /** Guards the one-shot refresh in the constructor's effect against firing
+   *  again on every tick once past the deadline — reset implicitly by
+   *  comparing against the current `autoStartAt`, which changes whenever a
+   *  fresh proposal or edit gives this court a new deadline. */
+  private refreshedForAutoStartAt: string | null = null;
 
   /**
    * In TS rather than an `i18n-aria-label` attribute: the label interpolates a

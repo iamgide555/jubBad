@@ -138,6 +138,9 @@
           @if (emptySeatCount() > 0) {
             <p class="hint" role="status" i18n="@@court.seatsEmpty">ยังมีที่ว่าง {{ emptySeatCount() }} ที่</p>
           }
+          @if (autoStartLabel(); as label) {
+            <p class="hint auto-start-hint" role="status">{{ label }}</p>
+          }
           <div class="button-row">
             @if (isCustom()) {
               <button type="button" class="ghost" [disabled]="busy()" (click)="startOrReshuffle()" i18n="@@court.clearCourt">ล้างคอร์ท</button>

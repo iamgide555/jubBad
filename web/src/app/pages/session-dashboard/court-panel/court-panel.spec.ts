@@ -626,6 +626,104 @@ describe('CourtPanel', () => {
       expect(fixture.nativeElement.querySelector('.court-timer')?.textContent?.trim()).toBe('0:47');
     });
   });
+
+  describe('auto-start countdown', () => {
+    it('shows the remaining time', async () => {
+      const now = Date.now();
+      clockNow.set(now);
+      const autoStartAt = new Date(now + 42_000).toISOString();
+      const { fixture } = await createPanel(
+        baseSession({
+          serverNow: new Date(now).toISOString(),
+          courts: [
+            {
+              status: 'pending',
+              pairingId: 'pair1',
+              format: 'doubles',
+              teamA: ['p1', 'p2'],
+              teamB: ['p3', 'p4'],
+              autoStartAt,
+            },
+          ],
+        })
+      );
+      fixture.detectChanges();
+      expect(fixture.nativeElement.querySelector('.auto-start-hint')?.textContent).toContain('42');
+    });
+
+    it('hides once autoStartAt is null', async () => {
+      const { fixture } = await createPanel(
+        baseSession({
+          courts: [
+            { status: 'pending', pairingId: 'pair1', format: 'doubles', teamA: ['p1', 'p2'], teamB: ['p3', 'p4'], autoStartAt: null },
+          ],
+        })
+      );
+      fixture.detectChanges();
+      expect(fixture.nativeElement.querySelector('.auto-start-hint')).toBeNull();
+    });
+
+    it('reads "starting" once the countdown reaches zero', async () => {
+      const now = Date.now();
+      clockNow.set(now);
+      const autoStartAt = new Date(now).toISOString();
+      const { fixture } = await createPanel(
+        baseSession({
+          serverNow: new Date(now).toISOString(),
+          courts: [
+            {
+              status: 'pending',
+              pairingId: 'pair1',
+              format: 'doubles',
+              teamA: ['p1', 'p2'],
+              teamB: ['p3', 'p4'],
+              autoStartAt,
+            },
+          ],
+        })
+      );
+      fixture.detectChanges();
+      expect(fixture.nativeElement.querySelector('.auto-start-hint')?.textContent).toContain('กำลังเริ่ม');
+    });
+
+    it('refreshes the session once, about 6s past the deadline, and never again for the same deadline', async () => {
+      const now = Date.now();
+      clockNow.set(now);
+      // Deadline already 3s in the past when the fixture loads.
+      const autoStartAt = new Date(now - 3_000).toISOString();
+      const { fixture } = await createPanel(
+        baseSession({
+          serverNow: new Date(now).toISOString(),
+          courts: [
+            {
+              status: 'pending',
+              pairingId: 'pair1',
+              format: 'doubles',
+              teamA: ['p1', 'p2'],
+              teamB: ['p3', 'p4'],
+              autoStartAt,
+            },
+          ],
+        })
+      );
+      const liveSession = TestBed.inject(LiveSessionService);
+      const refreshSpy = vi.spyOn(liveSession, 'refresh').mockImplementation(() => {});
+      fixture.detectChanges();
+      expect(refreshSpy).not.toHaveBeenCalled();
+
+      // Now 6s past the deadline — the refresh guard's threshold.
+      clockNow.set(now + 3_000);
+      TestBed.tick();
+      fixture.detectChanges();
+      expect(refreshSpy).toHaveBeenCalledOnce();
+
+      // Further past the same deadline: must not fire a second time.
+      clockNow.set(now + 4_000);
+      TestBed.tick();
+      fixture.detectChanges();
+      expect(refreshSpy).toHaveBeenCalledOnce();
+    });
+  });
 });
 
 describe('CourtPanel with too few players', () => {

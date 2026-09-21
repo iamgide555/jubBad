@@ -177,6 +177,12 @@ model Pairing {
   /// Incremented by every mutation so stale admin tabs cannot confirm or
   /// finish a proposal that has since been changed.
   revision    Int       @default(0)
+  /// When this pending pairing last changed. The auto-confirm sweep counts
+  /// 60s from here, and backdates `confirmedAt` to 30s after it — see
+  /// docs/superpowers/specs/2026-09-22-auto-confirm-pending-match-design.md.
+  /// Null means auto-confirm is off: a row from before this column existed,
+  /// or one an undone confirm just cleared.
+  pendingSince DateTime?
   confirmedAt DateTime?
   endedAt     DateTime?
   session     Session   @relation(fields: [sessionId], references: [code])

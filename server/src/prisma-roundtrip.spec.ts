@@ -36,6 +36,7 @@ describe('Prisma schema round-trip', () => {
         data: { sessionId: session.code, playerId: player.id },
       });
 
+      const pendingSince = new Date('2026-09-22T10:00:00.000Z');
       const pairing = await prisma.pairing.create({
         data: {
           sessionId: session.code,
@@ -43,6 +44,7 @@ describe('Prisma schema round-trip', () => {
           matchNumber: 1,
           teamA: JSON.stringify([player.id, player.id]),
           teamB: JSON.stringify([player.id, player.id]),
+          pendingSince,
         },
       });
 
@@ -59,6 +61,7 @@ describe('Prisma schema round-trip', () => {
       expect(JSON.parse(readBackPlayer.aliases)).toEqual(['Al', 'Ally']);
       expect(JSON.parse(readBackPairing.teamA)).toEqual([player.id, player.id]);
       expect(JSON.parse(readBackPairing.teamB)).toEqual([player.id, player.id]);
+      expect(readBackPairing.pendingSince?.toISOString()).toBe(pendingSince.toISOString());
       expect(roster.map((r) => r.playerId)).toEqual([player.id]);
     } finally {
       await prisma.pairing.deleteMany({ where: { sessionId: sessionCode } });

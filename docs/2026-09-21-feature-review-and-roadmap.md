@@ -157,6 +157,8 @@ Effort is rough: S is up to a day, M is a few days.
 
 #### - [ ] C1. Skill level per player (ระดับมือ)
 
+Design: `docs/superpowers/specs/2026-09-22-roadmap-c-series-design.md`, section C1.
+
 Tag each player with the level Thai groups already use: BG / N / S / P- / P /
 P+ / C / B. Use it for two things:
 
@@ -170,14 +172,18 @@ Every Thai competitor has this: T-BAD's ±1-level mode, BC COURT's
 "เช็คระดับมือ", Qcourt's "skill rank" on quick-add. It is the most visible
 thing a Thai host will look for.
 
-Design questions to settle first:
-- Does the level live on `Player`? It should: it is a fact about the person.
-- Does a level change reseed the rating, or only apply to new players?
-- Singles and doubles tracks: one level seeding both, or one each?
+Design questions, settled 2026-09-22 (see the spec):
+- The level lives on `Player`.
+- A level change reseeds the whole history, because ratings are replayed.
+- One level seeds both singles and doubles tracks.
+- The ±1 band ships with C1, as a soft-dominant rule that never leaves a
+  court empty.
 
 Effort M.
 
 #### - [ ] C2. Add a walk-in to a running session
+
+Design: `docs/superpowers/specs/2026-09-22-roadmap-c-series-design.md`, section C2.
 
 Someone who is not on the pasted list turns up. Today the host has to end
 the session and start a new one, or leave that player out. Competitors all
@@ -192,6 +198,8 @@ Effort S–M.
 
 #### - [ ] C3. Per-person bill, copied out as text
 
+Design: `docs/superpowers/specs/2026-09-22-roadmap-c-series-design.md`, section C3.
+
 Court fee plus shuttles, split per player, copied as text for the LINE group.
 The collecting stays with KhunThong. This is what every host does after every
 session. The session already stores shuttle count and price, so this is half
@@ -199,10 +207,12 @@ built. PlayMatch offers three calculation methods. A Pantip thread asking for
 exactly this formula (people arriving and leaving at different hours) shows
 the pain is real and recurring.
 
-**This partly reopens a recorded decision.** `overview.md` delegates cost
-splitting to KhunThong. The proposed line is: the app *calculates* each
-share and copies it out; the QR code, payment tracking and slip checking stay
-with KhunThong. The owner decides whether that line holds.
+**This partly reopens a recorded decision.** `overview.md` delegated cost
+splitting to KhunThong. The owner decided on 2026-09-22 that the line holds:
+the app *calculates* each share and copies it out, with an optional host-fee
+line; the QR code, payment tracking and slip checking stay with KhunThong.
+The spec replaces the list below with three charging models: หารตามจริง
+(fair pay), คิดต่อเกม (per game) and บุฟเฟ่ต์ (buffet).
 
 Calculation methods to consider:
 - Court fee split equally.
@@ -215,6 +225,8 @@ Effort M. It pairs with C10 (saved default prices).
 ### P1
 
 #### - [ ] C4. Players check the queue on their own phone
+
+Design: `docs/superpowers/specs/2026-09-22-roadmap-c-series-design.md`, section C4.
 
 The display route is public but built for a TV across the hall. Many halls
 have no screen. Proposed:
@@ -229,6 +241,8 @@ Effort S–M.
 
 #### - [ ] C5. Fixed pairs (คู่ประจำ) and "never pair these two"
 
+Design: `docs/superpowers/specs/2026-09-22-roadmap-c-series-design.md`, section C5.
+
 Couples, or a coach with a beginner, who always play as a pair. The other
 direction is two players who should not be partners. T-BAD has fixed pairs.
 
@@ -239,6 +253,8 @@ search explores, and must not make a round unsolvable.
 Effort M.
 
 #### - [ ] C6. Public group leaderboard with seasons
+
+Design: `docs/superpowers/specs/2026-09-22-roadmap-c-series-design.md`, section C6.
 
 Group-wide ranking, with a minimum number of games before a player appears
 and a periodic reset so newcomers can climb. T-BAD resets on 1 Jan and 1 Jul
@@ -253,13 +269,18 @@ Effort S.
 
 #### - [ ] C7. Co-host and faster sync
 
+Design: `docs/superpowers/specs/2026-09-22-roadmap-c-series-design.md`, section C7.
+
 The host usually plays too, so someone else needs to run the dashboard while
 the host is on court. Ownership is currently one owner per group, and the
 30 s polling means two phones show different courts.
 
 Needs:
-- A per-group co-host role on top of `OwnershipGuard`.
-- Shorter polling or server-sent events while a session is live.
+- A co-host who can run the courts. Decided 2026-09-22: a session-scoped
+  link now, which needs no account and dies when the session ends. A
+  per-group co-host account comes later, with C8's multi-manager tier.
+- Server-sent events while a session is live, with the 30 s poll kept as a
+  fallback.
 
 ShuttleFlow has owner and admin roles with live sync.
 
@@ -267,13 +288,21 @@ Effort M.
 
 #### - [ ] C8. Billing gates and self-service host sign-up
 
+Design: `docs/superpowers/specs/2026-09-22-roadmap-c-series-design.md`, section C8.
+
 Only after the P0 items and a pricing check against the table above. Nothing
 exists yet: no plan fields and no register route. Hosts are created by hand
 in `/admin` today, which is fine for the first handful of customers.
 
+The spec designs the mechanism only (plan fields, derived lapse, manual
+activation, self-sign-up). Which features sit behind which tier waits for the
+pricing check.
+
 Effort M.
 
 #### - [ ] C14. Measure partner variety and show it
+
+Design: `docs/superpowers/specs/2026-09-22-roadmap-c-series-design.md`, section C14.
 
 This is the one strength no competitor claims (see "Strengths against
 competitors"), and nobody can see it on the first night. Two parts:
@@ -299,6 +328,8 @@ on data the summary already loads.
 
 #### - [ ] C9. Voice call-out
 
+Design: `docs/superpowers/specs/2026-09-22-roadmap-c-series-design.md`, section C9.
+
 "คอร์ท 2: A, B พบ C, D" read aloud when a match is confirmed, using the
 browser's own speech (Web Speech API; most phones have a Thai voice).
 T-BAD has it. It is cheap and players notice it.
@@ -307,6 +338,8 @@ Effort S.
 
 #### - [ ] C10. Saved group defaults
 
+Design: `docs/superpowers/specs/2026-09-22-roadmap-c-series-design.md`, section C10.
+
 The group's usual venue, court count, court fee and shuttle price, filled in
 for each new session. Needed by C3.
 
@@ -314,12 +347,16 @@ Effort S.
 
 #### - [ ] C11. Warning when roster = 4 × courts
 
+Design: `docs/superpowers/specs/2026-09-22-roadmap-c-series-design.md`, section C11.
+
 The cheap option already written up in B13: a dashboard hint that nobody is
 resting, so the same four will keep sharing a court.
 
 Effort S.
 
 #### - [ ] C12. Survive bad Wi-Fi in the hall
+
+Design: `docs/superpowers/specs/2026-09-22-roadmap-c-series-design.md`, section C12.
 
 - A service worker for the app shell, so the app loads even when the hall's
   Wi-Fi is bad.
@@ -333,6 +370,8 @@ they run on a single device.
 Effort M.
 
 #### - [ ] C13. Tap-to-register sign-up link
+
+Design: `docs/superpowers/specs/2026-09-22-roadmap-c-series-design.md`, section C13.
 
 A link players tap to put their own name down, replacing the paste. It
 is already named in `overview.md` as the lower-risk fallback if pasting ever

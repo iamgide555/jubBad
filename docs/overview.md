@@ -419,6 +419,16 @@ pairing → **pending**, where reshuffling is free and unlimited and a single
 player can be tapped to swap in a substitute → *Confirm* → **active**, then
 *Finish* records the winner (or "No result") and frees the court.
 
+**A pending match nobody confirms starts itself after 60 seconds.** Every
+edit — reshuffle, swap, a seat filled or cleared, a player rested or brought
+back — resets that window, so a host still setting up the court never gets
+cut off, and it only fires once every seat is filled and nobody on it is
+resting. The confirm it produces is backdated to 30 seconds after the match
+last changed, an estimate of when players actually walked on, rather than to
+the moment the window closes — so the live timer doesn't start a full minute
+behind. Undoing an auto-confirm turns it off for that match; editing the
+lineup again turns it back on.
+
 **A court's format — doubles or singles — is a toggle in its own panel,
 changeable only while that court is idle.** Restricting it to idle is what
 guarantees a live pairing's team size can never disagree with the court's

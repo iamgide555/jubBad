@@ -132,7 +132,7 @@ export class SessionsService {
           endedAt: null,
           revision: existingPending.revision,
         },
-        data: { teamA, teamB, revision: { increment: 1 } },
+        data: { teamA, teamB, pendingSince: new Date(), revision: { increment: 1 } },
       });
       if (updated.count !== 1) {
         throw this.conflict('PAIRING_STALE');
@@ -149,6 +149,7 @@ export class SessionsService {
           })) + 1,
         teamA,
         teamB,
+        pendingSince: new Date(),
       },
     });
   }
@@ -969,6 +970,7 @@ export class SessionsService {
       data: {
         teamA: JSON.stringify(newTeamA),
         teamB: JSON.stringify(newTeamB),
+        pendingSince: new Date(),
         revision: { increment: 1 },
       },
     });
@@ -1073,6 +1075,7 @@ export class SessionsService {
         data: {
           teamA: JSON.stringify(newTeamA),
           teamB: JSON.stringify(newTeamB),
+          pendingSince: new Date(),
           revision: { increment: 1 },
         },
       });
@@ -1084,6 +1087,7 @@ export class SessionsService {
           data: {
             teamA: JSON.stringify(replaceIn(other.teamA, incomingId, dto.playerId)),
             teamB: JSON.stringify(replaceIn(other.teamB, incomingId, dto.playerId)),
+            pendingSince: new Date(),
             revision: { increment: 1 },
           },
         });
@@ -1177,7 +1181,7 @@ export class SessionsService {
         endedAt: null,
         revision: dto.expectedRevision ?? pairing.revision,
       },
-      data: { ...column, revision: { increment: 1 } },
+      data: { ...column, pendingSince: new Date(), revision: { increment: 1 } },
     });
     if (write.count !== 1) throw this.conflict('PAIRING_STALE');
 
@@ -1257,6 +1261,7 @@ export class SessionsService {
       data: {
         teamA: JSON.stringify(result.teamA),
         teamB: JSON.stringify(result.teamB),
+        pendingSince: new Date(),
         revision: { increment: 1 },
       },
     });
@@ -1538,7 +1543,7 @@ export class SessionsService {
 
     const unconfirmed = await this.prisma.pairing.updateMany({
       where: { id: latest.id, confirmedAt: { not: null }, endedAt: null, revision: latest.revision },
-      data: { confirmedAt: null, revision: { increment: 1 } },
+      data: { confirmedAt: null, pendingSince: null, revision: { increment: 1 } },
     });
     if (unconfirmed.count !== 1) {
       throw this.conflict('PAIRING_STALE');
@@ -1597,6 +1602,7 @@ export class SessionsService {
               matchNumber,
               teamA: emptyTeam,
               teamB: emptyTeam,
+              pendingSince: new Date(),
             },
           });
           written.push(courtNumber);
@@ -1674,6 +1680,7 @@ export class SessionsService {
             matchNumber,
             teamA: JSON.stringify(assignment.teamA),
             teamB: JSON.stringify(assignment.teamB),
+            pendingSince: new Date(),
           },
         });
         written.push(courtNumber);
@@ -1743,6 +1750,23 @@ export class SessionsService {
       throw this.conflict('ROSTER_STALE');
     }
     const updated = await this.prisma.sessionRoster.findUniqueOrThrow({ where: { id: entry.id } });
+
+    // Resting or returning a player doesn't rewrite the courts they're
+    // seated on (see the module doc on `setRosterActiveExclusively`), but it
+    // does change whether that court is eligible to auto-confirm — bringing
+    // someone back who was resting for 10 minutes must not hand them an
+    // auto-confirm backdated to before they returned.
+    const openPairings = await this.prisma.pairing.findMany({
+      where: { sessionId: sessionCode, confirmedAt: null, endedAt: null },
+    });
+    const affected = openPairings.filter((p) => this.playersOf(p).includes(playerId));
+    if (affected.length > 0) {
+      await this.prisma.pairing.updateMany({
+        where: { id: { in: affected.map((p) => p.id) } },
+        data: { pendingSince: new Date() },
+      });
+    }
+
     return { playerId: updated.playerId, active: updated.active };
   }
 

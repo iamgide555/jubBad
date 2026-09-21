@@ -901,7 +901,7 @@ describe('SessionDashboard', () => {
       baseSession({
         rosterPlayerIds: ['p1', 'p2', 'p3', 'p4', 'p5'],
         courts: [
-          { status: 'pending', pairingId: 'pair1', format: 'doubles', teamA: ['p1', 'p2'], teamB: ['p3', 'p4'] },
+          { status: 'pending', pairingId: 'pair1', format: 'doubles', teamA: ['p1', 'p2'], teamB: ['p3', 'p4'], autoStartAt: null },
         ],
       })
     );
@@ -955,7 +955,7 @@ describe('SessionDashboard', () => {
         baseSession({
           rosterPlayerIds: ['p1', 'p2', 'p3', 'p4', 'p5'],
           courts: [
-            { status: 'pending', pairingId: 'pair1', format: 'doubles', teamA: ['p5', 'p2'], teamB: ['p3', 'p4'] },
+            { status: 'pending', pairingId: 'pair1', format: 'doubles', teamA: ['p5', 'p2'], teamB: ['p3', 'p4'], autoStartAt: null },
           ],
         })
       );

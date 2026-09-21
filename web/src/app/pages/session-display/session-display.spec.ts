@@ -99,7 +99,7 @@ describe('SessionDisplay', () => {
   it('shows "waiting" for an idle or pending court, never a proposed pairing', async () => {
     const { fixture, httpMock } = await createDisplay(
       baseSession({
-        courts: [{ status: 'pending', pairingId: 'pair1', format: 'doubles', teamA: ['p1', 'p2'], teamB: ['p3', 'p4'] }],
+        courts: [{ status: 'pending', pairingId: 'pair1', format: 'doubles', teamA: ['p1', 'p2'], teamB: ['p3', 'p4'], autoStartAt: null }],
       })
     );
     httpMock.expectOne(`${B}/groups/group1`).flush({ code: 'group1', name: null, lastSessionCode: null });

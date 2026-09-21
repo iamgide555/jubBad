@@ -87,7 +87,7 @@ describe('LiveSessionService', () => {
     expect(proposeReq.request.method).toBe('POST');
     proposeReq.flush({
       ok: true,
-      pairing: { id: 'pair1', courtNumber: 1, matchNumber: 1, teamA: ['p1', 'p2'], teamB: ['p3', 'p4'] },
+      pairing: { id: 'pair1', courtNumber: 1, matchNumber: 1, teamA: ['p1', 'p2'], teamB: ['p3', 'p4'], autoStartAt: null },
     });
     await new Promise((r) => setTimeout(r, 0));
     TestBed.tick();
@@ -95,14 +95,14 @@ describe('LiveSessionService', () => {
     const reloadReq = httpMock.expectOne(`${environment.apiBaseUrl}/sessions/sess1`);
     reloadReq.flush(
       baseSession({
-        courts: [{ status: 'pending', pairingId: 'pair1', format: 'doubles', teamA: ['p1', 'p2'], teamB: ['p3', 'p4'] }],
+        courts: [{ status: 'pending', pairingId: 'pair1', format: 'doubles', teamA: ['p1', 'p2'], teamB: ['p3', 'p4'], autoStartAt: null }],
       })
     );
 
     expect(await promise).toEqual({ ok: true });
     await new Promise((r) => setTimeout(r, 0));
     expect(service.courts()).toEqual([
-      { status: 'pending', pairingId: 'pair1', format: 'doubles', teamA: ['p1', 'p2'], teamB: ['p3', 'p4'] },
+      { status: 'pending', pairingId: 'pair1', format: 'doubles', teamA: ['p1', 'p2'], teamB: ['p3', 'p4'], autoStartAt: null },
     ]);
   });
 
@@ -131,7 +131,7 @@ describe('LiveSessionService', () => {
     expect(swapReq.request.body).toEqual({ playerId: 'p1' });
     swapReq.flush({
       ok: true,
-      pairing: { id: 'pair1', courtNumber: 1, matchNumber: 1, teamA: ['p5', 'p2'], teamB: ['p3', 'p4'] },
+      pairing: { id: 'pair1', courtNumber: 1, matchNumber: 1, teamA: ['p5', 'p2'], teamB: ['p3', 'p4'], autoStartAt: null },
     });
     await new Promise((r) => setTimeout(r, 0));
     TestBed.tick();
@@ -267,7 +267,7 @@ describe('LiveSessionService', () => {
     expect(req.request.body).toEqual({ team: 'A', index: 1, playerId: 'p2' });
     req.flush({
       ok: true,
-      pairing: { id: 'pair1', courtNumber: 1, matchNumber: 1, teamA: [null, 'p2'], teamB: [null, null] },
+      pairing: { id: 'pair1', courtNumber: 1, matchNumber: 1, teamA: [null, 'p2'], teamB: [null, null], autoStartAt: null },
     });
     await new Promise((r) => setTimeout(r, 0));
     TestBed.tick();
@@ -282,7 +282,7 @@ describe('LiveSessionService', () => {
     const promise = service.setSeat('pair1', 'B', 0);
     const req = httpMock.expectOne(`${environment.apiBaseUrl}/sessions/sess1/pairings/pair1/seats`);
     expect(req.request.body).toEqual({ team: 'B', index: 0, playerId: null });
-    req.flush({ ok: true, pairing: { id: 'pair1', courtNumber: 1, matchNumber: 1, teamA: [], teamB: [] } });
+    req.flush({ ok: true, pairing: { id: 'pair1', courtNumber: 1, matchNumber: 1, teamA: [], teamB: [], autoStartAt: null } });
     await new Promise((r) => setTimeout(r, 0));
     TestBed.tick();
     httpMock.expectOne(`${environment.apiBaseUrl}/sessions/sess1`).flush(baseSession());
@@ -297,7 +297,7 @@ describe('LiveSessionService', () => {
     const req = httpMock.expectOne(`${environment.apiBaseUrl}/sessions/sess1/pairings/pair1/autopair`);
     expect(req.request.method).toBe('POST');
     expect(req.request.body).toEqual({});
-    req.flush({ ok: true, filled: 2, pairing: { id: 'pair1', courtNumber: 1, matchNumber: 1, teamA: ['p1', 'p2'], teamB: ['p3', 'p4'] } });
+    req.flush({ ok: true, filled: 2, pairing: { id: 'pair1', courtNumber: 1, matchNumber: 1, teamA: ['p1', 'p2'], teamB: ['p3', 'p4'], autoStartAt: null } });
     await new Promise((r) => setTimeout(r, 0));
     TestBed.tick();
     httpMock.expectOne(`${environment.apiBaseUrl}/sessions/sess1`).flush(baseSession());

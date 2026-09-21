@@ -8,7 +8,17 @@ export type Seat = string | null;
 
 export type CourtState =
   | { status: 'idle'; format: CourtFormat }
-  | { status: 'pending'; pairingId: string; format: CourtFormat; teamA: Seat[]; teamB: Seat[] }
+  | {
+      status: 'pending';
+      pairingId: string;
+      format: CourtFormat;
+      teamA: Seat[];
+      teamB: Seat[];
+      /** ISO timestamp of when this match auto-confirms if nobody touches
+       *  it, or null when it won't (no `pendingSince` yet, a seat still
+       *  empty, or a seated player currently resting). */
+      autoStartAt: string | null;
+    }
   | {
       status: 'active';
       pairingId: string;

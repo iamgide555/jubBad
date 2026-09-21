@@ -8,24 +8,49 @@ doubles pairing, the host confirms it, plays, and records who won.
 This file is the durable part of the project — what it is, what was decided,
 and why. It is not a status log: `git log`, `docs/archive/plans/` and
 `docs/archive/specs/` record how it got built, and
-`docs/2026-09-05-review-and-v2-backlog.md` records what is still open.
+`docs/2026-09-21-feature-review-and-roadmap.md` records what is still open.
 
 ## The gap this fills
 
+*Revised 2026-09-21. The original premise here turned out to be wrong, and
+what it got wrong is the useful part.*
+
 Existing apps (Racket Social, Kiki-match, Badminton Match Manager, Qcourt,
-GroupSlam) already solve fair doubles pairing, rotation, sit-out balancing and
-cost splitting — well. Rebuilding those is not the point.
+GroupSlam, ShuttleFlow, Shuttl) already solve fair doubles pairing, rotation,
+sit-out balancing and cost splitting — well. Rebuilding those is not the point.
 
-What does not exist is anything **Thai-language and LINE-friendly, built to sit
-alongside the tools these groups already use** — LINE for coordination,
-KhunThong for PromptPay splitting. The existing pairing apps are English-first
-generic multi-sport tools with their own account/PWA/bot ecosystems. The
-existing Thai badminton apps (Lenkila and similar) are court-booking and
-partner-finding marketplaces, not tools for running a session for a group that
-already exists.
+This section used to claim that nothing Thai-language existed for running a
+session for a group that already exists, and that localization was therefore
+the differentiator. That is no longer true, and may not have been true when it
+was written. A competitor review on 2026-09-21 found at least three Thai tools
+built for exactly this job:
 
-**The differentiator is localization and fitting into how these groups already
-coordinate — not a smarter pairing algorithm or a bigger feature set.**
+- **T-BAD** (tbadapp.com): free with no paid tier. Imports the roster from a
+  pasted LINE message, tags skill levels (ระดับมือ), keeps singles and doubles
+  Elo separate, and has fixed pairs, a TV display, voice announcements and
+  offline use.
+- **PlayMatch**: says it serves 550+ ก๊วน, with paid tiers at 149 and
+  219 THB/month. Splits the court fee and shuttle cost, generates a PromptPay
+  QR, tracks payments, and shows the live queue on players' phones.
+- **BC COURT**: queue, skill-level checks, duplicate-pair checks, shuttle
+  stock and a wallet. Tiers at 99, 199 and 599 THB.
+
+Being in Thai and friendly to LINE is now the minimum any competitor offers,
+not a moat. What still separates this app:
+
+- **Pairing quality.** Partner and opponent history is counted across the
+  group's whole life. The search is exact for up to eight players on court,
+  and above that a local search is checked against the exact result on every
+  test run (see "Pairing"). The competitors advertise a duplicate-pair check.
+- **Thai nickname matching.** It suggests a match but never merges on its
+  own.
+- **Per-court singles/doubles**, per-court undo, and a rest toggle that credits
+  missed games.
+- **Correctness.** The server serializes court fills, so no two devices can
+  put one player on two courts.
+
+The comparison, the features it found missing and their priority are in
+`docs/2026-09-21-feature-review-and-roadmap.md`.
 
 ## Product decisions (and why)
 
@@ -37,9 +62,9 @@ coordinate — not a smarter pairing algorithm or a bigger feature set.**
 | No LIFF / LINE Login / LINE platform integration | Paste-based import plus manual share means zero technical touchpoint with LINE's platform is needed. Pure UX polish, addable later |
 | Per-user accounts for hosts, not player accounts | Administrative screens and writes require signing in as a real user (email + password, session cookie signed server-side). Each user owns the groups they create; an admin role sees and manages every user and group. There are still no individual *player* accounts or profiles — this is identity for whoever runs a session, not for who plays in one. Superseded the earlier one-shared-token design (backlog B12, done 2026-09-12); see the per-user-login design doc for the schema and guard design. |
 | Trigger-word LINE bot (reconsidered, still rejected) | The idea: a bot watches the group for a keyword ("Play") then auto-extracts the roster, skipping the manual paste. Rejected on inspection — the LINE Messaging API has no message-history endpoint (confirmed in LINE's docs), so a bot can only look *forward* from when it joins. In real use the roster is posted days before "Play" is typed, so the bot would have to continuously store *all* group messages in a rolling buffer to look backward — that is full passive listening plus retention, the exact risk rejected above, not a lighter trigger-gated version. It also reopens "no infra" and "no posting bot" at once. Revisit only if paste friction proves to be a real dealbreaker; the lower-risk fix for the typing/copying pain is a tap-to-register roster link |
-| No cost-splitting / PromptPay QR in-app | KhunThong (ขุนทอง), KBank/KBTG's LINE bot, already does this well — bill split (equal or not), PromptPay QR, and payment verification by e-slip scan, which the planned v1 didn't even have. The host invites KhunThong separately; no integration needed |
+| No cost-splitting / PromptPay QR in-app | KhunThong (ขุนทอง), KBank/KBTG's LINE bot, already does this well — bill split (equal or not), PromptPay QR, and payment verification by e-slip scan, which the planned v1 didn't even have. The host invites KhunThong separately; no integration needed. **Partly reopened 2026-09-21, not reversed.** The session now records its shuttle count and price, and every Thai competitor leads with a per-person bill. The open question is whether the app should *calculate* each player's share and copy it out as text, leaving the collecting (QR, payment tracking) to KhunThong. See C3 in the roadmap. |
 | Score logging: final score only, no live scoreboard | Point-by-point, serve indicators and timers are scope creep nobody asked for. A final score per court is low-friction and still bootstraps the match history that future skill/Elo balancing would need |
-| Per-group host role (resolved 2026-09-08 decision, built 2026-09-12) | Was: one shared admin token distinguished no one from anyone else — equal power for every holder, including deleting a group, with all-or-nothing revocation. Closed by backlog B12: `Group.ownerId` names one owner per group, `OwnershipGuard` refuses any other host with a 404 (never a 403 — that would confirm the code exists), and disabling one user bumps only their `tokenVersion`, signing out just that person's devices. An admin role bypasses ownership and manages every user and group from `/admin`. Built on a branch, sequenced behind the same field-validation gate the original decision set — see "Current state" below. |
+| Per-group host role (resolved 2026-09-08 decision, built 2026-09-12) | Was: one shared admin token distinguished no one from anyone else — equal power for every holder, including deleting a group, with all-or-nothing revocation. Closed by backlog B12: `Group.ownerId` names one owner per group, `OwnershipGuard` refuses any other host with a 404 (never a 403 — that would confirm the code exists), and disabling one user bumps only their `tokenVersion`, signing out just that person's devices. An admin role bypasses ownership and manages every user and group from `/admin`. Built on a branch and merged into `main` on 2026-09-12 (`559ea5a`). |
 | No data-retention/deletion policy (**accepted risk**) | Names persist indefinitely under a group's link code. A host can now export the group as JSON or delete it outright, which covers the practical need without a policy |
 | Export and delete require the group's owner (or an admin) to be signed in | They are administrative operations; the client also requires typing the group name to prevent an accidental delete. Revocation is now per-user (disabling one account bumps only that account's `tokenVersion`) rather than the old shared-token design's all-or-nothing. |
 | No promoting a waitlisted (สำรอง) player mid-session | The สำรอง list is resolved in LINE *before* the session — a waitlisted player was told not to come, so there is nobody at the venue to promote. The feature would serve a situation that cannot occur. Waitlisted names are still imported and shown, so the host can see who was turned away |
@@ -47,7 +72,9 @@ coordinate — not a smarter pairing algorithm or a bigger feature set.**
 
 ## Explicitly out of scope
 
-- Multi-sport support — badminton-only, Thai-only. That is the moat.
+- Multi-sport support — badminton-only, Thai-first. This used to be called
+  the moat. Since the Thai competitors above exist, it no longer is; it stays
+  out of scope because focus is still worth more than breadth.
 - Any LINE bot, posting or passively listening (reconsidered once; still out).
 - LIFF / LINE Login as an identity provider. Note that plain user accounts left
   this list on 2026-09-08 and are now built (backlog B12): per-user login,
@@ -55,7 +82,9 @@ coordinate — not a smarter pairing algorithm or a bigger feature set.**
   *player* accounts — players never log in. The accounts that exist are for
   whoever administers a group.
 - Live point-by-point scoreboard.
-- Cost splitting / PromptPay QR — delegated to KhunThong.
+- Cost splitting / PromptPay QR — delegated to KhunThong. Whether the app
+  should calculate each player's share is an open question (roadmap C3); the
+  QR and collecting the money stay out.
 - Individual player accounts. Still out — see the decision table above. Host
   accounts and per-group ownership are no longer on this list; see B12.
 
@@ -185,7 +214,9 @@ fixes it: in the steady state exactly one court is free at a time, so the only
 available players are the four who just walked off, and four players have three
 possible splits. The engine rotates all three — the pods themselves never mix.
 Reshuffling cannot help for the same reason; dragging a player to another court
-is what breaks a pod, as is playing with a spare. See B13 in the backlog.
+is what breaks a pod, as is playing with a spare. See B13 in
+`docs/archive/plans/2026-09-05-review-and-v2-backlog.md`, carried forward in
+the roadmap.
 
 Arrangements are scored, lowest wins:
 
@@ -464,16 +495,39 @@ pairing never reaches the venue screen. It refreshes every 30 seconds and has
 a manual refresh control; neither needs extra server infrastructure such as
 websockets.
 
+The roster review screen, before a session is created, also has one search
+field for adding someone the paste missed. It finds an existing player (so
+their history carries over) or creates a new one. It only works before the
+session is created. There is still no way to add a player to a *running*
+session; a late arrival has to be on the pasted list and switched on (see B14,
+carried forward in the roadmap).
+
+**Ending a session asks for confirmation.** "จบก๊วน" opens a dialog that also
+asks how many shuttles were used and their price. The host
+only knows the count once the night is over, so this is asked at the end
+rather than tracked per match. Both fields are optional and can be corrected
+later from the summary page. The price is stored in satang as an integer, and
+null means "not recorded", which is different from 0. The public summary shows
+both. Nothing is calculated from them yet (see C3).
+
 ## Current state
 
 Everything described above is built: the three engines, the API, the Angular
 client in Thai with English as a second locale, the display view, per-court
-undo, resting players, wait timers, one-tap fill, both pairing modes, per-court
-singles/doubles format, session archive, player pages, export and delete, and
-a PWA manifest.
+undo, resting players, wait timers, one-tap fill, all three pairing modes
+(variety, balanced, custom), per-court singles/doubles format, session
+archive, the public session summary, player pages, the host-only player roster
+page (contact details, plus rank by rating or win rate), manual add on the
+roster review screen, shuttle count and price, export and delete, per-user
+host login with an admin console, and a PWA manifest (no service worker, so
+no offline use).
 
-`docs/2026-09-05-review-and-v2-backlog.md` records the review that drove most
-of it. Its one open item, per-user login (B12), is now built — see
+What is still open, and in what order, is in
+`docs/2026-09-21-feature-review-and-roadmap.md`.
+
+`docs/archive/plans/2026-09-05-review-and-v2-backlog.md` records the review
+that drove most of it. Its last open item, per-user login (B12), is built and
+merged — see
 `docs/archive/plans/2026-09-12-b12-per-user-login.md` for the design. Its original
 justification for staying unbuilt (that a host role would reverse a "no auth"
 decision, and that export and delete were gated only by knowing the group code)
@@ -483,13 +537,10 @@ shared token could not express was identity: per-group ownership, unequal
 power between holders, and per-user revocation. `AuthGuard` and
 `OwnershipGuard` now provide exactly that.
 
-Built on branch `worktree-per-user-auth`, not yet merged. The sequencing the
-owner set on 2026-09-08 — behind the current build being validated in real
-sessions, since authentication touches every route and changing it while the
-core is unproven would give any later fault two plausible causes — governs the
-*merge*, not the build. The branch sits finished and unmerged until that
-validation has actually happened; see B12's own entry in the backlog for what
-"validated" means concretely.
+It was built on branch `worktree-per-user-auth` and held unmerged behind the
+sequencing the owner set on 2026-09-08. Authentication touches every route,
+so changing it while the core was unproven would have given any later fault
+two plausible causes. The branch merged into `main` on 2026-09-12 (`559ea5a`).
 
 A separate audit on 2026-09-07 found 35 issues across the engine, the API and
 the docs, all since implemented; it is archived at

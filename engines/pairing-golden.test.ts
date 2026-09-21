@@ -1,7 +1,7 @@
 /**
  * Golden fixture for today's doubles-only behaviour, recorded from
  * `generateRound` before the per-court-size generalization (see
- * docs/2026-09-05-review-and-v2-backlog.md and the singles/doubles design
+ * docs/archive/plans/2026-09-05-review-and-v2-backlog.md and the singles/doubles design
  * work). Every entry here is committed output, not a re-derived expectation —
  * the refactor that follows must reproduce it exactly, byte for byte.
  *

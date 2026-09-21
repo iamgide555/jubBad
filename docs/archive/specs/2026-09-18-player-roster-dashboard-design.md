@@ -1,5 +1,14 @@
 # Player roster dashboard — design
 
+Status: Implemented and merged (`797d182`, 2026-09-18). Archived 2026-09-21.
+Plan: `docs/archive/plans/2026-09-18-player-roster-dashboard.md`.
+
+> **Changed after merge.** The "Table columns" list below describes the
+> first build. Since `9380fe3`, age, email and phone appear only as inputs
+> while a row is being edited, not as columns in the row view. An in-progress
+> edit is also now guarded against navigation, which this design did not
+> cover. See the plan's "Implementation Notes (post-merge)".
+
 **Goal:** Give a host a per-group screen to view and edit player contact
 info (name, age, email, phone), alongside a rating/win-rate ranking.
 Host-only — no self-service edit link for players, since a player

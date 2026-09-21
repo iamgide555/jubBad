@@ -1,5 +1,7 @@
 # Player Roster Dashboard Implementation Plan
 
+Status: Implemented and merged (`797d182`, 2026-09-18). Archived 2026-09-21.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Give a host a page per group (`/g/:groupCode/players`) to view and inline-edit each player's name/age/email/phone, with a rank/rating/win-rate column set — host-only, never reachable by an anonymous or non-owning caller.
@@ -8,7 +10,7 @@
 
 **Tech Stack:** NestJS + Prisma + class-validator (server), Angular 22 standalone components + signals + `FormsModule` (web), Vitest (both).
 
-**Spec:** `docs/superpowers/specs/2026-09-18-player-roster-dashboard-design.md`
+**Spec:** `docs/archive/specs/2026-09-18-player-roster-dashboard-design.md`
 
 ## Global Constraints
 
@@ -1310,3 +1312,29 @@ Expected: PASS — `test:engines`, `server` (`vitest run`), and `web` (`ng test`
 Start the server (`cd server && npm run start:dev`) and the web app (`cd web && npm start`), log in as a host, open an existing group's `/g/:groupCode`, click "จัดการผู้เล่น →", confirm the table loads, edit a player's age/email/phone and save, confirm the row updates, click a rating/win% column header and confirm the sort order and rank column change together.
 
 No commit for this task — it is a checkpoint, not a code change.
+
+---
+
+## Implementation Notes (post-merge)
+
+Tasks 1–10 landed one commit each as planned (`a23c76d` through `64de21a`),
+merged in `797d182`. Three follow-up fixes changed the page after merge, and
+two of them depart from this plan and its spec:
+
+- **Contact columns are no longer shown in the row view** (`9380fe3`).
+  Age, email and phone appear only as inputs while a row is being edited. The
+  collapsed row is ลำดับ, ชื่อ, เรตติ้งคู่, เรตติ้งเดี่ยว, อัตราชนะ, then the edit
+  button. The spec's table-columns list describes the earlier layout.
+- **An in-progress edit is guarded against navigation** (`9a62d47`, `199986e`).
+  Other rows' edit buttons and the back link are disabled while a row is being
+  edited. A `CanDeactivate` route guard (`web/src/app/core/can-deactivate.guard.ts`)
+  and a `beforeunload` handler cover what the disabled link could not: browser
+  back, swipe-back, a typed URL, reload and tab close. The plan had no guard
+  at all.
+- Accessibility pass in the same fix (`9a62d47`): `aria-sort` on the three
+  sortable headers, `scope="col"` on every header, and an sr-only label on the
+  actions column. The active sort header changed from `--accent-ink` to `--ink`,
+  because the accent color is reserved for "act now".
+
+The checkboxes above were left unticked during the build; the commits are the
+record of what was done. Task 11's manual check is not recorded anywhere.

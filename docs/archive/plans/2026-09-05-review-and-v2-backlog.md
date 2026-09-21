@@ -15,6 +15,15 @@ the spec the project had already written for itself) and **B. v2 candidates**
 > rather than remapped, since this is a point-in-time review; the original is
 > `git show 0aac515:PROJECT.md`.
 
+> **Archived 2026-09-21.** Every work item here is built, and B12 is no
+> longer unmerged: `worktree-per-user-auth` merged into `main` on 2026-09-12
+> (`559ea5a`). Wherever this file says B12 "sits on an unmerged branch", it
+> is out of date; those passages are kept as written, because they explain
+> why the merge was held. B13 (fixed fours) and B14 (credit when a player is
+> added mid-session) are not work items. Both carry forward into
+> `docs/2026-09-21-feature-review-and-roadmap.md`, which is now the list of
+> what is still open.
+
 **Status:** everything in this document is built, including B12 as of
 2026-09-12 — see its entry for why it sits on an unmerged branch rather than
 `main`. Suite: 52 engine + 78 server + 100 web = 230 tests, all passing, both

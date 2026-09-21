@@ -68,6 +68,60 @@ Two consequences:
 - **Accounts and data.** Per-host login with ownership per group, admin
   console, export and delete, backup scripts, PWA manifest, Thai and English.
 
+## Strengths against competitors
+
+A second, wider pass on 2026-09-21 covered about twenty products:
+
+- **Thai:** T-BAD, PlayMatch, BC COURT, Qcourt (Thai developer, English-only
+  UI), Bad-Web Plus (a find-a-group directory, not a session tool), BotBad (a
+  hobby LINE bot) and จัดก๊วนแบด (a cost calculator).
+- **International:** Racket Social, Kiki-match, ShuttleFlow, PaQueueKa, Shuttl,
+  Queue Master, Matcherfy, Ladderly, Doubles Team Maker, BPQ (open source),
+  Reclub, GroupSlam and Badminton Match Manager.
+
+Same caveat as above: this is what each product advertises. Two of them could
+do more than their pages say, and are worth a hands-on test before any claim
+goes into a pitch: PlayMatch (its "Weight ผู้เล่นให้มีความ Balance" is not
+explained) and Kiki-match (its weights include partner and opponent variety).
+
+### Where JubBad is stronger
+
+| JubBad | Closest thing any competitor advertises |
+|---|---|
+| **Partner and opponent variety counted across every session the group has played** | Racket Social varies partners "across the session", using simulated annealing within one session. PaQueueKa and Doubles Team Maker avoid *back-to-back* repeats. BC COURT has a duplicate-pair check ("เช็คคู่ซ้ำ"), scope not stated. Kiki-match weighs variety from its history, but it lives in one browser, and whether it spans days is not stated. T-BAD's modes are longest wait, same level, ±1 level or random, with no partner variety at all. |
+| **Pairing search quality**: exact for up to eight players on court; repeats counted, not yes/no; partner repeats ranked strictly above opponent repeats | Most say "smart random" (PlayMatch "สุ่มคู่อัจฉริยะ", T-BAD "สุ่มจับคู่"). Kiki-match has adjustable weights (0–100). |
+| **Reads the full LINE message**: date, time, venue, court count, waitlist (สำรอง) and notes, with nothing silently dropped | T-BAD reads names only, and deletes "ข้อความอื่น" (other text). Queue Master and BPQ take a pasted list of names. Everyone else adds players one at a time or has them self-register. |
+| **Thai nickname matching against known players**, so a player's history follows them from week to week | Not advertised by anyone |
+| **Undo per court**, several steps back | Not advertised by anyone |
+| **Fairness for late arrivals and rests**: wait counted from when the player arrived; games credited when they return | Racket Social says it "handles" late arrivals. T-BAD has a rest/return status. Nobody describes crediting games. |
+| **Singles and doubles mixed per court**, in the same session | T-BAD and Qcourt support both formats; mixing them per court is not stated. Kiki-match is doubles only. |
+| **History stored on the server**: survives a lost phone, and shared recap links read from it | T-BAD ("ข้อมูลก๊วนเก็บอยู่ในเครื่อง", data kept on the device), Kiki-match, Racket Social and Qcourt keep data on one device. |
+| **No player accounts, no bot** | PaQueueKa, Reclub and Matcherfy have player accounts. BotBad sits in the group chat and listens. |
+
+The first row is the one to lead with. No competitor's public material claims
+history-weighted variety across sessions. It also answers the most common
+complaint in a casual group: "I always play with the same person".
+
+### Where JubBad is weaker
+
+| Gap | Who has it | Roadmap item |
+|---|---|---|
+| Skill levels (BG to A+) | T-BAD, Qcourt, BC COURT, PaQueueKa, ShuttleFlow, BPQ, Kiki-match | C1 |
+| Cost split / bill | PlayMatch (with PromptPay), BC COURT, Qcourt, ShuttleFlow, BotBad | C3 |
+| Players join or check the queue on their own phone | Queue Master (QR), PaQueueKa, Shuttl, ShuttleFlow, Matcherfy (push alerts) | C4 |
+| Real-time sync across devices | ShuttleFlow, PaQueueKa, BPQ (websocket) | C7 |
+| Works offline | T-BAD, Racket Social, Qcourt, Kiki-match | C12 (app shell only) |
+| Leaderboard with seasons | T-BAD, PaQueueKa, ShuttleFlow, PlayMatch | C6 |
+| Fixed pairs | T-BAD, Qcourt ("group mode") | C5 |
+| Price | T-BAD, Kiki-match, Racket Social and Qcourt are free; PlayMatch claims 550+ groups | C8 |
+
+### The catch: the strength is invisible on the first night
+
+A host trying apps for one evening cannot see cross-session variety. It only
+shows after weeks. Skill levels and a bill are visible in the first minute.
+So the strongest feature needs two things: a number that proves it (C14), and
+the first-minute gaps closed (C1–C3) so hosts stay long enough to notice it.
+
 ## Checked in code, not assumed
 
 The gaps below were confirmed against the source, not inferred from the docs:
@@ -219,6 +273,28 @@ in `/admin` today, which is fine for the first handful of customers.
 
 Effort M.
 
+#### - [ ] C14. Measure partner variety and show it
+
+This is the one strength no competitor claims (see "Strengths against
+competitors"), and nobody can see it on the first night. Two parts:
+
+1. **Measure it.** Rerun the ten-night simulation already used for B13, with
+   the real engine against two baselines: random pairing, and "avoid a
+   back-to-back repeat" (the rule PaQueueKa and Doubles Team Maker
+   advertise). Report distinct partners per player after 4, 8 and 12 weeks,
+   and the spread between the most-repeated and least-repeated pairs. That
+   gives the pitch a number, not an adjective. It also guards against the
+   engine quietly losing its edge, the same role
+   `engines/pairing-quality.test.ts` plays for search quality.
+2. **Show it.** Put one line on the session summary and the player card, for
+   example "คืนนี้ได้คู่ไม่ซ้ำ N คน" (partnered N different people tonight), or
+   "เดือนนี้ได้เล่นกับ N จาก M คนในก๊วน" (played with N of the group's M
+   players this month). The summary link is what gets shared into LINE, so
+   that line reaches every player, not just the host.
+
+Measuring is S and runs in `engines/` with no schema change. Showing it is S
+on data the summary already loads.
+
 ### P2
 
 #### - [ ] C9. Voice call-out
@@ -278,9 +354,10 @@ Effort M.
 
 ## Suggested order
 
-1. Check pricing against the competitor table (a decision, not code).
+1. Check pricing against the competitor table (a decision, not code), and
+   do C14's measurement. Both shape the pitch before any feature work.
 2. C2, then C1, then C3.
-3. C4, C6, C9: cheap, and players can see them.
+3. C14's summary line, C4, C6, C9: cheap, and players can see them.
 4. C5, C7.
 5. C8 (billing) last.
 
@@ -317,15 +394,29 @@ the within-session spread staying near one game.
 
 ## Sources
 
+Thai:
+
 - T-BAD: [ระบบจัดก๊วน](https://tbadapp.com/th/clubs/manage), [home](https://tbadapp.com/th)
 - PlayMatch: [features](https://www.playmatch.pro/), [packages](https://www.playmatch.pro/packages)
 - [BC COURT](https://www.badcrazy.net/)
+- [Qcourt (App Store)](https://apps.apple.com/ph/app/qcourt/id6757377299)
+- [Bad-Web Plus](https://app.badwebthailand.com/group)
+- [BotBad (GitHub)](https://github.com/Chawengwit/BotBad)
 - [จัดก๊วนแบด (Google Play)](https://play.google.com/store/apps/details?id=cal.badminton.nu.badmintoncalculator&hl=en_US)
 - [Pantip: สูตรคำนวณค่าใช้จ่ายหลังตีแบด](https://pantip.com/topic/41907022/desktop)
+
+International:
+
 - [Racket Social](https://racketsocial.app/)
+- [Kiki-match](https://kiki-match.com/en)
 - [ShuttleFlow](https://shuttleflow.ph/)
-- [Shuttl](https://shuttl.app/)
-- [Qcourt (App Store)](https://apps.apple.com/ph/app/qcourt/id6757377299)
-- [Queue Master](https://queuemaster.site/)
 - [PaQueueKa](https://www.paqueueka.info/)
+- [Shuttl](https://shuttl.app/)
+- [Queue Master](https://queuemaster.site/)
+- [Matcherfy (App Store)](https://apps.apple.com/ph/app/matcherfy/id6535672675)
 - [Ladderly](https://ladderly.online/)
+- [Doubles Team Maker (App Store)](https://apps.apple.com/us/app/-/id6745511996)
+- [BPQ (GitHub)](https://github.com/rein168/BPQ)
+- [Reclub](https://reclub.co/)
+- [Badminton Match Manager (Google Play)](https://play.google.com/store/apps/details?id=info.nichiten.badminton_manager&hl=en_US)
+- [Top free queueing systems (Facebook post, PH)](https://www.facebook.com/bamtintontimeph/posts/top-free-queueing-management-system-for-badminton1-queue-maestro2-queue-master3-/122213574086258703/)

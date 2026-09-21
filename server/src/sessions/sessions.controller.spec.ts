@@ -608,6 +608,7 @@ describe('SessionsController', () => {
         format: 'doubles',
         teamA: [players[0].id, null],
         teamB: [players[1].id, players[2].id],
+        autoStartAt: null,
       });
     } finally {
       await prisma.pairing.deleteMany({ where: { sessionId: sessionCode } });

@@ -215,6 +215,27 @@ export class SessionsService {
     return this.parseOrThrow(() => parseSeats(raw));
   }
 
+  /**
+   * When a pending pairing will auto-confirm, or null when it won't: no
+   * `pendingSince` yet (a row from before this column existed, or one an
+   * undo just cleared), a seat still empty, or a seated player currently
+   * resting. Mirrors `pairingConfirmBlocker`'s own skip conditions exactly,
+   * so this is never shown counting down to a confirm the sweep is actually
+   * going to refuse — checked here against the roster this call already
+   * loaded, rather than by calling that async, DB-hitting method once per
+   * court on every poll of this live-polled endpoint.
+   */
+  private autoStartAtFor(
+    pairing: { teamA: string; teamB: string; pendingSince: Date | null },
+    roster: { playerId: string; active: boolean }[]
+  ): string | null {
+    if (pairing.pendingSince === null) return null;
+    if (emptySeatCount(pairing) > 0) return null;
+    const restingIds = new Set(roster.filter((r) => !r.active).map((r) => r.playerId));
+    if (this.playersOf(pairing).some((id) => restingIds.has(id))) return null;
+    return new Date(pairing.pendingSince.getTime() + AUTO_CONFIRM_DELAY_MS).toISOString();
+  }
+
   async createSession(
     dto: CreateSessionDto,
     caller: { id: string; role: string }
@@ -399,6 +420,7 @@ export class SessionsService {
             format,
             teamA,
             teamB,
+            autoStartAt: this.autoStartAtFor(current, session.roster),
           };
     });
 

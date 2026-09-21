@@ -61,6 +61,19 @@ export interface SessionMatch {
   durationSeconds: number;
 }
 
+/** How long a pending match sits untouched before it confirms itself. */
+export const AUTO_CONFIRM_DELAY_MS = 60_000;
+
+/**
+ * How far back of that moment the auto-confirm backdates `confirmedAt` — an
+ * estimate of how long players take to read the lineup, check with the
+ * host, and walk onto the court once it stops changing. Anchored to
+ * `pendingSince` rather than to when the sweep actually runs, so a slow or
+ * late sweep (a restart, a busy tick) never changes the recorded start
+ * time — see the spec's "Backdating (D5)" section.
+ */
+export const AUTO_CONFIRM_WALK_ON_MS = 30_000;
+
 @Injectable()
 export class SessionsService {
   private readonly lock = new SessionLock();
@@ -697,6 +710,56 @@ export class SessionsService {
     );
   }
 
+  /**
+   * Whether a pending pairing can be confirmed right now — shared by the
+   * manual confirm endpoint (which throws the matching conflict) and the
+   * auto-confirm sweep (which just leaves a blocked pairing pending). One
+   * copy of these two checks is what stops the manual and automatic paths
+   * from silently drifting apart.
+   */
+  private async pairingConfirmBlocker(
+    sessionCode: string,
+    pairing: { teamA: string; teamB: string }
+  ): Promise<
+    | { blocked: false }
+    | { blocked: true; code: 'PAIRING_INCOMPLETE'; details: { emptySeats: number } }
+    | { blocked: true; code: 'PLAYER_UNAVAILABLE'; details: { playerIds: string[] } }
+  > {
+    // A custom-mode draft the host hasn't finished seating. Checked before
+    // availability below: an incomplete team's `playersOf` would otherwise
+    // silently answer "who's here" from a partial roster, and the more basic
+    // fault — this isn't even a full match yet — deserves to surface first.
+    // Everything downstream of confirm (deriveHistory, loadRatings, stats,
+    // export's finishedMatches) relies on a confirmed row never having an
+    // empty seat; this is the one place that guarantee is enforced.
+    const empty = emptySeatCount(pairing);
+    if (empty > 0) {
+      return { blocked: true, code: 'PAIRING_INCOMPLETE', details: { emptySeats: empty } };
+    }
+
+    // Availability is checked here, not when the player was rested. Resting
+    // someone must never disturb a match already being played — they are on
+    // court — but a *pending* proposal is only a suggestion, and confirming it
+    // would put a player who has gone home onto a court. Checking at
+    // confirmation covers both without the host having to remember which
+    // courts had proposals open. The fix is a swap or a reshuffle, both of
+    // which already draw only from active players.
+    const players = this.playersOf(pairing);
+    const unavailable = await this.prisma.sessionRoster.findMany({
+      where: { sessionId: sessionCode, playerId: { in: players }, active: false },
+      select: { playerId: true },
+    });
+    if (unavailable.length > 0) {
+      return {
+        blocked: true,
+        code: 'PLAYER_UNAVAILABLE',
+        details: { playerIds: unavailable.map((r) => r.playerId) },
+      };
+    }
+
+    return { blocked: false };
+  }
+
   private async confirmPairingExclusively(
     sessionCode: string,
     id: string,
@@ -714,34 +777,9 @@ export class SessionsService {
       throw this.conflict('PAIRING_CONFIRMED');
     }
 
-    // A custom-mode draft the host hasn't finished seating. Checked before
-    // availability below: an incomplete team's `playersOf` would otherwise
-    // silently answer "who's here" from a partial roster, and the more basic
-    // fault — this isn't even a full match yet — deserves to surface first.
-    // Everything downstream of confirm (deriveHistory, loadRatings, stats,
-    // export's finishedMatches) relies on a confirmed row never having an
-    // empty seat; this is the one place that guarantee is enforced.
-    const empty = emptySeatCount(pairing);
-    if (empty > 0) {
-      throw this.conflict('PAIRING_INCOMPLETE', { emptySeats: empty });
-    }
-
-    // Availability is checked here, not when the player was rested. Resting
-    // someone must never disturb a match already being played — they are on
-    // court — but a *pending* proposal is only a suggestion, and confirming it
-    // would put a player who has gone home onto a court. Checking at
-    // confirmation covers both without the host having to remember which
-    // courts had proposals open. The fix is a swap or a reshuffle, both of
-    // which already draw only from active players.
-    const players = this.playersOf(pairing);
-    const unavailable = await this.prisma.sessionRoster.findMany({
-      where: { sessionId: sessionCode, playerId: { in: players }, active: false },
-      select: { playerId: true },
-    });
-    if (unavailable.length > 0) {
-      throw this.conflict('PLAYER_UNAVAILABLE', {
-        playerIds: unavailable.map((r) => r.playerId),
-      });
+    const blocker = await this.pairingConfirmBlocker(sessionCode, pairing);
+    if (blocker.blocked) {
+      throw this.conflict(blocker.code, blocker.details);
     }
 
     const updated = await this.prisma.pairing.updateMany({
@@ -757,6 +795,75 @@ export class SessionsService {
       throw this.conflict('PAIRING_STALE');
     }
     return this.prisma.pairing.findUniqueOrThrow({ where: { id } });
+  }
+
+  /**
+   * Sweep entry point, called on a timer by `AutoConfirmScheduler`
+   * (`auto-confirm.ts`) — see the spec's §3. Finds every pairing that has
+   * sat pending for at least `AUTO_CONFIRM_DELAY_MS` and confirms each one
+   * whose lineup is still eligible, one at a time, under that pairing's
+   * session lock so it can never race a manual confirm or edit.
+   *
+   * `now` is a parameter, not `new Date()` inline, so tests can drive it
+   * without waiting on a real clock. Returns the ids it confirmed.
+   */
+  async autoConfirmDue(now: Date = new Date()): Promise<string[]> {
+    const cutoff = new Date(now.getTime() - AUTO_CONFIRM_DELAY_MS);
+    const due = await this.prisma.pairing.findMany({
+      where: { confirmedAt: null, endedAt: null, pendingSince: { not: null, lte: cutoff } },
+    });
+
+    const confirmed: string[] = [];
+    for (const row of due) {
+      try {
+        const ok = await this.lock.run(row.sessionId, () =>
+          this.autoConfirmOneExclusively(row.id, row.revision, row.pendingSince)
+        );
+        if (ok) confirmed.push(row.id);
+      } catch (error) {
+        // One corrupt or unlucky row must never stop the rest of the sweep.
+        console.error(`[auto-confirm] failed to confirm pairing ${row.id}`, error);
+      }
+    }
+    return confirmed;
+  }
+
+  /**
+   * Re-checks everything the outer query took on faith, now that it holds
+   * the session lock: the row can have been confirmed, finished, edited, or
+   * deleted (a group delete does not take this lock — see
+   * `GroupsService.buildDeleteGroupOps`) in the gap between that query and
+   * this write. `pendingSinceAtQuery` is compared by value rather than
+   * trusted as still current, because an edit can rewrite `pendingSince` to
+   * a new `Date` without this call noticing from `revision` alone twice in
+   * the same tick.
+   */
+  private async autoConfirmOneExclusively(
+    id: string,
+    expectedRevision: number,
+    pendingSinceAtQuery: Date | null
+  ): Promise<boolean> {
+    const pairing = await this.prisma.pairing.findUnique({ where: { id } });
+    if (!pairing) return false;
+    if (pairing.confirmedAt !== null || pairing.endedAt !== null) return false;
+    if (pairing.revision !== expectedRevision) return false;
+    if (
+      pairing.pendingSince === null ||
+      pendingSinceAtQuery === null ||
+      pairing.pendingSince.getTime() !== pendingSinceAtQuery.getTime()
+    ) {
+      return false;
+    }
+
+    const blocker = await this.pairingConfirmBlocker(pairing.sessionId, pairing);
+    if (blocker.blocked) return false;
+
+    const confirmedAt = new Date(pairing.pendingSince.getTime() + AUTO_CONFIRM_WALK_ON_MS);
+    const updated = await this.prisma.pairing.updateMany({
+      where: { id, confirmedAt: null, endedAt: null, revision: expectedRevision },
+      data: { confirmedAt, revision: { increment: 1 } },
+    });
+    return updated.count === 1;
   }
 
   finishPairing(sessionCode: string, id: string, dto: FinishPairingDto) {

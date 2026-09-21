@@ -6,6 +6,7 @@ import { AuthModule } from './auth/auth.module.js';
 import { PrismaModule } from './prisma/prisma.module.js';
 import { GroupsModule } from './groups/groups.module.js';
 import { SessionsModule } from './sessions/sessions.module.js';
+import { AutoConfirmModule } from './sessions/auto-confirm.js';
 
 /**
  * AuthModule registers two global APP_GUARDs (AuthGuard, then OwnershipGuard),
@@ -15,7 +16,7 @@ import { SessionsModule } from './sessions/sessions.module.js';
  * /admin route, which is the only thing gating AdminModule.
  */
 @Module({
-  imports: [AuthModule, PrismaModule, GroupsModule, SessionsModule, AdminModule],
+  imports: [AuthModule, PrismaModule, GroupsModule, SessionsModule, AutoConfirmModule, AdminModule],
   controllers: [AppController],
   providers: [AppService],
 })

@@ -9,6 +9,24 @@ import type { SessionSummary as Summary } from '../../core/session-summary.model
 
 const B = environment.apiBaseUrl;
 
+// jsdom 28's HTMLDialogElement implements no showModal()/close() (an empty
+// subclass — see jsdom's HTMLDialogElement-impl.js). This page now opens one
+// (the host-only shuttle-edit dialog), so the shim is needed here too.
+// Guarded so a future jsdom that implements them takes over.
+beforeAll(() => {
+  if (!HTMLDialogElement.prototype.showModal) {
+    HTMLDialogElement.prototype.showModal = function (this: HTMLDialogElement) {
+      this.setAttribute('open', '');
+    };
+  }
+  if (!HTMLDialogElement.prototype.close) {
+    HTMLDialogElement.prototype.close = function (this: HTMLDialogElement) {
+      this.removeAttribute('open');
+      this.dispatchEvent(new Event('close'));
+    };
+  }
+});
+
 function summary(overrides: Partial<Summary> = {}): Summary {
   return {
     session: {
@@ -314,6 +332,11 @@ describe('SessionSummary', () => {
       expect(text).toContain('ยังไม่ได้บันทึก');
     });
   });
+
+  it('shows no shuttle-edit button for a non-host viewer', async () => {
+    await load(summary());
+    expect((fixture.nativeElement as HTMLElement).querySelector('.shuttle-edit')).toBeNull();
+  });
   });
 
   describe('as the authed host', () => {
@@ -345,6 +368,125 @@ describe('SessionSummary', () => {
       btn.click();
       await new Promise((r) => setTimeout(r, 0));
       expect(writeText).toHaveBeenCalledWith(expect.stringMatching(/\/g\/group1\/p\/p1$/));
+    });
+
+    describe('shuttle-edit button and dialog', () => {
+      function editButton(): HTMLButtonElement | null {
+        return (fixture.nativeElement as HTMLElement).querySelector('.shuttle-edit button');
+      }
+
+      function dialogInputs() {
+        const el = fixture.nativeElement as HTMLElement;
+        return {
+          count: el.querySelector('input[name="shuttleCount"]') as HTMLInputElement | null,
+          price: el.querySelector('input[name="shuttlePrice"]') as HTMLInputElement | null,
+        };
+      }
+
+      function type(input: HTMLInputElement, value: string) {
+        input.value = value;
+        input.dispatchEvent(new Event('input'));
+        fixture.detectChanges();
+      }
+
+      /** NgModel defers its initial DOM write to a microtask on a freshly-mounted control. */
+      async function openDialog(): Promise<void> {
+        editButton()!.click();
+        fixture.detectChanges();
+        await Promise.resolve();
+        fixture.detectChanges();
+      }
+
+      function confirmButton(): HTMLButtonElement {
+        return Array.from(
+          (fixture.nativeElement as HTMLElement).querySelectorAll('button')
+        ).find((b) => b.closest('dialog') && b.textContent?.includes('บันทึก')) as HTMLButtonElement;
+      }
+
+      it('shows the edit button even when nothing is recorded yet, labeled to record', async () => {
+        await load(
+          summary({ session: { ...summary().session, shuttleCount: null, shuttlePriceSatang: null } })
+        );
+        expect(editButton()).not.toBeNull();
+        expect(editButton()!.textContent).toContain('บันทึกลูกแบด');
+      });
+
+      it('labels the edit button to edit once something is recorded', async () => {
+        await load(
+          summary({ session: { ...summary().session, shuttleCount: 12, shuttlePriceSatang: null } })
+        );
+        expect(editButton()!.textContent).toContain('แก้ไขลูกแบด');
+      });
+
+      it('opens the dialog prefilled with the committed values', async () => {
+        await load(
+          summary({ session: { ...summary().session, shuttleCount: 12, shuttlePriceSatang: 8050 } })
+        );
+        await openDialog();
+        const { count, price } = dialogInputs();
+        expect(count!.value).toBe('12');
+        expect(price!.value).toBe('80.50');
+      });
+
+      it('confirming a change POSTs the patch and reloads the summary', async () => {
+        await load(
+          summary({ session: { ...summary().session, shuttleCount: 5, shuttlePriceSatang: null } })
+        );
+        await openDialog();
+        type(dialogInputs().count!, '9');
+
+        confirmButton().click();
+
+        const req = httpMock.expectOne(`${B}/sessions/sess1/shuttle-details`);
+        expect(req.request.body).toEqual({ shuttleCount: 9 });
+        req.flush({ code: 'sess1', shuttleCount: 9, shuttlePriceSatang: null });
+
+        await new Promise((r) => setTimeout(r, 0));
+        fixture.detectChanges();
+        httpMock
+          .expectOne(`${B}/sessions/sess1/summary`)
+          .flush(summary({ session: { ...summary().session, shuttleCount: 9, shuttlePriceSatang: null } }));
+        await new Promise((r) => setTimeout(r, 0));
+        fixture.detectChanges();
+
+        const text =
+          (fixture.nativeElement as HTMLElement).querySelector('.shuttle-summary')?.textContent ?? '';
+        expect(text).toContain('9 ลูก');
+      });
+
+      it('confirming untouched closes the dialog without any POST', async () => {
+        await load(
+          summary({ session: { ...summary().session, shuttleCount: 5, shuttlePriceSatang: null } })
+        );
+        await openDialog();
+
+        confirmButton().click();
+        fixture.detectChanges();
+
+        httpMock.expectNone(`${B}/sessions/sess1/shuttle-details`);
+        expect(dialogInputs().count).toBeNull();
+      });
+
+      it('a failed save keeps the dialog open with an error, without reloading the summary', async () => {
+        await load(
+          summary({ session: { ...summary().session, shuttleCount: 5, shuttlePriceSatang: null } })
+        );
+        await openDialog();
+        type(dialogInputs().count!, '9');
+
+        confirmButton().click();
+        httpMock
+          .expectOne(`${B}/sessions/sess1/shuttle-details`)
+          .flush('error', { status: 500, statusText: 'Server Error' });
+        await new Promise((r) => setTimeout(r, 0));
+        fixture.detectChanges();
+
+        httpMock.expectNone(`${B}/sessions/sess1/summary`);
+        expect((fixture.nativeElement as HTMLElement).textContent).toContain(
+          'บันทึกข้อมูลลูกแบดไม่สำเร็จ'
+        );
+        expect(dialogInputs().count).not.toBeNull();
+      });
     });
   });
 });

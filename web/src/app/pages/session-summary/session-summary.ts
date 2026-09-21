@@ -1,17 +1,22 @@
-import { Component, computed, inject, signal } from '@angular/core';
-import { httpResource } from '@angular/common/http';
+import { Component, computed, inject, signal, viewChild } from '@angular/core';
+import { HttpClient, httpResource } from '@angular/common/http';
 import { ActivatedRoute, RouterLink } from '@angular/router';
+import { firstValueFrom } from 'rxjs';
 import { AuthService } from '../../core/auth.service';
 import { absoluteUrl, copyToClipboard } from '../../core/share-link';
 import { environment } from '../../../environments/environment';
 import { SceneHost } from '../../core/three/scene-host';
 import { formatMinutes } from '../../core/game-duration';
 import { formatShuttlePriceInput } from '../../core/shuttle-money';
+import {
+  ShuttleDetailsDialog,
+  type ShuttleDetailsPatch,
+} from '../../shared/shuttle-details-dialog/shuttle-details-dialog';
 import type { SessionSummary as Summary } from '../../core/session-summary.model';
 
 @Component({
   selector: 'app-session-summary',
-  imports: [RouterLink, SceneHost],
+  imports: [RouterLink, SceneHost, ShuttleDetailsDialog],
   templateUrl: './session-summary.html',
   styleUrl: './session-summary.css',
 })
@@ -61,6 +66,49 @@ export class SessionSummary {
    * from a summary link that might reach anyone.
    */
   protected readonly isHost = signal(false);
+
+  // ---- shuttle count / price editor ----
+  //
+  // This page is otherwise entirely `httpResource` GETs with no
+  // `LiveSessionService` — injecting it here just to reuse its
+  // `setShuttleDetails` would fire an extra `GET /sessions/:code` for every
+  // anonymous visitor (its constructor builds that resource eagerly) and
+  // create a second, possibly-stale copy of the session data next to
+  // `summary().session`. A direct `HttpClient` POST, reloading this page's
+  // own `httpResource` on success, keeps this page's one-fetch identity
+  // intact and costs about ten lines.
+  private readonly http = inject(HttpClient);
+  private readonly shuttleDialog = viewChild<ShuttleDetailsDialog>('shuttleDialog');
+  protected readonly shuttleSaving = signal(false);
+  protected readonly shuttleError = signal<string | null>(null);
+
+  protected openShuttleEditor(): void {
+    this.shuttleError.set(null);
+    this.shuttleDialog()?.open();
+  }
+
+  protected async saveShuttleDetails(patch: ShuttleDetailsPatch): Promise<void> {
+    if (this.shuttleSaving()) return;
+    if (Object.keys(patch).length === 0) {
+      this.shuttleDialog()?.close();
+      return;
+    }
+    this.shuttleSaving.set(true);
+    this.shuttleError.set(null);
+    try {
+      await firstValueFrom(
+        this.http.post(`${environment.apiBaseUrl}/sessions/${this.sessionCode}/shuttle-details`, patch)
+      );
+      this.summaryResource.reload();
+      this.shuttleDialog()?.close();
+    } catch {
+      this.shuttleError.set(
+        $localize`:@@err.shuttleDetails:บันทึกข้อมูลลูกแบดไม่สำเร็จ`
+      );
+    } finally {
+      this.shuttleSaving.set(false);
+    }
+  }
 
   /** The row whose profile link was just copied, so only that row confirms. */
   protected readonly sharedPlayerId = signal<string | null>(null);

@@ -29,6 +29,26 @@
       </p>
     }
 
+    @if (isHost()) {
+      <p class="shuttle-edit">
+        <button type="button" class="ghost" (click)="openShuttleEditor()">
+          @if (s.session.shuttleCount === null && s.session.shuttlePriceSatang === null) {
+            <ng-container i18n="@@summary.shuttleRecord">บันทึกลูกแบด</ng-container>
+          } @else {
+            <ng-container i18n="@@summary.shuttleEdit">แก้ไขลูกแบด</ng-container>
+          }
+        </button>
+      </p>
+      <app-shuttle-details-dialog
+        #shuttleDialog
+        [shuttleCount]="s.session.shuttleCount"
+        [shuttlePriceSatang]="s.session.shuttlePriceSatang"
+        [saving]="shuttleSaving()"
+        [error]="shuttleError()"
+        (confirm)="saveShuttleDetails($event)"
+      />
+    }
+
     @if (s.players.length === 0) {
       <p class="muted" i18n="@@summary.noMatches">ก๊วนนี้ยังไม่มีการแข่งขัน</p>
     } @else {

@@ -1,0 +1,45 @@
+<dialog #dialog class="shuttle-dialog" (close)="onDialogClose()" (cancel)="onCancelAttempt($event)">
+  @if (isOpen()) {
+    <form class="form-card" (ngSubmit)="submit()">
+      <h2>{{ heading() }}</h2>
+      @if (intro()) {
+        <p class="muted">{{ intro() }}</p>
+      }
+      <div class="shuttle-fields">
+        <label>
+          <span i18n="@@shuttle.countLabel">จำนวนที่ใช้ (ลูก)</span>
+          <input
+            type="text"
+            inputmode="numeric"
+            autocomplete="off"
+            placeholder="—"
+            [ngModel]="countText()"
+            (ngModelChange)="onCountInput($event)"
+            [disabled]="saving()"
+            name="shuttleCount"
+          />
+        </label>
+        <label>
+          <span i18n="@@shuttle.priceLabel">ราคาต่อลูก (บาท)</span>
+          <input
+            type="text"
+            inputmode="decimal"
+            autocomplete="off"
+            placeholder="—"
+            [ngModel]="priceText()"
+            (ngModelChange)="onPriceInput($event)"
+            [disabled]="saving()"
+            name="shuttlePrice"
+          />
+        </label>
+      </div>
+      @if (localError() || error()) {
+        <p class="error" role="alert">{{ localError() ?? error() }}</p>
+      }
+      <div class="dialog-actions">
+        <button type="button" class="ghost" [disabled]="saving()" (click)="close()" i18n="@@shuttle.cancel">ยกเลิก</button>
+        <button type="submit" [disabled]="saving()">{{ confirmLabel() }}</button>
+      </div>
+    </form>
+  }
+</dialog>

@@ -11,6 +11,24 @@ import type { Session } from '../../core/session.model';
 
 const B = environment.apiBaseUrl;
 
+// jsdom 28's HTMLDialogElement implements no showModal()/close() (an empty
+// subclass — see jsdom's HTMLDialogElement-impl.js). This dashboard now opens
+// one (the end-session confirm dialog), so the shim is needed here too.
+// Guarded so a future jsdom that implements them takes over.
+beforeAll(() => {
+  if (!HTMLDialogElement.prototype.showModal) {
+    HTMLDialogElement.prototype.showModal = function (this: HTMLDialogElement) {
+      this.setAttribute('open', '');
+    };
+  }
+  if (!HTMLDialogElement.prototype.close) {
+    HTMLDialogElement.prototype.close = function (this: HTMLDialogElement) {
+      this.removeAttribute('open');
+      this.dispatchEvent(new Event('close'));
+    };
+  }
+});
+
 function baseSession(overrides: Partial<Session> = {}): Session {
   return {
     code: 'sess1',
@@ -301,54 +319,30 @@ describe('SessionDashboard', () => {
     expect(text).toContain('ไม่พบก๊วนนี้');
   });
 
-  it('End session button calls endSession and shows the mapped error on failure', async () => {
-    fixture = TestBed.createComponent(SessionDashboard);
-    fixture.detectChanges();
+  /**
+   * The end-session dialog replaced a single unguarded click that used to
+   * fire `/end` immediately (see git history) — this is the direct
+   * regression test for that: opening it must not, by itself, touch the
+   * network at all.
+   */
+  it('clicking จบก๊วน opens the confirm dialog without any HTTP request', async () => {
+    await settled();
+    await openEndDialog();
 
-    httpMock.expectOne(`${B}/sessions/sess1`).flush(baseSession());
-    await new Promise((r) => setTimeout(r, 0));
-    TestBed.tick();
-    httpMock.expectOne(`${B}/groups/group1/players`).flush([]);
-    httpMock.expectOne(`${B}/sessions/sess1/stats?scope=session`).flush([]);
-    await fixture.whenStable();
-    fixture.detectChanges();
-
-    const button = Array.from(
-      (fixture.nativeElement as HTMLElement).querySelectorAll('button')
-    ).find((b) => b.textContent === 'จบก๊วน') as HTMLButtonElement;
-    button.click();
-
-    const req = httpMock.expectOne(`${B}/sessions/sess1/end`);
-    req.flush(
-      { code: 'SESSION_HAS_UNFINISHED_PAIRINGS' },
-      { status: 409, statusText: 'Conflict' }
-    );
-    await new Promise((r) => setTimeout(r, 0));
-    fixture.detectChanges();
-
-    const text2 = (fixture.nativeElement as HTMLElement).textContent ?? '';
-    expect(text2).toContain('ยังมีแมตช์ที่ยังไม่จบ กรุณาบันทึกผลให้ครบก่อน');
+    httpMock.expectNone(`${B}/sessions/sess1/end`);
+    httpMock.expectNone(`${B}/sessions/sess1/shuttle-details`);
+    expect(dialogInputs().count).not.toBeNull();
   });
 
-  it('redirects to the summary screen once the session ends successfully', async () => {
+  it('confirming with blank fields sends only /end, then navigates to the summary', async () => {
     const router = TestBed.inject(Router);
     const navigateSpy = vi.spyOn(router, 'navigateByUrl').mockResolvedValue(true);
-    fixture = TestBed.createComponent(SessionDashboard);
-    fixture.detectChanges();
+    await settled();
+    await openEndDialog();
 
-    httpMock.expectOne(`${B}/sessions/sess1`).flush(baseSession());
-    await new Promise((r) => setTimeout(r, 0));
-    TestBed.tick();
-    httpMock.expectOne(`${B}/groups/group1/players`).flush([]);
-    httpMock.expectOne(`${B}/sessions/sess1/stats?scope=session`).flush([]);
-    await fixture.whenStable();
-    fixture.detectChanges();
+    dialogButtonWith('จบก๊วน').click();
 
-    const button = Array.from(
-      (fixture.nativeElement as HTMLElement).querySelectorAll('button')
-    ).find((b) => b.textContent === 'จบก๊วน') as HTMLButtonElement;
-    button.click();
-
+    httpMock.expectNone(`${B}/sessions/sess1/shuttle-details`);
     const req = httpMock.expectOne(`${B}/sessions/sess1/end`);
     req.flush({ code: 'sess1', endedAt: '2026-09-08T20:00:00.000Z' });
     await new Promise((r) => setTimeout(r, 0));
@@ -364,6 +358,104 @@ describe('SessionDashboard', () => {
     }
 
     expect(navigateSpy).toHaveBeenCalledWith('/s/sess1/summary');
+  });
+
+  it('confirming with a typed shuttle count saves it before ending, then navigates', async () => {
+    const router = TestBed.inject(Router);
+    const navigateSpy = vi.spyOn(router, 'navigateByUrl').mockResolvedValue(true);
+    await settled();
+    await openEndDialog();
+    typeInto(dialogInputs().count!, '12');
+
+    dialogButtonWith('จบก๊วน').click();
+
+    const shuttleReq = httpMock.expectOne(`${B}/sessions/sess1/shuttle-details`);
+    expect(shuttleReq.request.body).toEqual({ shuttleCount: 12 });
+    httpMock.expectNone(`${B}/sessions/sess1/end`);
+    shuttleReq.flush({ code: 'sess1', shuttleCount: 12, shuttlePriceSatang: null });
+    await drainReload(baseSession({ shuttleCount: 12 }));
+
+    const endReq = httpMock.expectOne(`${B}/sessions/sess1/end`);
+    endReq.flush({ code: 'sess1', endedAt: '2026-09-08T20:00:00.000Z' });
+    await drainReload(baseSession({ endedAt: '2026-09-08T20:00:00.000Z', shuttleCount: 12 }));
+
+    expect(navigateSpy).toHaveBeenCalledWith('/s/sess1/summary');
+  });
+
+  it('a failed shuttle save blocks /end and shows the error inside the dialog', async () => {
+    await settled();
+    await openEndDialog();
+    typeInto(dialogInputs().count!, '7');
+
+    dialogButtonWith('จบก๊วน').click();
+    httpMock
+      .expectOne(`${B}/sessions/sess1/shuttle-details`)
+      .flush(
+        { statusCode: 400, message: ['bad'], error: 'Bad Request' },
+        { status: 400, statusText: 'Bad Request' }
+      );
+    await new Promise((r) => setTimeout(r, 0));
+    fixture.detectChanges();
+
+    httpMock.expectNone(`${B}/sessions/sess1/end`);
+    expect((fixture.nativeElement as HTMLElement).textContent).toContain(
+      'บันทึกข้อมูลลูกแบดไม่สำเร็จ'
+    );
+  });
+
+  it('a failed /end (e.g. unfinished pairings) shows the mapped error inside the dialog', async () => {
+    await settled();
+    await openEndDialog();
+
+    dialogButtonWith('จบก๊วน').click();
+    httpMock.expectNone(`${B}/sessions/sess1/shuttle-details`);
+    const req = httpMock.expectOne(`${B}/sessions/sess1/end`);
+    req.flush(
+      { code: 'SESSION_HAS_UNFINISHED_PAIRINGS' },
+      { status: 409, statusText: 'Conflict' }
+    );
+    await new Promise((r) => setTimeout(r, 0));
+    fixture.detectChanges();
+
+    expect((fixture.nativeElement as HTMLElement).textContent).toContain(
+      'ยังมีแมตช์ที่ยังไม่จบ กรุณาบันทึกผลให้ครบก่อน'
+    );
+  });
+
+  /**
+   * Migrated from the inline editor's own pending-state test. The dialog
+   * itself does not guard against a duplicate submit (see
+   * shuttle-details-dialog.ts's comment) — `confirmEndSession`'s own
+   * `if (this.endSessionBusy()) return;` is what stops the second call, so
+   * both clicks are fired back-to-back with no render in between: waiting
+   * for a `detectChanges()` after the first click would write the button's
+   * `disabled` DOM property before the second click, and jsdom's
+   * `<button>.click()` silently no-ops on an already-disabled element —
+   * which would make "only one request" pass even with the guard deleted.
+   */
+  it('disables the dialog and drops a duplicate confirm click without a second /end request', async () => {
+    await settled();
+    await openEndDialog();
+
+    const confirmButton = dialogButtonWith('จบก๊วน');
+    confirmButton.click();
+    confirmButton.click();
+
+    fixture.detectChanges();
+    await Promise.resolve();
+    fixture.detectChanges();
+
+    const { count, price } = dialogInputs();
+    expect(count!.disabled).toBe(true);
+    expect(price!.disabled).toBe(true);
+    expect(dialogButtonWith('จบก๊วน').disabled).toBe(true);
+    expect(dialogButtonWith('ยกเลิก').disabled).toBe(true);
+
+    const reqs = httpMock.match(`${B}/sessions/sess1/end`);
+    expect(reqs.length).toBe(1);
+
+    reqs[0].flush({ code: 'sess1', endedAt: '2026-09-08T20:00:00.000Z' });
+    await drainReload(baseSession({ endedAt: '2026-09-08T20:00:00.000Z' }));
   });
   async function settled(session = baseSession()) {
     fixture = TestBed.createComponent(SessionDashboard);
@@ -382,10 +474,48 @@ describe('SessionDashboard', () => {
     fixture.detectChanges();
   }
 
+  /**
+   * Excludes any button inside the end-session dialog: its confirm button
+   * shares the same "จบก๊วน" text as the opener button that reveals it, so a
+   * plain unscoped match would silently grab whichever one comes first.
+   */
   function buttonWith(text: string): HTMLButtonElement {
     return Array.from(
       (fixture.nativeElement as HTMLElement).querySelectorAll('button')
-    ).find((b) => b.textContent?.includes(text)) as HTMLButtonElement;
+    ).find((b) => !b.closest('dialog') && b.textContent?.includes(text)) as HTMLButtonElement;
+  }
+
+  function dialogButtonWith(text: string): HTMLButtonElement {
+    const dialog = (fixture.nativeElement as HTMLElement).querySelector('dialog')!;
+    return Array.from(dialog.querySelectorAll('button')).find((b) =>
+      b.textContent?.includes(text)
+    ) as HTMLButtonElement;
+  }
+
+  function dialogInputs() {
+    const dialog = (fixture.nativeElement as HTMLElement).querySelector('dialog')!;
+    return {
+      count: dialog.querySelector('input[name="shuttleCount"]') as HTMLInputElement | null,
+      price: dialog.querySelector('input[name="shuttlePrice"]') as HTMLInputElement | null,
+    };
+  }
+
+  function typeInto(input: HTMLInputElement, value: string) {
+    input.value = value;
+    input.dispatchEvent(new Event('input'));
+    fixture.detectChanges();
+  }
+
+  /**
+   * Opens the end-session dialog and flushes the microtask NgModel defers
+   * its initial DOM write to (see shuttle-details-dialog.spec.ts's identical
+   * note) — needed before the dialog's freshly-mounted inputs are readable.
+   */
+  async function openEndDialog(): Promise<void> {
+    buttonWith('จบก๊วน').click();
+    fixture.detectChanges();
+    await Promise.resolve();
+    fixture.detectChanges();
   }
 
   /**
@@ -836,223 +966,4 @@ describe('SessionDashboard', () => {
     for (const r of httpMock.match(`${B}/sessions/sess1/stats?scope=session`)) r.flush([]);
   });
 
-  describe('shuttle count/price editor', () => {
-    function shuttleInputs() {
-      const el = fixture.nativeElement as HTMLElement;
-      return {
-        count: el.querySelector('input[name="shuttleCount"]') as HTMLInputElement,
-        price: el.querySelector('input[name="shuttlePrice"]') as HTMLInputElement,
-      };
-    }
-
-    function type(input: HTMLInputElement, value: string) {
-      input.value = value;
-      input.dispatchEvent(new Event('input'));
-      fixture.detectChanges();
-    }
-
-    it('renders null as blank, distinct from 0', async () => {
-      await settled(baseSession({ shuttleCount: 0, shuttlePriceSatang: null }));
-      const { count, price } = shuttleInputs();
-      expect(count.value).toBe('0');
-      expect(price.value).toBe('');
-    });
-
-    it('renders genuinely blank inputs, not "0" or the text "null", when neither field has ever been recorded', async () => {
-      await settled(baseSession({ shuttleCount: null, shuttlePriceSatang: null }));
-      const { count, price } = shuttleInputs();
-      expect(count.value).toBe('');
-      expect(price.value).toBe('');
-    });
-
-    it('renders a saved price back as baht, not satang', async () => {
-      await settled(baseSession({ shuttleCount: 12, shuttlePriceSatang: 8050 }));
-      const { count, price } = shuttleInputs();
-      expect(count.value).toBe('12');
-      expect(price.value).toBe('80.50');
-    });
-
-    it('hides the save/cancel actions until a field is touched', async () => {
-      await settled();
-      expect(buttonWith('บันทึก')).toBeUndefined();
-      expect(buttonWith('ยกเลิก')).toBeUndefined();
-    });
-
-    it('saves only the field the host actually changed', async () => {
-      await settled(baseSession({ shuttleCount: 5, shuttlePriceSatang: 1000 }));
-      const { count } = shuttleInputs();
-      type(count, '12');
-
-      buttonWith('บันทึก').click();
-      const req = httpMock.expectOne(`${B}/sessions/sess1/shuttle-details`);
-      expect(req.request.body).toEqual({ shuttleCount: 12 });
-      expect(Object.keys(req.request.body as object)).toEqual(['shuttleCount']);
-      req.flush({ code: 'sess1', shuttleCount: 12, shuttlePriceSatang: 1000 });
-      await drainReload(baseSession({ shuttleCount: 12, shuttlePriceSatang: 1000 }));
-
-      // The draft cleared on success, and no save/cancel row remains.
-      expect(buttonWith('บันทึก')).toBeUndefined();
-    });
-
-    it('sends an explicit null when the host clears a field back to blank', async () => {
-      await settled(baseSession({ shuttleCount: 5, shuttlePriceSatang: null }));
-      const { count } = shuttleInputs();
-      type(count, '');
-
-      buttonWith('บันทึก').click();
-      const req = httpMock.expectOne(`${B}/sessions/sess1/shuttle-details`);
-      expect(req.request.body).toEqual({ shuttleCount: null });
-      req.flush({ code: 'sess1', shuttleCount: null, shuttlePriceSatang: null });
-      await drainReload(baseSession());
-    });
-
-    it('converts 80.50 baht to exactly 8050 satang on save', async () => {
-      await settled();
-      const { price } = shuttleInputs();
-      type(price, '80.50');
-
-      buttonWith('บันทึก').click();
-      const req = httpMock.expectOne(`${B}/sessions/sess1/shuttle-details`);
-      expect(req.request.body).toEqual({ shuttlePriceSatang: 8050 });
-      req.flush({ code: 'sess1', shuttleCount: null, shuttlePriceSatang: 8050 });
-      await drainReload(baseSession({ shuttlePriceSatang: 8050 }));
-    });
-
-    it('rejects a price with more than 2 decimal places instead of rounding, without calling the API', async () => {
-      await settled();
-      const { price } = shuttleInputs();
-      type(price, '80.505');
-
-      buttonWith('บันทึก').click();
-      httpMock.expectNone(`${B}/sessions/sess1/shuttle-details`);
-      fixture.detectChanges();
-      expect((fixture.nativeElement as HTMLElement).textContent).toContain(
-        'ราคาต่อลูกต้องไม่ติดลบ และมีทศนิยมไม่เกิน 2 ตำแหน่ง'
-      );
-    });
-
-    it('keeps the draft on a failed save instead of clearing it', async () => {
-      await settled();
-      const { count } = shuttleInputs();
-      type(count, '7');
-
-      buttonWith('บันทึก').click();
-      httpMock
-        .expectOne(`${B}/sessions/sess1/shuttle-details`)
-        .flush({ statusCode: 400, message: ['bad'], error: 'Bad Request' }, { status: 400, statusText: 'Bad Request' });
-      await new Promise((r) => setTimeout(r, 0));
-      fixture.detectChanges();
-
-      const { count: countAfter } = shuttleInputs();
-      expect(countAfter.value).toBe('7');
-      expect((fixture.nativeElement as HTMLElement).textContent).toContain('บันทึกข้อมูลลูกแบดไม่สำเร็จ');
-    });
-
-    it('cancel discards the draft and restores the committed value', async () => {
-      await settled(baseSession({ shuttleCount: 5 }));
-      const { count } = shuttleInputs();
-      type(count, '99');
-      buttonWith('ยกเลิก').click();
-      fixture.detectChanges();
-      // NgModel defers its DOM write (`_updateValue`) to a microtask to avoid
-      // an ExpressionChangedAfterChecked error, so the input's `.value` only
-      // reflects the reverted signal after that microtask has drained.
-      await Promise.resolve();
-      fixture.detectChanges();
-
-      const { count: countAfter } = shuttleInputs();
-      expect(countAfter.value).toBe('5');
-      expect(buttonWith('บันทึก')).toBeUndefined();
-    });
-
-    it('does not let a background refresh clobber an in-progress unsaved edit', async () => {
-      await settled(baseSession({ shuttleCount: 5 }));
-      const { count } = shuttleInputs();
-      type(count, '99');
-
-      // Simulate the window-focus background refresh this dashboard already
-      // polls with — it must not silently overwrite the host's typed draft.
-      window.dispatchEvent(new Event('focus'));
-      // The server now reports a different value from another tab/host.
-      await drainReload(baseSession({ shuttleCount: 42 }));
-
-      const { count: countAfter } = shuttleInputs();
-      expect(countAfter.value).toBe('99');
-    });
-
-    it('the editor stays enabled and functional on an ended session', async () => {
-      await settled(baseSession({ endedAt: '2026-09-08T20:00:00.000Z', shuttleCount: null }));
-      const { count, price } = shuttleInputs();
-      expect(count.disabled).toBe(false);
-      expect(price.disabled).toBe(false);
-
-      type(count, '3');
-      buttonWith('บันทึก').click();
-      const req = httpMock.expectOne(`${B}/sessions/sess1/shuttle-details`);
-      expect(req.request.body).toEqual({ shuttleCount: 3 });
-      req.flush({ code: 'sess1', shuttleCount: 3, shuttlePriceSatang: null });
-      await drainReload(baseSession({ endedAt: '2026-09-08T20:00:00.000Z', shuttleCount: 3 }));
-    });
-
-    /**
-     * Plan step 3 ("Focused Validation") names five frontend test targets:
-     * request units, decimal validation, pending state, draft retention, and
-     * nullable values. This is the "pending state" one — the others already
-     * had coverage above. `saveShuttleDetails()`'s early
-     * `if (this.shuttleDetailsSaving()) return;` guard and the template's
-     * `[disabled]="shuttleDetailsSaving()"` bindings were already correct;
-     * only the test was missing.
-     */
-    it('disables the inputs and Save while a save is pending, and drops a duplicate click without a second request', async () => {
-      await settled(baseSession({ shuttleCount: 5, shuttlePriceSatang: 1000 }));
-      const { count } = shuttleInputs();
-      type(count, '12');
-
-      // Fire both clicks back-to-back, with no detectChanges() in between.
-      // Waiting for a detectChanges() after the first click would write the
-      // button's `disabled` DOM property to true before the second click —
-      // and jsdom's <button>.click() silently no-ops on a disabled element
-      // (see HTMLElement-impl.js's isDisabled() check), which would make the
-      // "only one request" assertion below pass even with
-      // saveShuttleDetails()'s own guard deleted. Clicking twice before any
-      // render lets the second click really reach the (click) handler, so
-      // what actually stops the duplicate is the component's own
-      // `if (this.shuttleDetailsSaving()) return;` (session-dashboard.ts),
-      // not the DOM refusing to dispatch the event.
-      const saveButton = buttonWith('บันทึก');
-      saveButton.click();
-      saveButton.click();
-
-      fixture.detectChanges();
-      // NgModel defers some of its own DOM writes to a microtask (see the
-      // 'cancel discards the draft' test above), so — like that test — a
-      // microtask flush is needed before the disabled state is reliably
-      // observable on the input elements.
-      await Promise.resolve();
-      fixture.detectChanges();
-
-      // Pending: both fields and both actions are disabled so the host
-      // cannot edit or resubmit while the request is in flight.
-      const { count: countWhileSaving, price: priceWhileSaving } = shuttleInputs();
-      expect(countWhileSaving.disabled).toBe(true);
-      expect(priceWhileSaving.disabled).toBe(true);
-      expect(buttonWith('บันทึก').disabled).toBe(true);
-      expect(buttonWith('ยกเลิก').disabled).toBe(true);
-
-      // The component's guard — not any DOM disabled-click suppression — is
-      // what kept the duplicate click from reaching the server.
-      const reqs = httpMock.match(`${B}/sessions/sess1/shuttle-details`);
-      expect(reqs.length).toBe(1);
-      expect(reqs[0].request.body).toEqual({ shuttleCount: 12 });
-
-      reqs[0].flush({ code: 'sess1', shuttleCount: 12, shuttlePriceSatang: 1000 });
-      await drainReload(baseSession({ shuttleCount: 12, shuttlePriceSatang: 1000 }));
-
-      // Settles back into the normal, non-saving state once the single
-      // request resolves.
-      const { count: countAfter } = shuttleInputs();
-      expect(countAfter.disabled).toBe(false);
-      expect(buttonWith('บันทึก')).toBeUndefined();
-    });
-  });
 });

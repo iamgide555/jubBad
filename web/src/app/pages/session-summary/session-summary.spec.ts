@@ -122,7 +122,7 @@ describe('SessionSummary', () => {
     const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
     expect(text).toContain('ยิมกลาง');
     expect(text).toContain('ตั้ม');
-    expect(text).toContain('50%');
+    expect(text).toContain('211');
   });
 
   it('does not show a player match list until their row is tapped', async () => {
@@ -228,19 +228,19 @@ describe('SessionSummary', () => {
     );
   });
 
-  it('expanded match-list row spans all 8 columns — no profile column for a non-host viewer', async () => {
+  it('expanded match-list row spans all 7 columns — no profile column for a non-host viewer', async () => {
     await load(summary());
     fixture.componentInstance['togglePlayer']('p1');
     fixture.detectChanges();
     const cell = (fixture.nativeElement as HTMLElement).querySelector('.matches-row td')!;
-    expect(cell.getAttribute('colspan')).toBe('8');
+    expect(cell.getAttribute('colspan')).toBe('7');
   });
 
   it('does not show the profile column at all', async () => {
     await load(summary());
     const el = fixture.nativeElement as HTMLElement;
     expect(el.querySelector('.profile-cell')).toBeNull();
-    expect(el.querySelectorAll('th').length).toBe(8);
+    expect(el.querySelectorAll('th').length).toBe(7);
   });
 
   it('shows the total play time and average game length for a player', async () => {
@@ -350,12 +350,12 @@ describe('SessionSummary', () => {
       expect(btn.disabled).toBe(false);
     });
 
-    it('expanded match-list row spans all 9 columns, including the profile column', async () => {
+    it('expanded match-list row spans all 8 columns, including the profile column', async () => {
       await load(summary());
       fixture.componentInstance['togglePlayer']('p1');
       fixture.detectChanges();
       const cell = (fixture.nativeElement as HTMLElement).querySelector('.matches-row td')!;
-      expect(cell.getAttribute('colspan')).toBe('9');
+      expect(cell.getAttribute('colspan')).toBe('8');
     });
 
     it('copies the player profile URL when the profile button is tapped', async () => {

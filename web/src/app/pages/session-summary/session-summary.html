@@ -59,7 +59,6 @@
             <th i18n="@@summary.played">เล่น</th>
             <th i18n="@@summary.won">ชนะ</th>
             <th i18n="@@summary.lost">แพ้</th>
-            <th i18n="@@summary.winRate">อัตราชนะ</th>
             <th class="rate-cell" i18n="@@summary.winRateDoubles">อัตราชนะ (คู่)</th>
             <th class="rate-cell" i18n="@@summary.winRateSingles">อัตราชนะ (เดี่ยว)</th>
             <th class="rate-cell" i18n="@@summary.timeTotal">เวลาเล่น</th>
@@ -85,9 +84,6 @@
               <td>{{ row.played }}</td>
               <td>{{ row.won }}</td>
               <td>{{ row.lost }}</td>
-              <td>
-                @if (winPercent(row.played, row.won); as pct) { {{ pct }}% } @else { <span class="no-data">–</span> }
-              </td>
               <td class="rate-cell">
                 @if (row.doubles && winPercent(row.doubles.played, row.doubles.won) !== null) {
                   {{ winPercent(row.doubles.played, row.doubles.won) }}%
@@ -125,7 +121,7 @@
             </tr>
             @if (expandedPlayerId() === row.playerId) {
               <tr class="matches-row">
-                <td [attr.colspan]="isHost() ? 9 : 8">
+                <td [attr.colspan]="isHost() ? 8 : 7">
                   <ul class="match-list">
                     @for (m of row.matches; track m.matchNumber) {
                       <li>

@@ -51,6 +51,7 @@ async function createDisplay(session = baseSession()): Promise<{
   httpMock.expectOne(`${B}/sessions/sess1`).flush(session);
   await new Promise((r) => setTimeout(r, 0));
   TestBed.tick();
+  httpMock.expectOne(`${B}/sessions/sess1/stats?scope=session`).flush([]);
 
   return { fixture, httpMock };
 }

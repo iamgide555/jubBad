@@ -149,3 +149,99 @@ export function fillAllIdleCourts(
   }
   return { courts };
 }
+
+/**
+ * Simulates one night as a discrete-event queue: all 3 courts start together
+ * (the one moment they're genuinely idle at once — mirrors a real session's
+ * opening fill), then whichever court finishes next is refilled on its own
+ * from whoever isn't currently on another court, exactly the shape
+ * `SessionsService.proposeExclusively` uses in production. A court retires
+ * once it reaches `matchesPerCourt` for the night; its players simply become
+ * part of the available pool for whichever court asks next.
+ */
+function runNight(
+  scenario: SimScenario,
+  nightAttendees: PlayerId[],
+  picker: PickerName,
+  partnerCounts: Map<string, number>,
+  opponentCounts: Map<string, number>,
+  lastPartner: Map<PlayerId, PlayerId>,
+  random: () => number
+): void {
+  const gamesPlayedThisSession = new Map<PlayerId, number>();
+  const waitingSince = new Map<PlayerId, number>();
+  for (const id of nightAttendees) waitingSince.set(id, 0);
+  const history: MatchHistory = { partnerCounts, opponentCounts, gamesPlayedThisSession, waitingSince };
+
+  const duration = () =>
+    scenario.minDurationMin + random() * (scenario.maxDurationMin - scenario.minDurationMin);
+
+  const recordMatch = (teamA: [PlayerId, PlayerId], teamB: [PlayerId, PlayerId], at: number): void => {
+    const bump = (map: Map<string, number>, a: PlayerId, b: PlayerId) =>
+      map.set(pairKey(a, b), (map.get(pairKey(a, b)) ?? 0) + 1);
+    bump(partnerCounts, teamA[0], teamA[1]);
+    bump(partnerCounts, teamB[0], teamB[1]);
+    for (const a of teamA) for (const b of teamB) bump(opponentCounts, a, b);
+    lastPartner.set(teamA[0], teamA[1]);
+    lastPartner.set(teamA[1], teamA[0]);
+    lastPartner.set(teamB[0], teamB[1]);
+    lastPartner.set(teamB[1], teamB[0]);
+    for (const p of [...teamA, ...teamB]) {
+      gamesPlayedThisSession.set(p, (gamesPlayedThisSession.get(p) ?? 0) + 1);
+      waitingSince.set(p, at);
+    }
+  };
+
+  const busy = new Set<PlayerId>();
+  const courtMatches = new Array<number>(scenario.courts).fill(0);
+  const events: { court: number; freeAt: number; teamA: [PlayerId, PlayerId]; teamB: [PlayerId, PlayerId] }[] = [];
+  const available = () => nightAttendees.filter((id) => !busy.has(id));
+
+  const { courts: startingCourts } = fillAllIdleCourts(
+    available(),
+    scenario.courts,
+    picker,
+    history,
+    lastPartner,
+    random
+  );
+  startingCourts.forEach((match, court) => {
+    for (const p of [...match.teamA, ...match.teamB]) busy.add(p);
+    events.push({ court, freeAt: duration(), teamA: match.teamA, teamB: match.teamB });
+  });
+
+  while (events.length > 0) {
+    events.sort((a, b) => a.freeAt - b.freeAt);
+    const event = events.shift()!;
+    for (const p of [...event.teamA, ...event.teamB]) busy.delete(p);
+    recordMatch(event.teamA, event.teamB, event.freeAt);
+    courtMatches[event.court] += 1;
+    if (courtMatches[event.court] < scenario.matchesPerCourt) {
+      const { courts } = fillAllIdleCourts(available(), 1, picker, history, lastPartner, random);
+      const match = courts[0];
+      for (const p of [...match.teamA, ...match.teamB]) busy.add(p);
+      events.push({ court: event.court, freeAt: event.freeAt + duration(), teamA: match.teamA, teamB: match.teamB });
+    }
+  }
+}
+
+/** Runs `scenario.nights` nights back to back, carrying partner/opponent
+ *  history across nights exactly as the real server does (it is never reset
+ *  between sessions). Returns a cumulative `partnerCounts` snapshot after
+ *  each night. */
+export function simulateNights(
+  scenario: SimScenario,
+  attendance: PlayerId[][],
+  picker: PickerName,
+  random: () => number
+): Map<string, number>[] {
+  const partnerCounts = new Map<string, number>();
+  const opponentCounts = new Map<string, number>();
+  const lastPartner = new Map<PlayerId, PlayerId>();
+  const snapshots: Map<string, number>[] = [];
+  for (const nightAttendees of attendance) {
+    runNight(scenario, nightAttendees, picker, partnerCounts, opponentCounts, lastPartner, random);
+    snapshots.push(new Map(partnerCounts));
+  }
+  return snapshots;
+}

@@ -16,6 +16,7 @@ import {
   pickNoBackToBackSplit,
   pickRandomSplit,
   playerIdsFor,
+  simulateNights,
 } from './variety-sim.ts';
 
 function emptyHistory(ids: string[]): MatchHistory {
@@ -123,3 +124,32 @@ for (const picker of ['engine', 'random', 'no-back-to-back'] as const) {
     assert.equal(new Set([...teamA, ...teamB]).size, 4);
   });
 }
+
+test('simulateNights plays exactly courts * matchesPerCourt matches per night', () => {
+  const attendance = generateAttendance(DEFAULT_SCENARIO, makeSeededRandom(3));
+  const snapshots = simulateNights(DEFAULT_SCENARIO, attendance, 'engine', makeSeededRandom(11));
+
+  assert.equal(snapshots.length, DEFAULT_SCENARIO.nights);
+
+  const totalPairCount = (m: Map<string, number>) => [...m.values()].reduce((a, b) => a + b, 0);
+  const matchesPerNight = DEFAULT_SCENARIO.courts * DEFAULT_SCENARIO.matchesPerCourt;
+  assert.equal(totalPairCount(snapshots[0]), matchesPerNight * 2);
+  assert.equal(totalPairCount(snapshots[1]) - totalPairCount(snapshots[0]), matchesPerNight * 2);
+});
+
+test('simulateNights never lets a cumulative partner count go down night over night', () => {
+  const attendance = generateAttendance(DEFAULT_SCENARIO, makeSeededRandom(3));
+  const snapshots = simulateNights(DEFAULT_SCENARIO, attendance, 'random', makeSeededRandom(12));
+  for (let n = 1; n < snapshots.length; n++) {
+    for (const [key, count] of snapshots[n - 1]) {
+      assert.ok((snapshots[n].get(key) ?? 0) >= count, `${key} count must not decrease`);
+    }
+  }
+});
+
+test('simulateNights is deterministic for a given attendance and seed', () => {
+  const attendance = generateAttendance(DEFAULT_SCENARIO, makeSeededRandom(3));
+  const a = simulateNights(DEFAULT_SCENARIO, attendance, 'no-back-to-back', makeSeededRandom(13));
+  const b = simulateNights(DEFAULT_SCENARIO, attendance, 'no-back-to-back', makeSeededRandom(13));
+  assert.deepEqual(a.map((m) => [...m.entries()].sort()), b.map((m) => [...m.entries()].sort()));
+});

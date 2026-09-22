@@ -1826,6 +1826,33 @@ export class SessionsService {
     );
   }
 
+  /**
+   * Rotation-fairness credit for a player who is (re)joining the active pool
+   * mid-session: brings them level with whoever is furthest ahead so they
+   * queue alongside everyone else instead of winning every draw until they
+   * catch up. `Math.max` with `currentOffset` so this can only ever add
+   * credit, never take it away — toggling someone off and back on, or a
+   * walk-in joining, must never lower a player into a free turn.
+   *
+   * Shared by `setRosterActiveExclusively` (a returning player) and
+   * `addWalkInExclusively` (someone joining for the first time tonight) — see
+   * B14 in docs/archive/plans/2026-09-05-review-and-v2-backlog.md for why
+   * both paths must use identical arithmetic.
+   */
+  private rotationCredit(
+    gamesPlayedThisSession: Map<string, number>,
+    activeOtherIds: string[],
+    ownId: string,
+    currentOffset: number
+  ): number {
+    const highest = activeOtherIds.reduce(
+      (max, id) => Math.max(max, gamesPlayedThisSession.get(id) ?? 0),
+      0
+    );
+    const own = gamesPlayedThisSession.get(ownId) ?? 0;
+    return Math.max(currentOffset, highest - own + currentOffset);
+  }
+
   private async setRosterActiveExclusively(
     sessionCode: string,
     playerId: string,
@@ -1858,12 +1885,12 @@ export class SessionsService {
         where: { sessionId: sessionCode, active: true, playerId: { not: playerId } },
         select: { playerId: true },
       });
-      const highest = others.reduce(
-        (max, o) => Math.max(max, history.gamesPlayedThisSession.get(o.playerId) ?? 0),
-        0
+      gamesOffset = this.rotationCredit(
+        history.gamesPlayedThisSession,
+        others.map((o) => o.playerId),
+        playerId,
+        entry.gamesOffset
       );
-      const own = history.gamesPlayedThisSession.get(playerId) ?? 0;
-      gamesOffset = Math.max(entry.gamesOffset, highest - own + entry.gamesOffset);
     }
 
     const result = await this.prisma.sessionRoster.updateMany({

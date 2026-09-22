@@ -978,6 +978,65 @@ describe('SessionsController', () => {
     }
   });
 
+  it('credits a returning player up to the highest active games-played count', async () => {
+    const groupCode = randomUUID();
+    const sessionCode = randomUUID();
+    await prisma.group.create({ data: { code: groupCode, name: 'G' } });
+    const players = await Promise.all(
+      ['A', 'B', 'C', 'D', 'E'].map((name) =>
+        prisma.player.create({ data: { groupId: groupCode, name, aliases: '[]' } })
+      )
+    );
+    await prisma.session.create({
+      data: { code: sessionCode, groupId: groupCode, courtCount: 1, rawImportText: '' },
+    });
+    for (const p of players) {
+      await prisma.sessionRoster.create({ data: { sessionId: sessionCode, playerId: p.id } });
+    }
+
+    try {
+      // Rest E immediately, then have A, B, C, D each finish 2 confirmed matches
+      // (one court, doubles) before E returns.
+      await request(server)
+        .post(`/sessions/${sessionCode}/roster/${players[4].id}/active`)
+        .send({ active: false })
+        .expect(201);
+
+      for (let i = 0; i < 2; i++) {
+        const proposed = await request(server)
+          .post(`/sessions/${sessionCode}/courts/1/propose`)
+          .expect(201);
+        const pairingId = proposed.body.pairing.id;
+        await request(server)
+          .post(`/sessions/${sessionCode}/pairings/${pairingId}/confirm`)
+          .send({ expectedRevision: proposed.body.pairing.revision })
+          .expect(201);
+        await request(server)
+          .post(`/sessions/${sessionCode}/pairings/${pairingId}/finish`)
+          .send({ scoreA: null, scoreB: null, winner: null })
+          .expect(201);
+      }
+
+      await request(server)
+        .post(`/sessions/${sessionCode}/roster/${players[4].id}/active`)
+        .send({ active: true })
+        .expect(201);
+
+      const entry = await prisma.sessionRoster.findUniqueOrThrow({
+        where: { sessionId_playerId: { sessionId: sessionCode, playerId: players[4].id } },
+      });
+      // A..D each played 2 games; E played 0 before returning, so E's credit
+      // must bring them level: highest (2) - own (0) + currentOffset (0) = 2.
+      expect(entry.gamesOffset).toBe(2);
+    } finally {
+      await prisma.pairing.deleteMany({ where: { sessionId: sessionCode } });
+      await prisma.sessionRoster.deleteMany({ where: { sessionId: sessionCode } });
+      await prisma.session.deleteMany({ where: { code: sessionCode } });
+      await prisma.player.deleteMany({ where: { groupId: groupCode } });
+      await prisma.group.deleteMany({ where: { code: groupCode } });
+    }
+  });
+
   it('lets a match already under way play out when one of its players is rested', async () => {
     const groupCode = randomUUID();
     const sessionCode = randomUUID();

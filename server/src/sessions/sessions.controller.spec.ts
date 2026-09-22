@@ -1331,6 +1331,80 @@ describe('SessionsController', () => {
         await prisma.group.deleteMany({ where: { code: { in: [groupCode, otherGroupCode] } } });
       }
     });
+
+    it('creates a new player when given a name', async () => {
+      const groupCode = randomUUID();
+      const sessionCode = randomUUID();
+      await prisma.group.create({ data: { code: groupCode, name: 'G' } });
+      await prisma.session.create({
+        data: { code: sessionCode, groupId: groupCode, courtCount: 1, rawImportText: '' },
+      });
+
+      try {
+        const res = await request(server)
+          .post(`/sessions/${sessionCode}/roster`)
+          .send({ name: 'สมชาย' })
+          .expect(201);
+        const playerId = res.body.playerId as string;
+        expect(typeof playerId).toBe('string');
+
+        const player = await prisma.player.findUniqueOrThrow({ where: { id: playerId } });
+        expect(player.groupId).toBe(groupCode);
+        expect(player.name).toBe('สมชาย');
+        expect(JSON.parse(player.aliases)).toEqual([]);
+
+        const entry = await prisma.sessionRoster.findUniqueOrThrow({
+          where: { sessionId_playerId: { sessionId: sessionCode, playerId } },
+        });
+        expect(entry.active).toBe(true);
+      } finally {
+        await prisma.sessionRoster.deleteMany({ where: { sessionId: sessionCode } });
+        await prisma.session.deleteMany({ where: { code: sessionCode } });
+        await prisma.player.deleteMany({ where: { groupId: groupCode } });
+        await prisma.group.deleteMany({ where: { code: groupCode } });
+      }
+    });
+
+    it('refuses with 400 when both playerId and name are given', async () => {
+      const groupCode = randomUUID();
+      const sessionCode = randomUUID();
+      await prisma.group.create({ data: { code: groupCode, name: 'G' } });
+      const player = await prisma.player.create({
+        data: { groupId: groupCode, name: 'A', aliases: '[]' },
+      });
+      await prisma.session.create({
+        data: { code: sessionCode, groupId: groupCode, courtCount: 1, rawImportText: '' },
+      });
+
+      try {
+        const res = await request(server)
+          .post(`/sessions/${sessionCode}/roster`)
+          .send({ playerId: player.id, name: 'สมชาย' })
+          .expect(400);
+        expect(res.body.code).toBe('ROSTER_ADD_INVALID_INPUT');
+      } finally {
+        await prisma.session.deleteMany({ where: { code: sessionCode } });
+        await prisma.player.deleteMany({ where: { groupId: groupCode } });
+        await prisma.group.deleteMany({ where: { code: groupCode } });
+      }
+    });
+
+    it('refuses with 400 when neither playerId nor name are given', async () => {
+      const groupCode = randomUUID();
+      const sessionCode = randomUUID();
+      await prisma.group.create({ data: { code: groupCode, name: 'G' } });
+      await prisma.session.create({
+        data: { code: sessionCode, groupId: groupCode, courtCount: 1, rawImportText: '' },
+      });
+
+      try {
+        const res = await request(server).post(`/sessions/${sessionCode}/roster`).send({}).expect(400);
+        expect(res.body.code).toBe('ROSTER_ADD_INVALID_INPUT');
+      } finally {
+        await prisma.session.deleteMany({ where: { code: sessionCode } });
+        await prisma.group.deleteMany({ where: { code: groupCode } });
+      }
+    });
   });
 
   it('undoes a finish, putting the match back on court', async () => {

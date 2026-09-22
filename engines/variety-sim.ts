@@ -245,3 +245,55 @@ export function simulateNights(
   }
   return snapshots;
 }
+
+export interface NightMetrics {
+  meanDistinctPartners: number;
+  pairSpread: number;
+  neverMetShare: number;
+}
+
+/**
+ * `night` sets the "attended at least half the nights so far" threshold for
+ * the spread metric — a pair that only shared one or two nights together
+ * hasn't had a fair chance to vary yet, and would otherwise dominate the
+ * spread with noise rather than signal.
+ */
+export function metricsAtNight(
+  partnerCounts: Map<string, number>,
+  coAttendance: Map<string, number>,
+  playerIds: PlayerId[],
+  night: number
+): NightMetrics {
+  let totalDistinct = 0;
+  for (const p of playerIds) {
+    let distinct = 0;
+    for (const q of playerIds) {
+      if (p === q) continue;
+      if ((partnerCounts.get(pairKey(p, q)) ?? 0) > 0) distinct++;
+    }
+    totalDistinct += distinct;
+  }
+  const meanDistinctPartners = totalDistinct / playerIds.length;
+
+  const threshold = Math.ceil(night / 2);
+  let min = Infinity;
+  let max = -Infinity;
+  let totalPairs = 0;
+  let neverMet = 0;
+  for (let i = 0; i < playerIds.length; i++) {
+    for (let j = i + 1; j < playerIds.length; j++) {
+      const key = pairKey(playerIds[i], playerIds[j]);
+      const count = partnerCounts.get(key) ?? 0;
+      totalPairs++;
+      if (count === 0) neverMet++;
+      if ((coAttendance.get(key) ?? 0) >= threshold) {
+        if (count < min) min = count;
+        if (count > max) max = count;
+      }
+    }
+  }
+  const pairSpread = Number.isFinite(min) ? max - min : 0;
+  const neverMetShare = neverMet / totalPairs;
+
+  return { meanDistinctPartners, pairSpread, neverMetShare };
+}

@@ -13,6 +13,7 @@ import {
   fillAllIdleCourts,
   generateAttendance,
   makeSeededRandom,
+  metricsAtNight,
   pickNoBackToBackSplit,
   pickRandomSplit,
   playerIdsFor,
@@ -152,4 +153,38 @@ test('simulateNights is deterministic for a given attendance and seed', () => {
   const a = simulateNights(DEFAULT_SCENARIO, attendance, 'no-back-to-back', makeSeededRandom(13));
   const b = simulateNights(DEFAULT_SCENARIO, attendance, 'no-back-to-back', makeSeededRandom(13));
   assert.deepEqual(a.map((m) => [...m.entries()].sort()), b.map((m) => [...m.entries()].sort()));
+});
+
+test('metricsAtNight computes distinct partners, spread and never-met share by hand', () => {
+  // Four players, p0..p3. Partner counts: p0-p1 met 3 times, p0-p2 met once,
+  // p2-p3 met once. p0-p3 and p1-p2 and p1-p3 never met.
+  const partnerCounts = new Map([
+    ['p0|p1', 3],
+    ['p0|p2', 1],
+    ['p2|p3', 1],
+  ]);
+  // All 3 pairs among p0..p2 co-attended >= half of 4 nights; p3 only ever
+  // co-attended with p2, twice.
+  const coAttendance = new Map([
+    ['p0|p1', 4],
+    ['p0|p2', 4],
+    ['p0|p3', 0],
+    ['p1|p2', 4],
+    ['p1|p3', 0],
+    ['p2|p3', 2],
+  ]);
+  const players = ['p0', 'p1', 'p2', 'p3'];
+
+  const m = metricsAtNight(partnerCounts, coAttendance, players, 4);
+
+  // distinct partners: p0 has 2 (p1, p2), p1 has 1 (p0), p2 has 2 (p0, p3),
+  // p3 has 1 (p2) -> mean = (2 + 1 + 2 + 1) / 4 = 1.5
+  assert.equal(m.meanDistinctPartners, 1.5);
+
+  // threshold = ceil(4/2) = 2. Qualifying pairs: p0|p1 (4), p0|p2 (4),
+  // p1|p2 (4), p2|p3 (2). Counts among those: 3, 1, 0, 1 -> spread = 3 - 0 = 3.
+  assert.equal(m.pairSpread, 3);
+
+  // 6 total pairs, 3 never met (p0|p3, p1|p2, p1|p3) -> 3/6 = 0.5
+  assert.equal(m.neverMetShare, 0.5);
 });

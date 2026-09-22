@@ -40,6 +40,9 @@
         >{{ p.name }}</button>
       }
     </div>
+    @if (!ended()) {
+      <button type="button" class="ghost" data-add-walk-in (click)="openWalkInDialog()" i18n="@@dashboard.addWalkIn">+ เพิ่มคน</button>
+    }
     @if (rosterError()) {
       <p class="error">{{ rosterError() }}</p>
     }
@@ -172,6 +175,15 @@
         (confirm)="confirmEndSession($event)"
       />
     }
+
+    <app-add-walk-in-dialog
+      #walkInDialog
+      [players]="players()"
+      [excludedIds]="rosterPlayerIds()"
+      [saving]="walkInSaving()"
+      [error]="walkInError()"
+      (add)="submitWalkIn($event)"
+    />
   </div>
 } @else {
   <div class="page">

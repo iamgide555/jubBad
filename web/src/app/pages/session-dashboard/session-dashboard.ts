@@ -16,6 +16,7 @@ import {
   ShuttleDetailsDialog,
   type ShuttleDetailsPatch,
 } from '../../shared/shuttle-details-dialog/shuttle-details-dialog';
+import { AddWalkInDialog } from '../../shared/add-walk-in-dialog/add-walk-in-dialog';
 import type { Player } from '../../../../../engines/fuzzy-match.ts';
 import type { PlayerStat } from '../../core/stats.model';
 
@@ -29,6 +30,7 @@ import type { PlayerStat } from '../../core/stats.model';
     PressDirective,
     RevealDirective,
     ShuttleDetailsDialog,
+    AddWalkInDialog,
   ],
   providers: [LiveSessionService],
   templateUrl: './session-dashboard.html',
@@ -192,6 +194,33 @@ export class SessionDashboard implements OnDestroy {
   }
 
   readonly rosterError = signal<string | null>(null);
+
+  private readonly walkInDialog = viewChild<AddWalkInDialog>('walkInDialog');
+  protected readonly walkInSaving = signal(false);
+  protected readonly walkInError = signal<string | null>(null);
+
+  protected readonly rosterPlayerIds = computed(() => new Set(this.session()?.rosterPlayerIds ?? []));
+
+  protected openWalkInDialog(): void {
+    this.walkInError.set(null);
+    this.walkInDialog()?.open();
+  }
+
+  protected async submitWalkIn(input: { playerId: string } | { name: string }): Promise<void> {
+    this.walkInSaving.set(true);
+    this.walkInError.set(null);
+    const result = await this.liveSession.addWalkIn(input);
+    this.walkInSaving.set(false);
+    if (!result.ok) {
+      this.walkInError.set(result.error ?? null);
+      return;
+    }
+    // A brand-new player from the `name` branch isn't in `playersResource`
+    // yet — an existing-player pick already is, so this reload is a no-op for
+    // that case rather than a correctness requirement.
+    this.playersResource.reload();
+    this.walkInDialog()?.close();
+  }
 
   /** In TS, not an i18n attribute: the label interpolates a player name. */
   restLabel(name: string, resting: boolean): string {

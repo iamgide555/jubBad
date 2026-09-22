@@ -237,6 +237,102 @@ describe('SessionDashboard', () => {
     expect(waiting?.textContent).not.toContain('ตั้ม');
   });
 
+  it('adds an existing player to the roster via the add-walk-in button', async () => {
+    fixture = TestBed.createComponent(SessionDashboard);
+    fixture.detectChanges();
+    httpMock.expectOne(`${B}/sessions/sess1`).flush(baseSession({ rosterPlayerIds: ['p1', 'p2'] }));
+    await new Promise((r) => setTimeout(r, 0));
+    TestBed.tick();
+    httpMock
+      .expectOne(`${B}/groups/group1/players`)
+      .flush([
+        { id: 'p1', name: 'ตั้ม', aliases: [] },
+        { id: 'p2', name: 'เบส', aliases: [] },
+        { id: 'p9', name: 'บอล', aliases: [] },
+      ]);
+    httpMock.expectOne(`${B}/sessions/sess1/stats?scope=session`).flush([]);
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    buttonWith('เพิ่มคน').click();
+    fixture.detectChanges();
+    await Promise.resolve();
+    fixture.detectChanges();
+
+    // Scoped to .walk-in-dialog: the end-session ShuttleDetailsDialog also
+    // keeps its own <dialog> permanently in the DOM (closed, content gated by
+    // its own isOpen()), so an unscoped `querySelector('dialog')` here would
+    // silently grab that one instead — it renders first.
+    const dialog = (fixture.nativeElement as HTMLElement).querySelector('dialog.walk-in-dialog')!;
+    const search = dialog.querySelector('input[name="search"]') as HTMLInputElement;
+    typeInto(search, 'บอล');
+
+    const candidate = dialog.querySelector('[data-candidate]') as HTMLButtonElement;
+    expect(candidate.textContent).toContain('บอล');
+    candidate.click();
+
+    const req = httpMock.expectOne(`${B}/sessions/sess1/roster`);
+    expect(req.request.body).toEqual({ playerId: 'p9' });
+    req.flush({ playerId: 'p9' });
+
+    // Two independent triggers now chase the players list: submitWalkIn's own
+    // explicit `playersResource.reload()` fires immediately, and the session
+    // reload that addWalkIn's underlying post() helper always issues causes a
+    // second one once it lands (every mutation reloads players/stats via
+    // session() — see statsResource's comment in session-dashboard.ts). Drain
+    // in rounds, the same way drainReload/the "switches to custom mode" test
+    // do, rather than assuming a fixed single-flush sequence.
+    for (let round = 0; round < 5; round++) {
+      await new Promise((r) => setTimeout(r, 0));
+      TestBed.tick();
+      const sessionReqs = httpMock.match(`${B}/sessions/sess1`);
+      const playersReqs = httpMock.match(`${B}/groups/group1/players`);
+      const statsReqs = httpMock.match(`${B}/sessions/sess1/stats?scope=session`);
+      if (sessionReqs.length === 0 && playersReqs.length === 0 && statsReqs.length === 0) break;
+      for (const r of sessionReqs) r.flush(baseSession({ rosterPlayerIds: ['p1', 'p2', 'p9'] }));
+      for (const r of playersReqs) {
+        r.flush([
+          { id: 'p1', name: 'ตั้ม', aliases: [] },
+          { id: 'p2', name: 'เบส', aliases: [] },
+          { id: 'p9', name: 'บอล', aliases: [] },
+        ]);
+      }
+      for (const r of statsReqs) r.flush([]);
+    }
+    fixture.detectChanges();
+
+    expect(
+      fixture.componentInstance.rosterEntries().some((r) => r.id === 'p9' && r.name === 'บอล')
+    ).toBe(true);
+    expect(dialog.hasAttribute('open')).toBe(false);
+  });
+
+  it('shows the server error inside the dialog when adding a walk-in is refused', async () => {
+    await settled();
+
+    buttonWith('เพิ่มคน').click();
+    fixture.detectChanges();
+    await Promise.resolve();
+    fixture.detectChanges();
+
+    // See the note in the previous test: scoped to avoid the end-session
+    // dialog's own always-present <dialog> tag.
+    const dialog = (fixture.nativeElement as HTMLElement).querySelector('dialog.walk-in-dialog')!;
+    const search = dialog.querySelector('input[name="search"]') as HTMLInputElement;
+    typeInto(search, 'ซ้ำ');
+
+    const addNew = dialog.querySelector('[data-add-new]') as HTMLButtonElement;
+    addNew.click();
+
+    const req = httpMock.expectOne(`${B}/sessions/sess1/roster`);
+    expect(req.request.body).toEqual({ name: 'ซ้ำ' });
+    req.flush({ code: 'ROSTER_DUPLICATE' }, { status: 409, statusText: 'Conflict' });
+    await new Promise((r) => setTimeout(r, 0));
+    fixture.detectChanges();
+
+    expect(dialog.querySelector('.error')?.textContent).toContain('ผู้เล่นคนนี้อยู่ในก๊วนแล้ว');
+    expect(dialog.hasAttribute('open')).toBe(true);
+  });
 
   it('renders one CourtPanel per court', async () => {
     fixture = TestBed.createComponent(SessionDashboard);
@@ -731,7 +827,15 @@ describe('SessionDashboard', () => {
    */
   it('adds a court when the later booking slot opens', async () => {
     await settled();
-    buttonWith('+').click();
+    // Not buttonWith('+'): the add-walk-in button's own label ("+ เพิ่มคน")
+    // now also contains '+' and sits earlier in the DOM, so a plain
+    // substring match would grab that one instead of the court-count
+    // stepper. The stepper has a stable, unique aria-label instead.
+    (
+      (fixture.nativeElement as HTMLElement).querySelector(
+        'button[aria-label="เพิ่มจำนวนคอร์ท"]'
+      ) as HTMLButtonElement
+    ).click();
 
     const req = httpMock.expectOne(`${B}/sessions/sess1/court-count`);
     expect(req.request.body).toEqual({ courtCount: 2 });

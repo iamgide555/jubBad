@@ -21,3 +21,7 @@ server/prisma/dev.db-shm
 .impeccable/review/
 .impeccable/mocks/
 .impeccable/build/
+
+# Subagent-driven-development scratch: per-plan ledgers, briefs, review
+# packages. The git history is the durable record once a plan finishes.
+.superpowers/

@@ -1,4 +1,5 @@
 import { Body, Controller, Get, Param, ParseIntPipe, Post, Query, Req } from '@nestjs/common';
+import { AddWalkInDto } from './dto/add-walk-in.dto.js';
 import { CreateSessionDto } from './dto/create-session.dto.js';
 import { FinishPairingDto } from './dto/finish-pairing.dto.js';
 import { PairingRevisionDto } from './dto/pairing-revision.dto.js';
@@ -118,6 +119,11 @@ export class SessionsController {
     @Body() dto: PairingRevisionDto
   ) {
     return this.sessionsService.autoPair(code, id, dto.expectedRevision);
+  }
+
+  @Post(':code/roster')
+  addWalkIn(@Param('code') code: string, @Body() dto: AddWalkInDto) {
+    return this.sessionsService.addWalkIn(code, dto);
   }
 
   @Post(':code/roster/:playerId/active')

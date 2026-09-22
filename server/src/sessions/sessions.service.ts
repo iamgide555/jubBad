@@ -39,6 +39,7 @@ import {
   type Seat,
 } from './pairing-teams.js';
 import { SessionLock } from './session-lock.js';
+import type { AddWalkInDto } from './dto/add-walk-in.dto.js';
 import type { CreateSessionDto, NameReviewDto } from './dto/create-session.dto.js';
 import type { FinishPairingDto } from './dto/finish-pairing.dto.js';
 import type { SetCourtCountDto } from './dto/set-court-count.dto.js';
@@ -1924,6 +1925,71 @@ export class SessionsService {
     }
 
     return { playerId: updated.playerId, active: updated.active };
+  }
+
+  addWalkIn(sessionCode: string, dto: AddWalkInDto) {
+    return this.lock.run(sessionCode, () => this.addWalkInExclusively(sessionCode, dto));
+  }
+
+  /**
+   * Adds someone who is not on tonight's pasted roster to a session already
+   * under way — either an existing group player (`playerId`) or a brand-new
+   * one (`name`). Must credit `gamesOffset` exactly like a returning player
+   * (`rotationCredit`, shared with `setRosterActiveExclusively`) or the
+   * walk-in wins every rotation draw until they catch up — see B14 in
+   * docs/archive/plans/2026-09-05-review-and-v2-backlog.md.
+   *
+   * Deliberately does not touch the Waitlist table (a walk-in who happens to
+   * be on tonight's waitlist just gets a second, independent roster row; the
+   * waitlist row stays as a record) or any open Pairing (a brand-new roster
+   * row cannot already be seated on a court, so there is nothing to rewrite —
+   * unlike setRosterActiveExclusively's resting/returning path).
+   */
+  private async addWalkInExclusively(sessionCode: string, dto: AddWalkInDto) {
+    if (Boolean(dto.playerId) === Boolean(dto.name)) {
+      throw this.badRequest('ROSTER_ADD_INVALID_INPUT');
+    }
+
+    const session = await this.prisma.session.findUnique({ where: { code: sessionCode } });
+    if (!session) throw this.notFound('SESSION_NOT_FOUND');
+    if (session.endedAt !== null) throw this.conflict('SESSION_ENDED');
+
+    let playerId: string;
+    if (dto.playerId) {
+      const player = await this.prisma.player.findUnique({ where: { id: dto.playerId } });
+      if (!player || player.groupId !== session.groupId) {
+        throw this.notFound('ROSTER_PLAYER_NOT_FOUND');
+      }
+      playerId = player.id;
+    } else {
+      playerId = randomUUID();
+      await this.prisma.player.create({
+        data: { id: playerId, groupId: session.groupId, name: dto.name!, aliases: '[]' },
+      });
+    }
+
+    const existing = await this.prisma.sessionRoster.findUnique({
+      where: { sessionId_playerId: { sessionId: sessionCode, playerId } },
+    });
+    if (existing) throw this.conflict('ROSTER_DUPLICATE');
+
+    const history = await this.loadHistory(session.groupId, sessionCode);
+    const others = await this.prisma.sessionRoster.findMany({
+      where: { sessionId: sessionCode, active: true },
+      select: { playerId: true },
+    });
+    const gamesOffset = this.rotationCredit(
+      history.gamesPlayedThisSession,
+      others.map((o) => o.playerId),
+      playerId,
+      0
+    );
+
+    await this.prisma.sessionRoster.create({
+      data: { sessionId: sessionCode, playerId, active: true, gamesOffset, activatedAt: new Date() },
+    });
+
+    return { playerId };
   }
 
   deprioritizeWaiting(sessionCode: string) {

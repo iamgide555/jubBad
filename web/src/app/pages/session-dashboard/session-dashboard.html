@@ -1,7 +1,9 @@
 @if (sessionExists()) {
   <div class="page page-wide dashboard">
     <div class="board-head">
-      <h1><span class="board-date">{{ session()!.date ?? session()!.code }}</span></h1>
+      <h1>
+        <span class="board-date">{{ session()!.date ?? session()!.code }}</span>
+      </h1>
       @if (session()!.venue) {
         <p class="sub">{{ session()!.venue }}</p>
       }
@@ -11,7 +13,12 @@
       <div class="ended-banner">
         <p class="ended-notice" i18n="@@dashboard.sessionEnded">จบก๊วนแล้ว</p>
         <div class="ended-actions">
-          <a class="btn-link" [routerLink]="['/s', session()!.code, 'summary']" i18n="@@dashboard.viewSummary">ดูสรุปก๊วน</a>
+          <a
+            class="btn-link"
+            [routerLink]="['/s', session()!.code, 'summary']"
+            i18n="@@dashboard.viewSummary"
+            >ดูสรุปก๊วน</a
+          >
           <button type="button" class="ghost" (click)="copySummaryLink()">
             @if (summaryLinkCopied()) {
               <ng-container i18n="@@dashboard.copied">คัดลอกแล้ว</ng-container>
@@ -37,11 +44,21 @@
           [attr.aria-pressed]="p.resting"
           [attr.aria-label]="restLabel(p.name, p.resting)"
           (click)="toggleResting(p.id, !p.resting)"
-        >{{ p.name }}</button>
+        >
+          {{ p.name }}
+        </button>
       }
     </div>
     @if (!ended()) {
-      <button type="button" class="ghost" data-add-walk-in (click)="openWalkInDialog()" i18n="@@dashboard.addWalkIn">+ เพิ่มคน</button>
+      <button
+        type="button"
+        class="ghost"
+        data-add-walk-in
+        (click)="openWalkInDialog()"
+        i18n="@@dashboard.addWalkIn"
+      >
+        + เพิ่มคน
+      </button>
     }
     @if (rosterError()) {
       <p class="error">{{ rosterError() }}</p>
@@ -52,7 +69,9 @@
     @if (!ended()) {
       <div class="court-toolbar">
         @if (anyCourtIdle()) {
-          <button type="button" class="fill-all" (click)="fillCourts()" i18n="@@dashboard.fillAll">จัดคู่ทุกคอร์ทว่าง</button>
+          <button type="button" class="fill-all" (click)="fillCourts()" i18n="@@dashboard.fillAll">
+            จัดคู่ทุกคอร์ทว่าง
+          </button>
         }
         @if (courtCount() > 1 && liveSession.waitingPlayerIds().length > 1) {
           <button
@@ -60,19 +79,44 @@
             class="ghost"
             (click)="deprioritizeWaiting()"
             i18n="@@dashboard.deprioritizeWaiting"
-          >จัดคิวใหม่</button>
+          >
+            จัดคิวใหม่
+          </button>
         }
 
         <div class="mode-toggle">
           <span class="mode-label" i18n="@@dashboard.modeLabel">โหมดจัดคู่</span>
           <div class="scope-toggle">
-            <button type="button" [class.active]="mode() === 'variety'" (click)="setMode('variety')" i18n="@@dashboard.modeVariety">สลับคู่</button>
-            <button type="button" [class.active]="mode() === 'balanced'" (click)="setMode('balanced')" i18n="@@dashboard.modeBalanced">สูสี</button>
-            <button type="button" [class.active]="mode() === 'custom'" (click)="setMode('custom')" i18n="@@dashboard.modeCustom">เลือกเอง</button>
+            <button
+              type="button"
+              [class.active]="mode() === 'variety'"
+              (click)="setMode('variety')"
+              i18n="@@dashboard.modeVariety"
+            >
+              สลับคู่
+            </button>
+            <button
+              type="button"
+              [class.active]="mode() === 'balanced'"
+              (click)="setMode('balanced')"
+              i18n="@@dashboard.modeBalanced"
+            >
+              สูสี
+            </button>
+            <button
+              type="button"
+              [class.active]="mode() === 'custom'"
+              (click)="setMode('custom')"
+              i18n="@@dashboard.modeCustom"
+            >
+              เลือกเอง
+            </button>
           </div>
           @switch (mode()) {
             @case ('balanced') {
-              <p class="mode-hint" i18n="@@dashboard.modeBalancedHint">จัดให้สองฝั่งฝีมือใกล้เคียงกัน</p>
+              <p class="mode-hint" i18n="@@dashboard.modeBalancedHint">
+                จัดให้สองฝั่งฝีมือใกล้เคียงกัน
+              </p>
             }
             @case ('custom') {
               <p class="mode-hint" i18n="@@dashboard.modeCustomHint">จัดคู่เองทีละคน</p>
@@ -86,18 +130,39 @@
         <div class="court-count">
           <span class="mode-label" i18n="@@dashboard.courtCountLabel">จำนวนคอร์ท</span>
           <div class="scope-toggle">
-            <button type="button" [disabled]="courtCount() <= 1" (click)="changeCourtCount(-1)" aria-label="ลดจำนวนคอร์ท" i18n-aria-label="@@dashboard.courtCountLess">−</button>
+            <button
+              type="button"
+              [disabled]="courtCount() <= 1"
+              (click)="changeCourtCount(-1)"
+              aria-label="ลดจำนวนคอร์ท"
+              i18n-aria-label="@@dashboard.courtCountLess"
+            >
+              −
+            </button>
             <span class="court-count-value"><app-odometer [value]="courtCount()" /></span>
-            <button type="button" [disabled]="courtCount() >= 20" (click)="changeCourtCount(1)" aria-label="เพิ่มจำนวนคอร์ท" i18n-aria-label="@@dashboard.courtCountMore">+</button>
+            <button
+              type="button"
+              [disabled]="courtCount() >= 20"
+              (click)="changeCourtCount(1)"
+              aria-label="เพิ่มจำนวนคอร์ท"
+              i18n-aria-label="@@dashboard.courtCountMore"
+            >
+              +
+            </button>
           </div>
-          <p class="mode-hint" i18n="@@dashboard.courtCountHint">ปรับได้เมื่อจองคอร์ทเพิ่มหรือคืนคอร์ท</p>
+          <p class="mode-hint" i18n="@@dashboard.courtCountHint">เพิ่มหรือคืนคอร์ท</p>
         </div>
       </div>
     }
 
     <div class="courts-list">
       @for (courtNumber of courtNumbers(); track courtNumber; let i = $index) {
-        <app-court-panel [appReveal]="i" [courtNumber]="courtNumber" [players]="players()" [gamesPlayed]="gamesPlayed()" />
+        <app-court-panel
+          [appReveal]="i"
+          [courtNumber]="courtNumber"
+          [players]="players()"
+          [gamesPlayed]="gamesPlayed()"
+        />
       }
     </div>
 
@@ -117,7 +182,15 @@
             [attr.aria-pressed]="selection.isPicked(w.id)"
             [attr.aria-label]="waitingPickLabel(w.name)"
             (click)="pickWaiting(w.id, w.name)"
-          >{{ w.name }} <span class="wait-mins"><app-odometer [value]="w.minutes" /><ng-container i18n="@@dashboard.minutesShort">น.</ng-container></span> <span class="tally" i18n="@@dashboard.gamesTally">{{ gamesFor(w.id) }} เกม</span></button>
+          >
+            {{ w.name }}
+            <span class="wait-mins"
+              ><app-odometer [value]="w.minutes" /><ng-container i18n="@@dashboard.minutesShort"
+                >น.</ng-container
+              ></span
+            >
+            <span class="tally" i18n="@@dashboard.gamesTally">{{ gamesFor(w.id) }} เกม</span>
+          </button>
         } @empty {
           <p class="muted" i18n="@@dashboard.nobodyWaiting">ไม่มีคนรอ</p>
         }
@@ -132,7 +205,6 @@
         }
       </div>
     }
-
 
     <hr class="rule" />
 
@@ -154,7 +226,13 @@
       </button>
     </div>
     @if (clipboardFallback()) {
-      <textarea class="clipboard-fallback" readonly [value]="clipboardFallback()" i18n-aria-label="@@share.fallbackLabel" aria-label="ข้อความสำหรับคัดลอก"></textarea>
+      <textarea
+        class="clipboard-fallback"
+        readonly
+        [value]="clipboardFallback()"
+        i18n-aria-label="@@share.fallbackLabel"
+        aria-label="ข้อความสำหรับคัดลอก"
+      ></textarea>
     }
 
     @if (!ended()) {

@@ -1549,7 +1549,7 @@
         </context-group>
       </trans-unit>
       <trans-unit id="dashboard.courtCountHint" datatype="html">
-        <source>ปรับได้เมื่อจองคอร์ทเพิ่มหรือคืนคอร์ท</source><target>Adjust when you book another court or give one back</target>
+        <source>เพิ่มหรือคืนคอร์ท</source><target>Add/Remove courts</target>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/session-dashboard/session-dashboard.html</context>
           <context context-type="linenumber">48,52</context>

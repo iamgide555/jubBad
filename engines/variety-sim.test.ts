@@ -188,3 +188,48 @@ test('metricsAtNight computes distinct partners, spread and never-met share by h
   // 6 total pairs, 3 never met (p0|p3, p1|p2, p1|p3) -> 3/6 = 0.5
   assert.equal(m.neverMetShare, 0.5);
 });
+
+test('the engine beats naive baselines on partner variety across a season (prints the table)', () => {
+  const MIN_PARTNER_EDGE_VS_RANDOM = 0.8;
+  const MIN_PARTNER_EDGE_VS_NO_BACK_TO_BACK = 0.5;
+  const MIN_SPREAD_EDGE_VS_RANDOM = 3;
+  const MIN_SPREAD_EDGE_VS_NO_BACK_TO_BACK = 1;
+
+  const attendance = generateAttendance(DEFAULT_SCENARIO, makeSeededRandom(3));
+  const co = coAttendanceCounts(attendance);
+  const players = playerIdsFor(DEFAULT_SCENARIO);
+
+  const engine = simulateNights(DEFAULT_SCENARIO, attendance, 'engine', makeSeededRandom(11));
+  const random = simulateNights(DEFAULT_SCENARIO, attendance, 'random', makeSeededRandom(12));
+  const noBackToBack = simulateNights(DEFAULT_SCENARIO, attendance, 'no-back-to-back', makeSeededRandom(13));
+
+  console.log('\nC14 variety simulation — 16 players, 3 courts, 12 nights (attendance seed 3)');
+  console.log('night | engine partners/spread/neverMet | random partners/spread/neverMet | no-b2b partners/spread/neverMet');
+  for (const night of [4, 8, 12]) {
+    const e = metricsAtNight(engine[night - 1], co, players, night);
+    const r = metricsAtNight(random[night - 1], co, players, night);
+    const b = metricsAtNight(noBackToBack[night - 1], co, players, night);
+    console.log(
+      `${night}     | ${e.meanDistinctPartners.toFixed(2)}/${e.pairSpread}/${e.neverMetShare.toFixed(2)}` +
+        `           | ${r.meanDistinctPartners.toFixed(2)}/${r.pairSpread}/${r.neverMetShare.toFixed(2)}` +
+        `           | ${b.meanDistinctPartners.toFixed(2)}/${b.pairSpread}/${b.neverMetShare.toFixed(2)}`
+    );
+
+    assert.ok(
+      e.meanDistinctPartners >= r.meanDistinctPartners + MIN_PARTNER_EDGE_VS_RANDOM,
+      `night ${night}: engine ${e.meanDistinctPartners} must beat random ${r.meanDistinctPartners} by at least ${MIN_PARTNER_EDGE_VS_RANDOM}`
+    );
+    assert.ok(
+      e.meanDistinctPartners >= b.meanDistinctPartners + MIN_PARTNER_EDGE_VS_NO_BACK_TO_BACK,
+      `night ${night}: engine ${e.meanDistinctPartners} must beat no-back-to-back ${b.meanDistinctPartners} by at least ${MIN_PARTNER_EDGE_VS_NO_BACK_TO_BACK}`
+    );
+    assert.ok(
+      e.pairSpread <= r.pairSpread - MIN_SPREAD_EDGE_VS_RANDOM,
+      `night ${night}: engine spread ${e.pairSpread} must be at least ${MIN_SPREAD_EDGE_VS_RANDOM} tighter than random's ${r.pairSpread}`
+    );
+    assert.ok(
+      e.pairSpread <= b.pairSpread - MIN_SPREAD_EDGE_VS_NO_BACK_TO_BACK,
+      `night ${night}: engine spread ${e.pairSpread} must be at least ${MIN_SPREAD_EDGE_VS_NO_BACK_TO_BACK} tighter than no-back-to-back's ${b.pairSpread}`
+    );
+  }
+});

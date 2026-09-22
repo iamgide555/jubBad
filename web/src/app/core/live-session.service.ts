@@ -78,6 +78,8 @@ function messageForCode(code: string): string | null {
       return $localize`:@@err.code.pairingPlayerNotFound:ไม่พบผู้เล่นคนนี้ในแมตช์`;
     case 'ROSTER_PLAYER_NOT_FOUND':
       return $localize`:@@err.code.rosterPlayerNotFound:ไม่พบผู้เล่นคนนี้ในก๊วน`;
+    case 'ROSTER_DUPLICATE':
+      return $localize`:@@err.code.rosterDuplicate:ผู้เล่นคนนี้อยู่ในก๊วนแล้ว`;
     case 'INCOMPLETE_SCORES':
       return $localize`:@@err.code.incompleteScores:กรุณากรอกคะแนนให้ครบทั้งสองฝั่ง`;
     case 'INVALID_SCORE':
@@ -270,6 +272,12 @@ export class LiveSessionService {
       {},
       $localize`:@@err.deprioritizeWaiting:จัดคิวใหม่ไม่สำเร็จ`
     );
+  }
+
+  /** Adds someone not on tonight's pasted roster — an existing group player
+   *  (`playerId`) or a brand-new one (`name`) — to a running session. */
+  addWalkIn(input: { playerId: string } | { name: string }): Promise<ActionResult> {
+    return this.post('roster', input, $localize`:@@err.addWalkIn:เพิ่มผู้เล่นไม่สำเร็จ`);
   }
 
   undoCourt(courtNumber: number): Promise<ActionResult> {

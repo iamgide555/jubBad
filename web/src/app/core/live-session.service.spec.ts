@@ -253,6 +253,34 @@ describe('LiveSessionService', () => {
     expect(await promise).toEqual({ ok: true });
   });
 
+  it('addWalkIn posts an existing player and reloads the session', async () => {
+    await flushSession(baseSession());
+
+    const promise = service.addWalkIn({ playerId: 'p9' });
+    const req = httpMock.expectOne(`${environment.apiBaseUrl}/sessions/sess1/roster`);
+    expect(req.request.method).toBe('POST');
+    expect(req.request.body).toEqual({ playerId: 'p9' });
+    req.flush({ playerId: 'p9' });
+    await new Promise((r) => setTimeout(r, 0));
+    TestBed.tick();
+    httpMock
+      .expectOne(`${environment.apiBaseUrl}/sessions/sess1`)
+      .flush(baseSession({ rosterPlayerIds: ['p1', 'p2', 'p3', 'p4', 'p9'] }));
+
+    expect(await promise).toEqual({ ok: true });
+  });
+
+  it('addWalkIn posts a new name and maps ROSTER_DUPLICATE to a Thai message on refusal', async () => {
+    await flushSession(baseSession());
+
+    const promise = service.addWalkIn({ name: 'สมชาย' });
+    const req = httpMock.expectOne(`${environment.apiBaseUrl}/sessions/sess1/roster`);
+    expect(req.request.body).toEqual({ name: 'สมชาย' });
+    req.flush({ code: 'ROSTER_DUPLICATE' }, { status: 409, statusText: 'Conflict' });
+
+    expect(await promise).toEqual({ ok: false, error: 'ผู้เล่นคนนี้อยู่ในก๊วนแล้ว' });
+  });
+
   it('exposes mode from the fetched session', async () => {
     await flushSession(baseSession({ mode: 'custom' }));
     expect(service.mode()).toBe('custom');

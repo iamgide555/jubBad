@@ -64,3 +64,41 @@ export function coAttendanceCounts(attendance: PlayerId[][]): Map<string, number
   }
   return co;
 }
+
+type Four = [PlayerId, PlayerId, PlayerId, PlayerId];
+export type Split = { teamA: [PlayerId, PlayerId]; teamB: [PlayerId, PlayerId] };
+
+/** The three ways to split four players into two teams of two — same table
+ *  `pairing-quality.test.ts` uses for its own exhaustive checks. */
+const SPLIT_PATTERNS: [number, number, number, number][] = [
+  [0, 1, 2, 3],
+  [0, 2, 1, 3],
+  [0, 3, 1, 2],
+];
+
+function splitFromPattern(four: Four, pattern: [number, number, number, number]): Split {
+  const [a, b, c, d] = pattern;
+  return { teamA: [four[a], four[b]], teamB: [four[c], four[d]] };
+}
+
+export function pickRandomSplit(four: Four, random: () => number): Split {
+  const pattern = SPLIT_PATTERNS[Math.min(2, Math.floor(random() * 3))];
+  return splitFromPattern(four, pattern);
+}
+
+/** The baseline PaQueueKa and Doubles Team Maker advertise: never reunite a
+ *  player with the partner from their immediately preceding match, unless
+ *  every split would. */
+export function pickNoBackToBackSplit(
+  four: Four,
+  lastPartner: Map<PlayerId, PlayerId>,
+  random: () => number
+): Split {
+  const clean = SPLIT_PATTERNS.filter((pattern) => {
+    const { teamA, teamB } = splitFromPattern(four, pattern);
+    return lastPartner.get(teamA[0]) !== teamA[1] && lastPartner.get(teamB[0]) !== teamB[1];
+  });
+  const pool = clean.length > 0 ? clean : SPLIT_PATTERNS;
+  const pattern = pool[Math.min(pool.length - 1, Math.floor(random() * pool.length))];
+  return splitFromPattern(four, pattern);
+}

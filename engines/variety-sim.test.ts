@@ -11,6 +11,8 @@ import {
   coAttendanceCounts,
   generateAttendance,
   makeSeededRandom,
+  pickNoBackToBackSplit,
+  pickRandomSplit,
   playerIdsFor,
 } from './variety-sim.ts';
 
@@ -42,4 +44,45 @@ test('coAttendanceCounts counts exactly the nights both players attended', () =>
   assert.equal(co.get('p0|p1'), 1);
   assert.equal(co.get('p0|p2'), 2);
   assert.equal(co.get('p1|p2'), 2);
+});
+
+test('pickRandomSplit always returns one of the three splits of four', () => {
+  const four: [string, string, string, string] = ['a', 'b', 'c', 'd'];
+  for (let seed = 0; seed < 20; seed++) {
+    const { teamA, teamB } = pickRandomSplit(four, makeSeededRandom(seed));
+    const label = [teamA, teamB].map((t) => [...t].sort().join('')).sort().join('|');
+    assert.ok(['ab|cd', 'ac|bd', 'ad|bc'].includes(label), `unexpected split ${label}`);
+  }
+});
+
+test('pickNoBackToBackSplit avoids reuniting a player with their last partner when an alternative exists', () => {
+  const four: [string, string, string, string] = ['a', 'b', 'c', 'd'];
+  const lastPartner = new Map([
+    ['a', 'b'],
+    ['b', 'a'],
+  ]);
+  for (let seed = 0; seed < 20; seed++) {
+    const { teamA, teamB } = pickNoBackToBackSplit(four, lastPartner, makeSeededRandom(seed));
+    const reunited =
+      (teamA.includes('a') && teamA.includes('b')) || (teamB.includes('a') && teamB.includes('b'));
+    assert.equal(reunited, false, 'a and b must not be reunited as partners');
+  }
+});
+
+test('pickNoBackToBackSplit falls back to a random split when every split reunites someone', () => {
+  // With two simultaneous "just played together" pairs among four players,
+  // every one of the three splits reunites at least one of them — there is no
+  // clean split left, so the function must still return a legal split rather
+  // than throwing or returning nothing.
+  const four: [string, string, string, string] = ['a', 'b', 'c', 'd'];
+  const lastPartner = new Map([
+    ['a', 'b'],
+    ['b', 'a'],
+    ['c', 'd'],
+    ['d', 'c'],
+  ]);
+  const { teamA, teamB } = pickNoBackToBackSplit(four, lastPartner, makeSeededRandom(1));
+  assert.equal(teamA.length, 2);
+  assert.equal(teamB.length, 2);
+  assert.equal(new Set([...teamA, ...teamB]).size, 4);
 });

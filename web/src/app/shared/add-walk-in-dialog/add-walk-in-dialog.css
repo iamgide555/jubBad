@@ -29,6 +29,11 @@
   text-align: left;
 }
 
+.hint {
+  color: var(--muted, #666);
+  padding: 0.5rem 0;
+}
+
 .dialog-actions {
   display: flex;
   justify-content: flex-end;

@@ -1,6 +1,6 @@
 import { Component, ElementRef, computed, input, output, signal, viewChild } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { searchCandidates } from '../../core/roster-review';
+import { exactPlayerMatch, searchCandidates } from '../../core/roster-review';
 import type { Player } from '../../../../../engines/fuzzy-match.ts';
 
 /**
@@ -33,12 +33,22 @@ export class AddWalkInDialog {
     searchCandidates(this.query(), this.players(), this.excludedIds())
   );
 
+  /** A literal exact match against a player already excluded (on tonight's
+   *  roster, resting or active) — distinct from "no match at all". The host's
+   *  most likely reason to type an existing player's exact name is to bring a
+   *  resting one back, not to create a duplicate. */
+  protected readonly excludedExactMatch = computed(() => {
+    const match = exactPlayerMatch(this.query(), this.players());
+    return match && this.excludedIds().has(match.id) ? match : null;
+  });
+
   /** Only offered when nothing in `results()` is an exact, case-folded match
    *  — a fuzzy or partial hit is a suggestion, not a reason to hide "add as
    *  new" the way `roster-review.ts`'s manual-add field already treats it. */
   protected readonly showAddNew = computed(() => {
     const trimmed = this.query().trim();
     if (!trimmed) return false;
+    if (this.excludedExactMatch()) return false;
     return !this.results().some((r) => r.rank === 'exact');
   });
 

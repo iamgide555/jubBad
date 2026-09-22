@@ -1955,6 +1955,7 @@ export class SessionsService {
     if (session.endedAt !== null) throw this.conflict('SESSION_ENDED');
 
     let playerId: string;
+    let newPlayerName: string | null = null;
     if (dto.playerId) {
       const player = await this.prisma.player.findUnique({ where: { id: dto.playerId } });
       if (!player || player.groupId !== session.groupId) {
@@ -1963,9 +1964,7 @@ export class SessionsService {
       playerId = player.id;
     } else {
       playerId = randomUUID();
-      await this.prisma.player.create({
-        data: { id: playerId, groupId: session.groupId, name: dto.name!, aliases: '[]' },
-      });
+      newPlayerName = dto.name!;
     }
 
     const existing = await this.prisma.sessionRoster.findUnique({
@@ -1985,9 +1984,28 @@ export class SessionsService {
       0
     );
 
-    await this.prisma.sessionRoster.create({
-      data: { sessionId: sessionCode, playerId, active: true, gamesOffset, activatedAt: new Date() },
-    });
+    // Every read that can throw (the duplicate check, loadHistory, the roster
+    // scan above) happens before any write. loadHistory in particular can
+    // surface a corrupt confirmed pairing anywhere in the group's entire
+    // history, not just tonight's session — so the Player create below must
+    // not happen until we know we're past that risk. When it's a brand-new
+    // player, the Player row and its SessionRoster row are written together
+    // in one transaction (same precedent as `createSession`) so a failure
+    // between them can never orphan a Player with no roster entry.
+    if (newPlayerName !== null) {
+      await this.prisma.$transaction([
+        this.prisma.player.create({
+          data: { id: playerId, groupId: session.groupId, name: newPlayerName, aliases: '[]' },
+        }),
+        this.prisma.sessionRoster.create({
+          data: { sessionId: sessionCode, playerId, active: true, gamesOffset, activatedAt: new Date() },
+        }),
+      ]);
+    } else {
+      await this.prisma.sessionRoster.create({
+        data: { sessionId: sessionCode, playerId, active: true, gamesOffset, activatedAt: new Date() },
+      });
+    }
 
     return { playerId };
   }

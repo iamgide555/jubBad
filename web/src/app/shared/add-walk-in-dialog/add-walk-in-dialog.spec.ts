@@ -84,11 +84,27 @@ describe('AddWalkInDialog', () => {
   it('excludes players already on the roster from the search results', async () => {
     fixture.componentRef.setInput('excludedIds', new Set(['p1']));
     await openDialog();
-    type('ตั้ม');
+    // A partial query, not the excluded player's exact name — the exact-name
+    // case (which now shows the roster hint instead of "add as new") is
+    // covered by its own test below.
+    type('ต');
 
     const results = (fixture.nativeElement as HTMLElement).querySelectorAll('[data-candidate]');
     expect(results.length).toBe(0);
     const addNewButton = (fixture.nativeElement as HTMLElement).querySelector('[data-add-new]');
     expect(addNewButton).not.toBeNull();
+  });
+
+  it('shows a hint instead of "add as new" when the query exactly matches a player already on the roster', async () => {
+    fixture.componentRef.setInput('excludedIds', new Set(['p1']));
+    await openDialog();
+    type('ตั้ม');
+
+    const addNewButton = (fixture.nativeElement as HTMLElement).querySelector('[data-add-new]');
+    expect(addNewButton).toBeNull();
+
+    const hint = (fixture.nativeElement as HTMLElement).querySelector('.hint');
+    expect(hint?.textContent).toContain('ตั้ม');
+    expect(hint?.textContent).toContain('อยู่ในก๊วนคืนนี้แล้ว');
   });
 });

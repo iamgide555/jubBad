@@ -29,6 +29,11 @@
             </button>
           </li>
         }
+        @if (excludedExactMatch(); as match) {
+          <li class="hint">
+            <ng-container i18n="@@walkIn.alreadyOnRoster">{{ match.name }} อยู่ในก๊วนคืนนี้แล้ว — เปิดจากชิปรายชื่อ</ng-container>
+          </li>
+        }
       </ul>
 
       @if (error()) {

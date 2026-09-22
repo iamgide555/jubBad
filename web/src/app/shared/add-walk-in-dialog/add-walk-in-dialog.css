@@ -1,0 +1,35 @@
+.walk-in-dialog {
+  border: none;
+  border-radius: 12px;
+  padding: 0;
+  max-width: 24rem;
+  width: 90vw;
+}
+
+.form-card {
+  padding: 1.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.candidate-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  max-height: 40vh;
+  overflow-y: auto;
+}
+
+.candidate-list button {
+  width: 100%;
+  text-align: left;
+}
+
+.dialog-actions {
+  display: flex;
+  justify-content: flex-end;
+}

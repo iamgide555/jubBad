@@ -1,0 +1,43 @@
+<dialog #dialog class="walk-in-dialog" (close)="onDialogClose()" (cancel)="onCancelAttempt($event)">
+  @if (isOpen()) {
+    <div class="form-card">
+      <h2 i18n="@@walkIn.title">เพิ่มคน</h2>
+      <label>
+        <span i18n="@@walkIn.searchLabel">ชื่อ</span>
+        <input
+          type="text"
+          autocomplete="off"
+          name="search"
+          [ngModel]="query()"
+          (ngModelChange)="onQueryInput($event)"
+          [disabled]="saving()"
+        />
+      </label>
+
+      <ul class="candidate-list">
+        @for (candidate of results(); track candidate.player.id) {
+          <li>
+            <button type="button" data-candidate [disabled]="saving()" (click)="pick(candidate.player.id)">
+              {{ candidate.player.name }}
+            </button>
+          </li>
+        }
+        @if (showAddNew()) {
+          <li>
+            <button type="button" data-add-new [disabled]="saving()" (click)="addNew()">
+              <ng-container i18n="@@walkIn.addAsNew">เพิ่มเป็นคนใหม่</ng-container> "{{ query().trim() }}"
+            </button>
+          </li>
+        }
+      </ul>
+
+      @if (error()) {
+        <p class="error" role="alert">{{ error() }}</p>
+      }
+
+      <div class="dialog-actions">
+        <button type="button" class="ghost" [disabled]="saving()" (click)="close()" i18n="@@walkIn.cancel">ยกเลิก</button>
+      </div>
+    </div>
+  }
+</dialog>

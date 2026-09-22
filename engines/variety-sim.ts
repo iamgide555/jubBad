@@ -5,7 +5,7 @@
  * section C14.
  */
 
-import { pairKey, shuffle, type PlayerId } from './pairing.ts';
+import { generateRound, pairKey, selectSittingOut, shuffle, type MatchHistory, type PlayerId } from './pairing.ts';
 
 export function makeSeededRandom(seed: number): () => number {
   let state = seed >>> 0;
@@ -101,4 +101,51 @@ export function pickNoBackToBackSplit(
   const pool = clean.length > 0 ? clean : SPLIT_PATTERNS;
   const pattern = pool[Math.min(pool.length - 1, Math.floor(random() * pool.length))];
   return splitFromPattern(four, pattern);
+}
+
+export type PickerName = 'engine' | 'random' | 'no-back-to-back';
+
+/**
+ * Fills `courtsNeeded` currently-idle courts from `available` players. The
+ * engine plans all of them jointly via the real `generateRound` — exactly
+ * what `SessionsService.proposeExclusively` does when more than one court is
+ * idle at once. The baselines only use `selectSittingOut` for *who* plays
+ * (rotation fairness); they have no notion of planning multiple courts
+ * jointly, so the chosen players are shuffled and chopped into groups of
+ * four, and each group's split is decided independently.
+ */
+export function fillAllIdleCourts(
+  available: PlayerId[],
+  courtsNeeded: number,
+  picker: PickerName,
+  history: MatchHistory,
+  lastPartner: Map<PlayerId, PlayerId>,
+  random: () => number
+): { courts: Split[] } {
+  if (picker === 'engine') {
+    const { courts } = generateRound(available, courtsNeeded, history, random);
+    return {
+      courts: courts.map((c) => ({
+        teamA: c.teamA as [PlayerId, PlayerId],
+        teamB: c.teamB as [PlayerId, PlayerId],
+      })),
+    };
+  }
+
+  const { playing } = selectSittingOut(
+    available,
+    courtsNeeded,
+    history.gamesPlayedThisSession,
+    random,
+    history.waitingSince
+  );
+  const shuffled = shuffle(playing, random);
+  const courts: Split[] = [];
+  for (let i = 0; i < courtsNeeded; i++) {
+    const four = shuffled.slice(i * 4, i * 4 + 4) as Four;
+    courts.push(
+      picker === 'random' ? pickRandomSplit(four, random) : pickNoBackToBackSplit(four, lastPartner, random)
+    );
+  }
+  return { courts };
 }

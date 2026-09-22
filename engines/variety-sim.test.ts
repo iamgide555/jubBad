@@ -6,15 +6,24 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import type { MatchHistory } from './pairing.ts';
 import {
   DEFAULT_SCENARIO,
   coAttendanceCounts,
+  fillAllIdleCourts,
   generateAttendance,
   makeSeededRandom,
   pickNoBackToBackSplit,
   pickRandomSplit,
   playerIdsFor,
 } from './variety-sim.ts';
+
+function emptyHistory(ids: string[]): MatchHistory {
+  const gamesPlayedThisSession = new Map<string, number>();
+  const waitingSince = new Map<string, number>();
+  for (const id of ids) waitingSince.set(id, 0);
+  return { partnerCounts: new Map(), opponentCounts: new Map(), gamesPlayedThisSession, waitingSince };
+}
 
 test('generateAttendance draws between minAttend and maxAttend distinct players, for every night', () => {
   const attendance = generateAttendance(DEFAULT_SCENARIO, makeSeededRandom(3));
@@ -86,3 +95,31 @@ test('pickNoBackToBackSplit falls back to a random split when every split reunit
   assert.equal(teamB.length, 2);
   assert.equal(new Set([...teamA, ...teamB]).size, 4);
 });
+
+for (const picker of ['engine', 'random', 'no-back-to-back'] as const) {
+  test(`fillAllIdleCourts (${picker}) fills every requested court with 4 distinct players each, no overlap`, () => {
+    const available = Array.from({ length: 12 }, (_, i) => `p${i}`);
+    const history = emptyHistory(available);
+    const { courts } = fillAllIdleCourts(available, 3, picker, history, new Map(), makeSeededRandom(7));
+
+    assert.equal(courts.length, 3);
+    const seen = new Set<string>();
+    for (const { teamA, teamB } of courts) {
+      for (const id of [...teamA, ...teamB]) {
+        assert.equal(seen.has(id), false, `${id} appears on more than one court`);
+        seen.add(id);
+      }
+    }
+    assert.equal(seen.size, 12);
+  });
+
+  test(`fillAllIdleCourts (${picker}) fills one court from a wider available pool`, () => {
+    const available = Array.from({ length: 6 }, (_, i) => `p${i}`);
+    const history = emptyHistory(available);
+    const { courts } = fillAllIdleCourts(available, 1, picker, history, new Map(), makeSeededRandom(7));
+
+    assert.equal(courts.length, 1);
+    const [{ teamA, teamB }] = courts;
+    assert.equal(new Set([...teamA, ...teamB]).size, 4);
+  });
+}

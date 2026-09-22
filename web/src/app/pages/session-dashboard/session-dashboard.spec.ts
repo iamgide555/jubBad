@@ -274,31 +274,25 @@ describe('SessionDashboard', () => {
     const req = httpMock.expectOne(`${B}/sessions/sess1/roster`);
     expect(req.request.body).toEqual({ playerId: 'p9' });
     req.flush({ playerId: 'p9' });
+    await new Promise((r) => setTimeout(r, 0));
+    TestBed.tick();
+    httpMock.expectOne(`${B}/sessions/sess1`).flush(baseSession({ rosterPlayerIds: ['p1', 'p2', 'p9'] }));
+    await new Promise((r) => setTimeout(r, 0));
+    TestBed.tick();
 
-    // Two independent triggers now chase the players list: submitWalkIn's own
-    // explicit `playersResource.reload()` fires immediately, and the session
-    // reload that addWalkIn's underlying post() helper always issues causes a
-    // second one once it lands (every mutation reloads players/stats via
-    // session() — see statsResource's comment in session-dashboard.ts). Drain
-    // in rounds, the same way drainReload/the "switches to custom mode" test
-    // do, rather than assuming a fixed single-flush sequence.
-    for (let round = 0; round < 5; round++) {
-      await new Promise((r) => setTimeout(r, 0));
-      TestBed.tick();
-      const sessionReqs = httpMock.match(`${B}/sessions/sess1`);
-      const playersReqs = httpMock.match(`${B}/groups/group1/players`);
-      const statsReqs = httpMock.match(`${B}/sessions/sess1/stats?scope=session`);
-      if (sessionReqs.length === 0 && playersReqs.length === 0 && statsReqs.length === 0) break;
-      for (const r of sessionReqs) r.flush(baseSession({ rosterPlayerIds: ['p1', 'p2', 'p9'] }));
-      for (const r of playersReqs) {
-        r.flush([
-          { id: 'p1', name: 'ตั้ม', aliases: [] },
-          { id: 'p2', name: 'เบส', aliases: [] },
-          { id: 'p9', name: 'บอล', aliases: [] },
-        ]);
-      }
-      for (const r of statsReqs) r.flush([]);
-    }
+    // Regression guard: submitWalkIn must not manually reload playersResource
+    // on top of the automatic refetch every mutation's session reload already
+    // causes (see statsResource's comment above, in this file) — that
+    // combination previously fired this request twice instead of once.
+    const playersReqs = httpMock.match(`${B}/groups/group1/players`);
+    expect(playersReqs.length).toBe(1);
+    playersReqs[0].flush([
+      { id: 'p1', name: 'ตั้ม', aliases: [] },
+      { id: 'p2', name: 'เบส', aliases: [] },
+      { id: 'p9', name: 'บอล', aliases: [] },
+    ]);
+    for (const r of httpMock.match(`${B}/sessions/sess1/stats?scope=session`)) r.flush([]);
+    await fixture.whenStable();
     fixture.detectChanges();
 
     expect(

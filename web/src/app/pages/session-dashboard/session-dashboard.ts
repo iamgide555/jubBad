@@ -215,10 +215,6 @@ export class SessionDashboard implements OnDestroy {
       this.walkInError.set(result.error ?? null);
       return;
     }
-    // A brand-new player from the `name` branch isn't in `playersResource`
-    // yet — an existing-player pick already is, so this reload is a no-op for
-    // that case rather than a correctness requirement.
-    this.playersResource.reload();
     this.walkInDialog()?.close();
   }
 

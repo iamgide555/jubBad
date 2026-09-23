@@ -4,6 +4,7 @@ import {
   computeBill,
   splitEqual,
   splitByWeight,
+  distributeCapped,
   DEFAULT_BILL_CONFIG,
   type BillConfig,
   type BillInput,
@@ -209,4 +210,109 @@ test('bad input throws', () => {
   );
   assert.throws(() => computeBill(input({}, { matches: [m('a', 'a', 'b', 'c')] })));
   assert.throws(() => computeBill(input({}, { shuttleCount: -1 })));
+});
+
+const FOUR = [m('a', 'b', 'c', 'd')];
+function walkIn(config: Partial<BillConfig>, walkInIds: string[], extra: Partial<BillInput> = {}): BillInput {
+  return input({ walkInFeeSatang: 2000, ...config }, { matches: FOUR, shuttleCount: 0, shuttlePriceSatang: 0, walkInIds, ...extra });
+}
+
+test('walk-in: owner example 200฿ / 4 players / 1 walk-in / 20฿ -> 45,45,45,65', () => {
+  const r = computeBill(walkIn({ model: 'fair', courtFeeSatang: 20000 }, ['d']));
+  assert.deepEqual(amounts(r), { a: 4500, b: 4500, c: 4500, d: 6500 });
+  const d = r.rows.find((x) => x.playerId === 'd')!;
+  assert.equal(d.walkIn, true);
+  assert.equal(d.walkInFeeSatang, 2000);
+  assert.equal(d.walkInDiscountSatang, 500);
+  assert.equal(r.totals.walkInCount, 1);
+  assert.equal(r.totals.collectedSatang, 20000);
+});
+
+test('walk-in: total collected is unchanged with vs without any walk-ins marked, in every model', () => {
+  // FOUR is a single match, so every player has 1 game -- byGames and equal
+  // splits coincide, keeping every intermediate share whole-baht so
+  // per-person rounding can't shift the total either way.
+  const configs: Partial<BillConfig>[] = [
+    { model: 'fair', courtFeeSatang: 100000, courtSplit: 'byGames', shuttleSplit: 'byGames' },
+    { model: 'perGame', perGameRateSatang: 5000, entryFeeSatang: 3000, capSatang: 17000 },
+    { model: 'buffet', buffetPriceSatang: 18000, buffetShuttlesIncluded: false, shuttleSplit: 'byGames' },
+  ];
+  for (const c of configs) {
+    const extra = { matches: FOUR, shuttleCount: 3, shuttlePriceSatang: 4000, walkInIds: [] as string[] };
+    const without = computeBill(input({ ...c, walkInFeeSatang: 2000 }, extra));
+    const withW = computeBill(input({ ...c, walkInFeeSatang: 2000 }, { ...extra, walkInIds: ['c'] }));
+    assert.equal(withW.totals.collectedSatang, without.totals.collectedSatang, c.model);
+  }
+});
+
+test('walk-in: the discount splits by largest remainder when it does not divide evenly', () => {
+  const r = computeBill(
+    walkIn({ model: 'buffet', buffetPriceSatang: 10000 }, ['c'], { matches: [m('a', 'b'), m('c', 'a')] })
+  );
+  // pool 2000 over 3 billed players -> 667, 667, 666 (remainder to the first ids).
+  // This is the raw, unrounded discount field -- amountSatang still ceils to
+  // whole baht on top of it, so it is not asserted here.
+  const discount = Object.fromEntries(r.rows.map((x) => [x.playerId, x.walkInDiscountSatang]));
+  assert.deepEqual(discount, { a: 667, b: 667, c: 666 });
+});
+
+test('walk-in: an overridden or removed player is outside the pool and the discount', () => {
+  const r = computeBill(
+    walkIn(
+      { model: 'fair', courtFeeSatang: 20000, overrides: [{ playerId: 'a', amountSatang: 0 }], removedIds: ['b'] },
+      ['a', 'b', 'd']
+    )
+  );
+  const rows = Object.fromEntries(r.rows.map((x) => [x.playerId, x]));
+  assert.equal(rows['a'].amountSatang, 0);
+  assert.equal(rows['a'].walkInFeeSatang, 0);
+  assert.equal(rows['a'].walkInDiscountSatang, 0);
+  assert.equal(rows['b'].status, 'removed');
+  assert.equal(rows['b'].walkInFeeSatang, 0);
+  // pool = 2000 (only d pays the fee; a is overridden, b is removed) over the
+  // 2 eligible billed players (c, d)
+  assert.equal(rows['c'].walkInDiscountSatang, 1000);
+  assert.equal(rows['d'].walkInDiscountSatang, 1000);
+  assert.equal(rows['d'].walkInFeeSatang, 2000);
+  // d's raw share (court 6666 - discount 1000 + fee 2000 = 7666) ceils to the nearest baht
+  assert.equal(rows['d'].amountSatang, 7700);
+});
+
+test('walk-in: a player with no base owes nothing and receives no discount', () => {
+  const r = computeBill(
+    walkIn({ model: 'fair', courtFeeSatang: 12000, courtSplit: 'byGames', addedIds: ['f'] }, ['d'])
+  );
+  // a,b,c,d each played, f was added with no games so its court weight is 0
+  assert.deepEqual(amounts(r), { a: 2500, b: 2500, c: 2500, d: 4500, f: 0 });
+});
+
+test('walk-in: when every billed player is a walk-in, each pays only their own plain share', () => {
+  const r = computeBill(walkIn({ model: 'fair', courtFeeSatang: 20000 }, ['a', 'b', 'c', 'd']));
+  assert.deepEqual(amounts(r), { a: 5000, b: 5000, c: 5000, d: 5000 });
+});
+
+test('walk-in: fee 0 is a no-op', () => {
+  const r = computeBill(walkIn({ model: 'fair', courtFeeSatang: 20000, walkInFeeSatang: 0 }, ['d']));
+  assert.deepEqual(amounts(r), { a: 5000, b: 5000, c: 5000, d: 5000 });
+});
+
+test('walk-in: rounding applies after the fee step', () => {
+  const r = computeBill(walkIn({ model: 'fair', courtFeeSatang: 20000, roundingBaht: 10, walkInFeeSatang: 1500 }, ['d']));
+  // pool 1500 / 4 = 375 each: a 4625 -> 5000; d 5000 - 375 + 1500 = 6125 -> 7000
+  assert.deepEqual(amounts(r), { a: 5000, b: 5000, c: 5000, d: 7000 });
+});
+
+test('walk-in: negative fee throws', () => {
+  assert.throws(() => computeBill(walkIn({ walkInFeeSatang: -100 }, ['d'])));
+});
+
+test('distributeCapped: an entry with a 0 cap is excluded from the outset', () => {
+  assert.deepEqual(distributeCapped(2000, [3000, 3000, 3000, 5000, 0]), [500, 500, 500, 500, 0]);
+  assert.deepEqual(distributeCapped(0, [10, 10]), [0, 0]);
+});
+
+test('distributeCapped: entries that hit their cap pass the remainder on', () => {
+  // Equal shares would be [334, 333, 333]; the first two are capped at 100 and
+  // the third absorbs everything they could not take.
+  assert.deepEqual(distributeCapped(1000, [100, 100, 5000]), [100, 100, 800]);
 });

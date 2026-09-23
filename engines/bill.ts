@@ -204,6 +204,33 @@ function ceilTo(amount: number, step: number): number {
   return Math.ceil(amount / step) * step;
 }
 
+/**
+ * Splits `pool` equally over the entries, never giving any entry more than
+ * its cap; what a capped entry can't take is re-split over the rest.
+ * Throws if the caps can't absorb the pool (the walk-in fee guarantees they
+ * can: each walk-in's cap includes the fee it pays in).
+ */
+export function distributeCapped(pool: number, caps: number[]): number[] {
+  const out = caps.map(() => 0);
+  let remaining = pool;
+  let open = caps.map((_, i) => i).filter((i) => caps[i] > 0);
+  while (remaining > 0 && open.length > 0) {
+    const shares = splitEqual(remaining, open.length);
+    let given = 0;
+    const next: number[] = [];
+    open.forEach((idx, k) => {
+      const add = Math.min(caps[idx] - out[idx], shares[k]);
+      out[idx] += add;
+      given += add;
+      if (out[idx] < caps[idx]) next.push(idx);
+    });
+    remaining -= given;
+    open = next;
+  }
+  if (remaining !== 0) throw new Error('bill: walk-in discount could not be distributed');
+  return out;
+}
+
 export function computeBill(input: BillInput): BillResult {
   validate(input);
   const { config, matches, shuttleCount, shuttlePriceSatang } = input;
@@ -233,36 +260,56 @@ export function computeBill(input: BillInput): BillResult {
   const overrides = new Map(config.overrides.map((o) => [o.playerId, o.amountSatang]));
   const step = config.roundingBaht * 100;
 
-  const rows: BillRow[] = participants.map((id) => {
+  const pre = new Map<string, number>();
+  const baseOf = new Map<string, number>();
+  for (const id of participants) {
     const g = games.get(id) ?? 0;
-    const isBilled = !removed.has(id);
-    const courtSatang = court.get(id) ?? 0;
     const shuttleSatang = shuttle.get(id) ?? 0;
-    let baseSatang = 0;
-    if (config.model === 'fair') baseSatang = courtSatang + shuttleSatang;
+    let base = 0;
+    if (config.model === 'fair') base = (court.get(id) ?? 0) + shuttleSatang;
     else if (config.model === 'perGame') {
       const raw = config.entryFeeSatang + g * config.perGameRateSatang;
-      baseSatang = config.capSatang === null ? raw : Math.min(raw, config.capSatang);
-    } else baseSatang = config.buffetPriceSatang + shuttleSatang;
+      base = config.capSatang === null ? raw : Math.min(raw, config.capSatang);
+    } else base = config.buffetPriceSatang + shuttleSatang;
+    baseOf.set(id, base);
+    pre.set(id, base + config.hostFeeSatang);
+  }
+
+  // Walk-in surcharge is a group discount, not host profit: the fee each
+  // walk-in pays is redistributed to the rest of the billed players, capped
+  // per person so nobody's amount goes negative.
+  const walkIns = new Set(input.walkInIds);
+  const eligible = billed.filter((id) => !overrides.has(id));
+  const eligibleWalkIns = eligible.filter((id) => walkIns.has(id));
+  const fee = config.walkInFeeSatang;
+  const pool = fee * eligibleWalkIns.length;
+  const caps = eligible.map((id) => pre.get(id)! + (walkIns.has(id) ? fee : 0));
+  const discount = new Map<string, number>();
+  distributeCapped(pool, caps).forEach((d, i) => discount.set(eligible[i], d));
+
+  const rows: BillRow[] = participants.map((id) => {
+    const isBilled = !removed.has(id);
     const overridden = isBilled && overrides.has(id);
-    const hostFeeSatang = isBilled ? config.hostFeeSatang : 0;
+    const isWalkIn = isBilled && !overridden && walkIns.has(id);
+    const walkInFeeSatang = isWalkIn ? fee : 0;
+    const walkInDiscountSatang = discount.get(id) ?? 0;
     const amountSatang = !isBilled
       ? 0
       : overridden
         ? overrides.get(id)!
-        : ceilTo(baseSatang + hostFeeSatang, step);
+        : ceilTo(pre.get(id)! - walkInDiscountSatang + walkInFeeSatang, step);
     return {
       playerId: id,
-      games: g,
+      games: games.get(id) ?? 0,
       status: isBilled ? 'billed' : 'removed',
-      added: added.has(id) && g === 0,
-      walkIn: false,
-      courtSatang,
-      shuttleSatang,
-      baseSatang: isBilled ? baseSatang : 0,
-      hostFeeSatang,
-      walkInFeeSatang: 0,
-      walkInDiscountSatang: 0,
+      added: added.has(id) && !games.has(id),
+      walkIn: isWalkIn,
+      courtSatang: court.get(id) ?? 0,
+      shuttleSatang: shuttle.get(id) ?? 0,
+      baseSatang: isBilled ? baseOf.get(id)! : 0,
+      hostFeeSatang: isBilled ? config.hostFeeSatang : 0,
+      walkInFeeSatang,
+      walkInDiscountSatang,
       overridden,
       amountSatang,
     };
@@ -280,7 +327,7 @@ export function computeBill(input: BillInput): BillResult {
       costSatang,
       marginSatang: costSatang === null ? null : collectedSatang - costSatang,
       billedCount: billed.length,
-      walkInCount: 0,
+      walkInCount: eligibleWalkIns.length,
     },
     warnings,
   };

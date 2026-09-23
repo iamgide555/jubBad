@@ -507,10 +507,18 @@ websockets.
 
 The roster review screen, before a session is created, also has one search
 field for adding someone the paste missed. It finds an existing player (so
-their history carries over) or creates a new one. It only works before the
-session is created. There is still no way to add a player to a *running*
-session; a late arrival has to be on the pasted list and switched on (see B14,
-carried forward in the roadmap).
+their history carries over) or creates a new one.
+
+A walk-in — someone not on the pasted list — can also be added to a session
+that is already running, from a "+ เพิ่มคน" button on the dashboard. The same
+search-or-create choice applies: an existing group player (their history
+carries over) or a brand-new one. They are credited `gamesOffset` up to the
+highest active games-played count already on the roster, the same rotation-
+fairness credit a returning (rested) player gets on the way back in (B14),
+so they join the rotation instead of winning every draw until they catch up.
+Someone already on tonight's roster, including a resting one, is refused as
+a duplicate; the search field points the host at the existing roster chip
+instead of creating a second row for the same person.
 
 **Ending a session asks for confirmation.** "จบก๊วน" opens a dialog that also
 asks how many shuttles were used and their price. The host
@@ -528,9 +536,9 @@ undo, resting players, wait timers, one-tap fill, all three pairing modes
 (variety, balanced, custom), per-court singles/doubles format, session
 archive, the public session summary, player pages, the host-only player roster
 page (contact details, plus rank by rating or win rate), manual add on the
-roster review screen, shuttle count and price, export and delete, per-user
-host login with an admin console, and a PWA manifest (no service worker, so
-no offline use).
+roster review screen, adding a walk-in to a running session, shuttle count
+and price, export and delete, per-user host login with an admin console, and
+a PWA manifest (no service worker, so no offline use).
 
 What is still open, and in what order, is in
 `docs/2026-09-21-feature-review-and-roadmap.md`.

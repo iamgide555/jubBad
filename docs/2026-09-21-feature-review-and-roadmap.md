@@ -181,20 +181,23 @@ Design questions, settled 2026-09-22 (see the spec):
 
 Effort M.
 
-#### - [ ] C2. Add a walk-in to a running session
+#### - [x] C2. Add a walk-in to a running session — done
 
 Design: `docs/superpowers/specs/2026-09-22-roadmap-c-series-design.md`, section C2.
 
-Someone who is not on the pasted list turns up. Today the host has to end
-the session and start a new one, or leave that player out. Competitors all
-support adding on the fly (Qcourt, Queue Master, T-BAD).
+Someone who is not on the pasted list turns up. A "+ เพิ่มคน" button on the
+dashboard opens a search-or-create sheet, reusing the roster review's
+search-or-create logic so an existing player keeps their history.
+Competitors all support adding on the fly (Qcourt, Queue Master, T-BAD).
 
-**Must meet B14** (below): the new roster row gets the same `gamesOffset`
-credit as re-activating a player, or the walk-in wins every rotation draw
-until they catch up. Reuse the roster review's search-or-create field so an
-existing player keeps their history.
+**Meets B14** (below): the new roster row gets the same `gamesOffset` credit
+as re-activating a player (a shared `rotationCredit` helper, so the two
+paths can't drift apart), so the walk-in joins the rotation instead of
+winning every draw until they catch up. Someone already on tonight's
+roster, including a resting one, is refused as a duplicate — the dialog
+points the host at the existing roster chip instead.
 
-Effort S–M.
+Not done here: C1's level chip on the walk-in sheet (C1 hasn't shipped yet).
 
 #### - [ ] C3. Per-person bill, copied out as text
 
@@ -307,19 +310,21 @@ Design: `docs/superpowers/specs/2026-09-22-roadmap-c-series-design.md`, section 
 This is the one strength no competitor claims (see "Strengths against
 competitors"), and nobody can see it on the first night. Two parts:
 
-1. **Measure it.** Rerun the ten-night simulation already used for B13, with
-   the real engine against two baselines: random pairing, and "avoid a
-   back-to-back repeat" (the rule PaQueueKa and Doubles Team Maker
-   advertise). Report distinct partners per player after 4, 8 and 12 weeks,
-   and the spread between the most-repeated and least-repeated pairs. That
-   gives the pitch a number, not an adjective. It also guards against the
-   engine quietly losing its edge, the same role
-   `engines/pairing-quality.test.ts` plays for search quality.
-2. **Show it.** Put one line on the session summary and the player card, for
-   example "คืนนี้ได้คู่ไม่ซ้ำ N คน" (partnered N different people tonight), or
-   "เดือนนี้ได้เล่นกับ N จาก M คนในก๊วน" (played with N of the group's M
-   players this month). The summary link is what gets shared into LINE, so
-   that line reaches every player, not just the host.
+1. **Measure it. Done** (`engines/variety-sim.ts`, `engines/variety-sim.test.ts`).
+   A seeded 12-night, 16-player, 3-court simulation runs the real engine
+   against two baselines: random pairing, and "avoid a back-to-back repeat"
+   (the rule PaQueueKa and Doubles Team Maker advertise). The engine beats
+   both on distinct partners per player and on pair-repeat spread at nights
+   4, 8 and 12, and the margins are asserted in a test, guarding against the
+   engine quietly losing its edge — the same role
+   `engines/pairing-quality.test.ts` plays for search quality. No schema
+   change, no server or UI change yet.
+2. **Show it.** Not started. Put one line on the session summary and the
+   player card, for example "คืนนี้ได้คู่ไม่ซ้ำ N คน" (partnered N different
+   people tonight), or "เดือนนี้ได้เล่นกับ N จาก M คนในก๊วน" (played with N of
+   the group's M players this month). The summary link is what gets shared
+   into LINE, so that line reaches every player, not just the host. Per the
+   build order below, this lands after C2, C1 and C3.
 
 Measuring is S and runs in `engines/` with no schema change. Showing it is S
 on data the summary already loads.

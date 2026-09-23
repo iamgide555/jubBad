@@ -1,6 +1,8 @@
 # Roadmap C1–C14 — design
 
-Status: Design approved by the owner 2026-09-22. Nothing built yet.
+Status: Design approved by the owner 2026-09-22. C14's measurement half and
+C2 are built and merged to `main` (2026-09-22/23); see the roadmap doc for
+per-item status. Everything else in this spec is still unbuilt.
 Roadmap: `docs/2026-09-21-feature-review-and-roadmap.md`.
 
 **Goal:** Settle how every open roadmap item (C1–C14) works before any of them

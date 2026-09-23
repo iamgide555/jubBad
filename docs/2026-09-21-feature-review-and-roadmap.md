@@ -229,7 +229,7 @@ points the host at the existing roster chip instead.
 
 C1's level chip on the walk-in sheet landed with C1, once it shipped.
 
-#### - [ ] C3. Per-person bill, copied out as text
+#### - [x] C3. Per-person bill, copied out as text — done
 
 Design: `docs/superpowers/specs/2026-09-22-roadmap-c-series-design.md`, section C3.
 

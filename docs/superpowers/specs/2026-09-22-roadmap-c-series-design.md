@@ -1,9 +1,37 @@
 # Roadmap C1–C14 — design
 
-Status: Design approved by the owner 2026-09-22. C14's measurement half, C2
-and C1 are built (2026-09-22/23); see the roadmap doc for per-item status.
+Status: Design approved by the owner 2026-09-22. C14's measurement half, C2,
+C1 and C3 are built (2026-09-22/24); see the roadmap doc for per-item status.
 Everything else in this spec is still unbuilt.
 Roadmap: `docs/2026-09-21-feature-review-and-roadmap.md`.
+
+**C3 amendments, owner 2026-09-24** (this spec's §C3 below is superseded
+where it disagrees) — see `docs/superpowers/plans/2026-09-24-c3-per-person-bill.md`
+for the full implementation plan and its "Deliberate deviations from the
+spec" list:
+- A walk-in (C2) pays a flat surcharge (`walkInFeeSatang`, default 20฿) that
+  is handed back as an equal discount to every billed player, so the total
+  collected is unchanged — a group discount, not host profit
+  (`engines/bill.ts`'s `distributeCapped`).
+- Mutations are `POST`, not `PUT`: `POST /sessions/:code/bill-config` and
+  `POST /sessions/:code/roster/:playerId/walk-in`, matching every other
+  sessions route (`sessions.controller.ts` mutates via `POST` throughout).
+- `computeBill(input: BillInput)` takes one object (`{ config, matches,
+  walkInIds, shuttleCount, shuttlePriceSatang }`), not six positional
+  arguments.
+- `BillConfig.overrides` is `{ playerId, amountSatang }[]`, not a
+  `Record<playerId, amount>` — class-validator can validate an array of DTOs,
+  not record values.
+- The dashboard walk-in badge described under C3's UI below was **cut**:
+  `GET /sessions/:code` is `@Public` and feeds the venue display, and
+  walk-in status is billing data, so it stays on the host-only bill page
+  instead.
+- The bill routes, and the roster walk-in mark, are editable **after** the
+  session ends (unlike almost every other session mutation, but like
+  shuttle details) — billing normally happens once the night is over.
+- LINE copy text is plain Thai strings, not `$localize` — always Thai
+  regardless of the host's own UI locale (owner decision), since money going
+  into a group chat is not the place to localize.
 
 **C1 amendments, owner 2026-09-23** (this spec's §C1 below is superseded
 where it disagrees):
@@ -62,6 +90,7 @@ below. `main` keeps running live sessions throughout.
 | D4 | C1 | The ±1 level band is soft-dominant and ships with C1. Originally a per-session toggle; folded into a fourth pairing mode (`level`) 2026-09-23 — see the amendment above. |
 | D5 | C7 | The co-host gets a session-scoped link now. Group-member accounts come later, with C8's ก๊วนใหญ่ tier. |
 | D6 | C8 | Design the mechanism now. Tier gates wait until pricing is re-checked against competitors. |
+| D7 | C3 | Added 2026-09-24. A walk-in (C2) pays a flat surcharge on top of their own bill line, redistributed as an equal discount to every other billed player — a group discount, not host profit, so the total collected is unchanged. |
 
 Anything marked "default" below was proposed, not asked. The owner saw it in
 review and did not object, but it is the first thing to revisit if an item's
@@ -254,7 +283,7 @@ levels, and the search can only rearrange those four.
   - a rare-level player plays within one queue cycle.
 - `pairing-quality.test.ts`: the exhaustive enumerator includes the band key.
 
-## C3. Per-person bill, copied as text (D1–D3)
+## C3. Per-person bill, copied as text (D1–D3, D7)
 
 **Research.** Nobody publishes their formula, PlayMatch included (it only says
 "3 รูปแบบคำนวณ"). What could be found shows two families of charging:
@@ -291,31 +320,57 @@ Sources are listed at the end of this document. The three models:
     cost is still covered.
 - A per-person **override** amount, for discounts or latecomers.
 - **Host fee** (D1): optional +X ฿ per person, in any model.
+- **Walk-in surcharge** (D7, added 2026-09-24 — see this doc's top amendment
+  note): a player marked as a walk-in (C2) pays a flat fee on top of their
+  own line, which is then handed back as an equal discount to every other
+  billed player, capped so nobody's amount goes negative
+  (`distributeCapped` in `engines/bill.ts`). The total collected is the same
+  as with no walk-in at all — it is a group discount, not a way for the host
+  to profit from a walk-in. A dashboard badge marking a roster row as a
+  walk-in was considered and **cut**: `GET /sessions/:code` is `@Public` and
+  feeds the venue display, and walk-in status is billing data, so it lives
+  only on the host-only bill page instead, set via its own route
+  (`POST /sessions/:code/roster/:playerId/walk-in`).
 - **Rounding:** up to 1 / 5 / 10 ฿ per person.
 - **Margin**, host only and never in the LINE text: amount collected vs
   actual cost (court + shuttles). Hidden when cost inputs are missing.
 
 **Math:** pure `engines/bill.ts`, integer satang throughout.
-- `computeBill(config, matches, rosterIds, shuttleCount, shuttlePriceSatang)
-  → { rows, totals }`.
+- `computeBill(input: BillInput) → BillResult`, where `BillInput` is
+  `{ config, matches, walkInIds, shuttleCount, shuttlePriceSatang }` —
+  one object, not five positional arguments (amended 2026-09-24, see this
+  doc's top amendment note).
 - Equal shares use the largest-remainder method, so they sum to the cost
   exactly before rounding.
 - A missing shuttle count in fair pay gives a shuttle part of 0 and a warning,
   "ยังไม่ได้ใส่จำนวนลูก".
 
 **Data:** `Session.billConfig String?` (JSON). It holds inputs only: model,
-rates, toggles, `courtFeeSatang`, host fee, rounding, and the added, removed
-and overridden people. The bill itself is always recomputed, the same rule as
-ratings.
+rates, toggles, `courtFeeSatang`, host fee, walk-in fee (D7), rounding, and
+the added and removed ids and a per-person `overrides: { playerId,
+amountSatang }[]` (an array, not a `playerId → amount` map — class-validator
+can validate an array of DTOs but not record values; amended 2026-09-24). The
+bill itself is always recomputed, the same rule as ratings. Which roster rows
+are walk-ins (D7) is separate: `SessionRoster.walkIn Boolean`, set via its own
+route rather than folded into `billConfig`.
 
 **API:** `GET /sessions/:code/bill` (computed) and
-`PUT /sessions/:code/bill-config` (class-validator DTO). Both are owner-only;
-a co-host is refused (C7).
+`POST /sessions/:code/bill-config` (class-validator DTO) — `POST`, not `PUT`,
+matching every other sessions mutation (amended 2026-09-24). Plus
+`POST /sessions/:code/roster/:playerId/walk-in` (D7) to mark or clear a
+roster row as a walk-in. All three are owner-only, with no `@Public()`; a
+co-host is refused (C7). Unlike almost every other session mutation, they
+stay reachable **after** the session has ended, since billing normally
+happens once the night is over.
 
 **UI:** a "คิดเงิน" button on the summary, visible to the host only.
 - Model tabs → inputs (prefilled from the previous session, per C10) → a
   per-person table with add, remove and override → the margin →
   "คัดลอกข้อความ".
+- The copied LINE text is always Thai, regardless of the host's own UI
+  locale (owner decision, 2026-09-24) — plain strings, not run through
+  `$localize`. Every on-screen label around it still follows the app's
+  normal Thai-source/English-target i18n.
 - Text template, fair pay example:
 
 ```
@@ -347,6 +402,10 @@ Plus an API spec for owner-only access and config validation.
 - **Derived, with no settings screen** (default). Prefill comes from the
   group's most recent session: venue, court count, shuttle price, and the C3
   `billConfig` without its per-person adds, removes or overrides.
+  **The `billConfig` slice of this prefill shipped with C3 itself** (bill
+  page prefills from the previous session's config via
+  `withoutPerPerson`/`bill-config.ts`); venue, court count and shuttle price
+  prefill are the part of C10 still open.
 - Values parsed from the LINE message take precedence over the defaults.
 - No schema change beyond C3's.
 - Explicit `Group` default fields get added only if derived defaults prove

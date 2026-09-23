@@ -11,6 +11,7 @@
  */
 
 import { ratingGap, type RatingTracks } from './elo.ts';
+import { levelIndex, withinBand, type Level } from './levels.ts';
 
 export type PlayerId = string;
 /** A team is 1 player (singles) or 2 (doubles). Both teams on a court are
@@ -90,7 +91,16 @@ export function selectSittingOut(
    * picks to play *is* the group — nothing downstream can fix it — so this is
    * where the single-court case has to be caught.
    */
-  recentGroupKeys?: Set<string> | null
+  recentGroupKeys?: Set<string> | null,
+  /** A player's skill level, for the ±1 band below. Omitted, selection is unchanged. */
+  levels?: ReadonlyMap<PlayerId, Level | null>,
+  /**
+   * The ±1 level band (D4, soft-dominant): who plays is biased toward
+   * clustering with same-level players, court by court, so the split search
+   * downstream actually has same-level groups to work with. Off by default —
+   * every existing caller is unaffected.
+   */
+  band = false
 ): { playing: PlayerId[]; sittingOut: PlayerId[] } {
   const sizes = normalizeSizes(courtCount);
   const offered = consumedSizes(sizes, roster.length);
@@ -116,12 +126,19 @@ export function selectSittingOut(
     return (waitingSince?.get(b) ?? 0) - (waitingSince?.get(a) ?? 0);
   });
 
+  // `sorted` is unchanged above: front sits out first (most games, then
+  // shortest wait). The band, when on, only ever reorders *within* that
+  // priority — clustering it around each court's anchor — so everything
+  // below (the natural cut, and the single-court group-repeat swap) works on
+  // whichever ordering it's handed without needing to know band is involved.
+  const priorityOrder = band && levels ? bandOrderedByCourt(sorted, offered, levels) : sorted;
+
   const groupsFor = (sittingOut: PlayerId[]): { playing: PlayerId[]; sittingOut: PlayerId[] } => {
     const sittingOutSet = new Set(sittingOut);
     return { playing: roster.filter((p) => !sittingOutSet.has(p)), sittingOut };
   };
 
-  const natural = groupsFor(sorted.slice(0, sitOutCount));
+  const natural = groupsFor(priorityOrder.slice(0, sitOutCount));
 
   if (usableCourts !== 1 || !recentGroupKeys?.has(groupKey(natural.playing))) {
     return natural;
@@ -136,10 +153,10 @@ export function selectSittingOut(
   // That is the smallest possible change to who plays, tried at increasing
   // distance from the boundary only if a closer swap still reproduces a
   // recent group.
-  const maxSwap = Math.min(sitOutCount, sorted.length - sitOutCount);
+  const maxSwap = Math.min(sitOutCount, priorityOrder.length - sitOutCount);
   for (let k = 1; k <= maxSwap; k++) {
-    const sittingOut = sorted.slice(0, sitOutCount);
-    sittingOut[sitOutCount - k] = sorted[sitOutCount - 1 + k];
+    const sittingOut = priorityOrder.slice(0, sitOutCount);
+    sittingOut[sitOutCount - k] = priorityOrder[sitOutCount - 1 + k];
     const candidate = groupsFor(sittingOut);
     if (!recentGroupKeys.has(groupKey(candidate.playing))) {
       return candidate;
@@ -147,6 +164,54 @@ export function selectSittingOut(
   }
 
   return natural;
+}
+
+/**
+ * Reorders `sorted` (front sits out first, same convention throughout) so
+ * that each offered court, processed in order, is filled from whoever is
+ * still unclaimed and closest in level to that court's anchor — the most
+ * deserving unclaimed player. A greedy, per-court pass, not a globally
+ * optimal one: it can still produce a worse split than some other choice of
+ * who sits out (see docs/superpowers/specs, C1), but it never skips the
+ * single most-deserving remaining player as an anchor, which is the fairness
+ * bound the ±1 band promises — a rare level waits at most until it reaches
+ * the front of the queue.
+ *
+ * Reordering stays *within* the priority the caller already established:
+ * every player who would have played still ends up somewhere in the tail,
+ * and every player who would have sat out still ends up somewhere in the
+ * head. Only which specific players land in which half changes.
+ */
+function bandOrderedByCourt(
+  sorted: PlayerId[],
+  offered: CourtSize[],
+  levels: ReadonlyMap<PlayerId, Level | null>
+): PlayerId[] {
+  let remaining = [...sorted].reverse(); // front = most deserving to play
+  const chosenPerCourt: PlayerId[][] = [];
+
+  for (const size of offered) {
+    if (remaining.length === 0) break;
+    const anchor = remaining[0];
+    const anchorLevel = levels.get(anchor) ?? null;
+    const inBand: PlayerId[] = [];
+    const outOfBand: PlayerId[] = [];
+    for (const p of remaining) {
+      const level = levels.get(p) ?? null;
+      (withinBand(anchorLevel, level) ? inBand : outOfBand).push(p);
+    }
+    const chosen = [...inBand, ...outOfBand].slice(0, size);
+    chosenPerCourt.push(chosen);
+    const chosenSet = new Set(chosen);
+    remaining = remaining.filter((p) => !chosenSet.has(p));
+  }
+
+  // Every chosen player still played, in the same deserving-first order as
+  // before, so the boundary the caller inspects (the weakest included, the
+  // strongest excluded) means the same thing it always did.
+  const playing = chosenPerCourt.flat().reverse();
+  const sittingOut = [...remaining].reverse();
+  return [...sittingOut, ...playing];
 }
 
 export interface CourtAssignment {
@@ -262,9 +327,30 @@ export function scoreArrangement(
 export interface ArrangementScoreComponents {
   /** Courts whose players (any split) match a group that recently played together. */
   groupRepeat: number;
+  /** Courts containing two players more than one level apart (the ±1 band). */
+  bandBreaks: number;
   partner: number;
   opponent: number;
   balance: number;
+}
+
+/**
+ * Whether a court's players (any split) span more than one level. An unknown
+ * level (null, or missing from the map) fits any level — it never counts
+ * toward the spread — so a group with nobody tagged, or only one player
+ * tagged, never breaks the band.
+ */
+function courtBreaksBand(players: PlayerId[], levels: ReadonlyMap<PlayerId, Level | null>): boolean {
+  let min = Infinity;
+  let max = -Infinity;
+  for (const id of players) {
+    const level = levels.get(id) ?? null;
+    if (level === null) continue;
+    const index = levelIndex(level);
+    if (index < min) min = index;
+    if (index > max) max = index;
+  }
+  return Number.isFinite(min) && max - min > 1;
 }
 
 export function arrangementScoreComponents(
@@ -274,16 +360,23 @@ export function arrangementScoreComponents(
   ratings?: RatingsInput,
   floors: HistoryFloors = { partner: 0, opponent: 0 },
   /** Groups (any split) that just played together and should not immediately reform. */
-  recentGroupKeys?: Set<string> | null
+  recentGroupKeys?: Set<string> | null,
+  /** Only when the ±1 band is on for this session; omitted, bandBreaks is always 0. */
+  levels?: ReadonlyMap<PlayerId, Level | null>
 ): ArrangementScoreComponents {
   let groupRepeat = 0;
+  let bandBreaks = 0;
   let partner = 0;
   let opponent = 0;
   let balance = 0;
 
   for (const { teamA, teamB } of courts) {
-    if (recentGroupKeys && recentGroupKeys.has(groupKey([...teamA, ...teamB]))) {
+    const group = [...teamA, ...teamB];
+    if (recentGroupKeys && recentGroupKeys.has(groupKey(group))) {
       groupRepeat += 1;
+    }
+    if (levels && courtBreaksBand(group, levels)) {
+      bandBreaks += 1;
     }
 
     // Partner pairs: every within-team pair. A 1-player team (singles)
@@ -315,7 +408,7 @@ export function arrangementScoreComponents(
     }
   }
 
-  return { groupRepeat, partner, opponent, balance };
+  return { groupRepeat, bandBreaks, partner, opponent, balance };
 }
 
 /**
@@ -340,7 +433,8 @@ export function compareArrangements(
   opponentCounts: Map<string, number>,
   ratings?: RatingsInput,
   floors: HistoryFloors = { partner: 0, opponent: 0 },
-  recentGroupKeys?: Set<string> | null
+  recentGroupKeys?: Set<string> | null,
+  levels?: ReadonlyMap<PlayerId, Level | null>
 ): number {
   const first = arrangementScoreComponents(
     one,
@@ -348,7 +442,8 @@ export function compareArrangements(
     opponentCounts,
     ratings,
     floors,
-    recentGroupKeys
+    recentGroupKeys,
+    levels
   );
   const second = arrangementScoreComponents(
     other,
@@ -356,10 +451,12 @@ export function compareArrangements(
     opponentCounts,
     ratings,
     floors,
-    recentGroupKeys
+    recentGroupKeys,
+    levels
   );
 
   if (first.groupRepeat !== second.groupRepeat) return first.groupRepeat - second.groupRepeat;
+  if (first.bandBreaks !== second.bandBreaks) return first.bandBreaks - second.bandBreaks;
 
   if (!ratings) {
     return first.partner - second.partner || first.opponent - second.opponent;
@@ -528,6 +625,8 @@ interface SearchContext {
    * court once it frees up.
    */
   recentGroupKeys: Set<string> | null;
+  /** Only set when the ±1 band is on for this session; otherwise bandBreaks stays 0. */
+  levels?: ReadonlyMap<PlayerId, Level | null>;
 }
 
 function courtComponents(teamA: Team, teamB: Team, ctx: SearchContext): ArrangementScoreComponents {
@@ -537,17 +636,19 @@ function courtComponents(teamA: Team, teamB: Team, ctx: SearchContext): Arrangem
     ctx.opponentCounts,
     ctx.ratings,
     ctx.floors,
-    ctx.recentGroupKeys
+    ctx.recentGroupKeys,
+    ctx.levels
   );
 }
 
-/** See the comment on compareArrangements: groupRepeat is compared first, in both modes. */
+/** See the comment on compareArrangements: groupRepeat and bandBreaks are compared first, in both modes. */
 function compareComponents(
   first: ArrangementScoreComponents,
   second: ArrangementScoreComponents,
   ratings?: RatingsInput
 ): number {
   if (first.groupRepeat !== second.groupRepeat) return first.groupRepeat - second.groupRepeat;
+  if (first.bandBreaks !== second.bandBreaks) return first.bandBreaks - second.bandBreaks;
   if (!ratings) {
     return first.partner - second.partner || first.opponent - second.opponent;
   }
@@ -635,16 +736,18 @@ function groupOf(court: CourtAssignment): Group {
 
 function totalComponents(parts: ArrangementScoreComponents[]): ArrangementScoreComponents {
   let groupRepeat = 0;
+  let bandBreaks = 0;
   let partner = 0;
   let opponent = 0;
   let balance = 0;
   for (const part of parts) {
     groupRepeat += part.groupRepeat;
+    bandBreaks += part.bandBreaks;
     partner += part.partner;
     opponent += part.opponent;
     balance += part.balance;
   }
-  return { groupRepeat, partner, opponent, balance };
+  return { groupRepeat, bandBreaks, partner, opponent, balance };
 }
 
 /**
@@ -721,6 +824,7 @@ function improveArrangement(start: CourtAssignment[], ctx: SearchContext): Court
 function negate(components: ArrangementScoreComponents): ArrangementScoreComponents {
   return {
     groupRepeat: -components.groupRepeat,
+    bandBreaks: -components.bandBreaks,
     partner: -components.partner,
     opponent: -components.opponent,
     balance: -components.balance,
@@ -926,7 +1030,11 @@ export function generateRound(
   random: () => number = Math.random,
   avoidSplit?: { teamA: Team; teamB: Team },
   /** Supplied only in balanced mode; omitted, behaviour is unchanged. */
-  ratings?: RatingsInput
+  ratings?: RatingsInput,
+  /** A player's skill level. Omitted, or `band` false, behaviour is unchanged. */
+  levels?: ReadonlyMap<PlayerId, Level | null>,
+  /** The ±1 level band (D4, soft-dominant). Off by default. */
+  band = false
 ): RoundResult {
   validateRoundInput(roster, courtCount, history, avoidSplit, ratings);
 
@@ -964,7 +1072,9 @@ export function generateRound(
     history.gamesPlayedThisSession,
     random,
     history.waitingSince,
-    recentGroupKeys
+    recentGroupKeys,
+    levels,
+    band
   );
 
   const sizes = normalizeSizes(courtCount);
@@ -982,6 +1092,7 @@ export function generateRound(
     floors,
     avoidKeys,
     recentGroupKeys,
+    levels: band ? levels : undefined,
   };
 
   const better = (candidate: CourtAssignment[], incumbent: CourtAssignment[] | null): boolean =>
@@ -993,7 +1104,8 @@ export function generateRound(
       history.opponentCounts,
       ratings,
       floors,
-      recentGroupKeys
+      recentGroupKeys,
+      ctx.levels
     ) < 0;
 
   let best: CourtAssignment[] | null = null;

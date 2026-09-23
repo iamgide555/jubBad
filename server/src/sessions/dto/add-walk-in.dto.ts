@@ -1,4 +1,5 @@
-import { IsOptional, IsString, MinLength } from 'class-validator';
+import { IsIn, IsOptional, IsString, MinLength } from 'class-validator';
+import { LEVELS, type Level } from '../../../../engines/levels.ts';
 
 /**
  * Exactly one of `playerId` (an existing group player) or `name` (create a
@@ -14,4 +15,9 @@ export class AddWalkInDto {
   @IsString()
   @MinLength(1)
   name?: string;
+
+  /** Only meaningful with `name` — a new player can be given a level up front. */
+  @IsOptional()
+  @IsIn(LEVELS)
+  level?: Level;
 }

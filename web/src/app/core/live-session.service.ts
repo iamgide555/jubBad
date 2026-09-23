@@ -5,6 +5,7 @@ import { firstValueFrom } from 'rxjs';
 import { environment } from '../../environments/environment';
 import type { CourtFormat, CourtState } from './live-session.model';
 import type { Session } from './session.model';
+import type { Level } from '../../../../engines/levels.ts';
 
 interface ProposeResponse {
   ok: boolean;
@@ -276,7 +277,9 @@ export class LiveSessionService {
 
   /** Adds someone not on tonight's pasted roster — an existing group player
    *  (`playerId`) or a brand-new one (`name`) — to a running session. */
-  addWalkIn(input: { playerId: string } | { name: string }): Promise<ActionResult> {
+  addWalkIn(
+    input: { playerId: string } | { name: string; level?: Level }
+  ): Promise<ActionResult> {
     return this.post('roster', input, $localize`:@@err.addWalkIn:เพิ่มผู้เล่นไม่สำเร็จ`);
   }
 
@@ -294,6 +297,16 @@ export class LiveSessionService {
 
   setMode(mode: Session['mode']): Promise<ActionResult> {
     return this.post('mode', { mode }, $localize`:@@err.mode:เปลี่ยนโหมดไม่สำเร็จ`);
+  }
+
+  /** Host-only: read separately from the public session poll (a level is
+   *  never on it — see Session.mode's doc comment). */
+  getLevels(): Promise<Record<string, Level | null>> {
+    return firstValueFrom(
+      this.http.get<Record<string, Level | null>>(
+        `${this.base}/sessions/${this.sessionCode}/levels`
+      )
+    );
   }
 
   /** Idle-only; the server refuses with COURT_ACTIVE while a match is pending or active. */

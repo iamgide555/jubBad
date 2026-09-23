@@ -67,14 +67,24 @@ describe('PlayerRoster', () => {
     expect(component.players()).toEqual(PLAYERS);
   });
 
-  it('saves a level change immediately, without entering edit mode', async () => {
+  it('saves a level change immediately, without entering edit mode, then reloads ratings', async () => {
     const savePromise = component.setLevel(PLAYERS[0], 'P+');
     httpMock
       .expectOne(`${B}/groups/group1/players/p1/level`)
       .flush({ id: 'p1', level: 'P+' });
+    // The level reset the player's rating seed, so every row's rating may
+    // have shifted — the whole list is refetched rather than patching just
+    // the level field. Let the PUT's .then() run before the reload GET
+    // is issued.
+    await Promise.resolve();
+    httpMock
+      .expectOne(`${B}/groups/group1/players/manage`)
+      .flush([{ ...PLAYERS[0], level: 'P+', rating: 1350 }, PLAYERS[1]]);
     await savePromise;
 
-    expect(component.players().find((p) => p.id === 'p1')?.level).toBe('P+');
+    const p1 = component.players().find((p) => p.id === 'p1');
+    expect(p1?.level).toBe('P+');
+    expect(p1?.rating).toBe(1350);
   });
 
   it('rolls back an optimistic level change if the save fails', async () => {

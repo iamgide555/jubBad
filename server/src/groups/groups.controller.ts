@@ -5,6 +5,7 @@ import type { AuthenticatedRequest } from '../auth/auth.guard.js';
 import { UpdateGroupDto } from './dto/update-group.dto.js';
 import { ParseRosterDto } from './dto/parse-roster.dto.js';
 import { UpdatePlayerDto } from './dto/update-player.dto.js';
+import { SetPlayerLevelDto } from './dto/set-player-level.dto.js';
 
 @Controller('groups')
 export class GroupsController {
@@ -65,6 +66,20 @@ export class GroupsController {
     @Body() dto: UpdatePlayerDto
   ) {
     return this.groupsService.updatePlayer(code, playerId, dto);
+  }
+
+  /**
+   * A one-field save for the roster page's inline level chip. Gated, like
+   * `updatePlayer` — a level is host-only, never reachable without the
+   * host's session cookie.
+   */
+  @Put(':code/players/:playerId/level')
+  updatePlayerLevel(
+    @Param('code') code: string,
+    @Param('playerId') playerId: string,
+    @Body() dto: SetPlayerLevelDto
+  ) {
+    return this.groupsService.updatePlayerLevel(code, playerId, dto.level ?? null);
   }
 
   /** Public: a player's own stat card, read-only. */

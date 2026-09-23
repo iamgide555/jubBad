@@ -20,11 +20,13 @@ import { resolvePlayerNames } from '../../core/player-names';
 import { PressDirective } from '../../core/motion/press.directive';
 import { RevealDirective } from '../../core/motion/reveal.directive';
 import { Icon } from '../../shared/icon/icon';
+import { LevelPicker } from '../../shared/level-picker/level-picker';
 import type { Player } from '../../../../../engines/fuzzy-match.ts';
+import type { Level } from '../../../../../engines/levels.ts';
 
 @Component({
   selector: 'app-group-entry',
-  imports: [FormsModule, RouterLink, NgTemplateOutlet, PressDirective, RevealDirective, Icon],
+  imports: [FormsModule, RouterLink, NgTemplateOutlet, PressDirective, RevealDirective, Icon, LevelPicker],
   templateUrl: './group-entry.html',
   styleUrl: './group-entry.css',
 })
@@ -352,6 +354,15 @@ export class GroupEntry {
   setDecision(review: NameReview, decision: NameReview['decision']): void {
     const apply = (reviews: NameReview[]) =>
       reviews.map((r) => (r === review ? { ...r, decision } : r));
+    this.rosterReviews.update(apply);
+    this.waitlistReviews.update(apply);
+  }
+
+  /** A level on a new player's review chip (C1) — only ever set here for a
+   *  `new` row; an existing player's level is edited on the roster page. */
+  setLevel(review: NameReview, level: Level | null): void {
+    const apply = (reviews: NameReview[]) =>
+      reviews.map((r) => (r === review ? { ...r, level: level ?? undefined } : r));
     this.rosterReviews.update(apply);
     this.waitlistReviews.update(apply);
   }

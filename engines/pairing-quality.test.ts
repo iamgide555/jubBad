@@ -30,6 +30,7 @@ import {
   type CourtAssignment,
   type PlayerId,
 } from './pairing.ts';
+import type { Level } from './levels.ts';
 
 /**
  * The audit's generator, reproduced exactly so the numbers in the document
@@ -317,6 +318,44 @@ test('a mixed singles/doubles round is paired optimally, every time', () => {
     );
     const score = scoreArrangement(courts, partnerCounts, opponentCounts, undefined, floors);
     assert.equal(score, optimum, `seed ${seed}: score ${score} must equal optimum ${optimum}`);
+  }
+});
+
+test('band on: the local search (12 players, above exact-enumeration size) still finds a perfect level partition when one exists', () => {
+  // 4 BG + 4 N + 4 P players over 3 courts: a clean per-level partition
+  // exists (BG|N|P), so bandBreaks should reach 0 every time, exactly like
+  // the unbanded optimum tests above guard the local search against
+  // silently regressing on partner/opponent quality.
+  const players = [
+    ...Array.from({ length: 4 }, (_, i) => `bg${i}`),
+    ...Array.from({ length: 4 }, (_, i) => `n${i}`),
+    ...Array.from({ length: 4 }, (_, i) => `p${i}`),
+  ];
+  const levels = new Map<string, Level>([
+    ...players.slice(0, 4).map((id): [string, Level] => [id, 'BG']),
+    ...players.slice(4, 8).map((id): [string, Level] => [id, 'N']),
+    ...players.slice(8, 12).map((id): [string, Level] => [id, 'P']),
+  ]);
+  const LEVELS = ['BG', 'N', 'S', 'P-', 'P', 'P+', 'C', 'B'];
+  const breaksBand = (group: PlayerId[]): boolean => {
+    const indices = group.map((id) => LEVELS.indexOf(levels.get(id)!));
+    return Math.max(...indices) - Math.min(...indices) > 1;
+  };
+
+  for (let seed = 1; seed <= 30; seed++) {
+    const { courts } = generateRound(
+      players,
+      3,
+      { partnerCounts: new Map(), opponentCounts: new Map(), gamesPlayedThisSession: new Map() },
+      makeSeededRandom(seed),
+      undefined,
+      undefined,
+      levels,
+      true
+    );
+    for (const { teamA, teamB } of courts) {
+      assert.equal(breaksBand([...teamA, ...teamB]), false, `seed ${seed}: a court broke the band`);
+    }
   }
 });
 

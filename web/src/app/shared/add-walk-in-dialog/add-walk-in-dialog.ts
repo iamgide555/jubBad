@@ -1,7 +1,9 @@
 import { Component, ElementRef, computed, input, output, signal, viewChild } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { exactPlayerMatch, searchCandidates } from '../../core/roster-review';
+import { LevelPicker } from '../level-picker/level-picker';
 import type { Player } from '../../../../../engines/fuzzy-match.ts';
+import type { Level } from '../../../../../engines/levels.ts';
 
 /**
  * Search-or-create sheet for adding a walk-in to a running session. Follows
@@ -12,7 +14,7 @@ import type { Player } from '../../../../../engines/fuzzy-match.ts';
  */
 @Component({
   selector: 'app-add-walk-in-dialog',
-  imports: [FormsModule],
+  imports: [FormsModule, LevelPicker],
   templateUrl: './add-walk-in-dialog.html',
   styleUrl: './add-walk-in-dialog.css',
 })
@@ -22,12 +24,13 @@ export class AddWalkInDialog {
   readonly saving = input(false);
   readonly error = input<string | null>(null);
 
-  readonly add = output<{ playerId: string } | { name: string }>();
+  readonly add = output<{ playerId: string } | { name: string; level?: Level }>();
 
   private readonly dialogEl = viewChild.required<ElementRef<HTMLDialogElement>>('dialog');
 
   protected readonly isOpen = signal(false);
   protected readonly query = signal('');
+  protected readonly newPlayerLevel = signal<Level | null>(null);
 
   protected readonly results = computed(() =>
     searchCandidates(this.query(), this.players(), this.excludedIds())
@@ -54,6 +57,7 @@ export class AddWalkInDialog {
 
   open(): void {
     this.query.set('');
+    this.newPlayerLevel.set(null);
     this.isOpen.set(true);
     this.dialogEl().nativeElement.showModal();
   }
@@ -82,6 +86,7 @@ export class AddWalkInDialog {
   protected addNew(): void {
     const name = this.query().trim();
     if (!name) return;
-    this.add.emit({ name });
+    const level = this.newPlayerLevel();
+    this.add.emit(level ? { name, level } : { name });
   }
 }

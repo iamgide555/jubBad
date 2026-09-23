@@ -89,6 +89,7 @@ describe('app routes', () => {
         age: null,
         email: null,
         phone: null,
+        level: null,
         rating: 1200,
         singlesRating: null,
         winRate: null,

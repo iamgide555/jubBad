@@ -23,10 +23,14 @@
           </li>
         }
         @if (showAddNew()) {
-          <li>
+          <li class="add-new">
             <button type="button" data-add-new [disabled]="saving()" (click)="addNew()">
               <ng-container i18n="@@walkIn.addAsNew">เพิ่มเป็นคนใหม่</ng-container> "{{ query().trim() }}"
             </button>
+            <app-level-picker
+              [level]="newPlayerLevel()"
+              (levelChange)="newPlayerLevel.set($event)"
+            />
           </li>
         }
         @if (excludedExactMatch(); as match) {

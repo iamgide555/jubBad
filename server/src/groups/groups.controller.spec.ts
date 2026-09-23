@@ -879,6 +879,7 @@ describe('GroupsController', () => {
             age: 30,
             email: 'me@example.test',
             phone: '0812345678',
+            level: null,
             rating: 1200,
             singlesRating: null,
             winRate: null,

@@ -13,6 +13,7 @@ import {
   ValidateNested,
 } from 'class-validator';
 import { NameMatchDto } from './name-match.dto.js';
+import { LEVELS, type Level } from '../../../../engines/levels.ts';
 
 export class NameReviewDto {
   @IsString()
@@ -25,6 +26,16 @@ export class NameReviewDto {
 
   @IsIn(['accept', 'reject-new'])
   decision!: 'accept' | 'reject-new';
+
+  /**
+   * Set on a new player's chip, or on an existing player who has none yet
+   * (C1). Ignored for an existing player who already has a level — a level
+   * change is a deliberate edit on the roster page, not a side effect of
+   * reviewing tonight's paste.
+   */
+  @IsOptional()
+  @IsIn(LEVELS)
+  level?: Level;
 }
 
 export class CreateSessionDto {

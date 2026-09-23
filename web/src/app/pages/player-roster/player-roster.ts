@@ -113,6 +113,11 @@ export class PlayerRoster implements CanComponentDeactivate, OnDestroy {
     this.levelSaveError.set(null);
     try {
       await firstValueFrom(this.rosterService.updatePlayerLevel(this.groupCode, player.id, level));
+      // A level edit resets the player's Elo seed (RatingAnchor, see
+      // overview.md "Ratings"), so rating/singlesRating/winRate are stale
+      // on every row, not just this one — reload the whole list rather
+      // than patching just the level field.
+      await this.load();
     } catch {
       this.players.update((list) =>
         list.map((p) => (p.id === player.id ? { ...p, level: previous } : p))

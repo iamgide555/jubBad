@@ -1,10 +1,14 @@
 import { similarity } from '../../../../engines/fuzzy-match.ts';
 import type { NameMatch, Player, RosterNameMatch } from '../../../../engines/fuzzy-match.ts';
+import type { Level } from '../../../../engines/levels.ts';
 
 export interface NameReview {
   inputName: string;
   match: NameMatch;
   decision: 'accept' | 'reject-new';
+  /** Set only on a `new` row's chip (C1) — an existing player's level is
+   *  edited on the roster page, not re-asked here. */
+  level?: Level;
 }
 
 /**

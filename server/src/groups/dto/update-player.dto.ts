@@ -1,4 +1,5 @@
-import { IsEmail, IsInt, IsOptional, IsString, Matches, Max, MaxLength, Min, MinLength } from 'class-validator';
+import { IsEmail, IsIn, IsInt, IsOptional, IsString, Matches, Max, MaxLength, Min, MinLength } from 'class-validator';
+import { LEVELS, type Level } from '../../../../engines/levels.ts';
 
 export class UpdatePlayerDto {
   @IsString()
@@ -19,4 +20,9 @@ export class UpdatePlayerDto {
   @IsOptional()
   @Matches(/^[0-9+\- ]{6,20}$/)
   phone?: string;
+
+  /** Skill level (ระดับมือ). Left out or explicitly null clears it. */
+  @IsOptional()
+  @IsIn(LEVELS)
+  level?: Level | null;
 }

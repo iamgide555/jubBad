@@ -14,7 +14,10 @@ export interface Session {
   createdAt: string;
   /** Server's clock at response time — the skew reference for live court timers. */
   serverNow: string;
-  mode: 'variety' | 'balanced' | 'custom';
+  /** 'level' (C1) spreads partners like 'variety' but dominated first by the
+   *  ±1 skill band. Levels themselves are host-only, read separately via
+   *  LiveSessionService.getLevels — never on this session poll. */
+  mode: 'variety' | 'balanced' | 'level' | 'custom';
   /** Player id -> ISO time they last finished a match tonight. */
   lastPlayedAt: Record<string, string>;
   /** Player id -> when they joined or returned; absent for the original roster. */

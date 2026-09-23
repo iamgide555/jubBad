@@ -2,6 +2,7 @@ import { HttpClient } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { environment } from '../../environments/environment';
 import type { Player, RosterNameMatch } from '../../../../engines/fuzzy-match.ts';
+import type { Level } from '../../../../engines/levels.ts';
 import type { Group } from './group.model';
 import type { GroupSession } from './group-session.model';
 import type { NameReview } from './roster-review';
@@ -32,6 +33,7 @@ export interface ManagedPlayer {
   age: number | null;
   email: string | null;
   phone: string | null;
+  level: Level | null;
   rating: number;
   singlesRating: number | null;
   winRate: number | null;
@@ -77,6 +79,13 @@ export class RosterService {
       email: string | null;
       phone: string | null;
     }>(`${this.base}/groups/${groupCode}/players/${playerId}`, patch);
+  }
+
+  updatePlayerLevel(groupCode: string, playerId: string, level: Level | null) {
+    return this.http.put<{ id: string; level: Level | null }>(
+      `${this.base}/groups/${groupCode}/players/${playerId}/level`,
+      { level }
+    );
   }
 
   listSessions(groupCode: string) {

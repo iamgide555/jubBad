@@ -34,7 +34,7 @@ This plan implements **only** the "Measure" half of spec section C14. The "Show"
 **Interfaces:**
 - Produces: `makeSeededRandom(seed: number): () => number`; `SimScenario` interface; `DEFAULT_SCENARIO: SimScenario`; `playerIdsFor(scenario: SimScenario): PlayerId[]`; `generateAttendance(scenario: SimScenario, random: () => number): PlayerId[][]` (one array of attending player ids per night, length `scenario.nights`); `coAttendanceCounts(attendance: PlayerId[][]): Map<string, number>` (keyed by `pairKey`, counting nights both players attended).
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 ```ts
 // engines/variety-sim.test.ts
@@ -79,12 +79,12 @@ test('coAttendanceCounts counts exactly the nights both players attended', () =>
 });
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `node --experimental-strip-types --test engines/variety-sim.test.ts`
 Expected: FAIL — `Cannot find module './variety-sim.ts'` (the file doesn't exist yet).
 
-- [ ] **Step 3: Write minimal implementation**
+- [x] **Step 3: Write minimal implementation**
 
 ```ts
 // engines/variety-sim.ts
@@ -156,12 +156,12 @@ export function coAttendanceCounts(attendance: PlayerId[][]): Map<string, number
 }
 ```
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run: `node --experimental-strip-types --test engines/variety-sim.test.ts`
 Expected: PASS (3 tests)
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add engines/variety-sim.ts engines/variety-sim.test.ts
@@ -180,7 +180,7 @@ git commit -m "feat(variety-sim): scenario, seeded attendance, co-attendance cou
 - Consumes: nothing from Task 1 directly (pure functions over 4 player ids and a `Map<PlayerId, PlayerId>`).
 - Produces: `pickRandomSplit(four: [PlayerId,PlayerId,PlayerId,PlayerId], random: () => number): { teamA: [PlayerId,PlayerId]; teamB: [PlayerId,PlayerId] }`; `pickNoBackToBackSplit(four: [PlayerId,PlayerId,PlayerId,PlayerId], lastPartner: Map<PlayerId, PlayerId>, random: () => number): { teamA: [PlayerId,PlayerId]; teamB: [PlayerId,PlayerId] }`. Both are used by Task 3.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 ```ts
 // append to engines/variety-sim.test.ts
@@ -236,12 +236,12 @@ test('pickNoBackToBackSplit falls back to a random split when every split reunit
 });
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `node --experimental-strip-types --test engines/variety-sim.test.ts`
 Expected: FAIL — `pickRandomSplit is not a function` / `pickNoBackToBackSplit is not a function`.
 
-- [ ] **Step 3: Write minimal implementation**
+- [x] **Step 3: Write minimal implementation**
 
 ```ts
 // append to engines/variety-sim.ts
@@ -284,12 +284,12 @@ export function pickNoBackToBackSplit(
 }
 ```
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run: `node --experimental-strip-types --test engines/variety-sim.test.ts`
 Expected: PASS (6 tests)
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add engines/variety-sim.ts engines/variety-sim.test.ts
@@ -308,7 +308,7 @@ git commit -m "feat(variety-sim): random and no-back-to-back split pickers"
 - Consumes: `Split`, `pickRandomSplit`, `pickNoBackToBackSplit` (Task 2); `generateRound`, `selectSittingOut`, `shuffle`, `MatchHistory`, `PlayerId` from `./pairing.ts`.
 - Produces: `export type PickerName = 'engine' | 'random' | 'no-back-to-back';` and `fillAllIdleCourts(available: PlayerId[], courtsNeeded: number, picker: PickerName, history: MatchHistory, lastPartner: Map<PlayerId, PlayerId>, random: () => number): { courts: Split[] }`. Used by Task 4's `runNight`.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 ```ts
 // append to engines/variety-sim.test.ts
@@ -351,12 +351,12 @@ for (const picker of ['engine', 'random', 'no-back-to-back'] as const) {
 }
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `node --experimental-strip-types --test engines/variety-sim.test.ts`
 Expected: FAIL — `fillAllIdleCourts is not a function`.
 
-- [ ] **Step 3: Write minimal implementation**
+- [x] **Step 3: Write minimal implementation**
 
 ```ts
 // append to engines/variety-sim.ts
@@ -410,12 +410,12 @@ export function fillAllIdleCourts(
 }
 ```
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run: `node --experimental-strip-types --test engines/variety-sim.test.ts`
 Expected: PASS (12 tests)
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add engines/variety-sim.ts engines/variety-sim.test.ts
@@ -434,7 +434,7 @@ git commit -m "feat(variety-sim): fillAllIdleCourts dispatches to engine or base
 - Consumes: `fillAllIdleCourts`, `PickerName`, `pairKey` from `./pairing.ts`.
 - Produces: `simulateNights(scenario: SimScenario, attendance: PlayerId[][], picker: PickerName, random: () => number): Map<string, number>[]` — one cumulative `partnerCounts` snapshot per night, length `scenario.nights`. Used by Task 5's `metricsAtNight` and Task 6's final test.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 ```ts
 // append to engines/variety-sim.test.ts
@@ -472,12 +472,12 @@ test('simulateNights is deterministic for a given attendance and seed', () => {
 });
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `node --experimental-strip-types --test engines/variety-sim.test.ts`
 Expected: FAIL — `simulateNights is not a function`.
 
-- [ ] **Step 3: Write minimal implementation**
+- [x] **Step 3: Write minimal implementation**
 
 ```ts
 // append to engines/variety-sim.ts
@@ -579,12 +579,12 @@ export function simulateNights(
 }
 ```
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run: `node --experimental-strip-types --test engines/variety-sim.test.ts`
 Expected: PASS (15 tests)
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add engines/variety-sim.ts engines/variety-sim.test.ts
@@ -603,7 +603,7 @@ git commit -m "feat(variety-sim): async per-night event simulation across the se
 - Consumes: `pairKey` from `./pairing.ts`.
 - Produces: `export interface NightMetrics { meanDistinctPartners: number; pairSpread: number; neverMetShare: number }`; `metricsAtNight(partnerCounts: Map<string, number>, coAttendance: Map<string, number>, playerIds: PlayerId[], night: number): NightMetrics`. Used by Task 6.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 ```ts
 // append to engines/variety-sim.test.ts
@@ -644,12 +644,12 @@ test('metricsAtNight computes distinct partners, spread and never-met share by h
 });
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `node --experimental-strip-types --test engines/variety-sim.test.ts`
 Expected: FAIL — `metricsAtNight is not a function`.
 
-- [ ] **Step 3: Write minimal implementation**
+- [x] **Step 3: Write minimal implementation**
 
 ```ts
 // append to engines/variety-sim.ts
@@ -706,12 +706,12 @@ export function metricsAtNight(
 }
 ```
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run: `node --experimental-strip-types --test engines/variety-sim.test.ts`
 Expected: PASS (16 tests)
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add engines/variety-sim.ts engines/variety-sim.test.ts
@@ -731,7 +731,7 @@ This is the test the spec asks for: "`engines/variety-sim.test.ts` holds the ass
 - Consumes: everything produced by Tasks 1–5.
 - Produces: nothing further downstream — this is the terminal deliverable of the plan.
 
-- [ ] **Step 1: Write the test (this step's test IS the deliverable — no separate "fails then passes" cycle beyond running it once with loose bounds first)**
+- [x] **Step 1: Write the test (this step's test IS the deliverable — no separate "fails then passes" cycle beyond running it once with loose bounds first)**
 
 First, add the test with the real seeds and printed table, temporarily asserting only that the numbers are positive, to confirm the wiring:
 
@@ -762,7 +762,7 @@ test('the engine beats naive baselines on partner variety across a season (print
 });
 ```
 
-- [ ] **Step 2: Run it and confirm the printed table matches these measured values**
+- [x] **Step 2: Run it and confirm the printed table matches these measured values**
 
 Run: `node --experimental-strip-types --test engines/variety-sim.test.ts`
 
@@ -777,7 +777,7 @@ night | engine partners/spread | random partners/spread | no-b2b partners/spread
 
 If the printed numbers differ from this table, stop and re-check Tasks 1–5 against this plan's code before continuing — the simulation is not reproducing the measurement this plan's margins are based on.
 
-- [ ] **Step 3: Replace the loose assertion with the real regression-guarding assertions**
+- [x] **Step 3: Replace the loose assertion with the real regression-guarding assertions**
 
 The margins are set comfortably under the smallest gap observed above (partner-count edge: 1.25 vs random, 0.875 vs no-back-to-back, at night 12; spread edge: 6 vs random at night 4/8, 2 vs no-back-to-back at night 8) — loose enough that seed-level noise won't cause a flaky failure, tight enough that a real regression in the engine's search quality trips it.
 
@@ -829,17 +829,17 @@ test('the engine beats naive baselines on partner variety across a season (print
 });
 ```
 
-- [ ] **Step 4: Run the full test to verify it passes**
+- [x] **Step 4: Run the full test to verify it passes**
 
 Run: `node --experimental-strip-types --test engines/variety-sim.test.ts`
 Expected: PASS (17 tests), table printed matching Step 2's values.
 
-- [ ] **Step 5: Run the whole engines test suite to confirm no regressions elsewhere**
+- [x] **Step 5: Run the whole engines test suite to confirm no regressions elsewhere**
 
 Run: `npm run test:engines`
 Expected: PASS, all existing engine test files unaffected (this plan added a new file and touched no other `engines/*.ts` file).
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add engines/variety-sim.ts engines/variety-sim.test.ts

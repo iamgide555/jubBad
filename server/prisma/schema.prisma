@@ -80,7 +80,15 @@ model Player {
   age     Int?
   email   String?
   phone   String?
-  group   Group  @relation(fields: [groupId], references: [code])
+  /// Skill level (ระดับมือ): one of engines/levels.ts's LEVELS, or null when
+  /// unset. Seeds this player's starting Elo (see engines/levels.ts seedFor)
+  /// and is compared under the ±1 band when Session.mode is 'level'.
+  /// Host-only — never included in a @Public response.
+  level      String?
+  /// When this level last changed. `null` means "from the start" for a
+  /// legacy row or a level set before the player's first match.
+  levelSetAt DateTime?
+  group      Group  @relation(fields: [groupId], references: [code])
   rosterEntries SessionRoster[]
   waitlistEntries Waitlist[]
 }
@@ -95,9 +103,10 @@ model Session {
   createdAt     DateTime        @default(now())
   endedAt       DateTime?
   /// 'variety' (default) spreads partners and opponents; 'balanced' also
-  /// pulls the two sides of each match together on Elo rating; 'custom'
-  /// proposes empty seats and lets the host fill them by hand (see
-  /// server/src/sessions/session-mode.ts and pairing-teams.ts).
+  /// pulls the two sides of each match together on Elo rating; 'level'
+  /// spreads partners like 'variety' but dominated first by the ±1 skill
+  /// band (C1); 'custom' proposes empty seats and lets the host fill them by
+  /// hand (see server/src/sessions/session-mode.ts and pairing-teams.ts).
   mode          String          @default("variety")
   /// Per-court doubles/singles setting, JSON-encoded ('doubles' | 'singles')[],
   /// index 0 = court 1. Null, missing, or an unrecognised entry all read as

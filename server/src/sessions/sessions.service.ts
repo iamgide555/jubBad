@@ -18,8 +18,10 @@ import {
   type CourtSize,
 } from '../../../engines/pairing.ts';
 import { isValidIsoDate } from '../../../engines/parser.ts';
+import { type Level } from '../../../engines/levels.ts';
 import { waitingSinceMap } from '../../../engines/waiting.ts';
 import { PrismaService } from '../prisma/prisma.service.js';
+import { levelWrite, loadPlayerLevels, loadRatingAnchors } from '../player-levels.js';
 import {
   courtSizeFor,
   formatAt,
@@ -28,7 +30,7 @@ import {
   withFormatAt,
 } from './court-formats.js';
 import { deriveHistory } from './derive-history.js';
-import { isCustomMode } from './session-mode.js';
+import { isCustomMode, isLevelMode } from './session-mode.js';
 import {
   CorruptPairingError,
   emptySeatCount,
@@ -279,8 +281,9 @@ export class SessionsService {
           name: player.name,
           aliases: JSON.parse(player.aliases) as string[],
         }));
-        const newPlayerWrites: { id: string; name: string }[] = [];
+        const newPlayerWrites: { id: string; name: string; level: Level | null }[] = [];
         const aliasWrites = new Map<string, string[]>();
+        const levelWrites = new Map<string, Level>();
 
         // Resolve all choices before deduplicating IDs. An earlier fuzzy
         // suggestion may become a new player while a later duplicate is
@@ -302,11 +305,14 @@ export class SessionsService {
                 const updated = players.find((player) => player.id === playerId)!;
                 aliasWrites.set(playerId, updated.aliases);
               }
+              if (review.level && !playersById.get(playerId)!.level) {
+                levelWrites.set(playerId, review.level);
+              }
               resolvedIds.push(playerId);
             } else {
               const id = randomUUID();
               players = createNewPlayer(players, id, review.inputName);
-              newPlayerWrites.push({ id, name: review.inputName });
+              newPlayerWrites.push({ id, name: review.inputName, level: review.level ?? null });
               resolvedIds.push(id);
             }
           }
@@ -320,13 +326,24 @@ export class SessionsService {
         await Promise.all(
           newPlayerWrites.map((player) =>
             tx.player.create({
-              data: { id: player.id, groupId: dto.groupCode, name: player.name, aliases: '[]' },
+              data: {
+                id: player.id,
+                groupId: dto.groupCode,
+                name: player.name,
+                aliases: '[]',
+                ...levelWrite(null, player.level),
+              },
             })
           )
         );
         await Promise.all(
           [...aliasWrites.entries()].map(([id, aliases]) =>
             tx.player.update({ where: { id }, data: { aliases: JSON.stringify(aliases) } })
+          )
+        );
+        await Promise.all(
+          [...levelWrites.entries()].map(([id, level]) =>
+            tx.player.update({ where: { id }, data: levelWrite(null, level) })
           )
         );
         await tx.session.create({
@@ -648,6 +665,7 @@ export class SessionsService {
         : undefined;
 
     const ratings = await this.ratingsForMode(session);
+    const levels = await loadPlayerLevels(this.prisma, session.groupId);
 
     // Plan across every idle court, then commit only the one asked for.
     //
@@ -680,7 +698,16 @@ export class SessionsService {
       courtSizeFor(formatAt(session.courtFormats, n))
     );
 
-    const result = this.runGenerateRound(available, sizes, history, undefined, avoidSplit, ratings);
+    const result = this.runGenerateRound(
+      available,
+      sizes,
+      history,
+      undefined,
+      avoidSplit,
+      ratings,
+      levels,
+      isLevelMode(session.mode)
+    );
     if (result.courts.length === 0) {
       return {
         ok: false as const,
@@ -1058,6 +1085,7 @@ export class SessionsService {
     if (session.endedAt !== null) throw this.conflict('SESSION_ENDED');
     const history = await this.loadHistory(session.groupId, pairing.sessionId);
     const ratings = await this.ratingsForMode(session);
+    const levels = await loadPlayerLevels(this.prisma, session.groupId);
 
     const swapIn = (candidate: string): [string[], string[]] => {
       const replace = (team: string[]): string[] =>
@@ -1084,7 +1112,10 @@ export class SessionsService {
             [other.assignment],
             history.partnerCounts,
             history.opponentCounts,
-            ratings
+            ratings,
+            { partner: 0, opponent: 0 },
+            null,
+            isLevelMode(session.mode) ? levels : undefined
           )
       );
 
@@ -1424,23 +1455,42 @@ export class SessionsService {
    * round mix formats correctly.
    */
   private async loadRatings(groupCode: string) {
-    const played = await this.prisma.pairing.findMany({
-      where: {
-        session: { groupId: groupCode },
-        confirmedAt: { not: null },
-        endedAt: { not: null },
-        winner: { not: null },
-      },
-      orderBy: { confirmedAt: 'asc' },
-      select: { teamA: true, teamB: true, winner: true },
-    });
+    const [played, anchors] = await Promise.all([
+      this.prisma.pairing.findMany({
+        where: {
+          session: { groupId: groupCode },
+          confirmedAt: { not: null },
+          endedAt: { not: null },
+          winner: { not: null },
+        },
+        orderBy: { confirmedAt: 'asc' },
+        select: { teamA: true, teamB: true, winner: true, confirmedAt: true },
+      }),
+      loadRatingAnchors(this.prisma, groupCode),
+    ]);
 
-    return computeRatingTracks(
+    const tracks = computeRatingTracks(
       played.map((p) => ({
         ...this.teamsOf(p),
         winner: p.winner as 'A' | 'B',
-      }))
+        // Non-null: the `confirmedAt: { not: null }` filter above guarantees
+        // it. Needed whenever `anchors` includes a timed reset (a level set
+        // mid-session) — see engines/elo.ts's RatingAnchor.
+        at: p.confirmedAt!.getTime(),
+      })),
+      anchors
     );
+
+    // For pairing, unlike a stats display, there is no "never played" state
+    // to preserve — the engine needs a number for every player on the court,
+    // tonight, including one who has never played a match yet. `anchors`
+    // fills that in with each player's seed; a real computed rating (from
+    // actually having played) always wins where one exists.
+    const seeds = new Map([...anchors].map(([id, anchor]) => [id, anchor.rating]));
+    return {
+      singles: new Map([...seeds, ...tracks.singles]),
+      doubles: new Map([...seeds, ...tracks.doubles]),
+    };
   }
 
   /**
@@ -1548,6 +1598,29 @@ export class SessionsService {
       data: { mode: dto.mode },
     });
     return { code: updated.code, mode: updated.mode };
+  }
+
+  /**
+   * Host-only: every roster and waitlist player's level, for the dashboard
+   * badge. Never folded into the @Public session read — a level is host-only
+   * (C1, decision Q6). The ±1 band itself is a mode ('level'), not a
+   * separate toggle — see session-mode.ts.
+   */
+  async getLevels(code: string): Promise<Record<string, Level | null>> {
+    const session = await this.prisma.session.findUnique({ where: { code } });
+    if (!session) throw this.notFound('SESSION_NOT_FOUND');
+
+    const levels = await loadPlayerLevels(this.prisma, session.groupId);
+    const [roster, waitlist] = await Promise.all([
+      this.prisma.sessionRoster.findMany({ where: { sessionId: code }, select: { playerId: true } }),
+      this.prisma.waitlist.findMany({ where: { sessionId: code }, select: { playerId: true } }),
+    ]);
+
+    const result: Record<string, Level | null> = {};
+    for (const { playerId } of [...roster, ...waitlist]) {
+      result[playerId] = levels.get(playerId) ?? null;
+    }
+    return result;
   }
 
   setCourtFormat(code: string, courtNumber: number, dto: SetCourtFormatDto) {
@@ -1793,7 +1866,17 @@ export class SessionsService {
 
     const history = await this.loadHistory(session.groupId, sessionCode);
     const ratings = await this.ratingsForMode(session);
-    const result = this.runGenerateRound(available, sizes, history, undefined, undefined, ratings);
+    const levels = await loadPlayerLevels(this.prisma, session.groupId);
+    const result = this.runGenerateRound(
+      available,
+      sizes,
+      history,
+      undefined,
+      undefined,
+      ratings,
+      levels,
+      isLevelMode(session.mode)
+    );
 
     const filled = await this.prisma.$transaction(async (tx) => {
       const written: number[] = [];
@@ -1995,7 +2078,13 @@ export class SessionsService {
     if (newPlayerName !== null) {
       await this.prisma.$transaction([
         this.prisma.player.create({
-          data: { id: playerId, groupId: session.groupId, name: newPlayerName, aliases: '[]' },
+          data: {
+            id: playerId,
+            groupId: session.groupId,
+            name: newPlayerName,
+            aliases: '[]',
+            ...levelWrite(null, dto.level ?? null),
+          },
         }),
         this.prisma.sessionRoster.create({
           data: { sessionId: sessionCode, playerId, active: true, gamesOffset, activatedAt: new Date() },

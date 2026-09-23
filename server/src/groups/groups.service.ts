@@ -1,8 +1,10 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { computeRatingTracks, STARTING_RATING } from '../../../engines/elo.ts';
 import { matchRoster } from '../../../engines/fuzzy-match.ts';
+import { asLevel, type Level } from '../../../engines/levels.ts';
 import { parseLineRosterMessage } from '../../../engines/parser.ts';
 import { PrismaService } from '../prisma/prisma.service.js';
+import { levelWrite, loadPlayerLevels, loadRatingAnchors } from '../player-levels.js';
 import { parseCourtFormats } from '../sessions/court-formats.js';
 import { parseSeatTeams, parseTeams } from '../sessions/pairing-teams.js';
 import type { UpdateGroupDto } from './dto/update-group.dto.js';
@@ -105,7 +107,9 @@ export class GroupsService {
     const decisiveMatches = matches.filter(
       (m): m is typeof m & { winner: 'A' | 'B' } => m.winner !== null
     );
-    const ratings = computeRatingTracks(decisiveMatches);
+    const levels = await loadPlayerLevels(this.prisma, code);
+    const anchors = await loadRatingAnchors(this.prisma, code);
+    const ratings = computeRatingTracks(decisiveMatches, anchors);
 
     // Overall played/won/decisive per player, across both formats, in one
     // pass over every match — the group-wide equivalent of the per-player
@@ -133,7 +137,8 @@ export class GroupsService {
         age: p.age,
         email: p.email,
         phone: p.phone,
-        rating: Math.round(ratings.doubles.get(p.id) ?? STARTING_RATING),
+        level: levels.get(p.id) ?? null,
+        rating: Math.round(ratings.doubles.get(p.id) ?? anchors.get(p.id)?.rating ?? STARTING_RATING),
         singlesRating: ratings.singles.has(p.id) ? Math.round(ratings.singles.get(p.id)!) : null,
         winRate: !row || row.decisive === 0 ? null : row.won / row.decisive,
       };
@@ -151,6 +156,7 @@ export class GroupsService {
         age: dto.age ?? null,
         email: dto.email ?? null,
         phone: dto.phone ?? null,
+        ...levelWrite(asLevel(player.level), dto.level ?? null),
       },
     });
     return {
@@ -160,7 +166,26 @@ export class GroupsService {
       age: updated.age,
       email: updated.email,
       phone: updated.phone,
+      level: asLevel(updated.level),
     };
+  }
+
+  /**
+   * A one-field save for the inline chip on the roster page, deliberately
+   * separate from `updatePlayer`: that route overwrites every optional field
+   * on every save (see its `?? null` fallbacks), so routing the chip through
+   * it would blank out a player's age/email/phone the first time a host taps
+   * a level without also re-typing the rest of the row.
+   */
+  async updatePlayerLevel(code: string, playerId: string, level: Level | null) {
+    const player = await this.prisma.player.findFirst({ where: { id: playerId, groupId: code } });
+    if (!player) throw new NotFoundException();
+
+    const updated = await this.prisma.player.update({
+      where: { id: playerId },
+      data: levelWrite(asLevel(player.level), level),
+    });
+    return { id: updated.id, level: asLevel(updated.level) };
   }
 
   async listSessions(code: string) {
@@ -202,11 +227,17 @@ export class GroupsService {
         endedAt: { not: null },
       },
       orderBy: { confirmedAt: 'asc' },
-      select: { teamA: true, teamB: true, winner: true },
+      select: { teamA: true, teamB: true, winner: true, confirmedAt: true },
     });
     return rows.map((p) => ({
       ...parseTeams(p),
       winner: p.winner as 'A' | 'B' | null,
+      // Non-null: the `confirmedAt: { not: null }` filter above guarantees
+      // it, Prisma's generated type just can't narrow on a `where` clause.
+      // Required by computeRatingTracks whenever a caller passes rating
+      // anchors (engines/elo.ts) — a level set mid-history needs to know
+      // which matches happened before or after it.
+      at: p.confirmedAt!.getTime(),
     }));
   }
 
@@ -306,10 +337,15 @@ export class GroupsService {
 
     // An abandoned/no-result match was played, but does not imply an Elo
     // outcome or a win/loss. Keep those metrics decisive-result-only.
+    //
+    // Levels seed the rating but are never returned from this route — it is
+    // @Public (a player's own stat card) and a level is host-only.
+    const anchors = await loadRatingAnchors(this.prisma, groupCode);
     const ratings = computeRatingTracks(
       matches.filter(
         (match): match is typeof match & { winner: 'A' | 'B' } => match.winner !== null
-      )
+      ),
+      anchors
     );
 
     // `rating` keeps meaning the doubles rating — the default format, and
@@ -345,7 +381,9 @@ export class GroupsService {
       played,
       won,
       winRate: decisivePlayed === 0 ? null : won / decisivePlayed,
-      rating: Math.round(ratings.doubles.get(playerId) ?? STARTING_RATING),
+      rating: Math.round(
+        ratings.doubles.get(playerId) ?? anchors.get(playerId)?.rating ?? STARTING_RATING
+      ),
       singlesRating: hasSinglesMatch ? Math.round(ratings.singles.get(playerId) ?? STARTING_RATING) : null,
       singles: formatStat('singles'),
       doubles: formatStat('doubles'),

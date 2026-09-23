@@ -907,6 +907,21 @@
           <context context-type="linenumber">94</context>
         </context-group>
       </trans-unit>
+      <trans-unit id="dashboard.playerPanelHide" datatype="html">
+        <source>ซ่อนผู้เล่นทั้งหมด</source><target>Hide all players</target>
+      </trans-unit>
+      <trans-unit id="dashboard.playerPanelShow" datatype="html">
+        <source>ผู้เล่นทั้งหมด (<x id="INTERPOLATION" equiv-text="{{ rosterEntries().length }}"/>)</source><target>All players (<x id="INTERPOLATION" equiv-text="{{ rosterEntries().length }}"/>)</target>
+      </trans-unit>
+      <trans-unit id="dashboard.playerPanelPlayed" datatype="html">
+        <source><x id="INTERPOLATION" equiv-text="{{ row.played }}"/> เกม</source><target><x id="INTERPOLATION" equiv-text="{{ row.played }}"/> games</target>
+      </trans-unit>
+      <trans-unit id="dashboard.playerPanelRecord" datatype="html">
+        <source>ชนะ <x id="INTERPOLATION" equiv-text="{{ row.won }}"/> แพ้ <x id="INTERPOLATION_1" equiv-text="{{ row.lost }}"/></source><target><x id="INTERPOLATION" equiv-text="{{ row.won }}"/>W <x id="INTERPOLATION_1" equiv-text="{{ row.lost }}"/>L</target>
+      </trans-unit>
+      <trans-unit id="dashboard.playerPanelEmpty" datatype="html">
+        <source>ยังไม่มีผู้เล่น</source><target>No players yet</target>
+      </trans-unit>
       <trans-unit id="dashboard.fillAll" datatype="html">
         <source>จัดคู่ทุกคอร์ทว่าง</source><target>Fill all idle courts</target>
         <context-group purpose="location">

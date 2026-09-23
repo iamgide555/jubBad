@@ -87,6 +87,12 @@ describe('SessionDashboard', () => {
   });
 
   afterEach(() => {
+    // The dashboard loads level badges as a fire-and-forget side effect on
+    // construction, every refresh tick and after a walk-in — not the subject
+    // of most tests here, so it's drained rather than asserted on in each one.
+    for (const req of httpMock.match((r) => r.url.endsWith('/levels'))) {
+      req.flush({});
+    }
     httpMock.verify();
   });
 
@@ -114,6 +120,109 @@ describe('SessionDashboard', () => {
     expect(text).toContain('เบส');
   });
 
+
+  it('the player panel toggle fetches and shows tonight\'s roster with level, record and rating delta', async () => {
+    fixture = TestBed.createComponent(SessionDashboard);
+    fixture.detectChanges();
+    httpMock.expectOne(`${B}/sessions/sess1`).flush(baseSession());
+    await new Promise((r) => setTimeout(r, 0));
+    TestBed.tick();
+    httpMock
+      .expectOne(`${B}/groups/group1/players`)
+      .flush([
+        { id: 'p1', name: 'ตั้ม', aliases: [] },
+        { id: 'p2', name: 'เบส', aliases: [] },
+      ]);
+    httpMock.expectOne(`${B}/sessions/sess1/stats?scope=session`).flush([]);
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    // Closed by default — no request until the host opens it.
+    httpMock.expectNone(`${B}/sessions/sess1/players`);
+
+    (fixture.nativeElement as HTMLElement)
+      .querySelector<HTMLButtonElement>('[data-player-panel-toggle]')!
+      .click();
+    fixture.detectChanges();
+
+    httpMock.expectOne(`${B}/sessions/sess1/players`).flush([
+      {
+        playerId: 'p1',
+        name: 'ตั้ม',
+        level: 'P',
+        resting: false,
+        played: 3,
+        won: 2,
+        lost: 1,
+        ratingDelta: 50,
+      },
+    ]);
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
+    expect(text).toContain('3');
+    expect(text).toContain('2');
+    expect(text).toContain('1');
+    expect(text).toContain('P +50');
+  });
+
+  it('editing a level in the player panel saves it and reloads the panel', async () => {
+    fixture = TestBed.createComponent(SessionDashboard);
+    fixture.detectChanges();
+    httpMock.expectOne(`${B}/sessions/sess1`).flush(baseSession());
+    await new Promise((r) => setTimeout(r, 0));
+    TestBed.tick();
+    httpMock
+      .expectOne(`${B}/groups/group1/players`)
+      .flush([{ id: 'p1', name: 'ตั้ม', aliases: [] }]);
+    httpMock.expectOne(`${B}/sessions/sess1/stats?scope=session`).flush([]);
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    (fixture.nativeElement as HTMLElement)
+      .querySelector<HTMLButtonElement>('[data-player-panel-toggle]')!
+      .click();
+    fixture.detectChanges();
+    httpMock.expectOne(`${B}/sessions/sess1/players`).flush([
+      {
+        playerId: 'p1',
+        name: 'ตั้ม',
+        level: null,
+        resting: false,
+        played: 0,
+        won: 0,
+        lost: 0,
+        ratingDelta: null,
+      },
+    ]);
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    (fixture.nativeElement as HTMLElement)
+      .querySelector<HTMLButtonElement>('.player-panel .level-trigger')!
+      .click();
+    fixture.detectChanges();
+    (fixture.nativeElement as HTMLElement)
+      .querySelectorAll<HTMLButtonElement>('.player-panel .chip')[1] // 'BG', first real level after "ไม่ระบุ"
+      .click();
+
+    const putReq = httpMock.expectOne(`${B}/groups/group1/players/p1/level`);
+    expect(putReq.request.body).toEqual({ level: 'BG' });
+    putReq.flush({ id: 'p1', level: 'BG' });
+    await new Promise((r) => setTimeout(r, 0));
+    TestBed.tick();
+
+    // The panel reloads itself (its own resource, not sessionResource) —
+    // and loadLevels() refreshes the roster-chip badges too.
+    httpMock.expectOne(`${B}/sessions/sess1/players`).flush([
+      { playerId: 'p1', name: 'ตั้ม', level: 'BG', resting: false, played: 0, won: 0, lost: 0, ratingDelta: 0 },
+    ]);
+    for (const r of httpMock.match((req) => req.url.endsWith('/levels'))) {
+      r.flush({ p1: 'BG' });
+    }
+    await fixture.whenStable();
+  });
 
   it('tapping a roster chip rests that player', async () => {
     fixture = TestBed.createComponent(SessionDashboard);
@@ -780,6 +889,33 @@ describe('SessionDashboard', () => {
     for (const r of httpMock.match(`${B}/groups/group1/players`)) r.flush([]);
     for (const r of httpMock.match(`${B}/sessions/sess1/stats?scope=session`)) r.flush([]);
     await new Promise((r) => setTimeout(r, 0));
+  });
+
+  it('switches to level mode and shows its hint', async () => {
+    await settled();
+    buttonWith('ตามระดับ').click();
+
+    const req = httpMock.expectOne(`${B}/sessions/sess1/mode`);
+    expect(req.request.body).toEqual({ mode: 'level' });
+    req.flush({ code: 'sess1', mode: 'level' });
+    for (let round = 0; round < 5; round++) {
+      await new Promise((r) => setTimeout(r, 0));
+      TestBed.tick();
+      const pending = [
+        ...httpMock.match(`${B}/sessions/sess1`),
+        ...httpMock.match(`${B}/groups/group1/players`),
+        ...httpMock.match(`${B}/sessions/sess1/stats?scope=session`),
+      ];
+      if (pending.length === 0) break;
+      for (const r of pending) {
+        if (r.request.url.endsWith('/sessions/sess1')) r.flush(baseSession({ mode: 'level' }));
+        else if (r.request.url.endsWith('/players')) r.flush([]);
+        else r.flush([]);
+      }
+    }
+    fixture.detectChanges();
+
+    expect((fixture.nativeElement as HTMLElement).textContent).toContain('จัดคนระดับใกล้กัน');
   });
 
   it('switches to custom mode and shows its hint', async () => {

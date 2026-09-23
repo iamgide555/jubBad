@@ -1,8 +1,10 @@
 import { Component, OnDestroy, computed, inject, signal, viewChild } from '@angular/core';
 import { httpResource } from '@angular/common/http';
 import { Router, RouterLink } from '@angular/router';
+import { firstValueFrom } from 'rxjs';
 import { environment } from '../../../environments/environment';
 import { LiveSessionService } from '../../core/live-session.service';
+import { RosterService } from '../../core/roster.service';
 import { absoluteUrl, copyToClipboard } from '../../core/share-link';
 import { resolvePlayerNames } from '../../core/player-names';
 import { buildWaitingList } from '../../core/waiting-time';
@@ -17,8 +19,11 @@ import {
   type ShuttleDetailsPatch,
 } from '../../shared/shuttle-details-dialog/shuttle-details-dialog';
 import { AddWalkInDialog } from '../../shared/add-walk-in-dialog/add-walk-in-dialog';
+import { LevelPicker } from '../../shared/level-picker/level-picker';
 import type { Player } from '../../../../../engines/fuzzy-match.ts';
+import type { Level } from '../../../../../engines/levels.ts';
 import type { PlayerStat } from '../../core/stats.model';
+import type { PlayerPanelRow } from '../../core/player-panel.model';
 
 @Component({
   selector: 'app-session-dashboard',
@@ -31,6 +36,7 @@ import type { PlayerStat } from '../../core/stats.model';
     RevealDirective,
     ShuttleDetailsDialog,
     AddWalkInDialog,
+    LevelPicker,
   ],
   providers: [LiveSessionService],
   templateUrl: './session-dashboard.html',
@@ -88,15 +94,81 @@ export class SessionDashboard implements OnDestroy {
    * The roster chips double as the rest control, so each one needs its id and
    * whether it is resting — not just a display name.
    */
+  /**
+   * Host-only, so read separately from the public `session()` poll rather
+   * than folded into it (see Session.mode's doc comment). Loaded once
+   * up front and refreshed alongside the session poll and after a walk-in
+   * or level edit — never critical-path: a load failure just means no
+   * badges, not a broken dashboard.
+   */
+  protected readonly levels = signal<Record<string, Level | null>>({});
+
+  private async loadLevels(): Promise<void> {
+    try {
+      this.levels.set(await this.liveSession.getLevels());
+    } catch {
+      // Badges are a nice-to-have; leave whatever was last loaded (or empty).
+    }
+  }
+
+  /**
+   * Toggle player panel (C1a): every roster player's level, resting state,
+   * tonight's played/won/lost, and their rating as a difference from the
+   * level's seed. Lazily fetched — the request only fires while `panelOpen`
+   * is true, so a host who never opens it never pays for it — and reloaded
+   * explicitly after a level edit made from inside the panel, since that
+   * write goes through the groups route, not a session mutation, so it
+   * never touches `sessionResource` (the signal `statsResource` above rides
+   * on for its own free reload).
+   */
+  protected readonly panelOpen = signal(false);
+
+  private readonly playerPanelResource = httpResource<PlayerPanelRow[]>(() => {
+    const code = this.session()?.code;
+    return this.panelOpen() && code
+      ? `${environment.apiBaseUrl}/sessions/${code}/players`
+      : undefined;
+  });
+
+  protected readonly playerPanel = computed<PlayerPanelRow[]>(() => {
+    if (this.playerPanelResource.error()) return [];
+    return this.playerPanelResource.value() ?? [];
+  });
+
+  protected togglePlayerPanel(): void {
+    this.panelOpen.update((v) => !v);
+  }
+
+  /** e.g. 50 -> "+50", 0 -> "+0", -20 -> "-20" — the host always reads a
+   *  signed difference from the level's seed, never a bare number. */
+  protected formatRatingDelta(delta: number): string {
+    return delta >= 0 ? `+${delta}` : `${delta}`;
+  }
+
+  protected async setPanelLevel(playerId: string, level: Level | null): Promise<void> {
+    const groupCode = this.session()?.groupCode;
+    if (!groupCode) return;
+    try {
+      await firstValueFrom(this.roster.updatePlayerLevel(groupCode, playerId, level));
+    } catch {
+      // The panel reload below shows whatever the server actually has —
+      // a failed save just means the chip snaps back to its previous value.
+    }
+    this.playerPanelResource.reload();
+    void this.loadLevels();
+  }
+
   readonly rosterEntries = computed(() => {
     const session = this.session();
     if (!session) return [];
     const resting = new Set(session.restingPlayerIds);
     const names = resolvePlayerNames(session.rosterPlayerIds, this.players());
+    const levels = this.levels();
     return session.rosterPlayerIds.map((id, i) => ({
       id,
       name: names[i],
       resting: resting.has(id),
+      level: levels[id] ?? null,
     }));
   });
 
@@ -114,7 +186,10 @@ export class SessionDashboard implements OnDestroy {
    */
   private readonly now = signal(Date.now());
   private readonly clock = setInterval(() => this.now.set(Date.now()), 30_000);
-  private readonly refreshInterval = setInterval(() => this.liveSession.refresh(), 30_000);
+  private readonly refreshInterval = setInterval(() => {
+    this.liveSession.refresh();
+    void this.loadLevels();
+  }, 30_000);
   private readonly onWindowFocus = () => this.liveSession.refresh();
 
   protected readonly selection = inject(SwapSelectionService);
@@ -188,9 +263,11 @@ export class SessionDashboard implements OnDestroy {
 
   constructor(
     protected liveSession: LiveSessionService,
-    private router: Router
+    private router: Router,
+    private roster: RosterService
   ) {
     window.addEventListener('focus', this.onWindowFocus);
+    void this.loadLevels();
   }
 
   readonly rosterError = signal<string | null>(null);
@@ -206,7 +283,9 @@ export class SessionDashboard implements OnDestroy {
     this.walkInDialog()?.open();
   }
 
-  protected async submitWalkIn(input: { playerId: string } | { name: string }): Promise<void> {
+  protected async submitWalkIn(
+    input: { playerId: string } | { name: string; level?: Level }
+  ): Promise<void> {
     this.walkInSaving.set(true);
     this.walkInError.set(null);
     const result = await this.liveSession.addWalkIn(input);
@@ -216,6 +295,7 @@ export class SessionDashboard implements OnDestroy {
       return;
     }
     this.walkInDialog()?.close();
+    void this.loadLevels();
   }
 
   /** In TS, not an i18n attribute: the label interpolates a player name. */
@@ -254,7 +334,7 @@ export class SessionDashboard implements OnDestroy {
     this.rosterError.set(result.error ?? null);
   }
 
-  async setMode(mode: 'variety' | 'balanced' | 'custom'): Promise<void> {
+  async setMode(mode: 'variety' | 'balanced' | 'level' | 'custom'): Promise<void> {
     this.rosterError.set(null);
     const result = await this.liveSession.setMode(mode);
     this.rosterError.set(result.error ?? null);

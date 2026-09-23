@@ -46,6 +46,9 @@
           (click)="toggleResting(p.id, !p.resting)"
         >
           {{ p.name }}
+          @if (p.level) {
+            <span class="level-badge">{{ p.level }}</span>
+          }
         </button>
       }
     </div>
@@ -62,6 +65,50 @@
     }
     @if (rosterError()) {
       <p class="error">{{ rosterError() }}</p>
+    }
+
+    <button
+      type="button"
+      class="ghost"
+      data-player-panel-toggle
+      [attr.aria-expanded]="panelOpen()"
+      (click)="togglePlayerPanel()"
+    >
+      @if (panelOpen()) {
+        <ng-container i18n="@@dashboard.playerPanelHide">ซ่อนผู้เล่นทั้งหมด</ng-container>
+      } @else {
+        <ng-container i18n="@@dashboard.playerPanelShow"
+          >ผู้เล่นทั้งหมด ({{ rosterEntries().length }})</ng-container
+        >
+      }
+    </button>
+
+    @if (panelOpen()) {
+      <div class="player-panel">
+        @for (row of playerPanel(); track row.playerId) {
+          <div class="player-panel-row" [class.resting]="row.resting">
+            <span class="player-panel-name">{{ row.name }}</span>
+            <app-level-picker
+              [compact]="true"
+              [level]="row.level"
+              (levelChange)="setPanelLevel(row.playerId, $event)"
+            />
+            <span class="player-panel-stat" i18n="@@dashboard.playerPanelPlayed"
+              >{{ row.played }} เกม</span
+            >
+            <span class="player-panel-stat" i18n="@@dashboard.playerPanelRecord"
+              >ชนะ {{ row.won }} แพ้ {{ row.lost }}</span
+            >
+            @if (row.level && row.ratingDelta !== null) {
+              <span class="player-panel-rating"
+                >{{ row.level }} {{ formatRatingDelta(row.ratingDelta) }}</span
+              >
+            }
+          </div>
+        } @empty {
+          <p class="muted" i18n="@@dashboard.playerPanelEmpty">ยังไม่มีผู้เล่น</p>
+        }
+      </div>
     }
 
     <hr class="rule" />
@@ -105,6 +152,14 @@
             </button>
             <button
               type="button"
+              [class.active]="mode() === 'level'"
+              (click)="setMode('level')"
+              i18n="@@dashboard.modeLevel"
+            >
+              ตามระดับ
+            </button>
+            <button
+              type="button"
               [class.active]="mode() === 'custom'"
               (click)="setMode('custom')"
               i18n="@@dashboard.modeCustom"
@@ -116,6 +171,11 @@
             @case ('balanced') {
               <p class="mode-hint" i18n="@@dashboard.modeBalancedHint">
                 จัดให้สองฝั่งฝีมือใกล้เคียงกัน
+              </p>
+            }
+            @case ('level') {
+              <p class="mode-hint" i18n="@@dashboard.modeLevelHint">
+                จัดคนระดับใกล้กัน (±1) ลงคอร์ทเดียวกัน คิวอาจข้ามเพื่อให้จัดได้
               </p>
             }
             @case ('custom') {

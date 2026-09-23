@@ -249,11 +249,15 @@ test('walk-in: the discount splits by largest remainder when it does not divide 
   const r = computeBill(
     walkIn({ model: 'buffet', buffetPriceSatang: 10000 }, ['c'], { matches: [m('a', 'b'), m('c', 'a')] })
   );
-  // pool 2000 over 3 billed players -> 667, 667, 666 (remainder to the first ids).
-  // This is the raw, unrounded discount field -- amountSatang still ceils to
-  // whole baht on top of it, so it is not asserted here.
+  // The pool is split in whole rounding steps (1 baht = 100 satang here), not
+  // raw satang, so the discount can never be swallowed by per-person rounding.
+  // Fee 2000 = 20 steps; pool 20 steps over 3 billed players (caps 100, 100,
+  // 120 steps) -> 7, 7, 6 (remainder to the first ids) -> 700, 700, 600.
   const discount = Object.fromEntries(r.rows.map((x) => [x.playerId, x.walkInDiscountSatang]));
-  assert.deepEqual(discount, { a: 667, b: 667, c: 666 });
+  assert.deepEqual(discount, { a: 700, b: 700, c: 600 });
+  // 10000 - 700; 10000 - 700; 10000 - 600 + 2000 -- total 30000, unchanged.
+  assert.deepEqual(amounts(r), { a: 9300, b: 9300, c: 11400 });
+  assert.equal(r.totals.collectedSatang, 30000);
 });
 
 test('walk-in: an overridden or removed player is outside the pool and the discount', () => {
@@ -274,8 +278,10 @@ test('walk-in: an overridden or removed player is outside the pool and the disco
   assert.equal(rows['c'].walkInDiscountSatang, 1000);
   assert.equal(rows['d'].walkInDiscountSatang, 1000);
   assert.equal(rows['d'].walkInFeeSatang, 2000);
-  // d's raw share (court 6666 - discount 1000 + fee 2000 = 7666) ceils to the nearest baht
+  // d's court share 6666 (5000 + a third of removed b's 5000) ceils to 6700
+  // first; then - discount 1000 + fee 2000 = 7700. c: 6667 -> 6700 - 1000 = 5700.
   assert.equal(rows['d'].amountSatang, 7700);
+  assert.equal(rows['c'].amountSatang, 5700);
 });
 
 test('walk-in: a player with no base owes nothing and receives no discount', () => {
@@ -296,10 +302,52 @@ test('walk-in: fee 0 is a no-op', () => {
   assert.deepEqual(amounts(r), { a: 5000, b: 5000, c: 5000, d: 5000 });
 });
 
-test('walk-in: rounding applies after the fee step', () => {
+test('walk-in: rounding happens before the fee and discount, which move in whole steps', () => {
   const r = computeBill(walkIn({ model: 'fair', courtFeeSatang: 20000, roundingBaht: 10, walkInFeeSatang: 1500 }, ['d']));
-  // pool 1500 / 4 = 375 each: a 4625 -> 5000; d 5000 - 375 + 1500 = 6125 -> 7000
-  assert.deepEqual(amounts(r), { a: 5000, b: 5000, c: 5000, d: 7000 });
+  // step 1000. Each plain share 5000 is already whole -> rounded 5000.
+  // The 1500 fee rounds up to 2 steps = 2000 actually charged. Pool 2 steps
+  // over caps [5, 5, 5, 7] -> splitEqual(2, 4) = [1, 1, 0, 0] -> a and b get
+  // 1000 off. a 4000, b 4000, c 5000, d 5000 + 2000 = 7000; total 20000, the
+  // same as with no walk-in (rounding after the discount used to give 22000).
+  assert.deepEqual(amounts(r), { a: 4000, b: 4000, c: 5000, d: 7000 });
+  assert.equal(r.rows.find((x) => x.playerId === 'd')!.walkInFeeSatang, 2000);
+  assert.equal(r.totals.collectedSatang, 20000);
+});
+
+test('walk-in: total is invariant even when the pool does not divide evenly into the rounding step', () => {
+  // a2 b1 c1; court 31000 split equally -> 10334, 10333, 10333; step 500.
+  const matches = [m('a', 'b'), m('a', 'c')];
+  const base: Partial<BillConfig> = { model: 'fair', courtFeeSatang: 31000, roundingBaht: 5 };
+  const without = computeBill(walkIn(base, [], { matches }));
+  const withW = computeBill(walkIn(base, ['c'], { matches }));
+  // Without: every share ceils to 10500 -> 31500.
+  assert.deepEqual(amounts(without), { a: 10500, b: 10500, c: 10500 });
+  // With c: fee 2000 = 4 steps; pool 4 steps over caps [21, 21, 25] -> [2, 1, 1]
+  // -> a 10500 - 1000, b 10500 - 500, c 10500 - 500 + 2000. Still 31500
+  // (rounding after the discount used to give 10000, 10000, 12000 = 32000).
+  assert.deepEqual(amounts(withW), { a: 9500, b: 10000, c: 12000 });
+  assert.equal(withW.totals.collectedSatang, without.totals.collectedSatang);
+
+  // The review's reproduction: buffet 100 baht, 3 players, 1 walk-in, step 10
+  // baht. Used to bill 100/100/120 = 320; now fee 2 steps over caps [10, 10, 12]
+  // -> [1, 1, 0] -> 90/90/120 = 300.
+  const buffet = computeBill(
+    walkIn({ model: 'buffet', buffetPriceSatang: 10000, roundingBaht: 10 }, ['c'], { matches })
+  );
+  assert.deepEqual(amounts(buffet), { a: 9000, b: 9000, c: 12000 });
+
+  // The same property across rounding steps, fees that are not a multiple of
+  // the step, and several walk-in sets.
+  for (const roundingBaht of [1, 5, 10] as const) {
+    for (const walkInFeeSatang of [2000, 1500, 333]) {
+      for (const ids of [['a'], ['c'], ['b', 'c'], ['a', 'b', 'c']]) {
+        const cfg = { ...base, roundingBaht, walkInFeeSatang };
+        const plain = computeBill(walkIn(cfg, [], { matches })).totals.collectedSatang;
+        const marked = computeBill(walkIn(cfg, ids, { matches })).totals.collectedSatang;
+        assert.equal(marked, plain, `rounding ${roundingBaht}, fee ${walkInFeeSatang}, walk-ins ${ids}`);
+      }
+    }
+  }
 });
 
 test('walk-in: negative fee throws', () => {

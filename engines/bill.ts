@@ -80,7 +80,9 @@ export interface BillRow {
   /** Model share: court + shuttles (fair), entry + per-game capped (perGame), price (+ shuttles) (buffet). */
   baseSatang: number;
   hostFeeSatang: number;
+  /** The walk-in fee actually charged: the configured fee rounded up to a whole rounding step. */
   walkInFeeSatang: number;
+  /** This person's share of the walk-in pool, in whole rounding steps. */
   walkInDiscountSatang: number;
   overridden: boolean;
   /** Final amount to pay: rounded, or the override. 0 when removed. */
@@ -275,17 +277,28 @@ export function computeBill(input: BillInput): BillResult {
     pre.set(id, base + config.hostFeeSatang);
   }
 
-  // Walk-in surcharge is a group discount, not host profit: the fee each
-  // walk-in pays is redistributed to the rest of the billed players, capped
-  // per person so nobody's amount goes negative.
+  // Walk-in surcharge is a group discount, not host profit: the fees the
+  // walk-ins pay are pooled and handed back as a discount to every billed,
+  // non-overridden player (walk-ins included), capped per person so nobody's
+  // amount goes negative. The total collected must equal what it would be
+  // with no walk-ins at all, for ANY rounding step -- so round first, then
+  // move money only in whole steps. Each person's no-walk-in amount is
+  // ceiled to the step, the fee itself is rounded up to a whole step, and
+  // the pool is distributed in step units; every term is then a multiple of
+  // the step and no further rounding can eat the discount. (Rounding after
+  // redistributing, as an earlier version did, let the per-person ceil
+  // swallow the discount while the walk-in still paid the full fee.)
   const walkIns = new Set(input.walkInIds);
   const eligible = billed.filter((id) => !overrides.has(id));
   const eligibleWalkIns = eligible.filter((id) => walkIns.has(id));
-  const fee = config.walkInFeeSatang;
-  const pool = fee * eligibleWalkIns.length;
-  const caps = eligible.map((id) => pre.get(id)! + (walkIns.has(id) ? fee : 0));
+  const rounded = new Map(billed.map((id) => [id, ceilTo(pre.get(id)!, step)]));
+  const feeSteps = config.walkInFeeSatang === 0 ? 0 : Math.ceil(config.walkInFeeSatang / step);
+  // The fee actually charged: the configured fee rounded up to a whole step.
+  const fee = feeSteps * step;
+  const poolSteps = feeSteps * eligibleWalkIns.length;
+  const capsSteps = eligible.map((id) => rounded.get(id)! / step + (walkIns.has(id) ? feeSteps : 0));
   const discount = new Map<string, number>();
-  distributeCapped(pool, caps).forEach((d, i) => discount.set(eligible[i], d));
+  distributeCapped(poolSteps, capsSteps).forEach((d, i) => discount.set(eligible[i], d * step));
 
   const rows: BillRow[] = participants.map((id) => {
     const isBilled = !removed.has(id);
@@ -293,11 +306,12 @@ export function computeBill(input: BillInput): BillResult {
     const isWalkIn = isBilled && !overridden && walkIns.has(id);
     const walkInFeeSatang = isWalkIn ? fee : 0;
     const walkInDiscountSatang = discount.get(id) ?? 0;
+    // Already a whole multiple of the step: rounded share, discount and fee all are.
     const amountSatang = !isBilled
       ? 0
       : overridden
         ? overrides.get(id)!
-        : ceilTo(pre.get(id)! - walkInDiscountSatang + walkInFeeSatang, step);
+        : rounded.get(id)! - walkInDiscountSatang + walkInFeeSatang;
     return {
       playerId: id,
       games: games.get(id) ?? 0,

@@ -1,9 +1,51 @@
 # Roadmap C1–C14 — design
 
-Status: Design approved by the owner 2026-09-22. C14's measurement half and
-C2 are built and merged to `main` (2026-09-22/23); see the roadmap doc for
-per-item status. Everything else in this spec is still unbuilt.
+Status: Design approved by the owner 2026-09-22. C14's measurement half, C2
+and C1 are built (2026-09-22/23); see the roadmap doc for per-item status.
+Everything else in this spec is still unbuilt.
 Roadmap: `docs/2026-09-21-feature-review-and-roadmap.md`.
+
+**C1 amendments, owner 2026-09-23** (this spec's §C1 below is superseded
+where it disagrees):
+- Level scale: kept as Thai letters (BG…B, no A), because the target is
+  groups other than the owner's own, who need the letters as a working
+  standard. Each level ships with a plain-language definition, shown the
+  moment a level is tapped — see `engines/levels.ts` and
+  `web/src/app/shared/level-picker`. There is no single official Thai
+  standard; the definitions are grounded in the most-cited public sources
+  (jhudbadweb.com, guanminton.com, junjao.com, badwebthailand.com) but are
+  this app's own working standard, corrected over time by Elo. (A
+  yes/no "ช่วยเลือก" helper and a separate "?" full-definitions list
+  shipped with C1 first, then were both removed in the C1a follow-up
+  below as redundant once tapping a level already shows its meaning.)
+- A level is host-only: never in a `@Public` response. Read separately via
+  `GET /sessions/:code/levels`, not folded into the session poll.
+- Tagging an existing group happens on the player roster page: an inline
+  chip per row, saved immediately (its own route,
+  `PUT /groups/:code/players/:playerId/level`), plus a "ยังไม่ระบุระดับ"
+  filter — not through the general edit-player dialog, which overwrites
+  every optional field on save.
+- Band scoring key order: `groupRepeat` → `bandBreaks` → partner/opponent
+  (variety) or the weighted score (balanced) — not first, to keep
+  `groupRepeat`'s existing precedence.
+- **The band is a fourth pairing mode (`level`), not a toggle** (owner
+  decision 2026-09-23, after C1 first shipped with a separate
+  `Session.levelBand` boolean beside the mode toggle). `SESSION_MODES` is
+  now `['variety', 'balanced', 'level', 'custom']`, mutually exclusive —
+  `level` spreads partners/opponents exactly like `variety` but with the
+  ±1 band dominant. `balanced` and `custom` never combine with it: a
+  same-level group gets little from balance-by-rating on top, and a
+  `custom`-mode host already sees the level badge while placing people by
+  hand. `completeCourt`'s band/levels parameters (added for `custom`) were
+  reverted along with this — `custom` can no longer reach `level` mode.
+
+**C1a, owner review of C1, 2026-09-23** — a level can now be set or edited
+mid-session (not only in roster review), setting one resets the player's
+Elo to the level's seed at that moment rather than adding it on top of
+whatever they earned unlevelled, and the dashboard gained a toggle player
+panel (level, tonight's record, rating as a difference from the seed).
+Full design: `docs/superpowers/specs/2026-09-23-c1-level-followup-design.md`.
+See `docs/overview.md`'s "Ratings" section for the reasoning.
 
 **Goal:** Settle how every open roadmap item (C1–C14) works before any of them
 is built: data, API, engine, UI, edge cases and tests. Each item then gets its
@@ -17,7 +59,7 @@ below. `main` keeps running live sessions throughout.
 | D1 | C3 | The app calculates each share and copies it out as LINE text, with an optional host-fee line. QR, collecting money and payment tracking stay with KhunThong. |
 | D2 | C3 | Three charging models: หารตามจริง (fair pay), คิดต่อเกม (per game), บุฟเฟ่ต์ (buffet). |
 | D3 | C3 | Per game means each player pays the rate for each game they played. Singles cost the same as doubles. |
-| D4 | C1 | The ±1 level band is soft-dominant and ships with C1. |
+| D4 | C1 | The ±1 level band is soft-dominant and ships with C1. Originally a per-session toggle; folded into a fourth pairing mode (`level`) 2026-09-23 — see the amendment above. |
 | D5 | C7 | The co-host gets a session-scoped link now. Group-member accounts come later, with C8's ก๊วนใหญ่ tier. |
 | D6 | C8 | Design the mechanism now. Tier gates wait until pricing is re-checked against competitors. |
 
@@ -166,10 +208,12 @@ Null means unknown. The list and an index lookup live in `engines/levels.ts`.
   person, not a rating from the other track, so this is not the cross-track
   pollution that `overview.md` rules out.
 
-**±1 band (D4: soft-dominant)**
-- `Session.levelBand Boolean @default(false)`, a per-session toggle set beside
-  the mode.
-- **Selection** (who plays) changes only while the band is on:
+**±1 band (D4: soft-dominant) — a fourth pairing mode, `level`** (amended
+2026-09-23; originally a `Session.levelBand` toggle beside the mode — see
+this doc's top amendment note)
+- `SESSION_MODES = ['variety', 'balanced', 'level', 'custom']`. Mutually
+  exclusive: `level` never combines with `balanced` or `custom`.
+- **Selection** (who plays) changes only in `level` mode:
   - The anchor is the first player in the normal rotation queue (games, then
     wait).
   - The court fills from waiting players within ±1 level of the anchor, in
@@ -180,10 +224,12 @@ Null means unknown. The list and an index lookup live in `engines/levels.ts`.
   - Fairness bound: the neediest player is always the anchor, so a player
     with a rare level waits at most until they reach the front of the queue.
 - **Search** (how the chosen players group and split): `compareArrangements`
-  gains a first key, the number of courts that break the band.
-  - Variety: band → partner repeats → opponent repeats.
-  - Balanced: band → weighted score.
-  - Custom auto-pair: band first too. Manual seating ignores the band.
+  gains a key, the number of courts that break the band, right after
+  `groupRepeat`.
+  - `level` mode: groupRepeat → band → partner repeats → opponent repeats
+    (same lexicographic tail as variety).
+  - `balanced` and `custom` auto-pair never see the band — they cannot be
+    in `level` mode at the same time.
 - It never leaves a court empty and can never make a round unsolvable.
 
 Without the selection change the band would rarely hold. Once one court frees
@@ -196,7 +242,9 @@ levels, and the search can only rearrange those four.
   - the player roster page (`UpdatePlayerDto.level`);
   - the C2 walk-in sheet.
 - A small badge beside each name in the dashboard roster.
-- A toggle, "จัดตามระดับ ±1", in session settings.
+- A fourth segment, "ตามระดับ", in the existing mode toggle (not a separate
+  control) — between "สูสี" and "เลือกเอง". Its own mode-hint line explains
+  the ±1 band and that the queue may skip ahead.
 
 **Tests**
 - elo: seeds are applied, and a level change shifts the replay.
@@ -455,8 +503,8 @@ seating ignores links; its auto-pair honours them.
   holds a valid co-host cookie for *this* session. The token stops working
   once `session.endedAt` is set or it is revoked.
 - **Co-host allowed:** propose, confirm, finish, undo, swap, seats, autopair,
-  fill, roster active, deprioritize, walk-in (C2), court count, format, mode,
-  level band.
+  fill, roster active, deprioritize, walk-in (C2), court count, format, mode
+  (including `level`, C1).
 - **Co-host refused:** end session, shuttle details, bill (C3), export,
   delete, player contact data, links (C5).
 - Host UI: a share button, "ยกเลิกลิงก์" to revoke, and whether a co-host has

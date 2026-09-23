@@ -167,6 +167,14 @@
   margin: var(--space-0) 0 0 1.75rem;
 }
 
+/* Same reasoning as .review-decision-toggle above: the level picker's one-
+   row chip strip needs the row's full width to lay out 9 chips legibly, not
+   whatever's left beside the name and "คนใหม่" tag. */
+app-level-picker {
+  flex: 1 0 100%;
+  margin: var(--space-0) 0 0 1.75rem;
+}
+
 .review-decision-toggle button {
   flex: 0 0 auto;
   font-size: var(--text-sm);

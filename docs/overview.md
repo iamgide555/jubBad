@@ -303,6 +303,29 @@ size — 4 for doubles, 2 for singles — so a roster that doesn't divide evenly
 across the offered courts leaves a remainder sitting out even when the court
 count itself isn't the limit.
 
+**The ±1 level band (C1, the `level` pairing mode) is the one exception to
+that predictability.** It is a fourth mode (`variety` / `balanced` / `level`
+/ `custom`), not a toggle layered on top of the others — mutually exclusive
+with `balanced` and `custom`, owner decision 2026-09-23. A same-level group
+gets little from balance-by-rating on top, and a `custom`-mode host is
+already placing people by hand with the level badge in view, so band-aware
+auto-pair suggestions were dropped from `completeCourt` along with that
+choice; `level` mode otherwise spreads partners and opponents exactly like
+`variety`. With it selected, who plays is biased toward clustering with
+players close to their own level, court by court from an anchor (the front
+of the queue), so the split search downstream actually has same-level
+groups to work with — `bandOrderedByCourt` in `engines/pairing.ts`. This can
+pull a player ahead of, or behind, where plain games-then-wait order would
+place them; the only guarantee kept is that the single most-deserving
+remaining player is always an anchor, so a rare level waits at most until it
+reaches the front of the queue. The waiting list on screen still shows plain
+rotation order — the mode's own hint under the segmented control says the
+queue may not run in that exact order. `bandBreaks` (a court whose players
+span more than one level) is scored right after `groupRepeat`, before
+partner/opponent, in both `compareArrangements` and `compareComponents` —
+dominant, but never a hard exclusion: a court is never left empty for lack
+of a same-level match, and it never makes a round unsolvable.
+
 **Court format is per court, not per session, and only changeable while a
 court is idle.** A host can run doubles on courts 1-2 and singles on court 3
 in the same session — set from the toggle in that court's panel, refused with
@@ -381,11 +404,59 @@ rating is never moved by a doubles result or vice versa — they are different
 skills, and mixing them would make a rating meaningless for either. A player
 new to a format starts at 1200 on that track rather than being seeded from
 their rating in the other, since seeding would be exactly the cross-pollution
-the split exists to prevent. The practical consequence: a group's first
-singles matches are all 1200-vs-1200, so balanced mode on a singles court is
-close to random until enough singles games accumulate — worth knowing before
-advertising it as doing much. Balanced mode still picks the track matching
+the split exists to prevent. Balanced mode still picks the track matching
 each court's own format, so one round can mix formats correctly.
+
+**A player's skill level (ระดับมือ, C1) seeds their starting rating instead**,
+900 + 100 per level from BG (900) to B (1600) — `engines/levels.ts`
+`seedFor`. This is not the cross-track pollution the paragraph above rules
+out: a level is a human judgement about the person, not a rating carried
+over from the other format, so the same seed applies to both tracks. It
+fixes the practical consequence noted above — a group's first singles
+matches no longer have to be 1200-vs-1200 if the players are tagged. The
+seed only ever moves where a player's *own* replay starts from
+(`computeRatings`' anchor/seed parameter): a player with no matches yet in
+a format still has no entry in the returned map, so a stats page's
+null-vs-shown-rating distinction (`singlesRating`) is unaffected. Pairing,
+which needs a number for every player on court tonight including one who
+has never played, merges the seed in as a default only at the point the
+ratings are handed to the engine (`SessionsService.loadRatings`) — never
+inside `computeRatingTracks` itself.
+
+A level is host-only: it is never present in a `@Public` response (the
+display, the summary, the player card). It only ever appears in
+owner-guarded reads (`GroupsService.listPlayersManage`,
+`SessionsService.getLevels`, and the dashboard's toggle player panel,
+`SessionsService.getPlayerPanel` / `GET /sessions/:code/players`, C1a).
+
+**A level is settable mid-session, not only before the first match (C1a,
+owner review of C1, 2026-09-23)** — a host usually cannot judge a new
+player's level until they have watched them play, so the roster-review
+picker is optional and the dashboard's player panel lets the host set or
+edit a level any time. **Setting a level — the first time or an edit —
+resets the player's rating to the level's seed at that exact moment; only
+matches confirmed afterwards move it.** This is `engines/elo.ts`'s
+`RatingAnchor`: `{ rating, setAt }`, replacing the plain numeric seed
+above wherever a level can already have been set partway through a
+group's history (`player-levels.ts`'s `loadRatingAnchors`, keyed off the
+new `Player.levelSetAt` column). `setAt: null` (a legacy row, or a level
+set before the player's first match) behaves exactly like the old numeric
+seed. The alternative — adding the seed on top of whatever the player
+earned while unlevelled — was rejected: those earlier results were played
+against a false 1200 baseline (the true unlevelled rating for anyone
+without a seed), so they carry no signal about where the level should
+land, and letting them accumulate under a level chosen precisely because
+the host watched those same wins would double-count them. An edit
+(P → C, say) is the same operation as a first assignment for exactly that
+reason: whatever the player earned since the last time a level was set is
+just as tainted, having been earned under a rating the host has now
+decided was wrong. The player's win/loss record (`played`/`won`/`lost`)
+is unaffected either way — only the Elo rating resets, never the shown
+game count. The player panel shows the rating as a difference from the
+seed (`ratingDelta`, e.g. "P +50") rather than the raw number, since a
+bare 1350 means nothing to a host without the seed already in their head;
+it is exactly 0 the instant a level is set with no games on top of it
+yet, and `null` with no level at all (there is no seed to diff against).
 
 ### Why the engines run on the server
 
@@ -532,8 +603,8 @@ both. Nothing is calculated from them yet (see C3).
 
 Everything described above is built: the three engines, the API, the Angular
 client in Thai with English as a second locale, the display view, per-court
-undo, resting players, wait timers, one-tap fill, all three pairing modes
-(variety, balanced, custom), per-court singles/doubles format, session
+undo, resting players, wait timers, one-tap fill, all four pairing modes
+(variety, balanced, level, custom), per-court singles/doubles format, session
 archive, the public session summary, player pages, the host-only player roster
 page (contact details, plus rank by rating or win rate), manual add on the
 roster review screen, adding a walk-in to a running session, shuttle count

@@ -155,31 +155,61 @@ Effort is rough: S is up to a day, M is a few days.
 
 ### P0
 
-#### - [ ] C1. Skill level per player (ระดับมือ)
+#### - [x] C1. Skill level per player (ระดับมือ) — done
 
-Design: `docs/superpowers/specs/2026-09-22-roadmap-c-series-design.md`, section C1.
+Design: `docs/superpowers/specs/2026-09-22-roadmap-c-series-design.md`, section C1
+(amended 2026-09-23 — see that section's header for what changed).
 
 Tag each player with the level Thai groups already use: BG / N / S / P- / P /
-P+ / C / B. Use it for two things:
+P+ / C / B, each with a plain-language definition and a yes/no "ช่วยเลือก"
+helper in the picker — there is no single official standard, so this is the
+app's own working definition, corrected over time by Elo. Used for:
 
 - **Seeding the Elo.** A P+ player starts well above an N player instead of
   both starting at 1200. That fixes balanced mode's cold start, which
-  `overview.md` currently admits to.
-- **An optional "same level ±1" constraint** for groups that split courts by
-  level.
+  `overview.md` used to admit to unconditionally — see its updated "Ratings"
+  section.
+- **An optional "same level ±1" constraint**, as a fourth pairing mode
+  (`level`, alongside variety/balanced/custom — not a separate toggle,
+  owner decision 2026-09-23) for groups that split courts by level — see
+  `overview.md`'s "Selection" section for the fairness bound and the
+  scoring key order.
 
 Every Thai competitor has this: T-BAD's ±1-level mode, BC COURT's
 "เช็คระดับมือ", Qcourt's "skill rank" on quick-add. It is the most visible
 thing a Thai host will look for.
 
-Design questions, settled 2026-09-22 (see the spec):
-- The level lives on `Player`.
-- A level change reseeds the whole history, because ratings are replayed.
-- One level seeds both singles and doubles tracks.
-- The ±1 band ships with C1, as a soft-dominant rule that never leaves a
-  court empty.
+A level is host-only, never on a `@Public` response. Tagging a whole group
+happens on the player roster page (an inline chip per row, saved
+immediately, plus a "ยังไม่ระบุระดับ" filter), not through the general
+edit-player dialog.
 
-Effort M.
+#### - [x] C1a. Set level mid-session, Elo reset on set, live player panel — done
+
+Design: `docs/superpowers/specs/2026-09-23-c1-level-followup-design.md`.
+
+Owner review of C1 on 2026-09-23: a host usually doesn't know a new
+player's level until they've watched them play, so the level has to be
+settable **during** the session, not only at roster review. Three changes:
+
+- **Elo "reset on set"**: an unlevelled player sits at neutral 1200, never
+  0 (a 0-rated player breaks Elo for their partner/opponents). Setting a
+  level, first time or edit, resets that player's rating to the level's
+  seed at that moment — only matches confirmed afterwards move it, so a
+  level chosen after watching wins doesn't double-count them.
+- **Dashboard player panel** (toggle): every roster player with tonight's
+  played/won/lost, their level (editable in place), and rating shown as
+  the difference from the level's seed (e.g. `P +50`).
+- **Level picker**: one row of chips in roster review, ช่วยเลือก helper
+  and the "?" definitions list removed — tapping a level already shows
+  its definition.
+
+Also fixed en route (found while finishing the implementation): a partial
+build had left `Player.levelSetAt` in `schema.prisma` with no migration
+(would have failed `prisma migrate deploy`), `finishedMatches()`/
+`loadRatings` not selecting `confirmedAt`, which throws once any player
+has a level, and `updatePlayer`/`updatePlayerLevel`/roster-review/walk-in
+writes not stamping `levelSetAt` at all.
 
 #### - [x] C2. Add a walk-in to a running session — done
 
@@ -197,7 +227,7 @@ winning every draw until they catch up. Someone already on tonight's
 roster, including a resting one, is refused as a duplicate — the dialog
 points the host at the existing roster chip instead.
 
-Not done here: C1's level chip on the walk-in sheet (C1 hasn't shipped yet).
+C1's level chip on the walk-in sheet landed with C1, once it shipped.
 
 #### - [ ] C3. Per-person bill, copied out as text
 

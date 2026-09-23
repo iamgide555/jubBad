@@ -91,7 +91,7 @@
         <span class="games" i18n="@@bill.games">{{ r.games }} เกม</span>
         <span class="amount">{{ baht(r.amountSatang) }}฿</span>
         <button type="button" class="chip" [attr.data-walk-in]="r.playerId" [class.selected]="walkIn().get(r.playerId)"
-          [attr.aria-pressed]="walkIn().get(r.playerId) ?? false" (click)="toggleWalkIn(r.playerId)">walk-in</button>
+          [attr.aria-pressed]="walkIn().get(r.playerId) ?? false" (click)="toggleWalkIn(r.playerId)" i18n="@@bill.walkInChip">walk-in</button>
         <input type="text" inputmode="decimal" class="override" i18n-placeholder="@@bill.overridePlaceholder" placeholder="แก้ยอด"
           i18n-aria-label="@@bill.overrideLabel" aria-label="แก้ยอดเอง"
           [value]="overrideText(r.playerId)" (change)="onOverride(r.playerId, $any($event.target).value)" />

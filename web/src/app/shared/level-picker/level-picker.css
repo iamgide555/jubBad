@@ -33,11 +33,37 @@
   }
 }
 
+/* Compact mode's picker surface: a native modal, same treatment as
+   shuttle-details-dialog — a table/panel row is too narrow and too
+   crowded with neighbours to expand the picker in place (it used to push
+   every row below it down the table). */
+.level-dialog {
+  border: none;
+  border-radius: var(--radius-lg);
+  padding: 0;
+  background: var(--surface);
+  color: var(--ink);
+  box-shadow: var(--shadow-lg);
+  width: min(22rem, calc(100vw - 2 * var(--space-3)));
+}
+
+.level-dialog::backdrop {
+  background: rgba(0, 0, 0, 0.5);
+}
+
 .level-panel {
   display: flex;
   flex-direction: column;
   gap: var(--space-1);
   padding: var(--space-1);
+}
+
+.level-dialog .level-panel {
+  padding: var(--space-3);
+}
+
+.level-dialog .ghost {
+  align-self: flex-end;
 }
 
 /* One row of 9 chips (8 levels + "ไม่ระบุ") — nowrap with a horizontal

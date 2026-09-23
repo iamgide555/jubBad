@@ -1,4 +1,5 @@
-import { Component, computed, input, output, signal } from '@angular/core';
+import { Component, ElementRef, computed, input, output, viewChild } from '@angular/core';
+import { NgTemplateOutlet } from '@angular/common';
 import { LEVELS, type Level } from '../../../../../engines/levels.ts';
 
 interface LevelInfo {
@@ -51,10 +52,10 @@ function definitionsOf(): LevelInfo[] {
 
 @Component({
   selector: 'app-level-picker',
-  imports: [],
+  imports: [NgTemplateOutlet],
   templateUrl: './level-picker.html',
   styleUrl: './level-picker.css',
-  // Compact mode (a table cell, a dialog list row) keeps the old
+  // Compact mode (a table cell, a dashboard panel row) keeps the old
   // inline-block sizing so the trigger button doesn't stretch full-width;
   // the default (roster review) is block, so the one-row chip strip below
   // gets the full width of its own line rather than squeezing next to a
@@ -63,8 +64,14 @@ function definitionsOf(): LevelInfo[] {
 })
 export class LevelPicker {
   readonly level = input<Level | null>(null);
-  /** Compact renders as a single small trigger chip (roster page row);
-   *  the default renders the full picker open, no trigger (dialogs, review rows). */
+  /**
+   * Compact renders as a single small trigger chip that opens the picker in
+   * a modal dialog (roster-manage table row, dashboard panel row) instead
+   * of expanding in place — inline used to push every row below it down
+   * the table, which read as broken in a list of many rows. The default
+   * (roster review, one player per full-width row already) has no trigger
+   * and stays inline, open, no dialog.
+   */
   readonly compact = input(false);
 
   readonly levelChange = output<Level | null>();
@@ -73,22 +80,28 @@ export class LevelPicker {
   protected readonly definitions = definitionsOf();
   protected readonly unsetLabel = '-';
 
-  protected readonly isOpen = signal(false);
+  private readonly dialogEl = viewChild<ElementRef<HTMLDialogElement>>('dialog');
 
   protected readonly currentDefinition = computed(() => {
     const level = this.level();
     return level ? this.definitions.find((d) => d.level === level)?.definition : undefined;
   });
 
-  protected toggleOpen(): void {
-    this.isOpen.update((v) => !v);
+  protected open(): void {
+    this.dialogEl()?.nativeElement.showModal();
+  }
+
+  protected close(): void {
+    this.dialogEl()?.nativeElement.close();
   }
 
   /**
-   * Stays open after a choice (compact or not): tapping a level is how the
-   * host sees its definition (`currentDefinition` above), so closing
-   * immediately would hide the very feedback that tells them they picked
-   * the right one. Compact mode's own "ปิด" button is the explicit close.
+   * Stays open after a choice: tapping a level is how the host sees its
+   * definition (`currentDefinition` above), so closing immediately would
+   * hide the very feedback that tells them they picked the right one.
+   * Compact mode's own "ปิด" button (or Escape/backdrop, native to
+   * `<dialog>`) is the explicit close; the non-compact inline picker has
+   * nothing to close at all.
    */
   protected choose(level: Level | null): void {
     this.levelChange.emit(level);

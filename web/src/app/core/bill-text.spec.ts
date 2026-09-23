@@ -68,6 +68,15 @@ describe('buildBillText', () => {
     expect(text).not.toContain('Walk-in');
   });
 
+  it('quotes the walk-in fee actually charged, not the configured one', () => {
+    // 15฿ configured at 10฿ rounding: the engine charges 20฿ (a whole step).
+    const b = bill({ walkInFeeSatang: 1500, roundingBaht: 10 });
+    b.result.rows[0] = { ...b.result.rows[0], walkInFeeSatang: 2000 };
+    const text = buildBillText(b);
+    expect(text).toContain('Walk-in +20฿/คน × 1 คน (หารคืนทุกคน)');
+    expect(text).not.toContain('+15฿');
+  });
+
   it('omits removed rows and a missing venue', () => {
     const b = bill();
     b.session.venue = null;

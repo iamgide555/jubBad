@@ -43,8 +43,12 @@ export function buildBillText(bill: BillResponse): string {
     if (!c.buffetShuttlesIncluded) shuttleLine();
   }
   if (c.hostFeeSatang > 0) lines.push(`ค่าจัดก๊วน ${formatBaht(c.hostFeeSatang)}฿/คน (รวมในยอดแล้ว)`);
-  if (c.walkInFeeSatang > 0 && result.totals.walkInCount > 0) {
-    lines.push(`Walk-in +${formatBaht(c.walkInFeeSatang)}฿/คน × ${result.totals.walkInCount} คน (หารคืนทุกคน)`);
+  // Quote the fee actually charged (on a walk-in row), not the configured one:
+  // the engine rounds the fee up to a whole rounding step, so a 15฿ fee at 10฿
+  // rounding is charged as 20฿.
+  const chargedWalkInFee = result.rows.find((r) => r.status === 'billed' && r.walkIn)?.walkInFeeSatang ?? 0;
+  if (c.walkInFeeSatang > 0 && chargedWalkInFee > 0 && result.totals.walkInCount > 0) {
+    lines.push(`Walk-in +${formatBaht(chargedWalkInFee)}฿/คน × ${result.totals.walkInCount} คน (หารคืนทุกคน)`);
   }
   const byId = new Map(result.rows.filter((r) => r.status === 'billed').map((r) => [r.playerId, r]));
   for (const p of players) {

@@ -38,6 +38,7 @@
             <ng-container i18n="@@summary.shuttleEdit">แก้ไขลูกแบด</ng-container>
           }
         </button>
+        <a class="button ghost" [routerLink]="['/s', sessionCode, 'bill']" i18n="@@summary.billLink">คิดเงิน</a>
       </p>
       <app-shuttle-details-dialog
         #shuttleDialog

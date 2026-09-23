@@ -1,0 +1,116 @@
+.back {
+  display: inline-block;
+  margin-bottom: var(--space-2);
+  font-size: var(--text-sm);
+  color: var(--ink-soft);
+}
+
+.hint {
+  color: var(--ink-soft);
+  font-size: var(--text-sm);
+}
+
+.form-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-2);
+  margin: var(--space-2) 0;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+}
+
+.split-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+.split-row .chip {
+  min-height: var(--tap);
+}
+
+/* Selected state for a plain chip toggle (model split, rounding step,
+   buffet-shuttles, walk-in mark). Court-green, not accent-orange — these are
+   "this is the chosen option", not the One Red Rule's "act on this now". */
+.chip.selected {
+  background: var(--court-soft);
+  border-color: var(--court);
+  color: var(--court-ink);
+}
+
+.warning {
+  color: var(--warn);
+  font-size: var(--text-sm);
+  margin: 0 0 var(--space-1);
+}
+
+.bill-rows {
+  list-style: none;
+  margin: var(--space-2) 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+/* Wraps rather than a fixed grid: a name, a games count, an amount, the
+   walk-in chip, the override field and the remove button all need to sit on
+   one line on a tablet but are free to wrap to a second line on a phone
+   without truncating anything. */
+.bill-rows li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-1) var(--space-2);
+  padding: var(--space-2);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+}
+
+.bill-rows .name {
+  font-weight: 700;
+  margin-right: auto;
+}
+
+.bill-rows .games {
+  font-size: var(--text-xs);
+  color: var(--ink-soft);
+  font-weight: 400;
+}
+
+.bill-rows .amount {
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.bill-rows .override,
+.bill-rows button {
+  min-height: var(--tap);
+}
+
+.override {
+  width: 6rem;
+  flex: none;
+  text-align: right;
+}
+
+.total {
+  margin-top: var(--space-3);
+  font-family: var(--font-display);
+  font-size: var(--text-xl);
+  font-weight: 700;
+}
+
+.margin {
+  color: var(--ink-soft);
+  font-size: var(--text-xs);
+}
+
+.primary {
+  width: 100%;
+  margin-top: var(--space-2);
+}

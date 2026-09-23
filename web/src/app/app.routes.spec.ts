@@ -13,6 +13,7 @@ import { PlayerRoster } from './pages/player-roster/player-roster';
 import { Landing } from './pages/landing/landing';
 import { ResetPassword } from './pages/reset-password/reset-password';
 import { Admin } from './pages/admin/admin';
+import { SessionBill } from './pages/session-bill/session-bill';
 
 /**
  * A stubbed AuthService rather than the real one: these tests are about which
@@ -63,6 +64,11 @@ describe('app routes', () => {
       expect(await harness.navigateByUrl('/s/xyz789/display', SessionDisplay)).toBeInstanceOf(
         SessionDisplay
       );
+    });
+
+    it('/s/:sessionCode/bill resolves to SessionBill', async () => {
+      const harness = await RouterTestingHarness.create();
+      expect(await harness.navigateByUrl('/s/xyz789/bill', SessionBill)).toBeInstanceOf(SessionBill);
     });
 
     it('/g/:groupCode/players resolves to PlayerRoster', async () => {
@@ -179,6 +185,7 @@ describe('app routes', () => {
       ['/', 'the group list'],
       ['/g/abc123', 'a group'],
       ['/s/xyz789', 'a live session'],
+      ['/s/xyz789/bill', 'a session bill'],
     ])('redirects %s to the login page', async (url) => {
       const harness = await RouterTestingHarness.create();
       await harness.navigateByUrl(url);

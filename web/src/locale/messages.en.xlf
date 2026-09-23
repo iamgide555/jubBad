@@ -2267,6 +2267,288 @@
       <trans-unit id="level.def.b" datatype="html">
         <source>ระดับตัวแทนมหาวิทยาลัย/จังหวัด หรืออดีตนักกีฬา</source><target>University or provincial representative level, or a former athlete.</target>
       </trans-unit>
+      <trans-unit id="bill.back" datatype="html">
+        <source>← กลับไปสรุปก๊วน</source><target>← Back to summary</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/session-bill/session-bill.html</context>
+          <context context-type="linenumber">1,2</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="bill.title" datatype="html">
+        <source>คิดเงิน</source><target>Bill</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/session-bill/session-bill.html</context>
+          <context context-type="linenumber">2,4</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="bill.loadFailed" datatype="html">
+        <source>โหลดไม่สำเร็จ ลองรีเฟรช</source><target>Couldn't load. Try refreshing.</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/session-bill/session-bill.html</context>
+          <context context-type="linenumber">5,8</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="bill.prefilled" datatype="html">
+        <source>ใช้ค่าจากก๊วนครั้งก่อน</source><target>Using settings from the last session</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/session-bill/session-bill.html</context>
+          <context context-type="linenumber">13,16</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="bill.modeGroup" datatype="html">
+        <source>รูปแบบการคิดเงิน</source><target>Billing mode</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/session-bill/session-bill.html</context>
+          <context context-type="linenumber">16,17</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="bill.modelFair" datatype="html">
+        <source>หารตามจริง</source><target>Actual cost</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/session-bill/session-bill.html</context>
+          <context context-type="linenumber">21,22</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="bill.modelPerGame" datatype="html">
+        <source>คิดต่อเกม</source><target>Per game</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/session-bill/session-bill.html</context>
+          <context context-type="linenumber">22,23</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="bill.modelBuffet" datatype="html">
+        <source>บุฟเฟ่ต์</source><target>Buffet</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/session-bill/session-bill.html</context>
+          <context context-type="linenumber">23,25</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="bill.courtFee" datatype="html">
+        <source>ค่าคอร์ททั้งหมด (บาท)</source><target>Total court fee (฿)</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/session-bill/session-bill.html</context>
+          <context context-type="linenumber">31,32</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="bill.courtSplit" datatype="html">
+        <source>ค่าคอร์ท</source><target>Court fee</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/session-bill/session-bill.html</context>
+          <context context-type="linenumber">37,38</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="bill.splitEqual" datatype="html">
+        <source>หารเท่า</source><target>Split evenly</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/session-bill/session-bill.html</context>
+          <context context-type="linenumber">38,39</context>
+        </context-group>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/session-bill/session-bill.html</context>
+          <context context-type="linenumber">45,46</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="bill.splitByGames" datatype="html">
+        <source>ตามเกม</source><target>By games</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/session-bill/session-bill.html</context>
+          <context context-type="linenumber">39,42</context>
+        </context-group>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/session-bill/session-bill.html</context>
+          <context context-type="linenumber">46,49</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="bill.shuttleSplit" datatype="html">
+        <source>ค่าลูก</source><target>Shuttle fee</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/session-bill/session-bill.html</context>
+          <context context-type="linenumber">44,45</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="bill.perGameRate" datatype="html">
+        <source>เกมละ (บาท)</source><target>Per game (฿)</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/session-bill/session-bill.html</context>
+          <context context-type="linenumber">50,51</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="bill.entryFee" datatype="html">
+        <source>ค่าเข้า (บาท)</source><target>Entry fee (฿)</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/session-bill/session-bill.html</context>
+          <context context-type="linenumber">52,53</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="bill.cap" datatype="html">
+        <source>สูงสุดต่อคน (บาท, เว้นว่าง = ไม่จำกัด)</source><target>Cap per person (฿, blank = no cap)</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/session-bill/session-bill.html</context>
+          <context context-type="linenumber">54,55</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="bill.buffetPrice" datatype="html">
+        <source>บุฟเฟ่ต์ต่อคน (บาท)</source><target>Buffet price per person (฿)</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/session-bill/session-bill.html</context>
+          <context context-type="linenumber">58,59</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="bill.shuttlesIncluded" datatype="html">
+        <source>รวมลูก</source><target>Shuttles included</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/session-bill/session-bill.html</context>
+          <context context-type="linenumber">61,62</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="bill.shuttlesSeparate" datatype="html">
+        <source>ลูกแยก</source><target>Shuttles separate</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/session-bill/session-bill.html</context>
+          <context context-type="linenumber">62,65</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="bill.hostFee" datatype="html">
+        <source>ค่าจัดก๊วนต่อคน (บาท)</source><target>Host fee per person (฿)</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/session-bill/session-bill.html</context>
+          <context context-type="linenumber">65,66</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="bill.walkInFee" datatype="html">
+        <source>ค่า walk-in ต่อคน (บาท, หารคืนทุกคน)</source><target>Walk-in fee per person (฿, shared back to everyone)</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/session-bill/session-bill.html</context>
+          <context context-type="linenumber">67,68</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="bill.rounding" datatype="html">
+        <source>ปัดขึ้น</source><target>Round up</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/session-bill/session-bill.html</context>
+          <context context-type="linenumber">70,71</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="bill.warnShuttleCount" datatype="html">
+        <source>ยังไม่ได้ใส่จำนวนลูก</source><target>Shuttle count not recorded yet</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/session-bill/session-bill.html</context>
+          <context context-type="linenumber">80,81</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="bill.warnShuttlePrice" datatype="html">
+        <source>ยังไม่ได้ใส่ราคาลูก</source><target>Shuttle price not recorded yet</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/session-bill/session-bill.html</context>
+          <context context-type="linenumber">81,82</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="bill.warnCourtFee" datatype="html">
+        <source>ยังไม่ได้ใส่ค่าคอร์ท</source><target>Court fee not recorded yet</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/session-bill/session-bill.html</context>
+          <context context-type="linenumber">82,84</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="bill.games" datatype="html">
+        <source><x id="INTERPOLATION" equiv-text="{{ r.games }}"/> เกม</source><target><x id="INTERPOLATION" equiv-text="{{ r.games }}"/> games</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/session-bill/session-bill.html</context>
+          <context context-type="linenumber">91,92</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="bill.overridePlaceholder" datatype="html">
+        <source>แก้ยอด</source><target>Adjust</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/session-bill/session-bill.html</context>
+          <context context-type="linenumber">96</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="bill.overrideLabel" datatype="html">
+        <source>แก้ยอดเอง</source><target>Adjust amount manually</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/session-bill/session-bill.html</context>
+          <context context-type="linenumber">96,97</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="bill.remove" datatype="html">
+        <source>ไม่คิด</source><target>Exclude</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/session-bill/session-bill.html</context>
+          <context context-type="linenumber">98,100</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="bill.removedTitle" datatype="html">
+        <source>ไม่คิดเงิน</source><target>Excluded</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/session-bill/session-bill.html</context>
+          <context context-type="linenumber">104,105</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="bill.addTitle" datatype="html">
+        <source>เพิ่มคนที่ยังไม่ได้เล่น</source><target>Add someone who hasn't played</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/session-bill/session-bill.html</context>
+          <context context-type="linenumber">110,111</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="bill.total" datatype="html">
+        <source>รวม</source><target>Total</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/session-bill/session-bill.html</context>
+          <context context-type="linenumber">116</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="bill.margin" datatype="html">
+        <source>ต้นทุน <x id="INTERPOLATION" equiv-text="{{ baht(b.result.totals.costSatang!) }}"/>฿ · ส่วนต่าง <x id="INTERPOLATION_1" equiv-text="{{ baht(b.result.totals.marginSatang) }}"/>฿ (เห็นเฉพาะผู้จัด)</source><target>Cost <x id="INTERPOLATION" equiv-text="{{ baht(b.result.totals.costSatang!) }}"/>฿ · Margin <x id="INTERPOLATION_1" equiv-text="{{ baht(b.result.totals.marginSatang) }}"/>฿ (visible to the host only)</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/session-bill/session-bill.html</context>
+          <context context-type="linenumber">118,121</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="bill.copied" datatype="html">
+        <source>คัดลอกแล้ว</source><target>Copied</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/session-bill/session-bill.html</context>
+          <context context-type="linenumber">122,123</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="bill.copy" datatype="html">
+        <source>คัดลอกข้อความ</source><target>Copy text</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/session-bill/session-bill.html</context>
+          <context context-type="linenumber">123,124</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="bill.saveFailed" datatype="html">
+        <source>บันทึกไม่สำเร็จ ลองใหม่อีกครั้ง</source><target>Couldn't save. Try again.</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/session-bill/session-bill.ts</context>
+          <context context-type="linenumber">73</context>
+        </context-group>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/session-bill/session-bill.ts</context>
+          <context context-type="linenumber">133</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="bill.badAmount" datatype="html">
+        <source>ใส่จำนวนเงินเป็นตัวเลข ทศนิยมไม่เกิน 2 ตำแหน่ง</source><target>Enter an amount as a number with up to 2 decimal places</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/session-bill/session-bill.ts</context>
+          <context context-type="linenumber">82</context>
+        </context-group>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/session-bill/session-bill.ts</context>
+          <context context-type="linenumber">98</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="summary.billLink" datatype="html">
+        <source>คิดเงิน</source><target>Bill</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/session-summary/session-summary.html</context>
+          <context context-type="linenumber">41,43</context>
+        </context-group>
+      </trans-unit>
     </body>
   </file>
 </xliff>

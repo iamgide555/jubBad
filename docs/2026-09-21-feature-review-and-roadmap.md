@@ -235,8 +235,7 @@ Design: `docs/superpowers/specs/2026-09-22-roadmap-c-series-design.md`, section 
 
 Court fee plus shuttles, split per player, copied as text for the LINE group.
 The collecting stays with KhunThong. This is what every host does after every
-session. The session already stores shuttle count and price, so this is half
-built. PlayMatch offers three calculation methods. A Pantip thread asking for
+session. PlayMatch offers three calculation methods. A Pantip thread asking for
 exactly this formula (people arriving and leaving at different hours) shows
 the pain is real and recurring.
 

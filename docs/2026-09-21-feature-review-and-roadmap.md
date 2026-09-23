@@ -186,7 +186,7 @@ edit-player dialog.
 
 #### - [x] C1a. Set level mid-session, Elo reset on set, live player panel — done
 
-Design: `docs/superpowers/specs/2026-09-23-c1-level-followup-design.md`.
+Design: `docs/archive/specs/2026-09-23-c1-level-followup-design.md`.
 
 Owner review of C1 on 2026-09-23: a host usually doesn't know a new
 player's level until they've watched them play, so the level has to be

@@ -44,7 +44,7 @@ mid-session (not only in roster review), setting one resets the player's
 Elo to the level's seed at that moment rather than adding it on top of
 whatever they earned unlevelled, and the dashboard gained a toggle player
 panel (level, tonight's record, rating as a difference from the seed).
-Full design: `docs/superpowers/specs/2026-09-23-c1-level-followup-design.md`.
+Full design: `docs/archive/specs/2026-09-23-c1-level-followup-design.md`.
 See `docs/overview.md`'s "Ratings" section for the reasoning.
 
 **Goal:** Settle how every open roadmap item (C1–C14) works before any of them

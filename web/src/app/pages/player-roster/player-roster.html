@@ -13,11 +13,19 @@
   } @else if (loadError()) {
     <p class="error" role="alert" i18n="@@playerRoster.loadFailed">โหลดข้อมูลไม่สำเร็จ</p>
   } @else {
+    @if (levelSaveError()) {
+      <p class="error" role="alert">{{ levelSaveError() }}</p>
+    }
     <table class="roster-table">
       <thead>
         <tr>
           <th scope="col" i18n="@@playerRoster.colRank">ลำดับ</th>
           <th scope="col" i18n="@@playerRoster.colName">ชื่อ</th>
+          <th scope="col" [attr.aria-sort]="sortKey() === 'level' ? 'descending' : 'none'">
+            <button type="button" class="ghost sort-head" [class.active]="sortKey() === 'level'" (click)="setSortKey('level')">
+              <ng-container i18n="@@playerRoster.colLevel">ระดับ</ng-container>
+            </button>
+          </th>
           <th scope="col" [attr.aria-sort]="sortKey() === 'rating' ? 'descending' : 'none'">
             <button type="button" class="ghost sort-head" [class.active]="sortKey() === 'rating'" (click)="setSortKey('rating')">
               <ng-container i18n="@@playerRoster.colRatingDoubles">เรตติ้งคู่</ng-container>
@@ -40,7 +48,7 @@
         @for (player of sortedPlayers(); track player.id; let i = $index) {
           <tr>
             @if (editingId() === player.id) {
-              <td colspan="6">
+              <td colspan="7">
                 <div class="edit-form">
                   <label>
                     <ng-container i18n="@@playerRoster.colName">ชื่อ</ng-container>
@@ -70,6 +78,13 @@
             } @else {
               <td class="tabular">{{ i + 1 }}</td>
               <td>{{ player.name }}</td>
+              <td>
+                <app-level-picker
+                  [compact]="true"
+                  [level]="player.level"
+                  (levelChange)="setLevel(player, $event)"
+                />
+              </td>
               <td class="tabular">{{ player.rating }}</td>
               <td class="tabular">{{ player.singlesRating ?? '—' }}</td>
               <td class="tabular">

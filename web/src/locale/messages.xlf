@@ -1570,113 +1570,106 @@
           <context context-type="linenumber">14,16</context>
         </context-group>
       </trans-unit>
-      <trans-unit id="playerRoster.onlyMissingLevel" datatype="html">
-        <source>ยังไม่ระบุระดับ</source>
-        <context-group purpose="location">
-          <context context-type="sourcefile">src/app/pages/player-roster/player-roster.html</context>
-          <context context-type="linenumber">23,25</context>
-        </context-group>
-      </trans-unit>
       <trans-unit id="playerRoster.colRank" datatype="html">
         <source>ลำดับ</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/player-roster/player-roster.html</context>
-          <context context-type="linenumber">31,32</context>
+          <context context-type="linenumber">22,23</context>
         </context-group>
       </trans-unit>
       <trans-unit id="playerRoster.colName" datatype="html">
         <source>ชื่อ</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/player-roster/player-roster.html</context>
-          <context context-type="linenumber">32,33</context>
+          <context context-type="linenumber">23,24</context>
         </context-group>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/player-roster/player-roster.html</context>
-          <context context-type="linenumber">59,60</context>
+          <context context-type="linenumber">54,55</context>
         </context-group>
       </trans-unit>
       <trans-unit id="playerRoster.colLevel" datatype="html">
         <source>ระดับ</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/player-roster/player-roster.html</context>
-          <context context-type="linenumber">33,34</context>
+          <context context-type="linenumber">26,27</context>
         </context-group>
       </trans-unit>
       <trans-unit id="playerRoster.colRatingDoubles" datatype="html">
         <source>เรตติ้งคู่</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/player-roster/player-roster.html</context>
-          <context context-type="linenumber">36,38</context>
+          <context context-type="linenumber">31,33</context>
         </context-group>
       </trans-unit>
       <trans-unit id="playerRoster.colRatingSingles" datatype="html">
         <source>เรตติ้งเดี่ยว</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/player-roster/player-roster.html</context>
-          <context context-type="linenumber">41,43</context>
+          <context context-type="linenumber">36,38</context>
         </context-group>
       </trans-unit>
       <trans-unit id="playerRoster.colWinRate" datatype="html">
         <source>อัตราชนะ</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/player-roster/player-roster.html</context>
-          <context context-type="linenumber">46,48</context>
+          <context context-type="linenumber">41,43</context>
         </context-group>
       </trans-unit>
       <trans-unit id="playerRoster.colActions" datatype="html">
         <source>การกระทำ</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/player-roster/player-roster.html</context>
-          <context context-type="linenumber">49,51</context>
+          <context context-type="linenumber">44,46</context>
         </context-group>
       </trans-unit>
       <trans-unit id="playerRoster.colAge" datatype="html">
         <source>อายุ</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/player-roster/player-roster.html</context>
-          <context context-type="linenumber">63,64</context>
+          <context context-type="linenumber">58,59</context>
         </context-group>
       </trans-unit>
       <trans-unit id="playerRoster.colEmail" datatype="html">
         <source>อีเมล</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/player-roster/player-roster.html</context>
-          <context context-type="linenumber">67,68</context>
+          <context context-type="linenumber">62,63</context>
         </context-group>
       </trans-unit>
       <trans-unit id="playerRoster.colPhone" datatype="html">
         <source>เบอร์โทร</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/player-roster/player-roster.html</context>
-          <context context-type="linenumber">71,72</context>
+          <context context-type="linenumber">66,67</context>
         </context-group>
       </trans-unit>
       <trans-unit id="playerRoster.save" datatype="html">
         <source>บันทึก</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/player-roster/player-roster.html</context>
-          <context context-type="linenumber">78,79</context>
+          <context context-type="linenumber">73,74</context>
         </context-group>
       </trans-unit>
       <trans-unit id="playerRoster.cancel" datatype="html">
         <source>ยกเลิก</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/player-roster/player-roster.html</context>
-          <context context-type="linenumber">79,80</context>
+          <context context-type="linenumber">74,75</context>
         </context-group>
       </trans-unit>
       <trans-unit id="playerRoster.edit" datatype="html">
         <source>แก้ไข</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/player-roster/player-roster.html</context>
-          <context context-type="linenumber">103,105</context>
+          <context context-type="linenumber">98,100</context>
         </context-group>
       </trans-unit>
       <trans-unit id="playerRoster.confirmDiscard" datatype="html">
         <source>คุณกำลังแก้ไขข้อมูลผู้เล่นอยู่ ออกจากหน้านี้โดยไม่บันทึกใช่หรือไม่?</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/player-roster/player-roster.ts</context>
-          <context context-type="linenumber">82</context>
+          <context context-type="linenumber">86</context>
         </context-group>
       </trans-unit>
       <trans-unit id="playerRoster.levelSaveFailed" datatype="html">

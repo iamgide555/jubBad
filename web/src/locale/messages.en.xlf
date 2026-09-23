@@ -2222,9 +2222,6 @@
           <context context-type="linenumber">69,70</context>
         </context-group>
       </trans-unit>
-      <trans-unit id="playerRoster.onlyMissingLevel" datatype="html">
-        <source>ยังไม่ระบุระดับ</source><target>No level set yet</target>
-      </trans-unit>
       <trans-unit id="playerRoster.colLevel" datatype="html">
         <source>ระดับ</source><target>Level</target>
       </trans-unit>

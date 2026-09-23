@@ -5,15 +5,17 @@ import { ActivatedRoute, RouterLink } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
 import type { CanComponentDeactivate } from '../../core/can-deactivate.guard';
 import { RosterService, type ManagedPlayer } from '../../core/roster.service';
+import { LevelPicker } from '../../shared/level-picker/level-picker';
+import { levelIndex, type Level } from '../../../../../engines/levels.ts';
 
-type SortKey = 'rating' | 'singlesRating' | 'winRate';
+type SortKey = 'rating' | 'singlesRating' | 'winRate' | 'level';
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const PHONE_RE = /^[0-9+\- ]{6,20}$/;
 
 @Component({
   selector: 'app-player-roster',
-  imports: [FormsModule, RouterLink, DecimalPipe],
+  imports: [FormsModule, RouterLink, DecimalPipe, LevelPicker],
   templateUrl: './player-roster.html',
   styleUrl: './player-roster.css',
 })
@@ -31,6 +33,17 @@ export class PlayerRoster implements CanComponentDeactivate, OnDestroy {
 
   readonly sortedPlayers = computed(() => {
     const key = this.sortKey();
+    // 'level' is a letter grade (engines/levels.ts LEVELS), not a number —
+    // compared by its position in that scale (levelIndex) rather than the
+    // generic numeric subtraction the other three metrics share.
+    if (key === 'level') {
+      return [...this.players()].sort((a, b) => {
+        if (a.level === null && b.level === null) return 0;
+        if (a.level === null) return 1; // nulls (no level yet) sort last
+        if (b.level === null) return -1;
+        return levelIndex(b.level) - levelIndex(a.level); // descending
+      });
+    }
     return [...this.players()].sort((a, b) => {
       const av = a[key];
       const bv = b[key];
@@ -88,6 +101,24 @@ export class PlayerRoster implements CanComponentDeactivate, OnDestroy {
 
   setSortKey(key: SortKey): void {
     this.sortKey.set(key);
+  }
+
+  readonly levelSaveError = signal<string | null>(null);
+
+  async setLevel(player: ManagedPlayer, level: Level | null): Promise<void> {
+    const previous = player.level;
+    this.players.update((list) =>
+      list.map((p) => (p.id === player.id ? { ...p, level } : p))
+    );
+    this.levelSaveError.set(null);
+    try {
+      await firstValueFrom(this.rosterService.updatePlayerLevel(this.groupCode, player.id, level));
+    } catch {
+      this.players.update((list) =>
+        list.map((p) => (p.id === player.id ? { ...p, level: previous } : p))
+      );
+      this.levelSaveError.set($localize`:@@playerRoster.levelSaveFailed:บันทึกระดับไม่สำเร็จ`);
+    }
   }
 
   // ---- inline edit ----

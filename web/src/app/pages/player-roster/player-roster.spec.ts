@@ -15,6 +15,7 @@ const PLAYERS = [
     age: 30,
     email: 'tam@example.test',
     phone: '0812345678',
+    level: null,
     rating: 1250,
     singlesRating: null,
     winRate: 0.5,
@@ -26,6 +27,7 @@ const PLAYERS = [
     age: null,
     email: null,
     phone: null,
+    level: 'P' as const,
     rating: 1180,
     singlesRating: 1300,
     winRate: null,
@@ -63,6 +65,33 @@ describe('PlayerRoster', () => {
 
   it('loads and lists players', () => {
     expect(component.players()).toEqual(PLAYERS);
+  });
+
+  it('saves a level change immediately, without entering edit mode', async () => {
+    const savePromise = component.setLevel(PLAYERS[0], 'P+');
+    httpMock
+      .expectOne(`${B}/groups/group1/players/p1/level`)
+      .flush({ id: 'p1', level: 'P+' });
+    await savePromise;
+
+    expect(component.players().find((p) => p.id === 'p1')?.level).toBe('P+');
+  });
+
+  it('rolls back an optimistic level change if the save fails', async () => {
+    const savePromise = component.setLevel(PLAYERS[0], 'P+');
+    httpMock
+      .expectOne(`${B}/groups/group1/players/p1/level`)
+      .error(new ProgressEvent('error'));
+    await savePromise;
+
+    expect(component.players().find((p) => p.id === 'p1')?.level).toBeNull();
+    expect(component.levelSaveError()).not.toBeNull();
+  });
+
+  it('sorts by level descending, nulls (no level yet) last', () => {
+    component.setSortKey('level');
+    // p2 is 'P', p1 has no level and must sort last.
+    expect(component.sortedPlayers().map((p) => p.id)).toEqual(['p2', 'p1']);
   });
 
   it('sorts by doubles rating descending by default', () => {

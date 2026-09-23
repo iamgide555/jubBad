@@ -2207,6 +2207,57 @@
           <context context-type="linenumber">69,70</context>
         </context-group>
       </trans-unit>
+      <trans-unit id="playerRoster.onlyMissingLevel" datatype="html">
+        <source>ยังไม่ระบุระดับ</source><target>No level set yet</target>
+      </trans-unit>
+      <trans-unit id="playerRoster.colLevel" datatype="html">
+        <source>ระดับ</source><target>Level</target>
+      </trans-unit>
+      <trans-unit id="playerRoster.levelSaveFailed" datatype="html">
+        <source>บันทึกระดับไม่สำเร็จ</source><target>Couldn't save the level.</target>
+      </trans-unit>
+      <trans-unit id="dashboard.modeLevel" datatype="html">
+        <source>ตามระดับ</source><target>By level</target>
+      </trans-unit>
+      <trans-unit id="dashboard.modeLevelHint" datatype="html">
+        <source>จัดคนระดับใกล้กัน (±1) ลงคอร์ทเดียวกัน คิวอาจข้ามเพื่อให้จัดได้</source><target>Groups players within one level of each other on the same court — the queue may skip ahead to make that possible.</target>
+      </trans-unit>
+      <trans-unit id="level.unset" datatype="html">
+        <source>ไม่ระบุ</source><target>Not set</target>
+      </trans-unit>
+      <trans-unit id="level.uncertainHint" datatype="html">
+        <source>ไม่แน่ใจ เลือกใกล้เคียงไว้ก่อน ผลแพ้ชนะจะปรับเรตติ้งเอง</source><target>Not sure? Pick your best guess — results will adjust the rating over time.</target>
+      </trans-unit>
+      <trans-unit id="level.close" datatype="html">
+        <source>ปิด</source><target>Close</target>
+      </trans-unit>
+      <trans-unit id="level.def.bg" datatype="html">
+        <source>มือเริ่มต้น เพิ่งเริ่มเล่น ตีโดนบ้างไม่โดนบ้าง ตีโต้พื้นฐานได้แต่ยังคุมทิศทางไม่ได้ เบสิคและการเคลื่อนที่ยังไม่ถูก</source><target>Just starting out. Hits the shuttle inconsistently, can rally a little but can't control direction yet — basics and movement aren't there yet.</target>
+      </trans-unit>
+      <trans-unit id="level.def.n" datatype="html">
+        <source>รู้กติกา นับแต้มเป็น ตีโต้ได้ต่อเนื่อง กะจังหวะลูกได้ รับเสิร์ฟ/รับตบเบาๆ ได้ แต่ยังโยนไม่ถึงท้ายคอร์ท ยังไม่รู้การหมุนตำแหน่งเล่นคู่</source><target>Knows the rules and can keep score. Rallies steadily and times the shuttle, can return a serve or a light smash, but can't clear to the back yet and doesn't know doubles rotation.</target>
+      </trans-unit>
+      <trans-unit id="level.def.s" datatype="html">
+        <source>เล่นเกมเป็น ยืนตำแหน่งพื้นฐานได้ ตีลูกพื้นฐานได้ครบ (โยนถึงท้าย หยอด ตบ) แต่ยังไม่นิ่ง จุดอ่อนเยอะ</source><target>Plays a full game and holds basic positions. Has every basic shot (clear, drop, smash) but is inconsistent, with plenty of weak points.</target>
+      </trans-unit>
+      <trans-unit id="level.def.pminus" datatype="html">
+        <source>เบสิคครบ คุมลูกได้ เริ่มวางแผนการเล่น มีลูกหลอก แต่ยังเสียง่ายเมื่อโดนกดดัน</source><target>Solid basics, controls the shuttle, starts planning points and using deceptive shots — but still cracks under pressure.</target>
+      </trans-unit>
+      <trans-unit id="level.def.p" datatype="html">
+        <source>ตีได้ทุกรูปแบบ เล่นคู่ลื่นไหล หมุนตำแหน่งเป็น ฟุตเวิร์กดี</source><target>Has every shot, plays smooth doubles, rotates well, good footwork.</target>
+      </trans-unit>
+      <trans-unit id="level.def.pplus" datatype="html">
+        <source>ความแน่นอนสูง เล่นเกมเร็วได้ ตบหนัก อ่านเกมและหาจุดอ่อนคู่แข่งเป็น</source><target>Very consistent, plays fast, hits hard, reads the game and finds the opponent's weaknesses.</target>
+      </trans-unit>
+      <trans-unit id="level.def.c" datatype="html">
+        <source>มือแข่งขัน ลงแข่งรายการสมัครเล่นเป็นประจำ มีประสบการณ์แข่ง</source><target>A competitive player — plays amateur tournaments regularly and has real match experience.</target>
+      </trans-unit>
+      <trans-unit id="level.def.b" datatype="html">
+        <source>ระดับตัวแทนมหาวิทยาลัย/จังหวัด หรืออดีตนักกีฬา</source><target>University or provincial representative level, or a former athlete.</target>
+      </trans-unit>
+      <trans-unit id="level.unsetLabel" datatype="html">
+        <source>ไม่ระบุ</source><target>Not set</target>
+      </trans-unit>
     </body>
   </file>
 </xliff>

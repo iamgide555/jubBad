@@ -1,0 +1,38 @@
+@if (compact()) {
+  <button type="button" class="level-trigger" (click)="toggleOpen()">
+    {{ level() ?? unsetLabel }}
+  </button>
+}
+
+@if (isOpen() || !compact()) {
+  <div class="level-panel">
+    <div class="chips">
+      <button
+        type="button"
+        class="chip"
+        [class.selected]="level() === null"
+        (click)="choose(null)"
+        i18n="@@level.unset"
+      >
+        ไม่ระบุ
+      </button>
+      @for (l of levels; track l) {
+        <button type="button" class="chip" [class.selected]="level() === l" (click)="choose(l)">
+          {{ l }}
+        </button>
+      }
+    </div>
+
+    @if (currentDefinition(); as def) {
+      <p class="definition">{{ def }}</p>
+    }
+
+    <p class="hint" i18n="@@level.uncertainHint">
+      ไม่แน่ใจ เลือกใกล้เคียงไว้ก่อน ผลแพ้ชนะจะปรับเรตติ้งเอง
+    </p>
+
+    @if (compact()) {
+      <button type="button" class="ghost" (click)="toggleOpen()" i18n="@@level.close">ปิด</button>
+    }
+  </div>
+}

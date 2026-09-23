@@ -1,0 +1,61 @@
+:host {
+  display: block;
+}
+
+:host(.compact) {
+  display: inline-block;
+}
+
+.level-trigger {
+  min-height: var(--tap);
+  min-width: 2.5rem;
+  padding: 0 var(--space-1);
+  border-radius: var(--radius);
+}
+
+.level-panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding: var(--space-1);
+}
+
+/* One row of 9 chips (8 levels + "ไม่ระบุ") — nowrap with a horizontal
+   scroll fallback rather than wrapping to a second line, so the row keeps
+   a predictable height in a review list. flex: 1 1 0 lets each chip shrink
+   evenly to fit a phone-width viewport before scrolling kicks in. */
+.chips {
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 0.25rem;
+  overflow-x: auto;
+}
+
+.chip {
+  flex: 1 1 0;
+  min-width: 0;
+  min-height: var(--tap);
+  padding: 0 0.15rem;
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--line);
+  background: var(--surface);
+  color: var(--ink);
+}
+
+.chip.selected {
+  background: var(--accent);
+  color: #fff;
+  border-color: var(--accent);
+}
+
+.definition {
+  color: var(--ink-soft);
+  font-size: var(--text-sm);
+  margin: 0;
+}
+
+.hint {
+  color: var(--ink-soft);
+  font-size: var(--text-xs);
+  margin: 0;
+}

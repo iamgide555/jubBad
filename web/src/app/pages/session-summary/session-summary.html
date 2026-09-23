@@ -56,19 +56,43 @@
         <thead>
           <tr>
             <th i18n="@@summary.player">ผู้เล่น</th>
-            <th i18n="@@summary.played">เล่น</th>
-            <th i18n="@@summary.won">ชนะ</th>
-            <th i18n="@@summary.lost">แพ้</th>
-            <th class="rate-cell" i18n="@@summary.winRateDoubles">อัตราชนะ (คู่)</th>
-            <th class="rate-cell" i18n="@@summary.winRateSingles">อัตราชนะ (เดี่ยว)</th>
-            <th class="rate-cell" i18n="@@summary.timeTotal">เวลาเล่น</th>
+            <th [attr.aria-sort]="sortKey() === 'played' ? 'descending' : 'none'">
+              <button type="button" class="ghost sort-head" [class.active]="sortKey() === 'played'" (click)="setSortKey('played')">
+                <ng-container i18n="@@summary.played">เล่น</ng-container>
+              </button>
+            </th>
+            <th [attr.aria-sort]="sortKey() === 'won' ? 'descending' : 'none'">
+              <button type="button" class="ghost sort-head" [class.active]="sortKey() === 'won'" (click)="setSortKey('won')">
+                <ng-container i18n="@@summary.won">ชนะ</ng-container>
+              </button>
+            </th>
+            <th [attr.aria-sort]="sortKey() === 'lost' ? 'descending' : 'none'">
+              <button type="button" class="ghost sort-head" [class.active]="sortKey() === 'lost'" (click)="setSortKey('lost')">
+                <ng-container i18n="@@summary.lost">แพ้</ng-container>
+              </button>
+            </th>
+            <th class="rate-cell" [attr.aria-sort]="sortKey() === 'doublesRate' ? 'descending' : 'none'">
+              <button type="button" class="ghost sort-head" [class.active]="sortKey() === 'doublesRate'" (click)="setSortKey('doublesRate')">
+                <ng-container i18n="@@summary.winRateDoubles">อัตราชนะ (คู่)</ng-container>
+              </button>
+            </th>
+            <th class="rate-cell" [attr.aria-sort]="sortKey() === 'singlesRate' ? 'descending' : 'none'">
+              <button type="button" class="ghost sort-head" [class.active]="sortKey() === 'singlesRate'" (click)="setSortKey('singlesRate')">
+                <ng-container i18n="@@summary.winRateSingles">อัตราชนะ (เดี่ยว)</ng-container>
+              </button>
+            </th>
+            <th class="rate-cell" [attr.aria-sort]="sortKey() === 'time' ? 'descending' : 'none'">
+              <button type="button" class="ghost sort-head" [class.active]="sortKey() === 'time'" (click)="setSortKey('time')">
+                <ng-container i18n="@@summary.timeTotal">เวลาเล่น</ng-container>
+              </button>
+            </th>
             @if (isHost()) {
               <th class="profile-cell"><span class="sr-only" i18n="@@summary.profileColumn">โปรไฟล์</span></th>
             }
           </tr>
         </thead>
         <tbody>
-          @for (row of s.players; track row.playerId) {
+          @for (row of sortedPlayers(); track row.playerId) {
             <tr class="player-row">
               <td>
                 <button

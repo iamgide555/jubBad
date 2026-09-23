@@ -12,7 +12,9 @@ import {
   ShuttleDetailsDialog,
   type ShuttleDetailsPatch,
 } from '../../shared/shuttle-details-dialog/shuttle-details-dialog';
-import type { SessionSummary as Summary } from '../../core/session-summary.model';
+import type { PlayerSessionStat, SessionSummary as Summary } from '../../core/session-summary.model';
+
+type SortKey = 'played' | 'won' | 'lost' | 'doublesRate' | 'singlesRate' | 'time';
 
 @Component({
   selector: 'app-session-summary',
@@ -28,6 +30,48 @@ export class SessionSummary {
   protected readonly summary = computed<Summary | undefined>(() => {
     if (this.summaryResource.error()) return undefined;
     return this.summaryResource.value();
+  });
+
+  // The server already returns players sorted by played descending
+  // (SessionsService.getSummary) — 'played' as the default keeps that
+  // order until the host taps a different column header.
+  protected readonly sortKey = signal<SortKey>('played');
+
+  protected setSortKey(key: SortKey): void {
+    this.sortKey.set(key);
+  }
+
+  private sortValue(row: PlayerSessionStat, key: SortKey): number | null {
+    switch (key) {
+      case 'played':
+        return row.played;
+      case 'won':
+        return row.won;
+      case 'lost':
+        return row.lost;
+      case 'doublesRate':
+        return row.doubles ? this.winPercent(row.doubles.played, row.doubles.won) : null;
+      case 'singlesRate':
+        return row.singles ? this.winPercent(row.singles.played, row.singles.won) : null;
+      case 'time':
+        return row.totalSeconds;
+    }
+  }
+
+  /** Descending by the active column; a player with no data for it (never
+   *  played singles, say) sorts last rather than tying at a fabricated 0 —
+   *  same convention as player-roster's sortable columns. */
+  protected readonly sortedPlayers = computed(() => {
+    const players = this.summary()?.players ?? [];
+    const key = this.sortKey();
+    return [...players].sort((a, b) => {
+      const av = this.sortValue(a, key);
+      const bv = this.sortValue(b, key);
+      if (av === null && bv === null) return 0;
+      if (av === null) return 1;
+      if (bv === null) return -1;
+      return bv - av;
+    });
   });
 
   protected readonly notFound = computed(

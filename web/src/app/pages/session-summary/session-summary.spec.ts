@@ -208,6 +208,30 @@ describe('SessionSummary', () => {
     expect(cells.filter((c) => c === '–').length).toBeGreaterThanOrEqual(2);
   });
 
+  it('sorts by the tapped column instead of the server\'s played-descending order', async () => {
+    await load(
+      summary({
+        players: [
+          { playerId: 'p1', name: 'ตั้ม', played: 3, won: 1, lost: 2, totalSeconds: 100, singles: null, doubles: null, matches: [] },
+          { playerId: 'p2', name: 'เบส', played: 2, won: 2, lost: 0, totalSeconds: 500, singles: null, doubles: null, matches: [] },
+        ],
+      })
+    );
+    // Default: played descending — p1 (3) before p2 (2).
+    let names = [...(fixture.nativeElement as HTMLElement).querySelectorAll('.row-toggle')].map(
+      (b) => b.textContent?.trim()
+    );
+    expect(names[0]).toContain('ตั้ม');
+
+    fixture.componentInstance['setSortKey']('time');
+    fixture.detectChanges();
+    names = [...(fixture.nativeElement as HTMLElement).querySelectorAll('.row-toggle')].map(
+      (b) => b.textContent?.trim()
+    );
+    // p2's totalSeconds (500) is higher than p1's (100).
+    expect(names[0]).toContain('เบส');
+  });
+
   it('collapses an already-expanded row on a second tap', async () => {
     await load(summary());
     fixture.componentInstance['togglePlayer']('p1');

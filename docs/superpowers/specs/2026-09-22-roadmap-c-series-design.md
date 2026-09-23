@@ -47,6 +47,11 @@ panel (level, tonight's record, rating as a difference from the seed).
 Full design: `docs/archive/specs/2026-09-23-c1-level-followup-design.md`.
 See `docs/overview.md`'s "Ratings" section for the reasoning.
 
+**C3 amendment, owner request, 2026-09-24 (D7)** — a walk-in / late-registrant
+surcharge, folded into §C3 below rather than kept separate since it changes
+the per-person math in all three models. This spec's §C3 already reflects the
+amendment (not superseded text, unlike C1's).
+
 **Goal:** Settle how every open roadmap item (C1–C14) works before any of them
 is built: data, API, engine, UI, edge cases and tests. Each item then gets its
 own implementation plan and its own branch, built one at a time in the order
@@ -62,6 +67,7 @@ below. `main` keeps running live sessions throughout.
 | D4 | C1 | The ±1 level band is soft-dominant and ships with C1. Originally a per-session toggle; folded into a fourth pairing mode (`level`) 2026-09-23 — see the amendment above. |
 | D5 | C7 | The co-host gets a session-scoped link now. Group-member accounts come later, with C8's ก๊วนใหญ่ tier. |
 | D6 | C8 | Design the mechanism now. Tier gates wait until pricing is re-checked against competitors. |
+| D7 | C3 | Walk-in / late-registration surcharge (ค่า walk-in), flat and host-customisable (default 20฿). Redistributed as a discount to every billed player, not host profit — see the C3 amendment below. |
 
 Anything marked "default" below was proposed, not asked. The owner saw it in
 review and did not object, but it is the first thing to revisit if an item's
@@ -289,48 +295,97 @@ Sources are listed at the end of this document. The three models:
   - The host can **remove** someone (host, coach, guest). In fair pay, a
     removed person's share is spread equally over the billed people, so the
     cost is still covered.
-- A per-person **override** amount, for discounts or latecomers.
+- A per-person **override** amount, for discounts or latecomers. Final — an
+  overridden person is excluded from the walk-in pool and discount below.
 - **Host fee** (D1): optional +X ฿ per person, in any model.
-- **Rounding:** up to 1 / 5 / 10 ฿ per person.
+- **Walk-in surcharge (D7):** a flat, host-set fee (default 20฿) charged to
+  players marked walk-in tonight (see "Walk-in mark" below), but **not kept
+  by the host** — it's collected from walk-ins and handed back as an equal
+  discount to every billed, non-overridden player (walk-ins included), so the
+  total collected is unchanged and the margin (below) is unaffected.
+  - `walkInFeeSatang` lives in `billConfig` (default 2000, prefilled from the
+    previous session per C10).
+  - `pool = fee × (billed, non-overridden walk-ins)`
+  - `discount = pool ÷ (billed, non-overridden players)`, largest-remainder
+    method so it distributes exactly and floors at 0 per person (can't push
+    anyone negative — spare satang redistributes among the rest).
+  - Applied per person, after the host fee and before rounding:
+    `amount = modelShare + hostFee − discount + (walkIn ? fee : 0)`.
+  - Worked example: cost 200฿, 4 players (1 walk-in), fee 20฿ → pool 20฿,
+    discount 5฿/person → 3 regulars pay 45฿, the walk-in pays 45 + 20 = 65฿.
+    Sum is still 200฿.
+  - Same rule in all three models — คิดต่อเกม's cap (below) applies to the
+    model share only, before the discount/fee step.
+  - Fee 0, or no billed walk-in, is a no-op (no line in the LINE text).
+- **Rounding:** up to 1 / 5 / 10 ฿ per person, applied to the final amount
+  (after the walk-in step).
 - **Margin**, host only and never in the LINE text: amount collected vs
-  actual cost (court + shuttles). Hidden when cost inputs are missing.
+  actual cost (court + shuttles). Hidden when cost inputs are missing. Net of
+  the walk-in fee, since it nets to zero across the group.
+
+**Walk-in mark**
+- `SessionRoster.walkIn Boolean @default(false)` — a fact about this player
+  tonight, same reasoning as `active`.
+- Auto-set `true` when a player is added via C2's walk-in flow
+  (`addWalkInExclusively`, `SessionsService`, `server/src/sessions/
+  sessions.service.ts:2013`). Players present in the original LINE paste
+  (roster or สำรอง) start `false`.
+- The host can toggle it for anyone from the bill screen (a chip per row),
+  `PATCH /sessions/:code/roster/:playerId/walk-in`, owner-only, under
+  `lock.run`, 404 if the player isn't on the roster. Works after the session
+  ends, since billing happens then.
 
 **Math:** pure `engines/bill.ts`, integer satang throughout.
-- `computeBill(config, matches, rosterIds, shuttleCount, shuttlePriceSatang)
-  → { rows, totals }`.
+- `computeBill(config, matches, rosterIds, walkInIds, shuttleCount,
+  shuttlePriceSatang) → { rows, totals }`.
 - Equal shares use the largest-remainder method, so they sum to the cost
-  exactly before rounding.
+  exactly before rounding. The walk-in discount uses the same method.
 - A missing shuttle count in fair pay gives a shuttle part of 0 and a warning,
   "ยังไม่ได้ใส่จำนวนลูก".
+- `walkInIds` entries not in the billed set (e.g. removed) are ignored.
+  Negative `walkInFeeSatang` throws (engines fail loudly, per `overview.md`).
+- Row gains `walkInFeeSatang` and `walkInDiscountSatang` alongside the
+  existing amount, so the UI/text can show "(walk-in)" and the discount is
+  auditable. Invariant: Σ final amounts is identical with and without any
+  walk-ins marked (same total either way).
 
 **Data:** `Session.billConfig String?` (JSON). It holds inputs only: model,
-rates, toggles, `courtFeeSatang`, host fee, rounding, and the added, removed
-and overridden people. The bill itself is always recomputed, the same rule as
-ratings.
+rates, toggles, `courtFeeSatang`, host fee, `walkInFeeSatang`, rounding, and
+the added, removed and overridden people. The bill itself is always
+recomputed, the same rule as ratings. `SessionRoster.walkIn` (see "Walk-in
+mark" above) is separate — a roster fact, not a bill input.
 
 **API:** `GET /sessions/:code/bill` (computed) and
 `PUT /sessions/:code/bill-config` (class-validator DTO). Both are owner-only;
-a co-host is refused (C7).
+a co-host is refused (C7). Plus
+`PATCH /sessions/:code/roster/:playerId/walk-in` (owner-only) for the mark.
 
 **UI:** a "คิดเงิน" button on the summary, visible to the host only.
-- Model tabs → inputs (prefilled from the previous session, per C10) → a
-  per-person table with add, remove and override → the margin →
-  "คัดลอกข้อความ".
-- Text template, fair pay example:
+- Model tabs → inputs (prefilled from the previous session, per C10,
+  including "ค่า walk-in ___ ฿/คน" beside the host fee) → a per-person table
+  with add, remove, override and a walk-in chip toggle (44px target) → the
+  margin → "คัดลอกข้อความ".
+- Dashboard roster panel shows a small read-only walk-in badge next to
+  auto-marked names, so the host sees it before opening the bill (cut if it
+  crowds the row).
+- Text template, fair pay example, with one walk-in:
 
 ```
 💰 ค่าก๊วน อ. 22 ก.ย. — <venue>
 ค่าคอร์ท 1,440฿ หารเท่า 12 คน
 ค่าลูก 18 ลูก × 85฿ ตามจำนวนเกม
 ค่าจัดก๊วน 10฿/คน (รวมในยอดแล้ว)
-ปอม  9 เกม  230฿
-ตี๋    6 เกม  195฿
+Walk-in +20฿/คน × 1 คน (หารคืนทุกคน)
+ปอม  9 เกม  225฿
+ตี๋    6 เกม  190฿
+บอย  5 เกม  210฿ (walk-in)
 …
 รวม 2,980฿
 ```
 
 - Per game header: "เกมละ 50฿ (+ค่าเข้า 80฿, สูงสุด 300฿)". Buffet header:
-  "บุฟเฟ่ต์ 180฿/คน (รวมลูก)".
+  "บุฟเฟ่ต์ 180฿/คน (รวมลูก)". Walk-in header line only when fee > 0 and at
+  least one billed walk-in.
 
 **Tests:** `engines/bill.test.ts`, covering:
 - each model and toggle;
@@ -338,9 +393,15 @@ a co-host is refused (C7).
 - sum equals cost;
 - add, remove and override;
 - a missing shuttle count;
-- singles at the same rate as doubles.
+- singles at the same rate as doubles;
+- walk-in: the worked example above exact (200฿/4/1 walk-in → 45,45,45,65);
+  total unchanged with vs without walk-ins marked, in every model; overridden
+  or removed players excluded from the pool and discount; fee 0 or no
+  walk-ins is a no-op; คิดต่อเกม cap applies before the discount/fee step;
+  odd-satang split by largest remainder; negative fee throws.
 
-Plus an API spec for owner-only access and config validation.
+Plus an API spec for owner-only access, config validation, and the walk-in
+PATCH (auto-set on C2 add, toggle, 404 off-roster, works post-session-end).
 
 ## C10. Saved group defaults
 
@@ -617,6 +678,8 @@ throttle), the admin plan update, and the guard on a dummy route.
 - The `compareArrangements` key order is fixed: band (C1) → links (C5) →
   partner → opponent.
 - C3's `billConfig` feeds C10's defaults.
+- C2's `addWalkInExclusively` sets `SessionRoster.walkIn` (D7); C3 reads it as
+  the default mark, then the host can override per person from the bill.
 - The co-host (C7) never reaches money or contact data.
 - C7's SSE makes C4's phones and C9's display announcements instant. Both
   work without it.
@@ -634,6 +697,7 @@ this spec, because they record a decision rather than behaviour.
 - C2: the roster review paragraph loses "no way to add a player to a running
   session".
 - C3: the end-session paragraph loses "Nothing is calculated from them yet".
+  Note the walk-in surcharge is redistributed as a discount, not host profit.
 - C5: the Pairing section gains links in the key order and pair units in
   selection.
 - C7: the display paragraph's "refreshes every 30 seconds" becomes SSE with a

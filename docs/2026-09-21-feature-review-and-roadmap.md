@@ -255,6 +255,11 @@ Calculation methods to consider:
 
 Effort M. It pairs with C10 (saved default prices).
 
+**Amendment (owner, 2026-09-24, D7):** a walk-in / late-registration
+surcharge (flat, host-customisable, default 20฿). Redistributed as a
+discount to every billed player rather than kept by the host. See the design
+doc's C3 section for the mechanics.
+
 ### P1
 
 #### - [ ] C4. Players check the queue on their own phone

@@ -2527,6 +2527,13 @@
           <context context-type="linenumber">123,124</context>
         </context-group>
       </trans-unit>
+      <trans-unit id="bill.walkInOverridden" datatype="html">
+        <source>แก้ยอดเองแล้ว ค่า walk-in ไม่มีผลกับคนนี้</source><target>Amount overridden — the walk-in fee doesn't apply to this player</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/session-bill/session-bill.ts</context>
+          <context context-type="linenumber">51</context>
+        </context-group>
+      </trans-unit>
       <trans-unit id="bill.saveFailed" datatype="html">
         <source>บันทึกไม่สำเร็จ ลองใหม่อีกครั้ง</source><target>Couldn't save. Try again.</target>
         <context-group purpose="location">

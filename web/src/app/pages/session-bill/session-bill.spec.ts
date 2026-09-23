@@ -97,6 +97,59 @@ describe('SessionBill', () => {
     req.flush(response());
   });
 
+  it('an overridden row shows its walk-in chip off and disabled even if the roster marks it', async () => {
+    const body = response();
+    // d is a walk-in on the roster, but its amount is overridden: the engine
+    // reports row.walkIn false and charges no fee.
+    body.config.overrides = [{ playerId: 'd', amountSatang: 5000 }];
+    body.result.rows[1] = { ...body.result.rows[1], walkIn: false, walkInFeeSatang: 0, walkInDiscountSatang: 0,
+      overridden: true, amountSatang: 5000 };
+    await load(body);
+    const chip = fixture.nativeElement.querySelector('[data-walk-in="d"]') as HTMLButtonElement;
+    expect(chip.classList.contains('selected')).toBe(false);
+    expect(chip.getAttribute('aria-pressed')).toBe('false');
+    expect(chip.disabled).toBe(true);
+    expect(chip.getAttribute('title')).toBeTruthy();
+    const other = fixture.nativeElement.querySelector('[data-walk-in="a"]') as HTMLButtonElement;
+    expect(other.disabled).toBe(false);
+    expect(other.getAttribute('title')).toBeNull();
+  });
+
+  it('removing a player who played puts them in removedIds', async () => {
+    await load();
+    fixture.componentInstance['remove']('a');
+    const req = http.expectOne(`${B}/sessions/sess1/bill-config`);
+    expect(req.request.body.removedIds).toEqual(['a']);
+    req.flush(response());
+  });
+
+  it('removing an added no-show who has no games just un-adds them', async () => {
+    const body = response();
+    body.config.addedIds = ['z'];
+    body.result.rows.push({ playerId: 'z', games: 0, status: 'billed', added: true, walkIn: false, courtSatang: 0,
+      shuttleSatang: 0, baseSatang: 0, hostFeeSatang: 0, walkInFeeSatang: 0, walkInDiscountSatang: 0, overridden: false,
+      amountSatang: 0 });
+    await load(body);
+    fixture.componentInstance['remove']('z');
+    const req = http.expectOne(`${B}/sessions/sess1/bill-config`);
+    expect(req.request.body.addedIds).toEqual([]);
+    expect(req.request.body.removedIds).toEqual([]);
+    req.flush(response());
+  });
+
+  it('removing a player added as a no-show who then played also puts them in removedIds', async () => {
+    const body = response();
+    // a was added before playing and has since played a game: a real row with
+    // games > 0, still listed in addedIds. Un-adding alone would bill them anyway.
+    body.config.addedIds = ['a'];
+    await load(body);
+    fixture.componentInstance['remove']('a');
+    const req = http.expectOne(`${B}/sessions/sess1/bill-config`);
+    expect(req.request.body.addedIds).toEqual([]);
+    expect(req.request.body.removedIds).toEqual(['a']);
+    req.flush(response());
+  });
+
   it('rejects a malformed money entry without posting', async () => {
     await load();
     fixture.componentInstance['onMoney']('hostFeeSatang', '12.345');

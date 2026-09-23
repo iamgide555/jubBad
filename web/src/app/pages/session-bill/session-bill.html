@@ -90,8 +90,13 @@
         <span class="name">{{ names().get(r.playerId) }}</span>
         <span class="games" i18n="@@bill.games">{{ r.games }} เกม</span>
         <span class="amount">{{ baht(r.amountSatang) }}฿</span>
-        <button type="button" class="chip" [attr.data-walk-in]="r.playerId" [class.selected]="walkIn().get(r.playerId)"
-          [attr.aria-pressed]="walkIn().get(r.playerId) ?? false" (click)="toggleWalkIn(r.playerId)" i18n="@@bill.walkInChip">walk-in</button>
+        <!-- State comes from the row, which is what the engine actually billed:
+             an overridden row never pays the walk-in fee or gets the discount,
+             so its chip is off and disabled (with a title saying why) even if
+             the roster still marks the player as a walk-in. -->
+        <button type="button" class="chip" [attr.data-walk-in]="r.playerId" [class.selected]="r.walkIn"
+          [attr.aria-pressed]="r.walkIn" [disabled]="r.overridden" [attr.title]="r.overridden ? walkInOverriddenHint : null"
+          (click)="toggleWalkIn(r.playerId)" i18n="@@bill.walkInChip">walk-in</button>
         <input type="text" inputmode="decimal" class="override" i18n-placeholder="@@bill.overridePlaceholder" placeholder="แก้ยอด"
           i18n-aria-label="@@bill.overrideLabel" aria-label="แก้ยอดเอง"
           [value]="overrideText(r.playerId)" (change)="onOverride(r.playerId, $any($event.target).value)" />

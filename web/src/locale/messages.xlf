@@ -1985,77 +1985,77 @@
         <source>walk-in</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/session-bill/session-bill.html</context>
-          <context context-type="linenumber">94,95</context>
+          <context context-type="linenumber">99,100</context>
         </context-group>
       </trans-unit>
       <trans-unit id="bill.overridePlaceholder" datatype="html">
         <source>แก้ยอด</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/session-bill/session-bill.html</context>
-          <context context-type="linenumber">96</context>
+          <context context-type="linenumber">101</context>
         </context-group>
       </trans-unit>
       <trans-unit id="bill.overrideLabel" datatype="html">
         <source>แก้ยอดเอง</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/session-bill/session-bill.html</context>
-          <context context-type="linenumber">96,97</context>
+          <context context-type="linenumber">101,102</context>
         </context-group>
       </trans-unit>
       <trans-unit id="bill.remove" datatype="html">
         <source>ไม่คิด</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/session-bill/session-bill.html</context>
-          <context context-type="linenumber">98,100</context>
+          <context context-type="linenumber">103,105</context>
         </context-group>
       </trans-unit>
       <trans-unit id="bill.removedTitle" datatype="html">
         <source>ไม่คิดเงิน</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/session-bill/session-bill.html</context>
-          <context context-type="linenumber">104,105</context>
+          <context context-type="linenumber">109,110</context>
         </context-group>
       </trans-unit>
       <trans-unit id="bill.addTitle" datatype="html">
         <source>เพิ่มคนที่ยังไม่ได้เล่น</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/session-bill/session-bill.html</context>
-          <context context-type="linenumber">110,111</context>
+          <context context-type="linenumber">115,116</context>
         </context-group>
       </trans-unit>
       <trans-unit id="bill.total" datatype="html">
         <source>รวม</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/session-bill/session-bill.html</context>
-          <context context-type="linenumber">116</context>
+          <context context-type="linenumber">121</context>
         </context-group>
       </trans-unit>
       <trans-unit id="bill.margin" datatype="html">
         <source>ต้นทุน <x id="INTERPOLATION" equiv-text="{{ baht(b.result.totals.costSatang!) }}"/>฿ · ส่วนต่าง <x id="INTERPOLATION_1" equiv-text="{{ baht(b.result.totals.marginSatang) }}"/>฿ (เห็นเฉพาะผู้จัด)</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/session-bill/session-bill.html</context>
-          <context context-type="linenumber">118,121</context>
+          <context context-type="linenumber">123,126</context>
         </context-group>
       </trans-unit>
       <trans-unit id="bill.copied" datatype="html">
         <source>คัดลอกแล้ว</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/session-bill/session-bill.html</context>
-          <context context-type="linenumber">122,123</context>
+          <context context-type="linenumber">127,128</context>
         </context-group>
       </trans-unit>
       <trans-unit id="bill.copy" datatype="html">
         <source>คัดลอกข้อความ</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/session-bill/session-bill.html</context>
-          <context context-type="linenumber">123,124</context>
+          <context context-type="linenumber">128,129</context>
         </context-group>
       </trans-unit>
       <trans-unit id="share.fallbackLabel" datatype="html">
         <source>ข้อความสำหรับคัดลอก</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/session-bill/session-bill.html</context>
-          <context context-type="linenumber">126,129</context>
+          <context context-type="linenumber">131,134</context>
         </context-group>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/session-dashboard/session-dashboard.html</context>
@@ -2066,33 +2066,40 @@
           <context context-type="linenumber">188,191</context>
         </context-group>
       </trans-unit>
+      <trans-unit id="bill.walkInOverridden" datatype="html">
+        <source>แก้ยอดเองแล้ว ค่า walk-in ไม่มีผลกับคนนี้</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/session-bill/session-bill.ts</context>
+          <context context-type="linenumber">51</context>
+        </context-group>
+      </trans-unit>
       <trans-unit id="bill.saveFailed" datatype="html">
         <source>บันทึกไม่สำเร็จ ลองใหม่อีกครั้ง</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/session-bill/session-bill.ts</context>
-          <context context-type="linenumber">73</context>
+          <context context-type="linenumber">75</context>
         </context-group>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/session-bill/session-bill.ts</context>
-          <context context-type="linenumber">133</context>
+          <context context-type="linenumber">148</context>
         </context-group>
       </trans-unit>
       <trans-unit id="bill.badAmount" datatype="html">
         <source>ใส่จำนวนเงินเป็นตัวเลข ทศนิยมไม่เกิน 2 ตำแหน่ง</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/session-bill/session-bill.ts</context>
-          <context context-type="linenumber">82</context>
+          <context context-type="linenumber">84</context>
         </context-group>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/session-bill/session-bill.ts</context>
-          <context context-type="linenumber">98</context>
+          <context context-type="linenumber">100</context>
         </context-group>
       </trans-unit>
       <trans-unit id="share.failed" datatype="html">
         <source>คัดลอกไม่ได้ ลองเลือกข้อความเอง</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/session-bill/session-bill.ts</context>
-          <context context-type="linenumber">146</context>
+          <context context-type="linenumber">161</context>
         </context-group>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/session-dashboard/session-dashboard.ts</context>

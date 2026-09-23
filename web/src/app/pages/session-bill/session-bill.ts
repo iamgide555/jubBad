@@ -47,6 +47,8 @@ export class SessionBill {
   protected readonly roundings: RoundingStep[] = [1, 5, 10];
   protected readonly baht = formatBaht;
   protected readonly moneyText = formatShuttlePriceInput;
+  /** Title on a disabled walk-in chip: an override bypasses the walk-in fee and discount entirely. */
+  protected readonly walkInOverriddenHint = $localize`:@@bill.walkInOverridden:แก้ยอดเองแล้ว ค่า walk-in ไม่มีผลกับคนนี้`;
 
   constructor() {
     void this.load();
@@ -111,10 +113,23 @@ export class SessionBill {
     void this.save({ addedIds: [...c.addedIds, playerId], removedIds: c.removedIds.filter((id) => id !== playerId) });
   }
 
+  /**
+   * Excludes a billed player. An added no-show who still has no games is just
+   * un-added (back to the "add" list). Anyone who actually played -- including
+   * someone added as a no-show who then played -- must go into removedIds,
+   * since the engine bills every player with games unless they are removed;
+   * dropping them from addedIds alone would silently change nothing.
+   */
   protected remove(playerId: string): void {
     const c = this.config()!;
-    if (c.addedIds.includes(playerId)) void this.save({ addedIds: c.addedIds.filter((id) => id !== playerId) });
-    else void this.save({ removedIds: [...c.removedIds, playerId] });
+    const played = (this.bill()?.result.rows.find((r) => r.playerId === playerId)?.games ?? 0) > 0;
+    const addedIds = c.addedIds.filter((id) => id !== playerId);
+    if (!played && c.addedIds.includes(playerId)) {
+      void this.save({ addedIds });
+      return;
+    }
+    const removedIds = c.removedIds.includes(playerId) ? c.removedIds : [...c.removedIds, playerId];
+    void this.save({ addedIds, removedIds });
   }
 
   protected restore(playerId: string): void {

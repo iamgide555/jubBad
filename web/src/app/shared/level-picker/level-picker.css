@@ -6,11 +6,31 @@
   display: inline-block;
 }
 
+/* Neutral badge, not a CTA: this is a status indicator (the player's
+   level, or "-" for none) that happens to be tappable, not a primary
+   action — the plain `button` element it renders as otherwise inherits
+   the app's solid-green filled-button look, which reads as "confirm" or
+   "submit" sitting in a table row. Same bordered/surface language as
+   .chip below, just sized for a single letter in a table cell or a
+   dashboard panel row rather than a full choice row. */
 .level-trigger {
   min-height: var(--tap);
   min-width: 2.5rem;
   padding: 0 var(--space-1);
-  border-radius: var(--radius);
+  border-radius: var(--radius-pill);
+  background: var(--surface);
+  color: var(--ink);
+  border: 1px solid var(--line);
+  box-shadow: none;
+  font-size: var(--text-sm);
+  font-weight: 700;
+}
+
+@media (hover: hover) {
+  .level-trigger:hover {
+    background: var(--ground-sunk);
+    box-shadow: none;
+  }
 }
 
 .level-panel {

@@ -604,8 +604,14 @@ label > textarea {
    this it rendered as a visible outlined pill next to plain-text headers in
    the same row, two visual languages in one header. The `::after` arrow,
    shown only on the active column, is what still says "this is sortable"
-   instead. */
-.sort-head {
+   instead.
+
+   `button.sort-head`, not `.sort-head`: matching button.ghost's own
+   element+class specificity (0,1,1), not just a class (0,1,0), is what
+   actually wins the cascade — a plain `.sort-head` lost to `button.ghost`
+   regardless of which rule came later in the file, which is exactly the
+   "still a bordered pill" bug this comment used to just assert away. */
+button.sort-head {
   display: inline-flex;
   align-items: center;
   gap: 0.3em;
@@ -619,19 +625,19 @@ label > textarea {
 }
 
 @media (hover: hover) {
-  .sort-head:hover {
+  button.sort-head:hover {
     background: none;
     border: none;
     color: var(--ink);
   }
 }
 
-.sort-head.active {
+button.sort-head.active {
   color: var(--ink);
   font-weight: 700;
 }
 
-.sort-head.active::after {
+button.sort-head.active::after {
   content: '▾';
   font-size: 0.75em;
   color: var(--ink-soft);

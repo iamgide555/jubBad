@@ -111,4 +111,106 @@ describe('SessionsController (bill)', () => {
       }
     });
   });
+
+  describe('bill', () => {
+    const baseConfig = {
+      model: 'fair', courtFeeSatang: 20000, courtSplit: 'equal', shuttleSplit: 'byGames',
+      perGameRateSatang: 0, entryFeeSatang: 0, capSatang: null, buffetPriceSatang: 0,
+      buffetShuttlesIncluded: true, hostFeeSatang: 0, walkInFeeSatang: 2000, roundingBaht: 1,
+      addedIds: [], removedIds: [], overrides: [],
+    };
+
+    it('returns defaults and an empty bill before anyone finished a match', async () => {
+      const { sessionCode, cleanup } = await fixture(4);
+      try {
+        const res = await request(server).get(`/sessions/${sessionCode}/bill`).expect(200);
+        expect(res.body.configSource).toBe('default');
+        expect(res.body.config.walkInFeeSatang).toBe(2000);
+        expect(res.body.result.rows).toEqual([]);
+        expect(res.body.players).toHaveLength(4);
+      } finally {
+        await cleanup();
+      }
+    });
+
+    it('bills only confirmed + finished matches and applies the walk-in fee', async () => {
+      const { sessionCode, players, finishMatch, cleanup } = await fixture(6);
+      try {
+        const ids = players.slice(0, 4).map((p) => p.id);
+        await finishMatch(ids, 1);
+        // pending (unconfirmed) and active (unfinished) must not count. Different
+        // court numbers: both are "open" (endedAt null), and the DB's partial
+        // unique index allows at most one open pairing per session+court.
+        await prisma.pairing.create({ data: { sessionId: sessionCode, courtNumber: 1, matchNumber: 2,
+          teamA: JSON.stringify([players[4].id]), teamB: JSON.stringify([players[5].id]) } });
+        await prisma.pairing.create({ data: { sessionId: sessionCode, courtNumber: 2, matchNumber: 3,
+          teamA: JSON.stringify([players[4].id]), teamB: JSON.stringify([players[5].id]), confirmedAt: new Date() } });
+        await prisma.sessionRoster.update({
+          where: { sessionId_playerId: { sessionId: sessionCode, playerId: ids[3] } }, data: { walkIn: true },
+        });
+        const res = await request(server).post(`/sessions/${sessionCode}/bill-config`).send(baseConfig).expect(201);
+        expect(res.body.configSource).toBe('saved');
+        const amounts = Object.fromEntries(res.body.result.rows.map((r: { playerId: string; amountSatang: number }) => [r.playerId, r.amountSatang]));
+        const regular = Math.min(...Object.values(amounts) as number[]);
+        expect(Object.keys(amounts).sort()).toEqual([...ids].sort());
+        expect(amounts[ids[3]] - regular).toBe(2000);
+        expect(res.body.result.totals.collectedSatang).toBe(20000);
+        const again = await request(server).get(`/sessions/${sessionCode}/bill`).expect(200);
+        expect(again.body.config.courtFeeSatang).toBe(20000);
+      } finally {
+        await cleanup();
+      }
+    });
+
+    it('prefills from the previous session without per-person entries', async () => {
+      const { groupCode, sessionCode, players, cleanup } = await fixture(4);
+      try {
+        await prisma.session.update({ where: { code: sessionCode }, data: {
+          createdAt: new Date(Date.now() - 86400000),
+          billConfig: JSON.stringify({ ...baseConfig, hostFeeSatang: 1000, addedIds: [players[0].id] }),
+        } });
+        const next = randomUUID();
+        await prisma.session.create({ data: { code: next, groupId: groupCode, courtCount: 1, rawImportText: '' } });
+        const res = await request(server).get(`/sessions/${next}/bill`).expect(200);
+        expect(res.body.configSource).toBe('previous');
+        expect(res.body.config.hostFeeSatang).toBe(1000);
+        expect(res.body.config.addedIds).toEqual([]);
+      } finally {
+        await cleanup();
+      }
+    });
+
+    it('works after the session ended; rejects off-roster ids and bad bodies', async () => {
+      const { sessionCode, cleanup } = await fixture(4);
+      try {
+        await prisma.session.update({ where: { code: sessionCode }, data: { endedAt: new Date() } });
+        await request(server).post(`/sessions/${sessionCode}/bill-config`).send(baseConfig).expect(201);
+        const off = await request(server).post(`/sessions/${sessionCode}/bill-config`)
+          .send({ ...baseConfig, addedIds: ['stranger'] }).expect(400);
+        expect(off.body.code).toBe('BILL_PLAYER_NOT_ON_ROSTER');
+        await request(server).post(`/sessions/${sessionCode}/bill-config`).send({ ...baseConfig, hostFeeSatang: -1 }).expect(400);
+        await request(server).post(`/sessions/${sessionCode}/bill-config`).send({ ...baseConfig, model: 'free' }).expect(400);
+        await request(server).post(`/sessions/${sessionCode}/bill-config`).send({ ...baseConfig, roundingBaht: 3 }).expect(400);
+      } finally {
+        await cleanup();
+      }
+    });
+
+    it('ignores a stale saved id for a player no longer on the roster', async () => {
+      const { sessionCode, cleanup } = await fixture(4);
+      try {
+        await prisma.session.update({ where: { code: sessionCode }, data: {
+          billConfig: JSON.stringify({ ...baseConfig, addedIds: ['gone'] }),
+        } });
+        const res = await request(server).get(`/sessions/${sessionCode}/bill`).expect(200);
+        expect(res.body.config.addedIds).toEqual([]);
+      } finally {
+        await cleanup();
+      }
+    });
+
+    it('404s for an unknown session', async () => {
+      await request(server).get(`/sessions/${randomUUID()}/bill`).expect(404);
+    });
+  });
 });

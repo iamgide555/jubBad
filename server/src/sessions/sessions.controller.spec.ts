@@ -4031,6 +4031,44 @@ describe('SessionsController', () => {
     await request(server).get(`/sessions/${randomUUID()}/stats`).expect(404);
   });
 
+  it('GET /sessions/:code/players reports the roster with levels, resting state and tonight\'s record', async () => {
+    const groupCode = randomUUID();
+    const sessionCode = randomUUID();
+    await prisma.group.create({ data: { code: groupCode, name: 'G' } });
+    const players = await Promise.all([
+      prisma.player.create({ data: { groupId: groupCode, name: 'A', aliases: '[]' } }),
+      prisma.player.create({
+        data: { groupId: groupCode, name: 'B', aliases: '[]', level: 'P', levelSetAt: new Date() },
+      }),
+    ]);
+    await prisma.session.create({
+      data: { code: sessionCode, groupId: groupCode, courtCount: 1, rawImportText: '' },
+    });
+    await prisma.sessionRoster.create({
+      data: { sessionId: sessionCode, playerId: players[0].id, active: true },
+    });
+    await prisma.sessionRoster.create({
+      data: { sessionId: sessionCode, playerId: players[1].id, active: false },
+    });
+
+    try {
+      const res = await request(server).get(`/sessions/${sessionCode}/players`).expect(200);
+      const rowA = res.body.find((r: { playerId: string }) => r.playerId === players[0].id);
+      const rowB = res.body.find((r: { playerId: string }) => r.playerId === players[1].id);
+      expect(rowA).toMatchObject({ name: 'A', level: null, resting: false, played: 0, won: 0, lost: 0, ratingDelta: null });
+      expect(rowB).toMatchObject({ name: 'B', level: 'P', resting: true, played: 0, won: 0, lost: 0, ratingDelta: 0 });
+    } finally {
+      await prisma.sessionRoster.deleteMany({ where: { sessionId: sessionCode } });
+      await prisma.session.deleteMany({ where: { code: sessionCode } });
+      await prisma.player.deleteMany({ where: { groupId: groupCode } });
+      await prisma.group.deleteMany({ where: { code: groupCode } });
+    }
+  });
+
+  it('GET /sessions/:code/players 404s for an unknown session', async () => {
+    await request(server).get(`/sessions/${randomUUID()}/players`).expect(404);
+  });
+
   it('GET /sessions/:code/summary returns per-player record and match log', async () => {
     const groupCode = randomUUID();
     const sessionCode = randomUUID();

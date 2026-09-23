@@ -150,6 +150,15 @@ export class SessionsController {
     return this.sessionsService.setMode(code, dto);
   }
 
+  /**
+   * Gated, unlike `findOne` above: a level is host-only (C1, decision Q6),
+   * so it is read separately rather than folded into the public session poll.
+   */
+  @Get(':code/levels')
+  getLevels(@Param('code') code: string) {
+    return this.sessionsService.getLevels(code);
+  }
+
   @Post(':code/end')
   endSession(@Param('code') code: string) {
     return this.sessionsService.endSession(code);
@@ -169,6 +178,17 @@ export class SessionsController {
   @Get(':code/stats')
   getStats(@Param('code') code: string, @Query('scope') scope?: string) {
     return this.sessionsService.getStats(code, scope === 'all' ? 'all' : 'session');
+  }
+
+  /**
+   * Host-only (C1a): the dashboard's toggle player panel — every roster
+   * player's level, resting state, tonight's played/won/lost, and their
+   * rating as a difference from the level's seed. See
+   * SessionsService.getPlayerPanel's doc comment for the shape.
+   */
+  @Get(':code/players')
+  getPlayerPanel(@Param('code') code: string) {
+    return this.sessionsService.getPlayerPanel(code);
   }
 
   /**

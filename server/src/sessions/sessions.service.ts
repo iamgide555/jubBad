@@ -18,7 +18,7 @@ import {
   type CourtSize,
 } from '../../../engines/pairing.ts';
 import { isValidIsoDate } from '../../../engines/parser.ts';
-import { type Level } from '../../../engines/levels.ts';
+import { asLevel, type Level } from '../../../engines/levels.ts';
 import { waitingSinceMap } from '../../../engines/waiting.ts';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { levelWrite, loadPlayerLevels, loadRatingAnchors } from '../player-levels.js';
@@ -2233,6 +2233,66 @@ export class SessionsService {
         won: won.get(playerId) ?? 0,
       }))
       .sort((a, b) => b.played - a.played);
+  }
+
+  /**
+   * Host-only, tonight-scoped player list for the dashboard's toggle panel
+   * (C1a): every roster player's level, resting state, this-session played
+   * /won/lost, and their rating as a difference from the level's seed
+   * (`ratingDelta`) — the host reads "P +50", not a bare 1350 that means
+   * nothing without the seed in their head. `ratingDelta` is null with no
+   * level (no seed to diff against), 0 the moment a level is freshly set
+   * with no games yet on top of it (see engines/elo.ts's RatingAnchor and
+   * `loadRatings` below for the reset-on-set rule this reflects).
+   */
+  async getPlayerPanel(code: string) {
+    const session = await this.prisma.session.findUnique({ where: { code } });
+    if (!session) throw this.notFound('SESSION_NOT_FOUND');
+
+    const finishedMatch = { confirmedAt: { not: null }, endedAt: { not: null } } as const;
+    const [roster, players, anchors, ratings, pairings] = await Promise.all([
+      this.prisma.sessionRoster.findMany({ where: { sessionId: code } }),
+      this.prisma.player.findMany({ where: { rosterEntries: { some: { sessionId: code } } } }),
+      loadRatingAnchors(this.prisma, session.groupId),
+      this.loadRatings(session.groupId),
+      this.prisma.pairing.findMany({ where: { sessionId: code, ...finishedMatch } }),
+    ]);
+
+    const nameById = new Map(players.map((p) => [p.id, p.name]));
+
+    const played = new Map<string, number>();
+    const won = new Map<string, number>();
+    const lost = new Map<string, number>();
+    for (const p of pairings) {
+      const { teamA, teamB } = this.teamsOf(p);
+      for (const id of [...teamA, ...teamB]) played.set(id, (played.get(id) ?? 0) + 1);
+      if (p.winner === 'A' || p.winner === 'B') {
+        const winners = p.winner === 'A' ? teamA : teamB;
+        const losers = p.winner === 'A' ? teamB : teamA;
+        for (const id of winners) won.set(id, (won.get(id) ?? 0) + 1);
+        for (const id of losers) lost.set(id, (lost.get(id) ?? 0) + 1);
+      }
+    }
+
+    const levelById = new Map(players.map((p) => [p.id, asLevel(p.level)]));
+
+    return roster.map((r) => {
+      const level = levelById.get(r.playerId) ?? null;
+      const anchor = anchors.get(r.playerId);
+      return {
+        playerId: r.playerId,
+        name: nameById.get(r.playerId) ?? 'Unknown',
+        level,
+        resting: !r.active,
+        played: played.get(r.playerId) ?? 0,
+        won: won.get(r.playerId) ?? 0,
+        lost: lost.get(r.playerId) ?? 0,
+        ratingDelta:
+          level === null || !anchor
+            ? null
+            : Math.round((ratings.doubles.get(r.playerId) ?? anchor.rating) - anchor.rating),
+      };
+    });
   }
 
   async getSummary(code: string) {

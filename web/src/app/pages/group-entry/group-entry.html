@@ -10,7 +10,7 @@
       <p class="muted" i18n="@@entry.savingGroup">กำลังบันทึกชื่อก๊วน...</p>
     }
     @if (renameError()) {
-      <p class="error">
+      <p class="error" role="alert">
         {{ renameError() }}
         <button type="button" class="ghost" [disabled]="isRenaming()" (click)="saveGroupName()" i18n="@@entry.retry">ลองอีกครั้ง</button>
       </p>
@@ -47,7 +47,7 @@
       </div>
       <textarea [(ngModel)]="rawText" rows="15" i18n-placeholder="@@entry.rosterPlaceholder" placeholder="วางข้อความรายชื่อจากไลน์ที่นี่"></textarea>
       @if (pasteError()) {
-        <p class="error">{{ pasteError() }}</p>
+        <p class="error" role="alert">{{ pasteError() }}</p>
       }
       <button type="button" appPress [disabled]="isParsing()" [attr.aria-busy]="isParsing()" (click)="parse()">
         @if (isParsing()) {
@@ -73,7 +73,7 @@
         </label>
         <button type="button" class="danger" [disabled]="!canDelete()" (click)="deleteGroup()" i18n="@@entry.deleteGroup">ลบก๊วนนี้</button>
         @if (dangerError()) {
-          <p class="error">{{ dangerError() }}</p>
+          <p class="error" role="alert">{{ dangerError() }}</p>
         }
       </div>
     }
@@ -139,11 +139,13 @@
         </button>
         @if (review.match.type === 'new') {
           <span class="review-tag new" i18n="@@entry.newPlayer">คนใหม่</span>
+          <app-level-picker [level]="review.level ?? null" (levelChange)="setLevel(review, $event)" />
         } @else {
           <span class="review-tag matched" i18n="@@entry.knownPlayer">มีอยู่แล้ว</span>
         }
       } @else if (review.match.type === 'new') {
         <span class="review-tag new" i18n="@@entry.newPlayer">คนใหม่</span>
+        <app-level-picker [level]="review.level ?? null" (levelChange)="setLevel(review, $event)" />
       } @else if (isOpen(review)) {
         <!-- Open: a real question, answered with the app's existing
              segmented-toggle component (styles.css .scope-toggle) rather
@@ -308,7 +310,7 @@
       }
 
       @if (manualAddError()) {
-        <p class="error">{{ manualAddError() }}</p>
+        <p class="error" role="alert">{{ manualAddError() }}</p>
       }
     </div>
 
@@ -332,7 +334,7 @@
       }
     </button>
     @if (confirmError()) {
-      <p class="error">
+      <p class="error" role="alert">
         {{ confirmError() }}
         <button type="button" class="ghost" [disabled]="isSubmitting()" (click)="confirmRoster()" i18n="@@entry.retry">ลองอีกครั้ง</button>
       </p>

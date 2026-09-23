@@ -90,7 +90,7 @@ below. `main` keeps running live sessions throughout.
 | D4 | C1 | The ±1 level band is soft-dominant and ships with C1. Originally a per-session toggle; folded into a fourth pairing mode (`level`) 2026-09-23 — see the amendment above. |
 | D5 | C7 | The co-host gets a session-scoped link now. Group-member accounts come later, with C8's ก๊วนใหญ่ tier. |
 | D6 | C8 | Design the mechanism now. Tier gates wait until pricing is re-checked against competitors. |
-| D7 | C3 | Added 2026-09-24. A walk-in (C2) pays a flat surcharge on top of their own bill line, redistributed as an equal discount to every other billed player — a group discount, not host profit, so the total collected is unchanged. |
+| D7 | C3 | Added 2026-09-24. A walk-in (C2) pays a flat surcharge on top of their own bill line, redistributed as an equal discount to every billed, non-overridden player (walk-ins included) — a group discount, not host profit, so the total collected is unchanged. |
 
 Anything marked "default" below was proposed, not asked. The owner saw it in
 review and did not object, but it is the first thing to revisit if an item's
@@ -322,11 +322,14 @@ Sources are listed at the end of this document. The three models:
 - **Host fee** (D1): optional +X ฿ per person, in any model.
 - **Walk-in surcharge** (D7, added 2026-09-24 — see this doc's top amendment
   note): a player marked as a walk-in (C2) pays a flat fee on top of their
-  own line, which is then handed back as an equal discount to every other
-  billed player, capped so nobody's amount goes negative
-  (`distributeCapped` in `engines/bill.ts`). The total collected is the same
-  as with no walk-in at all — it is a group discount, not a way for the host
-  to profit from a walk-in. A dashboard badge marking a roster row as a
+  own line, which is then handed back as an equal discount to every billed,
+  non-overridden player — the walk-ins themselves included — capped so
+  nobody's amount goes negative (`distributeCapped` in `engines/bill.ts`).
+  The total collected is the same as with no walk-in at all, for any
+  rounding step — it is a group discount, not a way for the host to profit
+  from a walk-in. To keep that exact, each share is rounded first and the
+  fee (rounded up to a whole rounding step) and discount move only in whole
+  steps. A dashboard badge marking a roster row as a
   walk-in was considered and **cut**: `GET /sessions/:code` is `@Public` and
   feeds the venue display, and walk-in status is billing data, so it lives
   only on the host-only bill page instead, set via its own route

@@ -626,9 +626,15 @@ much each remaining person owes.
 **A walk-in's surcharge (C2, C3's D7 amendment) is a group discount, not
 host profit.** A roster row marked as a walk-in pays a flat fee on top of
 its own bill line; `distributeCapped` hands that fee straight back as an
-equal discount to every other billed player, capped so nobody's amount goes
-negative, so the total collected is exactly what it would have been with no
-walk-in fee at all — the fee only changes who pays how much of it. Whether a
+equal discount to every billed, non-overridden player — the walk-ins
+themselves included — capped so nobody's amount goes negative, so the total
+collected is exactly what it would have been with no walk-in fee at all —
+the fee only changes who pays how much of it. That holds for any rounding
+step because rounding happens *first*: each person's plain share is ceiled
+to the step, the fee is rounded up to a whole step (a 15฿ fee at 10฿
+rounding charges 20฿), and the pool is split in whole steps. Rounding after
+the discount instead would let the per-person ceiling swallow the discount
+while the walk-in still paid the full fee, quietly raising the total. Whether a
 row is a walk-in is billing data (`SessionRoster.walkIn`, set from the bill
 page), deliberately not surfaced as a badge on the `@Public` dashboard feed
 that also serves the venue display.

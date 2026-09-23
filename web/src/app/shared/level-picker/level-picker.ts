@@ -71,7 +71,7 @@ export class LevelPicker {
 
   protected readonly levels = LEVELS;
   protected readonly definitions = definitionsOf();
-  protected readonly unsetLabel = $localize`:@@level.unsetLabel:ไม่ระบุ`;
+  protected readonly unsetLabel = '-';
 
   protected readonly isOpen = signal(false);
 

@@ -204,7 +204,7 @@ describe('SessionDashboard', () => {
       .click();
     fixture.detectChanges();
     (fixture.nativeElement as HTMLElement)
-      .querySelectorAll<HTMLButtonElement>('.player-panel .chip')[1] // 'BG', first real level after "ไม่ระบุ"
+      .querySelectorAll<HTMLButtonElement>('.player-panel .chip')[1] // 'BG', first real level after "-" (unset)
       .click();
 
     const putReq = httpMock.expectOne(`${B}/groups/group1/players/p1/level`);

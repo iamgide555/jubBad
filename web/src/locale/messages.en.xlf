@@ -2270,9 +2270,6 @@
       <trans-unit id="level.def.b" datatype="html">
         <source>ระดับตัวแทนมหาวิทยาลัย/จังหวัด หรืออดีตนักกีฬา</source><target>University or provincial representative level, or a former athlete.</target>
       </trans-unit>
-      <trans-unit id="level.unsetLabel" datatype="html">
-        <source>ไม่ระบุ</source><target>Not set</target>
-      </trans-unit>
     </body>
   </file>
 </xliff>

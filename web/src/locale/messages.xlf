@@ -2787,24 +2787,24 @@
         </context-group>
       </trans-unit>
       <trans-unit id="level.unset" datatype="html">
-        <source> ไม่ระบุ </source>
+        <source>ไม่ระบุ</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/shared/level-picker/level-picker.html</context>
-          <context context-type="linenumber">17,19</context>
+          <context context-type="linenumber">16</context>
         </context-group>
       </trans-unit>
       <trans-unit id="level.uncertainHint" datatype="html">
         <source> ไม่แน่ใจ เลือกใกล้เคียงไว้ก่อน ผลแพ้ชนะจะปรับเรตติ้งเอง </source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/shared/level-picker/level-picker.html</context>
-          <context context-type="linenumber">31,34</context>
+          <context context-type="linenumber">32,35</context>
         </context-group>
       </trans-unit>
       <trans-unit id="level.close" datatype="html">
         <source>ปิด</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/shared/level-picker/level-picker.html</context>
-          <context context-type="linenumber">35,38</context>
+          <context context-type="linenumber">36,39</context>
         </context-group>
       </trans-unit>
       <trans-unit id="level.def.bg" datatype="html">
@@ -2861,13 +2861,6 @@
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/shared/level-picker/level-picker.ts</context>
           <context context-type="linenumber">47</context>
-        </context-group>
-      </trans-unit>
-      <trans-unit id="level.unsetLabel" datatype="html">
-        <source>ไม่ระบุ</source>
-        <context-group purpose="location">
-          <context context-type="sourcefile">src/app/shared/level-picker/level-picker.ts</context>
-          <context context-type="linenumber">74</context>
         </context-group>
       </trans-unit>
       <trans-unit id="shuttle.countLabel" datatype="html">

@@ -29,11 +29,11 @@ describe('LevelPicker', () => {
     expect(emitted).toBe('P+');
   });
 
-  it('emits null for "ไม่ระบุ"', () => {
+  it('emits null for "-"', () => {
     let emitted: string | null | undefined;
     fixture.componentInstance.levelChange.subscribe((v) => (emitted = v));
 
-    chip('ไม่ระบุ').click();
+    chip('-').click();
 
     expect(emitted).toBeNull();
   });
@@ -73,6 +73,6 @@ describe('LevelPicker', () => {
   it('has no helper or definitions-list controls — tapping a level already shows its definition', () => {
     expect(el().querySelector('.helper')).toBeNull();
     expect(el().textContent).not.toContain('ช่วยเลือก');
-    expect(el().querySelectorAll('.chip').length).toBe(9); // 8 levels + "ไม่ระบุ"
+    expect(el().querySelectorAll('.chip').length).toBe(9); // 8 levels + "-" (unset)
   });
 });

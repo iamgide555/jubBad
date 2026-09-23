@@ -12,9 +12,10 @@
         class="chip"
         [class.selected]="level() === null"
         (click)="choose(null)"
-        i18n="@@level.unset"
+        aria-label="ไม่ระบุ"
+        i18n-aria-label="@@level.unset"
       >
-        ไม่ระบุ
+        -
       </button>
       @for (l of levels; track l) {
         <button type="button" class="chip" [class.selected]="level() === l" (click)="choose(l)">

@@ -7,6 +7,7 @@ import {
   teamRating,
   STARTING_RATING,
   type FinishedMatch,
+  type RatingAnchor,
 } from './elo.ts';
 
 const match = (
@@ -146,3 +147,131 @@ test('computeRatingTracks: a player active in both formats keeps two independent
   assert.ok(tracks.singles.get('a')! > STARTING_RATING);
   assert.ok(tracks.doubles.get('a')! < STARTING_RATING);
 });
+
+test('computeRatings: a seeded player with no matches yet gets no map entry — .has() still means "has played"', () => {
+  const ratings = computeRatings([], new Map([['a', 1400]]));
+  assert.equal(ratings.has('a'), false);
+  assert.equal(teamRating(['a'], ratings), STARTING_RATING);
+});
+
+test('computeRatings: a seed is the starting point a player\'s first match moves from', () => {
+  const ratings = computeRatings(
+    [match(['a', 'b'], ['c', 'd'], 'A')],
+    new Map([['a', 1400]])
+  );
+  assert.ok(ratings.get('a')! > 1400);
+});
+
+test('computeRatings: an unseeded player still falls back to STARTING_RATING', () => {
+  const ratings = computeRatings([], new Map([['a', 1400]]));
+  assert.equal(teamRating(['b'], ratings), STARTING_RATING);
+});
+
+// --- RatingAnchor: a level set (or edited) mid-session resets the rating to
+// the level's seed at that moment, rather than adding it on top of whatever
+// the player earned while unlevelled (see docs/superpowers/specs/
+// 2026-09-23-c1-level-followup-design.md). `at` timestamps below are plain
+// epoch ms, spaced far enough apart that comparisons are unambiguous.
+
+const matchAt = (
+  teamA: [string, string],
+  teamB: [string, string],
+  winner: 'A' | 'B',
+  at: number
+): FinishedMatch => ({ teamA, teamB, winner, at });
+
+test('RatingAnchor: setAt null behaves exactly like the old numeric seed', () => {
+  const anchor: RatingAnchor = { rating: 1400, setAt: null };
+  const withAnchor = computeRatings(
+    [matchAt(['a', 'b'], ['c', 'd'], 'A', 1)],
+    new Map([['a', anchor]])
+  );
+  const withLegacySeed = computeRatings(
+    [match(['a', 'b'], ['c', 'd'], 'A')],
+    new Map([['a', 1400]])
+  );
+  assert.equal(withAnchor.get('a'), withLegacySeed.get('a'));
+});
+
+test('RatingAnchor: 3 wins while unlevelled, then a level set, resets the rating to the seed exactly', () => {
+  const history = [
+    matchAt(['a', 'b'], ['c', 'd'], 'A', 1),
+    matchAt(['a', 'b'], ['c', 'd'], 'A', 2),
+    matchAt(['a', 'b'], ['c', 'd'], 'A', 3),
+  ];
+  // 3 wins would otherwise push 'a' well above STARTING_RATING.
+  const unlevelled = computeRatings(history);
+  assert.ok(unlevelled.get('a')! > STARTING_RATING);
+
+  // The level is set after all 3 matches (setAt after every match's `at`),
+  // and no match happens on or after it — so the anchor is never "applied"
+  // inside the replay loop and only the end-of-replay reset fires.
+  const anchor: RatingAnchor = { rating: 1300, setAt: 10 };
+  const levelled = computeRatings(history, new Map([['a', anchor]]));
+  assert.equal(levelled.get('a'), 1300);
+});
+
+test('RatingAnchor: matches confirmed after the level move the rating from the seed', () => {
+  const anchor: RatingAnchor = { rating: 1300, setAt: 5 };
+  const ratings = computeRatings(
+    [matchAt(['a', 'b'], ['c', 'd'], 'A', 10)],
+    new Map([['a', anchor]])
+  );
+  assert.ok(ratings.get('a')! > 1300);
+});
+
+test('RatingAnchor: editing the level resets again, discarding what was earned under the old one', () => {
+  const history = [
+    matchAt(['a', 'b'], ['c', 'd'], 'A', 10), // played after the first level, moves it up
+  ];
+  const firstLevel: RatingAnchor = { rating: 1300, setAt: 5 };
+  const afterFirstLevel = computeRatings(history, new Map([['a', firstLevel]]));
+  assert.ok(afterFirstLevel.get('a')! > 1300);
+
+  // Editing to a new level replaces the anchor with a later setAt. Replaying
+  // the *same* history against it: the one match above now falls before the
+  // new setAt, so it no longer applies, and the end-of-replay reset lands
+  // 'a' on the new seed exactly — the earlier level's gain is gone.
+  const editedLevel: RatingAnchor = { rating: 1600, setAt: 20 };
+  const afterEdit = computeRatings(history, new Map([['a', editedLevel]]));
+  assert.equal(afterEdit.get('a'), 1600);
+});
+
+test('RatingAnchor: an opponent\'s rating from a pre-level match is computed against 1200, not the eventual seed', () => {
+  const history = [matchAt(['a', 'b'], ['c', 'd'], 'A', 1)];
+  // 'a' is leveled well after this match plays.
+  const anchor: RatingAnchor = { rating: 1600, setAt: 100 };
+  const withAnchor = computeRatings(history, new Map([['a', anchor]]));
+  const withoutAnchor = computeRatings(history);
+  assert.equal(withAnchor.get('c'), withoutAnchor.get('c'));
+  assert.equal(withAnchor.get('d'), withoutAnchor.get('d'));
+});
+
+test('RatingAnchor: a player absent from every match stays absent, even with an anchor', () => {
+  const ratings = computeRatings(
+    [matchAt(['x', 'y'], ['z', 'w'], 'A', 1)],
+    new Map([['a', { rating: 1600, setAt: null } satisfies RatingAnchor]])
+  );
+  assert.equal(ratings.has('a'), false);
+});
+
+test('RatingAnchor: a match with no timestamp throws when a player on it has a timed anchor', () => {
+  const anchor: RatingAnchor = { rating: 1600, setAt: 5 };
+  assert.throws(
+    () => computeRatings([match(['a', 'b'], ['c', 'd'], 'A')], new Map([['a', anchor]])),
+    /timestamp/
+  );
+});
+
+test('computeRatingTracks: the same seed applies to both tracks once a player has played', () => {
+  const tracks = computeRatingTracks(
+    [{ teamA: ['a'], teamB: ['x'], winner: 'A' }],
+    new Map([['a', 1400]])
+  );
+  assert.ok(tracks.singles.get('a')! > 1400);
+  // 'a' has never played doubles, so the doubles track has no entry for
+  // them at all — a seed moves where a player's own history starts from,
+  // it does not fabricate history that isn't there.
+  assert.equal(tracks.doubles.has('a'), false);
+});
+

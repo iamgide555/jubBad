@@ -115,15 +115,48 @@
   font-variant-numeric: tabular-nums;
 }
 
-/* Toggle player panel (C1a): every roster player, one row each, with their
-   level, tonight's record and rating. Rows wrap onto two lines at phone
-   width rather than truncating — the level picker and the rating badge are
-   both things the host taps or reads, so neither gets squeezed. */
-.player-panel {
+/* Player panel (C1a): a native modal, same treatment as shuttle-details-dialog
+   and level-picker's compact mode — a long roster used to push the court
+   toolbar and every court panel down the page in place, costing the host
+   their spot on the courts they were about to act on. */
+.player-panel-dialog {
+  border: none;
+  border-radius: var(--radius-lg);
+  padding: var(--space-3);
+  background: var(--surface);
+  color: var(--ink);
+  box-shadow: var(--shadow-lg);
+  width: min(26rem, calc(100vw - 2 * var(--space-3)));
+}
+
+.player-panel-dialog::backdrop {
+  background: rgba(0, 0, 0, 0.5);
+}
+
+.player-panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  margin-bottom: var(--space-2);
+}
+
+.player-panel-header h2 {
+  margin: 0;
+  font-size: var(--text-lg);
+}
+
+/* Every roster player, one row each, with their level, tonight's record and
+   rating. Rows wrap onto two lines at phone width rather than truncating —
+   the level picker and the rating badge are both things the host taps or
+   reads, so neither gets squeezed. Scrolls rather than growing the dialog
+   past the viewport for a long roster. */
+.player-panel-rows {
   display: flex;
   flex-direction: column;
   gap: var(--space-1);
-  margin-top: var(--space-2);
+  max-height: 60vh;
+  overflow-y: auto;
 }
 
 .player-panel-row {

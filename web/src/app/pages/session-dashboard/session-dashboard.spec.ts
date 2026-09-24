@@ -224,6 +224,63 @@ describe('SessionDashboard', () => {
     await fixture.whenStable();
   });
 
+  it('opening the player panel does not push the court toolbar down', async () => {
+    fixture = TestBed.createComponent(SessionDashboard);
+    fixture.detectChanges();
+    httpMock.expectOne(`${B}/sessions/sess1`).flush(baseSession());
+    await new Promise((r) => setTimeout(r, 0));
+    TestBed.tick();
+    httpMock.expectOne(`${B}/groups/group1/players`).flush([{ id: 'p1', name: 'ตั้ม', aliases: [] }]);
+    httpMock.expectOne(`${B}/sessions/sess1/stats?scope=session`).flush([]);
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    const el = fixture.nativeElement as HTMLElement;
+    const toolbarBefore = el.querySelector('.court-toolbar');
+    // The dialog is always in the DOM (a native modal, not an inline @if
+    // block) — its previous sibling in flow never changes, which is what
+    // used to shift when the panel content itself was inserted inline.
+    const anchorBefore = el.querySelector('dialog.player-panel-dialog')!.previousElementSibling;
+
+    el.querySelector<HTMLButtonElement>('[data-player-panel-toggle]')!.click();
+    fixture.detectChanges();
+    httpMock.expectOne(`${B}/sessions/sess1/players`).flush([]);
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    expect(el.querySelector('.court-toolbar')).toBe(toolbarBefore);
+    expect(el.querySelector('dialog.player-panel-dialog')!.previousElementSibling).toBe(
+      anchorBefore
+    );
+  });
+
+  it('closing the player panel dialog natively (Escape/backdrop) syncs panelOpen', async () => {
+    fixture = TestBed.createComponent(SessionDashboard);
+    fixture.detectChanges();
+    httpMock.expectOne(`${B}/sessions/sess1`).flush(baseSession());
+    await new Promise((r) => setTimeout(r, 0));
+    TestBed.tick();
+    httpMock.expectOne(`${B}/groups/group1/players`).flush([{ id: 'p1', name: 'ตั้ม', aliases: [] }]);
+    httpMock.expectOne(`${B}/sessions/sess1/stats?scope=session`).flush([]);
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    const el = fixture.nativeElement as HTMLElement;
+    const toggle = el.querySelector<HTMLButtonElement>('[data-player-panel-toggle]')!;
+    toggle.click();
+    fixture.detectChanges();
+    httpMock.expectOne(`${B}/sessions/sess1/players`).flush([]);
+    await fixture.whenStable();
+    fixture.detectChanges();
+    expect(toggle.getAttribute('aria-expanded')).toBe('true');
+
+    el.querySelector<HTMLDialogElement>('dialog.player-panel-dialog')!.close();
+    fixture.detectChanges();
+
+    expect(toggle.getAttribute('aria-expanded')).toBe('false');
+    expect(el.querySelector('.player-panel')).toBeNull();
+  });
+
   it('tapping a roster chip rests that player', async () => {
     fixture = TestBed.createComponent(SessionDashboard);
     fixture.detectChanges();
@@ -684,15 +741,19 @@ describe('SessionDashboard', () => {
     ).find((b) => !b.closest('dialog') && b.textContent?.includes(text)) as HTMLButtonElement;
   }
 
+  // Scoped to .shuttle-dialog: the player panel also keeps its own <dialog>
+  // permanently in the DOM (closed, content gated by its own panelOpen()),
+  // and it now renders earlier in the template — an unscoped
+  // `querySelector('dialog')` here would silently grab that one instead.
   function dialogButtonWith(text: string): HTMLButtonElement {
-    const dialog = (fixture.nativeElement as HTMLElement).querySelector('dialog')!;
+    const dialog = (fixture.nativeElement as HTMLElement).querySelector('dialog.shuttle-dialog')!;
     return Array.from(dialog.querySelectorAll('button')).find((b) =>
       b.textContent?.includes(text)
     ) as HTMLButtonElement;
   }
 
   function dialogInputs() {
-    const dialog = (fixture.nativeElement as HTMLElement).querySelector('dialog')!;
+    const dialog = (fixture.nativeElement as HTMLElement).querySelector('dialog.shuttle-dialog')!;
     return {
       count: dialog.querySelector('input[name="shuttleCount"]') as HTMLInputElement | null,
       price: dialog.querySelector('input[name="shuttlePrice"]') as HTMLInputElement | null,

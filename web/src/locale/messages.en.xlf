@@ -907,8 +907,8 @@
           <context context-type="linenumber">94</context>
         </context-group>
       </trans-unit>
-      <trans-unit id="dashboard.playerPanelHide" datatype="html">
-        <source>ซ่อนผู้เล่นทั้งหมด</source><target>Hide all players</target>
+      <trans-unit id="dashboard.playerPanelClose" datatype="html">
+        <source> ปิด </source><target> Close </target>
       </trans-unit>
       <trans-unit id="dashboard.playerPanelShow" datatype="html">
         <source>ผู้เล่นทั้งหมด (<x id="INTERPOLATION" equiv-text="{{ rosterEntries().length }}"/>)</source><target>All players (<x id="INTERPOLATION" equiv-text="{{ rosterEntries().length }}"/>)</target>

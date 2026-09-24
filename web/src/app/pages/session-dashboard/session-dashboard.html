@@ -72,44 +72,62 @@
       class="ghost"
       data-player-panel-toggle
       [attr.aria-expanded]="panelOpen()"
-      (click)="togglePlayerPanel()"
+      (click)="openPlayerPanel()"
     >
-      @if (panelOpen()) {
-        <ng-container i18n="@@dashboard.playerPanelHide">ซ่อนผู้เล่นทั้งหมด</ng-container>
-      } @else {
-        <ng-container i18n="@@dashboard.playerPanelShow"
-          >ผู้เล่นทั้งหมด ({{ rosterEntries().length }})</ng-container
-        >
-      }
+      <ng-container i18n="@@dashboard.playerPanelShow"
+        >ผู้เล่นทั้งหมด ({{ rosterEntries().length }})</ng-container
+      >
     </button>
 
-    @if (panelOpen()) {
-      <div class="player-panel">
-        @for (row of playerPanel(); track row.playerId) {
-          <div class="player-panel-row" [class.resting]="row.resting">
-            <span class="player-panel-name">{{ row.name }}</span>
-            <app-level-picker
-              [compact]="true"
-              [level]="row.level"
-              (levelChange)="setPanelLevel(row.playerId, $event)"
-            />
-            <span class="player-panel-stat" i18n="@@dashboard.playerPanelPlayed"
-              >{{ row.played }} เกม</span
+    <dialog
+      #playerPanelDialog
+      class="player-panel-dialog"
+      closedby="any"
+      (close)="onPlayerPanelDialogClose()"
+    >
+      @if (panelOpen()) {
+        <div class="player-panel">
+          <div class="player-panel-header">
+            <h2 i18n="@@dashboard.playerPanelShow">
+              ผู้เล่นทั้งหมด ({{ rosterEntries().length }})
+            </h2>
+            <button
+              type="button"
+              class="ghost"
+              (click)="closePlayerPanel()"
+              i18n="@@dashboard.playerPanelClose"
             >
-            <span class="player-panel-stat" i18n="@@dashboard.playerPanelRecord"
-              >ชนะ {{ row.won }} แพ้ {{ row.lost }}</span
-            >
-            @if (row.level && row.ratingDelta !== null) {
-              <span class="player-panel-rating"
-                >{{ row.level }} {{ formatRatingDelta(row.ratingDelta) }}</span
-              >
+              ปิด
+            </button>
+          </div>
+          <div class="player-panel-rows">
+            @for (row of playerPanel(); track row.playerId) {
+              <div class="player-panel-row" [class.resting]="row.resting">
+                <span class="player-panel-name">{{ row.name }}</span>
+                <app-level-picker
+                  [compact]="true"
+                  [level]="row.level"
+                  (levelChange)="setPanelLevel(row.playerId, $event)"
+                />
+                <span class="player-panel-stat" i18n="@@dashboard.playerPanelPlayed"
+                  >{{ row.played }} เกม</span
+                >
+                <span class="player-panel-stat" i18n="@@dashboard.playerPanelRecord"
+                  >ชนะ {{ row.won }} แพ้ {{ row.lost }}</span
+                >
+                @if (row.level && row.ratingDelta !== null) {
+                  <span class="player-panel-rating"
+                    >{{ row.level }} {{ formatRatingDelta(row.ratingDelta) }}</span
+                  >
+                }
+              </div>
+            } @empty {
+              <p class="muted" i18n="@@dashboard.playerPanelEmpty">ยังไม่มีผู้เล่น</p>
             }
           </div>
-        } @empty {
-          <p class="muted" i18n="@@dashboard.playerPanelEmpty">ยังไม่มีผู้เล่น</p>
-        }
-      </div>
-    }
+        </div>
+      }
+    </dialog>
 
     <hr class="rule" />
 

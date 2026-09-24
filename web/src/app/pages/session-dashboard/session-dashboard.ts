@@ -1,4 +1,4 @@
-import { Component, OnDestroy, computed, inject, signal, viewChild } from '@angular/core';
+import { Component, ElementRef, OnDestroy, computed, inject, signal, viewChild } from '@angular/core';
 import { httpResource } from '@angular/common/http';
 import { Router, RouterLink } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
@@ -112,7 +112,7 @@ export class SessionDashboard implements OnDestroy {
   }
 
   /**
-   * Toggle player panel (C1a): every roster player's level, resting state,
+   * Player panel (C1a): every roster player's level, resting state,
    * tonight's played/won/lost, and their rating as a difference from the
    * level's seed. Lazily fetched — the request only fires while `panelOpen`
    * is true, so a host who never opens it never pays for it — and reloaded
@@ -120,8 +120,17 @@ export class SessionDashboard implements OnDestroy {
    * write goes through the groups route, not a session mutation, so it
    * never touches `sessionResource` (the signal `statsResource` above rides
    * on for its own free reload).
+   *
+   * A native modal, not an inline expand: a long roster used to push the
+   * court toolbar and every court panel down the page, which cost the host
+   * their place on the courts they were about to act on (same defect fixed
+   * for level-picker's compact mode).
    */
   protected readonly panelOpen = signal(false);
+
+  private readonly playerPanelDialog = viewChild.required<ElementRef<HTMLDialogElement>>(
+    'playerPanelDialog'
+  );
 
   private readonly playerPanelResource = httpResource<PlayerPanelRow[]>(() => {
     const code = this.session()?.code;
@@ -135,8 +144,19 @@ export class SessionDashboard implements OnDestroy {
     return this.playerPanelResource.value() ?? [];
   });
 
-  protected togglePlayerPanel(): void {
-    this.panelOpen.update((v) => !v);
+  protected openPlayerPanel(): void {
+    this.panelOpen.set(true);
+    this.playerPanelDialog().nativeElement.showModal();
+  }
+
+  protected closePlayerPanel(): void {
+    this.panelOpen.set(false);
+    this.playerPanelDialog().nativeElement.close();
+  }
+
+  /** Syncs state back for a browser-initiated close (Escape fires 'cancel' then 'close'). */
+  protected onPlayerPanelDialogClose(): void {
+    this.panelOpen.set(false);
   }
 
   /** e.g. 50 -> "+50", 0 -> "+0", -20 -> "-20" — the host always reads a

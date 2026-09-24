@@ -433,6 +433,78 @@ describe('GroupsController', () => {
     }
   });
 
+  it('reports partners and active group size over the last 30 days only', async () => {
+    const code = randomUUID();
+    const sessionCode = randomUUID();
+    await prisma.group.create({ data: { code, name: 'G' } });
+    const [me, ally, old, foe, other, solo] = await Promise.all(
+      ['Me', 'Ally', 'Old', 'Foe', 'Other', 'Solo'].map((name) =>
+        prisma.player.create({ data: { groupId: code, name, aliases: '[]' } })
+      )
+    );
+    await prisma.session.create({
+      data: { code: sessionCode, groupId: code, courtCount: 1, rawImportText: '' },
+    });
+    const daysAgo = (n: number) => new Date(Date.now() - n * 24 * 60 * 60 * 1000);
+
+    // In window (29 days ago): Me partners Ally, doubles, vs Foe+Other.
+    await prisma.pairing.create({
+      data: {
+        sessionId: sessionCode,
+        courtNumber: 1,
+        matchNumber: 1,
+        teamA: JSON.stringify([me.id, ally.id]),
+        teamB: JSON.stringify([foe.id, other.id]),
+        confirmedAt: daysAgo(29),
+        endedAt: daysAgo(29),
+        winner: 'A',
+      },
+    });
+    // Out of window (31 days ago): Me partners Old — must not count.
+    await prisma.pairing.create({
+      data: {
+        sessionId: sessionCode,
+        courtNumber: 1,
+        matchNumber: 2,
+        teamA: JSON.stringify([me.id, old.id]),
+        teamB: JSON.stringify([foe.id, other.id]),
+        confirmedAt: daysAgo(31),
+        endedAt: daysAgo(31),
+        winner: 'A',
+      },
+    });
+    // In window (5 days ago): Me plays Solo in singles — Solo is active
+    // recently but never a partner.
+    await prisma.pairing.create({
+      data: {
+        sessionId: sessionCode,
+        courtNumber: 1,
+        matchNumber: 3,
+        teamA: JSON.stringify([solo.id]),
+        teamB: JSON.stringify([me.id]),
+        confirmedAt: daysAgo(5),
+        endedAt: daysAgo(5),
+        winner: 'B',
+      },
+    });
+
+    try {
+      const res = await request(server)
+        .get(`/groups/${code}/players/${me.id}/stats`)
+        .expect(200);
+      // Only Ally, from the in-window match — Old (out of window) excluded.
+      expect(res.body.partnersLast30Days.distinct).toBe(1);
+      // Ally, Foe, Other (match 1) and Solo (match 3) were active in the
+      // window; Old (only in the out-of-window match) and Me are excluded.
+      expect(res.body.partnersLast30Days.groupSize).toBe(4);
+    } finally {
+      await prisma.pairing.deleteMany({ where: { sessionId: sessionCode } });
+      await prisma.session.deleteMany({ where: { code: sessionCode } });
+      await prisma.player.deleteMany({ where: { groupId: code } });
+      await prisma.group.deleteMany({ where: { code } });
+    }
+  });
+
   it('omits singlesRating for a player who has never played singles', async () => {
     const code = randomUUID();
     const sessionCode = randomUUID();

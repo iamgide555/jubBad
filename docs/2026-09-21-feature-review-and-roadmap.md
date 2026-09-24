@@ -337,7 +337,7 @@ pricing check.
 
 Effort M.
 
-#### - [ ] C14. Measure partner variety and show it
+#### - [x] C14. Measure partner variety and show it — done
 
 Design: `docs/superpowers/specs/2026-09-22-roadmap-c-series-design.md`, section C14.
 
@@ -353,12 +353,14 @@ competitors"), and nobody can see it on the first night. Two parts:
    engine quietly losing its edge — the same role
    `engines/pairing-quality.test.ts` plays for search quality. No schema
    change, no server or UI change yet.
-2. **Show it.** Not started. Put one line on the session summary and the
-   player card, for example "คืนนี้ได้คู่ไม่ซ้ำ N คน" (partnered N different
-   people tonight), or "เดือนนี้ได้เล่นกับ N จาก M คนในก๊วน" (played with N of
-   the group's M players this month). The summary link is what gets shared
-   into LINE, so that line reaches every player, not just the host. Per the
-   build order below, this lands after C2, C1 and C3.
+2. **Show it. Done.** A "คู่ไม่ซ้ำ N คน" line sits under each player's name
+   on the session summary (visible without tapping the row — the summary
+   link is what gets shared into LINE, so this reaches every player, not
+   just the host), hidden for a singles-only player. The public player card
+   gains a "30 วันนี้ได้เล่นคู่กับ N จาก M คนในก๊วน" line, hidden when the
+   player hasn't partnered anyone in the last 30 days. No schema change:
+   `SessionsService.getSummary` and `GroupsService.playerStats` compute both
+   from data already loaded.
 
 Measuring is S and runs in `engines/` with no schema change. Showing it is S
 on data the summary already loads.

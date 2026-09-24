@@ -22,6 +22,7 @@ function profile(overrides: Partial<Profile> = {}): Profile {
     doubles: null,
     bestPartner: { playerId: 'p2', name: 'เบส', played: 8, won: 6, winRate: 0.75, provisional: false },
     mostFacedOpponent: { playerId: 'p3', name: 'ปอม', played: 3, won: 1 },
+    partnersLast30Days: { distinct: 0, groupSize: 0 },
     ...overrides,
   };
 }
@@ -138,6 +139,19 @@ describe('PlayerProfile', () => {
       (el) => el.textContent?.trim()
     );
     expect(values).toEqual(['–', '–']);
+  });
+
+  it('shows partners played with in the last 30 days out of the active group', async () => {
+    await load(profile({ partnersLast30Days: { distinct: 4, groupSize: 11 } }));
+    const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
+    expect(text).toContain('4');
+    expect(text).toContain('11');
+  });
+
+  it('hides the 30-day partner line when the player has not partnered anyone recently', async () => {
+    await load(profile({ partnersLast30Days: { distinct: 0, groupSize: 11 } }));
+    const el = fixture.nativeElement as HTMLElement;
+    expect(el.querySelector('.partner-variety')).toBeNull();
   });
 
   it('shows a not-found message when the player is unknown', async () => {

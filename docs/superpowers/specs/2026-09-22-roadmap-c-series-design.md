@@ -171,15 +171,19 @@ plan turns up a reason to.
     fails the test. This is the same role `pairing-quality.test.ts` plays for
     search quality.
 
-**Show**
+**Show — done 2026-09-24**
 - Summary API: each player row gains `distinctPartners`. It counts tonight's
   doubles partners only, and a repeated partner counts once.
-- Summary UI: a per-player line, "คืนนี้ได้คู่ไม่ซ้ำ N คน".
+- Summary UI: a per-player line, "คู่ไม่ซ้ำ N คน", placed under the player's
+  name and always visible (owner decision 2026-09-24 — not tucked inside the
+  tap-to-expand match list, since most visitors never tap a row and the point
+  is that every player sees it from the shared LINE link). Hidden for a
+  player whose `doubles` record is null (singles-only that session).
 - Player stat card (`GroupsService.playerStats`) gains
   `partnersLast30Days: { distinct, groupSize }`.
   - `groupSize` = the other players in the group with at least one match in
     the last 30 days.
-  - Line: "30 วันนี้ได้เล่นคู่กับ N จาก M คนในก๊วน".
+  - Line: "30 วันนี้ได้เล่นคู่กับ N จาก M คนในก๊วน", hidden when `distinct` is 0.
 
 **Tests:** the sim assertions; a summary spec (singles excluded, repeats
 counted once); a stats spec (30-day window boundary).

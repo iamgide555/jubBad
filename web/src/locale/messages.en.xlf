@@ -612,6 +612,13 @@
           <context context-type="linenumber">37,39</context>
         </context-group>
       </trans-unit>
+      <trans-unit id="profile.partnersLast30Days" datatype="html">
+        <source>30 วันนี้ได้เล่นคู่กับ <x id="INTERPOLATION" equiv-text="{{ p.partnersLast30Days.distinct }}"/> จาก <x id="INTERPOLATION_1" equiv-text="{{ p.partnersLast30Days.groupSize }}"/> คนในก๊วน</source><target>Partnered <x id="INTERPOLATION" equiv-text="{{ p.partnersLast30Days.distinct }}"/> of the group's <x id="INTERPOLATION_1" equiv-text="{{ p.partnersLast30Days.groupSize }}"/> active players in the last 30 days</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/player-profile/player-profile.html</context>
+          <context context-type="linenumber">64,67</context>
+        </context-group>
+      </trans-unit>
       <trans-unit id="profile.matches" datatype="html">
         <source>แมตช์</source><target>matches</target>
         <context-group purpose="location">
@@ -2234,6 +2241,13 @@
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/session-summary/session-summary.html</context>
           <context context-type="linenumber">69,70</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="summary.distinctPartners" datatype="html">
+        <source>คู่ไม่ซ้ำ <x id="INTERPOLATION" equiv-text="{{ row.distinctPartners }}"/> คน</source><target><x id="INTERPOLATION" equiv-text="{{ row.distinctPartners }}"/> different partners</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/session-summary/session-summary.html</context>
+          <context context-type="linenumber">110,111</context>
         </context-group>
       </trans-unit>
       <trans-unit id="playerRoster.colLevel" datatype="html">

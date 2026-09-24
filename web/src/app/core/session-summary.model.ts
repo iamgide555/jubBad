@@ -24,6 +24,8 @@ export interface PlayerSessionStat {
   lost: number;
   /** Sum of durationSeconds across this player's matches. */
   totalSeconds: number;
+  /** Tonight's distinct doubles partners; a repeated partner counts once. */
+  distinctPartners: number;
   /** Null when this player never played that format this session. */
   singles: FormatRecord | null;
   doubles: FormatRecord | null;

@@ -573,6 +573,15 @@ counting through the gap, and un-confirming clears `confirmedAt` and restarts
 it at zero on the next confirm. There is no cumulative history: elapsed is
 always "latest confirm to latest finish."
 
+Partner variety — the app's strongest edge over competitors, per the
+2026-09-21 roadmap review — is otherwise invisible to players, so both public
+pages surface it as a plain number rather than leaving it as an internal
+pairing-quality metric. The session summary shows each player's distinct
+doubles partner count for that session (repeats counted once, hidden for a
+singles-only player), and the public player card shows how many of the
+group's active players they've partnered in the last 30 days. Neither needs a
+schema change: both are computed from match data the two routes already load.
+
 The display view shows only *active* courts, so a proposed-but-unconfirmed
 pairing never reaches the venue screen. It refreshes every 30 seconds and has
 a manual refresh control; neither needs extra server infrastructure such as

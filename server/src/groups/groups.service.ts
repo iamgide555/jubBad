@@ -266,10 +266,29 @@ export class GroupsService {
       m.set(id, row);
     };
 
+    // C14: who else in the group has actually played recently, and which of
+    // them partnered this player — the denominator/numerator for "played
+    // with N of the group's M active players in the last 30 days".
+    const recentSince = Date.now() - 30 * 24 * 60 * 60 * 1000;
+    const activeRecently = new Set<string>();
+    const recentPartners = new Set<string>();
+
     for (const match of matches) {
+      if (match.at >= recentSince) {
+        for (const id of [...match.teamA, ...match.teamB]) activeRecently.add(id);
+      }
+
       const onA = match.teamA.includes(playerId);
       const onB = match.teamB.includes(playerId);
       if (!onA && !onB) continue;
+
+      if (match.at >= recentSince) {
+        const mineNow = onA ? match.teamA : match.teamB;
+        if (mineNow.length === 2) {
+          const partnerId = mineNow.find((id) => id !== playerId);
+          if (partnerId) recentPartners.add(partnerId);
+        }
+      }
 
       const win = (onA && match.winner === 'A') || (onB && match.winner === 'B');
       played += 1;
@@ -283,6 +302,7 @@ export class GroupsService {
       for (const id of mine) if (id !== playerId) bump(withCounts, id, win, decisive);
       for (const id of theirs) bump(againstCounts, id, win, decisive);
     }
+    activeRecently.delete(playerId);
 
     const names = new Map(
       (await this.prisma.player.findMany({ where: { groupId: groupCode } })).map((p) => [
@@ -389,6 +409,7 @@ export class GroupsService {
       doubles: formatStat('doubles'),
       bestPartner,
       mostFacedOpponent: pick(againstCounts, 'played'),
+      partnersLast30Days: { distinct: recentPartners.size, groupSize: activeRecently.size },
     };
   }
 

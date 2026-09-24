@@ -36,7 +36,6 @@ th {
 td:not(:first-child):not(.profile-cell):not(.rate-cell),
 th:not(:first-child):not(.profile-cell):not(.rate-cell) {
   text-align: right;
-  width: 20.5rem;
 }
 
 /* The name doubles as the control that expands the match list — styled like
@@ -195,5 +194,72 @@ th:not(:first-child):not(.profile-cell):not(.rate-cell) {
   .button.ghost:hover {
     background: var(--court-hover);
     border-color: var(--ink-faint);
+  }
+}
+
+/* Phone: seven columns don't fit 320px at desktop padding and size, and the
+   name column scrolling out of view left rows unidentifiable. Tighten the
+   cells, let a game count stack under its percent instead of forcing one
+   line, and pin the name column so that even if a stat column still scrolls,
+   every row stays labeled. */
+@media (max-width: 47.9375rem) {
+  .session-summary {
+    padding-left: var(--space-2);
+    padding-right: var(--space-2);
+  }
+
+  th,
+  td {
+    padding: var(--space-0);
+  }
+
+  /* Played is won + lost apart from the rare no-result game, so it is the
+     column that can go on a phone without losing information. */
+  tr.player-row td:nth-child(2),
+  thead th:nth-child(2) {
+    display: none;
+  }
+
+  .share-player {
+    padding: 0.2rem 0.3rem;
+  }
+
+  td {
+    font-size: var(--text-sm);
+  }
+
+  .rate-cell {
+    width: auto;
+    white-space: normal;
+  }
+
+  .rate-cell .stat-games {
+    display: block;
+  }
+
+  th:first-child,
+  td:first-child {
+    position: sticky;
+    left: 0;
+    z-index: 1;
+    background: var(--ground);
+    max-width: 6rem;
+  }
+
+  .row-toggle {
+    text-align: left;
+  }
+}
+
+/* Very small phones (<= ~360px wide devices with big text, 280px folds): the
+   last bit of room comes from the page gutter and the per-game average. */
+@media (max-width: 22.5rem) {
+  .session-summary {
+    padding-left: var(--space-1);
+    padding-right: var(--space-1);
+  }
+
+  td:nth-child(7) .stat-games {
+    display: none;
   }
 }

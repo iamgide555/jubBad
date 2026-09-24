@@ -1,5 +1,5 @@
 @if (summary(); as s) {
-  <div class="page session-summary">
+  <div class="page page-wide session-summary">
     @if (isHost()) {
       <p><a [routerLink]="['/g', s.session.groupCode]" i18n="@@summary.back">← กลับ</a></p>
     }

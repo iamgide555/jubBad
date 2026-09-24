@@ -210,7 +210,7 @@
         </context-group>
       </trans-unit>
       <trans-unit id="entry.resumeLast" datatype="html">
-        <source>กลับไปก๊วนล่าสุด →</source><target>Resume last session →</target>
+        <source>กลับไปรอบล่าสุด →</source><target>Resume last session →</target>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/group-entry/group-entry.html</context>
           <context context-type="linenumber">8,11</context>
@@ -1398,7 +1398,7 @@
         </context-group>
       </trans-unit>
       <trans-unit id="home.continue" datatype="html">
-        <source>ไปก๊วนล่าสุด</source><target>Latest session</target>
+        <source>ไปรอบล่าสุด</source><target>Latest session</target>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/landing/landing.html</context>
           <context context-type="linenumber">24</context>
@@ -1419,7 +1419,7 @@
         </context-group>
       </trans-unit>
       <trans-unit id="home.sessionsSuffix" datatype="html">
-        <source> ก๊วน</source><target> sessions</target>
+        <source> นัด</source><target> sessions</target>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/landing/landing.html</context>
           <context context-type="linenumber">19</context>

@@ -25,13 +25,13 @@
               <p class="group-meta muted">
                 {{ group.playerCount }}<ng-container i18n="@@home.playersSuffix"> คน</ng-container>
                 ·
-                {{ group.sessionCount }}<ng-container i18n="@@home.sessionsSuffix"> ก๊วน</ng-container>
+                {{ group.sessionCount }}<ng-container i18n="@@home.sessionsSuffix"> นัด</ng-container>
               </p>
             </div>
 
             <div class="group-actions">
               @if (group.lastSessionCode) {
-                <a class="ghost-link" [routerLink]="['/s', group.lastSessionCode]" i18n="@@home.continue">ไปก๊วนล่าสุด</a>
+                <a class="ghost-link" [routerLink]="['/s', group.lastSessionCode]" i18n="@@home.continue">ไปรอบล่าสุด</a>
               }
               <button type="button" class="ghost remove" (click)="startRemove(group)" i18n="@@home.remove">ลบ</button>
             </div>

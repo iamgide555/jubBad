@@ -1,0 +1,2 @@
+ALTER TABLE "Session" ADD COLUMN "billConfig" TEXT;
+ALTER TABLE "SessionRoster" ADD COLUMN "walkIn" BOOLEAN NOT NULL DEFAULT false;

@@ -126,6 +126,11 @@ model Session {
   /// "not recorded yet", distinct from 0. Set only via
   /// SessionsService.setShuttleDetails, never at creation.
   shuttlePriceSatang  Int?
+  /// C3 bill inputs as JSON (model, rates, toggles, host/walk-in fee,
+  /// rounding, added/removed/overridden people). Never the bill itself —
+  /// that is recomputed on every read. Parsed and written only in
+  /// server/src/sessions/bill-config.ts. Null = never saved.
+  billConfig          String?
   group         Group           @relation(fields: [groupId], references: [code])
   roster        SessionRoster[]
   waitlist      Waitlist[]
@@ -151,6 +156,10 @@ model SessionRoster {
   /// rather than from the start of the session, so someone who arrived an hour
   /// late is not credited with an hour of waiting they did not do.
   activatedAt DateTime?
+  /// Walk-in / late registrant tonight (C3 D7): pays the walk-in surcharge,
+  /// which is handed back to the group as a discount. Set automatically when
+  /// added mid-session (addWalkIn); the host can toggle it from the bill.
+  walkIn    Boolean @default(false)
   session   Session @relation(fields: [sessionId], references: [code])
   player    Player  @relation(fields: [playerId], references: [id])
 

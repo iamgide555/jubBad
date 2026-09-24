@@ -152,3 +152,33 @@ th:not(:first-child):not(.profile-cell):not(.rate-cell) {
   margin-top: var(--space-1);
   resize: vertical;
 }
+
+.shuttle-edit {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+}
+
+/* An <a> styled to match button.ghost, since RouterLink navigation belongs on
+   an anchor while the shuttle-edit control beside it is a real <button>. */
+.button.ghost {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: var(--tap);
+  padding: 0.5rem 0.9rem;
+  background: transparent;
+  color: var(--ink);
+  border: 1.5px solid var(--line);
+  border-radius: var(--radius);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  text-decoration: none;
+}
+
+@media (hover: hover) {
+  .button.ghost:hover {
+    background: var(--court-hover);
+    border-color: var(--ink-faint);
+  }
+}

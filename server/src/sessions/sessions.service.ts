@@ -48,6 +48,7 @@ import type { SetCourtCountDto } from './dto/set-court-count.dto.js';
 import type { SetCourtFormatDto } from './dto/set-court-format.dto.js';
 import type { SetModeDto } from './dto/set-mode.dto.js';
 import type { SetRosterActiveDto } from './dto/set-roster-active.dto.js';
+import type { SetRosterWalkInDto } from './dto/set-roster-walk-in.dto.js';
 import type { SetSeatDto } from './dto/set-seat.dto.js';
 import type { SetShuttleDetailsDto } from './dto/set-shuttle-details.dto.js';
 import type { SwapPlayerDto } from './dto/swap-player.dto.js';
@@ -2010,6 +2011,26 @@ export class SessionsService {
     return { playerId: updated.playerId, active: updated.active };
   }
 
+  /**
+   * Marks a roster player as a walk-in (C3 D7) or clears it. Billing only —
+   * it touches no rotation state. Allowed after the session ends, because
+   * the bill is settled then (same exception as setShuttleDetails).
+   */
+  setRosterWalkIn(sessionCode: string, playerId: string, dto: SetRosterWalkInDto) {
+    return this.lock.run(sessionCode, () => this.setRosterWalkInExclusively(sessionCode, playerId, dto));
+  }
+
+  private async setRosterWalkInExclusively(sessionCode: string, playerId: string, dto: SetRosterWalkInDto) {
+    const session = await this.prisma.session.findUnique({ where: { code: sessionCode } });
+    if (!session) throw this.notFound('SESSION_NOT_FOUND');
+    const entry = await this.prisma.sessionRoster.findUnique({
+      where: { sessionId_playerId: { sessionId: sessionCode, playerId } },
+    });
+    if (!entry) throw this.notFound('ROSTER_PLAYER_NOT_FOUND');
+    const updated = await this.prisma.sessionRoster.update({ where: { id: entry.id }, data: { walkIn: dto.walkIn } });
+    return { playerId: updated.playerId, walkIn: updated.walkIn };
+  }
+
   addWalkIn(sessionCode: string, dto: AddWalkInDto) {
     return this.lock.run(sessionCode, () => this.addWalkInExclusively(sessionCode, dto));
   }
@@ -2087,12 +2108,26 @@ export class SessionsService {
           },
         }),
         this.prisma.sessionRoster.create({
-          data: { sessionId: sessionCode, playerId, active: true, gamesOffset, activatedAt: new Date() },
+          data: {
+            sessionId: sessionCode,
+            playerId,
+            active: true,
+            gamesOffset,
+            activatedAt: new Date(),
+            walkIn: true,
+          },
         }),
       ]);
     } else {
       await this.prisma.sessionRoster.create({
-        data: { sessionId: sessionCode, playerId, active: true, gamesOffset, activatedAt: new Date() },
+        data: {
+          sessionId: sessionCode,
+          playerId,
+          active: true,
+          gamesOffset,
+          activatedAt: new Date(),
+          walkIn: true,
+        },
       });
     }
 

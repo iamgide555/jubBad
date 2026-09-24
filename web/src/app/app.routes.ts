@@ -75,6 +75,13 @@ export const routes: Routes = [
       import('./pages/session-summary/session-summary').then((m) => m.SessionSummary),
   },
   {
+    // Before 's/:sessionCode' so the deeper path wins. Guarded: money is
+    // host-only (the server routes are owner-only too).
+    path: 's/:sessionCode/bill',
+    canActivate: [adminGuard],
+    loadComponent: () => import('./pages/session-bill/session-bill').then((m) => m.SessionBill),
+  },
+  {
     path: 's/:sessionCode',
     canActivate: [adminGuard],
     loadComponent: () =>

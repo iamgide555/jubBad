@@ -62,7 +62,7 @@ The comparison, the features it found missing and their priority are in
 | No LIFF / LINE Login / LINE platform integration | Paste-based import plus manual share means zero technical touchpoint with LINE's platform is needed. Pure UX polish, addable later |
 | Per-user accounts for hosts, not player accounts | Administrative screens and writes require signing in as a real user (email + password, session cookie signed server-side). Each user owns the groups they create; an admin role sees and manages every user and group. There are still no individual *player* accounts or profiles — this is identity for whoever runs a session, not for who plays in one. Superseded the earlier one-shared-token design (backlog B12, done 2026-09-12); see the per-user-login design doc for the schema and guard design. |
 | Trigger-word LINE bot (reconsidered, still rejected) | The idea: a bot watches the group for a keyword ("Play") then auto-extracts the roster, skipping the manual paste. Rejected on inspection — the LINE Messaging API has no message-history endpoint (confirmed in LINE's docs), so a bot can only look *forward* from when it joins. In real use the roster is posted days before "Play" is typed, so the bot would have to continuously store *all* group messages in a rolling buffer to look backward — that is full passive listening plus retention, the exact risk rejected above, not a lighter trigger-gated version. It also reopens "no infra" and "no posting bot" at once. Revisit only if paste friction proves to be a real dealbreaker; the lower-risk fix for the typing/copying pain is a tap-to-register roster link |
-| No cost-splitting / PromptPay QR in-app | KhunThong (ขุนทอง), KBank/KBTG's LINE bot, already does this well — bill split (equal or not), PromptPay QR, and payment verification by e-slip scan, which the planned v1 didn't even have. The host invites KhunThong separately; no integration needed. **Partly reopened 2026-09-21, and narrowed 2026-09-22, not reversed.** The session now records its shuttle count and price, and every Thai competitor leads with a per-person bill. The owner decided the app will *calculate* each player's share and copy it out as text for LINE, under one of three charging models (fair pay, per game, buffet), with an optional host-fee line. The QR, payment tracking and slip checking stay with KhunThong. Not built yet; see C3 in the roadmap and `docs/superpowers/specs/2026-09-22-roadmap-c-series-design.md`. |
+| No cost-splitting / PromptPay QR in-app | KhunThong (ขุนทอง), KBank/KBTG's LINE bot, already does this well — bill split (equal or not), PromptPay QR, and payment verification by e-slip scan, which the planned v1 didn't even have. The host invites KhunThong separately; no integration needed. **Partly reopened 2026-09-21, and narrowed 2026-09-22, not reversed.** The session now records its shuttle count and price, and every Thai competitor leads with a per-person bill. The owner decided the app will *calculate* each player's share and copy it out as text for LINE, under one of three charging models (fair pay, per game, buffet), with an optional host-fee line. The QR, payment tracking and slip checking stay with KhunThong. Built 2026-09-24 (roadmap C3); see "Bill (C3)" below and `docs/superpowers/specs/2026-09-22-roadmap-c-series-design.md`. |
 | Score logging: final score only, no live scoreboard | Point-by-point, serve indicators and timers are scope creep nobody asked for. A final score per court is low-friction and still bootstraps the match history that future skill/Elo balancing would need |
 | Per-group host role (resolved 2026-09-08 decision, built 2026-09-12) | Was: one shared admin token distinguished no one from anyone else — equal power for every holder, including deleting a group, with all-or-nothing revocation. Closed by backlog B12: `Group.ownerId` names one owner per group, `OwnershipGuard` refuses any other host with a 404 (never a 403 — that would confirm the code exists), and disabling one user bumps only their `tokenVersion`, signing out just that person's devices. An admin role bypasses ownership and manages every user and group from `/admin`. Built on a branch and merged into `main` on 2026-09-12 (`559ea5a`). |
 | No data-retention/deletion policy (**accepted risk**) | Names persist indefinitely under a group's link code. A host can now export the group as JSON or delete it outright, which covers the practical need without a policy |
@@ -597,7 +597,57 @@ only knows the count once the night is over, so this is asked at the end
 rather than tracked per match. Both fields are optional and can be corrected
 later from the summary page. The price is stored in satang as an integer, and
 null means "not recorded", which is different from 0. The public summary shows
-both. Nothing is calculated from them yet (see C3).
+both.
+
+### Bill (C3)
+
+A host-only "คิดเงิน" button on the session summary turns those two fields,
+plus the night's confirmed matches, into a per-person amount, copied out as
+Thai text for the LINE group — the app *calculates* each share; collecting
+the money and checking payment still stay with KhunThong (see the decision
+table above). `Session.billConfig` stores only the inputs (model, toggles,
+rates, host fee, rounding, and the added/removed/overridden player ids) —
+the same recompute-never-store rule ratings and wait times follow — and
+`engines/bill.ts`'s `computeBill` derives everything else, in integer
+satang, on every read.
+
+Three models, chosen per session: หารตามจริง (fair pay) splits the actual
+court fee and shuttle cost, each independently either equally or by games
+played; คิดต่อเกม (per game) charges a flat rate per game with an optional
+entry fee and cap; บุฟเฟ่ต์ (buffet) is a flat price per person, with
+shuttles optionally folded in. **A removed player's share behaves
+differently depending on the model:** in fair pay, a cost-based split,
+removing someone spreads what they would have owed equally over the
+remaining billed players, so the actual cost stays covered; the price-based
+models (per game, buffet) never derived their per-person rate from a total
+in the first place, so removing or adding someone changes who pays, not how
+much each remaining person owes.
+
+**A walk-in's surcharge (C2, C3's D7 amendment) is a group discount, not
+host profit.** A roster row marked as a walk-in pays a flat fee on top of
+its own bill line; `distributeCapped` hands that fee straight back as an
+equal discount to every billed, non-overridden player — the walk-ins
+themselves included — capped so nobody's amount goes negative, so the total
+collected is exactly what it would have been with no walk-in fee at all —
+the fee only changes who pays how much of it. That holds for any rounding
+step because rounding happens *first*: each person's plain share is ceiled
+to the step, the fee is rounded up to a whole step (a 15฿ fee at 10฿
+rounding charges 20฿), and the pool is split in whole steps. Rounding after
+the discount instead would let the per-person ceiling swallow the discount
+while the walk-in still paid the full fee, quietly raising the total. Whether a
+row is a walk-in is billing data (`SessionRoster.walkIn`, set from the bill
+page), deliberately not surfaced as a badge on the `@Public` dashboard feed
+that also serves the venue display.
+
+The copied LINE text is always Thai, regardless of the host's own UI locale
+(owner decision) — money going into a group chat is not the place to
+localize on the host's behalf. The margin (amount collected vs. actual
+cost) is shown to the host only and never appears in that text. The bill
+routes (`GET /sessions/:code/bill`, `POST /sessions/:code/bill-config`, and
+the roster walk-in mark) are owner-only, like contact data and export, and —
+unlike almost every other session mutation — stay reachable after the
+session has ended, since a host normally sits down to bill only once the
+night is actually over.
 
 ## Current state
 
@@ -608,8 +658,9 @@ undo, resting players, wait timers, one-tap fill, all four pairing modes
 archive, the public session summary, player pages, the host-only player roster
 page (contact details, plus rank by rating or win rate), manual add on the
 roster review screen, adding a walk-in to a running session, shuttle count
-and price, export and delete, per-user host login with an admin console, and
-a PWA manifest (no service worker, so no offline use).
+and price, the per-person bill (C3), export and delete, per-user host login
+with an admin console, and a PWA manifest (no service worker, so no offline
+use).
 
 What is still open, and in what order, is in
 `docs/2026-09-21-feature-review-and-roadmap.md`.

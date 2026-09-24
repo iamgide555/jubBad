@@ -1,0 +1,133 @@
+<a class="back" [routerLink]="['/s', sessionCode, 'summary']" i18n="@@bill.back">← กลับไปสรุปก๊วน</a>
+<h1 i18n="@@bill.title">คิดเงิน</h1>
+
+@if (loadFailed()) {
+  <p role="alert" i18n="@@bill.loadFailed">โหลดไม่สำเร็จ ลองรีเฟรช</p>
+}
+@if (error(); as e) {
+  <p role="alert" class="error">{{ e }}</p>
+}
+
+@if (bill(); as b) {
+  @if (b.configSource === 'previous') {
+    <p class="hint" i18n="@@bill.prefilled">ใช้ค่าจากก๊วนครั้งก่อน</p>
+  }
+
+  <div class="scope-toggle" role="group" i18n-aria-label="@@bill.modeGroup" aria-label="รูปแบบการคิดเงิน">
+    @for (m of models; track m) {
+      <button type="button" [attr.data-model]="m" [class.active]="b.config.model === m"
+        [attr.aria-pressed]="b.config.model === m" [disabled]="saving()" (click)="save({ model: m })">
+        @switch (m) {
+          @case ('fair') { <ng-container i18n="@@bill.modelFair">หารตามจริง</ng-container> }
+          @case ('perGame') { <ng-container i18n="@@bill.modelPerGame">คิดต่อเกม</ng-container> }
+          @case ('buffet') { <ng-container i18n="@@bill.modelBuffet">บุฟเฟ่ต์</ng-container> }
+        }
+      </button>
+    }
+  </div>
+
+  <section class="form-card inputs">
+    <label>
+      <span i18n="@@bill.courtFee">ค่าคอร์ททั้งหมด (บาท)</span>
+      <input type="text" inputmode="decimal" autocomplete="off" placeholder="—"
+        [value]="moneyText(b.config.courtFeeSatang)" (change)="onMoney('courtFeeSatang', $any($event.target).value)" />
+    </label>
+    @if (b.config.model === 'fair') {
+      <div class="split-row">
+        <span i18n="@@bill.courtSplit">ค่าคอร์ท</span>
+        <button type="button" class="chip" [class.selected]="b.config.courtSplit === 'equal'" (click)="save({ courtSplit: 'equal' })" i18n="@@bill.splitEqual">หารเท่า</button>
+        <button type="button" class="chip" [class.selected]="b.config.courtSplit === 'byGames'" (click)="save({ courtSplit: 'byGames' })" i18n="@@bill.splitByGames">ตามเกม</button>
+      </div>
+    }
+    @if (b.config.model === 'fair' || (b.config.model === 'buffet' && !b.config.buffetShuttlesIncluded)) {
+      <div class="split-row">
+        <span i18n="@@bill.shuttleSplit">ค่าลูก</span>
+        <button type="button" class="chip" [class.selected]="b.config.shuttleSplit === 'equal'" (click)="save({ shuttleSplit: 'equal' })" i18n="@@bill.splitEqual">หารเท่า</button>
+        <button type="button" class="chip" [class.selected]="b.config.shuttleSplit === 'byGames'" (click)="save({ shuttleSplit: 'byGames' })" i18n="@@bill.splitByGames">ตามเกม</button>
+      </div>
+    }
+    @if (b.config.model === 'perGame') {
+      <label><span i18n="@@bill.perGameRate">เกมละ (บาท)</span>
+        <input type="text" inputmode="decimal" [value]="moneyText(b.config.perGameRateSatang)" (change)="onMoney('perGameRateSatang', $any($event.target).value)" /></label>
+      <label><span i18n="@@bill.entryFee">ค่าเข้า (บาท)</span>
+        <input type="text" inputmode="decimal" [value]="moneyText(b.config.entryFeeSatang)" (change)="onMoney('entryFeeSatang', $any($event.target).value)" /></label>
+      <label><span i18n="@@bill.cap">สูงสุดต่อคน (บาท, เว้นว่าง = ไม่จำกัด)</span>
+        <input type="text" inputmode="decimal" placeholder="—" [value]="moneyText(b.config.capSatang)" (change)="onMoney('capSatang', $any($event.target).value)" /></label>
+    }
+    @if (b.config.model === 'buffet') {
+      <label><span i18n="@@bill.buffetPrice">บุฟเฟ่ต์ต่อคน (บาท)</span>
+        <input type="text" inputmode="decimal" [value]="moneyText(b.config.buffetPriceSatang)" (change)="onMoney('buffetPriceSatang', $any($event.target).value)" /></label>
+      <div class="split-row">
+        <button type="button" class="chip" [class.selected]="b.config.buffetShuttlesIncluded" (click)="save({ buffetShuttlesIncluded: true })" i18n="@@bill.shuttlesIncluded">รวมลูก</button>
+        <button type="button" class="chip" [class.selected]="!b.config.buffetShuttlesIncluded" (click)="save({ buffetShuttlesIncluded: false })" i18n="@@bill.shuttlesSeparate">ลูกแยก</button>
+      </div>
+    }
+    <label><span i18n="@@bill.hostFee">ค่าจัดก๊วนต่อคน (บาท)</span>
+      <input type="text" inputmode="decimal" [value]="moneyText(b.config.hostFeeSatang)" (change)="onMoney('hostFeeSatang', $any($event.target).value)" /></label>
+    <label><span i18n="@@bill.walkInFee">ค่า walk-in ต่อคน (บาท, หารคืนทุกคน)</span>
+      <input type="text" inputmode="decimal" [value]="moneyText(b.config.walkInFeeSatang)" (change)="onMoney('walkInFeeSatang', $any($event.target).value)" /></label>
+    <div class="split-row">
+      <span i18n="@@bill.rounding">ปัดขึ้น</span>
+      @for (r of roundings; track r) {
+        <button type="button" class="chip" [class.selected]="b.config.roundingBaht === r" (click)="save({ roundingBaht: r })">{{ r }}฿</button>
+      }
+    </div>
+  </section>
+
+  @for (w of b.result.warnings; track w) {
+    <p class="warning" role="status">
+      @switch (w) {
+        @case ('MISSING_SHUTTLE_COUNT') { <ng-container i18n="@@bill.warnShuttleCount">ยังไม่ได้ใส่จำนวนลูก</ng-container> }
+        @case ('MISSING_SHUTTLE_PRICE') { <ng-container i18n="@@bill.warnShuttlePrice">ยังไม่ได้ใส่ราคาลูก</ng-container> }
+        @case ('MISSING_COURT_FEE') { <ng-container i18n="@@bill.warnCourtFee">ยังไม่ได้ใส่ค่าคอร์ท</ng-container> }
+      }
+    </p>
+  }
+
+  <ul class="bill-rows">
+    @for (r of billed(); track r.playerId) {
+      <li>
+        <span class="name">{{ names().get(r.playerId) }}</span>
+        <span class="games" i18n="@@bill.games">{{ r.games }} เกม</span>
+        <span class="amount">{{ baht(r.amountSatang) }}฿</span>
+        <!-- State comes from the row, which is what the engine actually billed:
+             an overridden row never pays the walk-in fee or gets the discount,
+             so its chip is off and disabled (with a title saying why) even if
+             the roster still marks the player as a walk-in. -->
+        <button type="button" class="chip" [attr.data-walk-in]="r.playerId" [class.selected]="r.walkIn"
+          [attr.aria-pressed]="r.walkIn" [disabled]="r.overridden" [attr.title]="r.overridden ? walkInOverriddenHint : null"
+          (click)="toggleWalkIn(r.playerId)" i18n="@@bill.walkInChip">walk-in</button>
+        <input type="text" inputmode="decimal" class="override" i18n-placeholder="@@bill.overridePlaceholder" placeholder="แก้ยอด"
+          i18n-aria-label="@@bill.overrideLabel" aria-label="แก้ยอดเอง"
+          [value]="overrideText(r.playerId)" (change)="onOverride(r.playerId, $any($event.target).value)" />
+        <button type="button" class="ghost" (click)="remove(r.playerId)" i18n="@@bill.remove">ไม่คิด</button>
+      </li>
+    }
+  </ul>
+
+  @if (removed().length > 0) {
+    <h2 i18n="@@bill.removedTitle">ไม่คิดเงิน</h2>
+    @for (r of removed(); track r.playerId) {
+      <button type="button" class="chip" (click)="restore(r.playerId)">{{ names().get(r.playerId) }} ↺</button>
+    }
+  }
+  @if (addable().length > 0) {
+    <h2 i18n="@@bill.addTitle">เพิ่มคนที่ยังไม่ได้เล่น</h2>
+    @for (p of addable(); track p.playerId) {
+      <button type="button" class="chip" [attr.data-add]="p.playerId" (click)="add(p.playerId)">+ {{ p.name }}</button>
+    }
+  }
+
+  <p class="total"><span i18n="@@bill.total">รวม</span> {{ baht(b.result.totals.collectedSatang) }}฿</p>
+  @if (b.result.totals.marginSatang !== null) {
+    <p class="margin" i18n="@@bill.margin">ต้นทุน {{ baht(b.result.totals.costSatang!) }}฿ · ส่วนต่าง {{ baht(b.result.totals.marginSatang) }}฿ (เห็นเฉพาะผู้จัด)</p>
+  }
+
+  <button type="button" class="primary" (click)="copy()">
+    @if (copied()) { <ng-container i18n="@@bill.copied">คัดลอกแล้ว</ng-container> }
+    @else { <ng-container i18n="@@bill.copy">คัดลอกข้อความ</ng-container> }
+  </button>
+  @if (clipboardFallback(); as t) {
+    <textarea class="clipboard-fallback" readonly [value]="t" i18n-aria-label="@@share.fallbackLabel" aria-label="ข้อความสำหรับคัดลอก"></textarea>
+  }
+}

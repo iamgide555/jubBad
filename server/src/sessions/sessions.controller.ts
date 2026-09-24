@@ -7,6 +7,7 @@ import { SetCourtCountDto } from './dto/set-court-count.dto.js';
 import { SetCourtFormatDto } from './dto/set-court-format.dto.js';
 import { SetModeDto } from './dto/set-mode.dto.js';
 import { SetRosterActiveDto } from './dto/set-roster-active.dto.js';
+import { SetRosterWalkInDto } from './dto/set-roster-walk-in.dto.js';
 import { SetSeatDto } from './dto/set-seat.dto.js';
 import { SetShuttleDetailsDto } from './dto/set-shuttle-details.dto.js';
 import { SwapPlayerDto } from './dto/swap-player.dto.js';
@@ -133,6 +134,15 @@ export class SessionsController {
     @Body() dto: SetRosterActiveDto
   ) {
     return this.sessionsService.setRosterActive(code, playerId, dto);
+  }
+
+  @Post(':code/roster/:playerId/walk-in')
+  setRosterWalkIn(
+    @Param('code') code: string,
+    @Param('playerId') playerId: string,
+    @Body() dto: SetRosterWalkInDto
+  ) {
+    return this.sessionsService.setRosterWalkIn(code, playerId, dto);
   }
 
   @Post(':code/roster/deprioritize-waiting')

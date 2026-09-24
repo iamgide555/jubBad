@@ -459,6 +459,33 @@ LINE list is how these groups already work.
 
 Effort M.
 
+#### - [x] C15. Dedicate courts by level (คอร์ดมือ)
+
+**Deferred 2026-09-24 (owner):** not seen at a real session yet — raised as a
+"could a bigger group want this?" question (e.g. 3 courts / 21 players, court 1
+for strong players only, courts 2-3 rotating partners). Revisit if a host
+actually asks, or other groups' LINE roster posts show court-by-level splits
+("คอร์ด 1 มือ P ขึ้นไป").
+
+**Workaround today (one extra step):** switch the session to `custom`, fill
+the strong court by hand, then tap auto-pair on the other courts. Caveat:
+auto-pair (`completeCourt`) draws from the whole waiting pool by games then
+wait, so it can seat a waiting strong player on a rotation court — tap-swap
+them out. And `custom` is session-wide, so every court becomes propose-empty +
+auto-pair (two taps instead of one).
+
+`level` mode is not a substitute: it clusters from the front of the queue
+(`bandOrderedByCourt`), never ties a level to a court, and a level with too
+few players to fill a court always lands on a mixed one.
+
+Why it isn't a setting: dedicated courts split rotation into separate queues.
+6 strong players sharing 4 seats play ~2 rounds in 3; 15 others sharing 8
+seats play ~1 in 2 — games-played stops being comparable across the group, and
+it needs a rule for strong players waiting while a rotation court is free.
+Design that before building.
+
+Effort M-L.
+
 ### P3 — skip unless the target customer changes
 
 - **Club-business features:** shuttle stock and low-stock alerts, wallet or

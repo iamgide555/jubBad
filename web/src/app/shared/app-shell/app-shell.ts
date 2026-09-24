@@ -34,13 +34,17 @@ export class AppShell {
     this.router.events.pipe(
       filter((e): e is NavigationEnd => e instanceof NavigationEnd),
       map((e) => e.urlAfterRedirects.includes('/display')),
-      startWith(this.router.url.includes('/display'))
+      startWith(this.router.url.includes('/display')),
     ),
-    { initialValue: this.router.url.includes('/display') }
+    { initialValue: this.router.url.includes('/display') },
   );
 
   protected themeIcon(): 'sun' | 'moon' | 'system' {
     if (this.theme.preference() === 'system') return 'system';
     return this.theme.resolved() === 'dark' ? 'moon' : 'sun';
+  }
+
+  goHome() {
+    this.router.navigate(['/']);
   }
 }

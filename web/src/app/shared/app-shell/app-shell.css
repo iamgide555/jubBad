@@ -21,6 +21,7 @@
   display: inline-flex;
   padding: var(--space-0);
   color: var(--court);
+  cursor: pointer;
 }
 
 .theme-toggle {

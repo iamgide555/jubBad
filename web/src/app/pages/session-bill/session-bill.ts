@@ -7,6 +7,7 @@ import type { BillConfig, BillModel, BillResponse, RoundingStep } from '../../co
 import { buildBillText, formatBaht } from '../../core/bill-text';
 import { copyToClipboard } from '../../core/share-link';
 import { formatShuttlePriceInput, parseShuttlePriceInput } from '../../core/shuttle-money';
+import { Icon } from '../../shared/icon/icon';
 
 type MoneyField =
   | 'courtFeeSatang' | 'perGameRateSatang' | 'entryFeeSatang' | 'capSatang'
@@ -15,7 +16,7 @@ const NULLABLE: ReadonlySet<MoneyField> = new Set(['courtFeeSatang', 'capSatang'
 
 @Component({
   selector: 'app-session-bill',
-  imports: [RouterLink],
+  imports: [RouterLink, Icon],
   templateUrl: './session-bill.html',
   styleUrl: './session-bill.css',
 })

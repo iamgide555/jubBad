@@ -1,3 +1,7 @@
+.bill {
+  padding-bottom: calc(var(--space-5) + 5rem);
+}
+
 .back {
   display: inline-block;
   margin-bottom: var(--space-2);
@@ -13,93 +17,269 @@
 .form-card {
   display: flex;
   flex-direction: column;
-  gap: var(--space-2);
-  padding: var(--space-2);
+  padding: 0 var(--space-2);
   margin: var(--space-2) 0;
   background: var(--surface);
-  border: 1px solid var(--line);
   border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-xs);
 }
 
-.split-row {
+/* Label-left / control-right settings row, hairline-divided instead of the
+   retired stack of loosely-aligned split-rows. */
+.setting-row {
   display: flex;
-  flex-wrap: wrap;
   align-items: center;
-  gap: var(--space-1);
+  justify-content: space-between;
+  gap: var(--space-2);
+  padding: var(--space-2) 0;
+  border-bottom: 1px solid var(--line);
 }
 
-.split-row .chip {
+.setting-row:last-child {
+  border-bottom: none;
+}
+
+.setting-label {
+  font-size: var(--text-sm);
+  line-height: 1.4;
+  flex: 1;
+}
+
+.money-field {
+  position: relative;
+  flex: none;
+  width: 7rem;
+}
+
+.money-field input {
+  width: 100%;
   min-height: var(--tap);
+  padding-right: 1.75rem;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
 }
 
-/* Selected state for a plain chip toggle (model split, rounding step,
-   buffet-shuttles, walk-in mark). Court-green, not accent-orange — these are
-   "this is the chosen option", not the One Red Rule's "act on this now". */
-.chip.selected {
-  background: var(--court-soft);
-  border-color: var(--court);
-  color: var(--court-ink);
+.money-field .money-suffix {
+  position: absolute;
+  right: 0.7rem;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--ink-soft);
+  font-size: var(--text-sm);
+  pointer-events: none;
+}
+
+/* A settings row's own toggle: shrunk to content width (never a full-width
+   banner, per the segmented-toggle rule) and dropped into the row's own
+   flow rather than the page's default 28rem cap. */
+.setting-toggle {
+  flex: none;
+  max-width: none;
+  margin-bottom: 0;
+}
+
+.setting-toggle button {
+  flex: none;
+  padding: 0 var(--space-2);
+  font-size: var(--text-sm);
+}
+
+.rounding-toggle button {
+  padding: 0 var(--space-1);
+  min-width: 2.75rem;
+}
+
+.notice-block {
+  margin: 0 0 var(--space-2);
+  padding: var(--space-2);
+  background: var(--warn-wash);
+  border-radius: var(--radius-lg);
 }
 
 .warning {
   color: var(--warn);
   font-size: var(--text-sm);
-  margin: 0 0 var(--space-1);
+  margin: 0;
+}
+
+.warning + .warning {
+  margin-top: var(--space-1);
+}
+
+.list-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin-bottom: var(--space-1);
+}
+
+.list-header .label {
+  margin: 0;
 }
 
 .bill-rows {
   list-style: none;
-  margin: var(--space-2) 0;
+  margin: 0 0 var(--space-3);
   padding: 0;
+  background: var(--surface);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-xs);
+  overflow: hidden;
+}
+
+.bill-rows li {
+  border-bottom: 1px solid var(--line);
+}
+
+.bill-rows li:last-child {
+  border-bottom: none;
+}
+
+.bill-rows details {
+  display: block;
+}
+
+.bill-rows summary {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: calc(var(--tap) + var(--space-1));
+  padding: var(--space-1) var(--space-2);
+  cursor: pointer;
+  list-style: none;
+  transition: background-color var(--duration-fast) ease;
+}
+
+.bill-rows summary::-webkit-details-marker {
+  display: none;
+}
+
+@media (hover: hover) {
+  .bill-rows summary:hover {
+    background: var(--ground-sunk);
+  }
+}
+
+.row-main {
   display: flex;
   flex-direction: column;
+  gap: 0.15rem;
+  min-width: 0;
+  margin-right: auto;
+}
+
+.name {
+  font-weight: 700;
+}
+
+.row-tags {
+  display: flex;
+  align-items: center;
   gap: var(--space-1);
 }
 
-/* Wraps rather than a fixed grid: a name, a games count, an amount, the
-   walk-in chip, the override field and the remove button all need to sit on
-   one line on a tablet but are free to wrap to a second line on a phone
-   without truncating anything. */
-.bill-rows li {
+.games {
+  font-size: var(--text-xs);
+  color: var(--ink-soft);
+}
+
+.tag {
+  font-size: var(--text-xs);
+  font-weight: 700;
+  color: var(--court-ink);
+  background: var(--court-soft);
+  border-radius: var(--radius-pill);
+  padding: 0.1rem 0.5rem;
+}
+
+.tag-muted {
+  color: var(--ink-soft);
+  background: var(--ground-sunk);
+}
+
+.amount {
+  font-family: var(--font-display);
+  font-size: var(--text-lg);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  flex: none;
+}
+
+.disclosure {
+  flex: none;
+  color: var(--ink-faint);
+  transition: transform var(--duration-fast) var(--ease-out);
+}
+
+details[open] .disclosure {
+  transform: rotate(180deg);
+}
+
+.row-detail {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: var(--space-1) var(--space-2);
-  padding: var(--space-2);
-  background: var(--surface);
-  border: 1px solid var(--line);
-  border-radius: var(--radius);
+  padding: 0 var(--space-2) var(--space-2);
+  background: var(--ground-sunk);
 }
 
-.bill-rows .name {
-  font-weight: 700;
-  margin-right: auto;
-}
-
-.bill-rows .games {
-  font-size: var(--text-xs);
-  color: var(--ink-soft);
-  font-weight: 400;
-}
-
-.bill-rows .amount {
-  font-weight: 700;
-  font-variant-numeric: tabular-nums;
-}
-
-.bill-rows .override,
-.bill-rows button {
+.row-detail .chip,
+.row-detail button {
   min-height: var(--tap);
 }
 
-.override {
-  width: 6rem;
+.row-detail .override {
+  width: 6.5rem;
   flex: none;
-  text-align: right;
+}
+
+.chip-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+}
+
+.add-section {
+  margin-bottom: var(--space-2);
+}
+
+.add-section summary {
+  cursor: pointer;
+  list-style: none;
+  min-height: var(--tap);
+  display: flex;
+  align-items: center;
+}
+
+.add-section summary::-webkit-details-marker {
+  display: none;
+}
+
+.add-section .chip-row {
+  margin-top: var(--space-1);
+}
+
+/* Sticky action bar: the total and the copy button stay reachable at the
+   bottom of a long roster without hunting through the scroll. */
+.bill-footer {
+  position: sticky;
+  bottom: 0;
+  margin: var(--space-3) calc(var(--space-3) * -1) 0;
+  padding: var(--space-2) var(--space-3);
+  padding-bottom: max(var(--space-2), env(safe-area-inset-bottom));
+  background: var(--surface);
+  border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+  box-shadow: var(--shadow-lg);
+}
+
+.bill-footer-total {
+  display: flex;
+  flex-direction: column;
+  margin-bottom: var(--space-2);
 }
 
 .total {
-  margin-top: var(--space-3);
   font-family: var(--font-display);
   font-size: var(--text-xl);
   font-weight: 700;
@@ -111,6 +291,14 @@
 }
 
 .primary {
+  width: 100%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-1);
+}
+
+.clipboard-fallback {
   width: 100%;
   margin-top: var(--space-2);
 }

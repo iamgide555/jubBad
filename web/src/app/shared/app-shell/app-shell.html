@@ -1,46 +1,46 @@
 @if (!isDisplayRoute()) {
-<div class="shell-bar">
-  <span class="shell-mark" aria-hidden="true">
-    <app-icon name="feather" [size]="22" />
-  </span>
+  <div class="shell-bar">
+    <span class="shell-mark" (click)="goHome()" aria-hidden="true">
+      <app-icon name="feather" [size]="22" />
+    </span>
 
-  @switch (theme.preference()) {
-    @case ('light') {
-      <button
-        type="button"
-        class="theme-toggle"
-        appPress
-        (click)="theme.cycle()"
-        aria-label="สลับเป็นธีมมืด"
-        i18n-aria-label="@@shell.switchToDark"
-      >
-        <app-icon name="sun" [size]="18" />
-      </button>
+    @switch (theme.preference()) {
+      @case ('light') {
+        <button
+          type="button"
+          class="theme-toggle"
+          appPress
+          (click)="theme.cycle()"
+          aria-label="สลับเป็นธีมมืด"
+          i18n-aria-label="@@shell.switchToDark"
+        >
+          <app-icon name="sun" [size]="18" />
+        </button>
+      }
+      @case ('dark') {
+        <button
+          type="button"
+          class="theme-toggle"
+          appPress
+          (click)="theme.cycle()"
+          aria-label="สลับเป็นธีมตามระบบ"
+          i18n-aria-label="@@shell.switchToSystem"
+        >
+          <app-icon name="moon" [size]="18" />
+        </button>
+      }
+      @default {
+        <button
+          type="button"
+          class="theme-toggle"
+          appPress
+          (click)="theme.cycle()"
+          aria-label="ธีมตามระบบ — แตะเพื่อสลับเป็นธีมสว่าง"
+          i18n-aria-label="@@shell.switchToLight"
+        >
+          <app-icon name="system" [size]="18" />
+        </button>
+      }
     }
-    @case ('dark') {
-      <button
-        type="button"
-        class="theme-toggle"
-        appPress
-        (click)="theme.cycle()"
-        aria-label="สลับเป็นธีมตามระบบ"
-        i18n-aria-label="@@shell.switchToSystem"
-      >
-        <app-icon name="moon" [size]="18" />
-      </button>
-    }
-    @default {
-      <button
-        type="button"
-        class="theme-toggle"
-        appPress
-        (click)="theme.cycle()"
-        aria-label="ธีมตามระบบ — แตะเพื่อสลับเป็นธีมสว่าง"
-        i18n-aria-label="@@shell.switchToLight"
-      >
-        <app-icon name="system" [size]="18" />
-      </button>
-    }
-  }
-</div>
+  </div>
 }

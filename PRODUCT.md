@@ -2,6 +2,12 @@
 
 <!-- impeccable:product-schema 1 -->
 
+This is the compact product record the impeccable design skill reads before
+visual work. For the durable *why* behind engine/session behavior — fuzzy
+match, pairing, history, auto-confirm, undo, etc. — read `docs/overview.md`
+instead; that file is the source of truth and this one should not drift from
+it.
+
 ## Platform
 
 web
@@ -29,8 +35,8 @@ the courts instead of doing rotation math by hand.
 An automated fairness-and-variety matchmaking engine — games-played and
 waiting-time balancing, partner/opponent history weighting, and recent-group
 -repeat avoidance — doing the job a host would otherwise do on paper, a
-whiteboard, or by eyeballing a chat group. Self-hosted, single admin-token
-login, no per-user accounts.
+whiteboard, or by eyeballing a chat group. Self-hosted, per-user host login
+(email + password), no per-player accounts.
 
 ## Operating Context
 
@@ -39,8 +45,9 @@ login, no per-user accounts.
 - A second, unguarded route is displayed on a venue TV or projector so
   players can see court assignments from across the room; it must stay
   legible at a distance, not just on a handheld screen.
-- A club's roster is set up by pasting names copied from a LINE chat
-  message; this happens once per club, not every session.
+- A session's roster is set up by pasting names copied from a LINE chat
+  message, once per session (weekly, typically) — or, with nothing to
+  paste, built by hand on the same screen.
 - Two more public, read-only surfaces get shared as links after the fact: a
   session recap, and a per-player stat card.
 - The UI is Thai-primary (`th` source locale) with an English build also
@@ -50,9 +57,10 @@ login, no per-user accounts.
 
 - Three routes are admin-guarded (landing, group entry, session dashboard);
   three are public and read-only (player profile, session display, session
-  summary) — this access split is fixed and out of scope for this redesign.
-- All matchmaking/scoring logic, API behavior, and data model are out of
-  scope for this work — it is a visual-layer redesign only.
+  summary) — this access split is fixed.
+- Matchmaking/scoring logic, API behavior, and the data model are engine and
+  server concerns, not visual ones — see `docs/overview.md`, not this file,
+  for that reasoning.
 - Every text style must render both Thai and Latin scripts; no typeface
   choice may drop Thai coverage.
 
@@ -65,9 +73,9 @@ palette are not locked — confirmed open to full replacement.
 ## Evidence on Hand
 
 No real photography, testimonials, or user quotes exist for this product.
-The redesign must not fabricate "real" game photography or player likenesses
-presented as genuine; any illustrative material is authored and labeled as
-synthetic rather than passed off as real evidence.
+New visual work must not fabricate "real" game photography or player
+likenesses presented as genuine; any illustrative material is authored and
+labeled as synthetic rather than passed off as real evidence.
 
 ## Product Principles
 
@@ -78,8 +86,9 @@ synthetic rather than passed off as real evidence.
 3. One visual world, two reading distances — the host's handheld tool and
    the spectator's wall display share a system but serve very different
    viewing distances and never blur into each other's job.
-4. No accounts, no ceremony — a self-hosted, single-login tool should not
-   gain friction a real product with sign-ups would need.
+4. No accounts, no ceremony beyond host login — a self-hosted tool with a
+   per-user host login should not gain friction a real product with
+   player-facing sign-ups would need.
 5. Bilingual by default — every type, spacing, and layout decision must hold
    in both Thai and English.
 

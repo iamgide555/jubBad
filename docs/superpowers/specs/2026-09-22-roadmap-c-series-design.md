@@ -174,11 +174,14 @@ plan turns up a reason to.
 **Show — done 2026-09-24**
 - Summary API: each player row gains `distinctPartners`. It counts tonight's
   doubles partners only, and a repeated partner counts once.
-- Summary UI: a per-player line, "คู่ไม่ซ้ำ N คน", placed under the player's
-  name and always visible (owner decision 2026-09-24 — not tucked inside the
-  tap-to-expand match list, since most visitors never tap a row and the point
-  is that every player sees it from the shared LINE link). Hidden for a
-  player whose `doubles` record is null (singles-only that session).
+- Summary UI: a per-player line, "คู่ไม่ซ้ำ N คน", at the top of the
+  tap-to-expand match list. First placed always-visible under the player's
+  name (owner decision 2026-09-24 — most visitors never tap a row, and the
+  point is that every player sees it from the shared LINE link), but that
+  wrapped onto its own line on a narrow phone and pushed every row below it
+  out of alignment with the column headers, so it moved into the expanded
+  row the same day (owner report). Hidden for a player whose `doubles`
+  record is null (singles-only that session).
 - Player stat card (`GroupsService.playerStats`) gains
   `partnersLast30Days: { distinct, groupSize }`.
   - `groupSize` = the other players in the group with at least one match in

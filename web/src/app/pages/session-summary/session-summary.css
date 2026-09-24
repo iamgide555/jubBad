@@ -67,13 +67,6 @@ th:not(:first-child):not(.profile-cell):not(.rate-cell) {
   }
 }
 
-/* Sits under the tappable name, not inside it — the row-toggle button keeps
-   its own min-height tap target regardless of this extra line. */
-.partner-variety {
-  display: block;
-  font-size: var(--text-xs);
-}
-
 .chevron {
   display: inline-block;
   transition: transform 150ms ease-out;
@@ -85,6 +78,15 @@ th:not(:first-child):not(.profile-cell):not(.rate-cell) {
 
 .matches-row td {
   padding-top: 0;
+}
+
+/* Sits above the match list in the expanded row, not under the name — an
+   always-visible line there wrapped onto its own line on a narrow phone and
+   pushed every row below it down, breaking alignment with the other columns
+   (owner report, 2026-09-24). */
+.partner-variety {
+  margin: 0 0 var(--space-1);
+  font-size: var(--text-xs);
 }
 
 .match-list {

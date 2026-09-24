@@ -3007,43 +3007,43 @@
           <context context-type="linenumber">92,94</context>
         </context-group>
       </trans-unit>
-      <trans-unit id="summary.distinctPartners" datatype="html">
-        <source>คู่ไม่ซ้ำ <x id="INTERPOLATION" equiv-text="{{ row.distinctPartners }}"/> คน</source>
-        <context-group purpose="location">
-          <context context-type="sourcefile">src/app/pages/session-summary/session-summary.html</context>
-          <context context-type="linenumber">110,111</context>
-        </context-group>
-      </trans-unit>
       <trans-unit id="summary.gamesCount" datatype="html">
         <source>(<x id="INTERPOLATION" equiv-text="{{ row.doubles.played }}"/> เกม)</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/session-summary/session-summary.html</context>
-          <context context-type="linenumber">119,120</context>
+          <context context-type="linenumber">116,117</context>
         </context-group>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/session-summary/session-summary.html</context>
-          <context context-type="linenumber">125,126</context>
+          <context context-type="linenumber">122,123</context>
         </context-group>
       </trans-unit>
       <trans-unit id="summary.avgGameTime" datatype="html">
         <source>(เฉลี่ย <x id="INTERPOLATION" equiv-text="{{ avg }}"/>/เกม)</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/session-summary/session-summary.html</context>
-          <context context-type="linenumber">131,132</context>
+          <context context-type="linenumber">128,129</context>
         </context-group>
       </trans-unit>
       <trans-unit id="summary.shareCopied" datatype="html">
         <source>คัดลอกแล้ว</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/session-summary/session-summary.html</context>
-          <context context-type="linenumber">143,144</context>
+          <context context-type="linenumber">140,141</context>
         </context-group>
       </trans-unit>
       <trans-unit id="summary.shareLink" datatype="html">
         <source>ลิงก์</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/session-summary/session-summary.html</context>
-          <context context-type="linenumber">145,146</context>
+          <context context-type="linenumber">142,143</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="summary.distinctPartners" datatype="html">
+        <source>คู่ไม่ซ้ำ <x id="INTERPOLATION" equiv-text="{{ row.distinctPartners }}"/> คน</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/session-summary/session-summary.html</context>
+          <context context-type="linenumber">152,153</context>
         </context-group>
       </trans-unit>
       <trans-unit id="summary.court" datatype="html">

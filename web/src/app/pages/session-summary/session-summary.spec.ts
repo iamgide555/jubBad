@@ -211,7 +211,7 @@ describe('SessionSummary', () => {
     expect(cells.filter((c) => c === '–').length).toBeGreaterThanOrEqual(2);
   });
 
-  it('shows the distinct-partner count under the name, without tapping the row', async () => {
+  it('hides the distinct-partner count until the row is expanded, then shows it at the top of the match list', async () => {
     await load(
       summary({
         players: [
@@ -230,14 +230,22 @@ describe('SessionSummary', () => {
         ],
       })
     );
-    const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
-    expect(text).toContain('3');
-    const cell = (fixture.nativeElement as HTMLElement).querySelector('.partner-variety');
+    // Collapsed: the row-name cell must not carry the count — it pushed the
+    // row taller and broke alignment with the other columns (owner report,
+    // 2026-09-24).
+    expect((fixture.nativeElement as HTMLElement).querySelector('.partner-variety')).toBeNull();
+
+    fixture.componentInstance['togglePlayer']('p1');
+    fixture.detectChanges();
+    const cell = (fixture.nativeElement as HTMLElement).querySelector('.matches-row .partner-variety');
     expect(cell).not.toBeNull();
+    expect(cell!.textContent).toContain('3');
   });
 
   it('hides the distinct-partner count for a player who only played singles this session', async () => {
     await load(summary());
+    fixture.componentInstance['togglePlayer']('p1');
+    fixture.detectChanges();
     // Default fixture player has doubles: null (never played doubles).
     const cell = (fixture.nativeElement as HTMLElement).querySelector('.partner-variety');
     expect(cell).toBeNull();

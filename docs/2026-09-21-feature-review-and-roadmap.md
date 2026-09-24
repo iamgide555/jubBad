@@ -353,12 +353,14 @@ competitors"), and nobody can see it on the first night. Two parts:
    engine quietly losing its edge — the same role
    `engines/pairing-quality.test.ts` plays for search quality. No schema
    change, no server or UI change yet.
-2. **Show it. Done.** A "คู่ไม่ซ้ำ N คน" line sits under each player's name
-   on the session summary (visible without tapping the row — the summary
-   link is what gets shared into LINE, so this reaches every player, not
-   just the host), hidden for a singles-only player. The public player card
-   gains a "30 วันนี้ได้เล่นคู่กับ N จาก M คนในก๊วน" line, hidden when the
-   player hasn't partnered anyone in the last 30 days. No schema change:
+2. **Show it. Done.** A "คู่ไม่ซ้ำ N คน" line sits at the top of a player's
+   expanded match list on the session summary, hidden for a singles-only
+   player. It first shipped always-visible under the name, but that wrapped
+   onto its own line on a narrow phone and pushed every row below it out of
+   alignment, so it moved into the tap-to-expand row (owner report,
+   2026-09-24). The public player card gains a "30
+   วันนี้ได้เล่นคู่กับ N จาก M คนในก๊วน" line, hidden when the player hasn't
+   partnered anyone in the last 30 days. No schema change:
    `SessionsService.getSummary` and `GroupsService.playerStats` compute both
    from data already loaded.
 

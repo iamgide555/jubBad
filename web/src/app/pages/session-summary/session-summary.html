@@ -106,9 +106,6 @@
                   {{ row.name }}
                   <span class="chevron" [class.open]="expandedPlayerId() === row.playerId" aria-hidden="true">▾</span>
                 </button>
-                @if (row.doubles) {
-                  <span class="muted partner-variety" i18n="@@summary.distinctPartners">คู่ไม่ซ้ำ {{ row.distinctPartners }} คน</span>
-                }
               </td>
               <td>{{ row.played }}</td>
               <td>{{ row.won }}</td>
@@ -151,6 +148,9 @@
             @if (expandedPlayerId() === row.playerId) {
               <tr class="matches-row">
                 <td [attr.colspan]="isHost() ? 8 : 7">
+                  @if (row.doubles) {
+                    <p class="muted partner-variety" i18n="@@summary.distinctPartners">คู่ไม่ซ้ำ {{ row.distinctPartners }} คน</p>
+                  }
                   <ul class="match-list">
                     @for (m of row.matches; track m.matchNumber) {
                       <li>

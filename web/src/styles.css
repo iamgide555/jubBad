@@ -499,6 +499,14 @@ label > textarea {
   --ink: #f2f0eb;
   --ink-soft: #a3ac9f;
   --line: #2a352d;
+  /* The One Ground Rule's aliases (--ink-on-court/--ink-on-paper) are plain
+     copies of --ink/--ink-soft at :root and don't follow when a scope
+     reassigns --ink — without this, display's waiting-queue names (styled
+     via --ink-on-court) stayed root-dark-on-dark and vanished here. */
+  --ink-on-court: #f2f0eb;
+  --ink-on-court-soft: #a3ac9f;
+  --ink-on-paper: #f2f0eb;
+  --ink-on-paper-soft: #a3ac9f;
 }
 
 .page-dark h1,
@@ -513,6 +521,21 @@ label > textarea {
   border: none;
   border-top: 1px solid var(--line);
   margin: var(--space-3) 0;
+}
+
+/* Shared wrapper for a wide data table (roster, admin users, session
+   summary) on a narrow phone: the table keeps its native layout — headers
+   and cells wrap their own text first — and only scrolls sideways as a last
+   resort. The inset shadow is a constant, always-on scroll cue (real
+   dynamic detection needs JS state this shared class doesn't have), so a
+   host never mistakes a clipped column for the whole table. Replaces the
+   old per-page `table { display: block; white-space: nowrap }` hack, which
+   broke native column alignment once the table stopped being `display:
+   table`. */
+.table-scroll {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  box-shadow: inset -12px 0 12px -12px rgba(0, 0, 0, 0.2);
 }
 
 .sr-only {

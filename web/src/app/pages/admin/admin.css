@@ -6,9 +6,20 @@
 
 .admin-head {
   display: flex;
+  flex-wrap: wrap;
   align-items: baseline;
   justify-content: space-between;
+  row-gap: var(--space-1);
   margin-bottom: var(--space-3);
+}
+
+/* Lets the title take the full first line and drop the sign-out button to
+   its own line on a narrow phone, instead of both squeezing onto one line
+   and wrapping "ผู้ดูแลระบบ" mid-word against the button. */
+.admin-head h1 {
+  flex: 1 1 auto;
+  min-width: 0;
+  margin-bottom: 0;
 }
 
 .admin-section {
@@ -212,12 +223,7 @@
   color: var(--ink-soft);
 }
 
-/* The page body scrolls, not the table — narrower than ~700px, tables get
-   their own horizontal scroll rather than squeezing the whole page. */
-@media (max-width: 700px) {
-  .admin-table {
-    display: block;
-    overflow-x: auto;
-    white-space: nowrap;
-  }
-}
+/* Horizontal scroll on a narrow phone now comes from the .table-scroll
+   wrapper in the template (shared with player-roster/session-summary) —
+   this used to force `.admin-table { display: block; white-space: nowrap }`
+   here, which broke the table's own column alignment instead of fixing it. */

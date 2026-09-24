@@ -69,6 +69,7 @@
    same shape whatever is in it. */
 .court-line {
   border: 1.5px solid var(--court-line);
+  border-radius: var(--radius-lg);
   padding: var(--space-3);
   display: flex;
   flex-direction: column;
@@ -163,9 +164,13 @@
   }
 }
 
+/* Full-strength ink, not the soft variant: once --ink-on-court is fixed to
+   actually track the dark theme, this is the only content on an otherwise
+   near-empty screen and needs to read clearly from across the room, not as
+   a caption. */
 .ended-notice {
   font-size: clamp(1.5rem, 4vmin, 2.5rem);
   font-family: var(--font-display);
   font-weight: 700;
-  color: var(--ink-on-court-soft);
+  color: var(--ink-on-court);
 }

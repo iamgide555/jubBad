@@ -92,7 +92,8 @@
         <h2 i18n="@@admin.usersTitle">ผู้ใช้</h2>
         <button type="button" (click)="openCreateUser()" i18n="@@admin.addUser">เพิ่มผู้ใช้</button>
       </div>
-      <table class="admin-table">
+      <div class="table-scroll">
+        <table class="admin-table">
         <thead>
           <tr>
             <th i18n="@@admin.colEmail">อีเมล</th>
@@ -261,13 +262,15 @@
             }
           }
         </tbody>
-      </table>
+        </table>
+      </div>
     </section>
 
     <!-- Groups -->
     <section class="admin-section">
       <h2 i18n="@@admin.groupsTitle">ก๊วนทั้งหมด</h2>
-      <table class="admin-table">
+      <div class="table-scroll">
+        <table class="admin-table">
         <thead>
           <tr>
             <th i18n="@@admin.colGroupName">ก๊วน</th>
@@ -305,7 +308,8 @@
             </tr>
           }
         </tbody>
-      </table>
+        </table>
+      </div>
       @if (reassignError()) {
         <p class="error" role="alert">{{ reassignError() }}</p>
       }

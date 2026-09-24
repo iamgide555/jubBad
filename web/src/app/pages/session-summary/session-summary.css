@@ -49,6 +49,12 @@ th:not(:first-child):not(.profile-cell):not(.rate-cell) {
   min-height: var(--tap);
   padding: 0;
   background: none;
+  /* Resets the global button's filled shape (radius + shadow) it would
+     otherwise inherit — left in place, that shadow rendered as a faint pale
+     pill outline around the name even with the fill removed, so the control
+     read as a broken button instead of the bold link it's meant to be. */
+  border-radius: 0;
+  box-shadow: none;
   color: var(--court-ink);
   font-weight: 600;
   text-align: left;

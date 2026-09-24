@@ -69,7 +69,11 @@
       }
       <p>
         <a [routerLink]="['/g', groupCode, 'p', partner.playerId]">{{ partner.name }}</a>
-        <span class="muted">
+        <!-- The space before <span> must stay on this line: Angular strips a
+             whitespace-only text node that spans a line break (the default
+             preserveWhitespaces behavior), which is what ran the name and
+             "ชนะ" together with no gap. -->
+        {{ ' ' }}<span class="muted">
           @if (!partner.provisional && partnerPercent(partner.winRate) !== null) {
             — {{ partnerPercent(partner.winRate) }}%
           }

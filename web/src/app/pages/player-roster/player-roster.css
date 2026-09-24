@@ -48,10 +48,7 @@
   flex-basis: 100%;
 }
 
-@media (max-width: 700px) {
-  .roster-table {
-    display: block;
-    overflow-x: auto;
-    white-space: nowrap;
-  }
-}
+/* Horizontal scroll on a narrow phone now comes from the .table-scroll
+   wrapper in the template (shared with admin/session-summary) — this used
+   to force `.roster-table { display: block; white-space: nowrap }` here,
+   which broke the table's own column alignment instead of fixing it. */

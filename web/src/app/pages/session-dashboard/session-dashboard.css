@@ -270,16 +270,17 @@
 
 /* The one thing a host revisiting an ended session's dashboard actually wants
    is the recap — top of the page, real buttons, not a wall of now-dead live
-   controls to scroll past first. A raised card like any other, no more the
-   single most-decorated element on the page — the copy and the gold accent
-   line are what say "this matters", not a taped note. */
+   controls to scroll past first. A raised card like any other: elevation
+   alone carries "this matters" now. A gold top stripe used to do that job,
+   but --gold is reserved for a winner's stat/leaderboard mark (see
+   DESIGN.md), never a status color, and a thick one-sided accent border on
+   a rounded card is the system's own anti-pattern besides. */
 .ended-banner {
   position: relative;
   padding: var(--space-3);
   background: var(--surface);
   color: var(--ink);
   border-radius: var(--radius-lg);
-  border-top: 3px solid var(--gold);
   box-shadow: var(--shadow-md);
 }
 

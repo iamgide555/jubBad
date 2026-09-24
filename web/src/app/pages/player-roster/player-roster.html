@@ -16,7 +16,8 @@
     @if (levelSaveError()) {
       <p class="error" role="alert">{{ levelSaveError() }}</p>
     }
-    <table class="roster-table">
+    <div class="table-scroll">
+      <table class="roster-table">
       <thead>
         <tr>
           <th scope="col" i18n="@@playerRoster.colRank">ลำดับ</th>
@@ -101,6 +102,7 @@
           </tr>
         }
       </tbody>
-    </table>
+      </table>
+    </div>
   }
 </div>

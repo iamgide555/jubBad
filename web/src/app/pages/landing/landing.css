@@ -12,13 +12,21 @@
 
 .home-head {
   display: flex;
+  flex-wrap: wrap;
   align-items: baseline;
   justify-content: space-between;
   gap: var(--space-2);
+  row-gap: var(--space-1);
   margin-bottom: var(--space-3);
 }
 
+/* flex: 1 1 auto (not the default 0 1 auto) lets the title take the whole
+   first line on a narrow phone and drop the admin link + sign-out button to
+   their own line below it, instead of all three squeezing onto one line and
+   wrapping the Thai title mid-word against the buttons. */
 .home-head h1 {
+  flex: 1 1 auto;
+  min-width: 0;
   font-size: clamp(1.75rem, 7vw, 2.25rem);
   margin: 0;
 }
@@ -77,14 +85,25 @@
 
 /* Quiet until opened. Delete is the one irreversible action on this screen, so
    it does not compete with the row's own link for attention. */
+/* Strips button.ghost's real border/shadow so this reads at the same quiet
+   weight as the .ghost-link beside it — a boxed button here made the one
+   irreversible action on the row look as prominent as ordinary navigation,
+   which is backwards. */
 .remove {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--tap);
+  padding: 0 var(--space-1);
+  background: none;
+  border: none;
+  box-shadow: none;
   color: var(--ink-soft);
 }
 
 @media (hover: hover) {
   .remove:hover {
+    background: none;
     color: var(--error-ink);
-    border-color: var(--error-ink);
   }
 }
 
@@ -96,10 +115,10 @@
   flex-basis: 100%;
   padding: var(--space-2);
   margin-top: var(--space-1);
-  border-radius: var(--radius);
-  border-left: 3px solid var(--warn);
+  border-radius: var(--radius-lg);
   background: var(--warn-wash);
   color: var(--ink);
+  box-shadow: var(--shadow-sm);
 }
 
 .remove-confirm .muted {

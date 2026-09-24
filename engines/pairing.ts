@@ -11,7 +11,7 @@
  */
 
 import { ratingGap, type RatingTracks } from './elo.ts';
-import { levelIndex, withinBand, type Level } from './levels.ts';
+import { levelIndex, type Level } from './levels.ts';
 
 export type PlayerId = string;
 /** A team is 1 player (singles) or 2 (doubles). Both teams on a court are
@@ -177,10 +177,10 @@ export function selectSittingOut(
  * bound the ±1 band promises — a rare level waits at most until it reaches
  * the front of the queue.
  *
- * Reordering stays *within* the priority the caller already established:
- * every player who would have played still ends up somewhere in the tail,
- * and every player who would have sat out still ends up somewhere in the
- * head. Only which specific players land in which half changes.
+ * Reordering is *not* limited to the caller's cut: an in-band player from the
+ * sit-out side can take a court seat ahead of an out-of-band player with fewer
+ * games. Only the anchor is guaranteed to play. The returned order keeps the
+ * same convention (head sits, tail plays), so the caller's slice still works.
  */
 function bandOrderedByCourt(
   sorted: PlayerId[],
@@ -192,13 +192,28 @@ function bandOrderedByCourt(
 
   for (const size of offered) {
     if (remaining.length === 0) break;
-    const anchor = remaining[0];
-    const anchorLevel = levels.get(anchor) ?? null;
+    // The band is checked against the court's running level range, not the
+    // anchor alone: P- and P+ are each one from a P anchor but two from each
+    // other, and `courtBreaksBand` scores exactly that court as broken.
+    let min = Infinity;
+    let max = -Infinity;
     const inBand: PlayerId[] = [];
     const outOfBand: PlayerId[] = [];
     for (const p of remaining) {
       const level = levels.get(p) ?? null;
-      (withinBand(anchorLevel, level) ? inBand : outOfBand).push(p);
+      const index = level === null ? null : levelIndex(level);
+      const fits =
+        inBand.length < size &&
+        (index === null || Math.max(max, index) - Math.min(min, index) <= 1);
+      if (fits) {
+        inBand.push(p);
+        if (index !== null) {
+          min = Math.min(min, index);
+          max = Math.max(max, index);
+        }
+      } else {
+        outOfBand.push(p);
+      }
     }
     const chosen = [...inBand, ...outOfBand].slice(0, size);
     chosenPerCourt.push(chosen);

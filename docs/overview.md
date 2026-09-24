@@ -58,7 +58,7 @@ The comparison, the features it found missing and their priority are in
 |---|---|
 | No bot in the LINE group chat, ever | A posting bot notifies people who aren't even playing that day — spammy |
 | No passive "listener" bot | Even listen-only, it technically sees the *entire* conversation; the host's consent doesn't cover the other ~15-20 people in the chat. Bigger trust risk than the convenience is worth for a casual friend group |
-| Import is paste-based | The app's data footprint = exactly what the host explicitly hands over. No infra (no webhook server, no persistent message store) |
+| Import is paste-based | The app's data footprint = exactly what the host explicitly hands over. No infra (no webhook server, no persistent message store). **A host with nothing to paste (ad-hoc night, no LINE message) can still start a session via "เพิ่มรายชื่อเอง" on the group-entry screen (2026-09-24) — it lands on the same confirm step empty and reuses the existing manual add field; the principle is unchanged, since a manual roster is still exactly what the host typed in, not something the app fetched or inferred** |
 | No LIFF / LINE Login / LINE platform integration | Paste-based import plus manual share means zero technical touchpoint with LINE's platform is needed. Pure UX polish, addable later |
 | Per-user accounts for hosts, not player accounts | Administrative screens and writes require signing in as a real user (email + password, session cookie signed server-side). Each user owns the groups they create; an admin role sees and manages every user and group. There are still no individual *player* accounts or profiles — this is identity for whoever runs a session, not for who plays in one. Superseded the earlier one-shared-token design (backlog B12, done 2026-09-12); see the per-user-login design doc for the schema and guard design. |
 | Trigger-word LINE bot (reconsidered, still rejected) | The idea: a bot watches the group for a keyword ("Play") then auto-extracts the roster, skipping the manual paste. Rejected on inspection — the LINE Messaging API has no message-history endpoint (confirmed in LINE's docs), so a bot can only look *forward* from when it joins. In real use the roster is posted days before "Play" is typed, so the bot would have to continuously store *all* group messages in a rolling buffer to look backward — that is full passive listening plus retention, the exact risk rejected above, not a lighter trigger-gated version. It also reopens "no infra" and "no posting bot" at once. Revisit only if paste friction proves to be a real dealbreaker; the lower-risk fix for the typing/copying pain is a tap-to-register roster link |
@@ -477,7 +477,9 @@ process would need a database-level lock.)
 Three routes:
 
 - `/g/:groupCode` — group entry. The host bookmarks this once and opens it
-  weekly, to either resume an active session or paste a new roster.
+  weekly, to either resume an active session or paste a new roster (or, with
+  nothing to paste, tap "เพิ่มรายชื่อเอง" to start empty and build the roster by
+  hand — same confirm screen either way, see below).
 - `/s/:sessionCode` — the session dashboard, the host's phone.
 - `/s/:sessionCode/display` — read-only, big text, for a venue screen.
 
@@ -578,7 +580,13 @@ websockets.
 
 The roster review screen, before a session is created, also has one search
 field for adding someone the paste missed. It finds an existing player (so
-their history carries over) or creates a new one.
+their history carries over) or creates a new one. Confirm requires at least
+four accepted players (one full doubles court, the default format) — below
+that the same field is how a host with no LINE message at all builds a
+roster from nothing: "เพิ่มรายชื่อเอง" on the group-entry screen claims/creates
+the group exactly as a paste would (still the one place `GroupsService.parse`
+does that) but skips straight to an empty confirm screen instead of parsing
+text.
 
 A walk-in — someone not on the pasted list — can also be added to a session
 that is already running, from a "+ เพิ่มคน" button on the dashboard. The same

@@ -38,6 +38,16 @@
   margin: 0;
 }
 
+.paste-actions {
+  display: flex;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+
+.paste-actions button {
+  flex: 1 1 auto;
+}
+
 .field-row {
   display: flex;
   gap: var(--space-2);
@@ -54,13 +64,16 @@
 }
 
 /* A raised card pinned above the roster — a real elevated surface now,
-   rather than a paper note pinned with tape. */
+   rather than a paper note pinned with tape. Signals with elevation alone:
+   the accent-orange side stripe this used to carry meant "act on this court
+   now" everywhere else in the app (the One Orange Rule), but a parse
+   warning here isn't a live court, so the color was already a misuse
+   underneath being a banned thick one-sided border in the first place. */
 .notice-block {
   position: relative;
   background: var(--surface);
   color: var(--ink);
   border-radius: var(--radius-lg);
-  border-left: 3px solid var(--accent);
   padding: var(--space-2) var(--space-3);
   margin-bottom: var(--space-3);
   box-shadow: var(--shadow-sm);

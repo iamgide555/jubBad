@@ -138,11 +138,27 @@ describe('GroupsController', () => {
     }
   });
 
-  it('rejects an empty roster message on parse', async () => {
-    await request(server)
-      .post(`/groups/${randomUUID()}/parse`)
-      .send({ groupName: 'X', rawText: '' })
-      .expect(400);
+  it('accepts an empty roster message on parse, claiming the group with nothing to review', async () => {
+    // The manual "add players yourself" flow (GroupEntry.startManual) reuses
+    // this endpoint with rawText: '' purely to claim/create the group — see
+    // the comment on ParseRosterDto.rawText.
+    const code = randomUUID();
+    const res = await request(server)
+      .post(`/groups/${code}/parse`)
+      .send({ groupName: 'Manual Group', rawText: '' })
+      .expect(201);
+
+    expect(res.body.rosterReviews).toEqual([]);
+    expect(res.body.waitlistReviews).toEqual([]);
+    expect(res.body.header).toEqual({ isoDate: null, venue: null, courtCount: null });
+
+    try {
+      const group = await prisma.group.findUniqueOrThrow({ where: { code } });
+      expect(group.name).toBe('Manual Group');
+      expect(group.ownerId).toBe(testAdminId);
+    } finally {
+      await prisma.group.deleteMany({ where: { code } });
+    }
   });
   it('lists a group\'s sessions newest first with a match count', async () => {
     const code = randomUUID();

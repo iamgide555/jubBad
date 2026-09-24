@@ -9,6 +9,17 @@ import { environment } from '../../../environments/environment';
 
 const B = environment.apiBaseUrl;
 
+/** Four brand-new-player reviews — the roster's `minRoster` floor — for tests
+ *  that need to clear the minimum without that being what's under test. */
+function fourNewPlayers() {
+  return [
+    { inputName: 'ตั้ม', match: { type: 'new' as const } },
+    { inputName: 'เกียร์', match: { type: 'new' as const } },
+    { inputName: 'มด', match: { type: 'new' as const } },
+    { inputName: 'มะนาว', match: { type: 'new' as const } },
+  ];
+}
+
 describe('GroupEntry', () => {
   let component: GroupEntry;
   let fixture: ComponentFixture<GroupEntry>;
@@ -66,6 +77,12 @@ describe('GroupEntry', () => {
 
   it('starts in the paste state', () => {
     expect(component.state()).toBe('paste');
+  });
+
+  it('shows both the paste-roster and manual-start buttons on the paste screen', () => {
+    const buttons = [...fixture.nativeElement.querySelectorAll('button')] as HTMLButtonElement[];
+    expect(buttons.some((b) => b.textContent?.trim() === 'อ่านรายชื่อ')).toBe(true);
+    expect(buttons.some((b) => b.textContent?.trim() === 'เพิ่มรายชื่อเอง')).toBe(true);
   });
 
   it('groupName is empty when no Group exists yet', () => {
@@ -139,6 +156,71 @@ describe('GroupEntry', () => {
     await new Promise((resolve) => setTimeout(resolve, 0));
     httpMock.expectOne(`${B}/groups/group1/players`).flush([]);
     await retry;
+    expect(component.state()).toBe('confirm');
+  });
+
+  it('startManual shows an error and stays in the paste state when the group name is empty', async () => {
+    component.groupName.set('');
+    await component.startManual();
+
+    expect(component.state()).toBe('paste');
+    expect(component.pasteError()).toContain('ชื่อก๊วน');
+  });
+
+  it('startManual claims the group with an empty parse and lands on an empty confirm screen', async () => {
+    component.groupName.set('Group A');
+    component.rawText.set('leftover text that must not be sent to the server');
+
+    const manualPromise = component.startManual();
+    const req = httpMock.expectOne(`${B}/groups/group1/parse`);
+    expect(req.request.body).toEqual({ groupName: 'Group A', rawText: '' });
+    req.flush({
+      header: { isoDate: null, venue: null, courtCount: null },
+      rosterReviews: [],
+      waitlistReviews: [],
+      warnings: [
+        'Could not find the start of a numbered roster list (expected a line starting with "1.").',
+      ],
+      unrecognizedLines: [],
+    });
+    await new Promise((r) => setTimeout(r, 0));
+    httpMock.expectOne(`${B}/groups/group1/players`).flush([]);
+    await manualPromise;
+
+    expect(component.state()).toBe('confirm');
+    expect(component.rosterReviews()).toEqual([]);
+    expect(component.waitlistReviews()).toEqual([]);
+    expect(component.rawText()).toBe('');
+    // The parser's "nothing to find" warnings are noise here — there was
+    // never a roster message to begin with.
+    expect(component.warnings()).toEqual([]);
+    expect(component.date().length).toBeGreaterThan(0);
+  });
+
+  it('startManual allows a retry when the claim request fails', async () => {
+    component.groupName.set('Group A');
+
+    const failed = component.startManual();
+    httpMock
+      .expectOne(`${B}/groups/group1/parse`)
+      .flush('Server error', { status: 500, statusText: 'Server Error' });
+    await failed;
+
+    expect(component.state()).toBe('paste');
+    expect(component.pasteError()).toContain('อ่านรายชื่อไม่สำเร็จ');
+
+    const retry = component.startManual();
+    httpMock.expectOne(`${B}/groups/group1/parse`).flush({
+      header: { isoDate: null, venue: null, courtCount: null },
+      rosterReviews: [],
+      waitlistReviews: [],
+      warnings: [],
+      unrecognizedLines: [],
+    });
+    await new Promise((r) => setTimeout(r, 0));
+    httpMock.expectOne(`${B}/groups/group1/players`).flush([]);
+    await retry;
+
     expect(component.state()).toBe('confirm');
   });
 
@@ -284,11 +366,11 @@ describe('GroupEntry', () => {
 
   it('canConfirm is false until date and courtCount are set', async () => {
     component.groupName.set('Group A');
-    component.rawText.set('1. ตั้ม');
+    component.rawText.set('1. ตั้ม\n2. เกียร์\n3. มด\n4. มะนาว');
     const parsePromise = component.parse();
     httpMock.expectOne(`${B}/groups/group1/parse`).flush({
       header: { isoDate: null, venue: null, courtCount: null },
-      rosterReviews: [{ inputName: 'ตั้ม', match: { type: 'new' } }],
+      rosterReviews: fourNewPlayers(),
       waitlistReviews: [],
       warnings: [],
       unrecognizedLines: [],
@@ -303,14 +385,65 @@ describe('GroupEntry', () => {
     expect(component.canConfirm()).toBe(true);
   });
 
+  it('canConfirm is false below the minimum roster size, even with date and courtCount set', async () => {
+    component.groupName.set('Group A');
+    component.rawText.set('1. ตั้ม\n2. เกียร์\n3. มด');
+    const parsePromise = component.parse();
+    httpMock.expectOne(`${B}/groups/group1/parse`).flush({
+      header: { isoDate: '2026-09-08', venue: null, courtCount: 1 },
+      rosterReviews: fourNewPlayers().slice(0, 3),
+      waitlistReviews: [],
+      warnings: [],
+      unrecognizedLines: [],
+    });
+    await new Promise((r) => setTimeout(r, 0));
+    httpMock.expectOne(`${B}/groups/group1/players`).flush([]);
+    await parsePromise;
+
+    expect(component.acceptedRosterCount()).toBe(3);
+    expect(component.canConfirm()).toBe(false);
+  });
+
+  it('an accepted duplicate does not count as an extra player towards the minimum', async () => {
+    component.groupName.set('Group A');
+    component.rawText.set('1. ตั้ม (1)\n2. ตั้ม (2)\n3. มด\n4. มะนาว');
+    const parsePromise = component.parse();
+    httpMock.expectOne(`${B}/groups/group1/parse`).flush({
+      header: { isoDate: '2026-09-08', venue: null, courtCount: 1 },
+      rosterReviews: [
+        { inputName: 'ตั้ม (1)', match: { type: 'exact', playerId: 'p1' } },
+        { inputName: 'ตั้ม (2)', match: { type: 'duplicate', playerId: 'p1' } },
+        { inputName: 'มด', match: { type: 'new' } },
+        { inputName: 'มะนาว', match: { type: 'new' } },
+      ],
+      waitlistReviews: [],
+      warnings: [],
+      unrecognizedLines: [],
+    });
+    await new Promise((r) => setTimeout(r, 0));
+    httpMock.expectOne(`${B}/groups/group1/players`).flush([{ id: 'p1', name: 'ตั้ม', aliases: [] }]);
+    await parsePromise;
+
+    // Duplicate row starts as reject-new ("คนละคน") — a genuinely distinct
+    // fourth person, clearing the minimum.
+    expect(component.acceptedRosterCount()).toBe(4);
+    expect(component.canConfirm()).toBe(true);
+
+    // Accepting "same person" collapses it onto p1's id instead of adding a
+    // fourth distinct player, dropping back below the minimum.
+    component.setDecision(component.rosterReviews()[1], 'accept');
+    expect(component.acceptedRosterCount()).toBe(3);
+    expect(component.canConfirm()).toBe(false);
+  });
+
   it('confirmRoster posts the resolved reviews and navigates to the new session', async () => {
     const router = TestBed.inject(Router);
     component.groupName.set('Group A');
-    component.rawText.set('1. ตั้ม');
+    component.rawText.set('1. ตั้ม\n2. เกียร์\n3. มด\n4. มะนาว');
     const parsePromise = component.parse();
     httpMock.expectOne(`${B}/groups/group1/parse`).flush({
       header: { isoDate: null, venue: null, courtCount: null },
-      rosterReviews: [{ inputName: 'ตั้ม', match: { type: 'new' } }],
+      rosterReviews: fourNewPlayers(),
       waitlistReviews: [],
       warnings: [],
       unrecognizedLines: [],
@@ -343,9 +476,9 @@ describe('GroupEntry', () => {
     component.date.set('2026-09-08');
     component.courtCount.set(1);
     component.rawText.set('1. Alice');
-    component.rosterReviews.set([
-      { inputName: 'Alice', match: { type: 'new' }, decision: 'accept' },
-    ]);
+    component.rosterReviews.set(
+      fourNewPlayers().map((r) => ({ ...r, decision: 'accept' as const }))
+    );
     component.state.set('confirm');
     fixture.detectChanges();
 
@@ -365,9 +498,9 @@ describe('GroupEntry', () => {
     component.date.set('2026-09-08');
     component.courtCount.set(1);
     component.rawText.set('1. Alice');
-    component.rosterReviews.set([
-      { inputName: 'Alice', match: { type: 'new' }, decision: 'accept' },
-    ]);
+    component.rosterReviews.set(
+      fourNewPlayers().map((r) => ({ ...r, decision: 'accept' as const }))
+    );
     component.state.set('confirm');
 
     const failedCreate = component.confirmRoster();
@@ -378,7 +511,7 @@ describe('GroupEntry', () => {
 
     expect(component.confirmError()).toContain('สร้างก๊วนไม่สำเร็จ');
     expect(component.isSubmitting()).toBe(false);
-    expect(component.rosterReviews()).toHaveLength(1);
+    expect(component.rosterReviews()).toHaveLength(4);
 
     const retry = component.confirmRoster();
     const second = httpMock.expectOne(`${B}/sessions`);
@@ -389,11 +522,11 @@ describe('GroupEntry', () => {
 
   it('confirmRoster trims a whitespace-only venue to null', async () => {
     component.groupName.set('Group A');
-    component.rawText.set('1. ตั้ม');
+    component.rawText.set('1. ตั้ม\n2. เกียร์\n3. มด\n4. มะนาว');
     const parsePromise = component.parse();
     httpMock.expectOne(`${B}/groups/group1/parse`).flush({
       header: { isoDate: null, venue: null, courtCount: null },
-      rosterReviews: [{ inputName: 'ตั้ม', match: { type: 'new' } }],
+      rosterReviews: fourNewPlayers(),
       waitlistReviews: [],
       warnings: [],
       unrecognizedLines: [],
@@ -701,6 +834,13 @@ describe('GroupEntry manual roster add UI (Task 2)', () => {
   it('disables the manual-add input while isSubmitting is true', async () => {
     component.date.set('2026-09-08');
     component.courtCount.set(1);
+    // Base roster from beforeEach is just 'ตั้ม' — pad to the minimum so
+    // confirmRoster() actually fires instead of a canConfirm() no-op.
+    component.addExisting('p2');
+    component.manualQuery.set('คนที่สาม');
+    component.addNew();
+    component.manualQuery.set('คนที่สี่');
+    component.addNew();
     const confirmPromise = component.confirmRoster();
     fixture.detectChanges();
 
@@ -922,6 +1062,7 @@ describe('GroupEntry manual roster add — behavior (Task 3)', () => {
 
   it('preserves manual additions on a failed confirmRoster and reuses the idempotency key on retry', async () => {
     component.addExisting('p2');
+    component.addExisting('p3');
     component.onManualQueryChange('คนใหม่มาก');
     fixture.detectChanges();
     component.confirmAddNew(manualInput());

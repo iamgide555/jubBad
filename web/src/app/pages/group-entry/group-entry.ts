@@ -15,7 +15,7 @@ import {
   type PlayerCandidate,
 } from '../../core/roster-review';
 import type { GroupSession } from '../../core/group-session.model';
-import { RosterService } from '../../core/roster.service';
+import { RosterService, type ParseRosterResponse } from '../../core/roster.service';
 import { resolvePlayerNames } from '../../core/player-names';
 import { PressDirective } from '../../core/motion/press.directive';
 import { RevealDirective } from '../../core/motion/reveal.directive';
@@ -23,6 +23,16 @@ import { Icon } from '../../shared/icon/icon';
 import { LevelPicker } from '../../shared/level-picker/level-picker';
 import type { Player } from '../../../../../engines/fuzzy-match.ts';
 import type { Level } from '../../../../../engines/levels.ts';
+
+/** Local calendar date as `YYYY-MM-DD` — `Date#toISOString` reads UTC, which
+ *  rolls over a day early/late for anyone west/east of it in the evening,
+ *  exactly when a host is starting tonight's session. */
+function todayIso(): string {
+  const now = new Date();
+  const month = String(now.getMonth() + 1).padStart(2, '0');
+  const day = String(now.getDate()).padStart(2, '0');
+  return `${now.getFullYear()}-${month}-${day}`;
+}
 
 @Component({
   selector: 'app-group-entry',
@@ -53,6 +63,11 @@ export class GroupEntry {
   readonly isParsing = signal(false);
   readonly isRenaming = signal(false);
   readonly isSubmitting = signal(false);
+
+  /** One full doubles court — the default court format — is the floor for a
+   *  session worth starting. Below it the dashboard would open to a court
+   *  that can't propose anything. */
+  readonly minRoster = 4;
 
   /** Group's known players, loaded once by `parse()`; converted to a signal
    * so the manual-add search/candidate state below can be computed from it. */
@@ -92,6 +107,27 @@ export class GroupEntry {
    * a manual addition (or flipping an imported decision) makes an ID
    * searchable again automatically. */
   readonly claimedIds = computed(() => claimedPlayerIds(this.rosterReviews(), this.waitlistReviews()));
+
+  /**
+   * How many distinct players the roster will actually resolve to on
+   * confirm — mirrors the server's own dedup in `SessionsService`'s
+   * `resolve()` (accept-non-new rows collapse onto their `playerId`; an
+   * accepted `duplicate` collapses onto the same id as the row it names, so
+   * it does not add a slot). Gates `canConfirm()` against `minRoster`
+   * without waiting on a round trip to find out the roster was too small.
+   */
+  readonly acceptedRosterCount = computed(() => {
+    const ids = new Set<string>();
+    let newCount = 0;
+    for (const review of this.rosterReviews()) {
+      if (review.decision === 'accept' && review.match.type !== 'new') {
+        ids.add(review.match.playerId);
+      } else {
+        newCount++;
+      }
+    }
+    return ids.size + newCount;
+  });
 
   /** Ranked search results for the manual-add field, excluding already
    * claimed players. Empty when the query is blank. */
@@ -308,33 +344,8 @@ export class GroupEntry {
         return;
       }
 
-      this.date.set(result.header.isoDate ?? '');
-      this.venue.set(result.header.venue ?? '');
-      this.courtCount.set(result.header.courtCount);
-      this.warnings.set(result.warnings);
-      this.unrecognizedLines.set(result.unrecognizedLines);
-
-      this.rosterReviews.set(attachDecisions(result.rosterReviews));
-      this.waitlistReviews.set(attachDecisions(result.waitlistReviews));
-      this.openReviews.clear();
-      for (const review of [...this.rosterReviews(), ...this.waitlistReviews()]) {
-        if (review.match.type === 'fuzzy' || review.match.type === 'duplicate') {
-          this.openReviews.add(review);
-        }
-      }
-      this.players.set(await firstValueFrom(this.rosterService.getPlayers(this.groupCode)));
-
-      // A successful reparse replaces the whole review, so any manual
-      // additions/search state from a previous parse no longer refer to
-      // anything real and must not carry over.
-      this.manualReviews.clear();
-      this.manualQuery.set('');
-      this.manualAddError.set(null);
-      this.manualActiveIndex.set(-1);
-      this.manualSuggestionsDismissed.set(false);
-      this.manualStatusMessage.set('');
-
-      this.state.set('confirm');
+      const players = await firstValueFrom(this.rosterService.getPlayers(this.groupCode));
+      this.enterConfirm(result, players);
     } catch {
       this.pasteError.set($localize`:@@entry.parseFailed:อ่านรายชื่อไม่สำเร็จ กรุณาลองอีกครั้ง`);
     } finally {
@@ -342,12 +353,87 @@ export class GroupEntry {
     }
   }
 
+  /**
+   * For a host with nothing to paste (ad-hoc night, no LINE message) — lands
+   * on the same confirm step as `parse()`, empty, and the manual add field
+   * already there does the rest. Still goes through `rosterService.parseRoster`
+   * with an empty `rawText`: that endpoint is the only place a group gets
+   * created/claimed (`GroupsService.parse`'s upsert + ownership check), and a
+   * brand-new group has no row yet to attach a session to otherwise.
+   */
+  async startManual(): Promise<void> {
+    if (this.isParsing()) return;
+    this.pasteError.set(null);
+
+    if (!this.groupName().trim()) {
+      this.pasteError.set($localize`:@@entry.errNoGroupName:กรุณาใส่ชื่อก๊วนก่อน`);
+      return;
+    }
+
+    this.isParsing.set(true);
+    try {
+      await firstValueFrom(this.rosterService.parseRoster(this.groupCode, this.groupName(), ''));
+      const players = await firstValueFrom(this.rosterService.getPlayers(this.groupCode));
+      this.rawText.set('');
+      // An empty rawText parses to nothing worth keeping — the parser's own
+      // "could not find a roster list" warnings would be noise here (there
+      // was never a roster to find), so only today's date is taken as a
+      // starting default and everything else is a blank confirm screen.
+      this.enterConfirm(
+        {
+          header: { isoDate: todayIso(), venue: null, courtCount: null },
+          warnings: [],
+          unrecognizedLines: [],
+          rosterReviews: [],
+          waitlistReviews: [],
+        },
+        players
+      );
+    } catch {
+      this.pasteError.set($localize`:@@entry.parseFailed:อ่านรายชื่อไม่สำเร็จ กรุณาลองอีกครั้ง`);
+    } finally {
+      this.isParsing.set(false);
+    }
+  }
+
+  /** Shared by `parse()` and `startManual()`: applies a parsed (or synthetic
+   *  empty) result and drops the confirm screen into its starting state. */
+  private enterConfirm(result: ParseRosterResponse, players: Player[]): void {
+    this.date.set(result.header.isoDate ?? '');
+    this.venue.set(result.header.venue ?? '');
+    this.courtCount.set(result.header.courtCount);
+    this.warnings.set(result.warnings);
+    this.unrecognizedLines.set(result.unrecognizedLines);
+
+    this.rosterReviews.set(attachDecisions(result.rosterReviews));
+    this.waitlistReviews.set(attachDecisions(result.waitlistReviews));
+    this.openReviews.clear();
+    for (const review of [...this.rosterReviews(), ...this.waitlistReviews()]) {
+      if (review.match.type === 'fuzzy' || review.match.type === 'duplicate') {
+        this.openReviews.add(review);
+      }
+    }
+    this.players.set(players);
+
+    // A fresh confirm screen replaces the whole review, so any manual
+    // additions/search state from a previous parse no longer refer to
+    // anything real and must not carry over.
+    this.manualReviews.clear();
+    this.manualQuery.set('');
+    this.manualAddError.set(null);
+    this.manualActiveIndex.set(-1);
+    this.manualSuggestionsDismissed.set(false);
+    this.manualStatusMessage.set('');
+
+    this.state.set('confirm');
+  }
+
   canConfirm(): boolean {
     return (
       this.date().length > 0 &&
       this.courtCount() !== null &&
       this.courtCount()! > 0 &&
-      this.rosterReviews().length > 0
+      this.acceptedRosterCount() >= this.minRoster
     );
   }
 

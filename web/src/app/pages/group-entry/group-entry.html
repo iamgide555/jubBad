@@ -21,8 +21,42 @@
     }
   </div>
 
+  @if (state() === 'paste') {
+    <!-- The paste box is the one thing every host is here to do, so it goes
+         first — above the past-sessions recap, which used to push it below
+         the fold on a group with any session history. -->
+    <div class="entry-card paste-card" [appReveal]="1">
+      <div class="paste-card-head">
+        <app-icon name="feather" [size]="18" />
+        <label>
+          <ng-container i18n="@@entry.rosterMessage">ข้อความรายชื่อ</ng-container>
+        </label>
+      </div>
+      <textarea [(ngModel)]="rawText" rows="15" i18n-placeholder="@@entry.rosterPlaceholder" placeholder="วางข้อความรายชื่อจากไลน์ที่นี่"></textarea>
+      @if (pasteError()) {
+        <p class="error" role="alert">{{ pasteError() }}</p>
+      }
+      <div class="paste-actions">
+        <button type="button" appPress [disabled]="isParsing()" [attr.aria-busy]="isParsing()" (click)="parse()">
+          @if (isParsing()) {
+            <app-icon name="feather" [size]="16" [spin]="true" />
+            <ng-container i18n="@@entry.parsingRoster">กำลังอ่านรายชื่อ...</ng-container>
+          } @else {
+            <ng-container i18n="@@entry.parse">อ่านรายชื่อ</ng-container>
+          }
+        </button>
+        <!-- For a host with nothing to paste (ad-hoc night, no LINE message) —
+             lands on the same confirm step with empty roster/waitlist, using
+             the manual add field already there for imported rosters. -->
+        <button type="button" class="ghost" appPress [disabled]="isParsing()" [attr.aria-busy]="isParsing()" (click)="startManual()">
+          <ng-container i18n="@@entry.startManual">เพิ่มรายชื่อเอง</ng-container>
+        </button>
+      </div>
+    </div>
+  }
+
   @if (state() === 'paste' && pastSessions().length > 0) {
-    <div class="entry-card" [appReveal]="1">
+    <div class="entry-card" [appReveal]="2">
       <h4 class="label" i18n="@@entry.pastSessions">ก๊วนที่ผ่านมา</h4>
       <ul class="session-list">
         @for (s of pastSessions(); track s.code) {
@@ -38,27 +72,6 @@
   }
 
   @if (state() === 'paste') {
-    <div class="entry-card paste-card" [appReveal]="2">
-      <div class="paste-card-head">
-        <app-icon name="feather" [size]="18" />
-        <label>
-          <ng-container i18n="@@entry.rosterMessage">ข้อความรายชื่อ</ng-container>
-        </label>
-      </div>
-      <textarea [(ngModel)]="rawText" rows="15" i18n-placeholder="@@entry.rosterPlaceholder" placeholder="วางข้อความรายชื่อจากไลน์ที่นี่"></textarea>
-      @if (pasteError()) {
-        <p class="error" role="alert">{{ pasteError() }}</p>
-      }
-      <button type="button" appPress [disabled]="isParsing()" [attr.aria-busy]="isParsing()" (click)="parse()">
-        @if (isParsing()) {
-          <app-icon name="feather" [size]="16" [spin]="true" />
-          <ng-container i18n="@@entry.parsingRoster">กำลังอ่านรายชื่อ...</ng-container>
-        } @else {
-          <ng-container i18n="@@entry.parse">อ่านรายชื่อ</ng-container>
-        }
-      </button>
-    </div>
-
     <p><a [routerLink]="['/g', groupCode, 'players']" i18n="@@entry.managePlayers">จัดการผู้เล่น →</a></p>
 
     <hr class="rule" />
@@ -333,6 +346,9 @@
         <ng-container i18n="@@entry.confirmRoster">ยืนยันรายชื่อ</ng-container>
       }
     </button>
+    @if (!isSubmitting() && acceptedRosterCount() < minRoster) {
+      <p class="muted" i18n="@@entry.errMinPlayers">ต้องมีผู้เล่นอย่างน้อย 4 คน</p>
+    }
     @if (confirmError()) {
       <p class="error" role="alert">
         {{ confirmError() }}

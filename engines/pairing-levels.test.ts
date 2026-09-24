@@ -139,3 +139,20 @@ test('band on: groupRepeat still dominates the band key', () => {
   const seated = groupKey([...courts[0].teamA, ...courts[0].teamB]);
   assert.notEqual(seated, groupKey(['n1', 'n2', 'n3', 'n4']));
 });
+
+test('band on: a court never spans more than one level, even when both neighbours of the anchor are queued ahead', () => {
+  // The anchor (P) is within one level of both P- and P+, but P- and P+ are
+  // two apart from each other. Admitting both breaks the band on a court the
+  // search cannot repair, since one idle court has nothing to swap with.
+  const roster = ['a', 'b', 'c', 'd', 'e', 'f', 'g'];
+  const levels = levelsOf({ a: 'P', b: 'P-', c: 'P+', d: 'P-', e: 'P+', f: 'P', g: 'BG' });
+  const gamesPlayedThisSession = new Map([
+    ['a', 0], ['b', 1], ['c', 2], ['d', 3], ['e', 4], ['f', 5], ['g', 6],
+  ]);
+  const { playing } = selectSittingOut(
+    roster, 1, gamesPlayedThisSession, makeSeededRandom(1), undefined, null, levels, true
+  );
+  assert.equal(playing.length, 4);
+  assert.ok(playing.includes('a'), 'the most-deserving player still anchors the court');
+  assert.ok(courtLevelSpread(playing, levels) <= 1, `court spans ${courtLevelSpread(playing, levels)} levels`);
+});

@@ -146,6 +146,56 @@ describe('session audit lifecycle regressions', () => {
     }
   });
 
+  it('picks the longest-waiting of two equally-rested substitutes', async () => {
+    // E and F have each played one game tonight; F came off court first, so F
+    // has waited longer. Auto-pick must follow the same games-then-wait order
+    // as every other path, not fall through to pairing quality (which is level
+    // here) and then to roster order, which would hand the seat to E.
+    const data = await fixture(['A', 'B', 'C', 'D', 'E', 'F']);
+    const [a, b, c, d, e, f] = data.players;
+    const [x, y, z] = await Promise.all(
+      ['X', 'Y', 'Z'].map((name) =>
+        prisma.player.create({ data: { groupId: data.groupCode, name, aliases: '[]' } })
+      )
+    );
+    const now = Date.now();
+    try {
+      for (const [matchNumber, player, endedAt] of [
+        [1, f, now + 60_000],
+        [2, e, now + 120_000],
+      ] as const) {
+        await prisma.pairing.create({
+          data: {
+            sessionId: data.sessionCode,
+            courtNumber: 1,
+            matchNumber,
+            teamA: JSON.stringify([player.id, x.id]),
+            teamB: JSON.stringify([y.id, z.id]),
+            confirmedAt: new Date(endedAt),
+            endedAt: new Date(endedAt),
+            winner: 'A',
+          },
+        });
+      }
+      const pending = await prisma.pairing.create({
+        data: {
+          sessionId: data.sessionCode,
+          courtNumber: 1,
+          matchNumber: 3,
+          teamA: JSON.stringify([a.id, b.id]),
+          teamB: JSON.stringify([c.id, d.id]),
+        },
+      });
+
+      const swapped = await service.swapPlayer(data.sessionCode, pending.id, { playerId: a.id });
+      expect(swapped.ok).toBe(true);
+      if (!swapped.ok) return;
+      expect(swapped.pairing.teamA).toEqual([f.id, b.id]);
+    } finally {
+      await remove(data);
+    }
+  });
+
   it('uses balanced-mode Elo when choosing equally-rested substitutes', async () => {
     const data = await fixture(['A', 'B', 'C', 'D', 'E', 'F']);
     const [a, b, c, d, e, f] = data.players;

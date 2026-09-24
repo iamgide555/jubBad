@@ -1094,20 +1094,23 @@ export class SessionsService {
       return [replace(filledTeamA), replace(filledTeamB)];
     };
 
-    // The playing-pool choice follows normal rotation first. Pairing quality
-    // only breaks ties between people with equally few games tonight.
+    // The playing-pool choice follows normal rotation first: fewest games,
+    // then longest wait — the order `selectSittingOut` and the waiting list
+    // use. Pairing quality only breaks ties between people level on both.
     const [{ substitute }] = pool
       .map((candidate) => {
         const [candidateA, candidateB] = swapIn(candidate);
         return {
           substitute: candidate,
           games: history.gamesPlayedThisSession.get(candidate) ?? 0,
+          waitingSince: history.waitingSince?.get(candidate) ?? 0,
           assignment: { teamA: candidateA, teamB: candidateB },
         };
       })
       .sort(
         (one, other) =>
           one.games - other.games ||
+          one.waitingSince - other.waitingSince ||
           compareArrangements(
             [one.assignment],
             [other.assignment],
@@ -1115,7 +1118,7 @@ export class SessionsService {
             history.opponentCounts,
             ratings,
             { partner: 0, opponent: 0 },
-            null,
+            history.recentGroupKeys ?? null,
             isLevelMode(session.mode) ? levels : undefined
           )
       );

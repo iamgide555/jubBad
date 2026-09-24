@@ -535,6 +535,22 @@ a session — C2 above, and C13 if it ever feeds a running session — must set
 in the archived backlog before touching this, because its reasoning depends on
 the within-session spread staying near one game.
 
+### Engine audit gaps (2026-09-25)
+
+Found by reading `engines/pairing.ts` and its server call sites. The two bugs
+were reproduced and fixed on `fix/engine-gaps-audit`; the rest have no
+real-session evidence yet, so they stay open under the filter in the roadmap
+notes (competitor parity alone does not justify an item).
+
+- [x] G1. Level mode let a court span P- to P+ (band checked against the anchor only) — done
+- [x] G2. Auto-substitute ignored wait time and recent groups — done
+- [ ] G3. Reshuffle alternates between the same two splits (`12|34 → 14|23 → 12|34`); needs the pending pairing to remember shown splits (schema/API change). Reproduced.
+- [ ] G4. Balanced mode compares team *averages*, so B+BG vs P+P scores as balanced. Consider a within-team spread term. Needs session evidence.
+- [ ] G5. History counts are all-time raw totals; frequent attenders accumulate partner history from attendance alone, and floor normalisation is a no-op for ranking. Consider per-attendance normalisation or a window; measure in `engines/variety-sim.ts` first.
+- [ ] G6. Level mode has no cap on the games-played gap an in-band player can gain over an out-of-band one. Add only if a session shows a gap of 2+.
+- [ ] G7. In mature groups partner totals rarely tie, so the opponent term almost never decides in variety mode. Measure first; speculative.
+- [ ] G8. A proposal plans all idle courts and commits one; the committed court may not hold the most-deserving players if the other idle court stays empty. Low impact, no action planned.
+
 ---
 
 ## Sources

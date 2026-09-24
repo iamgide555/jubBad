@@ -233,12 +233,16 @@ ten sessions that left some pairs together three times as often as others —
 which is exactly what players report as "I always play with the same person".
 Counting keeps the spread to about one game.
 
-**Counts are measured against the group's floor, not from zero.** A group where
-everyone has partnered everyone forty times is perfectly varied and scores the
-same as one on its first night. Without that normalisation the scores grow
-without bound, and every other number here — the balance weight, and the
-reshuffle guard when it was still a penalty — quietly stops meaning what it was
-set to mean.
+**Counts are measured against the group's floor, not from zero.** Scores are
+the excess over the least any pair among tonight's players has partnered (and
+likewise faced each other), so the numbers stay small as a group's history
+grows. Be clear about what that does: every arrangement contains the same
+number of partner and opponent pairs, so subtracting one constant shifts every
+candidate equally and never changes which one wins. It keeps the *diagnostic*
+score and the balanced-mode trade (one repeat partnership ≈ five rating points)
+readable; it does not steer anything. The raw counts are all-time totals, so
+two regulars who attend more often than the rest accumulate partner history
+from attendance alone — open, see the gaps list in the roadmap doc.
 
 **Repeat-partner avoidance is the primary goal; opponent balancing is a
 secondary soft signal.** In variety mode the two are compared
@@ -313,8 +317,9 @@ auto-pair suggestions were dropped from `completeCourt` along with that
 choice; `level` mode otherwise spreads partners and opponents exactly like
 `variety`. With it selected, who plays is biased toward clustering with
 players close to their own level, court by court from an anchor (the front
-of the queue), so the split search downstream actually has same-level
-groups to work with — `bandOrderedByCourt` in `engines/pairing.ts`. This can
+of the queue; a court's players must stay within one level of *each other*,
+not just of the anchor — P- and P+ never share a court around a P anchor),
+so the split search downstream actually has same-level groups to work with — `bandOrderedByCourt` in `engines/pairing.ts`. This can
 pull a player ahead of, or behind, where plain games-then-wait order would
 place them; the only guarantee kept is that the single most-deserving
 remaining player is always an anchor, so a rare level waits at most until it

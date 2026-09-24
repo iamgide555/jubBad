@@ -106,6 +106,9 @@
                   {{ row.name }}
                   <span class="chevron" [class.open]="expandedPlayerId() === row.playerId" aria-hidden="true">▾</span>
                 </button>
+                @if (row.doubles) {
+                  <span class="muted partner-variety" i18n="@@summary.distinctPartners">คู่ไม่ซ้ำ {{ row.distinctPartners }} คน</span>
+                }
               </td>
               <td>{{ row.played }}</td>
               <td>{{ row.won }}</td>

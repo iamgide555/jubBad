@@ -67,6 +67,13 @@ th:not(:first-child):not(.profile-cell):not(.rate-cell) {
   }
 }
 
+/* Sits under the tappable name, not inside it — the row-toggle button keeps
+   its own min-height tap target regardless of this extra line. */
+.partner-variety {
+  display: block;
+  font-size: var(--text-xs);
+}
+
 .chevron {
   display: inline-block;
   transition: transform 150ms ease-out;

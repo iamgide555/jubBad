@@ -60,6 +60,10 @@
       </div>
     </div>
 
+    @if (p.partnersLast30Days.distinct > 0) {
+      <p class="muted partner-variety" i18n="@@profile.partnersLast30Days">30 วันนี้ได้เล่นคู่กับ {{ p.partnersLast30Days.distinct }} จาก {{ p.partnersLast30Days.groupSize }} คนในก๊วน</p>
+    }
+
     @if (p.bestPartner; as partner) {
       <hr class="rule" />
       @if (partner.provisional) {

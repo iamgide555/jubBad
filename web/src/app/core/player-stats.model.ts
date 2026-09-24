@@ -38,4 +38,6 @@ export interface PlayerProfile {
   doubles: FormatRecord | null;
   bestPartner: BestPartnerStat | null;
   mostFacedOpponent: PartnerStat | null;
+  /** groupSize = other group players with a match in the last 30 days. */
+  partnersLast30Days: { distinct: number; groupSize: number };
 }

@@ -2354,6 +2354,7 @@ export class SessionsService {
     const lost = new Map<string, number>();
     const totalSeconds = new Map<string, number>();
     const matches = new Map<string, SessionMatch[]>();
+    const partnerIds = new Map<string, Set<string>>();
     // Same played/won/lost tallies, but split by format (team size 1 =
     // singles, 2 = doubles) so a mixed session can report each separately.
     const byFormat = new Map<string, Record<'singles' | 'doubles', { played: number; won: number; lost: number }>>();
@@ -2400,6 +2401,10 @@ export class SessionsService {
           // so this already generalizes correctly — the old `?? id` fallback
           // is what silently made a singles player their own partner instead.
           const partnerId = team.find((otherId) => otherId !== id) ?? null;
+          if (partnerId !== null) {
+            if (!partnerIds.has(id)) partnerIds.set(id, new Set());
+            partnerIds.get(id)!.add(partnerId);
+          }
           const entry: SessionMatch = {
             matchNumber: p.matchNumber,
             courtNumber: p.courtNumber,
@@ -2437,6 +2442,7 @@ export class SessionsService {
             won: won.get(playerId) ?? 0,
             lost: lost.get(playerId) ?? 0,
             totalSeconds: totalSeconds.get(playerId) ?? 0,
+            distinctPartners: partnerIds.get(playerId)?.size ?? 0,
             singles: formats && formats.singles.played > 0 ? formats.singles : null,
             doubles: formats && formats.doubles.played > 0 ? formats.doubles : null,
             matches: matches.get(playerId) ?? [],

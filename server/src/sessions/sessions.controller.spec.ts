@@ -4262,6 +4262,93 @@ describe('SessionsController', () => {
     }
   });
 
+  it('GET /sessions/:code/summary counts distinct doubles partners, repeats once, singles excluded', async () => {
+    const groupCode = randomUUID();
+    const sessionCode = randomUUID();
+    await prisma.group.create({ data: { code: groupCode, name: 'G' } });
+    const players = await Promise.all(
+      ['A', 'B', 'C', 'D', 'E'].map((name) =>
+        prisma.player.create({ data: { groupId: groupCode, name, aliases: '[]' } })
+      )
+    );
+    await prisma.session.create({
+      data: {
+        code: sessionCode,
+        groupId: groupCode,
+        courtCount: 1,
+        rawImportText: '',
+        endedAt: new Date(),
+      },
+    });
+    // A partners B twice (doubles), then A partners C once (doubles).
+    await prisma.pairing.create({
+      data: {
+        sessionId: sessionCode,
+        courtNumber: 1,
+        matchNumber: 1,
+        teamA: JSON.stringify([players[0].id, players[1].id]),
+        teamB: JSON.stringify([players[2].id, players[3].id]),
+        confirmedAt: new Date(),
+        endedAt: new Date(),
+        winner: 'A',
+      },
+    });
+    await prisma.pairing.create({
+      data: {
+        sessionId: sessionCode,
+        courtNumber: 1,
+        matchNumber: 2,
+        teamA: JSON.stringify([players[0].id, players[1].id]),
+        teamB: JSON.stringify([players[2].id, players[3].id]),
+        confirmedAt: new Date(Date.now() + 1000),
+        endedAt: new Date(),
+        winner: 'A',
+      },
+    });
+    await prisma.pairing.create({
+      data: {
+        sessionId: sessionCode,
+        courtNumber: 1,
+        matchNumber: 3,
+        teamA: JSON.stringify([players[0].id, players[2].id]),
+        teamB: JSON.stringify([players[1].id, players[3].id]),
+        confirmedAt: new Date(Date.now() + 2000),
+        endedAt: new Date(),
+        winner: 'A',
+      },
+    });
+    // E only ever plays singles this session, against A.
+    await prisma.pairing.create({
+      data: {
+        sessionId: sessionCode,
+        courtNumber: 1,
+        matchNumber: 4,
+        teamA: JSON.stringify([players[4].id]),
+        teamB: JSON.stringify([players[0].id]),
+        confirmedAt: new Date(Date.now() + 3000),
+        endedAt: new Date(),
+        winner: 'B',
+      },
+    });
+
+    try {
+      const res = await request(server).get(`/sessions/${sessionCode}/summary`).expect(200);
+      const byId = new Map(
+        (res.body.players as { playerId: string }[]).map((r) => [r.playerId, r])
+      );
+
+      // A partnered B (twice) and C (once): 2 distinct partners, not 3.
+      expect(byId.get(players[0].id).distinctPartners).toBe(2);
+      // E never had a doubles partner this session.
+      expect(byId.get(players[4].id).distinctPartners).toBe(0);
+    } finally {
+      await prisma.pairing.deleteMany({ where: { sessionId: sessionCode } });
+      await prisma.player.deleteMany({ where: { groupId: groupCode } });
+      await prisma.session.deleteMany({ where: { code: sessionCode } });
+      await prisma.group.deleteMany({ where: { code: groupCode } });
+    }
+  });
+
   it('GET /sessions/:code/summary 404s for an unknown session', async () => {
     await request(server).get(`/sessions/${randomUUID()}/summary`).expect(404);
   });

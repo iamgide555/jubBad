@@ -47,6 +47,7 @@ function summary(overrides: Partial<Summary> = {}): Summary {
         won: 1,
         lost: 1,
         totalSeconds: 1200,
+        distinctPartners: 0,
         singles: null,
         doubles: null,
         matches: [
@@ -148,6 +149,7 @@ describe('SessionSummary', () => {
             won: 1,
             lost: 0,
             totalSeconds: 900,
+            distinctPartners: 0,
             singles: null,
             doubles: null,
             matches: [
@@ -185,6 +187,7 @@ describe('SessionSummary', () => {
             won: 2,
             lost: 1,
             totalSeconds: 5400,
+            distinctPartners: 2,
             singles: { played: 1, won: 0, lost: 1 },
             doubles: { played: 2, won: 2, lost: 0 },
             matches: [],
@@ -208,12 +211,44 @@ describe('SessionSummary', () => {
     expect(cells.filter((c) => c === '–').length).toBeGreaterThanOrEqual(2);
   });
 
+  it('shows the distinct-partner count under the name, without tapping the row', async () => {
+    await load(
+      summary({
+        players: [
+          {
+            playerId: 'p1',
+            name: 'ตั้ม',
+            played: 3,
+            won: 2,
+            lost: 1,
+            totalSeconds: 5400,
+            distinctPartners: 3,
+            singles: null,
+            doubles: { played: 3, won: 2, lost: 1 },
+            matches: [],
+          },
+        ],
+      })
+    );
+    const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
+    expect(text).toContain('3');
+    const cell = (fixture.nativeElement as HTMLElement).querySelector('.partner-variety');
+    expect(cell).not.toBeNull();
+  });
+
+  it('hides the distinct-partner count for a player who only played singles this session', async () => {
+    await load(summary());
+    // Default fixture player has doubles: null (never played doubles).
+    const cell = (fixture.nativeElement as HTMLElement).querySelector('.partner-variety');
+    expect(cell).toBeNull();
+  });
+
   it('sorts by the tapped column instead of the server\'s played-descending order', async () => {
     await load(
       summary({
         players: [
-          { playerId: 'p1', name: 'ตั้ม', played: 3, won: 1, lost: 2, totalSeconds: 100, singles: null, doubles: null, matches: [] },
-          { playerId: 'p2', name: 'เบส', played: 2, won: 2, lost: 0, totalSeconds: 500, singles: null, doubles: null, matches: [] },
+          { playerId: 'p1', name: 'ตั้ม', played: 3, won: 1, lost: 2, totalSeconds: 100, distinctPartners: 0, singles: null, doubles: null, matches: [] },
+          { playerId: 'p2', name: 'เบส', played: 2, won: 2, lost: 0, totalSeconds: 500, distinctPartners: 0, singles: null, doubles: null, matches: [] },
         ],
       })
     );
@@ -296,6 +331,7 @@ describe('SessionSummary', () => {
             won: 0,
             lost: 0,
             totalSeconds: 600,
+            distinctPartners: 0,
             singles: null,
             doubles: null,
             matches: [

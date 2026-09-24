@@ -94,7 +94,7 @@ C3 is the next P0 roadmap item (`docs/2026-09-21-feature-review-and-roadmap.md`)
 
 Rules implemented here (from spec): games = confirmed+finished matches (caller filters). Participants = anyone with ≥1 game ∪ `addedIds`, sorted by id. Billed = participants − `removedIds`. **Cost parts** (fair court, fair shuttles, buffet ลูกแยก shuttles) are split over participants and a removed person's cost share is redistributed equally over billed people (cost stays covered). **Price parts** (per-game, entry, buffet price) are not redistributed (host absorbs). byGames court = weighted by games; byGames shuttle = each match gets `total ÷ matches`, split among that match's players (so singles players carry half a match each — same rate as doubles per D3). byGames with zero games/matches falls back to equal. Per-game cap applies to the per-game share only. Rounding = ceil to the step, applied to the final amount; overrides are final and not rounded. Cost = court fee + shuttles when all three inputs are non-null, else null (margin hidden). In this task walk-in fields are always 0/false; Task 2 adds them.
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 ```ts
 // engines/bill.test.ts
@@ -312,12 +312,12 @@ test('bad input throws', () => {
 });
 ```
 
-- [ ] **Step 2: Run to verify failure**
+- [x] **Step 2: Run to verify failure**
 
 Run: `node --experimental-strip-types --test engines/bill.test.ts`
 Expected: FAIL — `Cannot find module ... engines/bill.ts`.
 
-- [ ] **Step 3: Implement `engines/bill.ts`**
+- [x] **Step 3: Implement `engines/bill.ts`**
 
 ```ts
 /**
@@ -609,12 +609,12 @@ export function computeBill(input: BillInput): BillResult {
 }
 ```
 
-- [ ] **Step 4: Run to verify pass**
+- [x] **Step 4: Run to verify pass**
 
 Run: `node --experimental-strip-types --test engines/bill.test.ts`
 Expected: all PASS. Then `npm run test:engines` (root) — all engine suites PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add engines/bill.ts engines/bill.test.ts docs/superpowers/plans/2026-09-24-c3-per-person-bill.md
@@ -635,7 +635,7 @@ git commit -m "feat(engines): per-person bill for three charging models (C3)"
 
 Rule: `eligible` = billed ∧ not overridden. `pool = fee × |eligible ∩ walkIns|`. Discount = pool split equally over eligible (largest remainder, id order), capped per person at `base + hostFee (+ fee if walk-in)` so nobody goes negative; capped surplus re-splits over the rest (water-fill). `amount = ceil(base + hostFee − discount + fee_if_walkIn)`. Walk-in ids not billed are ignored.
 
-- [ ] **Step 1: Append failing tests**
+- [x] **Step 1: Append failing tests**
 
 ```ts
 // engines/bill.test.ts (append)
@@ -747,12 +747,12 @@ test('distributeCapped: entries that hit their cap pass the remainder on', () =>
 });
 ```
 
-- [ ] **Step 2: Run to verify failure**
+- [x] **Step 2: Run to verify failure**
 
 Run: `node --experimental-strip-types --test engines/bill.test.ts`
 Expected: FAIL — `distributeCapped` not exported; owner example gives 5000s.
 
-- [ ] **Step 3: Implement**
+- [x] **Step 3: Implement**
 
 Add to `engines/bill.ts`:
 
@@ -851,12 +851,12 @@ Concretely the row block becomes:
 
 (`removed` people have `court`/`shuttle` 0 already from `costShares`; they are not in `eligible`, so discount is 0.)
 
-- [ ] **Step 4: Run to verify pass**
+- [x] **Step 4: Run to verify pass**
 
 Run: `node --experimental-strip-types --test engines/bill.test.ts` then `npm run test:engines`
 Expected: all PASS (Task 1 tests still pass — walk-in fee is 0 in their `input()` helper).
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add engines/bill.ts engines/bill.test.ts
@@ -878,7 +878,7 @@ git commit -m "feat(engines): walk-in surcharge redistributed as group discount 
 **Interfaces:**
 - Produces: `SessionRoster.walkIn: boolean`, `Session.billConfig: string | null` (Prisma client); `SessionsService.setRosterWalkIn(code: string, playerId: string, dto: SetRosterWalkInDto): Promise<{ playerId: string; walkIn: boolean }>`; route `POST /sessions/:code/roster/:playerId/walk-in` → 201.
 
-- [ ] **Step 1: Schema + migration**
+- [x] **Step 1: Schema + migration**
 
 In `schema.prisma`, `Session` (after `shuttlePriceSatang`):
 
@@ -908,7 +908,7 @@ ALTER TABLE "SessionRoster" ADD COLUMN "walkIn" BOOLEAN NOT NULL DEFAULT false;
 
 Run (from `server/`): `npx prisma generate` (add `--config prisma7.config.ts` if the schema isn't found). Then `npx prisma migrate deploy` against dev.db.
 
-- [ ] **Step 2: Write failing API tests**
+- [x] **Step 2: Write failing API tests**
 
 Create `server/src/sessions/bill.controller.spec.ts` with the app bootstrap copied from `sessions.controller.spec.ts:10-44` (same imports, admin-caller middleware, ValidationPipe, single `listen(0)`), plus this fixture and block:
 
@@ -988,7 +988,7 @@ Create `server/src/sessions/bill.controller.spec.ts` with the app bootstrap copi
 
 Run: `npx vitest run src/sessions/bill.controller.spec.ts` → FAIL (route 404 / `walkIn` false).
 
-- [ ] **Step 3: Implement**
+- [x] **Step 3: Implement**
 
 `dto/set-roster-walk-in.dto.ts`:
 
@@ -1042,11 +1042,11 @@ Controller (after the `active` route):
 
 with `import { SetRosterWalkInDto } from './dto/set-roster-walk-in.dto.js';` in both files.
 
-- [ ] **Step 4: Run tests**
+- [x] **Step 4: Run tests**
 
 Run (from `server/`): `npx vitest run src/sessions/bill.controller.spec.ts src/auth/auth.boundary.spec.ts` → PASS (boundary spec auto-covers the new route: 401 anon, 404 other host). Then `npm test` → PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add server/prisma server/src/sessions
@@ -1067,7 +1067,7 @@ git commit -m "feat(server): walk-in mark on roster, auto-set for mid-session ad
 
 Tolerant like `court-formats.ts`: malformed JSON or non-object → `null` (caller falls back); each field that is missing or invalid → default for that field. Never throws — a bad stored value must not break GET bill.
 
-- [ ] **Step 1: Write failing tests**
+- [x] **Step 1: Write failing tests**
 
 ```ts
 // server/src/sessions/bill-config.spec.ts
@@ -1113,7 +1113,7 @@ describe('bill-config', () => {
 
 Run: `npx vitest run src/sessions/bill-config.spec.ts` → FAIL (module missing).
 
-- [ ] **Step 2: Implement**
+- [x] **Step 2: Implement**
 
 ```ts
 // server/src/sessions/bill-config.ts
@@ -1201,9 +1201,9 @@ export function sanitizeForRoster(c: BillConfig, rosterIds: string[]): BillConfi
 }
 ```
 
-- [ ] **Step 3: Run tests** — `npx vitest run src/sessions/bill-config.spec.ts` → PASS.
+- [x] **Step 3: Run tests** — `npx vitest run src/sessions/bill-config.spec.ts` → PASS.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add server/src/sessions/bill-config.ts server/src/sessions/bill-config.spec.ts
@@ -1236,7 +1236,7 @@ export interface BillResponse {
 
 `POST /bill-config` body = full `BillConfig` (full replace), returns the recomputed `BillResponse` (201). 400 `BILL_PLAYER_NOT_ON_ROSTER` if any added/removed/override id isn't on the roster; 400 `BILL_CONFIG_INVALID` for duplicate override ids.
 
-- [ ] **Step 1: Append failing tests**
+- [x] **Step 1: Append failing tests**
 
 ```ts
   describe('bill', () => {
@@ -1342,7 +1342,7 @@ export interface BillResponse {
 
 Run: `npx vitest run src/sessions/bill.controller.spec.ts` → FAIL (routes 404).
 
-- [ ] **Step 2: DTO**
+- [x] **Step 2: DTO**
 
 ```ts
 // server/src/sessions/dto/set-bill-config.dto.ts
@@ -1381,7 +1381,7 @@ export class SetBillConfigDto {
 }
 ```
 
-- [ ] **Step 3: Service + controller + module**
+- [x] **Step 3: Service + controller + module**
 
 ```ts
 // server/src/sessions/bill.service.ts
@@ -1511,11 +1511,11 @@ export class BillController {
 
 `sessions.module.ts`: `controllers: [SessionsController, BillController]`, `providers: [SessionsService, BillService]`.
 
-- [ ] **Step 4: Run tests**
+- [x] **Step 4: Run tests**
 
 Run (from `server/`): `npx vitest run src/sessions/bill.controller.spec.ts src/auth/auth.boundary.spec.ts`, then `npm test` and `npm run lint` → all PASS / clean.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add server/src/sessions
@@ -1544,7 +1544,7 @@ Template (always Thai; spec §C3). Lines, in order, each only when relevant:
 7. one line per billed row, in `players` order: `{name}  {games} เกม  {amount}฿` + ` (walk-in)` if row.walkIn
 8. `รวม {collected}฿`
 
-- [ ] **Step 1: Write failing tests**
+- [x] **Step 1: Write failing tests**
 
 ```ts
 // web/src/app/core/bill-text.spec.ts
@@ -1631,7 +1631,7 @@ describe('buildBillText', () => {
 
 Run (from `web/`): `npx ng test --include src/app/core/bill-text.spec.ts` (or `npm test`) → FAIL.
 
-- [ ] **Step 2: Implement**
+- [x] **Step 2: Implement**
 
 `bill.model.ts` — copy the `BillConfig`, `BillOverride`, `BillRow`, `BillResult` interfaces and the `BillModel`/`SplitMode`/`RoundingStep`/`BillWarning` unions verbatim from `engines/bill.ts` (types only, no constants), plus:
 
@@ -1707,9 +1707,9 @@ export function buildBillText(bill: BillResponse): string {
 }
 ```
 
-- [ ] **Step 3: Run tests** → PASS.
+- [x] **Step 3: Run tests** → PASS.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add web/src/app/core/bill.model.ts web/src/app/core/bill-text.ts web/src/app/core/bill-text.spec.ts
@@ -1732,7 +1732,7 @@ git commit -m "feat(web): bill types and Thai LINE text builder (C3)"
 
 Behaviour: load via GET. Every committed edit (`(change)` on text inputs = blur/enter; click on tabs/toggles/chips) POSTs `{ ...config, ...patch }` and replaces state with the returned `BillResponse`. Walk-in chip POSTs the roster route then re-GETs. Copy uses `buildBillText`; on clipboard failure show readonly textarea fallback (same pattern as `session-dashboard.ts:418-428`). Tabs use the accessible `.scope-toggle` form (`role="group"`, `aria-pressed`, as in `court-panel.html:6-11`). Chips use global `.chip` / `.selected`.
 
-- [ ] **Step 1: Write failing component + route tests**
+- [x] **Step 1: Write failing component + route tests**
 
 ```ts
 // web/src/app/pages/session-bill/session-bill.spec.ts
@@ -1856,7 +1856,7 @@ Add to `app.routes.spec.ts` (signed-in block, and a signed-out redirect case mir
 
 with `import { SessionBill } from './pages/session-bill/session-bill';`. Run `npm test` (web) → FAIL.
 
-- [ ] **Step 2: Route + summary link**
+- [x] **Step 2: Route + summary link**
 
 `app.routes.ts`, directly above `'s/:sessionCode'`:
 
@@ -1878,7 +1878,7 @@ with `import { SessionBill } from './pages/session-bill/session-bill';`. Run `np
 
 (`RouterLink` is already imported by `SessionSummary`; if the field is named differently than `sessionCode`, use that field.)
 
-- [ ] **Step 3: Component**
+- [x] **Step 3: Component**
 
 ```ts
 // web/src/app/pages/session-bill/session-bill.ts
@@ -2168,15 +2168,15 @@ export class SessionBill {
 
 `session-bill.css`: rows as a grid, every button/input `min-height: 44px`; reuse tokens (`--space-*`, `--ink-soft`, `--text-xs`) as in `session-dashboard.css`; `.margin` in `--ink-soft`. No new colors.
 
-- [ ] **Step 4: i18n**
+- [x] **Step 4: i18n**
 
 Run (from `web/`): `npx ng extract-i18n --output-path src/locale` to refresh `messages.xlf`, then add English `<target>`s for every new `bill.*` id and `summary.billLink` in `messages.en.xlf` (e.g. `คิดเงิน` → `Bill`, `หารตามจริง` → `Actual cost`, `คิดต่อเกม` → `Per game`, `บุฟเฟ่ต์` → `Buffet`, `ค่า walk-in ต่อคน (บาท, หารคืนทุกคน)` → `Walk-in fee per person (฿, shared back to everyone)`, `ปัดขึ้น` → `Round up`, `ไม่คิด` → `Exclude`, `คัดลอกข้อความ` → `Copy text`). `npm run build` must succeed with no missing-translation warnings for the new ids.
 
-- [ ] **Step 5: Run tests**
+- [x] **Step 5: Run tests**
 
 Run (from `web/`): `npm test` → PASS; `npm run build` → OK.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add web/src
@@ -2189,12 +2189,12 @@ git commit -m "feat(web): host bill page with walk-in toggle and LINE copy (C3)"
 
 **Files:** none (verification only; fix-forward commits if something breaks).
 
-- [ ] **Step 1:** Root `npm test` → engines + server + web all PASS. `npm --prefix server run lint` clean.
-- [ ] **Step 2:** Start server (`cd server && npm run start:dev`) and web (`cd web && npm start`). Sign in as a host, create a session from a pasted LINE roster, confirm + finish two matches, add a walk-in via "+ เพิ่มคน".
-- [ ] **Step 3:** Open summary → "คิดเงิน". Check: walk-in chip on for the added player; enter court fee 200 with four billed players and walk-in fee 20 → 45/45/45/65; switch to คิดต่อเกม and บุฟเฟ่ต์, totals change sensibly; toggle a LINE player walk-in on → fee applied, total unchanged; remove + restore a player; override one amount; margin line appears once shuttle count/price + court fee are set.
-- [ ] **Step 4:** Copy → paste into a text editor; matches the template (Thai, `(walk-in)` suffix, `รวม`).
-- [ ] **Step 5:** End the session; reopen bill; edit still saves. Sign in as a different host → `/s/<code>/bill` API returns 404. Switch UI to `/en/` → labels English, copied text still Thai.
-- [ ] **Step 6:** Create a second session in the same group → bill opens with "ใช้ค่าจากก๊วนครั้งก่อน" and the previous rates, no added/removed/overrides.
+- [x] **Step 1:** Root `npm test` → engines + server + web all PASS. `npm --prefix server run lint` clean.
+- [x] **Step 2:** Start server (`cd server && npm run start:dev`) and web (`cd web && npm start`). Sign in as a host, create a session from a pasted LINE roster, confirm + finish two matches, add a walk-in via "+ เพิ่มคน".
+- [x] **Step 3:** Open summary → "คิดเงิน". Check: walk-in chip on for the added player; enter court fee 200 with four billed players and walk-in fee 20 → 45/45/45/65; switch to คิดต่อเกม and บุฟเฟ่ต์, totals change sensibly; toggle a LINE player walk-in on → fee applied, total unchanged; remove + restore a player; override one amount; margin line appears once shuttle count/price + court fee are set.
+- [x] **Step 4:** Copy → paste into a text editor; matches the template (Thai, `(walk-in)` suffix, `รวม`).
+- [x] **Step 5:** End the session; reopen bill; edit still saves. Sign in as a different host → `/s/<code>/bill` API returns 404. Switch UI to `/en/` → labels English, copied text still Thai.
+- [x] **Step 6:** Create a second session in the same group → bill opens with "ใช้ค่าจากก๊วนครั้งก่อน" and the previous rates, no added/removed/overrides.
 
 ---
 
@@ -2205,8 +2205,8 @@ git commit -m "feat(web): host bill page with walk-in toggle and LINE copy (C3)"
 - Modify: `docs/superpowers/specs/2026-09-22-roadmap-c-series-design.md` (status line: C3 built; §C3 API → `POST /bill-config`, `POST /roster/:playerId/walk-in`; `computeBill(input: BillInput)`; overrides as array; dashboard walk-in badge cut with the reason; prefill note under C10: "billConfig slice shipped with C3")
 - Modify: `docs/overview.md` (end-session paragraph: drop "Nothing is calculated from them yet"; add a short "Bill (C3)" section: inputs-only storage + recompute, three models, cost parts redistribute removed shares / price parts don't, walk-in fee redistributed not host profit, always-Thai copy text, owner-only and editable after end)
 
-- [ ] **Step 1:** Make the edits above. Do **not** archive the spec (other C-items still open).
-- [ ] **Step 2:** Commit
+- [x] **Step 1:** Make the edits above. Do **not** archive the spec (other C-items still open).
+- [x] **Step 2:** Commit
 
 ```bash
 git add docs

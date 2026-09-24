@@ -261,7 +261,12 @@ doc's C3 section for the mechanics.
 
 ### P1
 
-#### - [ ] C4. Players check the queue on their own phone
+#### - [x] C4. Players check the queue on their own phone
+
+**Deferred 2026-09-24 (owner):** not seen at real sessions — players ask the
+host or check the host's iPad, they don't reach for their own phone mid-game.
+`/display` already covers the "look at a screen" need. Revisit only if this
+changes (e.g. a hall with no shared screen at all).
 
 Design: `docs/superpowers/specs/2026-09-22-roadmap-c-series-design.md`, section C4.
 
@@ -276,7 +281,12 @@ Racket Social and ShuttleFlow have shared session links or QR codes.
 
 Effort S–M.
 
-#### - [ ] C5. Fixed pairs (คู่ประจำ) and "never pair these two"
+#### - [x] C5. Fixed pairs (คู่ประจำ) and "never pair these two"
+
+**Deferred 2026-09-24 (owner):** rarely needed — the only real case is the
+owner's own partner joining, and custom mode plus manual seat/swap already
+handle that by hand without friction. Revisit if this starts happening most
+sessions rather than occasionally.
 
 Design: `docs/superpowers/specs/2026-09-22-roadmap-c-series-design.md`, section C5.
 
@@ -289,7 +299,11 @@ search explores, and must not make a round unsolvable.
 
 Effort M.
 
-#### - [ ] C6. Public group leaderboard with seasons
+#### - [x] C6. Public group leaderboard with seasons
+
+**Deferred 2026-09-24 (owner):** the host-only roster page and the session
+summary already cover what players want to see; a separate public seasonal
+leaderboard isn't pulling its weight yet.
 
 Design: `docs/superpowers/specs/2026-09-22-roadmap-c-series-design.md`, section C6.
 
@@ -304,7 +318,12 @@ feature.
 
 Effort S.
 
-#### - [ ] C7. Co-host and faster sync
+#### - [x] C7. Co-host and faster sync
+
+**Deferred 2026-09-24 (owner):** in practice the host's device stays
+courtside and logged in the whole session, so it's already a de facto shared
+co-host device — anyone standing there can tap confirm/finish. `/display`
+already covers read-only viewing for everyone else.
 
 Design: `docs/superpowers/specs/2026-09-22-roadmap-c-series-design.md`, section C7.
 
@@ -369,7 +388,11 @@ on data the summary already loads.
 
 ### P2
 
-#### - [ ] C9. Voice call-out
+#### - [x] C9. Voice call-out
+
+**Deferred 2026-09-24 (owner):** the hall hosts multiple ก๊วน at once — a
+voice call-out from one host's device/iPad would interrupt other groups
+sharing the same space.
 
 Design: `docs/superpowers/specs/2026-09-22-roadmap-c-series-design.md`, section C9.
 
@@ -379,7 +402,11 @@ T-BAD has it. It is cheap and players notice it.
 
 Effort S.
 
-#### - [ ] C10. Saved group defaults
+#### - [x] C10. Saved group defaults
+
+**Deferred 2026-09-24 (owner):** solves nothing in practice — venue, date and
+roster all come from the pasted LINE message each time anyway, so there's no
+repeated manual entry to save.
 
 Design: `docs/superpowers/specs/2026-09-22-roadmap-c-series-design.md`, section C10.
 
@@ -388,7 +415,11 @@ for each new session. Needed by C3.
 
 Effort S.
 
-#### - [ ] C11. Warning when roster = 4 × courts
+#### - [x] C11. Warning when roster = 4 × courts
+
+**Deferred 2026-09-24 (owner):** host and players already know from
+experience that a full-court roster means they'll face the same people
+again; a dashboard banner doesn't tell anyone anything new.
 
 Design: `docs/superpowers/specs/2026-09-22-roadmap-c-series-design.md`, section C11.
 
@@ -397,7 +428,12 @@ resting, so the same four will keep sharing a court.
 
 Effort S.
 
-#### - [ ] C12. Survive bad Wi-Fi in the hall
+#### - [x] C12. Survive bad Wi-Fi in the hall
+
+**Deferred 2026-09-24 (owner):** the premise didn't hold — the owner never
+uses hall Wi-Fi, always personal 5G, and that connection has never actually
+dropped mid-session in the hall. Revisit only against a real, observed
+network failure, not the symptom category alone.
 
 Design: `docs/superpowers/specs/2026-09-22-roadmap-c-series-design.md`, section C12.
 

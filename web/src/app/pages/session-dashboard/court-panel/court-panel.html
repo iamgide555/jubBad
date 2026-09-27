@@ -21,6 +21,24 @@
         i18n="@@court.formatSingles"
       >เดี่ยว</button>
     </div>
+    @if (isCustom()) {
+      <div class="scope-toggle court-mode-toggle" role="group" [attr.aria-label]="modeGroupLabel">
+        @for (m of courtModes; track m) {
+          <button
+            type="button"
+            [class.active]="c.mode === m"
+            [disabled]="busy() || ended()"
+            [attr.aria-pressed]="c.mode === m"
+            (click)="setCourtMode(m)"
+          >{{
+            m === 'variety' ? modeLabelVariety
+              : m === 'balanced' ? modeLabelBalanced
+              : m === 'level' ? modeLabelLevel
+              : modeLabelCustom
+          }}</button>
+        }
+      </div>
+    }
     @if (timerLabel(); as label) {
       <span class="court-timer tabular" [class.overrun]="overrun()" [attr.aria-label]="timerAriaLabel()">{{
         label

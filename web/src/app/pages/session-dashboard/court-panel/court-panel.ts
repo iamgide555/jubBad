@@ -6,7 +6,7 @@ import { elapsedSeconds, formatClock } from '../../../core/game-duration';
 import { LiveSessionService } from '../../../core/live-session.service';
 import { resolvePlayerNames } from '../../../core/player-names';
 import { SwapSelectionService, type SwapPick } from '../../../core/swap-selection.service';
-import type { CourtFormat, CourtState, Seat } from '../../../core/live-session.model';
+import type { CourtFormat, CourtMode, CourtState, Seat } from '../../../core/live-session.model';
 import type { Player } from '../../../../../../engines/fuzzy-match.ts';
 import { Icon } from '../../../shared/icon/icon';
 
@@ -148,6 +148,30 @@ export class CourtPanel {
 
   /** Two 2-glyph segments (คู่/เดี่ยว) carry no meaning alone without this group label. */
   protected readonly formatGroupLabel = $localize`:@@court.formatLabel:รูปแบบการเล่น`;
+
+  /** The 4-segment mode toggle only ever shows in a custom session — see
+   *  effectiveCourtMode server-side. Unlike the format toggle, settable in
+   *  any court state. */
+  protected readonly modeGroupLabel = $localize`:@@court.modeLabel:โหมดคอร์ทนี้`;
+
+  protected readonly courtModes: readonly CourtMode[] = ['variety', 'balanced', 'level', 'custom'];
+
+  protected readonly modeLabelVariety = $localize`:@@court.modeVariety:สลับคู่`;
+  protected readonly modeLabelBalanced = $localize`:@@court.modeBalanced:สูสี`;
+  protected readonly modeLabelLevel = $localize`:@@court.modeLevel:ระดับ`;
+  protected readonly modeLabelCustom = $localize`:@@court.modeCustom:เลือกเอง`;
+
+  protected async setCourtMode(mode: CourtMode): Promise<void> {
+    if (this.busy() || this.ended() || this.court().mode === mode) return;
+    this.busy.set(true);
+    this.actionError.set(null);
+    try {
+      const result = await this.liveSession.setCourtMode(this.courtNumber(), mode);
+      this.actionError.set(result.error ?? null);
+    } finally {
+      this.busy.set(false);
+    }
+  }
 
   protected readonly ended = computed(() => {
     if (this.liveSession.sessionResource.error()) return false;

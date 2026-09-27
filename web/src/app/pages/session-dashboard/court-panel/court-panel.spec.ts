@@ -891,6 +891,47 @@ describe('CourtPanel with too few players', () => {
     }
   });
 
+  // --- Per-court sticky mode toggle ---------------------------------------
+
+  function modeToggleButtons(fixture: ComponentFixture<CourtPanel>): HTMLButtonElement[] {
+    return [...(fixture.nativeElement as HTMLElement).querySelectorAll('.court-mode-toggle button')] as HTMLButtonElement[];
+  }
+
+  it('shows the per-court mode toggle in a custom session', async () => {
+    const { fixture } = await createPanel(
+      baseSession({ mode: 'custom', courts: [{ status: 'idle', format: 'doubles', mode: 'level' }] })
+    );
+    fixture.detectChanges();
+    expect(modeToggleButtons(fixture)).toHaveLength(4);
+  });
+
+  it('hides the per-court mode toggle outside a custom session', async () => {
+    const { fixture } = await createPanel(
+      baseSession({ mode: 'level', courts: [{ status: 'idle', format: 'doubles', mode: 'level' }] })
+    );
+    fixture.detectChanges();
+    expect(modeToggleButtons(fixture)).toHaveLength(0);
+  });
+
+  it('calls setCourtMode when a mode segment is tapped', async () => {
+    const { fixture, httpMock } = await createPanel(
+      baseSession({ mode: 'custom', courts: [{ status: 'idle', format: 'doubles', mode: 'custom' }] })
+    );
+    fixture.detectChanges();
+    const levelBtn = modeToggleButtons(fixture).find((b) => b.textContent?.trim() === 'ระดับ')!;
+    levelBtn.click();
+
+    const req = httpMock.expectOne(`${B}/sessions/sess1/courts/1/mode`);
+    expect(req.request.body).toEqual({ mode: 'level' });
+    req.flush({ code: 'sess1', courtNumber: 1, mode: 'level' });
+    await new Promise((r) => setTimeout(r, 0));
+    TestBed.tick();
+    httpMock
+      .expectOne(`${B}/sessions/sess1`)
+      .flush(baseSession({ mode: 'custom', courts: [{ status: 'idle', format: 'doubles', mode: 'level' }] }));
+    await fixture.whenStable();
+  });
+
   it('disables the toggle once the session has ended', async () => {
     const { fixture } = await createPanel(baseSession({ endedAt: '2026-09-08T20:00:00.000Z' }));
     fixture.detectChanges();

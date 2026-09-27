@@ -1148,8 +1148,9 @@ export class SessionsService {
       where: { code: pairing.sessionId },
     });
     if (session.endedAt !== null) throw this.conflict('SESSION_ENDED');
+    const courtMode = effectiveCourtMode(session, pairing.courtNumber);
     const history = await this.loadHistory(session.groupId, pairing.sessionId);
-    const ratings = await this.ratingsForMode(session);
+    const ratings = courtMode === 'balanced' ? await this.loadRatings(session.groupId) : undefined;
     const levels = await loadPlayerLevels(this.prisma, session.groupId);
 
     const swapIn = (candidate: string): [string[], string[]] => {
@@ -1173,8 +1174,9 @@ export class SessionsService {
       })
       .sort(
         (one, other) =>
-          one.games - other.games ||
-          one.waitingSince - other.waitingSince ||
+          (courtMode === 'level'
+            ? (one.waitingSince ?? 0) - (other.waitingSince ?? 0)
+            : one.games - other.games || one.waitingSince - other.waitingSince) ||
           compareArrangements(
             [one.assignment],
             [other.assignment],
@@ -1183,7 +1185,7 @@ export class SessionsService {
             ratings,
             { partner: 0, opponent: 0 },
             history.recentGroupKeys ?? null,
-            isLevelMode(session.mode) ? levels : undefined
+            courtMode === 'level' ? levels : undefined
           )
       );
 

@@ -4593,6 +4593,76 @@ describe('SessionsController', () => {
     }
   });
 
+  it('auto-picks a substitute by wait alone on a level-mode court', async () => {
+    const groupCode = randomUUID();
+    const sessionCode = randomUUID();
+    await prisma.group.create({ data: { code: groupCode, name: 'G' } });
+    const players = await Promise.all(
+      ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'].map((name) =>
+        prisma.player.create({ data: { groupId: groupCode, name, aliases: '[]' } })
+      )
+    );
+    const [a, b, c, d, e, f, g, h] = players;
+    const now = Date.now();
+    await prisma.session.create({
+      data: {
+        code: sessionCode,
+        groupId: groupCode,
+        courtCount: 2,
+        rawImportText: '',
+        mode: 'level',
+        createdAt: new Date(now - 60 * 60_000),
+      },
+    });
+    for (const p of [a, b, c, d, e, f]) {
+      await prisma.sessionRoster.create({ data: { sessionId: sessionCode, playerId: p.id } });
+    }
+    // f was rested and just brought back: short wait, 0 games.
+    await prisma.sessionRoster.update({
+      where: { sessionId_playerId: { sessionId: sessionCode, playerId: f.id } },
+      data: { activatedAt: new Date(now - 60_000) },
+    });
+    // e already played one game on court 2, finished long ago: 1 game, but a
+    // far longer wait than f.
+    await prisma.pairing.create({
+      data: {
+        sessionId: sessionCode,
+        courtNumber: 2,
+        matchNumber: 1,
+        teamA: JSON.stringify([e.id, g.id]),
+        teamB: JSON.stringify([h.id, b.id]),
+        confirmedAt: new Date(now - 55 * 60_000),
+        endedAt: new Date(now - 50 * 60_000),
+      },
+    });
+    const pairing = await prisma.pairing.create({
+      data: {
+        sessionId: sessionCode,
+        courtNumber: 1,
+        matchNumber: 1,
+        teamA: JSON.stringify([a.id, c.id]),
+        teamB: JSON.stringify([d.id, b.id]),
+      },
+    });
+
+    try {
+      const res = await request(server)
+        .post(`/sessions/${sessionCode}/pairings/${pairing.id}/swap`)
+        .send({ playerId: a.id })
+        .expect(201);
+      expect(res.body.ok).toBe(true);
+      // Games-first ordering would pick f (0 games). Wait-only ordering
+      // (level mode) picks e instead: ~50 minutes beats f's ~1 minute.
+      expect(res.body.pairing.teamA).toEqual([e.id, c.id]);
+    } finally {
+      await prisma.pairing.deleteMany({ where: { sessionId: sessionCode } });
+      await prisma.sessionRoster.deleteMany({ where: { sessionId: sessionCode } });
+      await prisma.session.deleteMany({ where: { code: sessionCode } });
+      await prisma.player.deleteMany({ where: { groupId: groupCode } });
+      await prisma.group.deleteMany({ where: { code: groupCode } });
+    }
+  });
+
   it('refuses an auto-pick swap while another seat on the same court is still empty', async () => {
     const groupCode = randomUUID();
     const sessionCode = randomUUID();

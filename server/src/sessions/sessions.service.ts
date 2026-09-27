@@ -21,7 +21,8 @@ import { isValidIsoDate } from '../../../engines/parser.ts';
 import { asLevel, type Level } from '../../../engines/levels.ts';
 import { waitingSinceMap } from '../../../engines/waiting.ts';
 import { PrismaService } from '../prisma/prisma.service.js';
-import { levelWrite, loadPlayerLevels, loadRatingAnchors } from '../player-levels.js';
+import { levelWrite, loadLevelSetAt, loadPlayerLevels, loadRatingAnchors } from '../player-levels.js';
+import { computeCarryEligibility } from './carry-eligibility.js';
 import {
   courtSizeFor,
   formatAt,
@@ -459,6 +460,11 @@ export class SessionsService {
       endedAt: session.endedAt,
       createdAt: session.createdAt,
       mode: session.mode,
+      // 'wait' in a level session, 'games' otherwise — how the waiting list
+      // should be ordered to match what the engine actually does. A custom
+      // session stays 'games' regardless of any individual court's mode: see
+      // docs/superpowers/specs/2026-09-27-level-rework-design.md, section 3.
+      queueBy: isLevelMode(session.mode) ? ('wait' as const) : ('games' as const),
       // Host-editable metadata (see SessionsService.setShuttleDetails), public
       // like the rest of this response — only writing them requires auth.
       shuttleCount: session.shuttleCount,
@@ -592,6 +598,38 @@ export class SessionsService {
     return history;
   }
 
+  /**
+   * Carry-game inputs for a level-mode propose/fill — only ever needed when
+   * at least one court being planned is effectively `level`. Cheap enough
+   * (three small queries) to call unconditionally from those two call sites.
+   */
+  private async loadCarryEligibility(
+    session: { groupId: string; code: string }
+  ): Promise<{ carryEligible: Set<string>; carriedTonight: Set<string> }> {
+    const [roster, levels, levelSetAt, confirmed] = await Promise.all([
+      this.prisma.sessionRoster.findMany({
+        where: { sessionId: session.code, active: true },
+        select: { playerId: true },
+      }),
+      loadPlayerLevels(this.prisma, session.groupId),
+      loadLevelSetAt(this.prisma, session.groupId),
+      this.prisma.pairing.findMany({
+        where: { sessionId: session.code, confirmedAt: { not: null } },
+        select: { teamA: true, teamB: true, confirmedAt: true },
+      }),
+    ]);
+
+    return computeCarryEligibility({
+      activeRosterIds: roster.map((r) => r.playerId),
+      levels,
+      levelSetAt,
+      confirmedPairingsTonight: confirmed.map((p) => ({
+        playerIds: this.playersOf(p),
+        confirmedAt: p.confirmedAt!.getTime(),
+      })),
+    });
+  }
+
   private assertCourtNumber(courtCount: number | null, courtNumber: number): void {
     if (
       !Number.isInteger(courtNumber) ||
@@ -637,12 +675,18 @@ export class SessionsService {
     }
     const available = rosterPlayerIds.filter((id) => !reserved.has(id));
 
+    // A per-court mode (custom sessions only) governs this branch, not the
+    // session-wide mode: a custom session's court set to a non-custom mode
+    // must reach the engine below, exactly like a non-custom session's
+    // court does.
+    const requestedMode = effectiveCourtMode(session, courtNumber);
+
     // Custom mode proposes empty seats and stops — the engine picks nobody.
     // Reshuffling a custom court is this same call again, which is what
     // makes it double as "clear the court": the write below always replaces
     // whatever seats existed with a fresh set of empties. No history, no
     // ratings, no engine call — the host is about to do that work by hand.
-    if (isCustomMode(session.mode)) {
+    if (requestedMode === 'custom') {
       const size = courtSizeFor(formatAt(session.courtFormats, courtNumber));
       const half = size / 2;
       const emptyTeam: Seat[] = Array(half).fill(null);
@@ -672,8 +716,10 @@ export class SessionsService {
         ? this.teamsOf(existingPending)
         : undefined;
 
-    const ratings = await this.ratingsForMode(session);
+    const ratings = requestedMode === 'balanced' ? await this.loadRatings(session.groupId) : undefined;
     const levels = await loadPlayerLevels(this.prisma, session.groupId);
+    const queueBy: 'games' | 'wait' = requestedMode === 'level' ? 'wait' : 'games';
+    const carry = requestedMode === 'level' ? await this.loadCarryEligibility(session) : undefined;
 
     // Plan across every idle court, then commit only the one asked for.
     //
@@ -695,8 +741,16 @@ export class SessionsService {
     // it, and — since a prefix's first entry is always position 0 in
     // whatever the engine returns — that `result.courts[0]`, when present,
     // is always this court.
+    //
+    // Co-planned courts are also limited to whichever idle courts share this
+    // court's effective mode — in a non-custom session every court shares
+    // session.mode already, so this filter is a no-op there; in a custom
+    // session it keeps another court's different mode from leaking into
+    // this one's search.
     const idleCourtNumbers = Array.from({ length: session.courtCount ?? 1 }, (_, i) => i + 1).filter(
-      (n) => n === courtNumber || !nonEnded.some((p) => p.courtNumber === n)
+      (n) =>
+        (n === courtNumber || !nonEnded.some((p) => p.courtNumber === n)) &&
+        effectiveCourtMode(session, n) === requestedMode
     );
     const orderedCourtNumbers = [
       courtNumber,
@@ -714,7 +768,10 @@ export class SessionsService {
       avoidSplit,
       ratings,
       levels,
-      isLevelMode(session.mode)
+      requestedMode === 'level',
+      queueBy,
+      carry?.carryEligible,
+      carry?.carriedTonight
     );
     if (result.courts.length === 0) {
       return {

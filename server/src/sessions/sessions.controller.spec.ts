@@ -1874,6 +1874,151 @@ describe('SessionsController', () => {
     }
   });
 
+  it('proposes a level-mode court queued by wait, not games played', async () => {
+    const groupCode = randomUUID();
+    const sessionCode = randomUUID();
+    await prisma.group.create({ data: { code: groupCode, name: 'G' } });
+    const players = await Promise.all(
+      ['P1', 'P2', 'P3', 'P4', 'P5', 'FillerA', 'FillerB'].map((name) =>
+        prisma.player.create({ data: { groupId: groupCode, name, aliases: '[]' } })
+      )
+    );
+    const [p1, p2, p3, p4, p5, fillerA, fillerB] = players;
+    const now = Date.now();
+    await prisma.session.create({
+      data: {
+        code: sessionCode,
+        groupId: groupCode,
+        courtCount: 1,
+        rawImportText: '',
+        mode: 'level',
+        createdAt: new Date(now - 60 * 60_000),
+      },
+    });
+    for (const p of [p1, p2, p3, p4, p5]) {
+      await prisma.sessionRoster.create({ data: { sessionId: sessionCode, playerId: p.id } });
+    }
+    // p1 already played two games, both finished long ago: the most games of
+    // anyone, but also the longest wait since.
+    await prisma.pairing.create({
+      data: {
+        sessionId: sessionCode,
+        courtNumber: 1,
+        matchNumber: 1,
+        teamA: JSON.stringify([p1.id, fillerA.id]),
+        teamB: JSON.stringify([fillerB.id, p2.id]),
+        confirmedAt: new Date(now - 58 * 60_000),
+        endedAt: new Date(now - 56 * 60_000),
+      },
+    });
+    await prisma.pairing.create({
+      data: {
+        sessionId: sessionCode,
+        courtNumber: 1,
+        matchNumber: 2,
+        teamA: JSON.stringify([p1.id, fillerA.id]),
+        teamB: JSON.stringify([fillerB.id, p3.id]),
+        confirmedAt: new Date(now - 54 * 60_000),
+        endedAt: new Date(now - 52 * 60_000), // p1's wait starts here: ~52 minutes
+      },
+    });
+    // p2..p5 have all only been waiting 5 minutes.
+    for (const p of [p2, p3, p4, p5]) {
+      await prisma.sessionRoster.update({
+        where: { sessionId_playerId: { sessionId: sessionCode, playerId: p.id } },
+        data: { activatedAt: new Date(now - 5 * 60_000) },
+      });
+    }
+
+    try {
+      const res = await request(server).post(`/sessions/${sessionCode}/courts/1/propose`).expect(201);
+      expect(res.body.ok).toBe(true);
+      const seated = new Set([...res.body.pairing.teamA, ...res.body.pairing.teamB]);
+      // Games-first ordering would bench p1 (2 games, most of anyone).
+      // Wait-only ordering (level mode) must play them instead: 52 minutes is
+      // longer than everyone else's 5.
+      expect(seated.has(p1.id)).toBe(true);
+    } finally {
+      await prisma.pairing.deleteMany({ where: { sessionId: sessionCode } });
+      await prisma.sessionRoster.deleteMany({ where: { sessionId: sessionCode } });
+      await prisma.session.deleteMany({ where: { code: sessionCode } });
+      await prisma.player.deleteMany({ where: { groupId: groupCode } });
+      await prisma.group.deleteMany({ where: { code: groupCode } });
+    }
+  });
+
+  it("gives a custom session's level court a carry game and its variety court games-then-wait", async () => {
+    const groupCode = randomUUID();
+    const sessionCode = randomUUID();
+    await prisma.group.create({ data: { code: groupCode, name: 'G' } });
+    // Creation order matters: BG must be strictly longest-waiting, and
+    // OPP1/OPP2 must precede V1-V4 so a wait-tie's stable sort favours them
+    // as the carry court's opponents (see the walkthrough in this task's
+    // implementation notes).
+    const players = await Promise.all(
+      ['BG', 'PRO', 'OPP1', 'OPP2', 'V1', 'V2', 'V3', 'V4'].map((name) =>
+        prisma.player.create({ data: { groupId: groupCode, name, aliases: '[]' } })
+      )
+    );
+    const [bg, pro, opp1, opp2, v1, v2, v3, v4] = players;
+    const now = Date.now();
+    await prisma.session.create({
+      data: {
+        code: sessionCode,
+        groupId: groupCode,
+        courtCount: 2,
+        rawImportText: '',
+        mode: 'custom',
+        courtModes: JSON.stringify(['level', 'variety']),
+        createdAt: new Date(now - 30 * 60_000),
+      },
+    });
+    for (const p of players) {
+      await prisma.sessionRoster.create({ data: { sessionId: sessionCode, playerId: p.id } });
+    }
+    // Everyone except bg joined a couple of minutes "late" so bg is
+    // unambiguously the longest-waiting player in the whole active roster —
+    // the pool a per-court propose draws from is the whole roster, not just
+    // the players intended for that court.
+    for (const p of [pro, opp1, opp2, v1, v2, v3, v4]) {
+      await prisma.sessionRoster.update({
+        where: { sessionId_playerId: { sessionId: sessionCode, playerId: p.id } },
+        data: { activatedAt: new Date(now - 2 * 60_000) },
+      });
+    }
+    await prisma.player.update({
+      where: { id: bg.id },
+      data: { level: 'BG', levelSetAt: new Date(now - 40 * 60_000) },
+    });
+    await prisma.player.update({ where: { id: pro.id }, data: { level: 'P+' } });
+    await prisma.player.update({ where: { id: opp1.id }, data: { level: 'P' } });
+    await prisma.player.update({ where: { id: opp2.id }, data: { level: 'P' } });
+
+    try {
+      const court1 = await request(server).post(`/sessions/${sessionCode}/courts/1/propose`).expect(201);
+      expect(court1.body.ok).toBe(true);
+      const teamWithBg =
+        court1.body.pairing.teamA.includes(bg.id) ? court1.body.pairing.teamA : court1.body.pairing.teamB;
+      const otherTeam =
+        teamWithBg === court1.body.pairing.teamA ? court1.body.pairing.teamB : court1.body.pairing.teamA;
+      expect(new Set(teamWithBg)).toEqual(new Set([bg.id, pro.id]));
+      expect(new Set(otherTeam)).toEqual(new Set([opp1.id, opp2.id]));
+
+      // Court 2 (variety) draws from whoever is left (v1-v4) and is
+      // unaffected by level's rules.
+      const court2 = await request(server).post(`/sessions/${sessionCode}/courts/2/propose`).expect(201);
+      expect(court2.body.ok).toBe(true);
+      const seatedOnCourt2 = new Set([...court2.body.pairing.teamA, ...court2.body.pairing.teamB]);
+      expect(seatedOnCourt2).toEqual(new Set([v1.id, v2.id, v3.id, v4.id]));
+    } finally {
+      await prisma.pairing.deleteMany({ where: { sessionId: sessionCode } });
+      await prisma.sessionRoster.deleteMany({ where: { sessionId: sessionCode } });
+      await prisma.session.deleteMany({ where: { code: sessionCode } });
+      await prisma.player.deleteMany({ where: { groupId: groupCode } });
+      await prisma.group.deleteMany({ where: { code: groupCode } });
+    }
+  });
+
   it('custom mode proposes an empty pairing for the host to fill by hand', async () => {
     const groupCode = randomUUID();
     const sessionCode = randomUUID();

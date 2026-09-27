@@ -25,10 +25,11 @@ function baseSession(overrides: Partial<Session> = {}): Session {
     createdAt: '2026-09-08T12:00:00.000Z',
     serverNow: '2026-09-08T12:00:00.000Z',
     mode: 'variety',
+    queueBy: 'games',
     lastPlayedAt: {},
     activatedAt: {},
     waitlistPlayerIds: [],
-    courts: [{ status: 'idle', format: 'doubles' }],
+    courts: [{ status: 'idle', format: 'doubles', mode: 'variety' }],
     ...overrides,
   };
 }
@@ -100,7 +101,7 @@ describe('SessionDisplay', () => {
   it('shows "waiting" for an idle or pending court, never a proposed pairing', async () => {
     const { fixture, httpMock } = await createDisplay(
       baseSession({
-        courts: [{ status: 'pending', pairingId: 'pair1', format: 'doubles', teamA: ['p1', 'p2'], teamB: ['p3', 'p4'], autoStartAt: null }],
+        courts: [{ status: 'pending', pairingId: 'pair1', format: 'doubles', mode: 'variety', teamA: ['p1', 'p2'], teamB: ['p3', 'p4'], autoStartAt: null }],
       })
     );
     httpMock.expectOne(`${B}/groups/group1`).flush({ code: 'group1', name: null, lastSessionCode: null });
@@ -118,7 +119,7 @@ describe('SessionDisplay', () => {
           {
             status: 'active',
             pairingId: 'pair1',
-            format: 'doubles',
+            format: 'doubles', mode: 'variety',
             teamA: ['p1', 'p2'],
             teamB: ['p3', 'p4'],
             startedAt: '2026-09-08T12:00:00.000Z',
@@ -143,7 +144,7 @@ describe('SessionDisplay', () => {
           {
             status: 'active',
             pairingId: 'pair1',
-            format: 'singles',
+            format: 'singles', mode: 'variety',
             teamA: ['p1'],
             teamB: ['p2'],
             startedAt: '2026-09-08T12:00:00.000Z',

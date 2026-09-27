@@ -96,7 +96,12 @@ export class CourtPanel {
   }
 
   protected readonly court = computed<CourtState>(
-    () => this.liveSession.courts()[this.courtNumber() - 1] ?? { status: 'idle', format: 'doubles' }
+    () =>
+      this.liveSession.courts()[this.courtNumber() - 1] ?? {
+        status: 'idle',
+        format: 'doubles',
+        mode: 'custom',
+      }
   );
 
   protected readonly isCustom = computed(() => this.liveSession.mode() === 'custom');

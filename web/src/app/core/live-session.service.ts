@@ -3,7 +3,7 @@ import { Injectable, computed, inject, signal } from '@angular/core';
 import { ActivatedRoute } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
 import { environment } from '../../environments/environment';
-import type { CourtFormat, CourtState } from './live-session.model';
+import type { CourtFormat, CourtMode, CourtState } from './live-session.model';
 import type { Session } from './session.model';
 import type { Level } from '../../../../engines/levels.ts';
 
@@ -315,6 +315,16 @@ export class LiveSessionService {
       `courts/${courtNumber}/format`,
       { format },
       $localize`:@@err.courtFormat:เปลี่ยนรูปแบบคอร์ทไม่สำเร็จ`
+    );
+  }
+
+  /** Allowed in any court state — a court's mode only ever changes what the
+   *  next propose/reshuffle does. */
+  setCourtMode(courtNumber: number, mode: CourtMode): Promise<ActionResult> {
+    return this.post(
+      `courts/${courtNumber}/mode`,
+      { mode },
+      $localize`:@@err.courtMode:เปลี่ยนโหมดคอร์ทไม่สำเร็จ`
     );
   }
 

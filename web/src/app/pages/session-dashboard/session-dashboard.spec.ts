@@ -46,10 +46,11 @@ function baseSession(overrides: Partial<Session> = {}): Session {
     createdAt: '2026-09-08T12:00:00.000Z',
     serverNow: '2026-09-08T12:00:00.000Z',
     mode: 'variety',
+    queueBy: 'games',
     lastPlayedAt: {},
     activatedAt: {},
     waitlistPlayerIds: [],
-    courts: [{ status: 'idle', format: 'doubles' }],
+    courts: [{ status: 'idle', format: 'doubles', mode: 'variety' }],
     ...overrides,
   };
 }
@@ -504,7 +505,10 @@ describe('SessionDashboard', () => {
         baseSession({
           courtCount: 2,
           rosterPlayerIds: ['p1', 'p2', 'p3', 'p4'],
-          courts: [{ status: 'idle', format: 'doubles' }, { status: 'idle', format: 'doubles' }],
+          courts: [
+            { status: 'idle', format: 'doubles', mode: 'variety' },
+            { status: 'idle', format: 'doubles', mode: 'variety' },
+          ],
         })
       );
     await new Promise((r) => setTimeout(r, 0));
@@ -831,7 +835,7 @@ describe('SessionDashboard', () => {
           {
             status: 'active',
             pairingId: 'c1',
-            format: 'doubles',
+            format: 'doubles', mode: 'variety',
             teamA: ['p1', 'p2'],
             teamB: ['p3', 'p4'],
             startedAt: '2026-09-08T12:00:00.000Z',
@@ -885,7 +889,7 @@ describe('SessionDashboard', () => {
           {
             status: 'active',
             pairingId: 'c1',
-            format: 'doubles',
+            format: 'doubles', mode: 'variety',
             teamA: ['p1', 'p2'],
             teamB: ['p3', 'p4'],
             startedAt: '2026-09-08T12:00:00.000Z',
@@ -893,7 +897,7 @@ describe('SessionDashboard', () => {
           {
             status: 'active',
             pairingId: 'c2',
-            format: 'doubles',
+            format: 'doubles', mode: 'variety',
             teamA: ['p5', 'p6'],
             teamB: ['p7', 'p8'],
             startedAt: '2026-09-08T12:00:00.000Z',
@@ -926,7 +930,7 @@ describe('SessionDashboard', () => {
           {
             status: 'active',
             pairingId: 'x',
-            format: 'doubles',
+            format: 'doubles', mode: 'variety',
             teamA: ['p1', 'p2'],
             teamB: ['p3', 'p4'],
             startedAt: '2026-09-08T12:00:00.000Z',
@@ -1052,7 +1056,7 @@ describe('SessionDashboard', () => {
           {
             status: 'active',
             pairingId: 'x',
-            format: 'doubles',
+            format: 'doubles', mode: 'variety',
             teamA: ['p1', 'p2'],
             teamB: ['p3', 'p4'],
             startedAt: '2026-09-08T12:00:00.000Z',
@@ -1080,7 +1084,7 @@ describe('SessionDashboard', () => {
           {
             status: 'active',
             pairingId: 'x',
-            format: 'singles',
+            format: 'singles', mode: 'variety',
             teamA: ['p1'],
             teamB: ['p2'],
             startedAt: '2026-09-08T12:00:00.000Z',
@@ -1196,7 +1200,7 @@ describe('SessionDashboard', () => {
       baseSession({
         rosterPlayerIds: ['p1', 'p2', 'p3', 'p4', 'p5'],
         courts: [
-          { status: 'pending', pairingId: 'pair1', format: 'doubles', teamA: ['p1', 'p2'], teamB: ['p3', 'p4'], autoStartAt: null },
+          { status: 'pending', pairingId: 'pair1', format: 'doubles', mode: 'variety', teamA: ['p1', 'p2'], teamB: ['p3', 'p4'], autoStartAt: null },
         ],
       })
     );
@@ -1250,7 +1254,7 @@ describe('SessionDashboard', () => {
         baseSession({
           rosterPlayerIds: ['p1', 'p2', 'p3', 'p4', 'p5'],
           courts: [
-            { status: 'pending', pairingId: 'pair1', format: 'doubles', teamA: ['p5', 'p2'], teamB: ['p3', 'p4'], autoStartAt: null },
+            { status: 'pending', pairingId: 'pair1', format: 'doubles', mode: 'variety', teamA: ['p5', 'p2'], teamB: ['p3', 'p4'], autoStartAt: null },
           ],
         })
       );

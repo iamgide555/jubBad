@@ -18,6 +18,9 @@ export interface Session {
    *  ±1 skill band. Levels themselves are host-only, read separately via
    *  LiveSessionService.getLevels — never on this session poll. */
   mode: 'variety' | 'balanced' | 'level' | 'custom';
+  /** 'wait' in a level session, 'games' otherwise — how the waiting list
+   *  should be ordered to match what the engine actually does. */
+  queueBy: 'games' | 'wait';
   /** Player id -> ISO time they last finished a match tonight. */
   lastPlayedAt: Record<string, string>;
   /** Player id -> when they joined or returned; absent for the original roster. */

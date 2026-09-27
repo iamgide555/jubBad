@@ -23,10 +23,11 @@ function baseSession(overrides: Partial<Session> = {}): Session {
     createdAt: '2026-09-08T12:00:00.000Z',
     serverNow: '2026-09-08T12:00:00.000Z',
     mode: 'variety',
+    queueBy: 'games',
     lastPlayedAt: {},
     activatedAt: {},
     waitlistPlayerIds: [],
-    courts: [{ status: 'idle', format: 'doubles' }],
+    courts: [{ status: 'idle', format: 'doubles', mode: 'variety' }],
     ...overrides,
   };
 }
@@ -63,7 +64,7 @@ describe('LiveSessionService', () => {
 
   it('exposes courts from the fetched session', async () => {
     await flushSession(baseSession());
-    expect(service.courts()).toEqual([{ status: 'idle', format: 'doubles' }]);
+    expect(service.courts()).toEqual([{ status: 'idle', format: 'doubles', mode: 'variety' }]);
   });
 
   it('serverSkewMs is near 0 when the client and server clocks agree', async () => {
@@ -95,14 +96,14 @@ describe('LiveSessionService', () => {
     const reloadReq = httpMock.expectOne(`${environment.apiBaseUrl}/sessions/sess1`);
     reloadReq.flush(
       baseSession({
-        courts: [{ status: 'pending', pairingId: 'pair1', format: 'doubles', teamA: ['p1', 'p2'], teamB: ['p3', 'p4'], autoStartAt: null }],
+        courts: [{ status: 'pending', pairingId: 'pair1', format: 'doubles', mode: 'variety', teamA: ['p1', 'p2'], teamB: ['p3', 'p4'], autoStartAt: null }],
       })
     );
 
     expect(await promise).toEqual({ ok: true });
     await new Promise((r) => setTimeout(r, 0));
     expect(service.courts()).toEqual([
-      { status: 'pending', pairingId: 'pair1', format: 'doubles', teamA: ['p1', 'p2'], teamB: ['p3', 'p4'], autoStartAt: null },
+      { status: 'pending', pairingId: 'pair1', format: 'doubles', mode: 'variety', teamA: ['p1', 'p2'], teamB: ['p3', 'p4'], autoStartAt: null },
     ]);
   });
 
@@ -191,7 +192,7 @@ describe('LiveSessionService', () => {
     await flushSession(
       baseSession({
         rosterPlayerIds: ['p1', 'p2', 'p3', 'p4', 'p5', 'p6'],
-        courts: [{ status: 'active', pairingId: 'pair1', format: 'doubles', teamA: ['p1', 'p2'], teamB: ['p3', 'p4'], startedAt: '2026-09-08T12:00:00.000Z' }],
+        courts: [{ status: 'active', pairingId: 'pair1', format: 'doubles', mode: 'variety', teamA: ['p1', 'p2'], teamB: ['p3', 'p4'], startedAt: '2026-09-08T12:00:00.000Z' }],
       })
     );
     expect(service.waitingPlayerIds().sort()).toEqual(['p5', 'p6']);

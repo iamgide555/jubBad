@@ -2158,6 +2158,54 @@ describe('SessionsController', () => {
     }
   });
 
+  it("fills a custom session's idle courts grouped by each court's own mode", async () => {
+    const groupCode = randomUUID();
+    const sessionCode = randomUUID();
+    await prisma.group.create({ data: { code: groupCode, name: 'G' } });
+    const players = await Promise.all(
+      ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'].map((name) =>
+        prisma.player.create({ data: { groupId: groupCode, name, aliases: '[]' } })
+      )
+    );
+    await prisma.session.create({
+      data: {
+        code: sessionCode,
+        groupId: groupCode,
+        courtCount: 2,
+        rawImportText: '',
+        mode: 'custom',
+        courtModes: JSON.stringify(['level', 'custom']),
+      },
+    });
+    for (const p of players) {
+      await prisma.sessionRoster.create({ data: { sessionId: sessionCode, playerId: p.id } });
+    }
+
+    try {
+      const res = await request(server).post(`/sessions/${sessionCode}/courts/fill`).expect(201);
+      expect(res.body.ok).toBe(true);
+      expect(res.body.filled.sort()).toEqual([1, 2]);
+
+      const rows = await prisma.pairing.findMany({ where: { sessionId: sessionCode } });
+      const court1 = rows.find((r) => r.courtNumber === 1)!;
+      const court2 = rows.find((r) => r.courtNumber === 2)!;
+      // Court 1 (level): a real engine-picked pairing, no empty seats.
+      expect(JSON.parse(court1.teamA)).not.toContain(null);
+      expect(JSON.parse(court1.teamB)).not.toContain(null);
+      const seatedOnCourt1 = new Set([...JSON.parse(court1.teamA), ...JSON.parse(court1.teamB)]);
+      expect(seatedOnCourt1.size).toBe(4);
+      // Court 2 (custom): still an empty draft.
+      expect(JSON.parse(court2.teamA)).toEqual([null, null]);
+      expect(JSON.parse(court2.teamB)).toEqual([null, null]);
+    } finally {
+      await prisma.pairing.deleteMany({ where: { sessionId: sessionCode } });
+      await prisma.sessionRoster.deleteMany({ where: { sessionId: sessionCode } });
+      await prisma.session.deleteMany({ where: { code: sessionCode } });
+      await prisma.player.deleteMany({ where: { groupId: groupCode } });
+      await prisma.group.deleteMany({ where: { code: groupCode } });
+    }
+  });
+
   describe('POST /sessions/:code/pairings/:id/seats', () => {
     async function makeDraftCourt(courtCount = 1) {
       const groupCode = randomUUID();

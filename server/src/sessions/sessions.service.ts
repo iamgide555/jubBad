@@ -32,7 +32,7 @@ import {
 } from './court-formats.js';
 import { modeAt, withModeAt } from './court-modes.js';
 import { deriveHistory } from './derive-history.js';
-import { effectiveCourtMode, isCustomMode, isLevelMode } from './session-mode.js';
+import { effectiveCourtMode, isCustomMode, isLevelMode, type SessionMode } from './session-mode.js';
 import {
   CorruptPairingError,
   emptySeatCount,
@@ -1883,16 +1883,36 @@ export class SessionsService {
       (n) => !busyCourts.has(n)
     );
 
-    // Custom mode has no seating decision to make here — every idle court
-    // just gets an empty draft, exactly like a single custom `propose`. This
-    // can never report not-enough-players: nobody is being seated yet.
+    // Custom mode: courts still set to 'custom' get an empty draft, exactly
+    // like a single custom `propose`; courts set to another mode are
+    // grouped by that mode and run through the engine below, alongside a
+    // non-custom session's own courts.
     if (isCustomMode(session.mode)) {
       if (idleCourts.length === 0) {
         return { ok: false as const, reason: 'not-enough-players' as const, filled: [] as number[] };
       }
-      const filled = await this.prisma.$transaction(async (tx) => {
-        const written: number[] = [];
-        for (const courtNumber of idleCourts) {
+
+      const customCourts = idleCourts.filter((n) => effectiveCourtMode(session, n) === 'custom');
+      const engineCourts = idleCourts.filter((n) => effectiveCourtMode(session, n) !== 'custom');
+      // Group the non-custom idle courts by their own mode, processed in
+      // order of each group's lowest court number, so filling is
+      // deterministic and every court still only ever runs its own mode's
+      // objective in one generateRound call.
+      const modeGroups = new Map<SessionMode, number[]>();
+      for (const n of engineCourts) {
+        const mode = effectiveCourtMode(session, n);
+        const group = modeGroups.get(mode) ?? [];
+        group.push(n);
+        modeGroups.set(mode, group);
+      }
+      const orderedGroups = [...modeGroups.entries()].sort(
+        (a, b) => Math.min(...a[1]) - Math.min(...b[1])
+      );
+
+      const filled: number[] = [];
+
+      await this.prisma.$transaction(async (tx) => {
+        for (const courtNumber of customCourts) {
           const size = courtSizeFor(formatAt(session.courtFormats, courtNumber));
           const emptyTeam = JSON.stringify(Array(size / 2).fill(null));
           const matchNumber =
@@ -1909,10 +1929,59 @@ export class SessionsService {
               pendingSince: new Date(),
             },
           });
-          written.push(courtNumber);
+          filled.push(courtNumber);
         }
-        return written;
       });
+
+      let remainingRoster = roster.map((r) => r.playerId).filter((id) => !reserved.has(id));
+
+      for (const [mode, courtsInGroup] of orderedGroups) {
+        const sizes = courtsInGroup.map((n) => courtSizeFor(formatAt(session.courtFormats, n)));
+        const history = await this.loadHistory(session.groupId, sessionCode);
+        const ratings = mode === 'balanced' ? await this.loadRatings(session.groupId) : undefined;
+        const levels = await loadPlayerLevels(this.prisma, session.groupId);
+        const queueBy: 'games' | 'wait' = mode === 'level' ? 'wait' : 'games';
+        const carry = mode === 'level' ? await this.loadCarryEligibility(session) : undefined;
+
+        const result = this.runGenerateRound(
+          remainingRoster,
+          sizes,
+          history,
+          undefined,
+          undefined,
+          ratings,
+          levels,
+          mode === 'level',
+          queueBy,
+          carry?.carryEligible,
+          carry?.carriedTonight
+        );
+
+        await this.prisma.$transaction(async (tx) => {
+          for (const assignment of result.courts) {
+            const courtNumber = courtsInGroup[assignment.court - 1];
+            const matchNumber =
+              (await tx.pairing.count({
+                where: { sessionId: sessionCode, courtNumber, confirmedAt: { not: null } },
+              })) + 1;
+            await tx.pairing.create({
+              data: {
+                sessionId: sessionCode,
+                courtNumber,
+                matchNumber,
+                teamA: JSON.stringify(assignment.teamA),
+                teamB: JSON.stringify(assignment.teamB),
+                pendingSince: new Date(),
+              },
+            });
+            filled.push(courtNumber);
+          }
+        });
+
+        const justSeated = new Set(result.courts.flatMap((c) => [...c.teamA, ...c.teamB]));
+        remainingRoster = remainingRoster.filter((id) => !justSeated.has(id));
+      }
+
       return { ok: true as const, filled };
     }
 

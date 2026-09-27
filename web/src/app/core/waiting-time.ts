@@ -43,7 +43,10 @@ export function buildWaitingList(
   sessionCreatedAt: string,
   now: number = Date.now(),
   activatedAt: Record<string, string> = {},
-  queueGames: Record<string, number> = {}
+  queueGames: Record<string, number> = {},
+  /** 'wait' (level sessions) ignores queueGames entirely; 'games' (default)
+   *  keeps the existing games-then-wait order. */
+  queueBy: 'games' | 'wait' = 'games'
 ): WaitingEntry[] {
   return playerIds
     .map((id, i) => ({
@@ -51,7 +54,11 @@ export function buildWaitingList(
       name: names[i],
       minutes: minutesWaiting(id, lastPlayedAt, sessionCreatedAt, now, activatedAt),
     }))
-    .sort(
-      (a, b) => (queueGames[a.id] ?? 0) - (queueGames[b.id] ?? 0) || b.minutes - a.minutes
-    );
+    .sort((a, b) => {
+      if (queueBy === 'games') {
+        const byGames = (queueGames[a.id] ?? 0) - (queueGames[b.id] ?? 0);
+        if (byGames !== 0) return byGames;
+      }
+      return b.minutes - a.minutes;
+    });
 }

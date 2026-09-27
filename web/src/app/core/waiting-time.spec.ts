@@ -104,3 +104,24 @@ describe('buildWaitingList', () => {
     expect(list.map((e) => e.name)).toEqual(['เบส', 'ตั้ม']);
   });
 });
+
+describe('buildWaitingList with queueBy "wait"', () => {
+  it('ignores queueGames entirely, ordering by wait alone', () => {
+    const now = 100_000;
+    const sessionCreatedAt = new Date(0).toISOString();
+    const lastPlayedAt = {};
+    const result = buildWaitingList(
+      ['a', 'b'],
+      ['A', 'B'],
+      lastPlayedAt,
+      sessionCreatedAt,
+      now,
+      {},
+      { a: 5, b: 0 }, // 'a' has far more games...
+      'wait'
+    );
+    // ...but both started waiting at session start (tie), so with games
+    // ignored the order falls back to array order, not games order.
+    expect(result.map((r) => r.id)).toEqual(['a', 'b']);
+  });
+});

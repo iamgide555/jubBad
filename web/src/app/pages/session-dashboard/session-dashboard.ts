@@ -263,7 +263,8 @@ export class SessionDashboard implements OnDestroy {
       session.createdAt,
       session.endedAt ? new Date(session.endedAt).getTime() : this.now(),
       session.activatedAt,
-      session.queueGames
+      session.queueGames,
+      session.queueBy
     );
   });
 

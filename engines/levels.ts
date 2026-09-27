@@ -42,3 +42,30 @@ export function withinBand(a: Level | null, b: Level | null): boolean {
   if (a === null || b === null) return true;
   return Math.abs(levelIndex(a) - levelIndex(b)) <= 1;
 }
+
+/**
+ * Whether `id` is far enough below tonight's active roster to trigger a
+ * carry game (see docs/superpowers/specs/2026-09-27-level-rework-design.md,
+ * section 1b): tagged, fewer than 4 active players (self included) within
+ * ±1 of them, and every other tagged player outside that band is above
+ * them. An untagged player never qualifies, and — following the same
+ * convention as `withinBand` — never counts toward "in band" or "above"
+ * for anyone else.
+ */
+export function isFarBelow(id: string, activeLevels: ReadonlyMap<string, Level | null>): boolean {
+  const level = activeLevels.get(id) ?? null;
+  if (level === null) return false;
+
+  let inBand = 0;
+  for (const [otherId, otherLevel] of activeLevels) {
+    if (otherId === id || otherLevel === null) continue;
+    if (withinBand(level, otherLevel)) {
+      inBand += 1;
+    } else if (levelIndex(otherLevel) <= levelIndex(level)) {
+      // Another tagged player sits at or below `id`, outside their band —
+      // `id` is not at the bottom of the group, so this is never a carry case.
+      return false;
+    }
+  }
+  return inBand + 1 < 4; // +1 counts `id` itself.
+}

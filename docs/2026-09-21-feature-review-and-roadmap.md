@@ -486,6 +486,31 @@ Design that before building.
 
 Effort M-L.
 
+#### - [x] B. Level-mode rework: wait-only queue + carry game (2026-09-27 real-host feedback)
+
+Real host feedback, 2026-09-27: groups running level mode only care who has
+waited longest, and want a newcomer far below the group's level to get one
+"carry" game with a strong partner before playing normal level-clustered
+games. Design: `docs/superpowers/specs/2026-09-27-level-rework-design.md`.
+Done: `feat/level-rework`.
+
+#### - [ ] A. Court labels — rename court numbers to match the physical hall
+
+2026-09-27 real-host feedback. Not yet designed.
+
+#### - [ ] C. Pair rules — couple/partner, never-teammates, never-same-court
+
+2026-09-27 real-host feedback. Revives the deferred C5 (fixed pairs). Depends
+on B (this plan). Not yet designed.
+
+#### - [ ] D. Shuttlecock tracking per court per game
+
+2026-09-27 real-host feedback. Depends on A. Not yet designed.
+
+#### - [ ] E. Mid-session checkout for an early leaver (per-shuttle billing)
+
+2026-09-27 real-host feedback. Depends on D. Not yet designed.
+
 ### P3 — skip unless the target customer changes
 
 - **Club-business features:** shuttle stock and low-stock alerts, wallet or

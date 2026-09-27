@@ -87,6 +87,7 @@ These are load-bearing product decisions, not incidental implementation choices 
 - **Courts rotate independently** — there is no shared "round" object; whoever finishes first gets the next match.
 - **History updates only on confirm, never on propose.** This is what makes free reshuffling, resting a player, and undo all compose correctly without extra engine bookkeeping.
 - **Bad input to the engines fails loudly** (throws on duplicate/empty player id, fractional/negative court count, invalid history counts) rather than coping — a swallowed corruption used to surface as a misleading "not enough players" to the host.
+- **Games-played rotation applies to สลับคู่/สูสี only.** ระดับ (level) courts — including a per-court ระดับ inside a เลือกเอง session — queue by wait time alone; games played is ignored. See `docs/overview.md`'s Pairing section.
 - Exhaustive search up to 8 players on court; local search (random-restart steepest-descent) above that, continuously checked against exhaustive results in `engines/pairing-quality.test.ts` so the engine can't silently regress even while unit tests stay green.
 
 ## Session lifecycle (server + web)

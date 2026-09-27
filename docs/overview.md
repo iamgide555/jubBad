@@ -288,6 +288,15 @@ partner/opponent objective, never ratings: the host is placing people by
 hand, and a hidden balance term would quietly pull against the seats they
 just chose. The mode is per session and defaults to variety.
 
+**In a custom session, each court has its own sticky mode** (สลับคู่ / สูสี /
+ระดับ / เลือกเอง), not just one session-wide choice — `Session.courtModes`,
+read via `effectiveCourtMode`. A court left เลือกเอง behaves exactly as
+before. A court set to a non-custom mode is planned and filled using that
+mode's own queue rule and objective, co-planned only with other idle courts
+sharing the same effective mode. The shared waiting list stays games-then-
+wait in a custom session regardless, with a hint shown when any court is set
+to ระดับ, since that court alone may call out of the order shown.
+
 Reshuffling excludes the split it was asked to avoid outright, rather than
 taxing it. A tax has to be larger than any real score difference, and no fixed
 number stays larger as a group accumulates history. The exclusion applies to
@@ -330,6 +339,20 @@ span more than one level) is scored right after `groupRepeat`, before
 partner/opponent, in both `compareArrangements` and `compareComponents` —
 dominant, but never a hard exclusion: a court is never left empty for lack
 of a same-level match, and it never makes a round unsolvable.
+
+**Level mode queues by wait time, not games played** (2026-09-27 real-host
+feedback) — real hosts run this mode exclusively and only care who has
+waited longest, not how many games anyone has had. A far-below player (no
+other active tagged player within ±1, and fewer than 4 active players share
+their band) gets one **carry game** the first time their turn comes after
+being tagged: forced to partner the highest-level player still waiting
+(who may jump the queue for it) against the two longest-waiting players
+within ±1 of that partner's level. The pairing is locked before the normal
+search runs, so it can never be split apart by a swap; everyone else is
+seated by the unmodified search. Reshuffling a pending carry court keeps the
+same newcomer and partner and tries new opponents first, a new partner only
+if no other opponents exist. See `engines/pairing.ts`'s `buildCarryCourt`
+and `docs/superpowers/specs/2026-09-27-level-rework-design.md`.
 
 **Court format is per court, not per session, and only changeable while a
 court is idle.** A host can run doubles on courts 1-2 and singles on court 3

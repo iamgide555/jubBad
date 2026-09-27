@@ -29,8 +29,9 @@ import {
   parseCourtFormats,
   withFormatAt,
 } from './court-formats.js';
+import { modeAt, withModeAt } from './court-modes.js';
 import { deriveHistory } from './derive-history.js';
-import { isCustomMode, isLevelMode } from './session-mode.js';
+import { effectiveCourtMode, isCustomMode, isLevelMode } from './session-mode.js';
 import {
   CorruptPairingError,
   emptySeatCount,
@@ -46,6 +47,7 @@ import type { CreateSessionDto, NameReviewDto } from './dto/create-session.dto.j
 import type { FinishPairingDto } from './dto/finish-pairing.dto.js';
 import type { SetCourtCountDto } from './dto/set-court-count.dto.js';
 import type { SetCourtFormatDto } from './dto/set-court-format.dto.js';
+import type { SetCourtModeDto } from './dto/set-court-mode.dto.js';
 import type { SetModeDto } from './dto/set-mode.dto.js';
 import type { SetRosterActiveDto } from './dto/set-roster-active.dto.js';
 import type { SetRosterWalkInDto } from './dto/set-roster-walk-in.dto.js';
@@ -411,11 +413,14 @@ export class SessionsService {
       // writes while idle (see setCourtFormatExclusively), so a pending or
       // active pairing's actual team size can never disagree with this.
       const format = courtFormats[courtNumber - 1] ?? 'doubles';
+      // Per-court mode, only ever different from session.mode in a custom
+      // session — see effectiveCourtMode.
+      const mode = effectiveCourtMode(session, courtNumber);
       const current = session.pairings
         .filter((p) => p.courtNumber === courtNumber && p.endedAt === null)
         .sort((a, b) => b.matchNumber - a.matchNumber)[0];
 
-      if (!current) return { courtNumber, status: 'idle' as const, format };
+      if (!current) return { courtNumber, status: 'idle' as const, format, mode };
 
       // Tolerant: a pending custom-mode draft may still have unfilled seats,
       // and the dashboard needs to render them, not have this 500.
@@ -427,6 +432,7 @@ export class SessionsService {
             pairingId: current.id,
             revision: current.revision,
             format,
+            mode,
             teamA,
             teamB,
             startedAt: current.confirmedAt.toISOString(),
@@ -437,6 +443,7 @@ export class SessionsService {
             pairingId: current.id,
             revision: current.revision,
             format,
+            mode,
             teamA,
             teamB,
             autoStartAt: this.autoStartAtFor(current, session.roster),
@@ -1672,6 +1679,39 @@ export class SessionsService {
       code: updated.code,
       courtNumber,
       format: formatAt(updated.courtFormats, courtNumber),
+    };
+  }
+
+  setCourtMode(code: string, courtNumber: number, dto: SetCourtModeDto) {
+    return this.lock.run(code, () => this.setCourtModeExclusively(code, courtNumber, dto));
+  }
+
+  /**
+   * Unlike the format toggle, allowed in any court state — a court's mode
+   * changes only what the *next* propose/reshuffle does, and (like the
+   * session-wide mode switch) never rewrites a pending pairing.
+   */
+  private async setCourtModeExclusively(code: string, courtNumber: number, dto: SetCourtModeDto) {
+    const session = await this.prisma.session.findUnique({ where: { code } });
+    if (!session) throw this.notFound('SESSION_NOT_FOUND');
+    if (session.endedAt !== null) throw this.conflict('SESSION_ENDED');
+    this.assertCourtNumber(session.courtCount, courtNumber);
+
+    let courtModes: string;
+    try {
+      courtModes = withModeAt(session.courtModes, courtNumber, dto.mode);
+    } catch (error) {
+      if (error instanceof InvalidCourtNumberError) throw this.badRequest('INVALID_COURT_NUMBER');
+      throw error;
+    }
+    const updated = await this.prisma.session.update({
+      where: { code },
+      data: { courtModes },
+    });
+    return {
+      code: updated.code,
+      courtNumber,
+      mode: modeAt(updated.courtModes, courtNumber),
     };
   }
 

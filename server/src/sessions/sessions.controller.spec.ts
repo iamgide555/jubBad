@@ -559,11 +559,12 @@ describe('SessionsController', () => {
           pairingId: expect.any(String),
           revision: 0,
           format: 'doubles',
+          mode: 'variety',
           teamA: [players[0].id, players[1].id],
           teamB: [players[2].id, players[3].id],
           startedAt: confirmedAt.toISOString(),
         },
-        { courtNumber: 2, status: 'idle', format: 'doubles' },
+        { courtNumber: 2, status: 'idle', format: 'doubles', mode: 'variety' },
       ]);
       expect(new Date(res.body.serverNow).getTime()).not.toBeNaN();
     } finally {
@@ -606,6 +607,7 @@ describe('SessionsController', () => {
         pairingId: expect.any(String),
         revision: 0,
         format: 'doubles',
+        mode: 'variety',
         teamA: [players[0].id, null],
         teamB: [players[1].id, players[2].id],
         autoStartAt: null,
@@ -5471,6 +5473,48 @@ describe('SessionsController', () => {
       const court2 = session.body.courts.find((c: { courtNumber: number }) => c.courtNumber === 2);
       expect(court1.teamA.length + court1.teamB.length).toBe(4);
       expect(court2.teamA.length + court2.teamB.length).toBe(2);
+    } finally {
+      await cleanup();
+    }
+  });
+
+  // --- Per-court sticky mode --------------------------------------------
+
+  it("sets and reads back one court's mode in a custom session", async () => {
+    const { sessionCode, cleanup } = await formatFixture(4, 1);
+    try {
+      await prisma.session.update({ where: { code: sessionCode }, data: { mode: 'custom' } });
+
+      await request(server)
+        .post(`/sessions/${sessionCode}/courts/1/mode`)
+        .send({ mode: 'level' })
+        .expect(201)
+        .expect((res) => {
+          expect(res.body).toEqual({ code: sessionCode, courtNumber: 1, mode: 'level' });
+        });
+
+      const read = await request(server).get(`/sessions/${sessionCode}`).expect(200);
+      expect(read.body.courts[0].mode).toBe('level');
+    } finally {
+      await cleanup();
+    }
+  });
+
+  it('refuses to set a court mode after the session ends', async () => {
+    const { sessionCode, cleanup } = await formatFixture(4, 1);
+    try {
+      await prisma.session.update({
+        where: { code: sessionCode },
+        data: { mode: 'custom', endedAt: new Date() },
+      });
+
+      await request(server)
+        .post(`/sessions/${sessionCode}/courts/1/mode`)
+        .send({ mode: 'level' })
+        .expect(409)
+        .expect((res) => {
+          expect(res.body.code).toBe('SESSION_ENDED');
+        });
     } finally {
       await cleanup();
     }

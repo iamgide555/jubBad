@@ -5,6 +5,7 @@ import { FinishPairingDto } from './dto/finish-pairing.dto.js';
 import { PairingRevisionDto } from './dto/pairing-revision.dto.js';
 import { SetCourtCountDto } from './dto/set-court-count.dto.js';
 import { SetCourtFormatDto } from './dto/set-court-format.dto.js';
+import { SetCourtModeDto } from './dto/set-court-mode.dto.js';
 import { SetModeDto } from './dto/set-mode.dto.js';
 import { SetRosterActiveDto } from './dto/set-roster-active.dto.js';
 import { SetRosterWalkInDto } from './dto/set-roster-walk-in.dto.js';
@@ -70,6 +71,20 @@ export class SessionsController {
     @Body() dto: SetCourtFormatDto
   ) {
     return this.sessionsService.setCourtFormat(code, courtNumber, dto);
+  }
+
+  /**
+   * Per-court sticky mode, custom sessions only in effect (see
+   * effectiveCourtMode) — settable in any court state, unlike the format
+   * toggle, since it never changes a live pairing's shape.
+   */
+  @Post(':code/courts/:n/mode')
+  setCourtMode(
+    @Param('code') code: string,
+    @Param('n', ParseIntPipe) courtNumber: number,
+    @Body() dto: SetCourtModeDto
+  ) {
+    return this.sessionsService.setCourtMode(code, courtNumber, dto);
   }
 
   @Post(':code/pairings/:id/confirm')

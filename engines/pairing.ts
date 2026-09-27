@@ -11,7 +11,7 @@
  */
 
 import { ratingGap, type RatingTracks } from './elo.ts';
-import { levelIndex, type Level } from './levels.ts';
+import { levelIndex, withinBand, type Level } from './levels.ts';
 
 export type PlayerId = string;
 /** A team is 1 player (singles) or 2 (doubles). Both teams on a court are
@@ -1047,6 +1047,104 @@ export function validateRoundInput(
   }
 }
 
+/**
+ * The best legal opponent pair for a carry court's pro: the two longest-
+ * waiting players in `pool` within ±1 of `proLevel`, topped up with the
+ * longest-waiting of any level when fewer than two are in band (the carry
+ * rule must never make a round unsolvable). Null only when `pool` has fewer
+ * than two players at all. An untagged candidate fits any level, matching
+ * `withinBand`'s own convention.
+ */
+function pickOpponents(
+  pool: PlayerId[],
+  proLevel: Level,
+  levels: ReadonlyMap<PlayerId, Level | null>,
+  waitingSince: Map<PlayerId, number>
+): Team | null {
+  const byLongestWait = (a: PlayerId, b: PlayerId) =>
+    (waitingSince.get(a) ?? 0) - (waitingSince.get(b) ?? 0);
+  const inBand = pool.filter((id) => withinBand(levels.get(id) ?? null, proLevel)).sort(byLongestWait);
+  const rest = pool.filter((id) => !inBand.includes(id)).sort(byLongestWait);
+  const combined = [...inBand, ...rest];
+  return combined.length >= 2 ? [combined[0], combined[1]] : null;
+}
+
+/**
+ * The requested court's locked carry group, or null when no carry applies —
+ * see docs/superpowers/specs/2026-09-27-level-rework-design.md, section 1b.
+ *
+ * Only ever considers the *single* longest-waiting player in `roster` as the
+ * anchor: once band ordering runs, that player is always the requested
+ * court's anchor (`bandOrderedByCourt` processes offered courts in order,
+ * starting from the single most-deserving player) — so this function does
+ * not need to reimplement band ordering to know who the anchor is.
+ *
+ * `avoidReshuffle`, when supplied, is the pairing this exact court currently
+ * holds (a reshuffle). The pro stays the same and opponents change first;
+ * only if no alternate opponents exist does the pro itself change too. If
+ * neither changes anything, the original pairing is returned unchanged
+ * (never null) — a reshuffle that cannot vary a locked carry court still
+ * has to hand back *a* pairing, not "not enough players".
+ */
+function buildCarryCourt(
+  roster: PlayerId[],
+  waitingSince: Map<PlayerId, number>,
+  levels: ReadonlyMap<PlayerId, Level | null>,
+  carryEligible: ReadonlySet<PlayerId>,
+  carriedTonight: ReadonlySet<PlayerId>,
+  avoidReshuffle?: { teamA: Team; teamB: Team }
+): CourtAssignment | null {
+  const byLongestWait = [...roster].sort(
+    (a, b) => (waitingSince.get(a) ?? 0) - (waitingSince.get(b) ?? 0)
+  );
+  const anchor = byLongestWait[0];
+  if (!carryEligible.has(anchor)) return null;
+
+  let currentTeam: Team | null = null;
+  let currentOpponents: Team | null = null;
+  if (avoidReshuffle) {
+    if (avoidReshuffle.teamA.includes(anchor)) {
+      currentTeam = avoidReshuffle.teamA;
+      currentOpponents = avoidReshuffle.teamB;
+    } else if (avoidReshuffle.teamB.includes(anchor)) {
+      currentTeam = avoidReshuffle.teamB;
+      currentOpponents = avoidReshuffle.teamA;
+    }
+  }
+  const currentPro = currentTeam?.find((id) => id !== anchor) ?? null;
+
+  const candidatePool = roster.filter((id) => id !== anchor);
+  const proCandidates = candidatePool
+    .filter((id) => levels.get(id) != null)
+    .sort((a, b) => {
+      const diff = levelIndex(levels.get(b)!) - levelIndex(levels.get(a)!);
+      if (diff !== 0) return diff;
+      const aCarried = carriedTonight.has(a) ? 1 : 0;
+      const bCarried = carriedTonight.has(b) ? 1 : 0;
+      if (aCarried !== bCarried) return aCarried - bCarried; // not-carried-tonight first
+      return (waitingSince.get(a) ?? 0) - (waitingSince.get(b) ?? 0); // longest wait first
+    });
+  const proOrder = currentPro
+    ? [currentPro, ...proCandidates.filter((id) => id !== currentPro)]
+    : proCandidates;
+
+  for (const pro of proOrder) {
+    const proLevel = levels.get(pro)!;
+    const opponentPool = candidatePool.filter(
+      (id) => id !== pro && !(pro === currentPro && currentOpponents?.includes(id))
+    );
+    const opponents = pickOpponents(opponentPool, proLevel, levels, waitingSince);
+    if (opponents) {
+      return { court: 1, teamA: [anchor, pro], teamB: opponents };
+    }
+  }
+
+  if (currentPro && currentOpponents) {
+    return { court: 1, teamA: [anchor, currentPro], teamB: currentOpponents };
+  }
+  return null;
+}
+
 export function generateRound(
   roster: PlayerId[],
   courtCount: number | CourtSize[],
@@ -1058,9 +1156,55 @@ export function generateRound(
   /** A player's skill level. Omitted, or `band` false, behaviour is unchanged. */
   levels?: ReadonlyMap<PlayerId, Level | null>,
   /** The ±1 level band (D4, soft-dominant). Off by default. */
-  band = false
+  band = false,
+  /** 'wait' (level mode) orders selection by longest wait alone; 'games'
+   *  (every pre-existing caller, the default) keeps games played first. */
+  queueBy: 'games' | 'wait' = 'games',
+  /** Players eligible for a carry game right now (level mode only) — see
+   *  docs/superpowers/specs/2026-09-27-level-rework-design.md, section 1b. */
+  carryEligible?: ReadonlySet<PlayerId>,
+  /** Players who have already partnered a carry-eligible player tonight,
+   *  deprioritised as the next carry's pro. */
+  carriedTonight?: ReadonlySet<PlayerId>
 ): RoundResult {
   validateRoundInput(roster, courtCount, history, avoidSplit, ratings);
+
+  const sizes = normalizeSizes(courtCount);
+
+  // Carry game: once band ordering runs, the single longest-waiting player
+  // in the whole roster is always the requested court's anchor
+  // (bandOrderedByCourt processes offered courts in order, starting from
+  // the single most-deserving player) — so whether *that* player is
+  // carry-eligible fully decides whether the requested court becomes a
+  // carry game. Resolved up front, and only ever touches court 0 (the
+  // requested court), exactly like avoidSplit's own court-0-only reach.
+  let carryCourt: CourtAssignment | null = null;
+  let carryGroup: Set<PlayerId> | null = null;
+  if (
+    band &&
+    levels &&
+    carryEligible?.size &&
+    sizes[0] === 4 &&
+    roster.length >= 4 &&
+    history.waitingSince
+  ) {
+    carryCourt = buildCarryCourt(
+      roster,
+      history.waitingSince,
+      levels,
+      carryEligible,
+      carriedTonight ?? new Set(),
+      avoidSplit
+    );
+    if (carryCourt) carryGroup = new Set(groupOf(carryCourt));
+  }
+
+  const effectiveRoster = carryGroup ? roster.filter((id) => !carryGroup!.has(id)) : roster;
+  const effectiveSizes = carryCourt ? sizes.slice(1) : sizes;
+  // A carry court already consumed avoidSplit (as buildCarryCourt's
+  // avoidReshuffle) — it must not also exclude a split in the remaining
+  // search, which no longer shares any court with it.
+  const effectiveAvoidSplit = carryCourt ? undefined : avoidSplit;
 
   // A singles court's only "split" is the two players facing each other, so a
   // hard exclusion on it would leave no legal split at all — directly
@@ -1078,34 +1222,37 @@ export function generateRound(
   // recentGroupKeys set selectSittingOut already consults (its single-court
   // boundary-swap escape) is what lets it choose differently up front.
   const avoidKeys =
-    avoidSplit && avoidSplit.teamA.length === 2
+    effectiveAvoidSplit && effectiveAvoidSplit.teamA.length === 2
       ? new Set([
-          pairKey(avoidSplit.teamA[0], avoidSplit.teamA[1]),
-          pairKey(avoidSplit.teamB[0], avoidSplit.teamB[1]),
+          pairKey(effectiveAvoidSplit.teamA[0], effectiveAvoidSplit.teamA[1]),
+          pairKey(effectiveAvoidSplit.teamB[0], effectiveAvoidSplit.teamB[1]),
         ])
       : null;
 
   const recentGroupKeys =
-    avoidSplit && avoidSplit.teamA.length === 1
-      ? new Set([...(history.recentGroupKeys ?? []), groupKey([...avoidSplit.teamA, ...avoidSplit.teamB])])
+    effectiveAvoidSplit && effectiveAvoidSplit.teamA.length === 1
+      ? new Set([
+          ...(history.recentGroupKeys ?? []),
+          groupKey([...effectiveAvoidSplit.teamA, ...effectiveAvoidSplit.teamB]),
+        ])
       : history.recentGroupKeys ?? null;
 
   const { playing, sittingOut } = selectSittingOut(
-    roster,
-    courtCount,
+    effectiveRoster,
+    effectiveSizes,
     history.gamesPlayedThisSession,
     random,
     history.waitingSince,
     recentGroupKeys,
     levels,
-    band
+    band,
+    queueBy
   );
 
-  const sizes = normalizeSizes(courtCount);
-  const offered = consumedSizes(sizes, playing.length);
+  const offered = consumedSizes(effectiveSizes, playing.length);
 
   if (offered.length === 0) {
-    return { courts: [], sittingOut };
+    return { courts: carryCourt ? [carryCourt] : [], sittingOut };
   }
 
   const floors = historyFloors(playing, history.partnerCounts, history.opponentCounts);
@@ -1193,7 +1340,8 @@ export function generateRound(
   // reproduced the avoided split" is gone because it can no longer happen:
   // the exclusion now removes one split of one court, never a whole candidate,
   // so a legal alternative always remains.
-  return { courts: best ?? [], sittingOut };
+  const searched = (best ?? []).map((c) => (carryCourt ? { ...c, court: c.court + 1 } : c));
+  return { courts: carryCourt ? [carryCourt, ...searched] : searched, sittingOut };
 }
 
 /** One seat on a court being manually assembled: a player id, or empty. */

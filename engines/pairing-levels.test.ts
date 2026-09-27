@@ -187,3 +187,163 @@ test('selectSittingOut with queueBy "wait" ignores games played, orders by wait 
   assert.deepEqual(result.sittingOut, ['b']);
   assert.deepEqual(new Set(result.playing), new Set(['a', 'c']));
 });
+
+function levelMap(entries: Record<string, Level | null>): Map<string, Level | null> {
+  return new Map(Object.entries(entries));
+}
+
+function historyWithWait(waitingSince: Record<string, number>): MatchHistory {
+  return {
+    partnerCounts: new Map(),
+    opponentCounts: new Map(),
+    gamesPlayedThisSession: new Map(),
+    waitingSince: new Map(Object.entries(waitingSince)),
+  };
+}
+
+test('generateRound locks a carry court: far-below anchor partners the highest-level pro', () => {
+  const history = historyWithWait({ p1: 1000, p2: 2000, p3: 3000, p4: 4000, p5: 5000 });
+  const levels = levelMap({ p1: 'BG', p2: 'P-', p3: 'S', p4: 'P+', p5: 'P' });
+  const result = generateRound(
+    ['p1', 'p2', 'p3', 'p4', 'p5'],
+    1,
+    history,
+    makeSeededRandom(1),
+    undefined,
+    undefined,
+    levels,
+    true, // band (level mode)
+    'wait',
+    new Set(['p1']), // carryEligible
+    new Set() // carriedTonight
+  );
+  assert.equal(result.courts.length, 1);
+  const [court] = result.courts;
+  // p1 (anchor) partners p4 (P+, the highest tagged level available).
+  assert.deepEqual(new Set(court.teamA), new Set(['p1', 'p4']));
+  // Opponents: p5 (P, within ±1 of P+) plus a top-up (no second in-band
+  // candidate exists), by longest wait: p2.
+  assert.deepEqual(new Set(court.teamB), new Set(['p5', 'p2']));
+  // p3 is the only player left over, with no second court offered.
+  assert.deepEqual(result.sittingOut, ['p3']);
+});
+
+test('generateRound: no tagged player available leaves the round to normal band pairing', () => {
+  const history = historyWithWait({ p1: 1000, p2: 2000, p3: 3000, p4: 4000 });
+  const levels = levelMap({ p1: 'BG', p2: null, p3: null, p4: null });
+  const result = generateRound(
+    ['p1', 'p2', 'p3', 'p4'],
+    1,
+    history,
+    makeSeededRandom(1),
+    undefined,
+    undefined,
+    levels,
+    true,
+    'wait',
+    new Set(['p1']),
+    new Set()
+  );
+  assert.equal(result.courts.length, 1);
+  const [court] = result.courts;
+  // Every player is seated (no untouched carry pool member left dangling),
+  // and nobody sits out — the normal path, not a locked carry split.
+  assert.deepEqual(new Set([...court.teamA, ...court.teamB]), new Set(['p1', 'p2', 'p3', 'p4']));
+  assert.deepEqual(result.sittingOut, []);
+});
+
+test('generateRound: reshuffling a carry court with alternates picks new opponents, same pro', () => {
+  // p6 is P-, index 3 — two away from the pro's P+ (index 5), so it is
+  // *outside* the ±1 band, not in it. p5/p7/p8 are P (index 4, one away —
+  // in band). This makes the in-band pool {p5, p7, p8}: two candidates
+  // (p5, p7, longest wait first) chosen initially, leaving p8 (still in
+  // band) as the reshuffle's first pick, topped up with the only player
+  // left, out-of-band p6.
+  const history = historyWithWait({
+    p1: 1000, // anchor
+    p4: 4000, // pro (P+)
+    p5: 5000, // first-choice opponent (P, in band)
+    p6: 5500, // out of band (P-), only reachable via top-up
+    p7: 6000, // first-choice opponent (P, in band)
+    p8: 6500, // reshuffle's opponent (P, in band)
+  });
+  const levels = levelMap({ p1: 'BG', p4: 'P+', p5: 'P', p6: 'P-', p7: 'P', p8: 'P' });
+  const roster = ['p1', 'p4', 'p5', 'p6', 'p7', 'p8'];
+  const first = generateRound(
+    roster,
+    1,
+    history,
+    makeSeededRandom(1),
+    undefined,
+    undefined,
+    levels,
+    true,
+    'wait',
+    new Set(['p1']),
+    new Set()
+  );
+  const [firstCourt] = first.courts;
+  assert.deepEqual(new Set(firstCourt.teamA), new Set(['p1', 'p4']));
+  assert.deepEqual(new Set(firstCourt.teamB), new Set(['p5', 'p7']));
+
+  const reshuffled = generateRound(
+    roster,
+    1,
+    history,
+    makeSeededRandom(2),
+    { teamA: firstCourt.teamA, teamB: firstCourt.teamB },
+    undefined,
+    levels,
+    true,
+    'wait',
+    new Set(['p1']),
+    new Set()
+  );
+  const [again] = reshuffled.courts;
+  assert.deepEqual(new Set(again.teamA), new Set(['p1', 'p4'])); // same anchor + pro
+  assert.deepEqual(new Set(again.teamB), new Set(['p8', 'p6'])); // different opponents
+});
+
+test('generateRound: reshuffling falls back to a new pro when opponents cannot change', () => {
+  // Same 5-player setup as the first test: only one true in-band opponent
+  // (p5) exists for pro p4, so a reshuffle cannot vary the opponents and
+  // must try a different pro instead (p5 itself, next-highest tagged).
+  const history = historyWithWait({ p1: 1000, p2: 2000, p3: 3000, p4: 4000, p5: 5000 });
+  const levels = levelMap({ p1: 'BG', p2: 'P-', p3: 'S', p4: 'P+', p5: 'P' });
+  const roster = ['p1', 'p2', 'p3', 'p4', 'p5'];
+  const first = generateRound(
+    roster, 1, history, makeSeededRandom(1), undefined, undefined, levels, true, 'wait',
+    new Set(['p1']), new Set()
+  );
+  const [firstCourt] = first.courts;
+  assert.deepEqual(new Set(firstCourt.teamA), new Set(['p1', 'p4']));
+
+  const reshuffled = generateRound(
+    roster, 1, history, makeSeededRandom(3),
+    { teamA: firstCourt.teamA, teamB: firstCourt.teamB },
+    undefined, levels, true, 'wait', new Set(['p1']), new Set()
+  );
+  const [again] = reshuffled.courts;
+  assert.deepEqual(new Set(again.teamA), new Set(['p1', 'p5'])); // pro changed
+  assert.deepEqual(new Set(again.teamB), new Set(['p2', 'p4'])); // opponents changed too, as a side effect
+});
+
+test('generateRound: a singles-only offer never triggers a carry court', () => {
+  const history = historyWithWait({ p1: 1000, p2: 2000 });
+  const levels = levelMap({ p1: 'BG', p2: 'P' });
+  const result = generateRound(
+    ['p1', 'p2'],
+    [2], // singles court
+    history,
+    makeSeededRandom(1),
+    undefined,
+    undefined,
+    levels,
+    true,
+    'wait',
+    new Set(['p1']),
+    new Set()
+  );
+  assert.equal(result.courts.length, 1);
+  assert.equal(result.courts[0].teamA.length, 1);
+});

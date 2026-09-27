@@ -100,7 +100,14 @@ export function selectSittingOut(
    * downstream actually has same-level groups to work with. Off by default —
    * every existing caller is unaffected.
    */
-  band = false
+  band = false,
+  /**
+   * 'wait' (level mode) orders selection by longest wait alone — the "who's
+   * waited longer" rule real hosts asked for (2026-09-27 real-host
+   * feedback). 'games' (every existing caller, the default) keeps games
+   * played first, wait as the tiebreak.
+   */
+  queueBy: 'games' | 'wait' = 'games'
 ): { playing: PlayerId[]; sittingOut: PlayerId[] } {
   const sizes = normalizeSizes(courtCount);
   const offered = consumedSizes(sizes, roster.length);
@@ -118,8 +125,10 @@ export function selectSittingOut(
   // position, and the same people sit every week.
   const shuffled = shuffle(roster, random);
   const sorted = [...shuffled].sort((a, b) => {
-    const byGames = (gamesPlayedThisSession.get(b) ?? 0) - (gamesPlayedThisSession.get(a) ?? 0);
-    if (byGames !== 0) return byGames;
+    if (queueBy === 'games') {
+      const byGames = (gamesPlayedThisSession.get(b) ?? 0) - (gamesPlayedThisSession.get(a) ?? 0);
+      if (byGames !== 0) return byGames;
+    }
     // Later start of wait means a shorter wait, so that player sits out first.
     // Everyone starts a session on the same value, so the opening round is
     // still decided purely at random.

@@ -156,3 +156,34 @@ test('band on: a court never spans more than one level, even when both neighbour
   assert.ok(playing.includes('a'), 'the most-deserving player still anchors the court');
   assert.ok(courtLevelSpread(playing, levels) <= 1, `court spans ${courtLevelSpread(playing, levels)} levels`);
 });
+
+test('selectSittingOut with queueBy "wait" ignores games played, orders by wait alone', () => {
+  const random = makeSeededRandom(1);
+  const gamesPlayedThisSession = new Map([
+    ['a', 5], // most games, but longest wait
+    ['b', 0],
+    ['c', 0],
+  ]);
+  const waitingSince = new Map([
+    ['a', 1000], // earliest = longest wait
+    ['b', 3000],
+    ['c', 2000],
+  ]);
+  // 1 doubles court (size 4) for 3 players sits everyone... use 2 for a size-2
+  // (singles) cut instead, so exactly one player sits out.
+  const result = selectSittingOut(
+    ['a', 'b', 'c'],
+    [2],
+    gamesPlayedThisSession,
+    random,
+    waitingSince,
+    null,
+    undefined,
+    false,
+    'wait'
+  );
+  // Under 'games' ordering, 'a' (5 games) would sit out first. Under 'wait',
+  // 'a' has the longest wait and must play; 'b' (shortest wait) sits.
+  assert.deepEqual(result.sittingOut, ['b']);
+  assert.deepEqual(new Set(result.playing), new Set(['a', 'c']));
+});

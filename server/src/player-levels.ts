@@ -23,6 +23,20 @@ export async function loadPlayerLevels(
   return new Map(players.map((p) => [p.id, asLevel(p.level)]));
 }
 
+/** Player id -> when their level was last set (epoch ms), for every player
+ *  who has ever been tagged. Untagged players (never set) are absent, not 0
+ *  — a carry check must never treat "never tagged" as "tagged just now". */
+export async function loadLevelSetAt(
+  prisma: PrismaService,
+  groupId: string
+): Promise<Map<string, number>> {
+  const players = await prisma.player.findMany({
+    where: { groupId, levelSetAt: { not: null } },
+    select: { id: true, levelSetAt: true },
+  });
+  return new Map(players.map((p) => [p.id, p.levelSetAt!.getTime()]));
+}
+
 /** Rating anchors from each player's level and the time it was set. */
 export async function loadRatingAnchors(
   prisma: PrismaService,

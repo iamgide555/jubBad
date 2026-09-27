@@ -16,6 +16,8 @@
  * One place for the list of valid modes, so `SetModeDto`'s `@IsIn` and the
  * type can never drift from each other.
  */
+import { modeAt } from './court-modes.js';
+
 export const SESSION_MODES = ['variety', 'balanced', 'level', 'custom'] as const;
 
 export type SessionMode = (typeof SESSION_MODES)[number];
@@ -26,4 +28,19 @@ export function isCustomMode(mode: string): boolean {
 
 export function isLevelMode(mode: string): boolean {
   return mode === 'level';
+}
+
+/**
+ * The pairing mode that actually governs one court right now: the session's
+ * own mode everywhere except a `custom` session, where each court has its
+ * own sticky mode (2026-09-27 real-host feedback) — see `court-modes.ts`.
+ * Every per-court engine call site reads this instead of `session.mode`
+ * directly.
+ */
+export function effectiveCourtMode(
+  session: { mode: string; courtModes: string | null },
+  courtNumber: number
+): SessionMode {
+  if (!isCustomMode(session.mode)) return session.mode as SessionMode;
+  return modeAt(session.courtModes, courtNumber);
 }

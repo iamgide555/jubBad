@@ -116,6 +116,14 @@ model Session {
   /// finds their earlier choice restored — readers must index by court
   /// number, never read `.length` as a court count.
   courtFormats  String?
+  /// Per-court pairing mode, JSON-encoded (SessionMode)[], index 0 = court 1.
+  /// Read only while `mode` is 'custom' — see
+  /// server/src/sessions/session-mode.ts's effectiveCourtMode and
+  /// court-modes.ts, the only place this column is parsed or written. Null,
+  /// missing, or an unrecognised entry all read as 'custom', so a court a
+  /// host has never touched keeps proposing empty seats. Same
+  /// not-trimmed-on-shrink convention as courtFormats.
+  courtModes    String?
   /// Total shuttlecocks used tonight, counted by the host at the end (not
   /// per-match) and correctable afterwards. Null means "not recorded yet",
   /// distinct from 0. Set only via SessionsService.setShuttleDetails, never

@@ -270,6 +270,13 @@ export class SessionDashboard implements OnDestroy {
 
   readonly ended = computed(() => this.session()?.endedAt != null);
   readonly mode = computed(() => this.session()?.mode ?? 'variety');
+  /** Custom session only: true when at least one court is set to ระดับ, so
+   *  the shared waiting list (which stays games-then-wait in a custom
+   *  session — see waiting-time.ts) can warn that a level court may pick
+   *  out of that order. */
+  readonly anyCourtIsLevel = computed(() =>
+    this.liveSession.courts().some((c) => c.mode === 'level')
+  );
   readonly courtCount = computed(() => this.courtNumbers().length);
   readonly anyCourtIdle = computed(() =>
     this.liveSession.courts().some((c) => c.status === 'idle')

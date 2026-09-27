@@ -195,6 +195,9 @@
               <p class="mode-hint" i18n="@@dashboard.modeLevelHint">
                 จัดคนระดับใกล้กัน (±1) ลงคอร์ทเดียวกัน คิวอาจข้ามเพื่อให้จัดได้
               </p>
+              <p class="mode-hint" i18n="@@dashboard.modeLevelCarryHint">
+                มือใหม่ที่ระดับห่างจากกลุ่ม จะได้เล่นคู่กับมือโปร 1 เกมก่อน
+              </p>
             }
             @case ('custom') {
               <p class="mode-hint" i18n="@@dashboard.modeCustomHint">จัดคู่เองทีละคน</p>
@@ -273,6 +276,11 @@
           <p class="muted" i18n="@@dashboard.nobodyWaiting">ไม่มีคนรอ</p>
         }
       </div>
+      @if (mode() === 'custom' && anyCourtIsLevel()) {
+        <p class="mode-hint" i18n="@@dashboard.customLevelCourtHint">
+          คอร์ทที่ตั้งเป็นตามระดับอาจเรียกคิวข้ามลำดับที่เห็นด้านบน
+        </p>
+      }
     }
 
     @if (waitlistNames().length > 0) {

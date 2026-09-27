@@ -1015,6 +1015,34 @@ describe('SessionDashboard', () => {
     expect((fixture.nativeElement as HTMLElement).textContent).toContain('จัดคู่เองทีละคน');
   });
 
+  it('shows a hint under the waiting list when any court is set to ระดับ in a custom session', async () => {
+    await settled(
+      baseSession({
+        mode: 'custom',
+        courtCount: 2,
+        courts: [
+          { status: 'idle', format: 'doubles', mode: 'level' },
+          { status: 'idle', format: 'doubles', mode: 'custom' },
+        ],
+      })
+    );
+    expect((fixture.nativeElement as HTMLElement).textContent).toContain(
+      'คอร์ทที่ตั้งเป็นตามระดับอาจเรียกคิวข้ามลำดับที่เห็นด้านบน'
+    );
+  });
+
+  it('shows no ระดับ queue hint in a custom session with no level court', async () => {
+    await settled(
+      baseSession({
+        mode: 'custom',
+        courts: [{ status: 'idle', format: 'doubles', mode: 'custom' }],
+      })
+    );
+    expect((fixture.nativeElement as HTMLElement).textContent).not.toContain(
+      'คอร์ทที่ตั้งเป็นตามระดับอาจเรียกคิวข้ามลำดับที่เห็นด้านบน'
+    );
+  });
+
   /**
    * Finding 31: a booking commonly opens more courts later in the evening, and
    * the session carries a single count, so the host has to be able to change it

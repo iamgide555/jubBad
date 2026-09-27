@@ -861,6 +861,41 @@
           <context context-type="linenumber">81</context>
         </context-group>
       </trans-unit>
+      <trans-unit id="court.modeLabel" datatype="html">
+        <source>โหมดคอร์ทนี้</source><target>Court mode</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/session-dashboard/court-panel/court-panel.ts</context>
+          <context context-type="linenumber">155</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="court.modeVariety" datatype="html">
+        <source>สลับคู่</source><target>Variety</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/session-dashboard/court-panel/court-panel.ts</context>
+          <context context-type="linenumber">159</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="court.modeBalanced" datatype="html">
+        <source>สูสี</source><target>Balanced</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/session-dashboard/court-panel/court-panel.ts</context>
+          <context context-type="linenumber">160</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="court.modeLevel" datatype="html">
+        <source>ระดับ</source><target>Level</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/session-dashboard/court-panel/court-panel.ts</context>
+          <context context-type="linenumber">161</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="court.modeCustom" datatype="html">
+        <source>เลือกเอง</source><target>Manual</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/session-dashboard/court-panel/court-panel.ts</context>
+          <context context-type="linenumber">162</context>
+        </context-group>
+      </trans-unit>
       <trans-unit id="court.wonBy" datatype="html">
         <source><x id="team" equiv-text="team"/> ชนะ</source><target><x id="team" equiv-text="team"/> won</target>
         <context-group purpose="location">
@@ -976,6 +1011,13 @@
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/session-dashboard/session-dashboard.html</context>
           <context context-type="linenumber">39,43</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="dashboard.customLevelCourtHint" datatype="html">
+        <source>คอร์ทที่ตั้งเป็นตามระดับอาจเรียกคิวข้ามลำดับที่เห็นด้านบน</source><target>A court set to level may call out of the order shown above</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/session-dashboard/session-dashboard.html</context>
+          <context context-type="linenumber">281,286</context>
         </context-group>
       </trans-unit>
       <trans-unit id="dashboard.waitlist" datatype="html">
@@ -1554,6 +1596,13 @@
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/core/live-session.service.ts</context>
           <context context-type="linenumber">249</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="err.courtMode" datatype="html">
+        <source>เปลี่ยนโหมดคอร์ทไม่สำเร็จ</source><target>Couldn't change the court's mode</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/core/live-session.service.ts</context>
+          <context context-type="linenumber">327</context>
         </context-group>
       </trans-unit>
       <trans-unit id="court.restingInProposal" datatype="html">
@@ -2261,6 +2310,13 @@
       </trans-unit>
       <trans-unit id="dashboard.modeLevelHint" datatype="html">
         <source>จัดคนระดับใกล้กัน (±1) ลงคอร์ทเดียวกัน คิวอาจข้ามเพื่อให้จัดได้</source><target>Groups players within one level of each other on the same court — the queue may skip ahead to make that possible.</target>
+      </trans-unit>
+      <trans-unit id="dashboard.modeLevelCarryHint" datatype="html">
+        <source>มือใหม่ที่ระดับห่างจากกลุ่ม จะได้เล่นคู่กับมือโปร 1 เกมก่อน</source><target>A newcomer far below the group plays their first game with a strong partner first</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/session-dashboard/session-dashboard.html</context>
+          <context context-type="linenumber">199,201</context>
+        </context-group>
       </trans-unit>
       <trans-unit id="level.unset" datatype="html">
         <source>ไม่ระบุ</source><target>Not set</target>

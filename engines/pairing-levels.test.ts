@@ -586,6 +586,32 @@ test('generateRound: four or more eligible newcomers still fill only one court, 
   assert.deepEqual(result.sittingOut, ['n5']);
 });
 
+test('generateRound: a carry court still forms when the single longest-waiting player is not carry-eligible', () => {
+  // u0 has the longest wait of anyone but is untagged (never carry-eligible).
+  // n1, further back in the queue, is the only carry-eligible player. The
+  // carry rule must scan past u0 to find n1, not give up because u0 —
+  // literally the longest-waiting player overall — isn't eligible.
+  const history = historyWithWait({ u0: 500, n1: 1000, pro: 1500, u1: 2000, u2: 3000 });
+  const levels = levelMap({ u0: null, n1: 'BG', pro: 'P+', u1: null, u2: null });
+  const result = generateRound(
+    ['u0', 'n1', 'pro', 'u1', 'u2'],
+    1,
+    history,
+    makeSeededRandom(1),
+    undefined,
+    undefined,
+    levels,
+    true,
+    'wait',
+    new Set(['n1']),
+    new Set()
+  );
+  assert.equal(result.courts.length, 1);
+  const [court] = result.courts;
+  const n1Team = court.teamA.includes('n1') ? court.teamA : court.teamB;
+  assert.equal(n1Team.includes('pro'), true);
+});
+
 test('generateRound: reshuffling a group carry court still returns a full court, not null', () => {
   const history = historyWithWait({ n1: 1000, n2: 2000, u1: 3000, u2: 4000 });
   const levels = levelMap({ n1: 'BG', n2: 'BG', u1: null, u2: null });

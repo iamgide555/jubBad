@@ -1073,11 +1073,11 @@ function pickOpponents(
  * The requested court's locked carry group, or null when no carry applies —
  * see docs/superpowers/specs/2026-09-27-level-rework-design.md, section 1b.
  *
- * Only ever considers the *single* longest-waiting player in `roster` as the
- * anchor: once band ordering runs, that player is always the requested
- * court's anchor (`bandOrderedByCourt` processes offered courts in order,
- * starting from the single most-deserving player) — so this function does
- * not need to reimplement band ordering to know who the anchor is.
+ * The anchor is the first carry-eligible player in wait order, not
+ * necessarily the single longest-waiting player in `roster` — the far-below
+ * player is explicitly allowed to jump the queue for their carry game (same
+ * as the pro), so a longer-waiting but ineligible player earlier in the
+ * queue must never block the scan.
  *
  * `avoidReshuffle`, when supplied, is the pairing this exact court currently
  * holds (a reshuffle). The pro stays the same and opponents change first;
@@ -1100,8 +1100,8 @@ function buildCarryCourt(
   const byLongestWait = [...roster].sort(
     (a, b) => (waitingSince.get(a) ?? 0) - (waitingSince.get(b) ?? 0)
   );
-  const anchor = byLongestWait[0];
-  if (!carryEligible.has(anchor)) return null;
+  const anchor = byLongestWait.find((id) => carryEligible.has(id));
+  if (anchor === undefined) return null;
   const anchorLevel = levels.get(anchor) ?? null;
   if (anchorLevel === null) return null; // carryEligible implies tagged; guards a missing entry
 
@@ -1233,13 +1233,11 @@ export function generateRound(
 
   const sizes = normalizeSizes(courtCount);
 
-  // Carry game: once band ordering runs, the single longest-waiting player
-  // in the whole roster is always the requested court's anchor
-  // (bandOrderedByCourt processes offered courts in order, starting from
-  // the single most-deserving player) — so whether *that* player is
-  // carry-eligible fully decides whether the requested court becomes a
-  // carry game. Resolved up front, and only ever touches court 0 (the
-  // requested court), exactly like avoidSplit's own court-0-only reach.
+  // Carry game: `buildCarryCourt` scans wait order for the first
+  // carry-eligible player, wherever they sit in the queue, and locks them
+  // onto the requested court. Resolved up front, and only ever touches
+  // court 0 (the requested court), exactly like avoidSplit's own
+  // court-0-only reach.
   let carryCourt: CourtAssignment | null = null;
   let carryGroup: Set<PlayerId> | null = null;
   if (

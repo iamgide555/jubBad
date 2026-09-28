@@ -342,17 +342,32 @@ of a same-level match, and it never makes a round unsolvable.
 
 **Level mode queues by wait time, not games played** (2026-09-27 real-host
 feedback) — real hosts run this mode exclusively and only care who has
-waited longest, not how many games anyone has had. A far-below player (no
-other active tagged player within ±1, and fewer than 4 active players share
-their band) gets one **carry game** the first time their turn comes after
-being tagged: forced to partner the highest-level player still waiting
-(who may jump the queue for it) against the two longest-waiting players
-within ±1 of that partner's level. The pairing is locked before the normal
-search runs, so it can never be split apart by a swap; everyone else is
-seated by the unmodified search. Reshuffling a pending carry court keeps the
-same newcomer and partner and tries new opponents first, a new partner only
-if no other opponents exist. See `engines/pairing.ts`'s `buildCarryCourt`
-and `docs/superpowers/specs/2026-09-27-level-rework-design.md`.
+waited longest, not how many games anyone has had. A far-below player
+(fewer than 4 active players, self included, share their ±1 band, and every
+tagged player outside it is above them — `isFarBelow`, `engines/levels.ts`)
+gets a **carry game** the first time their turn comes after being tagged,
+and again every later session where that still holds — a host who doesn't
+want that for a regular can retag or handle it by hand.
+
+**A lone eligible newcomer** is forced to partner the highest-level player
+still waiting (who may jump the queue for it) against the two longest-waiting
+players within ±1 of that partner's level. Reshuffling a pending carry court
+keeps the same newcomer and partner and tries new opponents first, a new
+partner only if no other opponents exist.
+
+**Two or more eligible newcomers waiting at once** (2026-09-28 real-host
+feedback) go on one court together instead — no pro. Up to 4 of the
+longest-waiting eligible players join (jumping the queue, same as the solo
+case), any remaining seats are filled by players picked uniformly at random
+rather than by rotation fairness, and the team split still uses the same
+real partner/opponent-variety scoring every other court gets. A 5th or later
+eligible newcomer waits for their own next court.
+
+Either shape is locked before the normal search runs, so it can never be
+split apart by a swap; everyone else is seated by the unmodified search, and
+only the requested court (never a second court in the same propose or
+fill-all) ever becomes a carry court. See `engines/pairing.ts`'s
+`buildCarryCourt` and `docs/superpowers/specs/2026-09-27-level-rework-design.md`.
 
 **Court format is per court, not per session, and only changeable while a
 court is idle.** A host can run doubles on courts 1-2 and singles on court 3

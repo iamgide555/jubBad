@@ -347,3 +347,160 @@ test('generateRound: a singles-only offer never triggers a carry court', () => {
   assert.equal(result.courts.length, 1);
   assert.equal(result.courts[0].teamA.length, 1);
 });
+
+test('generateRound: a carry court never pairs the far-below anchor with a same-or-lower-level "pro"', () => {
+  // Two BGs plus 4 untagged players: with no one tagged above the anchor,
+  // there is no real pro, so this must fall back to normal band pairing,
+  // never partner the anchor with the other BG.
+  const history = historyWithWait({
+    bg1: 1000,
+    bg2: 2000,
+    u1: 3000,
+    u2: 4000,
+    u3: 5000,
+    u4: 6000,
+  });
+  const levels = levelMap({ bg1: 'BG', bg2: 'BG', u1: null, u2: null, u3: null, u4: null });
+  const result = generateRound(
+    ['bg1', 'bg2', 'u1', 'u2', 'u3', 'u4'],
+    1,
+    history,
+    makeSeededRandom(1),
+    undefined,
+    undefined,
+    levels,
+    true,
+    'wait',
+    new Set(['bg1', 'bg2']),
+    new Set()
+  );
+  const [court] = result.courts;
+  const seated = [...court.teamA, ...court.teamB];
+  assert.equal(seated.includes('bg1'), true);
+  // bg1 (the anchor) must never be forced to partner bg2: with no one
+  // tagged above bg1, this must not become a locked carry split at all.
+  const bg1Team = court.teamA.includes('bg1') ? court.teamA : court.teamB;
+  assert.equal(bg1Team.includes('bg2'), false);
+});
+
+test('generateRound: a carry court never picks another far-below player as the pro when the real pro is busy', () => {
+  // p4 (P+, the only real pro) is reserved elsewhere (not in the roster
+  // passed to generateRound), leaving p1 (BG anchor), p2 (also BG), and two
+  // untagged players. p2 must never be chosen as the "pro".
+  const history = historyWithWait({ p1: 1000, p2: 2000, u1: 3000, u2: 4000 });
+  const levels = levelMap({ p1: 'BG', p2: 'BG', u1: null, u2: null });
+  const result = generateRound(
+    ['p1', 'p2', 'u1', 'u2'],
+    1,
+    history,
+    makeSeededRandom(1),
+    undefined,
+    undefined,
+    levels,
+    true,
+    'wait',
+    new Set(['p1', 'p2']),
+    new Set()
+  );
+  const [court] = result.courts;
+  const p1Team = court.teamA.includes('p1') ? court.teamA : court.teamB;
+  assert.equal(p1Team.includes('p2'), false);
+});
+
+test('generateRound: an empty waitingSince map (first-ever propose) does not crash and still forms a carry court', () => {
+  // Review Focus #1: no player has a real wait record yet. Every waitingSince
+  // lookup falls back to 0 (a tie), so the anchor is simply the first player
+  // in roster order — this must not throw.
+  const history: MatchHistory = {
+    partnerCounts: new Map(),
+    opponentCounts: new Map(),
+    gamesPlayedThisSession: new Map(),
+    waitingSince: new Map(), // present but empty
+  };
+  const levels = levelMap({ p1: 'BG', p2: 'P+', p3: 'P', p4: 'P' });
+  assert.doesNotThrow(() => {
+    const result = generateRound(
+      ['p1', 'p2', 'p3', 'p4'],
+      1,
+      history,
+      makeSeededRandom(1),
+      undefined,
+      undefined,
+      levels,
+      true,
+      'wait',
+      new Set(['p1']),
+      new Set()
+    );
+    assert.equal(result.courts.length, 1);
+  });
+});
+
+test('generateRound: reshuffling a carry court with no alternate pro or opponents returns the same court, not null', () => {
+  // Review Focus #3: p2 (P+) is the only tagged player besides the anchor —
+  // no fallback pro, and no fallback opponents once p2 is fixed as the pro.
+  const history = historyWithWait({ p1: 1000, p2: 2000, u1: 3000, u2: 4000 });
+  const levels = levelMap({ p1: 'BG', p2: 'P+', u1: null, u2: null });
+  const roster = ['p1', 'p2', 'u1', 'u2'];
+  const first = generateRound(
+    roster, 1, history, makeSeededRandom(1), undefined, undefined, levels, true, 'wait',
+    new Set(['p1']), new Set()
+  );
+  const [firstCourt] = first.courts;
+  assert.deepEqual(new Set(firstCourt.teamA), new Set(['p1', 'p2']));
+
+  const reshuffled = generateRound(
+    roster, 1, history, makeSeededRandom(2),
+    { teamA: firstCourt.teamA, teamB: firstCourt.teamB },
+    undefined, levels, true, 'wait', new Set(['p1']), new Set()
+  );
+  const [again] = reshuffled.courts;
+  // Nothing else exists to vary — the same court comes back, not "not enough players".
+  assert.deepEqual(new Set(again.teamA), new Set(['p1', 'p2']));
+  assert.deepEqual(new Set(again.teamB), new Set(['u1', 'u2']));
+});
+
+test('generateRound: a second far-below player can still be carried by the only pro, deprioritised but not excluded', () => {
+  // Review Focus #5: p1 already carried tonight (carriedTonight has the pro),
+  // p2 is a second far-below player now at the front of the queue. With no
+  // other tagged player available, the same pro must still carry them —
+  // deprioritised-but-not-excluded, per the spec.
+  const history = historyWithWait({ p2: 1000, u1: 2000, u2: 3000, pro: 4000 });
+  const levels = levelMap({ p2: 'BG', pro: 'P+', u1: null, u2: null });
+  const result = generateRound(
+    ['p2', 'u1', 'u2', 'pro'],
+    1,
+    history,
+    makeSeededRandom(1),
+    undefined,
+    undefined,
+    levels,
+    true,
+    'wait',
+    new Set(['p2']),
+    new Set(['pro']) // carried tonight already, but still the only option
+  );
+  const [court] = result.courts;
+  const p2Team = court.teamA.includes('p2') ? court.teamA : court.teamB;
+  assert.equal(p2Team.includes('pro'), true);
+});
+
+test('generateRound: fewer than 4 players never attempts a carry court', () => {
+  const history = historyWithWait({ p1: 1000, p2: 2000, p3: 3000 });
+  const levels = levelMap({ p1: 'BG', p2: 'P', p3: 'P' });
+  assert.doesNotThrow(() => {
+    generateRound(
+      ['p1', 'p2', 'p3'],
+      [2], // singles court anyway, but also below the 4-player floor
+      history,
+      makeSeededRandom(1),
+      undefined,
+      undefined,
+      levels,
+      true,
+      'wait',
+      new Set(['p1']),
+      new Set()
+    );
+  });
+});

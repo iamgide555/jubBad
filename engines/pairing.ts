@@ -1099,6 +1099,8 @@ function buildCarryCourt(
   );
   const anchor = byLongestWait[0];
   if (!carryEligible.has(anchor)) return null;
+  const anchorLevel = levels.get(anchor) ?? null;
+  if (anchorLevel === null) return null; // carryEligible implies tagged; guards a missing entry
 
   let currentTeam: Team | null = null;
   let currentOpponents: Team | null = null;
@@ -1114,8 +1116,16 @@ function buildCarryCourt(
   const currentPro = currentTeam?.find((id) => id !== anchor) ?? null;
 
   const candidatePool = roster.filter((id) => id !== anchor);
+  // The pro must genuinely be stronger than the anchor — a same-or-lower
+  // level "pro" (e.g. another untreated far-below player, or the anchor's
+  // own level) defeats the whole point of a carry game. No one above the
+  // anchor is exactly the spec's "no tagged unplaced player above the carry
+  // player" fallback: no carry, normal band pairing applies.
   const proCandidates = candidatePool
-    .filter((id) => levels.get(id) != null)
+    .filter((id) => {
+      const level = levels.get(id);
+      return level != null && levelIndex(level) > levelIndex(anchorLevel);
+    })
     .sort((a, b) => {
       const diff = levelIndex(levels.get(b)!) - levelIndex(levels.get(a)!);
       if (diff !== 0) return diff;

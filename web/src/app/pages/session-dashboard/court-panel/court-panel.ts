@@ -273,7 +273,7 @@ export class CourtPanel {
       return $localize`:@@court.selectPlayer:เลือก ${name}:name: เพื่อสลับตัว`;
     }
     if (held.playerId === playerId) {
-      return this.isCustom()
+      return this.court().mode === 'custom'
         ? $localize`:@@court.vacateSeat:เอา ${name}:name: ออกจากที่นั่ง`
         : $localize`:@@court.swapOut:เปลี่ยน ${name}:name: ออก`;
     }
@@ -350,11 +350,13 @@ export class CourtPanel {
     }
     if (held.playerId === playerId) {
       this.selection.clear();
-      // In custom mode, the second tap vacates the seat — the host opted out
-      // of rotation choosing a replacement, so there is nothing for the
-      // ordinary swap endpoint to pick. Every other mode keeps "take them
-      // off, server chooses."
-      const seat = this.isCustom() ? this.seatFor(playerId) : undefined;
+      // On a court whose own effective mode is custom, the second tap
+      // vacates the seat — the host opted out of rotation choosing a
+      // replacement, so there is nothing for the ordinary swap endpoint to
+      // pick. Every other mode (including inside a custom session, where a
+      // court can be set to a non-custom mode) keeps "take them off, server
+      // chooses."
+      const seat = this.court().mode === 'custom' ? this.seatFor(playerId) : undefined;
       if (seat) {
         await this.runSetSeat(pairingId, seat.team, seat.index);
         return;

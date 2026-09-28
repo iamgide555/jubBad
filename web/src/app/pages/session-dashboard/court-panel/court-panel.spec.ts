@@ -1013,7 +1013,7 @@ describe('CourtPanel with too few players', () => {
   const customPendingCourt = (teamA: (string | null)[], teamB: (string | null)[]) =>
     baseSession({
       mode: 'custom',
-      courts: [{ status: 'pending', pairingId: 'pair1', format: 'doubles', mode: 'variety', teamA, teamB, autoStartAt: null }],
+      courts: [{ status: 'pending', pairingId: 'pair1', format: 'doubles', mode: 'custom', teamA, teamB, autoStartAt: null }],
     });
 
   it('renders an empty seat distinctly from a named one', async () => {
@@ -1072,6 +1072,60 @@ describe('CourtPanel with too few players', () => {
     await new Promise((r) => setTimeout(r, 0));
     TestBed.tick();
     httpMock.expectOne(`${B}/sessions/sess1`).flush(customPendingCourt([null, 'p2'], ['p3', 'p4']));
+    await fixture.whenStable();
+  });
+
+  it('tapping a seated player twice on a non-custom court inside a custom session calls the substitute endpoint, not seats', async () => {
+    // The session is custom, but this specific court is set to ระดับ (or any
+    // non-custom mode) — it must behave like a normal rotation court, not a
+    // custom draft: double-tap should call the swap (substitute) endpoint,
+    // never vacate the seat.
+    const { fixture, httpMock } = await createPanel(
+      baseSession({
+        mode: 'custom',
+        courts: [
+          {
+            status: 'pending',
+            pairingId: 'pair1',
+            format: 'doubles',
+            mode: 'level',
+            teamA: ['p1', 'p2'],
+            teamB: ['p3', 'p4'],
+            autoStartAt: null,
+          },
+        ],
+      })
+    );
+    fixture.detectChanges();
+
+    const buttons = (fixture.nativeElement as HTMLElement).querySelectorAll('button.name-tap');
+    const nameButton = Array.from(buttons).find((b) => b.textContent === 'ตั้ม') as HTMLButtonElement;
+    nameButton.click();
+    fixture.detectChanges();
+    httpMock.expectNone(`${B}/sessions/sess1/pairings/pair1/seats`);
+    nameButton.click();
+
+    httpMock
+      .expectOne(`${B}/sessions/sess1/pairings/pair1/swap`)
+      .flush({ ok: false, reason: 'no-substitute' });
+    await new Promise((r) => setTimeout(r, 0));
+    TestBed.tick();
+    httpMock.expectOne(`${B}/sessions/sess1`).flush(
+      baseSession({
+        mode: 'custom',
+        courts: [
+          {
+            status: 'pending',
+            pairingId: 'pair1',
+            format: 'doubles',
+            mode: 'level',
+            teamA: ['p1', 'p2'],
+            teamB: ['p3', 'p4'],
+            autoStartAt: null,
+          },
+        ],
+      })
+    );
     await fixture.whenStable();
   });
 

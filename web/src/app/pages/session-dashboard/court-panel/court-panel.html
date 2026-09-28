@@ -160,7 +160,7 @@
             <p class="hint auto-start-hint" role="status">{{ label }}</p>
           }
           <div class="button-row">
-            @if (isCustom()) {
+            @if (c.mode === 'custom') {
               <button type="button" class="ghost" [disabled]="busy()" (click)="startOrReshuffle()" i18n="@@court.clearCourt">ล้างคอร์ท</button>
               @if (emptySeatCount() > 0) {
                 <button type="button" class="ghost auto-pair" [disabled]="busy()" (click)="autoPair(c.pairingId)" i18n="@@court.autoPair">เติมอัตโนมัติ</button>

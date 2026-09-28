@@ -2206,6 +2206,52 @@ describe('SessionsController', () => {
     }
   });
 
+  it("fills a custom session's engine-mode courts using the seats-maximising choice, not court-number order", async () => {
+    const groupCode = randomUUID();
+    const sessionCode = randomUUID();
+    await prisma.group.create({ data: { code: groupCode, name: 'G' } });
+    const players = await Promise.all(
+      ['A', 'B', 'C', 'D'].map((name) =>
+        prisma.player.create({ data: { groupId: groupCode, name, aliases: '[]' } })
+      )
+    );
+    await prisma.session.create({
+      data: {
+        code: sessionCode,
+        groupId: groupCode,
+        courtCount: 2,
+        rawImportText: '',
+        mode: 'custom',
+        // Both courts share the 'variety' mode group; court 1 is singles
+        // (seats 2), court 2 is doubles (seats 4) — with only 4 players,
+        // court-number order would seat court 1 first (2 seated) and then
+        // find court 2 doesn't fit (2 remaining < 4), seating only 2 of 4.
+        courtModes: JSON.stringify(['variety', 'variety']),
+        courtFormats: JSON.stringify(['singles', 'doubles']),
+      },
+    });
+    for (const p of players) {
+      await prisma.sessionRoster.create({ data: { sessionId: sessionCode, playerId: p.id } });
+    }
+
+    try {
+      const res = await request(server).post(`/sessions/${sessionCode}/courts/fill`).expect(201);
+      expect(res.body.ok).toBe(true);
+
+      const rows = await prisma.pairing.findMany({ where: { sessionId: sessionCode } });
+      const seated = rows.flatMap((r) => [...JSON.parse(r.teamA), ...JSON.parse(r.teamB)]);
+      // The doubles court must be the one chosen, seating all 4 — not the
+      // singles court seating only 2 with the doubles court left idle.
+      expect(seated).toHaveLength(4);
+    } finally {
+      await prisma.pairing.deleteMany({ where: { sessionId: sessionCode } });
+      await prisma.sessionRoster.deleteMany({ where: { sessionId: sessionCode } });
+      await prisma.session.deleteMany({ where: { code: sessionCode } });
+      await prisma.player.deleteMany({ where: { groupId: groupCode } });
+      await prisma.group.deleteMany({ where: { code: groupCode } });
+    }
+  });
+
   describe('POST /sessions/:code/pairings/:id/seats', () => {
     async function makeDraftCourt(courtCount = 1) {
       const groupCode = randomUUID();

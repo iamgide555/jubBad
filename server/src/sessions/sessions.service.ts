@@ -599,6 +599,42 @@ export class SessionsService {
   }
 
   /**
+   * The subset and order of `courtNumbers` that seats the most players —
+   * same reasoning as `fillExclusively`'s own non-custom seats-maximising
+   * choice below (a court is only ever 2 or 4, so trying every count of
+   * doubles courts to use and greedily filling the rest with singles courts
+   * is cheap and exact). Extracted so a custom session's per-mode-group fill
+   * gets the same guarantee: filling courts in plain court-number order can
+   * under-seat when a singles court comes before a doubles court and there
+   * are not enough players left over to also fill the doubles court.
+   */
+  private chooseSeatingOrder(
+    courtNumbers: number[],
+    session: { courtFormats: string | null },
+    availableCount: number
+  ): number[] {
+    const doublesCourts = courtNumbers.filter((n) => formatAt(session.courtFormats, n) === 'doubles');
+    const singlesCourts = courtNumbers.filter((n) => formatAt(session.courtFormats, n) === 'singles');
+
+    let bestSeated = 0;
+    let bestDoublesUsed = 0;
+    let bestSinglesUsed = 0;
+    for (let doublesUsed = 0; doublesUsed <= doublesCourts.length; doublesUsed++) {
+      const remaining = availableCount - doublesUsed * 4;
+      if (remaining < 0) break;
+      const singlesUsed = Math.min(singlesCourts.length, Math.floor(remaining / 2));
+      const seated = doublesUsed * 4 + singlesUsed * 2;
+      if (seated > bestSeated) {
+        bestSeated = seated;
+        bestDoublesUsed = doublesUsed;
+        bestSinglesUsed = singlesUsed;
+      }
+    }
+
+    return [...doublesCourts.slice(0, bestDoublesUsed), ...singlesCourts.slice(0, bestSinglesUsed)];
+  }
+
+  /**
    * Carry-game inputs for a level-mode propose/fill — only ever needed when
    * at least one court being planned is effectively `level`. Cheap enough
    * (three small queries) to call unconditionally from those two call sites.
@@ -1938,7 +1974,8 @@ export class SessionsService {
       let remainingRoster = roster.map((r) => r.playerId).filter((id) => !reserved.has(id));
 
       for (const [mode, courtsInGroup] of orderedGroups) {
-        const sizes = courtsInGroup.map((n) => courtSizeFor(formatAt(session.courtFormats, n)));
+        const chosenInGroup = this.chooseSeatingOrder(courtsInGroup, session, remainingRoster.length);
+        const sizes = chosenInGroup.map((n) => courtSizeFor(formatAt(session.courtFormats, n)));
         const history = await this.loadHistory(session.groupId, sessionCode);
         const ratings = mode === 'balanced' ? await this.loadRatings(session.groupId) : undefined;
         const levels = await loadPlayerLevels(this.prisma, session.groupId);
@@ -1961,7 +1998,7 @@ export class SessionsService {
 
         await this.prisma.$transaction(async (tx) => {
           for (const assignment of result.courts) {
-            const courtNumber = courtsInGroup[assignment.court - 1];
+            const courtNumber = chosenInGroup[assignment.court - 1];
             const matchNumber =
               (await tx.pairing.count({
                 where: { sessionId: sessionCode, courtNumber, confirmedAt: { not: null } },

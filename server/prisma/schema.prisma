@@ -209,6 +209,14 @@ model Pairing {
   /// Null means auto-confirm is off: a row from before this column existed,
   /// or one an undone confirm just cleared.
   pendingSince DateTime?
+  /// JSON-encoded array of every doubles split this exact pending court has
+  /// already shown (oldest first), reshuffle over reshuffle — not just the
+  /// one currently displayed. Passed back to the engine's `avoidSplit` on
+  /// the next reshuffle so a host who keeps tapping it exhausts every split
+  /// before any of them repeats (G3, docs/2026-09-21-feature-review-and-roadmap.md).
+  /// Reset to "[]" whenever a fresh pending pairing is created (a new match,
+  /// or a custom-mode court cleared back to empty seats).
+  shownSplits String    @default("[]")
   confirmedAt DateTime?
   endedAt     DateTime?
   session     Session   @relation(fields: [sessionId], references: [code])

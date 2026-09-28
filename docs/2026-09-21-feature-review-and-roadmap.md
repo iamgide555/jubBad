@@ -511,6 +511,33 @@ on B (this plan). Not yet designed.
 
 2026-09-27 real-host feedback. Depends on D. Not yet designed.
 
+#### - [ ] F. Per-group level names — each host configures their own ladder
+
+2026-09-28 real-host feedback. Not yet designed.
+
+Groups don't share one ladder. One group grades `BG, N, S`; another `BG, BGN,
+N, NS`, etc. Today the ladder is the fixed `LEVELS` list in `engines/levels.ts`
+(`BG, N, S, P-, P, P+, C, B`), shared by every group. Wanted: each host
+configures the level names for their own group (which names, and their order).
+
+Design questions to settle before building:
+
+- **Storage:** per-group ordered list on `Group` (JSON-encoded string column,
+  same as `Player.aliases`), defaulting to today's `LEVELS` so existing groups
+  don't change.
+- **Order is meaning.** `levelIndex` drives the ±1 band in level mode, the
+  Elo seed (`seedFor`: 900 + 100 × index), the carry-game "far below" check,
+  and คอร์ดมือ. A custom ladder must feed all of these from the group's list,
+  not the constant. Elo seed spacing may need to scale with ladder length.
+- **Renaming/removing a level in use:** `Player.level` is a free string; a
+  removed name must not orphan players (map to null? force the host to
+  reassign?). `asLevel`/`isLevel` currently validate against the constant.
+- **Roster paste:** parser may read a level suffix from LINE names; check it
+  uses the group's names.
+- **Web:** level pickers and labels read the group's list; bilingual UI unchanged.
+
+Effort M.
+
 ### P3 — skip unless the target customer changes
 
 - **Club-business features:** shuttle stock and low-stock alerts, wallet or
@@ -569,7 +596,7 @@ notes (competitor parity alone does not justify an item).
 
 - [x] G1. Level mode let a court span P- to P+ (band checked against the anchor only) — done
 - [x] G2. Auto-substitute ignored wait time and recent groups — done
-- [ ] G3. Reshuffle alternates between the same two splits (`12|34 → 14|23 → 12|34`); needs the pending pairing to remember shown splits (schema/API change). Reproduced.
+- [x] G3. Reshuffle alternates between the same two splits (`12|34 → 14|23 → 12|34`); needs the pending pairing to remember shown splits (schema/API change). Reproduced. — done: `Pairing.shownSplits` accumulates every split shown across a pending court's reshuffles; `generateRound`'s `avoidSplit` now takes the whole array (oldest first) and drops the oldest exclusion once every split has been shown, so the least-recently-shown one cycles back in instead of the immediately-previous one repeating.
 - [ ] G4. Balanced mode compares team *averages*, so B+BG vs P+P scores as balanced. Consider a within-team spread term. Needs session evidence.
 - [ ] G5. History counts are all-time raw totals; frequent attenders accumulate partner history from attendance alone, and floor normalisation is a no-op for ranking. Consider per-attendance normalisation or a window; measure in `engines/variety-sim.ts` first.
 - [ ] G6. Level mode has no cap on the games-played gap an in-band player can gain over an out-of-band one. Add only if a session shows a gap of 2+.

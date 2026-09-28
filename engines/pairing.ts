@@ -640,8 +640,10 @@ interface SearchContext {
    *  Only ever set for a doubles (2-per-team) exclusion — a singles reshuffle
    *  routes its avoidance through `recentGroupKeys` instead (see
    *  `generateRound`), because a 2-player group has only one possible split
-   *  and excluding it would leave no legal arrangement at all. */
-  avoidKeys: Set<string> | null;
+   *  and excluding it would leave no legal arrangement at all. Oldest-first:
+   *  once every split has been shown (G3), `withLegalAlternative` drops from
+   *  the front so the least-recently-shown one comes free again first. */
+  avoidKeys: readonly string[] | null;
   /**
    * Groups that just played together, applied to every court — unlike
    * avoidKeys this is not limited to the committed court, because the bug it
@@ -687,7 +689,20 @@ function compareComponents(
 }
 
 /**
- * `avoidKeys` is only ever built from a doubles (2-per-team) avoidSplit — see
+ * A doubles split's identity regardless of which team is labeled A or B —
+ * the two within-team pair keys, sorted so `teamA`/`teamB` can swap without
+ * changing the signature. `avoidKeys` (see `generateRound`) holds one of
+ * these per split already shown for this pending court, oldest first, so a
+ * candidate is checked for exact membership rather than the old single-split
+ * key-overlap trick — that trick assumed exactly one excluded split and
+ * silently broke once more than one needed excluding at the same time (G3).
+ */
+function splitSignature(teamA: Team, teamB: Team): string {
+  return [pairKey(teamA[0], teamA[1]), pairKey(teamB[0], teamB[1])].sort().join('::');
+}
+
+/**
+ * `avoidKeys` is only ever built from doubles (2-per-team) splits — see
  * `generateRound` — so this only makes sense for a size-2 team. The one call
  * site already guards on `teamA.length === 2` before calling this, but that
  * guard living only in the caller is a footgun: a future call site that
@@ -696,37 +711,58 @@ function compareComponents(
  * no-op instead of failing loudly. Checked here too so this function is safe
  * on its own terms, not just as currently called.
  */
-function isAvoidedSplit(teamA: Team, teamB: Team, avoidKeys: Set<string>): boolean {
+function isAvoidedSplit(teamA: Team, teamB: Team, avoidKeys: readonly string[]): boolean {
   if (teamA.length !== 2 || teamB.length !== 2) return false;
-  const keys = new Set([pairKey(teamA[0], teamA[1]), pairKey(teamB[0], teamB[1])]);
-  return keys.size === avoidKeys.size && [...keys].every((key) => avoidKeys.has(key));
+  return avoidKeys.includes(splitSignature(teamA, teamB));
 }
 
 /**
- * The best legal split of one group, or null when every split is excluded or
- * scores NaN. Ties keep the first pattern, so a caller that randomizes group
- * order gets randomized tie-breaking for free — without that, an untouched
- * history would hand back the same pairing every single reshuffle.
+ * Drops `avoidKeys` entries oldest-first until at least one of `patterns` is
+ * no longer excluded. A 4-player group only has 3 possible doubles splits at
+ * all, so once every one of them has been shown (G3), a straight exclusion
+ * would leave zero legal splits — the guarantee `generateRound` documents
+ * ("a legal alternative always remains") breaking. Dropping the oldest
+ * exclusion first, rather than giving up on exclusion entirely, is what
+ * cycles back to the least-recently-shown split instead of letting the
+ * *immediately previous* one repeat.
+ */
+function withLegalAlternative(
+  patterns: { teamA: Team; teamB: Team }[],
+  avoidKeys: readonly string[]
+): readonly string[] {
+  let trimmed = avoidKeys;
+  while (
+    trimmed.length > 0 &&
+    patterns.every((p) => p.teamA.length === 2 && isAvoidedSplit(p.teamA, p.teamB, trimmed))
+  ) {
+    trimmed = trimmed.slice(1);
+  }
+  return trimmed;
+}
+
+/**
+ * The best legal split of one group, or null when every split scores NaN.
+ * Ties keep the first pattern, so a caller that randomizes group order gets
+ * randomized tie-breaking for free — without that, an untouched history
+ * would hand back the same pairing every single reshuffle.
  */
 function bestSplitForGroup(
   group: Group,
   courtIndex: number,
   ctx: SearchContext
 ): { assignment: CourtAssignment; components: ArrangementScoreComponents } | null {
+  const patterns = splitPatternsFor(group.length).map(([aIdx, bIdx]) => ({
+    teamA: aIdx.map((i) => group[i]),
+    teamB: bIdx.map((i) => group[i]),
+  }));
+
+  const avoidKeys =
+    courtIndex === 0 && ctx.avoidKeys ? withLegalAlternative(patterns, ctx.avoidKeys) : null;
+
   let best: { assignment: CourtAssignment; components: ArrangementScoreComponents } | null = null;
 
-  for (const [aIdx, bIdx] of splitPatternsFor(group.length)) {
-    const teamA: Team = aIdx.map((i) => group[i]);
-    const teamB: Team = bIdx.map((i) => group[i]);
-
-    if (
-      courtIndex === 0 &&
-      ctx.avoidKeys &&
-      teamA.length === 2 &&
-      isAvoidedSplit(teamA, teamB, ctx.avoidKeys)
-    ) {
-      continue;
-    }
+  for (const { teamA, teamB } of patterns) {
+    if (avoidKeys && teamA.length === 2 && isAvoidedSplit(teamA, teamB, avoidKeys)) continue;
 
     const components = courtComponents(teamA, teamB, ctx);
     const total =
@@ -992,7 +1028,7 @@ export function validateRoundInput(
   roster: PlayerId[],
   courtCount: number | CourtSize[],
   history: MatchHistory,
-  avoidSplit?: { teamA: Team; teamB: Team },
+  avoidSplit?: { teamA: Team; teamB: Team } | { teamA: Team; teamB: Team }[],
   ratings?: RatingsInput
 ): void {
   if (Array.isArray(courtCount)) {
@@ -1032,12 +1068,12 @@ export function validateRoundInput(
     }
   }
 
-  if (avoidSplit) {
-    const size = avoidSplit.teamA.length;
-    if (size !== avoidSplit.teamB.length || (size !== 1 && size !== 2)) {
+  for (const split of asAvoidSplitArray(avoidSplit)) {
+    const size = split.teamA.length;
+    if (size !== split.teamB.length || (size !== 1 && size !== 2)) {
       throw new InvalidRoundInputError('avoidSplit teams must be the same size, one or two players each');
     }
-    const players = [...avoidSplit.teamA, ...avoidSplit.teamB];
+    const players = [...split.teamA, ...split.teamB];
     const expected = size * 2;
     if (players.length !== expected || new Set(players).size !== expected) {
       throw new InvalidRoundInputError(
@@ -1045,6 +1081,16 @@ export function validateRoundInput(
       );
     }
   }
+}
+
+/** Normalizes the single-split-or-array `avoidSplit` shape both
+ *  `validateRoundInput` and `generateRound` accept into a plain array,
+ *  oldest first — empty when nothing was passed. */
+function asAvoidSplitArray(
+  avoidSplit?: { teamA: Team; teamB: Team } | { teamA: Team; teamB: Team }[]
+): { teamA: Team; teamB: Team }[] {
+  if (!avoidSplit) return [];
+  return Array.isArray(avoidSplit) ? avoidSplit : [avoidSplit];
 }
 
 /**
@@ -1136,10 +1182,7 @@ function buildCarryCourt(
       avoidReshuffle.teamA.length === 2 &&
       avoidPlayers.length === 4 &&
       group.every((id) => avoidPlayers.includes(id))
-        ? new Set([
-            pairKey(avoidReshuffle.teamA[0], avoidReshuffle.teamA[1]),
-            pairKey(avoidReshuffle.teamB[0], avoidReshuffle.teamB[1]),
-          ])
+        ? [splitSignature(avoidReshuffle.teamA, avoidReshuffle.teamB)]
         : null;
 
     const ctx: SearchContext = {
@@ -1212,7 +1255,12 @@ export function generateRound(
   courtCount: number | CourtSize[],
   history: MatchHistory,
   random: () => number = Math.random,
-  avoidSplit?: { teamA: Team; teamB: Team },
+  /** The split(s) to avoid reproducing on court 0 (the one a reshuffle
+   *  commits) — either the single split this court currently holds, or
+   *  (G3) every split already shown across this pending court's repeated
+   *  reshuffles, oldest first, so a host who keeps tapping reshuffle
+   *  exhausts every possible split before any of them repeats. */
+  avoidSplit?: { teamA: Team; teamB: Team } | { teamA: Team; teamB: Team }[],
   /** Supplied only in balanced mode; omitted, behaviour is unchanged. */
   ratings?: RatingsInput,
   /** A player's skill level. Omitted, or `band` false, behaviour is unchanged. */
@@ -1231,6 +1279,7 @@ export function generateRound(
 ): RoundResult {
   validateRoundInput(roster, courtCount, history, avoidSplit, ratings);
 
+  const avoidSplits = asAvoidSplitArray(avoidSplit);
   const sizes = normalizeSizes(courtCount);
 
   // Carry game: `buildCarryCourt` scans wait order for the first
@@ -1257,7 +1306,10 @@ export function generateRound(
       history.partnerCounts,
       history.opponentCounts,
       random,
-      avoidSplit
+      // Only the most recently shown split matters here — the carry court
+      // re-forms fresh each call, so it only ever needs to avoid what it
+      // currently holds, not every split shown across earlier reshuffles.
+      avoidSplits[avoidSplits.length - 1]
     );
     if (carryCourt) carryGroup = new Set(groupOf(carryCourt));
   }
@@ -1267,7 +1319,7 @@ export function generateRound(
   // A carry court already consumed avoidSplit (as buildCarryCourt's
   // avoidReshuffle) — it must not also exclude a split in the remaining
   // search, which no longer shares any court with it.
-  const effectiveAvoidSplit = carryCourt ? undefined : avoidSplit;
+  const effectiveAvoidSplits = carryCourt ? [] : avoidSplits;
 
   // A singles court's only "split" is the two players facing each other, so a
   // hard exclusion on it would leave no legal split at all — directly
@@ -1284,19 +1336,18 @@ export function generateRound(
   // has already picked that pair. Folding the avoided pair into the same
   // recentGroupKeys set selectSittingOut already consults (its single-court
   // boundary-swap escape) is what lets it choose differently up front.
+  const doublesAvoidSplits = effectiveAvoidSplits.filter((s) => s.teamA.length === 2);
   const avoidKeys =
-    effectiveAvoidSplit && effectiveAvoidSplit.teamA.length === 2
-      ? new Set([
-          pairKey(effectiveAvoidSplit.teamA[0], effectiveAvoidSplit.teamA[1]),
-          pairKey(effectiveAvoidSplit.teamB[0], effectiveAvoidSplit.teamB[1]),
-        ])
+    doublesAvoidSplits.length > 0
+      ? doublesAvoidSplits.map((s) => splitSignature(s.teamA, s.teamB))
       : null;
 
+  const singlesAvoidSplits = effectiveAvoidSplits.filter((s) => s.teamA.length === 1);
   const recentGroupKeys =
-    effectiveAvoidSplit && effectiveAvoidSplit.teamA.length === 1
+    singlesAvoidSplits.length > 0
       ? new Set([
           ...(history.recentGroupKeys ?? []),
-          groupKey([...effectiveAvoidSplit.teamA, ...effectiveAvoidSplit.teamB]),
+          ...singlesAvoidSplits.map((s) => groupKey([...s.teamA, ...s.teamB])),
         ])
       : history.recentGroupKeys ?? null;
 

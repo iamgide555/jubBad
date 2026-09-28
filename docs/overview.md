@@ -396,6 +396,16 @@ singles court is routed through the same soft group-repeat signal that steers
 courts away from an immediate rematch, rather than the doubles path's hard
 exclusion, which would otherwise leave no legal split at all.
 
+A doubles court's `Pairing` row remembers every split it has shown across its
+reshuffles, not just the one currently on screen — `shownSplits`, replayed
+into `avoidSplit` as an array on each reshuffle. A 4-player court only has
+three possible splits at all, so excluding just the current one (the earlier
+behavior) let a host bounce between two of the three forever, one real
+session's host reported it as `12|34 → 14|23 → 12|34`. Once every split has
+been shown, the engine drops the oldest exclusion first rather than giving up
+on excluding entirely — that cycles back to the least-recently-shown split
+instead of letting the *immediately previous* one repeat.
+
 A wait starts at the latest of the session start, the end of that player's last
 match, and the moment they joined or returned (`engines/waiting.ts`, shared by
 the engine, the API and both screens). Taking the latest is what stops someone

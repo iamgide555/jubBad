@@ -11,6 +11,7 @@ import {
   generateRound,
   InvalidRoundInputError,
   type MatchHistory,
+  type Team,
 } from './pairing.ts';
 
 function empty(): MatchHistory {
@@ -185,6 +186,36 @@ test('generateRound avoids reproducing the exact split passed as avoidSplit', ()
     [pairKey(c.teamA[0], c.teamA[1]), pairKey(c.teamB[0], c.teamB[1])].sort();
 
   assert.notDeepEqual(keysOf(second.courts[0]), keysOf(first.courts[0]));
+});
+
+test('avoidSplit accumulates every previously shown split across repeated reshuffles (G3)', () => {
+  // Regression: a single reshuffle only ever excluded the ONE split it
+  // currently held, so with exactly 4 players (3 possible splits total) a
+  // host who kept tapping reshuffle bounced between two of the three splits
+  // forever, never reaching the third — reported from a real session as
+  // 12|34 -> 14|23 -> 12|34. Passing the accumulated array of every split
+  // shown so far this pending court's lifetime must exhaust all three
+  // before any of them repeats.
+  const history: MatchHistory = {
+    partnerCounts: new Map(),
+    opponentCounts: new Map(),
+    gamesPlayedThisSession: new Map(),
+  };
+  const roster = ['tam', 'base', 'pom', 'mai'];
+  const keysOf = (c: { teamA: Team; teamB: Team }) =>
+    [pairKey(c.teamA[0], c.teamA[1]), pairKey(c.teamB[0], c.teamB[1])].sort().join(' ');
+
+  let shown: { teamA: Team; teamB: Team }[] = [];
+  const seen = new Set<string>();
+  for (let i = 0; i < 3; i++) {
+    const result = generateRound(roster, 1, history, makeSeededRandom(i), shown);
+    const court = result.courts[0];
+    const key = keysOf(court);
+    assert.ok(!seen.has(key), `split "${key}" repeated before all splits were shown (iteration ${i})`);
+    seen.add(key);
+    shown = [...shown, { teamA: court.teamA, teamB: court.teamB }];
+  }
+  assert.equal(seen.size, 3);
 });
 
 test('generateRound integrates sit-out selection: 10 players, 3 courts', () => {

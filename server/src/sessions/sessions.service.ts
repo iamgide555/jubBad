@@ -16,6 +16,7 @@ import {
   groupKey,
   InvalidRoundInputError,
   type CourtSize,
+  type Team,
 } from '../../../engines/pairing.ts';
 import { isValidIsoDate } from '../../../engines/parser.ts';
 import { asLevel, type Level } from '../../../engines/levels.ts';
@@ -142,7 +143,11 @@ export class SessionsService {
     courtNumber: number,
     existingPending: { id: string; revision: number } | undefined,
     teamA: string,
-    teamB: string
+    teamB: string,
+    /** Every split shown on this court so far, `teamA` and `teamB` above
+     *  included — reset to "[]" on a brand-new pairing row (a fresh match,
+     *  or a custom-mode court cleared back to empty seats). See G3. */
+    shownSplits: string
   ) {
     if (existingPending) {
       const updated = await this.prisma.pairing.updateMany({
@@ -152,7 +157,7 @@ export class SessionsService {
           endedAt: null,
           revision: existingPending.revision,
         },
-        data: { teamA, teamB, pendingSince: new Date(), revision: { increment: 1 } },
+        data: { teamA, teamB, shownSplits, pendingSince: new Date(), revision: { increment: 1 } },
       });
       if (updated.count !== 1) {
         throw this.conflict('PAIRING_STALE');
@@ -169,6 +174,7 @@ export class SessionsService {
           })) + 1,
         teamA,
         teamB,
+        shownSplits,
         pendingSince: new Date(),
       },
     });
@@ -212,6 +218,22 @@ export class SessionsService {
    *  actually on this court," which an unfilled seat never answers. */
   private playersOf(pairing: { teamA: string; teamB: string }): string[] {
     return this.parseOrThrow(() => seatedPlayers(pairing));
+  }
+
+  /** Every split already shown on a pending court, oldest first — see the
+   *  `shownSplits` column comment. Never thrown by a host action, so a
+   *  corrupt or pre-migration value (the column's own "[]" default covers
+   *  the ordinary case) just yields no history rather than a 500: the worst
+   *  outcome is the reshuffle-cycling bug this list exists to prevent, not
+   *  broken state. */
+  private parseShownSplits(raw: string): { teamA: Team; teamB: Team }[] {
+    try {
+      const parsed = JSON.parse(raw);
+      if (!Array.isArray(parsed)) return [];
+      return parsed;
+    } catch {
+      return [];
+    }
   }
 
   /** Parses one already-JSON team string, empty seats included — the two
@@ -728,7 +750,7 @@ export class SessionsService {
       const emptyTeam: Seat[] = Array(half).fill(null);
       const teamA = JSON.stringify(emptyTeam);
       const teamB = JSON.stringify(emptyTeam);
-      const pairing = await this.upsertPendingPairing(sessionCode, courtNumber, existingPending, teamA, teamB);
+      const pairing = await this.upsertPendingPairing(sessionCode, courtNumber, existingPending, teamA, teamB, '[]');
       return {
         ok: true as const,
         pairing: {
@@ -747,10 +769,24 @@ export class SessionsService {
     // A partly-filled custom draft is not a split worth avoiding — there is
     // no completed pairing yet to avoid reproducing, and `teamsOf` would
     // throw on its empty seats besides.
-    const avoidSplit =
+    const currentSplit =
       existingPending && emptySeatCount(existingPending) === 0
         ? this.teamsOf(existingPending)
         : undefined;
+
+    // Every split this exact pending court has already shown, oldest first —
+    // not just the one on screen right now. A reshuffle that only ever
+    // avoided the current split could bounce between two of a 4-player
+    // court's three possible splits forever, since excluding just one always
+    // leaves an alternative to fall back on (G3, real-session report:
+    // 12|34 -> 14|23 -> 12|34). Always appended, duplicates included: the
+    // engine's own exclusion (oldest-first) relies on array position to know
+    // which split was shown most recently, and skipping a re-shown split here
+    // would let it drift to the front and get dropped as if it were stale.
+    const previouslyShown: { teamA: Team; teamB: Team }[] = existingPending
+      ? this.parseShownSplits(existingPending.shownSplits)
+      : [];
+    const avoidSplits = currentSplit ? [...previouslyShown, currentSplit] : previouslyShown;
 
     const ratings = requestedMode === 'balanced' ? await this.loadRatings(session.groupId) : undefined;
     const levels = await loadPlayerLevels(this.prisma, session.groupId);
@@ -801,7 +837,7 @@ export class SessionsService {
       sizes,
       history,
       undefined,
-      avoidSplit,
+      avoidSplits.length > 0 ? avoidSplits : undefined,
       ratings,
       levels,
       requestedMode === 'level',
@@ -821,7 +857,14 @@ export class SessionsService {
     const teamA = JSON.stringify(proposed.teamA);
     const teamB = JSON.stringify(proposed.teamB);
 
-    const pairing = await this.upsertPendingPairing(sessionCode, courtNumber, existingPending, teamA, teamB);
+    const pairing = await this.upsertPendingPairing(
+      sessionCode,
+      courtNumber,
+      existingPending,
+      teamA,
+      teamB,
+      JSON.stringify(avoidSplits)
+    );
 
     return {
       ok: true as const,

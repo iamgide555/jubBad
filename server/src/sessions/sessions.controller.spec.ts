@@ -5741,6 +5741,68 @@ describe('SessionsController', () => {
     }
   });
 
+  it('fill-all on a pure level session queues by wait and forms a carry court', async () => {
+    const groupCode = randomUUID();
+    const sessionCode = randomUUID();
+    await prisma.group.create({ data: { code: groupCode, name: 'G' } });
+    const players = await Promise.all(
+      ['BG', 'PRO', 'OPP1', 'OPP2'].map((name) =>
+        prisma.player.create({ data: { groupId: groupCode, name, aliases: '[]' } })
+      )
+    );
+    const [bg, pro, opp1, opp2] = players;
+    const now = Date.now();
+    await prisma.session.create({
+      data: {
+        code: sessionCode,
+        groupId: groupCode,
+        courtCount: 1,
+        rawImportText: '',
+        mode: 'level',
+        createdAt: new Date(now - 30 * 60_000),
+      },
+    });
+    for (const p of players) {
+      await prisma.sessionRoster.create({ data: { sessionId: sessionCode, playerId: p.id } });
+    }
+    // Everyone except bg joined a couple of minutes "late", so bg is
+    // unambiguously the longest-waiting player (the fill-all path must use
+    // wait order here, not games-then-wait).
+    for (const p of [pro, opp1, opp2]) {
+      await prisma.sessionRoster.update({
+        where: { sessionId_playerId: { sessionId: sessionCode, playerId: p.id } },
+        data: { activatedAt: new Date(now - 2 * 60_000) },
+      });
+    }
+    await prisma.player.update({
+      where: { id: bg.id },
+      data: { level: 'BG', levelSetAt: new Date(now - 20 * 60_000) },
+    });
+    await prisma.player.update({ where: { id: pro.id }, data: { level: 'P+' } });
+    await prisma.player.update({ where: { id: opp1.id }, data: { level: 'P' } });
+    await prisma.player.update({ where: { id: opp2.id }, data: { level: 'P' } });
+
+    try {
+      const res = await request(server).post(`/sessions/${sessionCode}/courts/fill`).expect(201);
+      expect(res.body.ok).toBe(true);
+      expect(res.body.filled).toEqual([1]);
+
+      const rows = await prisma.pairing.findMany({ where: { sessionId: sessionCode } });
+      const [court1] = rows;
+      const teamA: string[] = JSON.parse(court1.teamA);
+      const teamB: string[] = JSON.parse(court1.teamB);
+      const [teamWithBg, otherTeam] = teamA.includes(bg.id) ? [teamA, teamB] : [teamB, teamA];
+      expect(new Set(teamWithBg)).toEqual(new Set([bg.id, pro.id]));
+      expect(new Set(otherTeam)).toEqual(new Set([opp1.id, opp2.id]));
+    } finally {
+      await prisma.pairing.deleteMany({ where: { sessionId: sessionCode } });
+      await prisma.sessionRoster.deleteMany({ where: { sessionId: sessionCode } });
+      await prisma.session.deleteMany({ where: { code: sessionCode } });
+      await prisma.player.deleteMany({ where: { groupId: groupCode } });
+      await prisma.group.deleteMany({ where: { code: groupCode } });
+    }
+  });
+
   // --- Per-court sticky mode --------------------------------------------
 
   it("sets and reads back one court's mode in a custom session", async () => {

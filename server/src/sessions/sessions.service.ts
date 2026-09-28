@@ -2039,6 +2039,8 @@ export class SessionsService {
     const history = await this.loadHistory(session.groupId, sessionCode);
     const ratings = await this.ratingsForMode(session);
     const levels = await loadPlayerLevels(this.prisma, session.groupId);
+    const queueBy: 'games' | 'wait' = isLevelMode(session.mode) ? 'wait' : 'games';
+    const carry = isLevelMode(session.mode) ? await this.loadCarryEligibility(session) : undefined;
     const result = this.runGenerateRound(
       available,
       sizes,
@@ -2047,7 +2049,10 @@ export class SessionsService {
       undefined,
       ratings,
       levels,
-      isLevelMode(session.mode)
+      isLevelMode(session.mode),
+      queueBy,
+      carry?.carryEligible,
+      carry?.carriedTonight
     );
 
     const filled = await this.prisma.$transaction(async (tx) => {

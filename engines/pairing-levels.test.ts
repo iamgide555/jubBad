@@ -349,9 +349,11 @@ test('generateRound: a singles-only offer never triggers a carry court', () => {
 });
 
 test('generateRound: a carry court never pairs the far-below anchor with a same-or-lower-level "pro"', () => {
-  // Two BGs plus 4 untagged players: with no one tagged above the anchor,
-  // there is no real pro, so this must fall back to normal band pairing,
-  // never partner the anchor with the other BG.
+  // Only bg1 is carry-eligible tonight (bg2 is tagged the same level but not
+  // itself eligible — e.g. already carried once — so this exercises the
+  // *solo* pro-carry path, not the group-carry rule two eligible newcomers
+  // would trigger). With no one tagged above bg1, there is no real pro, so
+  // this must fall back to normal band pairing, never partner bg1 with bg2.
   const history = historyWithWait({
     bg1: 1000,
     bg2: 2000,
@@ -371,7 +373,7 @@ test('generateRound: a carry court never pairs the far-below anchor with a same-
     levels,
     true,
     'wait',
-    new Set(['bg1', 'bg2']),
+    new Set(['bg1']),
     new Set()
   );
   const [court] = result.courts;
@@ -384,6 +386,8 @@ test('generateRound: a carry court never pairs the far-below anchor with a same-
 });
 
 test('generateRound: a carry court never picks another far-below player as the pro when the real pro is busy', () => {
+  // Only p1 is carry-eligible tonight (p2 is tagged the same level but not
+  // eligible, so this exercises the solo pro-carry path, not group-carry).
   // p4 (P+, the only real pro) is reserved elsewhere (not in the roster
   // passed to generateRound), leaving p1 (BG anchor), p2 (also BG), and two
   // untagged players. p2 must never be chosen as the "pro".
@@ -399,7 +403,7 @@ test('generateRound: a carry court never picks another far-below player as the p
     levels,
     true,
     'wait',
-    new Set(['p1', 'p2']),
+    new Set(['p1']),
     new Set()
   );
   const [court] = result.courts;
@@ -503,4 +507,103 @@ test('generateRound: fewer than 4 players never attempts a carry court', () => {
       new Set()
     );
   });
+});
+
+test('generateRound: a second far-below newcomer jumps the queue to join the first one\'s court', () => {
+  // n2 has by far the shortest wait of anyone (would ordinarily sit out
+  // entirely under plain band ordering) but is still carry-eligible — the
+  // group-carry rule must pull them onto the anchor's court regardless.
+  const history = historyWithWait({ n1: 1000, u1: 2000, u2: 3000, u3: 4000, n2: 9000 });
+  const levels = levelMap({ n1: 'BG', u1: null, u2: null, u3: null, n2: 'BG' });
+  const result = generateRound(
+    ['n1', 'u1', 'u2', 'u3', 'n2'],
+    1,
+    history,
+    makeSeededRandom(1),
+    undefined,
+    undefined,
+    levels,
+    true,
+    'wait',
+    new Set(['n1', 'n2']),
+    new Set()
+  );
+  assert.equal(result.courts.length, 1);
+  const [court] = result.courts;
+  const seated = [...court.teamA, ...court.teamB];
+  assert.equal(seated.includes('n1'), true);
+  assert.equal(seated.includes('n2'), true);
+  assert.equal(seated.length, 4);
+});
+
+test('generateRound: two grouped newcomers are partnered together, not split across teams', () => {
+  // With no partner/opponent history, an unconstrained search has no reason
+  // to keep n1 and n2 together — this only holds because the group-carry
+  // rule locks them onto the same team, no pro involved.
+  const history = historyWithWait({ n1: 1000, n2: 2000, u1: 3000, u2: 4000, u3: 5000, u4: 6000 });
+  const levels = levelMap({ n1: 'BG', n2: 'BG', u1: null, u2: null, u3: null, u4: null });
+  const result = generateRound(
+    ['n1', 'n2', 'u1', 'u2', 'u3', 'u4'],
+    1,
+    history,
+    makeSeededRandom(1),
+    undefined,
+    undefined,
+    levels,
+    true,
+    'wait',
+    new Set(['n1', 'n2']),
+    new Set()
+  );
+  assert.equal(result.courts.length, 1);
+  const [court] = result.courts;
+  const teamWithN1 = court.teamA.includes('n1') ? court.teamA : court.teamB;
+  assert.equal(teamWithN1.includes('n2'), true);
+});
+
+test('generateRound: four or more eligible newcomers still fill only one court, the rest wait', () => {
+  const history = historyWithWait({ n1: 1000, n2: 2000, n3: 3000, n4: 4000, n5: 5000 });
+  const levels = levelMap({ n1: 'BG', n2: 'BG', n3: 'N', n4: 'N', n5: 'BG' });
+  const result = generateRound(
+    ['n1', 'n2', 'n3', 'n4', 'n5'],
+    1,
+    history,
+    makeSeededRandom(1),
+    undefined,
+    undefined,
+    levels,
+    true,
+    'wait',
+    new Set(['n1', 'n2', 'n3', 'n4', 'n5']),
+    new Set()
+  );
+  assert.equal(result.courts.length, 1);
+  const [court] = result.courts;
+  const seated = [...court.teamA, ...court.teamB];
+  assert.equal(seated.length, 4);
+  // The 4 longest-waiting join; n5 (shortest wait) is left for a later court.
+  assert.equal(seated.includes('n5'), false);
+  assert.deepEqual(result.sittingOut, ['n5']);
+});
+
+test('generateRound: reshuffling a group carry court still returns a full court, not null', () => {
+  const history = historyWithWait({ n1: 1000, n2: 2000, u1: 3000, u2: 4000 });
+  const levels = levelMap({ n1: 'BG', n2: 'BG', u1: null, u2: null });
+  const roster = ['n1', 'n2', 'u1', 'u2'];
+  const first = generateRound(
+    roster, 1, history, makeSeededRandom(1), undefined, undefined, levels, true, 'wait',
+    new Set(['n1', 'n2']), new Set()
+  );
+  const [firstCourt] = first.courts;
+  assert.equal(firstCourt.teamA.length + firstCourt.teamB.length, 4);
+
+  const reshuffled = generateRound(
+    roster, 1, history, makeSeededRandom(2),
+    { teamA: firstCourt.teamA, teamB: firstCourt.teamB },
+    undefined, levels, true, 'wait', new Set(['n1', 'n2']), new Set()
+  );
+  const [again] = reshuffled.courts;
+  assert.equal(again.teamA.length + again.teamB.length, 4);
+  assert.equal([...again.teamA, ...again.teamB].includes('n1'), true);
+  assert.equal([...again.teamA, ...again.teamB].includes('n2'), true);
 });

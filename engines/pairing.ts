@@ -1092,6 +1092,9 @@ function buildCarryCourt(
   levels: ReadonlyMap<PlayerId, Level | null>,
   carryEligible: ReadonlySet<PlayerId>,
   carriedTonight: ReadonlySet<PlayerId>,
+  partnerCounts: Map<string, number>,
+  opponentCounts: Map<string, number>,
+  random: () => number,
   avoidReshuffle?: { teamA: Team; teamB: Team }
 ): CourtAssignment | null {
   const byLongestWait = [...roster].sort(
@@ -1101,6 +1104,55 @@ function buildCarryCourt(
   if (!carryEligible.has(anchor)) return null;
   const anchorLevel = levels.get(anchor) ?? null;
   if (anchorLevel === null) return null; // carryEligible implies tagged; guards a missing entry
+
+  // Group carry (2026-09-28 real-host feedback): two or more far-below
+  // newcomers waiting at once go on the same court together, no pro — the
+  // solo pro-carry below is only for a lone newcomer with nobody else to
+  // group with. Up to 4 of the longest-waiting eligible players join
+  // (jumping the queue like the solo pro does), and any remaining seats are
+  // filled with players picked uniformly at random rather than by rotation
+  // fairness — this game exists to protect the newcomers, not to be fair
+  // to whoever fills it out. The team split still uses the same real
+  // partner/opponent-variety scoring every other court gets, so it doesn't
+  // reproduce a recent repeat pairing even for the newcomers.
+  const otherEligible = byLongestWait.filter((id) => id !== anchor && carryEligible.has(id));
+  if (otherEligible.length >= 1) {
+    const groupEligible = [anchor, ...otherEligible].slice(0, 4);
+    const fillPool = roster.filter((id) => !groupEligible.includes(id));
+    const neededFill = 4 - groupEligible.length;
+    if (fillPool.length < neededFill) return null; // not enough players for a full court
+    const randomFill = shuffle(fillPool, random).slice(0, neededFill);
+    const group = [...groupEligible, ...randomFill];
+
+    // A reshuffle excludes the exact split it currently holds, same
+    // court-0-only exclusion `bestSplitForGroup` already applies — but only
+    // when it's still the same four players; if the group's membership
+    // changed since (a new eligible newcomer arrived, or the fill players
+    // differ), there is nothing to exclude, and the natural best split
+    // already differs by construction.
+    const avoidPlayers = avoidReshuffle ? [...avoidReshuffle.teamA, ...avoidReshuffle.teamB] : [];
+    const avoidKeys =
+      avoidReshuffle &&
+      avoidReshuffle.teamA.length === 2 &&
+      avoidPlayers.length === 4 &&
+      group.every((id) => avoidPlayers.includes(id))
+        ? new Set([
+            pairKey(avoidReshuffle.teamA[0], avoidReshuffle.teamA[1]),
+            pairKey(avoidReshuffle.teamB[0], avoidReshuffle.teamB[1]),
+          ])
+        : null;
+
+    const ctx: SearchContext = {
+      partnerCounts,
+      opponentCounts,
+      floors: historyFloors(group, partnerCounts, opponentCounts),
+      avoidKeys,
+      recentGroupKeys: null,
+    };
+    const best = bestSplitForGroup(group, 0, ctx);
+    if (!best) return null; // defensive: scoring should never be non-finite here
+    return { court: 1, teamA: best.assignment.teamA, teamB: best.assignment.teamB };
+  }
 
   let currentTeam: Team | null = null;
   let currentOpponents: Team | null = null;
@@ -1204,6 +1256,9 @@ export function generateRound(
       levels,
       carryEligible,
       carriedTonight ?? new Set(),
+      history.partnerCounts,
+      history.opponentCounts,
+      random,
       avoidSplit
     );
     if (carryCourt) carryGroup = new Set(groupOf(carryCourt));

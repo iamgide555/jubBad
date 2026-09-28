@@ -96,7 +96,8 @@ export class SessionDisplay implements OnDestroy {
       session.createdAt,
       this.now(),
       session.activatedAt,
-      session.queueGames
+      session.queueGames,
+      session.queueBy
     );
   });
 

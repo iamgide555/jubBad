@@ -205,6 +205,26 @@ describe('SessionDisplay', () => {
         .sort()
     ).toEqual(['ตั้ม', 'ปอม', 'เบส', 'ไม้'].sort());
   });
+
+  it('orders the waiting list by wait alone in a level session, matching the host dashboard', async () => {
+    // p1 has far more games than p2, but both are tied on wait (session
+    // start) — under games-first ordering p1 would sort last; under
+    // wait-only ordering (level mode) the tie leaves array order untouched.
+    const { fixture, httpMock } = await createDisplay(
+      baseSession({
+        mode: 'level',
+        queueBy: 'wait',
+        rosterPlayerIds: ['p1', 'p2'],
+        queueGames: { p1: 5, p2: 0 },
+      })
+    );
+    httpMock.expectOne(`${B}/groups/group1`).flush({ code: 'group1', name: null, lastSessionCode: null });
+    httpMock.expectOne(`${B}/groups/group1/players`).flush(players);
+    await new Promise((r) => setTimeout(r, 0));
+    TestBed.tick();
+
+    expect(fixture.componentInstance.waiting().map((w) => w.id)).toEqual(['p1', 'p2']);
+  });
 });
 
 describe('SessionDisplay with an unknown sessionCode', () => {

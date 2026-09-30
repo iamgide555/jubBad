@@ -104,6 +104,17 @@ commit. A stale `expectedRevision` returns a specific conflict code
 without modifying data; the UI reloads and lets the host retry
 deliberately. Other groups are unaffected.
 
+Level-bearing player and session writes also carry the ladder revision
+that the host saw when selecting the label. Reject a stale revision before
+writing anything, even if the same name exists in the replacement ladder:
+clearing old labels at a standard/custom boundary must not be undone by an
+old browser tab that submits an identical-looking name afterward. A
+request without a level choice can still create a session; when a level
+choice is present, its revision is required. A one-field level clear uses
+the current revision too. Validate membership and seed against that same
+revision under the group lock (and inside the existing session-creation
+transaction for roster reviews).
+
 The owner-only group export includes the effective ladder, its mode,
 each player's current level, saved seed and level-set time. Group deletion
 requires no additional child table because the new data lives on existing

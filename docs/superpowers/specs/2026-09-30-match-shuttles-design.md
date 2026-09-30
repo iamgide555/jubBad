@@ -19,6 +19,13 @@ Feedback E will use this game's shuttle identities to settle an early
 leaver, but D does **not** implement checkout or frozen bills. The venue
 display stays unchanged.
 
+E must freeze an early leaver's paid amount even if a shuttle they used
+is reused later. Its future design must reconcile subsequent reuse
+against the **remaining** players' bill, rather than revising the
+leaver's payment or prohibiting reuse. Consequently, the equal
+per-shuttle sharing below is D's whole-session rule **before checkout**;
+E will need an explicit accounting adjustment for frozen amounts.
+
 ## Group opt-in shared with early checkout
 
 Numbered shuttle tracking and E's early checkout are **advanced host
@@ -103,14 +110,26 @@ Owner-only endpoints cover listing/selecting/opening/retiring/restoring
 shuttles, live game switches, and finished-game corrections. They must use
 the existing session lock, pairing-in-session lookup, and guarded
 `Pairing.revision` writes, plus session membership checks on identities.
+Commit each identity/use/revision change together; read a consistent
+session/game/use snapshot for bill calculation so an in-flight correction
+cannot produce a mixed-version total.
 Live edits require a confirmed active game in a live session; finished-game
 log edits (including adding an opened identity or clearing all uses) remain
-possible after the session ends. A correction never rewrites the winner,
+possible after the session ends. Historical corrections may name an
+unusable shuttle that really was played; only **current/live selection**
+requires it to be available and idle. A correction never rewrites the winner,
 timestamps, physical count, or another game's use relation. Finish and undo
 continue to use revision guards so a switch and winner tap cannot lose each
-other. Reject foreign/deleted/retired selections, duplicate live occupancy,
-pending-game edits, and stale revisions with stable 400/404/409 codes;
+other. Reject foreign/voided identities, unavailable live choices, duplicate
+live occupancy, pending-game edits, and stale revisions with stable
+400/404/409 codes;
 session ownership retains its existing 404 behavior.
+
+Group export includes the opt-in flag, session snapshot, numbered
+shuttles (including status and voided numbers), and each game's
+known/unknown status and uses. Group deletion must remove game/shuttle
+join rows before pairings, and identities before sessions; its
+dependency-ordered operation list is reused by admin deletion.
 
 ## Totals, public reads, and bill inputs
 
@@ -194,7 +213,9 @@ opening a dialog. On the **active** dashboard court, show the current
 number and the distinct numbers used this game; put 44px-or-larger,
 accessible **Open new**, **Switch to existing**, and **Mark unusable**
 controls near the winner actions. A shuttle with no current assignment
-after undo can be selected. Keep finish independent of further logging:
+after undo can be selected. Switching can also retire the previous
+shuttle in the same action; a standalone retire control applies only
+to an idle shuttle. Keep finish independent of further logging:
 the already saved IDs persist when the host taps a winner or "no result."
 Disable controls during a write and refresh from the server on success
 or stale failure; show a localized error instead of displaying an
@@ -209,7 +230,8 @@ finished game's IDs after the session ends, including setting no use or
 creating a missed new identity. The current summary's `isHost` checks
 only login: establish edit access with an owner-guarded editable-log read,
 not simply with that signal. Public summary data stays read-only.
-The existing physical count/price editor remains owner-only and its
+Apply the same owner check to the existing physical count/price editor
+instead of leaving it visible to a logged-in non-owner; its
 label distinguishes it from game tracking. Show the distinct finished
 subtotal, unknown-game count, optional physical total, and discrepancy
 only when the finished log is complete. On correction, refresh summary
@@ -223,14 +245,16 @@ display unchanged. Use Thai source strings and English translations.
   group on/off affects only new sessions; an advanced session retains
   access after the group switch is off. F's editable default ladder
   remains independent; A and C remain available. Ordinary physical
-  count and billing remain usable.
+  count and billing remain usable. Creation retries return their
+  original session and snapshot, not a new flag value.
 - Migration and API: old unknown games versus new known-empty games;
   session-wide sequential numbering; manual choice and auto-confirm
   default; simultaneous confirms on two courts; last-shuttle reuse,
   cross-court selection, repeat use within a game, retirement/restoration
   and erroneous-open void without number reuse. Reject selecting an
   identity current on another active court, selecting a retired/foreign
-  one, unconfirmed edits, stale revisions, and unauthorized reads/writes.
+  one for live play, unconfirmed edits, stale revisions, and unauthorized
+  reads/writes. Allow a historical correction to name a retired identity.
 - Lifecycle: switching while playing, no-result finish, undo finish
   (including last shuttle used elsewhere), undo confirm, re-confirm,
   winner/switch race, finished correction after session end, and physical
@@ -246,11 +270,15 @@ display unchanged. Use Thai source strings and English translations.
   across games with different participants and singles/doubles, exact
   satang rounding across ID/game/player splits, equal mode, legacy and
   no-reference fallback, removed players, and walk-in redistribution.
-  Incomplete required inputs cannot produce copyable LINE text.
+  Incomplete required inputs cannot produce copyable LINE text. The
+  bill read cannot combine old game uses with a new physical count.
 - Web: 44px accessible choice/open/switch/retire actions, stale saves,
   owner-only correction, read-only public log, differentiated totals,
   warning/copy guard, and Thai/English localization/build. Court labels
   resolve without changing match identity.
+- Export/deletion: include the group/session flag and every shuttle
+  identity/use in owner export; delete join rows and identities in FK
+  order for both owner and admin group deletion.
 
 Out of scope: E's early checkout and frozen amounts, per-shuttle wear or
 time-of-use tracking, automatic estimation of legacy games, tube inventory

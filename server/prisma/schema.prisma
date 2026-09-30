@@ -124,6 +124,12 @@ model Session {
   /// host has never touched keeps proposing empty seats. Same
   /// not-trimmed-on-shrink convention as courtFormats.
   courtModes    String?
+  /// Per-court display name override, JSON-encoded (string | null)[], index
+  /// 0 = court 1. Null/missing/invalid entries display the 1-based number.
+  /// Presentation only — Pairing.courtNumber stays the identity. Parsed and
+  /// written only by server/src/sessions/court-labels.ts; same
+  /// not-trimmed-on-shrink convention as courtFormats.
+  courtLabels   String?
   /// Total shuttlecocks used tonight, counted by the host at the end (not
   /// per-match) and correctable afterwards. Null means "not recorded yet",
   /// distinct from 0. Set only via SessionsService.setShuttleDetails, never

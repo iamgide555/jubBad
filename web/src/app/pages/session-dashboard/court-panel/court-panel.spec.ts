@@ -105,6 +105,25 @@ describe('CourtPanel', () => {
     expect((fixture.nativeElement as HTMLElement).textContent).toContain('เริ่มแมตช์ถัดไป');
   });
 
+  it('heads the court with its label and offers a rename control, even mid-match', async () => {
+    const { fixture } = await createPanel(
+      baseSession({
+        courtLabels: ['สนาม 7'],
+        courts: [{ status: 'active', pairingId: 'pair1', format: 'doubles', mode: 'variety', teamA: ['p1', 'p2'], teamB: ['p3', 'p4'], startedAt: new Date().toISOString() }],
+      })
+    );
+    fixture.detectChanges();
+    const el = fixture.nativeElement as HTMLElement;
+    expect(el.querySelector('.court-num')?.textContent).toBe('สนาม 7');
+    expect(el.querySelector('app-court-label-editor button[aria-label="เปลี่ยนชื่อคอร์ท สนาม 7"]')).toBeTruthy();
+  });
+
+  it('heads an unlabeled court with its number', async () => {
+    const { fixture } = await createPanel();
+    fixture.detectChanges();
+    expect((fixture.nativeElement as HTMLElement).querySelector('.court-num')?.textContent).toBe('1');
+  });
+
   it('shows reshuffle and confirm controls, and player names not ids, once pending', async () => {
     const { fixture } = await createPanel(
       baseSession({

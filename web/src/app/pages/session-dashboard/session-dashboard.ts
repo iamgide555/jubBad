@@ -14,6 +14,8 @@ import { Odometer } from '../../core/motion/odometer';
 import { PressDirective } from '../../core/motion/press.directive';
 import { RevealDirective } from '../../core/motion/reveal.directive';
 import { CourtPanel } from './court-panel/court-panel';
+import { CourtLabelEditor } from './court-label-editor/court-label-editor';
+import { labelForCourt } from '../../core/court-label';
 import {
   ShuttleDetailsDialog,
   type ShuttleDetailsPatch,
@@ -29,6 +31,7 @@ import type { PlayerPanelRow } from '../../core/player-panel.model';
   selector: 'app-session-dashboard',
   imports: [
     CourtPanel,
+    CourtLabelEditor,
     RouterLink,
     FlipListDirective,
     Odometer,
@@ -199,6 +202,19 @@ export class SessionDashboard implements OnDestroy {
   });
 
   readonly courtNumbers = computed(() => this.liveSession.courts().map((_, i) => i + 1));
+
+  /** Courts above the current count that still have matches or a label —
+   *  renamable after the session ends so past results read correctly. */
+  readonly retiredCourtNumbers = computed(() => {
+    const session = this.session();
+    if (!session) return [];
+    const from = (session.courtCount ?? 0) + 1;
+    return Array.from({ length: Math.max(0, session.editableCourtCount - from + 1) }, (_, i) => from + i);
+  });
+
+  protected labelFor(courtNumber: number): string {
+    return labelForCourt(this.liveSession.courtLabels(), courtNumber);
+  }
 
   /**
    * Ticks so the displayed wait times advance on their own. Minute resolution,

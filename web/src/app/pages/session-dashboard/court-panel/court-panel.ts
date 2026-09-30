@@ -9,6 +9,8 @@ import { SwapSelectionService, type SwapPick } from '../../../core/swap-selectio
 import type { CourtFormat, CourtMode, CourtState, Seat } from '../../../core/live-session.model';
 import type { Player } from '../../../../../../engines/fuzzy-match.ts';
 import { Icon } from '../../../shared/icon/icon';
+import { labelForCourt } from '../../../core/court-label';
+import { CourtLabelEditor } from '../court-label-editor/court-label-editor';
 
 /** Past this many elapsed minutes, the timer flags the court as likely
  *  overrun — almost always a score that was never submitted. */
@@ -25,7 +27,7 @@ interface SeatView {
 
 @Component({
   selector: 'app-court-panel',
-  imports: [FormsModule, PressDirective, Icon],
+  imports: [FormsModule, PressDirective, Icon, CourtLabelEditor],
   templateUrl: './court-panel.html',
   styleUrl: './court-panel.css',
 })
@@ -105,6 +107,10 @@ export class CourtPanel {
   );
 
   protected readonly isCustom = computed(() => this.liveSession.mode() === 'custom');
+
+  protected readonly courtLabel = computed(() =>
+    labelForCourt(this.liveSession.courtLabels(), this.courtNumber())
+  );
 
   private seatViewsFor(team: 'A' | 'B'): SeatView[] {
     const c = this.court();

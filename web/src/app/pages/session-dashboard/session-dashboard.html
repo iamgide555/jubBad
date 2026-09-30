@@ -247,6 +247,18 @@
       }
     </div>
 
+    @if (ended() && retiredCourtNumbers().length > 0) {
+      <div class="retired-courts">
+        <h4 class="label" i18n="@@dashboard.retiredCourts">คอร์ทที่ปิดไปแล้ว</h4>
+        @for (courtNumber of retiredCourtNumbers(); track courtNumber) {
+          <div class="retired-court">
+            <span class="retired-court-name" i18n="@@dashboard.retiredCourtName">คอร์ท <span class="court-num">{{ labelFor(courtNumber) }}</span></span>
+            <app-court-label-editor [courtNumber]="courtNumber" [labels]="liveSession.courtLabels()" />
+          </div>
+        }
+      </div>
+    }
+
     @if (!ended()) {
       <hr class="rule" />
 

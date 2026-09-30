@@ -394,3 +394,23 @@
   box-shadow: 0 0 0 2px var(--court);
   background: var(--court-soft);
 }
+
+.retired-courts {
+  display: grid;
+  gap: var(--space-1);
+  margin: var(--space-3) 0;
+}
+
+.retired-court {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-1);
+  min-width: 0;
+}
+
+.retired-court-name {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  font-weight: 700;
+}

@@ -2647,6 +2647,30 @@
           <context context-type="linenumber">41,43</context>
         </context-group>
       </trans-unit>
+      <trans-unit id="courtLabel.edit" datatype="html">
+        <source>เปลี่ยนชื่อคอร์ท <x id="label" equiv-text="this.label()"/></source><target>Rename court <x id="label" equiv-text="this.label()"/></target>
+      </trans-unit>
+      <trans-unit id="courtLabel.field" datatype="html">
+        <source>ชื่อคอร์ท <x id="number" equiv-text="this.courtNumber()"/></source><target>Court <x id="number" equiv-text="this.courtNumber()"/> name</target>
+      </trans-unit>
+      <trans-unit id="courtLabel.save" datatype="html">
+        <source>บันทึก</source><target>Save</target>
+      </trans-unit>
+      <trans-unit id="courtLabel.cancel" datatype="html">
+        <source>ยกเลิก</source><target>Cancel</target>
+      </trans-unit>
+      <trans-unit id="dashboard.retiredCourts" datatype="html">
+        <source>คอร์ทที่ปิดไปแล้ว</source><target>Closed courts</target>
+      </trans-unit>
+      <trans-unit id="dashboard.retiredCourtName" datatype="html">
+        <source>คอร์ท <x id="START_TAG_SPAN" ctype="x-span" equiv-text="&lt;span class=&quot;court-num&quot;&gt;"/><x id="INTERPOLATION" equiv-text="{{ labelFor(courtNumber) }}"/><x id="CLOSE_TAG_SPAN" ctype="x-span" equiv-text="&lt;/span&gt;"/></source><target>Court <x id="START_TAG_SPAN" ctype="x-span" equiv-text="&lt;span class=&quot;court-num&quot;&gt;"/><x id="INTERPOLATION" equiv-text="{{ labelFor(courtNumber) }}"/><x id="CLOSE_TAG_SPAN" ctype="x-span" equiv-text="&lt;/span&gt;"/></target>
+      </trans-unit>
+      <trans-unit id="err.courtLabel" datatype="html">
+        <source>เปลี่ยนชื่อคอร์ทไม่สำเร็จ</source><target>Couldn't rename the court</target>
+      </trans-unit>
+      <trans-unit id="err.code.courtLabelConflict" datatype="html">
+        <source>ชื่อคอร์ทนี้ซ้ำกับคอร์ทอื่น</source><target>Another court already has this name</target>
+      </trans-unit>
     </body>
   </file>
 </xliff>

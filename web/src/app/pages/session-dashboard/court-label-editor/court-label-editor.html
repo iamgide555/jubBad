@@ -1,0 +1,24 @@
+@if (editing()) {
+  <form class="label-form" (submit)="$event.preventDefault(); save()">
+    <input
+      type="text"
+      name="courtLabel"
+      maxlength="30"
+      autocomplete="off"
+      [attr.aria-label]="fieldLabel()"
+      [placeholder]="courtNumber()"
+      [value]="draft()"
+      (input)="draft.set($any($event.target).value)"
+      [disabled]="busy()"
+    />
+    <button type="submit" [disabled]="busy()" i18n="@@courtLabel.save">บันทึก</button>
+    <button type="button" class="ghost" [disabled]="busy()" (click)="cancel()" i18n="@@courtLabel.cancel">ยกเลิก</button>
+  </form>
+  @if (error()) {
+    <p class="error" role="alert">{{ error() }}</p>
+  }
+} @else {
+  <button type="button" class="ghost label-edit" [attr.aria-label]="editLabel()" (click)="open()">
+    <app-icon name="pencil" [size]="18" />
+  </button>
+}

@@ -99,6 +99,59 @@ describe('SessionDashboard', () => {
     httpMock.verify();
   });
 
+  it('an ended session lists retired courts for renaming, including one never labeled', async () => {
+    fixture = TestBed.createComponent(SessionDashboard);
+    fixture.detectChanges();
+    httpMock.expectOne(`${B}/sessions/sess1`).flush(
+      baseSession({
+        endedAt: '2026-09-08T20:00:00.000Z',
+        courtCount: 1,
+        editableCourtCount: 3,
+        courtLabels: [null, 'หลัง'],
+      })
+    );
+    await new Promise((r) => setTimeout(r, 0));
+    TestBed.tick();
+    httpMock.expectOne(`${B}/groups/group1/players`).flush([]);
+    httpMock.expectOne(`${B}/sessions/sess1/stats?scope=session`).flush([]);
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    const el = fixture.nativeElement as HTMLElement;
+    const retired = el.querySelector('.retired-courts')!;
+    expect(retired).toBeTruthy();
+    expect(retired.querySelector('button[aria-label="เปลี่ยนชื่อคอร์ท หลัง"]')).toBeTruthy();
+    const court3 = retired.querySelector('button[aria-label="เปลี่ยนชื่อคอร์ท 3"]') as HTMLButtonElement;
+    court3.click();
+    fixture.detectChanges();
+    const input = retired.querySelector('input') as HTMLInputElement;
+    input.value = 'หน้าต่าง';
+    input.dispatchEvent(new Event('input'));
+    fixture.detectChanges();
+    ([...retired.querySelectorAll('button')].find((b) => b.textContent?.trim() === 'บันทึก') as HTMLButtonElement).click();
+    const req = httpMock.expectOne(`${B}/sessions/sess1/courts/3/label`);
+    expect(req.request.body).toEqual({ label: 'หน้าต่าง' });
+    req.flush({ code: 'sess1', courtNumber: 3, label: 'หน้าต่าง' });
+    await new Promise((r) => setTimeout(r, 0));
+    TestBed.tick();
+    for (const r of httpMock.match((r) => r.url === `${B}/sessions/sess1` || r.url.includes('/stats'))) {
+      r.flush(r.request.url.includes('/stats') ? [] : baseSession({ endedAt: '2026-09-08T20:00:00.000Z', courtCount: 1, editableCourtCount: 3, courtLabels: [null, 'หลัง', 'หน้าต่าง'] }));
+    }
+  });
+
+  it('a live session shows no retired-court list', async () => {
+    fixture = TestBed.createComponent(SessionDashboard);
+    fixture.detectChanges();
+    httpMock.expectOne(`${B}/sessions/sess1`).flush(baseSession({ courtCount: 1, editableCourtCount: 3 }));
+    await new Promise((r) => setTimeout(r, 0));
+    TestBed.tick();
+    httpMock.expectOne(`${B}/groups/group1/players`).flush([]);
+    httpMock.expectOne(`${B}/sessions/sess1/stats?scope=session`).flush([]);
+    await fixture.whenStable();
+    fixture.detectChanges();
+    expect((fixture.nativeElement as HTMLElement).querySelector('.retired-courts')).toBeNull();
+  });
+
   it('renders the confirmed roster as chips', async () => {
     fixture = TestBed.createComponent(SessionDashboard);
     fixture.detectChanges();

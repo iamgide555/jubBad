@@ -2,7 +2,10 @@
   @let c = court();
 
   <div class="court-panel-head">
-    <h4 i18n="@@court.number">คอร์ท <span class="court-num">{{ courtNumber() }}</span></h4>
+    <div class="court-title">
+      <h4 i18n="@@court.number">คอร์ท <span class="court-num">{{ courtLabel() }}</span></h4>
+      <app-court-label-editor [courtNumber]="courtNumber()" [labels]="liveSession.courtLabels()" />
+    </div>
     <div class="scope-toggle format-toggle" role="group" [attr.aria-label]="formatGroupLabel">
       <button
         type="button"

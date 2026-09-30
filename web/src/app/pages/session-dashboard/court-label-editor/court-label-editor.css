@@ -1,0 +1,25 @@
+:host {
+  display: contents;
+}
+
+.label-edit {
+  min-width: var(--tap);
+  padding: 0;
+}
+
+.label-form {
+  display: flex;
+  flex-basis: 100%;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.label-form input {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.error {
+  flex-basis: 100%;
+  margin: 0;
+}

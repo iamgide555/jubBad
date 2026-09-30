@@ -41,6 +41,18 @@
   margin-bottom: var(--space-2);
 }
 
+/* Heading plus its rename control, kept together so the head's
+   space-between spreads the toggles, not the pencil away from the name.
+   Long unbroken labels wrap here instead of pushing the panel wider. */
+.court-title {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-1);
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
 /* Sits between the court number and the status dot, shrunk to content width
    like the dashboard's own court-count stepper (session-dashboard.css)
    rather than the global .scope-toggle's edge-to-edge default — a two-way
@@ -62,6 +74,8 @@
    number on the whole dashboard. */
 .court-panel-head h4 {
   margin: 0;
+  min-width: 0;
+  overflow-wrap: anywhere;
   font-family: var(--font-display);
   font-size: var(--text-2xl);
   font-weight: 700;

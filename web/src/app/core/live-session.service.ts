@@ -132,6 +132,9 @@ export class LiveSessionService {
 
   readonly mode = computed<Session['mode']>(() => this.sessionResource.value()?.mode ?? 'variety');
 
+  /** Per-court display names — resolve with labelForCourt. */
+  readonly courtLabels = computed<(string | null)[]>(() => this.sessionResource.value()?.courtLabels ?? []);
+
   /**
    * How far the client's clock is ahead of the server's, in ms — recomputed
    * each time a fresh response lands. A live court timer adds this to

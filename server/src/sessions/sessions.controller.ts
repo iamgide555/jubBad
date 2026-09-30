@@ -5,6 +5,7 @@ import { FinishPairingDto } from './dto/finish-pairing.dto.js';
 import { PairingRevisionDto } from './dto/pairing-revision.dto.js';
 import { SetCourtCountDto } from './dto/set-court-count.dto.js';
 import { SetCourtFormatDto } from './dto/set-court-format.dto.js';
+import { SetCourtLabelDto } from './dto/set-court-label.dto.js';
 import { SetCourtModeDto } from './dto/set-court-mode.dto.js';
 import { SetModeDto } from './dto/set-mode.dto.js';
 import { SetRosterActiveDto } from './dto/set-roster-active.dto.js';
@@ -85,6 +86,20 @@ export class SessionsController {
     @Body() dto: SetCourtModeDto
   ) {
     return this.sessionsService.setCourtMode(code, courtNumber, dto);
+  }
+
+  /**
+   * Per-court display name, like format/mode a single-slot server-side
+   * write so two devices renaming different courts never lose each other's
+   * change. Allowed in every court and session state, including ended.
+   */
+  @Post(':code/courts/:n/label')
+  setCourtLabel(
+    @Param('code') code: string,
+    @Param('n', ParseIntPipe) courtNumber: number,
+    @Body() dto: SetCourtLabelDto
+  ) {
+    return this.sessionsService.setCourtLabel(code, courtNumber, dto);
   }
 
   @Post(':code/pairings/:id/confirm')

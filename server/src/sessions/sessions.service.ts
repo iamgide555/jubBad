@@ -32,6 +32,13 @@ import {
   withFormatAt,
 } from './court-formats.js';
 import { modeAt, withModeAt } from './court-modes.js';
+import {
+  editableCourtCount,
+  hasDuplicateCourtLabels,
+  normalizeCourtLabel,
+  parseCourtLabels,
+  withLabelAt,
+} from './court-labels.js';
 import { deriveHistory } from './derive-history.js';
 import { effectiveCourtMode, isCustomMode, isLevelMode, type SessionMode } from './session-mode.js';
 import {
@@ -49,6 +56,7 @@ import type { CreateSessionDto, NameReviewDto } from './dto/create-session.dto.j
 import type { FinishPairingDto } from './dto/finish-pairing.dto.js';
 import type { SetCourtCountDto } from './dto/set-court-count.dto.js';
 import type { SetCourtFormatDto } from './dto/set-court-format.dto.js';
+import type { SetCourtLabelDto } from './dto/set-court-label.dto.js';
 import type { SetCourtModeDto } from './dto/set-court-mode.dto.js';
 import type { SetModeDto } from './dto/set-mode.dto.js';
 import type { SetRosterActiveDto } from './dto/set-roster-active.dto.js';
@@ -430,6 +438,7 @@ export class SessionsService {
     // endpoint, and formatAt would otherwise re-parse the identical JSON
     // string once per court on every poll.
     const courtFormats = parseCourtFormats(session.courtFormats);
+    const courtLabels = parseCourtLabels(session.courtLabels);
     const courts = Array.from({ length: courtCount }, (_, i) => {
       const courtNumber = i + 1;
       // Authoritative regardless of the court's status: the toggle only ever
@@ -491,6 +500,11 @@ export class SessionsService {
       // like the rest of this response — only writing them requires auth.
       shuttleCount: session.shuttleCount,
       shuttlePriceSatang: session.shuttlePriceSatang,
+      // Per-court display names (index 0 = court 1; null = its number) and
+      // the highest court the host's label editor may address, which can
+      // exceed courtCount for retired courts — `courts` above is unaffected.
+      courtLabels,
+      editableCourtCount: editableCourtCount(session.courtCount, session.pairings, courtLabels),
       // Skew reference: the client compares this to its own Date.now() at
       // the moment the response lands, so a live court timer reads correctly
       // even when the host's device clock disagrees with the server's.
@@ -1688,11 +1702,59 @@ export class SessionsService {
       });
     }
 
+    // Growing brings courts back into view under their default numbers,
+    // which must not duplicate a name another court already carries.
+    if (dto.courtCount > (session.courtCount ?? 0)) {
+      const labels = parseCourtLabels(session.courtLabels);
+      const pairings = await this.prisma.pairing.findMany({
+        where: { sessionId: code },
+        select: { courtNumber: true },
+      });
+      if (hasDuplicateCourtLabels(labels, editableCourtCount(dto.courtCount, pairings, labels))) {
+        throw this.conflict('COURT_LABEL_CONFLICT');
+      }
+    }
+
     const updated = await this.prisma.session.update({
       where: { code },
       data: { courtCount: dto.courtCount },
     });
     return { code: updated.code, courtCount: updated.courtCount };
+  }
+
+  setCourtLabel(code: string, courtNumber: number, dto: SetCourtLabelDto) {
+    return this.lock.run(code, () => this.setCourtLabelExclusively(code, courtNumber, dto));
+  }
+
+  /**
+   * Presentation only — never touches a pairing — so, like shuttle details,
+   * allowed on an ended session and in any court state. The target may be a
+   * retired court (above courtCount) that still has a match or a label, so
+   * its name in past results stays correctable. Visible names, numeric
+   * defaults included, must stay unique across that whole editable range.
+   */
+  private async setCourtLabelExclusively(code: string, courtNumber: number, dto: SetCourtLabelDto) {
+    const session = await this.prisma.session.findUnique({ where: { code } });
+    if (!session) throw this.notFound('SESSION_NOT_FOUND');
+
+    const labels = parseCourtLabels(session.courtLabels);
+    const pairings = await this.prisma.pairing.findMany({
+      where: { sessionId: code },
+      select: { courtNumber: true },
+    });
+    const range = editableCourtCount(session.courtCount, pairings, labels);
+    if (!Number.isInteger(courtNumber) || courtNumber < 1 || courtNumber > range) {
+      throw this.badRequest('INVALID_COURT_NUMBER');
+    }
+
+    const label = normalizeCourtLabel(dto.label);
+    const courtLabels = withLabelAt(session.courtLabels, courtNumber, label);
+    if (hasDuplicateCourtLabels(parseCourtLabels(courtLabels), range)) {
+      throw this.conflict('COURT_LABEL_CONFLICT');
+    }
+
+    await this.prisma.session.update({ where: { code }, data: { courtLabels } });
+    return { code, courtNumber, label };
   }
 
   /**
@@ -2687,6 +2749,7 @@ export class SessionsService {
         endedAt: session.endedAt,
         shuttleCount: session.shuttleCount,
         shuttlePriceSatang: session.shuttlePriceSatang,
+        courtLabels: parseCourtLabels(session.courtLabels),
       },
       players: [...played.entries()]
         .map(([playerId, count]) => {

@@ -4385,6 +4385,7 @@ describe('SessionsController', () => {
         endedAt: expect.any(String),
         shuttleCount: null,
         shuttlePriceSatang: null,
+        courtLabels: [],
       });
 
       const byId = new Map(
@@ -6175,6 +6176,178 @@ describe('SessionsController', () => {
         const session = await request(server).get(`/sessions/${sessionCode}`).expect(200);
         expect(session.body.shuttleCount).toBe(10);
         expect(session.body.shuttlePriceSatang).toBe(1000);
+      } finally {
+        await cleanup();
+      }
+    });
+  });
+
+  describe('POST /sessions/:code/courts/:n/label', () => {
+    const label = (sessionCode: string, n: number, body: unknown) =>
+      request(server).post(`/sessions/${sessionCode}/courts/${n}/label`).send(body as object);
+
+    const finishedPairing = (sessionCode: string, courtNumber: number, ids: string[]) =>
+      prisma.pairing.create({
+        data: {
+          sessionId: sessionCode,
+          courtNumber,
+          matchNumber: 1,
+          teamA: JSON.stringify([ids[0], ids[1]]),
+          teamB: JSON.stringify([ids[2], ids[3]]),
+          confirmedAt: new Date(Date.now() - 60_000),
+          endedAt: new Date(),
+          winner: 'A',
+        },
+      });
+
+    it('court label: a session with no labels reads an empty array', async () => {
+      const { sessionCode, cleanup } = await formatFixture(2, 2);
+      try {
+        const session = await request(server).get(`/sessions/${sessionCode}`).expect(200);
+        expect(session.body.courtLabels).toEqual([]);
+        expect(session.body.editableCourtCount).toBe(2);
+        const summary = await request(server).get(`/sessions/${sessionCode}/summary`).expect(200);
+        expect(summary.body.session.courtLabels).toEqual([]);
+      } finally {
+        await cleanup();
+      }
+    });
+
+    it('court label: trims a write and publishes it in session and summary without renumbering pairings', async () => {
+      const { sessionCode, players, cleanup } = await formatFixture(4, 2);
+      try {
+        await finishedPairing(sessionCode, 1, players.map((p) => p.id));
+        const res = await label(sessionCode, 1, { label: '  โซนหน้า  ' }).expect(201);
+        expect(res.body).toEqual({ code: sessionCode, courtNumber: 1, label: 'โซนหน้า' });
+
+        const session = await request(server).get(`/sessions/${sessionCode}`).expect(200);
+        expect(session.body.courtLabels).toEqual(['โซนหน้า']);
+        expect(session.body.courts).toHaveLength(2);
+        const summary = await request(server).get(`/sessions/${sessionCode}/summary`).expect(200);
+        expect(summary.body.session.courtLabels).toEqual(['โซนหน้า']);
+        const pairings = await prisma.pairing.findMany({ where: { sessionId: sessionCode } });
+        expect(pairings.map((p) => p.courtNumber)).toEqual([1]);
+      } finally {
+        await cleanup();
+      }
+    });
+
+    it('court label: rejects a label equal to another court default', async () => {
+      const { sessionCode, cleanup } = await formatFixture(2, 2);
+      try {
+        const res = await label(sessionCode, 1, { label: '2' }).expect(409);
+        expect(res.body.code).toBe('COURT_LABEL_CONFLICT');
+      } finally {
+        await cleanup();
+      }
+    });
+
+    it('court label: rejects case-only and Unicode-form duplicates', async () => {
+      const { sessionCode, cleanup } = await formatFixture(2, 2);
+      try {
+        await label(sessionCode, 1, { label: 'Café' }).expect(201);
+        await label(sessionCode, 2, { label: 'CAFE\u0301' }).expect(409);
+        await label(sessionCode, 2, { label: 'café' }).expect(409);
+        const session = await request(server).get(`/sessions/${sessionCode}`).expect(200);
+        expect(session.body.courtLabels).toEqual(['Café']);
+      } finally {
+        await cleanup();
+      }
+    });
+
+    it('court label: rejects multiline, over-30-character, non-string, and out-of-range writes', async () => {
+      const { sessionCode, cleanup } = await formatFixture(2, 2);
+      try {
+        await label(sessionCode, 1, { label: 'A\nB' }).expect(400);
+        await label(sessionCode, 1, { label: 'A\tB' }).expect(400);
+        await label(sessionCode, 1, { label: 'x'.repeat(31) }).expect(400);
+        await label(sessionCode, 1, { label: 5 }).expect(400);
+        await label(sessionCode, 1, {}).expect(400);
+        await label(sessionCode, 1, { label: 'x'.repeat(30) }).expect(201);
+        const res = await label(sessionCode, 3, { label: 'C' }).expect(400);
+        expect(res.body.code).toBe('INVALID_COURT_NUMBER');
+        await label(sessionCode, 0, { label: 'C' }).expect(400);
+      } finally {
+        await cleanup();
+      }
+    });
+
+    it('court label: two writes to different courts both persist', async () => {
+      const { sessionCode, cleanup } = await formatFixture(2, 3);
+      try {
+        await Promise.all([label(sessionCode, 1, { label: 'A' }), label(sessionCode, 3, { label: 'C' })]);
+        const session = await request(server).get(`/sessions/${sessionCode}`).expect(200);
+        expect(session.body.courtLabels).toEqual(['A', null, 'C']);
+      } finally {
+        await cleanup();
+      }
+    });
+
+    it('court label: renames on an ended session and a retired court that was never labeled', async () => {
+      const { sessionCode, players, cleanup } = await formatFixture(4, 3);
+      try {
+        await finishedPairing(sessionCode, 3, players.map((p) => p.id));
+        await request(server).post(`/sessions/${sessionCode}/court-count`).send({ courtCount: 2 }).expect(201);
+        await request(server).post(`/sessions/${sessionCode}/end`).expect(201);
+
+        const before = await request(server).get(`/sessions/${sessionCode}`).expect(200);
+        expect(before.body.editableCourtCount).toBe(3);
+        expect(before.body.courts).toHaveLength(2);
+
+        await label(sessionCode, 3, { label: 'หลังห้อง' }).expect(201);
+        await label(sessionCode, 1, { label: 'หน้า' }).expect(201);
+        const summary = await request(server).get(`/sessions/${sessionCode}/summary`).expect(200);
+        expect(summary.body.session.courtLabels).toEqual(['หน้า', null, 'หลังห้อง']);
+      } finally {
+        await cleanup();
+      }
+    });
+
+    it('court label: clearing to a default another court already uses is refused and keeps the old name', async () => {
+      const { sessionCode, cleanup } = await formatFixture(2, 2);
+      try {
+        await label(sessionCode, 1, { label: 'A' }).expect(201);
+        await label(sessionCode, 2, { label: '1' }).expect(201);
+        const res = await label(sessionCode, 1, { label: '   ' }).expect(409);
+        expect(res.body.code).toBe('COURT_LABEL_CONFLICT');
+        const session = await request(server).get(`/sessions/${sessionCode}`).expect(200);
+        expect(session.body.courtLabels).toEqual(['A', '1']);
+
+        await label(sessionCode, 2, { label: '' }).expect(201);
+        await label(sessionCode, 1, { label: '' }).expect(201);
+        const cleared = await request(server).get(`/sessions/${sessionCode}`).expect(200);
+        expect(cleared.body.courtLabels).toEqual([null, null]);
+      } finally {
+        await cleanup();
+      }
+    });
+
+    it('court label: growing the court count refuses a duplicate default without changing the count', async () => {
+      const { sessionCode, cleanup } = await formatFixture(2, 2);
+      try {
+        await label(sessionCode, 1, { label: '3' }).expect(201);
+        const res = await request(server)
+          .post(`/sessions/${sessionCode}/court-count`)
+          .send({ courtCount: 3 })
+          .expect(409);
+        expect(res.body.code).toBe('COURT_LABEL_CONFLICT');
+        const session = await prisma.session.findUniqueOrThrow({ where: { code: sessionCode } });
+        expect(session.courtCount).toBe(2);
+      } finally {
+        await cleanup();
+      }
+    });
+
+    it('court label: shrinking and re-growing restores a court label', async () => {
+      const { sessionCode, cleanup } = await formatFixture(2, 2);
+      try {
+        await label(sessionCode, 2, { label: 'B' }).expect(201);
+        await request(server).post(`/sessions/${sessionCode}/court-count`).send({ courtCount: 1 }).expect(201);
+        const shrunk = await request(server).get(`/sessions/${sessionCode}`).expect(200);
+        expect(shrunk.body.editableCourtCount).toBe(2);
+        await request(server).post(`/sessions/${sessionCode}/court-count`).send({ courtCount: 2 }).expect(201);
+        const regrown = await request(server).get(`/sessions/${sessionCode}`).expect(200);
+        expect(regrown.body.courtLabels).toEqual([null, 'B']);
       } finally {
         await cleanup();
       }

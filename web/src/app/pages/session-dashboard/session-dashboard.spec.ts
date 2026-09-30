@@ -1154,6 +1154,34 @@ describe('SessionDashboard', () => {
     expect(text).toContain('vs');
   });
 
+  it('uses each court\'s name in the share text, keeping the literal text of an HTML-looking name', async () => {
+    await settled(
+      baseSession({
+        rosterPlayerIds: ['p1', 'p2'],
+        courtCount: 3,
+        editableCourtCount: 3,
+        courtLabels: ['<b>A</b>', 'หลัง'],
+        courts: [
+          {
+            status: 'active',
+            pairingId: 'x',
+            format: 'doubles', mode: 'variety',
+            teamA: ['p1', 'p2'],
+            teamB: ['p3', 'p4'],
+            startedAt: '2026-09-08T12:00:00.000Z',
+          },
+          { status: 'idle', format: 'doubles', mode: 'variety' },
+          { status: 'idle', format: 'doubles', mode: 'variety' },
+        ],
+      })
+    );
+
+    const lines = fixture.componentInstance.shareText().split('\n');
+    expect(lines[0]).toMatch(/^คอร์ท <b>A<\/b>: ตั้ม/);
+    expect(lines[1]).toBe('คอร์ท หลัง: ว่าง');
+    expect(lines[2]).toBe('คอร์ท 3: ว่าง');
+  });
+
   it('marks an idle court as idle in the share text', async () => {
     await settled();
     expect(fixture.componentInstance.shareText()).toContain('ว่าง');

@@ -139,6 +139,37 @@ describe('SessionDisplay', () => {
     expect(line.text).not.toBe('ว่าง');
   });
 
+  it('shows each court\'s name, as literal text, on active and idle courts alike', async () => {
+    const { fixture, httpMock } = await createDisplay(
+      baseSession({
+        courtCount: 3,
+        courtLabels: ['<b>A</b>', 'หลัง'],
+        courts: [
+          {
+            status: 'active',
+            pairingId: 'pair1',
+            format: 'doubles', mode: 'variety',
+            teamA: ['p1', 'p2'],
+            teamB: ['p3', 'p4'],
+            startedAt: '2026-09-08T12:00:00.000Z',
+          },
+          { status: 'idle', format: 'doubles', mode: 'variety' },
+          { status: 'idle', format: 'doubles', mode: 'variety' },
+        ],
+      })
+    );
+    httpMock.expectOne(`${B}/groups/group1`).flush({ code: 'group1', name: null, lastSessionCode: null });
+    httpMock.expectOne(`${B}/groups/group1/players`).flush(players);
+    await new Promise((r) => setTimeout(r, 0));
+    TestBed.tick();
+    fixture.detectChanges();
+
+    const el = fixture.nativeElement as HTMLElement;
+    const names = [...el.querySelectorAll('.court-number')].map((n) => n.textContent?.trim());
+    expect(names).toEqual(['<b>A</b>', 'หลัง', '3']);
+    expect(el.querySelector('.court-number b')).toBeNull();
+  });
+
   it('shows a singles match as one name per side, with no dangling "+"', async () => {
     const { fixture, httpMock } = await createDisplay(
       baseSession({

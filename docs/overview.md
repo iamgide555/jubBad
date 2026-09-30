@@ -203,6 +203,18 @@ and a mis-typed number must not delete a match in progress. There is no
 scheduled-availability feature: it would need the session to watch the wall
 clock, and a two-tap change covers the actual booking pattern.
 
+Each court can also carry a **name** the host types to match the hall's own
+numbering ("7", "หลัง", "A") — a booking for courts 5–7 otherwise means players
+hunting for "court 1". The name is display-only: routes, pairings and match
+history keep the positional court number, so renaming mid-match never moves a
+game, and an empty name falls back to the number. Names live on the session
+(`Session.courtLabels`, max 30 characters, no control characters, unique among
+the session's courts) and are shown on the dashboard, venue display,
+copy-to-LINE text and the summary. Shrinking the court count keeps the removed
+courts' names, so a finished match on a removed court still shows the name it
+was played under, and after the session ends the host can still rename those
+retired courts from the dashboard. Names are rendered as text, never HTML.
+
 Proposing for one court still plans across every idle court and commits only
 the one asked for. Solving a court in isolation takes the four least-played and
 leaves whoever remains to be shovelled onto the next court together — that

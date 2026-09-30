@@ -7,6 +7,7 @@ import { absoluteUrl, copyToClipboard } from '../../core/share-link';
 import { environment } from '../../../environments/environment';
 import { SceneHost } from '../../core/three/scene-host';
 import { formatMinutes } from '../../core/game-duration';
+import { labelForCourt } from '../../core/court-label';
 import { formatShuttlePriceInput } from '../../core/shuttle-money';
 import {
   ShuttleDetailsDialog,
@@ -61,6 +62,12 @@ export class SessionSummary {
   /** Descending by the active column; a player with no data for it (never
    *  played singles, say) sorts last rather than tying at a fabricated 0 —
    *  same convention as player-roster's sortable columns. */
+  /** A match keeps its court number; the name shown is that court's latest
+   *  label, including a court removed before the session ended. */
+  protected courtName(courtNumber: number): string {
+    return labelForCourt(this.summary()?.session.courtLabels ?? [], courtNumber);
+  }
+
   protected readonly sortedPlayers = computed(() => {
     const players = this.summary()?.players ?? [];
     const key = this.sortKey();

@@ -14,9 +14,11 @@ waited longest, and want a newcomer far below the group's level to get one
 games. Historical design: `docs/archive/specs/2026-09-27-level-rework-design.md`.
 Done: `feat/level-rework`.
 
-#### - [ ] A. Court labels — rename court numbers to match the physical hall
+#### - [x] A. Court labels — rename court numbers to match the physical hall
 
-2026-09-27 real-host feedback. Not yet designed.
+2026-09-27 real-host feedback. Design:
+`docs/superpowers/specs/2026-09-30-court-labels-design.md`. Done: court names
+on the session, shown on every reader (2026-09-30).
 
 #### - [ ] C. Pair rules — คู่กัน, ห้ามอยู่ด้วยกัน, ห้ามเล่นด้วยกัน
 

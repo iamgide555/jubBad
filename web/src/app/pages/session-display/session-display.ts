@@ -3,6 +3,7 @@ import { httpResource } from '@angular/common/http';
 import { environment } from '../../../environments/environment';
 import { LiveSessionService } from '../../core/live-session.service';
 import { resolvePlayerNames } from '../../core/player-names';
+import { labelForCourt } from '../../core/court-label';
 import { buildWaitingList } from '../../core/waiting-time';
 import { SceneHost } from '../../core/three/scene-host';
 import type { Group } from '../../core/group.model';
@@ -53,15 +54,16 @@ export class SessionDisplay implements OnDestroy {
     const players = this.players();
     const idle = $localize`:@@display.courtIdle:ว่าง`;
     const versus = $localize`:@@display.versus:vs`;
+    const labels = this.liveSession.courtLabels();
     // `playing` is a real field rather than the template comparing against the
     // idle text: that comparison broke the moment the text was translated.
     return this.liveSession.courts().map((court, i) => {
       if (court.status !== 'active') {
-        return { courtNumber: i + 1, playing: false, text: idle };
+        return { courtNumber: i + 1, name: labelForCourt(labels, i + 1), playing: false, text: idle };
       }
       const teamA = resolvePlayerNames(court.teamA, players).join(' + ');
       const teamB = resolvePlayerNames(court.teamB, players).join(' + ');
-      return { courtNumber: i + 1, playing: true, text: `${teamA} ${versus} ${teamB}` };
+      return { courtNumber: i + 1, name: labelForCourt(labels, i + 1), playing: true, text: `${teamA} ${versus} ${teamB}` };
     });
   });
 

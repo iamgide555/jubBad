@@ -11,7 +11,7 @@
       <div class="courts">
         @for (line of courtLines(); track line.courtNumber) {
           <div class="court-line" [class.playing]="line.playing">
-            <span class="court-number">{{ line.courtNumber }}</span>
+            <span class="court-number">{{ line.name }}</span>
             <p class="court-text">{{ line.text }}</p>
           </div>
         }

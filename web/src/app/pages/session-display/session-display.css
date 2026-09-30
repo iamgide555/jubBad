@@ -96,6 +96,10 @@
   line-height: 1;
   font-variant-numeric: tabular-nums;
   color: var(--ink-on-court-soft);
+  /* A host-named court can be one long unbroken word; wrap it inside the
+     panel rather than widening the grid column. */
+  max-width: 100%;
+  overflow-wrap: anywhere;
 }
 
 .court-line.playing .court-number {

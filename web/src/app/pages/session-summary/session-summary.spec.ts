@@ -177,6 +177,31 @@ describe('SessionSummary', () => {
     expect(text).not.toContain('กับ');
   });
 
+  it('names each match\'s court by its latest label, even a court since removed, as literal text', async () => {
+    const base = summary();
+    await load(
+      summary({
+        session: { ...base.session, courtCount: 1, courtLabels: [null, null, '<b>A</b>'] },
+        players: [
+          {
+            ...base.players[0],
+            matches: [
+              { ...base.players[0].matches[0], matchNumber: 1, courtNumber: 3 },
+              { ...base.players[0].matches[0], matchNumber: 2, courtNumber: 1 },
+            ],
+          },
+        ],
+      })
+    );
+    fixture.componentInstance['togglePlayer'](base.players[0].playerId);
+    fixture.detectChanges();
+    const el = fixture.nativeElement as HTMLElement;
+    const items = [...el.querySelectorAll('.match-list li')].map((li) => li.textContent?.replace(/\s+/g, ' ') ?? '');
+    expect(items[0]).toContain('คอร์ท <b>A</b>');
+    expect(items[1]).toContain('คอร์ท 1');
+    expect(el.querySelector('.match-list b')).toBeNull();
+  });
+
   it('shows separate singles/doubles win-rate columns with the games played', async () => {
     await load(
       summary({

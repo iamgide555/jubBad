@@ -407,7 +407,7 @@ export class SessionDashboard implements OnDestroy {
     // Court number is the array position — the server returns one entry per
     // court in order, which is the same assumption courtNumbers() makes.
     for (const [i, court] of this.liveSession.courts().entries()) {
-      const number = i + 1;
+      const number = this.labelFor(i + 1);
       if (court.status !== 'active') {
         lines.push($localize`:@@share.courtIdle:คอร์ท ${number}:n:: ว่าง`);
         continue;

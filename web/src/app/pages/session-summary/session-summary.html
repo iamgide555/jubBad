@@ -154,7 +154,7 @@
                   <ul class="match-list">
                     @for (m of row.matches; track m.matchNumber) {
                       <li>
-                        <span class="muted" i18n="@@summary.court">คอร์ท</span> {{ m.courtNumber }}
+                        <span class="muted" i18n="@@summary.court">คอร์ท</span> {{ courtName(m.courtNumber) }}
                         —
                         @if (m.partnerName) {
                           <ng-container i18n="@@summary.withPartner">กับ</ng-container> {{ m.partnerName }}

@@ -21,6 +21,7 @@ model Group {
   players   Player[]
   sessions  Session[]
   sessionCreations SessionCreation[]
+  playerRules PlayerRule[]
 }
 
 model User {
@@ -91,6 +92,8 @@ model Player {
   group      Group  @relation(fields: [groupId], references: [code])
   rosterEntries SessionRoster[]
   waitlistEntries Waitlist[]
+  rulesAsA   PlayerRule[] @relation("PlayerRuleA")
+  rulesAsB   PlayerRule[] @relation("PlayerRuleB")
 }
 
 model Session {
@@ -145,6 +148,11 @@ model Session {
   /// that is recomputed on every read. Parsed and written only in
   /// server/src/sessions/bill-config.ts. Null = never saved.
   billConfig          String?
+  /// JSON-encoded string[] of this group's PlayerRule ids switched off for
+  /// this session only. Null or "[]" = none disabled; a malformed non-null
+  /// value is invalid session state, never "ignore the rules". Parsed only
+  /// in server/src/sessions/session-rules.ts.
+  disabledRuleIds     String?         @default("[]")
   group         Group           @relation(fields: [groupId], references: [code])
   roster        SessionRoster[]
   waitlist      Waitlist[]
@@ -225,7 +233,31 @@ model Pairing {
   shownSplits String    @default("[]")
   confirmedAt DateTime?
   endedAt     DateTime?
+  /// JSON-encoded { playerId, partnerId: string | null }[] snapshotted at
+  /// confirmation for every tagged player with an enabled must-pair link:
+  /// partnerId is set only when that game counted as their carry. "[]" for
+  /// legacy rows and unlinked games. Cleared on undo of confirm. See
+  /// server/src/sessions/carry-outcomes.ts.
+  carryOutcomes String  @default("[]")
   session     Session   @relation(fields: [sessionId], references: [code])
+}
+
+/// A host pair rule within one group (host-feedback C). playerAId < playerBId
+/// always, so one pair has one row regardless of the order it was entered.
+/// kind: 'must-pair' | 'never-teammates' | 'never-same-court'
+/// (engines/pair-rules.ts). Host-only — never in a @Public response.
+model PlayerRule {
+  id        String   @id @default(cuid())
+  groupId   String
+  playerAId String
+  playerBId String
+  kind      String
+  createdAt DateTime @default(now())
+  group     Group    @relation(fields: [groupId], references: [code])
+  playerA   Player   @relation("PlayerRuleA", fields: [playerAId], references: [id])
+  playerB   Player   @relation("PlayerRuleB", fields: [playerBId], references: [id])
+
+  @@unique([groupId, playerAId, playerBId])
 }
 
 model SessionCreation {

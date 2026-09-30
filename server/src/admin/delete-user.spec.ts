@@ -147,6 +147,22 @@ describe('AdminService.deleteUser', () => {
     }
   });
 
+  it('deletes several owned groups together with their pair rules', async () => {
+    const { owner, codes } = await makeOwner(2);
+    for (const code of codes) {
+      const a = await prisma.player.create({ data: { groupId: code, name: 'A', aliases: '[]' } });
+      const b = await prisma.player.create({ data: { groupId: code, name: 'B', aliases: '[]' } });
+      const [lo, hi] = [a.id, b.id].sort();
+      await prisma.playerRule.create({ data: { groupId: code, playerAId: lo, playerBId: hi, kind: 'must-pair' } });
+    }
+
+    await admin.deleteUser(owner.id, Object.fromEntries(codes.map((c) => [c, { action: 'delete' as const }])));
+
+    expect(await prisma.playerRule.count({ where: { groupId: { in: codes } } })).toBe(0);
+    expect(await prisma.player.count({ where: { groupId: { in: codes } } })).toBe(0);
+    expect(await prisma.group.count({ where: { code: { in: codes } } })).toBe(0);
+  });
+
   it('rolls back a mixed batch entirely when one entry is invalid', async () => {
     const { owner, codes } = await makeOwner(2);
     const [toDelete, toReassign] = codes;

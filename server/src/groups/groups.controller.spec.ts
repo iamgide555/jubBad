@@ -1080,4 +1080,195 @@ describe('GroupsController', () => {
     });
   });
 
+  describe('group rule', () => {
+    async function makeGroup(names: string[]) {
+      const code = randomUUID();
+      await prisma.group.create({ data: { code, name: 'Rules' } });
+      const players = [];
+      for (const name of names) {
+        players.push(await prisma.player.create({ data: { groupId: code, name, aliases: '[]' } }));
+      }
+      return { code, ids: players.map((p) => p.id) };
+    }
+
+    async function dropGroup(code: string) {
+      const sessions = await prisma.session.findMany({ where: { groupId: code }, select: { code: true } });
+      const sessionIds = sessions.map((s) => s.code);
+      await prisma.pairing.deleteMany({ where: { sessionId: { in: sessionIds } } });
+      await prisma.session.deleteMany({ where: { groupId: code } });
+      await prisma.playerRule.deleteMany({ where: { groupId: code } });
+      await prisma.player.deleteMany({ where: { groupId: code } });
+      await prisma.group.deleteMany({ where: { code } });
+    }
+
+    it('group rule: creates a rule with its pair sorted, and lists it', async () => {
+      const { code, ids } = await makeGroup(['A', 'B']);
+      const [lo, hi] = [...ids].sort();
+      try {
+        const res = await request(server)
+          .post(`/groups/${code}/rules`)
+          .send({ playerAId: hi, playerBId: lo, kind: 'never-teammates' })
+          .expect(201);
+        expect(res.body).toMatchObject({ groupId: code, playerAId: lo, playerBId: hi, kind: 'never-teammates' });
+        expect(typeof res.body.id).toBe('string');
+
+        const list = await request(server).get(`/groups/${code}/rules`).expect(200);
+        expect(list.body).toHaveLength(1);
+        expect(list.body[0].id).toBe(res.body.id);
+      } finally {
+        await dropGroup(code);
+      }
+    });
+
+    it('group rule: rejects a second rule for the same pair in either order', async () => {
+      const { code, ids } = await makeGroup(['A', 'B']);
+      try {
+        await request(server).post(`/groups/${code}/rules`).send({ playerAId: ids[0], playerBId: ids[1], kind: 'never-teammates' }).expect(201);
+        const res = await request(server)
+          .post(`/groups/${code}/rules`)
+          .send({ playerAId: ids[1], playerBId: ids[0], kind: 'never-same-court' })
+          .expect(409);
+        expect(res.body.code).toBe('PAIR_RULE_EXISTS');
+        expect(await prisma.playerRule.count({ where: { groupId: code } })).toBe(1);
+      } finally {
+        await dropGroup(code);
+      }
+    });
+
+    it('group rule: rejects a self-link, an unknown kind, and a player from another group', async () => {
+      const { code, ids } = await makeGroup(['A', 'B']);
+      const other = await makeGroup(['X']);
+      try {
+        const self = await request(server).post(`/groups/${code}/rules`).send({ playerAId: ids[0], playerBId: ids[0], kind: 'must-pair' }).expect(400);
+        expect(self.body.code).toBe('PAIR_RULE_SELF');
+        await request(server).post(`/groups/${code}/rules`).send({ playerAId: ids[0], playerBId: ids[1], kind: 'friends' }).expect(400);
+        await request(server).post(`/groups/${code}/rules`).send({ playerAId: ids[0], playerBId: other.ids[0], kind: 'must-pair' }).expect(404);
+        expect(await prisma.playerRule.count({ where: { groupId: { in: [code, other.code] } } })).toBe(0);
+      } finally {
+        await dropGroup(code);
+        await dropGroup(other.code);
+      }
+    });
+
+    it('group rule: allows one must-pair link per player but several negative rules', async () => {
+      const { code, ids } = await makeGroup(['A', 'B', 'C', 'D']);
+      const [a, b, c, d] = ids;
+      try {
+        await request(server).post(`/groups/${code}/rules`).send({ playerAId: a, playerBId: b, kind: 'must-pair' }).expect(201);
+        const second = await request(server).post(`/groups/${code}/rules`).send({ playerAId: c, playerBId: a, kind: 'must-pair' }).expect(409);
+        expect(second.body.code).toBe('PAIR_RULE_MUST_PAIR_TAKEN');
+        await request(server).post(`/groups/${code}/rules`).send({ playerAId: a, playerBId: c, kind: 'never-teammates' }).expect(201);
+        await request(server).post(`/groups/${code}/rules`).send({ playerAId: a, playerBId: d, kind: 'never-same-court' }).expect(201);
+        expect(await prisma.playerRule.count({ where: { groupId: code } })).toBe(3);
+      } finally {
+        await dropGroup(code);
+      }
+    });
+
+    it('group rule: two simultaneous must-pair links for one player leave exactly one', async () => {
+      const { code, ids } = await makeGroup(['A', 'B', 'C']);
+      const [a, b, c] = ids;
+      try {
+        const [r1, r2] = await Promise.all([
+          request(server).post(`/groups/${code}/rules`).send({ playerAId: a, playerBId: b, kind: 'must-pair' }),
+          request(server).post(`/groups/${code}/rules`).send({ playerAId: a, playerBId: c, kind: 'must-pair' }),
+        ]);
+        expect([r1.status, r2.status].sort()).toEqual([201, 409]);
+        const rules = await prisma.playerRule.findMany({ where: { groupId: code } });
+        expect(rules).toHaveLength(1);
+        const winner = r1.status === 201 ? r1.body : r2.body;
+        expect(rules[0].id).toBe(winner.id);
+      } finally {
+        await dropGroup(code);
+      }
+    });
+
+    it('group rule: replacing the kind keeps the rule id, pair and any session reference', async () => {
+      const { code, ids } = await makeGroup(['A', 'B']);
+      const sessionCode = randomUUID();
+      try {
+        const created = await request(server).post(`/groups/${code}/rules`).send({ playerAId: ids[0], playerBId: ids[1], kind: 'never-teammates' }).expect(201);
+        await prisma.session.create({
+          data: { code: sessionCode, groupId: code, rawImportText: '', disabledRuleIds: JSON.stringify([created.body.id]) },
+        });
+        const res = await request(server).put(`/groups/${code}/rules/${created.body.id}`).send({ kind: 'must-pair' }).expect(200);
+        expect(res.body).toMatchObject({ id: created.body.id, playerAId: created.body.playerAId, playerBId: created.body.playerBId, kind: 'must-pair' });
+        const session = await prisma.session.findUniqueOrThrow({ where: { code: sessionCode } });
+        expect(JSON.parse(session.disabledRuleIds ?? '[]')).toEqual([created.body.id]);
+      } finally {
+        await dropGroup(code);
+      }
+    });
+
+    it('group rule: replacing a kind with must-pair respects the one-link limit', async () => {
+      const { code, ids } = await makeGroup(['A', 'B', 'C']);
+      const [a, b, c] = ids;
+      try {
+        await request(server).post(`/groups/${code}/rules`).send({ playerAId: a, playerBId: b, kind: 'must-pair' }).expect(201);
+        const neg = await request(server).post(`/groups/${code}/rules`).send({ playerAId: a, playerBId: c, kind: 'never-teammates' }).expect(201);
+        const res = await request(server).put(`/groups/${code}/rules/${neg.body.id}`).send({ kind: 'must-pair' }).expect(409);
+        expect(res.body.code).toBe('PAIR_RULE_MUST_PAIR_TAKEN');
+        const unchanged = await prisma.playerRule.findUniqueOrThrow({ where: { id: neg.body.id } });
+        expect(unchanged.kind).toBe('never-teammates');
+      } finally {
+        await dropGroup(code);
+      }
+    });
+
+    it('group rule: 404s editing or deleting a rule of another group, and deletes its own', async () => {
+      const { code, ids } = await makeGroup(['A', 'B']);
+      const other = await makeGroup(['X', 'Y']);
+      try {
+        const foreign = await request(server).post(`/groups/${other.code}/rules`).send({ playerAId: other.ids[0], playerBId: other.ids[1], kind: 'must-pair' }).expect(201);
+        await request(server).put(`/groups/${code}/rules/${foreign.body.id}`).send({ kind: 'never-teammates' }).expect(404);
+        await request(server).delete(`/groups/${code}/rules/${foreign.body.id}`).expect(404);
+        expect(await prisma.playerRule.count({ where: { id: foreign.body.id } })).toBe(1);
+
+        const own = await request(server).post(`/groups/${code}/rules`).send({ playerAId: ids[0], playerBId: ids[1], kind: 'must-pair' }).expect(201);
+        const del = await request(server).delete(`/groups/${code}/rules/${own.body.id}`).expect(200);
+        expect(del.body).toEqual({ deleted: true });
+        expect(await prisma.playerRule.count({ where: { groupId: code } })).toBe(0);
+        await request(server).get(`/groups/${randomUUID()}/rules`).expect(404);
+      } finally {
+        await dropGroup(code);
+        await dropGroup(other.code);
+      }
+    });
+
+    it('group rule: export includes rules, session disabled ids and pairing carry outcomes', async () => {
+      const { code, ids } = await makeGroup(['A', 'B', 'C', 'D']);
+      const sessionCode = randomUUID();
+      try {
+        const rule = await request(server).post(`/groups/${code}/rules`).send({ playerAId: ids[0], playerBId: ids[1], kind: 'must-pair' }).expect(201);
+        await prisma.session.create({
+          data: { code: sessionCode, groupId: code, courtCount: 1, rawImportText: '', disabledRuleIds: JSON.stringify([rule.body.id]) },
+        });
+        const outcomes = [{ playerId: ids[0], partnerId: ids[1] }];
+        await prisma.pairing.create({
+          data: {
+            sessionId: sessionCode, courtNumber: 1, matchNumber: 1,
+            teamA: JSON.stringify([ids[0], ids[1]]), teamB: JSON.stringify([ids[2], ids[3]]),
+            confirmedAt: new Date(), carryOutcomes: JSON.stringify(outcomes),
+          },
+        });
+        const res = await request(server).get(`/groups/${code}/export`).expect(200);
+        expect(res.body.rules).toEqual([
+          expect.objectContaining({ id: rule.body.id, playerAId: rule.body.playerAId, playerBId: rule.body.playerBId, kind: 'must-pair' }),
+        ]);
+        expect(res.body.sessions[0].disabledRuleIds).toEqual([rule.body.id]);
+        expect(res.body.sessions[0].matches[0].carryOutcomes).toEqual(outcomes);
+      } finally {
+        await dropGroup(code);
+      }
+    });
+
+    it('group rule: deleting a group removes its rules', async () => {
+      const { code, ids } = await makeGroup(['A', 'B']);
+      await request(server).post(`/groups/${code}/rules`).send({ playerAId: ids[0], playerBId: ids[1], kind: 'must-pair' }).expect(201);
+      await request(server).delete(`/groups/${code}`).expect(200);
+      expect(await prisma.playerRule.count({ where: { groupId: code } })).toBe(0);
+      expect(await prisma.group.findUnique({ where: { code } })).toBeNull();
+    });
+  });
+
 });

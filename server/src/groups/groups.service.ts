@@ -1,15 +1,18 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { computeRatingTracks, STARTING_RATING } from '../../../engines/elo.ts';
 import { matchRoster } from '../../../engines/fuzzy-match.ts';
 import { asLevel, type Level } from '../../../engines/levels.ts';
 import { parseLineRosterMessage } from '../../../engines/parser.ts';
+import type { RuleKind } from '../../../engines/pair-rules.ts';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { levelWrite, loadPlayerLevels, loadRatingAnchors } from '../player-levels.js';
 import { parseCourtFormats } from '../sessions/court-formats.js';
 import { parseSeatTeams, parseTeams } from '../sessions/pairing-teams.js';
+import { SessionLock } from '../sessions/session-lock.js';
 import type { UpdateGroupDto } from './dto/update-group.dto.js';
 import type { ParseRosterDto } from './dto/parse-roster.dto.js';
 import type { UpdatePlayerDto } from './dto/update-player.dto.js';
+import type { SetPlayerRuleDto } from './dto/set-player-rule.dto.js';
 
 type PairCount = { played: number; won: number; decisive: number };
 type Caller = { id: string; role: string };
@@ -23,6 +26,13 @@ const MIN_GAMES_TOGETHER = 5;
 
 @Injectable()
 export class GroupsService {
+  /**
+   * Serializes pair-rule writes per group, so the one-must-pair-per-player
+   * check and the write it guards cannot interleave with a second request
+   * giving the same player a different required partner.
+   */
+  private readonly ruleLock = new SessionLock();
+
   constructor(private readonly prisma: PrismaService) {}
 
   /**
@@ -413,12 +423,85 @@ export class GroupsService {
     };
   }
 
+  async listRules(code: string) {
+    await this.requireGroup(code);
+    const rules = await this.prisma.playerRule.findMany({
+      where: { groupId: code },
+      orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
+    });
+    return rules.map(ruleView);
+  }
+
+  async createRule(code: string, dto: SetPlayerRuleDto) {
+    return this.ruleLock.run(code, async () => {
+      await this.requireGroup(code);
+      if (dto.playerAId === dto.playerBId) {
+        throw new BadRequestException({ code: 'PAIR_RULE_SELF' });
+      }
+      const [playerAId, playerBId] = [dto.playerAId, dto.playerBId].sort();
+      const players = await this.prisma.player.count({
+        where: { groupId: code, id: { in: [playerAId, playerBId] } },
+      });
+      if (players !== 2) throw new NotFoundException();
+
+      const existing = await this.prisma.playerRule.findUnique({
+        where: { groupId_playerAId_playerBId: { groupId: code, playerAId, playerBId } },
+      });
+      if (existing) throw new ConflictException({ code: 'PAIR_RULE_EXISTS', ruleId: existing.id });
+      if (dto.kind === 'must-pair') await this.assertMustPairFree(code, [playerAId, playerBId], null);
+
+      const rule = await this.prisma.playerRule.create({
+        data: { groupId: code, playerAId, playerBId, kind: dto.kind },
+      });
+      return ruleView(rule);
+    });
+  }
+
+  /** An explicit replace: the id and the pair stay, so session disables keep pointing at it. */
+  async setRuleKind(code: string, ruleId: string, kind: RuleKind) {
+    return this.ruleLock.run(code, async () => {
+      const rule = await this.prisma.playerRule.findFirst({ where: { id: ruleId, groupId: code } });
+      if (!rule) throw new NotFoundException();
+      if (kind === 'must-pair') await this.assertMustPairFree(code, [rule.playerAId, rule.playerBId], rule.id);
+      const updated = await this.prisma.playerRule.update({ where: { id: rule.id }, data: { kind } });
+      return ruleView(updated);
+    });
+  }
+
+  async deleteRule(code: string, ruleId: string) {
+    return this.ruleLock.run(code, async () => {
+      const rule = await this.prisma.playerRule.findFirst({ where: { id: ruleId, groupId: code } });
+      if (!rule) throw new NotFoundException();
+      await this.prisma.playerRule.delete({ where: { id: rule.id } });
+      return { deleted: true };
+    });
+  }
+
+  private async requireGroup(code: string) {
+    const group = await this.prisma.group.findUnique({ where: { code }, select: { code: true } });
+    if (!group) throw new NotFoundException();
+  }
+
+  /** A player can have at most one required partner. */
+  private async assertMustPairFree(code: string, playerIds: string[], exceptRuleId: string | null) {
+    const clash = await this.prisma.playerRule.findFirst({
+      where: {
+        groupId: code,
+        kind: 'must-pair',
+        ...(exceptRuleId ? { id: { not: exceptRuleId } } : {}),
+        OR: [{ playerAId: { in: playerIds } }, { playerBId: { in: playerIds } }],
+      },
+    });
+    if (clash) throw new ConflictException({ code: 'PAIR_RULE_MUST_PAIR_TAKEN', ruleId: clash.id });
+  }
+
   async exportGroup(code: string) {
     const group = await this.prisma.group.findUnique({ where: { code } });
     if (!group) throw new NotFoundException();
 
-    const [players, sessions] = await Promise.all([
+    const [players, rules, sessions] = await Promise.all([
       this.prisma.player.findMany({ where: { groupId: code } }),
+      this.prisma.playerRule.findMany({ where: { groupId: code }, orderBy: [{ createdAt: 'asc' }, { id: 'asc' }] }),
       this.prisma.session.findMany({
         where: { groupId: code },
         orderBy: { createdAt: 'asc' },
@@ -438,6 +521,7 @@ export class GroupsService {
         name: p.name,
         aliases: JSON.parse(p.aliases) as string[],
       })),
+      rules: rules.map(ruleView),
       sessions: sessions.map((s) => ({
         code: s.code,
         date: s.date,
@@ -448,6 +532,7 @@ export class GroupsService {
         createdAt: s.createdAt,
         endedAt: s.endedAt,
         rawImportText: s.rawImportText,
+        disabledRuleIds: parseJsonForExport(s.disabledRuleIds ?? '[]'),
         rosterPlayerIds: s.roster.map((r) => r.playerId),
         restingPlayerIds: s.roster.filter((r) => !r.active).map((r) => r.playerId),
         waitlistPlayerIds: s.waitlist.map((w) => w.playerId),
@@ -463,6 +548,7 @@ export class GroupsService {
           winner: p.winner,
           confirmedAt: p.confirmedAt,
           endedAt: p.endedAt,
+          carryOutcomes: parseJsonForExport(p.carryOutcomes),
         })),
       })),
     };
@@ -502,6 +588,8 @@ export class GroupsService {
       this.prisma.sessionRoster.deleteMany({ where: { sessionId: { in: sessionIds } } }),
       this.prisma.waitlist.deleteMany({ where: { sessionId: { in: sessionIds } } }),
       this.prisma.session.deleteMany({ where: { groupId: code } }),
+      // Rules reference players, so they go first.
+      this.prisma.playerRule.deleteMany({ where: { groupId: code } }),
       this.prisma.player.deleteMany({ where: { groupId: code } }),
       this.prisma.group.delete({ where: { code } }),
     ];
@@ -553,5 +641,32 @@ export class GroupsService {
       warnings: result.warnings,
       unrecognizedLines: result.unrecognizedLines,
     };
+  }
+}
+
+function ruleView(rule: {
+  id: string;
+  groupId: string;
+  playerAId: string;
+  playerBId: string;
+  kind: string;
+  createdAt: Date;
+}) {
+  return {
+    id: rule.id,
+    groupId: rule.groupId,
+    playerAId: rule.playerAId,
+    playerBId: rule.playerBId,
+    kind: rule.kind as RuleKind,
+    createdAt: rule.createdAt,
+  };
+}
+
+/** Export is a backup: keep a corrupt value visible as its raw text rather than failing the whole export. */
+function parseJsonForExport(raw: string): unknown {
+  try {
+    return JSON.parse(raw);
+  } catch {
+    return raw;
   }
 }

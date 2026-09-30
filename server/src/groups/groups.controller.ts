@@ -6,6 +6,7 @@ import { UpdateGroupDto } from './dto/update-group.dto.js';
 import { ParseRosterDto } from './dto/parse-roster.dto.js';
 import { UpdatePlayerDto } from './dto/update-player.dto.js';
 import { SetPlayerLevelDto } from './dto/set-player-level.dto.js';
+import { SetPlayerRuleDto, SetPlayerRuleKindDto } from './dto/set-player-rule.dto.js';
 
 @Controller('groups')
 export class GroupsController {
@@ -80,6 +81,27 @@ export class GroupsController {
     @Body() dto: SetPlayerLevelDto
   ) {
     return this.groupsService.updatePlayerLevel(code, playerId, dto.level ?? null);
+  }
+
+  /** Pair rules (host-feedback C). Gated: rules are host-only, never public. */
+  @Get(':code/rules')
+  listRules(@Param('code') code: string) {
+    return this.groupsService.listRules(code);
+  }
+
+  @Post(':code/rules')
+  createRule(@Param('code') code: string, @Body() dto: SetPlayerRuleDto) {
+    return this.groupsService.createRule(code, dto);
+  }
+
+  @Put(':code/rules/:ruleId')
+  setRuleKind(@Param('code') code: string, @Param('ruleId') ruleId: string, @Body() dto: SetPlayerRuleKindDto) {
+    return this.groupsService.setRuleKind(code, ruleId, dto.kind);
+  }
+
+  @Delete(':code/rules/:ruleId')
+  deleteRule(@Param('code') code: string, @Param('ruleId') ruleId: string) {
+    return this.groupsService.deleteRule(code, ruleId);
   }
 
   /** Public: a player's own stat card, read-only. */

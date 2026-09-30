@@ -46,8 +46,12 @@ shuttle-choice prompt or game log. The optional physical count and
 end-of-night bill still work. D's bill completeness guard prevents
 copying a shuttle-based bill without required inputs, but does not change
 ordinary sessions' equal-per-match `byGames` split. Advanced shuttle
-endpoints reject ordinary sessions with an explicit disabled-feature
-code; a group flag cannot override a session's snapshot.
+**mutation** endpoints reject ordinary sessions with an explicit
+disabled-feature code. The owner-only shuttle-inventory read returns
+an empty, disabled response for ordinary sessions so the summary can
+verify ownership before showing the existing physical count/price
+editor; it does not expose a game log on public ordinary sessions.
+A group flag cannot override a session's snapshot.
 
 This switch gates **D and E only**, not A's court labels, C's pair rules,
 or F's per-group level ladder. F will have its own always-available group

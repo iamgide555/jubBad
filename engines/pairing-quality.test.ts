@@ -194,6 +194,32 @@ test('a full twenty-four player, six-court roster is paired without stalling', (
   assert.ok(elapsed < 2000, `pairing took ${elapsed.toFixed(0)}ms, expected well under 2000ms`);
 });
 
+test('a ten-court, sixty-player roster is paired without stalling or double-booking', () => {
+  // Past the six-court case above: a big group's night. 40 of 60 players sit
+  // on court, 20 wait. Same loose ceiling — this catches a complexity
+  // regression (the search grows with the court count), not a slow machine.
+  const players = Array.from({ length: 60 }, (_, i) => `c${i}`);
+  const historyStream = makeSeededRandom(11);
+  const rounds: CourtAssignment[][] = [];
+  for (let i = 0; i < 40; i++) rounds.push(buildRandomArrangement(players.slice(0, 40), 10, historyStream));
+  const { partnerCounts, opponentCounts } = countsFromRounds(rounds);
+
+  const started = performance.now();
+  const { courts } = generateRound(
+    players,
+    10,
+    { partnerCounts, opponentCounts, gamesPlayedThisSession: new Map() },
+    makeSeededRandom(5)
+  );
+  const elapsed = performance.now() - started;
+
+  assert.equal(courts.length, 10);
+  const seated = courts.flatMap((c) => [...c.teamA, ...c.teamB]);
+  assert.equal(seated.length, 40);
+  assert.equal(new Set(seated).size, 40, 'a player was seated on two courts');
+  assert.ok(elapsed < 5000, `pairing took ${elapsed.toFixed(0)}ms, expected well under 5000ms`);
+});
+
 /**
  * Mixed-format optimality, checked independently of the doubles-only helpers
  * above (`SPLITS`, `bestForGroup`, `exhaustiveOptimum`) rather than by

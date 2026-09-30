@@ -8,7 +8,10 @@ doubles pairing, the host confirms it, plays, and records who won.
 This file is the durable part of the project — what it is, what was decided,
 and why. It is not a status log: `git log`, `docs/archive/plans/` and
 `docs/archive/specs/` record how it got built, and
-`docs/2026-09-21-feature-review-and-roadmap.md` records what is still open.
+`docs/2026-09-27-real-host-feedback.md` tracks firsthand host feedback;
+`docs/2026-09-25-engine-evidence-gaps.md` tracks questions awaiting real-session
+evidence. The completed competitor review is in
+`docs/archive/2026-09-21-feature-review-and-roadmap.md`.
 
 ## The gap this fills
 
@@ -49,8 +52,9 @@ not a moat. What still separates this app:
 - **Correctness.** The server serializes court fills, so no two devices can
   put one player on two courts.
 
-The comparison, the features it found missing and their priority are in
-`docs/2026-09-21-feature-review-and-roadmap.md`.
+The historical comparison, proposed features and their original priorities
+are in `docs/archive/2026-09-21-feature-review-and-roadmap.md`. Later
+firsthand host feedback is tracked in `docs/2026-09-27-real-host-feedback.md`.
 
 ## Product decisions (and why)
 
@@ -62,7 +66,7 @@ The comparison, the features it found missing and their priority are in
 | No LIFF / LINE Login / LINE platform integration | Paste-based import plus manual share means zero technical touchpoint with LINE's platform is needed. Pure UX polish, addable later |
 | Per-user accounts for hosts, not player accounts | Administrative screens and writes require signing in as a real user (email + password, session cookie signed server-side). Each user owns the groups they create; an admin role sees and manages every user and group. There are still no individual *player* accounts or profiles — this is identity for whoever runs a session, not for who plays in one. Superseded the earlier one-shared-token design (backlog B12, done 2026-09-12); see the per-user-login design doc for the schema and guard design. |
 | Trigger-word LINE bot (reconsidered, still rejected) | The idea: a bot watches the group for a keyword ("Play") then auto-extracts the roster, skipping the manual paste. Rejected on inspection — the LINE Messaging API has no message-history endpoint (confirmed in LINE's docs), so a bot can only look *forward* from when it joins. In real use the roster is posted days before "Play" is typed, so the bot would have to continuously store *all* group messages in a rolling buffer to look backward — that is full passive listening plus retention, the exact risk rejected above, not a lighter trigger-gated version. It also reopens "no infra" and "no posting bot" at once. Revisit only if paste friction proves to be a real dealbreaker; the lower-risk fix for the typing/copying pain is a tap-to-register roster link |
-| No cost-splitting / PromptPay QR in-app | KhunThong (ขุนทอง), KBank/KBTG's LINE bot, already does this well — bill split (equal or not), PromptPay QR, and payment verification by e-slip scan, which the planned v1 didn't even have. The host invites KhunThong separately; no integration needed. **Partly reopened 2026-09-21, and narrowed 2026-09-22, not reversed.** The session now records its shuttle count and price, and every Thai competitor leads with a per-person bill. The owner decided the app will *calculate* each player's share and copy it out as text for LINE, under one of three charging models (fair pay, per game, buffet), with an optional host-fee line. The QR, payment tracking and slip checking stay with KhunThong. Built 2026-09-24 (roadmap C3); see "Bill (C3)" below and `docs/superpowers/specs/2026-09-22-roadmap-c-series-design.md`. |
+| No cost-splitting / PromptPay QR in-app | KhunThong (ขุนทอง), KBank/KBTG's LINE bot, already does this well — bill split (equal or not), PromptPay QR, and payment verification by e-slip scan, which the planned v1 didn't even have. The host invites KhunThong separately; no integration needed. **Partly reopened 2026-09-21, and narrowed 2026-09-22, not reversed.** The session now records its shuttle count and price, and every Thai competitor leads with a per-person bill. The owner decided the app will *calculate* each player's share and copy it out as text for LINE, under one of three charging models (fair pay, per game, buffet), with an optional host-fee line. The QR, payment tracking and slip checking stay with KhunThong. Built 2026-09-24 (roadmap C3); see "Bill (C3)" below and `docs/archive/specs/2026-09-22-roadmap-c-series-design.md`. |
 | Score logging: final score only, no live scoreboard | Point-by-point, serve indicators and timers are scope creep nobody asked for. A final score per court is low-friction and still bootstraps the match history that future skill/Elo balancing would need |
 | Per-group host role (resolved 2026-09-08 decision, built 2026-09-12) | Was: one shared admin token distinguished no one from anyone else — equal power for every holder, including deleting a group, with all-or-nothing revocation. Closed by backlog B12: `Group.ownerId` names one owner per group, `OwnershipGuard` refuses any other host with a 404 (never a 403 — that would confirm the code exists), and disabling one user bumps only their `tokenVersion`, signing out just that person's devices. An admin role bypasses ownership and manages every user and group from `/admin`. Built on a branch and merged into `main` on 2026-09-12 (`559ea5a`). |
 | No data-retention/deletion policy (**accepted risk**) | Names persist indefinitely under a group's link code. A host can now export the group as JSON or delete it outright, which covers the practical need without a policy |
@@ -367,7 +371,8 @@ Either shape is locked before the normal search runs, so it can never be
 split apart by a swap; everyone else is seated by the unmodified search, and
 only the requested court (never a second court in the same propose or
 fill-all) ever becomes a carry court. See `engines/pairing.ts`'s
-`buildCarryCourt` and `docs/superpowers/specs/2026-09-27-level-rework-design.md`.
+`buildCarryCourt` and the historical design at
+`docs/archive/specs/2026-09-27-level-rework-design.md`.
 
 **Court format is per court, not per session, and only changeable while a
 court is idle.** A host can run doubles on courts 1-2 and singles on court 3
@@ -732,8 +737,11 @@ and price, the per-person bill (C3), export and delete, per-user host login
 with an admin console, and a PWA manifest (no service worker, so no offline
 use).
 
-What is still open, and in what order, is in
-`docs/2026-09-21-feature-review-and-roadmap.md`.
+Open host-feedback work and its dependencies are in
+`docs/2026-09-27-real-host-feedback.md`; engine questions awaiting
+real-session evidence are in `docs/2026-09-25-engine-evidence-gaps.md`.
+The closed competitor-feature review is archived at
+`docs/archive/2026-09-21-feature-review-and-roadmap.md`.
 
 `docs/archive/plans/2026-09-05-review-and-v2-backlog.md` records the review
 that drove most of it. Its last open item, per-user login (B12), is built and

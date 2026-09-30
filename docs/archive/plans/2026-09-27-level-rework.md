@@ -1,6 +1,15 @@
 # Level-Mode Rework + Per-Court Mode Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **Archived 2026-09-30:** Sub-project B shipped. The step and verification
+> checkboxes below were not maintained during implementation; they are not a
+> current task list or a claim that each historical step was followed.
+> This plan predates the later multi-newcomer carry-game decision. See
+> `docs/overview.md` for current behavior and
+> `docs/2026-09-27-real-host-feedback.md` for remaining feedback items.
+> Implementation steps retain original file paths and may differ from shipped
+> behavior; use the Spec link below to find its current archived location.
+
+> **Historical execution note:** This plan originally used superpowers:subagent-driven-development or superpowers:executing-plans with checkbox steps; do not execute it as current work.
 
 **Goal:** Level mode (ตามระดับ) queues by wait time instead of games played, and gives a player far below the group's level one "carry" game partnered with the strongest available player before normal level pairing resumes; custom sessions (เลือกเอง) get a sticky per-court mode so each court can independently run สลับคู่ / สูสี / ระดับ / เลือกเอง.
 
@@ -8,7 +17,7 @@
 
 **Tech Stack:** TypeScript (engines, dependency-free), NestJS + Prisma/SQLite (server), Angular standalone components + signals (web), `node:test` (engines), Vitest (server), Angular's `ng test` (web).
 
-**Spec:** `docs/superpowers/specs/2026-09-27-level-rework-design.md`
+**Spec:** `docs/archive/specs/2026-09-27-level-rework-design.md`
 
 ## Global Constraints
 
@@ -173,7 +182,7 @@ In `engines/levels.ts`, append after `withinBand`:
 ```ts
 /**
  * Whether `id` is far enough below tonight's active roster to trigger a
- * carry game (see docs/superpowers/specs/2026-09-27-level-rework-design.md,
+ * carry game (see docs/archive/specs/2026-09-27-level-rework-design.md,
  * section 1b): tagged, fewer than 4 active players (self included) within
  * ±1 of them, and every other tagged player outside that band is above
  * them. An untagged player never qualifies, and — following the same
@@ -539,7 +548,7 @@ function pickOpponents(
 
 /**
  * The requested court's locked carry group, or null when no carry applies —
- * see docs/superpowers/specs/2026-09-27-level-rework-design.md, section 1b.
+ * see docs/archive/specs/2026-09-27-level-rework-design.md, section 1b.
  *
  * Only ever considers the *single* longest-waiting player in `roster` as the
  * anchor: once band ordering runs, that player is always the requested
@@ -633,7 +642,7 @@ export function generateRound(
    *  (every pre-existing caller, the default) keeps games played first. */
   queueBy: 'games' | 'wait' = 'games',
   /** Players eligible for a carry game right now (level mode only) — see
-   *  docs/superpowers/specs/2026-09-27-level-rework-design.md, section 1b. */
+   *  docs/archive/specs/2026-09-27-level-rework-design.md, section 1b. */
   carryEligible?: ReadonlySet<PlayerId>,
   /** Players who have already partnered a carry-eligible player tonight,
    *  deprioritised as the next carry's pro. */
@@ -1251,7 +1260,7 @@ Create `server/src/sessions/carry-eligibility.ts`:
  * Which active players are eligible for a carry game right now, and who has
  * already carried one tonight — pure, DB-agnostic derivation so it can be
  * unit-tested without Prisma. See
- * docs/superpowers/specs/2026-09-27-level-rework-design.md, section 1b.
+ * docs/archive/specs/2026-09-27-level-rework-design.md, section 1b.
  */
 
 import { isFarBelow } from '../../../engines/levels.ts';
@@ -2617,7 +2626,7 @@ search runs, so it can never be split apart by a swap; everyone else is
 seated by the unmodified search. Reshuffling a pending carry court keeps the
 same newcomer and partner and tries new opponents first, a new partner only
 if no other opponents exist. See `engines/pairing.ts`'s `buildCarryCourt`
-and `docs/superpowers/specs/2026-09-27-level-rework-design.md`.
+and `docs/archive/specs/2026-09-27-level-rework-design.md`.
 ```
 
 In the custom-mode paragraph (`:280-289`), append:
@@ -2653,7 +2662,7 @@ In `docs/2026-09-21-feature-review-and-roadmap.md`, add a new dated entry (follo
 Real host feedback, 2026-09-27: groups running level mode only care who has
 waited longest, and want a newcomer far below the group's level to get one
 "carry" game with a strong partner before playing normal level-clustered
-games. Design: `docs/superpowers/specs/2026-09-27-level-rework-design.md`.
+games. Design: `docs/archive/specs/2026-09-27-level-rework-design.md`.
 Done: `feat/level-rework`.
 
 #### - [ ] A. Court labels — rename court numbers to match the physical hall

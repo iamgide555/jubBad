@@ -10,7 +10,7 @@ This plan implements **only** the "Measure" half of spec section C14. The "Show"
 
 **Tech Stack:** TypeScript engine code (`engines/*.ts`), Node's built-in `node:test` + `node:assert/strict`, run via `npm run test:engines` (`node --experimental-strip-types --test engines/*.test.ts`). No new dependencies.
 
-**Spec:** `docs/superpowers/specs/2026-09-22-roadmap-c-series-design.md`, section "C14. Measure partner variety and show it" (Measure half only).
+**Spec:** `docs/archive/specs/2026-09-22-roadmap-c-series-design.md`, section "C14. Measure partner variety and show it" (Measure half only).
 
 **Branch:** `feat/c14-variety-sim`, created off `main` before Task 1. `main` keeps running live sessions throughout — do not touch anything outside `engines/` on this branch.
 
@@ -91,7 +91,7 @@ Expected: FAIL — `Cannot find module './variety-sim.ts'` (the file doesn't exi
 /**
  * Pure harness measuring whether the real pairing engine delivers more
  * partner variety over a season than two naive baselines. No schema change,
- * no server dependency — see docs/superpowers/specs/2026-09-22-roadmap-c-series-design.md,
+ * no server dependency — see docs/archive/specs/2026-09-22-roadmap-c-series-design.md,
  * section C14.
  */
 

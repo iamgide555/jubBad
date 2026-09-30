@@ -10,7 +10,7 @@ This directly closes the gap `overview.md` and the roadmap doc both name: "there
 
 **Tech Stack:** NestJS + Prisma (server), Angular 22 signals/`httpResource` (web), Vitest for both (`node --experimental-strip-types --test` is engines-only; server and web use `ng test`/Vitest via `npm test`).
 
-**Spec:** `docs/superpowers/specs/2026-09-22-roadmap-c-series-design.md`, section "C2. Add a walk-in to a running session". Cross-reference: `docs/archive/plans/2026-09-05-review-and-v2-backlog.md`, entries A15 and B14 (returning-player credit reasoning this feature must preserve).
+**Spec:** `docs/archive/specs/2026-09-22-roadmap-c-series-design.md`, section "C2. Add a walk-in to a running session". Cross-reference: `docs/archive/plans/2026-09-05-review-and-v2-backlog.md`, entries A15 and B14 (returning-player credit reasoning this feature must preserve).
 
 **Scope note:** The spec's UI bullet "a new player can be given a level chip (C1)" is **not** implemented here — C1 (skill levels) has not shipped yet and `Player` has no `level` field. This plan implements C2 exactly as it stands without C1; the level chip is C1's job to add later.
 

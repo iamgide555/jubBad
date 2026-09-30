@@ -1,12 +1,12 @@
 # Roadmap C1–C14 — design
 
-Status: Design approved by the owner 2026-09-22. C14's measurement half, C2,
-C1 and C3 are built (2026-09-22/24); see the roadmap doc for per-item status.
-Everything else in this spec is still unbuilt.
-Roadmap: `docs/2026-09-21-feature-review-and-roadmap.md`.
+Status: archived 2026-09-30. This historical design covers proposals later
+built or explicitly deferred, including C8 and C13. It is not a current
+implementation checklist; see the archived roadmap for per-item decisions.
+Roadmap: `docs/archive/2026-09-21-feature-review-and-roadmap.md`.
 
 **C3 amendments, owner 2026-09-24** (this spec's §C3 below is superseded
-where it disagrees) — see `docs/superpowers/plans/2026-09-24-c3-per-person-bill.md`
+where it disagrees) — see `docs/archive/plans/2026-09-24-c3-per-person-bill.md`
 for the full implementation plan and its "Deliberate deviations from the
 spec" list:
 - A walk-in (C2) pays a flat surcharge (`walkInFeeSatang`, default 20฿) that

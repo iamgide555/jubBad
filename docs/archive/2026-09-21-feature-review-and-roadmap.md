@@ -1,9 +1,12 @@
 # JubBad — feature review against competitors, and roadmap
 
-Reviewed 2026-09-21 against `main` at `f4891cb`. This replaces
-`docs/archive/plans/2026-09-05-review-and-v2-backlog.md` as the list of what is
-still open. Every work item in that backlog is built. Its two remaining
-entries were never work items, and both are carried forward below.
+Reviewed 2026-09-21 against `main` at `f4891cb`; archived 2026-09-30 after
+all competitor-review proposals were built or deferred. This records the
+competitor-review items from that date, including later decisions to build or
+defer them. Firsthand host feedback has its own checklist in
+`docs/2026-09-27-real-host-feedback.md`. The prior review is archived at
+`docs/archive/plans/2026-09-05-review-and-v2-backlog.md`; its two remaining
+observations were never work items and are carried forward below.
 
 Items are numbered C1 onwards, continuing that backlog's A and B series, so
 that a later plan, commit or doc can cite one by number.
@@ -35,11 +38,12 @@ Two consequences:
    credits missed games, and refusing to double-book a player. None of the
    competitors' public material claims history-weighted variety; they
    advertise a duplicate-pair check.
-2. **Pricing has to be set against these numbers.** One strong competitor is
-   free, and the largest tops out at 219 THB/month, which already includes
-   cost splitting, PromptPay and a leaderboard. Check the planned tiers
-   (kept outside this public repo) against that before building any billing
-   (C8).
+2. **Pricing needs a fresh comparison if monetization resumes.** One strong
+   competitor is free, and the largest tops out at 219 THB/month, which includes
+   cost splitting, PromptPay and a leaderboard. **Decision 2026-09-30
+   (host):** defer pricing and billing gates (C8) for now; no tier comparison
+   or price was decided. Recheck current competitor prices and the planned
+   tiers (kept outside this public repo) before reviving C8.
 
 ---
 
@@ -145,7 +149,12 @@ The gaps below were confirmed against the source, not inferred from the docs:
 
 ## Roadmap
 
-Priority means:
+P0–P3 are the original 2026-09-21 priorities, not a current build order.
+Each item's heading distinguishes **done** (built), **deferred** (closed
+without building), and **conditional** (open only if its stated trigger is
+met). `[x]` means decided, not necessarily implemented.
+
+Original priority meant:
 - **P0:** a host comparing apps would leave without it.
 - **P1:** it sets JubBad apart or keeps players coming back.
 - **P2:** cheap polish.
@@ -153,17 +162,21 @@ Priority means:
 
 Effort is rough: S is up to a day, M is a few days.
 
+Firsthand host feedback from 2026-09-27/28 has its own checklist in
+[real-host feedback](../2026-09-27-real-host-feedback.md) (items A–F).
+
 ### P0
 
 #### - [x] C1. Skill level per player (ระดับมือ) — done
 
-Design: `docs/superpowers/specs/2026-09-22-roadmap-c-series-design.md`, section C1
+Design: `docs/archive/specs/2026-09-22-roadmap-c-series-design.md`, section C1
 (amended 2026-09-23 — see that section's header for what changed).
 
 Tag each player with the level Thai groups already use: BG / N / S / P- / P /
-P+ / C / B, each with a plain-language definition and a yes/no "ช่วยเลือก"
-helper in the picker — there is no single official standard, so this is the
-app's own working definition, corrected over time by Elo. Used for:
+P+ / C / B, each with a plain-language definition. The original yes/no
+"ช่วยเลือก" helper was removed by C1a — there is no single official standard,
+so this is the app's own working definition, corrected over time by Elo.
+Used for:
 
 - **Seeding the Elo.** A P+ player starts well above an N player instead of
   both starting at 1200. That fixes balanced mode's cold start, which
@@ -213,7 +226,7 @@ writes not stamping `levelSetAt` at all.
 
 #### - [x] C2. Add a walk-in to a running session — done
 
-Design: `docs/superpowers/specs/2026-09-22-roadmap-c-series-design.md`, section C2.
+Design: `docs/archive/specs/2026-09-22-roadmap-c-series-design.md`, section C2.
 
 Someone who is not on the pasted list turns up. A "+ เพิ่มคน" button on the
 dashboard opens a search-or-create sheet, reusing the roster review's
@@ -231,7 +244,7 @@ C1's level chip on the walk-in sheet landed with C1, once it shipped.
 
 #### - [x] C3. Per-person bill, copied out as text — done
 
-Design: `docs/superpowers/specs/2026-09-22-roadmap-c-series-design.md`, section C3.
+Design: `docs/archive/specs/2026-09-22-roadmap-c-series-design.md`, section C3.
 
 Court fee plus shuttles, split per player, copied as text for the LINE group.
 The collecting stays with KhunThong. This is what every host does after every
@@ -261,14 +274,14 @@ doc's C3 section for the mechanics.
 
 ### P1
 
-#### - [x] C4. Players check the queue on their own phone
+#### - [x] C4. Players check the queue on their own phone — deferred
 
 **Deferred 2026-09-24 (owner):** not seen at real sessions — players ask the
 host or check the host's iPad, they don't reach for their own phone mid-game.
 `/display` already covers the "look at a screen" need. Revisit only if this
 changes (e.g. a hall with no shared screen at all).
 
-Design: `docs/superpowers/specs/2026-09-22-roadmap-c-series-design.md`, section C4.
+Design: `docs/archive/specs/2026-09-22-roadmap-c-series-design.md`, section C4.
 
 The display route is public but built for a TV across the hall. Many halls
 have no screen. Proposed:
@@ -281,14 +294,18 @@ Racket Social and ShuttleFlow have shared session links or QR codes.
 
 Effort S–M.
 
-#### - [x] C5. Fixed pairs (คู่ประจำ) and "never pair these two"
+#### - [x] C5. Fixed pairs (คู่ประจำ) and "never pair these two" — deferred
 
 **Deferred 2026-09-24 (owner):** rarely needed — the only real case is the
 owner's own partner joining, and custom mode plus manual seat/swap already
 handle that by hand without friction. Revisit if this starts happening most
 sessions rather than occasionally.
 
-Design: `docs/superpowers/specs/2026-09-22-roadmap-c-series-design.md`, section C5.
+**Reopened 2026-09-27:** real-host feedback item C requests broader pair rules.
+Track that work in [real-host feedback](../2026-09-27-real-host-feedback.md),
+not under the deferred C5 proposal.
+
+Design: `docs/archive/specs/2026-09-22-roadmap-c-series-design.md`, section C5.
 
 Couples, or a coach with a beginner, who always play as a pair. The other
 direction is two players who should not be partners. T-BAD has fixed pairs.
@@ -299,13 +316,13 @@ search explores, and must not make a round unsolvable.
 
 Effort M.
 
-#### - [x] C6. Public group leaderboard with seasons
+#### - [x] C6. Public group leaderboard with seasons — deferred
 
 **Deferred 2026-09-24 (owner):** the host-only roster page and the session
 summary already cover what players want to see; a separate public seasonal
 leaderboard isn't pulling its weight yet.
 
-Design: `docs/superpowers/specs/2026-09-22-roadmap-c-series-design.md`, section C6.
+Design: `docs/archive/specs/2026-09-22-roadmap-c-series-design.md`, section C6.
 
 Group-wide ranking, with a minimum number of games before a player appears
 and a periodic reset so newcomers can climb. T-BAD resets on 1 Jan and 1 Jul
@@ -318,14 +335,14 @@ feature.
 
 Effort S.
 
-#### - [x] C7. Co-host and faster sync
+#### - [x] C7. Co-host and faster sync — deferred
 
 **Deferred 2026-09-24 (owner):** in practice the host's device stays
 courtside and logged in the whole session, so it's already a de facto shared
 co-host device — anyone standing there can tap confirm/finish. `/display`
 already covers read-only viewing for everyone else.
 
-Design: `docs/superpowers/specs/2026-09-22-roadmap-c-series-design.md`, section C7.
+Design: `docs/archive/specs/2026-09-22-roadmap-c-series-design.md`, section C7.
 
 The host usually plays too, so someone else needs to run the dashboard while
 the host is on court. Ownership is currently one owner per group, and the
@@ -342,9 +359,14 @@ ShuttleFlow has owner and admin roles with live sync.
 
 Effort M.
 
-#### - [ ] C8. Billing gates and self-service host sign-up
+#### - [x] C8. Billing gates and self-service host sign-up — deferred
 
-Design: `docs/superpowers/specs/2026-09-22-roadmap-c-series-design.md`, section C8.
+**Deferred 2026-09-30 (host):** do not pursue pricing, billing gates or
+self-service sign-up for now. No tier comparison or price was decided.
+Revisit only if monetization becomes necessary, checking current competitor
+prices before choosing tiers.
+
+Design: `docs/archive/specs/2026-09-22-roadmap-c-series-design.md`, section C8.
 
 Only after the P0 items and a pricing check against the table above. Nothing
 exists yet: no plan fields and no register route. Hosts are created by hand
@@ -358,7 +380,7 @@ Effort M.
 
 #### - [x] C14. Measure partner variety and show it — done
 
-Design: `docs/superpowers/specs/2026-09-22-roadmap-c-series-design.md`, section C14.
+Design: `docs/archive/specs/2026-09-22-roadmap-c-series-design.md`, section C14.
 
 This is the one strength no competitor claims (see "Strengths against
 competitors"), and nobody can see it on the first night. Two parts:
@@ -388,13 +410,13 @@ on data the summary already loads.
 
 ### P2
 
-#### - [x] C9. Voice call-out
+#### - [x] C9. Voice call-out — deferred
 
 **Deferred 2026-09-24 (owner):** the hall hosts multiple ก๊วน at once — a
 voice call-out from one host's device/iPad would interrupt other groups
 sharing the same space.
 
-Design: `docs/superpowers/specs/2026-09-22-roadmap-c-series-design.md`, section C9.
+Design: `docs/archive/specs/2026-09-22-roadmap-c-series-design.md`, section C9.
 
 "คอร์ท 2: A, B พบ C, D" read aloud when a match is confirmed, using the
 browser's own speech (Web Speech API; most phones have a Thai voice).
@@ -402,40 +424,41 @@ T-BAD has it. It is cheap and players notice it.
 
 Effort S.
 
-#### - [x] C10. Saved group defaults
+#### - [x] C10. Saved group defaults — deferred
 
 **Deferred 2026-09-24 (owner):** solves nothing in practice — venue, date and
 roster all come from the pasted LINE message each time anyway, so there's no
 repeated manual entry to save.
 
-Design: `docs/superpowers/specs/2026-09-22-roadmap-c-series-design.md`, section C10.
+Design: `docs/archive/specs/2026-09-22-roadmap-c-series-design.md`, section C10.
 
 The group's usual venue, court count, court fee and shuttle price, filled in
-for each new session. Needed by C3.
+for each new session. Originally proposed alongside C3; C3 shipped without
+these defaults.
 
 Effort S.
 
-#### - [x] C11. Warning when roster = 4 × courts
+#### - [x] C11. Warning when roster = 4 × courts — deferred
 
 **Deferred 2026-09-24 (owner):** host and players already know from
 experience that a full-court roster means they'll face the same people
 again; a dashboard banner doesn't tell anyone anything new.
 
-Design: `docs/superpowers/specs/2026-09-22-roadmap-c-series-design.md`, section C11.
+Design: `docs/archive/specs/2026-09-22-roadmap-c-series-design.md`, section C11.
 
 The cheap option already written up in B13: a dashboard hint that nobody is
 resting, so the same four will keep sharing a court.
 
 Effort S.
 
-#### - [x] C12. Survive bad Wi-Fi in the hall
+#### - [x] C12. Survive bad Wi-Fi in the hall — deferred
 
 **Deferred 2026-09-24 (owner):** the premise didn't hold — the owner never
 uses hall Wi-Fi, always personal 5G, and that connection has never actually
 dropped mid-session in the hall. Revisit only against a real, observed
 network failure, not the symptom category alone.
 
-Design: `docs/superpowers/specs/2026-09-22-roadmap-c-series-design.md`, section C12.
+Design: `docs/archive/specs/2026-09-22-roadmap-c-series-design.md`, section C12.
 
 - A service worker for the app shell, so the app loads even when the hall's
   Wi-Fi is bad.
@@ -448,9 +471,12 @@ they run on a single device.
 
 Effort M.
 
-#### - [ ] C13. Tap-to-register sign-up link
+#### - [x] C13. Tap-to-register sign-up link — deferred
 
-Design: `docs/superpowers/specs/2026-09-22-roadmap-c-series-design.md`, section C13.
+**Deferred 2026-09-30 (host):** roster pasting has not caused problems in real
+sessions. Revisit only if a host actually complains about the paste flow.
+
+Design: `docs/archive/specs/2026-09-22-roadmap-c-series-design.md`, section C13.
 
 A link players tap to put their own name down, replacing the paste. It
 is already named in `overview.md` as the lower-risk fallback if pasting ever
@@ -459,7 +485,7 @@ LINE list is how these groups already work.
 
 Effort M.
 
-#### - [x] C15. Dedicate courts by level (คอร์ดมือ)
+#### - [x] C15. Dedicate courts by level (คอร์ดมือ) — deferred
 
 **Deferred 2026-09-24 (owner):** not seen at a real session yet — raised as a
 "could a bigger group want this?" question (e.g. 3 courts / 21 players, court 1
@@ -467,12 +493,11 @@ for strong players only, courts 2-3 rotating partners). Revisit if a host
 actually asks, or other groups' LINE roster posts show court-by-level splits
 ("คอร์ด 1 มือ P ขึ้นไป").
 
-**Workaround today (one extra step):** switch the session to `custom`, fill
-the strong court by hand, then tap auto-pair on the other courts. Caveat:
-auto-pair (`completeCourt`) draws from the whole waiting pool by games then
-wait, so it can seat a waiting strong player on a rotation court — tap-swap
-them out. And `custom` is session-wide, so every court becomes propose-empty +
-auto-pair (two taps instead of one).
+**Workaround today:** switch the session to `custom`, fill the strong court
+by hand, and set the other courts to their own auto-pairing modes. The courts
+still share a waiting pool, so a strong player may be proposed on a rotation
+court — tap-swap them out. Per-court modes (feedback item B) remove the old
+two-tap empty-draft workaround, but do not reserve players for a court.
 
 `level` mode is not a substitute: it clusters from the front of the queue
 (`bandOrderedByCourt`), never ties a level to a court, and a level with too
@@ -486,58 +511,6 @@ Design that before building.
 
 Effort M-L.
 
-#### - [x] B. Level-mode rework: wait-only queue + carry game (2026-09-27 real-host feedback)
-
-Real host feedback, 2026-09-27: groups running level mode only care who has
-waited longest, and want a newcomer far below the group's level to get one
-"carry" game with a strong partner before playing normal level-clustered
-games. Design: `docs/superpowers/specs/2026-09-27-level-rework-design.md`.
-Done: `feat/level-rework`.
-
-#### - [ ] A. Court labels — rename court numbers to match the physical hall
-
-2026-09-27 real-host feedback. Not yet designed.
-
-#### - [ ] C. Pair rules — couple/partner, never-teammates, never-same-court
-
-2026-09-27 real-host feedback. Revives the deferred C5 (fixed pairs). Depends
-on B (this plan). Not yet designed.
-
-#### - [ ] D. Shuttlecock tracking per court per game
-
-2026-09-27 real-host feedback. Depends on A. Not yet designed.
-
-#### - [ ] E. Mid-session checkout for an early leaver (per-shuttle billing)
-
-2026-09-27 real-host feedback. Depends on D. Not yet designed.
-
-#### - [ ] F. Per-group level names — each host configures their own ladder
-
-2026-09-28 real-host feedback. Not yet designed.
-
-Groups don't share one ladder. One group grades `BG, N, S`; another `BG, BGN,
-N, NS`, etc. Today the ladder is the fixed `LEVELS` list in `engines/levels.ts`
-(`BG, N, S, P-, P, P+, C, B`), shared by every group. Wanted: each host
-configures the level names for their own group (which names, and their order).
-
-Design questions to settle before building:
-
-- **Storage:** per-group ordered list on `Group` (JSON-encoded string column,
-  same as `Player.aliases`), defaulting to today's `LEVELS` so existing groups
-  don't change.
-- **Order is meaning.** `levelIndex` drives the ±1 band in level mode, the
-  Elo seed (`seedFor`: 900 + 100 × index), the carry-game "far below" check,
-  and คอร์ดมือ. A custom ladder must feed all of these from the group's list,
-  not the constant. Elo seed spacing may need to scale with ladder length.
-- **Renaming/removing a level in use:** `Player.level` is a free string; a
-  removed name must not orphan players (map to null? force the host to
-  reassign?). `asLevel`/`isLevel` currently validate against the constant.
-- **Roster paste:** parser may read a level suffix from LINE names; check it
-  uses the group's names.
-- **Web:** level pickers and labels read the group's list; bilingual UI unchanged.
-
-Effort M.
-
 ### P3 — skip unless the target customer changes
 
 - **Club-business features:** shuttle stock and low-stock alerts, wallet or
@@ -549,14 +522,13 @@ Effort M.
 - **Mixed-gender balancing.** No demand signal found in this review.
 - **Any LINE bot.** Still rejected; see `overview.md`.
 
-## Suggested order
+## Outcome of this review
 
-1. Check pricing against the competitor table (a decision, not code), and
-   do C14's measurement. Both shape the pitch before any feature work.
-2. C2, then C1, then C3.
-3. C14's summary line, C4, C6, C9: cheap, and players can see them.
-4. C5, C7.
-5. C8 (billing) last.
+All C-series proposals are built or deferred. C8 and C13 were deferred on
+2026-09-30; neither is queued for implementation. G4–G8 are now separate
+[engine evidence questions](../2026-09-25-engine-evidence-gaps.md), not
+competitor-feature work. Follow [real-host feedback](../2026-09-27-real-host-feedback.md)
+for the separate, firsthand A–F items and their dependencies.
 
 ---
 
@@ -589,19 +561,14 @@ the within-session spread staying near one game.
 
 ### Engine audit gaps (2026-09-25)
 
-Found by reading `engines/pairing.ts` and its server call sites. The two bugs
-were reproduced and fixed on `fix/engine-gaps-audit`; the rest have no
-real-session evidence yet, so they stay open under the filter in the roadmap
-notes (competitor parity alone does not justify an item).
+Found by reading `engines/pairing.ts` and its server call sites. The first two
+bugs were reproduced and fixed on `fix/engine-gaps-audit`; G3 was fixed later.
+G4–G8 have no real-session evidence yet and are tracked separately in
+[engine evidence questions](../2026-09-25-engine-evidence-gaps.md).
 
 - [x] G1. Level mode let a court span P- to P+ (band checked against the anchor only) — done
 - [x] G2. Auto-substitute ignored wait time and recent groups — done
 - [x] G3. Reshuffle alternates between the same two splits (`12|34 → 14|23 → 12|34`); needs the pending pairing to remember shown splits (schema/API change). Reproduced. — done: `Pairing.shownSplits` accumulates every split shown across a pending court's reshuffles; `generateRound`'s `avoidSplit` now takes the whole array (oldest first) and drops the oldest exclusion once every split has been shown, so the least-recently-shown one cycles back in instead of the immediately-previous one repeating.
-- [ ] G4. Balanced mode compares team *averages*, so B+BG vs P+P scores as balanced. Consider a within-team spread term. Needs session evidence.
-- [ ] G5. History counts are all-time raw totals; frequent attenders accumulate partner history from attendance alone, and floor normalisation is a no-op for ranking. Consider per-attendance normalisation or a window; measure in `engines/variety-sim.ts` first.
-- [ ] G6. Level mode has no cap on the games-played gap an in-band player can gain over an out-of-band one. Add only if a session shows a gap of 2+.
-- [ ] G7. In mature groups partner totals rarely tie, so the opponent term almost never decides in variety mode. Measure first; speculative.
-- [ ] G8. A proposal plans all idle courts and commits one; the committed court may not hold the most-deserving players if the other idle court stays empty. Low impact, no action planned.
 
 ---
 

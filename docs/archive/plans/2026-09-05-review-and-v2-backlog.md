@@ -21,8 +21,9 @@ the spec the project had already written for itself) and **B. v2 candidates**
 > is out of date; those passages are kept as written, because they explain
 > why the merge was held. B13 (fixed fours) and B14 (credit when a player is
 > added mid-session) are not work items. Both carry forward into
-> `docs/2026-09-21-feature-review-and-roadmap.md`, which is now the list of
-> what is still open.
+> `docs/archive/2026-09-21-feature-review-and-roadmap.md`, which was later
+> completed and archived. Open host feedback and engine evidence questions
+> now have their own live documents under `docs/`.
 
 **Status:** everything in this document is built, including B12 as of
 2026-09-12 — see its entry for why it sits on an unmerged branch rather than

@@ -8,11 +8,11 @@
 
 **Tech Stack:** TypeScript engines (node:test), NestJS + Prisma + SQLite (vitest + supertest), Angular standalone + signals (vitest/jsdom, HttpTestingController), `$localize` XLIFF i18n.
 
-**Spec:** `docs/superpowers/specs/2026-09-22-roadmap-c-series-design.md` §C3 (incl. D7 walk-in amendment). Read `docs/overview.md` before touching engines.
+**Spec:** `docs/archive/specs/2026-09-22-roadmap-c-series-design.md` §C3 (incl. D7 walk-in amendment). Read `docs/overview.md` before touching engines.
 
 ## Context
 
-C3 is the next P0 roadmap item (`docs/2026-09-21-feature-review-and-roadmap.md`). Every host splits court + shuttle cost after every session by hand; the session already stores shuttle count/price. Owner added D7 on 2026-09-24: walk-ins pay a flat surcharge (default 20฿) that is handed back as an equal discount to every billed player, so the total is unchanged. LINE copy text is **always Thai** (owner, 2026-09-24).
+C3 is the next P0 roadmap item (`docs/archive/2026-09-21-feature-review-and-roadmap.md`). Every host splits court + shuttle cost after every session by hand; the session already stores shuttle count/price. Owner added D7 on 2026-09-24: walk-ins pay a flat surcharge (default 20฿) that is handed back as an equal discount to every billed player, so the total is unchanged. LINE copy text is **always Thai** (owner, 2026-09-24).
 
 ## Deliberate deviations from the spec (update the spec in Task 9)
 
@@ -324,7 +324,7 @@ Expected: FAIL — `Cannot find module ... engines/bill.ts`.
  * Per-person bill for one session (roadmap C3). Pure: the server stores only
  * the inputs and recomputes on every read, the same rule as ratings.
  * Integer satang throughout. See the C3 section of
- * docs/superpowers/specs/2026-09-22-roadmap-c-series-design.md.
+ * docs/archive/specs/2026-09-22-roadmap-c-series-design.md.
  */
 
 export const BILL_MODELS = ['fair', 'perGame', 'buffet'] as const;

@@ -2,7 +2,11 @@
 
 Completed work. Nothing in here is in progress, and nothing in here is the
 source of truth for how the app behaves today — that is `docs/overview.md`.
+An archived review can include proposals deliberately deferred rather than
+built; archival means its decisions are closed, not that every feature shipped.
 
+- Top-level documents — completed reviews and backlogs, such as the
+  2026-09-21 competitor-feature review.
 - `plans/` — the implementation plan for a piece of work, written before it was
   built and kept as a record of the order things were done in.
 - `specs/` — the design that a plan was built against, where the work needed one.

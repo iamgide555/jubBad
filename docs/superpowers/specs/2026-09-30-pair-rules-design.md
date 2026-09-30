@@ -28,7 +28,10 @@ are rejected. A player can have at most one `must-pair` link; negative rules
 can involve several different other players. Deleting a rule leaves finished
 match history alone. Editing an existing kind is an explicit replace,
 validated as one atomic operation. Rule changes take effect in ongoing
-sessions for actions started after the edit succeeds.
+sessions for actions started after the edit succeeds. Serialize rule writes
+per group and recheck the one-must-pair-per-player invariant inside the write,
+so two simultaneous requests cannot each create a different required partner
+for the same player. A rejected second write does not change the first.
 
 `Session.disabledRuleIds` is a JSON-encoded list of group rule IDs, initially
 empty. Session hosts can switch each rule off and on without changing the
@@ -82,7 +85,13 @@ on opposite teams. Exact enumeration for at most eight playing players
 enumerates only legal candidates. For larger rosters, build at least one
 legal seed and perform legal unit-aware local moves; a bounded feasibility
 search distinguishes a proven lack of a valid assignment from a search limit.
-Never treat exhausted random restarts as proof of infeasibility. Preserve
+Limit the larger-roster feasibility search to 100,000 explored partial
+assignments per proposal; if that budget is exhausted without proving a
+solution or impossibility, return `PAIR_RULE_SEARCH_LIMIT` with no pairing
+written. Use the same bound on each independently planned fill-all mode
+group, reporting any already filled courts and the inconclusive group
+explicitly rather than returning an unqualified success. Never treat
+exhausted random restarts as proof of infeasibility. Preserve
 mode scoring (including level's soft band), confirmed history, and per-court
 singles/doubles formats **after** applying the hard filters. If a hard rule
 leaves only one legal split, reshuffle may return it again rather than
@@ -113,19 +122,24 @@ returns a pending match subject to the *current* rules.
 
 The existing carry-eligibility calculation treats any confirmed game after
 tagging as completion. Preserve that behavior for unlinked newcomers and
-legacy pairings. On each confirmation (manual or automatic), persist the
-decision for each tagged far-below newcomer with an enabled `must-pair` link:
-an outcome `[{ playerId, partnerId: string | null }]` on `Pairing`, where
-`partnerId` is the actual teammate if tagged strictly higher at that time
-and `null` means the carry opportunity was **not** completed. This includes
-games while the required partner rests. A later level change cannot rewrite
-the historical decision; `levelSetAt` still limits eligibility to games
-since the current tag. A session-disabled link does not create a new linked
-outcome; previously deferred games remain deferred, while subsequent
-unlinked games use the existing first-game rule. Count only the suitable
-teammate, not opponents, as the linked game's carry partner. Clear the outcome
-on undo of confirmation; undo of a finish leaves it attached to the still
-confirmed match. Ratings and partner/opponent history remain unchanged.
+legacy pairings. On each confirmation (manual or automatic), persist an
+outcome `[{ playerId, partnerId: string | null }]` on `Pairing` for **every
+tagged player with an enabled `must-pair` link**, even if they are not
+far-below at that instant. `partnerId` is the actual teammate only when the
+player is far-below *at confirmation* and that teammate is tagged strictly
+higher; otherwise it is `null` and the carry opportunity is **not**
+completed. Recording the null decision even before someone becomes far-below
+prevents a later arrival/rest change from reinterpreting that earlier game
+as a completed carry. This also covers games while the required partner
+rests. A later level change cannot rewrite the historical decision;
+`levelSetAt` still limits eligibility to games since the current tag. A
+session-disabled link does not create a new linked outcome; previously
+deferred games remain deferred, while subsequent unlinked games use the
+existing first-game rule. Adding a link later does not retroactively change
+outcomes of games confirmed before it existed. Count only the suitable
+teammate, not opponents, as the linked game's carry partner. Clear the
+outcome on undo of confirmation; undo of a finish leaves it attached to the
+still confirmed match. Ratings and partner/opponent history remain unchanged.
 
 ## Errors, tests and boundaries
 
@@ -141,13 +155,15 @@ infeasible four-player examples; mixed singles/doubles and sit-out units;
 multiple courts with partial legal fills; exact and larger-roster search
 without false "impossible" outcomes; every mode's objective after filtering;
 no duplicate player, illegal split, or leaked public rule; group ownership,
-cross-group IDs, conflicting rules, and per-session disable/enable. Exercise
+cross-group IDs, concurrent conflicting rule edits, and per-session
+disable/enable. Exercise
 pending rule changes, partial custom drafts, manual swaps, auto-pair,
 auto-confirm, undo, link deletion, group export/deletion, and two tabs changing
 session toggles.
 For linked carry, test unsuitable partner, higher-level partner, unavailable
 partner with a different stronger teammate, level retag, disabling the rule,
-and confirmation undo. Keep the engine dependency-free and recheck its
+an arrival/rest change that makes a tagged player far-below only after an
+earlier non-carry game, and confirmation undo. Keep the engine dependency-free and recheck its
 existing quality/performance suite as well as server and web tests.
 
 Out of scope: a soft-rule mode, manual override without disabling, group

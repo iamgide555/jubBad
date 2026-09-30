@@ -6353,4 +6353,131 @@ describe('SessionsController', () => {
       }
     });
   });
+  describe('session rules', () => {
+    const rulesFixture = async () => {
+      const groupCode = randomUUID();
+      const sessionCodes = [randomUUID(), randomUUID()];
+      await prisma.group.create({ data: { code: groupCode, name: 'G' } });
+      const players = [];
+      for (let i = 0; i < 4; i++) {
+        players.push(await prisma.player.create({ data: { groupId: groupCode, name: `P${i}`, aliases: '[]' } }));
+      }
+      const sorted = (a: string, b: string) => [a, b].sort() as [string, string];
+      const [a1, b1] = sorted(players[0].id, players[1].id);
+      const [a2, b2] = sorted(players[2].id, players[3].id);
+      const r1 = await prisma.playerRule.create({ data: { groupId: groupCode, playerAId: a1, playerBId: b1, kind: 'must-pair' } });
+      const r2 = await prisma.playerRule.create({ data: { groupId: groupCode, playerAId: a2, playerBId: b2, kind: 'never-teammates' } });
+      for (const code of sessionCodes) {
+        await prisma.session.create({ data: { code, groupId: groupCode, courtCount: 1, rawImportText: '' } });
+      }
+      const cleanup = async () => {
+        await prisma.session.deleteMany({ where: { code: { in: sessionCodes } } });
+        await prisma.playerRule.deleteMany({ where: { groupId: groupCode } });
+        await prisma.player.deleteMany({ where: { groupId: groupCode } });
+        await prisma.group.deleteMany({ where: { code: groupCode } });
+      };
+      return { groupCode, sessionCodes, rules: [r1, r2], players, cleanup };
+    };
+    const toggle = (code: string, ruleId: string, enabled: boolean) =>
+      request(server).post(`/sessions/${code}/rules/${ruleId}/toggle`).send({ enabled });
+
+    it('session rule: lists the group rules with nothing disabled at first', async () => {
+      const f = await rulesFixture();
+      try {
+        const res = await request(server).get(`/sessions/${f.sessionCodes[0]}/rules`).expect(200);
+        expect(res.body.disabledRuleIds).toEqual([]);
+        expect(res.body.rules.map((r: { id: string }) => r.id)).toEqual(f.rules.map((r) => r.id));
+        expect(res.body.rules[0]).toMatchObject({ playerAId: f.rules[0].playerAId, playerBId: f.rules[0].playerBId, kind: 'must-pair' });
+      } finally {
+        await f.cleanup();
+      }
+    });
+
+    it('session rule: disabling in one session leaves the group default and other sessions alone, and re-enables', async () => {
+      const f = await rulesFixture();
+      try {
+        const res = await toggle(f.sessionCodes[0], f.rules[0].id, false).expect(201);
+        expect(res.body).toEqual({ ruleId: f.rules[0].id, enabled: false, disabledRuleIds: [f.rules[0].id] });
+        const other = await request(server).get(`/sessions/${f.sessionCodes[1]}/rules`).expect(200);
+        expect(other.body.disabledRuleIds).toEqual([]);
+        expect(await prisma.playerRule.count({ where: { groupId: f.groupCode } })).toBe(2);
+
+        await toggle(f.sessionCodes[0], f.rules[0].id, true).expect(201);
+        const again = await request(server).get(`/sessions/${f.sessionCodes[0]}/rules`).expect(200);
+        expect(again.body.disabledRuleIds).toEqual([]);
+      } finally {
+        await f.cleanup();
+      }
+    });
+
+    it('session rule: a rule from another group is 404 and disables nothing', async () => {
+      const f = await rulesFixture();
+      const g = await rulesFixture();
+      try {
+        await toggle(f.sessionCodes[0], g.rules[0].id, false).expect(404);
+        await toggle(f.sessionCodes[0], 'no-such-rule', false).expect(404);
+        const session = await prisma.session.findUniqueOrThrow({ where: { code: f.sessionCodes[0] } });
+        expect(JSON.parse(session.disabledRuleIds ?? '[]')).toEqual([]);
+      } finally {
+        await f.cleanup();
+        await g.cleanup();
+      }
+    });
+
+    it('session rule: a deleted rule id left in the disabled list is inert', async () => {
+      const f = await rulesFixture();
+      try {
+        await prisma.session.update({ where: { code: f.sessionCodes[0] }, data: { disabledRuleIds: JSON.stringify(['deleted-rule']) } });
+        const res = await request(server).get(`/sessions/${f.sessionCodes[0]}/rules`).expect(200);
+        expect(res.body.rules).toHaveLength(2);
+        expect(res.body.disabledRuleIds).toEqual([]);
+        await toggle(f.sessionCodes[0], f.rules[1].id, false).expect(201);
+      } finally {
+        await f.cleanup();
+      }
+    });
+
+    it('session rule: a malformed disabled list is invalid session state', async () => {
+      const f = await rulesFixture();
+      try {
+        await prisma.session.update({ where: { code: f.sessionCodes[0] }, data: { disabledRuleIds: '{"oops":1}' } });
+        const res = await request(server).get(`/sessions/${f.sessionCodes[0]}/rules`).expect(500);
+        expect(res.body.code).toBe('INVALID_SESSION_STATE');
+        const t = await toggle(f.sessionCodes[0], f.rules[0].id, false).expect(500);
+        expect(t.body.code).toBe('INVALID_SESSION_STATE');
+      } finally {
+        await f.cleanup();
+      }
+    });
+
+    it('session rule: two simultaneous switches of different rules both persist', async () => {
+      const f = await rulesFixture();
+      try {
+        await Promise.all([
+          toggle(f.sessionCodes[0], f.rules[0].id, false).expect(201),
+          toggle(f.sessionCodes[0], f.rules[1].id, false).expect(201),
+        ]);
+        const res = await request(server).get(`/sessions/${f.sessionCodes[0]}/rules`).expect(200);
+        expect([...res.body.disabledRuleIds].sort()).toEqual(f.rules.map((r) => r.id).sort());
+      } finally {
+        await f.cleanup();
+      }
+    });
+
+    it('session rule: the public session response carries no rule data', async () => {
+      const f = await rulesFixture();
+      try {
+        await toggle(f.sessionCodes[0], f.rules[0].id, false).expect(201);
+        const res = await request(server).get(`/sessions/${f.sessionCodes[0]}`).expect(200);
+        expect(res.body).not.toHaveProperty('disabledRuleIds');
+        expect(res.body).not.toHaveProperty('rules');
+        expect(JSON.stringify(res.body)).not.toContain(f.rules[0].id);
+        const summary = await request(server).get(`/sessions/${f.sessionCodes[0]}/summary`).expect(200);
+        expect(JSON.stringify(summary.body)).not.toContain(f.rules[0].id);
+      } finally {
+        await f.cleanup();
+      }
+    });
+  });
+
 });

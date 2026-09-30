@@ -39,6 +39,7 @@ import {
   parseCourtLabels,
   withLabelAt,
 } from './court-labels.js';
+import { InvalidDisabledRuleIdsError, parseDisabledRuleIds } from './session-rules.js';
 import { deriveHistory } from './derive-history.js';
 import { effectiveCourtMode, isCustomMode, isLevelMode, type SessionMode } from './session-mode.js';
 import {
@@ -1720,6 +1721,54 @@ export class SessionsService {
       data: { courtCount: dto.courtCount },
     });
     return { code: updated.code, courtCount: updated.courtCount };
+  }
+
+  /** Host-only: the group's rules and which of them this session has switched off. */
+  async getSessionRules(code: string) {
+    const session = await this.prisma.session.findUnique({ where: { code } });
+    if (!session) throw this.notFound('SESSION_NOT_FOUND');
+    const disabled = this.parseDisabledOrThrow(session.disabledRuleIds);
+    const rules = await this.prisma.playerRule.findMany({
+      where: { groupId: session.groupId },
+      orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
+    });
+    const ids = new Set(rules.map((r) => r.id));
+    return {
+      rules: rules.map((r) => ({
+        id: r.id,
+        groupId: r.groupId,
+        playerAId: r.playerAId,
+        playerBId: r.playerBId,
+        kind: r.kind,
+        createdAt: r.createdAt,
+      })),
+      disabledRuleIds: disabled.filter((id) => ids.has(id)),
+    };
+  }
+
+  /** Read-modify-write under the session lock, so two switches never lose each other. */
+  toggleSessionRule(code: string, ruleId: string, enabled: boolean) {
+    return this.lock.run(code, async () => {
+      const session = await this.prisma.session.findUnique({ where: { code } });
+      if (!session) throw this.notFound('SESSION_NOT_FOUND');
+      const rule = await this.prisma.playerRule.findFirst({ where: { id: ruleId, groupId: session.groupId } });
+      if (!rule) throw this.notFound('RULE_NOT_FOUND');
+      const disabled = this.parseDisabledOrThrow(session.disabledRuleIds).filter((id) => id !== ruleId);
+      if (!enabled) disabled.push(ruleId);
+      await this.prisma.session.update({ where: { code }, data: { disabledRuleIds: JSON.stringify(disabled) } });
+      return { ruleId, enabled, disabledRuleIds: disabled };
+    });
+  }
+
+  private parseDisabledOrThrow(raw: string | null): string[] {
+    try {
+      return parseDisabledRuleIds(raw);
+    } catch (error) {
+      if (error instanceof InvalidDisabledRuleIdsError) {
+        throw new InternalServerErrorException({ code: 'INVALID_SESSION_STATE', detail: error.message });
+      }
+      throw error;
+    }
   }
 
   setCourtLabel(code: string, courtNumber: number, dto: SetCourtLabelDto) {

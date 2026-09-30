@@ -13,6 +13,7 @@ import { SetRosterWalkInDto } from './dto/set-roster-walk-in.dto.js';
 import { SetSeatDto } from './dto/set-seat.dto.js';
 import { SetShuttleDetailsDto } from './dto/set-shuttle-details.dto.js';
 import { SwapPlayerDto } from './dto/swap-player.dto.js';
+import { TogglePairRuleDto } from './dto/toggle-pair-rule.dto.js';
 import { Public } from '../auth/public.decorator.js';
 import type { AuthenticatedRequest } from '../auth/auth.guard.js';
 import { SessionsService } from './sessions.service.js';
@@ -188,6 +189,25 @@ export class SessionsController {
   @Post(':code/mode')
   setMode(@Param('code') code: string, @Body() dto: SetModeDto) {
     return this.sessionsService.setMode(code, dto);
+  }
+
+  /**
+   * Gated: pair rules are host-only, read separately from the public poll
+   * exactly like levels below.
+   */
+  @Get(':code/rules')
+  getSessionRules(@Param('code') code: string) {
+    return this.sessionsService.getSessionRules(code);
+  }
+
+  /** Switches one group rule off (or back on) for this session only. */
+  @Post(':code/rules/:ruleId/toggle')
+  toggleSessionRule(
+    @Param('code') code: string,
+    @Param('ruleId') ruleId: string,
+    @Body() dto: TogglePairRuleDto
+  ) {
+    return this.sessionsService.toggleSessionRule(code, ruleId, dto.enabled);
   }
 
   /**

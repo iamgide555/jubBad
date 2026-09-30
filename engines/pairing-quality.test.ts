@@ -31,6 +31,7 @@ import {
   type PlayerId,
 } from './pairing.ts';
 import type { Level } from './levels.ts';
+import { isLegalCourt, type PairRule } from './pair-rules.ts';
 
 /**
  * The audit's generator, reproduced exactly so the numbers in the document
@@ -403,4 +404,112 @@ test('the same seed always produces the same round', () => {
     ).courts;
 
   assert.deepEqual(run(), run());
+});
+
+const QUALITY_RULES: PairRule[] = [
+  { id: 'mp', playerAId: 'p0', playerBId: 'p1', kind: 'must-pair' },
+  { id: 'nt', playerAId: 'p2', playerBId: 'p3', kind: 'never-teammates' },
+  { id: 'nsc1', playerAId: 'p4', playerBId: 'p5', kind: 'never-same-court' },
+  { id: 'nsc2', playerAId: 'p0', playerBId: 'p6', kind: 'never-same-court' },
+];
+
+/** `exhaustiveOptimum`, restricted to splits the pair rules allow. */
+function exhaustiveLegalOptimum(
+  players: PlayerId[],
+  partnerCounts: Map<string, number>,
+  opponentCounts: Map<string, number>,
+  floors: { partner: number; opponent: number },
+  rules: PairRule[]
+): number {
+  const bestForGroup = (group: PlayerId[]): number => {
+    let best = Infinity;
+    for (const [a, b, c, d] of SPLITS) {
+      const teamA = [group[a], group[b]];
+      const teamB = [group[c], group[d]];
+      if (!isLegalCourt(teamA, teamB, rules)) continue;
+      const score = scoreArrangement([{ teamA, teamB }], partnerCounts, opponentCounts, undefined, floors);
+      if (score < best) best = score;
+    }
+    return best;
+  };
+  const search = (remaining: PlayerId[]): number => {
+    if (remaining.length === 0) return 0;
+    const [head, ...rest] = remaining;
+    let best = Infinity;
+    for (let a = 0; a < rest.length; a++)
+      for (let b = a + 1; b < rest.length; b++)
+        for (let c = b + 1; c < rest.length; c++) {
+          const group = [head, rest[a], rest[b], rest[c]];
+          const tail = rest.filter((_, i) => i !== a && i !== b && i !== c);
+          const total = bestForGroup(group) + search(tail);
+          if (total < best) best = total;
+        }
+    return best;
+  };
+  return search(players);
+}
+
+test('pair rules: twelve constrained players over three courts stay near the legal optimum', () => {
+  // Above the exact-enumeration size, so this checks the legal seed plus
+  // unit-aware local search against brute force over legal splits only.
+  const players = Array.from({ length: 12 }, (_, i) => `p${i}`);
+  const historyStream = makeSeededRandom(42);
+  const rounds: CourtAssignment[][] = [];
+  for (let i = 0; i < 30; i++) rounds.push(buildRandomArrangement(players, 3, historyStream));
+  const { partnerCounts, opponentCounts } = countsFromRounds(rounds);
+  const floors = historyFloors(players, partnerCounts, opponentCounts);
+  const optimum = exhaustiveLegalOptimum(players, partnerCounts, opponentCounts, floors, QUALITY_RULES);
+
+  const seeds = 50;
+  let total = 0;
+  let worst = -Infinity;
+  let optimal = 0;
+  for (let seed = 1; seed <= seeds; seed++) {
+    const { courts } = generateRound(
+      players,
+      3,
+      { partnerCounts, opponentCounts, gamesPlayedThisSession: new Map() },
+      makeSeededRandom(seed),
+      undefined, undefined, undefined, false, 'games', undefined, undefined,
+      QUALITY_RULES
+    );
+    assert.equal(courts.length, 3);
+    for (const c of courts) assert.ok(isLegalCourt(c.teamA, c.teamB, QUALITY_RULES), `seed ${seed} illegal court`);
+    const score = scoreArrangement(courts, partnerCounts, opponentCounts, undefined, floors);
+    total += score;
+    worst = Math.max(worst, score);
+    if (score === optimum) optimal++;
+  }
+  const mean = total / seeds;
+  assert.ok(mean <= optimum + 0.5, `mean ${mean} must stay within half a point of legal optimum ${optimum}`);
+  assert.ok(worst <= optimum + 1, `worst ${worst} must stay within one point of legal optimum ${optimum}`);
+  assert.ok(optimal >= seeds * 0.9, `${optimal}/${seeds} runs reached the legal optimum, expected at least 90%`);
+});
+
+test('pair rules: a twenty-four player, six-court constrained roster is paired without stalling', () => {
+  const players = Array.from({ length: 24 }, (_, i) => `p${i}`);
+  const historyStream = makeSeededRandom(7);
+  const rounds: CourtAssignment[][] = [];
+  for (let i = 0; i < 60; i++) rounds.push(buildRandomArrangement(players, 6, historyStream));
+  const { partnerCounts, opponentCounts } = countsFromRounds(rounds);
+  const rules: PairRule[] = [
+    ...QUALITY_RULES,
+    { id: 'mp2', playerAId: 'p10', playerBId: 'p11', kind: 'must-pair' },
+    { id: 'nsc3', playerAId: 'p10', playerBId: 'p20', kind: 'never-same-court' },
+  ];
+
+  const started = performance.now();
+  const { courts } = generateRound(
+    players,
+    6,
+    { partnerCounts, opponentCounts, gamesPlayedThisSession: new Map() },
+    makeSeededRandom(3),
+    undefined, undefined, undefined, false, 'games', undefined, undefined,
+    rules
+  );
+  const elapsed = performance.now() - started;
+
+  assert.equal(courts.length, 6);
+  for (const c of courts) assert.ok(isLegalCourt(c.teamA, c.teamB, rules));
+  assert.ok(elapsed < 4000, `pairing took ${elapsed.toFixed(0)}ms, expected well under 4000ms`);
 });

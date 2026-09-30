@@ -17,8 +17,12 @@ import {
   assertValidPairRules,
   isLegalCourt,
   NoLegalRuleMatchError,
+  courtSetsBySeats,
+  PAIR_RULE_MAX_STATES,
   PairRuleSearchLimitError,
   rulesTouching,
+  searchLegalAssignments,
+  unitsInOrder,
   type PairRule,
 } from './pair-rules.ts';
 
@@ -118,7 +122,13 @@ export function selectSittingOut(
    * feedback). 'games' (every existing caller, the default) keeps games
    * played first, wait as the tiebreak.
    */
-  queueBy: 'games' | 'wait' = 'games'
+  queueBy: 'games' | 'wait' = 'games',
+  /**
+   * Applicable pair rules. Only must-pair links change selection: a duo is
+   * one two-seat unit, ranked at its less deserving member, that plays or
+   * sits whole. Without a duo in the roster, selection is unchanged.
+   */
+  rules?: readonly PairRule[]
 ): { playing: PlayerId[]; sittingOut: PlayerId[] } {
   const sizes = normalizeSizes(courtCount);
   const offered = consumedSizes(sizes, roster.length);
@@ -152,6 +162,26 @@ export function selectSittingOut(
   // below (the natural cut, and the single-court group-repeat swap) works on
   // whichever ordering it's handed without needing to know band is involved.
   const priorityOrder = band && levels ? bandOrderedByCourt(sorted, offered, levels) : sorted;
+
+  const units = rules ? unitsInOrder([...priorityOrder].reverse(), rules) : null;
+  if (units && units.some((u) => u.length === 2)) {
+    // Seats go to units most-deserving first; a duo that no longer fits the
+    // seats left is passed over rather than split. The single-court
+    // group-repeat swap below moves one player at a time, so it is skipped
+    // here rather than risk splitting a duo.
+    let seats = roster.length - sitOutCount;
+    const playingSet = new Set<PlayerId>();
+    for (const unit of units) {
+      if (seats === 0) break;
+      if (unit.length > seats) continue;
+      for (const id of unit) playingSet.add(id);
+      seats -= unit.length;
+    }
+    return {
+      playing: roster.filter((p) => playingSet.has(p)),
+      sittingOut: priorityOrder.filter((p) => !playingSet.has(p)),
+    };
+  }
 
   const groupsFor = (sittingOut: PlayerId[]): { playing: PlayerId[]; sittingOut: PlayerId[] } => {
     const sittingOutSet = new Set(sittingOut);
@@ -857,9 +887,30 @@ function improveArrangement(start: CourtAssignment[], ctx: SearchContext): Court
     const groups = courts.map((c) => groupOf(c.assignment));
     const current = totalComponents(courts.map((c) => c.components));
 
-    let bestTotal = current;
-    let bestMove: { i: number; j: number; left: typeof courts[number]; right: typeof courts[number] } | null =
-      null;
+    const found: {
+      total: ArrangementScoreComponents;
+      move: { i: number; j: number; left: (typeof courts)[number]; right: (typeof courts)[number] } | null;
+    } = { total: current, move: null };
+
+    const consider = (i: number, j: number, left: Group, right: Group): void => {
+      const leftBest = bestSplitForGroup(left, i, ctx);
+      if (!leftBest) return;
+      const rightBest = bestSplitForGroup(right, j, ctx);
+      if (!rightBest) return;
+
+      const candidate = totalComponents([
+        current,
+        leftBest.components,
+        rightBest.components,
+        negate(courts[i].components),
+        negate(courts[j].components),
+      ]);
+
+      if (compareComponents(candidate, found.total, ctx.ratings) < 0) {
+        found.total = candidate;
+        found.move = { i, j, left: leftBest, right: rightBest };
+      }
+    };
 
     for (let i = 0; i < groups.length; i++) {
       for (let j = i + 1; j < groups.length; j++) {
@@ -869,29 +920,28 @@ function improveArrangement(start: CourtAssignment[], ctx: SearchContext): Court
             const right = [...groups[j]];
             left[x] = groups[j][y];
             right[y] = groups[i][x];
-
-            const leftBest = bestSplitForGroup(left, i, ctx);
-            if (!leftBest) continue;
-            const rightBest = bestSplitForGroup(right, j, ctx);
-            if (!rightBest) continue;
-
-            const candidate = totalComponents([
-              current,
-              leftBest.components,
-              rightBest.components,
-              negate(courts[i].components),
-              negate(courts[j].components),
-            ]);
-
-            if (compareComponents(candidate, bestTotal, ctx.ratings) < 0) {
-              bestTotal = candidate;
-              bestMove = { i, j, left: leftBest, right: rightBest };
+            consider(i, j, left, right);
+          }
+        }
+        // With pair rules, a must-pair duo can only move as a whole, which a
+        // 1-for-1 exchange never does — so doubles courts also trade pairs.
+        if (ctx.rules && groups[i].length === 4 && groups[j].length === 4) {
+          for (const [x1, x2] of DOUBLES_PAIRS) {
+            for (const [y1, y2] of DOUBLES_PAIRS) {
+              const left = [...groups[i]];
+              const right = [...groups[j]];
+              left[x1] = groups[j][y1];
+              left[x2] = groups[j][y2];
+              right[y1] = groups[i][x1];
+              right[y2] = groups[i][x2];
+              consider(i, j, left, right);
             }
           }
         }
       }
     }
 
+    const bestMove = found.move;
     if (!bestMove) break;
     courts = [...courts];
     courts[bestMove.i] = bestMove.left;
@@ -900,6 +950,10 @@ function improveArrangement(start: CourtAssignment[], ctx: SearchContext): Court
 
   return courts.map((c) => c.assignment);
 }
+
+const DOUBLES_PAIRS: readonly [number, number][] = [
+  [0, 1], [0, 2], [0, 3], [1, 2], [1, 3], [2, 3],
+];
 
 function negate(components: ArrangementScoreComponents): ArrangementScoreComponents {
   return {
@@ -1141,7 +1195,11 @@ function buildCarryCourt(
   partnerCounts: Map<string, number>,
   opponentCounts: Map<string, number>,
   random: () => number,
-  avoidReshuffle?: { teamA: Team; teamB: Team }
+  avoidReshuffle?: { teamA: Team; teamB: Team },
+  /** Applicable pair rules. A carry court that cannot honor them is not
+   *  formed (null), so normal legal pairing takes over; the newcomer stays
+   *  eligible for a genuine carry later. */
+  rules?: readonly PairRule[]
 ): CourtAssignment | null {
   const byLongestWait = [...roster].sort(
     (a, b) => (waitingSince.get(a) ?? 0) - (waitingSince.get(b) ?? 0)
@@ -1191,6 +1249,7 @@ function buildCarryCourt(
       floors: historyFloors(group, partnerCounts, opponentCounts),
       avoidKeys,
       recentGroupKeys: null,
+      rules,
     };
     const best = bestSplitForGroup(group, 0, ctx);
     if (!best) return null; // defensive: scoring should never be non-finite here
@@ -1229,25 +1288,275 @@ function buildCarryCourt(
       if (aCarried !== bCarried) return aCarried - bCarried; // not-carried-tonight first
       return (waitingSince.get(a) ?? 0) - (waitingSince.get(b) ?? 0); // longest wait first
     });
-  const proOrder = currentPro
-    ? [currentPro, ...proCandidates.filter((id) => id !== currentPro)]
-    : proCandidates;
+  // A linked newcomer's required partner is the only possible pro, and only
+  // when tagged strictly above them — then partnering them *is* the carry.
+  // Otherwise no forced carry: normal legal matches, eligibility kept.
+  const mateRule = rules?.find(
+    (r) => r.kind === 'must-pair' && (r.playerAId === anchor || r.playerBId === anchor)
+  );
+  const mate = mateRule ? (mateRule.playerAId === anchor ? mateRule.playerBId : mateRule.playerAId) : null;
+  if (mate !== null && !proCandidates.includes(mate)) return null;
+
+  const proOrder =
+    mate !== null
+      ? [mate]
+      : currentPro
+        ? [currentPro, ...proCandidates.filter((id) => id !== currentPro)]
+        : proCandidates;
 
   for (const pro of proOrder) {
     const proLevel = levels.get(pro)!;
     const opponentPool = candidatePool.filter(
       (id) => id !== pro && !(pro === currentPro && currentOpponents?.includes(id))
     );
-    const opponents = pickOpponents(opponentPool, proLevel, levels, waitingSince);
+    const opponents = rules
+      ? pickLegalOpponents(opponentPool, proLevel, levels, waitingSince, [anchor, pro], rules)
+      : pickOpponents(opponentPool, proLevel, levels, waitingSince);
     if (opponents) {
       return { court: 1, teamA: [anchor, pro], teamB: opponents };
     }
   }
 
-  if (currentPro && currentOpponents) {
+  if (
+    currentPro &&
+    currentOpponents &&
+    (!rules || isLegalCourt([anchor, currentPro], currentOpponents, rules))
+  ) {
     return { court: 1, teamA: [anchor, currentPro], teamB: currentOpponents };
   }
   return null;
+}
+
+/** `pickOpponents`' preference order, but the first pair that keeps the
+ *  carry court legal under the pair rules. */
+function pickLegalOpponents(
+  pool: PlayerId[],
+  proLevel: Level,
+  levels: ReadonlyMap<PlayerId, Level | null>,
+  waitingSince: Map<PlayerId, number>,
+  carryTeam: Team,
+  rules: readonly PairRule[]
+): Team | null {
+  const byLongestWait = (a: PlayerId, b: PlayerId) =>
+    (waitingSince.get(a) ?? 0) - (waitingSince.get(b) ?? 0);
+  const inBand = pool.filter((id) => withinBand(levels.get(id) ?? null, proLevel)).sort(byLongestWait);
+  const rest = pool.filter((id) => !inBand.includes(id)).sort(byLongestWait);
+  const ordered = [...inBand, ...rest];
+  for (let i = 0; i < ordered.length; i++) {
+    for (let j = i + 1; j < ordered.length; j++) {
+      const pair = [ordered[i], ordered[j]];
+      if (isLegalCourt(carryTeam, pair, rules)) return pair;
+    }
+  }
+  return null;
+}
+
+/**
+ * The best arrangement of `playing` over `offered` court sizes: exact
+ * enumeration up to EXACT_ENUMERATION_MAX_PLAYING players, restarts plus
+ * local search above it. Null when no candidate had a legal, finite split for
+ * every court.
+ */
+function searchArrangement(
+  playing: PlayerId[],
+  offered: CourtSize[],
+  ctx: SearchContext,
+  random: () => number,
+  better: (candidate: CourtAssignment[], incumbent: CourtAssignment[] | null) => boolean,
+  seedGroups?: Group[]
+): CourtAssignment[] | null {
+  let best: CourtAssignment[] | null = null;
+  const uniform = offered.every((s) => s === offered[0]);
+
+  if (playing.length <= EXACT_ENUMERATION_MAX_PLAYING) {
+    // Shuffled so that equally-scoring arrangements — an untouched history
+    // makes every arrangement equal — are still picked at random rather than
+    // by roster order.
+    forEachExactArrangement(shuffle(playing, random), offered, (groups) => {
+      if (uniform) {
+        // Every position has the same size, so a full rotation is valid and
+        // gives every group in the partition a turn at position 0 — the only
+        // position `avoidKeys` can ever constrain. This branch is byte-for-
+        // byte identical to the engine's original (all-doubles) behaviour.
+        for (let lead = 0; lead < groups.length; lead++) {
+          const ordered = [...groups.slice(lead), ...groups.slice(0, lead)];
+          const candidate = bestArrangementForGroups(ordered, ctx);
+          if (candidate && better(candidate, best)) best = candidate;
+        }
+      } else {
+        // Sizes differ, so an arbitrary rotation would hand a group of the
+        // wrong size to a position that requires another — only a same-size
+        // group can ever legally sit at position 0. Swapping position 0 with
+        // each same-size position gives every eligible group its turn there
+        // without disturbing any other position's required size. The score
+        // does not depend on how positions other than 0 are ordered among
+        // themselves, so this is exactly as thorough as a full rotation
+        // would be, just restricted to moves that stay legal.
+        for (let j = 0; j < groups.length; j++) {
+          if (offered[j] !== offered[0]) continue;
+          const ordered = [...groups];
+          if (j !== 0) [ordered[0], ordered[j]] = [ordered[j], ordered[0]];
+          const candidate = bestArrangementForGroups(ordered, ctx);
+          if (candidate && better(candidate, best)) best = candidate;
+        }
+      }
+    });
+  } else {
+    // A known-legal grouping (pair rules only) seeds the search: random
+    // restarts alone can miss every legal arrangement of a constrained round.
+    if (seedGroups) {
+      const seeded = bestArrangementForGroups(seedGroups, ctx);
+      if (seeded) best = improveArrangement(seeded, ctx);
+    }
+    let sinceImprovement = 0;
+    for (let restart = 0; restart < SEARCH_RESTARTS; restart++) {
+      const seed = bestArrangementForGroups(
+        buildRandomArrangement(playing, offered, random).map(groupOf),
+        ctx
+      );
+      if (!seed) continue;
+      const improved = improveArrangement(seed, ctx);
+      if (better(improved, best)) {
+        best = improved;
+        sinceImprovement = 0;
+      } else if (++sinceImprovement >= SEARCH_RESTART_PATIENCE) {
+        break;
+      }
+    }
+  }
+
+  return best;
+}
+
+interface RulePlanInput {
+  roster: PlayerId[];
+  sizes: CourtSize[];
+  history: MatchHistory;
+  random: () => number;
+  avoidKeys: string[] | null;
+  recentGroupKeys: Set<string> | null;
+  ratings?: RatingsInput;
+  levels?: ReadonlyMap<PlayerId, Level | null>;
+  band: boolean;
+  queueBy: 'games' | 'wait';
+  rules: readonly PairRule[];
+  requireFirstCourt: boolean;
+}
+
+/**
+ * `generateRound`'s path when pair rules apply. First tries the ordinary
+ * (unit-aware) selection — when the rules don't bite it keeps the band and
+ * group-repeat behaviour of the normal path. Only if that selection admits no
+ * legal arrangement, or leaves seats a legal plan could fill, does the
+ * bounded rotation-ordered search choose who plays where. Either way the
+ * mode's objective then picks the best arrangement among legal ones.
+ */
+function planWithRules(p: RulePlanInput): RoundResult {
+  const { roster, sizes, history, random, rules } = p;
+
+  const arrange = (playing: PlayerId[], courtIndexes: number[], seedGroups?: Group[]) => {
+    const floors = historyFloors(playing, history.partnerCounts, history.opponentCounts);
+    const ctx: SearchContext = {
+      partnerCounts: history.partnerCounts,
+      opponentCounts: history.opponentCounts,
+      ratings: p.ratings,
+      floors,
+      // Position 0 is only the requested court when court index 0 is planned.
+      avoidKeys: courtIndexes[0] === 0 ? p.avoidKeys : null,
+      recentGroupKeys: p.recentGroupKeys,
+      levels: p.band ? p.levels : undefined,
+      rules,
+    };
+    const better = (candidate: CourtAssignment[], incumbent: CourtAssignment[] | null): boolean =>
+      !incumbent ||
+      compareArrangements(
+        candidate,
+        incumbent,
+        history.partnerCounts,
+        history.opponentCounts,
+        p.ratings,
+        floors,
+        p.recentGroupKeys,
+        ctx.levels
+      ) < 0;
+    const offered = courtIndexes.map((i) => sizes[i]);
+    const best = searchArrangement(playing, offered, ctx, random, better, seedGroups);
+    return best ? best.map((c, pos) => ({ ...c, court: courtIndexes[pos] + 1 })) : null;
+  };
+
+  const searchInput = {
+    rules,
+    gamesPlayedThisSession: history.gamesPlayedThisSession,
+    waitingSince: history.waitingSince,
+    queueBy: p.queueBy,
+    random,
+    maxStates: PAIR_RULE_MAX_STATES,
+  };
+
+  const natural = selectSittingOut(
+    roster,
+    sizes,
+    history.gamesPlayedThisSession,
+    random,
+    history.waitingSince,
+    p.recentGroupKeys,
+    p.levels,
+    p.band,
+    p.queueBy,
+    rules
+  );
+  const offered = consumedSizes(sizes, natural.playing.length);
+  const offeredSeats = offered.reduce((sum, size) => sum + size, 0);
+  if (
+    offered.length > 0 &&
+    offeredSeats === natural.playing.length &&
+    offeredSeats === maxSeats(sizes, roster.length, p.requireFirstCourt)
+  ) {
+    const courtIndexes = offered.map((_, i) => i);
+    let seedGroups: Group[] | undefined;
+    if (natural.playing.length > EXACT_ENUMERATION_MAX_PLAYING) {
+      const check = searchLegalAssignments({
+        ...searchInput,
+        roster: natural.playing,
+        sizes: offered,
+        rules: rules.filter((r) => natural.playing.includes(r.playerAId) && natural.playing.includes(r.playerBId)),
+        requireFirstCourt: false,
+        requireAllCourts: true,
+      });
+      if (check.status === 'found') seedGroups = check.courts.map((c) => c.players);
+    }
+    if (natural.playing.length <= EXACT_ENUMERATION_MAX_PLAYING || seedGroups) {
+      const courts = arrange(natural.playing, courtIndexes, seedGroups);
+      if (courts) return { courts, sittingOut: natural.sittingOut };
+    }
+  }
+
+  const found = searchLegalAssignments({
+    ...searchInput,
+    roster,
+    sizes,
+    requireFirstCourt: p.requireFirstCourt,
+  });
+  if (found.status === 'limit') throw new PairRuleSearchLimitError();
+  if (found.status === 'impossible') throw new NoLegalRuleMatchError(rulesTouching(roster, rules));
+  if (found.courts.length === 0) return { courts: [], sittingOut: found.sittingOut };
+  const playing = found.courts.flatMap((c) => c.players);
+  const courts = arrange(
+    playing,
+    found.courts.map((c) => c.courtIndex),
+    found.courts.map((c) => c.players)
+  );
+  // A found grouping has a legal split on every court by construction, so the
+  // arrangement search always has at least that seed to return.
+  if (!courts) throw new PairRuleSearchLimitError();
+  return { courts, sittingOut: found.sittingOut };
+}
+
+/** The most seats any court set (holding court 0 when required) can fill
+ *  from `available` players, before rules. */
+function maxSeats(sizes: CourtSize[], available: number, requireFirstCourt: boolean): number {
+  const [top] = courtSetsBySeats(sizes, available, requireFirstCourt);
+  return top ? top.reduce((sum, i) => sum + sizes[i], 0) : 0;
 }
 
 export function generateRound(
@@ -1278,7 +1587,12 @@ export function generateRound(
   carriedTonight?: ReadonlySet<PlayerId>,
   /** Enabled pair rules whose players are both in `roster` — hard
    *  constraints above every mode. Omitted or empty, behaviour is unchanged. */
-  rules?: readonly PairRule[]
+  rules?: readonly PairRule[],
+  /** 'requested' (propose): court 1 must be legally filled or the call
+   *  throws. 'partial' (fill-all): fill the most seats legally, leaving
+   *  blocked courts out — court numbers are never renumbered. Only consulted
+   *  when rules apply. */
+  ruleFillPolicy: 'requested' | 'partial' = 'requested'
 ): RoundResult {
   validateRoundInput(roster, courtCount, history, avoidSplit, ratings);
   if (rules) assertValidPairRules(roster, rules);
@@ -1314,8 +1628,12 @@ export function generateRound(
       // Only the most recently shown split matters here — the carry court
       // re-forms fresh each call, so it only ever needs to avoid what it
       // currently holds, not every split shown across earlier reshuffles.
-      avoidSplits[avoidSplits.length - 1]
+      avoidSplits[avoidSplits.length - 1],
+      activeRules
     );
+    if (carryCourt && activeRules && !isLegalCourt(carryCourt.teamA, carryCourt.teamB, activeRules)) {
+      carryCourt = null; // defensive: buildCarryCourt already honors rules
+    }
     if (carryCourt) carryGroup = new Set(groupOf(carryCourt));
   }
 
@@ -1356,6 +1674,28 @@ export function generateRound(
         ])
       : history.recentGroupKeys ?? null;
 
+  if (activeRules) {
+    const remainingRules = activeRules.filter(
+      (r) => effectiveRoster.includes(r.playerAId) && effectiveRoster.includes(r.playerBId)
+    );
+    const planned = planWithRules({
+      roster: effectiveRoster,
+      sizes: effectiveSizes,
+      history,
+      random,
+      avoidKeys,
+      recentGroupKeys,
+      ratings,
+      levels,
+      band,
+      queueBy,
+      rules: remainingRules,
+      requireFirstCourt: ruleFillPolicy === 'requested' && !carryCourt,
+    });
+    const shifted = planned.courts.map((c) => (carryCourt ? { ...c, court: c.court + 1 } : c));
+    return { courts: carryCourt ? [carryCourt, ...shifted] : shifted, sittingOut: planned.sittingOut };
+  }
+
   const { playing, sittingOut } = selectSittingOut(
     effectiveRoster,
     effectiveSizes,
@@ -1383,7 +1723,6 @@ export function generateRound(
     avoidKeys,
     recentGroupKeys,
     levels: band ? levels : undefined,
-    rules: activeRules,
   };
 
   const better = (candidate: CourtAssignment[], incumbent: CourtAssignment[] | null): boolean =>
@@ -1399,59 +1738,7 @@ export function generateRound(
       ctx.levels
     ) < 0;
 
-  let best: CourtAssignment[] | null = null;
-  const uniform = offered.every((s) => s === offered[0]);
-
-  if (playing.length <= EXACT_ENUMERATION_MAX_PLAYING) {
-    // Shuffled so that equally-scoring arrangements — an untouched history
-    // makes every arrangement equal — are still picked at random rather than
-    // by roster order.
-    forEachExactArrangement(shuffle(playing, random), offered, (groups) => {
-      if (uniform) {
-        // Every position has the same size, so a full rotation is valid and
-        // gives every group in the partition a turn at position 0 — the only
-        // position `avoidKeys` can ever constrain. This branch is byte-for-
-        // byte identical to the engine's original (all-doubles) behaviour.
-        for (let lead = 0; lead < groups.length; lead++) {
-          const ordered = [...groups.slice(lead), ...groups.slice(0, lead)];
-          const candidate = bestArrangementForGroups(ordered, ctx);
-          if (candidate && better(candidate, best)) best = candidate;
-        }
-      } else {
-        // Sizes differ, so an arbitrary rotation would hand a group of the
-        // wrong size to a position that requires another — only a same-size
-        // group can ever legally sit at position 0. Swapping position 0 with
-        // each same-size position gives every eligible group its turn there
-        // without disturbing any other position's required size. The score
-        // does not depend on how positions other than 0 are ordered among
-        // themselves, so this is exactly as thorough as a full rotation
-        // would be, just restricted to moves that stay legal.
-        for (let j = 0; j < groups.length; j++) {
-          if (offered[j] !== offered[0]) continue;
-          const ordered = [...groups];
-          if (j !== 0) [ordered[0], ordered[j]] = [ordered[j], ordered[0]];
-          const candidate = bestArrangementForGroups(ordered, ctx);
-          if (candidate && better(candidate, best)) best = candidate;
-        }
-      }
-    });
-  } else {
-    let sinceImprovement = 0;
-    for (let restart = 0; restart < SEARCH_RESTARTS; restart++) {
-      const seed = bestArrangementForGroups(
-        buildRandomArrangement(playing, offered, random).map(groupOf),
-        ctx
-      );
-      if (!seed) continue;
-      const improved = improveArrangement(seed, ctx);
-      if (better(improved, best)) {
-        best = improved;
-        sinceImprovement = 0;
-      } else if (++sinceImprovement >= SEARCH_RESTART_PATIENCE) {
-        break;
-      }
-    }
-  }
+  const best = searchArrangement(playing, offered, ctx, random, better);
 
   // `best` is null only when every legal split of some court scored NaN — a
   // corrupt count somewhere upstream. Reporting no courts hands that to the
@@ -1460,15 +1747,6 @@ export function generateRound(
   // reproduced the avoided split" is gone because it can no longer happen:
   // the exclusion now removes one split of one court, never a whole candidate,
   // so a legal alternative always remains.
-  if (!best && activeRules) {
-    // Exact enumeration checked every legal candidate for these players, so
-    // an empty result is a proof; random restarts are not, so above the
-    // exact threshold it is only an inconclusive search.
-    if (playing.length <= EXACT_ENUMERATION_MAX_PLAYING) {
-      throw new NoLegalRuleMatchError(rulesTouching(playing, activeRules));
-    }
-    throw new PairRuleSearchLimitError();
-  }
   const searched = (best ?? []).map((c) => (carryCourt ? { ...c, court: c.court + 1 } : c));
   return { courts: carryCourt ? [carryCourt, ...searched] : searched, sittingOut };
 }

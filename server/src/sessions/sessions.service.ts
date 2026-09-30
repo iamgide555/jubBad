@@ -228,13 +228,18 @@ export class SessionsService {
   /**
    * The linked-carry snapshot written with a confirmation — see
    * carry-outcomes.ts. `[]` whenever no enabled must-pair link exists.
+   * `enabled` must be the same read the confirm blocker judged legality
+   * from: group rule writes are not serialized with the session lock, so a
+   * second read could see a different rule set than the one that allowed
+   * this confirm.
    */
   private async carryOutcomesJson(
-    session: { code: string; groupId: string; disabledRuleIds: string | null },
-    pairing: { teamA: string; teamB: string }
+    session: { code: string; groupId: string },
+    pairing: { teamA: string; teamB: string },
+    enabled: readonly PairRule[]
   ): Promise<string> {
     const linked = new Set(
-      (await this.loadEnabledRules(session))
+      enabled
         .filter((r) => r.kind === 'must-pair')
         .flatMap((r) => [r.playerAId, r.playerBId])
     );
@@ -1080,7 +1085,7 @@ export class SessionsService {
     sessionCode: string,
     pairing: { teamA: string; teamB: string }
   ): Promise<
-    | { blocked: false }
+    | { blocked: false; enabledRules: PairRule[] }
     | { blocked: true; code: 'PAIRING_INCOMPLETE'; details: { emptySeats: number } }
     | { blocked: true; code: 'PLAYER_UNAVAILABLE'; details: { playerIds: string[] } }
     | { blocked: true; code: 'PAIR_RULE_VIOLATION'; details: { ruleIds: string[] } }
@@ -1120,13 +1125,22 @@ export class SessionsService {
     // Rules are read now, not when the match was proposed: a rule added while
     // this sat pending must stop it starting, manual or automatic alike.
     const session = await this.prisma.session.findUniqueOrThrow({ where: { code: sessionCode } });
+    const enabled = await this.loadEnabledRules(session);
+    const active = new Set(
+      (
+        await this.prisma.sessionRoster.findMany({
+          where: { sessionId: sessionCode, active: true },
+          select: { playerId: true },
+        })
+      ).map((r) => r.playerId)
+    );
     const { teamA, teamB } = this.teamsOf(pairing);
-    const broken = violatedRules(teamA, teamB, await this.loadApplicableRules(session));
+    const broken = violatedRules(teamA, teamB, applicableRules(enabled, active));
     if (broken.length > 0) {
       return { blocked: true, code: 'PAIR_RULE_VIOLATION', details: { ruleIds: broken } };
     }
 
-    return { blocked: false };
+    return { blocked: false, enabledRules: enabled };
   }
 
   private async confirmPairingExclusively(
@@ -1160,7 +1174,7 @@ export class SessionsService {
       },
       data: {
         confirmedAt: new Date(),
-        carryOutcomes: await this.carryOutcomesJson(session, pairing),
+        carryOutcomes: await this.carryOutcomesJson(session, pairing, blocker.enabledRules),
         revision: { increment: 1 },
       },
     });
@@ -1233,7 +1247,7 @@ export class SessionsService {
 
     const confirmedAt = new Date(pairing.pendingSince.getTime() + AUTO_CONFIRM_WALK_ON_MS);
     const session = await this.prisma.session.findUniqueOrThrow({ where: { code: pairing.sessionId } });
-    const carryOutcomes = await this.carryOutcomesJson(session, pairing);
+    const carryOutcomes = await this.carryOutcomesJson(session, pairing, blocker.enabledRules);
     const updated = await this.prisma.pairing.updateMany({
       where: { id, confirmedAt: null, endedAt: null, revision: expectedRevision },
       data: { confirmedAt, carryOutcomes, revision: { increment: 1 } },

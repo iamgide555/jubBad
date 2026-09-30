@@ -1,7 +1,7 @@
 /**
  * Linked-carry outcomes (host-feedback C): a snapshot, taken at confirmation,
  * of whether a must-pair-linked player's game counted as their carry. See
- * docs/superpowers/specs/2026-09-30-pair-rules-design.md, "Pending matches,
+ * docs/archive/specs/2026-09-30-pair-rules-design.md, "Pending matches,
  * overrides and carry state".
  */
 

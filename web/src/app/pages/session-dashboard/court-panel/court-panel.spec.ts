@@ -48,6 +48,8 @@ function baseSession(overrides: Partial<Session> = {}): Session {
     activatedAt: {},
     waitlistPlayerIds: [],
     courts: [{ status: 'idle', format: 'doubles', mode: 'variety' }],
+    courtLabels: [],
+    editableCourtCount: 1,
     ...overrides,
   };
 }

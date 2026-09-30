@@ -60,6 +60,8 @@ function messageForCode(code: string): string | null {
       return $localize`:@@err.code.courtInUse:ยังมีแมตช์เล่นอยู่บนคอร์ทที่จะตัดออก กรุณาบันทึกผลก่อน`;
     case 'INVALID_COURT_NUMBER':
       return $localize`:@@err.code.invalidCourtNumber:หมายเลขคอร์ทไม่ถูกต้อง`;
+    case 'COURT_LABEL_CONFLICT':
+      return $localize`:@@err.code.courtLabelConflict:ชื่อคอร์ทนี้ซ้ำกับคอร์ทอื่น`;
     case 'INVALID_SESSION_STATE':
       return $localize`:@@err.code.invalidSessionState:ข้อมูลก๊วนนี้ผิดปกติ จัดคู่ต่อไม่ได้ กรุณาแจ้งผู้ดูแล`;
     case 'PAIRING_STALE':
@@ -325,6 +327,16 @@ export class LiveSessionService {
       `courts/${courtNumber}/mode`,
       { mode },
       $localize`:@@err.courtMode:เปลี่ยนโหมดคอร์ทไม่สำเร็จ`
+    );
+  }
+
+  /** Allowed in any court and session state; a blank label resets the court
+   *  to its number. */
+  setCourtLabel(courtNumber: number, label: string): Promise<ActionResult> {
+    return this.post(
+      `courts/${courtNumber}/label`,
+      { label },
+      $localize`:@@err.courtLabel:เปลี่ยนชื่อคอร์ทไม่สำเร็จ`
     );
   }
 

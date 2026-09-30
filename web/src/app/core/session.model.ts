@@ -37,4 +37,10 @@ export interface Session {
   queueGames: Record<string, number>;
   waitlistPlayerIds: string[];
   courts: CourtState[];
+  /** Per-court display names, index 0 = court 1; null/absent = the number.
+   *  Resolve with labelForCourt, never read `.length` as a court count. */
+  courtLabels: (string | null)[];
+  /** Highest court the host may label — may exceed courtCount for retired
+   *  courts that still have matches or a label. */
+  editableCourtCount: number;
 }

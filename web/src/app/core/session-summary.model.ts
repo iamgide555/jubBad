@@ -44,6 +44,8 @@ export interface SessionSummary {
     /** Price per shuttlecock, in satang (1 THB = 100 satang) — same null-vs-0 distinction. */
     shuttlePriceSatang: number | null;
     endedAt: string | null;
+    /** Per-court display names, index 0 = court 1 — see labelForCourt. */
+    courtLabels: (string | null)[];
   };
   players: PlayerSessionStat[];
 }

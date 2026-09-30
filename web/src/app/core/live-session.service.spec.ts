@@ -28,6 +28,8 @@ function baseSession(overrides: Partial<Session> = {}): Session {
     activatedAt: {},
     waitlistPlayerIds: [],
     courts: [{ status: 'idle', format: 'doubles', mode: 'variety' }],
+    courtLabels: [],
+    editableCourtCount: 1,
     ...overrides,
   };
 }
@@ -220,6 +222,34 @@ describe('LiveSessionService', () => {
     );
 
     expect(await promise).toEqual({ ok: true });
+  });
+
+  it('setCourtLabel posts one court label and reloads on success', async () => {
+    await flushSession(baseSession());
+
+    const promise = service.setCourtLabel(2, 'สนาม A');
+    const req = httpMock.expectOne(`${environment.apiBaseUrl}/sessions/sess1/courts/2/label`);
+    expect(req.request.method).toBe('POST');
+    expect(req.request.body).toEqual({ label: 'สนาม A' });
+    req.flush({ code: 'sess1', courtNumber: 2, label: 'สนาม A' });
+    await new Promise((r) => setTimeout(r, 0));
+    TestBed.tick();
+    httpMock
+      .expectOne(`${environment.apiBaseUrl}/sessions/sess1`)
+      .flush(baseSession({ courtLabels: [null, 'สนาม A'] }));
+
+    expect(await promise).toEqual({ ok: true });
+  });
+
+  it('setCourtLabel maps COURT_LABEL_CONFLICT to a localized message', async () => {
+    await flushSession(baseSession());
+
+    const promise = service.setCourtLabel(1, '2');
+    httpMock
+      .expectOne(`${environment.apiBaseUrl}/sessions/sess1/courts/1/label`)
+      .flush({ code: 'COURT_LABEL_CONFLICT' }, { status: 409, statusText: 'Conflict' });
+
+    expect(await promise).toEqual({ ok: false, error: 'ชื่อคอร์ทนี้ซ้ำกับคอร์ทอื่น' });
   });
 
   it('endSession maps the server error code to a localized message', async () => {

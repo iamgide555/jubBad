@@ -868,3 +868,17 @@ test('improveArrangement can exchange players between a doubles and a singles co
   assert.equal(result.courts[1].teamA.length + result.courts[1].teamB.length, 2);
   assert.equal(result.courts[2].teamA.length + result.courts[2].teamB.length, 2);
 });
+
+test('generateRound with an empty rule list matches the no-rule seeded output exactly', () => {
+  const roster = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k'];
+  for (let seed = 1; seed <= 20; seed++) {
+    for (const courts of [1, 2, [4, 2] as (2 | 4)[]]) {
+      const without = generateRound(roster, courts, empty(), makeSeededRandom(seed));
+      const withEmpty = generateRound(
+        roster, courts, empty(), makeSeededRandom(seed),
+        undefined, undefined, undefined, false, 'games', undefined, undefined, []
+      );
+      assert.deepEqual(withEmpty, without, `seed ${seed}`);
+    }
+  }
+});

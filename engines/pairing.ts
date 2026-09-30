@@ -12,6 +12,17 @@
 
 import { ratingGap, type RatingTracks } from './elo.ts';
 import { levelIndex, withinBand, type Level } from './levels.ts';
+import { InvalidRoundInputError } from './errors.ts';
+import {
+  assertValidPairRules,
+  isLegalCourt,
+  NoLegalRuleMatchError,
+  PairRuleSearchLimitError,
+  rulesTouching,
+  type PairRule,
+} from './pair-rules.ts';
+
+export { InvalidRoundInputError };
 
 export type PlayerId = string;
 /** A team is 1 player (singles) or 2 (doubles). Both teams on a court are
@@ -653,6 +664,9 @@ interface SearchContext {
   recentGroupKeys: Set<string> | null;
   /** Only set when the ±1 band is on for this session; otherwise bandBreaks stays 0. */
   levels?: ReadonlyMap<PlayerId, Level | null>;
+  /** Enabled, applicable pair rules — hard filters applied before any
+   *  scoring. Unset (never an empty array) on the no-rule path. */
+  rules?: readonly PairRule[];
 }
 
 function courtComponents(teamA: Team, teamB: Team, ctx: SearchContext): ArrangementScoreComponents {
@@ -751,10 +765,16 @@ function bestSplitForGroup(
   courtIndex: number,
   ctx: SearchContext
 ): { assignment: CourtAssignment; components: ArrangementScoreComponents } | null {
-  const patterns = splitPatternsFor(group.length).map(([aIdx, bIdx]) => ({
+  const allPatterns = splitPatternsFor(group.length).map(([aIdx, bIdx]) => ({
     teamA: aIdx.map((i) => group[i]),
     teamB: bIdx.map((i) => group[i]),
   }));
+  // Pair rules filter first, so shown-split avoidance below only ever yields
+  // among legal splits: a sole legal split may repeat, an illegal one never
+  // appears.
+  const rules = ctx.rules;
+  const patterns = rules ? allPatterns.filter((p) => isLegalCourt(p.teamA, p.teamB, rules)) : allPatterns;
+  if (patterns.length === 0) return null;
 
   const avoidKeys =
     courtIndex === 0 && ctx.avoidKeys ? withLegalAlternative(patterns, ctx.avoidKeys) : null;
@@ -979,26 +999,6 @@ function forEachExactArrangement(
   fill(playing, 0);
 }
 
-/**
- * Thrown when the engine is handed input it cannot mean anything sensible
- * about — a duplicated player, a negative game count, a fractional court.
- *
- * The engine used to absorb these silently. A roster with the same id twice
- * produces fewer distinct players than it appears to, so `usableCourts` can
- * fall to zero and the caller reports "not enough players" — which is a lie
- * that sends the host looking for absent players instead of at the corrupt
- * state that actually caused it. Failing loudly is worth more than a plausible
- * wrong answer, because the plausible wrong answer is unfalsifiable at
- * courtside.
- */
-export class InvalidRoundInputError extends Error {
-  readonly code = 'INVALID_ROUND_INPUT';
-
-  constructor(message: string) {
-    super(message);
-    this.name = 'InvalidRoundInputError';
-  }
-}
 
 function assertCountMap(map: Map<string, number>, label: string, integer: boolean): void {
   for (const [key, value] of map) {
@@ -1275,9 +1275,14 @@ export function generateRound(
   carryEligible?: ReadonlySet<PlayerId>,
   /** Players who have already partnered a carry-eligible player tonight,
    *  deprioritised as the next carry's pro. */
-  carriedTonight?: ReadonlySet<PlayerId>
+  carriedTonight?: ReadonlySet<PlayerId>,
+  /** Enabled pair rules whose players are both in `roster` — hard
+   *  constraints above every mode. Omitted or empty, behaviour is unchanged. */
+  rules?: readonly PairRule[]
 ): RoundResult {
   validateRoundInput(roster, courtCount, history, avoidSplit, ratings);
+  if (rules) assertValidPairRules(roster, rules);
+  const activeRules = rules && rules.length > 0 ? rules : undefined;
 
   const avoidSplits = asAvoidSplitArray(avoidSplit);
   const sizes = normalizeSizes(courtCount);
@@ -1378,6 +1383,7 @@ export function generateRound(
     avoidKeys,
     recentGroupKeys,
     levels: band ? levels : undefined,
+    rules: activeRules,
   };
 
   const better = (candidate: CourtAssignment[], incumbent: CourtAssignment[] | null): boolean =>
@@ -1454,6 +1460,15 @@ export function generateRound(
   // reproduced the avoided split" is gone because it can no longer happen:
   // the exclusion now removes one split of one court, never a whole candidate,
   // so a legal alternative always remains.
+  if (!best && activeRules) {
+    // Exact enumeration checked every legal candidate for these players, so
+    // an empty result is a proof; random restarts are not, so above the
+    // exact threshold it is only an inconclusive search.
+    if (playing.length <= EXACT_ENUMERATION_MAX_PLAYING) {
+      throw new NoLegalRuleMatchError(rulesTouching(playing, activeRules));
+    }
+    throw new PairRuleSearchLimitError();
+  }
   const searched = (best ?? []).map((c) => (carryCourt ? { ...c, court: c.court + 1 } : c));
   return { courts: carryCourt ? [carryCourt, ...searched] : searched, sittingOut };
 }
@@ -1536,18 +1551,28 @@ function assertPool(pool: PlayerId[], seated: Set<PlayerId>): void {
  *
  * Returns `null` when the pool cannot fill every empty seat — the caller
  * reports that as "not enough players," exactly as `generateRound` does.
+ *
+ * Pair rules are hard filters on the finished lineup. When rotation's chosen
+ * players admit no legal seating, the candidates widen one player at a time
+ * in the same priority order, so the least-disruptive legal lineup wins; only
+ * when the whole pool fails does it throw `NoLegalRuleMatchError` — a full,
+ * host-seated lineup that breaks a rule throws the same way.
  */
 export function completeCourt(
   seats: SeatedCourt,
   pool: PlayerId[],
   history: MatchHistory,
-  random: () => number = Math.random
+  random: () => number = Math.random,
+  /** Enabled pair rules whose players are both seated or in `pool`. */
+  rules?: readonly PairRule[]
 ): { teamA: PlayerId[]; teamB: PlayerId[] } | null {
   assertSeatedCourtShape(seats);
   const seatedIds = new Set<PlayerId>(
     [...seats.teamA, ...seats.teamB].filter((s): s is PlayerId => s !== null)
   );
   assertPool(pool, seatedIds);
+  if (rules) assertValidPairRules([...seatedIds, ...pool], rules);
+  const activeRules = rules && rules.length > 0 ? rules : undefined;
   assertCountMap(history.gamesPlayedThisSession, 'gamesPlayedThisSession', true);
   assertCountMap(history.partnerCounts, 'partnerCounts', true);
   assertCountMap(history.opponentCounts, 'opponentCounts', true);
@@ -1564,6 +1589,9 @@ export function completeCourt(
   });
 
   if (empties.length === 0) {
+    if (activeRules && !isLegalCourt(seats.teamA as Team, seats.teamB as Team, activeRules)) {
+      throw new NoLegalRuleMatchError(rulesTouching(seatedIds, activeRules));
+    }
     return {
       teamA: seats.teamA as PlayerId[],
       teamB: seats.teamB as PlayerId[],
@@ -1590,12 +1618,6 @@ export function completeCourt(
     ...ordered.slice(k).filter((id) => priorityKey(id).join('|') === boundaryKey),
   ];
 
-  const floors = historyFloors(
-    [...seatedIds, ...candidates],
-    history.partnerCounts,
-    history.opponentCounts
-  );
-
   const fillWith = (chosen: PlayerId[]): { teamA: Team; teamB: Team } => {
     const teamA = [...seats.teamA];
     const teamB = [...seats.teamB];
@@ -1605,39 +1627,60 @@ export function completeCourt(
     return { teamA: teamA as Team, teamB: teamB as Team };
   };
 
-  let best: { teamA: Team; teamB: Team } | null = null;
-  const used = new Array<boolean>(candidates.length).fill(false);
-  const chosen: PlayerId[] = [];
+  const bestAmong = (candidates: PlayerId[]): { teamA: Team; teamB: Team } | null => {
+    const floors = historyFloors(
+      [...seatedIds, ...candidates],
+      history.partnerCounts,
+      history.opponentCounts
+    );
 
-  const search = (): void => {
-    if (chosen.length === k) {
-      const candidate = fillWith(chosen);
-      if (
-        !best ||
-        compareArrangements(
-          [candidate],
-          [best],
-          history.partnerCounts,
-          history.opponentCounts,
-          undefined,
-          floors,
-          history.recentGroupKeys ?? null
-        ) < 0
-      ) {
-        best = candidate;
+    let best: { teamA: Team; teamB: Team } | null = null;
+    const used = new Array<boolean>(candidates.length).fill(false);
+    const chosen: PlayerId[] = [];
+
+    const search = (): void => {
+      if (chosen.length === k) {
+        const candidate = fillWith(chosen);
+        if (activeRules && !isLegalCourt(candidate.teamA, candidate.teamB, activeRules)) return;
+        if (
+          !best ||
+          compareArrangements(
+            [candidate],
+            [best],
+            history.partnerCounts,
+            history.opponentCounts,
+            undefined,
+            floors,
+            history.recentGroupKeys ?? null
+          ) < 0
+        ) {
+          best = candidate;
+        }
+        return;
       }
-      return;
-    }
-    for (let i = 0; i < candidates.length; i++) {
-      if (used[i]) continue;
-      used[i] = true;
-      chosen.push(candidates[i]);
-      search();
-      chosen.pop();
-      used[i] = false;
-    }
+      for (let i = 0; i < candidates.length; i++) {
+        if (used[i]) continue;
+        used[i] = true;
+        chosen.push(candidates[i]);
+        search();
+        chosen.pop();
+        used[i] = false;
+      }
+    };
+    search();
+    return best;
   };
-  search();
 
+  // `candidates` is always a prefix of `ordered` (the tie widening only
+  // extends the run at the boundary), so widening is just a longer prefix.
+  let width = candidates.length;
+  let best = bestAmong(candidates);
+  if (activeRules) {
+    while (!best && width < ordered.length) {
+      width++;
+      best = bestAmong(ordered.slice(0, width));
+    }
+    if (!best) throw new NoLegalRuleMatchError(rulesTouching([...seatedIds, ...pool], activeRules));
+  }
   return best;
 }

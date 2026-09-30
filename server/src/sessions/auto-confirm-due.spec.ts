@@ -29,6 +29,7 @@ describe('SessionsService.autoConfirmDue', () => {
 
   async function remove({ groupCode, sessionCode }: { groupCode: string; sessionCode: string }) {
     await prisma.pairing.deleteMany({ where: { sessionId: sessionCode } });
+    await prisma.playerRule.deleteMany({ where: { groupId: groupCode } });
     await prisma.sessionRoster.deleteMany({ where: { sessionId: sessionCode } });
     await prisma.session.deleteMany({ where: { code: sessionCode } });
     await prisma.player.deleteMany({ where: { groupId: groupCode } });
@@ -185,6 +186,59 @@ describe('SessionsService.autoConfirmDue', () => {
 
       await expect(service.autoConfirmDue(dueAt)).resolves.toEqual([]);
       findManySpy.mockRestore();
+    } finally {
+      await remove(data);
+    }
+  });
+
+  const addRule = (groupCode: string, x: string, y: string, kind: string) => {
+    const [playerAId, playerBId] = [x, y].sort();
+    return prisma.playerRule.create({ data: { groupId: groupCode, playerAId, playerBId, kind } });
+  };
+  const overduePending = (sessionCode: string, courtNumber: number, ids: string[]) =>
+    prisma.pairing.create({
+      data: {
+        sessionId: sessionCode,
+        courtNumber,
+        matchNumber: 1,
+        teamA: JSON.stringify(ids.slice(0, 2)),
+        teamB: JSON.stringify(ids.slice(2, 4)),
+        pendingSince: new Date('2026-09-22T10:00:00.000Z'),
+      },
+    });
+
+  it('pair rule: a rule added just before the timer blocks that court and still confirms an unrelated one', async () => {
+    const data = await fixture(['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'], 2);
+    try {
+      const ids = data.players.map((p) => p.id);
+      const blocked = await overduePending(data.sessionCode, 1, ids.slice(0, 4));
+      const fine = await overduePending(data.sessionCode, 2, ids.slice(4, 8));
+      await addRule(data.groupCode, ids[0], ids[1], 'never-teammates');
+
+      const due = new Date('2026-09-22T10:00:00.000Z').getTime() + AUTO_CONFIRM_DELAY_MS;
+      expect(await service.autoConfirmDue(new Date(due))).toEqual([fine.id]);
+      expect((await prisma.pairing.findUniqueOrThrow({ where: { id: blocked.id } })).confirmedAt).toBeNull();
+    } finally {
+      await remove(data);
+    }
+  });
+
+  it('linked carry: auto-confirm snapshots outcomes like a manual confirm', async () => {
+    const data = await fixture(['BG', 'Mate', 'P2', 'P3']);
+    try {
+      const ids = data.players.map((p) => p.id);
+      for (const [i, level] of ['BG', 'P', 'P', 'P'].entries()) {
+        await prisma.player.update({ where: { id: ids[i] }, data: { level, levelSetAt: new Date(0) } });
+      }
+      await addRule(data.groupCode, ids[0], ids[1], 'must-pair');
+      const p = await overduePending(data.sessionCode, 1, ids);
+      const due = new Date('2026-09-22T10:00:00.000Z').getTime() + AUTO_CONFIRM_DELAY_MS;
+      expect(await service.autoConfirmDue(new Date(due))).toEqual([p.id]);
+      const row = await prisma.pairing.findUniqueOrThrow({ where: { id: p.id } });
+      expect(JSON.parse(row.carryOutcomes)).toEqual([
+        { playerId: ids[0], partnerId: ids[1] },
+        { playerId: ids[1], partnerId: null },
+      ]);
     } finally {
       await remove(data);
     }

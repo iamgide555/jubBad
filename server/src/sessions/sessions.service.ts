@@ -5,8 +5,9 @@ import {
   Injectable,
   InternalServerErrorException,
   NotFoundException,
+  ServiceUnavailableException,
 } from '@nestjs/common';
-import { Prisma } from '@prisma/client';
+import { Prisma, type Session } from '@prisma/client';
 import { confirmExistingPlayerAlias, createNewPlayer, type Player as FuzzyPlayer } from '../../../engines/fuzzy-match.ts';
 import { computeRatingTracks } from '../../../engines/elo.ts';
 import {
@@ -19,11 +20,19 @@ import {
   type Team,
 } from '../../../engines/pairing.ts';
 import { isValidIsoDate } from '../../../engines/parser.ts';
+import {
+  isRuleKind,
+  NoLegalRuleMatchError,
+  PairRuleSearchLimitError,
+  rulesTouching,
+  type PairRule,
+} from '../../../engines/pair-rules.ts';
 import { asLevel, type Level } from '../../../engines/levels.ts';
 import { waitingSinceMap } from '../../../engines/waiting.ts';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { levelWrite, loadLevelSetAt, loadPlayerLevels, loadRatingAnchors } from '../player-levels.js';
 import { computeCarryEligibility } from './carry-eligibility.js';
+import { carryOutcomesForConfirm, InvalidCarryOutcomesError, parseCarryOutcomes } from './carry-outcomes.js';
 import {
   courtSizeFor,
   formatAt,
@@ -39,7 +48,14 @@ import {
   parseCourtLabels,
   withLabelAt,
 } from './court-labels.js';
-import { InvalidDisabledRuleIdsError, parseDisabledRuleIds } from './session-rules.js';
+import {
+  applicableRules,
+  enabledRules,
+  InvalidDisabledRuleIdsError,
+  parseDisabledRuleIds,
+  rulesForParticipants,
+  violatedRules,
+} from './session-rules.js';
 import { deriveHistory } from './derive-history.js';
 import { effectiveCourtMode, isCustomMode, isLevelMode, type SessionMode } from './session-mode.js';
 import {
@@ -91,6 +107,8 @@ export const AUTO_CONFIRM_DELAY_MS = 60_000;
  */
 export const AUTO_CONFIRM_WALK_ON_MS = 30_000;
 
+type FillBlocked = { courtNumber: number; ruleIds: string[] };
+
 @Injectable()
 export class SessionsService {
   private readonly lock = new SessionLock();
@@ -131,6 +149,106 @@ export class SessionsService {
 
   private runCompleteCourt(...args: Parameters<typeof completeCourt>) {
     return this.runEngine(() => completeCourt(...args));
+  }
+
+  /**
+   * The group's rules minus this session's switched-off ones, read fresh on
+   * every call so a group edit applies to the next operation. An unknown
+   * kind is corrupt data, not a rule to quietly skip.
+   */
+  private async loadEnabledRules(session: { groupId: string; disabledRuleIds: string | null }): Promise<PairRule[]> {
+    const disabled = this.parseDisabledOrThrow(session.disabledRuleIds);
+    const rows = await this.prisma.playerRule.findMany({
+      where: { groupId: session.groupId },
+      orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
+    });
+    return enabledRules(rows, disabled).map((r) => {
+      if (!isRuleKind(r.kind)) {
+        throw new InternalServerErrorException({
+          code: 'INVALID_SESSION_STATE',
+          detail: `pair rule "${r.id}" has unknown kind "${r.kind}"`,
+        });
+      }
+      return { id: r.id, playerAId: r.playerAId, playerBId: r.playerBId, kind: r.kind };
+    });
+  }
+
+  /** Enabled rules that bind right now: both players active on the roster. */
+  private async loadApplicableRules(
+    session: { code: string; groupId: string; disabledRuleIds: string | null },
+    activeIds?: ReadonlySet<string>
+  ): Promise<PairRule[]> {
+    const active =
+      activeIds ??
+      new Set(
+        (
+          await this.prisma.sessionRoster.findMany({
+            where: { sessionId: session.code, active: true },
+            select: { playerId: true },
+          })
+        ).map((r) => r.playerId)
+      );
+    return applicableRules(await this.loadEnabledRules(session), active);
+  }
+
+  /**
+   * The pool and rules for one engine call over `pool`. A must-pair player
+   * whose partner is busy on another court leaves the pool: a proposal that
+   * seated them alone could never be confirmed.
+   */
+  private async engineRulesFor(
+    session: { code: string; groupId: string; disabledRuleIds: string | null },
+    activeIds: ReadonlySet<string>,
+    pool: string[]
+  ): Promise<{ rules: PairRule[]; pool: string[]; strandedRuleIds: string[] }> {
+    const applicable = await this.loadApplicableRules(session, activeIds);
+    const { stranded } = rulesForParticipants(applicable, new Set(pool));
+    const usable = pool.filter((id) => !stranded.has(id));
+    const { rules } = rulesForParticipants(applicable, new Set(usable));
+    return { rules, pool: usable, strandedRuleIds: [...new Set(stranded.values())] };
+  }
+
+  private rulesBlocked(ruleIds: string[]) {
+    return { ok: false as const, reason: 'pair-rules-blocked' as const, ruleIds };
+  }
+
+  /** Inconclusive is not "no legal match" and never "not enough players". */
+  private searchLimit(): ServiceUnavailableException {
+    return new ServiceUnavailableException({ code: 'PAIR_RULE_SEARCH_LIMIT' });
+  }
+
+  /** Throws when a full court breaks an applicable rule; a draft with an
+   *  empty seat is still being built and is left alone. */
+  private assertCourtLegal(teamA: Seat[], teamB: Seat[], rules: readonly PairRule[]): void {
+    if (teamA.includes(null) || teamB.includes(null)) return;
+    const broken = violatedRules(teamA as string[], teamB as string[], rules);
+    if (broken.length > 0) throw this.conflict('PAIR_RULE_VIOLATION', { ruleIds: broken });
+  }
+
+  /**
+   * The linked-carry snapshot written with a confirmation — see
+   * carry-outcomes.ts. `[]` whenever no enabled must-pair link exists.
+   */
+  private async carryOutcomesJson(
+    session: { code: string; groupId: string; disabledRuleIds: string | null },
+    pairing: { teamA: string; teamB: string }
+  ): Promise<string> {
+    const linked = new Set(
+      (await this.loadEnabledRules(session))
+        .filter((r) => r.kind === 'must-pair')
+        .flatMap((r) => [r.playerAId, r.playerBId])
+    );
+    if (linked.size === 0) return '[]';
+    const [roster, levels] = await Promise.all([
+      this.prisma.sessionRoster.findMany({
+        where: { sessionId: session.code, active: true },
+        select: { playerId: true },
+      }),
+      loadPlayerLevels(this.prisma, session.groupId),
+    ]);
+    return JSON.stringify(
+      carryOutcomesForConfirm(this.teamsOf(pairing), linked, levels, roster.map((r) => r.playerId))
+    );
   }
 
   private conflict(code: string, details?: Record<string, unknown>): ConflictException {
@@ -688,7 +806,7 @@ export class SessionsService {
       loadLevelSetAt(this.prisma, session.groupId),
       this.prisma.pairing.findMany({
         where: { sessionId: session.code, confirmedAt: { not: null } },
-        select: { teamA: true, teamB: true, confirmedAt: true },
+        select: { id: true, teamA: true, teamB: true, confirmedAt: true, carryOutcomes: true },
       }),
     ]);
 
@@ -699,8 +817,24 @@ export class SessionsService {
       confirmedPairingsTonight: confirmed.map((p) => ({
         playerIds: this.playersOf(p),
         confirmedAt: p.confirmedAt!.getTime(),
+        carryOutcomes: this.carryOutcomesOf(p),
       })),
     });
+  }
+
+  /** A corrupt snapshot must not read as a completed carry — fail visibly. */
+  private carryOutcomesOf(pairing: { id: string; carryOutcomes: string }) {
+    try {
+      return parseCarryOutcomes(pairing.carryOutcomes);
+    } catch (error) {
+      if (error instanceof InvalidCarryOutcomesError) {
+        throw new InternalServerErrorException({
+          code: 'INVALID_SESSION_STATE',
+          detail: `pairing ${pairing.id}: ${error.message}`,
+        });
+      }
+      throw error;
+    }
   }
 
   private assertCourtNumber(courtCount: number | null, courtNumber: number): void {
@@ -847,20 +981,37 @@ export class SessionsService {
       courtSizeFor(formatAt(session.courtFormats, n))
     );
 
-    const result = this.runGenerateRound(
-      available,
-      sizes,
-      history,
-      undefined,
-      avoidSplits.length > 0 ? avoidSplits : undefined,
-      ratings,
-      levels,
-      requestedMode === 'level',
-      queueBy,
-      carry?.carryEligible,
-      carry?.carriedTonight
-    );
-    if (result.courts.length === 0) {
+    const ruled = await this.engineRulesFor(session, new Set(rosterPlayerIds), available);
+
+    let result: ReturnType<typeof generateRound>;
+    try {
+      result = this.runGenerateRound(
+        ruled.pool,
+        sizes,
+        history,
+        undefined,
+        avoidSplits.length > 0 ? avoidSplits : undefined,
+        ratings,
+        levels,
+        requestedMode === 'level',
+        queueBy,
+        carry?.carryEligible,
+        carry?.carriedTonight,
+        ruled.rules,
+        'requested'
+      );
+    } catch (error) {
+      if (error instanceof NoLegalRuleMatchError) return this.rulesBlocked(error.ruleIds);
+      if (error instanceof PairRuleSearchLimitError) throw this.searchLimit();
+      throw error;
+    }
+    const proposed = result.courts.find((c) => c.court === 1);
+    if (!proposed) {
+      // Enough people, but a must-pair partner busy elsewhere is what left
+      // this court short — that is the rule's doing, not a head count.
+      if (ruled.pool.length < sizes[0] && available.length >= sizes[0]) {
+        return this.rulesBlocked(ruled.strandedRuleIds);
+      }
       return {
         ok: false as const,
         reason: 'not-enough-players' as const,
@@ -868,7 +1019,6 @@ export class SessionsService {
         format: formatAt(session.courtFormats, courtNumber),
       };
     }
-    const [proposed] = result.courts;
     const teamA = JSON.stringify(proposed.teamA);
     const teamB = JSON.stringify(proposed.teamB);
 
@@ -933,6 +1083,7 @@ export class SessionsService {
     | { blocked: false }
     | { blocked: true; code: 'PAIRING_INCOMPLETE'; details: { emptySeats: number } }
     | { blocked: true; code: 'PLAYER_UNAVAILABLE'; details: { playerIds: string[] } }
+    | { blocked: true; code: 'PAIR_RULE_VIOLATION'; details: { ruleIds: string[] } }
   > {
     // A custom-mode draft the host hasn't finished seating. Checked before
     // availability below: an incomplete team's `playersOf` would otherwise
@@ -964,6 +1115,15 @@ export class SessionsService {
         code: 'PLAYER_UNAVAILABLE',
         details: { playerIds: unavailable.map((r) => r.playerId) },
       };
+    }
+
+    // Rules are read now, not when the match was proposed: a rule added while
+    // this sat pending must stop it starting, manual or automatic alike.
+    const session = await this.prisma.session.findUniqueOrThrow({ where: { code: sessionCode } });
+    const { teamA, teamB } = this.teamsOf(pairing);
+    const broken = violatedRules(teamA, teamB, await this.loadApplicableRules(session));
+    if (broken.length > 0) {
+      return { blocked: true, code: 'PAIR_RULE_VIOLATION', details: { ruleIds: broken } };
     }
 
     return { blocked: false };
@@ -998,7 +1158,11 @@ export class SessionsService {
         endedAt: null,
         revision: expectedRevision ?? pairing.revision,
       },
-      data: { confirmedAt: new Date(), revision: { increment: 1 } },
+      data: {
+        confirmedAt: new Date(),
+        carryOutcomes: await this.carryOutcomesJson(session, pairing),
+        revision: { increment: 1 },
+      },
     });
     if (updated.count !== 1) {
       throw this.conflict('PAIRING_STALE');
@@ -1068,9 +1232,11 @@ export class SessionsService {
     if (blocker.blocked) return false;
 
     const confirmedAt = new Date(pairing.pendingSince.getTime() + AUTO_CONFIRM_WALK_ON_MS);
+    const session = await this.prisma.session.findUniqueOrThrow({ where: { code: pairing.sessionId } });
+    const carryOutcomes = await this.carryOutcomesJson(session, pairing);
     const updated = await this.prisma.pairing.updateMany({
       where: { id, confirmedAt: null, endedAt: null, revision: expectedRevision },
-      data: { confirmedAt, revision: { increment: 1 } },
+      data: { confirmedAt, carryOutcomes, revision: { increment: 1 } },
     });
     return updated.count === 1;
   }
@@ -1253,10 +1419,17 @@ export class SessionsService {
       return [replace(filledTeamA), replace(filledTeamB)];
     };
 
+    // Only a substitute who leaves the court legal is a candidate at all.
+    const rules = await this.loadApplicableRules(session, new Set(rosterPlayerIds));
+    const legalPool = pool.filter((candidate) => violatedRules(...swapIn(candidate), rules).length === 0);
+    if (legalPool.length === 0) {
+      return this.rulesBlocked([...new Set(pool.flatMap((c) => violatedRules(...swapIn(c), rules)))]);
+    }
+
     // The playing-pool choice follows normal rotation first: fewest games,
     // then longest wait — the order `selectSittingOut` and the waiting list
     // use. Pairing quality only breaks ties between people level on both.
-    const [{ substitute }] = pool
+    const [{ substitute }] = legalPool
       .map((candidate) => {
         const [candidateA, candidateB] = swapIn(candidate);
         return {
@@ -1384,6 +1557,13 @@ export class SessionsService {
     const newTeamB = sameCourt
       ? tradeIn(pairing.teamB, dto.playerId, incomingId)
       : replaceIn(pairing.teamB, dto.playerId, incomingId);
+    const farTeamA = other ? replaceIn(other.teamA, incomingId, dto.playerId) : undefined;
+    const farTeamB = other ? replaceIn(other.teamB, incomingId, dto.playerId) : undefined;
+
+    const session = await this.prisma.session.findUniqueOrThrow({ where: { code: pairing.sessionId } });
+    const rules = await this.loadApplicableRules(session, new Set(rosterPlayerIds));
+    this.assertCourtLegal(newTeamA, newTeamB, rules);
+    if (farTeamA && farTeamB) this.assertCourtLegal(farTeamA, farTeamB, rules);
 
     // The throw has to happen inside the transaction. An updateMany that
     // matches nothing is not a database error, so checking the counts after
@@ -1410,8 +1590,8 @@ export class SessionsService {
         const far = await tx.pairing.updateMany({
           where: { id: other.id, confirmedAt: null, endedAt: null, revision: other.revision },
           data: {
-            teamA: JSON.stringify(replaceIn(other.teamA, incomingId, dto.playerId)),
-            teamB: JSON.stringify(replaceIn(other.teamB, incomingId, dto.playerId)),
+            teamA: JSON.stringify(farTeamA),
+            teamB: JSON.stringify(farTeamB),
             pendingSince: new Date(),
             revision: { increment: 1 },
           },
@@ -1497,6 +1677,10 @@ export class SessionsService {
 
     const nextTeam = [...team];
     nextTeam[dto.index] = incomingId;
+    if (incomingId !== null) {
+      const full = dto.team === 'A' ? { teamA: nextTeam, teamB: seats.teamB } : { teamA: seats.teamA, teamB: nextTeam };
+      this.assertCourtLegal(full.teamA, full.teamB, await this.loadApplicableRules(session));
+    }
     const column = dto.team === 'A' ? { teamA: JSON.stringify(nextTeam) } : { teamB: JSON.stringify(nextTeam) };
 
     const write = await this.prisma.pairing.updateMany({
@@ -1570,9 +1754,28 @@ export class SessionsService {
       .map((r) => r.playerId)
       .filter((id) => !reserved.has(id) && !seatedHere.has(id));
 
+    const applicable = await this.loadApplicableRules(session, new Set(roster.map((r) => r.playerId)));
+    const { stranded } = rulesForParticipants(applicable, new Set([...seatedHere, ...pool]));
+    const seatedStranded = [...seatedHere].filter((id) => stranded.has(id));
+    if (seatedStranded.length > 0) {
+      return this.rulesBlocked([...new Set(seatedStranded.map((id) => stranded.get(id)!))]);
+    }
+    const usablePool = pool.filter((id) => !stranded.has(id));
+    const { rules } = rulesForParticipants(applicable, new Set([...seatedHere, ...usablePool]));
+
     const history = await this.loadHistory(session.groupId, sessionCode);
-    const result = this.runCompleteCourt(seats, pool, history);
+    let result: ReturnType<typeof completeCourt>;
+    try {
+      result = this.runCompleteCourt(seats, usablePool, history, undefined, rules);
+    } catch (error) {
+      if (error instanceof NoLegalRuleMatchError) return this.rulesBlocked(error.ruleIds);
+      throw error;
+    }
     if (result === null) {
+      const empty = emptySeatCount(pairing);
+      if (usablePool.length < empty && pool.length >= empty) {
+        return this.rulesBlocked([...new Set(stranded.values())]);
+      }
       return { ok: false as const, reason: 'not-enough-players' as const, available: pool.length };
     }
 
@@ -2039,7 +2242,9 @@ export class SessionsService {
 
     const unconfirmed = await this.prisma.pairing.updateMany({
       where: { id: latest.id, confirmedAt: { not: null }, endedAt: null, revision: latest.revision },
-      data: { confirmedAt: null, pendingSince: null, revision: { increment: 1 } },
+      // The carry snapshot belongs to the confirmation being undone; the next
+      // confirm takes a fresh one under whatever rules apply then.
+      data: { confirmedAt: null, pendingSince: null, carryOutcomes: '[]', revision: { increment: 1 } },
     });
     if (unconfirmed.count !== 1) {
       throw this.conflict('PAIRING_STALE');
@@ -2126,137 +2331,137 @@ export class SessionsService {
       });
 
       let remainingRoster = roster.map((r) => r.playerId).filter((id) => !reserved.has(id));
+      const activeIds = new Set(roster.map((r) => r.playerId));
+      const blocked: FillBlocked[] = [];
+      const inconclusive: number[] = [];
 
       for (const [mode, courtsInGroup] of orderedGroups) {
-        const chosenInGroup = this.chooseSeatingOrder(courtsInGroup, session, remainingRoster.length);
-        const sizes = chosenInGroup.map((n) => courtSizeFor(formatAt(session.courtFormats, n)));
-        const history = await this.loadHistory(session.groupId, sessionCode);
-        const ratings = mode === 'balanced' ? await this.loadRatings(session.groupId) : undefined;
-        const levels = await loadPlayerLevels(this.prisma, session.groupId);
-        const queueBy: 'games' | 'wait' = mode === 'level' ? 'wait' : 'games';
-        const carry = mode === 'level' ? await this.loadCarryEligibility(session) : undefined;
-
-        const result = this.runGenerateRound(
-          remainingRoster,
-          sizes,
-          history,
-          undefined,
-          undefined,
-          ratings,
-          levels,
-          mode === 'level',
-          queueBy,
-          carry?.carryEligible,
-          carry?.carriedTonight
-        );
-
-        await this.prisma.$transaction(async (tx) => {
-          for (const assignment of result.courts) {
-            const courtNumber = chosenInGroup[assignment.court - 1];
-            const matchNumber =
-              (await tx.pairing.count({
-                where: { sessionId: sessionCode, courtNumber, confirmedAt: { not: null } },
-              })) + 1;
-            await tx.pairing.create({
-              data: {
-                sessionId: sessionCode,
-                courtNumber,
-                matchNumber,
-                teamA: JSON.stringify(assignment.teamA),
-                teamB: JSON.stringify(assignment.teamB),
-                pendingSince: new Date(),
-              },
-            });
-            filled.push(courtNumber);
-          }
-        });
-
-        const justSeated = new Set(result.courts.flatMap((c) => [...c.teamA, ...c.teamB]));
-        remainingRoster = remainingRoster.filter((id) => !justSeated.has(id));
+        const group = await this.fillEngineGroup(session, mode, courtsInGroup, remainingRoster, activeIds);
+        filled.push(...group.filled);
+        blocked.push(...group.blocked);
+        inconclusive.push(...group.inconclusive);
+        remainingRoster = remainingRoster.filter((id) => !group.seated.has(id));
       }
 
-      return { ok: true as const, filled };
+      if (filled.length === 0 && (blocked.length > 0 || inconclusive.length > 0)) {
+        return this.fillOutcome(filled, blocked, inconclusive);
+      }
+      return { ok: true as const, filled, blocked, inconclusive };
     }
 
     const available = roster.map((r) => r.playerId).filter((id) => !reserved.has(id));
 
     // This call has no single court to favour, unlike `proposeExclusively`,
-    // so it should seat as many players as it can rather than merely fill as
-    // many courts as it can — the two are not the same thing once sizes
-    // differ. Sorting idle courts smallest-first and taking a prefix (the
-    // natural-looking approach) is provably wrong: with a free doubles court
-    // and a free singles court and 4 players waiting, that offers the
-    // singles court first, seats 2, and leaves the doubles court idle with
-    // the other 2 still benched — even though filling the doubles court
-    // instead seats all 4 for the same one court used. Since a court is only
-    // ever 2 or 4, the exact best combination is cheap to find directly:
-    // try every count of doubles courts to use, greedily fill the rest with
-    // singles courts, and keep whichever total seats the most players. Ties
-    // (same total, different mix) keep the first found — iterating fewer
-    // doubles courts first means a tie prefers using more courts of the
-    // idle set rather than fewer, which fits this endpoint's own name.
-    const idleDoublesCourts = idleCourts.filter(
-      (n) => formatAt(session.courtFormats, n) === 'doubles'
-    );
-    const idleSinglesCourts = idleCourts.filter(
-      (n) => formatAt(session.courtFormats, n) === 'singles'
-    );
+    // so it seats as many players as it can rather than merely filling as
+    // many courts as it can — see `chooseSeatingOrder` for why a
+    // smallest-first prefix of idle courts is provably wrong here.
+    if (this.chooseSeatingOrder(idleCourts, session, available.length).length === 0) {
+      return this.fillOutcome([], [], []);
+    }
 
-    let bestSeated = 0;
-    let bestDoublesUsed = 0;
-    let bestSinglesUsed = 0;
-    for (let doublesUsed = 0; doublesUsed <= idleDoublesCourts.length; doublesUsed++) {
-      const remaining = available.length - doublesUsed * 4;
-      if (remaining < 0) break;
-      const singlesUsed = Math.min(idleSinglesCourts.length, Math.floor(remaining / 2));
-      const seated = doublesUsed * 4 + singlesUsed * 2;
-      if (seated > bestSeated) {
-        bestSeated = seated;
-        bestDoublesUsed = doublesUsed;
-        bestSinglesUsed = singlesUsed;
+    const group = await this.fillEngineGroup(
+      session,
+      session.mode as SessionMode,
+      idleCourts,
+      available,
+      new Set(roster.map((r) => r.playerId))
+    );
+    return this.fillOutcome(group.filled, group.blocked, group.inconclusive);
+  }
+
+  /**
+   * `ok` only when something was filled. Nothing filled is reported by its
+   * actual cause — a rule, an inconclusive search, or a head count — and a
+   * partial fill always lists what it could not do rather than claiming
+   * every court succeeded.
+   */
+  private fillOutcome(filled: number[], blocked: FillBlocked[], inconclusive: number[]) {
+    if (filled.length > 0) return { ok: true as const, filled, blocked, inconclusive };
+    const reason =
+      blocked.length > 0
+        ? ('pair-rules-blocked' as const)
+        : inconclusive.length > 0
+          ? ('pair-rule-search-limit' as const)
+          : ('not-enough-players' as const);
+    return { ok: false as const, reason, filled, blocked, inconclusive };
+  }
+
+  /**
+   * One `generateRound` call over the courts sharing one mode, written in a
+   * single transaction. Rules use the 'partial' policy: the most seats that
+   * can be filled legally are, and every chosen court left out is reported
+   * as blocked (proven) or inconclusive (search limit) — never silently
+   * dropped. Court numbers come from the engine's court index, never
+   * renumbered.
+   */
+  private async fillEngineGroup(
+    session: Session,
+    mode: SessionMode,
+    courtNumbers: number[],
+    candidates: string[],
+    activeIds: ReadonlySet<string>
+  ): Promise<{ filled: number[]; blocked: FillBlocked[]; inconclusive: number[]; seated: Set<string> }> {
+    const ruled = await this.engineRulesFor(session, activeIds, candidates);
+    const seatsIn = (ns: number[]) =>
+      ns.reduce((sum, n) => sum + courtSizeFor(formatAt(session.courtFormats, n)), 0);
+    const couldSeat = this.chooseSeatingOrder(courtNumbers, session, candidates.length);
+    const chosen = this.chooseSeatingOrder(courtNumbers, session, ruled.pool.length);
+    const blocked: FillBlocked[] = [];
+    // A must-pair partner busy elsewhere shrank the pool below what these
+    // courts could otherwise seat.
+    if (seatsIn(chosen) < seatsIn(couldSeat)) {
+      for (const n of couldSeat) {
+        if (!chosen.includes(n)) blocked.push({ courtNumber: n, ruleIds: ruled.strandedRuleIds });
       }
     }
+    if (chosen.length === 0) return { filled: [], blocked, inconclusive: [], seated: new Set() };
 
-    if (idleCourts.length === 0 || bestSeated === 0) {
-      return { ok: false as const, reason: 'not-enough-players' as const, filled: [] as number[] };
-    }
-
-    const chosenCourts = [
-      ...idleDoublesCourts.slice(0, bestDoublesUsed),
-      ...idleSinglesCourts.slice(0, bestSinglesUsed),
-    ];
-    const sizes: CourtSize[] = chosenCourts.map((n) => courtSizeFor(formatAt(session.courtFormats, n)));
-
-    const history = await this.loadHistory(session.groupId, sessionCode);
-    const ratings = await this.ratingsForMode(session);
+    const sizes: CourtSize[] = chosen.map((n) => courtSizeFor(formatAt(session.courtFormats, n)));
+    const level = isLevelMode(mode);
+    const history = await this.loadHistory(session.groupId, session.code);
+    const ratings = mode === 'balanced' ? await this.loadRatings(session.groupId) : undefined;
     const levels = await loadPlayerLevels(this.prisma, session.groupId);
-    const queueBy: 'games' | 'wait' = isLevelMode(session.mode) ? 'wait' : 'games';
-    const carry = isLevelMode(session.mode) ? await this.loadCarryEligibility(session) : undefined;
-    const result = this.runGenerateRound(
-      available,
-      sizes,
-      history,
-      undefined,
-      undefined,
-      ratings,
-      levels,
-      isLevelMode(session.mode),
-      queueBy,
-      carry?.carryEligible,
-      carry?.carriedTonight
-    );
+    const carry = level ? await this.loadCarryEligibility(session) : undefined;
+
+    let result: ReturnType<typeof generateRound>;
+    try {
+      result = this.runGenerateRound(
+        ruled.pool,
+        sizes,
+        history,
+        undefined,
+        undefined,
+        ratings,
+        levels,
+        level,
+        level ? 'wait' : 'games',
+        carry?.carryEligible,
+        carry?.carriedTonight,
+        ruled.rules,
+        'partial'
+      );
+    } catch (error) {
+      if (error instanceof NoLegalRuleMatchError) {
+        blocked.push(...chosen.map((courtNumber) => ({ courtNumber, ruleIds: error.ruleIds })));
+        return { filled: [], blocked, inconclusive: [], seated: new Set() };
+      }
+      if (error instanceof PairRuleSearchLimitError) {
+        return { filled: [], blocked, inconclusive: chosen, seated: new Set() };
+      }
+      throw error;
+    }
 
     const filled = await this.prisma.$transaction(async (tx) => {
       const written: number[] = [];
       for (const assignment of result.courts) {
-        const courtNumber = chosenCourts[assignment.court - 1];
+        const courtNumber = chosen[assignment.court - 1];
         const matchNumber =
           (await tx.pairing.count({
-            where: { sessionId: sessionCode, courtNumber, confirmedAt: { not: null } },
+            where: { sessionId: session.code, courtNumber, confirmedAt: { not: null } },
           })) + 1;
         await tx.pairing.create({
           data: {
-            sessionId: sessionCode,
+            sessionId: session.code,
             courtNumber,
             matchNumber,
             teamA: JSON.stringify(assignment.teamA),
@@ -2269,7 +2474,20 @@ export class SessionsService {
       return written;
     });
 
-    return { ok: true as const, filled };
+    // Only rules can leave a court chosen for its seat count unfilled.
+    const unfilled = chosen.filter((n) => !filled.includes(n));
+    if (unfilled.length > 0) {
+      const touching = rulesTouching(result.sittingOut, ruled.rules);
+      const ruleIds = touching.length > 0 ? touching : ruled.rules.map((r) => r.id);
+      blocked.push(...unfilled.map((courtNumber) => ({ courtNumber, ruleIds })));
+    }
+
+    return {
+      filled,
+      blocked,
+      inconclusive: [],
+      seated: new Set(result.courts.flatMap((c) => [...c.teamA, ...c.teamB])),
+    };
   }
 
   setRosterActive(sessionCode: string, playerId: string, dto: SetRosterActiveDto) {

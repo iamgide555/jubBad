@@ -3,6 +3,8 @@
  * place `Session.disabledRuleIds` is parsed.
  */
 
+import { isLegalCourt, type PairRule as EnginePairRule } from '../../../engines/pair-rules.ts';
+
 export class InvalidDisabledRuleIdsError extends Error {}
 
 /**
@@ -39,4 +41,35 @@ export function enabledRules<T extends RuleLike>(rules: readonly T[], disabledId
 /** A rule binds only while both of its players are active on the roster. */
 export function applicableRules<T extends RuleLike>(rules: readonly T[], activeIds: ReadonlySet<string>): T[] {
   return rules.filter((r) => activeIds.has(r.playerAId) && activeIds.has(r.playerBId));
+}
+
+/**
+ * The rules an engine call may see: only those with both players among
+ * `participants` (the engine refuses anything else). A must-pair player whose
+ * partner is active but not a participant — seated on another court — is
+ * `stranded`: they cannot legally play without that partner, so the caller
+ * drops them from the pool rather than letting a proposal seat them alone.
+ */
+export function rulesForParticipants<T extends RuleLike & { kind: string }>(
+  rules: readonly T[],
+  participants: ReadonlySet<string>
+): { rules: T[]; stranded: Map<string, string> } {
+  const inside: T[] = [];
+  const stranded = new Map<string, string>(); // player id -> rule id
+  for (const r of rules) {
+    const a = participants.has(r.playerAId);
+    const b = participants.has(r.playerBId);
+    if (a && b) inside.push(r);
+    else if (r.kind === 'must-pair' && (a || b)) stranded.set(a ? r.playerAId : r.playerBId, r.id);
+  }
+  return { rules: inside, stranded };
+}
+
+/** Which rules one full court breaks, in rule order. */
+export function violatedRules(
+  teamA: readonly string[],
+  teamB: readonly string[],
+  rules: readonly EnginePairRule[]
+): string[] {
+  return rules.filter((r) => !isLegalCourt(teamA, teamB, [r])).map((r) => r.id);
 }

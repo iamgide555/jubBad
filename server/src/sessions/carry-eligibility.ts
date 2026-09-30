@@ -7,6 +7,7 @@
 
 import { isFarBelow } from '../../../engines/levels.ts';
 import type { Level } from '../../../engines/levels.ts';
+import type { CarryOutcome } from './carry-outcomes.js';
 
 export interface CarryInputs {
   /** Active roster player ids tonight. */
@@ -15,8 +16,11 @@ export interface CarryInputs {
   levels: ReadonlyMap<string, Level | null>;
   /** Player id -> Player.levelSetAt (epoch ms), for players ever tagged. */
   levelSetAt: ReadonlyMap<string, number>;
-  /** This session's confirmed pairings: each entry's player ids + confirmedAt (epoch ms). */
-  confirmedPairingsTonight: { playerIds: string[]; confirmedAt: number }[];
+  /** This session's confirmed pairings: each entry's player ids + confirmedAt
+   *  (epoch ms), plus any linked-carry outcomes snapshotted at confirmation.
+   *  A player with no outcome on a pairing (legacy `[]`, or unlinked) keeps
+   *  the any-game rule; a player with one counts only a non-null partner. */
+  confirmedPairingsTonight: { playerIds: string[]; confirmedAt: number; carryOutcomes?: CarryOutcome[] }[];
 }
 
 export interface CarryEligibility {
@@ -31,10 +35,15 @@ export function computeCarryEligibility(input: CarryInputs): CarryEligibility {
     input.activeRosterIds.map((id) => [id, input.levels.get(id) ?? null] as const)
   );
 
+  const outcomeFor = (p: CarryInputs['confirmedPairingsTonight'][number], id: string) =>
+    p.carryOutcomes?.find((o) => o.playerId === id);
+
   const playedSince = (id: string, sinceMs: number): boolean =>
-    input.confirmedPairingsTonight.some(
-      (p) => p.confirmedAt >= sinceMs && p.playerIds.includes(id)
-    );
+    input.confirmedPairingsTonight.some((p) => {
+      if (p.confirmedAt < sinceMs || !p.playerIds.includes(id)) return false;
+      const outcome = outcomeFor(p, id);
+      return outcome === undefined || outcome.partnerId !== null;
+    });
 
   const carryEligible = new Set<string>();
   for (const id of input.activeRosterIds) {
@@ -51,10 +60,17 @@ export function computeCarryEligibility(input: CarryInputs): CarryEligibility {
   // out of carryEligible — their partner did carry them, and should stay
   // deprioritised as the next carry's pro.
   const carriedTonight = new Set<string>();
+  // A linked game counts only its snapshotted teammate, never opponents.
   for (const p of input.confirmedPairingsTonight) {
-    if (!p.playerIds.some((id) => isFarBelow(id, activeLevels))) continue;
-    for (const id of p.playerIds) {
-      if (!isFarBelow(id, activeLevels)) carriedTonight.add(id);
+    for (const farBelow of p.playerIds.filter((id) => isFarBelow(id, activeLevels))) {
+      const outcome = outcomeFor(p, farBelow);
+      if (outcome) {
+        if (outcome.partnerId !== null) carriedTonight.add(outcome.partnerId);
+        continue;
+      }
+      for (const id of p.playerIds) {
+        if (!isFarBelow(id, activeLevels)) carriedTonight.add(id);
+      }
     }
   }
 

@@ -6480,4 +6480,327 @@ describe('SessionsController', () => {
     });
   });
 
+  describe('pair rule enforcement', () => {
+    const ruleFixture = async (playerCount: number, courtCount: number, mode?: string) => {
+      const f = await formatFixture(playerCount, courtCount);
+      if (mode) await prisma.session.update({ where: { code: f.sessionCode }, data: { mode } });
+      const ids = f.players.map((p) => p.id);
+      const addRule = (i: number, j: number, kind: string) => {
+        const [a, b] = [ids[i], ids[j]].sort();
+        return prisma.playerRule.create({ data: { groupId: f.groupCode, playerAId: a, playerBId: b, kind } });
+      };
+      const pending = (courtNumber: number, teamA: (string | null)[], teamB: (string | null)[], confirmed = false) =>
+        prisma.pairing.create({
+          data: {
+            sessionId: f.sessionCode,
+            courtNumber,
+            matchNumber: 1,
+            teamA: JSON.stringify(teamA),
+            teamB: JSON.stringify(teamB),
+            pendingSince: new Date(),
+            confirmedAt: confirmed ? new Date() : null,
+          },
+        });
+      const cleanup = async () => {
+        await prisma.pairing.deleteMany({ where: { sessionId: f.sessionCode } });
+        await prisma.playerRule.deleteMany({ where: { groupId: f.groupCode } });
+        await f.cleanup();
+      };
+      return { ...f, ids, addRule, pending, cleanup };
+    };
+    const onSameTeam = (p: { teamA: string[]; teamB: string[] }, x: string, y: string) =>
+      (p.teamA.includes(x) && p.teamA.includes(y)) || (p.teamB.includes(x) && p.teamB.includes(y));
+
+    it('pair rule: propose and reshuffle never split a never-teammates pair onto one team', async () => {
+      const f = await ruleFixture(4, 1);
+      try {
+        await f.addRule(0, 1, 'never-teammates');
+        for (let i = 0; i < 4; i++) {
+          const res = await request(server).post(`/sessions/${f.sessionCode}/courts/1/propose`).expect(201);
+          expect(res.body.ok).toBe(true);
+          expect(onSameTeam(res.body.pairing, f.ids[0], f.ids[1])).toBe(false);
+        }
+      } finally {
+        await f.cleanup();
+      }
+    });
+
+    it('pair rule: a blocked propose names the rules, writes nothing, and is not not-enough-players', async () => {
+      const f = await ruleFixture(4, 1);
+      try {
+        const rule = await f.addRule(0, 1, 'never-same-court');
+        const res = await request(server).post(`/sessions/${f.sessionCode}/courts/1/propose`).expect(201);
+        expect(res.body).toEqual({ ok: false, reason: 'pair-rules-blocked', ruleIds: [rule.id] });
+        expect(await prisma.pairing.count({ where: { sessionId: f.sessionCode } })).toBe(0);
+      } finally {
+        await f.cleanup();
+      }
+    });
+
+    it('pair rule: disabling the rule for this session, or resting one player, lifts it', async () => {
+      const f = await ruleFixture(5, 1);
+      try {
+        const rule = await f.addRule(0, 1, 'never-same-court');
+        await prisma.sessionRoster.updateMany({ where: { sessionId: f.sessionCode, playerId: f.ids[4] }, data: { active: false } });
+        const blocked = await request(server).post(`/sessions/${f.sessionCode}/courts/1/propose`).expect(201);
+        expect(blocked.body.reason).toBe('pair-rules-blocked');
+
+        await prisma.session.update({ where: { code: f.sessionCode }, data: { disabledRuleIds: JSON.stringify([rule.id]) } });
+        const open = await request(server).post(`/sessions/${f.sessionCode}/courts/1/propose`).expect(201);
+        expect(open.body.ok).toBe(true);
+        await prisma.pairing.deleteMany({ where: { sessionId: f.sessionCode } });
+
+        await prisma.session.update({ where: { code: f.sessionCode }, data: { disabledRuleIds: '[]' } });
+        await prisma.sessionRoster.updateMany({ where: { sessionId: f.sessionCode, playerId: f.ids[4] }, data: { active: true } });
+        await prisma.sessionRoster.updateMany({ where: { sessionId: f.sessionCode, playerId: f.ids[1] }, data: { active: false } });
+        const rested = await request(server).post(`/sessions/${f.sessionCode}/courts/1/propose`).expect(201);
+        expect(rested.body.ok).toBe(true);
+      } finally {
+        await f.cleanup();
+      }
+    });
+
+    it('pair rule: a must-pair player whose partner is busy on another court is not seated alone', async () => {
+      const f = await ruleFixture(8, 2);
+      try {
+        await f.addRule(0, 1, 'must-pair');
+        await f.pending(1, [f.ids[1], f.ids[5]], [f.ids[6], f.ids[7]], true);
+        const res = await request(server).post(`/sessions/${f.sessionCode}/courts/2/propose`).expect(201);
+        expect(res.body).toMatchObject({ ok: false, reason: 'pair-rules-blocked' });
+      } finally {
+        await f.cleanup();
+      }
+    });
+
+    it('pair rule: fill-all reports filled and blocked courts rather than an unqualified success', async () => {
+      const f = await ruleFixture(8, 2);
+      try {
+        await f.addRule(0, 1, 'never-same-court');
+        await f.addRule(0, 2, 'never-same-court');
+        await f.addRule(1, 2, 'never-same-court');
+        const res = await request(server).post(`/sessions/${f.sessionCode}/courts/fill`).expect(201);
+        expect(res.body.ok).toBe(true);
+        expect(res.body.filled).toHaveLength(1);
+        expect(res.body.blocked).toHaveLength(1);
+        expect(res.body.blocked[0].courtNumber).not.toBe(res.body.filled[0]);
+        expect(res.body.blocked[0].ruleIds.length).toBeGreaterThan(0);
+        expect(res.body.inconclusive).toEqual([]);
+      } finally {
+        await f.cleanup();
+      }
+    });
+
+    it('pair rule: fill-all with nothing legal is ok:false pair-rules-blocked', async () => {
+      const f = await ruleFixture(4, 1);
+      try {
+        const rule = await f.addRule(2, 3, 'never-same-court');
+        const res = await request(server).post(`/sessions/${f.sessionCode}/courts/fill`).expect(201);
+        expect(res.body).toEqual({
+          ok: false,
+          reason: 'pair-rules-blocked',
+          filled: [],
+          blocked: [{ courtNumber: 1, ruleIds: [rule.id] }],
+          inconclusive: [],
+        });
+      } finally {
+        await f.cleanup();
+      }
+    });
+
+    it('pair rule: an inconclusive search is 503 PAIR_RULE_SEARCH_LIMIT on propose and inconclusive on fill-all', async () => {
+      const f = await ruleFixture(16, 4);
+      try {
+        for (let i = 11; i < 16; i++) for (let j = i + 1; j < 16; j++) await f.addRule(i, j, 'never-same-court');
+        // Same shape as the engine's inconclusive case: the clique is furthest back in the queue.
+        await prisma.sessionRoster.updateMany({
+          where: { sessionId: f.sessionCode, playerId: { in: f.ids.slice(11) } },
+          data: { gamesOffset: 5 },
+        });
+        const res = await request(server).post(`/sessions/${f.sessionCode}/courts/1/propose`).expect(503);
+        expect(res.body.code).toBe('PAIR_RULE_SEARCH_LIMIT');
+        const fill = await request(server).post(`/sessions/${f.sessionCode}/courts/fill`).expect(201);
+        expect(fill.body.inconclusive).toEqual([1, 2, 3, 4]);
+        expect(fill.body.ok).toBe(false);
+      } finally {
+        await f.cleanup();
+      }
+    }, 20_000);
+
+    it('pair rule: confirm refuses a full pending match that breaks a rule added after it was proposed', async () => {
+      const f = await ruleFixture(4, 1);
+      try {
+        const p = await f.pending(1, [f.ids[0], f.ids[1]], [f.ids[2], f.ids[3]]);
+        const rule = await f.addRule(0, 1, 'never-teammates');
+        const res = await request(server).post(`/sessions/${f.sessionCode}/pairings/${p.id}/confirm`).expect(409);
+        expect(res.body).toMatchObject({ code: 'PAIR_RULE_VIOLATION', ruleIds: [rule.id] });
+      } finally {
+        await f.cleanup();
+      }
+    });
+
+    it('pair rule: an active match that breaks a new rule still finishes', async () => {
+      const f = await ruleFixture(4, 1);
+      try {
+        const p = await f.pending(1, [f.ids[0], f.ids[1]], [f.ids[2], f.ids[3]], true);
+        await f.addRule(0, 1, 'never-teammates');
+        await request(server)
+          .post(`/sessions/${f.sessionCode}/pairings/${p.id}/finish`)
+          .send({ winner: 'A' })
+          .expect(201);
+      } finally {
+        await f.cleanup();
+      }
+    });
+
+    it('pair rule: undo of a confirm returns a pending match subject to current rules', async () => {
+      const f = await ruleFixture(4, 1);
+      try {
+        const p = await f.pending(1, [f.ids[0], f.ids[1]], [f.ids[2], f.ids[3]]);
+        await request(server).post(`/sessions/${f.sessionCode}/pairings/${p.id}/confirm`).expect(201);
+        await f.addRule(0, 1, 'never-teammates');
+        await request(server).post(`/sessions/${f.sessionCode}/courts/1/undo`).expect(201);
+        const res = await request(server).post(`/sessions/${f.sessionCode}/pairings/${p.id}/confirm`).expect(409);
+        expect(res.body.code).toBe('PAIR_RULE_VIOLATION');
+      } finally {
+        await f.cleanup();
+      }
+    });
+
+    it('pair rule: a chosen swap or cross-court trade that completes a violation is refused and writes nothing', async () => {
+      const f = await ruleFixture(9, 2);
+      try {
+        await f.addRule(0, 4, 'never-same-court');
+        const near = await f.pending(1, [f.ids[0], f.ids[1]], [f.ids[2], f.ids[3]]);
+        const far = await f.pending(2, [f.ids[5], f.ids[6]], [f.ids[7], f.ids[4]]);
+        const idle = await request(server)
+          .post(`/sessions/${f.sessionCode}/pairings/${near.id}/swap`)
+          .send({ playerId: f.ids[1], withPlayerId: f.ids[4] })
+          .expect(409);
+        expect(idle.body.code).toBe('PAIR_RULE_VIOLATION');
+        await prisma.pairing.update({ where: { id: far.id }, data: { teamB: JSON.stringify([f.ids[7], f.ids[8]]) } });
+        await f.addRule(0, 6, 'never-same-court');
+        const trade = await request(server)
+          .post(`/sessions/${f.sessionCode}/pairings/${near.id}/swap`)
+          .send({ playerId: f.ids[0], withPlayerId: f.ids[5] })
+          .expect(409);
+        expect(trade.body.code).toBe('PAIR_RULE_VIOLATION');
+        const rows = await prisma.pairing.findMany({ where: { sessionId: f.sessionCode }, orderBy: { courtNumber: 'asc' } });
+        expect(JSON.parse(rows[0].teamA)).toEqual([f.ids[0], f.ids[1]]);
+        expect(JSON.parse(rows[1].teamA)).toEqual([f.ids[5], f.ids[6]]);
+      } finally {
+        await f.cleanup();
+      }
+    });
+
+    it('pair rule: auto-pick swap only picks a legal substitute', async () => {
+      const f = await ruleFixture(6, 1);
+      try {
+        await f.addRule(0, 4, 'never-same-court');
+        const p = await f.pending(1, [f.ids[0], f.ids[1]], [f.ids[2], f.ids[3]]);
+        const res = await request(server)
+          .post(`/sessions/${f.sessionCode}/pairings/${p.id}/swap`)
+          .send({ playerId: f.ids[3] })
+          .expect(201);
+        expect(res.body.pairing.teamB).toEqual([f.ids[2], f.ids[5]]);
+      } finally {
+        await f.cleanup();
+      }
+    });
+
+    it('pair rule: manual seats allow an incomplete draft but refuse completing a violation', async () => {
+      const f = await ruleFixture(4, 1, 'custom');
+      try {
+        await f.addRule(0, 1, 'never-teammates');
+        const p = await f.pending(1, [f.ids[0], null], [f.ids[2], f.ids[3]]);
+        const res = await request(server)
+          .post(`/sessions/${f.sessionCode}/pairings/${p.id}/seats`)
+          .send({ team: 'A', index: 1, playerId: f.ids[1] })
+          .expect(409);
+        expect(res.body.code).toBe('PAIR_RULE_VIOLATION');
+        await prisma.pairing.delete({ where: { id: p.id } });
+        const draft = await f.pending(1, [null, null], [null, null]);
+        await request(server)
+          .post(`/sessions/${f.sessionCode}/pairings/${draft.id}/seats`)
+          .send({ team: 'A', index: 0, playerId: f.ids[1] })
+          .expect(201);
+      } finally {
+        await f.cleanup();
+      }
+    });
+
+    it('pair rule: custom auto-pair fills around the seated player legally', async () => {
+      const f = await ruleFixture(4, 1, 'custom');
+      try {
+        await f.addRule(0, 1, 'never-teammates');
+        const p = await f.pending(1, [f.ids[0], null], [null, null]);
+        const res = await request(server).post(`/sessions/${f.sessionCode}/pairings/${p.id}/autopair`).send({}).expect(201);
+        expect(res.body.ok).toBe(true);
+        expect(res.body.pairing.teamA).not.toContain(f.ids[1]);
+      } finally {
+        await f.cleanup();
+      }
+    });
+
+    it('pair rule: custom auto-pair with no legal fill is blocked, not not-enough-players', async () => {
+      const f = await ruleFixture(4, 1, 'custom');
+      try {
+        const rule = await f.addRule(0, 1, 'never-same-court');
+        const p = await f.pending(1, [f.ids[0], null], [null, null]);
+        const res = await request(server).post(`/sessions/${f.sessionCode}/pairings/${p.id}/autopair`).send({}).expect(201);
+        expect(res.body).toEqual({ ok: false, reason: 'pair-rules-blocked', ruleIds: [rule.id] });
+      } finally {
+        await f.cleanup();
+      }
+    });
+
+    it('linked carry: confirm snapshots outcomes, undo of confirm clears them, a disabled link writes none', async () => {
+      const f = await ruleFixture(4, 1, 'level');
+      try {
+        const levels = ['BG', 'P', 'P', 'P'];
+        for (const [i, level] of levels.entries()) {
+          await prisma.player.update({ where: { id: f.ids[i] }, data: { level, levelSetAt: new Date(0) } });
+        }
+        const rule = await f.addRule(0, 1, 'must-pair');
+        const p = await f.pending(1, [f.ids[0], f.ids[1]], [f.ids[2], f.ids[3]]);
+        await request(server).post(`/sessions/${f.sessionCode}/pairings/${p.id}/confirm`).expect(201);
+        const row = await prisma.pairing.findUniqueOrThrow({ where: { id: p.id } });
+        expect(JSON.parse(row.carryOutcomes)).toEqual([
+          { playerId: f.ids[0], partnerId: f.ids[1] },
+          { playerId: f.ids[1], partnerId: null },
+        ]);
+
+        await request(server).post(`/sessions/${f.sessionCode}/courts/1/undo`).expect(201);
+        expect((await prisma.pairing.findUniqueOrThrow({ where: { id: p.id } })).carryOutcomes).toBe('[]');
+
+        await prisma.session.update({ where: { code: f.sessionCode }, data: { disabledRuleIds: JSON.stringify([rule.id]) } });
+        await request(server).post(`/sessions/${f.sessionCode}/pairings/${p.id}/confirm`).expect(201);
+        expect((await prisma.pairing.findUniqueOrThrow({ where: { id: p.id } })).carryOutcomes).toBe('[]');
+      } finally {
+        await f.cleanup();
+      }
+    });
+
+    it('linked carry: malformed stored outcomes fail visibly instead of completing a carry', async () => {
+      const f = await ruleFixture(4, 1, 'level');
+      try {
+        await prisma.pairing.create({
+          data: {
+            sessionId: f.sessionCode,
+            courtNumber: 1,
+            matchNumber: 1,
+            teamA: JSON.stringify([f.ids[0], f.ids[1]]),
+            teamB: JSON.stringify([f.ids[2], f.ids[3]]),
+            confirmedAt: new Date(),
+            endedAt: new Date(),
+            winner: 'A',
+            carryOutcomes: 'not json',
+          },
+        });
+        const res = await request(server).post(`/sessions/${f.sessionCode}/courts/1/propose`).expect(500);
+        expect(res.body.code).toBe('INVALID_SESSION_STATE');
+      } finally {
+        await f.cleanup();
+      }
+    });
+  });
 });

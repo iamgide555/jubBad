@@ -3,7 +3,9 @@ import { FormsModule } from '@angular/forms';
 import { PressDirective } from '../../../core/motion/press.directive';
 import { ClockService } from '../../../core/clock.service';
 import { elapsedSeconds, formatClock } from '../../../core/game-duration';
-import { LiveSessionService } from '../../../core/live-session.service';
+import { LiveSessionService, type ActionResult } from '../../../core/live-session.service';
+import { describeRules } from '../../../core/pair-rule.model';
+import { isLegalCourt } from '../../../../../../engines/pair-rules.ts';
 import { resolvePlayerNames } from '../../../core/player-names';
 import { SwapSelectionService, type SwapPick } from '../../../core/swap-selection.service';
 import type { CourtFormat, CourtMode, CourtState, Seat } from '../../../core/live-session.model';
@@ -173,7 +175,7 @@ export class CourtPanel {
     this.actionError.set(null);
     try {
       const result = await this.liveSession.setCourtMode(this.courtNumber(), mode);
-      this.actionError.set(result.error ?? null);
+      this.actionError.set(this.failureMessage(result));
     } finally {
       this.busy.set(false);
     }
@@ -251,7 +253,59 @@ export class CourtPanel {
     return Math.round((deadline - now) / 1000);
   });
 
+  /**
+   * Enabled rules this pending lineup breaks — typically a rule added or
+   * switched back on after the proposal. The server will neither confirm
+   * nor auto-confirm it, so the countdown is hidden and confirm disabled
+   * until the host swaps or reshuffles. Only rules whose two players are
+   * both available tonight apply, mirroring the server. Active matches are
+   * never flagged: they are already being played.
+   */
+  protected readonly ruleConflictIds = computed<string[]>(() => {
+    const c = this.court();
+    if (c.status !== 'pending') return [];
+    if ([...c.teamA, ...c.teamB].some((id) => id === null)) return [];
+    const session = this.liveSession.sessionResource.value();
+    const resting = new Set(session?.restingPlayerIds ?? []);
+    const available = new Set((session?.rosterPlayerIds ?? []).filter((id) => !resting.has(id)));
+    const teamA = c.teamA as string[];
+    const teamB = c.teamB as string[];
+    return this.liveSession
+      .enabledRules()
+      .filter((r) => available.has(r.playerAId) && available.has(r.playerBId))
+      .filter((r) => !isLegalCourt(teamA, teamB, [r]))
+      .map((r) => r.id);
+  });
+
+  protected readonly ruleConflictMessage = computed(() =>
+    this.withRules(
+      $localize`:@@court.ruleConflict:ไลน์อัปนี้ขัดกับกฎการจับคู่`,
+      this.ruleConflictIds()
+    )
+  );
+
+  /** Appends "ตั้ม · มด (คู่กัน)" for each known rule, if any. */
+  private withRules(message: string, ruleIds: readonly string[] | undefined): string {
+    const rules = describeRules(ruleIds ?? [], this.liveSession.sessionRules()?.rules ?? [], this.players());
+    return rules ? `${message}: ${rules}` : message;
+  }
+
+  /** The on-court message for a failed action, rule-aware. */
+  private failureMessage(result: ActionResult): string | null {
+    if (result.reason === 'pair-rules-blocked') {
+      return this.withRules(
+        $localize`:@@court.rulesBlocked:จัดคอร์ทนี้ไม่ได้เพราะกฎการจับคู่`,
+        result.ruleIds
+      );
+    }
+    if (result.reason === 'pair-rule-search-limit') {
+      return $localize`:@@err.code.pairRuleSearchLimit:กฎการจับคู่ซับซ้อนเกินไป หาคู่ไม่ทัน ลองใหม่หรือปิดกฎบางข้อคืนนี้`;
+    }
+    return result.error ? this.withRules(result.error, result.ruleIds) : null;
+  }
+
   protected readonly autoStartLabel = computed<string | null>(() => {
+    if (this.ruleConflictIds().length > 0) return null;
     const seconds = this.autoStartSecondsRemaining();
     if (seconds === null) return null;
     if (seconds <= 0) return $localize`:@@court.autoStarting:กำลังเริ่ม…`;
@@ -316,7 +370,7 @@ export class CourtPanel {
           ? available
           : null
       );
-      this.actionError.set(result.error ?? null);
+      this.actionError.set(this.failureMessage(result));
     } finally {
       this.busy.set(false);
     }
@@ -332,7 +386,7 @@ export class CourtPanel {
     this.actionError.set(null);
     try {
       const result = await this.liveSession.setCourtFormat(this.courtNumber(), format);
-      this.actionError.set(result.error ?? null);
+      this.actionError.set(this.failureMessage(result));
     } finally {
       this.busy.set(false);
     }
@@ -398,7 +452,7 @@ export class CourtPanel {
     this.actionError.set(null);
     try {
       const result = await this.liveSession.setSeat(pairingId, team, index, playerId);
-      this.actionError.set(result.error ?? null);
+      this.actionError.set(this.failureMessage(result));
     } finally {
       this.busy.set(false);
     }
@@ -414,7 +468,7 @@ export class CourtPanel {
       const result = await this.liveSession.autoPair(pairingId);
       const short = !result.ok && result.reason === 'not-enough-players';
       this.notEnoughPlayers.set(short);
-      this.actionError.set(result.error ?? null);
+      this.actionError.set(this.failureMessage(result));
     } finally {
       this.busy.set(false);
     }
@@ -446,7 +500,7 @@ export class CourtPanel {
     try {
       const result = await this.liveSession.swapPlayer(pairingId, playerId, withPlayerId);
       this.noSubstitute.set(!result.ok && result.reason === 'no-substitute');
-      this.actionError.set(result.error ?? null);
+      this.actionError.set(this.failureMessage(result));
     } finally {
       this.busy.set(false);
     }
@@ -473,7 +527,7 @@ export class CourtPanel {
         this.actionError.set($localize`:@@court.nothingToUndo:ไม่มีอะไรให้ย้อนกลับ`);
         return;
       }
-      this.actionError.set(result.error ?? null);
+      this.actionError.set(this.failureMessage(result));
     } finally {
       this.busy.set(false);
     }
@@ -486,7 +540,7 @@ export class CourtPanel {
     this.actionError.set(null);
     try {
       const result = await this.liveSession.confirmMatch(c.pairingId);
-      this.actionError.set(result.error ?? null);
+      this.actionError.set(this.failureMessage(result));
     } finally {
       this.busy.set(false);
     }
@@ -501,7 +555,7 @@ export class CourtPanel {
     try {
       const scores = winner === null ? [null, null] : [this.scoreA(), this.scoreB()];
       const result = await this.liveSession.finishMatch(c.pairingId, scores[0], scores[1], winner);
-      this.actionError.set(result.error ?? null);
+      this.actionError.set(this.failureMessage(result));
       if (!result.ok) return;
       this.scoreA.set(null);
       this.scoreB.set(null);

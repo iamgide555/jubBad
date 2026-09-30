@@ -96,6 +96,10 @@ describe('SessionDashboard', () => {
     for (const req of httpMock.match((r) => r.url.endsWith('/levels'))) {
       req.flush({});
     }
+    // Pair rules are host-only and loaded the same fire-and-forget way.
+    for (const req of httpMock.match((r) => r.url.endsWith('/sessions/sess1/rules'))) {
+      req.flush({ rules: [], disabledRuleIds: [] });
+    }
     httpMock.verify();
   });
 
@@ -1376,4 +1380,90 @@ describe('SessionDashboard', () => {
     for (const r of httpMock.match(`${B}/sessions/sess1/stats?scope=session`)) r.flush([]);
   });
 
+  describe('pair rules', () => {
+    const rule = {
+      id: 'r1',
+      groupId: 'g1',
+      playerAId: 'p1',
+      playerBId: 'p2',
+      kind: 'never-teammates' as const,
+      createdAt: '2026-09-30T00:00:00.000Z',
+    };
+    const text = () => (fixture.nativeElement as HTMLElement).textContent ?? '';
+
+    async function flushRules(disabledRuleIds: string[] = [], rules = [rule]) {
+      for (const r of httpMock.match(`${B}/sessions/sess1/rules`)) r.flush({ rules, disabledRuleIds });
+      await fixture.whenStable();
+      fixture.detectChanges();
+    }
+
+    function ruleToggle(): HTMLInputElement {
+      return (fixture.nativeElement as HTMLElement).querySelector('.session-rules input[type="checkbox"]')!;
+    }
+
+    it('switches a group rule off for tonight only, then back on', async () => {
+      await settled();
+      await flushRules();
+      expect(text()).toContain('ตั้ม · เบส');
+      expect(ruleToggle().checked).toBe(true);
+
+      ruleToggle().click();
+      const off = httpMock.expectOne(`${B}/sessions/sess1/rules/r1/toggle`);
+      expect(off.request.body).toEqual({ enabled: false });
+      off.flush({ ruleId: 'r1', enabled: false, disabledRuleIds: ['r1'] });
+      await drainReload(baseSession());
+      await flushRules(['r1']);
+      expect(ruleToggle().checked).toBe(false);
+
+      ruleToggle().click();
+      const on = httpMock.expectOne(`${B}/sessions/sess1/rules/r1/toggle`);
+      expect(on.request.body).toEqual({ enabled: true });
+      on.flush({ ruleId: 'r1', enabled: true, disabledRuleIds: [] });
+      await drainReload(baseSession());
+      await flushRules([]);
+      expect(ruleToggle().checked).toBe(true);
+      // The group's own rule list is never written from the dashboard.
+      expect(httpMock.match((r) => r.url.includes('/groups/group1/rules'))).toEqual([]);
+    });
+
+    it('picks up a rule added in another tab when the window regains focus', async () => {
+      await settled();
+      await flushRules([], []);
+      expect((fixture.nativeElement as HTMLElement).querySelector('.session-rules')).toBeNull();
+
+      window.dispatchEvent(new Event('focus'));
+      await drainReload(baseSession());
+      await flushRules();
+      // drainReload re-flushes the player list empty, so names read '?' here.
+      expect(text()).toContain('(ห้ามอยู่ด้วยกัน)');
+    });
+
+    async function fill(response: object) {
+      buttonWith('จัดคู่ทุกคอร์ทว่าง').click();
+      httpMock.expectOne(`${B}/sessions/sess1/courts/fill`).flush(response);
+      await drainReload(baseSession());
+      await fixture.whenStable();
+      fixture.detectChanges();
+    }
+
+    it('names the courts fill-all left empty because of rules, even when others filled', async () => {
+      await settled();
+      await flushRules();
+      await fill({ ok: true, filled: [1], blocked: [{ courtNumber: 2, ruleIds: ['r1'] }], inconclusive: [] });
+      expect(text()).toContain('คอร์ท 2 จัดไม่ได้เพราะกฎการจับคู่: ตั้ม · เบส (ห้ามอยู่ด้วยกัน)');
+    });
+
+    it('never reports a rule-blocked or search-limited fill as not enough players', async () => {
+      await settled();
+      await flushRules();
+      await fill({ ok: false, reason: 'pair-rules-blocked', filled: [], blocked: [{ courtNumber: 1, ruleIds: ['r1'] }], inconclusive: [] });
+      expect(text()).toContain('คอร์ท 1 จัดไม่ได้เพราะกฎการจับคู่');
+      expect(text()).not.toContain('ผู้เล่นไม่พอ');
+
+      await fill({ ok: false, reason: 'pair-rule-search-limit', filled: [], blocked: [], inconclusive: [1] });
+      expect(text()).toContain('คอร์ท 1 หาคู่ตามกฎไม่ทัน');
+      expect(text()).not.toContain('ผู้เล่นไม่พอ');
+    });
+  });
 });
+

@@ -414,3 +414,36 @@
   overflow-wrap: anywhere;
   font-weight: 700;
 }
+
+.session-rules {
+  margin: var(--space-2) 0;
+}
+
+.session-rules summary {
+  min-height: var(--tap);
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.session-rules ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.session-rule {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  min-height: var(--tap);
+  cursor: pointer;
+}
+
+.session-rule input {
+  width: 1.5rem;
+  min-height: 1.5rem;
+  flex: none;
+}
+

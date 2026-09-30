@@ -20,10 +20,14 @@ Done: `feat/level-rework`.
 `docs/archive/specs/2026-09-30-court-labels-design.md`. Done: court names
 on the session, shown on every reader (2026-09-30).
 
-#### - [ ] C. Pair rules — คู่กัน, ห้ามอยู่ด้วยกัน, ห้ามเล่นด้วยกัน
+#### - [x] C. Pair rules — คู่กัน, ห้ามอยู่ด้วยกัน, ห้ามเล่นด้วยกัน
 
 2026-09-27 real-host feedback. Revives the deferred C5 (fixed pairs). Depends
-on B. Not yet designed.
+on B. Design: `docs/archive/specs/2026-09-30-pair-rules-design.md`. Done:
+group rules on the player-roster page, tonight-only switches and rule-aware
+conflict messages on the dashboard, enforced by the engine and server
+(2026-09-30). The design questions below were settled there — notably manual
+seating refuses a violation rather than warning.
 
 Three rules a host sets between two players:
 

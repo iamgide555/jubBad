@@ -6,6 +6,18 @@ import { environment } from '../../environments/environment';
 import type { CourtFormat, CourtMode, CourtState } from './live-session.model';
 import type { Session } from './session.model';
 import type { Level } from '../../../../engines/levels.ts';
+import type { PairRule } from './pair-rule.model';
+
+/** A court fill-all could not seat because of pair rules. */
+export interface BlockedCourt {
+  courtNumber: number;
+  ruleIds: string[];
+}
+
+export interface SessionRules {
+  rules: PairRule[];
+  disabledRuleIds: string[];
+}
 
 interface ProposeResponse {
   ok: boolean;
@@ -15,6 +27,7 @@ interface ProposeResponse {
    *  rather than just "not enough players" when that would actually help. */
   available?: number;
   format?: CourtFormat;
+  ruleIds?: string[];
 }
 
 interface SwapResponse {
@@ -35,6 +48,31 @@ export interface ActionResult {
   /** Carried through from a `not-enough-players` propose response only. */
   available?: number;
   format?: CourtFormat;
+  /** The pair rules behind a `pair-rules-blocked` reason or a
+   *  PAIR_RULE_VIOLATION error. */
+  ruleIds?: string[];
+  /** Fill-all only, even on success: courts the rules kept empty, and
+   *  courts the rule search gave up on. Present only when non-empty. */
+  blocked?: BlockedCourt[];
+  inconclusive?: number[];
+}
+
+interface MutationResponse {
+  ok?: boolean;
+  reason?: string;
+  available?: number;
+  format?: CourtFormat;
+  ruleIds?: string[];
+  blocked?: BlockedCourt[];
+  inconclusive?: number[];
+}
+
+/** Keeps "nothing was blocked" out of the result so callers test presence. */
+function fillDetails(response: MutationResponse): Pick<ActionResult, 'blocked' | 'inconclusive'> {
+  return {
+    ...(response.blocked?.length ? { blocked: response.blocked } : {}),
+    ...(response.inconclusive?.length ? { inconclusive: response.inconclusive } : {}),
+  };
 }
 
 /**
@@ -99,6 +137,12 @@ function messageForCode(code: string): string | null {
       return $localize`:@@err.code.seatOccupied:ที่นั่งนี้มีคนอยู่แล้ว`;
     case 'SEAT_OUT_OF_RANGE':
       return $localize`:@@err.code.seatOutOfRange:ไม่พบที่นั่งนี้ในคอร์ท`;
+    case 'PAIR_RULE_VIOLATION':
+      return $localize`:@@err.code.pairRuleViolation:ผู้เล่นในคอร์ทนี้ขัดกับกฎการจับคู่`;
+    case 'PAIR_RULE_SEARCH_LIMIT':
+      return $localize`:@@err.code.pairRuleSearchLimit:กฎการจับคู่ซับซ้อนเกินไป หาคู่ไม่ทัน ลองใหม่หรือปิดกฎบางข้อคืนนี้`;
+    case 'RULE_NOT_FOUND':
+      return $localize`:@@err.code.ruleNotFound:ไม่พบกฎนี้ อาจถูกลบไปแล้ว`;
     case 'PLAYER_ALREADY_ON_COURT':
       return $localize`:@@err.code.playerAlreadyOnCourt:ผู้เล่นคนนี้อยู่ในคอร์ทอื่นแล้ว`;
     default:
@@ -171,7 +215,7 @@ export class LiveSessionService {
     this.sessionResource.reload();
   }
 
-  private async post<T extends { ok?: boolean; reason?: string; available?: number; format?: CourtFormat }>(
+  private async post<T extends MutationResponse>(
     path: string,
     body: unknown,
     fallbackError: string
@@ -187,16 +231,26 @@ export class LiveSessionService {
           reason: response.reason,
           available: response.available,
           format: response.format,
+          ruleIds: response.ruleIds,
+          ...fillDetails(response),
         };
       }
       this.mutationVersion.update((version) => version + 1);
-      return { ok: true };
+      return { ok: true, ...(response ? fillDetails(response) : {}) };
     } catch (err) {
       const code =
         err instanceof HttpErrorResponse && typeof err.error?.code === 'string'
           ? err.error.code
           : null;
-      return { ok: false, error: (code && messageForCode(code)) || fallbackError };
+      const ruleIds =
+        err instanceof HttpErrorResponse && Array.isArray(err.error?.ruleIds)
+          ? (err.error.ruleIds as string[])
+          : undefined;
+      return {
+        ok: false,
+        error: (code && messageForCode(code)) || fallbackError,
+        ...(ruleIds ? { ruleIds } : {}),
+      };
     }
   }
 
@@ -312,6 +366,44 @@ export class LiveSessionService {
         `${this.base}/sessions/${this.sessionCode}/levels`
       )
     );
+  }
+
+  /**
+   * Host-only, like levels: never on the public session poll. Null until the
+   * first load lands; a failed refresh keeps the last good copy.
+   */
+  readonly sessionRules = signal<SessionRules | null>(null);
+
+  readonly enabledRules = computed<PairRule[]>(() => {
+    const state = this.sessionRules();
+    if (!state) return [];
+    const off = new Set(state.disabledRuleIds);
+    return state.rules.filter((r) => !off.has(r.id));
+  });
+
+  getSessionRules(): Promise<SessionRules> {
+    return firstValueFrom(
+      this.http.get<SessionRules>(`${this.base}/sessions/${this.sessionCode}/rules`)
+    );
+  }
+
+  async loadSessionRules(): Promise<void> {
+    try {
+      this.sessionRules.set(await this.getSessionRules());
+    } catch {
+      // Explanations degrade to rule-less messages; the server still enforces.
+    }
+  }
+
+  /** `enabled` is the desired state for tonight only; the group rule is untouched. */
+  async toggleSessionRule(ruleId: string, enabled: boolean): Promise<ActionResult> {
+    const result = await this.post(
+      `rules/${ruleId}/toggle`,
+      { enabled },
+      $localize`:@@err.toggleRule:เปลี่ยนกฎคืนนี้ไม่สำเร็จ`
+    );
+    if (result.ok) await this.loadSessionRules();
+    return result;
   }
 
   /** Idle-only; the server refuses with COURT_ACTIVE while a match is pending or active. */

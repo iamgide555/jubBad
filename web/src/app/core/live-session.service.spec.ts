@@ -486,4 +486,98 @@ describe('LiveSessionService', () => {
       .flush({ message: 'raw server prose' }, { status: 500, statusText: 'Server Error' });
     expect(await noCode).toEqual({ ok: false, error: 'จัดคู่ไม่สำเร็จ' });
   });
+
+  describe('pair rules', () => {
+    const B = environment.apiBaseUrl;
+    const rule = {
+      id: 'r1',
+      groupId: 'g1',
+      playerAId: 'p1',
+      playerBId: 'p2',
+      kind: 'never-teammates' as const,
+      createdAt: '2026-09-30T00:00:00.000Z',
+    };
+
+    it('loads session rules from the host-only endpoint and exposes the enabled ones', async () => {
+      await flushSession(baseSession());
+      const done = service.loadSessionRules();
+      httpMock
+        .expectOne(`${B}/sessions/sess1/rules`)
+        .flush({ rules: [rule, { ...rule, id: 'r2' }], disabledRuleIds: ['r2'] });
+      await done;
+      expect(service.sessionRules()?.disabledRuleIds).toEqual(['r2']);
+      expect(service.enabledRules().map((r) => r.id)).toEqual(['r1']);
+    });
+
+    it('toggleSessionRule posts the desired state and reloads the rules', async () => {
+      await flushSession(baseSession());
+      const done = service.toggleSessionRule('r1', false);
+      const req = httpMock.expectOne(`${B}/sessions/sess1/rules/r1/toggle`);
+      expect(req.request.body).toEqual({ enabled: false });
+      req.flush({ ruleId: 'r1', enabled: false, disabledRuleIds: ['r1'] });
+      await new Promise((r) => setTimeout(r, 0));
+      httpMock.expectOne(`${B}/sessions/sess1/rules`).flush({ rules: [rule], disabledRuleIds: ['r1'] });
+      TestBed.tick();
+      httpMock.match(`${B}/sessions/sess1`).forEach((r) => r.flush(baseSession()));
+      expect(await done).toEqual({ ok: true });
+      expect(service.enabledRules()).toEqual([]);
+    });
+
+    it('carries blocked rule ids through a pair-rules-blocked propose', async () => {
+      await flushSession(baseSession());
+      const promise = service.proposeMatch(1);
+      httpMock
+        .expectOne(`${B}/sessions/sess1/courts/1/propose`)
+        .flush({ ok: false, reason: 'pair-rules-blocked', ruleIds: ['r1'] });
+      await new Promise((r) => setTimeout(r, 0));
+      TestBed.tick();
+      httpMock.expectOne(`${B}/sessions/sess1`).flush(baseSession());
+      expect(await promise).toEqual({ ok: false, reason: 'pair-rules-blocked', ruleIds: ['r1'] });
+    });
+
+    it('maps PAIR_RULE_VIOLATION to a message and keeps its rule ids', async () => {
+      await flushSession(baseSession());
+      const promise = service.confirmMatch('pair1');
+      httpMock
+        .expectOne(`${B}/sessions/sess1/pairings/pair1/confirm`)
+        .flush({ code: 'PAIR_RULE_VIOLATION', ruleIds: ['r1'] }, { status: 409, statusText: 'Conflict' });
+      expect(await promise).toEqual({
+        ok: false,
+        error: 'ผู้เล่นในคอร์ทนี้ขัดกับกฎการจับคู่',
+        ruleIds: ['r1'],
+      });
+    });
+
+    it('maps the search-limit 503 apart from not-enough-players', async () => {
+      await flushSession(baseSession());
+      const promise = service.proposeMatch(1);
+      httpMock
+        .expectOne(`${B}/sessions/sess1/courts/1/propose`)
+        .flush({ code: 'PAIR_RULE_SEARCH_LIMIT' }, { status: 503, statusText: 'Unavailable' });
+      expect(await promise).toEqual({
+        ok: false,
+        error: 'กฎการจับคู่ซับซ้อนเกินไป หาคู่ไม่ทัน ลองใหม่หรือปิดกฎบางข้อคืนนี้',
+      });
+    });
+
+    it('fillCourts carries blocked and inconclusive courts even when some filled', async () => {
+      await flushSession(baseSession());
+      const promise = service.fillCourts();
+      httpMock.expectOne(`${B}/sessions/sess1/courts/fill`).flush({
+        ok: true,
+        filled: [1],
+        blocked: [{ courtNumber: 2, ruleIds: ['r1'] }],
+        inconclusive: [3],
+      });
+      await new Promise((r) => setTimeout(r, 0));
+      TestBed.tick();
+      httpMock.expectOne(`${B}/sessions/sess1`).flush(baseSession());
+      expect(await promise).toEqual({
+        ok: true,
+        blocked: [{ courtNumber: 2, ruleIds: ['r1'] }],
+        inconclusive: [3],
+      });
+    });
+  });
 });
+

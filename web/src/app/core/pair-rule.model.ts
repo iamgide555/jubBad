@@ -24,3 +24,17 @@ export const RULE_KINDS: readonly { kind: RuleKind; label: string }[] = [
 export function ruleKindLabel(kind: RuleKind): string {
   return RULE_KINDS.find((k) => k.kind === kind)!.label;
 }
+
+/** "ตั้ม · มด (คู่กัน)" per rule, comma-joined; ids no longer known are skipped. */
+export function describeRules(
+  ruleIds: readonly string[],
+  rules: readonly PairRule[],
+  players: readonly { id: string; name: string }[]
+): string {
+  const nameOf = (id: string) => players.find((p) => p.id === id)?.name ?? '?';
+  return ruleIds
+    .map((id) => rules.find((r) => r.id === id))
+    .filter((r): r is PairRule => r !== undefined)
+    .map((r) => `${nameOf(r.playerAId)} · ${nameOf(r.playerBId)} (${ruleKindLabel(r.kind)})`)
+    .join(', ');
+}

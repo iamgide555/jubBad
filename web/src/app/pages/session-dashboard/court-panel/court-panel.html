@@ -156,6 +156,12 @@
           @if (restingInProposal().length > 0) {
             <p class="hint warn" role="status" i18n="@@court.restingInProposal">{{ restingInProposal().join(', ') }} พักอยู่ — กดชื่อเพื่อเปลี่ยนตัว หรือสุ่มใหม่</p>
           }
+          @if (ruleConflictIds().length > 0) {
+            <p class="hint warn" role="status">
+              {{ ruleConflictMessage() }}
+              <ng-container i18n="@@court.ruleConflictFix">— กดชื่อเพื่อเปลี่ยนตัว หรือสุ่มใหม่</ng-container>
+            </p>
+          }
           @if (emptySeatCount() > 0) {
             <p class="hint" role="status" i18n="@@court.seatsEmpty">ยังมีที่ว่าง {{ emptySeatCount() }} ที่</p>
           }
@@ -171,7 +177,7 @@
             } @else {
               <button type="button" class="ghost" [disabled]="busy()" (click)="startOrReshuffle()" i18n="@@court.reshuffle">สุ่มใหม่</button>
             }
-            <button type="button" [disabled]="busy() || restingInProposal().length > 0 || emptySeatCount() > 0" (click)="confirm()">
+            <button type="button" [disabled]="busy() || restingInProposal().length > 0 || emptySeatCount() > 0 || ruleConflictIds().length > 0" (click)="confirm()">
               @if (busy()) {
                 <app-icon name="feather" [size]="16" [spin]="true" />
               }

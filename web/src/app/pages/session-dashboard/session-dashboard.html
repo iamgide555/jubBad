@@ -67,6 +67,31 @@
       <p class="error" role="alert">{{ rosterError() }}</p>
     }
 
+    @if (sessionRuleRows().length > 0) {
+      <details class="session-rules">
+        <summary i18n="@@dashboard.sessionRulesTitle">กฎการจับคู่คืนนี้ ({{ sessionRuleRows().length }})</summary>
+        <ul>
+          @for (rule of sessionRuleRows(); track rule.id) {
+            <li>
+              <label class="session-rule">
+                <input
+                  type="checkbox"
+                  [checked]="rule.enabled"
+                  [disabled]="ended()"
+                  (change)="toggleSessionRule(rule.id, !rule.enabled)"
+                />
+                <span>{{ rule.players }} <span class="muted">({{ rule.kind }})</span></span>
+              </label>
+            </li>
+          }
+        </ul>
+        <p class="muted" i18n="@@dashboard.sessionRulesHint">ปิดกฎเฉพาะคืนนี้ — แก้กฎถาวรที่หน้าผู้เล่นในก๊วน</p>
+        @if (rulesError()) {
+          <p class="error" role="alert">{{ rulesError() }}</p>
+        }
+      </details>
+    }
+
     <button
       type="button"
       class="ghost"

@@ -1213,5 +1213,131 @@ describe('CourtPanel with too few players', () => {
       'ยังมีที่ว่างในคอร์ท ใส่ผู้เล่นให้ครบก่อนยืนยัน'
     );
   });
+
+  describe('pair rules', () => {
+    const rule = {
+      id: 'r1',
+      groupId: 'g1',
+      playerAId: 'p1',
+      playerBId: 'p2',
+      kind: 'never-teammates' as const,
+      createdAt: '2026-09-30T00:00:00.000Z',
+    };
+    const withRules = (disabledRuleIds: string[] = []) =>
+      TestBed.inject(LiveSessionService).sessionRules.set({ rules: [rule], disabledRuleIds });
+    const text = (f: ComponentFixture<CourtPanel>) => (f.nativeElement as HTMLElement).textContent ?? '';
+    const pendingCourt = (teamA: string[], teamB: string[]) =>
+      baseSession({
+        courts: [
+          {
+            status: 'pending',
+            pairingId: 'pair1',
+            format: 'doubles',
+            mode: 'variety',
+            teamA,
+            teamB,
+            autoStartAt: new Date(Date.now() + 40_000).toISOString(),
+          },
+        ],
+      });
+
+    async function propose(fixture: ComponentFixture<CourtPanel>, httpMock: HttpTestingController, flush: () => void) {
+      const button = [...(fixture.nativeElement as HTMLElement).querySelectorAll('button')].find((b) =>
+        b.textContent?.includes('เริ่มแมตช์ถัดไป')
+      )!;
+      button.click();
+      flush();
+      await new Promise((r) => setTimeout(r, 0));
+      TestBed.tick();
+      httpMock.match(`${B}/sessions/sess1`).forEach((r) => r.flush(baseSession()));
+      await fixture.whenStable();
+      fixture.detectChanges();
+    }
+
+    it('explains a rule-blocked proposal with the players and rule, never as not enough players', async () => {
+      withRules();
+      const { fixture, httpMock } = await createPanel();
+      fixture.detectChanges();
+      await propose(fixture, httpMock, () =>
+        httpMock
+          .expectOne(`${B}/sessions/sess1/courts/1/propose`)
+          .flush({ ok: false, reason: 'pair-rules-blocked', ruleIds: ['r1'] })
+      );
+      expect(text(fixture)).toContain('จัดคอร์ทนี้ไม่ได้เพราะกฎการจับคู่: ตั้ม · เบส (ห้ามอยู่ด้วยกัน)');
+      expect(text(fixture)).not.toContain('ผู้เล่นไม่พอ');
+    });
+
+    it('tells a search-limit refusal apart from not enough players', async () => {
+      const { fixture, httpMock } = await createPanel();
+      fixture.detectChanges();
+      await propose(fixture, httpMock, () =>
+        httpMock
+          .expectOne(`${B}/sessions/sess1/courts/1/propose`)
+          .flush({ code: 'PAIR_RULE_SEARCH_LIMIT' }, { status: 503, statusText: 'Unavailable' })
+      );
+      expect(text(fixture)).toContain('กฎการจับคู่ซับซ้อนเกินไป');
+      expect(text(fixture)).not.toContain('ผู้เล่นไม่พอ');
+    });
+
+    it('flags a conflicting pending lineup, hides the auto-start countdown and blocks confirm', async () => {
+      withRules();
+      const { fixture } = await createPanel(pendingCourt(['p1', 'p2'], ['p3', 'p4']));
+      fixture.detectChanges();
+      expect(text(fixture)).toContain('ตั้ม · เบส (ห้ามอยู่ด้วยกัน)');
+      expect(text(fixture)).toContain('ไลน์อัปนี้ขัดกับกฎการจับคู่');
+      expect(text(fixture)).not.toContain('เริ่มอัตโนมัติ');
+      const confirm = [...(fixture.nativeElement as HTMLElement).querySelectorAll('button')].find((b) =>
+        b.textContent?.includes('ยืนยัน')
+      )!;
+      expect(confirm.disabled).toBe(true);
+    });
+
+    it('ignores a rule switched off for tonight', async () => {
+      withRules(['r1']);
+      const { fixture } = await createPanel(pendingCourt(['p1', 'p2'], ['p3', 'p4']));
+      fixture.detectChanges();
+      expect(text(fixture)).not.toContain('ไลน์อัปนี้ขัดกับกฎการจับคู่');
+      expect(text(fixture)).toContain('เริ่มอัตโนมัติ');
+    });
+
+    it('keeps an active match on screen, unflagged, when a rule now forbids it', async () => {
+      withRules();
+      const { fixture } = await createPanel(
+        baseSession({
+          courts: [
+            {
+              status: 'active',
+              pairingId: 'pair1',
+              format: 'doubles',
+              mode: 'variety',
+              teamA: ['p1', 'p2'],
+              teamB: ['p3', 'p4'],
+              startedAt: new Date().toISOString(),
+            },
+          ],
+        })
+      );
+      fixture.detectChanges();
+      expect(text(fixture)).toContain('ตั้ม');
+      expect(text(fixture)).not.toContain('ไลน์อัปนี้ขัดกับกฎการจับคู่');
+    });
+
+    it('names the broken rule when the server refuses a swap', async () => {
+      withRules();
+      const { fixture, httpMock } = await createPanel(pendingCourt(['p1', 'p3'], ['p2', 'p4']));
+      fixture.detectChanges();
+      const done = (fixture.componentInstance as unknown as { runSwap(a: string, b: string, c?: string): Promise<void> }).runSwap(
+        'pair1',
+        'p3',
+        'p2'
+      );
+      httpMock
+        .expectOne(`${B}/sessions/sess1/pairings/pair1/swap`)
+        .flush({ code: 'PAIR_RULE_VIOLATION', ruleIds: ['r1'] }, { status: 409, statusText: 'Conflict' });
+      await done;
+      fixture.detectChanges();
+      expect(text(fixture)).toContain('ผู้เล่นในคอร์ทนี้ขัดกับกฎการจับคู่: ตั้ม · เบส (ห้ามอยู่ด้วยกัน)');
+    });
+  });
 });
 

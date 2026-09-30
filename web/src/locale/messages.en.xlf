@@ -2735,6 +2735,50 @@
         <source>บันทึกกฎไม่สำเร็จ</source>
         <target>Could not save the rule</target>
       </trans-unit>
+      <trans-unit id="err.code.pairRuleViolation" datatype="html">
+        <source>ผู้เล่นในคอร์ทนี้ขัดกับกฎการจับคู่</source>
+        <target>Players on this court break a pairing rule</target>
+      </trans-unit>
+      <trans-unit id="err.code.pairRuleSearchLimit" datatype="html">
+        <source>กฎการจับคู่ซับซ้อนเกินไป หาคู่ไม่ทัน ลองใหม่หรือปิดกฎบางข้อคืนนี้</source>
+        <target>Pairing rules are too complex to solve in time. Try again or switch some rules off for tonight</target>
+      </trans-unit>
+      <trans-unit id="err.code.ruleNotFound" datatype="html">
+        <source>ไม่พบกฎนี้ อาจถูกลบไปแล้ว</source>
+        <target>Rule not found — it may have been deleted</target>
+      </trans-unit>
+      <trans-unit id="err.toggleRule" datatype="html">
+        <source>เปลี่ยนกฎคืนนี้ไม่สำเร็จ</source>
+        <target>Could not change tonight's rule</target>
+      </trans-unit>
+      <trans-unit id="court.ruleConflict" datatype="html">
+        <source>ไลน์อัปนี้ขัดกับกฎการจับคู่</source>
+        <target>This lineup breaks a pairing rule</target>
+      </trans-unit>
+      <trans-unit id="court.ruleConflictFix" datatype="html">
+        <source>— กดชื่อเพื่อเปลี่ยนตัว หรือสุ่มใหม่</source>
+        <target>— tap a name to swap, or reshuffle</target>
+      </trans-unit>
+      <trans-unit id="court.rulesBlocked" datatype="html">
+        <source>จัดคอร์ทนี้ไม่ได้เพราะกฎการจับคู่</source>
+        <target>Pairing rules prevent filling this court</target>
+      </trans-unit>
+      <trans-unit id="dashboard.courtRulesBlocked" datatype="html">
+        <source>คอร์ท <x id="court" equiv-text="court"/> จัดไม่ได้เพราะกฎการจับคู่</source>
+        <target>Court <x id="court" equiv-text="court"/> could not be filled because of pairing rules</target>
+      </trans-unit>
+      <trans-unit id="dashboard.courtsSearchLimit" datatype="html">
+        <source>คอร์ท <x id="courts" equiv-text="courts"/> หาคู่ตามกฎไม่ทัน ลองใหม่หรือปิดกฎบางข้อคืนนี้</source>
+        <target>Court <x id="courts" equiv-text="courts"/>: pairing rules could not be solved in time. Try again or switch some rules off for tonight</target>
+      </trans-unit>
+      <trans-unit id="dashboard.sessionRulesTitle" datatype="html">
+        <source>กฎการจับคู่คืนนี้ (<x id="INTERPOLATION" equiv-text="{{ sessionRuleRows().length }}"/>)</source>
+        <target>Tonight's pairing rules (<x id="INTERPOLATION" equiv-text="{{ sessionRuleRows().length }}"/>)</target>
+      </trans-unit>
+      <trans-unit id="dashboard.sessionRulesHint" datatype="html">
+        <source>ปิดกฎเฉพาะคืนนี้ — แก้กฎถาวรที่หน้าผู้เล่นในก๊วน</source>
+        <target>Switch rules off for tonight only — edit rules permanently on the group players page</target>
+      </trans-unit>
     </body>
   </file>
 </xliff>

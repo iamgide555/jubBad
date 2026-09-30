@@ -386,6 +386,47 @@ fill-all) ever becomes a carry court. See `engines/pairing.ts`'s
 `buildCarryCourt` and the historical design at
 `docs/archive/specs/2026-09-27-level-rework-design.md`.
 
+**Pair rules are hard constraints above every mode** (host feedback C,
+2026-09-30). A host links two group players as คู่กัน (`must-pair`: doubles
+teammates or both sit), ห้ามอยู่ด้วยกัน (`never-teammates`: opponents are
+fine) or ห้ามเล่นด้วยกัน (`never-same-court`). Rules live on the group
+(`PlayerRule`, ids sorted, one rule per pair, at most one คู่กัน per
+player) and are edited on the player-roster page; the dashboard can switch
+any of them off for tonight only (`Session.disabledRuleIds`) without
+touching the group. Rules are host-only — never on the public poll,
+display, profile or summary — and are not history: they never feed
+`partnerCounts`/`opponentCounts` or ratings.
+
+A rule applies only while both players are active on tonight's roster; if
+one rests or is absent the other plays normally, singles included. A คู่กัน
+duo is one two-seat unit for sit-out and court choice, ranked by its less
+deserving member (by wait alone in level mode). While the partner is on
+another court the linked player waits rather than being split off. The
+mode still picks the fairest lineup, but only among legal ones
+(`engines/pair-rules.ts`), and the engine never relaxes a rule: a court it
+cannot fill legally is left unproposed with `pair-rules-blocked` and the
+rules touching the players involved — never reported as "not enough
+players". Above 8 players a bounded search (100,000 states) that runs out
+reports `PAIR_RULE_SEARCH_LIMIT`, which is not proof no lineup exists.
+Fill-all fills every court it legally can and names the blocked or
+inconclusive ones.
+
+Confirm, auto-confirm, swaps, trades, manual seats and custom auto-pair
+all refuse a full court that breaks an enabled rule (`PAIR_RULE_VIOLATION`);
+half-filled custom drafts stay editable. A rule added after a proposal
+leaves that pending court on screen, flagged, with its auto-confirm
+countdown hidden and confirm disabled until the host swaps or reshuffles —
+the sweep skips it and keeps confirming other courts. Active matches finish
+as they stood.
+
+A tagged player with an enabled คู่กัน link records a carry outcome on
+every confirm (`Pairing.carryOutcomes`): the game completes their carry
+only if they are far-below at that moment and their teammate is tagged
+strictly higher; otherwise it is recorded as not-a-carry so a later roster
+change cannot reinterpret it. Unlinked newcomers keep the first-game rule
+above. Undoing a confirm clears the outcome. Historical design:
+`docs/archive/specs/2026-09-30-pair-rules-design.md`.
+
 **Court format is per court, not per session, and only changeable while a
 court is idle.** A host can run doubles on courts 1-2 and singles on court 3
 in the same session — set from the toggle in that court's panel, refused with

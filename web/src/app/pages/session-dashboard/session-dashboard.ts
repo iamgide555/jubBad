@@ -24,6 +24,7 @@ import { AddWalkInDialog } from '../../shared/add-walk-in-dialog/add-walk-in-dia
 import { LevelPicker } from '../../shared/level-picker/level-picker';
 import type { Player } from '../../../../../engines/fuzzy-match.ts';
 import type { Level } from '../../../../../engines/levels.ts';
+import { describeRules, ruleKindLabel } from '../../core/pair-rule.model';
 import type { PlayerStat } from '../../core/stats.model';
 import type { PlayerPanelRow } from '../../core/player-panel.model';
 
@@ -225,8 +226,12 @@ export class SessionDashboard implements OnDestroy {
   private readonly refreshInterval = setInterval(() => {
     this.liveSession.refresh();
     void this.loadLevels();
+    void this.liveSession.loadSessionRules();
   }, 30_000);
-  private readonly onWindowFocus = () => this.liveSession.refresh();
+  private readonly onWindowFocus = () => {
+    this.liveSession.refresh();
+    void this.liveSession.loadSessionRules();
+  };
 
   protected readonly selection = inject(SwapSelectionService);
 
@@ -312,6 +317,36 @@ export class SessionDashboard implements OnDestroy {
   ) {
     window.addEventListener('focus', this.onWindowFocus);
     void this.loadLevels();
+    void this.liveSession.loadSessionRules();
+  }
+
+  /**
+   * The group's pair rules, each switchable for tonight only — the group
+   * rule itself is edited on the player roster page, never here.
+   */
+  protected readonly sessionRuleRows = computed(() => {
+    const state = this.liveSession.sessionRules();
+    if (!state) return [];
+    const off = new Set(state.disabledRuleIds);
+    const nameOf = (id: string) => this.players().find((p) => p.id === id)?.name ?? '?';
+    return state.rules.map((r) => ({
+      id: r.id,
+      players: `${nameOf(r.playerAId)} · ${nameOf(r.playerBId)}`,
+      kind: ruleKindLabel(r.kind),
+      enabled: !off.has(r.id),
+    }));
+  });
+
+  protected readonly rulesError = signal<string | null>(null);
+
+  async toggleSessionRule(ruleId: string, enabled: boolean): Promise<void> {
+    this.rulesError.set(null);
+    const result = await this.liveSession.toggleSessionRule(ruleId, enabled);
+    this.rulesError.set(result.error ?? null);
+  }
+
+  private describe(ruleIds: readonly string[]): string {
+    return describeRules(ruleIds, this.liveSession.sessionRules()?.rules ?? [], this.players());
   }
 
   readonly rosterError = signal<string | null>(null);
@@ -359,11 +394,26 @@ export class SessionDashboard implements OnDestroy {
   async fillCourts(): Promise<void> {
     this.rosterError.set(null);
     const result = await this.liveSession.fillCourts();
-    if (!result.ok && result.reason === 'not-enough-players') {
-      this.rosterError.set($localize`:@@dashboard.notEnoughToFill:ผู้เล่นไม่พอ`);
-      return;
+    // Rule-blocked and search-limited courts are reported even when other
+    // courts filled, and never folded into "not enough players".
+    const notes: string[] = [];
+    for (const blocked of result.blocked ?? []) {
+      const court = this.labelFor(blocked.courtNumber);
+      const message = $localize`:@@dashboard.courtRulesBlocked:คอร์ท ${court}:court: จัดไม่ได้เพราะกฎการจับคู่`;
+      const rules = this.describe(blocked.ruleIds);
+      notes.push(rules ? `${message}: ${rules}` : message);
     }
-    this.rosterError.set(result.error ?? null);
+    if (result.inconclusive?.length) {
+      const courts = result.inconclusive.map((n) => this.labelFor(n)).join(', ');
+      notes.push(
+        $localize`:@@dashboard.courtsSearchLimit:คอร์ท ${courts}:courts: หาคู่ตามกฎไม่ทัน ลองใหม่หรือปิดกฎบางข้อคืนนี้`
+      );
+    }
+    if (!result.ok && result.reason === 'not-enough-players') {
+      notes.push($localize`:@@dashboard.notEnoughToFill:ผู้เล่นไม่พอ`);
+    }
+    if (result.error) notes.push(result.error);
+    this.rosterError.set(notes.length > 0 ? notes.join(' · ') : null);
   }
 
   /**

@@ -104,5 +104,64 @@
       </tbody>
       </table>
     </div>
+
+    <section class="pair-rules" aria-labelledby="pair-rules-title">
+      <h2 id="pair-rules-title" i18n="@@playerRoster.rulesTitle">กฎการจับคู่</h2>
+      <p class="muted" i18n="@@playerRoster.rulesHint">คู่กัน: ลงเป็นคู่เดียวกันหรือพักพร้อมกัน · ห้ามอยู่ด้วยกัน: เป็นคู่แข่งกันได้ · ห้ามเล่นด้วยกัน: ไม่ลงสนามเดียวกัน</p>
+      @if (rulesError()) {
+        <p class="error" role="alert">{{ rulesError() }}</p>
+      }
+      @if (rules().length === 0) {
+        <p class="muted" i18n="@@playerRoster.noRules">ยังไม่มีกฎ</p>
+      } @else {
+        <ul class="rule-list">
+          @for (rule of rules(); track rule.id) {
+            <li class="rule-row">
+              <span class="rule-players">{{ playerName(rule.playerAId) }} · {{ playerName(rule.playerBId) }}</span>
+              <select
+                i18n-aria-label="@@playerRoster.ruleKindLabel"
+                aria-label="ประเภทกฎ"
+                [ngModel]="rule.kind"
+                (ngModelChange)="setRuleKind(rule, $event)"
+              >
+                @for (k of ruleKinds; track k.kind) {
+                  <option [ngValue]="k.kind">{{ k.label }}</option>
+                }
+              </select>
+              <button type="button" class="ghost" (click)="deleteRule(rule)" i18n="@@playerRoster.removeRule">ลบ</button>
+            </li>
+          }
+        </ul>
+      }
+      <div class="rule-form">
+        <label>
+          <span i18n="@@playerRoster.rulePlayerA">ผู้เล่น</span>
+          <select [ngModel]="newRuleA()" (ngModelChange)="setNewRuleA($event)">
+            <option value="" i18n="@@playerRoster.pickPlayer">— เลือก —</option>
+            @for (p of players(); track p.id) {
+              <option [value]="p.id">{{ p.name }}</option>
+            }
+          </select>
+        </label>
+        <label>
+          <span i18n="@@playerRoster.rulePlayerB">กับ</span>
+          <select [ngModel]="newRuleB()" (ngModelChange)="setNewRuleB($event)">
+            <option value="" i18n="@@playerRoster.pickPlayer">— เลือก —</option>
+            @for (p of partnerOptions(); track p.id) {
+              <option [value]="p.id">{{ p.name }}</option>
+            }
+          </select>
+        </label>
+        <label>
+          <span i18n="@@playerRoster.ruleKindLabel">ประเภทกฎ</span>
+          <select [ngModel]="newRuleKind()" (ngModelChange)="newRuleKind.set($event)">
+            @for (k of ruleKinds; track k.kind) {
+              <option [ngValue]="k.kind">{{ k.label }}</option>
+            }
+          </select>
+        </label>
+        <button type="button" [disabled]="!canCreateRule()" (click)="createRule()" i18n="@@playerRoster.addRule">เพิ่มกฎ</button>
+      </div>
+    </section>
   }
 </div>

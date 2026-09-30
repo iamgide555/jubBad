@@ -57,6 +57,7 @@ describe('PlayerRoster', () => {
     component = fixture.componentInstance;
 
     httpMock.expectOne(`${B}/groups/group1/players/manage`).flush(PLAYERS);
+    httpMock.expectOne(`${B}/groups/group1/rules`).flush([]);
     await fixture.whenStable();
     fixture.detectChanges();
   });
@@ -231,5 +232,116 @@ describe('PlayerRoster', () => {
     const eventAfterDestroy = new Event('beforeunload', { cancelable: true });
     window.dispatchEvent(eventAfterDestroy);
     expect(eventAfterDestroy.defaultPrevented).toBe(false);
+  });
+
+  describe('pair rules', () => {
+    const rule = (id: string, kind: 'must-pair' | 'never-teammates' | 'never-same-court') => ({
+      id,
+      groupId: 'group1',
+      playerAId: 'p1',
+      playerBId: 'p2',
+      kind,
+      createdAt: '2026-09-30T00:00:00.000Z',
+    });
+    const el = () => fixture.nativeElement as HTMLElement;
+    const rows = () => [...el().querySelectorAll<HTMLElement>('.rule-row')];
+
+    it('renders each rule with its Thai kind label and both player names', async () => {
+      component.rules.set([rule('r1', 'must-pair'), rule('r2', 'never-teammates'), rule('r3', 'never-same-court')]);
+      fixture.detectChanges();
+      await fixture.whenStable();
+      fixture.detectChanges();
+      const selected = rows().map((r) => r.querySelector('select')!.selectedOptions[0].textContent!.trim());
+      expect(selected).toEqual(['คู่กัน', 'ห้ามอยู่ด้วยกัน', 'ห้ามเล่นด้วยกัน']);
+      expect(rows()[0].textContent).toContain('ตั้ม');
+      expect(rows()[0].textContent).toContain('มด');
+    });
+
+    it('uses native, keyboard-reachable controls for every rule action', () => {
+      component.rules.set([rule('r1', 'must-pair')]);
+      fixture.detectChanges();
+      const row = rows()[0];
+      expect(row.querySelector('select')).not.toBeNull();
+      expect(row.querySelector('button')?.getAttribute('type')).toBe('button');
+      const form = el().querySelector('.rule-form')!;
+      expect(form.querySelectorAll('select').length).toBe(3);
+      expect(form.querySelector('button')?.getAttribute('type')).toBe('button');
+    });
+
+    it('never offers the first player as their own partner', () => {
+      component.setNewRuleA('p1');
+      expect(component.partnerOptions().map((p) => p.id)).toEqual(['p2']);
+      component.setNewRuleB('p2');
+      component.setNewRuleA('p2');
+      expect(component.newRuleB()).toBe('');
+      expect(component.canCreateRule()).toBe(false);
+    });
+
+    it('creates a rule and resets the form', async () => {
+      component.setNewRuleA('p1');
+      component.setNewRuleB('p2');
+      component.newRuleKind.set('never-teammates');
+      const done = component.createRule();
+      const req = httpMock.expectOne(`${B}/groups/group1/rules`);
+      expect(req.request.method).toBe('POST');
+      expect(req.request.body).toEqual({ playerAId: 'p1', playerBId: 'p2', kind: 'never-teammates' });
+      req.flush(rule('r9', 'never-teammates'));
+      await done;
+      expect(component.rules().map((r) => r.id)).toEqual(['r9']);
+      expect(component.newRuleA()).toBe('');
+      expect(component.newRuleB()).toBe('');
+    });
+
+    it('shows a duplicate-pair error without clearing the selection', async () => {
+      component.setNewRuleA('p1');
+      component.setNewRuleB('p2');
+      const done = component.createRule();
+      httpMock
+        .expectOne(`${B}/groups/group1/rules`)
+        .flush({ code: 'PAIR_RULE_EXISTS' }, { status: 409, statusText: 'Conflict' });
+      await done;
+      expect(component.rulesError()).toBe('ผู้เล่นคู่นี้มีกฎอยู่แล้ว');
+      expect(component.newRuleA()).toBe('p1');
+      expect(component.newRuleB()).toBe('p2');
+    });
+
+    it('explains a second required partner as a conflict', async () => {
+      component.setNewRuleA('p1');
+      component.setNewRuleB('p2');
+      const done = component.createRule();
+      httpMock
+        .expectOne(`${B}/groups/group1/rules`)
+        .flush({ code: 'PAIR_RULE_MUST_PAIR_TAKEN' }, { status: 409, statusText: 'Conflict' });
+      await done;
+      expect(component.rulesError()).toBe('ผู้เล่นคนนี้มีคู่กันอยู่แล้ว');
+    });
+
+    it('switches a rule kind, and rolls back with a message when refused', async () => {
+      component.rules.set([rule('r1', 'never-teammates')]);
+      const ok = component.setRuleKind(component.rules()[0], 'never-same-court');
+      const put = httpMock.expectOne(`${B}/groups/group1/rules/r1`);
+      expect(put.request.body).toEqual({ kind: 'never-same-court' });
+      put.flush(rule('r1', 'never-same-court'));
+      await ok;
+      expect(component.rules()[0].kind).toBe('never-same-court');
+
+      const refused = component.setRuleKind(component.rules()[0], 'must-pair');
+      httpMock
+        .expectOne(`${B}/groups/group1/rules/r1`)
+        .flush({ code: 'PAIR_RULE_MUST_PAIR_TAKEN' }, { status: 409, statusText: 'Conflict' });
+      await refused;
+      expect(component.rules()[0].kind).toBe('never-same-court');
+      expect(component.rulesError()).toBe('ผู้เล่นคนนี้มีคู่กันอยู่แล้ว');
+    });
+
+    it('removes a rule', async () => {
+      component.rules.set([rule('r1', 'must-pair')]);
+      const done = component.deleteRule(component.rules()[0]);
+      const req = httpMock.expectOne(`${B}/groups/group1/rules/r1`);
+      expect(req.request.method).toBe('DELETE');
+      req.flush({ deleted: true });
+      await done;
+      expect(component.rules()).toEqual([]);
+    });
   });
 });

@@ -6,6 +6,7 @@ import type { Level } from '../../../../engines/levels.ts';
 import type { Group } from './group.model';
 import type { GroupSession } from './group-session.model';
 import type { NameReview } from './roster-review';
+import type { CreatePairRuleRequest, PairRule, RuleKind } from './pair-rule.model';
 
 export interface CreateSessionRequest {
   groupCode: string;
@@ -111,5 +112,21 @@ export class RosterService {
       groupName,
       rawText,
     });
+  }
+
+  getRules(groupCode: string) {
+    return this.http.get<PairRule[]>(`${this.base}/groups/${groupCode}/rules`);
+  }
+
+  createRule(groupCode: string, dto: CreatePairRuleRequest) {
+    return this.http.post<PairRule>(`${this.base}/groups/${groupCode}/rules`, dto);
+  }
+
+  setRuleKind(groupCode: string, ruleId: string, kind: RuleKind) {
+    return this.http.put<PairRule>(`${this.base}/groups/${groupCode}/rules/${ruleId}`, { kind });
+  }
+
+  deleteRule(groupCode: string, ruleId: string) {
+    return this.http.delete<{ deleted: boolean }>(`${this.base}/groups/${groupCode}/rules/${ruleId}`);
   }
 }

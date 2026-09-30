@@ -2671,6 +2671,70 @@
       <trans-unit id="err.code.courtLabelConflict" datatype="html">
         <source>ชื่อคอร์ทนี้ซ้ำกับคอร์ทอื่น</source><target>Another court already has this name</target>
       </trans-unit>
+      <trans-unit id="pairRule.mustPair" datatype="html">
+        <source>คู่กัน</source>
+        <target>Must pair</target>
+      </trans-unit>
+      <trans-unit id="pairRule.neverTeammates" datatype="html">
+        <source>ห้ามอยู่ด้วยกัน</source>
+        <target>Never teammates</target>
+      </trans-unit>
+      <trans-unit id="pairRule.neverSameCourt" datatype="html">
+        <source>ห้ามเล่นด้วยกัน</source>
+        <target>Never same court</target>
+      </trans-unit>
+      <trans-unit id="playerRoster.rulesTitle" datatype="html">
+        <source>กฎการจับคู่</source>
+        <target>Pairing rules</target>
+      </trans-unit>
+      <trans-unit id="playerRoster.rulesHint" datatype="html">
+        <source>คู่กัน: ลงเป็นคู่เดียวกันหรือพักพร้อมกัน · ห้ามอยู่ด้วยกัน: เป็นคู่แข่งกันได้ · ห้ามเล่นด้วยกัน: ไม่ลงสนามเดียวกัน</source>
+        <target>Must pair: play as partners or sit out together · Never teammates: may still face each other · Never same court: never on the same court</target>
+      </trans-unit>
+      <trans-unit id="playerRoster.noRules" datatype="html">
+        <source>ยังไม่มีกฎ</source>
+        <target>No rules yet</target>
+      </trans-unit>
+      <trans-unit id="playerRoster.ruleKindLabel" datatype="html">
+        <source>ประเภทกฎ</source>
+        <target>Rule type</target>
+      </trans-unit>
+      <trans-unit id="playerRoster.removeRule" datatype="html">
+        <source>ลบ</source>
+        <target>Remove</target>
+      </trans-unit>
+      <trans-unit id="playerRoster.rulePlayerA" datatype="html">
+        <source>ผู้เล่น</source>
+        <target>Player</target>
+      </trans-unit>
+      <trans-unit id="playerRoster.pickPlayer" datatype="html">
+        <source>— เลือก —</source>
+        <target>— Choose —</target>
+      </trans-unit>
+      <trans-unit id="playerRoster.rulePlayerB" datatype="html">
+        <source>กับ</source>
+        <target>With</target>
+      </trans-unit>
+      <trans-unit id="playerRoster.addRule" datatype="html">
+        <source>เพิ่มกฎ</source>
+        <target>Add rule</target>
+      </trans-unit>
+      <trans-unit id="playerRoster.ruleExists" datatype="html">
+        <source>ผู้เล่นคู่นี้มีกฎอยู่แล้ว</source>
+        <target>These two players already have a rule</target>
+      </trans-unit>
+      <trans-unit id="playerRoster.ruleMustPairTaken" datatype="html">
+        <source>ผู้เล่นคนนี้มีคู่กันอยู่แล้ว</source>
+        <target>This player already has a must-pair partner</target>
+      </trans-unit>
+      <trans-unit id="playerRoster.ruleSelf" datatype="html">
+        <source>เลือกผู้เล่นสองคนที่ต่างกัน</source>
+        <target>Choose two different players</target>
+      </trans-unit>
+      <trans-unit id="playerRoster.ruleSaveFailed" datatype="html">
+        <source>บันทึกกฎไม่สำเร็จ</source>
+        <target>Could not save the rule</target>
+      </trans-unit>
     </body>
   </file>
 </xliff>

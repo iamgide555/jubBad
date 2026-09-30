@@ -1,10 +1,12 @@
 import { DecimalPipe } from '@angular/common';
+import { HttpErrorResponse } from '@angular/common/http';
 import { Component, OnDestroy, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
 import type { CanComponentDeactivate } from '../../core/can-deactivate.guard';
 import { RosterService, type ManagedPlayer } from '../../core/roster.service';
+import { RULE_KINDS, type PairRule, type RuleKind } from '../../core/pair-rule.model';
 import { LevelPicker } from '../../shared/level-picker/level-picker';
 import { levelIndex, type Level } from '../../../../../engines/levels.ts';
 
@@ -56,7 +58,7 @@ export class PlayerRoster implements CanComponentDeactivate, OnDestroy {
 
   constructor(route: ActivatedRoute) {
     this.groupCode = route.snapshot.paramMap.get('groupCode')!;
-    void this.load();
+    void this.load(true);
     // Covers the navigation paths canDeactivate() cannot: closing the tab,
     // reloading, or typing a new URL — none of which run the Angular
     // Router's guards, since the app itself is about to unload.
@@ -87,15 +89,96 @@ export class PlayerRoster implements CanComponentDeactivate, OnDestroy {
     );
   }
 
-  private async load(): Promise<void> {
+  private async load(withRules = false): Promise<void> {
     try {
-      const players = await firstValueFrom(this.rosterService.getPlayersManage(this.groupCode));
+      const [players, rules] = await Promise.all([
+        firstValueFrom(this.rosterService.getPlayersManage(this.groupCode)),
+        withRules ? firstValueFrom(this.rosterService.getRules(this.groupCode)) : null,
+      ]);
       this.players.set(players);
+      if (rules) this.rules.set(rules);
       this.loadError.set(false);
     } catch {
       this.loadError.set(true);
     } finally {
       this.loaded.set(true);
+    }
+  }
+
+  readonly ruleKinds = RULE_KINDS;
+  readonly rules = signal<PairRule[]>([]);
+  readonly rulesError = signal<string | null>(null);
+  readonly ruleBusy = signal(false);
+  readonly newRuleA = signal('');
+  readonly newRuleB = signal('');
+  readonly newRuleKind = signal<RuleKind>('must-pair');
+
+  readonly partnerOptions = computed(() =>
+    this.players().filter((p) => p.id !== this.newRuleA())
+  );
+  readonly canCreateRule = computed(
+    () =>
+      !this.ruleBusy() &&
+      this.newRuleA() !== '' &&
+      this.newRuleB() !== '' &&
+      this.newRuleA() !== this.newRuleB()
+  );
+
+  playerName(id: string): string {
+    return this.players().find((p) => p.id === id)?.name ?? '?';
+  }
+
+  setNewRuleA(id: string): void {
+    this.newRuleA.set(id);
+    if (this.newRuleB() === id) this.newRuleB.set('');
+  }
+
+  setNewRuleB(id: string): void {
+    this.newRuleB.set(id === this.newRuleA() ? '' : id);
+  }
+
+  async createRule(): Promise<void> {
+    if (!this.canCreateRule()) return;
+    this.ruleBusy.set(true);
+    this.rulesError.set(null);
+    try {
+      const rule = await firstValueFrom(
+        this.rosterService.createRule(this.groupCode, {
+          playerAId: this.newRuleA(),
+          playerBId: this.newRuleB(),
+          kind: this.newRuleKind(),
+        })
+      );
+      this.rules.update((list) => [...list, rule]);
+      this.newRuleA.set('');
+      this.newRuleB.set('');
+    } catch (err) {
+      this.rulesError.set(ruleErrorMessage(err));
+    } finally {
+      this.ruleBusy.set(false);
+    }
+  }
+
+  async setRuleKind(rule: PairRule, kind: RuleKind): Promise<void> {
+    if (rule.kind === kind) return;
+    this.rulesError.set(null);
+    this.rules.update((list) => list.map((r) => (r.id === rule.id ? { ...r, kind } : r)));
+    try {
+      const saved = await firstValueFrom(this.rosterService.setRuleKind(this.groupCode, rule.id, kind));
+      this.rules.update((list) => list.map((r) => (r.id === rule.id ? saved : r)));
+    } catch (err) {
+      this.rules.update((list) => list.map((r) => (r.id === rule.id ? rule : r)));
+      this.rulesError.set(ruleErrorMessage(err));
+    }
+  }
+
+  async deleteRule(rule: PairRule): Promise<void> {
+    this.rulesError.set(null);
+    try {
+      await firstValueFrom(this.rosterService.deleteRule(this.groupCode, rule.id));
+      this.rules.update((list) => list.filter((r) => r.id !== rule.id));
+    } catch (err) {
+      this.rulesError.set(ruleErrorMessage(err));
     }
   }
 
@@ -200,5 +283,19 @@ export class PlayerRoster implements CanComponentDeactivate, OnDestroy {
     } finally {
       this.editBusy.set(false);
     }
+  }
+}
+
+function ruleErrorMessage(err: unknown): string {
+  const code = err instanceof HttpErrorResponse ? err.error?.code : undefined;
+  switch (code) {
+    case 'PAIR_RULE_EXISTS':
+      return $localize`:@@playerRoster.ruleExists:ผู้เล่นคู่นี้มีกฎอยู่แล้ว`;
+    case 'PAIR_RULE_MUST_PAIR_TAKEN':
+      return $localize`:@@playerRoster.ruleMustPairTaken:ผู้เล่นคนนี้มีคู่กันอยู่แล้ว`;
+    case 'PAIR_RULE_SELF':
+      return $localize`:@@playerRoster.ruleSelf:เลือกผู้เล่นสองคนที่ต่างกัน`;
+    default:
+      return $localize`:@@playerRoster.ruleSaveFailed:บันทึกกฎไม่สำเร็จ`;
   }
 }

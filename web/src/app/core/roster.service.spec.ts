@@ -161,4 +161,49 @@ describe('RosterService', () => {
 
     expect(result).toEqual(body);
   });
+
+  describe('pair rules', () => {
+    const rule = {
+      id: 'r1',
+      groupId: 'group1',
+      playerAId: 'p1',
+      playerBId: 'p2',
+      kind: 'must-pair' as const,
+      createdAt: '2026-09-30T00:00:00.000Z',
+    };
+
+    it('getRules requests GET /groups/:code/rules', () => {
+      let result: unknown;
+      service.getRules('group1').subscribe((r) => (result = r));
+      const req = httpMock.expectOne(`${environment.apiBaseUrl}/groups/group1/rules`);
+      expect(req.request.method).toBe('GET');
+      req.flush([rule]);
+      expect(result).toEqual([rule]);
+    });
+
+    it('createRule POSTs the pair and kind', () => {
+      service.createRule('group1', { playerAId: 'p1', playerBId: 'p2', kind: 'never-teammates' }).subscribe();
+      const req = httpMock.expectOne(`${environment.apiBaseUrl}/groups/group1/rules`);
+      expect(req.request.method).toBe('POST');
+      expect(req.request.body).toEqual({ playerAId: 'p1', playerBId: 'p2', kind: 'never-teammates' });
+      req.flush({ ...rule, kind: 'never-teammates' });
+    });
+
+    it('setRuleKind PUTs just the kind', () => {
+      service.setRuleKind('group1', 'r1', 'never-same-court').subscribe();
+      const req = httpMock.expectOne(`${environment.apiBaseUrl}/groups/group1/rules/r1`);
+      expect(req.request.method).toBe('PUT');
+      expect(req.request.body).toEqual({ kind: 'never-same-court' });
+      req.flush({ ...rule, kind: 'never-same-court' });
+    });
+
+    it('deleteRule sends DELETE', () => {
+      let result: unknown;
+      service.deleteRule('group1', 'r1').subscribe((r) => (result = r));
+      const req = httpMock.expectOne(`${environment.apiBaseUrl}/groups/group1/rules/r1`);
+      expect(req.request.method).toBe('DELETE');
+      req.flush({ deleted: true });
+      expect(result).toEqual({ deleted: true });
+    });
+  });
 });

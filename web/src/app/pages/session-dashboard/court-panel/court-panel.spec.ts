@@ -10,6 +10,21 @@ import { SwapSelectionService } from '../../../core/swap-selection.service';
 import { environment } from '../../../../environments/environment';
 import type { Session } from '../../../core/session.model';
 
+// jsdom implements no showModal()/close() on <dialog>; the shuttle picker needs them.
+beforeAll(() => {
+  if (!HTMLDialogElement.prototype.showModal) {
+    HTMLDialogElement.prototype.showModal = function (this: HTMLDialogElement) {
+      this.setAttribute('open', '');
+    };
+  }
+  if (!HTMLDialogElement.prototype.close) {
+    HTMLDialogElement.prototype.close = function (this: HTMLDialogElement) {
+      this.removeAttribute('open');
+      this.dispatchEvent(new Event('close'));
+    };
+  }
+});
+
 const B = environment.apiBaseUrl;
 
 /**
@@ -1360,6 +1375,256 @@ describe('CourtPanel with too few players', () => {
       expect(alerts.length).toBe(1);
       const row = root.querySelector('.button-row')!;
       expect(alerts[0].compareDocumentPosition(row) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    });
+  });
+
+  describe('numbered shuttles', () => {
+    const inventory = (over: Record<string, unknown> = {}) => ({
+      enabled: true,
+      identities: [
+        { id: 's1', number: 1, usable: true, voided: false },
+        { id: 's2', number: 2, usable: true, voided: false },
+        { id: 's3', number: 3, usable: false, voided: false },
+      ],
+      games: [],
+      heldShuttleIds: [],
+      lastShuttleByCourt: [],
+      ...over,
+    });
+    const pendingSession = (advanced: boolean) =>
+      baseSession({
+        shuttleToolsEnabled: advanced,
+        courts: [
+          {
+            status: 'pending',
+            pairingId: 'pair1',
+            format: 'doubles',
+            mode: 'variety',
+            teamA: ['p1', 'p2'],
+            teamB: ['p3', 'p4'],
+            autoStartAt: new Date(Date.now() + 40_000).toISOString(),
+          },
+        ],
+      });
+    const activeSession = (over: { current?: { id: string; number: number } | null; used?: { id: string; number: number }[]; advanced?: boolean } = {}) =>
+      baseSession({
+        shuttleToolsEnabled: over.advanced ?? true,
+        courts: [
+          {
+            status: 'active',
+            pairingId: 'pair1',
+            revision: 7,
+            format: 'doubles',
+            mode: 'variety',
+            teamA: ['p1', 'p2'],
+            teamB: ['p3', 'p4'],
+            startedAt: new Date().toISOString(),
+            ...((over.advanced ?? true)
+              ? { currentShuttle: over.current === undefined ? { id: 's2', number: 2 } : over.current, usedShuttles: over.used ?? [{ id: 's1', number: 1 }, { id: 's2', number: 2 }] }
+              : {}),
+          },
+        ],
+      });
+
+    const root = (f: ComponentFixture<CourtPanel>) => f.nativeElement as HTMLElement;
+    const button = (f: ComponentFixture<CourtPanel>, label: string) =>
+      [...root(f).querySelectorAll('button')].find((b) => !b.closest('dialog') && b.textContent?.includes(label)) as HTMLButtonElement | undefined;
+    const dialog = (f: ComponentFixture<CourtPanel>) => root(f).querySelector('dialog.shuttle-picker-dialog') as HTMLDialogElement;
+    const settle = async (f: ComponentFixture<CourtPanel>) => {
+      await new Promise((r) => setTimeout(r, 0));
+      TestBed.tick();
+      await f.whenStable();
+      f.detectChanges();
+    };
+    async function reload(f: ComponentFixture<CourtPanel>, httpMock: HttpTestingController, next: Session) {
+      await new Promise((r) => setTimeout(r, 0));
+      TestBed.tick();
+      httpMock.expectOne(`${B}/sessions/sess1`).flush(next);
+      await settle(f);
+    }
+
+    it('an ordinary session confirms in one tap with no inventory request and no dialog', async () => {
+      const { fixture, httpMock } = await createPanel(pendingSession(false));
+      fixture.detectChanges();
+      button(fixture, 'ยืนยัน')!.click();
+      const req = httpMock.expectOne(`${B}/sessions/sess1/pairings/pair1/confirm`);
+      expect(req.request.body).toEqual({});
+      req.flush({});
+      await reload(fixture, httpMock, activeSession({ advanced: false }));
+      expect(dialog(fixture)?.hasAttribute('open') ?? false).toBe(false);
+    });
+
+    it('an advanced session asks for a shuttle before confirming, suggesting the court\'s last one', async () => {
+      const { fixture, httpMock } = await createPanel(pendingSession(true));
+      fixture.detectChanges();
+      button(fixture, 'ยืนยัน')!.click();
+      httpMock.expectOne(`${B}/sessions/sess1/shuttles`).flush(inventory({ lastShuttleByCourt: [{ courtNumber: 1, shuttleId: 's2' }] }));
+      await settle(fixture);
+      expect(dialog(fixture).hasAttribute('open')).toBe(true);
+      expect(dialog(fixture).textContent).toContain('#2');
+      // Nothing is confirmed until the host chooses.
+      httpMock.expectNone(`${B}/sessions/sess1/pairings/pair1/confirm`);
+      (dialog(fixture).querySelector('[data-submit-shuttle]') as HTMLButtonElement).click();
+      const req = httpMock.expectOne(`${B}/sessions/sess1/pairings/pair1/confirm`);
+      expect(req.request.body).toEqual({ shuttle: { kind: 'existing', shuttleId: 's2' } });
+      req.flush({});
+      await reload(fixture, httpMock, activeSession());
+      expect(dialog(fixture).hasAttribute('open')).toBe(false);
+    });
+
+    it('offers a new shuttle instead when the court\'s last one is retired or busy elsewhere', async () => {
+      const { fixture, httpMock } = await createPanel(pendingSession(true));
+      fixture.detectChanges();
+      button(fixture, 'ยืนยัน')!.click();
+      // Court 1's last (#3) is retired; #1 is held by another court.
+      httpMock.expectOne(`${B}/sessions/sess1/shuttles`).flush(inventory({ lastShuttleByCourt: [{ courtNumber: 1, shuttleId: 's3' }], heldShuttleIds: ['s1'] }));
+      await settle(fixture);
+      expect(dialog(fixture).querySelector('input[value="last"]')).toBeNull();
+      expect((dialog(fixture).querySelector('input[value="new"]') as HTMLInputElement).checked).toBe(true);
+      expect(dialog(fixture).querySelector('[data-shuttle-chip="s1"]')).toBeNull();
+      expect(dialog(fixture).querySelector('[data-shuttle-chip="s2"]')).toBeTruthy();
+      (dialog(fixture).querySelector('[data-submit-shuttle]') as HTMLButtonElement).click();
+      const req = httpMock.expectOne(`${B}/sessions/sess1/pairings/pair1/confirm`);
+      expect(req.request.body).toEqual({ shuttle: { kind: 'new' } });
+      req.flush({});
+      await reload(fixture, httpMock, activeSession());
+    });
+
+    it('recovers from the 60s auto-confirm winning the race: closes the prompt, says so, and reloads', async () => {
+      const { fixture, httpMock } = await createPanel(pendingSession(true));
+      fixture.detectChanges();
+      button(fixture, 'ยืนยัน')!.click();
+      httpMock.expectOne(`${B}/sessions/sess1/shuttles`).flush(inventory());
+      await settle(fixture);
+      (dialog(fixture).querySelector('[data-submit-shuttle]') as HTMLButtonElement).click();
+      httpMock
+        .expectOne(`${B}/sessions/sess1/pairings/pair1/confirm`)
+        .flush({ code: 'PAIRING_CONFIRMED' }, { status: 409, statusText: 'Conflict' });
+      await reload(fixture, httpMock, activeSession());
+      expect(dialog(fixture).hasAttribute('open')).toBe(false);
+      expect(root(fixture).textContent).toContain('ยืนยันไปแล้ว');
+    });
+
+    it('cancelling the prompt confirms nothing', async () => {
+      const { fixture, httpMock } = await createPanel(pendingSession(true));
+      fixture.detectChanges();
+      button(fixture, 'ยืนยัน')!.click();
+      httpMock.expectOne(`${B}/sessions/sess1/shuttles`).flush(inventory());
+      await settle(fixture);
+      ([...dialog(fixture).querySelectorAll('button')].find((b) => b.textContent?.includes('ยกเลิก')) as HTMLButtonElement).click();
+      fixture.detectChanges();
+      expect(dialog(fixture).hasAttribute('open')).toBe(false);
+      httpMock.expectNone(`${B}/sessions/sess1/pairings/pair1/confirm`);
+    });
+
+    it('shows an inventory load failure instead of an empty prompt', async () => {
+      const { fixture, httpMock } = await createPanel(pendingSession(true));
+      fixture.detectChanges();
+      button(fixture, 'ยืนยัน')!.click();
+      httpMock.expectOne(`${B}/sessions/sess1/shuttles`).flush('x', { status: 500, statusText: 'Server Error' });
+      await settle(fixture);
+      expect(dialog(fixture)?.hasAttribute('open') ?? false).toBe(false);
+      expect(root(fixture).querySelector('[role="alert"]')).toBeTruthy();
+    });
+
+    it('an active advanced court shows the current shuttle and the distinct ones used this game', async () => {
+      const { fixture } = await createPanel(activeSession());
+      fixture.detectChanges();
+      expect(root(fixture).querySelector('[data-current-shuttle]')!.textContent).toContain('#2');
+      expect(root(fixture).querySelector('[data-used-shuttles]')!.textContent).toContain('#1');
+      expect(root(fixture).querySelector('[data-used-shuttles]')!.textContent).toContain('#2');
+      for (const attr of ['data-open-new-shuttle', 'data-switch-shuttle', 'data-retire-shuttle']) {
+        const el = root(fixture).querySelector(`[${attr}]`) as HTMLButtonElement;
+        expect(el, attr).toBeTruthy();
+        expect(el.getAttribute('type')).toBe('button');
+      }
+    });
+
+    it('an active ordinary court shows no shuttle controls at all', async () => {
+      const { fixture } = await createPanel(activeSession({ advanced: false }));
+      fixture.detectChanges();
+      expect(root(fixture).querySelector('[data-current-shuttle]')).toBeNull();
+      expect(root(fixture).querySelector('[data-open-new-shuttle]')).toBeNull();
+    });
+
+    it('open new sends the court\'s revision, then shows what the server now holds', async () => {
+      const { fixture, httpMock } = await createPanel(activeSession());
+      fixture.detectChanges();
+      (root(fixture).querySelector('[data-open-new-shuttle]') as HTMLButtonElement).click();
+      const req = httpMock.expectOne(`${B}/sessions/sess1/pairings/pair1/shuttles/switch`);
+      expect(req.request.body).toEqual({ choice: { kind: 'new' }, expectedRevision: 7 });
+      // Disabled while the write is in flight; the screen still shows the old shuttle.
+      fixture.detectChanges();
+      expect((root(fixture).querySelector('[data-open-new-shuttle]') as HTMLButtonElement).disabled).toBe(true);
+      expect(root(fixture).querySelector('[data-current-shuttle]')!.textContent).toContain('#2');
+      req.flush({});
+      await reload(fixture, httpMock, activeSession({ current: { id: 's9', number: 9 }, used: [{ id: 's2', number: 2 }, { id: 's9', number: 9 }] }));
+      expect(root(fixture).querySelector('[data-current-shuttle]')!.textContent).toContain('#9');
+    });
+
+    it('switch to existing opens the picker without the current shuttle and sends the chosen one', async () => {
+      const { fixture, httpMock } = await createPanel(activeSession());
+      fixture.detectChanges();
+      (root(fixture).querySelector('[data-switch-shuttle]') as HTMLButtonElement).click();
+      httpMock.expectOne(`${B}/sessions/sess1/shuttles`).flush(inventory({ heldShuttleIds: ['s2'] }));
+      await settle(fixture);
+      expect(dialog(fixture).hasAttribute('open')).toBe(true);
+      expect(dialog(fixture).querySelector('[data-shuttle-chip="s2"]')).toBeNull(); // the one in hand
+      (dialog(fixture).querySelector('[data-shuttle-chip="s1"]') as HTMLButtonElement).click();
+      fixture.detectChanges();
+      (dialog(fixture).querySelector('[data-submit-shuttle]') as HTMLButtonElement).click();
+      const req = httpMock.expectOne(`${B}/sessions/sess1/pairings/pair1/shuttles/switch`);
+      expect(req.request.body).toEqual({ choice: { kind: 'existing', shuttleId: 's1' }, expectedRevision: 7 });
+      req.flush({});
+      await reload(fixture, httpMock, activeSession({ current: { id: 's1', number: 1 } }));
+      expect(dialog(fixture).hasAttribute('open')).toBe(false);
+    });
+
+    it('mark unusable switches away and retires the old shuttle in one action', async () => {
+      const { fixture, httpMock } = await createPanel(activeSession());
+      fixture.detectChanges();
+      (root(fixture).querySelector('[data-retire-shuttle]') as HTMLButtonElement).click();
+      httpMock.expectOne(`${B}/sessions/sess1/shuttles`).flush(inventory({ heldShuttleIds: ['s2'] }));
+      await settle(fixture);
+      expect((dialog(fixture).querySelector('input[name="retirePrevious"]') as HTMLInputElement).checked).toBe(true);
+      (dialog(fixture).querySelector('[data-submit-shuttle]') as HTMLButtonElement).click();
+      const req = httpMock.expectOne(`${B}/sessions/sess1/pairings/pair1/shuttles/switch`);
+      expect(req.request.body).toEqual({ choice: { kind: 'new' }, expectedRevision: 7, retirePrevious: true });
+      req.flush({});
+      await reload(fixture, httpMock, activeSession({ current: { id: 's9', number: 9 } }));
+    });
+
+    it('a stale or refused switch shows a localized error, keeps the old shuttle, and reloads', async () => {
+      const { fixture, httpMock } = await createPanel(activeSession());
+      fixture.detectChanges();
+      (root(fixture).querySelector('[data-open-new-shuttle]') as HTMLButtonElement).click();
+      httpMock
+        .expectOne(`${B}/sessions/sess1/pairings/pair1/shuttles/switch`)
+        .flush({ code: 'PAIRING_STALE' }, { status: 409, statusText: 'Conflict' });
+      await reload(fixture, httpMock, activeSession());
+      expect(root(fixture).querySelector('[role="alert"]')!.textContent).toContain('อุปกรณ์อื่น');
+      expect(root(fixture).querySelector('[data-current-shuttle]')!.textContent).toContain('#2');
+    });
+
+    it('after an undo-finish with no shuttle in hand, prompts the host to choose one', async () => {
+      const { fixture, httpMock } = await createPanel(activeSession({ current: null, used: [{ id: 's1', number: 1 }] }));
+      fixture.detectChanges();
+      expect(root(fixture).querySelector('[data-current-shuttle]')).toBeNull();
+      expect(root(fixture).textContent).toContain('ยังไม่ได้เลือกลูกแบด');
+      (root(fixture).querySelector('[data-choose-shuttle]') as HTMLButtonElement).click();
+      httpMock.expectOne(`${B}/sessions/sess1/shuttles`).flush(inventory());
+      await settle(fixture);
+      expect(dialog(fixture).hasAttribute('open')).toBe(true);
+    });
+
+    it('does not touch the winner buttons: finishing stays independent of any shuttle write', async () => {
+      const { fixture, httpMock } = await createPanel(activeSession());
+      fixture.detectChanges();
+      (root(fixture).querySelector('.win-a') as HTMLButtonElement).click();
+      const req = httpMock.expectOne(`${B}/sessions/sess1/pairings/pair1/finish`);
+      expect(req.request.body).toMatchObject({ winner: 'A' });
+      req.flush({});
+      await reload(fixture, httpMock, baseSession());
     });
   });
 });

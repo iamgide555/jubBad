@@ -1,0 +1,67 @@
+<dialog #dialog class="shuttle-picker-dialog sheet-dialog" (close)="onDialogClose()" (cancel)="onCancelAttempt($event)">
+  @if (isOpen()) {
+    <div class="form-card">
+      @if (mode() === 'confirm') {
+        <h2 i18n="@@shuttlePicker.confirmTitle">เลือกลูกแบด — {{ courtLabel() }}</h2>
+      } @else {
+        <h2 i18n="@@shuttlePicker.switchTitle">เปลี่ยนลูกแบด — {{ courtLabel() }}</h2>
+        @if (lastShuttle(); as current) {
+          <p class="muted" i18n="@@shuttlePicker.current">ตอนนี้ใช้ลูก #{{ current.number }}</p>
+        }
+      }
+
+      <fieldset class="kind-picker" [disabled]="saving()">
+        @if (canReuseLast()) {
+          <label class="kind-option" [class.is-selected]="picked() === 'last'">
+            <input type="radio" name="shuttleKind" value="last" [checked]="picked() === 'last'" (change)="setKind('last')" />
+            <span class="kind-name" i18n="@@shuttlePicker.reuse">ใช้ลูกเดิมของคอร์ทนี้ #{{ lastShuttle()!.number }}</span>
+          </label>
+        }
+        <label class="kind-option" [class.is-selected]="picked() === 'new'">
+          <input type="radio" name="shuttleKind" value="new" [checked]="picked() === 'new'" (change)="setKind('new')" />
+          <span class="kind-name" i18n="@@shuttlePicker.openNew">เปิดลูกใหม่</span>
+        </label>
+      </fieldset>
+
+      @if (options().length > 0) {
+        <fieldset class="chip-picker" [disabled]="saving()">
+          <legend i18n="@@shuttlePicker.pickIdle">หรือใช้ลูกที่ว่างอยู่</legend>
+          <div class="shuttle-chips">
+            @for (o of options(); track o.id) {
+              <button
+                type="button"
+                class="shuttle-chip"
+                [attr.data-shuttle-chip]="o.id"
+                [attr.aria-pressed]="pickedChip() === o.id"
+                [disabled]="saving()"
+                (click)="pickChip(o.id)"
+              >#{{ o.number }}</button>
+            }
+          </div>
+        </fieldset>
+      }
+
+      @if (mode() === 'switch') {
+        <label class="retire-row">
+          <input type="checkbox" name="retirePrevious" [checked]="retire()" [disabled]="saving()" (change)="setRetire($any($event.target).checked)" />
+          <span i18n="@@shuttlePicker.retire">ลูกเดิมใช้ไม่ได้แล้ว (เลิกใช้ลูกนั้น)</span>
+        </label>
+      }
+
+      @if (error()) {
+        <p class="error" role="alert">{{ error() }}</p>
+      }
+
+      <div class="dialog-actions">
+        <button type="button" class="ghost" [disabled]="saving()" (click)="close()" i18n="@@shuttlePicker.cancel">ยกเลิก</button>
+        <button type="button" data-submit-shuttle [disabled]="!canSubmit()" (click)="submit()">
+          @if (mode() === 'confirm') {
+            <ng-container i18n="@@shuttlePicker.submitConfirm">ยืนยันแมตช์</ng-container>
+          } @else {
+            <ng-container i18n="@@shuttlePicker.submitSwitch">เปลี่ยน</ng-container>
+          }
+        </button>
+      </div>
+    </div>
+  }
+</dialog>

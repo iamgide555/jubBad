@@ -129,4 +129,22 @@ export class RosterService {
   deleteRule(groupCode: string, ruleId: string) {
     return this.http.delete<{ deleted: boolean }>(`${this.base}/groups/${groupCode}/rules/${ruleId}`);
   }
+
+  /** Owner-only group switches (D/E advanced tools, cross-session history). Each only
+   *  affects sessions created after it is changed — every session snapshots it. */
+  getShuttleTools(groupCode: string) {
+    return this.http.get<{ enabled: boolean }>(`${this.base}/groups/${groupCode}/shuttle-tools`);
+  }
+
+  setShuttleTools(groupCode: string, enabled: boolean) {
+    return this.http.post<{ enabled: boolean }>(`${this.base}/groups/${groupCode}/shuttle-tools`, { enabled });
+  }
+
+  getCrossSessionHistory(groupCode: string) {
+    return this.http.get<{ enabled: boolean }>(`${this.base}/groups/${groupCode}/cross-session-history`);
+  }
+
+  setCrossSessionHistory(groupCode: string, enabled: boolean) {
+    return this.http.post<{ enabled: boolean }>(`${this.base}/groups/${groupCode}/cross-session-history`, { enabled });
+  }
 }

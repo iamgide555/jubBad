@@ -413,3 +413,41 @@
   color: var(--ink-soft);
   font-variant-numeric: tabular-nums;
 }
+
+/* Numbered shuttles (advanced sessions): what is in hand, what this game has
+   used, and the three live controls — every button a full 44px target. */
+.shuttle-bar {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  margin: var(--space-1) 0;
+}
+
+.shuttle-bar p {
+  margin: 0;
+}
+
+.shuttle-now {
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.shuttle-tag {
+  display: inline-block;
+  margin-left: var(--space-0);
+  padding: 0 var(--space-1);
+  border-radius: var(--radius-pill);
+  background: var(--ground-sunk);
+  font-variant-numeric: tabular-nums;
+}
+
+.shuttle-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+}
+
+.shuttle-actions button,
+.shuttle-none button {
+  min-height: var(--tap);
+}

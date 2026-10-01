@@ -2819,6 +2819,138 @@
         <source>เพิ่มกฎ</source>
         <target>Add rule</target>
       </trans-unit>
+      <trans-unit id="err.code.shuttleChoiceRequired" datatype="html">
+        <source>กรุณาเลือกลูกแบดก่อนยืนยันแมตช์</source>
+        <target>Choose a shuttle before confirming the match</target>
+      </trans-unit>
+      <trans-unit id="err.code.shuttleUnavailable" datatype="html">
+        <source>ลูกแบดลูกนี้ใช้ไม่ได้หรือถูกใช้อยู่ที่คอร์ทอื่น</source>
+        <target>That shuttle is retired or in use on another court</target>
+      </trans-unit>
+      <trans-unit id="err.code.shuttleNotFound" datatype="html">
+        <source>ไม่พบลูกแบดลูกนี้</source>
+        <target>Shuttle not found</target>
+      </trans-unit>
+      <trans-unit id="err.code.shuttleInUse" datatype="html">
+        <source>ลูกแบดลูกนี้ยังถูกใช้อยู่ ปิดการใช้งานไม่ได้</source>
+        <target>That shuttle is still in use and can't be retired or removed</target>
+      </trans-unit>
+      <trans-unit id="err.code.shuttleTrackingDisabled" datatype="html">
+        <source>ก๊วนนี้ไม่ได้เปิดการจดลูกแบด</source>
+        <target>Shuttle tracking is not turned on for this session</target>
+      </trans-unit>
+      <trans-unit id="err.switchShuttle" datatype="html">
+        <source>เปลี่ยนลูกแบดไม่สำเร็จ</source>
+        <target>Couldn't change the shuttle</target>
+      </trans-unit>
+      <trans-unit id="err.shuttleUsable" datatype="html">
+        <source>เปลี่ยนสถานะลูกแบดไม่สำเร็จ</source>
+        <target>Couldn't change the shuttle's status</target>
+      </trans-unit>
+      <trans-unit id="err.shuttleInventory" datatype="html">
+        <source>โหลดรายการลูกแบดไม่สำเร็จ</source>
+        <target>Couldn't load the shuttle list</target>
+      </trans-unit>
+      <trans-unit id="entry.advanced" datatype="html">
+        <source>ตั้งค่าขั้นสูง</source>
+        <target>Advanced settings</target>
+      </trans-unit>
+      <trans-unit id="entry.advancedHint" datatype="html">
+        <source>สวิตช์เหล่านี้มีผลกับก๊วนที่สร้างต่อจากนี้เท่านั้น ก๊วนที่เปิดอยู่แล้วไม่เปลี่ยน</source>
+        <target>These switches only apply to sessions created from now on. Sessions already open don't change.</target>
+      </trans-unit>
+      <trans-unit id="entry.advancedUnavailable" datatype="html">
+        <source>ตั้งค่าได้หลังสร้างก๊วนครั้งแรก</source>
+        <target>Available after the group is created</target>
+      </trans-unit>
+      <trans-unit id="entry.shuttleTools" datatype="html">
+        <source>จดลูกแบดเป็นหมายเลข</source>
+        <target>Track shuttles by number</target>
+      </trans-unit>
+      <trans-unit id="entry.shuttleToolsHint" datatype="html">
+        <source>ตอนยืนยันแมตช์จะให้เลือกลูกแบด และบิลจะนับตามลูกที่ใช้จริง</source>
+        <target>Confirming a match asks which shuttle was used, and the bill counts the shuttles actually used</target>
+      </trans-unit>
+      <trans-unit id="entry.crossSessionHistory" datatype="html">
+        <source>นับประวัติคู่ข้ามก๊วน</source>
+        <target>Count partner history across sessions</target>
+      </trans-unit>
+      <trans-unit id="entry.crossSessionHistoryHint" datatype="html">
+        <source>ปิด: เลี่ยงคู่ซ้ำเฉพาะคืนนี้ · เปิด: นับทุกก๊วนที่ผ่านมา</source>
+        <target>Off: avoid repeat partners within tonight only · On: count every past session</target>
+      </trans-unit>
+      <trans-unit id="entry.advancedSaveFailed" datatype="html">
+        <source>บันทึกไม่สำเร็จ ลองอีกครั้ง</source>
+        <target>Couldn't save — try again</target>
+      </trans-unit>
+      <trans-unit id="shuttlePicker.confirmTitle" datatype="html">
+        <source>เลือกลูกแบด — <x id="INTERPOLATION" equiv-text="{{ courtLabel() }}"/></source>
+        <target>Choose a shuttle — <x id="INTERPOLATION" equiv-text="{{ courtLabel() }}"/></target>
+      </trans-unit>
+      <trans-unit id="shuttlePicker.switchTitle" datatype="html">
+        <source>เปลี่ยนลูกแบด — <x id="INTERPOLATION" equiv-text="{{ courtLabel() }}"/></source>
+        <target>Change shuttle — <x id="INTERPOLATION" equiv-text="{{ courtLabel() }}"/></target>
+      </trans-unit>
+      <trans-unit id="shuttlePicker.current" datatype="html">
+        <source>ตอนนี้ใช้ลูก #<x id="INTERPOLATION" equiv-text="{{ current.number }}"/></source>
+        <target>Currently using #<x id="INTERPOLATION" equiv-text="{{ current.number }}"/></target>
+      </trans-unit>
+      <trans-unit id="shuttlePicker.reuse" datatype="html">
+        <source>ใช้ลูกเดิมของคอร์ทนี้ #<x id="INTERPOLATION" equiv-text="{{ lastShuttle()!.number }}"/></source>
+        <target>Reuse this court's last shuttle #<x id="INTERPOLATION" equiv-text="{{ lastShuttle()!.number }}"/></target>
+      </trans-unit>
+      <trans-unit id="shuttlePicker.openNew" datatype="html">
+        <source>เปิดลูกใหม่</source>
+        <target>Open a new shuttle</target>
+      </trans-unit>
+      <trans-unit id="shuttlePicker.pickIdle" datatype="html">
+        <source>หรือใช้ลูกที่ว่างอยู่</source>
+        <target>Or use an idle shuttle</target>
+      </trans-unit>
+      <trans-unit id="shuttlePicker.retire" datatype="html">
+        <source>ลูกเดิมใช้ไม่ได้แล้ว (เลิกใช้ลูกนั้น)</source>
+        <target>The old one is unusable now (retire it)</target>
+      </trans-unit>
+      <trans-unit id="shuttlePicker.cancel" datatype="html">
+        <source>ยกเลิก</source>
+        <target>Cancel</target>
+      </trans-unit>
+      <trans-unit id="shuttlePicker.submitConfirm" datatype="html">
+        <source>ยืนยันแมตช์</source>
+        <target>Confirm match</target>
+      </trans-unit>
+      <trans-unit id="shuttlePicker.submitSwitch" datatype="html">
+        <source>เปลี่ยน</source>
+        <target>Change</target>
+      </trans-unit>
+      <trans-unit id="court.shuttleNow" datatype="html">
+        <source>ลูกแบด #<x id="INTERPOLATION" equiv-text="{{ current.number }}"/></source>
+        <target>Shuttle #<x id="INTERPOLATION" equiv-text="{{ current.number }}"/></target>
+      </trans-unit>
+      <trans-unit id="court.shuttleNone" datatype="html">
+        <source>ยังไม่ได้เลือกลูกแบด</source>
+        <target>No shuttle chosen yet</target>
+      </trans-unit>
+      <trans-unit id="court.shuttleChoose" datatype="html">
+        <source>เลือกลูกแบด</source>
+        <target>Choose a shuttle</target>
+      </trans-unit>
+      <trans-unit id="court.shuttleUsed" datatype="html">
+        <source>ใช้แล้วในแมตช์นี้:</source>
+        <target>Used this match:</target>
+      </trans-unit>
+      <trans-unit id="court.shuttleOpenNew" datatype="html">
+        <source>เปิดลูกใหม่</source>
+        <target>Open new</target>
+      </trans-unit>
+      <trans-unit id="court.shuttleSwitch" datatype="html">
+        <source>เปลี่ยนไปลูกอื่น</source>
+        <target>Switch to another</target>
+      </trans-unit>
+      <trans-unit id="court.shuttleRetire" datatype="html">
+        <source>ลูกนี้ใช้ไม่ได้แล้ว</source>
+        <target>Mark unusable</target>
+      </trans-unit>
     </body>
   </file>
 </xliff>

@@ -579,5 +579,97 @@ describe('LiveSessionService', () => {
       });
     });
   });
+
+  describe('shuttle transport', () => {
+    const B = environment.apiBaseUrl;
+
+    async function reloadAfter(promise: Promise<unknown>) {
+      await new Promise((r) => setTimeout(r, 0));
+      TestBed.tick();
+      httpMock.expectOne(`${B}/sessions/sess1`).flush(baseSession());
+      return promise;
+    }
+
+    it('exposes whether the session tracks shuttles, false when the field is absent', async () => {
+      await flushSession(baseSession());
+      expect(service.shuttleTools()).toBe(false);
+      service.refresh();
+      TestBed.tick();
+      httpMock.expectOne(`${B}/sessions/sess1`).flush(baseSession({ shuttleToolsEnabled: true }));
+      await new Promise((r) => setTimeout(r, 0));
+      expect(service.shuttleTools()).toBe(true);
+    });
+
+    it('confirmMatch sends the shuttle choice when given one, and an empty body otherwise', async () => {
+      await flushSession(baseSession());
+      const withChoice = service.confirmMatch('pair1', { kind: 'existing', shuttleId: 's1' });
+      const req = httpMock.expectOne(`${B}/sessions/sess1/pairings/pair1/confirm`);
+      expect(req.request.body).toEqual({ shuttle: { kind: 'existing', shuttleId: 's1' } });
+      req.flush({});
+      expect((await reloadAfter(withChoice) as { ok: boolean }).ok).toBe(true);
+
+      const bare = service.confirmMatch('pair2');
+      const bareReq = httpMock.expectOne(`${B}/sessions/sess1/pairings/pair2/confirm`);
+      expect(bareReq.request.body).toEqual({});
+      bareReq.flush({});
+      await reloadAfter(bare);
+    });
+
+    it('switchShuttle posts the choice with its revision and the retire flag', async () => {
+      await flushSession(baseSession());
+      const promise = service.switchShuttle('pair1', { kind: 'new' }, 4, true);
+      const req = httpMock.expectOne(`${B}/sessions/sess1/pairings/pair1/shuttles/switch`);
+      expect(req.request.method).toBe('POST');
+      expect(req.request.body).toEqual({ choice: { kind: 'new' }, expectedRevision: 4, retirePrevious: true });
+      req.flush({});
+      expect(((await reloadAfter(promise)) as { ok: boolean }).ok).toBe(true);
+    });
+
+    it('switchShuttle omits the retire flag unless asked', async () => {
+      await flushSession(baseSession());
+      const promise = service.switchShuttle('pair1', { kind: 'existing', shuttleId: 's2' }, 1);
+      const req = httpMock.expectOne(`${B}/sessions/sess1/pairings/pair1/shuttles/switch`);
+      expect(req.request.body).toEqual({ choice: { kind: 'existing', shuttleId: 's2' }, expectedRevision: 1 });
+      req.flush({});
+      await reloadAfter(promise);
+    });
+
+    it('turns a stale or unavailable shuttle write into a localized message, never a false success', async () => {
+      await flushSession(baseSession());
+      const unavailable = service.switchShuttle('pair1', { kind: 'existing', shuttleId: 's2' }, 1);
+      httpMock
+        .expectOne(`${B}/sessions/sess1/pairings/pair1/shuttles/switch`)
+        .flush({ code: 'SHUTTLE_UNAVAILABLE' }, { status: 409, statusText: 'Conflict' });
+      const a = (await reloadAfter(unavailable)) as { ok: boolean; error?: string };
+      expect(a.ok).toBe(false);
+      expect(a.error).toContain('ลูกแบด');
+
+      const stale = service.switchShuttle('pair1', { kind: 'new' }, 1);
+      httpMock
+        .expectOne(`${B}/sessions/sess1/pairings/pair1/shuttles/switch`)
+        .flush({ code: 'PAIRING_STALE' }, { status: 409, statusText: 'Conflict' });
+      const b = (await reloadAfter(stale)) as { ok: boolean; error?: string };
+      expect(b).toMatchObject({ ok: false });
+      expect(b.error).toContain('อุปกรณ์อื่น');
+    });
+
+    it('setShuttleUsable posts the desired state to the shuttle', async () => {
+      await flushSession(baseSession());
+      const promise = service.setShuttleUsable('s9', false);
+      const req = httpMock.expectOne(`${B}/sessions/sess1/shuttles/s9/usable`);
+      expect(req.request.body).toEqual({ usable: false });
+      req.flush({ id: 's9', number: 9, usable: false });
+      await reloadAfter(promise);
+    });
+
+    it('getShuttleInventory reads the owner-only inventory', async () => {
+      await flushSession(baseSession());
+      const promise = service.getShuttleInventory();
+      const req = httpMock.expectOne(`${B}/sessions/sess1/shuttles`);
+      expect(req.request.method).toBe('GET');
+      req.flush({ enabled: true, identities: [], games: [], heldShuttleIds: [], lastShuttleByCourt: [] });
+      expect((await promise).enabled).toBe(true);
+    });
+  });
 });
 

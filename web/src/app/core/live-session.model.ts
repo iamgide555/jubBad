@@ -1,3 +1,5 @@
+import type { ShuttleRef } from './shuttle.model';
+
 export type CourtFormat = 'doubles' | 'singles';
 
 /** Per-court sticky mode — only ever differs from the session's own `mode`
@@ -36,4 +38,12 @@ export type CourtState =
        *  court was confirmed and the timer started. Resets to a new value if
        *  the host undoes and re-confirms. */
       startedAt: string;
+      /** `Pairing.revision` — a switch or winner tap must send it so a stale
+       *  tab is refused. Always sent by the server; optional here only so
+       *  display-side fixtures stay valid. A write without it is not attempted. */
+      revision?: number;
+      /** Advanced sessions only: the shuttle in hand (null right after an undo)
+       *  and the distinct shuttles used so far in this game. Absent on ordinary sessions. */
+      currentShuttle?: ShuttleRef | null;
+      usedShuttles?: ShuttleRef[];
     };

@@ -2807,6 +2807,14 @@
         <source>แตะชื่อผู้เล่น 2 คน</source>
         <target>Tap two players</target>
       </trans-unit>
+      <trans-unit id="addRule.filterLabel" datatype="html">
+        <source>ค้นหาชื่อ</source>
+        <target>Search by name</target>
+      </trans-unit>
+      <trans-unit id="addRule.noMatch" datatype="html">
+        <source>ไม่พบผู้เล่น</source>
+        <target>No player found</target>
+      </trans-unit>
       <trans-unit id="addRule.kind" datatype="html">
         <source>ประเภทกฎ</source>
         <target>Rule type</target>

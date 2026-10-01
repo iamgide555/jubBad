@@ -13,6 +13,9 @@ import {
  * rule (it persists past tonight); the dialog says so, since the host is
  * standing in a session when they add it.
  */
+/** Rosters up to this size show every chip without a filter field. */
+const FILTER_THRESHOLD = 8;
+
 @Component({
   selector: 'app-add-rule-dialog',
   imports: [],
@@ -32,6 +35,19 @@ export class AddRuleDialog {
   protected readonly ruleKinds = RULE_KINDS;
   protected readonly kindHints = RULE_KIND_HINTS;
   protected readonly isOpen = signal(false);
+  protected readonly filterLabel = $localize`:@@addRule.filterLabel:ค้นหาชื่อ`;
+  protected readonly query = signal('');
+
+  protected readonly showFilter = computed(() => this.players().length > FILTER_THRESHOLD);
+
+  /** Chips narrowed by the typed name. A picked player stays pressed when the
+   *  filter hides them — the summary line still names them. */
+  protected readonly visiblePlayers = computed(() => {
+    const q = this.query().trim().toLocaleLowerCase();
+    if (!q) return this.players();
+    return this.players().filter((p) => p.name.toLocaleLowerCase().includes(q));
+  });
+
   /** Up to two player ids, in tap order. A rule is an unordered pair, so the
    *  order only decides which id the request lists first. */
   protected readonly picked = signal<readonly string[]>([]);
@@ -47,6 +63,7 @@ export class AddRuleDialog {
 
   open(): void {
     this.picked.set([]);
+    this.query.set('');
     this.kind.set('must-pair');
     this.isOpen.set(true);
     this.dialogEl().nativeElement.showModal();
@@ -69,6 +86,8 @@ export class AddRuleDialog {
    *  swaps out the later pick, so the host never has to clear first. */
   protected togglePlayer(id: string): void {
     const current = this.picked();
+    // Picking clears the filter so the host can search for the second player.
+    if (!current.includes(id)) this.query.set('');
     if (current.includes(id)) {
       this.picked.set(current.filter((x) => x !== id));
     } else if (current.length < 2) {

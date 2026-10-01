@@ -158,4 +158,89 @@ describe('AddRuleDialog', () => {
     expect(root().querySelectorAll('[data-player-chip][aria-pressed="true"]').length).toBe(0);
     expect(submitButton().disabled).toBe(true);
   });
+
+  describe('name filter on a long roster', () => {
+    const many = Array.from({ length: 12 }, (_, i) => ({ id: `q${i + 1}`, name: `ผู้เล่น ${i + 1}` }));
+    const filterInput = () => root().querySelector('input.player-filter') as HTMLInputElement | null;
+    const visibleChips = () => root().querySelectorAll('[data-player-chip]').length;
+
+    function typeFilter(value: string): void {
+      const el = filterInput()!;
+      el.value = value;
+      el.dispatchEvent(new Event('input'));
+      fixture.detectChanges();
+    }
+
+    it('hides the filter when every chip already fits (small roster)', async () => {
+      await openDialog();
+      expect(filterInput()).toBeNull();
+    });
+
+    it('shows a filter once the roster is long', async () => {
+      fixture.componentRef.setInput('players', many);
+      await openDialog();
+      expect(filterInput()).not.toBeNull();
+      expect(visibleChips()).toBe(12);
+    });
+
+    it('narrows the chips as the host types, ignoring case and surrounding spaces', async () => {
+      fixture.componentRef.setInput('players', [...many, { id: 'x1', name: 'Bass' }]);
+      await openDialog();
+      typeFilter('  bAs ');
+      expect(visibleChips()).toBe(1);
+      expect(chip('x1')).toBeTruthy();
+      typeFilter('ผู้เล่น 1');
+      // matches 1, 10, 11, 12
+      expect(visibleChips()).toBe(4);
+    });
+
+    it('says so when nothing matches, rather than showing an empty box', async () => {
+      fixture.componentRef.setInput('players', many);
+      await openDialog();
+      typeFilter('zzz');
+      expect(visibleChips()).toBe(0);
+      expect(root().textContent).toContain('ไม่พบผู้เล่น');
+    });
+
+    it('clears the filter after a pick so the host can search for the second player', async () => {
+      fixture.componentRef.setInput('players', many);
+      await openDialog();
+      typeFilter('ผู้เล่น 3');
+      tap('q3');
+      expect(filterInput()!.value).toBe('');
+      expect(visibleChips()).toBe(12);
+      expect(summary()).toBe('ผู้เล่น 3');
+    });
+
+    it('keeps a picked player picked while the filter hides them', async () => {
+      fixture.componentRef.setInput('players', many);
+      await openDialog();
+      tap('q3');
+      typeFilter('ผู้เล่น 7');
+      expect(chip('q3')).toBeNull();
+      expect(summary()).toBe('ผู้เล่น 3');
+      tap('q7');
+      expect(summary()).toBe('ผู้เล่น 3 + ผู้เล่น 7');
+      expect(submitButton().disabled).toBe(false);
+    });
+
+    it('does not clear the filter when a picked chip is dropped', async () => {
+      fixture.componentRef.setInput('players', many);
+      await openDialog();
+      tap('q3');
+      typeFilter('ผู้เล่น 3');
+      tap('q3');
+      expect(filterInput()!.value).toBe('ผู้เล่น 3');
+    });
+
+    it('starts with an empty filter each time it opens', async () => {
+      fixture.componentRef.setInput('players', many);
+      await openDialog();
+      typeFilter('ผู้เล่น 5');
+      fixture.componentInstance.close();
+      await openDialog();
+      expect(filterInput()!.value).toBe('');
+      expect(visibleChips()).toBe(12);
+    });
+  });
 });

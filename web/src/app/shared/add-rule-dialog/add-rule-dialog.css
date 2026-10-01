@@ -19,6 +19,24 @@
   margin-bottom: var(--space-0);
 }
 
+.player-filter {
+  width: 100%;
+  min-height: var(--tap);
+  margin-bottom: var(--space-1);
+}
+
+.player-chips.is-filtered {
+  /* With a filter above, the host searches rather than scrolls: two rows plus a
+     peek of the third is enough, and it keeps all three rule kinds on screen. */
+  max-height: min(7rem, 18dvh);
+}
+
+.no-match {
+  margin: 0;
+  padding: var(--space-1);
+  color: var(--ink-soft);
+}
+
 .player-chips {
   display: flex;
   flex-wrap: wrap;

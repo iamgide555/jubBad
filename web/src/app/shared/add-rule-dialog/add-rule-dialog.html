@@ -4,8 +4,20 @@
       <h2 i18n="@@addRule.title">เพิ่มกฎการจับคู่</h2>
       <fieldset class="player-picker" [disabled]="saving()">
         <legend i18n="@@addRule.playersLegend">ผู้เล่น (เลือก 2 คน)</legend>
-        <div class="player-chips">
-          @for (p of players(); track p.id) {
+        @if (showFilter()) {
+          <input
+            type="text"
+            class="player-filter"
+            name="playerFilter"
+            autocomplete="off"
+            [attr.aria-label]="filterLabel"
+            [placeholder]="filterLabel"
+            [value]="query()"
+            (input)="query.set($any($event.target).value)"
+          />
+        }
+        <div class="player-chips" [class.is-filtered]="showFilter()">
+          @for (p of visiblePlayers(); track p.id) {
             <button
               type="button"
               class="player-chip"
@@ -13,6 +25,8 @@
               [attr.aria-pressed]="picked().includes(p.id)"
               (click)="togglePlayer(p.id)"
             >{{ p.name }}</button>
+          } @empty {
+            <p class="no-match" i18n="@@addRule.noMatch">ไม่พบผู้เล่น</p>
           }
         </div>
         <p class="picked-summary" role="status" aria-live="polite">

@@ -112,4 +112,41 @@ describe('AddWalkInDialog', () => {
     expect(hint?.textContent).toContain('ตั้ม');
     expect(hint?.textContent).toContain('อยู่ในก๊วนคืนนี้แล้ว');
   });
+
+  describe('group ladders (host feedback F)', () => {
+    const custom = {
+      mode: 'custom' as const,
+      revision: 2,
+      levels: [{ id: 'x', name: 'BG', startingElo: 1000 }, { id: 'y', name: 'BGN', startingElo: 1100 }, { id: 'z', name: 'N', startingElo: 1200 }],
+      assignedCounts: { x: 0, y: 0, z: 0 },
+    };
+    const picker = () => (fixture.nativeElement as HTMLElement).querySelectorAll('app-level-picker .chip');
+
+    it('offers exactly this group\'s levels for a new walk-in, in its order', async () => {
+      fixture.componentRef.setInput('ladder', custom);
+      await openDialog();
+      type('Newcomer');
+      expect([...picker()].map((b) => b.textContent!.trim())).toEqual(['-', 'BG', 'BGN', 'N']);
+    });
+
+    it('emits the chosen custom level with the new name', async () => {
+      fixture.componentRef.setInput('ladder', custom);
+      await openDialog();
+      type('Newcomer');
+      const emitted: unknown[] = [];
+      fixture.componentInstance.add.subscribe((v) => emitted.push(v));
+      (picker()[2] as HTMLButtonElement).click(); // BGN
+      fixture.detectChanges();
+      ((fixture.nativeElement as HTMLElement).querySelector('[data-add-new]') as HTMLButtonElement).click();
+      expect(emitted).toEqual([{ name: 'Newcomer', level: 'BGN' }]);
+    });
+
+    it('with no readable ladder the choice is disabled and says why', async () => {
+      fixture.componentRef.setInput('ladder', null);
+      await openDialog();
+      type('Newcomer');
+      expect([...picker()].every((b) => (b as HTMLButtonElement).disabled)).toBe(true);
+      expect((fixture.nativeElement as HTMLElement).querySelector('[data-ladder-unavailable]')).toBeTruthy();
+    });
+  });
 });

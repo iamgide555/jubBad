@@ -15,7 +15,8 @@ import {
 } from '../../core/pair-rule.model';
 import { AddRuleDialog } from '../../shared/add-rule-dialog/add-rule-dialog';
 import { LevelPicker } from '../../shared/level-picker/level-picker';
-import { levelIndex, type Level } from '../../../../../engines/levels.ts';
+import type { Level } from '../../../../../engines/levels.ts';
+import { levelRank, levelsErrorMessage, type GroupLevelsResponse } from '../../core/group-levels.model';
 
 type SortKey = 'rating' | 'singlesRating' | 'winRate' | 'level';
 
@@ -42,15 +43,16 @@ export class PlayerRoster implements CanComponentDeactivate, OnDestroy {
 
   readonly sortedPlayers = computed(() => {
     const key = this.sortKey();
-    // 'level' is a letter grade (engines/levels.ts LEVELS), not a number —
-    // compared by its position in that scale (levelIndex) rather than the
+    // 'level' is a name in the group's own ladder, not a number —
+    // compared by its position in that ladder (levelRank) rather than the
     // generic numeric subtraction the other three metrics share.
     if (key === 'level') {
       return [...this.players()].sort((a, b) => {
         if (a.level === null && b.level === null) return 0;
         if (a.level === null) return 1; // nulls (no level yet) sort last
         if (b.level === null) return -1;
-        return levelIndex(b.level) - levelIndex(a.level); // descending
+        const ladder = this.ladder()?.levels ?? [];
+        return levelRank(ladder, b.level) - levelRank(ladder, a.level); // descending, by the group's own order
       });
     }
     return [...this.players()].sort((a, b) => {
@@ -66,6 +68,7 @@ export class PlayerRoster implements CanComponentDeactivate, OnDestroy {
   constructor(route: ActivatedRoute) {
     this.groupCode = route.snapshot.paramMap.get('groupCode')!;
     void this.load(true);
+    void this.loadLadder();
     // Covers the navigation paths canDeactivate() cannot: closing the tab,
     // reloading, or typing a new URL — none of which run the Angular
     // Router's guards, since the app itself is about to unload.
@@ -176,24 +179,40 @@ export class PlayerRoster implements CanComponentDeactivate, OnDestroy {
 
   readonly levelSaveError = signal<string | null>(null);
 
+  /** The group's ordered ladder; null while unread or unreadable, which disables level choices. */
+  readonly ladder = signal<GroupLevelsResponse | null>(null);
+
+  private async loadLadder(): Promise<void> {
+    try {
+      this.ladder.set(await firstValueFrom(this.rosterService.getGroupLevels(this.groupCode)));
+    } catch {
+      this.ladder.set(null);
+    }
+  }
+
   async setLevel(player: ManagedPlayer, level: Level | null): Promise<void> {
+    const revision = this.ladder()?.revision;
+    if (revision === undefined) return;
     const previous = player.level;
     this.players.update((list) =>
       list.map((p) => (p.id === player.id ? { ...p, level } : p))
     );
     this.levelSaveError.set(null);
     try {
-      await firstValueFrom(this.rosterService.updatePlayerLevel(this.groupCode, player.id, level));
+      await firstValueFrom(this.rosterService.updatePlayerLevel(this.groupCode, player.id, level, revision));
       // A level edit resets the player's Elo seed (RatingAnchor, see
       // overview.md "Ratings"), so rating/singlesRating/winRate are stale
       // on every row, not just this one — reload the whole list rather
       // than patching just the level field.
       await this.load();
-    } catch {
+    } catch (err) {
       this.players.update((list) =>
         list.map((p) => (p.id === player.id ? { ...p, level: previous } : p))
       );
-      this.levelSaveError.set($localize`:@@playerRoster.levelSaveFailed:บันทึกระดับไม่สำเร็จ`);
+      const code = err instanceof HttpErrorResponse && typeof err.error?.code === 'string' ? err.error.code : null;
+      this.levelSaveError.set(levelsErrorMessage(code) ?? $localize`:@@playerRoster.levelSaveFailed:บันทึกระดับไม่สำเร็จ`);
+      // A stale answer means the ladder moved: read it again so the next choice is made from it.
+      await this.loadLadder();
     }
   }
 

@@ -3,6 +3,7 @@ import { HttpTestingController, provideHttpClientTesting } from '@angular/common
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { ActivatedRoute, convertToParamMap } from '@angular/router';
 import { PlayerRoster } from './player-roster';
+import { standardLadderFixture } from '../../core/group-levels.testing';
 import { environment } from '../../../environments/environment';
 
 const B = environment.apiBaseUrl;
@@ -74,11 +75,16 @@ describe('PlayerRoster', () => {
 
     httpMock.expectOne(`${B}/groups/group1/players/manage`).flush(PLAYERS);
     httpMock.expectOne(`${B}/groups/group1/rules`).flush([]);
+    httpMock.expectOne(`${B}/groups/group1/levels`).flush(standardLadderFixture());
     await fixture.whenStable();
     fixture.detectChanges();
   });
 
-  afterEach(() => httpMock.verify());
+  afterEach(() => {
+    // The page reads the group's ladder for its level pickers; most tests are not about it.
+    for (const req of httpMock.match((r) => r.url.endsWith('/groups/group1/levels'))) req.flush(standardLadderFixture());
+    httpMock.verify();
+  });
 
   it('loads and lists players', () => {
     expect(component.players()).toEqual(PLAYERS);
@@ -86,9 +92,10 @@ describe('PlayerRoster', () => {
 
   it('saves a level change immediately, without entering edit mode, then reloads ratings', async () => {
     const savePromise = component.setLevel(PLAYERS[0], 'P+');
-    httpMock
-      .expectOne(`${B}/groups/group1/players/p1/level`)
-      .flush({ id: 'p1', level: 'P+' });
+    const put = httpMock.expectOne(`${B}/groups/group1/players/p1/level`);
+    // The choice travels with the ladder revision the host picked it from.
+    expect(put.request.body).toEqual({ level: 'P+', expectedLadderRevision: 0 });
+    put.flush({ id: 'p1', level: 'P+' });
     // The level reset the player's rating seed, so every row's rating may
     // have shifted — the whole list is refetched rather than patching just
     // the level field. Let the PUT's .then() run before the reload GET
@@ -109,6 +116,10 @@ describe('PlayerRoster', () => {
     httpMock
       .expectOne(`${B}/groups/group1/players/p1/level`)
       .error(new ProgressEvent('error'));
+    // A failed save also rereads the ladder, so the next choice is made from the current one.
+    await Promise.resolve();
+    await Promise.resolve();
+    httpMock.expectOne(`${B}/groups/group1/levels`).flush(standardLadderFixture());
     await savePromise;
 
     expect(component.players().find((p) => p.id === 'p1')?.level).toBeNull();
@@ -387,6 +398,58 @@ describe('PlayerRoster', () => {
       req.flush({ deleted: true });
       await done;
       expect(component.rules()).toEqual([]);
+    });
+  });
+
+  describe('group ladders (host feedback F)', () => {
+    const custom = {
+      mode: 'custom' as const,
+      revision: 4,
+      levels: [{ id: 'x', name: 'มือใหม่', startingElo: 1000 }, { id: 'y', name: 'กลาง', startingElo: 1200 }, { id: 'z', name: 'เก่ง', startingElo: 1400 }],
+      assignedCounts: { x: 0, y: 0, z: 0 },
+    };
+    const trigger = () => (fixture.nativeElement as HTMLElement).querySelector('app-level-picker .level-trigger') as HTMLButtonElement;
+
+    it('each row offers this group\'s own level names, never the built-in ones', () => {
+      component.ladder.set(custom);
+      fixture.detectChanges();
+      trigger().click();
+      fixture.detectChanges();
+      const chips = [...(fixture.nativeElement as HTMLElement).querySelectorAll('app-level-picker .chip')].map((b) => b.textContent!.trim());
+      expect(chips.slice(0, 4)).toEqual(['-', 'มือใหม่', 'กลาง', 'เก่ง']);
+      expect(chips).not.toContain('BG');
+    });
+
+    it('sorting by level follows the group\'s order, highest first, untagged last', () => {
+      component.ladder.set(custom);
+      component.players.set([
+        { ...PLAYERS[0], id: 'a', level: 'กลาง' },
+        { ...PLAYERS[0], id: 'b', level: 'เก่ง' },
+        { ...PLAYERS[0], id: 'c', level: null },
+        { ...PLAYERS[0], id: 'd', level: 'มือใหม่' },
+      ]);
+      component.setSortKey('level');
+      expect(component.sortedPlayers().map((p) => p.id)).toEqual(['b', 'a', 'd', 'c']);
+    });
+
+    it('a stale revision is shown to the host, the chip rolls back, and the ladder is read again', async () => {
+      component.ladder.set(custom);
+      const save = component.setLevel(PLAYERS[0], 'กลาง');
+      httpMock.expectOne(`${B}/groups/group1/players/p1/level`).flush({ code: 'LEVEL_LADDER_STALE' }, { status: 409, statusText: 'Conflict' });
+      await Promise.resolve();
+      await Promise.resolve();
+      const reread = httpMock.expectOne(`${B}/groups/group1/levels`);
+      reread.flush({ ...custom, revision: 5 });
+      await save;
+      expect(component.levelSaveError()).toContain('มีการแก้ระดับ');
+      expect(component.players().find((p) => p.id === 'p1')?.level).toBeNull();
+      expect(component.ladder()?.revision).toBe(5);
+    });
+
+    it('when the ladder cannot be read the level choices are disabled, not guessed', () => {
+      component.ladder.set(null);
+      fixture.detectChanges();
+      expect(trigger().disabled).toBe(true);
     });
   });
 });

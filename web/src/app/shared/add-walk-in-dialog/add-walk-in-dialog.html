@@ -29,8 +29,14 @@
             </button>
             <app-level-picker
               [level]="newPlayerLevel()"
+              [levels]="ladder()?.levels ?? []"
+              [mode]="ladder()?.mode ?? 'standard'"
+              [disabled]="!ladder()"
               (levelChange)="newPlayerLevel.set($event)"
             />
+            @if (!ladder()) {
+              <span class="hint" data-ladder-unavailable i18n="@@walkIn.levelsUnavailable">โหลดรายการระดับไม่ได้ จึงยังเลือกระดับไม่ได้</span>
+            }
           </li>
         }
         @if (excludedExactMatch(); as match) {

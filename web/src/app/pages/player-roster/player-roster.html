@@ -125,6 +125,9 @@
                 <app-level-picker
                   [compact]="true"
                   [level]="player.level"
+                  [levels]="ladder()?.levels ?? []"
+                  [mode]="ladder()?.mode ?? 'standard'"
+                  [disabled]="!ladder()"
                   (levelChange)="setLevel(player, $event)"
                 />
               </td>

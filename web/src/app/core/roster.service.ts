@@ -18,6 +18,8 @@ export interface CreateSessionRequest {
   idempotencyKey: string;
   rosterReviews: NameReview[];
   waitlistReviews: NameReview[];
+  /** Required when any review carries a level: the ladder revision the host saw. */
+  expectedLadderRevision?: number;
 }
 
 export interface ParseRosterResponse {
@@ -83,10 +85,11 @@ export class RosterService {
     }>(`${this.base}/groups/${groupCode}/players/${playerId}`, patch);
   }
 
-  updatePlayerLevel(groupCode: string, playerId: string, level: Level | null) {
+  /** The revision is required even to clear: a stale tab must not undo a ladder switch it never saw. */
+  updatePlayerLevel(groupCode: string, playerId: string, level: Level | null, expectedLadderRevision: number) {
     return this.http.put<{ id: string; level: Level | null }>(
       `${this.base}/groups/${groupCode}/players/${playerId}/level`,
-      { level }
+      { level, expectedLadderRevision }
     );
   }
 

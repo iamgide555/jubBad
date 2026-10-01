@@ -3003,6 +3003,22 @@
         <source>ค่า Elo ของระดับที่ <x id="n" equiv-text="n"/> ต้องมากกว่าระดับก่อนหน้า</source>
         <target>Level <x id="n" equiv-text="n"/>'s Elo must be higher than the level before it</target>
       </trans-unit>
+      <trans-unit id="walkIn.levelsUnavailable" datatype="html">
+        <source>โหลดรายการระดับไม่ได้ จึงยังเลือกระดับไม่ได้</source>
+        <target>Couldn't load the level list, so levels can't be chosen yet</target>
+      </trans-unit>
+      <trans-unit id="dashboard.levelsUnavailable" datatype="html">
+        <source>โหลดรายการระดับไม่ได้ จึงยังเลือกระดับไม่ได้</source>
+        <target>Couldn't load the level list, so levels can't be chosen yet</target>
+      </trans-unit>
+      <trans-unit id="dashboard.levelSaveFailed" datatype="html">
+        <source>บันทึกระดับไม่สำเร็จ</source>
+        <target>Couldn't save the level</target>
+      </trans-unit>
+      <trans-unit id="levels.err.unknown" datatype="html">
+        <source>ระดับนี้ไม่อยู่ในรายการระดับของก๊วน เลือกใหม่จากรายการล่าสุด</source>
+        <target>That level isn't in the group's list. Pick again from the latest list.</target>
+      </trans-unit>
     </body>
   </file>
 </xliff>

@@ -22,6 +22,11 @@ export interface SaveGroupLevelsRequest {
   levels?: { id?: string; name: string; startingElo: number }[];
 }
 
+/** Position of a level in the group's ladder (0 = lowest); -1 for none or an unknown name. */
+export function levelRank(levels: readonly { name: string }[], name: string | null): number {
+  return name === null ? -1 : levels.findIndex((l) => l.name === name);
+}
+
 /** Host-facing text for a stable server code; null for one the page does not special-case. */
 export function levelsErrorMessage(code: string | null, counts?: Record<string, number>): string | null {
   switch (code) {
@@ -35,6 +40,8 @@ export function levelsErrorMessage(code: string | null, counts?: Record<string, 
     }
     case 'LEVEL_LADDER_INVALID':
       return $localize`:@@levels.err.invalid:รายการระดับไม่ถูกต้อง ตรวจชื่อและค่า Elo`;
+    case 'LEVEL_UNKNOWN':
+      return $localize`:@@levels.err.unknown:ระดับนี้ไม่อยู่ในรายการระดับของก๊วน เลือกใหม่จากรายการล่าสุด`;
     case 'LEVEL_DATA_INTEGRITY':
     case 'LEVEL_LADDER_CORRUPT':
       return $localize`:@@levels.err.corrupt:ข้อมูลระดับของก๊วนผิดปกติ กรุณาแจ้งผู้ดูแล`;

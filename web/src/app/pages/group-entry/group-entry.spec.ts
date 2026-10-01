@@ -5,6 +5,7 @@ import { ActivatedRoute, convertToParamMap, provideRouter, Router } from '@angul
 import { GroupEntry } from './group-entry';
 import { routes } from '../../app.routes';
 import { AuthService } from '../../core/auth.service';
+import { standardLadderFixture } from '../../core/group-levels.testing';
 import { environment } from '../../../environments/environment';
 
 const B = environment.apiBaseUrl;
@@ -56,6 +57,8 @@ describe('GroupEntry', () => {
   });
 
   afterEach(() => {
+    // The review opens a read of the group's ladder, not the subject of most tests here.
+    for (const req of httpMock.match((r) => r.url.endsWith('/groups/group1/levels'))) req.flush(standardLadderFixture());
     httpMock.verify();
   });
 
@@ -656,6 +659,8 @@ describe('GroupEntry with an existing group', () => {
   });
 
   afterEach(() => {
+    // The review opens a read of the group's ladder, not the subject of most tests here.
+    for (const req of httpMock.match((r) => r.url.endsWith('/groups/group1/levels'))) req.flush(standardLadderFixture());
     httpMock.verify();
   });
 
@@ -725,6 +730,8 @@ describe('GroupEntry manual roster add UI (Task 2)', () => {
   });
 
   afterEach(() => {
+    // The review opens a read of the group's ladder, not the subject of most tests here.
+    for (const req of httpMock.match((r) => r.url.endsWith('/groups/group1/levels'))) req.flush(standardLadderFixture());
     httpMock.verify();
   });
 
@@ -910,6 +917,8 @@ describe('GroupEntry manual roster add — behavior (Task 3)', () => {
   });
 
   afterEach(() => {
+    // The review opens a read of the group's ladder, not the subject of most tests here.
+    for (const req of httpMock.match((r) => r.url.endsWith('/groups/group1/levels'))) req.flush(standardLadderFixture());
     httpMock.verify();
   });
 
@@ -1167,5 +1176,112 @@ describe('GroupEntry manual roster add — behavior (Task 3)', () => {
     expect(component.manualCandidates()).toEqual([]);
     expect(component.manualMatchState().kind).toBe('no-match');
     expect(component.manualShowAddNew()).toBe(true);
+  });
+});
+
+describe('GroupEntry roster review and group ladders (host feedback F)', () => {
+  let component: GroupEntry;
+  let fixture: ComponentFixture<GroupEntry>;
+  let httpMock: HttpTestingController;
+  const custom = {
+    mode: 'custom' as const,
+    revision: 6,
+    levels: [{ id: 'x', name: 'BG', startingElo: 1000 }, { id: 'y', name: 'BGN', startingElo: 1100 }, { id: 'z', name: 'N', startingElo: 1200 }],
+    assignedCounts: { x: 0, y: 0, z: 0 },
+  };
+
+  beforeEach(async () => {
+    await TestBed.configureTestingModule({
+      imports: [GroupEntry],
+      providers: [
+        provideHttpClient(),
+        provideHttpClientTesting(),
+        provideRouter(routes),
+        { provide: AuthService, useValue: { check: () => Promise.resolve(true) } },
+        { provide: ActivatedRoute, useValue: { snapshot: { paramMap: convertToParamMap({ groupCode: 'group1' }) } } },
+      ],
+    }).compileComponents();
+    httpMock = TestBed.inject(HttpTestingController);
+    fixture = TestBed.createComponent(GroupEntry);
+    component = fixture.componentInstance;
+    httpMock.expectOne(`${B}/groups/group1`).flush('Not Found', { status: 404, statusText: 'Not Found' });
+    httpMock.expectOne(`${B}/groups/group1/sessions`).flush([]);
+    await fixture.whenStable();
+  });
+  afterEach(() => httpMock.verify());
+
+  /** Parses a brand-new group's roster; the review opens only after the parse created the group. */
+  async function openReview(ladder: object | 'fail') {
+    component.groupName.set('Group A');
+    component.rawText.set('1. ตั้ม\n2. เกียร์\n3. มด\n4. มะนาว');
+    const parsing = component.parse();
+    httpMock.expectOne(`${B}/groups/group1/parse`).flush({
+      header: { isoDate: null, venue: null, courtCount: null },
+      rosterReviews: fourNewPlayers(),
+      waitlistReviews: [],
+      warnings: [],
+      unrecognizedLines: [],
+    });
+    await new Promise((r) => setTimeout(r, 0));
+    httpMock.expectOne(`${B}/groups/group1/players`).flush([]);
+    await parsing;
+    const req = httpMock.expectOne(`${B}/groups/group1/levels`);
+    if (ladder === 'fail') req.flush('x', { status: 500, statusText: 'Server Error' });
+    else req.flush(ladder);
+    await fixture.whenStable();
+    fixture.detectChanges();
+  }
+
+  it('reads the ladder only after the parse created the group, and offers its own names to new players', async () => {
+    await openReview(custom);
+    const chips = [...(fixture.nativeElement as HTMLElement).querySelectorAll('.review-row app-level-picker')][0].querySelectorAll('.chip');
+    expect([...chips].map((b) => b.textContent!.trim())).toEqual(['-', 'BG', 'BGN', 'N']);
+  });
+
+  it('a failed ladder read disables the level choice on every new player', async () => {
+    await openReview('fail');
+    const chips = [...(fixture.nativeElement as HTMLElement).querySelectorAll('.review-row app-level-picker .chip')] as HTMLButtonElement[];
+    expect(chips.length).toBeGreaterThan(0);
+    expect(chips.every((b) => b.disabled)).toBe(true);
+  });
+
+  it('creating a session with a chosen level sends the ladder revision that was read', async () => {
+    await openReview(custom);
+    component.setLevel(component.rosterReviews()[0], 'BGN');
+    component.date.set('2026-09-08');
+    component.courtCount.set(2);
+    const creating = component.confirmRoster();
+    const req = httpMock.expectOne(`${B}/sessions`);
+    expect(req.request.body.expectedLadderRevision).toBe(6);
+    expect(req.request.body.rosterReviews[0].level).toBe('BGN');
+    req.flush({ code: 'sess1' });
+    await creating;
+  });
+
+  it('a session with no level choice sends no revision', async () => {
+    await openReview(custom);
+    component.date.set('2026-09-08');
+    component.courtCount.set(2);
+    const creating = component.confirmRoster();
+    const req = httpMock.expectOne(`${B}/sessions`);
+    expect(req.request.body.expectedLadderRevision).toBeUndefined();
+    req.flush({ code: 'sess1' });
+    await creating;
+  });
+
+  it('an old tab\'s label after the ladder changed is a visible conflict: no session, ladder reread, stale label dropped', async () => {
+    await openReview(custom);
+    component.setLevel(component.rosterReviews()[0], 'BGN');
+    component.date.set('2026-09-08');
+    component.courtCount.set(2);
+    const creating = component.confirmRoster();
+    httpMock.expectOne(`${B}/sessions`).flush({ code: 'LEVEL_LADDER_STALE' }, { status: 409, statusText: 'Conflict' });
+    await new Promise((r) => setTimeout(r, 0));
+    // The ladder was switched elsewhere to one that has no BGN.
+    httpMock.expectOne(`${B}/groups/group1/levels`).flush({ ...custom, revision: 7, levels: [{ id: 'q', name: 'ใหม่', startingElo: 1200 }] });
+    await creating;
+    expect(component.confirmError()).toContain('มีการแก้ระดับ');
+    expect(component.rosterReviews()[0].level).toBeUndefined();
+    expect(component.ladder()?.revision).toBe(7);
   });
 });

@@ -153,13 +153,25 @@
         </button>
         @if (review.match.type === 'new') {
           <span class="review-tag new" i18n="@@entry.newPlayer">คนใหม่</span>
-          <app-level-picker [level]="review.level ?? null" (levelChange)="setLevel(review, $event)" />
+          <app-level-picker
+          [level]="review.level ?? null"
+          [levels]="ladder()?.levels ?? []"
+          [mode]="ladder()?.mode ?? 'standard'"
+          [disabled]="!ladder()"
+          (levelChange)="setLevel(review, $event)"
+        />
         } @else {
           <span class="review-tag matched" i18n="@@entry.knownPlayer">มีอยู่แล้ว</span>
         }
       } @else if (review.match.type === 'new') {
         <span class="review-tag new" i18n="@@entry.newPlayer">คนใหม่</span>
-        <app-level-picker [level]="review.level ?? null" (levelChange)="setLevel(review, $event)" />
+        <app-level-picker
+          [level]="review.level ?? null"
+          [levels]="ladder()?.levels ?? []"
+          [mode]="ladder()?.mode ?? 'standard'"
+          [disabled]="!ladder()"
+          (levelChange)="setLevel(review, $event)"
+        />
       } @else if (isOpen(review)) {
         <!-- Open: a real question, answered with the app's existing
              segmented-toggle component (styles.css .scope-toggle) rather

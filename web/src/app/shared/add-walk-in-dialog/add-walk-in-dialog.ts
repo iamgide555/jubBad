@@ -2,6 +2,7 @@ import { Component, ElementRef, computed, input, output, signal, viewChild } fro
 import { FormsModule } from '@angular/forms';
 import { exactPlayerMatch, searchCandidates } from '../../core/roster-review';
 import { LevelPicker } from '../level-picker/level-picker';
+import type { GroupLevelsResponse } from '../../core/group-levels.model';
 import type { Player } from '../../../../../engines/fuzzy-match.ts';
 import type { Level } from '../../../../../engines/levels.ts';
 
@@ -23,6 +24,9 @@ export class AddWalkInDialog {
   readonly excludedIds = input<ReadonlySet<string>>(new Set());
   readonly saving = input(false);
   readonly error = input<string | null>(null);
+
+  /** The group's ladder; null while it could not be read, which disables the level choice rather than guessing. */
+  readonly ladder = input<GroupLevelsResponse | null>(null);
 
   readonly add = output<{ playerId: string } | { name: string; level?: Level }>();
 

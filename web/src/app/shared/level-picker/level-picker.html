@@ -4,14 +4,15 @@
       type="button"
       class="chip"
       [class.selected]="level() === null"
+      [disabled]="disabled()"
       (click)="choose(null)"
       aria-label="ไม่ระบุ"
       i18n-aria-label="@@level.unset"
     >
       -
     </button>
-    @for (l of levels; track l) {
-      <button type="button" class="chip" [class.selected]="level() === l" (click)="choose(l)">
+    @for (l of choices(); track l) {
+      <button type="button" class="chip" [class.selected]="level() === l" [disabled]="disabled()" (click)="choose(l)">
         {{ l }}
       </button>
     }
@@ -27,7 +28,7 @@
 </ng-template>
 
 @if (compact()) {
-  <button type="button" class="level-trigger" (click)="open()">
+  <button type="button" class="level-trigger" [disabled]="disabled()" (click)="open()">
     {{ level() ?? unsetLabel }}
   </button>
   <dialog #dialog class="level-dialog">

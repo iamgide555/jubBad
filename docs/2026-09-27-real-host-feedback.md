@@ -107,9 +107,13 @@ end-of-night total that C3's bill uses today (`bill.ts` takes one
   count only once entered.
 - **Output:** same copy-as-text bill as C3, for that one person.
 
-#### - [ ] F. Per-group level names — each host configures their own ladder
+#### - [x] F. Per-group level names — each host configures their own ladder
 
-2026-09-28 real-host feedback. Not yet designed.
+2026-09-28 real-host feedback. Done 2026-10-01 on `feat/level-ladders-f`: each
+group can keep the built-in BG..B ladder or define its own ordered levels with
+their own starting Elo, edited on an owner-only page. Players keep the rating
+anchor they were given when a ladder changes. See "Group-owned level ladders"
+in `overview.md`.
 
 Groups don't share one ladder. One group grades `BG, N, S`; another `BG, BGN,
 N, NS`, etc. Today the ladder is the fixed `LEVELS` list in `engines/levels.ts`

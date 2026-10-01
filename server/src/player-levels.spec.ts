@@ -3,6 +3,7 @@ import { Test } from '@nestjs/testing';
 import { PrismaModule } from './prisma/prisma.module.js';
 import { PrismaService } from './prisma/prisma.service.js';
 import { levelWrite, loadPlayerLevels, loadRatingAnchors } from './player-levels.js';
+import { DEFAULT_LEVEL_LADDER } from '../../engines/levels.ts';
 
 describe('levelWrite with a ladder and frozen seeds', () => {
   const custom = [{ name: 'A', startingElo: 1050 }, { name: 'B', startingElo: 1250 }];
@@ -154,5 +155,43 @@ describe('loadPlayerLevels', () => {
     expect(anchors.get(legacy.id)!.rating).toBe(1300);
     expect(anchors.get(never.id)).toEqual({ rating: 1200, setAt: null });
     expect(anchors.get(cleared.id)).toEqual({ rating: 1200, setAt: new Date('2026-09-23T00:00:00.000Z').getTime() });
+  });
+});
+
+describe('loadPlayerLevels with a ladder', () => {
+  let prisma: PrismaService;
+  const codes: string[] = [];
+  beforeAll(async () => {
+    prisma = (await Test.createTestingModule({ imports: [PrismaModule] }).compile()).get(PrismaService);
+  });
+  afterEach(async () => {
+    for (const code of codes.splice(0)) {
+      await prisma.player.deleteMany({ where: { groupId: code } });
+      await prisma.group.deleteMany({ where: { code } });
+    }
+  });
+  const group = async () => {
+    const code = randomUUID();
+    codes.push(code);
+    await prisma.group.create({ data: { code, name: 'G' } });
+    return code;
+  };
+
+  it('custom ladder: returns each player\'s name from the group ladder and null for untagged', async () => {
+    const code = await group();
+    const a = await prisma.player.create({ data: { groupId: code, name: 'A', aliases: '[]', level: 'อ' } });
+    const b = await prisma.player.create({ data: { groupId: code, name: 'B', aliases: '[]' } });
+    const levels = await loadPlayerLevels(prisma, code, [{ name: 'อ', startingElo: 1000 }]);
+    expect(levels.get(a.id)).toBe('อ');
+    expect(levels.get(b.id)).toBeNull();
+  });
+
+  it('custom ladder: a stored label the ladder lacks is an explicit data-integrity error, never null', async () => {
+    const code = await group();
+    await prisma.player.create({ data: { groupId: code, name: 'A', aliases: '[]', level: 'P' } });
+    await expect(loadPlayerLevels(prisma, code, [{ name: 'อ', startingElo: 1000 }])).rejects.toMatchObject({
+      response: { code: 'LEVEL_DATA_INTEGRITY' },
+    });
+    await expect(loadPlayerLevels(prisma, code, DEFAULT_LEVEL_LADDER)).resolves.toBeInstanceOf(Map);
   });
 });

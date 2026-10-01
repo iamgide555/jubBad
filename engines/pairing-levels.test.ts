@@ -6,7 +6,8 @@ import {
   groupKey,
   type MatchHistory,
 } from './pairing.ts';
-import type { Level } from './levels.ts';
+import type { Level, LevelSpec } from './levels.ts';
+import { arrangementScoreComponents } from './pairing.ts';
 
 function empty(): MatchHistory {
   return {
@@ -632,4 +633,79 @@ test('generateRound: reshuffling a group carry court still returns a full court,
   assert.equal(again.teamA.length + again.teamB.length, 4);
   assert.equal([...again.teamA, ...again.teamB].includes('n1'), true);
   assert.equal([...again.teamA, ...again.teamB].includes('n2'), true);
+});
+
+
+// ---- group-owned ladders (host feedback F) ------------------------------------------------------
+
+const ladderOf = (...names: string[]): LevelSpec[] => names.map((name, i) => ({ name, startingElo: 1000 + 100 * i }));
+
+test('custom ladder: adjacency follows the group order, so the same two levels band differently', () => {
+  const courts = [{ teamA: ['a', 'b'], teamB: ['c', 'd'] }];
+  const levels = levelMap({ a: 'BG', b: 'BG', c: 'N', d: 'N' });
+  const none = { partner: 0, opponent: 0 };
+  // Default order BG, N, ... : BG and N are neighbours, so the court is in band.
+  const std = arrangementScoreComponents(courts, new Map(), new Map(), undefined, none, null, levels);
+  assert.equal(std.bandBreaks, 0);
+  // A group that ranks BG, S, N: BG and N are two apart, so the same court breaks the band.
+  const custom = arrangementScoreComponents(courts, new Map(), new Map(), undefined, none, null, levels, ladderOf('BG', 'S', 'N'));
+  assert.equal(custom.bandBreaks, 1);
+});
+
+test('custom ladder: three levels make bottom and top out of band while the middle fits both', () => {
+  const three = ladderOf('BG', 'N', 'S');
+  const none = { partner: 0, opponent: 0 };
+  const broken = arrangementScoreComponents([{ teamA: ['a', 'b'], teamB: ['c', 'd'] }], new Map(), new Map(), undefined, none, null, levelMap({ a: 'BG', b: 'N', c: 'N', d: 'S' }), three);
+  assert.equal(broken.bandBreaks, 1, 'BG with S on one court');
+  const fine = arrangementScoreComponents([{ teamA: ['a', 'b'], teamB: ['c', 'd'] }], new Map(), new Map(), undefined, none, null, levelMap({ a: 'BG', b: 'N', c: 'N', d: 'N' }), three);
+  assert.equal(fine.bandBreaks, 0);
+});
+
+test('custom ladder: the strongest carry partner is the highest in the GROUP\'s order', () => {
+  const history = historyWithWait({ p1: 1000, p2: 2000, p3: 3000, p4: 4000, p5: 5000 });
+  // In the built-in order C outranks S; this group ranks S above C.
+  const levels = levelMap({ p1: 'BG', p2: 'N', p3: 'C', p4: 'S', p5: 'N' });
+  const run = (ladder?: LevelSpec[]) =>
+    generateRound(['p1', 'p2', 'p3', 'p4', 'p5'], 1, history, makeSeededRandom(1), undefined, undefined, levels, true, 'wait', new Set(['p1']), new Set(), undefined, 'requested', ladder);
+  const builtIn = run();
+  assert.ok(builtIn.courts[0].teamA.includes('p3'), 'built-in order: C is the pro');
+  const custom = run(ladderOf('BG', 'N', 'C', 'S'));
+  assert.ok(custom.courts[0].teamA.includes('p4'), 'custom order: S is the pro');
+  assert.ok(!custom.courts[0].teamA.includes('p3'));
+});
+
+test('custom ladder: carry waiting order is still honored for a lone newcomer', () => {
+  const history = historyWithWait({ p1: 1000, p2: 2000, p3: 3000, p4: 4000, p5: 5000 });
+  const levels = levelMap({ p1: 'BG', p2: 'N', p3: 'S', p4: 'S', p5: 'N' });
+  const result = generateRound(['p1', 'p2', 'p3', 'p4', 'p5'], 1, history, makeSeededRandom(1), undefined, undefined, levels, true, 'wait', new Set(['p1']), new Set(), undefined, 'requested', ladderOf('BG', 'N', 'S'));
+  assert.equal(result.courts.length, 1);
+  assert.ok(result.courts[0].teamA.includes('p1'));
+});
+
+test('a one-level ladder pairs without ever producing a negative index', () => {
+  const one = ladderOf('ทั่วไป');
+  const roster = Array.from({ length: 8 }, (_, i) => `p${i}`);
+  const levels = new Map<string, Level | null>(roster.map((id) => [id, 'ทั่วไป']));
+  const result = generateRound(roster, 2, empty(), makeSeededRandom(5), undefined, undefined, levels, true, 'games', undefined, undefined, undefined, 'requested', one);
+  assert.equal(result.courts.length, 2);
+});
+
+test('a label missing from the group ladder throws instead of weakening the band', () => {
+  const roster = ['a', 'b', 'c', 'd'];
+  const levels = new Map<string, Level | null>([['a', 'BG'], ['b', 'N'], ['c', 'S'], ['d', 'ZZ']]);
+  assert.throws(
+    () => generateRound(roster, 1, empty(), makeSeededRandom(5), undefined, undefined, levels, true, 'games', undefined, undefined, undefined, 'requested', ladderOf('BG', 'N', 'S')),
+    /unknown level/i
+  );
+});
+
+test('without a ladder argument every default-group outcome is unchanged', () => {
+  const roster = Array.from({ length: 10 }, (_, i) => `p${i}`);
+  const names = ['BG', 'N', 'S', 'P-', 'P', 'P+', 'C', 'B'];
+  const levels = new Map<string, Level | null>(roster.map((id, i) => [id, names[i % 8]]));
+  for (const seed of [1, 2, 3, 4, 5]) {
+    const implicit = generateRound(roster, 2, empty(), makeSeededRandom(seed), undefined, undefined, levels, true, 'games');
+    const explicit = generateRound(roster, 2, empty(), makeSeededRandom(seed), undefined, undefined, levels, true, 'games', undefined, undefined, undefined, 'requested', ladderOf('BG', 'N', 'S', 'P-', 'P', 'P+', 'C', 'B'));
+    assert.deepEqual(implicit, explicit);
+  }
 });

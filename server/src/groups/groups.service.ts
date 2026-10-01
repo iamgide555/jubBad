@@ -121,7 +121,7 @@ export class GroupsService {
     const decisiveMatches = matches.filter(
       (m): m is typeof m & { winner: 'A' | 'B' } => m.winner !== null
     );
-    const levels = await loadPlayerLevels(this.prisma, code);
+    const levels = await loadPlayerLevels(this.prisma, code, this.groupLevels.ladderOf(group).levels);
     const anchors = await loadRatingAnchors(this.prisma, code);
     const ratings = computeRatingTracks(decisiveMatches, anchors);
 

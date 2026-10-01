@@ -11,7 +11,7 @@
  */
 
 import { ratingGap, type RatingTracks } from './elo.ts';
-import { levelIndex, withinBand, type Level } from './levels.ts';
+import { DEFAULT_LEVEL_LADDER, levelIndex, withinBand, type Level, type LevelSpec } from './levels.ts';
 import { InvalidRoundInputError } from './errors.ts';
 import {
   assertValidPairRules,
@@ -128,7 +128,9 @@ export function selectSittingOut(
    * one two-seat unit, ranked at its less deserving member, that plays or
    * sits whole. Without a duo in the roster, selection is unchanged.
    */
-  rules?: readonly PairRule[]
+  rules?: readonly PairRule[],
+  /** The group's ordered level ladder, for the ±1 band. Omitted: the built-in one. */
+  ladder: readonly LevelSpec[] = DEFAULT_LEVEL_LADDER
 ): { playing: PlayerId[]; sittingOut: PlayerId[] } {
   const sizes = normalizeSizes(courtCount);
   const offered = consumedSizes(sizes, roster.length);
@@ -161,7 +163,7 @@ export function selectSittingOut(
   // priority — clustering it around each court's anchor — so everything
   // below (the natural cut, and the single-court group-repeat swap) works on
   // whichever ordering it's handed without needing to know band is involved.
-  const priorityOrder = band && levels ? bandOrderedByCourt(sorted, offered, levels) : sorted;
+  const priorityOrder = band && levels ? bandOrderedByCourt(sorted, offered, levels, ladder) : sorted;
 
   const units = rules ? unitsInOrder([...priorityOrder].reverse(), rules) : null;
   if (units && units.some((u) => u.length === 2)) {
@@ -235,7 +237,8 @@ export function selectSittingOut(
 function bandOrderedByCourt(
   sorted: PlayerId[],
   offered: CourtSize[],
-  levels: ReadonlyMap<PlayerId, Level | null>
+  levels: ReadonlyMap<PlayerId, Level | null>,
+  ladder: readonly LevelSpec[]
 ): PlayerId[] {
   let remaining = [...sorted].reverse(); // front = most deserving to play
   const chosenPerCourt: PlayerId[][] = [];
@@ -251,7 +254,7 @@ function bandOrderedByCourt(
     const outOfBand: PlayerId[] = [];
     for (const p of remaining) {
       const level = levels.get(p) ?? null;
-      const index = level === null ? null : levelIndex(level);
+      const index = level === null ? null : levelIndex(level, ladder);
       const fits =
         inBand.length < size &&
         (index === null || Math.max(max, index) - Math.min(min, index) <= 1);
@@ -405,13 +408,17 @@ export interface ArrangementScoreComponents {
  * toward the spread — so a group with nobody tagged, or only one player
  * tagged, never breaks the band.
  */
-function courtBreaksBand(players: PlayerId[], levels: ReadonlyMap<PlayerId, Level | null>): boolean {
+function courtBreaksBand(
+  players: PlayerId[],
+  levels: ReadonlyMap<PlayerId, Level | null>,
+  ladder: readonly LevelSpec[]
+): boolean {
   let min = Infinity;
   let max = -Infinity;
   for (const id of players) {
     const level = levels.get(id) ?? null;
     if (level === null) continue;
-    const index = levelIndex(level);
+    const index = levelIndex(level, ladder);
     if (index < min) min = index;
     if (index > max) max = index;
   }
@@ -427,7 +434,8 @@ export function arrangementScoreComponents(
   /** Groups (any split) that just played together and should not immediately reform. */
   recentGroupKeys?: Set<string> | null,
   /** Only when the ±1 band is on for this session; omitted, bandBreaks is always 0. */
-  levels?: ReadonlyMap<PlayerId, Level | null>
+  levels?: ReadonlyMap<PlayerId, Level | null>,
+  ladder: readonly LevelSpec[] = DEFAULT_LEVEL_LADDER
 ): ArrangementScoreComponents {
   let groupRepeat = 0;
   let bandBreaks = 0;
@@ -440,7 +448,7 @@ export function arrangementScoreComponents(
     if (recentGroupKeys && recentGroupKeys.has(groupKey(group))) {
       groupRepeat += 1;
     }
-    if (levels && courtBreaksBand(group, levels)) {
+    if (levels && courtBreaksBand(group, levels, ladder)) {
       bandBreaks += 1;
     }
 
@@ -499,7 +507,8 @@ export function compareArrangements(
   ratings?: RatingsInput,
   floors: HistoryFloors = { partner: 0, opponent: 0 },
   recentGroupKeys?: Set<string> | null,
-  levels?: ReadonlyMap<PlayerId, Level | null>
+  levels?: ReadonlyMap<PlayerId, Level | null>,
+  ladder: readonly LevelSpec[] = DEFAULT_LEVEL_LADDER
 ): number {
   const first = arrangementScoreComponents(
     one,
@@ -508,7 +517,8 @@ export function compareArrangements(
     ratings,
     floors,
     recentGroupKeys,
-    levels
+    levels,
+    ladder
   );
   const second = arrangementScoreComponents(
     other,
@@ -517,7 +527,8 @@ export function compareArrangements(
     ratings,
     floors,
     recentGroupKeys,
-    levels
+    levels,
+    ladder
   );
 
   if (first.groupRepeat !== second.groupRepeat) return first.groupRepeat - second.groupRepeat;
@@ -694,6 +705,8 @@ interface SearchContext {
   recentGroupKeys: Set<string> | null;
   /** Only set when the ±1 band is on for this session; otherwise bandBreaks stays 0. */
   levels?: ReadonlyMap<PlayerId, Level | null>;
+  /** The group's ladder the band is judged against; unset means the built-in one. */
+  ladder?: readonly LevelSpec[];
   /** Enabled, applicable pair rules — hard filters applied before any
    *  scoring. Unset (never an empty array) on the no-rule path. */
   rules?: readonly PairRule[];
@@ -707,7 +720,8 @@ function courtComponents(teamA: Team, teamB: Team, ctx: SearchContext): Arrangem
     ctx.ratings,
     ctx.floors,
     ctx.recentGroupKeys,
-    ctx.levels
+    ctx.levels,
+    ctx.ladder
   );
 }
 
@@ -1159,11 +1173,12 @@ function pickOpponents(
   pool: PlayerId[],
   proLevel: Level,
   levels: ReadonlyMap<PlayerId, Level | null>,
-  waitingSince: Map<PlayerId, number>
+  waitingSince: Map<PlayerId, number>,
+  ladder: readonly LevelSpec[]
 ): Team | null {
   const byLongestWait = (a: PlayerId, b: PlayerId) =>
     (waitingSince.get(a) ?? 0) - (waitingSince.get(b) ?? 0);
-  const inBand = pool.filter((id) => withinBand(levels.get(id) ?? null, proLevel)).sort(byLongestWait);
+  const inBand = pool.filter((id) => withinBand(levels.get(id) ?? null, proLevel, ladder)).sort(byLongestWait);
   const rest = pool.filter((id) => !inBand.includes(id)).sort(byLongestWait);
   const combined = [...inBand, ...rest];
   return combined.length >= 2 ? [combined[0], combined[1]] : null;
@@ -1199,7 +1214,8 @@ function buildCarryCourt(
   /** Applicable pair rules. A carry court that cannot honor them is not
    *  formed (null), so normal legal pairing takes over; the newcomer stays
    *  eligible for a genuine carry later. */
-  rules?: readonly PairRule[]
+  rules?: readonly PairRule[],
+  ladder: readonly LevelSpec[] = DEFAULT_LEVEL_LADDER
 ): CourtAssignment | null {
   const byLongestWait = [...roster].sort(
     (a, b) => (waitingSince.get(a) ?? 0) - (waitingSince.get(b) ?? 0)
@@ -1278,10 +1294,10 @@ function buildCarryCourt(
   const proCandidates = candidatePool
     .filter((id) => {
       const level = levels.get(id);
-      return level != null && levelIndex(level) > levelIndex(anchorLevel);
+      return level != null && levelIndex(level, ladder) > levelIndex(anchorLevel, ladder);
     })
     .sort((a, b) => {
-      const diff = levelIndex(levels.get(b)!) - levelIndex(levels.get(a)!);
+      const diff = levelIndex(levels.get(b)!, ladder) - levelIndex(levels.get(a)!, ladder);
       if (diff !== 0) return diff;
       const aCarried = carriedTonight.has(a) ? 1 : 0;
       const bCarried = carriedTonight.has(b) ? 1 : 0;
@@ -1310,8 +1326,8 @@ function buildCarryCourt(
       (id) => id !== pro && !(pro === currentPro && currentOpponents?.includes(id))
     );
     const opponents = rules
-      ? pickLegalOpponents(opponentPool, proLevel, levels, waitingSince, [anchor, pro], rules)
-      : pickOpponents(opponentPool, proLevel, levels, waitingSince);
+      ? pickLegalOpponents(opponentPool, proLevel, levels, waitingSince, [anchor, pro], rules, ladder)
+      : pickOpponents(opponentPool, proLevel, levels, waitingSince, ladder);
     if (opponents) {
       return { court: 1, teamA: [anchor, pro], teamB: opponents };
     }
@@ -1335,11 +1351,12 @@ function pickLegalOpponents(
   levels: ReadonlyMap<PlayerId, Level | null>,
   waitingSince: Map<PlayerId, number>,
   carryTeam: Team,
-  rules: readonly PairRule[]
+  rules: readonly PairRule[],
+  ladder: readonly LevelSpec[]
 ): Team | null {
   const byLongestWait = (a: PlayerId, b: PlayerId) =>
     (waitingSince.get(a) ?? 0) - (waitingSince.get(b) ?? 0);
-  const inBand = pool.filter((id) => withinBand(levels.get(id) ?? null, proLevel)).sort(byLongestWait);
+  const inBand = pool.filter((id) => withinBand(levels.get(id) ?? null, proLevel, ladder)).sort(byLongestWait);
   const rest = pool.filter((id) => !inBand.includes(id)).sort(byLongestWait);
   const ordered = [...inBand, ...rest];
   for (let i = 0; i < ordered.length; i++) {
@@ -1437,6 +1454,7 @@ interface RulePlanInput {
   recentGroupKeys: Set<string> | null;
   ratings?: RatingsInput;
   levels?: ReadonlyMap<PlayerId, Level | null>;
+  ladder: readonly LevelSpec[];
   band: boolean;
   queueBy: 'games' | 'wait';
   rules: readonly PairRule[];
@@ -1465,6 +1483,7 @@ function planWithRules(p: RulePlanInput): RoundResult {
       avoidKeys: courtIndexes[0] === 0 ? p.avoidKeys : null,
       recentGroupKeys: p.recentGroupKeys,
       levels: p.band ? p.levels : undefined,
+      ladder: p.ladder,
       rules,
     };
     const better = (candidate: CourtAssignment[], incumbent: CourtAssignment[] | null): boolean =>
@@ -1477,7 +1496,8 @@ function planWithRules(p: RulePlanInput): RoundResult {
         p.ratings,
         floors,
         p.recentGroupKeys,
-        ctx.levels
+        ctx.levels,
+        p.ladder
       ) < 0;
     const offered = courtIndexes.map((i) => sizes[i]);
     const best = searchArrangement(playing, offered, ctx, random, better, seedGroups);
@@ -1503,7 +1523,8 @@ function planWithRules(p: RulePlanInput): RoundResult {
     p.levels,
     p.band,
     p.queueBy,
-    rules
+    rules,
+    p.ladder
   );
   const offered = consumedSizes(sizes, natural.playing.length);
   const offeredSeats = offered.reduce((sum, size) => sum + size, 0);
@@ -1592,7 +1613,9 @@ export function generateRound(
    *  throws. 'partial' (fill-all): fill the most seats legally, leaving
    *  blocked courts out — court numbers are never renumbered. Only consulted
    *  when rules apply. */
-  ruleFillPolicy: 'requested' | 'partial' = 'requested'
+  ruleFillPolicy: 'requested' | 'partial' = 'requested',
+  /** The group's ordered level ladder for the band and carry rules. Omitted: the built-in one. */
+  ladder: readonly LevelSpec[] = DEFAULT_LEVEL_LADDER
 ): RoundResult {
   validateRoundInput(roster, courtCount, history, avoidSplit, ratings);
   if (rules) assertValidPairRules(roster, rules);
@@ -1629,7 +1652,8 @@ export function generateRound(
       // re-forms fresh each call, so it only ever needs to avoid what it
       // currently holds, not every split shown across earlier reshuffles.
       avoidSplits[avoidSplits.length - 1],
-      activeRules
+      activeRules,
+      ladder
     );
     if (carryCourt && activeRules && !isLegalCourt(carryCourt.teamA, carryCourt.teamB, activeRules)) {
       carryCourt = null; // defensive: buildCarryCourt already honors rules
@@ -1687,6 +1711,7 @@ export function generateRound(
       recentGroupKeys,
       ratings,
       levels,
+      ladder,
       band,
       queueBy,
       rules: remainingRules,
@@ -1705,7 +1730,9 @@ export function generateRound(
     recentGroupKeys,
     levels,
     band,
-    queueBy
+    queueBy,
+    undefined,
+    ladder
   );
 
   const offered = consumedSizes(effectiveSizes, playing.length);
@@ -1723,6 +1750,7 @@ export function generateRound(
     avoidKeys,
     recentGroupKeys,
     levels: band ? levels : undefined,
+    ladder,
   };
 
   const better = (candidate: CourtAssignment[], incumbent: CourtAssignment[] | null): boolean =>
@@ -1735,7 +1763,8 @@ export function generateRound(
       ratings,
       floors,
       recentGroupKeys,
-      ctx.levels
+      ctx.levels,
+      ladder
     ) < 0;
 
   const best = searchArrangement(playing, offered, ctx, random, better);

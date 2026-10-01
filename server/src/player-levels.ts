@@ -1,4 +1,5 @@
-import { asLevel, DEFAULT_LEVEL_LADDER, seedFor, type Level, type LevelSpec } from '../../engines/levels.ts';
+import { InternalServerErrorException } from '@nestjs/common';
+import { DEFAULT_LEVEL_LADDER, seedFor, type Level, type LevelSpec } from '../../engines/levels.ts';
 import type { RatingAnchor } from '../../engines/elo.ts';
 import type { PrismaService } from './prisma/prisma.service.js';
 
@@ -19,16 +20,27 @@ export function levelWrite(
   return { level: next, levelSeed: seedFor(next, ladder), levelSetAt: now };
 }
 
-/** A group's players, by id, with their skill level (null when unset). */
+/**
+ * A group's players, by id, with their skill level (null when unset), judged
+ * against the GROUP's ladder. A stored label the ladder does not contain is a
+ * data fault and throws: reading it as "untagged" would quietly widen the
+ * level band and hand someone the wrong courts.
+ */
 export async function loadPlayerLevels(
   prisma: PrismaService,
-  groupId: string
+  groupId: string,
+  ladder: readonly LevelSpec[] = DEFAULT_LEVEL_LADDER
 ): Promise<Map<string, Level | null>> {
   const players = await prisma.player.findMany({
     where: { groupId },
     select: { id: true, level: true },
   });
-  return new Map(players.map((p) => [p.id, asLevel(p.level)]));
+  const known = new Set(ladder.map((l) => l.name));
+  const unknown = players.filter((p) => p.level !== null && !known.has(p.level)).map((p) => p.id);
+  if (unknown.length > 0) {
+    throw new InternalServerErrorException({ code: 'LEVEL_DATA_INTEGRITY', playerIds: unknown });
+  }
+  return new Map(players.map((p) => [p.id, p.level]));
 }
 
 /** Player id -> when their level was last set (epoch ms), for every player

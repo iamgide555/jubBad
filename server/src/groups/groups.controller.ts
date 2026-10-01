@@ -96,7 +96,7 @@ export class GroupsController {
     @Param('playerId') playerId: string,
     @Body() dto: SetPlayerLevelDto
   ) {
-    return this.groupsService.updatePlayerLevel(code, playerId, dto.level ?? null);
+    return this.groupsService.updatePlayerLevel(code, playerId, dto.level ?? null, dto.expectedLadderRevision);
   }
 
   /** Pair rules (host-feedback C). Gated: rules are host-only, never public. */

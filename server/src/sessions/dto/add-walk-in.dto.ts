@@ -1,5 +1,4 @@
-import { IsIn, IsOptional, IsString, MinLength } from 'class-validator';
-import { LEVELS, type Level } from '../../../../engines/levels.ts';
+import { IsInt, IsOptional, IsString, Min, MinLength } from 'class-validator';
 
 /**
  * Exactly one of `playerId` (an existing group player) or `name` (create a
@@ -18,6 +17,12 @@ export class AddWalkInDto {
 
   /** Only meaningful with `name` — a new player can be given a level up front. */
   @IsOptional()
-  @IsIn(LEVELS)
-  level?: Level;
+  @IsString()
+  level?: string;
+
+  /** Required with a `level`: the ladder revision the host saw, so a stale tab cannot reapply a cleared label. */
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  expectedLadderRevision?: number;
 }

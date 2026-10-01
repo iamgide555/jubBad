@@ -439,7 +439,7 @@ export class SessionsService {
 
         const group = await tx.group.findUnique({
           where: { code: dto.groupCode },
-          select: { code: true, ownerId: true },
+          select: { code: true, ownerId: true, levelLadder: true, levelLadderRevision: true },
         });
         // "No such group" and "a real group, not yours" get the identical
         // 404 — the group is named in the body, so OwnershipGuard could not
@@ -451,6 +451,15 @@ export class SessionsService {
           throw new NotFoundException();
         }
 
+        // Level choices are checked against THIS group's ladder at the revision the host
+        // saw, before anything is written: a stale tab (even one naming a level the new
+        // ladder also has) or an unknown name creates no session, no player and no tag.
+        const chosenLevels = [...dto.rosterReviews, ...dto.waitlistReviews]
+          .map((review) => review.level)
+          .filter((level): level is string => typeof level === 'string' && level !== '');
+        const ladder = chosenLevels.length > 0 ? this.groupLevels.ladderOf(group) : null;
+        if (ladder) this.groupLevels.assertWritable(ladder, dto.expectedLadderRevision, chosenLevels);
+
         const dbPlayers = await tx.player.findMany({ where: { groupId: dto.groupCode } });
         const playersById = new Map(dbPlayers.map((player) => [player.id, player]));
         let players: FuzzyPlayer[] = dbPlayers.map((player) => ({
@@ -458,9 +467,9 @@ export class SessionsService {
           name: player.name,
           aliases: JSON.parse(player.aliases) as string[],
         }));
-        const newPlayerWrites: { id: string; name: string; level: Level | null }[] = [];
+        const newPlayerWrites: { id: string; name: string; level: string | null }[] = [];
         const aliasWrites = new Map<string, string[]>();
-        const levelWrites = new Map<string, Level>();
+        const levelWrites = new Map<string, string>();
 
         // Resolve all choices before deduplicating IDs. An earlier fuzzy
         // suggestion may become a new player while a later duplicate is
@@ -508,7 +517,7 @@ export class SessionsService {
                 groupId: dto.groupCode,
                 name: player.name,
                 aliases: '[]',
-                ...levelWrite(null, player.level),
+                ...levelWrite(null, player.level, ladder?.levels),
               },
             })
           )
@@ -520,7 +529,7 @@ export class SessionsService {
         );
         await Promise.all(
           [...levelWrites.entries()].map(([id, level]) =>
-            tx.player.update({ where: { id }, data: levelWrite(null, level) })
+            tx.player.update({ where: { id }, data: levelWrite(null, level, ladder?.levels) })
           )
         );
         await tx.session.create({
@@ -2654,8 +2663,14 @@ export class SessionsService {
     return { playerId: updated.playerId, walkIn: updated.walkIn };
   }
 
-  addWalkIn(sessionCode: string, dto: AddWalkInDto) {
-    return this.lock.run(sessionCode, () => this.addWalkInExclusively(sessionCode, dto));
+  async addWalkIn(sessionCode: string, dto: AddWalkInDto) {
+    const owner = await this.prisma.session.findUnique({ where: { code: sessionCode }, select: { groupId: true } });
+    if (!owner) throw this.notFound('SESSION_NOT_FOUND');
+    // Group lock outermost, then the session's: a level assignment is serialized with a ladder
+    // save, and nothing takes them in the other order.
+    return this.groupLevels.withGroupLock(owner.groupId, () =>
+      this.lock.run(sessionCode, () => this.addWalkInExclusively(sessionCode, dto))
+    );
   }
 
   /**
@@ -2680,6 +2695,15 @@ export class SessionsService {
     const session = await this.prisma.session.findUnique({ where: { code: sessionCode } });
     if (!session) throw this.notFound('SESSION_NOT_FOUND');
     if (session.endedAt !== null) throw this.conflict('SESSION_ENDED');
+
+    // A level on a new walk-in is validated against the group's ladder and revision
+    // before any player row exists.
+    let ladder: ReturnType<GroupLevelsService['ladderOf']> | null = null;
+    if (dto.name && dto.level) {
+      const group = await this.prisma.group.findUniqueOrThrow({ where: { code: session.groupId } });
+      ladder = this.groupLevels.ladderOf(group);
+      this.groupLevels.assertWritable(ladder, dto.expectedLadderRevision, [dto.level]);
+    }
 
     let playerId: string;
     let newPlayerName: string | null = null;
@@ -2727,7 +2751,7 @@ export class SessionsService {
             groupId: session.groupId,
             name: newPlayerName,
             aliases: '[]',
-            ...levelWrite(null, dto.level ?? null),
+            ...levelWrite(null, dto.level ?? null, ladder?.levels),
           },
         }),
         this.prisma.sessionRoster.create({

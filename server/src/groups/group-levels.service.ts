@@ -49,7 +49,8 @@ export class GroupLevelsService {
     return this.ladderOf(group);
   }
 
-  private ladderOf(group: { levelLadder: string | null; levelLadderRevision: number }) {
+  /** The effective ladder of an already-loaded group row (also usable inside a transaction). */
+  ladderOf(group: { levelLadder: string | null; levelLadderRevision: number }) {
     try {
       return { ...parseGroupLadder(group.levelLadder), revision: group.levelLadderRevision };
     } catch (e) {
@@ -87,6 +88,34 @@ export class GroupLevelsService {
       levels: ladder.levels.map((l) => ({ id: l.id, name: l.name, startingElo: l.startingElo })),
       assignedCounts,
     };
+  }
+
+  /** The revision the host saw must be the current one; checked first so an old tab cannot reapply a cleared label. */
+  assertRevision(ladder: { revision: number }, expectedRevision: number | undefined): void {
+    if (expectedRevision === undefined || expectedRevision !== ladder.revision) {
+      throw new ConflictException({ code: 'LEVEL_LADDER_STALE', revision: ladder.revision });
+    }
+  }
+
+  /** Every chosen name must be in this group's ladder. */
+  assertNames(ladder: { levels: readonly { name: string }[] }, names: readonly string[]): void {
+    const known = new Set(ladder.levels.map((l) => l.name));
+    const unknown = [...new Set(names.filter((n) => !known.has(n)))];
+    if (unknown.length > 0) throw new BadRequestException({ code: 'LEVEL_UNKNOWN', levels: unknown });
+  }
+
+  /**
+   * Gate for a level-bearing write that carries a choice: revision, then names,
+   * before anything is written. No choices means nothing to guard.
+   */
+  assertWritable(
+    ladder: { revision: number; levels: readonly { name: string }[] },
+    expectedRevision: number | undefined,
+    names: readonly string[]
+  ): void {
+    if (names.length === 0) return;
+    this.assertRevision(ladder, expectedRevision);
+    this.assertNames(ladder, names);
   }
 
   save(groupCode: string, dto: SaveGroupLevelsDto): Promise<GroupLevelsView> {

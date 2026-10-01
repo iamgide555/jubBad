@@ -89,3 +89,34 @@
   width: auto;
   flex: 0 1 12rem;
 }
+
+.bulk {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  margin: var(--space-2) 0;
+}
+
+.bulk-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+}
+
+.bulk-chips .chip,
+.bulk-name {
+  min-height: var(--tap);
+}
+
+.bulk-chips .chip.selected {
+  border-color: var(--court);
+  background: var(--court-soft);
+  color: var(--court-ink);
+  font-weight: 700;
+}
+
+/* A name already holding the level being applied reads as done. */
+.bulk-name.is-set {
+  border-color: var(--court);
+  background: var(--court-soft);
+}

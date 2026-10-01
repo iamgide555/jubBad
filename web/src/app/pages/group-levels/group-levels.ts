@@ -103,6 +103,13 @@ export class GroupLevels implements CanComponentDeactivate {
     this.draft.set(centeredLevelSpecs(['', '', '']).map((l) => ({ key: this.nextKey++, name: l.name, elo: String(l.startingElo) })));
   }
 
+  /** Standard mode: start from today's levels and their seeds, so a host who only wants a few changes edits instead of retyping. */
+  protected startFromStandard(): void {
+    this.error.set(null);
+    this.notice.set(null);
+    this.draft.set(this.data()!.levels.map((l) => ({ key: this.nextKey++, name: l.name, elo: String(l.startingElo) })));
+  }
+
   protected cancelDraft(): void {
     this.error.set(null);
     this.draft.set(this.data()?.mode === 'custom' ? this.rowsOf(this.data()!) : null);
@@ -150,10 +157,25 @@ export class GroupLevels implements CanComponentDeactivate {
     });
   }
 
-  /** Respaces every seed 100 apart, centred on 1200 (the host can still override each). */
+  /** True after the first tap on "space 100 apart" when it would overwrite hand-set seeds; the second tap applies it. */
+  protected readonly suggestArmed = signal(false);
+  private suggestTimer: ReturnType<typeof setTimeout> | null = null;
+
+  /**
+   * Respaces every seed 100 apart, centred on 1200. It overwrites every seed, so when that would
+   * change something the host typed it asks first (a second tap within a few seconds).
+   */
   protected suggestSeeds(): void {
     const rows = this.draft()!;
     const spaced = centeredLevelSpecs(rows.map((r) => r.name || String(r.key)));
+    const changes = rows.some((r, i) => r.elo !== String(spaced[i].startingElo));
+    if (changes && !this.suggestArmed()) {
+      this.suggestArmed.set(true);
+      if (this.suggestTimer) clearTimeout(this.suggestTimer);
+      this.suggestTimer = setTimeout(() => this.suggestArmed.set(false), 4000);
+      return;
+    }
+    this.suggestArmed.set(false);
     this.draft.set(rows.map((r, i) => ({ ...r, elo: String(spaced[i].startingElo) })));
   }
 

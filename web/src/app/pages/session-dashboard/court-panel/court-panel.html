@@ -209,7 +209,15 @@
           @if (liveShuttle(); as shuttle) {
             <div class="shuttle-bar">
               @if (shuttle.current; as current) {
-                <p class="shuttle-now" data-current-shuttle i18n="@@court.shuttleNow">ลูกแบด #{{ current.number }}</p>
+                <!-- One row, two actions: the shuttle in hand (opens the picker, which also holds
+                     "this one is unusable") and the quick "open a new one". Winner buttons stay
+                     the most prominent thing on the card. -->
+                <div class="shuttle-actions">
+                  <button type="button" class="ghost shuttle-now" data-current-shuttle data-switch-shuttle [disabled]="busy()" (click)="openShuttlePicker('switch')" i18n-aria-label="@@court.shuttleChange" aria-label="เปลี่ยนลูกแบด">
+                    <ng-container i18n="@@court.shuttleNow">ลูกแบด #{{ current.number }}</ng-container> ▾
+                  </button>
+                  <button type="button" class="ghost" data-open-new-shuttle [disabled]="busy()" (click)="openNewShuttle()" i18n="@@court.shuttleOpenNew">เปิดลูกใหม่</button>
+                </div>
               } @else {
                 <p class="shuttle-none hint warn" role="status">
                   <ng-container i18n="@@court.shuttleNone">ยังไม่ได้เลือกลูกแบด</ng-container>
@@ -222,13 +230,6 @@
                   @for (u of shuttle.used; track u.id) { <span class="shuttle-tag">#{{ u.number }}</span> }
                 </p>
               }
-              <div class="shuttle-actions">
-                <button type="button" class="ghost" data-open-new-shuttle [disabled]="busy()" (click)="openNewShuttle()" i18n="@@court.shuttleOpenNew">เปิดลูกใหม่</button>
-                <button type="button" class="ghost" data-switch-shuttle [disabled]="busy()" (click)="openShuttlePicker('switch')" i18n="@@court.shuttleSwitch">เปลี่ยนไปลูกอื่น</button>
-                @if (shuttle.current) {
-                  <button type="button" class="ghost" data-retire-shuttle [disabled]="busy()" (click)="openShuttlePicker('switch', true)" i18n="@@court.shuttleRetire">ลูกนี้ใช้ไม่ได้แล้ว</button>
-                }
-              </div>
             </div>
           }
           <!-- Score and winner share one grid so each team owns a column: the

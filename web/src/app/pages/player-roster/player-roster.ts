@@ -190,7 +190,35 @@ export class PlayerRoster implements CanComponentDeactivate, OnDestroy {
     }
   }
 
-  async setLevel(player: ManagedPlayer, level: Level | null): Promise<void> {
+  // ---- bulk level tagging ----
+  // After a ladder switch every label is cleared, and the compact picker costs a dialog per player.
+  // Bulk mode flips that around: pick a level once, then tap the players who belong in it.
+  readonly bulkOn = signal(false);
+  /** undefined = no level picked yet; null = "clear the level". */
+  readonly bulkLevel = signal<Level | null | undefined>(undefined);
+
+  async toggleBulk(): Promise<void> {
+    if (this.bulkOn()) {
+      this.bulkOn.set(false);
+      this.bulkLevel.set(undefined);
+      // Ratings moved with the new anchors; refresh them once, not after every tap.
+      await this.load();
+      return;
+    }
+    this.bulkOn.set(true);
+  }
+
+  pickBulkLevel(level: Level | null): void {
+    this.bulkLevel.set(level);
+  }
+
+  async bulkApply(player: ManagedPlayer): Promise<void> {
+    const level = this.bulkLevel();
+    if (level === undefined || player.level === level) return;
+    await this.setLevel(player, level, false);
+  }
+
+  async setLevel(player: ManagedPlayer, level: Level | null, reload = true): Promise<void> {
     const revision = this.ladder()?.revision;
     if (revision === undefined) return;
     const previous = player.level;
@@ -200,6 +228,7 @@ export class PlayerRoster implements CanComponentDeactivate, OnDestroy {
     this.levelSaveError.set(null);
     try {
       await firstValueFrom(this.rosterService.updatePlayerLevel(this.groupCode, player.id, level, revision));
+      if (!reload) return;
       // A level edit resets the player's Elo seed (RatingAnchor, see
       // overview.md "Ratings"), so rating/singlesRating/winRate are stale
       // on every row, not just this one — reload the whole list rather

@@ -195,7 +195,36 @@ describe('GroupLevels', () => {
     type(qa('.level-elo-input')[0], '5');
     q<HTMLButtonElement>('[data-suggest]').click();
     fixture.detectChanges();
+    // It would overwrite a hand-typed seed, so the first tap only asks.
+    expect(qa('.level-elo-input')[0].value).toBe('5');
+    expect(q('[data-suggest]').textContent).toContain('กดอีกครั้ง');
+    q<HTMLButtonElement>('[data-suggest]').click();
+    fixture.detectChanges();
     expect(qa('.level-elo-input').map((i) => i.value)).toEqual(['1100', '1200', '1300']);
+  });
+
+  it('seeds that already match the suggestion respace without asking', async () => {
+    await load(custom());
+    q<HTMLButtonElement>('[data-suggest]').click();
+    fixture.detectChanges();
+    expect(qa('.level-elo-input').map((i) => i.value)).toEqual(['1100', '1200', '1300']);
+    expect(q('[data-suggest]').textContent).not.toContain('กดอีกครั้ง');
+  });
+
+  it('a standard group can start from today\'s levels and seeds instead of blank rows', async () => {
+    await load(standard());
+    q<HTMLButtonElement>('[data-customize-standard]').click();
+    fixture.detectChanges();
+    expect(qa('.level-name-input').map((i) => i.value)).toEqual(BUILT_IN);
+    expect(qa('.level-elo-input')[0].value).toBe('900');
+    expect(qa('.level-elo-input')[7].value).toBe('1600');
+    expect(q<HTMLButtonElement>('[data-save]').disabled).toBe(false);
+  });
+
+  it('the editor explains Elo in plain words and labels the people count', async () => {
+    await load(custom());
+    expect(q('[data-elo-help]').textContent).toContain('ห่างกัน 100');
+    expect(el().textContent).toContain('2 คน');
   });
 
   it('an open session blocks the save with an explanation and keeps the draft', async () => {

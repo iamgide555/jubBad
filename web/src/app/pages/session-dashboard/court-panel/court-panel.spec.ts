@@ -1555,7 +1555,10 @@ describe('CourtPanel with too few players', () => {
       expect(root(fixture).querySelector('[data-current-shuttle]')!.textContent).toContain('#2');
       expect(root(fixture).querySelector('[data-used-shuttles]')!.textContent).toContain('#1');
       expect(root(fixture).querySelector('[data-used-shuttles]')!.textContent).toContain('#2');
-      for (const attr of ['data-open-new-shuttle', 'data-switch-shuttle', 'data-retire-shuttle']) {
+      // Two controls, not three: the shuttle in hand opens the picker, which holds "unusable".
+      expect(root(fixture).querySelectorAll('.shuttle-actions button')).toHaveLength(2);
+      expect(root(fixture).querySelector('[data-retire-shuttle]')).toBeNull();
+      for (const attr of ['data-open-new-shuttle', 'data-switch-shuttle']) {
         const el = root(fixture).querySelector(`[${attr}]`) as HTMLButtonElement;
         expect(el, attr).toBeTruthy();
         expect(el.getAttribute('type')).toBe('button');
@@ -1605,10 +1608,13 @@ describe('CourtPanel with too few players', () => {
     it('mark unusable switches away and retires the old shuttle in one action', async () => {
       const { fixture, httpMock } = await createPanel(activeSession());
       fixture.detectChanges();
-      (root(fixture).querySelector('[data-retire-shuttle]') as HTMLButtonElement).click();
+      (root(fixture).querySelector('[data-switch-shuttle]') as HTMLButtonElement).click();
       httpMock.expectOne(`${B}/sessions/sess1/shuttles`).flush(inventory({ heldShuttleIds: ['s2'] }));
       await settle(fixture);
-      expect((dialog(fixture).querySelector('input[name="retirePrevious"]') as HTMLInputElement).checked).toBe(true);
+      const retire = dialog(fixture).querySelector('input[name="retirePrevious"]') as HTMLInputElement;
+      expect(retire.checked).toBe(false);
+      retire.click();
+      fixture.detectChanges();
       (dialog(fixture).querySelector('[data-submit-shuttle]') as HTMLButtonElement).click();
       const req = httpMock.expectOne(`${B}/sessions/sess1/pairings/pair1/shuttles/switch`);
       expect(req.request.body).toEqual({ choice: { kind: 'new' }, expectedRevision: 7, retirePrevious: true });

@@ -25,11 +25,14 @@
             <li class="level-row readonly">
               <span class="level-name">{{ l.name }}</span>
               <span class="level-elo">{{ l.startingElo }}</span>
-              <span class="level-count muted">{{ countOf(l.id) }}</span>
+              <span class="level-count muted">{{ countOf(l.id) }} <ng-container i18n="@@levels.people">คน</ng-container></span>
             </li>
           }
         </ol>
-        <button type="button" data-customize (click)="startCustomizing()" i18n="@@levels.customize">ตั้งระดับของก๊วนเอง</button>
+        <div class="toolbar">
+          <button type="button" data-customize-standard (click)="startFromStandard()" i18n="@@levels.fromStandard">เริ่มจากระดับมาตรฐานแล้วแก้</button>
+          <button type="button" class="ghost" data-customize (click)="startCustomizing()" i18n="@@levels.customize">เริ่มใหม่ทั้งหมด</button>
+        </div>
       </section>
     } @else if (draft(); as rows) {
       <section class="form-card" data-editor>
@@ -40,6 +43,7 @@
             <ng-container i18n="@@levels.newTitle">ระดับใหม่ของก๊วน (เรียงจากต่ำไปสูง)</ng-container>
           }
         </h2>
+        <p class="hint" data-elo-help i18n="@@levels.eloHelp">Elo คือคะแนนฝีมือเริ่มต้นของระดับนั้น ห่างกัน 100 คะแนน ฝั่งที่เก่งกว่าชนะราวสองในสาม</p>
         <ol class="level-list">
           @for (row of rows; track row.key; let i = $index) {
             <li class="level-row" [attr.data-level-row]="i">
@@ -64,7 +68,7 @@
                 aria-label="ค่า Elo เริ่มต้น"
               />
               @if (row.id) {
-                <span class="level-count muted" [attr.title]="'assigned'">{{ countOf(row.id) }}</span>
+                <span class="level-count muted">{{ countOf(row.id) }} <ng-container i18n="@@levels.people">คน</ng-container></span>
               }
               <span class="row-actions">
                 <button type="button" class="ghost icon-btn" [disabled]="i === 0" (click)="move(row.key, -1)" i18n-aria-label="@@levels.up" aria-label="เลื่อนขึ้น">↑</button>
@@ -89,7 +93,13 @@
 
         <div class="toolbar">
           <button type="button" class="ghost" data-add-level [disabled]="rows.length >= 16" (click)="addRow()" i18n="@@levels.add">+ เพิ่มระดับ</button>
-          <button type="button" class="ghost" data-suggest (click)="suggestSeeds()" i18n="@@levels.suggest">ตั้งค่า Elo ห่างกัน 100</button>
+          <button type="button" class="ghost" data-suggest (click)="suggestSeeds()">
+            @if (suggestArmed()) {
+              <ng-container i18n="@@levels.suggestConfirm">กดอีกครั้งเพื่อเปลี่ยนค่า Elo ทุกระดับ</ng-container>
+            } @else {
+              <ng-container i18n="@@levels.suggest">ตั้งค่า Elo ห่างกัน 100</ng-container>
+            }
+          </button>
         </div>
 
         @if (problem(); as p) {
@@ -106,7 +116,6 @@
 
       @if (isCustom()) {
         <section class="form-card">
-          <h3 i18n="@@levels.resetTitle">กลับไปใช้ระดับมาตรฐาน</h3>
           <button type="button" class="ghost" data-reset [disabled]="saving()" (click)="requestReset()" i18n="@@levels.reset">กลับไปใช้ระดับมาตรฐาน</button>
         </section>
       }

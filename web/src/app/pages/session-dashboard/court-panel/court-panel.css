@@ -451,3 +451,9 @@
 .shuttle-none button {
   min-height: var(--tap);
 }
+
+/* The shuttle in hand is a button now (it opens the picker), so keep its number legible. */
+.shuttle-actions .shuttle-now {
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}

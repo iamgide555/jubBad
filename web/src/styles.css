@@ -808,3 +808,9 @@ button.danger:disabled:hover {
 .sheet-dialog::backdrop {
   background: rgba(0, 0, 0, 0.5);
 }
+
+/* Native checkboxes, radios and ranges take the court green instead of the
+   browser's default blue. Inherited, so every control picks it up. */
+:root {
+  accent-color: var(--court);
+}

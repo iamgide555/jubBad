@@ -415,6 +415,13 @@
   font-weight: 700;
 }
 
+.roster-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+  margin: var(--space-2) 0;
+}
+
 .session-rules {
   margin: var(--space-2) 0;
 }

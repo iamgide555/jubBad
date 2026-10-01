@@ -52,17 +52,35 @@
         </button>
       }
     </div>
-    @if (!ended()) {
+    <div class="roster-actions">
+      @if (!ended()) {
+        <button
+          type="button"
+          class="ghost"
+          data-add-walk-in
+          (click)="openWalkInDialog()"
+          i18n="@@dashboard.addWalkIn"
+        >
+          + เพิ่มคน
+        </button>
+      }
+      @if (!ended()) {
+        <button type="button" class="ghost" data-add-rule (click)="openAddRuleDialog()" i18n="@@dashboard.addRule">
+          + เพิ่มกฎการจับคู่
+        </button>
+      }
       <button
         type="button"
         class="ghost"
-        data-add-walk-in
-        (click)="openWalkInDialog()"
-        i18n="@@dashboard.addWalkIn"
+        data-player-panel-toggle
+        [attr.aria-expanded]="panelOpen()"
+        (click)="openPlayerPanel()"
       >
-        + เพิ่มคน
+        <ng-container i18n="@@dashboard.playerPanelShow"
+          >ผู้เล่นทั้งหมด ({{ rosterEntries().length }})</ng-container
+        >
       </button>
-    }
+    </div>
     @if (rosterError()) {
       <p class="error" role="alert">{{ rosterError() }}</p>
     }
@@ -91,24 +109,6 @@
         }
       </details>
     }
-    @if (!ended()) {
-      <button type="button" class="ghost" data-add-rule (click)="openAddRuleDialog()" i18n="@@dashboard.addRule">
-        + เพิ่มกฎการจับคู่
-      </button>
-    }
-
-    <button
-      type="button"
-      class="ghost"
-      data-player-panel-toggle
-      [attr.aria-expanded]="panelOpen()"
-      (click)="openPlayerPanel()"
-    >
-      <ng-container i18n="@@dashboard.playerPanelShow"
-        >ผู้เล่นทั้งหมด ({{ rosterEntries().length }})</ng-container
-      >
-    </button>
-
     <dialog
       #playerPanelDialog
       class="player-panel-dialog"

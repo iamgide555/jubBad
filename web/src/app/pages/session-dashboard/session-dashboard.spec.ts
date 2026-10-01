@@ -1463,6 +1463,16 @@ describe('SessionDashboard', () => {
         }
       }
 
+      it('keeps the roster buttons in one spaced row, not loose siblings', async () => {
+        await settled();
+        await flushRules([], []);
+        const row = (fixture.nativeElement as HTMLElement).querySelector('.roster-actions')!;
+        expect(row).toBeTruthy();
+        expect(row.querySelector('[data-add-walk-in]')).toBeTruthy();
+        expect(row.querySelector('[data-add-rule]')).toBeTruthy();
+        expect(row.querySelector('[data-player-panel-toggle]')).toBeTruthy();
+      });
+
       it('offers the button even when the group has no rules yet', async () => {
         await settled();
         await flushRules([], []);

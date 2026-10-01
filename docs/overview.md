@@ -844,6 +844,52 @@ snapshotted per session the same way) decides whether partner/opponent
 history spans every session the group has played or only the current one —
 see "Pairing" above.
 
+### Early checkout (host feedback E)
+
+Advanced sessions only (`Session.shuttleToolsEnabled`, D's snapshot): an
+ordinary session answers `CHECKOUT_DISABLED` from the API, not just a hidden
+button. A player leaving early gets a final amount the host can quote at once,
+and it never changes afterwards.
+
+**Three early models, four final models.** An early checkout is priced
+`perGame`, `perShuttle` or `buffet` (never `fair`, which splits a whole night).
+The whole-session bill on an advanced session offers `fair`, `perGame`,
+`perShuttle`, `buffet`; an ordinary session keeps the original three and a new
+ordinary session never inherits `perShuttle` (its prefill walks back past those
+configs). `perShuttle` = `startingFeeSatang` + the player's share of the
+**recorded** distinct shuttles at `Session.shuttlePriceSatang`. A shuttle reused
+in two games is paid once, split game then player (the same identity/game/player
+split as D). The physical `shuttleCount` is never used to price it, and an
+unknown log in a player's finished game blocks that player (the bill warns
+`UNKNOWN_SHUTTLE_USE`); a price of 0 and zero games are valid.
+
+**Preview is free, confirm is final.** `POST .../checkouts/:playerId/preview`
+changes nothing and returns an itemized quote plus a `snapshotHash` over every
+priced input. `.../confirm` runs under the shared session lock, re-reads and
+re-prices inside one DB transaction, and refuses `CHECKOUT_STALE` if anything
+moved; the receipt and the roster update are atomic. A repeated idempotency key
+returns its receipt, never a second charge; racing keys leave exactly one active
+receipt (`PLAYER_CHECKED_OUT`). A player on a pending or active court must be
+cleared first (`PLAYER_ON_COURT`), and a player removed from the bill must be
+restored first. Settled is a ledger fact, not `SessionRoster.active=false`
+(which also means resting): the rest toggle consults the ledger, so only
+**Undo checkout** (confirm-gated, live session only, kept as an audit row)
+brings someone back, with the normal rotation credit. Real-world refunds are
+manual.
+
+**Final bill.** Settled receipts are a separate read-only list (never
+`removedIds`, which would redistribute their share and lose the payment) and
+count once in collected and margin. `fair` credits all settled payments against
+court + shuttle cost and splits only the non-negative residual among those still
+due; `perShuttle` credits settled payments against the recorded shuttle cost,
+**excluding the starting fee a perShuttle receipt embeds** (a flat host charge,
+not shuttle money); `perGame`/`buffet` leave others' rates alone. Excess credit,
+uncovered cost and walk-in surcharge nobody can take back are shown as warnings
+(`EXCESS_CREDIT`, `UNCOVERED_COST`, `UNRETURNED_SURCHARGE`) that keep the bill
+from being copied until the host resolves them; surcharges stay a group
+transfer, never profit. No checkout data appears on the display, summary or
+profile routes.
+
 ## Current state
 
 Everything described above is built: the three engines, the API, the Angular

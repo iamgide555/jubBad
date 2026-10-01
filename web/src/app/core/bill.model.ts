@@ -1,7 +1,16 @@
-export type BillModel = 'fair' | 'perGame' | 'buffet';
+export type BillModel = 'fair' | 'perGame' | 'buffet' | 'perShuttle';
+/** What an early leaver can be charged under: never `fair`. */
+export type CheckoutModel = Exclude<BillModel, 'fair'>;
 export type SplitMode = 'equal' | 'byGames';
 export type RoundingStep = 1 | 5 | 10;
-export type BillWarning = 'MISSING_COURT_FEE' | 'MISSING_SHUTTLE_COUNT' | 'MISSING_SHUTTLE_PRICE';
+export type BillWarning =
+  | 'MISSING_COURT_FEE'
+  | 'MISSING_SHUTTLE_COUNT'
+  | 'MISSING_SHUTTLE_PRICE'
+  | 'UNKNOWN_SHUTTLE_USE'
+  | 'EXCESS_CREDIT'
+  | 'UNCOVERED_COST'
+  | 'UNRETURNED_SURCHARGE';
 /** How shuttle cost was shared — mirrors engines/bill.ts. */
 export type ShuttleAllocation = 'legacy-basic' | 'legacy-unknown' | 'legacy-no-uses' | 'identities' | 'equal';
 
@@ -21,6 +30,8 @@ export interface BillConfig {
   capSatang: number | null;
   buffetPriceSatang: number;
   buffetShuttlesIncluded: boolean;
+  /** perShuttle only: flat fee per person before their share of the recorded shuttles. */
+  startingFeeSatang: number;
   hostFeeSatang: number;
   walkInFeeSatang: number;
   roundingBaht: RoundingStep;
@@ -47,10 +58,30 @@ export interface BillRow {
   amountSatang: number;
 }
 
+/** An early checkout as frozen: read-only, never a still-due row. */
+export interface SettledRow {
+  id: string;
+  playerId: string;
+  name: string;
+  model: CheckoutModel;
+  amountSatang: number;
+  settledAt: string;
+}
+
 export interface BillResult {
+  /** People still due. */
   rows: BillRow[];
   totals: {
+    /** Settled once plus still due. */
     collectedSatang: number;
+    settledTotalSatang: number;
+    stillDueSatang: number;
+    /** Frozen payments beyond the cost they were credited against: a refund the host handles outside the app. */
+    excessCreditSatang: number;
+    /** Cost nobody still due is left to pay. */
+    uncoveredCostSatang: number;
+    /** Walk-in surcharge nobody eligible could take back. */
+    unreturnedSurchargeSatang: number;
     costSatang: number | null;
     marginSatang: number | null;
     billedCount: number;
@@ -73,6 +104,8 @@ export interface BillResponse {
   config: BillConfig;
   configSource: 'saved' | 'previous' | 'default';
   players: { playerId: string; name: string; games: number; walkIn: boolean }[];
+  /** Early checkouts (advanced sessions); empty otherwise. */
+  settled: SettledRow[];
   result: BillResult;
   /** Where the billed shuttle count came from; the physical count is never rewritten. */
   accounting: {

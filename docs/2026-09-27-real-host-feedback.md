@@ -77,10 +77,13 @@ numbered shuttles* a game used, a reused shuttle counts once, and
 for the record: record shuttle use per court per game as a number, null vs 0
 semantics, undo drops it, one-handed 44px targets, display route unaffected.
 
-#### - [ ] E. Mid-session checkout for an early leaver (per-shuttle billing)
+#### - [x] E. Mid-session checkout for an early leaver (per-shuttle billing)
 
-2026-09-27 real-host feedback (clarified 2026-09-28). Depends on D. Not yet
-designed.
+2026-09-27 real-host feedback (clarified 2026-09-28). Depends on D. Done
+2026-10-01 on `feat/early-checkout-e`: advanced sessions can check a leaver out
+mid-session under per-game, per-shuttle or buffet, freeze the amount in a
+`SessionCheckout` ledger, and see settled vs still-due in the final bill, which
+gains a fourth `perShuttle` model. See "Early checkout" in `overview.md`.
 
 Someone leaves before the night ends and wants to pay now. Their bill must be
 computable **mid-game**, from the shuttle numbers recorded in D — not from the

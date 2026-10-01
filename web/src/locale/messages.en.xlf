@@ -3303,6 +3303,54 @@
         <source> เช็คเอาต์คนกลับก่อน </source>
         <target> Check out early leaver </target>
       </trans-unit>
+      <trans-unit id="bill.modelPerShuttle" datatype="html">
+        <source>ตามลูกแบด</source>
+        <target>Per shuttle</target>
+      </trans-unit>
+      <trans-unit id="bill.startingFee" datatype="html">
+        <source>ค่าเริ่มต้นต่อคน (บาท)</source>
+        <target>Starting fee per person (baht)</target>
+      </trans-unit>
+      <trans-unit id="bill.perShuttleHint" datatype="html">
+        <source>คิดเฉพาะลูกแบดที่บันทึกไว้ในแมตช์ ตามราคาต่อลูก ไม่ขึ้นกับจำนวนลูกที่นับจริง</source>
+        <target>Charges only the shuttles logged in games, at the per-shuttle price, regardless of the physical count.</target>
+      </trans-unit>
+      <trans-unit id="bill.perShuttleSetPrice" datatype="html">
+        <source>ตั้งราคาลูกแบดที่หน้าสรุป</source>
+        <target>Set the shuttle price on the summary</target>
+      </trans-unit>
+      <trans-unit id="bill.settledTitle" datatype="html">
+        <source>เช็คเอาต์แล้ว (ยอดล็อกไว้)</source>
+        <target>Checked out (amount locked)</target>
+      </trans-unit>
+      <trans-unit id="bill.settledHint" datatype="html">
+        <source>ยกเลิกเช็คเอาต์ได้ที่หน้าก๊วนระหว่างเล่นเท่านั้น</source>
+        <target>A checkout can only be undone from the live session page.</target>
+      </trans-unit>
+      <trans-unit id="bill.stillDueTitle" datatype="html">
+        <source>ยังต้องจ่าย</source>
+        <target>Still due</target>
+      </trans-unit>
+      <trans-unit id="bill.warnUnknownUse" datatype="html">
+        <source>มีแมตช์ที่ไม่ได้บันทึกลูกแบด แก้ในหน้าสรุปก๊วนก่อน</source>
+        <target>Some games have no shuttle log. Fix them on the session summary first.</target>
+      </trans-unit>
+      <trans-unit id="bill.warnExcess" datatype="html">
+        <source>ยอดที่เช็คเอาต์ไปแล้วเกินต้นทุน <x id="INTERPOLATION" equiv-text="{{ baht(b.result.totals.excessCreditSatang) }}"/>฿ — ต้องคืนเงินเองนอกแอป หรือยกเลิกเช็คเอาต์</source>
+        <target>Checked-out payments exceed the cost by <x id="INTERPOLATION" equiv-text="{{ baht(b.result.totals.excessCreditSatang) }}"/>฿ — refund it yourself outside the app, or undo a checkout.</target>
+      </trans-unit>
+      <trans-unit id="bill.warnUncovered" datatype="html">
+        <source>ไม่มีใครเหลือจ่ายส่วนที่ขาด <x id="INTERPOLATION" equiv-text="{{ baht(b.result.totals.uncoveredCostSatang) }}"/>฿ — ยกเลิกเช็คเอาต์หรือแก้ข้อมูลก่อน</source>
+        <target>Nobody is left to pay the <x id="INTERPOLATION" equiv-text="{{ baht(b.result.totals.uncoveredCostSatang) }}"/>฿ shortfall — undo a checkout or fix the data first.</target>
+      </trans-unit>
+      <trans-unit id="bill.warnSurcharge" datatype="html">
+        <source>ค่า walk-in <x id="INTERPOLATION" equiv-text="{{ baht(b.result.totals.unreturnedSurchargeSatang) }}"/>฿ ไม่มีใครรับคืนได้ — ไม่นับเป็นกำไร แก้ก่อนแชร์</source>
+        <target><x id="INTERPOLATION" equiv-text="{{ baht(b.result.totals.unreturnedSurchargeSatang) }}"/>฿ of walk-in fees can't be returned to anyone — it isn't profit. Fix it before sharing.</target>
+      </trans-unit>
+      <trans-unit id="bill.settledSplit" datatype="html">
+        <source>เช็คเอาต์แล้ว <x id="INTERPOLATION" equiv-text="{{ baht(b.result.totals.settledTotalSatang) }}"/>฿ · ยังต้องจ่าย <x id="INTERPOLATION_1" equiv-text="{{ baht(b.result.totals.stillDueSatang) }}"/>฿</source>
+        <target>Checked out <x id="INTERPOLATION" equiv-text="{{ baht(b.result.totals.settledTotalSatang) }}"/>฿ · still due <x id="INTERPOLATION_1" equiv-text="{{ baht(b.result.totals.stillDueSatang) }}"/>฿</target>
+      </trans-unit>
     </body>
   </file>
 </xliff>

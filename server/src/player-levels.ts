@@ -1,14 +1,22 @@
-import { asLevel, seedFor, type Level } from '../../engines/levels.ts';
+import { asLevel, DEFAULT_LEVEL_LADDER, seedFor, type Level, type LevelSpec } from '../../engines/levels.ts';
 import type { RatingAnchor } from '../../engines/elo.ts';
 import type { PrismaService } from './prisma/prisma.service.js';
 
-/** Write a level change, stamping the time it took effect only when it actually changed. */
+/**
+ * Write a level change. Only a real change writes anything: it stamps the time
+ * it took effect and freezes the rating anchor at that level's CURRENT seed in
+ * the group's ladder (1200 when cleared). Choosing the level a player already
+ * has is a no-op even if that level's seed has since been edited, so editing a
+ * ladder never moves Elo that was already earned.
+ */
 export function levelWrite(
   previous: Level | null,
-  next: Level | null
-): { level?: Level | null; levelSetAt?: Date } {
+  next: Level | null,
+  ladder: readonly LevelSpec[] = DEFAULT_LEVEL_LADDER,
+  now: Date = new Date()
+): { level?: Level | null; levelSeed?: number; levelSetAt?: Date } {
   if (previous === next) return {};
-  return { level: next, levelSetAt: new Date() };
+  return { level: next, levelSeed: seedFor(next, ladder), levelSetAt: now };
 }
 
 /** A group's players, by id, with their skill level (null when unset). */
@@ -37,21 +45,26 @@ export async function loadLevelSetAt(
   return new Map(players.map((p) => [p.id, p.levelSetAt!.getTime()]));
 }
 
-/** Rating anchors from each player's level and the time it was set. */
+/**
+ * Rating anchors from each player's frozen seed and the time it was set. The
+ * seed is read as saved, never re-derived from today's name-to-seed lookup, so
+ * a ladder edit cannot rewrite earned ratings. A player who was never tagged
+ * has no seed and starts at the plain 1200.
+ */
 export async function loadRatingAnchors(
   prisma: PrismaService,
   groupId: string
 ): Promise<Map<string, RatingAnchor>> {
   const players = await prisma.player.findMany({
     where: { groupId },
-    select: { id: true, level: true, levelSetAt: true },
+    select: { id: true, levelSeed: true, levelSetAt: true },
   });
 
   return new Map(
     players.map((p) => [
       p.id,
       {
-        rating: seedFor(asLevel(p.level)),
+        rating: p.levelSeed ?? seedFor(null),
         setAt: p.levelSetAt ? p.levelSetAt.getTime() : null,
       },
     ])

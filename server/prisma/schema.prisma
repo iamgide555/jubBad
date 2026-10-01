@@ -22,6 +22,13 @@ model Group {
   sessions  Session[]
   sessionCreations SessionCreation[]
   playerRules PlayerRule[]
+  /// The group's own ordered skill ladder (host feedback F): a JSON list of
+  /// { id, name, startingElo }, or null for the built-in BG..B ladder. Parsed
+  /// only by server/src/groups/group-levels.ts. Host-only, never public.
+  levelLadder         String?
+  /// Bumped by every ladder save. A level-bearing write carries the revision
+  /// the host saw, so a stale tab cannot reapply a label a switch cleared.
+  levelLadderRevision Int     @default(0)
 }
 
 model User {
@@ -89,6 +96,11 @@ model Player {
   /// When this level last changed. `null` means "from the start" for a
   /// legacy row or a level set before the player's first match.
   levelSetAt DateTime?
+  /// The Elo anchor last applied to this player (the seed of the level they were
+  /// given, 1200 once cleared), frozen at that moment. Rating replay reads this,
+  /// never today's name-to-seed lookup, so editing a ladder cannot move Elo that
+  /// was already earned. Null only for a never-tagged player (reads as 1200).
+  levelSeed  Int?
   group      Group  @relation(fields: [groupId], references: [code])
   rosterEntries SessionRoster[]
   waitlistEntries Waitlist[]

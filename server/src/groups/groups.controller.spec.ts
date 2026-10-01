@@ -1271,4 +1271,46 @@ describe('GroupsController', () => {
     });
   });
 
+
+  describe('group ladder and level seed', () => {
+    it('group ladder: the owner export carries the effective ladder and each player\'s saved level, anchor and time; public reads carry none', async () => {
+      const code = randomUUID();
+      const setAt = new Date('2026-09-20T00:00:00.000Z');
+      await prisma.group.create({ data: { code, name: 'Ladder' } });
+      const tagged = await prisma.player.create({ data: { groupId: code, name: 'Tagged', aliases: '[]', level: 'P', levelSeed: 1300, levelSetAt: setAt } });
+      await prisma.player.create({ data: { groupId: code, name: 'Plain', aliases: '[]' } });
+      try {
+        const res = await request(server).get(`/groups/${code}/export`).expect(200);
+        expect(res.body.levelLadder.mode).toBe('standard');
+        expect(res.body.levelLadder.revision).toBe(0);
+        expect(res.body.levelLadder.levels).toHaveLength(8);
+        expect(res.body.levelLadder.levels[0]).toEqual({ id: 'standard:BG', name: 'BG', startingElo: 900 });
+        const row = res.body.players.find((p: { id: string }) => p.id === tagged.id);
+        expect(row).toMatchObject({ level: 'P', levelSeed: 1300, levelSetAt: setAt.toISOString() });
+        expect(res.body.players.find((p: { name: string }) => p.name === 'Plain')).toMatchObject({ level: null, levelSeed: null, levelSetAt: null });
+
+        await prisma.group.update({ where: { code }, data: { levelLadder: JSON.stringify([{ id: 'x1', name: 'มือใหม่', startingElo: 1100 }]), levelLadderRevision: 3 } });
+        const custom = (await request(server).get(`/groups/${code}/export`).expect(200)).body.levelLadder;
+        expect(custom).toEqual({ mode: 'custom', revision: 3, levels: [{ id: 'x1', name: 'มือใหม่', startingElo: 1100 }] });
+
+        for (const path of [`/groups/${code}`, `/groups/${code}/players`, `/groups/${code}/players/${tagged.id}/stats`]) {
+          const body = JSON.stringify((await request(server).get(path).expect(200)).body);
+          expect(body, path).not.toMatch(/levelLadder|levelSeed|levelSetAt|startingElo|"level"/);
+        }
+      } finally {
+        await prisma.player.deleteMany({ where: { groupId: code } });
+        await prisma.group.deleteMany({ where: { code } });
+      }
+    });
+
+    it('group ladder: a corrupt stored ladder fails the export loudly rather than reading as standard', async () => {
+      const code = randomUUID();
+      await prisma.group.create({ data: { code, name: 'Corrupt', levelLadder: '{broken' } });
+      try {
+        await request(server).get(`/groups/${code}/export`).expect(500);
+      } finally {
+        await prisma.group.deleteMany({ where: { code } });
+      }
+    });
+  });
 });

@@ -5,6 +5,7 @@ import { asLevel, type Level } from '../../../engines/levels.ts';
 import { parseLineRosterMessage } from '../../../engines/parser.ts';
 import type { RuleKind } from '../../../engines/pair-rules.ts';
 import { PrismaService } from '../prisma/prisma.service.js';
+import { parseGroupLadder } from './group-levels.js';
 import { levelWrite, loadPlayerLevels, loadRatingAnchors } from '../player-levels.js';
 import { parseCourtFormats } from '../sessions/court-formats.js';
 import { parseSeatTeams, parseTeams } from '../sessions/pairing-teams.js';
@@ -499,6 +500,7 @@ export class GroupsService {
     const group = await this.prisma.group.findUnique({ where: { code } });
     if (!group) throw new NotFoundException();
 
+    const ladder = parseGroupLadder(group.levelLadder);
     const [players, rules, sessions] = await Promise.all([
       this.prisma.player.findMany({ where: { groupId: code } }),
       this.prisma.playerRule.findMany({ where: { groupId: code }, orderBy: [{ createdAt: 'asc' }, { id: 'asc' }] }),
@@ -516,10 +518,20 @@ export class GroupsService {
     return {
       exportedAt: new Date().toISOString(),
       group: { code: group.code, name: group.name, createdAt: group.createdAt },
+      // Owner-only like the rest of the export: the effective ladder and each
+      // player's saved level, rating anchor and when it took effect. Never in a public view.
+      levelLadder: {
+        mode: ladder.mode,
+        revision: group.levelLadderRevision,
+        levels: ladder.levels.map((l) => ({ id: l.id, name: l.name, startingElo: l.startingElo })),
+      },
       players: players.map((p) => ({
         id: p.id,
         name: p.name,
         aliases: JSON.parse(p.aliases) as string[],
+        level: p.level,
+        levelSeed: p.levelSeed,
+        levelSetAt: p.levelSetAt,
       })),
       rules: rules.map(ruleView),
       sessions: sessions.map((s) => ({

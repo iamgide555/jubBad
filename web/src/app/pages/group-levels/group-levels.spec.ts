@@ -260,6 +260,12 @@ describe('GroupLevels', () => {
     ask.mockRestore();
   });
 
+  it('the editor\'s save row is part of the page flow, not a sticky bar that can cover the reset section', async () => {
+    await load(custom());
+    expect(q('[data-editor] .editor-actions')).toBeTruthy();
+    expect(q('[data-editor] .dialog-actions')).toBeNull();
+  });
+
   it('a group the host does not own shows no usable editor', async () => {
     fixture.detectChanges();
     http.expectOne(URL).flush({}, { status: 404, statusText: 'Not Found' });

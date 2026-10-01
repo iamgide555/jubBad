@@ -96,7 +96,7 @@
           <p class="error" role="alert" data-problem>{{ p }}</p>
         }
 
-        <div class="dialog-actions">
+        <div class="editor-actions">
           @if (dirty()) {
             <button type="button" class="ghost" [disabled]="saving()" (click)="cancelDraft()" i18n="@@levels.cancel">ยกเลิกการแก้</button>
           }

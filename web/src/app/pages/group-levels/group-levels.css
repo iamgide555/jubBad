@@ -103,3 +103,10 @@ button {
   padding: var(--space-1) 0 var(--space-3);
   background: var(--surface);
 }
+
+/* The editor is a page section, not a dialog: its actions sit in the flow and never cover what follows. */
+.editor-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-1);
+}

@@ -7287,6 +7287,10 @@ describe('SessionsController', () => {
           [9, false, true],
         ]);
         expect(res.body.games).toEqual([{ pairingId: g.id, revision: done.body.revision, shuttleIds: [g.lastShuttleId] }]);
+        // Court 2's shuttle is in a live hand; court 1's last (finished) shuttle is its suggestion.
+        const live = await prisma.pairing.findFirstOrThrow({ where: { sessionId: n.sessionCode, courtNumber: 2 } });
+        expect(res.body.heldShuttleIds).toEqual([live.lastShuttleId]);
+        expect(res.body.lastShuttleByCourt).toEqual([{ courtNumber: 1, shuttleId: g.lastShuttleId }]);
       } finally {
         await n.cleanup();
       }
@@ -7296,7 +7300,7 @@ describe('SessionsController', () => {
       const n = await night(false);
       try {
         const res = await request(server).get(`/sessions/${n.sessionCode}/shuttles`).expect(200);
-        expect(res.body).toEqual({ enabled: false, identities: [], games: [] });
+        expect(res.body).toEqual({ enabled: false, identities: [], games: [], heldShuttleIds: [], lastShuttleByCourt: [] });
       } finally {
         await n.cleanup();
       }

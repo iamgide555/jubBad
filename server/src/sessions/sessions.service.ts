@@ -3334,20 +3334,37 @@ export class SessionsService {
   async getShuttleInventory(code: string) {
     const session = await this.prisma.session.findUnique({ where: { code } });
     if (!session) throw this.notFound('SESSION_NOT_FOUND');
-    if (!session.shuttleToolsEnabled) return { enabled: false as const, identities: [], games: [] };
+    if (!session.shuttleToolsEnabled) {
+      return { enabled: false as const, identities: [], games: [], heldShuttleIds: [], lastShuttleByCourt: [] };
+    }
 
-    const [identities, finished, uses] = await Promise.all([
+    const [identities, finished, uses, live] = await Promise.all([
       this.prisma.sessionShuttle.findMany({ where: { sessionId: code }, orderBy: { number: 'asc' } }),
       this.prisma.pairing.findMany({
         where: { sessionId: code, confirmedAt: { not: null }, endedAt: { not: null } },
         orderBy: [{ confirmedAt: 'asc' }, { courtNumber: 'asc' }, { matchNumber: 'asc' }],
       }),
       this.prisma.pairingShuttleUse.findMany({ where: { pairing: { sessionId: code } } }),
+      this.prisma.pairing.findMany({
+        where: { sessionId: code, confirmedAt: { not: null }, endedAt: null, lastShuttleId: { not: null } },
+        select: { lastShuttleId: true },
+      }),
     ]);
+    // Each court's suggestion: the last shuttle of its most recent finished game.
+    const lastByCourt = new Map<number, string>();
+    for (const p of [...finished].sort((a, b) => a.matchNumber - b.matchNumber)) {
+      if (p.lastShuttleId) lastByCourt.set(p.courtNumber, p.lastShuttleId);
+      else lastByCourt.delete(p.courtNumber);
+    }
     const numberById = new Map(identities.map((sh) => [sh.id, sh.number]));
     return {
       enabled: true as const,
       identities: identities.map((sh) => ({ id: sh.id, number: sh.number, usable: sh.usable, voided: sh.voidedAt !== null })),
+      /** Shuttles in a live hand right now: not idle, so not offered to another court. */
+      heldShuttleIds: live.map((p) => p.lastShuttleId!),
+      lastShuttleByCourt: [...lastByCourt.entries()]
+        .sort((a, b) => a[0] - b[0])
+        .map(([courtNumber, shuttleId]) => ({ courtNumber, shuttleId })),
       games: finished.map((p) => ({
         pairingId: p.id,
         revision: p.revision,

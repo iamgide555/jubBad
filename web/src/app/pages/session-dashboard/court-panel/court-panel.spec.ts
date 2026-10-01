@@ -1472,6 +1472,19 @@ describe('CourtPanel with too few players', () => {
       expect(dialog(fixture).hasAttribute('open')).toBe(false);
     });
 
+    it('with nothing to choose between (no last shuttle on the court, none idle) it confirms with a new shuttle and asks nothing', async () => {
+      const { fixture, httpMock } = await createPanel(pendingSession(true));
+      fixture.detectChanges();
+      button(fixture, 'ยืนยัน')!.click();
+      httpMock.expectOne(`${B}/sessions/sess1/shuttles`).flush(inventory({ identities: [], heldShuttleIds: [], lastShuttleByCourt: [] }));
+      await settle(fixture);
+      const req = httpMock.expectOne(`${B}/sessions/sess1/pairings/pair1/confirm`);
+      expect(req.request.body).toEqual({ shuttle: { kind: 'new' } });
+      expect(dialog(fixture)?.hasAttribute('open') ?? false).toBe(false);
+      req.flush({});
+      await reload(fixture, httpMock, activeSession());
+    });
+
     it('offers a new shuttle instead when the court\'s last one is retired or busy elsewhere', async () => {
       const { fixture, httpMock } = await createPanel(pendingSession(true));
       fixture.detectChanges();

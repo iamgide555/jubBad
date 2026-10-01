@@ -108,7 +108,7 @@ describe('buildBillText with early checkouts', () => {
   it('names settled people with their original model and amount, apart from the still-due rows', () => {
     const text = buildBillText(withSettled());
     expect(text).toContain('เช็คเอาต์แล้ว (จ่ายแล้ว):');
-    expect(text).toContain('นุ่น  จ่ายตามลูกแบด  60฿');
+    expect(text).toContain('นุ่น  ตามลูกแบด  60฿');
     expect(text.indexOf('นุ่น')).toBeLessThan(text.indexOf('ยังต้องจ่าย:'));
     expect(text.indexOf('ยังต้องจ่าย:')).toBeLessThan(text.indexOf('ปอม'));
   });

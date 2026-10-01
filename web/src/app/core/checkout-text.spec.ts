@@ -27,6 +27,6 @@ describe('buildCheckoutText', () => {
     expect(text).not.toContain('ค่าลูกแบด');
     expect(text).not.toContain('ค่าดูแล');
     expect(text).toContain('ค่าคนนอกรายชื่อ 20 บาท');
-    expect(text).toContain('จ่ายต่อเกม');
+    expect(text).toContain('คิดต่อเกม');
   });
 });

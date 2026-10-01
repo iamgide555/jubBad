@@ -3208,15 +3208,15 @@
         <target>They're off the pairing list now. This amount won't change even if prices or shuttles change later.</target>
       </trans-unit>
       <trans-unit id="checkout.model.perGame" datatype="html">
-        <source>จ่ายต่อเกม</source>
+        <source>คิดต่อเกม</source>
         <target>Per game</target>
       </trans-unit>
       <trans-unit id="checkout.model.perShuttle" datatype="html">
-        <source>จ่ายตามลูกแบด</source>
+        <source>ตามลูกแบด</source>
         <target>Per shuttle</target>
       </trans-unit>
       <trans-unit id="checkout.model.buffet" datatype="html">
-        <source>เหมาจ่าย</source>
+        <source>บุฟเฟ่ต์</source>
         <target>Buffet</target>
       </trans-unit>
       <trans-unit id="checkout.err.stale" datatype="html">
@@ -3554,6 +3554,42 @@
       <trans-unit id="levels.err.unknown" datatype="html">
         <source>ระดับนี้ไม่อยู่ในรายการระดับของก๊วน เลือกใหม่จากรายการล่าสุด</source>
         <target>That level isn't in the group's list. Pick again from the latest list.</target>
+      </trans-unit>
+      <trans-unit id="checkout.searchLabel" datatype="html">
+        <source>ค้นหาชื่อ</source>
+        <target>Search names</target>
+      </trans-unit>
+      <trans-unit id="checkout.searchPlaceholder" datatype="html">
+        <source>ค้นหาชื่อ</source>
+        <target>Search names</target>
+      </trans-unit>
+      <trans-unit id="checkout.noMatch" datatype="html">
+        <source>ไม่พบชื่อนี้</source>
+        <target>No one by that name</target>
+      </trans-unit>
+      <trans-unit id="checkout.baseStarting" datatype="html">
+        <source>ค่าเริ่มต้น</source>
+        <target>Starting fee</target>
+      </trans-unit>
+      <trans-unit id="checkout.baseBuffet" datatype="html">
+        <source>ค่าบุฟเฟ่ต์</source>
+        <target>Buffet price</target>
+      </trans-unit>
+      <trans-unit id="checkout.basePlay" datatype="html">
+        <source>ค่าเล่น</source>
+        <target>Play</target>
+      </trans-unit>
+      <trans-unit id="checkout.zeroWarn" datatype="html">
+        <source>ยอดนี้เป็น 0 บาท อาจเพราะยังไม่ได้ตั้งราคา ยอดที่ยืนยันแล้วแก้ไม่ได้</source>
+        <target>This is 0 baht, possibly because no rates are set. A confirmed amount can't be changed.</target>
+      </trans-unit>
+      <trans-unit id="checkout.zeroSetRates" datatype="html">
+        <source>ไปตั้งราคาที่หน้าคิดเงิน</source>
+        <target>Set rates on the bill page</target>
+      </trans-unit>
+      <trans-unit id="checkout.zeroAck" datatype="html">
+        <source>ยอด 0 บาทถูกต้อง</source>
+        <target>0 baht is correct</target>
       </trans-unit>
     </body>
   </file>

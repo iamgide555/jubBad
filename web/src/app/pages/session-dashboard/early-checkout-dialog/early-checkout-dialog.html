@@ -8,8 +8,24 @@
         @if (players().length === 0) {
           <p class="muted" i18n="@@checkout.noPlayers">ไม่มีใครให้เช็คเอาต์</p>
         } @else {
+          @if (showSearch()) {
+            <input
+              type="search"
+              class="player-search"
+              data-checkout-search
+              [value]="query()"
+              (input)="onQuery($event)"
+              i18n-aria-label="@@checkout.searchLabel"
+              aria-label="ค้นหาชื่อ"
+              i18n-placeholder="@@checkout.searchPlaceholder"
+              placeholder="ค้นหาชื่อ"
+            />
+          }
+          @if (visiblePlayers().length === 0) {
+            <p class="muted" data-no-match i18n="@@checkout.noMatch">ไม่พบชื่อนี้</p>
+          }
           <ul class="player-list">
-            @for (p of players(); track p.id) {
+            @for (p of visiblePlayers(); track p.id) {
               <li>
                 <button type="button" class="player-row" [attr.data-checkout-player]="p.id" (click)="pick(p.id)">
                   <span class="player-name">{{ p.name }}</span>
@@ -84,7 +100,16 @@
         @if (receipt() ?? preview(); as q) {
           <dl class="breakdown" data-breakdown>
             <div><dt i18n="@@checkout.games">เล่นแล้ว</dt><dd>{{ preview()?.games ?? 0 }} <ng-container i18n="@@checkout.gamesUnit">เกม</ng-container></dd></div>
-            <div><dt i18n="@@checkout.base">ค่าเล่น / ค่าเริ่มต้น</dt><dd>{{ baht(q.breakdown.baseSatang) }}</dd></div>
+            <div>
+              <dt>
+                @switch (q.model) {
+                  @case ('perShuttle') { <ng-container i18n="@@checkout.baseStarting">ค่าเริ่มต้น</ng-container> }
+                  @case ('buffet') { <ng-container i18n="@@checkout.baseBuffet">ค่าบุฟเฟ่ต์</ng-container> }
+                  @default { <ng-container i18n="@@checkout.basePlay">ค่าเล่น</ng-container> }
+                }
+              </dt>
+              <dd>{{ baht(q.breakdown.baseSatang) }}</dd>
+            </div>
             @if (q.breakdown.shuttleSatang > 0) {
               <div><dt i18n="@@checkout.shuttle">ค่าลูกแบด</dt><dd>{{ baht(q.breakdown.shuttleSatang) }}</dd></div>
             }
@@ -98,6 +123,18 @@
           </dl>
           @if (!receipt()) {
             <p class="muted" i18n="@@checkout.previewNote">นี่คือยอดที่คำนวณ ยังไม่ได้บันทึกว่าจ่ายแล้ว</p>
+          }
+          @if (isZeroQuote() && !receipt()) {
+            <div class="zero-warning" role="alert" data-zero-warning>
+              <p i18n="@@checkout.zeroWarn">ยอดนี้เป็น 0 บาท อาจเพราะยังไม่ได้ตั้งราคา ยอดที่ยืนยันแล้วแก้ไม่ได้</p>
+              @if (sessionCode) {
+                <a [routerLink]="['/s', sessionCode, 'bill']" i18n="@@checkout.zeroSetRates">ไปตั้งราคาที่หน้าคิดเงิน</a>
+              }
+              <label class="zero-ack">
+                <input type="checkbox" name="zeroAck" data-zero-ack [checked]="zeroAck()" (change)="onZeroAck($event)" />
+                <span i18n="@@checkout.zeroAck">ยอด 0 บาทถูกต้อง</span>
+              </label>
+            </div>
           }
 
           <button type="button" class="ghost" data-copy-checkout (click)="copyQuote()">

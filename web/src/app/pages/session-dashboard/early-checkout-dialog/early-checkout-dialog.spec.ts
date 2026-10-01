@@ -191,4 +191,77 @@ describe('EarlyCheckoutDialog', () => {
     expect(live.undoCheckout).toHaveBeenCalledWith('r1');
     expect(changed).toHaveBeenCalled();
   });
+
+  describe('UX review fixes', () => {
+    it('a 0-baht quote cannot be confirmed until the host acknowledges it, and says why', async () => {
+      live.previewCheckout.mockResolvedValue(quote({ amountSatang: 0, breakdown: { ...breakdown, baseSatang: 0, shuttleSatang: 0 } }));
+      await openAndPick();
+      expect(el().querySelector('[data-zero-warning]')).toBeTruthy();
+      expect(text()).toContain('อาจเพราะยังไม่ได้ตั้งราคา');
+      expect(btn('[data-confirm-checkout]').disabled).toBe(true);
+      const ack = el().querySelector('[data-zero-ack]') as HTMLInputElement;
+      ack.checked = true;
+      ack.dispatchEvent(new Event('change'));
+      fixture.detectChanges();
+      expect(btn('[data-confirm-checkout]').disabled).toBe(false);
+      btn('[data-confirm-checkout]').click();
+      await flush();
+      expect(live.confirmCheckout).toHaveBeenCalledTimes(1);
+    });
+
+    it('a non-zero quote shows no warning and confirms as before', async () => {
+      await openAndPick();
+      expect(el().querySelector('[data-zero-warning]')).toBeNull();
+      expect(btn('[data-confirm-checkout]').disabled).toBe(false);
+    });
+
+    it('the acknowledgement resets when the quote changes', async () => {
+      live.previewCheckout.mockResolvedValue(quote({ amountSatang: 0 }));
+      await openAndPick();
+      const ack = el().querySelector('[data-zero-ack]') as HTMLInputElement;
+      ack.checked = true;
+      ack.dispatchEvent(new Event('change'));
+      fixture.detectChanges();
+      (el().querySelectorAll('input[name="checkoutModel"]')[1] as HTMLInputElement).click();
+      await flush();
+      expect(btn('[data-confirm-checkout]').disabled).toBe(true);
+    });
+
+    it('long rosters get a name filter; short ones do not', async () => {
+      fixture.componentInstance.open();
+      fixture.detectChanges();
+      expect(el().querySelector('[data-checkout-search]')).toBeNull();
+      fixture.componentRef.setInput('players', Array.from({ length: 12 }, (_, i) => ({ id: `q${i}`, name: i === 7 ? 'ตั้ม' : `คน${i}`, courtLabel: null })));
+      fixture.detectChanges();
+      const input = el().querySelector('[data-checkout-search]') as HTMLInputElement;
+      expect(input).toBeTruthy();
+      input.value = 'ตั้ม';
+      input.dispatchEvent(new Event('input'));
+      fixture.detectChanges();
+      expect(el().querySelectorAll('[data-checkout-player]')).toHaveLength(1);
+      input.value = 'ไม่มีใคร';
+      input.dispatchEvent(new Event('input'));
+      fixture.detectChanges();
+      expect(el().querySelector('[data-no-match]')).toBeTruthy();
+    });
+
+    it('the base line is named for the model: play, starting fee, or buffet', async () => {
+      await openAndPick();
+      expect(text()).toContain('ค่าเล่น');
+      live.previewCheckout.mockResolvedValueOnce(quote({ model: 'perShuttle' }));
+      (el().querySelectorAll('input[name="checkoutModel"]')[1] as HTMLInputElement).click();
+      await flush();
+      expect(text()).toContain('ค่าเริ่มต้น');
+      live.previewCheckout.mockResolvedValueOnce(quote({ model: 'buffet' }));
+      (el().querySelectorAll('input[name="checkoutModel"]')[2] as HTMLInputElement).click();
+      await flush();
+      expect(text()).toContain('ค่าบุฟเฟ่ต์');
+    });
+
+    it('model names match the bill page vocabulary', async () => {
+      await openAndPick();
+      const labels = [...el().querySelectorAll('.model-option span')].map((s) => s.textContent!.trim());
+      expect(labels).toEqual(['คิดต่อเกม', 'ตามลูกแบด', 'บุฟเฟ่ต์']);
+    });
+  });
 });

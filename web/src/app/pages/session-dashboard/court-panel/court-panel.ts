@@ -601,6 +601,13 @@ export class CourtPanel {
       }
       this.shuttleMode.set(mode);
       this.shuttleRetireByDefault.set(retireByDefault);
+      // Nothing to choose between (no last shuttle on this court, none idle): "open a new one" is the
+      // only answer, so ask nothing. The first game of every court used to cost a dead dialog here.
+      if (mode === 'confirm' && this.shuttleShown() === null && this.shuttleOptions().length === 0) {
+        this.busy.set(false);
+        await this.onShuttleChosen({ choice: { kind: 'new' }, retirePrevious: false });
+        return;
+      }
       this.shuttleDialog()?.open();
     } catch {
       this.actionError.set($localize`:@@err.shuttleInventory:โหลดรายการลูกแบดไม่สำเร็จ`);

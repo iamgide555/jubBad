@@ -33,11 +33,11 @@ export interface CheckoutReceipt {
 export function modelLabel(model: CheckoutModel): string {
   switch (model) {
     case 'perGame':
-      return $localize`:@@checkout.model.perGame:จ่ายต่อเกม`;
+      return $localize`:@@checkout.model.perGame:คิดต่อเกม`;
     case 'perShuttle':
-      return $localize`:@@checkout.model.perShuttle:จ่ายตามลูกแบด`;
+      return $localize`:@@checkout.model.perShuttle:ตามลูกแบด`;
     case 'buffet':
-      return $localize`:@@checkout.model.buffet:เหมาจ่าย`;
+      return $localize`:@@checkout.model.buffet:บุฟเฟ่ต์`;
   }
 }
 

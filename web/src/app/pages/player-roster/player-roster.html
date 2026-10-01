@@ -58,6 +58,27 @@
       (add)="submitAddRule($event)"
     />
 
+    @if (ladder(); as lad) {
+      <section class="bulk" data-bulk>
+        <button type="button" class="ghost" data-bulk-toggle [attr.aria-expanded]="bulkOn()" (click)="toggleBulk()">
+          @if (bulkOn()) {
+            <ng-container i18n="@@playerRoster.bulkDone">เสร็จการตั้งระดับ</ng-container>
+          } @else {
+            <ng-container i18n="@@playerRoster.bulkStart">ตั้งระดับหลายคน</ng-container>
+          }
+        </button>
+        @if (bulkOn()) {
+          <p class="muted" i18n="@@playerRoster.bulkHint">เลือกระดับก่อน แล้วแตะชื่อผู้เล่นที่อยู่ในระดับนั้น</p>
+          <div class="bulk-chips" role="group" i18n-aria-label="@@playerRoster.bulkLevelGroup" aria-label="ระดับที่จะตั้ง">
+            <button type="button" class="chip" data-bulk-level="none" [class.selected]="bulkLevel() === null" [attr.aria-pressed]="bulkLevel() === null" (click)="pickBulkLevel(null)" i18n="@@playerRoster.bulkClear">ล้างระดับ</button>
+            @for (l of lad.levels; track l.id) {
+              <button type="button" class="chip" [attr.data-bulk-level]="l.name" [class.selected]="bulkLevel() === l.name" [attr.aria-pressed]="bulkLevel() === l.name" (click)="pickBulkLevel(l.name)">{{ l.name }}</button>
+            }
+          </div>
+        }
+      </section>
+    }
+
     <div class="table-scroll">
       <table class="roster-table">
       <thead>
@@ -120,7 +141,20 @@
               </td>
             } @else {
               <td class="tabular">{{ i + 1 }}</td>
-              <td>{{ player.name }}</td>
+              <td>
+                @if (bulkOn()) {
+                  <button
+                    type="button"
+                    class="ghost bulk-name"
+                    data-bulk-apply
+                    [disabled]="bulkLevel() === undefined"
+                    [class.is-set]="bulkLevel() !== undefined && player.level === bulkLevel()"
+                    (click)="bulkApply(player)"
+                  >{{ player.name }}</button>
+                } @else {
+                  {{ player.name }}
+                }
+              </td>
               <td>
                 <app-level-picker
                   [compact]="true"

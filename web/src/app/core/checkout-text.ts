@@ -12,9 +12,9 @@ const baht = (satang: number): string => {
 };
 
 const MODEL_TH: Record<CheckoutModel, string> = {
-  perGame: 'จ่ายต่อเกม',
-  perShuttle: 'จ่ายตามลูกแบด',
-  buffet: 'เหมาจ่าย',
+  perGame: 'คิดต่อเกม',
+  perShuttle: 'ตามลูกแบด',
+  buffet: 'บุฟเฟ่ต์',
 };
 
 export function buildCheckoutText(source: CheckoutPreview | CheckoutReceipt, playerName: string): string {
@@ -26,7 +26,7 @@ export function buildCheckoutText(source: CheckoutPreview | CheckoutReceipt, pla
     if (b.baseSatang > 0) lines.push(`ค่าเริ่มต้น ${baht(b.baseSatang)} บาท`);
     lines.push(`ค่าลูกแบด ${baht(b.shuttleSatang)} บาท`);
   } else {
-    lines.push(`ค่าเล่น ${baht(b.baseSatang)} บาท`);
+    lines.push(`${source.model === 'buffet' ? 'ค่าบุฟเฟ่ต์' : 'ค่าเล่น'} ${baht(b.baseSatang)} บาท`);
     if (b.shuttleSatang > 0) lines.push(`ค่าลูกแบด ${baht(b.shuttleSatang)} บาท`);
   }
   if (b.hostFeeSatang > 0) lines.push(`ค่าดูแล ${baht(b.hostFeeSatang)} บาท`);

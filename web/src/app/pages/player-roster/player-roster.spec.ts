@@ -452,4 +452,70 @@ describe('PlayerRoster', () => {
       expect(trigger().disabled).toBe(true);
     });
   });
+
+  describe('bulk level tagging', () => {
+    const custom = {
+      mode: 'custom' as const, revision: 3,
+      levels: [{ id: 'x', name: 'มือใหม่', startingElo: 1000 }, { id: 'y', name: 'เก่ง', startingElo: 1400 }],
+      assignedCounts: { x: 0, y: 0 },
+    };
+    const el = () => fixture.nativeElement as HTMLElement;
+    const apply = () => [...el().querySelectorAll<HTMLButtonElement>('[data-bulk-apply]')];
+
+    it('shows a toggle once the ladder is read, and the level chips only while bulk is on', () => {
+      component.ladder.set(custom);
+      fixture.detectChanges();
+      expect(el().querySelector('[data-bulk-toggle]')).toBeTruthy();
+      expect(el().querySelector('[data-bulk-level]')).toBeNull();
+      (el().querySelector('[data-bulk-toggle]') as HTMLButtonElement).click();
+      fixture.detectChanges();
+      expect([...el().querySelectorAll('[data-bulk-level]')].map((b) => b.textContent!.trim())).toEqual(['ล้างระดับ', 'มือใหม่', 'เก่ง']);
+    });
+
+    it('names do nothing until a level is picked; then each tap sends one write with the revision and no list reload', async () => {
+      component.ladder.set(custom);
+      await component.toggleBulk();
+      fixture.detectChanges();
+      expect(apply().every((b) => b.disabled)).toBe(true);
+      component.pickBulkLevel('เก่ง');
+      fixture.detectChanges();
+      apply()[0].click();
+      const put = httpMock.expectOne(`${B}/groups/group1/players/${PLAYERS[0].id}/level`);
+      expect(put.request.body).toEqual({ level: 'เก่ง', expectedLadderRevision: 3 });
+      put.flush({ id: PLAYERS[0].id, level: 'เก่ง' });
+      await Promise.resolve();
+      httpMock.expectNone(`${B}/groups/group1/players/manage`);
+      expect(component.players().find((p) => p.id === PLAYERS[0].id)?.level).toBe('เก่ง');
+    });
+
+    it('tapping a player who already has that level sends nothing', async () => {
+      component.ladder.set(custom);
+      await component.toggleBulk();
+      component.pickBulkLevel('P' as never);
+      await component.bulkApply(PLAYERS[1]); // PLAYERS[1] is already 'P'
+      httpMock.expectNone(`${B}/groups/group1/players/${PLAYERS[1].id}/level`);
+    });
+
+    it('"clear" removes a level, and finishing refreshes the ratings once', async () => {
+      component.ladder.set(custom);
+      await component.toggleBulk();
+      component.pickBulkLevel(null);
+      const save = component.bulkApply(PLAYERS[1]);
+      const put = httpMock.expectOne(`${B}/groups/group1/players/${PLAYERS[1].id}/level`);
+      expect(put.request.body).toEqual({ level: null, expectedLadderRevision: 3 });
+      put.flush({ id: PLAYERS[1].id, level: null });
+      await save;
+      const done = component.toggleBulk();
+      httpMock.expectOne(`${B}/groups/group1/players/manage`).flush(PLAYERS);
+      await done;
+      expect(component.bulkOn()).toBe(false);
+      expect(component.bulkLevel()).toBeUndefined();
+    });
+
+    it('without a readable ladder there is no bulk control at all', () => {
+      component.ladder.set(null);
+      fixture.detectChanges();
+      expect(el().querySelector('[data-bulk]')).toBeNull();
+    });
+  });
 });

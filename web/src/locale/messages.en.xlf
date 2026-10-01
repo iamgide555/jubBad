@@ -2856,7 +2856,7 @@
         <target>Advanced settings</target>
       </trans-unit>
       <trans-unit id="entry.advancedHint" datatype="html">
-        <source>สวิตช์เหล่านี้มีผลกับก๊วนที่สร้างต่อจากนี้เท่านั้น ก๊วนที่เปิดอยู่แล้วไม่เปลี่ยน</source>
+        <source>ตัวเลือกเหล่านี้มีผลกับก๊วนที่สร้างต่อจากนี้เท่านั้น ก๊วนที่เปิดอยู่แล้วไม่เปลี่ยน</source>
         <target>These switches only apply to sessions created from now on. Sessions already open don't change.</target>
       </trans-unit>
       <trans-unit id="entry.advancedUnavailable" datatype="html">
@@ -3208,15 +3208,15 @@
         <target>They're off the pairing list now. This amount won't change even if prices or shuttles change later.</target>
       </trans-unit>
       <trans-unit id="checkout.model.perGame" datatype="html">
-        <source>จ่ายต่อเกม</source>
+        <source>คิดต่อเกม</source>
         <target>Per game</target>
       </trans-unit>
       <trans-unit id="checkout.model.perShuttle" datatype="html">
-        <source>จ่ายตามลูกแบด</source>
+        <source>ตามลูกแบด</source>
         <target>Per shuttle</target>
       </trans-unit>
       <trans-unit id="checkout.model.buffet" datatype="html">
-        <source>เหมาจ่าย</source>
+        <source>บุฟเฟ่ต์</source>
         <target>Buffet</target>
       </trans-unit>
       <trans-unit id="checkout.err.stale" datatype="html">
@@ -3392,8 +3392,8 @@
         <target>This group uses the app's standard levels. If your group grades players differently, set your own.</target>
       </trans-unit>
       <trans-unit id="levels.customize" datatype="html">
-        <source>ตั้งระดับของก๊วนเอง</source>
-        <target>Set my own levels</target>
+        <source>เริ่มใหม่ทั้งหมด</source>
+        <target>Start from scratch</target>
       </trans-unit>
       <trans-unit id="levels.customTitle" datatype="html">
         <source>ระดับของก๊วน (เรียงจากต่ำไปสูง)</source>
@@ -3447,11 +3447,7 @@
         <source>บันทึกระดับแล้ว</source>
         <target>Levels saved</target>
       </trans-unit>
-      <trans-unit id="levels.resetTitle" datatype="html">
-        <source>กลับไปใช้ระดับมาตรฐาน</source>
-        <target>Back to standard levels</target>
-      </trans-unit>
-      <trans-unit id="levels.reset" datatype="html">
+            <trans-unit id="levels.reset" datatype="html">
         <source>กลับไปใช้ระดับมาตรฐาน</source>
         <target>Back to standard levels</target>
       </trans-unit>
@@ -3554,6 +3550,82 @@
       <trans-unit id="levels.err.unknown" datatype="html">
         <source>ระดับนี้ไม่อยู่ในรายการระดับของก๊วน เลือกใหม่จากรายการล่าสุด</source>
         <target>That level isn't in the group's list. Pick again from the latest list.</target>
+      </trans-unit>
+      <trans-unit id="checkout.searchLabel" datatype="html">
+        <source>ค้นหาชื่อ</source>
+        <target>Search names</target>
+      </trans-unit>
+      <trans-unit id="checkout.searchPlaceholder" datatype="html">
+        <source>ค้นหาชื่อ</source>
+        <target>Search names</target>
+      </trans-unit>
+      <trans-unit id="checkout.noMatch" datatype="html">
+        <source>ไม่พบชื่อนี้</source>
+        <target>No one by that name</target>
+      </trans-unit>
+      <trans-unit id="checkout.baseStarting" datatype="html">
+        <source>ค่าเริ่มต้น</source>
+        <target>Starting fee</target>
+      </trans-unit>
+      <trans-unit id="checkout.baseBuffet" datatype="html">
+        <source>ค่าบุฟเฟ่ต์</source>
+        <target>Buffet price</target>
+      </trans-unit>
+      <trans-unit id="checkout.basePlay" datatype="html">
+        <source>ค่าเล่น</source>
+        <target>Play</target>
+      </trans-unit>
+      <trans-unit id="checkout.zeroWarn" datatype="html">
+        <source>ยอดนี้เป็น 0 บาท อาจเพราะยังไม่ได้ตั้งราคา ยอดที่ยืนยันแล้วแก้ไม่ได้</source>
+        <target>This is 0 baht, possibly because no rates are set. A confirmed amount can't be changed.</target>
+      </trans-unit>
+      <trans-unit id="checkout.zeroSetRates" datatype="html">
+        <source>ไปตั้งราคาที่หน้าคิดเงิน</source>
+        <target>Set rates on the bill page</target>
+      </trans-unit>
+      <trans-unit id="checkout.zeroAck" datatype="html">
+        <source>ยอด 0 บาทถูกต้อง</source>
+        <target>0 baht is correct</target>
+      </trans-unit>
+      <trans-unit id="court.shuttleChange" datatype="html">
+        <source>เปลี่ยนลูกแบด</source>
+        <target>Change shuttle</target>
+      </trans-unit>
+      <trans-unit id="levels.fromStandard" datatype="html">
+        <source>เริ่มจากระดับมาตรฐานแล้วแก้</source>
+        <target>Start from the standard levels and edit</target>
+      </trans-unit>
+      <trans-unit id="levels.people" datatype="html">
+        <source>คน</source>
+        <target>players</target>
+      </trans-unit>
+      <trans-unit id="levels.eloHelp" datatype="html">
+        <source>Elo คือคะแนนฝีมือเริ่มต้นของระดับนั้น ห่างกัน 100 คะแนน ฝั่งที่เก่งกว่าชนะราวสองในสาม</source>
+        <target>Elo is the starting skill score for a level. With a 100-point gap, the stronger side wins about two games in three.</target>
+      </trans-unit>
+      <trans-unit id="levels.suggestConfirm" datatype="html">
+        <source>กดอีกครั้งเพื่อเปลี่ยนค่า Elo ทุกระดับ</source>
+        <target>Tap again to change every level's Elo</target>
+      </trans-unit>
+      <trans-unit id="playerRoster.bulkDone" datatype="html">
+        <source>เสร็จการตั้งระดับ</source>
+        <target>Done tagging</target>
+      </trans-unit>
+      <trans-unit id="playerRoster.bulkStart" datatype="html">
+        <source>ตั้งระดับหลายคน</source>
+        <target>Tag several players</target>
+      </trans-unit>
+      <trans-unit id="playerRoster.bulkHint" datatype="html">
+        <source>เลือกระดับก่อน แล้วแตะชื่อผู้เล่นที่อยู่ในระดับนั้น</source>
+        <target>Pick a level first, then tap the players who belong in it</target>
+      </trans-unit>
+      <trans-unit id="playerRoster.bulkLevelGroup" datatype="html">
+        <source>ระดับที่จะตั้ง</source>
+        <target>Level to apply</target>
+      </trans-unit>
+      <trans-unit id="playerRoster.bulkClear" datatype="html">
+        <source>ล้างระดับ</source>
+        <target>Clear level</target>
       </trans-unit>
     </body>
   </file>

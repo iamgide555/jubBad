@@ -1,5 +1,6 @@
 import { HttpErrorResponse } from '@angular/common/http';
 import { Component, ElementRef, computed, inject, input, output, signal, viewChild } from '@angular/core';
+import { ActivatedRoute, RouterLink } from '@angular/router';
 import { buildCheckoutText } from '../../../core/checkout-text';
 import {
   CHECKOUT_MODELS,
@@ -34,12 +35,13 @@ export interface SettledPlayer {
  */
 @Component({
   selector: 'app-early-checkout-dialog',
-  imports: [],
+  imports: [RouterLink],
   templateUrl: './early-checkout-dialog.html',
   styleUrl: './early-checkout-dialog.css',
 })
 export class EarlyCheckoutDialog {
   private readonly live = inject(LiveSessionService);
+  protected readonly sessionCode = inject(ActivatedRoute, { optional: true })?.snapshot.paramMap.get('sessionCode') ?? null;
 
   /** Roster players who can still be checked out. */
   readonly players = input<readonly CheckoutPlayer[]>([]);
@@ -74,10 +76,30 @@ export class EarlyCheckoutDialog {
    */
   private attempt: { playerId: string; model: CheckoutModel; hash: string; key: string } | null = null;
 
+  /** Narrows the leaver list; shown once the roster is long enough that scrolling is slower than typing. */
+  protected readonly query = signal('');
+  protected readonly showSearch = computed(() => this.players().length > 8);
+  protected readonly visiblePlayers = computed(() => {
+    const q = this.query().trim().toLowerCase();
+    return q === '' ? this.players() : this.players().filter((p) => p.name.toLowerCase().includes(q));
+  });
+
+  /**
+   * A 0-baht quote is almost always "no rate set yet", and a receipt cannot be edited once saved,
+   * so it needs an explicit second acknowledgement (0 can be legitimate: a free night, no games).
+   */
+  protected readonly zeroAck = signal(false);
+  protected readonly isZeroQuote = computed(() => this.preview()?.amountSatang === 0);
+
   protected readonly selected = computed(() => this.players().find((p) => p.id === this.selectedId()) ?? null);
   protected readonly selectedName = computed(() => this.selected()?.name ?? '');
   protected readonly canConfirm = computed(
-    () => this.preview() !== null && !this.loading() && !this.confirming() && this.receipt() === null
+    () =>
+      this.preview() !== null &&
+      !this.loading() &&
+      !this.confirming() &&
+      this.receipt() === null &&
+      (!this.isZeroQuote() || this.zeroAck())
   );
 
   open(playerId?: string): void {
@@ -102,6 +124,8 @@ export class EarlyCheckoutDialog {
 
   private reset(): void {
     this.selectedId.set(null);
+    this.query.set('');
+    this.zeroAck.set(false);
     this.model.set('perGame');
     this.preview.set(null);
     this.error.set(null);
@@ -149,6 +173,7 @@ export class EarlyCheckoutDialog {
     if (!playerId) return;
     this.loading.set(true);
     this.error.set(null);
+    this.zeroAck.set(false);
     this.needsPrice.set(false);
     this.copied.set(false);
     this.fallbackText.set(null);
@@ -181,6 +206,14 @@ export class EarlyCheckoutDialog {
     }
     this.priceText.set(formatShuttlePriceInput(parsed.value));
     await this.loadPreview();
+  }
+
+  protected onQuery(event: Event): void {
+    this.query.set((event.target as HTMLInputElement).value);
+  }
+
+  protected onZeroAck(event: Event): void {
+    this.zeroAck.set((event.target as HTMLInputElement).checked);
   }
 
   protected onPriceInput(event: Event): void {

@@ -333,3 +333,18 @@ details[open] .disclosure {
 .settled-row .amount {
   font-variant-numeric: tabular-nums;
 }
+
+
+.hint-link {
+  margin-top: var(--space-0);
+  min-height: var(--tap);
+  display: flex;
+  align-items: center;
+}
+
+/* The settled / still-due split is the figure a host reads aloud, so it carries real weight. */
+.settled-split {
+  color: var(--ink);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}

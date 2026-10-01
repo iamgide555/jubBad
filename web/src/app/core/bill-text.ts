@@ -1,6 +1,6 @@
 import type { BillResponse, CheckoutModel } from './bill.model';
 
-const MODEL_TH: Record<CheckoutModel, string> = { perGame: 'จ่ายต่อเกม', perShuttle: 'จ่ายตามลูกแบด', buffet: 'เหมาจ่าย' };
+const MODEL_TH: Record<CheckoutModel, string> = { perGame: 'คิดต่อเกม', perShuttle: 'ตามลูกแบด', buffet: 'บุฟเฟ่ต์' };
 
 /**
  * 144000 -> "1,440"; 8550 -> "85.50"; -1500 -> "-15". Manual, so output never

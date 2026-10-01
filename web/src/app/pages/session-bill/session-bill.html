@@ -88,7 +88,7 @@
         </div>
         <p class="hint" data-per-shuttle-hint>
           <ng-container i18n="@@bill.perShuttleHint">คิดเฉพาะลูกแบดที่บันทึกไว้ในแมตช์ ตามราคาต่อลูก ไม่ขึ้นกับจำนวนลูกที่นับจริง</ng-container>
-          <a [routerLink]="['/s', sessionCode, 'summary']" i18n="@@bill.perShuttleSetPrice">ตั้งราคาลูกแบดที่หน้าสรุป</a>
+          <a class="hint-link" [routerLink]="['/s', sessionCode, 'summary']" i18n="@@bill.perShuttleSetPrice">ตั้งราคาลูกแบดที่หน้าสรุป</a>
         </p>
       }
       @if (b.config.model === 'buffet') {
@@ -283,7 +283,7 @@
         @if (b.readyToCopy) {
           <span class="total"><span i18n="@@bill.total">รวม</span> {{ baht(b.result.totals.collectedSatang) }}฿</span>
           @if (settled().length > 0) {
-            <span class="margin" data-split-totals i18n="@@bill.settledSplit">เช็คเอาต์แล้ว {{ baht(b.result.totals.settledTotalSatang) }}฿ · ยังต้องจ่าย {{ baht(b.result.totals.stillDueSatang) }}฿</span>
+            <span class="settled-split" data-split-totals i18n="@@bill.settledSplit">เช็คเอาต์แล้ว {{ baht(b.result.totals.settledTotalSatang) }}฿ · ยังต้องจ่าย {{ baht(b.result.totals.stillDueSatang) }}฿</span>
           }
           @if (b.result.totals.marginSatang !== null) {
             <span class="margin" i18n="@@bill.margin">ต้นทุน {{ baht(b.result.totals.costSatang!) }}฿ · ส่วนต่าง {{ baht(b.result.totals.marginSatang) }}฿ (เห็นเฉพาะผู้จัด)</span>

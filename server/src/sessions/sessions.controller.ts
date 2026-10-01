@@ -130,6 +130,12 @@ export class SessionsController {
     return this.sessionsService.correctShuttleUse(code, id, dto);
   }
 
+  /** Owner-only: identities plus each finished game's editable set and revision. */
+  @Get(':code/shuttles')
+  getShuttleInventory(@Param('code') code: string) {
+    return this.sessionsService.getShuttleInventory(code);
+  }
+
   @Post(':code/shuttles/:shuttleId/usable')
   setShuttleUsable(
     @Param('code') code: string,

@@ -57,7 +57,7 @@ import {
   violatedRules,
 } from './session-rules.js';
 import { deriveHistory } from './derive-history.js';
-import { parseShuttleChoice, type ShuttleChoice } from './shuttle-tracking.js';
+import { deriveShuttleAccounting, parseShuttleChoice, type ShuttleChoice, type ShuttleRef } from './shuttle-tracking.js';
 import { effectiveCourtMode, isCustomMode, isLevelMode, type SessionMode } from './session-mode.js';
 import {
   CorruptPairingError,
@@ -561,6 +561,20 @@ export class SessionsService {
     });
     if (!session) throw this.notFound('SESSION_NOT_FOUND');
 
+    // Advanced sessions show each active court its shuttle in hand and the
+    // distinct shuttles used so far. Loaded only then: this is a live poll.
+    const shuttleNumbers = new Map<string, number>();
+    const usedByPairing = new Map<string, string[]>();
+    if (session.shuttleToolsEnabled) {
+      const [identities, uses] = await Promise.all([
+        this.prisma.sessionShuttle.findMany({ where: { sessionId: code } }),
+        this.prisma.pairingShuttleUse.findMany({ where: { pairing: { sessionId: code } } }),
+      ]);
+      for (const sh of identities) shuttleNumbers.set(sh.id, sh.number);
+      for (const u of uses) usedByPairing.set(u.pairingId, [...(usedByPairing.get(u.pairingId) ?? []), u.shuttleId]);
+    }
+    const shuttleRef = (id: string): ShuttleRef => ({ id, number: shuttleNumbers.get(id) ?? 0 });
+
     const courtCount = session.courtCount ?? 0;
     // Parsed once rather than inside the loop below — this is a live-polled
     // endpoint, and formatAt would otherwise re-parse the identical JSON
@@ -596,6 +610,14 @@ export class SessionsService {
             teamA,
             teamB,
             startedAt: current.confirmedAt.toISOString(),
+            ...(session.shuttleToolsEnabled
+              ? {
+                  currentShuttle: current.lastShuttleId ? shuttleRef(current.lastShuttleId) : null,
+                  usedShuttles: (usedByPairing.get(current.id) ?? [])
+                    .map(shuttleRef)
+                    .sort((a, b) => a.number - b.number),
+                }
+              : {}),
           }
         : {
             courtNumber,
@@ -3245,6 +3267,100 @@ export class SessionsService {
     });
   }
 
+  /**
+   * The public shuttle log and totals for an advanced session's finished games.
+   * One row per match (never per player), oldest confirmation first with court
+   * and match number as tie-breakers; `shuttles` is null for an unknown log and
+   * [] for a known empty one. Carries no revisions — those are owner-only.
+   */
+  private async shuttleSummaryFor(
+    sessionCode: string,
+    finished: readonly { id: string; courtNumber: number; matchNumber: number; confirmedAt: Date | null; endedAt: Date | null; shuttleLogKnown: boolean }[]
+  ) {
+    const [identities, uses] = await Promise.all([
+      this.prisma.sessionShuttle.findMany({ where: { sessionId: sessionCode } }),
+      this.prisma.pairingShuttleUse.findMany({ where: { pairing: { sessionId: sessionCode } } }),
+    ]);
+    const numberById = new Map(identities.map((sh) => [sh.id, sh.number]));
+    const usesByPairing = new Map<string, string[]>();
+    for (const u of uses) {
+      const list = usesByPairing.get(u.pairingId) ?? [];
+      list.push(u.shuttleId);
+      usesByPairing.set(u.pairingId, list);
+    }
+    const refsOf = (pairingId: string): ShuttleRef[] =>
+      (usesByPairing.get(pairingId) ?? [])
+        .map((id) => ({ id, number: numberById.get(id) ?? 0 }))
+        .sort((a, b) => a.number - b.number);
+
+    const shuttleLog = [...finished]
+      .sort(
+        (a, b) =>
+          (a.confirmedAt?.getTime() ?? 0) - (b.confirmedAt?.getTime() ?? 0) ||
+          a.courtNumber - b.courtNumber ||
+          a.matchNumber - b.matchNumber
+      )
+      .map((p) => ({
+        pairingId: p.id,
+        courtNumber: p.courtNumber,
+        matchNumber: p.matchNumber,
+        shuttles: p.shuttleLogKnown ? refsOf(p.id) : null,
+      }));
+    const accounting = deriveShuttleAccounting(
+      finished.map((p) => ({
+        confirmedAt: p.confirmedAt,
+        endedAt: p.endedAt,
+        shuttleLogKnown: p.shuttleLogKnown,
+        shuttleIds: usesByPairing.get(p.id) ?? [],
+      }))
+    );
+    return {
+      shuttleLog,
+      shuttleAccounting: {
+        recordedFinishedShuttles: accounting.recordedFinishedShuttles,
+        unknownFinishedMatches: accounting.unknownFinishedMatches,
+        finishedMatches: accounting.finishedMatches,
+      },
+    };
+  }
+
+  /**
+   * Owner-only: every identity (voided included, flagged) and each finished
+   * game's editable shuttle set with its revision, for the correction editor
+   * and the confirm picker. An ordinary session answers a disabled, empty
+   * shape so the summary can still verify ownership before showing the
+   * physical-count editor.
+   */
+  async getShuttleInventory(code: string) {
+    const session = await this.prisma.session.findUnique({ where: { code } });
+    if (!session) throw this.notFound('SESSION_NOT_FOUND');
+    if (!session.shuttleToolsEnabled) return { enabled: false as const, identities: [], games: [] };
+
+    const [identities, finished, uses] = await Promise.all([
+      this.prisma.sessionShuttle.findMany({ where: { sessionId: code }, orderBy: { number: 'asc' } }),
+      this.prisma.pairing.findMany({
+        where: { sessionId: code, confirmedAt: { not: null }, endedAt: { not: null } },
+        orderBy: [{ confirmedAt: 'asc' }, { courtNumber: 'asc' }, { matchNumber: 'asc' }],
+      }),
+      this.prisma.pairingShuttleUse.findMany({ where: { pairing: { sessionId: code } } }),
+    ]);
+    const numberById = new Map(identities.map((sh) => [sh.id, sh.number]));
+    return {
+      enabled: true as const,
+      identities: identities.map((sh) => ({ id: sh.id, number: sh.number, usable: sh.usable, voided: sh.voidedAt !== null })),
+      games: finished.map((p) => ({
+        pairingId: p.id,
+        revision: p.revision,
+        shuttleIds: p.shuttleLogKnown
+          ? uses
+              .filter((u) => u.pairingId === p.id)
+              .map((u) => u.shuttleId)
+              .sort((a, b) => (numberById.get(a) ?? 0) - (numberById.get(b) ?? 0))
+          : null,
+      })),
+    };
+  }
+
   async getSummary(code: string) {
     const session = await this.prisma.session.findUnique({ where: { code } });
     if (!session) throw this.notFound('SESSION_NOT_FOUND');
@@ -3254,6 +3370,12 @@ export class SessionsService {
       where: { sessionId: code, ...finishedMatch },
       orderBy: [{ courtNumber: 'asc' }, { matchNumber: 'asc' }],
     });
+
+    // Advanced sessions publish a read-only chronological shuttle log. An
+    // ordinary session (the snapshot, not the group's current switch) omits it.
+    const shuttleSummary = session.shuttleToolsEnabled
+      ? await this.shuttleSummaryFor(code, pairings)
+      : null;
 
     const allPlayerIds = new Set<string>();
     for (const p of pairings) {
@@ -3348,6 +3470,7 @@ export class SessionsService {
         shuttlePriceSatang: session.shuttlePriceSatang,
         courtLabels: parseCourtLabels(session.courtLabels),
       },
+      ...(shuttleSummary ?? {}),
       players: [...played.entries()]
         .map(([playerId, count]) => {
           const formats = byFormat.get(playerId);

@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { Test } from '@nestjs/testing';
 import { PrismaModule } from '../prisma/prisma.module.js';
 import { PrismaService } from '../prisma/prisma.service.js';
-import { parseShuttleChoice } from './shuttle-tracking.js';
+import { deriveShuttleAccounting, parseShuttleChoice } from './shuttle-tracking.js';
 
 /**
  * Persistence rules for numbered, reusable shuttles (host feedback D): a
@@ -113,5 +113,45 @@ describe('shuttle choice shape', () => {
     expect(parseShuttleChoice({ kind: 'existing' })).toBeNull();
     expect(parseShuttleChoice({ kind: 'existing', shuttleId: '' })).toBeNull();
     expect(parseShuttleChoice({ kind: 'new', shuttleId: 's1' })).toBeNull();
+  });
+});
+
+describe('shuttle accounting', () => {
+  const t = (n: number) => new Date(2026, 9, 1, 12, n);
+  const finished = (ids: string[], known = true) => ({ confirmedAt: t(1), endedAt: t(20), shuttleLogKnown: known, shuttleIds: ids });
+
+  it('counts a shuttle reused across several finished games once', () => {
+    const result = deriveShuttleAccounting([finished(['s1']), finished(['s1']), finished(['s1', 's2'])]);
+    expect(result).toMatchObject({ recordedFinishedShuttles: 2, finishedMatches: 3, unknownFinishedMatches: 0 });
+    expect(result.knownShuttleIds.sort()).toEqual(['s1', 's2']);
+  });
+
+  it('excludes pending and active games from every count', () => {
+    const pending = { confirmedAt: null, endedAt: null, shuttleLogKnown: false, shuttleIds: [] };
+    const active = { confirmedAt: t(1), endedAt: null, shuttleLogKnown: true, shuttleIds: ['s9'] };
+    expect(deriveShuttleAccounting([pending, active])).toEqual({
+      recordedFinishedShuttles: 0,
+      unknownFinishedMatches: 0,
+      finishedMatches: 0,
+      knownShuttleIds: [],
+    });
+  });
+
+  it('counts a legacy unknown finished game as unknown, ignoring any ids it carries', () => {
+    const result = deriveShuttleAccounting([finished(['s1']), finished(['s7'], false)]);
+    expect(result).toMatchObject({ recordedFinishedShuttles: 1, unknownFinishedMatches: 1, finishedMatches: 2 });
+    expect(result.knownShuttleIds).toEqual(['s1']);
+  });
+
+  it('treats a known empty game as zero shuttles, not unknown', () => {
+    expect(deriveShuttleAccounting([finished([])])).toMatchObject({
+      recordedFinishedShuttles: 0,
+      unknownFinishedMatches: 0,
+      finishedMatches: 1,
+    });
+  });
+
+  it('reports no finished games honestly instead of a complete zero', () => {
+    expect(deriveShuttleAccounting([])).toMatchObject({ finishedMatches: 0, recordedFinishedShuttles: 0 });
   });
 });

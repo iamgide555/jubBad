@@ -1,0 +1,194 @@
+import { HttpErrorResponse } from '@angular/common/http';
+import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { EarlyCheckoutDialog } from './early-checkout-dialog';
+import { LiveSessionService } from '../../../core/live-session.service';
+import type { CheckoutPreview, CheckoutReceipt } from '../../../core/checkout.model';
+
+beforeAll(() => {
+  if (!HTMLDialogElement.prototype.showModal) {
+    HTMLDialogElement.prototype.showModal = function (this: HTMLDialogElement) {
+      this.setAttribute('open', '');
+    };
+  }
+  if (!HTMLDialogElement.prototype.close) {
+    HTMLDialogElement.prototype.close = function (this: HTMLDialogElement) {
+      this.removeAttribute('open');
+      this.dispatchEvent(new Event('close'));
+    };
+  }
+});
+
+const breakdown = { baseSatang: 3000, shuttleSatang: 1500, hostFeeSatang: 0, walkInFeeSatang: 0, discountSatang: 0 };
+const quote = (over: Partial<CheckoutPreview> = {}): CheckoutPreview => ({
+  playerId: 'p1', model: 'perGame', amountSatang: 4500, games: 2, breakdown, snapshotHash: 'h1', ...over,
+});
+const receipt: CheckoutReceipt = { id: 'r1', playerId: 'p1', model: 'perGame', amountSatang: 4500, breakdown, settledAt: '2026-10-01T10:00:00Z' };
+const http = (status: number, code?: string) => new HttpErrorResponse({ status, error: code ? { code } : null });
+
+describe('EarlyCheckoutDialog', () => {
+  let fixture: ComponentFixture<EarlyCheckoutDialog>;
+  let live: {
+    previewCheckout: ReturnType<typeof vi.fn>;
+    confirmCheckout: ReturnType<typeof vi.fn>;
+    undoCheckout: ReturnType<typeof vi.fn>;
+    setShuttleDetails: ReturnType<typeof vi.fn>;
+  };
+  const el = () => fixture.nativeElement as HTMLElement;
+  const btn = (selector: string) => el().querySelector(selector) as HTMLButtonElement;
+  const text = () => el().textContent ?? '';
+  const flush = async () => {
+    await fixture.whenStable();
+    fixture.detectChanges();
+  };
+
+  beforeEach(async () => {
+    live = {
+      previewCheckout: vi.fn().mockResolvedValue(quote()),
+      confirmCheckout: vi.fn().mockResolvedValue(receipt),
+      undoCheckout: vi.fn().mockResolvedValue({ ok: true }),
+      setShuttleDetails: vi.fn().mockResolvedValue({ ok: true }),
+    };
+    await TestBed.configureTestingModule({
+      imports: [EarlyCheckoutDialog],
+      providers: [{ provide: LiveSessionService, useValue: live }],
+    }).compileComponents();
+    fixture = TestBed.createComponent(EarlyCheckoutDialog);
+    fixture.componentRef.setInput('players', [
+      { id: 'p1', name: 'นุ่น', courtLabel: null },
+      { id: 'p2', name: 'ตั้ม', courtLabel: 'คอร์ท 2' },
+    ]);
+    fixture.componentRef.setInput('settled', []);
+    fixture.detectChanges();
+  });
+
+  async function openAndPick(id = 'p1') {
+    fixture.componentInstance.open();
+    fixture.detectChanges();
+    btn(`[data-checkout-player="${id}"]`).click();
+    await flush();
+  }
+
+  it('lists players, quotes the picked one under per-game, and changes nothing by quoting', async () => {
+    await openAndPick();
+    expect(live.previewCheckout).toHaveBeenCalledWith('p1', 'perGame');
+    expect(el().querySelector('[data-checkout-total]')!.textContent).toContain('45');
+    expect(text()).toContain('ยังไม่ได้บันทึกว่าจ่ายแล้ว');
+    expect(live.confirmCheckout).not.toHaveBeenCalled();
+    expect(el().querySelectorAll('input[name="checkoutModel"]')).toHaveLength(3);
+  });
+
+  it('switching the model re-quotes under that model', async () => {
+    await openAndPick();
+    live.previewCheckout.mockResolvedValueOnce(quote({ model: 'perShuttle', amountSatang: 6000 }));
+    (el().querySelectorAll('input[name="checkoutModel"]')[1] as HTMLInputElement).click();
+    await flush();
+    expect(live.previewCheckout).toHaveBeenLastCalledWith('p1', 'perShuttle');
+    expect(el().querySelector('[data-checkout-total]')!.textContent).toContain('60');
+  });
+
+  it('a player on a court gets a court-specific message and is never quoted or edited', async () => {
+    await openAndPick('p2');
+    expect(text()).toContain('คอร์ท 2');
+    expect(text()).toContain('เอาออกจากคู่');
+    expect(live.previewCheckout).not.toHaveBeenCalled();
+    expect(btn('[data-confirm-checkout]').disabled).toBe(true);
+  });
+
+  it('confirming sends the quote hash and a key, shows the saved receipt, and tells the dashboard', async () => {
+    const changed = vi.fn();
+    fixture.componentInstance.changed.subscribe(changed);
+    await openAndPick();
+    btn('[data-confirm-checkout]').click();
+    await flush();
+    expect(live.confirmCheckout).toHaveBeenCalledWith('p1', 'perGame', 'h1', expect.stringMatching(/.{8,}/));
+    expect(el().querySelector('[data-checkout-saved]')).toBeTruthy();
+    expect(btn('[data-confirm-checkout]')).toBeNull();
+    expect(changed).toHaveBeenCalledTimes(1);
+  });
+
+  it('a stale answer is not a success: it explains, re-quotes, and the next confirm uses the new quote and a new key', async () => {
+    await openAndPick();
+    live.confirmCheckout.mockRejectedValueOnce(http(409, 'CHECKOUT_STALE'));
+    live.previewCheckout.mockResolvedValueOnce(quote({ snapshotHash: 'h2', amountSatang: 4700 }));
+    btn('[data-confirm-checkout]').click();
+    await flush();
+    expect(text()).toContain('ข้อมูลเปลี่ยนไป');
+    expect(el().querySelector('[data-checkout-saved]')).toBeNull();
+    expect(el().querySelector('[data-checkout-total]')!.textContent).toContain('47');
+    btn('[data-confirm-checkout]').click();
+    await flush();
+    const [first, second] = live.confirmCheckout.mock.calls;
+    expect(second[2]).toBe('h2');
+    expect(second[3]).not.toBe(first[3]);
+  });
+
+  it('a network failure keeps the key, so retrying the same quote cannot charge twice', async () => {
+    await openAndPick();
+    live.confirmCheckout.mockRejectedValueOnce(http(0));
+    btn('[data-confirm-checkout]').click();
+    await flush();
+    expect(text()).toContain('จะไม่คิดเงินซ้ำ');
+    expect(el().querySelector('[data-checkout-saved]')).toBeNull();
+    btn('[data-confirm-checkout]').click();
+    await flush();
+    const [first, second] = live.confirmCheckout.mock.calls;
+    expect(second[3]).toBe(first[3]);
+    expect(el().querySelector('[data-checkout-saved]')).toBeTruthy();
+  });
+
+  it('a missing shuttle price can be set right here and re-quotes', async () => {
+    live.previewCheckout.mockRejectedValueOnce(http(409, 'MISSING_SHUTTLE_PRICE'));
+    await openAndPick();
+    expect(text()).toContain('ยังไม่ได้ใส่ราคาลูกแบด');
+    const input = el().querySelector('input[name="shuttlePrice"]') as HTMLInputElement;
+    input.value = '80';
+    input.dispatchEvent(new Event('input'));
+    btn('[data-save-price]').click();
+    await flush();
+    expect(live.setShuttleDetails).toHaveBeenCalledWith({ shuttlePriceSatang: 8000 });
+    expect(live.previewCheckout).toHaveBeenCalledTimes(2);
+    expect(el().querySelector('[data-checkout-total]')).toBeTruthy();
+  });
+
+  it('refuses an invalid price without calling the server', async () => {
+    live.previewCheckout.mockRejectedValueOnce(http(409, 'MISSING_SHUTTLE_PRICE'));
+    await openAndPick();
+    const input = el().querySelector('input[name="shuttlePrice"]') as HTMLInputElement;
+    input.value = '80.505';
+    input.dispatchEvent(new Event('input'));
+    btn('[data-save-price]').click();
+    await flush();
+    expect(live.setShuttleDetails).not.toHaveBeenCalled();
+    expect(text()).toContain('ราคาไม่ถูกต้อง');
+  });
+
+  it('copies Thai text without settling, and shows selectable text if the clipboard is refused', async () => {
+    const write = vi.fn().mockResolvedValue(undefined);
+    Object.defineProperty(navigator, 'clipboard', { value: { writeText: write }, configurable: true });
+    await openAndPick();
+    btn('[data-copy-checkout]').click();
+    await flush();
+    expect(write).toHaveBeenCalledWith(expect.stringContaining('ยอดโดยประมาณ นุ่น'));
+    expect(live.confirmCheckout).not.toHaveBeenCalled();
+    write.mockRejectedValueOnce(new Error('denied'));
+    btn('[data-copy-checkout]').click();
+    await flush();
+    expect(el().querySelector('textarea.fallback')!.textContent).toContain('ยอดโดยประมาณ นุ่น');
+  });
+
+  it('undo needs its own confirming tap and warns about real money', async () => {
+    fixture.componentRef.setInput('settled', [{ receipt, name: 'นุ่น' }]);
+    const changed = vi.fn();
+    fixture.componentInstance.changed.subscribe(changed);
+    fixture.componentInstance.open();
+    fixture.detectChanges();
+    btn('[data-undo="r1"]').click();
+    fixture.detectChanges();
+    expect(live.undoCheckout).not.toHaveBeenCalled();
+    expect(text()).toContain('นอกแอป');
+    btn('[data-confirm-undo]').click();
+    await flush();
+    expect(live.undoCheckout).toHaveBeenCalledWith('r1');
+    expect(changed).toHaveBeenCalled();
+  });
+});

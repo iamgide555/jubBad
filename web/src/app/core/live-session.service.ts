@@ -7,6 +7,7 @@ import type { CourtFormat, CourtMode, CourtState } from './live-session.model';
 import type { Session } from './session.model';
 import type { Level } from '../../../../engines/levels.ts';
 import type { PairRule } from './pair-rule.model';
+import { checkoutErrorMessage, type CheckoutModel, type CheckoutPreview, type CheckoutReceipt } from './checkout.model';
 import type { ShuttleChoice, ShuttleInventory } from './shuttle.model';
 
 /** A court fill-all could not seat because of pair rules. */
@@ -162,7 +163,7 @@ function messageForCode(code: string): string | null {
     case 'PLAYER_ALREADY_ON_COURT':
       return $localize`:@@err.code.playerAlreadyOnCourt:ผู้เล่นคนนี้อยู่ในคอร์ทอื่นแล้ว`;
     default:
-      return null;
+      return checkoutErrorMessage(code);
   }
 }
 
@@ -193,7 +194,7 @@ export class LiveSessionService {
   readonly mode = computed<Session['mode']>(() => this.sessionResource.value()?.mode ?? 'variety');
 
   /** Whether this session tracks numbered shuttles (its creation-time snapshot of the group switch). */
-  readonly shuttleTools = computed(() => this.sessionResource.value()?.shuttleToolsEnabled === true);
+  readonly shuttleTools = computed(() => !this.sessionResource.error() && this.sessionResource.value()?.shuttleToolsEnabled === true);
 
   /** Per-court display names — resolve with labelForCourt. */
   readonly courtLabels = computed<(string | null)[]>(() => this.sessionResource.value()?.courtLabels ?? []);
@@ -358,6 +359,44 @@ export class LiveSessionService {
       `shuttles/${shuttleId}/usable`,
       { usable },
       $localize`:@@err.shuttleUsable:เปลี่ยนสถานะลูกแบดไม่สำเร็จ`,
+      true
+    );
+  }
+
+  /** Early checkout (E). Owner-only, never on the public poll. A quote changes nothing. */
+  previewCheckout(playerId: string, model: CheckoutModel): Promise<CheckoutPreview> {
+    return firstValueFrom(
+      this.http.post<CheckoutPreview>(`${this.base}/sessions/${this.sessionCode}/checkouts/${playerId}/preview`, { model })
+    );
+  }
+
+  /** The same `idempotencyKey` on a network retry returns the same receipt; it never settles twice. */
+  async confirmCheckout(
+    playerId: string,
+    model: CheckoutModel,
+    snapshotHash: string,
+    idempotencyKey: string
+  ): Promise<CheckoutReceipt> {
+    const receipt = await firstValueFrom(
+      this.http.post<CheckoutReceipt>(`${this.base}/sessions/${this.sessionCode}/checkouts/${playerId}/confirm`, {
+        model,
+        snapshotHash,
+        idempotencyKey,
+      })
+    );
+    this.sessionResource.reload();
+    return receipt;
+  }
+
+  getCheckouts(): Promise<CheckoutReceipt[]> {
+    return firstValueFrom(this.http.get<CheckoutReceipt[]>(`${this.base}/sessions/${this.sessionCode}/checkouts`));
+  }
+
+  undoCheckout(checkoutId: string): Promise<ActionResult> {
+    return this.post(
+      `checkouts/${checkoutId}/undo`,
+      {},
+      $localize`:@@err.undoCheckout:ยกเลิกการเช็คเอาต์ไม่สำเร็จ`,
       true
     );
   }

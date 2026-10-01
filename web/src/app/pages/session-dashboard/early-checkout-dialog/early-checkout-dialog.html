@@ -1,0 +1,130 @@
+<dialog #dialog class="early-checkout-dialog sheet-dialog" (close)="onDialogClose()" (cancel)="onCancelAttempt($event)">
+  @if (isOpen()) {
+    <div class="form-card">
+      @if (selectedId() === null) {
+        <h2 i18n="@@checkout.title">เช็คเอาต์คนที่กลับก่อน</h2>
+        <p class="muted" i18n="@@checkout.intro">ดูยอดก่อน แล้วค่อยยืนยันตอนรับเงินแล้ว ยอดที่ยืนยันจะไม่เปลี่ยนอีก</p>
+
+        @if (players().length === 0) {
+          <p class="muted" i18n="@@checkout.noPlayers">ไม่มีใครให้เช็คเอาต์</p>
+        } @else {
+          <ul class="player-list">
+            @for (p of players(); track p.id) {
+              <li>
+                <button type="button" class="player-row" [attr.data-checkout-player]="p.id" (click)="pick(p.id)">
+                  <span class="player-name">{{ p.name }}</span>
+                  @if (p.courtLabel) {
+                    <span class="player-note">{{ p.courtLabel }}</span>
+                  }
+                </button>
+              </li>
+            }
+          </ul>
+        }
+
+        @if (settled().length > 0) {
+          <h3 class="section-label" i18n="@@checkout.settledTitle">เช็คเอาต์แล้ว</h3>
+          <ul class="player-list">
+            @for (s of settled(); track s.receipt.id) {
+              <li class="settled-row">
+                <span class="player-name">{{ s.name }}</span>
+                <span class="amount">{{ baht(s.receipt.amountSatang) }} ฿</span>
+                @if (undoTarget() === s.receipt.id) {
+                  <span class="undo-confirm" role="group">
+                    <span class="warn" i18n="@@checkout.undoWarn">คนนี้จะกลับมาเล่นได้ และต้องคืนหรือเก็บเงินเองนอกแอป</span>
+                    <button type="button" class="ghost" [disabled]="undoBusy()" (click)="cancelUndo()" i18n="@@checkout.undoKeep">ไม่ยกเลิก</button>
+                    <button type="button" data-confirm-undo [disabled]="undoBusy()" (click)="confirmUndo()" i18n="@@checkout.undoConfirm">ยืนยันยกเลิก</button>
+                  </span>
+                } @else {
+                  <button type="button" class="ghost" [attr.data-undo]="s.receipt.id" (click)="askUndo(s.receipt.id)" i18n="@@checkout.undo">ยกเลิกเช็คเอาต์</button>
+                }
+              </li>
+            }
+          </ul>
+        }
+
+        @if (error()) {
+          <p class="error" role="alert">{{ error() }}</p>
+        }
+        <div class="dialog-actions">
+          <button type="button" class="ghost" (click)="close()" i18n="@@checkout.close">ปิด</button>
+        </div>
+      } @else {
+        <h2>{{ selectedName() }}</h2>
+
+        @if (receipt(); as r) {
+          <p class="saved" role="status" data-checkout-saved i18n="@@checkout.saved">บันทึกแล้ว — {{ baht(r.amountSatang) }} บาท</p>
+          <p class="muted" i18n="@@checkout.savedHint">คนนี้พักจากการจับคู่แล้ว ยอดนี้จะไม่เปลี่ยนแม้ราคาหรือลูกแบดเปลี่ยนทีหลัง</p>
+        } @else {
+          <fieldset class="model-picker" [disabled]="confirming()">
+            <legend i18n="@@checkout.modelLegend">คิดเงินแบบ</legend>
+            @for (m of models; track m) {
+              <label class="model-option" [class.is-selected]="model() === m">
+                <input type="radio" name="checkoutModel" [value]="m" [checked]="model() === m" (change)="setModel(m)" />
+                <span>{{ modelLabel(m) }}</span>
+              </label>
+            }
+          </fieldset>
+        }
+
+        @if (loading()) {
+          <p class="muted" i18n="@@checkout.loading">กำลังคำนวณ…</p>
+        }
+
+        @if (needsPrice()) {
+          <div class="price-row">
+            <label>
+              <span i18n="@@checkout.priceLabel">ราคาลูกแบดต่อลูก (บาท)</span>
+              <input type="text" inputmode="decimal" name="shuttlePrice" [value]="priceText()" (input)="onPriceInput($event)" />
+            </label>
+            <button type="button" data-save-price (click)="savePrice()" i18n="@@checkout.priceSave">บันทึกราคา</button>
+          </div>
+        }
+
+        @if (receipt() ?? preview(); as q) {
+          <dl class="breakdown" data-breakdown>
+            <div><dt i18n="@@checkout.games">เล่นแล้ว</dt><dd>{{ preview()?.games ?? 0 }} <ng-container i18n="@@checkout.gamesUnit">เกม</ng-container></dd></div>
+            <div><dt i18n="@@checkout.base">ค่าเล่น / ค่าเริ่มต้น</dt><dd>{{ baht(q.breakdown.baseSatang) }}</dd></div>
+            @if (q.breakdown.shuttleSatang > 0) {
+              <div><dt i18n="@@checkout.shuttle">ค่าลูกแบด</dt><dd>{{ baht(q.breakdown.shuttleSatang) }}</dd></div>
+            }
+            @if (q.breakdown.hostFeeSatang > 0) {
+              <div><dt i18n="@@checkout.hostFee">ค่าดูแล</dt><dd>{{ baht(q.breakdown.hostFeeSatang) }}</dd></div>
+            }
+            @if (q.breakdown.walkInFeeSatang > 0) {
+              <div><dt i18n="@@checkout.walkInFee">ค่าคนนอกรายชื่อ</dt><dd>{{ baht(q.breakdown.walkInFeeSatang) }}</dd></div>
+            }
+            <div class="total"><dt i18n="@@checkout.total">รวม (บาท)</dt><dd data-checkout-total>{{ baht(q.amountSatang) }}</dd></div>
+          </dl>
+          @if (!receipt()) {
+            <p class="muted" i18n="@@checkout.previewNote">นี่คือยอดที่คำนวณ ยังไม่ได้บันทึกว่าจ่ายแล้ว</p>
+          }
+
+          <button type="button" class="ghost" data-copy-checkout (click)="copyQuote()">
+            @if (copied()) {
+              <ng-container i18n="@@checkout.copied">คัดลอกแล้ว</ng-container>
+            } @else {
+              <ng-container i18n="@@checkout.copy">คัดลอกข้อความให้คนนี้</ng-container>
+            }
+          </button>
+          @if (fallbackText(); as text) {
+            <textarea class="fallback" readonly rows="6" aria-label="ข้อความ" (focus)="$any($event.target).select()">{{ text }}</textarea>
+          }
+        }
+
+        @if (error()) {
+          <p class="error" role="alert">{{ error() }}</p>
+        }
+
+        <div class="dialog-actions">
+          @if (receipt()) {
+            <button type="button" (click)="close()" i18n="@@checkout.done">เสร็จ</button>
+          } @else {
+            <button type="button" class="ghost" [disabled]="confirming()" (click)="back()" i18n="@@checkout.back">กลับ</button>
+            <button type="button" data-confirm-checkout [disabled]="!canConfirm()" (click)="confirm()" i18n="@@checkout.confirm">ยืนยันว่ารับเงินแล้ว</button>
+          }
+        </div>
+      }
+    </div>
+  }
+</dialog>

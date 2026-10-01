@@ -3099,6 +3099,210 @@
         <source>คอร์ท <x id="label" equiv-text="this.courtLabel()"/></source>
         <target>Court <x id="label" equiv-text="this.courtLabel()"/></target>
       </trans-unit>
+      <trans-unit id="checkout.title" datatype="html">
+        <source>เช็คเอาต์คนที่กลับก่อน</source>
+        <target>Check out someone leaving early</target>
+      </trans-unit>
+      <trans-unit id="checkout.intro" datatype="html">
+        <source>ดูยอดก่อน แล้วค่อยยืนยันตอนรับเงินแล้ว ยอดที่ยืนยันจะไม่เปลี่ยนอีก</source>
+        <target>See the amount first, then confirm once you've collected. A confirmed amount never changes.</target>
+      </trans-unit>
+      <trans-unit id="checkout.noPlayers" datatype="html">
+        <source>ไม่มีใครให้เช็คเอาต์</source>
+        <target>Nobody to check out</target>
+      </trans-unit>
+      <trans-unit id="checkout.settledTitle" datatype="html">
+        <source>เช็คเอาต์แล้ว</source>
+        <target>Checked out</target>
+      </trans-unit>
+      <trans-unit id="checkout.undoWarn" datatype="html">
+        <source>คนนี้จะกลับมาเล่นได้ และต้องคืนหรือเก็บเงินเองนอกแอป</source>
+        <target>They can play again, and any refund or re-collection is yours to handle outside the app</target>
+      </trans-unit>
+      <trans-unit id="checkout.undoKeep" datatype="html">
+        <source>ไม่ยกเลิก</source>
+        <target>Keep it</target>
+      </trans-unit>
+      <trans-unit id="checkout.undoConfirm" datatype="html">
+        <source>ยืนยันยกเลิก</source>
+        <target>Confirm undo</target>
+      </trans-unit>
+      <trans-unit id="checkout.undo" datatype="html">
+        <source>ยกเลิกเช็คเอาต์</source>
+        <target>Undo checkout</target>
+      </trans-unit>
+      <trans-unit id="checkout.close" datatype="html">
+        <source>ปิด</source>
+        <target>Close</target>
+      </trans-unit>
+      <trans-unit id="checkout.back" datatype="html">
+        <source>กลับ</source>
+        <target>Back</target>
+      </trans-unit>
+      <trans-unit id="checkout.done" datatype="html">
+        <source>เสร็จ</source>
+        <target>Done</target>
+      </trans-unit>
+      <trans-unit id="checkout.confirm" datatype="html">
+        <source>ยืนยันว่ารับเงินแล้ว</source>
+        <target>Confirm payment collected</target>
+      </trans-unit>
+      <trans-unit id="checkout.modelLegend" datatype="html">
+        <source>คิดเงินแบบ</source>
+        <target>Charge by</target>
+      </trans-unit>
+      <trans-unit id="checkout.loading" datatype="html">
+        <source>กำลังคำนวณ…</source>
+        <target>Calculating…</target>
+      </trans-unit>
+      <trans-unit id="checkout.priceLabel" datatype="html">
+        <source>ราคาลูกแบดต่อลูก (บาท)</source>
+        <target>Price per shuttle (baht)</target>
+      </trans-unit>
+      <trans-unit id="checkout.priceSave" datatype="html">
+        <source>บันทึกราคา</source>
+        <target>Save price</target>
+      </trans-unit>
+      <trans-unit id="checkout.games" datatype="html">
+        <source>เล่นแล้ว</source>
+        <target>Played</target>
+      </trans-unit>
+      <trans-unit id="checkout.gamesUnit" datatype="html">
+        <source>เกม</source>
+        <target>games</target>
+      </trans-unit>
+      <trans-unit id="checkout.base" datatype="html">
+        <source>ค่าเล่น / ค่าเริ่มต้น</source>
+        <target>Play / starting fee</target>
+      </trans-unit>
+      <trans-unit id="checkout.shuttle" datatype="html">
+        <source>ค่าลูกแบด</source>
+        <target>Shuttles</target>
+      </trans-unit>
+      <trans-unit id="checkout.hostFee" datatype="html">
+        <source>ค่าดูแล</source>
+        <target>Host fee</target>
+      </trans-unit>
+      <trans-unit id="checkout.walkInFee" datatype="html">
+        <source>ค่าคนนอกรายชื่อ</source>
+        <target>Walk-in fee</target>
+      </trans-unit>
+      <trans-unit id="checkout.total" datatype="html">
+        <source>รวม (บาท)</source>
+        <target>Total (baht)</target>
+      </trans-unit>
+      <trans-unit id="checkout.previewNote" datatype="html">
+        <source>นี่คือยอดที่คำนวณ ยังไม่ได้บันทึกว่าจ่ายแล้ว</source>
+        <target>This is a quote. It isn't recorded as paid yet.</target>
+      </trans-unit>
+      <trans-unit id="checkout.copy" datatype="html">
+        <source>คัดลอกข้อความให้คนนี้</source>
+        <target>Copy a message for them</target>
+      </trans-unit>
+      <trans-unit id="checkout.copied" datatype="html">
+        <source>คัดลอกแล้ว</source>
+        <target>Copied</target>
+      </trans-unit>
+      <trans-unit id="checkout.savedHint" datatype="html">
+        <source>คนนี้พักจากการจับคู่แล้ว ยอดนี้จะไม่เปลี่ยนแม้ราคาหรือลูกแบดเปลี่ยนทีหลัง</source>
+        <target>They're off the pairing list now. This amount won't change even if prices or shuttles change later.</target>
+      </trans-unit>
+      <trans-unit id="checkout.model.perGame" datatype="html">
+        <source>จ่ายต่อเกม</source>
+        <target>Per game</target>
+      </trans-unit>
+      <trans-unit id="checkout.model.perShuttle" datatype="html">
+        <source>จ่ายตามลูกแบด</source>
+        <target>Per shuttle</target>
+      </trans-unit>
+      <trans-unit id="checkout.model.buffet" datatype="html">
+        <source>เหมาจ่าย</source>
+        <target>Buffet</target>
+      </trans-unit>
+      <trans-unit id="checkout.err.stale" datatype="html">
+        <source>ข้อมูลเปลี่ยนไปตั้งแต่คำนวณ ยอดถูกคำนวณใหม่ กรุณาตรวจก่อนยืนยัน</source>
+        <target>Something changed since this was calculated. The amount was recalculated; please check it before confirming.</target>
+      </trans-unit>
+      <trans-unit id="checkout.err.checkedOut" datatype="html">
+        <source>คนนี้เช็คเอาต์ไปแล้ว</source>
+        <target>They're already checked out</target>
+      </trans-unit>
+      <trans-unit id="checkout.err.onCourt" datatype="html">
+        <source>คนนี้อยู่บนคอร์ท — เอาออกจากคู่ หรือจบแมตช์ก่อน</source>
+        <target>They're on a court — take them out of the match or finish it first</target>
+      </trans-unit>
+      <trans-unit id="checkout.err.unknownUse" datatype="html">
+        <source>เกมของคนนี้ยังไม่ได้บันทึกลูกแบด แก้ในหน้าสรุปก๊วนก่อน</source>
+        <target>One of their games has no shuttle log. Fix it on the session summary first.</target>
+      </trans-unit>
+      <trans-unit id="checkout.err.noPrice" datatype="html">
+        <source>ยังไม่ได้ใส่ราคาลูกแบด</source>
+        <target>No shuttle price set yet</target>
+      </trans-unit>
+      <trans-unit id="checkout.err.removed" datatype="html">
+        <source>คนนี้ถูกตัดออกจากบิล คืนค่าในหน้าบิลก่อน</source>
+        <target>They were removed from the bill. Restore them on the bill page first.</target>
+      </trans-unit>
+      <trans-unit id="checkout.err.disabled" datatype="html">
+        <source>ก๊วนนี้ไม่ได้เปิดเครื่องมือลูกแบด</source>
+        <target>This session doesn't use shuttle tools</target>
+      </trans-unit>
+      <trans-unit id="checkout.err.undone" datatype="html">
+        <source>การเช็คเอาต์นี้ถูกยกเลิกไปแล้ว</source>
+        <target>This checkout was already undone</target>
+      </trans-unit>
+      <trans-unit id="checkout.err.notFound" datatype="html">
+        <source>ไม่พบรายการเช็คเอาต์นี้</source>
+        <target>Checkout not found</target>
+      </trans-unit>
+      <trans-unit id="checkout.err.ended" datatype="html">
+        <source>ก๊วนนี้จบไปแล้ว</source>
+        <target>This session has ended</target>
+      </trans-unit>
+      <trans-unit id="checkout.err.preview" datatype="html">
+        <source>คำนวณยอดไม่สำเร็จ ลองใหม่อีกครั้ง</source>
+        <target>Couldn't calculate the amount. Try again.</target>
+      </trans-unit>
+      <trans-unit id="checkout.err.priceInvalid" datatype="html">
+        <source>ราคาไม่ถูกต้อง ใส่เป็นบาท เช่น 80 หรือ 80.50</source>
+        <target>Invalid price. Enter baht, like 80 or 80.50.</target>
+      </trans-unit>
+      <trans-unit id="checkout.err.priceSave" datatype="html">
+        <source>บันทึกราคาไม่สำเร็จ</source>
+        <target>Couldn't save the price</target>
+      </trans-unit>
+      <trans-unit id="checkout.err.network" datatype="html">
+        <source>ไม่ได้รับคำตอบ ยังไม่รู้ว่าบันทึกแล้วหรือไม่ กดยืนยันอีกครั้งได้ จะไม่คิดเงินซ้ำ</source>
+        <target>No reply, so it's unknown whether this saved. You can confirm again; they won't be charged twice.</target>
+      </trans-unit>
+      <trans-unit id="checkout.err.confirm" datatype="html">
+        <source>ยืนยันเช็คเอาต์ไม่สำเร็จ</source>
+        <target>Couldn't confirm the checkout</target>
+      </trans-unit>
+      <trans-unit id="err.undoCheckout" datatype="html">
+        <source>ยกเลิกการเช็คเอาต์ไม่สำเร็จ</source>
+        <target>Couldn't undo the checkout</target>
+      </trans-unit>
+      <trans-unit id="dashboard.checkedOutBadge" datatype="html">
+        <source>เช็คเอาต์</source>
+        <target>Checked out</target>
+      </trans-unit>
+      <trans-unit id="checkout.saved" datatype="html">
+        <source>บันทึกแล้ว — <x id="INTERPOLATION" equiv-text="{{ baht(r.amountSatang) }}"/> บาท</source>
+        <target>Saved — <x id="INTERPOLATION" equiv-text="{{ baht(r.amountSatang) }}"/> baht</target>
+      </trans-unit>
+      <trans-unit id="checkout.err.onCourtNamed" datatype="html">
+        <source>คนนี้อยู่ที่ <x id="court" equiv-text="courtLabel"/> — เอาออกจากคู่ หรือจบแมตช์ก่อน</source>
+        <target>They're on <x id="court" equiv-text="courtLabel"/> — take them out of the match or finish it first</target>
+      </trans-unit>
+      <trans-unit id="dashboard.checkedOut" datatype="html">
+        <source><x id="name" equiv-text="name"/> เช็คเอาต์แล้ว</source>
+        <target><x id="name" equiv-text="name"/> is checked out</target>
+      </trans-unit>
+      <trans-unit id="dashboard.earlyCheckout" datatype="html">
+        <source> เช็คเอาต์คนกลับก่อน </source>
+        <target> Check out early leaver </target>
+      </trans-unit>
     </body>
   </file>
 </xliff>

@@ -49,6 +49,11 @@ describe('AddWalkInDialog', () => {
     fixture.detectChanges();
   }
 
+  it('wears the shared sheet-dialog shell, not its own copy of the styles', () => {
+    fixture.detectChanges();
+    expect((fixture.nativeElement as HTMLElement).querySelector('dialog')!.classList.contains('sheet-dialog')).toBe(true);
+  });
+
   it('lists a matching existing player and emits their playerId when picked', async () => {
     await openDialog();
     type('ตั้ม');

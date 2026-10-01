@@ -50,6 +50,11 @@ describe('AddRuleDialog', () => {
     fixture.detectChanges();
   }
 
+  it('wears the shared sheet-dialog shell, not its own copy of the styles', () => {
+    fixture.detectChanges();
+    expect(root().querySelector('dialog')!.classList.contains('sheet-dialog')).toBe(true);
+  });
+
   it('says the rule persists for the group, not just tonight', async () => {
     await openDialog();
     expect(root().textContent).toContain('บันทึกกับก๊วนถาวร');

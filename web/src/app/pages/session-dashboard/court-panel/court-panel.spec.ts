@@ -1336,7 +1336,30 @@ describe('CourtPanel with too few players', () => {
         .flush({ code: 'PAIR_RULE_VIOLATION', ruleIds: ['r1'] }, { status: 409, statusText: 'Conflict' });
       await done;
       fixture.detectChanges();
-      expect(text(fixture)).toContain('ผู้เล่นในคอร์ทนี้ขัดกับกฎการจับคู่: ตั้ม · เบส (ห้ามอยู่ด้วยกัน)');
+      expect(text(fixture)).toContain('เปลี่ยนไม่ได้ เพราะขัดกับกฎการจับคู่: ตั้ม · เบส (ห้ามอยู่ด้วยกัน)');
+      // It describes the refused change, never the court as if it were in violation.
+      expect(text(fixture)).not.toContain('ผู้เล่นในคอร์ทนี้ขัดกับกฎการจับคู่');
+    });
+
+    it('shows a refusal beside the seats, above the action buttons, on a pending court', async () => {
+      withRules();
+      const { fixture, httpMock } = await createPanel(pendingCourt(['p1', 'p3'], ['p2', 'p4']));
+      fixture.detectChanges();
+      const done = (fixture.componentInstance as unknown as { runSwap(a: string, b: string, c?: string): Promise<void> }).runSwap(
+        'pair1',
+        'p3',
+        'p2'
+      );
+      httpMock
+        .expectOne(`${B}/sessions/sess1/pairings/pair1/swap`)
+        .flush({ code: 'PAIR_RULE_VIOLATION', ruleIds: ['r1'] }, { status: 409, statusText: 'Conflict' });
+      await done;
+      fixture.detectChanges();
+      const root = fixture.nativeElement as HTMLElement;
+      const alerts = root.querySelectorAll('[role="alert"]');
+      expect(alerts.length).toBe(1);
+      const row = root.querySelector('.button-row')!;
+      expect(alerts[0].compareDocumentPosition(row) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     });
   });
 });

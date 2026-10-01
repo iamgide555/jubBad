@@ -162,6 +162,9 @@
               <ng-container i18n="@@court.ruleConflictFix">— กดชื่อเพื่อเปลี่ยนตัว หรือสุ่มใหม่</ng-container>
             </p>
           }
+          @if (actionError()) {
+            <p class="hint error" role="alert">{{ actionError() }}</p>
+          }
           @if (emptySeatCount() > 0) {
             <p class="hint" role="status" i18n="@@court.seatsEmpty">ยังมีที่ว่าง {{ emptySeatCount() }} ที่</p>
           }
@@ -229,7 +232,7 @@
       <button type="button" class="undo" [disabled]="busy()" (click)="undo()" i18n="@@court.undo">↩ ย้อนกลับ</button>
     }
 
-    @if (actionError()) {
+    @if (actionError() && court().status !== 'pending') {
       <p class="hint error" role="alert">{{ actionError() }}</p>
     }
   }

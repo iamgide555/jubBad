@@ -26,6 +26,8 @@ describe('AddRuleDialog', () => {
   let fixture: ComponentFixture<AddRuleDialog>;
   const root = () => fixture.nativeElement as HTMLElement;
   const select = (name: string) => root().querySelector(`select[name="${name}"]`) as HTMLSelectElement;
+  const kindRadio = (kind: string) =>
+    root().querySelector(`input[type="radio"][value="${kind}"]`) as HTMLInputElement;
   const submitButton = () => root().querySelector('[data-submit-rule]') as HTMLButtonElement;
 
   beforeEach(async () => {
@@ -51,6 +53,25 @@ describe('AddRuleDialog', () => {
   it('says the rule persists for the group, not just tonight', async () => {
     await openDialog();
     expect(root().textContent).toContain('บันทึกกับก๊วนถาวร');
+  });
+
+  it('explains each rule kind in one line, right where it is chosen', async () => {
+    await openDialog();
+    const text = root().textContent ?? '';
+    expect(text).toContain('ลงทีมเดียวกัน หรือพักพร้อมกัน');
+    expect(text).toContain('เป็นคู่แข่งกันได้ แต่ไม่ลงทีมเดียวกัน');
+    expect(text).toContain('ไม่ลงคอร์ทเดียวกันเลย');
+  });
+
+  it('offers the three kinds as radios with คู่กัน selected by default, and moves the selection', async () => {
+    await openDialog();
+    const radios = root().querySelectorAll('input[type="radio"][name="kind"]');
+    expect(radios.length).toBe(3);
+    expect(kindRadio('must-pair').checked).toBe(true);
+    kindRadio('never-teammates').click();
+    fixture.detectChanges();
+    expect(kindRadio('never-teammates').checked).toBe(true);
+    expect(kindRadio('must-pair').checked).toBe(false);
   });
 
   it('keeps submit disabled until both players are chosen', async () => {
@@ -90,7 +111,7 @@ describe('AddRuleDialog', () => {
     fixture.componentInstance.add.subscribe((v) => (emitted = v));
     choose('playerA', 'p1');
     choose('playerB', 'p2');
-    fixture.componentInstance['kind'].set('never-same-court');
+    kindRadio('never-same-court').click();
     fixture.detectChanges();
     submitButton().click();
     expect(emitted?.kind).toBe('never-same-court');

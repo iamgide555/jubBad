@@ -23,6 +23,14 @@ export const RULE_KINDS: readonly { kind: RuleKind; label: string }[] = [
   { kind: 'never-same-court', label: $localize`:@@pairRule.neverSameCourt:ห้ามเล่นด้วยกัน` },
 ];
 
+/** One line on what each kind does — shown where a host picks a kind, so
+ *  ห้ามอยู่ด้วยกัน and ห้ามเล่นด้วยกัน (one word apart) are never a guess. */
+export const RULE_KIND_HINTS: Readonly<Record<RuleKind, string>> = {
+  'must-pair': $localize`:@@pairRule.mustPairHint:ลงทีมเดียวกัน หรือพักพร้อมกัน`,
+  'never-teammates': $localize`:@@pairRule.neverTeammatesHint:เป็นคู่แข่งกันได้ แต่ไม่ลงทีมเดียวกัน`,
+  'never-same-court': $localize`:@@pairRule.neverSameCourtHint:ไม่ลงคอร์ทเดียวกันเลย`,
+};
+
 export function ruleKindLabel(kind: RuleKind): string {
   return RULE_KINDS.find((k) => k.kind === kind)!.label;
 }

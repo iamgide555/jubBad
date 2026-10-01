@@ -138,7 +138,7 @@ function messageForCode(code: string): string | null {
     case 'SEAT_OUT_OF_RANGE':
       return $localize`:@@err.code.seatOutOfRange:ไม่พบที่นั่งนี้ในคอร์ท`;
     case 'PAIR_RULE_VIOLATION':
-      return $localize`:@@err.code.pairRuleViolation:ผู้เล่นในคอร์ทนี้ขัดกับกฎการจับคู่`;
+      return $localize`:@@err.code.pairRuleViolation:เปลี่ยนไม่ได้ เพราะขัดกับกฎการจับคู่`;
     case 'PAIR_RULE_SEARCH_LIMIT':
       return $localize`:@@err.code.pairRuleSearchLimit:กฎการจับคู่ซับซ้อนเกินไป หาคู่ไม่ทัน ลองใหม่หรือปิดกฎบางข้อคืนนี้`;
     case 'RULE_NOT_FOUND':

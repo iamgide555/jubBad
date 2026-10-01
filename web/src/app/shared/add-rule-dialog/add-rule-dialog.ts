@@ -1,6 +1,11 @@
 import { Component, ElementRef, computed, input, output, signal, viewChild } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { RULE_KINDS, type CreatePairRuleRequest, type RuleKind } from '../../core/pair-rule.model';
+import {
+  RULE_KINDS,
+  RULE_KIND_HINTS,
+  type CreatePairRuleRequest,
+  type RuleKind,
+} from '../../core/pair-rule.model';
 
 /**
  * Add a pair rule from the live dashboard. Follows AddWalkInDialog's shape:
@@ -26,6 +31,7 @@ export class AddRuleDialog {
   private readonly dialogEl = viewChild.required<ElementRef<HTMLDialogElement>>('dialog');
 
   protected readonly ruleKinds = RULE_KINDS;
+  protected readonly kindHints = RULE_KIND_HINTS;
   protected readonly isOpen = signal(false);
   protected readonly playerA = signal('');
   protected readonly playerB = signal('');

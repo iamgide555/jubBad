@@ -2736,8 +2736,8 @@
         <target>Could not save the rule</target>
       </trans-unit>
       <trans-unit id="err.code.pairRuleViolation" datatype="html">
-        <source>ผู้เล่นในคอร์ทนี้ขัดกับกฎการจับคู่</source>
-        <target>Players on this court break a pairing rule</target>
+        <source>เปลี่ยนไม่ได้ เพราะขัดกับกฎการจับคู่</source>
+        <target>Can't change that — it breaks a pairing rule</target>
       </trans-unit>
       <trans-unit id="err.code.pairRuleSearchLimit" datatype="html">
         <source>กฎการจับคู่ซับซ้อนเกินไป หาคู่ไม่ทัน ลองใหม่หรือปิดกฎบางข้อคืนนี้</source>
@@ -2782,6 +2782,18 @@
       <trans-unit id="dashboard.addRule" datatype="html">
         <source> + เพิ่มกฎการจับคู่ </source>
         <target> + Add pairing rule </target>
+      </trans-unit>
+      <trans-unit id="pairRule.mustPairHint" datatype="html">
+        <source>ลงทีมเดียวกัน หรือพักพร้อมกัน</source>
+        <target>Play on the same team, or sit out together</target>
+      </trans-unit>
+      <trans-unit id="pairRule.neverTeammatesHint" datatype="html">
+        <source>เป็นคู่แข่งกันได้ แต่ไม่ลงทีมเดียวกัน</source>
+        <target>Can be opponents, never on the same team</target>
+      </trans-unit>
+      <trans-unit id="pairRule.neverSameCourtHint" datatype="html">
+        <source>ไม่ลงคอร์ทเดียวกันเลย</source>
+        <target>Never on the same court at all</target>
       </trans-unit>
       <trans-unit id="addRule.title" datatype="html">
         <source>เพิ่มกฎการจับคู่</source>

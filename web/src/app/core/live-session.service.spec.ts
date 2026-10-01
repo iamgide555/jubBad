@@ -543,7 +543,7 @@ describe('LiveSessionService', () => {
         .flush({ code: 'PAIR_RULE_VIOLATION', ruleIds: ['r1'] }, { status: 409, statusText: 'Conflict' });
       expect(await promise).toEqual({
         ok: false,
-        error: 'ผู้เล่นในคอร์ทนี้ขัดกับกฎการจับคู่',
+        error: 'เปลี่ยนไม่ได้ เพราะขัดกับกฎการจับคู่',
         ruleIds: ['r1'],
       });
     });

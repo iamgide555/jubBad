@@ -20,14 +20,16 @@
           }
         </select>
       </label>
-      <label>
-        <span i18n="@@addRule.kind">ประเภทกฎ</span>
-        <select name="kind" [ngModel]="kind()" (ngModelChange)="kind.set($event)" [disabled]="saving()">
-          @for (k of ruleKinds; track k.kind) {
-            <option [ngValue]="k.kind">{{ k.label }}</option>
-          }
-        </select>
-      </label>
+      <fieldset class="kind-picker" [disabled]="saving()">
+        <legend i18n="@@addRule.kind">ประเภทกฎ</legend>
+        @for (k of ruleKinds; track k.kind) {
+          <label class="kind-option" [class.is-selected]="kind() === k.kind">
+            <input type="radio" name="kind" [value]="k.kind" [checked]="kind() === k.kind" (change)="kind.set(k.kind)" />
+            <span class="kind-name">{{ k.label }}</span>
+            <span class="kind-hint">{{ kindHints[k.kind] }}</span>
+          </label>
+        }
+      </fieldset>
       <p class="muted" i18n="@@addRule.persistHint">กฎนี้บันทึกกับก๊วนถาวร — ปิดเฉพาะคืนนี้ได้จากรายการกฎ</p>
 
       @if (error()) {

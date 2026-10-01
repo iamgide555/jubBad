@@ -1458,9 +1458,7 @@ describe('SessionDashboard', () => {
         choose('playerA', 'p1');
         choose('playerB', 'p2');
         if (kind) {
-          const el = dialog().querySelector('select[name="kind"]') as HTMLSelectElement;
-          el.selectedIndex = ['must-pair', 'never-teammates', 'never-same-court'].indexOf(kind);
-          el.dispatchEvent(new Event('change'));
+          (dialog().querySelector(`input[type="radio"][value="${kind}"]`) as HTMLInputElement).click();
           fixture.detectChanges();
         }
       }

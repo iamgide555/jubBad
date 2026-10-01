@@ -109,13 +109,6 @@ export const AUTO_CONFIRM_WALK_ON_MS = 30_000;
 
 type FillBlocked = { courtNumber: number; ruleIds: string[] };
 
-/**
- * Whether partner/opponent counts span every session the group has played
- * (true) or just the current one (false). Hardcoded off; becomes a per-group
- * setting with the advanced options (see the reusable-shuttles plan).
- */
-const CROSS_SESSION_HISTORY = false;
-
 @Injectable()
 export class SessionsService {
   private readonly lock = new SessionLock();
@@ -427,7 +420,7 @@ export class SessionsService {
 
         const group = await tx.group.findUnique({
           where: { code: dto.groupCode },
-          select: { code: true, ownerId: true },
+          select: { code: true, ownerId: true, shuttleToolsEnabled: true, crossSessionHistory: true },
         });
         // "No such group" and "a real group, not yours" get the identical
         // 404 — the group is named in the body, so OwnershipGuard could not
@@ -519,6 +512,9 @@ export class SessionsService {
             venue: dto.venue,
             courtCount: dto.courtCount,
             rawImportText: dto.rawImportText,
+            // Snapshots: a later change to the group switches never reaches this session.
+            shuttleToolsEnabled: group.shuttleToolsEnabled,
+            crossSessionHistory: group.crossSessionHistory,
           },
         });
         await tx.sessionCreation.create({
@@ -622,6 +618,8 @@ export class SessionsService {
       endedAt: session.endedAt,
       createdAt: session.createdAt,
       mode: session.mode,
+      // Client gating only; the server enforces it on every shuttle write.
+      shuttleToolsEnabled: session.shuttleToolsEnabled,
       // 'wait' in a level session, 'games' otherwise — how the waiting list
       // should be ordered to match what the engine actually does. A custom
       // session stays 'games' regardless of any individual court's mode: see
@@ -681,17 +679,24 @@ export class SessionsService {
 
   /**
    * Partner/opponent counts and games-played both come from this session
-   * alone: players do not remember last week's partners, and all-time counts
-   * made a newcomer (zero history with everyone) look like the freshest
-   * partner for every regular. `CROSS_SESSION_HISTORY` is the hardcoded-off
-   * seam for the planned per-group toggle. See the note on `deriveHistory`,
-   * and docs/overview.md, "How the engines think — Pairing".
+   * alone by default: players do not remember last week's partners, and
+   * all-time counts made a newcomer (zero history with everyone) look like the
+   * freshest partner for every regular. A group can opt back in; the choice is
+   * snapshotted on `Session.crossSessionHistory` at creation. See the note on
+   * `deriveHistory`, and docs/overview.md, "How the engines think — Pairing".
    */
   private async loadHistory(groupCode: string, sessionCode: string) {
     const toPairing = (p: { teamA: string; teamB: string }) => this.teamsOf(p);
 
-    const [allTime, thisSession, roster, session, finished] = await Promise.all([
-      CROSS_SESSION_HISTORY
+    // Read first: the snapshotted flag decides whether the all-time query runs.
+    const session = await this.prisma.session.findUnique({
+      where: { code: sessionCode },
+      select: { createdAt: true, courtCount: true, crossSessionHistory: true },
+    });
+    const crossSessionHistory = session?.crossSessionHistory ?? false;
+
+    const [allTime, thisSession, roster, finished] = await Promise.all([
+      crossSessionHistory
         ? this.prisma.pairing.findMany({
             where: { session: { groupId: groupCode }, confirmedAt: { not: null } },
             select: { teamA: true, teamB: true },
@@ -704,10 +709,6 @@ export class SessionsService {
       this.prisma.sessionRoster.findMany({
         where: { sessionId: sessionCode },
         select: { playerId: true, gamesOffset: true, activatedAt: true },
-      }),
-      this.prisma.session.findUnique({
-        where: { code: sessionCode },
-        select: { createdAt: true, courtCount: true },
       }),
       this.prisma.pairing.findMany({
         where: { sessionId: sessionCode, endedAt: { not: null } },
@@ -2702,7 +2703,7 @@ export class SessionsService {
     // Every read that can throw (the duplicate check, loadHistory, the roster
     // scan above) happens before any write. loadHistory in particular can
     // surface a corrupt confirmed pairing in tonight's session (or, with
-    // CROSS_SESSION_HISTORY on, anywhere in the group's history) — so the Player create below must
+    // the session's crossSessionHistory snapshot on, anywhere in the group's history) — so the Player create below must
     // not happen until we know we're past that risk. When it's a brand-new
     // player, the Player row and its SessionRoster row are written together
     // in one transaction (same precedent as `createSession`) so a failure

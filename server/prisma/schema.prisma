@@ -22,6 +22,14 @@ model Group {
   sessions  Session[]
   sessionCreations SessionCreation[]
   playerRules PlayerRule[]
+  /// Advanced host tools (numbered reusable shuttles and early checkout, D/E).
+  /// Owner-editable, default off; copied to Session.shuttleToolsEnabled when a
+  /// session is created, so flipping it only ever affects future sessions.
+  shuttleToolsEnabled Boolean @default(false)
+  /// Whether partner/opponent history spans every session the group has played
+  /// (true) or only the current one (false, the default). Snapshotted onto
+  /// Session.crossSessionHistory at creation, same as shuttleToolsEnabled.
+  crossSessionHistory Boolean @default(false)
 }
 
 model User {
@@ -133,6 +141,13 @@ model Session {
   /// written only by server/src/sessions/court-labels.ts; same
   /// not-trimmed-on-shrink convention as courtFormats.
   courtLabels   String?
+  /// Snapshot of Group.shuttleToolsEnabled at creation. A session created with
+  /// it on keeps numbered shuttle tracking even if the group later switches it
+  /// off; older sessions read false and never convert retroactively.
+  shuttleToolsEnabled Boolean @default(false)
+  /// Snapshot of Group.crossSessionHistory at creation: whether this session's
+  /// pairing history reads every earlier session (true) or only itself.
+  crossSessionHistory Boolean @default(false)
   /// Total shuttlecocks used tonight, counted by the host at the end (not
   /// per-match) and correctable afterwards. Null means "not recorded yet",
   /// distinct from 0. Set only via SessionsService.setShuttleDetails, never

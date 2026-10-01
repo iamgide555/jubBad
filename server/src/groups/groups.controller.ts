@@ -7,6 +7,7 @@ import { ParseRosterDto } from './dto/parse-roster.dto.js';
 import { UpdatePlayerDto } from './dto/update-player.dto.js';
 import { SetPlayerLevelDto } from './dto/set-player-level.dto.js';
 import { SetPlayerRuleDto, SetPlayerRuleKindDto } from './dto/set-player-rule.dto.js';
+import { SetShuttleToolsDto } from './dto/set-shuttle-tools.dto.js';
 
 @Controller('groups')
 export class GroupsController {
@@ -37,6 +38,32 @@ export class GroupsController {
   @Put(':code')
   update(@Param('code') code: string, @Body() dto: UpdateGroupDto) {
     return this.groupsService.update(code, dto);
+  }
+
+  /**
+   * Advanced host tools switch (numbered shuttles, early checkout). Owner-only
+   * like every non-@Public group route — the OwnershipGuard 404s a mismatch.
+   * Read here rather than off the public group GET so it is never exposed.
+   */
+  @Get(':code/shuttle-tools')
+  getShuttleTools(@Param('code') code: string) {
+    return this.groupsService.getShuttleTools(code);
+  }
+
+  @Post(':code/shuttle-tools')
+  setShuttleTools(@Param('code') code: string, @Body() dto: SetShuttleToolsDto) {
+    return this.groupsService.setShuttleTools(code, dto.enabled);
+  }
+
+  /** Whether pairing history spans earlier sessions; snapshotted per session. */
+  @Get(':code/cross-session-history')
+  getCrossSessionHistory(@Param('code') code: string) {
+    return this.groupsService.getCrossSessionHistory(code);
+  }
+
+  @Post(':code/cross-session-history')
+  setCrossSessionHistory(@Param('code') code: string, @Body() dto: SetShuttleToolsDto) {
+    return this.groupsService.setCrossSessionHistory(code, dto.enabled);
   }
 
   /** Public: the display resolves player ids to names client-side. */

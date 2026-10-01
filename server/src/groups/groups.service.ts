@@ -100,6 +100,33 @@ export class GroupsService {
     return { code: updated.code, name: updated.name };
   }
 
+  async getShuttleTools(code: string) {
+    const group = await this.prisma.group.findUnique({ where: { code }, select: { shuttleToolsEnabled: true } });
+    if (!group) throw new NotFoundException();
+    return { enabled: group.shuttleToolsEnabled };
+  }
+
+  /** Only future sessions read this: each session snapshots it at creation. */
+  async setShuttleTools(code: string, enabled: boolean) {
+    const group = await this.prisma.group.findUnique({ where: { code }, select: { code: true } });
+    if (!group) throw new NotFoundException();
+    await this.prisma.group.update({ where: { code }, data: { shuttleToolsEnabled: enabled } });
+    return { enabled };
+  }
+
+  async getCrossSessionHistory(code: string) {
+    const group = await this.prisma.group.findUnique({ where: { code }, select: { crossSessionHistory: true } });
+    if (!group) throw new NotFoundException();
+    return { enabled: group.crossSessionHistory };
+  }
+
+  async setCrossSessionHistory(code: string, enabled: boolean) {
+    const group = await this.prisma.group.findUnique({ where: { code }, select: { code: true } });
+    if (!group) throw new NotFoundException();
+    await this.prisma.group.update({ where: { code }, data: { crossSessionHistory: enabled } });
+    return { enabled };
+  }
+
   async listPlayers(code: string) {
     const group = await this.prisma.group.findUnique({ where: { code } });
     if (!group) throw new NotFoundException();
@@ -515,7 +542,13 @@ export class GroupsService {
 
     return {
       exportedAt: new Date().toISOString(),
-      group: { code: group.code, name: group.name, createdAt: group.createdAt },
+      group: {
+        code: group.code,
+        name: group.name,
+        createdAt: group.createdAt,
+        shuttleToolsEnabled: group.shuttleToolsEnabled,
+        crossSessionHistory: group.crossSessionHistory,
+      },
       players: players.map((p) => ({
         id: p.id,
         name: p.name,
@@ -528,6 +561,8 @@ export class GroupsService {
         venue: s.venue,
         courtCount: s.courtCount,
         mode: s.mode,
+        shuttleToolsEnabled: s.shuttleToolsEnabled,
+        crossSessionHistory: s.crossSessionHistory,
         courtFormats: parseCourtFormats(s.courtFormats),
         createdAt: s.createdAt,
         endedAt: s.endedAt,

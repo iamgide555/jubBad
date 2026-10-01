@@ -1271,4 +1271,102 @@ describe('GroupsController', () => {
     });
   });
 
+
+  describe('shuttle tools opt in', () => {
+    async function newGroup() {
+      const code = randomUUID();
+      await prisma.group.create({ data: { code, name: 'Opt-in', ownerId: testAdminId } });
+      return code;
+    }
+    const clean = async (code: string) => {
+      await prisma.session.deleteMany({ where: { groupId: code } });
+      await prisma.group.deleteMany({ where: { code } });
+    };
+
+    it('reads false for an existing group that never opted in', async () => {
+      const code = await newGroup();
+      try {
+        const res = await request(server).get(`/groups/${code}/shuttle-tools`).expect(200);
+        expect(res.body).toEqual({ enabled: false });
+      } finally {
+        await clean(code);
+      }
+    });
+
+    it('lets the owner switch it on and off and reads the saved value', async () => {
+      const code = await newGroup();
+      try {
+        const on = await request(server).post(`/groups/${code}/shuttle-tools`).send({ enabled: true }).expect(201);
+        expect(on.body).toEqual({ enabled: true });
+        expect((await request(server).get(`/groups/${code}/shuttle-tools`)).body).toEqual({ enabled: true });
+        const off = await request(server).post(`/groups/${code}/shuttle-tools`).send({ enabled: false }).expect(201);
+        expect(off.body).toEqual({ enabled: false });
+      } finally {
+        await clean(code);
+      }
+    });
+
+    it('rejects a missing or non-boolean payload', async () => {
+      const code = await newGroup();
+      try {
+        await request(server).post(`/groups/${code}/shuttle-tools`).send({}).expect(400);
+        await request(server).post(`/groups/${code}/shuttle-tools`).send({ enabled: 'yes' }).expect(400);
+        await request(server).post(`/groups/${code}/shuttle-tools`).send({ enabled: 1 }).expect(400);
+        expect((await request(server).get(`/groups/${code}/shuttle-tools`)).body).toEqual({ enabled: false });
+      } finally {
+        await clean(code);
+      }
+    });
+
+    it('toggling the group never rewrites an existing session', async () => {
+      const code = await newGroup();
+      const sessionCode = randomUUID();
+      try {
+        await prisma.session.create({
+          data: { code: sessionCode, groupId: code, rawImportText: '', shuttleToolsEnabled: true },
+        });
+        await request(server).post(`/groups/${code}/shuttle-tools`).send({ enabled: false }).expect(201);
+        const session = await prisma.session.findUniqueOrThrow({ where: { code: sessionCode } });
+        expect(session.shuttleToolsEnabled).toBe(true);
+      } finally {
+        await clean(code);
+      }
+    });
+
+    it('includes the group flag and every session snapshot in the export', async () => {
+      const code = await newGroup();
+      try {
+        await prisma.group.update({ where: { code }, data: { shuttleToolsEnabled: true } });
+        await prisma.session.create({ data: { code: randomUUID(), groupId: code, rawImportText: '', shuttleToolsEnabled: true } });
+        await prisma.session.create({ data: { code: randomUUID(), groupId: code, rawImportText: '' } });
+        const res = await request(server).get(`/groups/${code}/export`).expect(200);
+        expect(res.body.group.shuttleToolsEnabled).toBe(true);
+        expect(res.body.sessions.map((s: { shuttleToolsEnabled: boolean }) => s.shuttleToolsEnabled).sort()).toEqual([
+          false,
+          true,
+        ]);
+      } finally {
+        await clean(code);
+      }
+    });
+  });
+
+  describe('cross-session history opt in', () => {
+    it('defaults off, switches on and off for the owner, and exports both flags', async () => {
+      const code = randomUUID();
+      await prisma.group.create({ data: { code, name: 'History', ownerId: testAdminId } });
+      try {
+        expect((await request(server).get(`/groups/${code}/cross-session-history`).expect(200)).body).toEqual({ enabled: false });
+        expect((await request(server).post(`/groups/${code}/cross-session-history`).send({ enabled: true }).expect(201)).body).toEqual({ enabled: true });
+        await request(server).post(`/groups/${code}/cross-session-history`).send({ enabled: 'x' }).expect(400);
+        await prisma.session.create({ data: { code: randomUUID(), groupId: code, rawImportText: '', crossSessionHistory: true } });
+        const res = await request(server).get(`/groups/${code}/export`).expect(200);
+        expect(res.body.group.crossSessionHistory).toBe(true);
+        expect(res.body.sessions[0].crossSessionHistory).toBe(true);
+      } finally {
+        await prisma.session.deleteMany({ where: { groupId: code } });
+        await prisma.group.deleteMany({ where: { code } });
+      }
+    });
+  });
 });

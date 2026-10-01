@@ -6806,4 +6806,195 @@ describe('SessionsController', () => {
       }
     });
   });
+
+  describe('shuttle tools opt in', () => {
+    async function group(shuttleTools: boolean, crossSessionHistory = false) {
+      const groupCode = randomUUID();
+      await prisma.group.create({
+        data: { code: groupCode, name: 'Opt-in', shuttleToolsEnabled: shuttleTools, crossSessionHistory },
+      });
+      return groupCode;
+    }
+    const create = (groupCode: string, idempotencyKey = randomUUID()) =>
+      request(server).post('/sessions').send({
+        groupCode,
+        courtCount: 1,
+        rawImportText: '1. Alice\n2. Bob\n3. Cy\n4. Di',
+        idempotencyKey,
+        rosterReviews: ['Alice', 'Bob', 'Cy', 'Di'].map((inputName) => ({
+          inputName,
+          match: { type: 'new' },
+          decision: 'accept',
+        })),
+        waitlistReviews: [],
+      });
+    const cleanup = async (groupCode: string) => {
+      const sessions = await prisma.session.findMany({ where: { groupId: groupCode }, select: { code: true } });
+      const ids = sessions.map((x) => x.code);
+      await prisma.pairing.deleteMany({ where: { sessionId: { in: ids } } });
+      await prisma.sessionRoster.deleteMany({ where: { sessionId: { in: ids } } });
+      await prisma.sessionCreation.deleteMany({ where: { groupId: groupCode } });
+      await prisma.session.deleteMany({ where: { groupId: groupCode } });
+      await prisma.player.deleteMany({ where: { groupId: groupCode } });
+      await prisma.group.deleteMany({ where: { code: groupCode } });
+    };
+
+    it('an existing, default-off group and its session read false', async () => {
+      const groupCode = await group(false);
+      try {
+        const res = await create(groupCode).expect(201);
+        const row = await prisma.session.findUniqueOrThrow({ where: { code: res.body.code } });
+        expect(row.shuttleToolsEnabled).toBe(false);
+        expect((await request(server).get(`/sessions/${res.body.code}`).expect(200)).body.shuttleToolsEnabled).toBe(false);
+      } finally {
+        await cleanup(groupCode);
+      }
+    });
+
+    it('snapshots the group flag at creation, and a later toggle never changes it', async () => {
+      const groupCode = await group(true);
+      try {
+        const first = await create(groupCode).expect(201);
+        await prisma.group.update({ where: { code: groupCode }, data: { shuttleToolsEnabled: false } });
+        const second = await create(groupCode).expect(201);
+        const rows = await prisma.session.findMany({ where: { code: { in: [first.body.code, second.body.code] } } });
+        const byCode = new Map(rows.map((r) => [r.code, r.shuttleToolsEnabled]));
+        expect(byCode.get(first.body.code)).toBe(true);
+        expect(byCode.get(second.body.code)).toBe(false);
+        expect((await request(server).get(`/sessions/${first.body.code}`).expect(200)).body.shuttleToolsEnabled).toBe(true);
+      } finally {
+        await cleanup(groupCode);
+      }
+    });
+
+    it('a retried creation returns the original session and its snapshot, not the new flag', async () => {
+      const groupCode = await group(true);
+      const key = randomUUID();
+      try {
+        const first = await create(groupCode, key).expect(201);
+        await prisma.group.update({ where: { code: groupCode }, data: { shuttleToolsEnabled: false } });
+        const retry = await create(groupCode, key).expect(201);
+        expect(retry.body.code).toBe(first.body.code);
+        const row = await prisma.session.findUniqueOrThrow({ where: { code: first.body.code } });
+        expect(row.shuttleToolsEnabled).toBe(true);
+      } finally {
+        await cleanup(groupCode);
+      }
+    });
+
+    it('an ordinary session still proposes and confirms with no shuttle payload', async () => {
+      const groupCode = await group(false);
+      try {
+        const res = await create(groupCode).expect(201);
+        const propose = await request(server).post(`/sessions/${res.body.code}/courts/1/propose`).expect(201);
+        await request(server)
+          .post(`/sessions/${res.body.code}/pairings/${propose.body.pairing.id}/confirm`)
+          .send({})
+          .expect(201);
+      } finally {
+        await cleanup(groupCode);
+      }
+    });
+  });
+
+  describe('cross-session history opt in', () => {
+    async function seedHistory(crossSessionHistory: boolean) {
+      const groupCode = randomUUID();
+      const oldSession = randomUUID();
+      const session = randomUUID();
+      await prisma.group.create({ data: { code: groupCode, name: 'H' } });
+      const [a, b, c, d] = await Promise.all(
+        ['A', 'B', 'C', 'D'].map((name) => prisma.player.create({ data: { groupId: groupCode, name, aliases: '[]' } }))
+      );
+      await prisma.session.create({
+        data: { code: oldSession, groupId: groupCode, courtCount: 1, rawImportText: '', endedAt: new Date() },
+      });
+      for (const [i, [t1, t2]] of [
+        [[a.id, b.id], [c.id, d.id]],
+        [[a.id, c.id], [b.id, d.id]],
+      ].entries()) {
+        await prisma.pairing.create({
+          data: {
+            sessionId: oldSession,
+            courtNumber: 1,
+            matchNumber: i + 1,
+            teamA: JSON.stringify(t1),
+            teamB: JSON.stringify(t2),
+            confirmedAt: new Date(),
+            endedAt: new Date(),
+          },
+        });
+      }
+      await prisma.session.create({
+        data: { code: session, groupId: groupCode, courtCount: 1, rawImportText: '', crossSessionHistory },
+      });
+      for (const p of [a, b, c, d]) {
+        await prisma.sessionRoster.create({ data: { sessionId: session, playerId: p.id } });
+      }
+      const cleanup = async () => {
+        await prisma.pairing.deleteMany({ where: { sessionId: { in: [session, oldSession] } } });
+        await prisma.sessionRoster.deleteMany({ where: { sessionId: session } });
+        await prisma.session.deleteMany({ where: { groupId: groupCode } });
+        await prisma.player.deleteMany({ where: { groupId: groupCode } });
+        await prisma.group.deleteMany({ where: { code: groupCode } });
+      };
+      return { session, ids: { a: a.id, b: b.id, c: c.id, d: d.id }, cleanup };
+    }
+
+    it('on: last week\'s partners steer tonight, so the only fresh split is A+D vs B+C', async () => {
+      const { session, ids, cleanup } = await seedHistory(true);
+      try {
+        const expected = [[ids.a, ids.d].sort().join('|'), [ids.b, ids.c].sort().join('|')].sort();
+        for (let i = 0; i < 10; i++) {
+          const res = await request(server).post(`/sessions/${session}/courts/1/propose`).expect(201);
+          const { teamA, teamB } = res.body.pairing as { teamA: string[]; teamB: string[] };
+          expect([[...teamA].sort().join('|'), [...teamB].sort().join('|')].sort()).toEqual(expected);
+          await prisma.pairing.deleteMany({ where: { sessionId: session } });
+        }
+      } finally {
+        await cleanup();
+      }
+    });
+
+    it('off: last week is ignored, so other splits appear', async () => {
+      const { session, cleanup } = await seedHistory(false);
+      try {
+        const seen = new Set<string>();
+        for (let i = 0; i < 30; i++) {
+          const res = await request(server).post(`/sessions/${session}/courts/1/propose`).expect(201);
+          const { teamA, teamB } = res.body.pairing as { teamA: string[]; teamB: string[] };
+          seen.add([[...teamA].sort().join('|'), [...teamB].sort().join('|')].sort().join('/'));
+          await prisma.pairing.deleteMany({ where: { sessionId: session } });
+        }
+        expect(seen.size).toBeGreaterThan(1);
+      } finally {
+        await cleanup();
+      }
+    });
+
+    it('snapshots the group flag at creation like the shuttle flag', async () => {
+      const groupCode = randomUUID();
+      await prisma.group.create({ data: { code: groupCode, name: 'S', crossSessionHistory: true } });
+      try {
+        const res = await request(server).post('/sessions').send({
+          groupCode,
+          courtCount: 1,
+          rawImportText: '1. Alice',
+          idempotencyKey: randomUUID(),
+          rosterReviews: [{ inputName: 'Alice', match: { type: 'new' }, decision: 'accept' }],
+          waitlistReviews: [],
+        }).expect(201);
+        const row = await prisma.session.findUniqueOrThrow({ where: { code: res.body.code } });
+        expect(row.crossSessionHistory).toBe(true);
+        await prisma.group.update({ where: { code: groupCode }, data: { crossSessionHistory: false } });
+        expect((await prisma.session.findUniqueOrThrow({ where: { code: res.body.code } })).crossSessionHistory).toBe(true);
+        await prisma.sessionRoster.deleteMany({ where: { sessionId: res.body.code } });
+        await prisma.sessionCreation.deleteMany({ where: { groupId: groupCode } });
+        await prisma.session.deleteMany({ where: { groupId: groupCode } });
+        await prisma.player.deleteMany({ where: { groupId: groupCode } });
+      } finally {
+        await prisma.group.deleteMany({ where: { code: groupCode } });
+      }
+    });
+  });
 });

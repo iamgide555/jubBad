@@ -4,6 +4,7 @@ import { buildCheckoutText } from '../../../core/checkout-text';
 import {
   CHECKOUT_MODELS,
   checkoutErrorMessage,
+  courtName,
   modelLabel,
   type CheckoutModel,
   type CheckoutPreview,
@@ -158,7 +159,7 @@ export class EarlyCheckoutDialog {
       const { code, courtNumber } = this.errorOf(err);
       this.needsPrice.set(code === 'MISSING_SHUTTLE_PRICE');
       this.error.set(
-        checkoutErrorMessage(code, courtNumber ? `${courtNumber}` : undefined) ??
+        checkoutErrorMessage(code, courtNumber ? courtName(`${courtNumber}`) : undefined) ??
           $localize`:@@checkout.err.preview:คำนวณยอดไม่สำเร็จ ลองใหม่อีกครั้ง`
       );
     } finally {

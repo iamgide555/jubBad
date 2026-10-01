@@ -3351,6 +3351,10 @@
         <source>เช็คเอาต์แล้ว <x id="INTERPOLATION" equiv-text="{{ baht(b.result.totals.settledTotalSatang) }}"/>฿ · ยังต้องจ่าย <x id="INTERPOLATION_1" equiv-text="{{ baht(b.result.totals.stillDueSatang) }}"/>฿</source>
         <target>Checked out <x id="INTERPOLATION" equiv-text="{{ baht(b.result.totals.settledTotalSatang) }}"/>฿ · still due <x id="INTERPOLATION_1" equiv-text="{{ baht(b.result.totals.stillDueSatang) }}"/>฿</target>
       </trans-unit>
+      <trans-unit id="checkout.courtName" datatype="html">
+        <source>คอร์ท <x id="label" equiv-text="label"/></source>
+        <target>Court <x id="label" equiv-text="label"/></target>
+      </trans-unit>
     </body>
   </file>
 </xliff>

@@ -15,7 +15,7 @@ import { PressDirective } from '../../core/motion/press.directive';
 import { RevealDirective } from '../../core/motion/reveal.directive';
 import { CourtPanel } from './court-panel/court-panel';
 import { EarlyCheckoutDialog, type CheckoutPlayer, type SettledPlayer } from './early-checkout-dialog/early-checkout-dialog';
-import type { CheckoutReceipt } from '../../core/checkout.model';
+import { courtName, type CheckoutReceipt } from '../../core/checkout.model';
 import { CourtLabelEditor } from './court-label-editor/court-label-editor';
 import { labelForCourt } from '../../core/court-label';
 import {
@@ -227,7 +227,7 @@ export class SessionDashboard implements OnDestroy {
     this.liveSession.courts().forEach((court, i) => {
       if (court.status === 'idle') return;
       for (const id of [...court.teamA, ...court.teamB]) {
-        if (id !== null) onCourt.set(id, this.labelFor(i + 1));
+        if (id !== null) onCourt.set(id, courtName(this.labelFor(i + 1)));
       }
     });
     return this.rosterEntries()

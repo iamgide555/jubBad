@@ -41,6 +41,11 @@ export function modelLabel(model: CheckoutModel): string {
   }
 }
 
+/** "คอร์ท 3": the dashboard's court label is often just the number, so the message names it as a court. */
+export function courtName(label: string): string {
+  return $localize`:@@checkout.courtName:คอร์ท ${label}:label:`;
+}
+
 /** Host-facing message for a stable server code; null for one the dialog does not special-case. */
 export function checkoutErrorMessage(code: string | null, courtLabel?: string): string | null {
   switch (code) {

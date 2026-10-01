@@ -1,12 +1,19 @@
 import { DecimalPipe } from '@angular/common';
 import { HttpErrorResponse } from '@angular/common/http';
-import { Component, OnDestroy, computed, inject, signal } from '@angular/core';
+import { Component, OnDestroy, computed, inject, signal, viewChild } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
 import type { CanComponentDeactivate } from '../../core/can-deactivate.guard';
 import { RosterService, type ManagedPlayer } from '../../core/roster.service';
-import { RULE_KINDS, ruleErrorMessage, type PairRule, type RuleKind } from '../../core/pair-rule.model';
+import {
+  RULE_KINDS,
+  ruleErrorMessage,
+  type CreatePairRuleRequest,
+  type PairRule,
+  type RuleKind,
+} from '../../core/pair-rule.model';
+import { AddRuleDialog } from '../../shared/add-rule-dialog/add-rule-dialog';
 import { LevelPicker } from '../../shared/level-picker/level-picker';
 import { levelIndex, type Level } from '../../../../../engines/levels.ts';
 
@@ -17,7 +24,7 @@ const PHONE_RE = /^[0-9+\- ]{6,20}$/;
 
 @Component({
   selector: 'app-player-roster',
-  imports: [FormsModule, RouterLink, DecimalPipe, LevelPicker],
+  imports: [FormsModule, RouterLink, DecimalPipe, LevelPicker, AddRuleDialog],
   templateUrl: './player-roster.html',
   styleUrl: './player-roster.css',
 })
@@ -108,54 +115,35 @@ export class PlayerRoster implements CanComponentDeactivate, OnDestroy {
   readonly ruleKinds = RULE_KINDS;
   readonly rules = signal<PairRule[]>([]);
   readonly rulesError = signal<string | null>(null);
-  readonly ruleBusy = signal(false);
-  readonly newRuleA = signal('');
-  readonly newRuleB = signal('');
-  readonly newRuleKind = signal<RuleKind>('must-pair');
+  /** The rules list sits above the player table, collapsed; adding one opens it. */
+  readonly rulesOpen = signal(false);
 
-  readonly partnerOptions = computed(() =>
-    this.players().filter((p) => p.id !== this.newRuleA())
-  );
-  readonly canCreateRule = computed(
-    () =>
-      !this.ruleBusy() &&
-      this.newRuleA() !== '' &&
-      this.newRuleB() !== '' &&
-      this.newRuleA() !== this.newRuleB()
-  );
+  private readonly addRuleDialog = viewChild<AddRuleDialog>('addRuleDialog');
+  readonly addRuleSaving = signal(false);
+  readonly addRuleError = signal<string | null>(null);
+
+  openAddRuleDialog(): void {
+    this.addRuleError.set(null);
+    this.addRuleDialog()?.open();
+  }
 
   playerName(id: string): string {
     return this.players().find((p) => p.id === id)?.name ?? '?';
   }
 
-  setNewRuleA(id: string): void {
-    this.newRuleA.set(id);
-    if (this.newRuleB() === id) this.newRuleB.set('');
-  }
-
-  setNewRuleB(id: string): void {
-    this.newRuleB.set(id === this.newRuleA() ? '' : id);
-  }
-
-  async createRule(): Promise<void> {
-    if (!this.canCreateRule()) return;
-    this.ruleBusy.set(true);
-    this.rulesError.set(null);
+  /** Creates the rule from the shared add-rule modal; a refusal stays in the modal. */
+  async submitAddRule(rule: CreatePairRuleRequest): Promise<void> {
+    this.addRuleSaving.set(true);
+    this.addRuleError.set(null);
     try {
-      const rule = await firstValueFrom(
-        this.rosterService.createRule(this.groupCode, {
-          playerAId: this.newRuleA(),
-          playerBId: this.newRuleB(),
-          kind: this.newRuleKind(),
-        })
-      );
-      this.rules.update((list) => [...list, rule]);
-      this.newRuleA.set('');
-      this.newRuleB.set('');
+      const created = await firstValueFrom(this.rosterService.createRule(this.groupCode, rule));
+      this.rules.update((list) => [...list, created]);
+      this.rulesOpen.set(true);
+      this.addRuleDialog()?.close();
     } catch (err) {
-      this.rulesError.set(ruleErrorMessage(err));
+      this.addRuleError.set(ruleErrorMessage(err));
     } finally {
-      this.ruleBusy.set(false);
+      this.addRuleSaving.set(false);
     }
   }
 

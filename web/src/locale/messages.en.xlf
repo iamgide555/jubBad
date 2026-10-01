@@ -2684,8 +2684,8 @@
         <target>Never same court</target>
       </trans-unit>
       <trans-unit id="playerRoster.rulesTitle" datatype="html">
-        <source>กฎการจับคู่</source>
-        <target>Pairing rules</target>
+        <source>กฎการจับคู่ (<x id="INTERPOLATION" equiv-text="{{ rules().length }}"/>)</source>
+        <target>Pairing rules (<x id="INTERPOLATION" equiv-text="{{ rules().length }}"/>)</target>
       </trans-unit>
       <trans-unit id="playerRoster.rulesHint" datatype="html">
         <source>คู่กัน: ลงเป็นคู่เดียวกันหรือพักพร้อมกัน · ห้ามอยู่ด้วยกัน: เป็นคู่แข่งกันได้ · ห้ามเล่นด้วยกัน: ไม่ลงสนามเดียวกัน</source>
@@ -2703,21 +2703,9 @@
         <source>ลบ</source>
         <target>Remove</target>
       </trans-unit>
-      <trans-unit id="playerRoster.rulePlayerA" datatype="html">
-        <source>ผู้เล่น</source>
-        <target>Player</target>
-      </trans-unit>
-      <trans-unit id="playerRoster.pickPlayer" datatype="html">
-        <source>— เลือก —</source>
-        <target>— Choose —</target>
-      </trans-unit>
-      <trans-unit id="playerRoster.rulePlayerB" datatype="html">
-        <source>กับ</source>
-        <target>With</target>
-      </trans-unit>
       <trans-unit id="playerRoster.addRule" datatype="html">
-        <source>เพิ่มกฎ</source>
-        <target>Add rule</target>
+        <source>+ เพิ่มกฎการจับคู่</source>
+        <target>+ Add pairing rule</target>
       </trans-unit>
       <trans-unit id="playerRoster.ruleExists" datatype="html">
         <source>ผู้เล่นคู่นี้มีกฎอยู่แล้ว</source>

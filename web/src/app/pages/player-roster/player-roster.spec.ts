@@ -34,6 +34,22 @@ const PLAYERS = [
   },
 ];
 
+// jsdom implements no showModal()/close() on <dialog>; the shared add-rule
+// modal needs them. Guarded so a future jsdom that implements them takes over.
+beforeAll(() => {
+  if (!HTMLDialogElement.prototype.showModal) {
+    HTMLDialogElement.prototype.showModal = function (this: HTMLDialogElement) {
+      this.setAttribute('open', '');
+    };
+  }
+  if (!HTMLDialogElement.prototype.close) {
+    HTMLDialogElement.prototype.close = function (this: HTMLDialogElement) {
+      this.removeAttribute('open');
+      this.dispatchEvent(new Event('close'));
+    };
+  }
+});
+
 describe('PlayerRoster', () => {
   let component: PlayerRoster;
   let fixture: ComponentFixture<PlayerRoster>;
@@ -263,57 +279,86 @@ describe('PlayerRoster', () => {
       const row = rows()[0];
       expect(row.querySelector('select')).not.toBeNull();
       expect(row.querySelector('button')?.getAttribute('type')).toBe('button');
-      const form = el().querySelector('.rule-form')!;
-      expect(form.querySelectorAll('select').length).toBe(3);
-      expect(form.querySelector('button')?.getAttribute('type')).toBe('button');
+      expect(el().querySelector('[data-add-rule]')?.getAttribute('type')).toBe('button');
     });
 
-    it('never offers the first player as their own partner', () => {
-      component.setNewRuleA('p1');
-      expect(component.partnerOptions().map((p) => p.id)).toEqual(['p2']);
-      component.setNewRuleB('p2');
-      component.setNewRuleA('p2');
-      expect(component.newRuleB()).toBe('');
-      expect(component.canCreateRule()).toBe(false);
+    it('keeps the rules above the player table, collapsed, with their count', () => {
+      component.rules.set([rule('r1', 'must-pair'), rule('r2', 'never-teammates')]);
+      fixture.detectChanges();
+      const details = el().querySelector('details.pair-rules') as HTMLDetailsElement;
+      expect(details).toBeTruthy();
+      expect(details.open).toBe(false);
+      expect(details.querySelector('summary')!.textContent).toContain('(2)');
+      const table = el().querySelector('.table-scroll')!;
+      expect(details.compareDocumentPosition(table) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     });
 
-    it('creates a rule and resets the form', async () => {
-      component.setNewRuleA('p1');
-      component.setNewRuleB('p2');
-      component.newRuleKind.set('never-teammates');
-      const done = component.createRule();
-      const req = httpMock.expectOne(`${B}/groups/group1/rules`);
-      expect(req.request.method).toBe('POST');
-      expect(req.request.body).toEqual({ playerAId: 'p1', playerBId: 'p2', kind: 'never-teammates' });
-      req.flush(rule('r9', 'never-teammates'));
-      await done;
-      expect(component.rules().map((r) => r.id)).toEqual(['r9']);
-      expect(component.newRuleA()).toBe('');
-      expect(component.newRuleB()).toBe('');
+    it('no longer has an inline rule form at the bottom of the page', () => {
+      expect(el().querySelector('.rule-form')).toBeNull();
     });
 
-    it('shows a duplicate-pair error without clearing the selection', async () => {
-      component.setNewRuleA('p1');
-      component.setNewRuleB('p2');
-      const done = component.createRule();
-      httpMock
-        .expectOne(`${B}/groups/group1/rules`)
-        .flush({ code: 'PAIR_RULE_EXISTS' }, { status: 409, statusText: 'Conflict' });
-      await done;
-      expect(component.rulesError()).toBe('ผู้เล่นคู่นี้มีกฎอยู่แล้ว');
-      expect(component.newRuleA()).toBe('p1');
-      expect(component.newRuleB()).toBe('p2');
-    });
+    describe('adding a rule from the shared modal', () => {
+      const dialog = () => el().querySelector('dialog.add-rule-dialog') as HTMLDialogElement;
+      const tapPlayer = (id: string) => {
+        (dialog().querySelector(`[data-player-chip="${id}"]`) as HTMLButtonElement).click();
+        fixture.detectChanges();
+      };
+      async function openAndPick(): Promise<void> {
+        (el().querySelector('[data-add-rule]') as HTMLButtonElement).click();
+        fixture.detectChanges();
+        await fixture.whenStable();
+        fixture.detectChanges();
+        tapPlayer('p1');
+        tapPlayer('p2');
+      }
+      const submit = () => (dialog().querySelector('[data-submit-rule]') as HTMLButtonElement).click();
 
-    it('explains a second required partner as a conflict', async () => {
-      component.setNewRuleA('p1');
-      component.setNewRuleB('p2');
-      const done = component.createRule();
-      httpMock
-        .expectOne(`${B}/groups/group1/rules`)
-        .flush({ code: 'PAIR_RULE_MUST_PAIR_TAKEN' }, { status: 409, statusText: 'Conflict' });
-      await done;
-      expect(component.rulesError()).toBe('ผู้เล่นคนนี้มีคู่กันอยู่แล้ว');
+      it('opens the shared modal listing the whole group', async () => {
+        await openAndPick();
+        expect(dialog().hasAttribute('open')).toBe(true);
+        expect(dialog().querySelectorAll('[data-player-chip]').length).toBe(component.players().length);
+      });
+
+      it('creates a persistent rule, opens the list on it, and closes the modal', async () => {
+        await openAndPick();
+        (dialog().querySelector('input[type="radio"][value="never-teammates"]') as HTMLInputElement).click();
+        fixture.detectChanges();
+        submit();
+        const req = httpMock.expectOne(`${B}/groups/group1/rules`);
+        expect(req.request.method).toBe('POST');
+        expect(req.request.body).toEqual({ playerAId: 'p1', playerBId: 'p2', kind: 'never-teammates' });
+        req.flush(rule('r9', 'never-teammates'));
+        await fixture.whenStable();
+        fixture.detectChanges();
+        expect(component.rules().map((r) => r.id)).toEqual(['r9']);
+        expect(component.rulesOpen()).toBe(true);
+        expect(dialog().hasAttribute('open')).toBe(false);
+      });
+
+      it('shows a duplicate-pair refusal inside the modal and keeps the picks', async () => {
+        await openAndPick();
+        submit();
+        httpMock
+          .expectOne(`${B}/groups/group1/rules`)
+          .flush({ code: 'PAIR_RULE_EXISTS' }, { status: 409, statusText: 'Conflict' });
+        await fixture.whenStable();
+        fixture.detectChanges();
+        expect(dialog().hasAttribute('open')).toBe(true);
+        expect(dialog().textContent).toContain('ผู้เล่นคู่นี้มีกฎอยู่แล้ว');
+        expect(dialog().querySelectorAll('[data-player-chip][aria-pressed="true"]').length).toBe(2);
+        expect(component.rules()).toEqual([]);
+      });
+
+      it('explains a second required partner as a conflict', async () => {
+        await openAndPick();
+        submit();
+        httpMock
+          .expectOne(`${B}/groups/group1/rules`)
+          .flush({ code: 'PAIR_RULE_MUST_PAIR_TAKEN' }, { status: 409, statusText: 'Conflict' });
+        await fixture.whenStable();
+        fixture.detectChanges();
+        expect(dialog().textContent).toContain('ผู้เล่นคนนี้มีคู่กันอยู่แล้ว');
+      });
     });
 
     it('switches a rule kind, and rolls back with a message when refused', async () => {

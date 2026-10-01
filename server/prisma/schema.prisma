@@ -37,6 +37,11 @@ model Group {
   /// Bumped by every ladder save. A level-bearing write carries the revision
   /// the host saw, so a stale tab cannot reapply a label a switch cleared.
   levelLadderRevision Int     @default(0)
+  /// Credential for the group's public dashboard (/d/:token). Null = not
+  /// shared. Random and revocable on purpose: a group code is chosen by the
+  /// host, so it is guessable and cannot gate a public page. See
+  /// docs/superpowers/specs/2026-10-02-group-dashboard-design.md.
+  shareToken          String? @unique
 }
 
 model User {

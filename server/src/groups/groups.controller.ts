@@ -1,6 +1,7 @@
 import { Body, Controller, Delete, Get, Param, Post, Put, Req } from '@nestjs/common';
 import { GroupsService } from './groups.service.js';
 import { GroupLevelsService } from './group-levels.service.js';
+import { GroupShareService } from './group-share.service.js';
 import { SaveGroupLevelsDto } from './dto/save-group-levels.dto.js';
 import { Public } from '../auth/public.decorator.js';
 import type { AuthenticatedRequest } from '../auth/auth.guard.js';
@@ -15,7 +16,8 @@ import { SetShuttleToolsDto } from './dto/set-shuttle-tools.dto.js';
 export class GroupsController {
   constructor(
     private readonly groupsService: GroupsService,
-    private readonly groupLevels: GroupLevelsService
+    private readonly groupLevels: GroupLevelsService,
+    private readonly groupShare: GroupShareService
   ) {}
 
   /** Owner-only (no @Public): the ladder and its seeds are host-only. */
@@ -27,6 +29,27 @@ export class GroupsController {
   @Put(':code/levels')
   saveLevels(@Param('code') code: string, @Body() dto: SaveGroupLevelsDto) {
     return this.groupLevels.save(code, dto);
+  }
+
+  /**
+   * Owner-only (no @Public): whether this group's public dashboard is shared.
+   * The dashboard itself is GET /dashboards/:token (DashboardsController).
+   */
+  @Get(':code/share')
+  getShare(@Param('code') code: string) {
+    return this.groupShare.get(code);
+  }
+
+  /** Idempotent: sharing twice returns the same token, never rotates it. */
+  @Post(':code/share')
+  enableShare(@Param('code') code: string) {
+    return this.groupShare.enable(code);
+  }
+
+  /** Stop sharing: the old link 404s immediately. */
+  @Delete(':code/share')
+  disableShare(@Param('code') code: string) {
+    return this.groupShare.disable(code);
   }
 
   /**

@@ -535,7 +535,11 @@ export class GroupsService {
         include: {
           roster: true,
           waitlist: { orderBy: { position: 'asc' } },
-          pairings: { orderBy: [{ courtNumber: 'asc' }, { matchNumber: 'asc' }] },
+          pairings: {
+            orderBy: [{ courtNumber: 'asc' }, { matchNumber: 'asc' }],
+            include: { shuttleUses: true },
+          },
+          shuttles: { orderBy: { number: 'asc' } },
         },
       }),
     ]);
@@ -571,6 +575,13 @@ export class GroupsService {
         rosterPlayerIds: s.roster.map((r) => r.playerId),
         restingPlayerIds: s.roster.filter((r) => !r.active).map((r) => r.playerId),
         waitlistPlayerIds: s.waitlist.map((w) => w.playerId),
+        // Voided identities stay listed: their numbers are never reassigned.
+        shuttles: s.shuttles.map((sh) => ({
+          id: sh.id,
+          number: sh.number,
+          usable: sh.usable,
+          voided: sh.voidedAt !== null,
+        })),
         matches: s.pairings.map((p) => ({
           courtNumber: p.courtNumber,
           matchNumber: p.matchNumber,
@@ -584,6 +595,12 @@ export class GroupsService {
           confirmedAt: p.confirmedAt,
           endedAt: p.endedAt,
           carryOutcomes: parseJsonForExport(p.carryOutcomes),
+          // Known false = a legacy or ordinary game whose shuttle use was never
+          // recorded; known true with no ids = recorded as zero shuttles.
+          shuttleLogKnown: p.shuttleLogKnown,
+          shuttleIds: p.shuttleUses
+            .map((u) => u.shuttleId)
+            .sort((a, b) => numberOf(s.shuttles, a) - numberOf(s.shuttles, b)),
         })),
       })),
     };
@@ -619,7 +636,11 @@ export class GroupsService {
     const sessionIds = sessions.map((s) => s.code);
 
     return [
+      // Foreign-key order: game/shuttle links, then the games (which may point
+      // at a last shuttle), then the identities, and only then the sessions.
+      this.prisma.pairingShuttleUse.deleteMany({ where: { pairing: { sessionId: { in: sessionIds } } } }),
       this.prisma.pairing.deleteMany({ where: { sessionId: { in: sessionIds } } }),
+      this.prisma.sessionShuttle.deleteMany({ where: { sessionId: { in: sessionIds } } }),
       this.prisma.sessionRoster.deleteMany({ where: { sessionId: { in: sessionIds } } }),
       this.prisma.waitlist.deleteMany({ where: { sessionId: { in: sessionIds } } }),
       this.prisma.session.deleteMany({ where: { groupId: code } }),
@@ -704,4 +725,9 @@ function parseJsonForExport(raw: string): unknown {
   } catch {
     return raw;
   }
+}
+
+/** A shuttle's display number by id — export lists a game's uses in number order. */
+function numberOf(shuttles: readonly { id: string; number: number }[], id: string): number {
+  return shuttles.find((sh) => sh.id === id)?.number ?? 0;
 }

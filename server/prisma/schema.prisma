@@ -173,6 +173,7 @@ model Session {
   waitlist      Waitlist[]
   pairings      Pairing[]
   creation      SessionCreation?
+  shuttles      SessionShuttle[]
 }
 
 model SessionRoster {
@@ -254,6 +255,17 @@ model Pairing {
   /// legacy rows and unlinked games. Cleared on undo of confirm. See
   /// server/src/sessions/carry-outcomes.ts.
   carryOutcomes String  @default("[]")
+  /// Explicit known/unknown marker for the game's shuttle log. False for every
+  /// legacy and ordinary-session game (unknown — never backfilled); true once an
+  /// advanced-session game is confirmed, even if later corrected to no uses
+  /// (known zero). Cleared on undo of confirm. See shuttle-tracking.ts.
+  shuttleLogKnown Boolean @default(false)
+  /// The shuttle this game last had in hand. While the match is active it is
+  /// the court's current shuttle (at most one, never shared by two active
+  /// courts); after finish it is the court's next-game suggestion.
+  lastShuttleId String?
+  lastShuttle SessionShuttle? @relation("LastShuttle", fields: [lastShuttleId], references: [id])
+  shuttleUses PairingShuttleUse[]
   session     Session   @relation(fields: [sessionId], references: [code])
 }
 
@@ -284,4 +296,34 @@ model SessionCreation {
   session        Session @relation(fields: [sessionId], references: [code], onDelete: Cascade)
 
   @@id([groupId, idempotencyKey])
+}
+
+/// One physical shuttle in one session (host feedback D). `number` is the
+/// monotonic display number, unique within the session and never reassigned,
+/// not even after the identity is voided as a mistake (voidedAt is a logical
+/// delete). `usable` false means retired: it stays in historical use and can
+/// be restored.
+model SessionShuttle {
+  id        String   @id @default(cuid())
+  sessionId String
+  number    Int
+  usable    Boolean  @default(true)
+  voidedAt  DateTime?
+  createdAt DateTime @default(now())
+  session   Session  @relation(fields: [sessionId], references: [code])
+  uses      PairingShuttleUse[]
+  lastFor   Pairing[] @relation("LastShuttle")
+
+  @@unique([sessionId, number])
+}
+
+/// Which shuttles a game used. Unique per pairing/shuttle: going back to the
+/// same shuttle within one game is still a single use.
+model PairingShuttleUse {
+  pairingId String
+  shuttleId String
+  pairing   Pairing        @relation(fields: [pairingId], references: [id])
+  shuttle   SessionShuttle @relation(fields: [shuttleId], references: [id])
+
+  @@id([pairingId, shuttleId])
 }

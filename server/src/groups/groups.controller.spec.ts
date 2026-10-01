@@ -1369,4 +1369,61 @@ describe('GroupsController', () => {
       }
     });
   });
+
+  describe('numbered shuttle export and deletion', () => {
+    async function seedShuttles() {
+      const code = randomUUID();
+      const sessionCode = randomUUID();
+      await prisma.group.create({ data: { code, name: 'Shuttles', ownerId: testAdminId } });
+      await prisma.session.create({ data: { code: sessionCode, groupId: code, rawImportText: '', shuttleToolsEnabled: true } });
+      const one = await prisma.sessionShuttle.create({ data: { sessionId: sessionCode, number: 1 } });
+      const two = await prisma.sessionShuttle.create({ data: { sessionId: sessionCode, number: 2, usable: false } });
+      const three = await prisma.sessionShuttle.create({ data: { sessionId: sessionCode, number: 3, voidedAt: new Date() } });
+      const known = await prisma.pairing.create({
+        data: { sessionId: sessionCode, courtNumber: 1, matchNumber: 1, teamA: '["a","b"]', teamB: '["c","d"]', shuttleLogKnown: true, lastShuttleId: one.id },
+      });
+      const unknown = await prisma.pairing.create({
+        data: { sessionId: sessionCode, courtNumber: 1, matchNumber: 2, teamA: '["a","b"]', teamB: '["c","d"]' },
+      });
+      await prisma.pairingShuttleUse.createMany({
+        data: [
+          { pairingId: known.id, shuttleId: one.id },
+          { pairingId: known.id, shuttleId: two.id },
+        ],
+      });
+      return { code, sessionCode, ids: { one: one.id, two: two.id, three: three.id }, known: known.id, unknown: unknown.id };
+    }
+
+    it('exports inventory status, voided numbers, and each game\'s known marker and uses', async () => {
+      const { code, sessionCode, ids, known, unknown } = await seedShuttles();
+      try {
+        const res = await request(server).get(`/groups/${code}/export`).expect(200);
+        const session = res.body.sessions[0];
+        expect(session.shuttles).toEqual([
+          { id: ids.one, number: 1, usable: true, voided: false },
+          { id: ids.two, number: 2, usable: false, voided: false },
+          { id: ids.three, number: 3, usable: true, voided: true },
+        ]);
+        const byMatch = new Map(session.matches.map((m: { matchNumber: number }) => [m.matchNumber, m]));
+        expect(byMatch.get(1)).toMatchObject({ shuttleLogKnown: true, shuttleIds: [ids.one, ids.two] });
+        expect(byMatch.get(2)).toMatchObject({ shuttleLogKnown: false, shuttleIds: [] });
+        void known; void unknown;
+      } finally {
+        await prisma.pairingShuttleUse.deleteMany({ where: { pairing: { sessionId: sessionCode } } });
+        await prisma.pairing.deleteMany({ where: { sessionId: sessionCode } });
+        await prisma.sessionShuttle.deleteMany({ where: { sessionId: sessionCode } });
+        await prisma.session.deleteMany({ where: { groupId: code } });
+        await prisma.group.deleteMany({ where: { code } });
+      }
+    });
+
+    it('owner deletion removes game links before pairings and identities before sessions', async () => {
+      const { code, sessionCode } = await seedShuttles();
+      await request(server).delete(`/groups/${code}`).expect(200);
+      expect(await prisma.pairingShuttleUse.count({ where: { pairing: { sessionId: sessionCode } } })).toBe(0);
+      expect(await prisma.sessionShuttle.count({ where: { sessionId: sessionCode } })).toBe(0);
+      expect(await prisma.pairing.count({ where: { sessionId: sessionCode } })).toBe(0);
+      expect(await prisma.group.count({ where: { code } })).toBe(0);
+    });
+  });
 });

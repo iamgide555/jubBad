@@ -20,9 +20,12 @@ export function buildBillText(bill: BillResponse): string {
   const lines: string[] = [];
   lines.push(['💰 ค่าก๊วน', session.date, session.venue ? `— ${session.venue}` : null].filter(Boolean).join(' '));
   const shuttleLine = () => {
-    if (session.shuttleCount === null || session.shuttlePriceSatang === null) return;
+    // What was actually billed: the physical count, or the distinct shuttles in
+    // a complete game log when no physical count was entered.
+    const count = bill.accounting.effectiveCount ?? session.shuttleCount;
+    if (count === null || session.shuttlePriceSatang === null) return;
     const how = c.shuttleSplit === 'equal' ? 'หารเท่า' : 'ตามจำนวนเกม';
-    lines.push(`ค่าลูก ${session.shuttleCount} ลูก × ${formatBaht(session.shuttlePriceSatang)}฿ ${how}`);
+    lines.push(`ค่าลูก ${count} ลูก × ${formatBaht(session.shuttlePriceSatang)}฿ ${how}`);
   };
   if (c.model === 'fair') {
     const court = formatBaht(c.courtFeeSatang ?? 0);

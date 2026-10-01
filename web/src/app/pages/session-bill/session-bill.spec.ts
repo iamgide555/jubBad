@@ -10,7 +10,7 @@ const B = environment.apiBaseUrl;
 
 function response(): BillResponse {
   return {
-    session: { code: 'sess1', date: null, venue: null, endedAt: null, shuttleCount: 0, shuttlePriceSatang: 0 },
+    session: { code: 'sess1', date: null, venue: null, endedAt: null, shuttleCount: 0, shuttlePriceSatang: 0, shuttleToolsEnabled: false },
     config: {
       model: 'fair', courtFeeSatang: 20000, courtSplit: 'equal', shuttleSplit: 'byGames', perGameRateSatang: 0,
       entryFeeSatang: 0, capSatang: null, buffetPriceSatang: 0, buffetShuttlesIncluded: true, hostFeeSatang: 0,
@@ -32,6 +32,8 @@ function response(): BillResponse {
       totals: { collectedSatang: 20000, costSatang: 20000, marginSatang: 0, billedCount: 2, walkInCount: 1 },
       warnings: [],
     },
+    accounting: { recordedFinishedShuttles: 0, unknownFinishedMatches: 0, finishedMatches: 0, physicalCount: 0, effectiveCount: 0, source: 'ordinary', allocation: 'legacy-basic' },
+    readyToCopy: true,
   };
 }
 
@@ -156,5 +158,80 @@ describe('SessionBill', () => {
     fixture.detectChanges();
     http.expectNone(`${B}/sessions/sess1/bill-config`);
     expect(fixture.nativeElement.querySelector('[role="alert"]')).not.toBeNull();
+  });
+
+  describe('shuttle accounting and the copy guard', () => {
+    const el = () => fixture.nativeElement as HTMLElement;
+    const copyButton = () => el().querySelector('.bill-footer button.primary') as HTMLButtonElement;
+    const withAccounting = (over: Partial<BillResponse['accounting']>, extra: Partial<BillResponse> = {}): BillResponse => {
+      const base = response();
+      return {
+        ...base,
+        session: { ...base.session, shuttleToolsEnabled: true },
+        accounting: { ...base.accounting, source: 'physical', allocation: 'identities', ...over },
+        ...extra,
+      };
+    };
+    const incomplete = (): BillResponse => {
+      const base = response();
+      return { ...base, readyToCopy: false, result: { ...base.result, warnings: ['MISSING_SHUTTLE_COUNT'] }, accounting: { ...base.accounting, source: 'missing', effectiveCount: null, physicalCount: null } };
+    };
+
+    it('hides the per-person amounts and the total, and disables copy, while a required input is missing', async () => {
+      await load(incomplete());
+      expect(el().textContent).toContain('ยังไม่ได้ใส่จำนวนลูก');
+      expect(el().querySelectorAll('.amount').length).toBe(0);
+      expect(el().querySelector('.total')).toBeNull();
+      expect(copyButton().disabled).toBe(true);
+      expect(el().textContent).toContain('ยังคัดลอกไม่ได้');
+    });
+
+    it('does not touch the clipboard or show fallback text when copy() is called anyway', async () => {
+      await load(incomplete());
+      const writeText = vi.fn().mockResolvedValue(undefined);
+      Object.defineProperty(navigator, 'clipboard', { value: { writeText }, configurable: true });
+      await (fixture.componentInstance as unknown as { copy(): Promise<void> }).copy();
+      fixture.detectChanges();
+      expect(writeText).not.toHaveBeenCalled();
+      expect(el().querySelector('.clipboard-fallback')).toBeNull();
+    });
+
+    it('shows amounts and copies when the bill is ready, including perGame with no shuttle inputs', async () => {
+      await load({ ...response(), config: { ...response().config, model: 'perGame' } });
+      expect(el().querySelectorAll('.amount').length).toBeGreaterThan(0);
+      expect(copyButton().disabled).toBe(false);
+    });
+
+    it('explains the billed shuttle count and where it came from', async () => {
+      await load(withAccounting({ source: 'games', recordedFinishedShuttles: 3, physicalCount: null, effectiveCount: 3 }));
+      expect(el().textContent).toContain('3');
+      expect(el().textContent).toContain('นับจากแมตช์ที่บันทึกไว้');
+    });
+
+    it('says when a physical count is used, and shows the difference only when every game is recorded', async () => {
+      await load(withAccounting({ source: 'physical', recordedFinishedShuttles: 3, unknownFinishedMatches: 0, finishedMatches: 3, physicalCount: 5, effectiveCount: 5 }));
+      expect(el().textContent).toContain('นับจริง');
+      expect(el().textContent).toContain('+2');
+    });
+
+    it('does not show a difference while some game has no recorded shuttles', async () => {
+      await load(withAccounting({ source: 'physical', recordedFinishedShuttles: 3, unknownFinishedMatches: 1, finishedMatches: 3, physicalCount: 5, effectiveCount: 5, allocation: 'legacy-unknown' }));
+      expect(el().textContent).not.toContain('+2');
+    });
+
+    it('announces the equal-per-match fallback instead of mixing guessed and known uses', async () => {
+      await load(withAccounting({ source: 'physical', unknownFinishedMatches: 2, finishedMatches: 3, physicalCount: 5, effectiveCount: 5, allocation: 'legacy-unknown' }));
+      expect(el().textContent).toContain('หารค่าลูกเท่ากันทุกแมตช์');
+    });
+
+    it('explains the no-recorded-uses fallback too', async () => {
+      await load(withAccounting({ source: 'physical', finishedMatches: 2, physicalCount: 5, effectiveCount: 5, allocation: 'legacy-no-uses' }));
+      expect(el().textContent).toContain('ไม่ได้บันทึกลูกแบด');
+    });
+
+    it('shows no shuttle accounting panel on an ordinary session', async () => {
+      await load(response());
+      expect(el().querySelector('.shuttle-accounting')).toBeNull();
+    });
   });
 });

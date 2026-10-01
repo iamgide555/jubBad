@@ -29,10 +29,78 @@
       </p>
     }
 
-    @if (isHost()) {
+    @if (shuttleSection(); as sh) {
+      <section class="shuttle-accounting" aria-labelledby="shuttle-log-title">
+        <h2 id="shuttle-log-title" class="label" i18n="@@summary.shuttleLogTitle">ลูกแบดที่ใช้รายแมตช์</h2>
+        <p>
+          <strong i18n="@@summary.shuttleDistinctCount">{{ sh.recordedFinishedShuttles }} ลูก</strong>
+          <ng-container i18n="@@summary.shuttleDistinct">ที่ใช้ในแมตช์ที่จบแล้ว (นับแต่ละลูกครั้งเดียว)</ng-container>
+          @if (sh.unknownFinishedMatches > 0) {
+            <span class="muted" i18n="@@summary.shuttlePartial"> · ไม่ครบ — {{ sh.unknownFinishedMatches }} แมตช์ไม่ได้บันทึก</span>
+          }
+        </p>
+        @if (sh.physical !== null) {
+          <p class="muted" i18n="@@summary.shuttlePhysical">นับจริงทั้งคืน {{ sh.physical }} ลูก</p>
+        }
+        @if (sh.difference !== null && sh.difference !== 0) {
+          <p class="muted" i18n="@@summary.shuttleDifference">นับจริงต่างจากที่บันทึก {{ signed(sh.difference) }} ลูก</p>
+        }
+      </section>
+      @if (sh.rows.length > 0) {
+        <div class="table-scroll">
+          <table class="shuttle-log">
+            <thead>
+              <tr>
+                <th i18n="@@summary.shuttleColMatch">แมตช์</th>
+                <th i18n="@@summary.shuttleColShuttles">ลูกแบด</th>
+                @if (canCorrect()) { <th></th> }
+              </tr>
+            </thead>
+            <tbody>
+              @for (row of sh.rows; track row.pairingId) {
+                <tr>
+                  <td>{{ rowLabel(row) }}</td>
+                  <td>
+                    @if (row.shuttles === null) {
+                      <span class="muted" i18n="@@summary.shuttleUnknown">ไม่ทราบ</span>
+                    } @else if (row.shuttles.length === 0) {
+                      <span i18n="@@summary.shuttleNone">ไม่ได้ใช้ลูกแบด</span>
+                    } @else {
+                      @for (u of row.shuttles; track u.id) { <span class="shuttle-tag">#{{ u.number }}</span> }
+                    }
+                  </td>
+                  @if (canCorrect()) {
+                    <td><button type="button" class="ghost" data-edit-shuttle-log (click)="openCorrection(row)" i18n="@@summary.shuttleCorrect">แก้ไข</button></td>
+                  }
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      }
+      @if (canCorrect()) {
+        <app-shuttle-correction-dialog
+          #correctionDialog
+          [shuttles]="correctionShuttles()"
+          [initialIds]="correctionInitialIds()"
+          [rowLabel]="correctingRow() ? rowLabel(correctingRow()!) : ''"
+          [saving]="correctionSaving()"
+          [error]="correctionError()"
+          (save)="saveCorrection($event)"
+        />
+      }
+    }
+
+    @if (owner()) {
       <p class="shuttle-edit">
         <button type="button" class="ghost" (click)="openShuttleEditor()">
-          @if (s.session.shuttleCount === null && s.session.shuttlePriceSatang === null) {
+          @if (s.shuttleLog) {
+            @if (s.session.shuttleCount === null && s.session.shuttlePriceSatang === null) {
+              <ng-container i18n="@@summary.shuttleRecordPhysical">บันทึกจำนวนที่นับจริง</ng-container>
+            } @else {
+              <ng-container i18n="@@summary.shuttleEditPhysical">แก้ไขจำนวนที่นับจริง</ng-container>
+            }
+          } @else if (s.session.shuttleCount === null && s.session.shuttlePriceSatang === null) {
             <ng-container i18n="@@summary.shuttleRecord">บันทึกลูกแบด</ng-container>
           } @else {
             <ng-container i18n="@@summary.shuttleEdit">แก้ไขลูกแบด</ng-container>

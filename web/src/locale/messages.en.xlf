@@ -2951,6 +2951,150 @@
         <source>ลูกนี้ใช้ไม่ได้แล้ว</source>
         <target>Mark unusable</target>
       </trans-unit>
+      <trans-unit id="bill.shuttleAccountingTitle" datatype="html">
+        <source>ลูกแบดที่คิดเงิน</source>
+        <target>Shuttles billed</target>
+      </trans-unit>
+      <trans-unit id="bill.shuttleUnit" datatype="html">
+        <source>ลูก</source>
+        <target>shuttles</target>
+      </trans-unit>
+      <trans-unit id="bill.sourcePhysical" datatype="html">
+        <source>· นับจริง</source>
+        <target>· counted physically</target>
+      </trans-unit>
+      <trans-unit id="bill.sourceGames" datatype="html">
+        <source>· นับจากแมตช์ที่บันทึกไว้</source>
+        <target>· counted from recorded matches</target>
+      </trans-unit>
+      <trans-unit id="bill.sourceMissing" datatype="html">
+        <source>ยังนับลูกแบดไม่ได้ — ใส่จำนวนลูกที่ใช้จริง หรือบันทึกลูกที่ใช้ในแต่ละแมตช์ให้ครบ</source>
+        <target>Can't count shuttles yet — enter the number actually used, or record the shuttles used in every match</target>
+      </trans-unit>
+      <trans-unit id="bill.recordedSubtotal" datatype="html">
+        <source>บันทึกในแมตช์: <x id="INTERPOLATION" equiv-text="{{ sp.recordedFinishedShuttles }}"/> ลูก</source>
+        <target>Recorded in matches: <x id="INTERPOLATION" equiv-text="{{ sp.recordedFinishedShuttles }}"/> shuttles</target>
+      </trans-unit>
+      <trans-unit id="bill.difference" datatype="html">
+        <source>นับจริงต่างจากที่บันทึก <x id="INTERPOLATION" equiv-text="{{ signed(sp.difference) }}"/> ลูก</source>
+        <target>Physical count differs from the recorded by <x id="INTERPOLATION" equiv-text="{{ signed(sp.difference) }}"/> shuttles</target>
+      </trans-unit>
+      <trans-unit id="bill.fallbackUnknown" datatype="html">
+        <source>มีแมตช์ที่ไม่ได้บันทึกลูกแบด จึงหารค่าลูกเท่ากันทุกแมตช์</source>
+        <target>Some matches have no recorded shuttles, so the shuttle cost is split equally across matches</target>
+      </trans-unit>
+      <trans-unit id="bill.fallbackNoUses" datatype="html">
+        <source>แมตช์เหล่านี้ไม่ได้บันทึกลูกแบดที่ใช้ จึงหารค่าลูกเท่ากันทุกแมตช์</source>
+        <target>These matches recorded no shuttles used, so the shuttle cost is split equally across matches</target>
+      </trans-unit>
+      <trans-unit id="bill.notReady" datatype="html">
+        <source>ยังคัดลอกไม่ได้ — ใส่ข้อมูลที่ขาดให้ครบก่อน แล้วจะเห็นยอดของแต่ละคน</source>
+        <target>Can't copy yet — fill in the missing inputs to see each person's amount</target>
+      </trans-unit>
+      <trans-unit id="summary.shuttleRowLabel" datatype="html">
+        <source>คอร์ท <x id="court" equiv-text="this.courtName(row.courtNumber)"/> · แมตช์ <x id="match" equiv-text="row.matchNumber"/></source>
+        <target>Court <x id="court" equiv-text="this.courtName(row.courtNumber)"/> · Match <x id="match" equiv-text="row.matchNumber"/></target>
+      </trans-unit>
+      <trans-unit id="summary.correctionStale" datatype="html">
+        <source>ข้อมูลถูกแก้ไขจากอุปกรณ์อื่นแล้ว กรุณาลองใหม่อีกครั้ง</source>
+        <target>This was changed from another device. Please try again.</target>
+      </trans-unit>
+      <trans-unit id="summary.correctionNotFound" datatype="html">
+        <source>ไม่พบลูกแบดลูกนี้ อาจถูกลบไปแล้ว</source>
+        <target>That shuttle wasn't found — it may have been removed</target>
+      </trans-unit>
+      <trans-unit id="summary.correctionFailed" datatype="html">
+        <source>บันทึกไม่สำเร็จ ลองอีกครั้ง</source>
+        <target>Couldn't save — try again</target>
+      </trans-unit>
+      <trans-unit id="summary.shuttleLogTitle" datatype="html">
+        <source>ลูกแบดที่ใช้รายแมตช์</source>
+        <target>Shuttles by match</target>
+      </trans-unit>
+      <trans-unit id="summary.shuttleDistinct" datatype="html">
+        <source>ที่ใช้ในแมตช์ที่จบแล้ว (นับแต่ละลูกครั้งเดียว)</source>
+        <target>used in finished matches (each counted once)</target>
+      </trans-unit>
+      <trans-unit id="summary.shuttlePartial" datatype="html">
+        <source> · ไม่ครบ — <x id="INTERPOLATION" equiv-text="{{ sh.unknownFinishedMatches }}"/> แมตช์ไม่ได้บันทึก</source>
+        <target> · incomplete — <x id="INTERPOLATION" equiv-text="{{ sh.unknownFinishedMatches }}"/> matches not recorded</target>
+      </trans-unit>
+      <trans-unit id="summary.shuttlePhysical" datatype="html">
+        <source>นับจริงทั้งคืน <x id="INTERPOLATION" equiv-text="{{ sh.physical }}"/> ลูก</source>
+        <target>Counted for the night: <x id="INTERPOLATION" equiv-text="{{ sh.physical }}"/> shuttles</target>
+      </trans-unit>
+      <trans-unit id="summary.shuttleDifference" datatype="html">
+        <source>นับจริงต่างจากที่บันทึก <x id="INTERPOLATION" equiv-text="{{ signed(sh.difference) }}"/> ลูก</source>
+        <target>Physical count differs from the recorded by <x id="INTERPOLATION" equiv-text="{{ signed(sh.difference) }}"/> shuttles</target>
+      </trans-unit>
+      <trans-unit id="summary.shuttleColMatch" datatype="html">
+        <source>แมตช์</source>
+        <target>Match</target>
+      </trans-unit>
+      <trans-unit id="summary.shuttleColShuttles" datatype="html">
+        <source>ลูกแบด</source>
+        <target>Shuttles</target>
+      </trans-unit>
+      <trans-unit id="summary.shuttleUnknown" datatype="html">
+        <source>ไม่ทราบ</source>
+        <target>Unknown</target>
+      </trans-unit>
+      <trans-unit id="summary.shuttleNone" datatype="html">
+        <source>ไม่ได้ใช้ลูกแบด</source>
+        <target>No shuttles used</target>
+      </trans-unit>
+      <trans-unit id="summary.shuttleCorrect" datatype="html">
+        <source>แก้ไข</source>
+        <target>Edit</target>
+      </trans-unit>
+      <trans-unit id="summary.shuttleRecordPhysical" datatype="html">
+        <source>บันทึกจำนวนที่นับจริง</source>
+        <target>Record the physical count</target>
+      </trans-unit>
+      <trans-unit id="summary.shuttleEditPhysical" datatype="html">
+        <source>แก้ไขจำนวนที่นับจริง</source>
+        <target>Edit the physical count</target>
+      </trans-unit>
+      <trans-unit id="shuttleFix.title" datatype="html">
+        <source>แก้ลูกแบดที่ใช้ — <x id="INTERPOLATION" equiv-text="{{ rowLabel() }}"/></source>
+        <target>Fix shuttles used — <x id="INTERPOLATION" equiv-text="{{ rowLabel() }}"/></target>
+      </trans-unit>
+      <trans-unit id="shuttleFix.hint" datatype="html">
+        <source>เลือกทุกลูกที่แมตช์นี้ใช้จริง ไม่เลือกเลยหมายถึงไม่ได้ใช้ลูกแบด</source>
+        <target>Pick every shuttle this match really used. Picking none records that it used no shuttles.</target>
+      </trans-unit>
+      <trans-unit id="shuttleFix.legend" datatype="html">
+        <source>ลูกแบดของแมตช์นี้</source>
+        <target>Shuttles for this match</target>
+      </trans-unit>
+      <trans-unit id="shuttleFix.retired" datatype="html">
+        <source>(เลิกใช้)</source>
+        <target>(retired)</target>
+      </trans-unit>
+      <trans-unit id="shuttleFix.openNew" datatype="html">
+        <source>เพิ่มลูกใหม่ที่ลืมบันทึก (ได้หมายเลขถัดไป)</source>
+        <target>Add a new shuttle that was missed (gets the next number)</target>
+      </trans-unit>
+      <trans-unit id="shuttleFix.none" datatype="html">
+        <source>จะบันทึกว่าแมตช์นี้ไม่ได้ใช้ลูกแบด</source>
+        <target>This will record that the match used no shuttles</target>
+      </trans-unit>
+      <trans-unit id="shuttleFix.cancel" datatype="html">
+        <source>ยกเลิก</source>
+        <target>Cancel</target>
+      </trans-unit>
+      <trans-unit id="shuttleFix.save" datatype="html">
+        <source>บันทึก</source>
+        <target>Save</target>
+      </trans-unit>
+      <trans-unit id="bill.recordedPartial" datatype="html">
+        <source>ไม่ครบ — <x id="INTERPOLATION" equiv-text="{{ sp.unknownFinishedMatches }}"/> แมตช์ไม่ได้บันทึก</source>
+        <target>Incomplete — <x id="INTERPOLATION" equiv-text="{{ sp.unknownFinishedMatches }}"/> matches not recorded</target>
+      </trans-unit>
+      <trans-unit id="summary.shuttleDistinctCount" datatype="html">
+        <source><x id="INTERPOLATION" equiv-text="{{ sh.recordedFinishedShuttles }}"/> ลูก</source>
+        <target><x id="INTERPOLATION" equiv-text="{{ sh.recordedFinishedShuttles }}"/> shuttles</target>
+      </trans-unit>
     </body>
   </file>
 </xliff>

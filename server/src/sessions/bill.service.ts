@@ -26,6 +26,8 @@ export interface BillResponse {
   accounting: {
     recordedFinishedShuttles: number;
     unknownFinishedMatches: number;
+    /** Confirmed, finished games — 0 means there is nothing to compare a physical count against yet. */
+    finishedMatches: number;
     physicalCount: number | null;
     effectiveCount: number | null;
     source: 'physical' | 'games' | 'missing' | 'ordinary';
@@ -113,6 +115,7 @@ export class BillService {
     let source: BillResponse['accounting']['source'] = advanced ? 'physical' : 'ordinary';
     let recordedFinishedShuttles = 0;
     let unknownFinishedMatches = 0;
+    let finishedMatches = 0;
     if (advanced) {
       const accounting = deriveShuttleAccounting(
         pairings.map((p) => ({
@@ -124,6 +127,7 @@ export class BillService {
       );
       recordedFinishedShuttles = accounting.recordedFinishedShuttles;
       unknownFinishedMatches = accounting.unknownFinishedMatches;
+      finishedMatches = accounting.finishedMatches;
       if (physicalCount === null) {
         // Derived only from a complete log of at least one finished game; an
         // empty or partly unknown night has no honest count, never an inferred zero.
@@ -161,6 +165,7 @@ export class BillService {
       accounting: {
         recordedFinishedShuttles,
         unknownFinishedMatches,
+        finishedMatches,
         physicalCount,
         effectiveCount,
         source,

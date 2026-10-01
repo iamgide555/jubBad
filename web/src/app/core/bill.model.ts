@@ -2,6 +2,8 @@ export type BillModel = 'fair' | 'perGame' | 'buffet';
 export type SplitMode = 'equal' | 'byGames';
 export type RoundingStep = 1 | 5 | 10;
 export type BillWarning = 'MISSING_COURT_FEE' | 'MISSING_SHUTTLE_COUNT' | 'MISSING_SHUTTLE_PRICE';
+/** How shuttle cost was shared — mirrors engines/bill.ts. */
+export type ShuttleAllocation = 'legacy-basic' | 'legacy-unknown' | 'legacy-no-uses' | 'identities' | 'equal';
 
 export interface BillOverride {
   playerId: string;
@@ -65,9 +67,25 @@ export interface BillResponse {
     endedAt: string | null;
     shuttleCount: number | null;
     shuttlePriceSatang: number | null;
+    /** This session's snapshot: true means shuttle use was tracked per game. */
+    shuttleToolsEnabled: boolean;
   };
   config: BillConfig;
   configSource: 'saved' | 'previous' | 'default';
   players: { playerId: string; name: string; games: number; walkIn: boolean }[];
   result: BillResult;
+  /** Where the billed shuttle count came from; the physical count is never rewritten. */
+  accounting: {
+    recordedFinishedShuttles: number;
+    unknownFinishedMatches: number;
+    /** Confirmed, finished games; 0 means no comparison with a physical count is meaningful yet. */
+    finishedMatches: number;
+    physicalCount: number | null;
+    /** What was billed: physical if set, else the distinct shuttles in a complete log, else null. */
+    effectiveCount: number | null;
+    source: 'physical' | 'games' | 'missing' | 'ordinary';
+    allocation: ShuttleAllocation;
+  };
+  /** False while a required input is missing for this model — final amounts must stay hidden and nothing may be copied. */
+  readyToCopy: boolean;
 }

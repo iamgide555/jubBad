@@ -57,28 +57,25 @@ Design questions to settle before building:
 - **Storage:** a rules table (groupId, playerA, playerB, kind), pair stored
   order-normalised (same key as `pairKey`).
 
-#### - [ ] D. Shuttlecock tracking per court per game — by shuttle *number*
+#### - [x] D. Shuttlecock tracking per court per game — by shuttle *number*
 
-2026-09-27 real-host feedback (clarified 2026-09-28). Depends on A. Not yet
-designed.
+2026-09-27 real-host feedback (clarified 2026-09-28). Depends on A. Done
+2026-10-01 on `feat/shuttles-d`: opt-in group switch snapshotted per session,
+numbered session-wide shuttle identities with game/shuttle links, a shuttle
+choice atomic with confirmation (auto-confirm reuses or opens one), live
+open/switch/retire controls, owner corrections after the session ends, and
+distinct-shuttle accounting and bill sharing. Design:
+`docs/superpowers/specs/2026-09-30-match-shuttles-design.md`; behavior:
+"Numbered shuttles" in `docs/overview.md`.
 
-Today the host counts shuttles once, at the end of the night
-(`Session.shuttleCount`, set via `setShuttleDetails`). Wanted: record shuttle
-use **per court, per game**, and as **a number**: how many shuttles this
-match used (e.g. 2), not a tick/checkbox and not free text.
-
-- **Storage:** an integer on `Pairing` (e.g. `shuttlesUsed Int?`), `null` =
-  not recorded, `0` valid — the same null-vs-0 semantics as
-  `Session.shuttleCount`. Entered at finish time (a stepper next to the
-  winner buttons, defaulting to the last value used on that court to save
-  taps), editable afterwards.
-- **Session total derives from games.** When per-game numbers exist,
-  `Session.shuttleCount` becomes their sum. Decide whether the host can still
-  override the total (the physical tube count is the ground truth if a
-  shuttle got lost or used for warm-up), and how the two reconcile.
-- **Undo:** undoing a finished match must drop its shuttle number with it.
-- **UI:** one-handed courtside, 44px targets; a number stepper, not keyboard
-  entry. Display route unaffected.
+**This replaces the older wording below** (a per-game *integer* count on
+`Pairing`, entered with a stepper at finish and defaulting to the court's last
+value, with `Session.shuttleCount` as their sum): hosts reuse the same
+physical shuttle across games and courts, so what is recorded is *which
+numbered shuttles* a game used, a reused shuttle counts once, and
+`Session.shuttleCount` stays the independent physical count. Original ask,
+for the record: record shuttle use per court per game as a number, null vs 0
+semantics, undo drops it, one-handed 44px targets, display route unaffected.
 
 #### - [ ] E. Mid-session checkout for an early leaver (per-shuttle billing)
 

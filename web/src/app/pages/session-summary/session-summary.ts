@@ -1,5 +1,5 @@
 import { Component, computed, inject, signal, viewChild } from '@angular/core';
-import { HttpClient, httpResource } from '@angular/common/http';
+import { HttpClient, HttpErrorResponse, httpResource } from '@angular/common/http';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
 import { AuthService } from '../../core/auth.service';
@@ -13,13 +13,15 @@ import {
   ShuttleDetailsDialog,
   type ShuttleDetailsPatch,
 } from '../../shared/shuttle-details-dialog/shuttle-details-dialog';
-import type { PlayerSessionStat, SessionSummary as Summary } from '../../core/session-summary.model';
+import { ShuttleCorrectionDialog } from '../../shared/shuttle-correction-dialog/shuttle-correction-dialog';
+import type { PlayerSessionStat, SessionSummary as Summary, ShuttleLogRow } from '../../core/session-summary.model';
+import type { ShuttleInventory } from '../../core/shuttle.model';
 
 type SortKey = 'played' | 'won' | 'lost' | 'doublesRate' | 'singlesRate' | 'time';
 
 @Component({
   selector: 'app-session-summary',
-  imports: [RouterLink, SceneHost, ShuttleDetailsDialog],
+  imports: [RouterLink, SceneHost, ShuttleDetailsDialog, ShuttleCorrectionDialog],
   templateUrl: './session-summary.html',
   styleUrl: './session-summary.css',
 })
@@ -118,6 +120,107 @@ export class SessionSummary {
    */
   protected readonly isHost = signal(false);
 
+  // ---- owner-only shuttle editing ----
+  //
+  // `isHost` only says someone is logged in; it cannot tell the owner from
+  // another group's host. Editing access is therefore proven by the owner-only
+  // inventory read succeeding (a non-owner gets the same 404 the rest of the
+  // app uses). On an ordinary session that read is empty and disabled — it
+  // still proves ownership for the physical-count editor.
+  protected readonly inventory = signal<ShuttleInventory | null>(null);
+  protected readonly owner = computed(() => this.inventory() !== null);
+  protected readonly canCorrect = computed(() => this.inventory()?.enabled === true);
+
+  private async loadInventory(): Promise<void> {
+    try {
+      this.inventory.set(
+        await firstValueFrom(
+          this.http.get<ShuttleInventory>(`${environment.apiBaseUrl}/sessions/${this.sessionCode}/shuttles`)
+        )
+      );
+    } catch {
+      this.inventory.set(null);
+    }
+  }
+
+  /** The advanced session's log with its distinct subtotal and, when honest, the physical difference. */
+  protected readonly shuttleSection = computed(() => {
+    const s = this.summary();
+    if (!s?.shuttleLog || !s.shuttleAccounting) return null;
+    const a = s.shuttleAccounting;
+    const physical = s.session.shuttleCount;
+    const complete = a.unknownFinishedMatches === 0 && a.finishedMatches > 0;
+    return {
+      rows: s.shuttleLog,
+      ...a,
+      physical,
+      difference: complete && physical !== null ? physical - a.recordedFinishedShuttles : null,
+    };
+  });
+
+  protected signed(n: number): string {
+    return n > 0 ? `+${n}` : `${n}`;
+  }
+
+  protected rowLabel(row: ShuttleLogRow): string {
+    return $localize`:@@summary.shuttleRowLabel:คอร์ท ${this.courtName(row.courtNumber)}:court: · แมตช์ ${row.matchNumber}:match:`;
+  }
+
+  private readonly correctionDialog = viewChild<ShuttleCorrectionDialog>('correctionDialog');
+  protected readonly correctingRow = signal<ShuttleLogRow | null>(null);
+  protected readonly correctionSaving = signal(false);
+  protected readonly correctionError = signal<string | null>(null);
+
+  protected readonly correctionShuttles = computed(() =>
+    (this.inventory()?.identities ?? []).filter((i) => !i.voided)
+  );
+  protected readonly correctionInitialIds = computed(() => {
+    const row = this.correctingRow();
+    if (!row) return [];
+    return this.inventory()?.games.find((g) => g.pairingId === row.pairingId)?.shuttleIds ?? [];
+  });
+
+  protected openCorrection(row: ShuttleLogRow): void {
+    this.correctingRow.set(row);
+    this.correctionError.set(null);
+    this.correctionDialog()?.open();
+  }
+
+  /**
+   * Sends the correction with the revision this page last read. Whatever the
+   * outcome the summary and inventory are re-read, so a stale write shows the
+   * server's truth instead of an unsaved guess.
+   */
+  protected async saveCorrection(event: { shuttleIds: string[]; openNew: boolean }): Promise<void> {
+    const row = this.correctingRow();
+    const revision = this.inventory()?.games.find((g) => g.pairingId === row?.pairingId)?.revision;
+    if (!row || revision === undefined || this.correctionSaving()) return;
+    this.correctionSaving.set(true);
+    this.correctionError.set(null);
+    try {
+      await firstValueFrom(
+        this.http.post(
+          `${environment.apiBaseUrl}/sessions/${this.sessionCode}/pairings/${row.pairingId}/shuttles/correct`,
+          { ...event, expectedRevision: revision }
+        )
+      );
+      this.correctionDialog()?.close();
+    } catch (err) {
+      const code = err instanceof HttpErrorResponse && typeof err.error?.code === 'string' ? err.error.code : null;
+      this.correctionError.set(
+        code === 'PAIRING_STALE'
+          ? $localize`:@@summary.correctionStale:ข้อมูลถูกแก้ไขจากอุปกรณ์อื่นแล้ว กรุณาลองใหม่อีกครั้ง`
+          : code === 'SHUTTLE_NOT_FOUND'
+            ? $localize`:@@summary.correctionNotFound:ไม่พบลูกแบดลูกนี้ อาจถูกลบไปแล้ว`
+            : $localize`:@@summary.correctionFailed:บันทึกไม่สำเร็จ ลองอีกครั้ง`
+      );
+    } finally {
+      this.correctionSaving.set(false);
+      this.summaryResource.reload();
+      void this.loadInventory();
+    }
+  }
+
   // ---- shuttle count / price editor ----
   //
   // This page is otherwise entirely `httpResource` GETs with no
@@ -190,7 +293,11 @@ export class SessionSummary {
 
   constructor(route: ActivatedRoute) {
     const auth = inject(AuthService);
-    void auth.check().then((authed) => this.isHost.set(authed));
+    void auth.check().then((authed) => {
+      this.isHost.set(authed);
+      // Ownership is proven by the inventory read, not by being logged in.
+      if (authed) void this.loadInventory();
+    });
 
     this.sessionCode = route.snapshot.paramMap.get('sessionCode')!;
     this.summaryResource = httpResource<Summary>(

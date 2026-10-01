@@ -1,3 +1,5 @@
+import type { ShuttleRef } from './shuttle.model';
+
 export interface SessionMatch {
   matchNumber: number;
   courtNumber: number;
@@ -32,6 +34,14 @@ export interface PlayerSessionStat {
   matches: SessionMatch[];
 }
 
+/** One finished game's shuttle log row. `shuttles` null = unknown (never recorded); [] = recorded as none. */
+export interface ShuttleLogRow {
+  pairingId: string;
+  courtNumber: number;
+  matchNumber: number;
+  shuttles: ShuttleRef[] | null;
+}
+
 export interface SessionSummary {
   session: {
     code: string;
@@ -48,4 +58,12 @@ export interface SessionSummary {
     courtLabels: (string | null)[];
   };
   players: PlayerSessionStat[];
+  /** Advanced (shuttle-tracking) sessions only: read-only, chronological, one row per finished game. */
+  shuttleLog?: ShuttleLogRow[];
+  /** Advanced sessions only: distinct shuttles across known logs, and how many finished games have no record. */
+  shuttleAccounting?: {
+    recordedFinishedShuttles: number;
+    unknownFinishedMatches: number;
+    finishedMatches: number;
+  };
 }

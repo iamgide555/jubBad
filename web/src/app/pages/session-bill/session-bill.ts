@@ -150,9 +150,33 @@ export class SessionBill {
     }
   }
 
+  /**
+   * The shuttle-accounting panel for a session that tracked shuttles: what
+   * was billed, where it came from, and — only when every finished game has a
+   * recorded log and at least one is finished — how the physical count differs.
+   */
+  protected readonly shuttlePanel = computed(() => {
+    const b = this.bill();
+    if (!b || !b.session.shuttleToolsEnabled) return null;
+    const a = b.accounting;
+    const complete = a.unknownFinishedMatches === 0 && a.finishedMatches > 0;
+    return {
+      ...a,
+      difference: complete && a.physicalCount !== null ? a.physicalCount - a.recordedFinishedShuttles : null,
+      fallback:
+        a.allocation === 'legacy-unknown' ? ('unknown' as const) : a.allocation === 'legacy-no-uses' ? ('no-uses' as const) : null,
+    };
+  });
+
+  protected signed(n: number): string {
+    return n > 0 ? `+${n}` : `${n}`;
+  }
+
   protected async copy(): Promise<void> {
     const b = this.bill();
-    if (!b) return;
+    // Checked again here, not only on the button: nothing may reach the
+    // clipboard, or the fallback text box, while a required input is missing.
+    if (!b || !b.readyToCopy) return;
     const text = buildBillText(b);
     this.clipboardFallback.set(null);
     if (await copyToClipboard(text)) {

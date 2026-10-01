@@ -119,6 +119,37 @@
       </div>
     </section>
 
+    @if (shuttlePanel(); as sp) {
+      <section class="notice-block shuttle-accounting">
+        <h2 class="label" i18n="@@bill.shuttleAccountingTitle">ลูกแบดที่คิดเงิน</h2>
+        @if (sp.effectiveCount !== null) {
+          <p>
+            <strong>{{ sp.effectiveCount }}</strong>
+            <ng-container i18n="@@bill.shuttleUnit">ลูก</ng-container>
+            @if (sp.source === 'physical') {
+              <span class="muted" i18n="@@bill.sourcePhysical">· นับจริง</span>
+            } @else {
+              <span class="muted" i18n="@@bill.sourceGames">· นับจากแมตช์ที่บันทึกไว้</span>
+            }
+          </p>
+        } @else {
+          <p class="warning" i18n="@@bill.sourceMissing">ยังนับลูกแบดไม่ได้ — ใส่จำนวนลูกที่ใช้จริง หรือบันทึกลูกที่ใช้ในแต่ละแมตช์ให้ครบ</p>
+        }
+        <p class="muted" i18n="@@bill.recordedSubtotal">บันทึกในแมตช์: {{ sp.recordedFinishedShuttles }} ลูก</p>
+        @if (sp.unknownFinishedMatches > 0) {
+          <p class="muted" i18n="@@bill.recordedPartial">ไม่ครบ — {{ sp.unknownFinishedMatches }} แมตช์ไม่ได้บันทึก</p>
+        }
+        @if (sp.difference !== null && sp.difference !== 0) {
+          <p class="muted" i18n="@@bill.difference">นับจริงต่างจากที่บันทึก {{ signed(sp.difference) }} ลูก</p>
+        }
+        @if (sp.fallback === 'unknown') {
+          <p class="hint" i18n="@@bill.fallbackUnknown">มีแมตช์ที่ไม่ได้บันทึกลูกแบด จึงหารค่าลูกเท่ากันทุกแมตช์</p>
+        } @else if (sp.fallback === 'no-uses') {
+          <p class="hint" i18n="@@bill.fallbackNoUses">แมตช์เหล่านี้ไม่ได้บันทึกลูกแบดที่ใช้ จึงหารค่าลูกเท่ากันทุกแมตช์</p>
+        }
+      </section>
+    }
+
     @if (b.result.warnings.length > 0) {
       <div class="notice-block" role="status">
         @for (w of b.result.warnings; track w) {
@@ -155,7 +186,9 @@
                   }
                 </span>
               </span>
-              <span class="amount">{{ baht(r.amountSatang) }}฿</span>
+              @if (b.readyToCopy) {
+                <span class="amount">{{ baht(r.amountSatang) }}฿</span>
+              }
               <app-icon name="chevron" [size]="18" class="disclosure" />
             </summary>
             <div class="row-detail">
@@ -203,12 +236,16 @@
 
     <div class="bill-footer">
       <div class="bill-footer-total">
-        <span class="total"><span i18n="@@bill.total">รวม</span> {{ baht(b.result.totals.collectedSatang) }}฿</span>
-        @if (b.result.totals.marginSatang !== null) {
-          <span class="margin" i18n="@@bill.margin">ต้นทุน {{ baht(b.result.totals.costSatang!) }}฿ · ส่วนต่าง {{ baht(b.result.totals.marginSatang) }}฿ (เห็นเฉพาะผู้จัด)</span>
+        @if (b.readyToCopy) {
+          <span class="total"><span i18n="@@bill.total">รวม</span> {{ baht(b.result.totals.collectedSatang) }}฿</span>
+          @if (b.result.totals.marginSatang !== null) {
+            <span class="margin" i18n="@@bill.margin">ต้นทุน {{ baht(b.result.totals.costSatang!) }}฿ · ส่วนต่าง {{ baht(b.result.totals.marginSatang) }}฿ (เห็นเฉพาะผู้จัด)</span>
+          }
+        } @else {
+          <span class="bill-blocked" role="status" i18n="@@bill.notReady">ยังคัดลอกไม่ได้ — ใส่ข้อมูลที่ขาดให้ครบก่อน แล้วจะเห็นยอดของแต่ละคน</span>
         }
       </div>
-      <button type="button" class="primary" (click)="copy()">
+      <button type="button" class="primary" [disabled]="!b.readyToCopy" (click)="copy()">
         <app-icon name="copy" [size]="18" />
         @if (copied()) { <ng-container i18n="@@bill.copied">คัดลอกแล้ว</ng-container> }
         @else { <ng-container i18n="@@bill.copy">คัดลอกข้อความ</ng-container> }

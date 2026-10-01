@@ -776,6 +776,74 @@ unlike almost every other session mutation — stay reachable after the
 session has ended, since a host normally sits down to bill only once the
 night is actually over.
 
+### Numbered shuttles (host feedback D)
+
+An opt-in, per-group advanced tool (`Group.shuttleToolsEnabled`, default off,
+owner-editable on the group page). The switch is **snapshotted onto each
+session at creation** (`Session.shuttleToolsEnabled`): flipping it later only
+affects future sessions, and a session that started with it on keeps its
+tracking even if the group turns it off. An ordinary session keeps the old
+end-of-night flow exactly — one physical count and price, an equal-per-match
+`byGames` split — and refuses every shuttle write with
+`SHUTTLE_TRACKING_DISABLED`. The same switch will gate E's early checkout.
+
+**What it models.** A `SessionShuttle` is one physical shuttle: a monotonic
+display number, unique within the session and **never reassigned**, even when
+the identity is voided as a mistake (`voidedAt` is a logical delete), plus a
+`usable` flag (retired shuttles stay in history and can be restored). A game
+links to the shuttles it used through `PairingShuttleUse` (unique per
+pairing/shuttle: going back to the same shuttle within one game is one use).
+`Pairing.shuttleLogKnown` separates a legacy or ordinary game, whose use is
+**unknown** and never backfilled, from an advanced game recorded as using
+**none** (known, zero). `Pairing.lastShuttleId` is the shuttle in hand while
+the match is active, and the court's next-game suggestion afterwards.
+
+**Lifecycle.** Confirming an advanced game requires a choice — reuse the
+court's last idle shuttle, open a new one, or take another idle shuttle — and
+it is written in **one transaction** with the confirmation, so a stale confirm
+leaves no orphan identity. The 60-second auto-confirm cannot ask: it reuses
+the court's last shuttle if it is still usable and idle, otherwise opens a new
+one, under the same session lock (two courts can never be handed the same
+shuttle or number). A shuttle can be current on only one active court.
+Finish keeps the log. Undo of a confirmation clears the game's log but leaves
+the physically opened shuttle in the inventory (so the next new one is
+numbered past it); undo of a finish restores the log and re-holds the last
+shuttle only if it is still usable and idle. Live switching, retiring,
+restoring, voiding and corrections are owner-only, serialized and guarded by
+`Pairing.revision`, so a late winner tap and a switch cannot both land. A
+finished game's shuttle set can be corrected even after the session ends, and
+may name a shuttle that has since been retired (it really was played); only
+*live* selection requires usable and idle.
+
+**Totals are derived on every read, never stored.** The distinct-used count
+is the number of distinct shuttles across the known logs of confirmed,
+finished games — a shuttle reused ten times counts once; unknown games are
+counted separately and make the subtotal partial; "nothing finished yet" is
+reported as such, never as a complete zero. `Session.shuttleCount` stays the
+host's independent physical nightly count: it is never a sum of game logs and
+a game edit never rewrites it.
+
+**Billing.** For a shuttle-billing model (fair, or buffet without shuttles
+included) on an advanced session, the billed count is the physical count if
+set, otherwise the distinct count from a *complete* log of at least one
+finished game (a known-empty game is an honest zero; an empty or partly
+unknown night is "missing" and blocks copying). `byGames` then shares the one
+effective total across **distinct shuttles, then the games that used each,
+then each game's players** — a shuttle used in two games is paid for once.
+Any unknown game (or known games that reference nothing against a positive
+cost) falls back to the old equal-per-match split for the whole session,
+never a mix, and the bill says which path ran. The bill read comes from a
+single snapshot, so a correction landing mid-read cannot pair old uses with a
+new count. `readyToCopy` is false while a required input for the model is
+missing (provisional zero-based rows still exist internally); the UI then
+hides per-person amounts and the copy button refuses, and `copy()` re-checks.
+Explicit zeroes are complete.
+
+**Group switch for history scope.** `Group.crossSessionHistory` (default off,
+snapshotted per session the same way) decides whether partner/opponent
+history spans every session the group has played or only the current one —
+see "Pairing" above.
+
 ## Current state
 
 Everything described above is built: the three engines, the API, the Angular

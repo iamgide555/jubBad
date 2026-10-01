@@ -266,7 +266,7 @@ describe('SessionsController (bill)', () => {
         await n.game([4, 5, 6, 7], 2, [one]);
         await n.saveConfig();
         const b = await n.bill();
-        expect(b.accounting).toMatchObject({ recordedFinishedShuttles: 1, unknownFinishedMatches: 0, physicalCount: null, effectiveCount: 1, source: 'games', allocation: 'identities' });
+        expect(b.accounting).toMatchObject({ recordedFinishedShuttles: 1, unknownFinishedMatches: 0, finishedMatches: 2, physicalCount: null, effectiveCount: 1, source: 'games', allocation: 'identities' });
         expect(shuttleSum(b)).toBe(1000);
         expect(b.readyToCopy).toBe(true);
       } finally {
@@ -311,6 +311,7 @@ describe('SessionsController (bill)', () => {
         await empty.saveConfig();
         const eb = await empty.bill();
         expect(eb.accounting.source).toBe('missing');
+        expect(eb.accounting.finishedMatches).toBe(0);
         expect(eb.result.warnings).toContain('MISSING_SHUTTLE_COUNT');
         expect(eb.readyToCopy).toBe(false);
 

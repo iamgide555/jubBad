@@ -8,7 +8,7 @@ const row = (playerId: string, games: number, amountSatang: number, walkIn = fal
 
 function bill(overrides: Partial<BillResponse['config']> = {}): BillResponse {
   return {
-    session: { code: 's', date: 'อ. 22 ก.ย.', venue: 'สนาม A', endedAt: null, shuttleCount: 18, shuttlePriceSatang: 8500 },
+    session: { code: 's', date: 'อ. 22 ก.ย.', venue: 'สนาม A', endedAt: null, shuttleCount: 18, shuttlePriceSatang: 8500, shuttleToolsEnabled: false },
     config: {
       model: 'fair', courtFeeSatang: 144000, courtSplit: 'equal', shuttleSplit: 'byGames', perGameRateSatang: 0,
       entryFeeSatang: 0, capSatang: null, buffetPriceSatang: 0, buffetShuttlesIncluded: true, hostFeeSatang: 1000,
@@ -24,6 +24,8 @@ function bill(overrides: Partial<BillResponse['config']> = {}): BillResponse {
       totals: { collectedSatang: 43500, costSatang: null, marginSatang: null, billedCount: 2, walkInCount: 1 },
       warnings: [],
     },
+    accounting: { recordedFinishedShuttles: 0, unknownFinishedMatches: 0, finishedMatches: 0, physicalCount: 18, effectiveCount: 18, source: 'ordinary', allocation: 'legacy-basic' },
+    readyToCopy: true,
   };
 }
 
@@ -84,5 +86,12 @@ describe('buildBillText', () => {
     const text = buildBillText(b);
     expect(text.split('\n')[0]).toBe('💰 ค่าก๊วน อ. 22 ก.ย.');
     expect(text).not.toContain('บอย');
+  });
+
+  it('quotes the shuttle count actually billed, not the raw physical field', () => {
+    const b = bill();
+    b.session.shuttleCount = null;
+    b.accounting = { ...b.accounting, source: 'games', effectiveCount: 7, physicalCount: null, recordedFinishedShuttles: 7 };
+    expect(buildBillText(b)).toContain('ค่าลูก 7 ลูก × 85฿');
   });
 });

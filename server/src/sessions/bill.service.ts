@@ -1,9 +1,9 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service.js';
-import { computeBill, DEFAULT_BILL_CONFIG, type BillConfig, type BillResult, type ShuttleAllocation } from '../../../engines/bill.ts';
+import { computeBill, type BillConfig, type BillResult, type ShuttleAllocation } from '../../../engines/bill.ts';
 import { deriveShuttleAccounting } from './shuttle-tracking.js';
-import { parseBillConfig, sanitizeForRoster, serializeBillConfig, withoutPerPerson } from './bill-config.js';
-import { teamPlayers } from './pairing-teams.js';
+import { serializeBillConfig } from './bill-config.js';
+import { engineMatches, loadBillSnapshot } from './bill-snapshot.js';
 import type { SetBillConfigDto } from './dto/set-bill-config.dto.js';
 
 export interface BillResponse {
@@ -55,65 +55,13 @@ export class BillService {
     // One read transaction: the session (with its physical count and price),
     // the finished games and their shuttle uses come from a single snapshot, so
     // a correction landing mid-read can never pair old uses with a new count.
-    const snapshot = await this.prisma.$transaction(async (tx) => {
-      const session = await tx.session.findUnique({
-        where: { code },
-        include: { roster: { include: { player: { select: { name: true } } } } },
-      });
-      if (!session) throw new NotFoundException({ code: 'SESSION_NOT_FOUND' });
-      // Prefill from the newest earlier config this session may use: an ordinary
-      // session never inherits an advanced session's perShuttle model, so the
-      // search walks back past those rather than stopping at the latest.
-      const earlier = session.billConfig
-        ? []
-        : await tx.session.findMany({
-            where: { groupId: session.groupId, code: { not: code }, billConfig: { not: null }, createdAt: { lt: session.createdAt } },
-            orderBy: { createdAt: 'desc' },
-            select: { billConfig: true },
-          });
-      const previous =
-        earlier.find((e) => session.shuttleToolsEnabled || parseBillConfig(e.billConfig)?.model !== 'perShuttle') ?? null;
-      const pairings = await tx.pairing.findMany({
-        where: { sessionId: code, confirmedAt: { not: null }, endedAt: { not: null } },
-        orderBy: [{ courtNumber: 'asc' }, { matchNumber: 'asc' }],
-      });
-      const [identities, uses] = session.shuttleToolsEnabled
-        ? await Promise.all([
-            tx.sessionShuttle.findMany({ where: { sessionId: code } }),
-            tx.pairingShuttleUse.findMany({ where: { pairing: { sessionId: code } } }),
-          ])
-        : [[], []];
-      return { session, previous, pairings, identities, uses };
-    });
-    const { session, previous, pairings, identities, uses } = snapshot;
-    const rosterIds = session.roster.map((r) => r.playerId);
-
-    let config = parseBillConfig(session.billConfig);
-    let configSource: BillResponse['configSource'] = 'saved';
-    if (config === null) {
-      const prev = parseBillConfig(previous?.billConfig ?? null);
-      config = prev ? withoutPerPerson(prev) : DEFAULT_BILL_CONFIG;
-      configSource = prev ? 'previous' : 'default';
-    }
-    config = sanitizeForRoster(config, rosterIds);
+    const snapshot = await this.prisma.$transaction((tx) => loadBillSnapshot(tx, code));
+    const { session, config, configSource, pairings, identities, uses } = snapshot;
 
     const advanced = session.shuttleToolsEnabled;
-    // Engine ids are opaque; zero-padded display numbers sort in number order,
-    // so the engine's stable remainders follow shuttle numbering.
-    const keyOf = new Map(identities.map((sh) => [sh.id, `n${String(sh.number).padStart(6, '0')}`]));
     const usesByPairing = new Map<string, string[]>();
     for (const u of uses) usesByPairing.set(u.pairingId, [...(usesByPairing.get(u.pairingId) ?? []), u.shuttleId]);
-
-    const matches = pairings.map((p) => ({
-      players: teamPlayers(p),
-      ...(advanced
-        ? {
-            shuttleIds: p.shuttleLogKnown
-              ? (usesByPairing.get(p.id) ?? []).map((id) => keyOf.get(id) ?? id).sort()
-              : null,
-          }
-        : {}),
-    }));
+    const matches = engineMatches(snapshot);
 
     const physicalCount = session.shuttleCount;
     let effectiveCount: number | null = physicalCount;

@@ -67,6 +67,7 @@ import {
   seatedPlayers,
   type Seat,
 } from './pairing-teams.js';
+import { GroupLevelsService } from '../groups/group-levels.service.js';
 import { SessionLock } from './session-lock.js';
 import type { AddWalkInDto } from './dto/add-walk-in.dto.js';
 import type { CreateSessionDto, NameReviewDto } from './dto/create-session.dto.js';
@@ -120,7 +121,10 @@ const CROSS_SESSION_HISTORY = false;
 export class SessionsService {
   private readonly lock = new SessionLock();
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly groupLevels: GroupLevelsService
+  ) {}
 
   private badRequest(code: string): BadRequestException {
     return new BadRequestException({ code });
@@ -411,7 +415,15 @@ export class SessionsService {
     if (dto.date != null && !isValidIsoDate(dto.date)) {
       throw new BadRequestException('Session date must be a valid ISO calendar date.');
     }
+    // Under the group's lock: a ladder save checks "no open session" inside the same
+    // lock, so a session can never appear between its guard and its commit.
+    return this.groupLevels.withGroupLock(dto.groupCode, () => this.createSessionExclusively(dto, caller));
+  }
 
+  private async createSessionExclusively(
+    dto: CreateSessionDto,
+    caller: { id: string; role: string }
+  ): Promise<{ code: string }> {
     try {
       return await this.prisma.$transaction(async (tx) => {
         const prior = await tx.sessionCreation.findUnique({

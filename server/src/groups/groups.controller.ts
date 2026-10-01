@@ -1,5 +1,7 @@
 import { Body, Controller, Delete, Get, Param, Post, Put, Req } from '@nestjs/common';
 import { GroupsService } from './groups.service.js';
+import { GroupLevelsService } from './group-levels.service.js';
+import { SaveGroupLevelsDto } from './dto/save-group-levels.dto.js';
 import { Public } from '../auth/public.decorator.js';
 import type { AuthenticatedRequest } from '../auth/auth.guard.js';
 import { UpdateGroupDto } from './dto/update-group.dto.js';
@@ -10,7 +12,21 @@ import { SetPlayerRuleDto, SetPlayerRuleKindDto } from './dto/set-player-rule.dt
 
 @Controller('groups')
 export class GroupsController {
-  constructor(private readonly groupsService: GroupsService) {}
+  constructor(
+    private readonly groupsService: GroupsService,
+    private readonly groupLevels: GroupLevelsService
+  ) {}
+
+  /** Owner-only (no @Public): the ladder and its seeds are host-only. */
+  @Get(':code/levels')
+  getLevels(@Param('code') code: string) {
+    return this.groupLevels.get(code);
+  }
+
+  @Put(':code/levels')
+  saveLevels(@Param('code') code: string, @Body() dto: SaveGroupLevelsDto) {
+    return this.groupLevels.save(code, dto);
+  }
 
   /**
    * The admin's home page. Deliberately NOT public: it is the only endpoint in

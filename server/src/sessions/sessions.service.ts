@@ -109,6 +109,13 @@ export const AUTO_CONFIRM_WALK_ON_MS = 30_000;
 
 type FillBlocked = { courtNumber: number; ruleIds: string[] };
 
+/**
+ * Whether partner/opponent counts span every session the group has played
+ * (true) or just the current one (false). Hardcoded off; becomes a per-group
+ * setting with the advanced options (see the reusable-shuttles plan).
+ */
+const CROSS_SESSION_HISTORY = false;
+
 @Injectable()
 export class SessionsService {
   private readonly lock = new SessionLock();
@@ -673,18 +680,23 @@ export class SessionsService {
   }
 
   /**
-   * Partner/opponent counts come from every session this group has ever
-   * played; games-played comes from this session alone. See the note on
-   * `deriveHistory`, and docs/overview.md, "How the engines think — Pairing".
+   * Partner/opponent counts and games-played both come from this session
+   * alone: players do not remember last week's partners, and all-time counts
+   * made a newcomer (zero history with everyone) look like the freshest
+   * partner for every regular. `CROSS_SESSION_HISTORY` is the hardcoded-off
+   * seam for the planned per-group toggle. See the note on `deriveHistory`,
+   * and docs/overview.md, "How the engines think — Pairing".
    */
   private async loadHistory(groupCode: string, sessionCode: string) {
     const toPairing = (p: { teamA: string; teamB: string }) => this.teamsOf(p);
 
     const [allTime, thisSession, roster, session, finished] = await Promise.all([
-      this.prisma.pairing.findMany({
-        where: { session: { groupId: groupCode }, confirmedAt: { not: null } },
-        select: { teamA: true, teamB: true },
-      }),
+      CROSS_SESSION_HISTORY
+        ? this.prisma.pairing.findMany({
+            where: { session: { groupId: groupCode }, confirmedAt: { not: null } },
+            select: { teamA: true, teamB: true },
+          })
+        : Promise.resolve(null),
       this.prisma.pairing.findMany({
         where: { sessionId: sessionCode, confirmedAt: { not: null } },
         select: { teamA: true, teamB: true },
@@ -704,7 +716,7 @@ export class SessionsService {
       }),
     ]);
 
-    const history = deriveHistory(allTime.map(toPairing), thisSession.map(toPairing));
+    const history = deriveHistory((allTime ?? thisSession).map(toPairing), thisSession.map(toPairing));
 
     // Rotation fairness only. The offset credits a player who joined part-way
     // through with the games they were not here for, so they queue alongside
@@ -2689,8 +2701,8 @@ export class SessionsService {
 
     // Every read that can throw (the duplicate check, loadHistory, the roster
     // scan above) happens before any write. loadHistory in particular can
-    // surface a corrupt confirmed pairing anywhere in the group's entire
-    // history, not just tonight's session — so the Player create below must
+    // surface a corrupt confirmed pairing in tonight's session (or, with
+    // CROSS_SESSION_HISTORY on, anywhere in the group's history) — so the Player create below must
     // not happen until we know we're past that risk. When it's a brand-new
     // player, the Player row and its SessionRoster row are written together
     // in one transaction (same precedent as `createSession`) so a failure

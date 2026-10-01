@@ -752,7 +752,7 @@ describe('SessionsController', () => {
     }
   });
 
-  it('avoids partners who were paired in an earlier session of the same group', async () => {
+  it('ignores partners paired in an earlier session of the same group', async () => {
     const groupCode = randomUUID();
     const oldSessionCode = randomUUID();
     const sessionCode = randomUUID();
@@ -771,8 +771,9 @@ describe('SessionsController', () => {
         endedAt: new Date(),
       },
     });
-    // Two of the three possible splits of {A,B,C,D} are used up last week, so
-    // the only split with no repeat partner is A+D vs B+C.
+    // Two of the three possible splits of {A,B,C,D} were used last week. With
+    // all-time history the only non-repeat split would be A+D vs B+C; players
+    // do not remember last week, so that must no longer steer tonight.
     for (const [i, [teamA, teamB]] of [
       [
         [a.id, b.id],
@@ -803,20 +804,22 @@ describe('SessionsController', () => {
     }
 
     try {
-      const expected = [[a.id, d.id].sort().join('|'), [b.id, c.id].sort().join('|')].sort();
-      // Repeated because with no cross-session history the engine picks one of
-      // three splits at random — a single round would pass by luck.
-      for (let i = 0; i < 8; i++) {
+      const seen = new Set<string>();
+      // With no history in play the engine picks one of three splits at
+      // random. If last week still steered it, only A+D vs B+C would ever
+      // appear; 30 rounds all landing on it by chance is (1/3)^30.
+      for (let i = 0; i < 30; i++) {
         const res = await request(server)
           .post(`/sessions/${sessionCode}/courts/1/propose`)
           .expect(201);
         expect(res.body.ok).toBe(true);
         const { teamA, teamB } = res.body.pairing as { teamA: string[]; teamB: string[] };
-        expect([[...teamA].sort().join('|'), [...teamB].sort().join('|')].sort()).toEqual(expected);
+        seen.add([[...teamA].sort().join('|'), [...teamB].sort().join('|')].sort().join('/'));
         // Clear the pending row so the next call is a fresh propose rather
         // than a reshuffle (which deliberately avoids repeating the split).
         await prisma.pairing.deleteMany({ where: { sessionId: sessionCode } });
       }
+      expect(seen.size).toBeGreaterThan(1);
     } finally {
       await prisma.pairing.deleteMany({ where: { sessionId: { in: [sessionCode, oldSessionCode] } } });
       await prisma.sessionRoster.deleteMany({ where: { sessionId: sessionCode } });

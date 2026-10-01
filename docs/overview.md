@@ -256,9 +256,7 @@ grows. Be clear about what that does: every arrangement contains the same
 number of partner and opponent pairs, so subtracting one constant shifts every
 candidate equally and never changes which one wins. It keeps the *diagnostic*
 score and the balanced-mode trade (one repeat partnership ≈ five rating points)
-readable; it does not steer anything. The raw counts are all-time totals, so
-two regulars who attend more often than the rest accumulate partner history
-from attendance alone — open, see the gaps list in the roadmap doc.
+readable; it does not steer anything.
 
 **Repeat-partner avoidance is the primary goal; opponent balancing is a
 secondary soft signal.** In variety mode the two are compared

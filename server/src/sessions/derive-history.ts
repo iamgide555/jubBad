@@ -7,10 +7,11 @@ export interface ConfirmedPairing {
 }
 
 /**
- * The two scopes are deliberately different: partner and opponent counts are
- * all-time across the group's sessions, so variety is spread over the group's
- * whole life; games-played is this session only, so sit-out rotation is fair
- * within tonight and not carried over from weeks ago.
+ * Partner and opponent counts come from `allTimePairings`; games-played from
+ * `thisSessionPairings`. The caller picks the scope: today it passes this
+ * session's pairings for both (players do not remember last week's partners),
+ * and passes the group's whole history for the first argument only when the
+ * cross-session option is on.
  * See docs/overview.md, "How the engines think — Pairing".
  *
  * Partner counts come from every within-team pair — none for a 1-player

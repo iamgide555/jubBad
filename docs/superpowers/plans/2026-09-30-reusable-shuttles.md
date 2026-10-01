@@ -39,6 +39,8 @@
 
 ### Task 1: Opt-in setting and session snapshot
 
+> **Also fold in (2026-10-01):** partner/opponent history is now this-session-only, hardcoded via `CROSS_SESSION_HISTORY = false` in `server/src/sessions/sessions.service.ts` (`loadHistory`). When building the advanced options, replace that constant with a per-group `crossSessionHistory` flag, default `false`, snapshotted as `Session.crossSessionHistory` on create (same pattern as `shuttleToolsEnabled`, but a separate flag, not tied to shuttle tools). `true` restores the all-time history query. Add a switch beside the shuttle one in Task 8's group settings, and a test per polarity (off: last week's partners ignored; on: all-time).
+
 **Files:** Modify `server/prisma/schema.prisma`, `server/src/groups/groups.{controller,service}.ts`, `server/src/groups/groups.controller.spec.ts`, `server/src/sessions/sessions.service.ts`, `server/src/sessions/sessions.controller.spec.ts`; create `server/src/groups/dto/set-shuttle-tools.dto.ts`, Prisma migration `server/prisma/migrations/<generated>_shuttle_tools_opt_in/migration.sql`.
 
 **Interfaces:** Produce `Group.shuttleToolsEnabled Boolean @default(false)` and `Session.shuttleToolsEnabled Boolean @default(false)`. Owner-only `GET /groups/:code/shuttle-tools` returns `{enabled:boolean}`; `POST /groups/:code/shuttle-tools` accepts `{enabled:boolean}` (a required boolean). `SessionsService.createSession` copies the flag from the `Group` read **inside** its existing transaction; its idempotency lookup still returns the original session unchanged. Include both flags in group export and the session flag in public `GET /sessions/:code` for client gating.

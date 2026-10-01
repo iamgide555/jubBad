@@ -64,4 +64,13 @@
     <h1 i18n="@@dashboard.notFoundTitle">ไม่พบหน้านี้</h1>
     <p class="muted" i18n="@@dashboard.notFoundHint">ลิงก์อาจถูกปิดแล้ว ขอลิงก์ใหม่จากเจ้าของก๊วน</p>
   </div>
+} @else if (failed()) {
+  <div class="page load-failed">
+    <h1 i18n="@@dashboard.failedTitle">โหลดหน้านี้ไม่สำเร็จ</h1>
+    <p class="muted" i18n="@@dashboard.failedHint">ตรวจสัญญาณอินเทอร์เน็ตแล้วลองเปิดลิงก์อีกครั้ง</p>
+  </div>
+} @else {
+  <div class="page loading">
+    <p class="muted" role="status" i18n="@@dashboard.loading">กำลังโหลด...</p>
+  </div>
 }

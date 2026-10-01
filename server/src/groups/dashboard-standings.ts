@@ -9,6 +9,13 @@
 
 export const DASHBOARD_SESSION_LIMIT = 30;
 
+/**
+ * A session the host never ended would read "playing now" on the public page
+ * forever. Nobody plays for a day straight, so an unended session older than
+ * this is treated as finished for display (nothing in the database changes).
+ */
+export const LIVE_SESSION_MAX_AGE_MS = 24 * 60 * 60 * 1000;
+
 /** One confirmed match: the session it belongs to and everyone on court. */
 export interface DashboardMatch {
   sessionCode: string;
@@ -74,13 +81,15 @@ export function buildStandings(
 }
 
 /**
- * `sessions` must already be newest first. An ended session with no confirmed
+ * `sessions` must already be newest first. A finished session with no confirmed
  * match (created, never played) is dropped: it has nothing to show. A live
- * session is always kept, even before its first match is confirmed.
+ * session is always kept, even before its first match is confirmed. "Live"
+ * means not ended and recent (see LIVE_SESSION_MAX_AGE_MS).
  */
 export function buildSessionList(
   sessions: DashboardSessionInput[],
-  matches: DashboardMatch[]
+  matches: DashboardMatch[],
+  now: Date = new Date()
 ): DashboardSession[] {
   const matchCount = new Map<string, number>();
   const players = new Map<string, Set<string>>();
@@ -93,7 +102,7 @@ export function buildSessionList(
 
   const list: DashboardSession[] = [];
   for (const s of sessions) {
-    const live = s.endedAt === null;
+    const live = s.endedAt === null && now.getTime() - s.createdAt.getTime() < LIVE_SESSION_MAX_AGE_MS;
     const count = matchCount.get(s.code) ?? 0;
     if (!live && count === 0) continue;
     list.push({

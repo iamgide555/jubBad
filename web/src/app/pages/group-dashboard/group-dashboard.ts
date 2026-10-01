@@ -1,5 +1,5 @@
 import { Component, computed, inject } from '@angular/core';
-import { httpResource } from '@angular/common/http';
+import { HttpErrorResponse, httpResource } from '@angular/common/http';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { environment } from '../../../environments/environment';
 import type { Dashboard, DashboardSession } from '../../core/dashboard.model';
@@ -26,7 +26,12 @@ export class GroupDashboard {
   protected readonly dashboard = computed<Dashboard | undefined>(() =>
     this.resource.error() ? undefined : this.resource.value()
   );
-  protected readonly notFound = computed(() => this.resource.error() !== undefined);
+  /** Only a 404 means the link is gone. A 500, a deploy restart or no signal says nothing about the link. */
+  protected readonly notFound = computed(() => {
+    const error = this.resource.error();
+    return error instanceof HttpErrorResponse && error.status === 404;
+  });
+  protected readonly failed = computed(() => this.resource.error() !== undefined && !this.notFound());
 
   /** `date` is free text from the roster header and may be absent; the created day is the honest fallback. */
   protected dateLabel(s: DashboardSession): string {

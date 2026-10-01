@@ -37,6 +37,18 @@ page.
 - **Confirmed matches only.** A proposed match has not happened; same rule
   `GroupsService.listSessions` uses.
 
+- **Linked summaries are unchanged and still public** (found in the final
+  review). They carry win/loss, the group code and player ids. Accepted: the
+  audience is the LINE group that already got each summary pasted. The
+  dashboard's own "participation-only" claim covers the dashboard page, not the
+  pages it links to.
+- **"Live" is not just `endedAt = null`.** An unended session older than 24h is
+  displayed as finished, so a forgotten "end session" does not read "playing
+  now" forever.
+- **Web distinguishes a 404 (link gone) from any other load failure** and shows
+  a loading note, so a flaky connection never tells members the link was
+  turned off.
+
 ## Data model
 
 `Group.shareToken String? @unique`. One Prisma migration (nullable column plus

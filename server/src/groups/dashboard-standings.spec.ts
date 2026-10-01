@@ -89,7 +89,8 @@ describe('buildSessionList', () => {
         { code: 'never', ...base, createdAt: at('2026-09-02'), endedAt: at('2026-09-02') },
         { code: 'played', ...base, createdAt: at('2026-09-01'), endedAt: at('2026-09-01') },
       ],
-      [{ sessionCode: 'played', playerIds: ['a', 'b'] }]
+      [{ sessionCode: 'played', playerIds: ['a', 'b'] }],
+      at('2026-09-03T12:00:00Z')
     );
     expect(list.map((s) => [s.code, s.live])).toEqual([
       ['live', true],
@@ -108,5 +109,25 @@ describe('buildSessionList', () => {
     const list = buildSessionList(sessions, matches);
     expect(list).toHaveLength(DASHBOARD_SESSION_LIMIT);
     expect(list[0].code).toBe('s0');
+  });
+
+  it('stops calling a session live once it is a day old, even if the host never ended it', () => {
+    const now = at('2026-09-10T12:00:00Z');
+    const list = buildSessionList(
+      [
+        { code: 'tonight', ...base, createdAt: at('2026-09-10T09:00:00Z'), endedAt: null },
+        { code: 'forgotten', ...base, createdAt: at('2026-09-01T09:00:00Z'), endedAt: null },
+        { code: 'forgotten-empty', ...base, createdAt: at('2026-08-01T09:00:00Z'), endedAt: null },
+      ],
+      [
+        { sessionCode: 'tonight', playerIds: ['a'] },
+        { sessionCode: 'forgotten', playerIds: ['a'] },
+      ],
+      now
+    );
+    expect(list.map((s) => [s.code, s.live])).toEqual([
+      ['tonight', true],
+      ['forgotten', false],
+    ]);
   });
 });

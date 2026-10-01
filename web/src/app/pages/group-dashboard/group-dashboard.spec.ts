@@ -29,7 +29,7 @@ describe('GroupDashboard', () => {
   let fixture: ComponentFixture<GroupDashboard>;
   let httpMock: HttpTestingController;
 
-  async function load(body: Dashboard | null) {
+  async function open() {
     await TestBed.configureTestingModule({
       providers: [
         provideRouter([]),
@@ -41,12 +41,20 @@ describe('GroupDashboard', () => {
     httpMock = TestBed.inject(HttpTestingController);
     fixture = TestBed.createComponent(GroupDashboard);
     fixture.detectChanges();
-    const req = httpMock.expectOne(`${B}/dashboards/tok1`);
-    if (body) req.flush(body);
-    else req.flush('Not Found', { status: 404, statusText: 'Not Found' });
+    return httpMock.expectOne(`${B}/dashboards/tok1`);
+  }
+
+  async function settle() {
     await new Promise((r) => setTimeout(r, 0));
     TestBed.tick();
     fixture.detectChanges();
+  }
+
+  async function load(body: Dashboard | null) {
+    const req = await open();
+    if (body) req.flush(body);
+    else req.flush('Not Found', { status: 404, statusText: 'Not Found' });
+    await settle();
   }
 
   afterEach(() => httpMock.verify());
@@ -97,5 +105,29 @@ describe('GroupDashboard', () => {
     await load(null);
     expect(el().querySelector('.not-found')).not.toBeNull();
     expect(el().querySelector('.group-dashboard')).toBeNull();
+  });
+
+  it('shows a loading note, not a blank page, until the dashboard arrives', async () => {
+    const req = await open();
+    expect(el().querySelector('.loading')).not.toBeNull();
+    req.flush(dashboard());
+    await settle();
+    expect(el().querySelector('.loading')).toBeNull();
+  });
+
+  it('says it could not load, not that the link is gone, on a server error', async () => {
+    const req = await open();
+    req.flush('boom', { status: 500, statusText: 'Server Error' });
+    await settle();
+    expect(el().querySelector('.load-failed')).not.toBeNull();
+    expect(el().querySelector('.not-found')).toBeNull();
+  });
+
+  it('says it could not load when the phone is offline', async () => {
+    const req = await open();
+    req.error(new ProgressEvent('error'));
+    await settle();
+    expect(el().querySelector('.load-failed')).not.toBeNull();
+    expect(el().querySelector('.not-found')).toBeNull();
   });
 });

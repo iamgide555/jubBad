@@ -3735,6 +3735,18 @@
         <source>หยุดแชร์ไม่สำเร็จ ลองอีกครั้ง</source>
         <target>Couldn't stop sharing. Try again.</target>
       </trans-unit>
+      <trans-unit id="dashboard.failedTitle" datatype="html">
+        <source>โหลดหน้านี้ไม่สำเร็จ</source>
+        <target>Couldn't load this page</target>
+      </trans-unit>
+      <trans-unit id="dashboard.failedHint" datatype="html">
+        <source>ตรวจสัญญาณอินเทอร์เน็ตแล้วลองเปิดลิงก์อีกครั้ง</source>
+        <target>Check your connection and open the link again.</target>
+      </trans-unit>
+      <trans-unit id="dashboard.loading" datatype="html">
+        <source>กำลังโหลด...</source>
+        <target>Loading...</target>
+      </trans-unit>
     </body>
   </file>
 </xliff>

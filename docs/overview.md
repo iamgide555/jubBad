@@ -960,6 +960,20 @@ count, and a proposed match counts for nothing, the same rule as the archive.
 Standings are all-time, consistent with partner history; a recent-window toggle
 is deliberately not built until members ask for it.
 
+**The summaries it links to are the existing public pages, unchanged.** They
+carry per-player win/loss and the group code, and the summary payload includes
+player ids (the host-only copy-link button builds player-card URLs from them).
+So "participation-only" describes the dashboard page itself, not everything one
+tap away. Accepted on purpose: the audience is the LINE group that already
+received every summary pasted, so the dashboard adds convenience, not reach.
+What it does not give is revocation of anything already seen: a session
+summary link has no revoke, with or without this page. If that ever matters,
+the fix is a reduced public summary, not a change to the dashboard.
+
+A session the host never ended would read "playing now" forever, so an unended
+session older than a day is shown as finished (display only; nothing is
+written).
+
 The session list shows the newest 30. An ended session nobody played is left
 out; a live one is always shown and links to the public venue display.
 

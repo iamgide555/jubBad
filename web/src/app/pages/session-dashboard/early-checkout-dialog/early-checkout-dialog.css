@@ -83,7 +83,8 @@
 
 .model-picker {
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
+  flex-wrap: wrap;
   gap: var(--space-1);
   border: none;
   padding: 0;
@@ -92,6 +93,8 @@
 }
 
 .model-option {
+  flex: 1 1 6.5rem;
+  justify-content: center;
   display: flex;
   align-items: center;
   gap: var(--space-1);

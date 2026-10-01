@@ -3627,6 +3627,58 @@
         <source>ล้างระดับ</source>
         <target>Clear level</target>
       </trans-unit>
+      <trans-unit id="dashboard.unnamed" datatype="html">
+        <source>ก๊วนแบด</source>
+        <target>Badminton group</target>
+      </trans-unit>
+      <trans-unit id="dashboard.lastPlayed" datatype="html">
+        <source>เล่นล่าสุด</source>
+        <target>Last played</target>
+      </trans-unit>
+      <trans-unit id="dashboard.empty" datatype="html">
+        <source>ยังไม่มีก๊วนที่เล่น</source>
+        <target>No sessions played yet</target>
+      </trans-unit>
+      <trans-unit id="dashboard.sessions" datatype="html">
+        <source>ก๊วนที่ผ่านมา</source>
+        <target>Past sessions</target>
+      </trans-unit>
+      <trans-unit id="dashboard.people" datatype="html">
+        <source>คน</source>
+        <target>players</target>
+      </trans-unit>
+      <trans-unit id="dashboard.matches" datatype="html">
+        <source>แมตช์</source>
+        <target>matches</target>
+      </trans-unit>
+      <trans-unit id="dashboard.live" datatype="html">
+        <source>กำลังเล่น</source>
+        <target>Playing now</target>
+      </trans-unit>
+      <trans-unit id="dashboard.standings" datatype="html">
+        <source>ผู้เล่นที่มาบ่อย</source>
+        <target>Regular players</target>
+      </trans-unit>
+      <trans-unit id="dashboard.colName" datatype="html">
+        <source>ชื่อ</source>
+        <target>Name</target>
+      </trans-unit>
+      <trans-unit id="dashboard.colSessions" datatype="html">
+        <source>มา (ครั้ง)</source>
+        <target>Sessions</target>
+      </trans-unit>
+      <trans-unit id="dashboard.colGames" datatype="html">
+        <source>เล่น (เกม)</source>
+        <target>Games</target>
+      </trans-unit>
+      <trans-unit id="dashboard.notFoundTitle" datatype="html">
+        <source>ไม่พบหน้านี้</source>
+        <target>Page not found</target>
+      </trans-unit>
+      <trans-unit id="dashboard.notFoundHint" datatype="html">
+        <source>ลิงก์อาจถูกปิดแล้ว ขอลิงก์ใหม่จากเจ้าของก๊วน</source>
+        <target>The link may have been turned off. Ask the group owner for a new one.</target>
+      </trans-unit>
     </body>
   </file>
 </xliff>

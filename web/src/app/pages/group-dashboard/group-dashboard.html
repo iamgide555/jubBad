@@ -1,0 +1,67 @@
+@if (dashboard(); as d) {
+  <div class="page group-dashboard">
+    <h1>
+      @if (d.groupName) {
+        {{ d.groupName }}
+      } @else {
+        <ng-container i18n="@@dashboard.unnamed">ก๊วนแบด</ng-container>
+      }
+    </h1>
+    @if (d.lastSessionDate) {
+      <p class="muted">
+        <ng-container i18n="@@dashboard.lastPlayed">เล่นล่าสุด</ng-container>
+        {{ d.lastSessionDate }}
+      </p>
+    }
+
+    @if (d.sessions.length === 0) {
+      <p class="empty muted" i18n="@@dashboard.empty">ยังไม่มีก๊วนที่เล่น</p>
+    } @else {
+      <section aria-labelledby="dash-sessions">
+        <h2 id="dash-sessions" class="label" i18n="@@dashboard.sessions">ก๊วนที่ผ่านมา</h2>
+        <ul class="session-list">
+          @for (s of d.sessions; track s.code) {
+            <li>
+              <a [routerLink]="['/s', s.code, 'summary']">{{ dateLabel(s) }}</a>
+              @if (s.venue) { <span class="muted">· {{ s.venue }}</span> }
+              <span class="muted">· {{ s.playerCount }} <ng-container i18n="@@dashboard.people">คน</ng-container></span>
+              <span class="muted">· {{ s.matchCount }} <ng-container i18n="@@dashboard.matches">แมตช์</ng-container></span>
+              @if (s.live) {
+                <a class="live-tag" [routerLink]="['/s', s.code, 'display']" i18n="@@dashboard.live">กำลังเล่น</a>
+              }
+            </li>
+          }
+        </ul>
+      </section>
+
+      <section aria-labelledby="dash-standings">
+        <h2 id="dash-standings" class="label" i18n="@@dashboard.standings">ผู้เล่นที่มาบ่อย</h2>
+        <div class="table-scroll">
+          <table>
+            <thead>
+              <tr>
+                <th scope="col" i18n="@@dashboard.colName">ชื่อ</th>
+                <th scope="col" i18n="@@dashboard.colSessions">มา (ครั้ง)</th>
+                <th scope="col" i18n="@@dashboard.colGames">เล่น (เกม)</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (p of d.standings; track $index) {
+                <tr>
+                  <td>{{ p.name }}</td>
+                  <td>{{ p.sessionsAttended }}</td>
+                  <td>{{ p.gamesPlayed }}</td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      </section>
+    }
+  </div>
+} @else if (notFound()) {
+  <div class="page not-found">
+    <h1 i18n="@@dashboard.notFoundTitle">ไม่พบหน้านี้</h1>
+    <p class="muted" i18n="@@dashboard.notFoundHint">ลิงก์อาจถูกปิดแล้ว ขอลิงก์ใหม่จากเจ้าของก๊วน</p>
+  </div>
+}

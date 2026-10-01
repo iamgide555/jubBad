@@ -57,7 +57,17 @@ export const DEFAULT_BILL_CONFIG: BillConfig = {
 /** Every player id on court in one confirmed, finished match. */
 export interface BillMatch {
   players: string[];
+  /**
+   * The distinct shuttle identities this game used. Omitted for an ordinary
+   * (non-tracking) game; `null` for an advanced-session game whose use was
+   * never recorded; `[]` for one recorded as using none. Opaque ids: the
+   * engine only compares them, and orders them for stable remainders.
+   */
+  shuttleIds?: string[] | null;
 }
+
+/** How shuttle cost was shared — reported so a bill can explain a fallback. */
+export type ShuttleAllocation = 'legacy-basic' | 'legacy-unknown' | 'legacy-no-uses' | 'identities' | 'equal';
 
 export interface BillInput {
   config: BillConfig;
@@ -65,6 +75,12 @@ export interface BillInput {
   walkInIds: string[];
   shuttleCount: number | null;
   shuttlePriceSatang: number | null;
+  /**
+   * 'identities' shares one effective total over distinct shuttle ids, then
+   * over the games that used each, then over each game's players. Anything
+   * else (the default) keeps the pre-D equal-per-match split.
+   */
+  shuttleAllocation?: 'legacy' | 'identities';
 }
 
 export type BillWarning = 'MISSING_COURT_FEE' | 'MISSING_SHUTTLE_COUNT' | 'MISSING_SHUTTLE_PRICE';
@@ -99,6 +115,7 @@ export interface BillResult {
     walkInCount: number;
   };
   warnings: BillWarning[];
+  shuttleAllocation: ShuttleAllocation;
 }
 
 /** Largest-remainder equal split: sums to `total` exactly; extra satang go to the first entries. */
@@ -159,6 +176,7 @@ function validate(input: BillInput): void {
   for (const match of input.matches) {
     if (match.players.length === 0) throw new Error('bill: match with no players');
     assertUnique('match players', match.players);
+    if (match.shuttleIds) assertUnique('match shuttleIds', match.shuttleIds);
   }
 }
 
@@ -173,7 +191,8 @@ function costShares(
   participants: string[],
   billed: string[],
   games: Map<string, number>,
-  matches: BillMatch[]
+  matches: BillMatch[],
+  identities = false
 ): Map<string, number> {
   const raw = new Map(participants.map((id) => [id, 0]));
   if (participants.length === 0) return raw;
@@ -184,6 +203,22 @@ function costShares(
     splitByWeight(total, participants.map((id) => games.get(id) ?? 0)).forEach((v, i) =>
       raw.set(participants[i], v)
     );
+  } else if (identities) {
+    // One shuttle, one price: the effective total goes to each distinct
+    // identity, each identity's share to the games that used it, and each
+    // game's share to its players. Ids are sorted so remainders are stable.
+    const ids = [...new Set(matches.flatMap((match) => match.shuttleIds ?? []))].sort();
+    const perId = splitEqual(total, ids.length);
+    ids.forEach((shuttleId, k) => {
+      const using = matches.filter((match) => match.shuttleIds?.includes(shuttleId));
+      const perGame = splitEqual(perId[k], using.length);
+      using.forEach((match, g) => {
+        splitEqual(perGame[g], match.players.length).forEach((v, j) => {
+          const id = match.players[j];
+          raw.set(id, (raw.get(id) ?? 0) + v);
+        });
+      });
+    });
   } else {
     const perMatch = splitEqual(total, matches.length);
     matches.forEach((match, k) => {
@@ -251,12 +286,13 @@ export function computeBill(input: BillInput): BillResult {
   if (shuttlesBilled && shuttlePriceSatang === null) warnings.push('MISSING_SHUTTLE_PRICE');
 
   const shuttleTotal = (shuttleCount ?? 0) * (shuttlePriceSatang ?? 0);
+  const allocation = chooseShuttleAllocation(input, shuttlesBilled, shuttleTotal);
   const court =
     config.model === 'fair'
       ? costShares(config.courtFeeSatang ?? 0, config.courtSplit, 'court', participants, billed, games, matches)
       : new Map<string, number>();
   const shuttle = shuttlesBilled
-    ? costShares(shuttleTotal, config.shuttleSplit, 'shuttle', participants, billed, games, matches)
+    ? costShares(shuttleTotal, config.shuttleSplit, 'shuttle', participants, billed, games, matches, allocation === 'identities')
     : new Map<string, number>();
 
   const overrides = new Map(config.overrides.map((o) => [o.playerId, o.amountSatang]));
@@ -344,5 +380,22 @@ export function computeBill(input: BillInput): BillResult {
       walkInCount: eligibleWalkIns.length,
     },
     warnings,
+    shuttleAllocation: allocation,
   };
+}
+
+/**
+ * Which way the shuttle cost is shared. Identity sharing needs every game's
+ * log known and at least one referenced shuttle; otherwise the pre-D
+ * equal-per-match split stands for the WHOLE session — never a mix of guessed
+ * uses and known identities. A zero cost needs no fallback: every split of
+ * zero is zero.
+ */
+function chooseShuttleAllocation(input: BillInput, shuttlesBilled: boolean, shuttleTotal: number): ShuttleAllocation {
+  if (shuttlesBilled && input.config.shuttleSplit === 'equal') return 'equal';
+  if (!shuttlesBilled || input.shuttleAllocation !== 'identities') return 'legacy-basic';
+  if (input.matches.some((match) => !Array.isArray(match.shuttleIds))) return 'legacy-unknown';
+  const referenced = input.matches.some((match) => (match.shuttleIds ?? []).length > 0);
+  if (!referenced && shuttleTotal > 0) return 'legacy-no-uses';
+  return 'identities';
 }

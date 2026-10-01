@@ -3470,7 +3470,7 @@ export class SessionsService {
         shuttlePriceSatang: session.shuttlePriceSatang,
         courtLabels: parseCourtLabels(session.courtLabels),
       },
-      ...(shuttleSummary ?? {}),
+      ...shuttleSummary,
       players: [...played.entries()]
         .map(([playerId, count]) => {
           const formats = byFormat.get(playerId);

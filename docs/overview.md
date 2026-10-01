@@ -936,6 +936,33 @@ band and carry rules; a stored label the ladder lacks stops pairing with
 ladder JSON is `LEVEL_LADDER_CORRUPT`, never the built-in default. Built-in
 levels keep their definitions in the picker; custom names show alone.
 
+### Group dashboard
+
+Each group can publish one public page, `/d/:token`: past sessions (each
+linking to its existing summary) and all-time participation standings. The
+host creates the link once from the group page and pins it in LINE, so the
+summary no longer has to be pasted after every session.
+
+**The credential is a random `Group.shareToken`, not the group code.** A group
+code is chosen by the host ("pailin-thu") and is guessable; a public page keyed
+by it would expose any group's history to anyone who guessed the code. The token
+is created on demand, is idempotent (sharing twice returns the same link, so a
+double-tap cannot break the pinned one) and revocable (stopping the share 404s
+the link at once; sharing again mints a different token). Deleting the group
+deletes the token with it.
+
+**Standings are participation-only: sessions attended, then games played.**
+No rating, level or win/loss appears and names do not link to the player card.
+A public ranked skill list would put the weakest players in front of the whole
+chat; levels are host-only for the same reason (see Ratings). "Attended" means
+in at least one *confirmed* match that session, so a rostered no-show does not
+count, and a proposed match counts for nothing, the same rule as the archive.
+Standings are all-time, consistent with partner history; a recent-window toggle
+is deliberately not built until members ask for it.
+
+The session list shows the newest 30. An ended session nobody played is left
+out; a live one is always shown and links to the public venue display.
+
 ## Current state
 
 Everything described above is built: the three engines, the API, the Angular

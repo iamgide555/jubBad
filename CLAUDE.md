@@ -99,7 +99,7 @@ Three routes, access split is fixed:
 - `/s/:sessionCode` — session dashboard, the host's phone (admin-guarded)
 - `/s/:sessionCode/display` — read-only big-text venue-screen view, refreshes every 30s, shows only active courts (public)
 
-Plus public read-only player profile and session summary pages.
+Plus public read-only player profile and session summary pages, and the group dashboard at `/d/:token` — public, keyed by the group's revocable share token (never the group code), participation-only standings, no ratings and no links to player cards.
 
 Auth: per-user host login (email + password, signed server-side session cookie), not per-player accounts and not a shared admin token. `AuthGuard` + `OwnershipGuard` — an owner-mismatch on a group refuses with 404, never 403, so as not to confirm the resource exists. An admin role bypasses ownership.
 

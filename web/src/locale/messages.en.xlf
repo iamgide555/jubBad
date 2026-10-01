@@ -2799,17 +2799,13 @@
         <source>เพิ่มกฎการจับคู่</source>
         <target>Add pairing rule</target>
       </trans-unit>
-      <trans-unit id="addRule.playerA" datatype="html">
-        <source>ผู้เล่น</source>
-        <target>Player</target>
+      <trans-unit id="addRule.playersLegend" datatype="html">
+        <source>ผู้เล่น (เลือก 2 คน)</source>
+        <target>Players (pick 2)</target>
       </trans-unit>
-      <trans-unit id="addRule.playerB" datatype="html">
-        <source>กับ</source>
-        <target>With</target>
-      </trans-unit>
-      <trans-unit id="addRule.pickPlayer" datatype="html">
-        <source>— เลือก —</source>
-        <target>— Choose —</target>
+      <trans-unit id="addRule.pickHint" datatype="html">
+        <source>แตะชื่อผู้เล่น 2 คน</source>
+        <target>Tap two players</target>
       </trans-unit>
       <trans-unit id="addRule.kind" datatype="html">
         <source>ประเภทกฎ</source>

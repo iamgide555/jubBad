@@ -2,24 +2,27 @@
   @if (isOpen()) {
     <div class="form-card">
       <h2 i18n="@@addRule.title">เพิ่มกฎการจับคู่</h2>
-      <label>
-        <span i18n="@@addRule.playerA">ผู้เล่น</span>
-        <select name="playerA" [ngModel]="playerA()" (ngModelChange)="setPlayerA($event)" [disabled]="saving()">
-          <option value="" i18n="@@addRule.pickPlayer">— เลือก —</option>
+      <fieldset class="player-picker" [disabled]="saving()">
+        <legend i18n="@@addRule.playersLegend">ผู้เล่น (เลือก 2 คน)</legend>
+        <div class="player-chips">
           @for (p of players(); track p.id) {
-            <option [value]="p.id">{{ p.name }}</option>
+            <button
+              type="button"
+              class="player-chip"
+              [attr.data-player-chip]="p.id"
+              [attr.aria-pressed]="picked().includes(p.id)"
+              (click)="togglePlayer(p.id)"
+            >{{ p.name }}</button>
           }
-        </select>
-      </label>
-      <label>
-        <span i18n="@@addRule.playerB">กับ</span>
-        <select name="playerB" [ngModel]="playerB()" (ngModelChange)="playerB.set($event)" [disabled]="saving()">
-          <option value="" i18n="@@addRule.pickPlayer">— เลือก —</option>
-          @for (p of partnerOptions(); track p.id) {
-            <option [value]="p.id">{{ p.name }}</option>
+        </div>
+        <p class="picked-summary" role="status" aria-live="polite">
+          @if (picked().length === 0) {
+            <ng-container i18n="@@addRule.pickHint">แตะชื่อผู้เล่น 2 คน</ng-container>
+          } @else {
+            {{ pickedNames() }}
           }
-        </select>
-      </label>
+        </p>
+      </fieldset>
       <fieldset class="kind-picker" [disabled]="saving()">
         <legend i18n="@@addRule.kind">ประเภทกฎ</legend>
         @for (k of ruleKinds; track k.kind) {

@@ -1,5 +1,4 @@
 import { Component, ElementRef, computed, input, output, signal, viewChild } from '@angular/core';
-import { FormsModule } from '@angular/forms';
 import {
   RULE_KINDS,
   RULE_KIND_HINTS,
@@ -16,7 +15,7 @@ import {
  */
 @Component({
   selector: 'app-add-rule-dialog',
-  imports: [FormsModule],
+  imports: [],
   templateUrl: './add-rule-dialog.html',
   styleUrl: './add-rule-dialog.css',
 })
@@ -33,25 +32,21 @@ export class AddRuleDialog {
   protected readonly ruleKinds = RULE_KINDS;
   protected readonly kindHints = RULE_KIND_HINTS;
   protected readonly isOpen = signal(false);
-  protected readonly playerA = signal('');
-  protected readonly playerB = signal('');
+  /** Up to two player ids, in tap order. A rule is an unordered pair, so the
+   *  order only decides which id the request lists first. */
+  protected readonly picked = signal<readonly string[]>([]);
   protected readonly kind = signal<RuleKind>('must-pair');
 
-  protected readonly partnerOptions = computed(() =>
-    this.players().filter((p) => p.id !== this.playerA())
+  protected readonly pickedNames = computed(() =>
+    this.picked()
+      .map((id) => this.players().find((p) => p.id === id)?.name ?? '?')
+      .join(' + ')
   );
 
-  protected readonly canSubmit = computed(
-    () =>
-      !this.saving() &&
-      this.playerA() !== '' &&
-      this.playerB() !== '' &&
-      this.playerA() !== this.playerB()
-  );
+  protected readonly canSubmit = computed(() => !this.saving() && this.picked().length === 2);
 
   open(): void {
-    this.playerA.set('');
-    this.playerB.set('');
+    this.picked.set([]);
     this.kind.set('must-pair');
     this.isOpen.set(true);
     this.dialogEl().nativeElement.showModal();
@@ -70,13 +65,22 @@ export class AddRuleDialog {
     if (this.saving()) event.preventDefault();
   }
 
-  protected setPlayerA(id: string): void {
-    this.playerA.set(id);
-    if (this.playerB() === id) this.playerB.set('');
+  /** Tap to pick, tap again to drop. With two already picked, a third tap
+   *  swaps out the later pick, so the host never has to clear first. */
+  protected togglePlayer(id: string): void {
+    const current = this.picked();
+    if (current.includes(id)) {
+      this.picked.set(current.filter((x) => x !== id));
+    } else if (current.length < 2) {
+      this.picked.set([...current, id]);
+    } else {
+      this.picked.set([current[0], id]);
+    }
   }
 
   protected submit(): void {
     if (!this.canSubmit()) return;
-    this.add.emit({ playerAId: this.playerA(), playerBId: this.playerB(), kind: this.kind() });
+    const [playerAId, playerBId] = this.picked();
+    this.add.emit({ playerAId, playerBId, kind: this.kind() });
   }
 }

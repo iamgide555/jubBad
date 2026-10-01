@@ -25,10 +25,11 @@ const players = [
 describe('AddRuleDialog', () => {
   let fixture: ComponentFixture<AddRuleDialog>;
   const root = () => fixture.nativeElement as HTMLElement;
-  const select = (name: string) => root().querySelector(`select[name="${name}"]`) as HTMLSelectElement;
+  const chip = (id: string) => root().querySelector(`[data-player-chip="${id}"]`) as HTMLButtonElement;
   const kindRadio = (kind: string) =>
     root().querySelector(`input[type="radio"][value="${kind}"]`) as HTMLInputElement;
   const submitButton = () => root().querySelector('[data-submit-rule]') as HTMLButtonElement;
+  const summary = () => root().querySelector('.picked-summary')!.textContent!.trim();
 
   beforeEach(async () => {
     await TestBed.configureTestingModule({ imports: [AddRuleDialog] }).compileComponents();
@@ -43,10 +44,8 @@ describe('AddRuleDialog', () => {
     fixture.detectChanges();
   }
 
-  function choose(name: string, value: string): void {
-    const el = select(name);
-    el.value = value;
-    el.dispatchEvent(new Event('change'));
+  function tap(id: string): void {
+    chip(id).click();
     fixture.detectChanges();
   }
 
@@ -70,8 +69,7 @@ describe('AddRuleDialog', () => {
 
   it('offers the three kinds as radios with คู่กัน selected by default, and moves the selection', async () => {
     await openDialog();
-    const radios = root().querySelectorAll('input[type="radio"][name="kind"]');
-    expect(radios.length).toBe(3);
+    expect(root().querySelectorAll('input[type="radio"][name="kind"]').length).toBe(3);
     expect(kindRadio('must-pair').checked).toBe(true);
     kindRadio('never-teammates').click();
     fixture.detectChanges();
@@ -79,33 +77,51 @@ describe('AddRuleDialog', () => {
     expect(kindRadio('must-pair').checked).toBe(false);
   });
 
-  it('keeps submit disabled until both players are chosen', async () => {
+  it('lists every player on tonight\'s roster as a chip, none pressed to start', async () => {
+    await openDialog();
+    expect(root().querySelectorAll('[data-player-chip]').length).toBe(3);
+    expect(root().querySelectorAll('[data-player-chip][aria-pressed="true"]').length).toBe(0);
+    expect(summary()).toContain('แตะชื่อผู้เล่น 2 คน');
+  });
+
+  it('keeps submit disabled until two players are picked', async () => {
     await openDialog();
     expect(submitButton().disabled).toBe(true);
-    choose('playerA', 'p1');
+    tap('p1');
     expect(submitButton().disabled).toBe(true);
-    choose('playerB', 'p2');
+    tap('p2');
     expect(submitButton().disabled).toBe(false);
   });
 
-  it('does not offer the first player as the second, and clears a clash', async () => {
+  it('shows who is picked, and tapping a picked chip drops it', async () => {
     await openDialog();
-    choose('playerA', 'p1');
-    choose('playerB', 'p2');
-    const optionsB = Array.from(select('playerB').options).map((o) => o.textContent?.trim());
-    expect(optionsB).not.toContain('ตั้ม');
-
-    choose('playerA', 'p2');
-    expect(select('playerB').value).toBe('');
+    tap('p1');
+    tap('p2');
+    expect(summary()).toBe('ตั้ม + เบส');
+    expect(chip('p1').getAttribute('aria-pressed')).toBe('true');
+    tap('p1');
+    expect(chip('p1').getAttribute('aria-pressed')).toBe('false');
+    expect(summary()).toBe('เบส');
     expect(submitButton().disabled).toBe(true);
+  });
+
+  it('a third tap swaps out the later pick, so the host never has to clear first', async () => {
+    await openDialog();
+    tap('p1');
+    tap('p2');
+    tap('p3');
+    expect(chip('p1').getAttribute('aria-pressed')).toBe('true');
+    expect(chip('p2').getAttribute('aria-pressed')).toBe('false');
+    expect(chip('p3').getAttribute('aria-pressed')).toBe('true');
+    expect(summary()).toBe('ตั้ม + มด');
   });
 
   it('emits the chosen pair and kind, defaulting to คู่กัน', async () => {
     await openDialog();
     let emitted: CreatePairRuleRequest | undefined;
     fixture.componentInstance.add.subscribe((v) => (emitted = v));
-    choose('playerA', 'p1');
-    choose('playerB', 'p3');
+    tap('p1');
+    tap('p3');
     submitButton().click();
     expect(emitted).toEqual({ playerAId: 'p1', playerBId: 'p3', kind: 'must-pair' });
   });
@@ -114,8 +130,8 @@ describe('AddRuleDialog', () => {
     await openDialog();
     let emitted: CreatePairRuleRequest | undefined;
     fixture.componentInstance.add.subscribe((v) => (emitted = v));
-    choose('playerA', 'p1');
-    choose('playerB', 'p2');
+    tap('p1');
+    tap('p2');
     kindRadio('never-same-court').click();
     fixture.detectChanges();
     submitButton().click();
@@ -124,8 +140,8 @@ describe('AddRuleDialog', () => {
 
   it('shows the server error and blocks submit while saving', async () => {
     await openDialog();
-    choose('playerA', 'p1');
-    choose('playerB', 'p2');
+    tap('p1');
+    tap('p2');
     fixture.componentRef.setInput('error', 'ผู้เล่นคู่นี้มีกฎอยู่แล้ว');
     fixture.componentRef.setInput('saving', true);
     fixture.detectChanges();
@@ -135,11 +151,11 @@ describe('AddRuleDialog', () => {
 
   it('starts fresh each time it opens', async () => {
     await openDialog();
-    choose('playerA', 'p1');
-    choose('playerB', 'p2');
+    tap('p1');
+    tap('p2');
     fixture.componentInstance.close();
     await openDialog();
-    expect(select('playerA').value).toBe('');
-    expect(select('playerB').value).toBe('');
+    expect(root().querySelectorAll('[data-player-chip][aria-pressed="true"]').length).toBe(0);
+    expect(submitButton().disabled).toBe(true);
   });
 });

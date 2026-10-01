@@ -4,14 +4,52 @@
   gap: var(--space-2);
 }
 
-.form-card > label {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-0);
+/* Tonight's roster as tap-to-pick chips — the same idiom as the dashboard's
+   roster, so a host names two people without opening a native picker. A long
+   roster scrolls inside its own box rather than pushing the kinds off-screen. */
+.player-picker {
+  border: none;
+  padding: 0;
+  margin: 0;
+  min-width: 0;
 }
 
-.form-card select {
+.player-picker legend {
+  padding: 0;
+  margin-bottom: var(--space-0);
+}
+
+.player-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+  max-height: min(11.5rem, 26dvh);
+  overflow-y: auto;
+  padding: var(--space-0);
+}
+
+.player-chip {
   min-height: var(--tap);
+  padding: 0 var(--space-2);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-pill);
+  background: var(--surface);
+  color: var(--ink);
+}
+
+.player-chip[aria-pressed='true'] {
+  border-color: var(--court);
+  background: var(--court-soft);
+  color: var(--court-ink);
+  font-weight: 700;
+}
+
+.picked-summary {
+  min-height: var(--tap);
+  display: flex;
+  align-items: center;
+  margin: 0;
+  font-weight: 600;
 }
 
 .muted {
@@ -23,6 +61,14 @@
   display: flex;
   justify-content: flex-end;
   gap: var(--space-1);
+  /* Pinned to the card's bottom edge so the primary action is never below the
+     fold of a long roster; it bleeds into the card's padding so no content
+     shows beneath it. */
+  position: sticky;
+  bottom: calc(-1 * var(--space-3));
+  margin-bottom: calc(-1 * var(--space-3));
+  padding: var(--space-1) 0 var(--space-3);
+  background: var(--surface);
 }
 
 .kind-picker {

@@ -1443,10 +1443,8 @@ describe('SessionDashboard', () => {
       const addRuleButton = () =>
         (fixture.nativeElement as HTMLElement).querySelector('[data-add-rule]') as HTMLButtonElement | null;
 
-      function choose(name: string, value: string): void {
-        const el = dialog().querySelector(`select[name="${name}"]`) as HTMLSelectElement;
-        el.value = value;
-        el.dispatchEvent(new Event('change'));
+      function tapPlayer(id: string): void {
+        (dialog().querySelector(`[data-player-chip="${id}"]`) as HTMLButtonElement).click();
         fixture.detectChanges();
       }
 
@@ -1455,8 +1453,8 @@ describe('SessionDashboard', () => {
         fixture.detectChanges();
         await fixture.whenStable();
         fixture.detectChanges();
-        choose('playerA', 'p1');
-        choose('playerB', 'p2');
+        tapPlayer('p1');
+        tapPlayer('p2');
         if (kind) {
           (dialog().querySelector(`input[type="radio"][value="${kind}"]`) as HTMLInputElement).click();
           fixture.detectChanges();

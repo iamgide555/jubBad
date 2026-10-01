@@ -8,6 +8,7 @@ import { AuthService } from '../../core/auth.service';
 import { ClockService } from '../../core/clock.service';
 import { environment } from '../../../environments/environment';
 import type { Session } from '../../core/session.model';
+import { standardLadderFixture } from '../../core/group-levels.testing';
 
 const B = environment.apiBaseUrl;
 
@@ -285,6 +286,7 @@ describe('SessionDashboard', () => {
       .expectOne(`${B}/groups/group1/players`)
       .flush([{ id: 'p1', name: 'ตั้ม', aliases: [] }]);
     httpMock.expectOne(`${B}/sessions/sess1/stats?scope=session`).flush([]);
+    httpMock.expectOne(`${B}/groups/group1/levels`).flush(standardLadderFixture());
     await fixture.whenStable();
     fixture.detectChanges();
 
@@ -316,7 +318,7 @@ describe('SessionDashboard', () => {
       .click();
 
     const putReq = httpMock.expectOne(`${B}/groups/group1/players/p1/level`);
-    expect(putReq.request.body).toEqual({ level: 'BG' });
+    expect(putReq.request.body).toEqual({ level: 'BG', expectedLadderRevision: 0 });
     putReq.flush({ id: 'p1', level: 'BG' });
     await new Promise((r) => setTimeout(r, 0));
     TestBed.tick();
@@ -330,6 +332,92 @@ describe('SessionDashboard', () => {
       r.flush({ p1: 'BG' });
     }
     await fixture.whenStable();
+  });
+
+  describe('group ladders (host feedback F)', () => {
+    const custom = {
+      mode: 'custom' as const,
+      revision: 7,
+      levels: [{ id: 'x', name: 'มือใหม่', startingElo: 1000 }, { id: 'y', name: 'เก่ง', startingElo: 1400 }],
+      assignedCounts: { x: 0, y: 0 },
+    };
+    async function openPanel(ladderResponse: object | 'fail') {
+      fixture = TestBed.createComponent(SessionDashboard);
+      fixture.detectChanges();
+      httpMock.expectOne(`${B}/sessions/sess1`).flush(baseSession());
+      await new Promise((r) => setTimeout(r, 0));
+      TestBed.tick();
+      httpMock.expectOne(`${B}/groups/group1/players`).flush([{ id: 'p1', name: 'ตั้ม', aliases: [] }]);
+      httpMock.expectOne(`${B}/sessions/sess1/stats?scope=session`).flush([]);
+      const ladderReq = httpMock.expectOne(`${B}/groups/group1/levels`);
+      if (ladderResponse === 'fail') ladderReq.flush('x', { status: 500, statusText: 'Server Error' });
+      else ladderReq.flush(ladderResponse);
+      await fixture.whenStable();
+      fixture.detectChanges();
+      (fixture.nativeElement as HTMLElement).querySelector<HTMLButtonElement>('[data-player-panel-toggle]')!.click();
+      fixture.detectChanges();
+      httpMock.expectOne(`${B}/sessions/sess1/players`).flush([
+        { playerId: 'p1', name: 'ตั้ม', level: null, resting: false, played: 0, won: 0, lost: 0, ratingDelta: null },
+      ]);
+      await fixture.whenStable();
+      fixture.detectChanges();
+    }
+
+    it('the player panel offers this group\'s own level names and sends the revision it read', async () => {
+      await openPanel(custom);
+      const el = fixture.nativeElement as HTMLElement;
+      el.querySelector<HTMLButtonElement>('.player-panel .level-trigger')!.click();
+      fixture.detectChanges();
+      const chips = [...el.querySelectorAll('.player-panel .chip')].map((b) => b.textContent!.trim());
+      expect(chips).toEqual(['-', 'มือใหม่', 'เก่ง']);
+      (el.querySelectorAll('.player-panel .chip')[2] as HTMLButtonElement).click();
+      const put = httpMock.expectOne(`${B}/groups/group1/players/p1/level`);
+      expect(put.request.body).toEqual({ level: 'เก่ง', expectedLadderRevision: 7 });
+      put.flush({ id: 'p1', level: 'เก่ง' });
+      await new Promise((r) => setTimeout(r, 0));
+      TestBed.tick();
+      for (const r of httpMock.match((req) => req.url.endsWith('/sessions/sess1/players'))) r.flush([]);
+      await fixture.whenStable();
+    });
+
+    it('a new walk-in with a level sends the ladder revision; one without a level sends none', async () => {
+      await openPanel(custom);
+      const submit = (fixture.componentInstance as unknown as { submitWalkIn(i: object): Promise<void> }).submitWalkIn.bind(fixture.componentInstance);
+      const withLevel = submit({ name: 'Late', level: 'เก่ง' });
+      const a = httpMock.expectOne(`${B}/sessions/sess1/roster`);
+      expect(a.request.body).toEqual({ name: 'Late', level: 'เก่ง', expectedLadderRevision: 7 });
+      a.flush({ playerId: 'new1' });
+      await withLevel;
+      for (const r of httpMock.match((req) => req.url.endsWith('/levels') || req.url.endsWith('/stats?scope=session') || /\/sessions\/sess1(\/players)?$/.test(req.url))) r.flush(r.request.url.endsWith('/sessions/sess1') ? baseSession() : []);
+      const plain = submit({ name: 'Plain' });
+      const b = httpMock.expectOne(`${B}/sessions/sess1/roster`);
+      expect(b.request.body).toEqual({ name: 'Plain' });
+      b.flush({ playerId: 'new2' });
+      await plain;
+    });
+
+    it('a failed ladder read disables the panel\'s level choice and says so, instead of offering a guess', async () => {
+      await openPanel('fail');
+      const el = fixture.nativeElement as HTMLElement;
+      expect(el.querySelector<HTMLButtonElement>('.player-panel .level-trigger')!.disabled).toBe(true);
+      expect(el.querySelector('[data-ladder-unavailable]')).toBeTruthy();
+    });
+
+    it('a stale revision on a panel save is shown and the ladder is read again', async () => {
+      await openPanel(custom);
+      const el = fixture.nativeElement as HTMLElement;
+      el.querySelector<HTMLButtonElement>('.player-panel .level-trigger')!.click();
+      fixture.detectChanges();
+      (el.querySelectorAll('.player-panel .chip')[1] as HTMLButtonElement).click();
+      httpMock.expectOne(`${B}/groups/group1/players/p1/level`).flush({ code: 'LEVEL_LADDER_STALE' }, { status: 409, statusText: 'Conflict' });
+      await new Promise((r) => setTimeout(r, 0));
+      TestBed.tick();
+      httpMock.expectOne(`${B}/groups/group1/levels`).flush({ ...custom, revision: 8 });
+      for (const r of httpMock.match((req) => req.url.endsWith('/sessions/sess1/players'))) r.flush([]);
+      await fixture.whenStable();
+      fixture.detectChanges();
+      expect(el.querySelector('[data-panel-level-error]')!.textContent).toContain('มีการแก้ระดับ');
+    });
   });
 
   it('opening the player panel does not push the court toolbar down', async () => {

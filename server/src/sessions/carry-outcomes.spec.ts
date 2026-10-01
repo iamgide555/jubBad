@@ -89,4 +89,13 @@ describe('parseCarryOutcomes (linked carry)', () => {
       expect(() => parseCarryOutcomes(raw)).toThrow(InvalidCarryOutcomesError);
     }
   });
+
+  it('custom ladder: the mate is a carry only if higher in the group\'s order', () => {
+    const ladder = [{ name: 'x', startingElo: 1000 }, { name: 'y', startingElo: 1100 }, { name: 'z', startingElo: 1200 }];
+    const levels = new Map<string, string | null>([['low', 'x'], ['mate', 'z'], ['p2', 'z'], ['p3', 'z']]);
+    const out = carryOutcomesForConfirm(
+      { teamA: ['low', 'mate'], teamB: ['p2', 'p3'] }, new Set(['low', 'mate']), levels, ['low', 'mate', 'p2', 'p3'], ladder
+    );
+    expect(out.find((o) => o.playerId === 'low')).toEqual({ playerId: 'low', partnerId: 'mate' });
+  });
 });

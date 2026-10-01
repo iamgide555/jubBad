@@ -3355,6 +3355,206 @@
         <source>คอร์ท <x id="label" equiv-text="label"/></source>
         <target>Court <x id="label" equiv-text="label"/></target>
       </trans-unit>
+      <trans-unit id="entry.groupLevels" datatype="html">
+        <source>ระดับผู้เล่นของก๊วน →</source>
+        <target>Group skill levels →</target>
+      </trans-unit>
+      <trans-unit id="playerRoster.groupLevels" datatype="html">
+        <source>ตั้งชื่อระดับของก๊วน →</source>
+        <target>Set the group's level names →</target>
+      </trans-unit>
+      <trans-unit id="levels.title" datatype="html">
+        <source>ระดับผู้เล่นของก๊วน</source>
+        <target>Group skill levels</target>
+      </trans-unit>
+      <trans-unit id="levels.back" datatype="html">
+        <source>← กลับ</source>
+        <target>← Back</target>
+      </trans-unit>
+      <trans-unit id="levels.loadFailed" datatype="html">
+        <source>โหลดข้อมูลระดับไม่สำเร็จ</source>
+        <target>Couldn't load the levels</target>
+      </trans-unit>
+      <trans-unit id="levels.loading" datatype="html">
+        <source>กำลังโหลด…</source>
+        <target>Loading…</target>
+      </trans-unit>
+      <trans-unit id="levels.seedCaveat" datatype="html">
+        <source> ค่า Elo เริ่มต้นใช้กับการกำหนดระดับครั้งต่อไปเท่านั้น คนที่มีระดับอยู่แล้วคงค่าเดิมของเขา และผลการแข่งที่ผ่านมาไม่เปลี่ยน </source>
+        <target> A starting Elo only applies to levels assigned from now on. Players who already have a level keep the rating they were given, and past results don't change. </target>
+      </trans-unit>
+      <trans-unit id="levels.standardTitle" datatype="html">
+        <source>ระดับมาตรฐาน</source>
+        <target>Standard levels</target>
+      </trans-unit>
+      <trans-unit id="levels.standardHint" datatype="html">
+        <source>ก๊วนนี้ใช้ระดับมาตรฐานของแอป ถ้าก๊วนของคุณแบ่งระดับต่างออกไป ตั้งระดับของก๊วนเองได้</source>
+        <target>This group uses the app's standard levels. If your group grades players differently, set your own.</target>
+      </trans-unit>
+      <trans-unit id="levels.customize" datatype="html">
+        <source>ตั้งระดับของก๊วนเอง</source>
+        <target>Set my own levels</target>
+      </trans-unit>
+      <trans-unit id="levels.customTitle" datatype="html">
+        <source>ระดับของก๊วน (เรียงจากต่ำไปสูง)</source>
+        <target>Group levels (lowest to highest)</target>
+      </trans-unit>
+      <trans-unit id="levels.newTitle" datatype="html">
+        <source>ระดับใหม่ของก๊วน (เรียงจากต่ำไปสูง)</source>
+        <target>New group levels (lowest to highest)</target>
+      </trans-unit>
+      <trans-unit id="levels.nameLabel" datatype="html">
+        <source>ชื่อระดับ</source>
+        <target>Level name</target>
+      </trans-unit>
+      <trans-unit id="levels.namePlaceholder" datatype="html">
+        <source>ชื่อระดับ</source>
+        <target>Level name</target>
+      </trans-unit>
+      <trans-unit id="levels.eloLabel" datatype="html">
+        <source>ค่า Elo เริ่มต้น</source>
+        <target>Starting Elo</target>
+      </trans-unit>
+      <trans-unit id="levels.up" datatype="html">
+        <source>เลื่อนขึ้น</source>
+        <target>Move up</target>
+      </trans-unit>
+      <trans-unit id="levels.down" datatype="html">
+        <source>เลื่อนลง</source>
+        <target>Move down</target>
+      </trans-unit>
+      <trans-unit id="levels.remove" datatype="html">
+        <source>ลบระดับ</source>
+        <target>Remove level</target>
+      </trans-unit>
+      <trans-unit id="levels.add" datatype="html">
+        <source>+ เพิ่มระดับ</source>
+        <target>+ Add level</target>
+      </trans-unit>
+      <trans-unit id="levels.suggest" datatype="html">
+        <source>ตั้งค่า Elo ห่างกัน 100</source>
+        <target>Space Elo 100 apart</target>
+      </trans-unit>
+      <trans-unit id="levels.cancel" datatype="html">
+        <source>ยกเลิกการแก้</source>
+        <target>Discard changes</target>
+      </trans-unit>
+      <trans-unit id="levels.save" datatype="html">
+        <source>บันทึกระดับ</source>
+        <target>Save levels</target>
+      </trans-unit>
+      <trans-unit id="levels.saved" datatype="html">
+        <source>บันทึกระดับแล้ว</source>
+        <target>Levels saved</target>
+      </trans-unit>
+      <trans-unit id="levels.resetTitle" datatype="html">
+        <source>กลับไปใช้ระดับมาตรฐาน</source>
+        <target>Back to standard levels</target>
+      </trans-unit>
+      <trans-unit id="levels.reset" datatype="html">
+        <source>กลับไปใช้ระดับมาตรฐาน</source>
+        <target>Back to standard levels</target>
+      </trans-unit>
+      <trans-unit id="levels.confirmCustomizeTitle" datatype="html">
+        <source>เปลี่ยนไปใช้ระดับของก๊วนเอง?</source>
+        <target>Switch to your own levels?</target>
+      </trans-unit>
+      <trans-unit id="levels.confirmResetTitle" datatype="html">
+        <source>กลับไปใช้ระดับมาตรฐาน?</source>
+        <target>Go back to standard levels?</target>
+      </trans-unit>
+      <trans-unit id="levels.confirmKeep" datatype="html">
+        <source>ค่า Elo ที่สะสมไว้และผลการแข่งทั้งหมดไม่เปลี่ยน ต้องกำหนดระดับให้ผู้เล่นใหม่เอง</source>
+        <target>Earned Elo and all results are unchanged. You'll need to assign levels to players again.</target>
+      </trans-unit>
+      <trans-unit id="levels.confirmCancel" datatype="html">
+        <source>ยกเลิก</source>
+        <target>Cancel</target>
+      </trans-unit>
+      <trans-unit id="levels.confirmOk" datatype="html">
+        <source>ยืนยัน</source>
+        <target>Confirm</target>
+      </trans-unit>
+      <trans-unit id="levels.confirmDiscard" datatype="html">
+        <source>ยังไม่ได้บันทึกการแก้ระดับ ออกจากหน้านี้โดยไม่บันทึกใช่หรือไม่?</source>
+        <target>You have unsaved level changes. Leave without saving?</target>
+      </trans-unit>
+      <trans-unit id="levels.err.stale" datatype="html">
+        <source>มีการแก้ระดับจากที่อื่นแล้ว โหลดข้อมูลล่าสุดให้แล้ว ตรวจก่อนบันทึกอีกครั้ง</source>
+        <target>The levels were changed elsewhere. The latest has been loaded; check it before saving again.</target>
+      </trans-unit>
+      <trans-unit id="levels.err.activeSession" datatype="html">
+        <source>ยังมีก๊วนที่ไม่ได้จบ แก้ระดับไม่ได้ จบก๊วนก่อนแล้วค่อยแก้</source>
+        <target>A session is still open, so levels can't be edited. End it first.</target>
+      </trans-unit>
+      <trans-unit id="levels.err.invalid" datatype="html">
+        <source>รายการระดับไม่ถูกต้อง ตรวจชื่อและค่า Elo</source>
+        <target>Invalid levels. Check the names and Elo values.</target>
+      </trans-unit>
+      <trans-unit id="levels.err.corrupt" datatype="html">
+        <source>ข้อมูลระดับของก๊วนผิดปกติ กรุณาแจ้งผู้ดูแล</source>
+        <target>The group's level data is corrupt. Please tell an admin.</target>
+      </trans-unit>
+      <trans-unit id="levels.err.save" datatype="html">
+        <source>บันทึกไม่สำเร็จ ลองใหม่อีกครั้ง</source>
+        <target>Couldn't save. Try again.</target>
+      </trans-unit>
+      <trans-unit id="levels.val.count" datatype="html">
+        <source>ต้องมี 1–16 ระดับ</source>
+        <target>Needs 1–16 levels</target>
+      </trans-unit>
+      <trans-unit id="levels.confirmCount" datatype="html">
+        <source>ระดับของผู้เล่น <x id="INTERPOLATION" equiv-text="{{ c.affected }}"/> คนจะถูกล้าง (ไม่มีระดับ)</source>
+        <target>The levels of <x id="INTERPOLATION" equiv-text="{{ c.affected }}"/> players will be cleared (set to none)</target>
+      </trans-unit>
+      <trans-unit id="levels.err.inUse" datatype="html">
+        <source>ลบระดับนี้ไม่ได้ เพราะยังมี <x id="n" equiv-text="n"/> คนอยู่ในระดับนี้ ย้ายหรือล้างระดับของคนเหล่านั้นก่อน</source>
+        <target>Can't remove this level: <x id="n" equiv-text="n"/> players are in it. Move or clear them first.</target>
+      </trans-unit>
+      <trans-unit id="levels.removeBlocked" datatype="html">
+        <source>มี <x id="n" equiv-text="n"/> คนอยู่ในระดับนี้ — ย้ายหรือล้างระดับของเขาก่อนจึงจะลบได้</source>
+        <target><x id="n" equiv-text="n"/> players are in this level — move or clear them before removing it</target>
+      </trans-unit>
+      <trans-unit id="levels.val.control" datatype="html">
+        <source>ชื่อระดับที่ <x id="n" equiv-text="n"/> มีอักขระที่ใช้ไม่ได้</source>
+        <target>Level <x id="n" equiv-text="n"/> has characters that aren't allowed</target>
+      </trans-unit>
+      <trans-unit id="levels.val.dup" datatype="html">
+        <source>ชื่อระดับซ้ำกัน: <x id="name" equiv-text="name"/></source>
+        <target>Duplicate level name: <x id="name" equiv-text="name"/></target>
+      </trans-unit>
+      <trans-unit id="levels.val.elo" datatype="html">
+        <source>ค่า Elo ของระดับที่ <x id="n" equiv-text="n"/> ต้องเป็นจำนวนเต็มไม่ติดลบ</source>
+        <target>Level <x id="n" equiv-text="n"/>'s Elo must be a whole number, zero or more</target>
+      </trans-unit>
+      <trans-unit id="levels.val.long" datatype="html">
+        <source>ชื่อระดับที่ <x id="n" equiv-text="n"/> ยาวเกิน 16 ตัวอักษร</source>
+        <target>Level <x id="n" equiv-text="n"/>'s name is longer than 16 characters</target>
+      </trans-unit>
+      <trans-unit id="levels.val.name" datatype="html">
+        <source>ระดับที่ <x id="n" equiv-text="n"/> ต้องมีชื่อ และห้ามเว้นวรรคหน้า/หลัง</source>
+        <target>Level <x id="n" equiv-text="n"/> needs a name, with no leading or trailing spaces</target>
+      </trans-unit>
+      <trans-unit id="levels.val.order" datatype="html">
+        <source>ค่า Elo ของระดับที่ <x id="n" equiv-text="n"/> ต้องมากกว่าระดับก่อนหน้า</source>
+        <target>Level <x id="n" equiv-text="n"/>'s Elo must be higher than the level before it</target>
+      </trans-unit>
+      <trans-unit id="walkIn.levelsUnavailable" datatype="html">
+        <source>โหลดรายการระดับไม่ได้ จึงยังเลือกระดับไม่ได้</source>
+        <target>Couldn't load the level list, so levels can't be chosen yet</target>
+      </trans-unit>
+      <trans-unit id="dashboard.levelsUnavailable" datatype="html">
+        <source>โหลดรายการระดับไม่ได้ จึงยังเลือกระดับไม่ได้</source>
+        <target>Couldn't load the level list, so levels can't be chosen yet</target>
+      </trans-unit>
+      <trans-unit id="dashboard.levelSaveFailed" datatype="html">
+        <source>บันทึกระดับไม่สำเร็จ</source>
+        <target>Couldn't save the level</target>
+      </trans-unit>
+      <trans-unit id="levels.err.unknown" datatype="html">
+        <source>ระดับนี้ไม่อยู่ในรายการระดับของก๊วน เลือกใหม่จากรายการล่าสุด</source>
+        <target>That level isn't in the group's list. Pick again from the latest list.</target>
+      </trans-unit>
     </body>
   </file>
 </xliff>

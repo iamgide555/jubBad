@@ -1,5 +1,4 @@
-import { IsEmail, IsIn, IsInt, IsOptional, IsString, Matches, Max, MaxLength, Min, MinLength } from 'class-validator';
-import { LEVELS, type Level } from '../../../../engines/levels.ts';
+import { IsEmail, IsInt, IsOptional, IsString, Matches, Max, MaxLength, Min, MinLength } from 'class-validator';
 
 export class UpdatePlayerDto {
   @IsString()
@@ -21,8 +20,17 @@ export class UpdatePlayerDto {
   @Matches(/^[0-9+\- ]{6,20}$/)
   phone?: string;
 
-  /** Skill level (ระดับมือ). Left out or explicitly null clears it. */
+  /**
+   * Skill level (ระดับมือ), a name from this group's ladder. Left out, the player's
+   * level is untouched (a contact-only edit never clears a tag); an explicit null
+   * clears it. Either way a present key needs `expectedLadderRevision`.
+   */
   @IsOptional()
-  @IsIn(LEVELS)
-  level?: Level | null;
+  @IsString()
+  level?: string | null;
+
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  expectedLadderRevision?: number;
 }

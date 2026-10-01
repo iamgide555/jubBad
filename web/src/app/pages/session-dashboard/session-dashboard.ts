@@ -1,5 +1,5 @@
 import { Component, ElementRef, OnDestroy, computed, effect, inject, signal, viewChild } from '@angular/core';
-import { httpResource } from '@angular/common/http';
+import { HttpErrorResponse, httpResource } from '@angular/common/http';
 import { Router, RouterLink } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
 import { environment } from '../../../environments/environment';
@@ -26,6 +26,8 @@ import { AddWalkInDialog } from '../../shared/add-walk-in-dialog/add-walk-in-dia
 import { AddRuleDialog } from '../../shared/add-rule-dialog/add-rule-dialog';
 import { LevelPicker } from '../../shared/level-picker/level-picker';
 import type { Player } from '../../../../../engines/fuzzy-match.ts';
+import type { GroupLevelsResponse } from '../../core/group-levels.model';
+import { levelsErrorMessage } from '../../core/group-levels.model';
 import type { Level } from '../../../../../engines/levels.ts';
 import { describeRules, ruleErrorMessage, ruleKindLabel, type CreatePairRuleRequest } from '../../core/pair-rule.model';
 import type { PlayerStat } from '../../core/stats.model';
@@ -174,14 +176,36 @@ export class SessionDashboard implements OnDestroy {
     return delta >= 0 ? `+${delta}` : `${delta}`;
   }
 
-  protected async setPanelLevel(playerId: string, level: Level | null): Promise<void> {
+  /**
+   * The group's ordered ladder (host feedback F), read once the session names its group.
+   * A failed read leaves it null and every level choice disabled: nothing is offered from a guess.
+   */
+  protected readonly ladder = signal<GroupLevelsResponse | null>(null);
+  protected readonly panelLevelError = signal<string | null>(null);
+
+  protected async loadLadder(): Promise<void> {
     const groupCode = this.session()?.groupCode;
     if (!groupCode) return;
     try {
-      await firstValueFrom(this.roster.updatePlayerLevel(groupCode, playerId, level));
+      this.ladder.set(await firstValueFrom(this.roster.getGroupLevels(groupCode)));
     } catch {
+      this.ladder.set(null);
+    }
+  }
+
+  protected async setPanelLevel(playerId: string, level: Level | null): Promise<void> {
+    const groupCode = this.session()?.groupCode;
+    const revision = this.ladder()?.revision;
+    if (!groupCode || revision === undefined) return;
+    this.panelLevelError.set(null);
+    try {
+      await firstValueFrom(this.roster.updatePlayerLevel(groupCode, playerId, level, revision));
+    } catch (err) {
       // The panel reload below shows whatever the server actually has —
       // a failed save just means the chip snaps back to its previous value.
+      const code = err instanceof HttpErrorResponse && typeof err.error?.code === 'string' ? err.error.code : null;
+      this.panelLevelError.set(levelsErrorMessage(code) ?? $localize`:@@dashboard.levelSaveFailed:บันทึกระดับไม่สำเร็จ`);
+      void this.loadLadder();
     }
     this.playerPanelResource.reload();
     void this.loadLevels();
@@ -375,6 +399,10 @@ export class SessionDashboard implements OnDestroy {
     effect(() => {
       if (this.liveSession.shuttleTools()) void this.loadCheckouts();
     });
+    // Once the first session read names the group, read its ladder.
+    effect(() => {
+      if (this.session()?.groupCode) void this.loadLadder();
+    });
     void this.loadLevels();
     void this.liveSession.loadSessionRules();
   }
@@ -460,10 +488,16 @@ export class SessionDashboard implements OnDestroy {
   ): Promise<void> {
     this.walkInSaving.set(true);
     this.walkInError.set(null);
-    const result = await this.liveSession.addWalkIn(input);
+    // A level choice carries the ladder revision the host picked it from.
+    const withRevision =
+      'name' in input && input.level
+        ? { ...input, expectedLadderRevision: this.ladder()?.revision }
+        : input;
+    const result = await this.liveSession.addWalkIn(withRevision);
     this.walkInSaving.set(false);
     if (!result.ok) {
       this.walkInError.set(result.error ?? null);
+      void this.loadLadder();
       return;
     }
     this.walkInDialog()?.close();

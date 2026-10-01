@@ -5,8 +5,8 @@
  * overrides and carry state".
  */
 
-import { isFarBelow, levelIndex } from '../../../engines/levels.ts';
-import type { Level } from '../../../engines/levels.ts';
+import { DEFAULT_LEVEL_LADDER, isFarBelow, levelIndex } from '../../../engines/levels.ts';
+import type { Level, LevelSpec } from '../../../engines/levels.ts';
 
 export type CarryOutcome = { playerId: string; partnerId: string | null };
 
@@ -21,7 +21,8 @@ export function carryOutcomesForConfirm(
   teams: { teamA: string[]; teamB: string[] },
   linkedIds: ReadonlySet<string>,
   levels: ReadonlyMap<string, Level | null>,
-  activeRosterIds: readonly string[]
+  activeRosterIds: readonly string[],
+  ladder: readonly LevelSpec[] = DEFAULT_LEVEL_LADDER
 ): CarryOutcome[] {
   const activeLevels = new Map(activeRosterIds.map((id) => [id, levels.get(id) ?? null] as const));
   const outcomes: CarryOutcome[] = [];
@@ -31,10 +32,10 @@ export function carryOutcomesForConfirm(
       const level = levels.get(playerId) ?? null;
       if (level === null) continue;
       let partnerId: string | null = null;
-      if (isFarBelow(playerId, activeLevels)) {
+      if (isFarBelow(playerId, activeLevels, ladder)) {
         const mate = team.find((id) => id !== playerId);
         const mateLevel = mate === undefined ? null : levels.get(mate) ?? null;
-        if (mate !== undefined && mateLevel !== null && levelIndex(mateLevel) > levelIndex(level)) {
+        if (mate !== undefined && mateLevel !== null && levelIndex(mateLevel, ladder) > levelIndex(level, ladder)) {
           partnerId = mate;
         }
       }

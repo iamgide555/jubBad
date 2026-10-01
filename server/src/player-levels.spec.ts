@@ -3,24 +3,43 @@ import { Test } from '@nestjs/testing';
 import { PrismaModule } from './prisma/prisma.module.js';
 import { PrismaService } from './prisma/prisma.service.js';
 import { levelWrite, loadPlayerLevels, loadRatingAnchors } from './player-levels.js';
+import { DEFAULT_LEVEL_LADDER } from '../../engines/levels.ts';
+
+describe('levelWrite with a ladder and frozen seeds', () => {
+  const custom = [{ name: 'A', startingElo: 1050 }, { name: 'B', startingElo: 1250 }];
+
+  it('a new tag stores the level\'s current seed from the given ladder', () => {
+    expect(levelWrite(null, 'B', custom)).toEqual({ level: 'B', levelSeed: 1250, levelSetAt: expect.any(Date) });
+    expect(levelWrite(null, 'P')).toEqual({ level: 'P', levelSeed: 1300, levelSetAt: expect.any(Date) });
+  });
+
+  it('clearing a level reseeds at 1200', () => {
+    expect(levelWrite('P', null)).toEqual({ level: null, levelSeed: 1200, levelSetAt: expect.any(Date) });
+  });
+
+  it('choosing the same level writes nothing even if that level\'s seed has since changed', () => {
+    expect(levelWrite('B', 'B', [{ name: 'A', startingElo: 1050 }, { name: 'B', startingElo: 1999 }])).toEqual({});
+  });
+});
 
 describe('levelWrite', () => {
   it('stamps levelSetAt when the level actually changes', () => {
     const before = Date.now();
     const write = levelWrite(null, 'P');
     expect(write.level).toBe('P');
+    expect(write.levelSeed).toBe(1300);
     expect(write.levelSetAt).toBeInstanceOf(Date);
     expect(write.levelSetAt!.getTime()).toBeGreaterThanOrEqual(before);
   });
 
   it('stamps levelSetAt on an edit between two set levels too', () => {
     const write = levelWrite('P', 'C');
-    expect(write).toEqual({ level: 'C', levelSetAt: expect.any(Date) });
+    expect(write).toEqual({ level: 'C', levelSeed: 1500, levelSetAt: expect.any(Date) });
   });
 
   it('stamps levelSetAt when clearing a level back to unset', () => {
     const write = levelWrite('P', null);
-    expect(write).toEqual({ level: null, levelSetAt: expect.any(Date) });
+    expect(write).toEqual({ level: null, levelSeed: 1200, levelSetAt: expect.any(Date) });
   });
 
   it('writes nothing when the level is unchanged — setting the same level again is a no-op', () => {
@@ -66,7 +85,7 @@ describe('loadRatingAnchors', () => {
     await prisma.group.create({ data: { code, name: 'G' } });
     const setAt = new Date('2026-09-23T00:00:00.000Z');
     const player = await prisma.player.create({
-      data: { groupId: code, name: 'Leveled', aliases: '[]', level: 'P', levelSetAt: setAt },
+      data: { groupId: code, name: 'Leveled', aliases: '[]', level: 'P', levelSeed: 1300, levelSetAt: setAt },
     });
 
     const anchors = await loadRatingAnchors(prisma, code);
@@ -79,7 +98,7 @@ describe('loadRatingAnchors', () => {
     codes.push(code);
     await prisma.group.create({ data: { code, name: 'G' } });
     const player = await prisma.player.create({
-      data: { groupId: code, name: 'Legacy', aliases: '[]', level: 'B' },
+      data: { groupId: code, name: 'Legacy', aliases: '[]', level: 'B', levelSeed: 1600 },
     });
 
     const anchors = await loadRatingAnchors(prisma, code);
@@ -119,5 +138,60 @@ describe('loadPlayerLevels', () => {
 
     expect(levels.get(a.id)).toBeNull();
     expect(levels.get(b.id)).toBe('S');
+  });
+
+  it('level seed: anchors read the frozen seed, not today\'s name-to-seed lookup', async () => {
+    const code = randomUUID();
+    codes.push(code);
+    await prisma.group.create({ data: { code, name: 'G' } });
+    const edited = await prisma.player.create({ data: { groupId: code, name: 'Edited', aliases: '[]', level: 'P', levelSeed: 1450 } });
+    const legacy = await prisma.player.create({ data: { groupId: code, name: 'Legacy', aliases: '[]', level: 'P', levelSeed: 1300 } });
+    const never = await prisma.player.create({ data: { groupId: code, name: 'Never', aliases: '[]' } });
+    const cleared = await prisma.player.create({
+      data: { groupId: code, name: 'Cleared', aliases: '[]', level: null, levelSeed: 1200, levelSetAt: new Date('2026-09-23T00:00:00.000Z') },
+    });
+    const anchors = await loadRatingAnchors(prisma, code);
+    expect(anchors.get(edited.id)!.rating).toBe(1450);
+    expect(anchors.get(legacy.id)!.rating).toBe(1300);
+    expect(anchors.get(never.id)).toEqual({ rating: 1200, setAt: null });
+    expect(anchors.get(cleared.id)).toEqual({ rating: 1200, setAt: new Date('2026-09-23T00:00:00.000Z').getTime() });
+  });
+});
+
+describe('loadPlayerLevels with a ladder', () => {
+  let prisma: PrismaService;
+  const codes: string[] = [];
+  beforeAll(async () => {
+    prisma = (await Test.createTestingModule({ imports: [PrismaModule] }).compile()).get(PrismaService);
+  });
+  afterEach(async () => {
+    for (const code of codes.splice(0)) {
+      await prisma.player.deleteMany({ where: { groupId: code } });
+      await prisma.group.deleteMany({ where: { code } });
+    }
+  });
+  const group = async () => {
+    const code = randomUUID();
+    codes.push(code);
+    await prisma.group.create({ data: { code, name: 'G' } });
+    return code;
+  };
+
+  it('custom ladder: returns each player\'s name from the group ladder and null for untagged', async () => {
+    const code = await group();
+    const a = await prisma.player.create({ data: { groupId: code, name: 'A', aliases: '[]', level: 'อ' } });
+    const b = await prisma.player.create({ data: { groupId: code, name: 'B', aliases: '[]' } });
+    const levels = await loadPlayerLevels(prisma, code, [{ name: 'อ', startingElo: 1000 }]);
+    expect(levels.get(a.id)).toBe('อ');
+    expect(levels.get(b.id)).toBeNull();
+  });
+
+  it('custom ladder: a stored label the ladder lacks is an explicit data-integrity error, never null', async () => {
+    const code = await group();
+    await prisma.player.create({ data: { groupId: code, name: 'A', aliases: '[]', level: 'P' } });
+    await expect(loadPlayerLevels(prisma, code, [{ name: 'อ', startingElo: 1000 }])).rejects.toMatchObject({
+      response: { code: 'LEVEL_DATA_INTEGRITY' },
+    });
+    await expect(loadPlayerLevels(prisma, code, DEFAULT_LEVEL_LADDER)).resolves.toBeInstanceOf(Map);
   });
 });

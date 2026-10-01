@@ -55,6 +55,14 @@ export const routes: Routes = [
       import('./pages/player-roster/player-roster').then((m) => m.PlayerRoster),
   },
   {
+    // Before 'g/:groupCode' so the deeper path wins. Guarded: the ladder and its seeds are
+    // host-only (the server routes are owner-only too). canDeactivate protects an unsaved draft.
+    path: 'g/:groupCode/levels',
+    canActivate: [adminGuard],
+    canDeactivate: [canDeactivateGuard],
+    loadComponent: () => import('./pages/group-levels/group-levels').then((m) => m.GroupLevels),
+  },
+  {
     path: 'g/:groupCode',
     canActivate: [adminGuard],
     loadComponent: () => import('./pages/group-entry/group-entry').then((m) => m.GroupEntry),

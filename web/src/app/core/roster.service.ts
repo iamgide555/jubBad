@@ -6,6 +6,7 @@ import type { Level } from '../../../../engines/levels.ts';
 import type { Group } from './group.model';
 import type { GroupSession } from './group-session.model';
 import type { NameReview } from './roster-review';
+import type { GroupLevelsResponse, SaveGroupLevelsRequest } from './group-levels.model';
 import type { CreatePairRuleRequest, PairRule, RuleKind } from './pair-rule.model';
 
 export interface CreateSessionRequest {
@@ -17,6 +18,8 @@ export interface CreateSessionRequest {
   idempotencyKey: string;
   rosterReviews: NameReview[];
   waitlistReviews: NameReview[];
+  /** Required when any review carries a level: the ladder revision the host saw. */
+  expectedLadderRevision?: number;
 }
 
 export interface ParseRosterResponse {
@@ -82,11 +85,21 @@ export class RosterService {
     }>(`${this.base}/groups/${groupCode}/players/${playerId}`, patch);
   }
 
-  updatePlayerLevel(groupCode: string, playerId: string, level: Level | null) {
+  /** The revision is required even to clear: a stale tab must not undo a ladder switch it never saw. */
+  updatePlayerLevel(groupCode: string, playerId: string, level: Level | null, expectedLadderRevision: number) {
     return this.http.put<{ id: string; level: Level | null }>(
       `${this.base}/groups/${groupCode}/players/${playerId}/level`,
-      { level }
+      { level, expectedLadderRevision }
     );
+  }
+
+  /** Owner-only: the group's ordered ladder, seeds, revision and who is assigned where. */
+  getGroupLevels(groupCode: string) {
+    return this.http.get<GroupLevelsResponse>(`${this.base}/groups/${groupCode}/levels`);
+  }
+
+  saveGroupLevels(groupCode: string, request: SaveGroupLevelsRequest) {
+    return this.http.put<GroupLevelsResponse>(`${this.base}/groups/${groupCode}/levels`, request);
   }
 
   listSessions(groupCode: string) {

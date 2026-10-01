@@ -27,7 +27,7 @@ import {
   rulesTouching,
   type PairRule,
 } from '../../../engines/pair-rules.ts';
-import { asLevel, type Level } from '../../../engines/levels.ts';
+import type { Level, LevelSpec } from '../../../engines/levels.ts';
 import { waitingSinceMap } from '../../../engines/waiting.ts';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { levelWrite, loadLevelSetAt, loadPlayerLevels, loadRatingAnchors } from '../player-levels.js';
@@ -68,6 +68,7 @@ import {
   seatedPlayers,
   type Seat,
 } from './pairing-teams.js';
+import { GroupLevelsService } from '../groups/group-levels.service.js';
 import { SessionLock } from './session-lock.js';
 import type { AddWalkInDto } from './dto/add-walk-in.dto.js';
 import type { CreateSessionDto, NameReviewDto } from './dto/create-session.dto.js';
@@ -115,7 +116,8 @@ export class SessionsService {
   /** One lock for the whole sessions module: checkout and bill-config writes queue behind the same session work. */
   constructor(
     private readonly prisma: PrismaService,
-    private readonly lock: SessionLock
+    private readonly lock: SessionLock,
+    private readonly groupLevels: GroupLevelsService
   ) {}
 
   private badRequest(code: string): BadRequestException {
@@ -144,6 +146,17 @@ export class SessionsService {
       }
       throw error;
     }
+  }
+
+  /**
+   * The owning group's ladder and its players' levels, read once per operation.
+   * A stored label outside the ladder throws (LEVEL_DATA_INTEGRITY) rather than
+   * reading as untagged.
+   */
+  private async levelsFor(groupId: string): Promise<{ ladder: readonly LevelSpec[]; levels: Map<string, Level | null> }> {
+    const group = await this.prisma.group.findUniqueOrThrow({ where: { code: groupId } });
+    const ladder = this.groupLevels.ladderOf(group).levels;
+    return { ladder, levels: await loadPlayerLevels(this.prisma, groupId, ladder) };
   }
 
   private runGenerateRound(...args: Parameters<typeof generateRound>) {
@@ -247,15 +260,15 @@ export class SessionsService {
         .flatMap((r) => [r.playerAId, r.playerBId])
     );
     if (linked.size === 0) return '[]';
-    const [roster, levels] = await Promise.all([
+    const [roster, { ladder, levels }] = await Promise.all([
       this.prisma.sessionRoster.findMany({
         where: { sessionId: session.code, active: true },
         select: { playerId: true },
       }),
-      loadPlayerLevels(this.prisma, session.groupId),
+      this.levelsFor(session.groupId),
     ]);
     return JSON.stringify(
-      carryOutcomesForConfirm(this.teamsOf(pairing), linked, levels, roster.map((r) => r.playerId))
+      carryOutcomesForConfirm(this.teamsOf(pairing), linked, levels, roster.map((r) => r.playerId), ladder)
     );
   }
 
@@ -407,7 +420,15 @@ export class SessionsService {
     if (dto.date != null && !isValidIsoDate(dto.date)) {
       throw new BadRequestException('Session date must be a valid ISO calendar date.');
     }
+    // Under the group's lock: a ladder save checks "no open session" inside the same
+    // lock, so a session can never appear between its guard and its commit.
+    return this.groupLevels.withGroupLock(dto.groupCode, () => this.createSessionExclusively(dto, caller));
+  }
 
+  private async createSessionExclusively(
+    dto: CreateSessionDto,
+    caller: { id: string; role: string }
+  ): Promise<{ code: string }> {
     try {
       return await this.prisma.$transaction(async (tx) => {
         const prior = await tx.sessionCreation.findUnique({
@@ -423,7 +444,7 @@ export class SessionsService {
 
         const group = await tx.group.findUnique({
           where: { code: dto.groupCode },
-          select: { code: true, ownerId: true, shuttleToolsEnabled: true, crossSessionHistory: true },
+          select: { code: true, ownerId: true, shuttleToolsEnabled: true, crossSessionHistory: true, levelLadder: true, levelLadderRevision: true },
         });
         // "No such group" and "a real group, not yours" get the identical
         // 404 — the group is named in the body, so OwnershipGuard could not
@@ -435,6 +456,15 @@ export class SessionsService {
           throw new NotFoundException();
         }
 
+        // Level choices are checked against THIS group's ladder at the revision the host
+        // saw, before anything is written: a stale tab (even one naming a level the new
+        // ladder also has) or an unknown name creates no session, no player and no tag.
+        const chosenLevels = [...dto.rosterReviews, ...dto.waitlistReviews]
+          .map((review) => review.level)
+          .filter((level): level is string => typeof level === 'string' && level !== '');
+        const ladder = chosenLevels.length > 0 ? this.groupLevels.ladderOf(group) : null;
+        if (ladder) this.groupLevels.assertWritable(ladder, dto.expectedLadderRevision, chosenLevels);
+
         const dbPlayers = await tx.player.findMany({ where: { groupId: dto.groupCode } });
         const playersById = new Map(dbPlayers.map((player) => [player.id, player]));
         let players: FuzzyPlayer[] = dbPlayers.map((player) => ({
@@ -442,9 +472,9 @@ export class SessionsService {
           name: player.name,
           aliases: JSON.parse(player.aliases) as string[],
         }));
-        const newPlayerWrites: { id: string; name: string; level: Level | null }[] = [];
+        const newPlayerWrites: { id: string; name: string; level: string | null }[] = [];
         const aliasWrites = new Map<string, string[]>();
-        const levelWrites = new Map<string, Level>();
+        const levelWrites = new Map<string, string>();
 
         // Resolve all choices before deduplicating IDs. An earlier fuzzy
         // suggestion may become a new player while a later duplicate is
@@ -492,7 +522,7 @@ export class SessionsService {
                 groupId: dto.groupCode,
                 name: player.name,
                 aliases: '[]',
-                ...levelWrite(null, player.level),
+                ...levelWrite(null, player.level, ladder?.levels),
               },
             })
           )
@@ -504,7 +534,7 @@ export class SessionsService {
         );
         await Promise.all(
           [...levelWrites.entries()].map(([id, level]) =>
-            tx.player.update({ where: { id }, data: levelWrite(null, level) })
+            tx.player.update({ where: { id }, data: levelWrite(null, level, ladder?.levels) })
           )
         );
         await tx.session.create({
@@ -840,12 +870,12 @@ export class SessionsService {
   private async loadCarryEligibility(
     session: { groupId: string; code: string }
   ): Promise<{ carryEligible: Set<string>; carriedTonight: Set<string> }> {
-    const [roster, levels, levelSetAt, confirmed] = await Promise.all([
+    const [roster, { ladder, levels }, levelSetAt, confirmed] = await Promise.all([
       this.prisma.sessionRoster.findMany({
         where: { sessionId: session.code, active: true },
         select: { playerId: true },
       }),
-      loadPlayerLevels(this.prisma, session.groupId),
+      this.levelsFor(session.groupId),
       loadLevelSetAt(this.prisma, session.groupId),
       this.prisma.pairing.findMany({
         where: { sessionId: session.code, confirmedAt: { not: null } },
@@ -856,6 +886,7 @@ export class SessionsService {
     return computeCarryEligibility({
       activeRosterIds: roster.map((r) => r.playerId),
       levels,
+      ladder,
       levelSetAt,
       confirmedPairingsTonight: confirmed.map((p) => ({
         playerIds: this.playersOf(p),
@@ -981,7 +1012,7 @@ export class SessionsService {
     const avoidSplits = currentSplit ? [...previouslyShown, currentSplit] : previouslyShown;
 
     const ratings = requestedMode === 'balanced' ? await this.loadRatings(session.groupId) : undefined;
-    const levels = await loadPlayerLevels(this.prisma, session.groupId);
+    const { ladder, levels } = await this.levelsFor(session.groupId);
     const queueBy: 'games' | 'wait' = requestedMode === 'level' ? 'wait' : 'games';
     const carry = requestedMode === 'level' ? await this.loadCarryEligibility(session) : undefined;
 
@@ -1041,7 +1072,8 @@ export class SessionsService {
         carry?.carryEligible,
         carry?.carriedTonight,
         ruled.rules,
-        'requested'
+        'requested',
+        ladder
       );
     } catch (error) {
       if (error instanceof NoLegalRuleMatchError) return this.rulesBlocked(error.ruleIds);
@@ -1743,7 +1775,7 @@ export class SessionsService {
     const courtMode = effectiveCourtMode(session, pairing.courtNumber);
     const history = await this.loadHistory(session.groupId, pairing.sessionId);
     const ratings = courtMode === 'balanced' ? await this.loadRatings(session.groupId) : undefined;
-    const levels = await loadPlayerLevels(this.prisma, session.groupId);
+    const { ladder, levels } = await this.levelsFor(session.groupId);
 
     const swapIn = (candidate: string): [string[], string[]] => {
       const replace = (team: string[]): string[] =>
@@ -1784,7 +1816,8 @@ export class SessionsService {
             ratings,
             { partner: 0, opponent: 0 },
             history.recentGroupKeys ?? null,
-            courtMode === 'level' ? levels : undefined
+            courtMode === 'level' ? levels : undefined,
+            ladder
           )
       );
 
@@ -2405,7 +2438,7 @@ export class SessionsService {
     const session = await this.prisma.session.findUnique({ where: { code } });
     if (!session) throw this.notFound('SESSION_NOT_FOUND');
 
-    const levels = await loadPlayerLevels(this.prisma, session.groupId);
+    const { levels } = await this.levelsFor(session.groupId);
     const [roster, waitlist] = await Promise.all([
       this.prisma.sessionRoster.findMany({ where: { sessionId: code }, select: { playerId: true } }),
       this.prisma.waitlist.findMany({ where: { sessionId: code }, select: { playerId: true } }),
@@ -2774,7 +2807,7 @@ export class SessionsService {
     const level = isLevelMode(mode);
     const history = await this.loadHistory(session.groupId, session.code);
     const ratings = mode === 'balanced' ? await this.loadRatings(session.groupId) : undefined;
-    const levels = await loadPlayerLevels(this.prisma, session.groupId);
+    const { ladder, levels } = await this.levelsFor(session.groupId);
     const carry = level ? await this.loadCarryEligibility(session) : undefined;
 
     let result: ReturnType<typeof generateRound>;
@@ -2792,7 +2825,8 @@ export class SessionsService {
         carry?.carryEligible,
         carry?.carriedTonight,
         ruled.rules,
-        'partial'
+        'partial',
+        ladder
       );
     } catch (error) {
       if (error instanceof NoLegalRuleMatchError) {
@@ -2996,8 +3030,14 @@ export class SessionsService {
     return { playerId: updated.playerId, walkIn: updated.walkIn };
   }
 
-  addWalkIn(sessionCode: string, dto: AddWalkInDto) {
-    return this.lock.run(sessionCode, () => this.addWalkInExclusively(sessionCode, dto));
+  async addWalkIn(sessionCode: string, dto: AddWalkInDto) {
+    const owner = await this.prisma.session.findUnique({ where: { code: sessionCode }, select: { groupId: true } });
+    if (!owner) throw this.notFound('SESSION_NOT_FOUND');
+    // Group lock outermost, then the session's: a level assignment is serialized with a ladder
+    // save, and nothing takes them in the other order.
+    return this.groupLevels.withGroupLock(owner.groupId, () =>
+      this.lock.run(sessionCode, () => this.addWalkInExclusively(sessionCode, dto))
+    );
   }
 
   /**
@@ -3022,6 +3062,15 @@ export class SessionsService {
     const session = await this.prisma.session.findUnique({ where: { code: sessionCode } });
     if (!session) throw this.notFound('SESSION_NOT_FOUND');
     if (session.endedAt !== null) throw this.conflict('SESSION_ENDED');
+
+    // A level on a new walk-in is validated against the group's ladder and revision
+    // before any player row exists.
+    let ladder: ReturnType<GroupLevelsService['ladderOf']> | null = null;
+    if (dto.name && dto.level) {
+      const group = await this.prisma.group.findUniqueOrThrow({ where: { code: session.groupId } });
+      ladder = this.groupLevels.ladderOf(group);
+      this.groupLevels.assertWritable(ladder, dto.expectedLadderRevision, [dto.level]);
+    }
 
     let playerId: string;
     let newPlayerName: string | null = null;
@@ -3069,7 +3118,7 @@ export class SessionsService {
             groupId: session.groupId,
             name: newPlayerName,
             aliases: '[]',
-            ...levelWrite(null, dto.level ?? null),
+            ...levelWrite(null, dto.level ?? null, ladder?.levels),
           },
         }),
         this.prisma.sessionRoster.create({
@@ -3274,7 +3323,8 @@ export class SessionsService {
       }
     }
 
-    const levelById = new Map(players.map((p) => [p.id, asLevel(p.level)]));
+    // The raw stored name: validated against the ladder on every pairing read, never reinterpreted here.
+    const levelById = new Map(players.map((p) => [p.id, p.level]));
 
     return roster.map((r) => {
       const level = levelById.get(r.playerId) ?? null;

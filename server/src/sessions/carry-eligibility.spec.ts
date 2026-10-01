@@ -136,4 +136,23 @@ describe('computeCarryEligibility', () => {
       expect(result.carryEligible.has('bg')).toBe(true);
     });
   });
+
+  it('custom ladder: far-below is judged by the group\'s order, not the built-in one', () => {
+    const ladder = [{ name: 'S', startingElo: 1000 }, { name: 'C', startingElo: 1100 }, { name: 'B', startingElo: 1200 }];
+    // In the built-in order S is below C, but here S is the bottom rung and B the top.
+    const base = {
+      activeRosterIds: ['low', 'a', 'b', 'c'],
+      levels: new Map<string, string | null>([['low', 'S'], ['a', 'B'], ['b', 'B'], ['c', 'B']]),
+      levelSetAt: new Map([['low', 1000]]),
+      confirmedPairingsTonight: [],
+    };
+    expect(computeCarryEligibility({ ...base, ladder }).carryEligible.has('low')).toBe(true);
+    // A two-rung gap in the custom order puts C and S in band, so the carry rule does not apply.
+    const near = computeCarryEligibility({
+      ...base,
+      levels: new Map<string, string | null>([['low', 'S'], ['a', 'C'], ['b', 'C'], ['c', 'C']]),
+      ladder,
+    });
+    expect(near.carryEligible.has('low')).toBe(false);
+  });
 });

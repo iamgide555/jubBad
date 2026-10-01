@@ -139,6 +139,12 @@
               ปิด
             </button>
           </div>
+          @if (panelLevelError(); as e) {
+            <p class="error" role="alert" data-panel-level-error>{{ e }}</p>
+          }
+          @if (!ladder()) {
+            <p class="muted" data-ladder-unavailable i18n="@@dashboard.levelsUnavailable">โหลดรายการระดับไม่ได้ จึงยังเลือกระดับไม่ได้</p>
+          }
           <div class="player-panel-rows">
             @for (row of playerPanel(); track row.playerId) {
               <div class="player-panel-row" [class.resting]="row.resting">
@@ -146,6 +152,9 @@
                 <app-level-picker
                   [compact]="true"
                   [level]="row.level"
+                  [levels]="ladder()?.levels ?? []"
+                  [mode]="ladder()?.mode ?? 'standard'"
+                  [disabled]="!ladder()"
                   (levelChange)="setPanelLevel(row.playerId, $event)"
                 />
                 <span class="player-panel-stat" i18n="@@dashboard.playerPanelPlayed"
@@ -411,6 +420,7 @@
     <app-add-walk-in-dialog
       #walkInDialog
       [players]="players()"
+      [ladder]="ladder()"
       [excludedIds]="rosterPlayerIds()"
       [saving]="walkInSaving()"
       [error]="walkInError()"

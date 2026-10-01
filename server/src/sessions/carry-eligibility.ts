@@ -5,8 +5,8 @@
  * docs/superpowers/specs/2026-09-27-level-rework-design.md, section 1b.
  */
 
-import { isFarBelow } from '../../../engines/levels.ts';
-import type { Level } from '../../../engines/levels.ts';
+import { DEFAULT_LEVEL_LADDER, isFarBelow } from '../../../engines/levels.ts';
+import type { Level, LevelSpec } from '../../../engines/levels.ts';
 import type { CarryOutcome } from './carry-outcomes.js';
 
 export interface CarryInputs {
@@ -14,6 +14,8 @@ export interface CarryInputs {
   activeRosterIds: string[];
   /** Every active player's tag, keyed by id. */
   levels: ReadonlyMap<string, Level | null>;
+  /** The group's ordered ladder. Omitted: the built-in one. */
+  ladder?: readonly LevelSpec[];
   /** Player id -> Player.levelSetAt (epoch ms), for players ever tagged. */
   levelSetAt: ReadonlyMap<string, number>;
   /** This session's confirmed pairings: each entry's player ids + confirmedAt
@@ -31,6 +33,7 @@ export interface CarryEligibility {
 }
 
 export function computeCarryEligibility(input: CarryInputs): CarryEligibility {
+  const ladder = input.ladder ?? DEFAULT_LEVEL_LADDER;
   const activeLevels = new Map(
     input.activeRosterIds.map((id) => [id, input.levels.get(id) ?? null] as const)
   );
@@ -47,7 +50,7 @@ export function computeCarryEligibility(input: CarryInputs): CarryEligibility {
 
   const carryEligible = new Set<string>();
   for (const id of input.activeRosterIds) {
-    if (!isFarBelow(id, activeLevels)) continue;
+    if (!isFarBelow(id, activeLevels, ladder)) continue;
     const setAt = input.levelSetAt.get(id);
     if (setAt === undefined) continue; // isFarBelow already requires a tag; guards a missing entry
     if (playedSince(id, setAt)) continue;
@@ -62,14 +65,14 @@ export function computeCarryEligibility(input: CarryInputs): CarryEligibility {
   const carriedTonight = new Set<string>();
   // A linked game counts only its snapshotted teammate, never opponents.
   for (const p of input.confirmedPairingsTonight) {
-    for (const farBelow of p.playerIds.filter((id) => isFarBelow(id, activeLevels))) {
+    for (const farBelow of p.playerIds.filter((id) => isFarBelow(id, activeLevels, ladder))) {
       const outcome = outcomeFor(p, farBelow);
       if (outcome) {
         if (outcome.partnerId !== null) carriedTonight.add(outcome.partnerId);
         continue;
       }
       for (const id of p.playerIds) {
-        if (!isFarBelow(id, activeLevels)) carriedTonight.add(id);
+        if (!isFarBelow(id, activeLevels, ladder)) carriedTonight.add(id);
       }
     }
   }

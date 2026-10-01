@@ -13,7 +13,6 @@ import {
   ValidateNested,
 } from 'class-validator';
 import { NameMatchDto } from './name-match.dto.js';
-import { LEVELS, type Level } from '../../../../engines/levels.ts';
 
 export class NameReviewDto {
   @IsString()
@@ -34,8 +33,8 @@ export class NameReviewDto {
    * reviewing tonight's paste.
    */
   @IsOptional()
-  @IsIn(LEVELS)
-  level?: Level;
+  @IsString()
+  level?: string;
 }
 
 export class CreateSessionDto {
@@ -66,6 +65,12 @@ export class CreateSessionDto {
 
   @IsUUID()
   idempotencyKey!: string;
+
+  /** Required when any review carries a level: the ladder revision the host saw. */
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  expectedLadderRevision?: number;
 
   @IsArray()
   @ValidateNested({ each: true })

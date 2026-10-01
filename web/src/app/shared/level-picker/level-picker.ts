@@ -1,6 +1,6 @@
 import { Component, ElementRef, computed, input, output, viewChild } from '@angular/core';
 import { NgTemplateOutlet } from '@angular/common';
-import { LEVELS, type Level } from '../../../../../engines/levels.ts';
+import type { Level } from '../../../../../engines/levels.ts';
 
 interface LevelInfo {
   level: Level;
@@ -64,6 +64,15 @@ function definitionsOf(): LevelInfo[] {
 })
 export class LevelPicker {
   readonly level = input<Level | null>(null);
+  /** The group's ordered ladder (host feedback F): the choices, lowest first. Always passed in, never a built-in default. */
+  readonly levels = input.required<readonly { name: string }[]>();
+  /**
+   * `standard` shows the built-in definitions; `custom` shows the host's own names
+   * alone, since there is no definition to quote for a name only they chose.
+   */
+  readonly mode = input.required<'standard' | 'custom'>();
+  /** Off while the ladder could not be read, so nothing is offered from a guess. */
+  readonly disabled = input(false);
   /**
    * Compact renders as a single small trigger chip that opens the picker in
    * a modal dialog (roster-manage table row, dashboard panel row) instead
@@ -76,7 +85,7 @@ export class LevelPicker {
 
   readonly levelChange = output<Level | null>();
 
-  protected readonly levels = LEVELS;
+  protected readonly choices = computed(() => this.levels().map((l) => l.name));
   protected readonly definitions = definitionsOf();
   protected readonly unsetLabel = '-';
 
@@ -84,10 +93,12 @@ export class LevelPicker {
 
   protected readonly currentDefinition = computed(() => {
     const level = this.level();
+    if (this.mode() !== 'standard') return undefined;
     return level ? this.definitions.find((d) => d.level === level)?.definition : undefined;
   });
 
   protected open(): void {
+    if (this.disabled()) return;
     this.dialogEl()?.nativeElement.showModal();
   }
 
@@ -104,6 +115,7 @@ export class LevelPicker {
    * nothing to close at all.
    */
   protected choose(level: Level | null): void {
+    if (this.disabled()) return;
     this.levelChange.emit(level);
   }
 }

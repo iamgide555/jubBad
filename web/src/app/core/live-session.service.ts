@@ -5,6 +5,7 @@ import { firstValueFrom } from 'rxjs';
 import { environment } from '../../environments/environment';
 import type { CourtFormat, CourtMode, CourtState } from './live-session.model';
 import type { Session } from './session.model';
+import { levelsErrorMessage } from './group-levels.model';
 import type { Level } from '../../../../engines/levels.ts';
 import type { PairRule } from './pair-rule.model';
 import { checkoutErrorMessage, type CheckoutModel, type CheckoutPreview, type CheckoutReceipt } from './checkout.model';
@@ -162,6 +163,9 @@ function messageForCode(code: string): string | null {
       return $localize`:@@err.code.shuttleTrackingDisabled:ก๊วนนี้ไม่ได้เปิดการจดลูกแบด`;
     case 'PLAYER_ALREADY_ON_COURT':
       return $localize`:@@err.code.playerAlreadyOnCourt:ผู้เล่นคนนี้อยู่ในคอร์ทอื่นแล้ว`;
+    case 'LEVEL_LADDER_STALE':
+    case 'LEVEL_UNKNOWN':
+      return levelsErrorMessage(code);
     default:
       return checkoutErrorMessage(code);
   }
@@ -445,7 +449,7 @@ export class LiveSessionService {
   /** Adds someone not on tonight's pasted roster — an existing group player
    *  (`playerId`) or a brand-new one (`name`) — to a running session. */
   addWalkIn(
-    input: { playerId: string } | { name: string; level?: Level }
+    input: { playerId: string } | { name: string; level?: Level; expectedLadderRevision?: number }
   ): Promise<ActionResult> {
     return this.post('roster', input, $localize`:@@err.addWalkIn:เพิ่มผู้เล่นไม่สำเร็จ`);
   }

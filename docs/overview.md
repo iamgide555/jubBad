@@ -890,6 +890,52 @@ from being copied until the host resolves them; surcharges stay a group
 transfer, never profit. No checkout data appears on the display, summary or
 profile routes.
 
+### Group-owned level ladders (host feedback F)
+
+Every group starts on the built-in ladder (BG, N, S, P-, P, P+, C, B, seeded
+900…1600) and stays there until its host explicitly switches. A group may
+instead define 1–16 ordered levels (`Group.levelLadder`, JSON of
+`{id, name, startingElo}`; null = built-in). Names are trimmed, at most 16
+characters (code points), unique ignoring case, no control characters; seeds are
+whole numbers that strictly increase with the order. The ladder, its seeds and
+every player's level are host-only: no public route, session summary, venue
+display or profile carries them.
+
+**Earned Elo is frozen on the player, not looked up by name.** `Player.levelSeed`
+is the anchor applied when a level was last set (1200 when cleared) and
+`levelSetAt` is when. Rating replay (both singles and doubles tracks) reads
+those, never today's name-to-seed table, so editing a ladder cannot move a
+rating that was already earned. A real assignment stamps the level's *current*
+seed; re-picking a player's current level is a no-op even after that seed was
+edited; clearing reseeds 1200. The migration backfilled every existing player
+with what the built-in ladder had given them.
+
+**Editing** is `GET/PUT /groups/:code/levels` (owner-only) with
+`customize | edit | reset`. The first switch either way (`customize`, `reset`)
+clears player *labels* only — never seeds, timestamps or results — because a new
+grading system is never guessed to mean the old one, even when names look alike.
+Within a custom ladder, `edit` identifies levels by stable id: a rename (or a
+swap of two names in one save) migrates assigned labels from a snapshot, a
+reorder or seed edit moves nobody's anchor, a new level assigns nobody, and
+removing a level someone holds is refused (`LEVEL_IN_USE`). Saves are
+revision-checked (`LEVEL_LADDER_STALE`) and refused while *any* session in the
+group is open, unstarted included (`LEVEL_LADDER_ACTIVE_SESSION`); the check,
+the revision bump, the ladder write and the label updates are one transaction
+under a group-scoped lock that session creation and every level-bearing write
+also take.
+
+**Every level write carries the revision it was chosen from** (group player
+edit, one-field edit and dashboard panel, roster review at session creation,
+walk-in) and is validated against the owning group's ladder before anything is
+written: a stale tab is refused even when the new ladder reuses its label
+(`LEVEL_LADDER_STALE`), an unknown name is `LEVEL_UNKNOWN`, and a refused write
+leaves no session, player or tag behind. A contact-only player edit leaves the
+tag alone. The pairing engine takes the group's ladder explicitly for the ±1
+band and carry rules; a stored label the ladder lacks stops pairing with
+`LEVEL_DATA_INTEGRITY` rather than reading as untagged, and corrupt stored
+ladder JSON is `LEVEL_LADDER_CORRUPT`, never the built-in default. Built-in
+levels keep their definitions in the picker; custom names show alone.
+
 ## Current state
 
 Everything described above is built: the three engines, the API, the Angular

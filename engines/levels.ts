@@ -1,36 +1,64 @@
 /**
  * Skill level (ระดับมือ), the letter grade Thai groups already use to
  * describe a player. There is no single authoritative standard (regions and
- * apps disagree — see docs/superpowers/specs, C1's research), so this list
- * and its order are the app's own working standard: Elo corrects any
+ * apps disagree — see docs/superpowers/specs, C1's research), so the built-in
+ * list and its order are the app's own working standard: Elo corrects any
  * misplacement as results accumulate.
+ *
+ * A group may instead define its own ordered ladder (host feedback F). Every
+ * helper here takes the ladder explicitly and defaults to the built-in one, so
+ * nothing reads a process-global list and an ordinary group is unchanged.
  */
 export const LEVELS = ['BG', 'N', 'S', 'P-', 'P', 'P+', 'C', 'B'] as const;
 
-export type Level = (typeof LEVELS)[number];
+/** A level's name. Names are free text in a custom ladder, so this is no longer a closed union. */
+export type Level = string;
 
-export function isLevel(value: string): value is Level {
-  return (LEVELS as readonly string[]).includes(value);
-}
-
-/** Parses a DB or DTO value into a Level, or null for anything else — never throws. */
-export function asLevel(value: string | null | undefined): Level | null {
-  return typeof value === 'string' && isLevel(value) ? value : null;
-}
-
-export function levelIndex(level: Level): number {
-  return LEVELS.indexOf(level);
+/** One rung: its display name and the Elo a player tagged with it starts from. */
+export interface LevelSpec {
+  name: string;
+  startingElo: number;
 }
 
 /**
- * Elo seed for a level, 100 points apart starting at 900 (BG) up to 1600 (B).
- * A 100-point gap is about a 64% expected win — enough to seed balanced mode
- * sensibly without a placement being unrecoverable if it's wrong. Unknown
- * (null) seeds at the plain starting rating, same as before this feature.
+ * The built-in ladder: 100 points apart from 900 (BG) up to 1600 (B). A
+ * 100-point gap is about a 64% expected win — enough to seed balanced mode
+ * sensibly without a placement being unrecoverable if it's wrong.
  */
-export function seedFor(level: Level | null): number {
-  if (level === null) return 1200;
-  return 900 + 100 * levelIndex(level);
+export const DEFAULT_LEVEL_LADDER: readonly LevelSpec[] = LEVELS.map((name, i) => ({
+  name,
+  startingElo: 900 + 100 * i,
+}));
+
+/** The rating an untagged player starts at, same as before levels existed. */
+const UNTAGGED_SEED = 1200;
+const MAX_LEVELS = 16;
+const MAX_NAME_CODE_POINTS = 16;
+const MAX_SEED = 2147483647; // fits the database INTEGER column
+
+export function isLevel(value: string, ladder: readonly LevelSpec[] = DEFAULT_LEVEL_LADDER): value is Level {
+  return ladder.some((l) => l.name === value);
+}
+
+/** Parses a DB or DTO value into a Level, or null for anything else — never throws. */
+export function asLevel(
+  value: string | null | undefined,
+  ladder: readonly LevelSpec[] = DEFAULT_LEVEL_LADDER
+): Level | null {
+  return typeof value === 'string' && isLevel(value, ladder) ? value : null;
+}
+
+/** Position in the ladder. A name the ladder does not contain is a bug upstream, so it throws rather than answering -1. */
+export function levelIndex(level: Level, ladder: readonly LevelSpec[] = DEFAULT_LEVEL_LADDER): number {
+  const index = ladder.findIndex((l) => l.name === level);
+  if (index === -1) throw new Error(`unknown level "${level}" for this ladder`);
+  return index;
+}
+
+/** Elo seed for a level. Unknown (null) seeds at the plain starting rating. */
+export function seedFor(level: Level | null, ladder: readonly LevelSpec[] = DEFAULT_LEVEL_LADDER): number {
+  if (level === null) return UNTAGGED_SEED;
+  return ladder[levelIndex(level, ladder)].startingElo;
 }
 
 /**
@@ -38,9 +66,13 @@ export function seedFor(level: Level | null): number {
  * An unknown level (null) fits any level — a group can turn the band on
  * before everyone is tagged without locking untagged players out of courts.
  */
-export function withinBand(a: Level | null, b: Level | null): boolean {
+export function withinBand(
+  a: Level | null,
+  b: Level | null,
+  ladder: readonly LevelSpec[] = DEFAULT_LEVEL_LADDER
+): boolean {
   if (a === null || b === null) return true;
-  return Math.abs(levelIndex(a) - levelIndex(b)) <= 1;
+  return Math.abs(levelIndex(a, ladder) - levelIndex(b, ladder)) <= 1;
 }
 
 /**
@@ -52,20 +84,73 @@ export function withinBand(a: Level | null, b: Level | null): boolean {
  * convention as `withinBand` — never counts toward "in band" or "above"
  * for anyone else.
  */
-export function isFarBelow(id: string, activeLevels: ReadonlyMap<string, Level | null>): boolean {
+export function isFarBelow(
+  id: string,
+  activeLevels: ReadonlyMap<string, Level | null>,
+  ladder: readonly LevelSpec[] = DEFAULT_LEVEL_LADDER
+): boolean {
   const level = activeLevels.get(id) ?? null;
   if (level === null) return false;
 
   let inBand = 0;
   for (const [otherId, otherLevel] of activeLevels) {
     if (otherId === id || otherLevel === null) continue;
-    if (withinBand(level, otherLevel)) {
+    if (withinBand(level, otherLevel, ladder)) {
       inBand += 1;
-    } else if (levelIndex(otherLevel) <= levelIndex(level)) {
+    } else if (levelIndex(otherLevel, ladder) <= levelIndex(level, ladder)) {
       // Another tagged player sits at or below `id`, outside their band —
       // `id` is not at the bottom of the group, so this is never a carry case.
       return false;
     }
   }
   return inBand + 1 < 4; // +1 counts `id` itself.
+}
+
+const codePoints = (s: string): number => [...s].length;
+// Case-folded so "bg" and "BG" collide; NFC so a composed and a decomposed spelling do too.
+const foldName = (s: string): string => s.normalize('NFC').toLowerCase();
+
+/**
+ * Throws a message a host can act on if a custom ladder is unusable: 1–16
+ * levels, trimmed non-empty names of at most 16 code points with no control
+ * characters and no case-insensitive duplicates, and whole-number seeds that
+ * strictly increase (the order IS the ranking, so a tie or reversal would make
+ * two levels indistinguishable to the rating).
+ */
+export function validateLevelSpecs(levels: readonly LevelSpec[]): void {
+  if (levels.length < 1 || levels.length > MAX_LEVELS) {
+    throw new Error(`a ladder needs 1 to ${MAX_LEVELS} levels, got ${levels.length}`);
+  }
+  const seen = new Set<string>();
+  let previous = -Infinity;
+  for (const [i, level] of levels.entries()) {
+    const label = `level ${i + 1}`;
+    if (typeof level.name !== 'string' || level.name === '' || level.name !== level.name.trim()) {
+      throw new Error(`${label}: name must be non-empty and have no leading or trailing spaces`);
+    }
+    if (/\p{Cc}/u.test(level.name)) throw new Error(`${label}: name must not contain control characters`);
+    if (codePoints(level.name) > MAX_NAME_CODE_POINTS) {
+      throw new Error(`${label}: name must be at most ${MAX_NAME_CODE_POINTS} characters`);
+    }
+    const folded = foldName(level.name);
+    if (seen.has(folded)) throw new Error(`${label}: names must be unique (duplicate "${level.name}")`);
+    seen.add(folded);
+    if (!Number.isInteger(level.startingElo) || level.startingElo < 0 || level.startingElo > MAX_SEED) {
+      throw new Error(`${label}: starting Elo must be a whole number from 0 to ${MAX_SEED}`);
+    }
+    if (level.startingElo <= previous) {
+      throw new Error(`${label}: starting Elo must be higher than the level before it`);
+    }
+    previous = level.startingElo;
+  }
+}
+
+/**
+ * Suggested seeds for a new ladder: 100 apart, centred on 1200 (one level is
+ * 1200, three are 1100/1200/1300, an even count uses 50-point offsets so
+ * neighbours stay 100 apart). The host may override every one.
+ */
+export function centeredLevelSpecs(names: readonly string[]): LevelSpec[] {
+  const middle = (names.length - 1) / 2;
+  return names.map((name, i) => ({ name, startingElo: UNTAGGED_SEED + Math.round((i - middle) * 100) }));
 }

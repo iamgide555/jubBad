@@ -3,6 +3,7 @@ import { Test } from '@nestjs/testing';
 import { PrismaModule } from '../prisma/prisma.module.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { GroupsService } from './groups.service.js';
+import { GroupLevelsService } from './group-levels.service.js';
 
 describe('GroupsService.listPlayersManage', () => {
   let service: GroupsService;
@@ -12,7 +13,7 @@ describe('GroupsService.listPlayersManage', () => {
   beforeAll(async () => {
     const moduleRef = await Test.createTestingModule({
       imports: [PrismaModule],
-      providers: [GroupsService],
+      providers: [GroupsService, GroupLevelsService],
     }).compile();
     service = moduleRef.get(GroupsService);
     prisma = moduleRef.get(PrismaService);

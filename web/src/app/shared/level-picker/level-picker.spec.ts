@@ -18,12 +18,16 @@ beforeAll(() => {
   }
 });
 
+const BUILT_IN = ['BG', 'N', 'S', 'P-', 'P', 'P+', 'C', 'B'];
+
 describe('LevelPicker', () => {
   let fixture: ComponentFixture<LevelPicker>;
 
   beforeEach(async () => {
     await TestBed.configureTestingModule({ imports: [LevelPicker] }).compileComponents();
     fixture = TestBed.createComponent(LevelPicker);
+    fixture.componentRef.setInput('levels', BUILT_IN.map((name) => ({ name })));
+    fixture.componentRef.setInput('mode', 'standard');
     fixture.detectChanges();
   });
 
@@ -118,5 +122,56 @@ describe('LevelPicker', () => {
     expect(el().querySelector('.helper')).toBeNull();
     expect(el().textContent).not.toContain('ช่วยเลือก');
     expect(el().querySelectorAll('.chip').length).toBe(9); // 8 levels + "-" (unset)
+  });
+
+  describe('group ladders (host feedback F)', () => {
+    const custom = ['BG', 'BGN', 'N'];
+    function useCustom() {
+      fixture.componentRef.setInput('levels', custom.map((name) => ({ name })));
+      fixture.componentRef.setInput('mode', 'custom');
+      fixture.detectChanges();
+    }
+
+    it('offers exactly the group\'s levels in the group\'s order, never another group\'s', () => {
+      useCustom();
+      const chips = [...el().querySelectorAll<HTMLButtonElement>('.chip')].map((b) => b.textContent!.trim());
+      expect(chips).toEqual(['-', 'BG', 'BGN', 'N']);
+    });
+
+    it('shows built-in definitions only in standard mode and invents none for custom names', () => {
+      fixture.componentRef.setInput('level', 'BG');
+      fixture.detectChanges();
+      expect(el().querySelector('.definition')).toBeTruthy();
+      useCustom();
+      fixture.componentRef.setInput('level', 'BG');
+      fixture.detectChanges();
+      expect(el().querySelector('.definition')).toBeNull();
+    });
+
+    it('emits a custom name', () => {
+      useCustom();
+      const emitted: (string | null)[] = [];
+      fixture.componentInstance.levelChange.subscribe((l) => emitted.push(l));
+      chip('BGN').click();
+      expect(emitted).toEqual(['BGN']);
+    });
+
+    it('disabled offers nothing selectable and emits nothing', () => {
+      fixture.componentRef.setInput('disabled', true);
+      fixture.detectChanges();
+      const emitted: (string | null)[] = [];
+      fixture.componentInstance.levelChange.subscribe((l) => emitted.push(l));
+      const chips = [...el().querySelectorAll<HTMLButtonElement>('.chip')];
+      expect(chips.every((b) => b.disabled)).toBe(true);
+      chips[1].click();
+      expect(emitted).toEqual([]);
+    });
+
+    it('compact mode\'s trigger is disabled too', () => {
+      fixture.componentRef.setInput('compact', true);
+      fixture.componentRef.setInput('disabled', true);
+      fixture.detectChanges();
+      expect((el().querySelector('.level-trigger') as HTMLButtonElement).disabled).toBe(true);
+    });
   });
 });

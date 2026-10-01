@@ -1,3 +1,4 @@
+import { HttpErrorResponse } from '@angular/common/http';
 import { Component, computed, signal } from '@angular/core';
 import { NgTemplateOutlet } from '@angular/common';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
@@ -23,6 +24,7 @@ import { Icon } from '../../shared/icon/icon';
 import { LevelPicker } from '../../shared/level-picker/level-picker';
 import type { Player } from '../../../../../engines/fuzzy-match.ts';
 import type { Level } from '../../../../../engines/levels.ts';
+import { levelsErrorMessage, type GroupLevelsResponse } from '../../core/group-levels.model';
 
 /** Local calendar date as `YYYY-MM-DD` — `Date#toISOString` reads UTC, which
  *  rolls over a day early/late for anyone west/east of it in the evening,
@@ -408,7 +410,23 @@ export class GroupEntry {
 
   /** Shared by `parse()` and `startManual()`: applies a parsed (or synthetic
    *  empty) result and drops the confirm screen into its starting state. */
+  /**
+   * The group's ordered ladder, read once the review opens -- after the parse has created
+   * the group when it is brand new. Null while unread or unreadable: the level choices are
+   * then disabled rather than offered from a guess.
+   */
+  readonly ladder = signal<GroupLevelsResponse | null>(null);
+
+  private async loadLadder(): Promise<void> {
+    try {
+      this.ladder.set(await firstValueFrom(this.rosterService.getGroupLevels(this.groupCode)));
+    } catch {
+      this.ladder.set(null);
+    }
+  }
+
   private enterConfirm(result: ParseRosterResponse, players: Player[]): void {
+    void this.loadLadder();
     this.date.set(result.header.isoDate ?? '');
     this.venue.set(result.header.venue ?? '');
     this.courtCount.set(result.header.courtCount);
@@ -689,10 +707,14 @@ export class GroupEntry {
     this.confirmError.set(null);
     this.isSubmitting.set(true);
     this.creationIdempotencyKey ??= crypto.randomUUID();
+    const anyLevel = [...this.rosterReviews(), ...this.waitlistReviews()].some((r) => r.level);
     try {
       const result = await firstValueFrom(
         this.rosterService.createSession({
           groupCode: this.groupCode,
+          // A level choice carries the ladder revision the host picked it from, so a stale tab
+          // cannot reapply a label a switch cleared even when the new ladder reuses its name.
+          ...(anyLevel ? { expectedLadderRevision: this.ladder()?.revision } : {}),
           date: this.date(),
           venue: this.venue().trim() || null,
           courtCount: this.courtCount(),
@@ -703,7 +725,18 @@ export class GroupEntry {
         })
       );
       await this.router.navigateByUrl(`/s/${result.code}`);
-    } catch {
+    } catch (err) {
+      const code = err instanceof HttpErrorResponse && typeof err.error?.code === 'string' ? err.error.code : null;
+      if (code === 'LEVEL_LADDER_STALE' || code === 'LEVEL_UNKNOWN') {
+        // Visible, and no session was made: reread the ladder and drop choices it no longer has.
+        await this.loadLadder();
+        const names = new Set(this.ladder()?.levels.map((l) => l.name) ?? []);
+        const keep = (reviews: NameReview[]) => reviews.map((r) => (r.level && !names.has(r.level) ? { ...r, level: undefined } : r));
+        this.rosterReviews.update(keep);
+        this.waitlistReviews.update(keep);
+        this.confirmError.set(levelsErrorMessage(code));
+        return;
+      }
       this.confirmError.set($localize`:@@entry.createFailed:สร้างก๊วนไม่สำเร็จ กรุณาลองอีกครั้ง`);
     } finally {
       this.isSubmitting.set(false);

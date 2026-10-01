@@ -1,10 +1,11 @@
 import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { computeRatingTracks, STARTING_RATING } from '../../../engines/elo.ts';
 import { matchRoster } from '../../../engines/fuzzy-match.ts';
-import { asLevel, type Level } from '../../../engines/levels.ts';
+import { GroupLevelsService } from './group-levels.service.js';
 import { parseLineRosterMessage } from '../../../engines/parser.ts';
 import type { RuleKind } from '../../../engines/pair-rules.ts';
 import { PrismaService } from '../prisma/prisma.service.js';
+import { parseGroupLadder } from './group-levels.js';
 import { levelWrite, loadPlayerLevels, loadRatingAnchors } from '../player-levels.js';
 import { parseCourtFormats } from '../sessions/court-formats.js';
 import { parseSeatTeams, parseTeams } from '../sessions/pairing-teams.js';
@@ -33,7 +34,10 @@ export class GroupsService {
    */
   private readonly ruleLock = new SessionLock();
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly groupLevels: GroupLevelsService
+  ) {}
 
   /**
    * Every group, for the admin home page. The first query in this codebase that
@@ -144,7 +148,7 @@ export class GroupsService {
     const decisiveMatches = matches.filter(
       (m): m is typeof m & { winner: 'A' | 'B' } => m.winner !== null
     );
-    const levels = await loadPlayerLevels(this.prisma, code);
+    const levels = await loadPlayerLevels(this.prisma, code, this.groupLevels.ladderOf(group).levels);
     const anchors = await loadRatingAnchors(this.prisma, code);
     const ratings = computeRatingTracks(decisiveMatches, anchors);
 
@@ -182,9 +186,25 @@ export class GroupsService {
     });
   }
 
-  async updatePlayer(code: string, playerId: string, dto: UpdatePlayerDto) {
+  updatePlayer(code: string, playerId: string, dto: UpdatePlayerDto) {
+    // Under the group's lock: a level write must not interleave with a ladder save.
+    return this.groupLevels.withGroupLock(code, () => this.updatePlayerExclusively(code, playerId, dto));
+  }
+
+  private async updatePlayerExclusively(code: string, playerId: string, dto: UpdatePlayerDto) {
     const player = await this.prisma.player.findFirst({ where: { id: playerId, groupId: code } });
     if (!player) throw new NotFoundException();
+
+    // An absent `level` leaves the tag alone (a contact-only edit must not clear it);
+    // a present key, even null, is a level write and needs the ladder it was chosen from.
+    let levelData: ReturnType<typeof levelWrite> = {};
+    if (dto.level !== undefined) {
+      const group = await this.prisma.group.findUniqueOrThrow({ where: { code } });
+      const ladder = this.groupLevels.ladderOf(group);
+      this.groupLevels.assertRevision(ladder, dto.expectedLadderRevision);
+      if (dto.level !== null) this.groupLevels.assertNames(ladder, [dto.level]);
+      levelData = levelWrite(player.level, dto.level, ladder.levels);
+    }
 
     const updated = await this.prisma.player.update({
       where: { id: playerId },
@@ -193,7 +213,7 @@ export class GroupsService {
         age: dto.age ?? null,
         email: dto.email ?? null,
         phone: dto.phone ?? null,
-        ...levelWrite(asLevel(player.level), dto.level ?? null),
+        ...levelData,
       },
     });
     return {
@@ -203,7 +223,7 @@ export class GroupsService {
       age: updated.age,
       email: updated.email,
       phone: updated.phone,
-      level: asLevel(updated.level),
+      level: updated.level,
     };
   }
 
@@ -214,15 +234,24 @@ export class GroupsService {
    * it would blank out a player's age/email/phone the first time a host taps
    * a level without also re-typing the rest of the row.
    */
-  async updatePlayerLevel(code: string, playerId: string, level: Level | null) {
+  updatePlayerLevel(code: string, playerId: string, level: string | null, expectedRevision: number) {
+    return this.groupLevels.withGroupLock(code, () => this.updatePlayerLevelExclusively(code, playerId, level, expectedRevision));
+  }
+
+  private async updatePlayerLevelExclusively(code: string, playerId: string, level: string | null, expectedRevision: number) {
     const player = await this.prisma.player.findFirst({ where: { id: playerId, groupId: code } });
     if (!player) throw new NotFoundException();
+    const group = await this.prisma.group.findUniqueOrThrow({ where: { code } });
+    const ladder = this.groupLevels.ladderOf(group);
+    // Even a clear carries the revision: it must not undo a switch an old tab never saw.
+    this.groupLevels.assertRevision(ladder, expectedRevision);
+    if (level !== null) this.groupLevels.assertNames(ladder, [level]);
 
     const updated = await this.prisma.player.update({
       where: { id: playerId },
-      data: levelWrite(asLevel(player.level), level),
+      data: levelWrite(player.level, level, ladder.levels),
     });
-    return { id: updated.id, level: asLevel(updated.level) };
+    return { id: updated.id, level: updated.level };
   }
 
   async listSessions(code: string) {
@@ -526,6 +555,7 @@ export class GroupsService {
     const group = await this.prisma.group.findUnique({ where: { code } });
     if (!group) throw new NotFoundException();
 
+    const ladder = parseGroupLadder(group.levelLadder);
     const [players, rules, sessions] = await Promise.all([
       this.prisma.player.findMany({ where: { groupId: code } }),
       this.prisma.playerRule.findMany({ where: { groupId: code }, orderBy: [{ createdAt: 'asc' }, { id: 'asc' }] }),
@@ -554,10 +584,20 @@ export class GroupsService {
         shuttleToolsEnabled: group.shuttleToolsEnabled,
         crossSessionHistory: group.crossSessionHistory,
       },
+      // Owner-only like the rest of the export: the effective ladder and each
+      // player's saved level, rating anchor and when it took effect. Never in a public view.
+      levelLadder: {
+        mode: ladder.mode,
+        revision: group.levelLadderRevision,
+        levels: ladder.levels.map((l) => ({ id: l.id, name: l.name, startingElo: l.startingElo })),
+      },
       players: players.map((p) => ({
         id: p.id,
         name: p.name,
         aliases: JSON.parse(p.aliases) as string[],
+        level: p.level,
+        levelSeed: p.levelSeed,
+        levelSetAt: p.levelSetAt,
       })),
       rules: rules.map(ruleView),
       sessions: sessions.map((s) => ({

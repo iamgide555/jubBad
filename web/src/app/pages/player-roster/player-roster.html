@@ -7,6 +7,9 @@
     }
   </p>
   <h1 i18n="@@playerRoster.title">ผู้เล่นในก๊วน</h1>
+  @if (editingId() === null) {
+    <p><a [routerLink]="['/g', groupCode, 'levels']" data-levels-link i18n="@@playerRoster.groupLevels">ตั้งชื่อระดับของก๊วน →</a></p>
+  }
 
   @if (!loaded()) {
     <p class="muted" i18n="@@playerRoster.loading">กำลังโหลด…</p>
@@ -122,6 +125,9 @@
                 <app-level-picker
                   [compact]="true"
                   [level]="player.level"
+                  [levels]="ladder()?.levels ?? []"
+                  [mode]="ladder()?.mode ?? 'standard'"
+                  [disabled]="!ladder()"
                   (levelChange)="setLevel(player, $event)"
                 />
               </td>

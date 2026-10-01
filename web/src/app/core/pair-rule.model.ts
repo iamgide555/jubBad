@@ -1,3 +1,5 @@
+import { HttpErrorResponse } from '@angular/common/http';
+
 export type RuleKind = 'must-pair' | 'never-teammates' | 'never-same-court';
 
 export interface PairRule {
@@ -37,4 +39,19 @@ export function describeRules(
     .filter((r): r is PairRule => r !== undefined)
     .map((r) => `${nameOf(r.playerAId)} · ${nameOf(r.playerBId)} (${ruleKindLabel(r.kind)})`)
     .join(', ');
+}
+
+/** Maps a failed create/edit-rule response to the host-facing message. */
+export function ruleErrorMessage(err: unknown): string {
+  const code = err instanceof HttpErrorResponse ? err.error?.code : undefined;
+  switch (code) {
+    case 'PAIR_RULE_EXISTS':
+      return $localize`:@@playerRoster.ruleExists:ผู้เล่นคู่นี้มีกฎอยู่แล้ว`;
+    case 'PAIR_RULE_MUST_PAIR_TAKEN':
+      return $localize`:@@playerRoster.ruleMustPairTaken:ผู้เล่นคนนี้มีคู่กันอยู่แล้ว`;
+    case 'PAIR_RULE_SELF':
+      return $localize`:@@playerRoster.ruleSelf:เลือกผู้เล่นสองคนที่ต่างกัน`;
+    default:
+      return $localize`:@@playerRoster.ruleSaveFailed:บันทึกกฎไม่สำเร็จ`;
+  }
 }

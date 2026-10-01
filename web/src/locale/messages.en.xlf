@@ -2776,8 +2776,44 @@
         <target>Tonight's pairing rules (<x id="INTERPOLATION" equiv-text="{{ sessionRuleRows().length }}"/>)</target>
       </trans-unit>
       <trans-unit id="dashboard.sessionRulesHint" datatype="html">
-        <source>ปิดกฎเฉพาะคืนนี้ — แก้กฎถาวรที่หน้าผู้เล่นในก๊วน</source>
-        <target>Switch rules off for tonight only — edit rules permanently on the group players page</target>
+        <source>ปิดกฎเฉพาะคืนนี้ — แก้หรือลบกฎถาวรที่หน้าผู้เล่นในก๊วน</source>
+        <target>Switch rules off for tonight only — edit or delete rules permanently on the group players page</target>
+      </trans-unit>
+      <trans-unit id="dashboard.addRule" datatype="html">
+        <source> + เพิ่มกฎการจับคู่ </source>
+        <target> + Add pairing rule </target>
+      </trans-unit>
+      <trans-unit id="addRule.title" datatype="html">
+        <source>เพิ่มกฎการจับคู่</source>
+        <target>Add pairing rule</target>
+      </trans-unit>
+      <trans-unit id="addRule.playerA" datatype="html">
+        <source>ผู้เล่น</source>
+        <target>Player</target>
+      </trans-unit>
+      <trans-unit id="addRule.playerB" datatype="html">
+        <source>กับ</source>
+        <target>With</target>
+      </trans-unit>
+      <trans-unit id="addRule.pickPlayer" datatype="html">
+        <source>— เลือก —</source>
+        <target>— Choose —</target>
+      </trans-unit>
+      <trans-unit id="addRule.kind" datatype="html">
+        <source>ประเภทกฎ</source>
+        <target>Rule type</target>
+      </trans-unit>
+      <trans-unit id="addRule.persistHint" datatype="html">
+        <source>กฎนี้บันทึกกับก๊วนถาวร — ปิดเฉพาะคืนนี้ได้จากรายการกฎ</source>
+        <target>This rule is saved to the group permanently — switch it off for tonight from the rules list</target>
+      </trans-unit>
+      <trans-unit id="addRule.cancel" datatype="html">
+        <source>ยกเลิก</source>
+        <target>Cancel</target>
+      </trans-unit>
+      <trans-unit id="addRule.submit" datatype="html">
+        <source>เพิ่มกฎ</source>
+        <target>Add rule</target>
       </trans-unit>
     </body>
   </file>

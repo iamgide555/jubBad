@@ -1,0 +1,43 @@
+<dialog #dialog class="add-rule-dialog" (close)="onDialogClose()" (cancel)="onCancelAttempt($event)">
+  @if (isOpen()) {
+    <div class="form-card">
+      <h2 i18n="@@addRule.title">เพิ่มกฎการจับคู่</h2>
+      <label>
+        <span i18n="@@addRule.playerA">ผู้เล่น</span>
+        <select name="playerA" [ngModel]="playerA()" (ngModelChange)="setPlayerA($event)" [disabled]="saving()">
+          <option value="" i18n="@@addRule.pickPlayer">— เลือก —</option>
+          @for (p of players(); track p.id) {
+            <option [value]="p.id">{{ p.name }}</option>
+          }
+        </select>
+      </label>
+      <label>
+        <span i18n="@@addRule.playerB">กับ</span>
+        <select name="playerB" [ngModel]="playerB()" (ngModelChange)="playerB.set($event)" [disabled]="saving()">
+          <option value="" i18n="@@addRule.pickPlayer">— เลือก —</option>
+          @for (p of partnerOptions(); track p.id) {
+            <option [value]="p.id">{{ p.name }}</option>
+          }
+        </select>
+      </label>
+      <label>
+        <span i18n="@@addRule.kind">ประเภทกฎ</span>
+        <select name="kind" [ngModel]="kind()" (ngModelChange)="kind.set($event)" [disabled]="saving()">
+          @for (k of ruleKinds; track k.kind) {
+            <option [ngValue]="k.kind">{{ k.label }}</option>
+          }
+        </select>
+      </label>
+      <p class="muted" i18n="@@addRule.persistHint">กฎนี้บันทึกกับก๊วนถาวร — ปิดเฉพาะคืนนี้ได้จากรายการกฎ</p>
+
+      @if (error()) {
+        <p class="error" role="alert">{{ error() }}</p>
+      }
+
+      <div class="dialog-actions">
+        <button type="button" class="ghost" [disabled]="saving()" (click)="close()" i18n="@@addRule.cancel">ยกเลิก</button>
+        <button type="button" data-submit-rule [disabled]="!canSubmit()" (click)="submit()" i18n="@@addRule.submit">เพิ่มกฎ</button>
+      </div>
+    </div>
+  }
+</dialog>

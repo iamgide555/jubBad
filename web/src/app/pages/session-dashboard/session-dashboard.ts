@@ -21,10 +21,11 @@ import {
   type ShuttleDetailsPatch,
 } from '../../shared/shuttle-details-dialog/shuttle-details-dialog';
 import { AddWalkInDialog } from '../../shared/add-walk-in-dialog/add-walk-in-dialog';
+import { AddRuleDialog } from '../../shared/add-rule-dialog/add-rule-dialog';
 import { LevelPicker } from '../../shared/level-picker/level-picker';
 import type { Player } from '../../../../../engines/fuzzy-match.ts';
 import type { Level } from '../../../../../engines/levels.ts';
-import { describeRules, ruleKindLabel } from '../../core/pair-rule.model';
+import { describeRules, ruleErrorMessage, ruleKindLabel, type CreatePairRuleRequest } from '../../core/pair-rule.model';
 import type { PlayerStat } from '../../core/stats.model';
 import type { PlayerPanelRow } from '../../core/player-panel.model';
 
@@ -40,6 +41,7 @@ import type { PlayerPanelRow } from '../../core/player-panel.model';
     RevealDirective,
     ShuttleDetailsDialog,
     AddWalkInDialog,
+    AddRuleDialog,
     LevelPicker,
   ],
   providers: [LiveSessionService],
@@ -350,6 +352,40 @@ export class SessionDashboard implements OnDestroy {
   }
 
   readonly rosterError = signal<string | null>(null);
+
+  private readonly addRuleDialog = viewChild<AddRuleDialog>('addRuleDialog');
+  protected readonly addRuleSaving = signal(false);
+  protected readonly addRuleError = signal<string | null>(null);
+
+  /** Tonight's roster, for the add-rule pickers — resting players included,
+   *  since a rule stays on the group and applies whenever both are active. */
+  protected readonly rosterPickList = computed(() =>
+    this.rosterEntries().map((e) => ({ id: e.id, name: e.name }))
+  );
+
+  protected openAddRuleDialog(): void {
+    this.addRuleError.set(null);
+    this.addRuleDialog()?.open();
+  }
+
+  /** Creates a normal group rule (it outlives tonight), then re-reads the
+   *  session's rules so the new row and its tonight switch appear. */
+  protected async submitAddRule(rule: CreatePairRuleRequest): Promise<void> {
+    const groupCode = this.session()?.groupCode;
+    if (!groupCode) return;
+    this.addRuleSaving.set(true);
+    this.addRuleError.set(null);
+    try {
+      await firstValueFrom(this.roster.createRule(groupCode, rule));
+    } catch (err) {
+      this.addRuleSaving.set(false);
+      this.addRuleError.set(ruleErrorMessage(err));
+      return;
+    }
+    await this.liveSession.loadSessionRules();
+    this.addRuleSaving.set(false);
+    this.addRuleDialog()?.close();
+  }
 
   private readonly walkInDialog = viewChild<AddWalkInDialog>('walkInDialog');
   protected readonly walkInSaving = signal(false);

@@ -6,7 +6,7 @@ import { ActivatedRoute, RouterLink } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
 import type { CanComponentDeactivate } from '../../core/can-deactivate.guard';
 import { RosterService, type ManagedPlayer } from '../../core/roster.service';
-import { RULE_KINDS, type PairRule, type RuleKind } from '../../core/pair-rule.model';
+import { RULE_KINDS, ruleErrorMessage, type PairRule, type RuleKind } from '../../core/pair-rule.model';
 import { LevelPicker } from '../../shared/level-picker/level-picker';
 import { levelIndex, type Level } from '../../../../../engines/levels.ts';
 
@@ -283,19 +283,5 @@ export class PlayerRoster implements CanComponentDeactivate, OnDestroy {
     } finally {
       this.editBusy.set(false);
     }
-  }
-}
-
-function ruleErrorMessage(err: unknown): string {
-  const code = err instanceof HttpErrorResponse ? err.error?.code : undefined;
-  switch (code) {
-    case 'PAIR_RULE_EXISTS':
-      return $localize`:@@playerRoster.ruleExists:ผู้เล่นคู่นี้มีกฎอยู่แล้ว`;
-    case 'PAIR_RULE_MUST_PAIR_TAKEN':
-      return $localize`:@@playerRoster.ruleMustPairTaken:ผู้เล่นคนนี้มีคู่กันอยู่แล้ว`;
-    case 'PAIR_RULE_SELF':
-      return $localize`:@@playerRoster.ruleSelf:เลือกผู้เล่นสองคนที่ต่างกัน`;
-    default:
-      return $localize`:@@playerRoster.ruleSaveFailed:บันทึกกฎไม่สำเร็จ`;
   }
 }

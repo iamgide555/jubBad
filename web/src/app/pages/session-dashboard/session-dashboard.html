@@ -85,11 +85,16 @@
             </li>
           }
         </ul>
-        <p class="muted" i18n="@@dashboard.sessionRulesHint">ปิดกฎเฉพาะคืนนี้ — แก้กฎถาวรที่หน้าผู้เล่นในก๊วน</p>
+        <p class="muted" i18n="@@dashboard.sessionRulesHint">ปิดกฎเฉพาะคืนนี้ — แก้หรือลบกฎถาวรที่หน้าผู้เล่นในก๊วน</p>
         @if (rulesError()) {
           <p class="error" role="alert">{{ rulesError() }}</p>
         }
       </details>
+    }
+    @if (!ended()) {
+      <button type="button" class="ghost" data-add-rule (click)="openAddRuleDialog()" i18n="@@dashboard.addRule">
+        + เพิ่มกฎการจับคู่
+      </button>
     }
 
     <button
@@ -376,6 +381,14 @@
         (confirm)="confirmEndSession($event)"
       />
     }
+
+    <app-add-rule-dialog
+      #addRuleDialog
+      [players]="rosterPickList()"
+      [saving]="addRuleSaving()"
+      [error]="addRuleError()"
+      (add)="submitAddRule($event)"
+    />
 
     <app-add-walk-in-dialog
       #walkInDialog

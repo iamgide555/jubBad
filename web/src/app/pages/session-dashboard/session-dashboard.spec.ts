@@ -1438,6 +1438,84 @@ describe('SessionDashboard', () => {
       expect(text()).toContain('(ห้ามอยู่ด้วยกัน)');
     });
 
+    describe('adding a rule from the dashboard', () => {
+      const dialog = () => (fixture.nativeElement as HTMLElement).querySelector('dialog.add-rule-dialog') as HTMLDialogElement;
+      const addRuleButton = () =>
+        (fixture.nativeElement as HTMLElement).querySelector('[data-add-rule]') as HTMLButtonElement | null;
+
+      function choose(name: string, value: string): void {
+        const el = dialog().querySelector(`select[name="${name}"]`) as HTMLSelectElement;
+        el.value = value;
+        el.dispatchEvent(new Event('change'));
+        fixture.detectChanges();
+      }
+
+      async function openAndFill(kind?: string) {
+        addRuleButton()!.click();
+        fixture.detectChanges();
+        await fixture.whenStable();
+        fixture.detectChanges();
+        choose('playerA', 'p1');
+        choose('playerB', 'p2');
+        if (kind) {
+          const el = dialog().querySelector('select[name="kind"]') as HTMLSelectElement;
+          el.selectedIndex = ['must-pair', 'never-teammates', 'never-same-court'].indexOf(kind);
+          el.dispatchEvent(new Event('change'));
+          fixture.detectChanges();
+        }
+      }
+
+      it('offers the button even when the group has no rules yet', async () => {
+        await settled();
+        await flushRules([], []);
+        expect(addRuleButton()).not.toBeNull();
+      });
+
+      it('hides the button once the session has ended', async () => {
+        await settled(baseSession({ endedAt: '2026-09-08T20:00:00.000Z' }));
+        await flushRules([], []);
+        expect(addRuleButton()).toBeNull();
+      });
+
+      it('creates a persistent group rule, then shows it with its tonight switch', async () => {
+        await settled();
+        await flushRules([], []);
+        await openAndFill('never-teammates');
+        expect(dialog().hasAttribute('open')).toBe(true);
+
+        (dialog().querySelector('[data-submit-rule]') as HTMLButtonElement).click();
+        const post = httpMock.expectOne(`${B}/groups/group1/rules`);
+        expect(post.request.method).toBe('POST');
+        expect(post.request.body).toEqual({ playerAId: 'p1', playerBId: 'p2', kind: 'never-teammates' });
+        post.flush(rule);
+        await new Promise((r) => setTimeout(r, 0));
+
+        // The session's rules are re-read so the new row and switch appear.
+        await flushRules();
+        expect(text()).toContain('ตั้ม · เบส');
+        expect(ruleToggle().checked).toBe(true);
+        expect(dialog().hasAttribute('open')).toBe(false);
+      });
+
+      it('keeps the dialog open and names the problem when the server refuses', async () => {
+        await settled();
+        await flushRules([], []);
+        await openAndFill();
+
+        (dialog().querySelector('[data-submit-rule]') as HTMLButtonElement).click();
+        httpMock
+          .expectOne(`${B}/groups/group1/rules`)
+          .flush({ code: 'PAIR_RULE_EXISTS' }, { status: 409, statusText: 'Conflict' });
+        await new Promise((r) => setTimeout(r, 0));
+        fixture.detectChanges();
+
+        expect(dialog().hasAttribute('open')).toBe(true);
+        expect(dialog().textContent).toContain('ผู้เล่นคู่นี้มีกฎอยู่แล้ว');
+        // Nothing was created, so the rules are not re-read.
+        expect(httpMock.match(`${B}/sessions/sess1/rules`)).toEqual([]);
+      });
+    });
+
     async function fill(response: object) {
       buttonWith('จัดคู่ทุกคอร์ทว่าง').click();
       httpMock.expectOne(`${B}/sessions/sess1/courts/fill`).flush(response);

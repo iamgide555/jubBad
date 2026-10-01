@@ -389,8 +389,9 @@ fill-all) ever becomes a carry court. See `engines/pairing.ts`'s
 teammates or both sit), ห้ามอยู่ด้วยกัน (`never-teammates`: opponents are
 fine) or ห้ามเล่นด้วยกัน (`never-same-court`). Rules live on the group
 (`PlayerRule`, ids sorted, one rule per pair, at most one คู่กัน per
-player) and are edited on the player-roster page; the dashboard can switch
-any of them off for tonight only (`Session.disabledRuleIds`) without
+player) and are edited on the player-roster page; the dashboard can also add
+one mid-session (a modal — it creates the same persistent group rule, never a
+tonight-only one) and can switch any of them off for tonight only (`Session.disabledRuleIds`) without
 touching the group. Rules are host-only — never on the public poll,
 display, profile or summary — and are not history: they never feed
 `partnerCounts`/`opponentCounts` or ratings.

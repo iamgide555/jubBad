@@ -58,6 +58,16 @@ export class GroupEntry {
   readonly confirmError = signal<string | null>(null);
   readonly pastSessions = signal<GroupSession[]>([]);
   readonly showDanger = signal(false);
+
+  /** Advanced switches load on first open — they are rarely touched, and a brand-new
+   *  group has nothing to read yet. `null` means not loaded (or unavailable). */
+  readonly showAdvanced = signal(false);
+  readonly shuttleTools = signal<boolean | null>(null);
+  readonly crossSessionHistory = signal<boolean | null>(null);
+  readonly advancedUnavailable = signal(false);
+  readonly advancedError = signal<string | null>(null);
+  readonly advancedSaving = signal(false);
+  private advancedLoaded = false;
   readonly deleteConfirmText = signal('');
   readonly dangerError = signal<string | null>(null);
   readonly isParsing = signal(false);
@@ -698,5 +708,47 @@ export class GroupEntry {
     } finally {
       this.isSubmitting.set(false);
     }
+  }
+
+  toggleAdvanced(): void {
+    this.showAdvanced.set(!this.showAdvanced());
+    if (!this.showAdvanced() || this.advancedLoaded) return;
+    this.advancedLoaded = true;
+    this.rosterService.getShuttleTools(this.groupCode).subscribe({
+      next: (r) => this.shuttleTools.set(r.enabled),
+      error: () => this.advancedUnavailable.set(true),
+    });
+    this.rosterService.getCrossSessionHistory(this.groupCode).subscribe({
+      next: (r) => this.crossSessionHistory.set(r.enabled),
+      error: () => this.advancedUnavailable.set(true),
+    });
+  }
+
+  /**
+   * Saves one switch. The box never shows an unsaved value: it snaps back to
+   * the saved state at once (while disabled for the write) and only moves when
+   * the server confirms, so a failed save cannot leave it lying.
+   */
+  setAdvanced(which: 'shuttleTools' | 'crossSessionHistory', input: HTMLInputElement): void {
+    const target = which === 'shuttleTools' ? this.shuttleTools : this.crossSessionHistory;
+    const enabled = input.checked;
+    input.checked = target() === true;
+    this.advancedError.set(null);
+    this.advancedSaving.set(true);
+    const save =
+      which === 'shuttleTools'
+        ? this.rosterService.setShuttleTools(this.groupCode, enabled)
+        : this.rosterService.setCrossSessionHistory(this.groupCode, enabled);
+    save.subscribe({
+      next: (r) => {
+        target.set(r.enabled);
+        input.checked = r.enabled;
+        this.advancedSaving.set(false);
+      },
+      error: () => {
+        this.advancedError.set($localize`:@@entry.advancedSaveFailed:บันทึกไม่สำเร็จ ลองอีกครั้ง`);
+        this.advancedSaving.set(false);
+      },
+    });
   }
 }

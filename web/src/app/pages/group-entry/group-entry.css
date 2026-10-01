@@ -337,3 +337,40 @@ app-level-picker {
 .danger-zone button {
   min-height: var(--tap);
 }
+
+.advanced-settings {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  margin: var(--space-2) 0;
+}
+
+.switch-row {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+  min-height: var(--tap);
+  cursor: pointer;
+}
+
+.switch-row input {
+  width: 1.5rem;
+  min-height: 1.5rem;
+  flex: none;
+  margin-top: var(--space-0);
+}
+
+.switch-text {
+  display: flex;
+  flex-direction: column;
+}
+
+.switch-title {
+  font-weight: 600;
+}
+
+.group-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+}

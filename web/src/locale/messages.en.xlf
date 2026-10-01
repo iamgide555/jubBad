@@ -2819,6 +2819,542 @@
         <source>เพิ่มกฎ</source>
         <target>Add rule</target>
       </trans-unit>
+      <trans-unit id="err.code.shuttleChoiceRequired" datatype="html">
+        <source>กรุณาเลือกลูกแบดก่อนยืนยันแมตช์</source>
+        <target>Choose a shuttle before confirming the match</target>
+      </trans-unit>
+      <trans-unit id="err.code.shuttleUnavailable" datatype="html">
+        <source>ลูกแบดลูกนี้ใช้ไม่ได้หรือถูกใช้อยู่ที่คอร์ทอื่น</source>
+        <target>That shuttle is retired or in use on another court</target>
+      </trans-unit>
+      <trans-unit id="err.code.shuttleNotFound" datatype="html">
+        <source>ไม่พบลูกแบดลูกนี้</source>
+        <target>Shuttle not found</target>
+      </trans-unit>
+      <trans-unit id="err.code.shuttleInUse" datatype="html">
+        <source>ลูกแบดลูกนี้ยังถูกใช้อยู่ ปิดการใช้งานไม่ได้</source>
+        <target>That shuttle is still in use and can't be retired or removed</target>
+      </trans-unit>
+      <trans-unit id="err.code.shuttleTrackingDisabled" datatype="html">
+        <source>ก๊วนนี้ไม่ได้เปิดการจดลูกแบด</source>
+        <target>Shuttle tracking is not turned on for this session</target>
+      </trans-unit>
+      <trans-unit id="err.switchShuttle" datatype="html">
+        <source>เปลี่ยนลูกแบดไม่สำเร็จ</source>
+        <target>Couldn't change the shuttle</target>
+      </trans-unit>
+      <trans-unit id="err.shuttleUsable" datatype="html">
+        <source>เปลี่ยนสถานะลูกแบดไม่สำเร็จ</source>
+        <target>Couldn't change the shuttle's status</target>
+      </trans-unit>
+      <trans-unit id="err.shuttleInventory" datatype="html">
+        <source>โหลดรายการลูกแบดไม่สำเร็จ</source>
+        <target>Couldn't load the shuttle list</target>
+      </trans-unit>
+      <trans-unit id="entry.advanced" datatype="html">
+        <source>ตั้งค่าขั้นสูง</source>
+        <target>Advanced settings</target>
+      </trans-unit>
+      <trans-unit id="entry.advancedHint" datatype="html">
+        <source>สวิตช์เหล่านี้มีผลกับก๊วนที่สร้างต่อจากนี้เท่านั้น ก๊วนที่เปิดอยู่แล้วไม่เปลี่ยน</source>
+        <target>These switches only apply to sessions created from now on. Sessions already open don't change.</target>
+      </trans-unit>
+      <trans-unit id="entry.advancedUnavailable" datatype="html">
+        <source>ตั้งค่าได้หลังสร้างก๊วนครั้งแรก</source>
+        <target>Available after the group is created</target>
+      </trans-unit>
+      <trans-unit id="entry.shuttleTools" datatype="html">
+        <source>จดลูกแบดเป็นหมายเลข</source>
+        <target>Track shuttles by number</target>
+      </trans-unit>
+      <trans-unit id="entry.shuttleToolsHint" datatype="html">
+        <source>ตอนยืนยันแมตช์จะให้เลือกลูกแบด และบิลจะนับตามลูกที่ใช้จริง</source>
+        <target>Confirming a match asks which shuttle was used, and the bill counts the shuttles actually used</target>
+      </trans-unit>
+      <trans-unit id="entry.crossSessionHistory" datatype="html">
+        <source>นับประวัติคู่ข้ามก๊วน</source>
+        <target>Count partner history across sessions</target>
+      </trans-unit>
+      <trans-unit id="entry.crossSessionHistoryHint" datatype="html">
+        <source>ปิด: เลี่ยงคู่ซ้ำเฉพาะคืนนี้ · เปิด: นับทุกก๊วนที่ผ่านมา</source>
+        <target>Off: avoid repeat partners within tonight only · On: count every past session</target>
+      </trans-unit>
+      <trans-unit id="entry.advancedSaveFailed" datatype="html">
+        <source>บันทึกไม่สำเร็จ ลองอีกครั้ง</source>
+        <target>Couldn't save — try again</target>
+      </trans-unit>
+      <trans-unit id="shuttlePicker.confirmTitle" datatype="html">
+        <source>เลือกลูกแบด — <x id="INTERPOLATION" equiv-text="{{ courtLabel() }}"/></source>
+        <target>Choose a shuttle — <x id="INTERPOLATION" equiv-text="{{ courtLabel() }}"/></target>
+      </trans-unit>
+      <trans-unit id="shuttlePicker.switchTitle" datatype="html">
+        <source>เปลี่ยนลูกแบด — <x id="INTERPOLATION" equiv-text="{{ courtLabel() }}"/></source>
+        <target>Change shuttle — <x id="INTERPOLATION" equiv-text="{{ courtLabel() }}"/></target>
+      </trans-unit>
+      <trans-unit id="shuttlePicker.current" datatype="html">
+        <source>ตอนนี้ใช้ลูก #<x id="INTERPOLATION" equiv-text="{{ current.number }}"/></source>
+        <target>Currently using #<x id="INTERPOLATION" equiv-text="{{ current.number }}"/></target>
+      </trans-unit>
+      <trans-unit id="shuttlePicker.reuse" datatype="html">
+        <source>ใช้ลูกเดิมของคอร์ทนี้ #<x id="INTERPOLATION" equiv-text="{{ lastShuttle()!.number }}"/></source>
+        <target>Reuse this court's last shuttle #<x id="INTERPOLATION" equiv-text="{{ lastShuttle()!.number }}"/></target>
+      </trans-unit>
+      <trans-unit id="shuttlePicker.openNew" datatype="html">
+        <source>เปิดลูกใหม่</source>
+        <target>Open a new shuttle</target>
+      </trans-unit>
+      <trans-unit id="shuttlePicker.pickIdle" datatype="html">
+        <source>หรือใช้ลูกที่ว่างอยู่</source>
+        <target>Or use an idle shuttle</target>
+      </trans-unit>
+      <trans-unit id="shuttlePicker.retire" datatype="html">
+        <source>ลูกเดิมใช้ไม่ได้แล้ว (เลิกใช้ลูกนั้น)</source>
+        <target>The old one is unusable now (retire it)</target>
+      </trans-unit>
+      <trans-unit id="shuttlePicker.cancel" datatype="html">
+        <source>ยกเลิก</source>
+        <target>Cancel</target>
+      </trans-unit>
+      <trans-unit id="shuttlePicker.submitConfirm" datatype="html">
+        <source>ยืนยันแมตช์</source>
+        <target>Confirm match</target>
+      </trans-unit>
+      <trans-unit id="shuttlePicker.submitSwitch" datatype="html">
+        <source>เปลี่ยน</source>
+        <target>Change</target>
+      </trans-unit>
+      <trans-unit id="court.shuttleNow" datatype="html">
+        <source>ลูกแบด #<x id="INTERPOLATION" equiv-text="{{ current.number }}"/></source>
+        <target>Shuttle #<x id="INTERPOLATION" equiv-text="{{ current.number }}"/></target>
+      </trans-unit>
+      <trans-unit id="court.shuttleNone" datatype="html">
+        <source>ยังไม่ได้เลือกลูกแบด</source>
+        <target>No shuttle chosen yet</target>
+      </trans-unit>
+      <trans-unit id="court.shuttleChoose" datatype="html">
+        <source>เลือกลูกแบด</source>
+        <target>Choose a shuttle</target>
+      </trans-unit>
+      <trans-unit id="court.shuttleUsed" datatype="html">
+        <source>ใช้แล้วในแมตช์นี้:</source>
+        <target>Used this match:</target>
+      </trans-unit>
+      <trans-unit id="court.shuttleOpenNew" datatype="html">
+        <source>เปิดลูกใหม่</source>
+        <target>Open new</target>
+      </trans-unit>
+      <trans-unit id="court.shuttleSwitch" datatype="html">
+        <source>เปลี่ยนไปลูกอื่น</source>
+        <target>Switch to another</target>
+      </trans-unit>
+      <trans-unit id="court.shuttleRetire" datatype="html">
+        <source>ลูกนี้ใช้ไม่ได้แล้ว</source>
+        <target>Mark unusable</target>
+      </trans-unit>
+      <trans-unit id="bill.shuttleAccountingTitle" datatype="html">
+        <source>ลูกแบดที่คิดเงิน</source>
+        <target>Shuttles billed</target>
+      </trans-unit>
+      <trans-unit id="bill.shuttleUnit" datatype="html">
+        <source>ลูก</source>
+        <target>shuttles</target>
+      </trans-unit>
+      <trans-unit id="bill.sourcePhysical" datatype="html">
+        <source>· นับจริง</source>
+        <target>· counted physically</target>
+      </trans-unit>
+      <trans-unit id="bill.sourceGames" datatype="html">
+        <source>· นับจากแมตช์ที่บันทึกไว้</source>
+        <target>· counted from recorded matches</target>
+      </trans-unit>
+      <trans-unit id="bill.sourceMissing" datatype="html">
+        <source>ยังนับลูกแบดไม่ได้ — ใส่จำนวนลูกที่ใช้จริง หรือบันทึกลูกที่ใช้ในแต่ละแมตช์ให้ครบ</source>
+        <target>Can't count shuttles yet — enter the number actually used, or record the shuttles used in every match</target>
+      </trans-unit>
+      <trans-unit id="bill.recordedSubtotal" datatype="html">
+        <source>บันทึกในแมตช์: <x id="INTERPOLATION" equiv-text="{{ sp.recordedFinishedShuttles }}"/> ลูก</source>
+        <target>Recorded in matches: <x id="INTERPOLATION" equiv-text="{{ sp.recordedFinishedShuttles }}"/> shuttles</target>
+      </trans-unit>
+      <trans-unit id="bill.difference" datatype="html">
+        <source>นับจริงต่างจากที่บันทึก <x id="INTERPOLATION" equiv-text="{{ signed(sp.difference) }}"/> ลูก</source>
+        <target>Physical count differs from the recorded by <x id="INTERPOLATION" equiv-text="{{ signed(sp.difference) }}"/> shuttles</target>
+      </trans-unit>
+      <trans-unit id="bill.fallbackUnknown" datatype="html">
+        <source>มีแมตช์ที่ไม่ได้บันทึกลูกแบด จึงหารค่าลูกเท่ากันทุกแมตช์</source>
+        <target>Some matches have no recorded shuttles, so the shuttle cost is split equally across matches</target>
+      </trans-unit>
+      <trans-unit id="bill.fallbackNoUses" datatype="html">
+        <source>แมตช์เหล่านี้ไม่ได้บันทึกลูกแบดที่ใช้ จึงหารค่าลูกเท่ากันทุกแมตช์</source>
+        <target>These matches recorded no shuttles used, so the shuttle cost is split equally across matches</target>
+      </trans-unit>
+      <trans-unit id="bill.notReady" datatype="html">
+        <source>ยังคัดลอกไม่ได้ — ใส่ข้อมูลที่ขาดให้ครบก่อน แล้วจะเห็นยอดของแต่ละคน</source>
+        <target>Can't copy yet — fill in the missing inputs to see each person's amount</target>
+      </trans-unit>
+      <trans-unit id="summary.shuttleRowLabel" datatype="html">
+        <source>คอร์ท <x id="court" equiv-text="this.courtName(row.courtNumber)"/> · แมตช์ <x id="match" equiv-text="row.matchNumber"/></source>
+        <target>Court <x id="court" equiv-text="this.courtName(row.courtNumber)"/> · Match <x id="match" equiv-text="row.matchNumber"/></target>
+      </trans-unit>
+      <trans-unit id="summary.correctionStale" datatype="html">
+        <source>ข้อมูลถูกแก้ไขจากอุปกรณ์อื่นแล้ว กรุณาลองใหม่อีกครั้ง</source>
+        <target>This was changed from another device. Please try again.</target>
+      </trans-unit>
+      <trans-unit id="summary.correctionNotFound" datatype="html">
+        <source>ไม่พบลูกแบดลูกนี้ อาจถูกลบไปแล้ว</source>
+        <target>That shuttle wasn't found — it may have been removed</target>
+      </trans-unit>
+      <trans-unit id="summary.correctionFailed" datatype="html">
+        <source>บันทึกไม่สำเร็จ ลองอีกครั้ง</source>
+        <target>Couldn't save — try again</target>
+      </trans-unit>
+      <trans-unit id="summary.shuttleLogTitle" datatype="html">
+        <source>ลูกแบดที่ใช้รายแมตช์</source>
+        <target>Shuttles by match</target>
+      </trans-unit>
+      <trans-unit id="summary.shuttleDistinct" datatype="html">
+        <source>ที่ใช้ในแมตช์ที่จบแล้ว (นับแต่ละลูกครั้งเดียว)</source>
+        <target>used in finished matches (each counted once)</target>
+      </trans-unit>
+      <trans-unit id="summary.shuttlePartial" datatype="html">
+        <source> · ไม่ครบ — <x id="INTERPOLATION" equiv-text="{{ sh.unknownFinishedMatches }}"/> แมตช์ไม่ได้บันทึก</source>
+        <target> · incomplete — <x id="INTERPOLATION" equiv-text="{{ sh.unknownFinishedMatches }}"/> matches not recorded</target>
+      </trans-unit>
+      <trans-unit id="summary.shuttlePhysical" datatype="html">
+        <source>นับจริงทั้งคืน <x id="INTERPOLATION" equiv-text="{{ sh.physical }}"/> ลูก</source>
+        <target>Counted for the night: <x id="INTERPOLATION" equiv-text="{{ sh.physical }}"/> shuttles</target>
+      </trans-unit>
+      <trans-unit id="summary.shuttleDifference" datatype="html">
+        <source>นับจริงต่างจากที่บันทึก <x id="INTERPOLATION" equiv-text="{{ signed(sh.difference) }}"/> ลูก</source>
+        <target>Physical count differs from the recorded by <x id="INTERPOLATION" equiv-text="{{ signed(sh.difference) }}"/> shuttles</target>
+      </trans-unit>
+      <trans-unit id="summary.shuttleColMatch" datatype="html">
+        <source>แมตช์</source>
+        <target>Match</target>
+      </trans-unit>
+      <trans-unit id="summary.shuttleColShuttles" datatype="html">
+        <source>ลูกแบด</source>
+        <target>Shuttles</target>
+      </trans-unit>
+      <trans-unit id="summary.shuttleUnknown" datatype="html">
+        <source>ไม่ทราบ</source>
+        <target>Unknown</target>
+      </trans-unit>
+      <trans-unit id="summary.shuttleNone" datatype="html">
+        <source>ไม่ได้ใช้ลูกแบด</source>
+        <target>No shuttles used</target>
+      </trans-unit>
+      <trans-unit id="summary.shuttleCorrect" datatype="html">
+        <source>แก้ไข</source>
+        <target>Edit</target>
+      </trans-unit>
+      <trans-unit id="summary.shuttleRecordPhysical" datatype="html">
+        <source>บันทึกจำนวนที่นับจริง</source>
+        <target>Record the physical count</target>
+      </trans-unit>
+      <trans-unit id="summary.shuttleEditPhysical" datatype="html">
+        <source>แก้ไขจำนวนที่นับจริง</source>
+        <target>Edit the physical count</target>
+      </trans-unit>
+      <trans-unit id="shuttleFix.title" datatype="html">
+        <source>แก้ลูกแบดที่ใช้ — <x id="INTERPOLATION" equiv-text="{{ rowLabel() }}"/></source>
+        <target>Fix shuttles used — <x id="INTERPOLATION" equiv-text="{{ rowLabel() }}"/></target>
+      </trans-unit>
+      <trans-unit id="shuttleFix.hint" datatype="html">
+        <source>เลือกทุกลูกที่แมตช์นี้ใช้จริง ไม่เลือกเลยหมายถึงไม่ได้ใช้ลูกแบด</source>
+        <target>Pick every shuttle this match really used. Picking none records that it used no shuttles.</target>
+      </trans-unit>
+      <trans-unit id="shuttleFix.legend" datatype="html">
+        <source>ลูกแบดของแมตช์นี้</source>
+        <target>Shuttles for this match</target>
+      </trans-unit>
+      <trans-unit id="shuttleFix.retired" datatype="html">
+        <source>(เลิกใช้)</source>
+        <target>(retired)</target>
+      </trans-unit>
+      <trans-unit id="shuttleFix.openNew" datatype="html">
+        <source>เพิ่มลูกใหม่ที่ลืมบันทึก (ได้หมายเลขถัดไป)</source>
+        <target>Add a new shuttle that was missed (gets the next number)</target>
+      </trans-unit>
+      <trans-unit id="shuttleFix.none" datatype="html">
+        <source>จะบันทึกว่าแมตช์นี้ไม่ได้ใช้ลูกแบด</source>
+        <target>This will record that the match used no shuttles</target>
+      </trans-unit>
+      <trans-unit id="shuttleFix.cancel" datatype="html">
+        <source>ยกเลิก</source>
+        <target>Cancel</target>
+      </trans-unit>
+      <trans-unit id="shuttleFix.save" datatype="html">
+        <source>บันทึก</source>
+        <target>Save</target>
+      </trans-unit>
+      <trans-unit id="bill.recordedPartial" datatype="html">
+        <source>ไม่ครบ — <x id="INTERPOLATION" equiv-text="{{ sp.unknownFinishedMatches }}"/> แมตช์ไม่ได้บันทึก</source>
+        <target>Incomplete — <x id="INTERPOLATION" equiv-text="{{ sp.unknownFinishedMatches }}"/> matches not recorded</target>
+      </trans-unit>
+      <trans-unit id="summary.shuttleDistinctCount" datatype="html">
+        <source><x id="INTERPOLATION" equiv-text="{{ sh.recordedFinishedShuttles }}"/> ลูก</source>
+        <target><x id="INTERPOLATION" equiv-text="{{ sh.recordedFinishedShuttles }}"/> shuttles</target>
+      </trans-unit>
+      <trans-unit id="court.titleWithLabel" datatype="html">
+        <source>คอร์ท <x id="label" equiv-text="this.courtLabel()"/></source>
+        <target>Court <x id="label" equiv-text="this.courtLabel()"/></target>
+      </trans-unit>
+      <trans-unit id="checkout.title" datatype="html">
+        <source>เช็คเอาต์คนที่กลับก่อน</source>
+        <target>Check out someone leaving early</target>
+      </trans-unit>
+      <trans-unit id="checkout.intro" datatype="html">
+        <source>ดูยอดก่อน แล้วค่อยยืนยันตอนรับเงินแล้ว ยอดที่ยืนยันจะไม่เปลี่ยนอีก</source>
+        <target>See the amount first, then confirm once you've collected. A confirmed amount never changes.</target>
+      </trans-unit>
+      <trans-unit id="checkout.noPlayers" datatype="html">
+        <source>ไม่มีใครให้เช็คเอาต์</source>
+        <target>Nobody to check out</target>
+      </trans-unit>
+      <trans-unit id="checkout.settledTitle" datatype="html">
+        <source>เช็คเอาต์แล้ว</source>
+        <target>Checked out</target>
+      </trans-unit>
+      <trans-unit id="checkout.undoWarn" datatype="html">
+        <source>คนนี้จะกลับมาเล่นได้ และต้องคืนหรือเก็บเงินเองนอกแอป</source>
+        <target>They can play again, and any refund or re-collection is yours to handle outside the app</target>
+      </trans-unit>
+      <trans-unit id="checkout.undoKeep" datatype="html">
+        <source>ไม่ยกเลิก</source>
+        <target>Keep it</target>
+      </trans-unit>
+      <trans-unit id="checkout.undoConfirm" datatype="html">
+        <source>ยืนยันยกเลิก</source>
+        <target>Confirm undo</target>
+      </trans-unit>
+      <trans-unit id="checkout.undo" datatype="html">
+        <source>ยกเลิกเช็คเอาต์</source>
+        <target>Undo checkout</target>
+      </trans-unit>
+      <trans-unit id="checkout.close" datatype="html">
+        <source>ปิด</source>
+        <target>Close</target>
+      </trans-unit>
+      <trans-unit id="checkout.back" datatype="html">
+        <source>กลับ</source>
+        <target>Back</target>
+      </trans-unit>
+      <trans-unit id="checkout.done" datatype="html">
+        <source>เสร็จ</source>
+        <target>Done</target>
+      </trans-unit>
+      <trans-unit id="checkout.confirm" datatype="html">
+        <source>ยืนยันว่ารับเงินแล้ว</source>
+        <target>Confirm payment collected</target>
+      </trans-unit>
+      <trans-unit id="checkout.modelLegend" datatype="html">
+        <source>คิดเงินแบบ</source>
+        <target>Charge by</target>
+      </trans-unit>
+      <trans-unit id="checkout.loading" datatype="html">
+        <source>กำลังคำนวณ…</source>
+        <target>Calculating…</target>
+      </trans-unit>
+      <trans-unit id="checkout.priceLabel" datatype="html">
+        <source>ราคาลูกแบดต่อลูก (บาท)</source>
+        <target>Price per shuttle (baht)</target>
+      </trans-unit>
+      <trans-unit id="checkout.priceSave" datatype="html">
+        <source>บันทึกราคา</source>
+        <target>Save price</target>
+      </trans-unit>
+      <trans-unit id="checkout.games" datatype="html">
+        <source>เล่นแล้ว</source>
+        <target>Played</target>
+      </trans-unit>
+      <trans-unit id="checkout.gamesUnit" datatype="html">
+        <source>เกม</source>
+        <target>games</target>
+      </trans-unit>
+      <trans-unit id="checkout.base" datatype="html">
+        <source>ค่าเล่น / ค่าเริ่มต้น</source>
+        <target>Play / starting fee</target>
+      </trans-unit>
+      <trans-unit id="checkout.shuttle" datatype="html">
+        <source>ค่าลูกแบด</source>
+        <target>Shuttles</target>
+      </trans-unit>
+      <trans-unit id="checkout.hostFee" datatype="html">
+        <source>ค่าดูแล</source>
+        <target>Host fee</target>
+      </trans-unit>
+      <trans-unit id="checkout.walkInFee" datatype="html">
+        <source>ค่าคนนอกรายชื่อ</source>
+        <target>Walk-in fee</target>
+      </trans-unit>
+      <trans-unit id="checkout.total" datatype="html">
+        <source>รวม (บาท)</source>
+        <target>Total (baht)</target>
+      </trans-unit>
+      <trans-unit id="checkout.previewNote" datatype="html">
+        <source>นี่คือยอดที่คำนวณ ยังไม่ได้บันทึกว่าจ่ายแล้ว</source>
+        <target>This is a quote. It isn't recorded as paid yet.</target>
+      </trans-unit>
+      <trans-unit id="checkout.copy" datatype="html">
+        <source>คัดลอกข้อความให้คนนี้</source>
+        <target>Copy a message for them</target>
+      </trans-unit>
+      <trans-unit id="checkout.copied" datatype="html">
+        <source>คัดลอกแล้ว</source>
+        <target>Copied</target>
+      </trans-unit>
+      <trans-unit id="checkout.savedHint" datatype="html">
+        <source>คนนี้พักจากการจับคู่แล้ว ยอดนี้จะไม่เปลี่ยนแม้ราคาหรือลูกแบดเปลี่ยนทีหลัง</source>
+        <target>They're off the pairing list now. This amount won't change even if prices or shuttles change later.</target>
+      </trans-unit>
+      <trans-unit id="checkout.model.perGame" datatype="html">
+        <source>จ่ายต่อเกม</source>
+        <target>Per game</target>
+      </trans-unit>
+      <trans-unit id="checkout.model.perShuttle" datatype="html">
+        <source>จ่ายตามลูกแบด</source>
+        <target>Per shuttle</target>
+      </trans-unit>
+      <trans-unit id="checkout.model.buffet" datatype="html">
+        <source>เหมาจ่าย</source>
+        <target>Buffet</target>
+      </trans-unit>
+      <trans-unit id="checkout.err.stale" datatype="html">
+        <source>ข้อมูลเปลี่ยนไปตั้งแต่คำนวณ ยอดถูกคำนวณใหม่ กรุณาตรวจก่อนยืนยัน</source>
+        <target>Something changed since this was calculated. The amount was recalculated; please check it before confirming.</target>
+      </trans-unit>
+      <trans-unit id="checkout.err.checkedOut" datatype="html">
+        <source>คนนี้เช็คเอาต์ไปแล้ว</source>
+        <target>They're already checked out</target>
+      </trans-unit>
+      <trans-unit id="checkout.err.onCourt" datatype="html">
+        <source>คนนี้อยู่บนคอร์ท — เอาออกจากคู่ หรือจบแมตช์ก่อน</source>
+        <target>They're on a court — take them out of the match or finish it first</target>
+      </trans-unit>
+      <trans-unit id="checkout.err.unknownUse" datatype="html">
+        <source>เกมของคนนี้ยังไม่ได้บันทึกลูกแบด แก้ในหน้าสรุปก๊วนก่อน</source>
+        <target>One of their games has no shuttle log. Fix it on the session summary first.</target>
+      </trans-unit>
+      <trans-unit id="checkout.err.noPrice" datatype="html">
+        <source>ยังไม่ได้ใส่ราคาลูกแบด</source>
+        <target>No shuttle price set yet</target>
+      </trans-unit>
+      <trans-unit id="checkout.err.removed" datatype="html">
+        <source>คนนี้ถูกตัดออกจากบิล คืนค่าในหน้าบิลก่อน</source>
+        <target>They were removed from the bill. Restore them on the bill page first.</target>
+      </trans-unit>
+      <trans-unit id="checkout.err.disabled" datatype="html">
+        <source>ก๊วนนี้ไม่ได้เปิดเครื่องมือลูกแบด</source>
+        <target>This session doesn't use shuttle tools</target>
+      </trans-unit>
+      <trans-unit id="checkout.err.undone" datatype="html">
+        <source>การเช็คเอาต์นี้ถูกยกเลิกไปแล้ว</source>
+        <target>This checkout was already undone</target>
+      </trans-unit>
+      <trans-unit id="checkout.err.notFound" datatype="html">
+        <source>ไม่พบรายการเช็คเอาต์นี้</source>
+        <target>Checkout not found</target>
+      </trans-unit>
+      <trans-unit id="checkout.err.ended" datatype="html">
+        <source>ก๊วนนี้จบไปแล้ว</source>
+        <target>This session has ended</target>
+      </trans-unit>
+      <trans-unit id="checkout.err.preview" datatype="html">
+        <source>คำนวณยอดไม่สำเร็จ ลองใหม่อีกครั้ง</source>
+        <target>Couldn't calculate the amount. Try again.</target>
+      </trans-unit>
+      <trans-unit id="checkout.err.priceInvalid" datatype="html">
+        <source>ราคาไม่ถูกต้อง ใส่เป็นบาท เช่น 80 หรือ 80.50</source>
+        <target>Invalid price. Enter baht, like 80 or 80.50.</target>
+      </trans-unit>
+      <trans-unit id="checkout.err.priceSave" datatype="html">
+        <source>บันทึกราคาไม่สำเร็จ</source>
+        <target>Couldn't save the price</target>
+      </trans-unit>
+      <trans-unit id="checkout.err.network" datatype="html">
+        <source>ไม่ได้รับคำตอบ ยังไม่รู้ว่าบันทึกแล้วหรือไม่ กดยืนยันอีกครั้งได้ จะไม่คิดเงินซ้ำ</source>
+        <target>No reply, so it's unknown whether this saved. You can confirm again; they won't be charged twice.</target>
+      </trans-unit>
+      <trans-unit id="checkout.err.confirm" datatype="html">
+        <source>ยืนยันเช็คเอาต์ไม่สำเร็จ</source>
+        <target>Couldn't confirm the checkout</target>
+      </trans-unit>
+      <trans-unit id="err.undoCheckout" datatype="html">
+        <source>ยกเลิกการเช็คเอาต์ไม่สำเร็จ</source>
+        <target>Couldn't undo the checkout</target>
+      </trans-unit>
+      <trans-unit id="dashboard.checkedOutBadge" datatype="html">
+        <source>เช็คเอาต์</source>
+        <target>Checked out</target>
+      </trans-unit>
+      <trans-unit id="checkout.saved" datatype="html">
+        <source>บันทึกแล้ว — <x id="INTERPOLATION" equiv-text="{{ baht(r.amountSatang) }}"/> บาท</source>
+        <target>Saved — <x id="INTERPOLATION" equiv-text="{{ baht(r.amountSatang) }}"/> baht</target>
+      </trans-unit>
+      <trans-unit id="checkout.err.onCourtNamed" datatype="html">
+        <source>คนนี้อยู่ที่ <x id="court" equiv-text="courtLabel"/> — เอาออกจากคู่ หรือจบแมตช์ก่อน</source>
+        <target>They're on <x id="court" equiv-text="courtLabel"/> — take them out of the match or finish it first</target>
+      </trans-unit>
+      <trans-unit id="dashboard.checkedOut" datatype="html">
+        <source><x id="name" equiv-text="name"/> เช็คเอาต์แล้ว</source>
+        <target><x id="name" equiv-text="name"/> is checked out</target>
+      </trans-unit>
+      <trans-unit id="dashboard.earlyCheckout" datatype="html">
+        <source> เช็คเอาต์คนกลับก่อน </source>
+        <target> Check out early leaver </target>
+      </trans-unit>
+      <trans-unit id="bill.modelPerShuttle" datatype="html">
+        <source>ตามลูกแบด</source>
+        <target>Per shuttle</target>
+      </trans-unit>
+      <trans-unit id="bill.startingFee" datatype="html">
+        <source>ค่าเริ่มต้นต่อคน (บาท)</source>
+        <target>Starting fee per person (baht)</target>
+      </trans-unit>
+      <trans-unit id="bill.perShuttleHint" datatype="html">
+        <source>คิดเฉพาะลูกแบดที่บันทึกไว้ในแมตช์ ตามราคาต่อลูก ไม่ขึ้นกับจำนวนลูกที่นับจริง</source>
+        <target>Charges only the shuttles logged in games, at the per-shuttle price, regardless of the physical count.</target>
+      </trans-unit>
+      <trans-unit id="bill.perShuttleSetPrice" datatype="html">
+        <source>ตั้งราคาลูกแบดที่หน้าสรุป</source>
+        <target>Set the shuttle price on the summary</target>
+      </trans-unit>
+      <trans-unit id="bill.settledTitle" datatype="html">
+        <source>เช็คเอาต์แล้ว (ยอดล็อกไว้)</source>
+        <target>Checked out (amount locked)</target>
+      </trans-unit>
+      <trans-unit id="bill.settledHint" datatype="html">
+        <source>ยกเลิกเช็คเอาต์ได้ที่หน้าก๊วนระหว่างเล่นเท่านั้น</source>
+        <target>A checkout can only be undone from the live session page.</target>
+      </trans-unit>
+      <trans-unit id="bill.stillDueTitle" datatype="html">
+        <source>ยังต้องจ่าย</source>
+        <target>Still due</target>
+      </trans-unit>
+      <trans-unit id="bill.warnUnknownUse" datatype="html">
+        <source>มีแมตช์ที่ไม่ได้บันทึกลูกแบด แก้ในหน้าสรุปก๊วนก่อน</source>
+        <target>Some games have no shuttle log. Fix them on the session summary first.</target>
+      </trans-unit>
+      <trans-unit id="bill.warnExcess" datatype="html">
+        <source>ยอดที่เช็คเอาต์ไปแล้วเกินต้นทุน <x id="INTERPOLATION" equiv-text="{{ baht(b.result.totals.excessCreditSatang) }}"/>฿ — ต้องคืนเงินเองนอกแอป หรือยกเลิกเช็คเอาต์</source>
+        <target>Checked-out payments exceed the cost by <x id="INTERPOLATION" equiv-text="{{ baht(b.result.totals.excessCreditSatang) }}"/>฿ — refund it yourself outside the app, or undo a checkout.</target>
+      </trans-unit>
+      <trans-unit id="bill.warnUncovered" datatype="html">
+        <source>ไม่มีใครเหลือจ่ายส่วนที่ขาด <x id="INTERPOLATION" equiv-text="{{ baht(b.result.totals.uncoveredCostSatang) }}"/>฿ — ยกเลิกเช็คเอาต์หรือแก้ข้อมูลก่อน</source>
+        <target>Nobody is left to pay the <x id="INTERPOLATION" equiv-text="{{ baht(b.result.totals.uncoveredCostSatang) }}"/>฿ shortfall — undo a checkout or fix the data first.</target>
+      </trans-unit>
+      <trans-unit id="bill.warnSurcharge" datatype="html">
+        <source>ค่า walk-in <x id="INTERPOLATION" equiv-text="{{ baht(b.result.totals.unreturnedSurchargeSatang) }}"/>฿ ไม่มีใครรับคืนได้ — ไม่นับเป็นกำไร แก้ก่อนแชร์</source>
+        <target><x id="INTERPOLATION" equiv-text="{{ baht(b.result.totals.unreturnedSurchargeSatang) }}"/>฿ of walk-in fees can't be returned to anyone — it isn't profit. Fix it before sharing.</target>
+      </trans-unit>
+      <trans-unit id="bill.settledSplit" datatype="html">
+        <source>เช็คเอาต์แล้ว <x id="INTERPOLATION" equiv-text="{{ baht(b.result.totals.settledTotalSatang) }}"/>฿ · ยังต้องจ่าย <x id="INTERPOLATION_1" equiv-text="{{ baht(b.result.totals.stillDueSatang) }}"/>฿</source>
+        <target>Checked out <x id="INTERPOLATION" equiv-text="{{ baht(b.result.totals.settledTotalSatang) }}"/>฿ · still due <x id="INTERPOLATION_1" equiv-text="{{ baht(b.result.totals.stillDueSatang) }}"/>฿</target>
+      </trans-unit>
+      <trans-unit id="checkout.courtName" datatype="html">
+        <source>คอร์ท <x id="label" equiv-text="label"/></source>
+        <target>Court <x id="label" equiv-text="label"/></target>
+      </trans-unit>
     </body>
   </file>
 </xliff>

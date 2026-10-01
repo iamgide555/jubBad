@@ -1,4 +1,6 @@
-import type { BillResponse } from './bill.model';
+import type { BillResponse, CheckoutModel } from './bill.model';
+
+const MODEL_TH: Record<CheckoutModel, string> = { perGame: 'จ่ายต่อเกม', perShuttle: 'จ่ายตามลูกแบด', buffet: 'เหมาจ่าย' };
 
 /**
  * 144000 -> "1,440"; 8550 -> "85.50"; -1500 -> "-15". Manual, so output never
@@ -20,9 +22,12 @@ export function buildBillText(bill: BillResponse): string {
   const lines: string[] = [];
   lines.push(['💰 ค่าก๊วน', session.date, session.venue ? `— ${session.venue}` : null].filter(Boolean).join(' '));
   const shuttleLine = () => {
-    if (session.shuttleCount === null || session.shuttlePriceSatang === null) return;
+    // What was actually billed: the physical count, or the distinct shuttles in
+    // a complete game log when no physical count was entered.
+    const count = bill.accounting.effectiveCount ?? session.shuttleCount;
+    if (count === null || session.shuttlePriceSatang === null) return;
     const how = c.shuttleSplit === 'equal' ? 'หารเท่า' : 'ตามจำนวนเกม';
-    lines.push(`ค่าลูก ${session.shuttleCount} ลูก × ${formatBaht(session.shuttlePriceSatang)}฿ ${how}`);
+    lines.push(`ค่าลูก ${count} ลูก × ${formatBaht(session.shuttlePriceSatang)}฿ ${how}`);
   };
   if (c.model === 'fair') {
     const court = formatBaht(c.courtFeeSatang ?? 0);
@@ -38,6 +43,8 @@ export function buildBillText(bill: BillResponse): string {
       c.capSatang !== null ? `สูงสุด ${formatBaht(c.capSatang)}฿` : null,
     ].filter(Boolean);
     lines.push(`เกมละ ${formatBaht(c.perGameRateSatang)}฿${extras.length ? ` (${extras.join(', ')})` : ''}`);
+  } else if (c.model === 'perShuttle') {
+    lines.push(`ค่าเริ่มต้น ${formatBaht(c.startingFeeSatang)}฿/คน + ค่าลูกตามที่ใช้จริง${session.shuttlePriceSatang !== null ? ` (${formatBaht(session.shuttlePriceSatang)}฿/ลูก)` : ''}`);
   } else {
     lines.push(`บุฟเฟ่ต์ ${formatBaht(c.buffetPriceSatang)}฿/คน (${c.buffetShuttlesIncluded ? 'รวมลูก' : 'ลูกแยก'})`);
     if (!c.buffetShuttlesIncluded) shuttleLine();
@@ -51,10 +58,21 @@ export function buildBillText(bill: BillResponse): string {
     lines.push(`Walk-in +${formatBaht(chargedWalkInFee)}฿/คน × ${result.totals.walkInCount} คน (หารคืนทุกคน)`);
   }
   const byId = new Map(result.rows.filter((r) => r.status === 'billed').map((r) => [r.playerId, r]));
+  // Early checkouts: said apart from the people still to pay, with their original model and amount.
+  const settled = bill.settled ?? [];
+  if (settled.length > 0) {
+    lines.push('เช็คเอาต์แล้ว (จ่ายแล้ว):');
+    for (const s of settled) lines.push(`${s.name}  ${MODEL_TH[s.model]}  ${formatBaht(s.amountSatang)}฿`);
+    lines.push('ยังต้องจ่าย:');
+  }
   for (const p of players) {
     const r = byId.get(p.playerId);
     if (!r) continue;
     lines.push(`${p.name}  ${r.games} เกม  ${formatBaht(r.amountSatang)}฿${r.walkIn ? ' (walk-in)' : ''}`);
+  }
+  if (settled.length > 0) {
+    lines.push(`เช็คเอาต์แล้ว ${formatBaht(result.totals.settledTotalSatang)}฿`);
+    lines.push(`ยังต้องจ่าย ${formatBaht(result.totals.stillDueSatang)}฿`);
   }
   lines.push(`รวม ${formatBaht(result.totals.collectedSatang)}฿`);
   return lines.join('\n');

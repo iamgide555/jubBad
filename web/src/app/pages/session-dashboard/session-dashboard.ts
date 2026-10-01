@@ -1,4 +1,4 @@
-import { Component, ElementRef, OnDestroy, computed, inject, signal, viewChild } from '@angular/core';
+import { Component, ElementRef, OnDestroy, computed, effect, inject, signal, viewChild } from '@angular/core';
 import { httpResource } from '@angular/common/http';
 import { Router, RouterLink } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
@@ -14,6 +14,8 @@ import { Odometer } from '../../core/motion/odometer';
 import { PressDirective } from '../../core/motion/press.directive';
 import { RevealDirective } from '../../core/motion/reveal.directive';
 import { CourtPanel } from './court-panel/court-panel';
+import { EarlyCheckoutDialog, type CheckoutPlayer, type SettledPlayer } from './early-checkout-dialog/early-checkout-dialog';
+import { courtName, type CheckoutReceipt } from '../../core/checkout.model';
 import { CourtLabelEditor } from './court-label-editor/court-label-editor';
 import { labelForCourt } from '../../core/court-label';
 import {
@@ -42,6 +44,7 @@ import type { PlayerPanelRow } from '../../core/player-panel.model';
     ShuttleDetailsDialog,
     AddWalkInDialog,
     AddRuleDialog,
+    EarlyCheckoutDialog,
     LevelPicker,
   ],
   providers: [LiveSessionService],
@@ -190,13 +193,62 @@ export class SessionDashboard implements OnDestroy {
     const resting = new Set(session.restingPlayerIds);
     const names = resolvePlayerNames(session.rosterPlayerIds, this.players());
     const levels = this.levels();
+    const out = this.checkedOutIds();
     return session.rosterPlayerIds.map((id, i) => ({
       id,
       name: names[i],
       resting: resting.has(id),
+      checkedOut: out.has(id),
       level: levels[id] ?? null,
     }));
   });
+
+  /**
+   * Early checkout (E): advanced sessions only, and only while the night is on.
+   * Receipts are owner-only, so they are read here on demand, never from the public feed.
+   */
+  protected readonly checkoutEnabled = computed(() => this.liveSession.shuttleTools() && !this.ended());
+  protected readonly checkouts = signal<CheckoutReceipt[]>([]);
+  protected readonly checkedOutIds = computed(() => new Set(this.checkouts().map((c) => c.playerId)));
+  private readonly checkoutDialog = viewChild<EarlyCheckoutDialog>('checkoutDialog');
+
+  protected async loadCheckouts(): Promise<void> {
+    if (!this.liveSession.shuttleTools()) return;
+    try {
+      this.checkouts.set(await this.liveSession.getCheckouts());
+    } catch {
+      // Not critical-path: without receipts the chips just show as resting.
+    }
+  }
+
+  /** Roster players still checkout-able, each with the court that must be cleared first, if any. */
+  protected readonly checkoutPlayers = computed<CheckoutPlayer[]>(() => {
+    const onCourt = new Map<string, string>();
+    this.liveSession.courts().forEach((court, i) => {
+      if (court.status === 'idle') return;
+      for (const id of [...court.teamA, ...court.teamB]) {
+        if (id !== null) onCourt.set(id, courtName(this.labelFor(i + 1)));
+      }
+    });
+    return this.rosterEntries()
+      .filter((p) => !p.checkedOut)
+      .map((p) => ({ id: p.id, name: p.name, courtLabel: onCourt.get(p.id) ?? null }));
+  });
+
+  protected readonly settledPlayers = computed<SettledPlayer[]>(() => {
+    const names = new Map(this.rosterEntries().map((p) => [p.id, p.name]));
+    return this.checkouts().map((receipt) => ({ receipt, name: names.get(receipt.playerId) ?? '' }));
+  });
+
+  protected openCheckoutDialog(): void {
+    void this.loadCheckouts();
+    this.checkoutDialog()?.open();
+  }
+
+  protected async onCheckoutChanged(): Promise<void> {
+    await this.loadCheckouts();
+    this.liveSession.refresh();
+  }
 
   readonly waitlistNames = computed(() => {
     const session = this.session();
@@ -229,6 +281,7 @@ export class SessionDashboard implements OnDestroy {
     this.liveSession.refresh();
     void this.loadLevels();
     void this.liveSession.loadSessionRules();
+    void this.loadCheckouts();
   }, 30_000);
   private readonly onWindowFocus = () => {
     this.liveSession.refresh();
@@ -318,6 +371,10 @@ export class SessionDashboard implements OnDestroy {
     private roster: RosterService
   ) {
     window.addEventListener('focus', this.onWindowFocus);
+    // Receipts exist only on advanced sessions, which the first session read reveals.
+    effect(() => {
+      if (this.liveSession.shuttleTools()) void this.loadCheckouts();
+    });
     void this.loadLevels();
     void this.liveSession.loadSessionRules();
   }
@@ -414,7 +471,8 @@ export class SessionDashboard implements OnDestroy {
   }
 
   /** In TS, not an i18n attribute: the label interpolates a player name. */
-  restLabel(name: string, resting: boolean): string {
+  restLabel(name: string, resting: boolean, checkedOut = false): string {
+    if (checkedOut) return $localize`:@@dashboard.checkedOut:${name}:name: เช็คเอาต์แล้ว`;
     return resting
       ? $localize`:@@dashboard.bringBack:ให้ ${name}:name: กลับมาเล่น`
       : $localize`:@@dashboard.rest:ให้ ${name}:name: พัก`;

@@ -100,6 +100,33 @@ export class GroupsService {
     return { code: updated.code, name: updated.name };
   }
 
+  async getShuttleTools(code: string) {
+    const group = await this.prisma.group.findUnique({ where: { code }, select: { shuttleToolsEnabled: true } });
+    if (!group) throw new NotFoundException();
+    return { enabled: group.shuttleToolsEnabled };
+  }
+
+  /** Only future sessions read this: each session snapshots it at creation. */
+  async setShuttleTools(code: string, enabled: boolean) {
+    const group = await this.prisma.group.findUnique({ where: { code }, select: { code: true } });
+    if (!group) throw new NotFoundException();
+    await this.prisma.group.update({ where: { code }, data: { shuttleToolsEnabled: enabled } });
+    return { enabled };
+  }
+
+  async getCrossSessionHistory(code: string) {
+    const group = await this.prisma.group.findUnique({ where: { code }, select: { crossSessionHistory: true } });
+    if (!group) throw new NotFoundException();
+    return { enabled: group.crossSessionHistory };
+  }
+
+  async setCrossSessionHistory(code: string, enabled: boolean) {
+    const group = await this.prisma.group.findUnique({ where: { code }, select: { code: true } });
+    if (!group) throw new NotFoundException();
+    await this.prisma.group.update({ where: { code }, data: { crossSessionHistory: enabled } });
+    return { enabled };
+  }
+
   async listPlayers(code: string) {
     const group = await this.prisma.group.findUnique({ where: { code } });
     if (!group) throw new NotFoundException();
@@ -508,14 +535,25 @@ export class GroupsService {
         include: {
           roster: true,
           waitlist: { orderBy: { position: 'asc' } },
-          pairings: { orderBy: [{ courtNumber: 'asc' }, { matchNumber: 'asc' }] },
+          pairings: {
+            orderBy: [{ courtNumber: 'asc' }, { matchNumber: 'asc' }],
+            include: { shuttleUses: true },
+          },
+          shuttles: { orderBy: { number: 'asc' } },
+          checkouts: { orderBy: { settledAt: 'asc' } },
         },
       }),
     ]);
 
     return {
       exportedAt: new Date().toISOString(),
-      group: { code: group.code, name: group.name, createdAt: group.createdAt },
+      group: {
+        code: group.code,
+        name: group.name,
+        createdAt: group.createdAt,
+        shuttleToolsEnabled: group.shuttleToolsEnabled,
+        crossSessionHistory: group.crossSessionHistory,
+      },
       players: players.map((p) => ({
         id: p.id,
         name: p.name,
@@ -528,6 +566,8 @@ export class GroupsService {
         venue: s.venue,
         courtCount: s.courtCount,
         mode: s.mode,
+        shuttleToolsEnabled: s.shuttleToolsEnabled,
+        crossSessionHistory: s.crossSessionHistory,
         courtFormats: parseCourtFormats(s.courtFormats),
         createdAt: s.createdAt,
         endedAt: s.endedAt,
@@ -536,6 +576,26 @@ export class GroupsService {
         rosterPlayerIds: s.roster.map((r) => r.playerId),
         restingPlayerIds: s.roster.filter((r) => !r.active).map((r) => r.playerId),
         waitlistPlayerIds: s.waitlist.map((w) => w.playerId),
+        // The settlement ledger: active and undone receipts, kept as an audit trail.
+        checkouts: s.checkouts.map((c) => ({
+          id: c.id,
+          playerId: c.playerId,
+          model: c.model,
+          amountSatang: c.amountSatang,
+          // Tolerant on export: one corrupt receipt must not block the owner's whole data export.
+          breakdown: parseJsonForExport(c.breakdown),
+          snapshot: parseJsonForExport(c.snapshot),
+          settledAt: c.settledAt,
+          undoneAt: c.undoneAt,
+          idempotencyKey: c.idempotencyKey,
+        })),
+        // Voided identities stay listed: their numbers are never reassigned.
+        shuttles: s.shuttles.map((sh) => ({
+          id: sh.id,
+          number: sh.number,
+          usable: sh.usable,
+          voided: sh.voidedAt !== null,
+        })),
         matches: s.pairings.map((p) => ({
           courtNumber: p.courtNumber,
           matchNumber: p.matchNumber,
@@ -549,6 +609,12 @@ export class GroupsService {
           confirmedAt: p.confirmedAt,
           endedAt: p.endedAt,
           carryOutcomes: parseJsonForExport(p.carryOutcomes),
+          // Known false = a legacy or ordinary game whose shuttle use was never
+          // recorded; known true with no ids = recorded as zero shuttles.
+          shuttleLogKnown: p.shuttleLogKnown,
+          shuttleIds: p.shuttleUses
+            .map((u) => u.shuttleId)
+            .sort((a, b) => numberOf(s.shuttles, a) - numberOf(s.shuttles, b)),
         })),
       })),
     };
@@ -584,7 +650,13 @@ export class GroupsService {
     const sessionIds = sessions.map((s) => s.code);
 
     return [
+      // Receipts first: they reference both the session and the player.
+      this.prisma.sessionCheckout.deleteMany({ where: { sessionId: { in: sessionIds } } }),
+      // Foreign-key order: game/shuttle links, then the games (which may point
+      // at a last shuttle), then the identities, and only then the sessions.
+      this.prisma.pairingShuttleUse.deleteMany({ where: { pairing: { sessionId: { in: sessionIds } } } }),
       this.prisma.pairing.deleteMany({ where: { sessionId: { in: sessionIds } } }),
+      this.prisma.sessionShuttle.deleteMany({ where: { sessionId: { in: sessionIds } } }),
       this.prisma.sessionRoster.deleteMany({ where: { sessionId: { in: sessionIds } } }),
       this.prisma.waitlist.deleteMany({ where: { sessionId: { in: sessionIds } } }),
       this.prisma.session.deleteMany({ where: { groupId: code } }),
@@ -669,4 +741,9 @@ function parseJsonForExport(raw: string): unknown {
   } catch {
     return raw;
   }
+}
+
+/** A shuttle's display number by id — export lists a game's uses in number order. */
+function numberOf(shuttles: readonly { id: string; number: number }[], id: string): number {
+  return shuttles.find((sh) => sh.id === id)?.number ?? 0;
 }

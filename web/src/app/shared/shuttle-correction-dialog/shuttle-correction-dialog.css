@@ -1,0 +1,84 @@
+.form-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.form-card h2 {
+  margin: 0;
+}
+
+.muted {
+  color: var(--ink-soft);
+  margin: 0;
+}
+
+.chip-picker {
+  border: none;
+  padding: 0;
+  margin: 0;
+  min-width: 0;
+}
+
+.chip-picker legend {
+  padding: 0;
+  margin-bottom: var(--space-0);
+}
+
+.shuttle-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+  max-height: 11rem;
+  overflow-y: auto;
+  padding: var(--space-0);
+}
+
+.shuttle-chip {
+  min-height: var(--tap);
+  min-width: var(--tap);
+  padding: 0 var(--space-2);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-pill);
+  background: var(--surface);
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+}
+
+.shuttle-chip[aria-pressed='true'] {
+  border-color: var(--court);
+  background: var(--court-soft);
+  color: var(--court-ink);
+  font-weight: 700;
+}
+
+.retired {
+  color: var(--ink-soft);
+  font-weight: 400;
+  font-size: var(--text-xs);
+}
+
+.open-new-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  min-height: var(--tap);
+  cursor: pointer;
+}
+
+.open-new-row input {
+  width: 1.5rem;
+  min-height: 1.5rem;
+  flex: none;
+}
+
+.dialog-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-1);
+  position: sticky;
+  bottom: calc(-1 * var(--space-3));
+  margin-bottom: calc(-1 * var(--space-3));
+  padding: var(--space-1) 0 var(--space-3);
+  background: var(--surface);
+}

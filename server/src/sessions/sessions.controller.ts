@@ -2,6 +2,10 @@ import { Body, Controller, Get, Param, ParseIntPipe, Post, Query, Req } from '@n
 import { AddWalkInDto } from './dto/add-walk-in.dto.js';
 import { CreateSessionDto } from './dto/create-session.dto.js';
 import { FinishPairingDto } from './dto/finish-pairing.dto.js';
+import { ConfirmPairingDto } from './dto/confirm-pairing.dto.js';
+import { CorrectShuttleUseDto } from './dto/correct-shuttle-use.dto.js';
+import { SetShuttleUsableDto } from './dto/set-shuttle-usable.dto.js';
+import { SwitchShuttleDto } from './dto/switch-shuttle.dto.js';
 import { PairingRevisionDto } from './dto/pairing-revision.dto.js';
 import { SetCourtCountDto } from './dto/set-court-count.dto.js';
 import { SetCourtFormatDto } from './dto/set-court-format.dto.js';
@@ -107,9 +111,43 @@ export class SessionsController {
   confirmPairing(
     @Param('code') code: string,
     @Param('id') id: string,
-    @Body() dto: PairingRevisionDto
+    @Body() dto: ConfirmPairingDto
   ) {
-    return this.sessionsService.confirmPairing(code, id, dto.expectedRevision);
+    return this.sessionsService.confirmPairing(code, id, dto.expectedRevision, dto.shuttle);
+  }
+
+  /**
+   * Shuttle writes (host feedback D): owner-only like every non-public route,
+   * serialized by the session lock and guarded by `Pairing.revision`.
+   */
+  @Post(':code/pairings/:id/shuttles/switch')
+  switchShuttle(@Param('code') code: string, @Param('id') id: string, @Body() dto: SwitchShuttleDto) {
+    return this.sessionsService.switchShuttle(code, id, dto);
+  }
+
+  @Post(':code/pairings/:id/shuttles/correct')
+  correctShuttleUse(@Param('code') code: string, @Param('id') id: string, @Body() dto: CorrectShuttleUseDto) {
+    return this.sessionsService.correctShuttleUse(code, id, dto);
+  }
+
+  /** Owner-only: identities plus each finished game's editable set and revision. */
+  @Get(':code/shuttles')
+  getShuttleInventory(@Param('code') code: string) {
+    return this.sessionsService.getShuttleInventory(code);
+  }
+
+  @Post(':code/shuttles/:shuttleId/usable')
+  setShuttleUsable(
+    @Param('code') code: string,
+    @Param('shuttleId') shuttleId: string,
+    @Body() dto: SetShuttleUsableDto
+  ) {
+    return this.sessionsService.setShuttleUsable(code, shuttleId, dto.usable);
+  }
+
+  @Post(':code/shuttles/:shuttleId/void')
+  voidShuttle(@Param('code') code: string, @Param('shuttleId') shuttleId: string) {
+    return this.sessionsService.voidShuttle(code, shuttleId);
   }
 
   @Post(':code/pairings/:id/finish')

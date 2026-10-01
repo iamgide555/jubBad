@@ -364,3 +364,132 @@ test('distributeCapped: entries that hit their cap pass the remainder on', () =>
   // the third absorbs everything they could not take.
   assert.deepEqual(distributeCapped(1000, [100, 100, 5000]), [100, 100, 800]);
 });
+
+// ---- Reusable numbered shuttles (host feedback D): each identity's cost is shared once ----
+
+const adv = (players: string[], shuttleIds: string[] | null): BillMatch => ({ players, shuttleIds });
+/** Shuttles billed on their own: buffet with no price and shuttles not included. */
+function shuttleOnly(extra: Partial<BillInput>, config: Partial<BillConfig> = {}): BillInput {
+  return {
+    config: { ...DEFAULT_BILL_CONFIG, walkInFeeSatang: 0, model: 'buffet', buffetPriceSatang: 0, buffetShuttlesIncluded: false, shuttleSplit: 'byGames', ...config },
+    matches: [],
+    walkInIds: [],
+    shuttleCount: 1,
+    shuttlePriceSatang: 100,
+    shuttleAllocation: 'identities',
+    ...extra,
+  };
+}
+const shuttleShares = (r: ReturnType<typeof computeBill>) =>
+  Object.fromEntries(r.rows.filter((x) => x.status === 'billed').map((x) => [x.playerId, x.shuttleSatang]));
+
+test('shuttles: one shuttle used by two disjoint doubles games is paid once, half per game', () => {
+  const r = computeBill(shuttleOnly({ matches: [adv(['a', 'b', 'c', 'd'], ['s1']), adv(['e', 'f', 'g', 'h'], ['s1'])] }));
+  assert.deepEqual(shuttleShares(r), { a: 13, b: 13, c: 12, d: 12, e: 13, f: 13, g: 12, h: 12 });
+  assert.equal(r.rows.reduce((t, x) => t + x.shuttleSatang, 0), 100);
+  assert.equal(r.shuttleAllocation, 'identities');
+});
+
+test('shuttles: a corrupt duplicate id inside one game is rejected', () => {
+  assert.throws(() => computeBill(shuttleOnly({ matches: [adv(['a', 'b', 'c', 'd'], ['s1', 's1'])] })), /duplicate/);
+  assert.throws(() => computeBill(shuttleOnly({ matches: [adv(['a', 'b'], [''])] })), /empty id/);
+});
+
+test('shuttles: one price per unique identity across a singles and a doubles game, exact satang', () => {
+  const r = computeBill(
+    shuttleOnly({
+      matches: [adv(['a', 'b'], ['s1', 's2']), adv(['a', 'c', 'd', 'e'], ['s1'])],
+      shuttleCount: 2,
+      shuttlePriceSatang: 300,
+    })
+  );
+  // 600 over s1/s2 = 300 each. s2: 150+150 to a,b. s1: 150 per game: singles 75+75, doubles 38,38,37,37.
+  assert.deepEqual(shuttleShares(r), { a: 263, b: 225, c: 38, d: 37, e: 37 });
+  assert.equal(r.rows.reduce((t, x) => t + x.shuttleSatang, 0), 600);
+});
+
+test('shuttles: a physical count above the logged ids scales the money, never the ids', () => {
+  const matches = [adv(['a', 'b', 'c', 'd'], ['s1']), adv(['a', 'b', 'c', 'd'], ['s2'])];
+  const four = computeBill(shuttleOnly({ matches, shuttleCount: 4, shuttlePriceSatang: 100 }));
+  assert.deepEqual(shuttleShares(four), { a: 100, b: 100, c: 100, d: 100 });
+  const zero = computeBill(shuttleOnly({ matches, shuttleCount: 0 }));
+  assert.deepEqual(shuttleShares(zero), { a: 0, b: 0, c: 0, d: 0 });
+  assert.equal(zero.shuttleAllocation, 'identities');
+});
+
+test('shuttles: equal split ignores identities and says so', () => {
+  const r = computeBill(
+    shuttleOnly({ matches: [adv(['a', 'b', 'c', 'd'], ['s1']), adv(['e', 'f', 'g', 'h'], ['s1'])], shuttleCount: 2, shuttlePriceSatang: 400 }, { shuttleSplit: 'equal' })
+  );
+  assert.deepEqual(shuttleShares(r), { a: 100, b: 100, c: 100, d: 100, e: 100, f: 100, g: 100, h: 100 });
+  assert.equal(r.shuttleAllocation, 'equal');
+});
+
+test('shuttles: any unknown game keeps the old equal-per-match split for the whole session', () => {
+  const r = computeBill(
+    shuttleOnly({ matches: [adv(['a', 'b', 'c', 'd'], ['s1']), adv(['e', 'f', 'g', 'h'], null)], shuttleCount: 2, shuttlePriceSatang: 100 })
+  );
+  assert.deepEqual(shuttleShares(r), { a: 25, b: 25, c: 25, d: 25, e: 25, f: 25, g: 25, h: 25 });
+  assert.equal(r.shuttleAllocation, 'legacy-unknown');
+});
+
+test('shuttles: known games with no references and a positive cost fall back to equal-per-match', () => {
+  const noUses = computeBill(shuttleOnly({ matches: [adv(['a', 'b', 'c', 'd'], []), adv(['e', 'f', 'g', 'h'], [])], shuttleCount: 2, shuttlePriceSatang: 100 }));
+  assert.deepEqual(shuttleShares(noUses), { a: 25, b: 25, c: 25, d: 25, e: 25, f: 25, g: 25, h: 25 });
+  assert.equal(noUses.shuttleAllocation, 'legacy-no-uses');
+  const free = computeBill(shuttleOnly({ matches: [adv(['a', 'b', 'c', 'd'], [])], shuttleCount: 0 }));
+  assert.equal(free.shuttleAllocation, 'identities');
+});
+
+test('shuttles: a removed player\'s share is redistributed so the cost stays covered', () => {
+  const r = computeBill(
+    shuttleOnly(
+      { matches: [adv(['a', 'b', 'c', 'd'], ['s1']), adv(['e', 'f', 'g', 'h'], ['s1'])] },
+      { removedIds: ['a'] }
+    )
+  );
+  assert.equal(r.rows.filter((x) => x.status === 'billed').reduce((t, x) => t + x.shuttleSatang, 0), 100);
+  assert.equal(r.rows.find((x) => x.playerId === 'a')!.shuttleSatang, 0);
+});
+
+test('shuttles: the walk-in fee still nets to zero with identity allocation', () => {
+  const base = shuttleOnly({ matches: [adv(['a', 'b', 'c', 'd'], ['s1'])], shuttleCount: 1, shuttlePriceSatang: 10000 });
+  const plain = computeBill(base);
+  const walk = computeBill({ ...base, walkInIds: ['d'], config: { ...base.config, walkInFeeSatang: 1000 } });
+  assert.equal(walk.totals.collectedSatang, plain.totals.collectedSatang);
+  assert.equal(plain.totals.collectedSatang, 10000);
+});
+
+test('shuttles: ordinary input is untouched and reports the legacy path', () => {
+  const r = computeBill(input({ model: 'fair', courtFeeSatang: 0, courtSplit: 'equal', shuttleSplit: 'byGames' }, { shuttleCount: 3, shuttlePriceSatang: 4000 }));
+  assert.deepEqual(
+    Object.fromEntries(r.rows.map((x) => [x.playerId, x.shuttleSatang])),
+    { a: 3000, b: 3000, c: 2000, d: 2000, e: 2000 }
+  );
+  assert.equal(r.shuttleAllocation, 'legacy-basic');
+});
+
+// ---- perShuttle: the advanced fourth model (host feedback E) ----
+
+test('perShuttle: no shuttles recorded, every billed participant pays the starting fee', () => {
+  const r = computeBill(input({ model: 'perShuttle', startingFeeSatang: 5000 }));
+  assert.deepEqual(amounts(r), { a: 5000, b: 5000, c: 5000, d: 5000, e: 5000 });
+  assert.deepEqual(r.warnings, []);
+});
+
+test('perShuttle: a removed player is not billed and the others still pay only their own fee', () => {
+  const r = computeBill(input({ model: 'perShuttle', startingFeeSatang: 5000, removedIds: ['a'] }));
+  assert.deepEqual(amounts(r), { b: 5000, c: 5000, d: 5000, e: 5000 });
+});
+
+test('startingFeeSatang must be a non-negative whole number of satang', () => {
+  assert.throws(() => computeBill(input({ model: 'perShuttle', startingFeeSatang: -1 })), /startingFeeSatang/);
+  assert.throws(() => computeBill(input({ model: 'perShuttle', startingFeeSatang: 10.5 })), /startingFeeSatang/);
+});
+
+test('the default config carries a zero starting fee and existing models ignore it', () => {
+  assert.equal(DEFAULT_BILL_CONFIG.startingFeeSatang, 0);
+  const withFee = computeBill(input({ model: 'perGame', perGameRateSatang: 1000, startingFeeSatang: 9999 }));
+  const without = computeBill(input({ model: 'perGame', perGameRateSatang: 1000 }));
+  assert.deepEqual(amounts(withFee), amounts(without));
+});

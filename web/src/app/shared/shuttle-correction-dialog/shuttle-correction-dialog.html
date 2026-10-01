@@ -1,0 +1,45 @@
+<dialog #dialog class="shuttle-correction-dialog sheet-dialog" (close)="onDialogClose()" (cancel)="onCancelAttempt($event)">
+  @if (isOpen()) {
+    <div class="form-card">
+      <h2 i18n="@@shuttleFix.title">แก้ลูกแบดที่ใช้ — {{ rowLabel() }}</h2>
+      <p class="muted" i18n="@@shuttleFix.hint">เลือกทุกลูกที่แมตช์นี้ใช้จริง ไม่เลือกเลยหมายถึงไม่ได้ใช้ลูกแบด</p>
+
+      <fieldset class="chip-picker" [disabled]="saving()">
+        <legend i18n="@@shuttleFix.legend">ลูกแบดของแมตช์นี้</legend>
+        <div class="shuttle-chips">
+          @for (s of ordered(); track s.id) {
+            <button
+              type="button"
+              class="shuttle-chip"
+              [attr.data-shuttle-chip]="s.id"
+              [attr.aria-pressed]="picked().has(s.id)"
+              [disabled]="saving()"
+              (click)="toggle(s.id)"
+            >
+              #{{ s.number }}
+              @if (!s.usable) { <span class="retired" i18n="@@shuttleFix.retired">(เลิกใช้)</span> }
+            </button>
+          }
+        </div>
+      </fieldset>
+
+      <label class="open-new-row">
+        <input type="checkbox" name="openNew" [checked]="openNewShuttle()" [disabled]="saving()" (change)="openNewShuttle.set($any($event.target).checked)" />
+        <span i18n="@@shuttleFix.openNew">เพิ่มลูกใหม่ที่ลืมบันทึก (ได้หมายเลขถัดไป)</span>
+      </label>
+
+      @if (noneSelected()) {
+        <p class="muted none-note" role="status" i18n="@@shuttleFix.none">จะบันทึกว่าแมตช์นี้ไม่ได้ใช้ลูกแบด</p>
+      }
+
+      @if (error()) {
+        <p class="error" role="alert">{{ error() }}</p>
+      }
+
+      <div class="dialog-actions">
+        <button type="button" class="ghost" [disabled]="saving()" (click)="close()" i18n="@@shuttleFix.cancel">ยกเลิก</button>
+        <button type="button" data-save-correction [disabled]="saving()" (click)="submit()" i18n="@@shuttleFix.save">บันทึก</button>
+      </div>
+    </div>
+  }
+</dialog>

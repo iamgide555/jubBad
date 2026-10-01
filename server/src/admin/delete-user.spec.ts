@@ -190,4 +190,53 @@ describe('AdminService.deleteUser', () => {
       NotFoundException
     );
   });
+
+  it('numbered shuttle: admin deletion removes game links, pairings and identities in FK order', async () => {
+    const { owner, codes } = await makeOwner(1);
+    const sessionCode = randomUUID();
+    try {
+      await prisma.session.create({ data: { code: sessionCode, groupId: codes[0], rawImportText: '', shuttleToolsEnabled: true } });
+      const shuttle = await prisma.sessionShuttle.create({ data: { sessionId: sessionCode, number: 1 } });
+      const game = await prisma.pairing.create({
+        data: { sessionId: sessionCode, courtNumber: 1, matchNumber: 1, teamA: '["a","b"]', teamB: '["c","d"]', shuttleLogKnown: true, lastShuttleId: shuttle.id },
+      });
+      await prisma.pairingShuttleUse.create({ data: { pairingId: game.id, shuttleId: shuttle.id } });
+
+      await admin.deleteUser(owner.id, { [codes[0]]: { action: 'delete' } });
+
+      expect(await prisma.pairingShuttleUse.count({ where: { pairingId: game.id } })).toBe(0);
+      expect(await prisma.sessionShuttle.count({ where: { sessionId: sessionCode } })).toBe(0);
+      expect(await prisma.pairing.count({ where: { sessionId: sessionCode } })).toBe(0);
+      expect(await prisma.group.count({ where: { code: codes[0] } })).toBe(0);
+      expect(await users.findById(owner.id)).toBeNull();
+    } finally {
+      await prisma.pairingShuttleUse.deleteMany({ where: { pairing: { sessionId: sessionCode } } });
+      await prisma.pairing.deleteMany({ where: { sessionId: sessionCode } });
+      await prisma.sessionShuttle.deleteMany({ where: { sessionId: sessionCode } });
+      await prisma.session.deleteMany({ where: { code: sessionCode } });
+      await cleanup(owner.id, codes);
+    }
+  });
+
+  it('checkout ledger: admin deletion removes receipts before sessions and players', async () => {
+    const { owner, codes } = await makeOwner(1);
+    const sessionCode = randomUUID();
+    try {
+      await prisma.session.create({ data: { code: sessionCode, groupId: codes[0], rawImportText: '', shuttleToolsEnabled: true } });
+      const p = await prisma.player.create({ data: { groupId: codes[0], name: 'L', aliases: '[]' } });
+      await prisma.sessionCheckout.create({
+        data: {
+          sessionId: sessionCode, playerId: p.id, model: 'perGame', amountSatang: 100, idempotencyKey: 'k',
+          breakdown: '{}', snapshot: '{}',
+        },
+      });
+      await admin.deleteUser(owner.id, { [codes[0]]: { action: 'delete' } });
+      expect(await prisma.sessionCheckout.count({ where: { sessionId: sessionCode } })).toBe(0);
+      expect(await prisma.group.count({ where: { code: codes[0] } })).toBe(0);
+    } finally {
+      await prisma.sessionCheckout.deleteMany({ where: { sessionId: sessionCode } });
+      await prisma.session.deleteMany({ where: { code: sessionCode } });
+      await cleanup(owner.id, codes);
+    }
+  });
 });

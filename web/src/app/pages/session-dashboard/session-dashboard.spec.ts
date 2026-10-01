@@ -156,6 +156,54 @@ describe('SessionDashboard', () => {
     expect((fixture.nativeElement as HTMLElement).querySelector('.retired-courts')).toBeNull();
   });
 
+  describe('early checkout', () => {
+    async function load(session: Session, checkouts?: object[]) {
+      fixture = TestBed.createComponent(SessionDashboard);
+      fixture.detectChanges();
+      httpMock.expectOne(`${B}/sessions/sess1`).flush(session);
+      await new Promise((r) => setTimeout(r, 0));
+      TestBed.tick();
+      httpMock.expectOne(`${B}/groups/group1/players`).flush([]);
+      httpMock.expectOne(`${B}/sessions/sess1/stats?scope=session`).flush([]);
+      if (checkouts) {
+        await new Promise((r) => setTimeout(r, 0));
+        httpMock.expectOne(`${B}/sessions/sess1/checkouts`).flush(checkouts);
+      }
+      await fixture.whenStable();
+      fixture.detectChanges();
+    }
+    const el = () => fixture.nativeElement as HTMLElement;
+
+    it('an ordinary session has no checkout action and never asks for receipts', async () => {
+      await load(baseSession());
+      expect(el().querySelector('[data-early-checkout]')).toBeNull();
+      expect(el().querySelector('app-early-checkout-dialog')).toBeNull();
+    });
+
+    it('an advanced live session offers it as a roster action', async () => {
+      await load(baseSession({ shuttleToolsEnabled: true }), []);
+      expect(el().querySelector('[data-early-checkout]')).toBeTruthy();
+    });
+
+    it('an ended advanced session offers no checkout', async () => {
+      await load(baseSession({ shuttleToolsEnabled: true, endedAt: '2026-09-08T20:00:00.000Z' }), []);
+      expect(el().querySelector('[data-early-checkout]')).toBeNull();
+    });
+
+    it('a settled player is a distinct, disabled, non-reactivatable chip', async () => {
+      const receipt = { id: 'r1', playerId: 'p1', model: 'perGame', amountSatang: 4500, breakdown: { baseSatang: 4500, shuttleSatang: 0, hostFeeSatang: 0, walkInFeeSatang: 0, discountSatang: 0 }, settledAt: '2026-09-08T13:00:00.000Z' };
+      await load(baseSession({ shuttleToolsEnabled: true, restingPlayerIds: ['p1'] }), [receipt]);
+      const chips = [...el().querySelectorAll<HTMLButtonElement>('.roster-chips .chip')];
+      const out = chips.find((c) => c.classList.contains('checked-out'))!;
+      expect(out).toBeTruthy();
+      expect(out.disabled).toBe(true);
+      expect(out.classList.contains('resting')).toBe(false);
+      expect(out.getAttribute('aria-label')).toContain('เช็คเอาต์แล้ว');
+      expect(out.getAttribute('aria-pressed')).toBeNull();
+      expect(chips.filter((c) => !c.classList.contains('checked-out'))).toHaveLength(1);
+    });
+  });
+
   it('renders the confirmed roster as chips', async () => {
     fixture = TestBed.createComponent(SessionDashboard);
     fixture.detectChanges();

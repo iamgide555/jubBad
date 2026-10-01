@@ -53,6 +53,7 @@ export function parseBillConfig(raw: string | null): BillConfig | null {
     capSatang: nullableMoney(o['capSatang'], d.capSatang),
     buffetPriceSatang: pick(o['buffetPriceSatang'], isMoney, d.buffetPriceSatang),
     buffetShuttlesIncluded: pick(o['buffetShuttlesIncluded'], (x) => typeof x === 'boolean', d.buffetShuttlesIncluded),
+    startingFeeSatang: pick(o['startingFeeSatang'], isMoney, d.startingFeeSatang),
     hostFeeSatang: pick(o['hostFeeSatang'], isMoney, d.hostFeeSatang),
     walkInFeeSatang: pick(o['walkInFeeSatang'], isMoney, d.walkInFeeSatang),
     roundingBaht: pick(o['roundingBaht'], (x) => (ROUNDING_STEPS as readonly unknown[]).includes(x), d.roundingBaht),

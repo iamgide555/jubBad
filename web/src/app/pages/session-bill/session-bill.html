@@ -15,12 +15,13 @@
     }
 
     <div class="scope-toggle" role="group" i18n-aria-label="@@bill.modeGroup" aria-label="รูปแบบการคิดเงิน">
-      @for (m of models; track m) {
+      @for (m of models(); track m) {
         <button type="button" [attr.data-model]="m" [class.active]="b.config.model === m"
           [attr.aria-pressed]="b.config.model === m" [disabled]="saving()" (click)="save({ model: m })">
           @switch (m) {
             @case ('fair') { <ng-container i18n="@@bill.modelFair">หารตามจริง</ng-container> }
             @case ('perGame') { <ng-container i18n="@@bill.modelPerGame">คิดต่อเกม</ng-container> }
+            @case ('perShuttle') { <ng-container i18n="@@bill.modelPerShuttle">ตามลูกแบด</ng-container> }
             @case ('buffet') { <ng-container i18n="@@bill.modelBuffet">บุฟเฟ่ต์</ng-container> }
           }
         </button>
@@ -77,6 +78,19 @@
           </label>
         </div>
       }
+      @if (b.config.model === 'perShuttle') {
+        <div class="setting-row">
+          <span class="setting-label" i18n="@@bill.startingFee">ค่าเริ่มต้นต่อคน (บาท)</span>
+          <label class="money-field">
+            <input type="text" inputmode="decimal" data-starting-fee [value]="moneyText(b.config.startingFeeSatang)" (change)="onMoney('startingFeeSatang', $any($event.target).value)" />
+            <span class="money-suffix">฿</span>
+          </label>
+        </div>
+        <p class="hint" data-per-shuttle-hint>
+          <ng-container i18n="@@bill.perShuttleHint">คิดเฉพาะลูกแบดที่บันทึกไว้ในแมตช์ ตามราคาต่อลูก ไม่ขึ้นกับจำนวนลูกที่นับจริง</ng-container>
+          <a [routerLink]="['/s', sessionCode, 'summary']" i18n="@@bill.perShuttleSetPrice">ตั้งราคาลูกแบดที่หน้าสรุป</a>
+        </p>
+      }
       @if (b.config.model === 'buffet') {
         <div class="setting-row">
           <span class="setting-label" i18n="@@bill.buffetPrice">บุฟเฟ่ต์ต่อคน (บาท)</span>
@@ -119,6 +133,37 @@
       </div>
     </section>
 
+    @if (shuttlePanel(); as sp) {
+      <section class="notice-block shuttle-accounting">
+        <h2 class="label" i18n="@@bill.shuttleAccountingTitle">ลูกแบดที่คิดเงิน</h2>
+        @if (sp.effectiveCount !== null) {
+          <p>
+            <strong>{{ sp.effectiveCount }}</strong>
+            <ng-container i18n="@@bill.shuttleUnit">ลูก</ng-container>
+            @if (sp.source === 'physical') {
+              <span class="muted" i18n="@@bill.sourcePhysical">· นับจริง</span>
+            } @else {
+              <span class="muted" i18n="@@bill.sourceGames">· นับจากแมตช์ที่บันทึกไว้</span>
+            }
+          </p>
+        } @else {
+          <p class="warning" i18n="@@bill.sourceMissing">ยังนับลูกแบดไม่ได้ — ใส่จำนวนลูกที่ใช้จริง หรือบันทึกลูกที่ใช้ในแต่ละแมตช์ให้ครบ</p>
+        }
+        <p class="muted" i18n="@@bill.recordedSubtotal">บันทึกในแมตช์: {{ sp.recordedFinishedShuttles }} ลูก</p>
+        @if (sp.unknownFinishedMatches > 0) {
+          <p class="muted" i18n="@@bill.recordedPartial">ไม่ครบ — {{ sp.unknownFinishedMatches }} แมตช์ไม่ได้บันทึก</p>
+        }
+        @if (sp.difference !== null && sp.difference !== 0) {
+          <p class="muted" i18n="@@bill.difference">นับจริงต่างจากที่บันทึก {{ signed(sp.difference) }} ลูก</p>
+        }
+        @if (sp.fallback === 'unknown') {
+          <p class="hint" i18n="@@bill.fallbackUnknown">มีแมตช์ที่ไม่ได้บันทึกลูกแบด จึงหารค่าลูกเท่ากันทุกแมตช์</p>
+        } @else if (sp.fallback === 'no-uses') {
+          <p class="hint" i18n="@@bill.fallbackNoUses">แมตช์เหล่านี้ไม่ได้บันทึกลูกแบดที่ใช้ จึงหารค่าลูกเท่ากันทุกแมตช์</p>
+        }
+      </section>
+    }
+
     @if (b.result.warnings.length > 0) {
       <div class="notice-block" role="status">
         @for (w of b.result.warnings; track w) {
@@ -127,6 +172,10 @@
               @case ('MISSING_SHUTTLE_COUNT') { <ng-container i18n="@@bill.warnShuttleCount">ยังไม่ได้ใส่จำนวนลูก</ng-container> }
               @case ('MISSING_SHUTTLE_PRICE') { <ng-container i18n="@@bill.warnShuttlePrice">ยังไม่ได้ใส่ราคาลูก</ng-container> }
               @case ('MISSING_COURT_FEE') { <ng-container i18n="@@bill.warnCourtFee">ยังไม่ได้ใส่ค่าคอร์ท</ng-container> }
+              @case ('UNKNOWN_SHUTTLE_USE') { <ng-container i18n="@@bill.warnUnknownUse">มีแมตช์ที่ไม่ได้บันทึกลูกแบด แก้ในหน้าสรุปก๊วนก่อน</ng-container> }
+              @case ('EXCESS_CREDIT') { <ng-container i18n="@@bill.warnExcess">ยอดที่เช็คเอาต์ไปแล้วเกินต้นทุน {{ baht(b.result.totals.excessCreditSatang) }}฿ — ต้องคืนเงินเองนอกแอป หรือยกเลิกเช็คเอาต์</ng-container> }
+              @case ('UNCOVERED_COST') { <ng-container i18n="@@bill.warnUncovered">ไม่มีใครเหลือจ่ายส่วนที่ขาด {{ baht(b.result.totals.uncoveredCostSatang) }}฿ — ยกเลิกเช็คเอาต์หรือแก้ข้อมูลก่อน</ng-container> }
+              @case ('UNRETURNED_SURCHARGE') { <ng-container i18n="@@bill.warnSurcharge">ค่า walk-in {{ baht(b.result.totals.unreturnedSurchargeSatang) }}฿ ไม่มีใครรับคืนได้ — ไม่นับเป็นกำไร แก้ก่อนแชร์</ng-container> }
             }
           </p>
         }
@@ -134,7 +183,13 @@
     }
 
     <div class="list-header">
-      <span class="label" i18n="@@bill.rowsTitle">รายคน</span>
+      <span class="label">
+        @if (settled().length > 0) {
+          <ng-container i18n="@@bill.stillDueTitle">ยังต้องจ่าย</ng-container>
+        } @else {
+          <ng-container i18n="@@bill.rowsTitle">รายคน</ng-container>
+        }
+      </span>
       <span class="muted" i18n="@@bill.peopleCount">{{ billed().length }} คน</span>
     </div>
 
@@ -155,7 +210,9 @@
                   }
                 </span>
               </span>
-              <span class="amount">{{ baht(r.amountSatang) }}฿</span>
+              @if (b.readyToCopy) {
+                <span class="amount">{{ baht(r.amountSatang) }}฿</span>
+              }
               <app-icon name="chevron" [size]="18" class="disclosure" />
             </summary>
             <div class="row-detail">
@@ -178,6 +235,26 @@
         </li>
       }
     </ul>
+
+    @if (settled().length > 0) {
+      <h2 class="label" i18n="@@bill.settledTitle">เช็คเอาต์แล้ว (ยอดล็อกไว้)</h2>
+      <ul class="bill-rows settled-rows" data-settled-rows>
+        @for (s of settled(); track s.id) {
+          <li class="settled-row">
+            <span class="name">{{ s.name }}</span>
+            <span class="tag tag-muted">
+              @switch (s.model) {
+                @case ('perGame') { <ng-container i18n="@@bill.modelPerGame">คิดต่อเกม</ng-container> }
+                @case ('perShuttle') { <ng-container i18n="@@bill.modelPerShuttle">ตามลูกแบด</ng-container> }
+                @case ('buffet') { <ng-container i18n="@@bill.modelBuffet">บุฟเฟ่ต์</ng-container> }
+              }
+            </span>
+            <span class="amount">{{ baht(s.amountSatang) }}฿</span>
+          </li>
+        }
+      </ul>
+      <p class="hint" i18n="@@bill.settledHint">ยกเลิกเช็คเอาต์ได้ที่หน้าก๊วนระหว่างเล่นเท่านั้น</p>
+    }
 
     @if (removed().length > 0) {
       <h2 class="label" i18n="@@bill.removedTitle">ไม่คิดเงิน</h2>
@@ -203,12 +280,19 @@
 
     <div class="bill-footer">
       <div class="bill-footer-total">
-        <span class="total"><span i18n="@@bill.total">รวม</span> {{ baht(b.result.totals.collectedSatang) }}฿</span>
-        @if (b.result.totals.marginSatang !== null) {
-          <span class="margin" i18n="@@bill.margin">ต้นทุน {{ baht(b.result.totals.costSatang!) }}฿ · ส่วนต่าง {{ baht(b.result.totals.marginSatang) }}฿ (เห็นเฉพาะผู้จัด)</span>
+        @if (b.readyToCopy) {
+          <span class="total"><span i18n="@@bill.total">รวม</span> {{ baht(b.result.totals.collectedSatang) }}฿</span>
+          @if (settled().length > 0) {
+            <span class="margin" data-split-totals i18n="@@bill.settledSplit">เช็คเอาต์แล้ว {{ baht(b.result.totals.settledTotalSatang) }}฿ · ยังต้องจ่าย {{ baht(b.result.totals.stillDueSatang) }}฿</span>
+          }
+          @if (b.result.totals.marginSatang !== null) {
+            <span class="margin" i18n="@@bill.margin">ต้นทุน {{ baht(b.result.totals.costSatang!) }}฿ · ส่วนต่าง {{ baht(b.result.totals.marginSatang) }}฿ (เห็นเฉพาะผู้จัด)</span>
+          }
+        } @else {
+          <span class="bill-blocked" role="status" i18n="@@bill.notReady">ยังคัดลอกไม่ได้ — ใส่ข้อมูลที่ขาดให้ครบก่อน แล้วจะเห็นยอดของแต่ละคน</span>
         }
       </div>
-      <button type="button" class="primary" (click)="copy()">
+      <button type="button" class="primary" [disabled]="!b.readyToCopy" (click)="copy()">
         <app-icon name="copy" [size]="18" />
         @if (copied()) { <ng-container i18n="@@bill.copied">คัดลอกแล้ว</ng-container> }
         @else { <ng-container i18n="@@bill.copy">คัดลอกข้อความ</ng-container> }

@@ -302,3 +302,34 @@ details[open] .disclosure {
   width: 100%;
   margin-top: var(--space-2);
 }
+
+.shuttle-accounting {
+  margin: var(--space-2) 0;
+}
+
+.shuttle-accounting p {
+  margin: 0 0 var(--space-0);
+}
+
+.bill-blocked {
+  color: var(--warn);
+  font-weight: 600;
+}
+
+.settled-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  min-height: var(--tap);
+  padding: var(--space-1) 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.settled-row .name {
+  flex: 1;
+  font-weight: 600;
+}
+
+.settled-row .amount {
+  font-variant-numeric: tabular-nums;
+}

@@ -22,6 +22,14 @@ model Group {
   sessions  Session[]
   sessionCreations SessionCreation[]
   playerRules PlayerRule[]
+  /// Advanced host tools (numbered reusable shuttles and early checkout, D/E).
+  /// Owner-editable, default off; copied to Session.shuttleToolsEnabled when a
+  /// session is created, so flipping it only ever affects future sessions.
+  shuttleToolsEnabled Boolean @default(false)
+  /// Whether partner/opponent history spans every session the group has played
+  /// (true) or only the current one (false, the default). Snapshotted onto
+  /// Session.crossSessionHistory at creation, same as shuttleToolsEnabled.
+  crossSessionHistory Boolean @default(false)
 }
 
 model User {
@@ -94,6 +102,7 @@ model Player {
   waitlistEntries Waitlist[]
   rulesAsA   PlayerRule[] @relation("PlayerRuleA")
   rulesAsB   PlayerRule[] @relation("PlayerRuleB")
+  checkouts SessionCheckout[]
 }
 
 model Session {
@@ -133,6 +142,13 @@ model Session {
   /// written only by server/src/sessions/court-labels.ts; same
   /// not-trimmed-on-shrink convention as courtFormats.
   courtLabels   String?
+  /// Snapshot of Group.shuttleToolsEnabled at creation. A session created with
+  /// it on keeps numbered shuttle tracking even if the group later switches it
+  /// off; older sessions read false and never convert retroactively.
+  shuttleToolsEnabled Boolean @default(false)
+  /// Snapshot of Group.crossSessionHistory at creation: whether this session's
+  /// pairing history reads every earlier session (true) or only itself.
+  crossSessionHistory Boolean @default(false)
   /// Total shuttlecocks used tonight, counted by the host at the end (not
   /// per-match) and correctable afterwards. Null means "not recorded yet",
   /// distinct from 0. Set only via SessionsService.setShuttleDetails, never
@@ -158,6 +174,8 @@ model Session {
   waitlist      Waitlist[]
   pairings      Pairing[]
   creation      SessionCreation?
+  shuttles      SessionShuttle[]
+  checkouts     SessionCheckout[]
 }
 
 model SessionRoster {
@@ -239,6 +257,17 @@ model Pairing {
   /// legacy rows and unlinked games. Cleared on undo of confirm. See
   /// server/src/sessions/carry-outcomes.ts.
   carryOutcomes String  @default("[]")
+  /// Explicit known/unknown marker for the game's shuttle log. False for every
+  /// legacy and ordinary-session game (unknown — never backfilled); true once an
+  /// advanced-session game is confirmed, even if later corrected to no uses
+  /// (known zero). Cleared on undo of confirm. See shuttle-tracking.ts.
+  shuttleLogKnown Boolean @default(false)
+  /// The shuttle this game last had in hand. While the match is active it is
+  /// the court's current shuttle (at most one, never shared by two active
+  /// courts); after finish it is the court's next-game suggestion.
+  lastShuttleId String?
+  lastShuttle SessionShuttle? @relation("LastShuttle", fields: [lastShuttleId], references: [id])
+  shuttleUses PairingShuttleUse[]
   session     Session   @relation(fields: [sessionId], references: [code])
 }
 
@@ -269,4 +298,58 @@ model SessionCreation {
   session        Session @relation(fields: [sessionId], references: [code], onDelete: Cascade)
 
   @@id([groupId, idempotencyKey])
+}
+
+/// One physical shuttle in one session (host feedback D). `number` is the
+/// monotonic display number, unique within the session and never reassigned,
+/// not even after the identity is voided as a mistake (voidedAt is a logical
+/// delete). `usable` false means retired: it stays in historical use and can
+/// be restored.
+model SessionShuttle {
+  id        String   @id @default(cuid())
+  sessionId String
+  number    Int
+  usable    Boolean  @default(true)
+  voidedAt  DateTime?
+  createdAt DateTime @default(now())
+  session   Session  @relation(fields: [sessionId], references: [code])
+  uses      PairingShuttleUse[]
+  lastFor   Pairing[] @relation("LastShuttle")
+
+  @@unique([sessionId, number])
+}
+
+/// Which shuttles a game used. Unique per pairing/shuttle: going back to the
+/// same shuttle within one game is still a single use.
+model PairingShuttleUse {
+  pairingId String
+  shuttleId String
+  pairing   Pairing        @relation(fields: [pairingId], references: [id])
+  shuttle   SessionShuttle @relation(fields: [shuttleId], references: [id])
+
+  @@id([pairingId, shuttleId])
+}
+
+/// A frozen early-leaver settlement (host feedback E). Money lives here, never
+/// on SessionRoster: `active=false` means rested OR checked out, so only an
+/// entry with `undoneAt` null counts as a settlement. An undone entry is kept
+/// as an audit trail, so a player may have several rows over a night.
+/// `breakdown` and `snapshot` are JSON parsed only by checkout-pricing.ts;
+/// `amountSatang` is the integer amount quoted and never recomputed.
+model SessionCheckout {
+  id             String    @id @default(cuid())
+  sessionId      String
+  playerId       String
+  model          String // 'perGame' | 'perShuttle' | 'buffet'
+  amountSatang   Int
+  breakdown      String
+  snapshot       String
+  settledAt      DateTime  @default(now())
+  undoneAt       DateTime?
+  idempotencyKey String
+  session        Session   @relation(fields: [sessionId], references: [code])
+  player         Player    @relation(fields: [playerId], references: [id])
+
+  @@unique([sessionId, idempotencyKey])
+  @@index([sessionId, playerId])
 }

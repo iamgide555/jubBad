@@ -7,6 +7,8 @@ import type { CourtFormat, CourtMode, CourtState } from './live-session.model';
 import type { Session } from './session.model';
 import type { Level } from '../../../../engines/levels.ts';
 import type { PairRule } from './pair-rule.model';
+import { checkoutErrorMessage, type CheckoutModel, type CheckoutPreview, type CheckoutReceipt } from './checkout.model';
+import type { ShuttleChoice, ShuttleInventory } from './shuttle.model';
 
 /** A court fill-all could not seat because of pair rules. */
 export interface BlockedCourt {
@@ -45,6 +47,10 @@ export interface ActionResult {
   ok: boolean;
   reason?: string;
   error?: string;
+  /** The server's stable error code, so a caller can tell "the screen is out of date"
+   *  (PAIRING_*) from "that choice was refused". Only the writes that opt into
+   *  `refreshOnError` (confirm-with-shuttle, switch, retire) carry it. */
+  code?: string;
   /** Carried through from a `not-enough-players` propose response only. */
   available?: number;
   format?: CourtFormat;
@@ -143,10 +149,21 @@ function messageForCode(code: string): string | null {
       return $localize`:@@err.code.pairRuleSearchLimit:กฎการจับคู่ซับซ้อนเกินไป หาคู่ไม่ทัน ลองใหม่หรือปิดกฎบางข้อคืนนี้`;
     case 'RULE_NOT_FOUND':
       return $localize`:@@err.code.ruleNotFound:ไม่พบกฎนี้ อาจถูกลบไปแล้ว`;
+    case 'SHUTTLE_CHOICE_REQUIRED':
+    case 'INVALID_SHUTTLE_CHOICE':
+      return $localize`:@@err.code.shuttleChoiceRequired:กรุณาเลือกลูกแบดก่อนยืนยันแมตช์`;
+    case 'SHUTTLE_UNAVAILABLE':
+      return $localize`:@@err.code.shuttleUnavailable:ลูกแบดลูกนี้ใช้ไม่ได้หรือถูกใช้อยู่ที่คอร์ทอื่น`;
+    case 'SHUTTLE_NOT_FOUND':
+      return $localize`:@@err.code.shuttleNotFound:ไม่พบลูกแบดลูกนี้`;
+    case 'SHUTTLE_IN_USE':
+      return $localize`:@@err.code.shuttleInUse:ลูกแบดลูกนี้ยังถูกใช้อยู่ ปิดการใช้งานไม่ได้`;
+    case 'SHUTTLE_TRACKING_DISABLED':
+      return $localize`:@@err.code.shuttleTrackingDisabled:ก๊วนนี้ไม่ได้เปิดการจดลูกแบด`;
     case 'PLAYER_ALREADY_ON_COURT':
       return $localize`:@@err.code.playerAlreadyOnCourt:ผู้เล่นคนนี้อยู่ในคอร์ทอื่นแล้ว`;
     default:
-      return null;
+      return checkoutErrorMessage(code);
   }
 }
 
@@ -175,6 +192,9 @@ export class LiveSessionService {
   });
 
   readonly mode = computed<Session['mode']>(() => this.sessionResource.value()?.mode ?? 'variety');
+
+  /** Whether this session tracks numbered shuttles (its creation-time snapshot of the group switch). */
+  readonly shuttleTools = computed(() => !this.sessionResource.error() && this.sessionResource.value()?.shuttleToolsEnabled === true);
 
   /** Per-court display names — resolve with labelForCourt. */
   readonly courtLabels = computed<(string | null)[]>(() => this.sessionResource.value()?.courtLabels ?? []);
@@ -215,10 +235,17 @@ export class LiveSessionService {
     this.sessionResource.reload();
   }
 
+  /**
+   * `refreshOnError` re-reads the session after a failed request. Opt-in:
+   * only the writes whose failure usually means the screen is out of date
+   * (a confirm that lost to auto-confirm, a stale shuttle switch) want the
+   * server's truth back; every other failure leaves the poll alone.
+   */
   private async post<T extends MutationResponse>(
     path: string,
     body: unknown,
-    fallbackError: string
+    fallbackError: string,
+    refreshOnError = false
   ): Promise<ActionResult> {
     try {
       const response = await firstValueFrom(
@@ -238,6 +265,7 @@ export class LiveSessionService {
       this.mutationVersion.update((version) => version + 1);
       return { ok: true, ...(response ? fillDetails(response) : {}) };
     } catch (err) {
+      if (refreshOnError) this.sessionResource.reload();
       const code =
         err instanceof HttpErrorResponse && typeof err.error?.code === 'string'
           ? err.error.code
@@ -249,6 +277,7 @@ export class LiveSessionService {
       return {
         ok: false,
         error: (code && messageForCode(code)) || fallbackError,
+        ...(code && refreshOnError ? { code } : {}),
         ...(ruleIds ? { ruleIds } : {}),
       };
     }
@@ -294,8 +323,87 @@ export class LiveSessionService {
     );
   }
 
-  confirmMatch(pairingId: string): Promise<ActionResult> {
-    return this.post(`pairings/${pairingId}/confirm`, {}, $localize`:@@err.confirm:ยืนยันแมตช์ไม่สำเร็จ`);
+  /** `shuttle` is the host's choice on an advanced session; omitted, the body is empty as before. */
+  confirmMatch(pairingId: string, shuttle?: ShuttleChoice): Promise<ActionResult> {
+    return this.post(
+      `pairings/${pairingId}/confirm`,
+      shuttle ? { shuttle } : {},
+      $localize`:@@err.confirm:ยืนยันแมตช์ไม่สำเร็จ`,
+      // A confirm usually fails here because the 60s auto-confirm got there first.
+      shuttle !== undefined
+    );
+  }
+
+  /**
+   * Changes the shuttle in hand on an active game, optionally retiring the one
+   * put down in the same action. `expectedRevision` makes a stale tab fail
+   * loudly instead of overwriting a winner tap.
+   */
+  switchShuttle(
+    pairingId: string,
+    choice: ShuttleChoice,
+    expectedRevision: number,
+    retirePrevious?: boolean
+  ): Promise<ActionResult> {
+    return this.post(
+      `pairings/${pairingId}/shuttles/switch`,
+      retirePrevious ? { choice, expectedRevision, retirePrevious } : { choice, expectedRevision },
+      $localize`:@@err.switchShuttle:เปลี่ยนลูกแบดไม่สำเร็จ`,
+      true
+    );
+  }
+
+  /** The desired state, not a flip. A shuttle in a live hand cannot be retired here. */
+  setShuttleUsable(shuttleId: string, usable: boolean): Promise<ActionResult> {
+    return this.post(
+      `shuttles/${shuttleId}/usable`,
+      { usable },
+      $localize`:@@err.shuttleUsable:เปลี่ยนสถานะลูกแบดไม่สำเร็จ`,
+      true
+    );
+  }
+
+  /** Early checkout (E). Owner-only, never on the public poll. A quote changes nothing. */
+  previewCheckout(playerId: string, model: CheckoutModel): Promise<CheckoutPreview> {
+    return firstValueFrom(
+      this.http.post<CheckoutPreview>(`${this.base}/sessions/${this.sessionCode}/checkouts/${playerId}/preview`, { model })
+    );
+  }
+
+  /** The same `idempotencyKey` on a network retry returns the same receipt; it never settles twice. */
+  async confirmCheckout(
+    playerId: string,
+    model: CheckoutModel,
+    snapshotHash: string,
+    idempotencyKey: string
+  ): Promise<CheckoutReceipt> {
+    const receipt = await firstValueFrom(
+      this.http.post<CheckoutReceipt>(`${this.base}/sessions/${this.sessionCode}/checkouts/${playerId}/confirm`, {
+        model,
+        snapshotHash,
+        idempotencyKey,
+      })
+    );
+    this.sessionResource.reload();
+    return receipt;
+  }
+
+  getCheckouts(): Promise<CheckoutReceipt[]> {
+    return firstValueFrom(this.http.get<CheckoutReceipt[]>(`${this.base}/sessions/${this.sessionCode}/checkouts`));
+  }
+
+  undoCheckout(checkoutId: string): Promise<ActionResult> {
+    return this.post(
+      `checkouts/${checkoutId}/undo`,
+      {},
+      $localize`:@@err.undoCheckout:ยกเลิกการเช็คเอาต์ไม่สำเร็จ`,
+      true
+    );
+  }
+
+  /** Owner-only; read on demand (picker, summary editor), never on the poll. */
+  getShuttleInventory(): Promise<ShuttleInventory> {
+    return firstValueFrom(this.http.get<ShuttleInventory>(`${this.base}/sessions/${this.sessionCode}/shuttles`));
   }
 
   finishMatch(

@@ -1271,4 +1271,201 @@ describe('GroupsController', () => {
     });
   });
 
+
+  describe('shuttle tools opt in', () => {
+    async function newGroup() {
+      const code = randomUUID();
+      await prisma.group.create({ data: { code, name: 'Opt-in', ownerId: testAdminId } });
+      return code;
+    }
+    const clean = async (code: string) => {
+      await prisma.session.deleteMany({ where: { groupId: code } });
+      await prisma.group.deleteMany({ where: { code } });
+    };
+
+    it('reads false for an existing group that never opted in', async () => {
+      const code = await newGroup();
+      try {
+        const res = await request(server).get(`/groups/${code}/shuttle-tools`).expect(200);
+        expect(res.body).toEqual({ enabled: false });
+      } finally {
+        await clean(code);
+      }
+    });
+
+    it('lets the owner switch it on and off and reads the saved value', async () => {
+      const code = await newGroup();
+      try {
+        const on = await request(server).post(`/groups/${code}/shuttle-tools`).send({ enabled: true }).expect(201);
+        expect(on.body).toEqual({ enabled: true });
+        expect((await request(server).get(`/groups/${code}/shuttle-tools`)).body).toEqual({ enabled: true });
+        const off = await request(server).post(`/groups/${code}/shuttle-tools`).send({ enabled: false }).expect(201);
+        expect(off.body).toEqual({ enabled: false });
+      } finally {
+        await clean(code);
+      }
+    });
+
+    it('rejects a missing or non-boolean payload', async () => {
+      const code = await newGroup();
+      try {
+        await request(server).post(`/groups/${code}/shuttle-tools`).send({}).expect(400);
+        await request(server).post(`/groups/${code}/shuttle-tools`).send({ enabled: 'yes' }).expect(400);
+        await request(server).post(`/groups/${code}/shuttle-tools`).send({ enabled: 1 }).expect(400);
+        expect((await request(server).get(`/groups/${code}/shuttle-tools`)).body).toEqual({ enabled: false });
+      } finally {
+        await clean(code);
+      }
+    });
+
+    it('toggling the group never rewrites an existing session', async () => {
+      const code = await newGroup();
+      const sessionCode = randomUUID();
+      try {
+        await prisma.session.create({
+          data: { code: sessionCode, groupId: code, rawImportText: '', shuttleToolsEnabled: true },
+        });
+        await request(server).post(`/groups/${code}/shuttle-tools`).send({ enabled: false }).expect(201);
+        const session = await prisma.session.findUniqueOrThrow({ where: { code: sessionCode } });
+        expect(session.shuttleToolsEnabled).toBe(true);
+      } finally {
+        await clean(code);
+      }
+    });
+
+    it('includes the group flag and every session snapshot in the export', async () => {
+      const code = await newGroup();
+      try {
+        await prisma.group.update({ where: { code }, data: { shuttleToolsEnabled: true } });
+        await prisma.session.create({ data: { code: randomUUID(), groupId: code, rawImportText: '', shuttleToolsEnabled: true } });
+        await prisma.session.create({ data: { code: randomUUID(), groupId: code, rawImportText: '' } });
+        const res = await request(server).get(`/groups/${code}/export`).expect(200);
+        expect(res.body.group.shuttleToolsEnabled).toBe(true);
+        expect(res.body.sessions.map((s: { shuttleToolsEnabled: boolean }) => s.shuttleToolsEnabled).sort()).toEqual([
+          false,
+          true,
+        ]);
+      } finally {
+        await clean(code);
+      }
+    });
+  });
+
+  describe('cross-session history opt in', () => {
+    it('defaults off, switches on and off for the owner, and exports both flags', async () => {
+      const code = randomUUID();
+      await prisma.group.create({ data: { code, name: 'History', ownerId: testAdminId } });
+      try {
+        expect((await request(server).get(`/groups/${code}/cross-session-history`).expect(200)).body).toEqual({ enabled: false });
+        expect((await request(server).post(`/groups/${code}/cross-session-history`).send({ enabled: true }).expect(201)).body).toEqual({ enabled: true });
+        await request(server).post(`/groups/${code}/cross-session-history`).send({ enabled: 'x' }).expect(400);
+        await prisma.session.create({ data: { code: randomUUID(), groupId: code, rawImportText: '', crossSessionHistory: true } });
+        const res = await request(server).get(`/groups/${code}/export`).expect(200);
+        expect(res.body.group.crossSessionHistory).toBe(true);
+        expect(res.body.sessions[0].crossSessionHistory).toBe(true);
+      } finally {
+        await prisma.session.deleteMany({ where: { groupId: code } });
+        await prisma.group.deleteMany({ where: { code } });
+      }
+    });
+  });
+
+  describe('numbered shuttle export and deletion', () => {
+    async function seedShuttles() {
+      const code = randomUUID();
+      const sessionCode = randomUUID();
+      await prisma.group.create({ data: { code, name: 'Shuttles', ownerId: testAdminId } });
+      await prisma.session.create({ data: { code: sessionCode, groupId: code, rawImportText: '', shuttleToolsEnabled: true } });
+      const one = await prisma.sessionShuttle.create({ data: { sessionId: sessionCode, number: 1 } });
+      const two = await prisma.sessionShuttle.create({ data: { sessionId: sessionCode, number: 2, usable: false } });
+      const three = await prisma.sessionShuttle.create({ data: { sessionId: sessionCode, number: 3, voidedAt: new Date() } });
+      const known = await prisma.pairing.create({
+        data: { sessionId: sessionCode, courtNumber: 1, matchNumber: 1, teamA: '["a","b"]', teamB: '["c","d"]', shuttleLogKnown: true, lastShuttleId: one.id },
+      });
+      const unknown = await prisma.pairing.create({
+        data: { sessionId: sessionCode, courtNumber: 1, matchNumber: 2, teamA: '["a","b"]', teamB: '["c","d"]' },
+      });
+      await prisma.pairingShuttleUse.createMany({
+        data: [
+          { pairingId: known.id, shuttleId: one.id },
+          { pairingId: known.id, shuttleId: two.id },
+        ],
+      });
+      return { code, sessionCode, ids: { one: one.id, two: two.id, three: three.id }, known: known.id, unknown: unknown.id };
+    }
+
+    it('exports inventory status, voided numbers, and each game\'s known marker and uses', async () => {
+      const { code, sessionCode, ids, known, unknown } = await seedShuttles();
+      try {
+        const res = await request(server).get(`/groups/${code}/export`).expect(200);
+        const session = res.body.sessions[0];
+        expect(session.shuttles).toEqual([
+          { id: ids.one, number: 1, usable: true, voided: false },
+          { id: ids.two, number: 2, usable: false, voided: false },
+          { id: ids.three, number: 3, usable: true, voided: true },
+        ]);
+        const byMatch = new Map(session.matches.map((m: { matchNumber: number }) => [m.matchNumber, m]));
+        expect(byMatch.get(1)).toMatchObject({ shuttleLogKnown: true, shuttleIds: [ids.one, ids.two] });
+        expect(byMatch.get(2)).toMatchObject({ shuttleLogKnown: false, shuttleIds: [] });
+        void known; void unknown;
+      } finally {
+        await prisma.pairingShuttleUse.deleteMany({ where: { pairing: { sessionId: sessionCode } } });
+        await prisma.pairing.deleteMany({ where: { sessionId: sessionCode } });
+        await prisma.sessionShuttle.deleteMany({ where: { sessionId: sessionCode } });
+        await prisma.session.deleteMany({ where: { groupId: code } });
+        await prisma.group.deleteMany({ where: { code } });
+      }
+    });
+
+    it('owner deletion removes game links before pairings and identities before sessions', async () => {
+      const { code, sessionCode } = await seedShuttles();
+      await request(server).delete(`/groups/${code}`).expect(200);
+      expect(await prisma.pairingShuttleUse.count({ where: { pairing: { sessionId: sessionCode } } })).toBe(0);
+      expect(await prisma.sessionShuttle.count({ where: { sessionId: sessionCode } })).toBe(0);
+      expect(await prisma.pairing.count({ where: { sessionId: sessionCode } })).toBe(0);
+      expect(await prisma.group.count({ where: { code } })).toBe(0);
+    });
+  });
+
+  describe('checkout ledger export and deletion', () => {
+    const rec = (sessionId: string, playerId: string, key: string, extra: Record<string, unknown> = {}) => ({
+      sessionId, playerId, model: 'perShuttle', amountSatang: 5500, idempotencyKey: key,
+      breakdown: JSON.stringify({ baseSatang: 3000, shuttleSatang: 2500, hostFeeSatang: 0, walkInFeeSatang: 0, discountSatang: 0 }),
+      snapshot: JSON.stringify({ version: 1, hash: 'h', games: 2, shuttleIds: ['n000001'], shuttlePriceSatang: 2500, walkIn: false }),
+      ...extra,
+    });
+    async function seedLedger() {
+      const code = randomUUID();
+      const sessionCode = randomUUID();
+      await prisma.group.create({ data: { code, name: 'Ledger', ownerId: testAdminId } });
+      await prisma.session.create({ data: { code: sessionCode, groupId: code, rawImportText: '', shuttleToolsEnabled: true } });
+      const p = await prisma.player.create({ data: { groupId: code, name: 'Leaver', aliases: '[]' } });
+      await prisma.sessionCheckout.create({ data: rec(sessionCode, p.id, 'k-undone', { undoneAt: new Date('2026-10-01T10:00:00Z') }) });
+      await prisma.sessionCheckout.create({ data: rec(sessionCode, p.id, 'k-active') });
+      return { code, sessionCode, playerId: p.id };
+    }
+
+    it('checkout ledger: the owner export lists active and undone receipts with model, amount and snapshot', async () => {
+      const { code, sessionCode } = await seedLedger();
+      try {
+        const res = await request(server).get(`/groups/${code}/export`).expect(200);
+        const checkouts = res.body.sessions[0].checkouts as { idempotencyKey: string; undoneAt: string | null; amountSatang: number; model: string; snapshot: { hash: string }; breakdown: { baseSatang: number } }[];
+        expect(checkouts.map((c) => c.idempotencyKey).sort()).toEqual(['k-active', 'k-undone']);
+        expect(checkouts.find((c) => c.idempotencyKey === 'k-undone')!.undoneAt).toBe('2026-10-01T10:00:00.000Z');
+        expect(checkouts.find((c) => c.idempotencyKey === 'k-active')).toMatchObject({ model: 'perShuttle', amountSatang: 5500, snapshot: { hash: 'h' }, breakdown: { baseSatang: 3000 } });
+      } finally {
+        await prisma.sessionCheckout.deleteMany({ where: { sessionId: sessionCode } });
+        await prisma.session.deleteMany({ where: { groupId: code } });
+        await prisma.player.deleteMany({ where: { groupId: code } });
+        await prisma.group.deleteMany({ where: { code } });
+      }
+    });
+
+    it('checkout ledger: owner group deletion removes receipts before sessions and players', async () => {
+      const { code, sessionCode } = await seedLedger();
+      await request(server).delete(`/groups/${code}`).expect(200);
+      expect(await prisma.sessionCheckout.count({ where: { sessionId: sessionCode } })).toBe(0);
+      expect(await prisma.group.count({ where: { code } })).toBe(0);
+    });
+  });
 });

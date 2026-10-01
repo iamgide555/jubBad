@@ -1,4 +1,4 @@
-import { Component, computed, effect, inject, input, signal } from '@angular/core';
+import { Component, computed, effect, inject, input, signal, viewChild } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { PressDirective } from '../../../core/motion/press.directive';
 import { ClockService } from '../../../core/clock.service';
@@ -13,6 +13,8 @@ import type { Player } from '../../../../../../engines/fuzzy-match.ts';
 import { Icon } from '../../../shared/icon/icon';
 import { labelForCourt } from '../../../core/court-label';
 import { CourtLabelEditor } from '../court-label-editor/court-label-editor';
+import { ShuttlePickerDialog } from '../../../shared/shuttle-picker-dialog/shuttle-picker-dialog';
+import { lastShuttleFor, pickableShuttles, type ShuttleChoice, type ShuttleRef } from '../../../core/shuttle.model';
 
 /** Past this many elapsed minutes, the timer flags the court as likely
  *  overrun — almost always a score that was never submitted. */
@@ -29,7 +31,7 @@ interface SeatView {
 
 @Component({
   selector: 'app-court-panel',
-  imports: [FormsModule, PressDirective, Icon, CourtLabelEditor],
+  imports: [FormsModule, PressDirective, Icon, CourtLabelEditor, ShuttlePickerDialog],
   templateUrl: './court-panel.html',
   styleUrl: './court-panel.css',
 })
@@ -112,6 +114,11 @@ export class CourtPanel {
 
   protected readonly courtLabel = computed(() =>
     labelForCourt(this.liveSession.courtLabels(), this.courtNumber())
+  );
+
+  /** "คอร์ท 3" / "คอร์ท ริมหน้าต่าง" — the label alone ("3") reads as nothing in a dialog title. */
+  protected readonly courtTitle = computed(
+    () => $localize`:@@court.titleWithLabel:คอร์ท ${this.courtLabel()}:label:`
   );
 
   private seatViewsFor(team: 'A' | 'B'): SeatView[] {
@@ -536,10 +543,119 @@ export class CourtPanel {
   protected async confirm(): Promise<void> {
     const c = this.court();
     if (c.status !== 'pending' || this.busy()) return;
+    // An advanced session needs a shuttle choice first; the choice and the
+    // confirmation then go out as one request (see onShuttleChosen).
+    if (this.liveSession.shuttleTools()) {
+      await this.openShuttlePicker('confirm');
+      return;
+    }
     this.busy.set(true);
     this.actionError.set(null);
     try {
       const result = await this.liveSession.confirmMatch(c.pairingId);
+      this.actionError.set(this.failureMessage(result));
+    } finally {
+      this.busy.set(false);
+    }
+  }
+
+  // ---- numbered shuttles (advanced sessions only) ----
+
+  private readonly shuttleDialog = viewChild<ShuttlePickerDialog>('shuttleDialog');
+  protected readonly shuttleMode = signal<'confirm' | 'switch'>('confirm');
+  protected readonly shuttleShown = signal<ShuttleRef | null>(null);
+  protected readonly shuttleOptions = signal<readonly ShuttleRef[]>([]);
+  protected readonly shuttleRetireByDefault = signal(false);
+  protected readonly shuttleSaving = signal(false);
+  protected readonly shuttleError = signal<string | null>(null);
+
+  /** The shuttle in hand on an active advanced court; undefined on an ordinary one. */
+  protected readonly liveShuttle = computed(() => {
+    const c = this.court();
+    return c.status === 'active' && c.usedShuttles !== undefined
+      ? { current: c.currentShuttle ?? null, used: c.usedShuttles }
+      : null;
+  });
+
+  /**
+   * Reads the owner-only inventory and opens the picker. The inventory is read
+   * on demand (never on the poll) because only this moment needs it, and a
+   * failed read says so instead of showing an empty prompt.
+   */
+  protected async openShuttlePicker(mode: 'confirm' | 'switch', retireByDefault = false): Promise<void> {
+    if (this.busy()) return;
+    this.busy.set(true);
+    this.actionError.set(null);
+    this.shuttleError.set(null);
+    try {
+      const inventory = await this.liveSession.getShuttleInventory();
+      const c = this.court();
+      if (mode === 'confirm') {
+        const last = lastShuttleFor(inventory, this.courtNumber());
+        this.shuttleShown.set(last);
+        this.shuttleOptions.set(pickableShuttles(inventory).filter((s) => s.id !== last?.id));
+      } else {
+        const current = c.status === 'active' ? (c.currentShuttle ?? null) : null;
+        this.shuttleShown.set(current);
+        this.shuttleOptions.set(pickableShuttles(inventory, undefined, current?.id));
+      }
+      this.shuttleMode.set(mode);
+      this.shuttleRetireByDefault.set(retireByDefault);
+      this.shuttleDialog()?.open();
+    } catch {
+      this.actionError.set($localize`:@@err.shuttleInventory:โหลดรายการลูกแบดไม่สำเร็จ`);
+    } finally {
+      this.busy.set(false);
+    }
+  }
+
+  /**
+   * One write for each choice. Confirm sends the choice WITH the confirmation,
+   * so the host can never leave a half-confirmed match; a switch carries the
+   * court's revision so a late winner tap or another tab wins cleanly. When
+   * the screen is out of date (the auto-confirm got there first, a stale
+   * revision) the prompt closes and the reloaded state is what the host sees.
+   */
+  protected async onShuttleChosen(event: { choice: ShuttleChoice; retirePrevious: boolean }): Promise<void> {
+    const c = this.court();
+    this.shuttleSaving.set(true);
+    this.shuttleError.set(null);
+    this.actionError.set(null);
+    try {
+      let result: ActionResult;
+      if (this.shuttleMode() === 'confirm') {
+        if (c.status !== 'pending') return;
+        result = await this.liveSession.confirmMatch(c.pairingId, event.choice);
+      } else {
+        if (c.status !== 'active' || c.revision === undefined) return;
+        result = await this.liveSession.switchShuttle(c.pairingId, event.choice, c.revision, event.retirePrevious);
+      }
+      if (result.ok) {
+        this.shuttleDialog()?.close();
+      } else if (result.code?.startsWith('PAIRING_') || result.code === 'SESSION_ENDED') {
+        this.shuttleDialog()?.close();
+        this.actionError.set(this.failureMessage(result));
+      } else {
+        this.shuttleError.set(this.failureMessage(result));
+      }
+    } finally {
+      this.shuttleSaving.set(false);
+    }
+  }
+
+  /** Opens a fresh numbered shuttle in this game without a prompt. */
+  protected async openNewShuttle(): Promise<void> {
+    const c = this.court();
+    if (c.status !== 'active' || this.busy()) return;
+    if (c.revision === undefined) {
+      this.actionError.set(this.failureMessage({ ok: false, code: 'PAIRING_STALE', error: $localize`:@@err.code.stale:ข้อมูลถูกแก้ไขจากอุปกรณ์อื่นแล้ว กรุณาลองใหม่อีกครั้ง` }));
+      this.liveSession.refresh();
+      return;
+    }
+    this.busy.set(true);
+    this.actionError.set(null);
+    try {
+      const result = await this.liveSession.switchShuttle(c.pairingId, { kind: 'new' }, c.revision);
       this.actionError.set(this.failureMessage(result));
     } finally {
       this.busy.set(false);

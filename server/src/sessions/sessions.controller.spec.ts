@@ -6806,4 +6806,504 @@ describe('SessionsController', () => {
       }
     });
   });
+
+  describe('shuttle tools opt in', () => {
+    async function group(shuttleTools: boolean, crossSessionHistory = false) {
+      const groupCode = randomUUID();
+      await prisma.group.create({
+        data: { code: groupCode, name: 'Opt-in', shuttleToolsEnabled: shuttleTools, crossSessionHistory },
+      });
+      return groupCode;
+    }
+    const create = (groupCode: string, idempotencyKey = randomUUID()) =>
+      request(server).post('/sessions').send({
+        groupCode,
+        courtCount: 1,
+        rawImportText: '1. Alice\n2. Bob\n3. Cy\n4. Di',
+        idempotencyKey,
+        rosterReviews: ['Alice', 'Bob', 'Cy', 'Di'].map((inputName) => ({
+          inputName,
+          match: { type: 'new' },
+          decision: 'accept',
+        })),
+        waitlistReviews: [],
+      });
+    const cleanup = async (groupCode: string) => {
+      const sessions = await prisma.session.findMany({ where: { groupId: groupCode }, select: { code: true } });
+      const ids = sessions.map((x) => x.code);
+      await prisma.pairing.deleteMany({ where: { sessionId: { in: ids } } });
+      await prisma.sessionRoster.deleteMany({ where: { sessionId: { in: ids } } });
+      await prisma.sessionCreation.deleteMany({ where: { groupId: groupCode } });
+      await prisma.session.deleteMany({ where: { groupId: groupCode } });
+      await prisma.player.deleteMany({ where: { groupId: groupCode } });
+      await prisma.group.deleteMany({ where: { code: groupCode } });
+    };
+
+    it('an existing, default-off group and its session read false', async () => {
+      const groupCode = await group(false);
+      try {
+        const res = await create(groupCode).expect(201);
+        const row = await prisma.session.findUniqueOrThrow({ where: { code: res.body.code } });
+        expect(row.shuttleToolsEnabled).toBe(false);
+        expect((await request(server).get(`/sessions/${res.body.code}`).expect(200)).body.shuttleToolsEnabled).toBe(false);
+      } finally {
+        await cleanup(groupCode);
+      }
+    });
+
+    it('snapshots the group flag at creation, and a later toggle never changes it', async () => {
+      const groupCode = await group(true);
+      try {
+        const first = await create(groupCode).expect(201);
+        await prisma.group.update({ where: { code: groupCode }, data: { shuttleToolsEnabled: false } });
+        const second = await create(groupCode).expect(201);
+        const rows = await prisma.session.findMany({ where: { code: { in: [first.body.code, second.body.code] } } });
+        const byCode = new Map(rows.map((r) => [r.code, r.shuttleToolsEnabled]));
+        expect(byCode.get(first.body.code)).toBe(true);
+        expect(byCode.get(second.body.code)).toBe(false);
+        expect((await request(server).get(`/sessions/${first.body.code}`).expect(200)).body.shuttleToolsEnabled).toBe(true);
+      } finally {
+        await cleanup(groupCode);
+      }
+    });
+
+    it('a retried creation returns the original session and its snapshot, not the new flag', async () => {
+      const groupCode = await group(true);
+      const key = randomUUID();
+      try {
+        const first = await create(groupCode, key).expect(201);
+        await prisma.group.update({ where: { code: groupCode }, data: { shuttleToolsEnabled: false } });
+        const retry = await create(groupCode, key).expect(201);
+        expect(retry.body.code).toBe(first.body.code);
+        const row = await prisma.session.findUniqueOrThrow({ where: { code: first.body.code } });
+        expect(row.shuttleToolsEnabled).toBe(true);
+      } finally {
+        await cleanup(groupCode);
+      }
+    });
+
+    it('an ordinary session still proposes and confirms with no shuttle payload', async () => {
+      const groupCode = await group(false);
+      try {
+        const res = await create(groupCode).expect(201);
+        const propose = await request(server).post(`/sessions/${res.body.code}/courts/1/propose`).expect(201);
+        await request(server)
+          .post(`/sessions/${res.body.code}/pairings/${propose.body.pairing.id}/confirm`)
+          .send({})
+          .expect(201);
+      } finally {
+        await cleanup(groupCode);
+      }
+    });
+  });
+
+  describe('cross-session history opt in', () => {
+    async function seedHistory(crossSessionHistory: boolean) {
+      const groupCode = randomUUID();
+      const oldSession = randomUUID();
+      const session = randomUUID();
+      await prisma.group.create({ data: { code: groupCode, name: 'H' } });
+      const [a, b, c, d] = await Promise.all(
+        ['A', 'B', 'C', 'D'].map((name) => prisma.player.create({ data: { groupId: groupCode, name, aliases: '[]' } }))
+      );
+      await prisma.session.create({
+        data: { code: oldSession, groupId: groupCode, courtCount: 1, rawImportText: '', endedAt: new Date() },
+      });
+      for (const [i, [t1, t2]] of [
+        [[a.id, b.id], [c.id, d.id]],
+        [[a.id, c.id], [b.id, d.id]],
+      ].entries()) {
+        await prisma.pairing.create({
+          data: {
+            sessionId: oldSession,
+            courtNumber: 1,
+            matchNumber: i + 1,
+            teamA: JSON.stringify(t1),
+            teamB: JSON.stringify(t2),
+            confirmedAt: new Date(),
+            endedAt: new Date(),
+          },
+        });
+      }
+      await prisma.session.create({
+        data: { code: session, groupId: groupCode, courtCount: 1, rawImportText: '', crossSessionHistory },
+      });
+      for (const p of [a, b, c, d]) {
+        await prisma.sessionRoster.create({ data: { sessionId: session, playerId: p.id } });
+      }
+      const cleanup = async () => {
+        await prisma.pairing.deleteMany({ where: { sessionId: { in: [session, oldSession] } } });
+        await prisma.sessionRoster.deleteMany({ where: { sessionId: session } });
+        await prisma.session.deleteMany({ where: { groupId: groupCode } });
+        await prisma.player.deleteMany({ where: { groupId: groupCode } });
+        await prisma.group.deleteMany({ where: { code: groupCode } });
+      };
+      return { session, ids: { a: a.id, b: b.id, c: c.id, d: d.id }, cleanup };
+    }
+
+    it('on: last week\'s partners steer tonight, so the only fresh split is A+D vs B+C', async () => {
+      const { session, ids, cleanup } = await seedHistory(true);
+      try {
+        const expected = [[ids.a, ids.d].sort().join('|'), [ids.b, ids.c].sort().join('|')].sort();
+        for (let i = 0; i < 10; i++) {
+          const res = await request(server).post(`/sessions/${session}/courts/1/propose`).expect(201);
+          const { teamA, teamB } = res.body.pairing as { teamA: string[]; teamB: string[] };
+          expect([[...teamA].sort().join('|'), [...teamB].sort().join('|')].sort()).toEqual(expected);
+          await prisma.pairing.deleteMany({ where: { sessionId: session } });
+        }
+      } finally {
+        await cleanup();
+      }
+    });
+
+    it('off: last week is ignored, so other splits appear', async () => {
+      const { session, cleanup } = await seedHistory(false);
+      try {
+        const seen = new Set<string>();
+        for (let i = 0; i < 30; i++) {
+          const res = await request(server).post(`/sessions/${session}/courts/1/propose`).expect(201);
+          const { teamA, teamB } = res.body.pairing as { teamA: string[]; teamB: string[] };
+          seen.add([[...teamA].sort().join('|'), [...teamB].sort().join('|')].sort().join('/'));
+          await prisma.pairing.deleteMany({ where: { sessionId: session } });
+        }
+        expect(seen.size).toBeGreaterThan(1);
+      } finally {
+        await cleanup();
+      }
+    });
+
+    it('snapshots the group flag at creation like the shuttle flag', async () => {
+      const groupCode = randomUUID();
+      await prisma.group.create({ data: { code: groupCode, name: 'S', crossSessionHistory: true } });
+      try {
+        const res = await request(server).post('/sessions').send({
+          groupCode,
+          courtCount: 1,
+          rawImportText: '1. Alice',
+          idempotencyKey: randomUUID(),
+          rosterReviews: [{ inputName: 'Alice', match: { type: 'new' }, decision: 'accept' }],
+          waitlistReviews: [],
+        }).expect(201);
+        const row = await prisma.session.findUniqueOrThrow({ where: { code: res.body.code } });
+        expect(row.crossSessionHistory).toBe(true);
+        await prisma.group.update({ where: { code: groupCode }, data: { crossSessionHistory: false } });
+        expect((await prisma.session.findUniqueOrThrow({ where: { code: res.body.code } })).crossSessionHistory).toBe(true);
+        await prisma.sessionRoster.deleteMany({ where: { sessionId: res.body.code } });
+        await prisma.sessionCreation.deleteMany({ where: { groupId: groupCode } });
+        await prisma.session.deleteMany({ where: { groupId: groupCode } });
+        await prisma.player.deleteMany({ where: { groupId: groupCode } });
+      } finally {
+        await prisma.group.deleteMany({ where: { code: groupCode } });
+      }
+    });
+  });
+
+  describe('shuttle confirm payload over HTTP', () => {
+    async function advancedCourt() {
+      const groupCode = randomUUID();
+      const sessionCode = randomUUID();
+      await prisma.group.create({ data: { code: groupCode, name: 'Pay' } });
+      const players = await Promise.all(
+        ['A', 'B', 'C', 'D'].map((name) => prisma.player.create({ data: { groupId: groupCode, name, aliases: '[]' } }))
+      );
+      await prisma.session.create({
+        data: { code: sessionCode, groupId: groupCode, courtCount: 1, rawImportText: '', shuttleToolsEnabled: true },
+      });
+      for (const p of players) await prisma.sessionRoster.create({ data: { sessionId: sessionCode, playerId: p.id } });
+      const propose = await request(server).post(`/sessions/${sessionCode}/courts/1/propose`).expect(201);
+      const cleanup = async () => {
+        await prisma.pairingShuttleUse.deleteMany({ where: { pairing: { sessionId: sessionCode } } });
+        await prisma.pairing.deleteMany({ where: { sessionId: sessionCode } });
+        await prisma.sessionShuttle.deleteMany({ where: { sessionId: sessionCode } });
+        await prisma.sessionRoster.deleteMany({ where: { sessionId: sessionCode } });
+        await prisma.session.deleteMany({ where: { code: sessionCode } });
+        await prisma.player.deleteMany({ where: { groupId: groupCode } });
+        await prisma.group.deleteMany({ where: { code: groupCode } });
+      };
+      return { sessionCode, pairingId: propose.body.pairing.id as string, cleanup };
+    }
+
+    it('confirms with a new-shuttle choice and returns the known log', async () => {
+      const { sessionCode, pairingId, cleanup } = await advancedCourt();
+      try {
+        const res = await request(server)
+          .post(`/sessions/${sessionCode}/pairings/${pairingId}/confirm`)
+          .send({ shuttle: { kind: 'new' } })
+          .expect(201);
+        expect(res.body.shuttleLogKnown).toBe(true);
+        expect(res.body.lastShuttleId).toEqual(expect.any(String));
+      } finally {
+        await cleanup();
+      }
+    });
+
+    it('answers 400 for a missing choice, an unknown kind, and a mismatched id', async () => {
+      const { sessionCode, pairingId, cleanup } = await advancedCourt();
+      try {
+        const confirm = (body: object) => request(server).post(`/sessions/${sessionCode}/pairings/${pairingId}/confirm`).send(body);
+        expect((await confirm({}).expect(400)).body.code).toBe('SHUTTLE_CHOICE_REQUIRED');
+        await confirm({ shuttle: { kind: 'bogus' } }).expect(400);
+        expect((await confirm({ shuttle: { kind: 'new', shuttleId: 'x' } }).expect(400)).body.code).toBe('INVALID_SHUTTLE_CHOICE');
+        expect((await confirm({ shuttle: { kind: 'existing' } }).expect(400)).body.code).toBe('INVALID_SHUTTLE_CHOICE');
+      } finally {
+        await cleanup();
+      }
+    });
+  });
+
+  describe('shuttle mutation routes over HTTP', () => {
+    async function advanced() {
+      const groupCode = randomUUID();
+      const sessionCode = randomUUID();
+      await prisma.group.create({ data: { code: groupCode, name: 'Routes' } });
+      const players = await Promise.all(
+        ['A', 'B', 'C', 'D'].map((name) => prisma.player.create({ data: { groupId: groupCode, name, aliases: '[]' } }))
+      );
+      await prisma.session.create({
+        data: { code: sessionCode, groupId: groupCode, courtCount: 1, rawImportText: '', shuttleToolsEnabled: true },
+      });
+      for (const p of players) await prisma.sessionRoster.create({ data: { sessionId: sessionCode, playerId: p.id } });
+      const propose = await request(server).post(`/sessions/${sessionCode}/courts/1/propose`).expect(201);
+      const confirmed = await request(server)
+        .post(`/sessions/${sessionCode}/pairings/${propose.body.pairing.id}/confirm`)
+        .send({ shuttle: { kind: 'new' } })
+        .expect(201);
+      const cleanup = async () => {
+        await prisma.pairingShuttleUse.deleteMany({ where: { pairing: { sessionId: sessionCode } } });
+        await prisma.pairing.deleteMany({ where: { sessionId: sessionCode } });
+        await prisma.sessionShuttle.deleteMany({ where: { sessionId: sessionCode } });
+        await prisma.sessionRoster.deleteMany({ where: { sessionId: sessionCode } });
+        await prisma.session.deleteMany({ where: { code: sessionCode } });
+        await prisma.player.deleteMany({ where: { groupId: groupCode } });
+        await prisma.group.deleteMany({ where: { code: groupCode } });
+      };
+      return { sessionCode, pairing: confirmed.body, cleanup };
+    }
+
+    it('switches, corrects, retires and voids through the real routes', async () => {
+      const { sessionCode, pairing, cleanup } = await advanced();
+      try {
+        const sw = await request(server)
+          .post(`/sessions/${sessionCode}/pairings/${pairing.id}/shuttles/switch`)
+          .send({ choice: { kind: 'new' }, expectedRevision: pairing.revision })
+          .expect(201);
+        const finished = await request(server)
+          .post(`/sessions/${sessionCode}/pairings/${pairing.id}/finish`)
+          .send({ winner: 'A', expectedRevision: sw.body.revision })
+          .expect(201);
+        const ids = (await prisma.pairingShuttleUse.findMany({ where: { pairingId: pairing.id } })).map((u) => u.shuttleId);
+        expect(ids).toHaveLength(2);
+
+        const fix = await request(server)
+          .post(`/sessions/${sessionCode}/pairings/${pairing.id}/shuttles/correct`)
+          .send({ shuttleIds: [ids[0]], openNew: false, expectedRevision: finished.body.revision })
+          .expect(201);
+        expect(fix.body.shuttleLogKnown).toBe(true);
+
+        await request(server).post(`/sessions/${sessionCode}/shuttles/${ids[0]}/usable`).send({ usable: false }).expect(201);
+        const orphan = await prisma.sessionShuttle.findFirstOrThrow({ where: { id: { in: ids }, NOT: { id: ids[0] } } });
+        await request(server).post(`/sessions/${sessionCode}/shuttles/${orphan.id}/void`).send({}).expect(201);
+      } finally {
+        await cleanup();
+      }
+    });
+
+    it('answers 400 for malformed bodies and 409 SHUTTLE_IN_USE for a referenced void', async () => {
+      const { sessionCode, pairing, cleanup } = await advanced();
+      try {
+        await request(server).post(`/sessions/${sessionCode}/pairings/${pairing.id}/shuttles/switch`).send({ choice: { kind: 'new' } }).expect(400);
+        await request(server).post(`/sessions/${sessionCode}/pairings/${pairing.id}/shuttles/switch`).send({ expectedRevision: 1 }).expect(400);
+        await request(server).post(`/sessions/${sessionCode}/pairings/${pairing.id}/shuttles/correct`).send({ shuttleIds: 'x', openNew: false, expectedRevision: 1 }).expect(400);
+        await request(server).post(`/sessions/${sessionCode}/shuttles/anything/usable`).send({ usable: 'yes' }).expect(400);
+        const shuttleId = pairing.lastShuttleId as string;
+        const res = await request(server).post(`/sessions/${sessionCode}/shuttles/${shuttleId}/void`).send({}).expect(409);
+        expect(res.body.code).toBe('SHUTTLE_IN_USE');
+      } finally {
+        await cleanup();
+      }
+    });
+  });
+
+  describe('shuttle accounting and shuttle log reads', () => {
+    async function night(advanced: boolean) {
+      const groupCode = randomUUID();
+      const sessionCode = randomUUID();
+      await prisma.group.create({ data: { code: groupCode, name: 'Reads', shuttleToolsEnabled: advanced } });
+      const players = await Promise.all(
+        ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'].map((name) => prisma.player.create({ data: { groupId: groupCode, name, aliases: '[]' } }))
+      );
+      await prisma.session.create({
+        data: { code: sessionCode, groupId: groupCode, courtCount: 2, rawImportText: '', shuttleToolsEnabled: advanced, shuttleCount: 9 },
+      });
+      for (const p of players) await prisma.sessionRoster.create({ data: { sessionId: sessionCode, playerId: p.id } });
+      const post = (path: string, body: object = {}) => request(server).post(`/sessions/${sessionCode}${path}`).send(body);
+      /** Proposes, confirms (choosing a shuttle when advanced) and returns the confirmed pairing. */
+      const start = async (court: number, shuttle?: object) => {
+        const proposed = await post(`/courts/${court}/propose`).expect(201);
+        const confirmed = await post(`/pairings/${proposed.body.pairing.id}/confirm`, shuttle ? { shuttle } : {}).expect(201);
+        return confirmed.body as { id: string; revision: number; lastShuttleId: string | null };
+      };
+      const finish = (p: { id: string; revision: number }) => post(`/pairings/${p.id}/finish`, { winner: 'A', expectedRevision: p.revision }).expect(201);
+      const cleanup = async () => {
+        await prisma.pairingShuttleUse.deleteMany({ where: { pairing: { sessionId: sessionCode } } });
+        await prisma.pairing.deleteMany({ where: { sessionId: sessionCode } });
+        await prisma.sessionShuttle.deleteMany({ where: { sessionId: sessionCode } });
+        await prisma.sessionRoster.deleteMany({ where: { sessionId: sessionCode } });
+        await prisma.session.deleteMany({ where: { code: sessionCode } });
+        await prisma.player.deleteMany({ where: { groupId: groupCode } });
+        await prisma.group.deleteMany({ where: { code: groupCode } });
+      };
+      return { groupCode, sessionCode, start, finish, cleanup };
+    }
+
+    it('shuttle accounting: one shuttle in two finished games counts once, an active game is excluded', async () => {
+      const n = await night(true);
+      try {
+        const first = await n.start(1, { kind: 'new' });
+        const done = await n.finish(first);
+        const shuttleId = first.lastShuttleId!;
+        const second = await n.start(1, { kind: 'existing', shuttleId });
+        await n.finish({ id: second.id, revision: second.revision });
+        await n.start(2, { kind: 'new' }); // active, must not count
+
+        const res = await request(server).get(`/sessions/${n.sessionCode}/summary`).expect(200);
+        expect(res.body.shuttleAccounting).toEqual({ recordedFinishedShuttles: 1, unknownFinishedMatches: 0, finishedMatches: 2 });
+        expect(res.body.session.shuttleCount).toBe(9);
+        void done;
+      } finally {
+        await n.cleanup();
+      }
+    });
+
+    it('shuttle log: one row per finished match, chronological, numbered, no owner revisions, no per-player duplicates', async () => {
+      const n = await night(true);
+      try {
+        const g1 = await n.start(1, { kind: 'new' });
+        await n.finish(g1);
+        const g2 = await n.start(1, { kind: 'existing', shuttleId: g1.lastShuttleId! });
+        await n.finish({ id: g2.id, revision: g2.revision });
+        const res = await request(server).get(`/sessions/${n.sessionCode}/summary`).expect(200);
+        const log = res.body.shuttleLog as { pairingId: string; courtNumber: number; matchNumber: number; shuttles: { id: string; number: number }[] | null }[];
+        expect(log.map((r) => r.pairingId)).toEqual([g1.id, g2.id]);
+        expect(log.map((r) => r.matchNumber)).toEqual([1, 2]);
+        expect(log[0].shuttles).toEqual([{ id: g1.lastShuttleId, number: 1 }]);
+        expect(log[1].shuttles).toEqual([{ id: g1.lastShuttleId, number: 1 }]);
+        expect(JSON.stringify(res.body)).not.toContain('revision');
+      } finally {
+        await n.cleanup();
+      }
+    });
+
+    it('shuttle log: a legacy unknown game is null and a known empty game is []', async () => {
+      const n = await night(true);
+      try {
+        const g = await n.start(1, { kind: 'new' });
+        await n.finish(g);
+        await prisma.pairingShuttleUse.deleteMany({ where: { pairingId: g.id } });
+        await prisma.pairing.create({
+          data: {
+            sessionId: n.sessionCode, courtNumber: 2, matchNumber: 1,
+            teamA: '["x","y"]', teamB: '["z","w"]',
+            confirmedAt: new Date(), endedAt: new Date(), shuttleLogKnown: false,
+          },
+        });
+        const res = await request(server).get(`/sessions/${n.sessionCode}/summary`).expect(200);
+        const byCourt = new Map((res.body.shuttleLog as { courtNumber: number; shuttles: unknown }[]).map((r) => [r.courtNumber, r.shuttles]));
+        expect(byCourt.get(1)).toEqual([]);
+        expect(byCourt.get(2)).toBeNull();
+        expect(res.body.shuttleAccounting).toMatchObject({ unknownFinishedMatches: 1, finishedMatches: 2, recordedFinishedShuttles: 0 });
+      } finally {
+        await n.cleanup();
+      }
+    });
+
+    it('an ordinary session\'s summary has no log or accounting, even if the group switch was turned on later', async () => {
+      const n = await night(false);
+      try {
+        const g = await n.start(1);
+        await n.finish(g);
+        await prisma.group.update({ where: { code: n.groupCode }, data: { shuttleToolsEnabled: true } });
+        const res = await request(server).get(`/sessions/${n.sessionCode}/summary`).expect(200);
+        expect(res.body.shuttleLog).toBeUndefined();
+        expect(res.body.shuttleAccounting).toBeUndefined();
+        expect(res.body.session.shuttleCount).toBe(9);
+      } finally {
+        await n.cleanup();
+      }
+    });
+
+    it('an advanced session keeps its log after the group switch is turned off', async () => {
+      const n = await night(true);
+      try {
+        const g = await n.start(1, { kind: 'new' });
+        await n.finish(g);
+        await prisma.group.update({ where: { code: n.groupCode }, data: { shuttleToolsEnabled: false } });
+        const res = await request(server).get(`/sessions/${n.sessionCode}/summary`).expect(200);
+        expect(res.body.shuttleLog).toHaveLength(1);
+      } finally {
+        await n.cleanup();
+      }
+    });
+
+    it('shuttle log: the live court read carries the current and used shuttles for advanced sessions only', async () => {
+      const n = await night(true);
+      const o = await night(false);
+      try {
+        const g = await n.start(1, { kind: 'new' });
+        const sw = await request(server)
+          .post(`/sessions/${n.sessionCode}/pairings/${g.id}/shuttles/switch`)
+          .send({ choice: { kind: 'new' }, expectedRevision: g.revision })
+          .expect(201);
+        const res = await request(server).get(`/sessions/${n.sessionCode}`).expect(200);
+        const court = res.body.courts.find((c: { courtNumber: number }) => c.courtNumber === 1);
+        expect(court.status).toBe('active');
+        expect(court.currentShuttle).toEqual({ id: sw.body.lastShuttleId, number: 2 });
+        expect(court.usedShuttles.map((s: { number: number }) => s.number)).toEqual([1, 2]);
+
+        const og = await o.start(1);
+        void og;
+        const ordinary = await request(server).get(`/sessions/${o.sessionCode}`).expect(200);
+        const oc = ordinary.body.courts.find((c: { courtNumber: number }) => c.courtNumber === 1);
+        expect(oc.currentShuttle).toBeUndefined();
+        expect(oc.usedShuttles).toBeUndefined();
+      } finally {
+        await n.cleanup();
+        await o.cleanup();
+      }
+    });
+
+    it('shuttle inventory: the owner read lists identities and editable finished games with revisions', async () => {
+      const n = await night(true);
+      try {
+        const g = await n.start(1, { kind: 'new' });
+        const done = await n.finish(g);
+        await n.start(2, { kind: 'new' }); // active: not an editable row
+        await prisma.sessionShuttle.create({ data: { sessionId: n.sessionCode, number: 9, usable: false, voidedAt: new Date() } });
+        const res = await request(server).get(`/sessions/${n.sessionCode}/shuttles`).expect(200);
+        expect(res.body.enabled).toBe(true);
+        expect(res.body.identities.map((i: { number: number; usable: boolean; voided: boolean }) => [i.number, i.usable, i.voided])).toEqual([
+          [1, true, false],
+          [2, true, false],
+          [9, false, true],
+        ]);
+        expect(res.body.games).toEqual([{ pairingId: g.id, revision: done.body.revision, shuttleIds: [g.lastShuttleId] }]);
+        // Court 2's shuttle is in a live hand; court 1's last (finished) shuttle is its suggestion.
+        const live = await prisma.pairing.findFirstOrThrow({ where: { sessionId: n.sessionCode, courtNumber: 2 } });
+        expect(res.body.heldShuttleIds).toEqual([live.lastShuttleId]);
+        expect(res.body.lastShuttleByCourt).toEqual([{ courtNumber: 1, shuttleId: g.lastShuttleId }]);
+      } finally {
+        await n.cleanup();
+      }
+    });
+
+    it('shuttle inventory: an ordinary session answers a disabled empty shape (an ownership check only)', async () => {
+      const n = await night(false);
+      try {
+        const res = await request(server).get(`/sessions/${n.sessionCode}/shuttles`).expect(200);
+        expect(res.body).toEqual({ enabled: false, identities: [], games: [], heldShuttleIds: [], lastShuttleByCourt: [] });
+      } finally {
+        await n.cleanup();
+      }
+    });
+  });
 });

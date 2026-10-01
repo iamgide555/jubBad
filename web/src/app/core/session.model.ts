@@ -11,6 +11,9 @@ export interface Session {
   /** Price per shuttlecock, in satang (1 THB = 100 satang) — same null-vs-0 distinction. */
   shuttlePriceSatang: number | null;
   endedAt: string | null;
+  /** Snapshot of the group's advanced-tools switch at creation: true means numbered shuttle tracking
+   *  is on for this session. Absent reads as off (older fixtures and sessions). */
+  shuttleToolsEnabled?: boolean;
   createdAt: string;
   /** Server's clock at response time — the skew reference for live court timers. */
   serverNow: string;

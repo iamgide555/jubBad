@@ -5,8 +5,15 @@
  * docs/superpowers/specs/2026-09-22-roadmap-c-series-design.md.
  */
 
-export const BILL_MODELS = ['fair', 'perGame', 'buffet'] as const;
+export const BILL_MODELS = ['fair', 'perGame', 'buffet', 'perShuttle'] as const;
 export type BillModel = (typeof BILL_MODELS)[number];
+/**
+ * What a player leaving early may be charged under. `fair` splits a whole
+ * night's cost and cannot be quoted mid-session; `perShuttle` (advanced
+ * sessions only) is a starting fee plus a share of the recorded distinct
+ * shuttles the player's finished games used.
+ */
+export type CheckoutModel = Exclude<BillModel, 'fair'>;
 export const SPLIT_MODES = ['equal', 'byGames'] as const;
 export type SplitMode = (typeof SPLIT_MODES)[number];
 export const ROUNDING_STEPS = [1, 5, 10] as const;
@@ -28,6 +35,8 @@ export interface BillConfig {
   capSatang: number | null;
   buffetPriceSatang: number;
   buffetShuttlesIncluded: boolean;
+  /** perShuttle only: the flat fee every billed person pays before their shuttle share. */
+  startingFeeSatang: number;
   hostFeeSatang: number;
   walkInFeeSatang: number;
   roundingBaht: RoundingStep;
@@ -46,6 +55,7 @@ export const DEFAULT_BILL_CONFIG: BillConfig = {
   capSatang: null,
   buffetPriceSatang: 0,
   buffetShuttlesIncluded: true,
+  startingFeeSatang: 0,
   hostFeeSatang: 0,
   walkInFeeSatang: 2000,
   roundingBaht: 1,
@@ -57,6 +67,39 @@ export const DEFAULT_BILL_CONFIG: BillConfig = {
 /** Every player id on court in one confirmed, finished match. */
 export interface BillMatch {
   players: string[];
+  /**
+   * The distinct shuttle identities this game used. Omitted for an ordinary
+   * (non-tracking) game; `null` for an advanced-session game whose use was
+   * never recorded; `[]` for one recorded as using none. Opaque ids: the
+   * engine only compares them, and orders them for stable remainders.
+   */
+  shuttleIds?: string[] | null;
+}
+
+/** How shuttle cost was shared — reported so a bill can explain a fallback. */
+export type ShuttleAllocation = 'legacy-basic' | 'legacy-unknown' | 'legacy-no-uses' | 'identities' | 'equal';
+
+/**
+ * An early checkout already collected (host feedback E): frozen, never
+ * recomputed. Separate from `config.removedIds` on purpose -- removing someone
+ * would redistribute their whole share and lose what they paid.
+ */
+export interface SettledPayment {
+  id: string;
+  playerId: string;
+  model: CheckoutModel;
+  amountSatang: number;
+  settledAt: string;
+  /** The walk-in surcharge inside `amountSatang`. */
+  walkInFeeSatang: number;
+  /** The walk-in discount already returned inside `amountSatang`. */
+  walkInDiscountSatang: number;
+  /**
+   * The flat starting fee a perShuttle receipt embeds. It is the host's
+   * per-person charge, not money toward the shuttle cost, so a final perShuttle
+   * bill does not credit it against the shuttles (0 for other models).
+   */
+  startingFeeSatang?: number;
 }
 
 export interface BillInput {
@@ -65,9 +108,28 @@ export interface BillInput {
   walkInIds: string[];
   shuttleCount: number | null;
   shuttlePriceSatang: number | null;
+  /**
+   * 'identities' shares one effective total over distinct shuttle ids, then
+   * over the games that used each, then over each game's players. Anything
+   * else (the default) keeps the pre-D equal-per-match split.
+   */
+  shuttleAllocation?: 'legacy' | 'identities';
+  /** Current early-checkout receipts. Default none: the bill is then exactly the original. */
+  settled?: SettledPayment[];
 }
 
-export type BillWarning = 'MISSING_COURT_FEE' | 'MISSING_SHUTTLE_COUNT' | 'MISSING_SHUTTLE_PRICE';
+export type BillWarning =
+  | 'MISSING_COURT_FEE'
+  | 'MISSING_SHUTTLE_COUNT'
+  | 'MISSING_SHUTTLE_PRICE'
+  /** perShuttle: a finished game's shuttle use was never recorded, and no count may invent it. */
+  | 'UNKNOWN_SHUTTLE_USE'
+  /** Frozen payments exceed the cost they were credited against: a refund the host resolves outside the app. */
+  | 'EXCESS_CREDIT'
+  /** Nobody is left to pay the part of the cost the frozen payments did not cover. */
+  | 'UNCOVERED_COST'
+  /** Walk-in surcharge that nobody eligible can take back; never reported as host profit. */
+  | 'UNRETURNED_SURCHARGE';
 
 export interface BillRow {
   playerId: string;
@@ -90,15 +152,29 @@ export interface BillRow {
 }
 
 export interface BillResult {
+  /** People still due. A settled player is never a row: see `settledRows`. */
   rows: BillRow[];
+  /** Early checkouts as they were frozen, passed through untouched. */
+  settledRows: { id: string; playerId: string; model: CheckoutModel; amountSatang: number; settledAt: string }[];
   totals: {
+    /** Settled once plus what is still due. */
     collectedSatang: number;
+    settledTotalSatang: number;
+    stillDueSatang: number;
+    /** Frozen payments beyond the cost they were credited against (a refund to resolve by hand). */
+    excessCreditSatang: number;
+    /** Cost left with nobody still due to pay it. */
+    uncoveredCostSatang: number;
+    /** Walk-in surcharge nobody eligible could take back. */
+    unreturnedSurchargeSatang: number;
     costSatang: number | null;
     marginSatang: number | null;
+    /** People still due (settled ones are in `settledRows`). */
     billedCount: number;
     walkInCount: number;
   };
   warnings: BillWarning[];
+  shuttleAllocation: ShuttleAllocation;
 }
 
 /** Largest-remainder equal split: sums to `total` exactly; extra satang go to the first entries. */
@@ -148,6 +224,7 @@ function validate(input: BillInput): void {
   assertMoney('entryFeeSatang', c.entryFeeSatang);
   assertMoney('capSatang', c.capSatang);
   assertMoney('buffetPriceSatang', c.buffetPriceSatang);
+  assertMoney('startingFeeSatang', c.startingFeeSatang);
   assertMoney('hostFeeSatang', c.hostFeeSatang);
   assertMoney('walkInFeeSatang', c.walkInFeeSatang);
   assertMoney('shuttleCount', input.shuttleCount);
@@ -156,9 +233,19 @@ function validate(input: BillInput): void {
   assertUnique('addedIds', c.addedIds);
   assertUnique('removedIds', c.removedIds);
   assertUnique('overrides', c.overrides.map((o) => o.playerId));
+  const settled = input.settled ?? [];
+  assertUnique('settled', settled.map((r) => r.playerId));
+  for (const r of settled) {
+    if (!BILL_MODELS.includes(r.model) || r.model === ('fair' as string)) throw new Error(`bill: settled ${r.playerId} has unusable model ${r.model}`);
+    assertMoney(`settled ${r.playerId} amount`, r.amountSatang);
+    assertMoney(`settled ${r.playerId} walk-in fee`, r.walkInFeeSatang);
+    assertMoney(`settled ${r.playerId} walk-in discount`, r.walkInDiscountSatang);
+    assertMoney(`settled ${r.playerId} starting fee`, r.startingFeeSatang ?? 0);
+  }
   for (const match of input.matches) {
     if (match.players.length === 0) throw new Error('bill: match with no players');
     assertUnique('match players', match.players);
+    if (match.shuttleIds) assertUnique('match shuttleIds', match.shuttleIds);
   }
 }
 
@@ -173,7 +260,8 @@ function costShares(
   participants: string[],
   billed: string[],
   games: Map<string, number>,
-  matches: BillMatch[]
+  matches: BillMatch[],
+  identities = false
 ): Map<string, number> {
   const raw = new Map(participants.map((id) => [id, 0]));
   if (participants.length === 0) return raw;
@@ -184,6 +272,22 @@ function costShares(
     splitByWeight(total, participants.map((id) => games.get(id) ?? 0)).forEach((v, i) =>
       raw.set(participants[i], v)
     );
+  } else if (identities) {
+    // One shuttle, one price: the effective total goes to each distinct
+    // identity, each identity's share to the games that used it, and each
+    // game's share to its players. Ids are sorted so remainders are stable.
+    const ids = [...new Set(matches.flatMap((match) => match.shuttleIds ?? []))].sort();
+    const perId = splitEqual(total, ids.length);
+    ids.forEach((shuttleId, k) => {
+      const using = matches.filter((match) => match.shuttleIds?.includes(shuttleId));
+      const perGame = splitEqual(perId[k], using.length);
+      using.forEach((match, g) => {
+        splitEqual(perGame[g], match.players.length).forEach((v, j) => {
+          const id = match.players[j];
+          raw.set(id, (raw.get(id) ?? 0) + v);
+        });
+      });
+    });
   } else {
     const perMatch = splitEqual(total, matches.length);
     matches.forEach((match, k) => {
@@ -213,6 +317,13 @@ function ceilTo(amount: number, step: number): number {
  * can: each walk-in's cap includes the fee it pays in).
  */
 export function distributeCapped(pool: number, caps: number[]): number[] {
+  const { out, remaining } = distributeCappedPartial(pool, caps);
+  if (remaining !== 0) throw new Error('bill: walk-in discount could not be distributed');
+  return out;
+}
+
+/** Like distributeCapped, but hands back what no entry could take instead of throwing. */
+export function distributeCappedPartial(pool: number, caps: number[]): { out: number[]; remaining: number } {
   const out = caps.map(() => 0);
   let remaining = pool;
   let open = caps.map((_, i) => i).filter((i) => caps[i] > 0);
@@ -229,20 +340,29 @@ export function distributeCapped(pool: number, caps: number[]): number[] {
     remaining -= given;
     open = next;
   }
-  if (remaining !== 0) throw new Error('bill: walk-in discount could not be distributed');
-  return out;
+  return { out, remaining };
 }
 
 export function computeBill(input: BillInput): BillResult {
   validate(input);
   const { config, matches, shuttleCount, shuttlePriceSatang } = input;
+  const settled = input.settled ?? [];
+  // A settled player is final: whatever the config still says about them
+  // (removed, added, overridden) no longer applies -- they paid, and only an
+  // explicit undo of the checkout can make them billable again.
+  const settledIds = new Set(settled.map((r) => r.playerId));
+  const settledTotal = settled.reduce((s, r) => s + r.amountSatang, 0);
+  const perShuttle = config.model === 'perShuttle';
 
   const games = new Map<string, number>();
   for (const match of matches) for (const id of match.players) games.set(id, (games.get(id) ?? 0) + 1);
   const added = new Set(config.addedIds);
   const participants = [...new Set([...games.keys(), ...config.addedIds])].sort();
-  const removed = new Set(config.removedIds);
+  const removed = new Set(config.removedIds.filter((id) => !settledIds.has(id)));
+  // Settled people stay in `billed` so the nominal cost shares still count them;
+  // `due` is who actually gets a row.
   const billed = participants.filter((id) => !removed.has(id));
+  const due = billed.filter((id) => !settledIds.has(id));
 
   const warnings: BillWarning[] = [];
   const shuttlesBilled = config.model === 'fair' || (config.model === 'buffet' && !config.buffetShuttlesIncluded);
@@ -250,28 +370,72 @@ export function computeBill(input: BillInput): BillResult {
   if (shuttlesBilled && shuttleCount === null) warnings.push('MISSING_SHUTTLE_COUNT');
   if (shuttlesBilled && shuttlePriceSatang === null) warnings.push('MISSING_SHUTTLE_PRICE');
 
+  // perShuttle prices only what the games recorded -- distinct shuttle ids at the
+  // session price -- never the physical count, and never an unknown game's use.
+  const recordedIds = perShuttle ? [...new Set(matches.flatMap((m) => m.shuttleIds ?? []))].sort() : [];
+  if (perShuttle) {
+    if (matches.some((m) => m.shuttleIds === null)) warnings.push('UNKNOWN_SHUTTLE_USE');
+    if (recordedIds.length > 0 && shuttlePriceSatang === null) warnings.push('MISSING_SHUTTLE_PRICE');
+  }
+  const recordedCost = recordedIds.length * (shuttlePriceSatang ?? 0);
+
   const shuttleTotal = (shuttleCount ?? 0) * (shuttlePriceSatang ?? 0);
+  const allocation: ShuttleAllocation = perShuttle
+    ? matches.some((m) => m.shuttleIds === null)
+      ? 'legacy-unknown'
+      : 'identities'
+    : chooseShuttleAllocation(input, shuttlesBilled, shuttleTotal);
   const court =
     config.model === 'fair'
       ? costShares(config.courtFeeSatang ?? 0, config.courtSplit, 'court', participants, billed, games, matches)
       : new Map<string, number>();
-  const shuttle = shuttlesBilled
-    ? costShares(shuttleTotal, config.shuttleSplit, 'shuttle', participants, billed, games, matches)
-    : new Map<string, number>();
+  const shuttle = perShuttle
+    ? costShares(recordedCost, 'byGames', 'shuttle', participants, billed, games, matches, true)
+    : shuttlesBilled
+      ? costShares(shuttleTotal, config.shuttleSplit, 'shuttle', participants, billed, games, matches, allocation === 'identities')
+      : new Map<string, number>();
 
-  const overrides = new Map(config.overrides.map((o) => [o.playerId, o.amountSatang]));
+  const overrides = new Map(config.overrides.filter((o) => !settledIds.has(o.playerId)).map((o) => [o.playerId, o.amountSatang]));
   const step = config.roundingBaht * 100;
+
+  // Cost models with something already paid: the cost they cover, minus what
+  // was frozen, is split over the people still due by their nominal shares.
+  // (Nothing settled leaves the nominal shares untouched, byte for byte.)
+  let excessCredit = 0;
+  let uncoveredCost = 0;
+  let courtOf = court;
+  let shuttleOf = shuttle;
+  const costModel = config.model === 'fair' || perShuttle;
+  if (costModel && settled.length > 0) {
+    const cost = perShuttle ? recordedCost : (config.courtFeeSatang ?? 0) + shuttleTotal;
+    const credit = perShuttle ? settled.reduce((s, r) => s + r.amountSatang - (r.startingFeeSatang ?? 0), 0) : settledTotal;
+    const residual = Math.max(0, cost - credit);
+    const costKnown = perShuttle || config.courtFeeSatang !== null;
+    excessCredit = costKnown ? Math.max(0, credit - cost) : 0;
+    const nominal = (id: string) => (court.get(id) ?? 0) + (shuttle.get(id) ?? 0);
+    const shares = splitByWeight(residual, due.map(nominal));
+    courtOf = new Map();
+    shuttleOf = new Map();
+    due.forEach((id, i) => {
+      const [c, sh] = splitByWeight(shares[i], [court.get(id) ?? 0, shuttle.get(id) ?? 0]);
+      courtOf.set(id, c);
+      shuttleOf.set(id, sh);
+    });
+    if (due.length === 0) uncoveredCost = costKnown ? residual : 0;
+  }
 
   const pre = new Map<string, number>();
   const baseOf = new Map<string, number>();
-  for (const id of participants) {
+  for (const id of due) {
     const g = games.get(id) ?? 0;
-    const shuttleSatang = shuttle.get(id) ?? 0;
+    const shuttleSatang = shuttleOf.get(id) ?? 0;
     let base = 0;
-    if (config.model === 'fair') base = (court.get(id) ?? 0) + shuttleSatang;
+    if (config.model === 'fair') base = (courtOf.get(id) ?? 0) + shuttleSatang;
     else if (config.model === 'perGame') {
       const raw = config.entryFeeSatang + g * config.perGameRateSatang;
       base = config.capSatang === null ? raw : Math.min(raw, config.capSatang);
+    } else if (perShuttle) {
+      base = config.startingFeeSatang + shuttleSatang;
     } else base = config.buffetPriceSatang + shuttleSatang;
     baseOf.set(id, base);
     pre.set(id, base + config.hostFeeSatang);
@@ -288,19 +452,30 @@ export function computeBill(input: BillInput): BillResult {
   // the step and no further rounding can eat the discount. (Rounding after
   // redistributing, as an earlier version did, let the per-person ceil
   // swallow the discount while the walk-in still paid the full fee.)
+  //
+  // Early checkouts: a settled walk-in already paid their surcharge inside a
+  // frozen amount. A cost model has credited it against the cost once, so it
+  // adds nothing here; a price-based model owes it back to the people still
+  // due, less any discount the receipt already returned.
   const walkIns = new Set(input.walkInIds);
-  const eligible = billed.filter((id) => !overrides.has(id));
+  const eligible = due.filter((id) => !overrides.has(id));
   const eligibleWalkIns = eligible.filter((id) => walkIns.has(id));
-  const rounded = new Map(billed.map((id) => [id, ceilTo(pre.get(id)!, step)]));
+  const rounded = new Map(due.map((id) => [id, ceilTo(pre.get(id)!, step)]));
   const feeSteps = config.walkInFeeSatang === 0 ? 0 : Math.ceil(config.walkInFeeSatang / step);
   // The fee actually charged: the configured fee rounded up to a whole step.
   const fee = feeSteps * step;
-  const poolSteps = feeSteps * eligibleWalkIns.length;
+  const carried = costModel ? 0 : settled.reduce((s, r) => s + Math.max(0, r.walkInFeeSatang - r.walkInDiscountSatang), 0);
+  const poolSteps = feeSteps * eligibleWalkIns.length + Math.floor(carried / step);
   const capsSteps = eligible.map((id) => rounded.get(id)! / step + (walkIns.has(id) ? feeSteps : 0));
+  const handed = distributeCappedPartial(poolSteps, capsSteps);
   const discount = new Map<string, number>();
-  distributeCapped(poolSteps, capsSteps).forEach((d, i) => discount.set(eligible[i], d * step));
+  handed.out.forEach((d, i) => discount.set(eligible[i], d * step));
+  const unreturnedSurcharge = handed.remaining * step + (carried % step);
+  if (unreturnedSurcharge > 0) warnings.push('UNRETURNED_SURCHARGE');
+  if (excessCredit > 0) warnings.push('EXCESS_CREDIT');
+  if (uncoveredCost > 0) warnings.push('UNCOVERED_COST');
 
-  const rows: BillRow[] = participants.map((id) => {
+  const rows: BillRow[] = participants.filter((id) => !settledIds.has(id)).map((id) => {
     const isBilled = !removed.has(id);
     const overridden = isBilled && overrides.has(id);
     const isWalkIn = isBilled && !overridden && walkIns.has(id);
@@ -318,8 +493,8 @@ export function computeBill(input: BillInput): BillResult {
       status: isBilled ? 'billed' : 'removed',
       added: added.has(id) && !games.has(id),
       walkIn: isWalkIn,
-      courtSatang: court.get(id) ?? 0,
-      shuttleSatang: shuttle.get(id) ?? 0,
+      courtSatang: courtOf.get(id) ?? 0,
+      shuttleSatang: shuttleOf.get(id) ?? 0,
       baseSatang: isBilled ? baseOf.get(id)! : 0,
       hostFeeSatang: isBilled ? config.hostFeeSatang : 0,
       walkInFeeSatang,
@@ -329,20 +504,44 @@ export function computeBill(input: BillInput): BillResult {
     };
   });
 
-  const collectedSatang = rows.reduce((s, r) => s + r.amountSatang, 0);
+  const stillDueSatang = rows.reduce((s, r) => s + r.amountSatang, 0);
+  const collectedSatang = settledTotal + stillDueSatang;
   const costSatang =
     config.courtFeeSatang === null || shuttleCount === null || shuttlePriceSatang === null
       ? null
       : config.courtFeeSatang + shuttleTotal;
   return {
     rows,
+    settledRows: settled.map((r) => ({ id: r.id, playerId: r.playerId, model: r.model, amountSatang: r.amountSatang, settledAt: r.settledAt })),
     totals: {
       collectedSatang,
+      settledTotalSatang: settledTotal,
+      stillDueSatang,
+      excessCreditSatang: excessCredit,
+      uncoveredCostSatang: uncoveredCost,
+      unreturnedSurchargeSatang: unreturnedSurcharge,
       costSatang,
       marginSatang: costSatang === null ? null : collectedSatang - costSatang,
-      billedCount: billed.length,
+      billedCount: due.length,
       walkInCount: eligibleWalkIns.length,
     },
     warnings,
+    shuttleAllocation: allocation,
   };
+}
+
+/**
+ * Which way the shuttle cost is shared. Identity sharing needs every game's
+ * log known and at least one referenced shuttle; otherwise the pre-D
+ * equal-per-match split stands for the WHOLE session — never a mix of guessed
+ * uses and known identities. A zero cost needs no fallback: every split of
+ * zero is zero.
+ */
+function chooseShuttleAllocation(input: BillInput, shuttlesBilled: boolean, shuttleTotal: number): ShuttleAllocation {
+  if (shuttlesBilled && input.config.shuttleSplit === 'equal') return 'equal';
+  if (!shuttlesBilled || input.shuttleAllocation !== 'identities') return 'legacy-basic';
+  if (input.matches.some((match) => !Array.isArray(match.shuttleIds))) return 'legacy-unknown';
+  const referenced = input.matches.some((match) => (match.shuttleIds ?? []).length > 0);
+  if (!referenced && shuttleTotal > 0) return 'legacy-no-uses';
+  return 'identities';
 }

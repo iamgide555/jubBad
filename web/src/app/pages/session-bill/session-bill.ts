@@ -11,7 +11,7 @@ import { Icon } from '../../shared/icon/icon';
 
 type MoneyField =
   | 'courtFeeSatang' | 'perGameRateSatang' | 'entryFeeSatang' | 'capSatang'
-  | 'buffetPriceSatang' | 'hostFeeSatang' | 'walkInFeeSatang';
+  | 'buffetPriceSatang' | 'startingFeeSatang' | 'hostFeeSatang' | 'walkInFeeSatang';
 const NULLABLE: ReadonlySet<MoneyField> = new Set(['courtFeeSatang', 'capSatang']);
 
 @Component({
@@ -40,11 +40,19 @@ export class SessionBill {
     return (this.bill()?.players ?? []).filter((p) => rows.has(p.playerId)).map((p) => rows.get(p.playerId)!);
   });
   protected readonly removed = computed(() => (this.bill()?.result.rows ?? []).filter((r) => r.status === 'removed'));
+  /** Early checkouts: read-only, frozen at what they paid; never removable, overridable or addable here. */
+  protected readonly settled = computed(() => this.bill()?.settled ?? []);
   protected readonly addable = computed(() => {
-    const inBill = new Set((this.bill()?.result.rows ?? []).map((r) => r.playerId));
+    const inBill = new Set([
+      ...(this.bill()?.result.rows ?? []).map((r) => r.playerId),
+      ...this.settled().map((s) => s.playerId),
+    ]);
     return (this.bill()?.players ?? []).filter((p) => !inBill.has(p.playerId));
   });
-  protected readonly models: BillModel[] = ['fair', 'perGame', 'buffet'];
+  /** perShuttle exists only on a session that tracked shuttles; an ordinary session keeps the original three. */
+  protected readonly models = computed<BillModel[]>(() =>
+    this.bill()?.session.shuttleToolsEnabled ? ['fair', 'perGame', 'perShuttle', 'buffet'] : ['fair', 'perGame', 'buffet']
+  );
   protected readonly roundings: RoundingStep[] = [1, 5, 10];
   protected readonly baht = formatBaht;
   protected readonly moneyText = formatShuttlePriceInput;
@@ -150,9 +158,33 @@ export class SessionBill {
     }
   }
 
+  /**
+   * The shuttle-accounting panel for a session that tracked shuttles: what
+   * was billed, where it came from, and — only when every finished game has a
+   * recorded log and at least one is finished — how the physical count differs.
+   */
+  protected readonly shuttlePanel = computed(() => {
+    const b = this.bill();
+    if (!b || !b.session.shuttleToolsEnabled) return null;
+    const a = b.accounting;
+    const complete = a.unknownFinishedMatches === 0 && a.finishedMatches > 0;
+    return {
+      ...a,
+      difference: complete && a.physicalCount !== null ? a.physicalCount - a.recordedFinishedShuttles : null,
+      fallback:
+        a.allocation === 'legacy-unknown' ? ('unknown' as const) : a.allocation === 'legacy-no-uses' ? ('no-uses' as const) : null,
+    };
+  });
+
+  protected signed(n: number): string {
+    return n > 0 ? `+${n}` : `${n}`;
+  }
+
   protected async copy(): Promise<void> {
     const b = this.bill();
-    if (!b) return;
+    // Checked again here, not only on the button: nothing may reach the
+    // clipboard, or the fallback text box, while a required input is missing.
+    if (!b || !b.readyToCopy) return;
     const text = buildBillText(b);
     this.clipboardFallback.set(null);
     if (await copyToClipboard(text)) {

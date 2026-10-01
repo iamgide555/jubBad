@@ -8,10 +8,10 @@ const row = (playerId: string, games: number, amountSatang: number, walkIn = fal
 
 function bill(overrides: Partial<BillResponse['config']> = {}): BillResponse {
   return {
-    session: { code: 's', date: 'อ. 22 ก.ย.', venue: 'สนาม A', endedAt: null, shuttleCount: 18, shuttlePriceSatang: 8500 },
+    session: { code: 's', date: 'อ. 22 ก.ย.', venue: 'สนาม A', endedAt: null, shuttleCount: 18, shuttlePriceSatang: 8500, shuttleToolsEnabled: false },
     config: {
       model: 'fair', courtFeeSatang: 144000, courtSplit: 'equal', shuttleSplit: 'byGames', perGameRateSatang: 0,
-      entryFeeSatang: 0, capSatang: null, buffetPriceSatang: 0, buffetShuttlesIncluded: true, hostFeeSatang: 1000,
+      entryFeeSatang: 0, capSatang: null, buffetPriceSatang: 0, buffetShuttlesIncluded: true, startingFeeSatang: 0, hostFeeSatang: 1000,
       walkInFeeSatang: 2000, roundingBaht: 1, addedIds: [], removedIds: [], overrides: [], ...overrides,
     },
     configSource: 'saved',
@@ -19,11 +19,14 @@ function bill(overrides: Partial<BillResponse['config']> = {}): BillResponse {
       { playerId: 'p', name: 'ปอม', games: 9, walkIn: false },
       { playerId: 'b', name: 'บอย', games: 5, walkIn: true },
     ],
+    settled: [],
     result: {
       rows: [row('b', 5, 21000, true), row('p', 9, 22500)],
-      totals: { collectedSatang: 43500, costSatang: null, marginSatang: null, billedCount: 2, walkInCount: 1 },
+      totals: { settledTotalSatang: 0, stillDueSatang: 0, excessCreditSatang: 0, uncoveredCostSatang: 0, unreturnedSurchargeSatang: 0, collectedSatang: 43500, costSatang: null, marginSatang: null, billedCount: 2, walkInCount: 1 },
       warnings: [],
     },
+    accounting: { recordedFinishedShuttles: 0, unknownFinishedMatches: 0, finishedMatches: 0, physicalCount: 18, effectiveCount: 18, source: 'ordinary', allocation: 'legacy-basic' },
+    readyToCopy: true,
   };
 }
 
@@ -84,5 +87,50 @@ describe('buildBillText', () => {
     const text = buildBillText(b);
     expect(text.split('\n')[0]).toBe('💰 ค่าก๊วน อ. 22 ก.ย.');
     expect(text).not.toContain('บอย');
+  });
+
+  it('quotes the shuttle count actually billed, not the raw physical field', () => {
+    const b = bill();
+    b.session.shuttleCount = null;
+    b.accounting = { ...b.accounting, source: 'games', effectiveCount: 7, physicalCount: null, recordedFinishedShuttles: 7 };
+    expect(buildBillText(b)).toContain('ค่าลูก 7 ลูก × 85฿');
+  });
+});
+
+describe('buildBillText with early checkouts', () => {
+  const withSettled = (): BillResponse => {
+    const b = bill();
+    b.settled = [{ id: 'r1', playerId: 'z', name: 'นุ่น', model: 'perShuttle', amountSatang: 6000, settledAt: '2026-10-01T10:00:00Z' }];
+    b.result.totals = { ...b.result.totals, settledTotalSatang: 6000, stillDueSatang: 43500, collectedSatang: 49500, costSatang: 40000, marginSatang: 9500 };
+    return b;
+  };
+
+  it('names settled people with their original model and amount, apart from the still-due rows', () => {
+    const text = buildBillText(withSettled());
+    expect(text).toContain('เช็คเอาต์แล้ว (จ่ายแล้ว):');
+    expect(text).toContain('นุ่น  จ่ายตามลูกแบด  60฿');
+    expect(text.indexOf('นุ่น')).toBeLessThan(text.indexOf('ยังต้องจ่าย:'));
+    expect(text.indexOf('ยังต้องจ่าย:')).toBeLessThan(text.indexOf('ปอม'));
+  });
+
+  it('totals settled, still due and the whole separately, and never prints the host margin', () => {
+    const text = buildBillText(withSettled());
+    expect(text).toContain('เช็คเอาต์แล้ว 60฿');
+    expect(text).toContain('ยังต้องจ่าย 435฿');
+    expect(text).toContain('รวม 495฿');
+    expect(text).not.toContain('ส่วนต่าง');
+    expect(text).not.toContain('ต้นทุน');
+    expect(text).not.toContain('เห็นเฉพาะผู้จัด');
+  });
+
+  it('a bill with no checkouts reads exactly as before', () => {
+    const text = buildBillText(bill());
+    expect(text).not.toContain('เช็คเอาต์');
+    expect(text).not.toContain('ยังต้องจ่าย');
+  });
+
+  it('describes the per-shuttle model with its starting fee and shuttle price', () => {
+    const text = buildBillText(bill({ model: 'perShuttle', startingFeeSatang: 3000 }));
+    expect(text).toContain('ค่าเริ่มต้น 30฿/คน + ค่าลูกตามที่ใช้จริง (85฿/ลูก)');
   });
 });

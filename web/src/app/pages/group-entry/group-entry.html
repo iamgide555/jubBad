@@ -75,7 +75,47 @@
     <p><a [routerLink]="['/g', groupCode, 'players']" i18n="@@entry.managePlayers">จัดการผู้เล่น →</a></p>
 
     <hr class="rule" />
-    <button type="button" class="ghost" (click)="showDanger.set(!showDanger())" i18n="@@entry.manageGroup">จัดการก๊วน</button>
+    <div class="group-actions">
+      <button type="button" class="ghost" [attr.aria-expanded]="showAdvanced()" (click)="toggleAdvanced()" i18n="@@entry.advanced">ตั้งค่าขั้นสูง</button>
+      <button type="button" class="ghost" (click)="showDanger.set(!showDanger())" i18n="@@entry.manageGroup">จัดการก๊วน</button>
+    </div>
+    @if (showAdvanced()) {
+      <div class="advanced-settings">
+        <p class="muted" i18n="@@entry.advancedHint">สวิตช์เหล่านี้มีผลกับก๊วนที่สร้างต่อจากนี้เท่านั้น ก๊วนที่เปิดอยู่แล้วไม่เปลี่ยน</p>
+        @if (advancedUnavailable()) {
+          <p class="muted" i18n="@@entry.advancedUnavailable">ตั้งค่าได้หลังสร้างก๊วนครั้งแรก</p>
+        }
+        <label class="switch-row">
+          <input
+            type="checkbox"
+            name="shuttleTools"
+            [checked]="shuttleTools() === true"
+            [disabled]="shuttleTools() === null || advancedSaving()"
+            (change)="setAdvanced('shuttleTools', $any($event.target))"
+          />
+          <span class="switch-text">
+            <span class="switch-title" i18n="@@entry.shuttleTools">จดลูกแบดเป็นหมายเลข</span>
+            <span class="muted" i18n="@@entry.shuttleToolsHint">ตอนยืนยันแมตช์จะให้เลือกลูกแบด และบิลจะนับตามลูกที่ใช้จริง</span>
+          </span>
+        </label>
+        <label class="switch-row">
+          <input
+            type="checkbox"
+            name="crossSessionHistory"
+            [checked]="crossSessionHistory() === true"
+            [disabled]="crossSessionHistory() === null || advancedSaving()"
+            (change)="setAdvanced('crossSessionHistory', $any($event.target))"
+          />
+          <span class="switch-text">
+            <span class="switch-title" i18n="@@entry.crossSessionHistory">นับประวัติคู่ข้ามก๊วน</span>
+            <span class="muted" i18n="@@entry.crossSessionHistoryHint">ปิด: เลี่ยงคู่ซ้ำเฉพาะคืนนี้ · เปิด: นับทุกก๊วนที่ผ่านมา</span>
+          </span>
+        </label>
+        @if (advancedError()) {
+          <p class="error" role="alert">{{ advancedError() }}</p>
+        }
+      </div>
+    }
     @if (showDanger()) {
       <div class="danger-zone">
         <button type="button" class="ghost" (click)="exportGroup()" i18n="@@entry.export">ดาวน์โหลดข้อมูล (JSON)</button>

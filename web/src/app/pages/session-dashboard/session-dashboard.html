@@ -39,13 +39,17 @@
           class="chip"
           appPress
           [appReveal]="i"
-          [class.resting]="p.resting"
-          [disabled]="ended()"
-          [attr.aria-pressed]="p.resting"
-          [attr.aria-label]="restLabel(p.name, p.resting)"
+          [class.resting]="p.resting && !p.checkedOut"
+          [class.checked-out]="p.checkedOut"
+          [disabled]="ended() || p.checkedOut"
+          [attr.aria-pressed]="p.checkedOut ? null : p.resting"
+          [attr.aria-label]="restLabel(p.name, p.resting, p.checkedOut)"
           (click)="toggleResting(p.id, !p.resting)"
         >
           {{ p.name }}
+          @if (p.checkedOut) {
+            <span class="out-badge" i18n="@@dashboard.checkedOutBadge">เช็คเอาต์</span>
+          }
           @if (p.level) {
             <span class="level-badge">{{ p.level }}</span>
           }
@@ -62,6 +66,11 @@
           i18n="@@dashboard.addWalkIn"
         >
           + เพิ่มคน
+        </button>
+      }
+      @if (checkoutEnabled()) {
+        <button type="button" class="ghost" data-early-checkout (click)="openCheckoutDialog()" i18n="@@dashboard.earlyCheckout">
+          เช็คเอาต์คนกลับก่อน
         </button>
       }
       @if (!ended()) {
@@ -389,6 +398,15 @@
       [error]="addRuleError()"
       (add)="submitAddRule($event)"
     />
+
+    @if (liveSession.shuttleTools()) {
+      <app-early-checkout-dialog
+        #checkoutDialog
+        [players]="checkoutPlayers()"
+        [settled]="settledPlayers()"
+        (changed)="onCheckoutChanged()"
+      />
+    }
 
     <app-add-walk-in-dialog
       #walkInDialog

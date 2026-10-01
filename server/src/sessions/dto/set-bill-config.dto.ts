@@ -24,6 +24,7 @@ export class SetBillConfigDto {
   @ValidateIf((_, v) => v !== null) @IsInt() @Min(0) @Max(MAX) capSatang!: number | null;
   @IsInt() @Min(0) @Max(MAX) buffetPriceSatang!: number;
   @IsBoolean() buffetShuttlesIncluded!: boolean;
+  @IsInt() @Min(0) @Max(MAX) startingFeeSatang!: number;
   @IsInt() @Min(0) @Max(MAX) hostFeeSatang!: number;
   @IsInt() @Min(0) @Max(MAX) walkInFeeSatang!: number;
   @IsIn(ROUNDING_STEPS) roundingBaht!: RoundingStep;

@@ -631,6 +631,99 @@ describe('GroupEntry', () => {
     req.flush({ code: 'group1', deleted: true });
     await promise;
   });
+  describe('advanced group settings', () => {
+    // This block sits in a describe whose setup does not render the template yet.
+    beforeEach(() => fixture.detectChanges());
+    const el = () => fixture.nativeElement as HTMLElement;
+    const openButton = () =>
+      [...el().querySelectorAll('button')].find((b) => b.textContent?.trim() === 'ตั้งค่าขั้นสูง') as HTMLButtonElement;
+    const toggle = (name: string) => el().querySelector(`input[type="checkbox"][name="${name}"]`) as HTMLInputElement;
+
+    async function openWith(shuttle: boolean, history: boolean) {
+      openButton().click();
+      fixture.detectChanges();
+      httpMock.expectOne(`${B}/groups/group1/shuttle-tools`).flush({ enabled: shuttle });
+      httpMock.expectOne(`${B}/groups/group1/cross-session-history`).flush({ enabled: history });
+      await fixture.whenStable();
+      fixture.detectChanges();
+    }
+
+    it('keeps the advanced and manage-group buttons in one spaced row, not loose siblings', () => {
+      const row = el().querySelector('.group-actions')!;
+      expect(row).toBeTruthy();
+      const labels = [...row.querySelectorAll('button')].map((b) => b.textContent?.trim());
+      expect(labels).toEqual(['ตั้งค่าขั้นสูง', 'จัดการก๊วน']);
+    });
+
+    it('keeps the settings collapsed and makes no request until the host opens them', () => {
+      expect(openButton()).toBeTruthy();
+      expect(toggle('shuttleTools')).toBeNull();
+    });
+
+    it('shows both saved switches once opened, off by default', async () => {
+      await openWith(false, false);
+      expect(toggle('shuttleTools').checked).toBe(false);
+      expect(toggle('crossSessionHistory').checked).toBe(false);
+    });
+
+    it('reflects switches that are already on', async () => {
+      await openWith(true, true);
+      expect(toggle('shuttleTools').checked).toBe(true);
+      expect(toggle('crossSessionHistory').checked).toBe(true);
+    });
+
+    it('explains that a switch only affects future sessions', async () => {
+      await openWith(false, false);
+      expect(el().textContent).toContain('ก๊วนที่สร้างต่อจากนี้');
+    });
+
+    it('saves the shuttle-tools switch and shows the saved value', async () => {
+      await openWith(false, false);
+      toggle('shuttleTools').click();
+      fixture.detectChanges();
+      const req = httpMock.expectOne(`${B}/groups/group1/shuttle-tools`);
+      expect(req.request.method).toBe('POST');
+      expect(req.request.body).toEqual({ enabled: true });
+      req.flush({ enabled: true });
+      await fixture.whenStable();
+      fixture.detectChanges();
+      expect(toggle('shuttleTools').checked).toBe(true);
+    });
+
+    it('saves the cross-session history switch independently', async () => {
+      await openWith(false, false);
+      toggle('crossSessionHistory').click();
+      const req = httpMock.expectOne(`${B}/groups/group1/cross-session-history`);
+      expect(req.request.body).toEqual({ enabled: true });
+      req.flush({ enabled: true });
+      await fixture.whenStable();
+      fixture.detectChanges();
+      expect(toggle('crossSessionHistory').checked).toBe(true);
+      expect(toggle('shuttleTools').checked).toBe(false);
+    });
+
+    it('puts the switch back and says so when saving fails', async () => {
+      await openWith(false, false);
+      toggle('shuttleTools').click();
+      httpMock.expectOne(`${B}/groups/group1/shuttle-tools`).flush('no', { status: 500, statusText: 'Server Error' });
+      await fixture.whenStable();
+      fixture.detectChanges();
+      expect(toggle('shuttleTools').checked).toBe(false);
+      expect(el().querySelector('[role="alert"]')?.textContent).toContain('บันทึกไม่สำเร็จ');
+    });
+
+    it('disables the switches with a note when the group does not exist yet', async () => {
+      openButton().click();
+      fixture.detectChanges();
+      httpMock.expectOne(`${B}/groups/group1/shuttle-tools`).flush('x', { status: 404, statusText: 'Not Found' });
+      httpMock.expectOne(`${B}/groups/group1/cross-session-history`).flush('x', { status: 404, statusText: 'Not Found' });
+      await fixture.whenStable();
+      fixture.detectChanges();
+      expect(toggle('shuttleTools').disabled).toBe(true);
+      expect(el().textContent).toContain('หลังสร้างก๊วนครั้งแรก');
+    });
+  });
+
 });
 
 describe('GroupEntry with an existing group', () => {

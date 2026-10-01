@@ -48,19 +48,33 @@ Check for undeployed migrations before rebuilding the home server.
 Owner-guarded (`AuthGuard` + `OwnershipGuard`; non-owner gets 404, never 403;
 admin bypasses ownership):
 
+- `GET /groups/:code/share` - `{ token: string | null }`, so the group page
+  can show the current state. A code with no group is 404 (the ownership
+  guard lets an unclaimed code through, so the service refuses it).
 - `POST /groups/:code/share` - create the token if absent; return
-  `{ token, url }`. Idempotent: a second call returns the same token, so the
-  pinned link cannot be broken by tapping the button again.
+  `{ token }`. Idempotent: a second call returns the same token, so the
+  pinned link cannot be broken by tapping the button again, and two racing
+  calls cannot mint two tokens. The web builds the link itself from
+  `document.baseURI` (`core/share-link.ts`) because the server cannot know
+  whether the host is on `/` (Thai) or `/en/`.
 - `DELETE /groups/:code/share` - clear the token. The old link 404s at once.
 
 Public (`@Public()`):
 
 - `GET /dashboards/:token` returns
   `{ groupName, lastSessionDate, sessions[], standings[] }`.
-  - `sessions`: newest first, at most 30. Each has `code`, `date`, `venue`,
-    `playerCount`, `matchCount`, `live` (not ended). No other fields.
+  - `sessions`: newest first, at most 30. Each has `code`, `date`,
+    `createdAt` (fallback when `date` is null), `venue`, `playerCount`,
+    `matchCount`, `live` (not ended). No other fields. A session that has
+    ended with no confirmed match (created, never played) is left out: there
+    is nothing to show. A live session is always listed.
+  - `playerCount` is the distinct players in that session's confirmed
+    matches, not the pasted roster, so no-shows and waitlist do not inflate
+    it.
   - `standings`: `{ name, sessionsAttended, gamesPlayed }`, sorted by
-    sessionsAttended desc, gamesPlayed desc, name. Players with zero sessions
+    sessionsAttended desc, gamesPlayed desc, name. `sessionsAttended` is the
+    number of sessions in which the player was in at least one confirmed
+    match; `gamesPlayed` is their confirmed matches. Players with none are
     omitted. Contains no player id, rating, level or contact data.
   - Unknown or revoked token: 404.
 

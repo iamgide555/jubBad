@@ -50,7 +50,7 @@ export function quoteCheckout(snapshot: BillSnapshot, playerId: string, model: C
     .filter((c) => c.undoneAt === null && c.playerId !== playerId)
     .map((c) => {
       const b = parseCheckoutBreakdown(c.breakdown);
-      return { playerId: c.playerId, amountSatang: c.amountSatang, walkInFeeSatang: b.walkInFeeSatang, walkInDiscountSatang: b.discountSatang };
+      return { playerId: c.playerId, amountSatang: c.amountSatang, walkInFeeSatang: b.walkInFeeSatang, walkInDiscountSatang: b.discountSatang, startingFeeSatang: c.model === 'perShuttle' ? b.baseSatang : 0 };
     });
   let preview: CheckoutPreview;
   try {

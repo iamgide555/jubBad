@@ -199,3 +199,9 @@ test('shares are integer satang that conserve the shuttle cost across the unsett
 test('a fair early checkout is not a thing: the model type rejects it at runtime too', () => {
   assert.throws(() => computeCheckoutPreview(input({ model: 'fair' as never })), /model/);
 });
+
+test('an earlier perShuttle receipt credits only its shuttle part, not the starting fee it embeds', () => {
+  const matches = [game(['s', 'a', 'b', 'c'], ['s1']), game(['p', 'd', 'e', 'f'], ['s1'])];
+  const r = computeCheckoutPreview(input({ matches, otherSettled: [{ playerId: 's', amountSatang: 4500, walkInFeeSatang: 0, walkInDiscountSatang: 0, startingFeeSatang: 3000 }] }));
+  assert.equal(r.breakdown.shuttleSatang, 1500);
+});

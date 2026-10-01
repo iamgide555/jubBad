@@ -26,6 +26,8 @@ export interface SettledReceipt {
   amountSatang: number;
   walkInFeeSatang: number;
   walkInDiscountSatang: number;
+  /** The starting fee a perShuttle receipt embeds: the host's flat charge, not money toward shuttles. */
+  startingFeeSatang?: number;
 }
 
 export interface CheckoutPreviewInput {
@@ -100,7 +102,7 @@ function shuttleShare(input: CheckoutPreviewInput, priceSatang: number): number 
     });
   });
   const settled = new Set(otherSettled.map((r) => r.playerId));
-  const credit = otherSettled.reduce((s, r) => s + r.amountSatang, 0);
+  const credit = otherSettled.reduce((s, r) => s + r.amountSatang - (r.startingFeeSatang ?? 0), 0);
   const unsettled = [...nominal.keys()].filter((id) => !settled.has(id) || id === playerId).sort();
   const shares = splitByWeight(Math.max(0, cost - credit), unsettled.map((id) => nominal.get(id)!));
   return shares[unsettled.indexOf(playerId)] ?? 0;

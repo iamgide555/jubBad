@@ -61,13 +61,18 @@ export class BillService {
         include: { roster: { include: { player: { select: { name: true } } } } },
       });
       if (!session) throw new NotFoundException({ code: 'SESSION_NOT_FOUND' });
-      const previous = session.billConfig
-        ? null
-        : await tx.session.findFirst({
+      // Prefill from the newest earlier config this session may use: an ordinary
+      // session never inherits an advanced session's perShuttle model, so the
+      // search walks back past those rather than stopping at the latest.
+      const earlier = session.billConfig
+        ? []
+        : await tx.session.findMany({
             where: { groupId: session.groupId, code: { not: code }, billConfig: { not: null }, createdAt: { lt: session.createdAt } },
             orderBy: { createdAt: 'desc' },
             select: { billConfig: true },
           });
+      const previous =
+        earlier.find((e) => session.shuttleToolsEnabled || parseBillConfig(e.billConfig)?.model !== 'perShuttle') ?? null;
       const pairings = await tx.pairing.findMany({
         where: { sessionId: code, confirmedAt: { not: null }, endedAt: { not: null } },
         orderBy: [{ courtNumber: 'asc' }, { matchNumber: 'asc' }],
@@ -179,6 +184,11 @@ export class BillService {
   async setBillConfig(code: string, dto: SetBillConfigDto): Promise<BillResponse> {
     const session = await this.prisma.session.findUnique({ where: { code }, include: { roster: { select: { playerId: true } } } });
     if (!session) throw new NotFoundException({ code: 'SESSION_NOT_FOUND' });
+    // perShuttle is an advanced-session model: refused on an ordinary session
+    // whatever the group's switch says today (the session's snapshot decides).
+    if (dto.model === 'perShuttle' && !session.shuttleToolsEnabled) {
+      throw new BadRequestException({ code: 'BILL_MODEL_NOT_ALLOWED' });
+    }
     const on = new Set(session.roster.map((r) => r.playerId));
     const referenced = [...dto.addedIds, ...dto.removedIds, ...dto.overrides.map((o) => o.playerId)];
     if (referenced.some((id) => !on.has(id))) throw new BadRequestException({ code: 'BILL_PLAYER_NOT_ON_ROSTER' });

@@ -468,3 +468,28 @@ test('shuttles: ordinary input is untouched and reports the legacy path', () => 
   );
   assert.equal(r.shuttleAllocation, 'legacy-basic');
 });
+
+// ---- perShuttle: the advanced fourth model (host feedback E) ----
+
+test('perShuttle: no shuttles recorded, every billed participant pays the starting fee', () => {
+  const r = computeBill(input({ model: 'perShuttle', startingFeeSatang: 5000 }));
+  assert.deepEqual(amounts(r), { a: 5000, b: 5000, c: 5000, d: 5000, e: 5000 });
+  assert.deepEqual(r.warnings, []);
+});
+
+test('perShuttle: a removed player is not billed and the others still pay only their own fee', () => {
+  const r = computeBill(input({ model: 'perShuttle', startingFeeSatang: 5000, removedIds: ['a'] }));
+  assert.deepEqual(amounts(r), { b: 5000, c: 5000, d: 5000, e: 5000 });
+});
+
+test('startingFeeSatang must be a non-negative whole number of satang', () => {
+  assert.throws(() => computeBill(input({ model: 'perShuttle', startingFeeSatang: -1 })), /startingFeeSatang/);
+  assert.throws(() => computeBill(input({ model: 'perShuttle', startingFeeSatang: 10.5 })), /startingFeeSatang/);
+});
+
+test('the default config carries a zero starting fee and existing models ignore it', () => {
+  assert.equal(DEFAULT_BILL_CONFIG.startingFeeSatang, 0);
+  const withFee = computeBill(input({ model: 'perGame', perGameRateSatang: 1000, startingFeeSatang: 9999 }));
+  const without = computeBill(input({ model: 'perGame', perGameRateSatang: 1000 }));
+  assert.deepEqual(amounts(withFee), amounts(without));
+});

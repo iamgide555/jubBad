@@ -5,8 +5,15 @@
  * docs/superpowers/specs/2026-09-22-roadmap-c-series-design.md.
  */
 
-export const BILL_MODELS = ['fair', 'perGame', 'buffet'] as const;
+export const BILL_MODELS = ['fair', 'perGame', 'buffet', 'perShuttle'] as const;
 export type BillModel = (typeof BILL_MODELS)[number];
+/**
+ * What a player leaving early may be charged under. `fair` splits a whole
+ * night's cost and cannot be quoted mid-session; `perShuttle` (advanced
+ * sessions only) is a starting fee plus a share of the recorded distinct
+ * shuttles the player's finished games used.
+ */
+export type CheckoutModel = Exclude<BillModel, 'fair'>;
 export const SPLIT_MODES = ['equal', 'byGames'] as const;
 export type SplitMode = (typeof SPLIT_MODES)[number];
 export const ROUNDING_STEPS = [1, 5, 10] as const;
@@ -28,6 +35,8 @@ export interface BillConfig {
   capSatang: number | null;
   buffetPriceSatang: number;
   buffetShuttlesIncluded: boolean;
+  /** perShuttle only: the flat fee every billed person pays before their shuttle share. */
+  startingFeeSatang: number;
   hostFeeSatang: number;
   walkInFeeSatang: number;
   roundingBaht: RoundingStep;
@@ -46,6 +55,7 @@ export const DEFAULT_BILL_CONFIG: BillConfig = {
   capSatang: null,
   buffetPriceSatang: 0,
   buffetShuttlesIncluded: true,
+  startingFeeSatang: 0,
   hostFeeSatang: 0,
   walkInFeeSatang: 2000,
   roundingBaht: 1,
@@ -165,6 +175,7 @@ function validate(input: BillInput): void {
   assertMoney('entryFeeSatang', c.entryFeeSatang);
   assertMoney('capSatang', c.capSatang);
   assertMoney('buffetPriceSatang', c.buffetPriceSatang);
+  assertMoney('startingFeeSatang', c.startingFeeSatang);
   assertMoney('hostFeeSatang', c.hostFeeSatang);
   assertMoney('walkInFeeSatang', c.walkInFeeSatang);
   assertMoney('shuttleCount', input.shuttleCount);
@@ -308,6 +319,9 @@ export function computeBill(input: BillInput): BillResult {
     else if (config.model === 'perGame') {
       const raw = config.entryFeeSatang + g * config.perGameRateSatang;
       base = config.capSatang === null ? raw : Math.min(raw, config.capSatang);
+    } else if (config.model === 'perShuttle') {
+      // The starting fee; the recorded-shuttle share is added by the settlement-aware path.
+      base = config.startingFeeSatang;
     } else base = config.buffetPriceSatang + shuttleSatang;
     baseOf.set(id, base);
     pre.set(id, base + config.hostFeeSatang);

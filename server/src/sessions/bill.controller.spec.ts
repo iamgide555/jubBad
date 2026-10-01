@@ -116,7 +116,7 @@ describe('SessionsController (bill)', () => {
     const baseConfig = {
       model: 'fair', courtFeeSatang: 20000, courtSplit: 'equal', shuttleSplit: 'byGames',
       perGameRateSatang: 0, entryFeeSatang: 0, capSatang: null, buffetPriceSatang: 0,
-      buffetShuttlesIncluded: true, hostFeeSatang: 0, walkInFeeSatang: 2000, roundingBaht: 1,
+      buffetShuttlesIncluded: true, startingFeeSatang: 0, hostFeeSatang: 0, walkInFeeSatang: 2000, roundingBaht: 1,
       addedIds: [], removedIds: [], overrides: [],
     };
 
@@ -218,7 +218,7 @@ describe('SessionsController (bill)', () => {
     const cfg = (over: Record<string, unknown> = {}) => ({
       model: 'fair', courtFeeSatang: 0, courtSplit: 'equal', shuttleSplit: 'byGames',
       perGameRateSatang: 0, entryFeeSatang: 0, capSatang: null, buffetPriceSatang: 0,
-      buffetShuttlesIncluded: true, hostFeeSatang: 0, walkInFeeSatang: 0, roundingBaht: 1,
+      buffetShuttlesIncluded: true, startingFeeSatang: 0, hostFeeSatang: 0, walkInFeeSatang: 0, roundingBaht: 1,
       addedIds: [], removedIds: [], overrides: [], ...over,
     });
 
@@ -428,6 +428,111 @@ describe('SessionsController (bill)', () => {
         }
       } finally {
         await n.cleanup();
+      }
+    });
+  });
+
+  describe('per shuttle model', () => {
+    const cfg = (over: Record<string, unknown> = {}) => ({
+      model: 'perShuttle', courtFeeSatang: 0, courtSplit: 'equal', shuttleSplit: 'byGames',
+      perGameRateSatang: 0, entryFeeSatang: 0, capSatang: null, buffetPriceSatang: 0,
+      buffetShuttlesIncluded: true, hostFeeSatang: 0, walkInFeeSatang: 0, roundingBaht: 1,
+      startingFeeSatang: 3000, addedIds: [], removedIds: [], overrides: [], ...over,
+    });
+    const setAdvanced = (code: string, on: boolean) =>
+      prisma.session.update({ where: { code }, data: { shuttleToolsEnabled: on } });
+
+    it('an advanced session accepts perShuttle with a starting fee and bills it', async () => {
+      const { sessionCode, players, finishMatch, cleanup } = await fixture(4);
+      try {
+        await setAdvanced(sessionCode, true);
+        await finishMatch(players.map((p) => p.id), 1);
+        const res = await request(server).post(`/sessions/${sessionCode}/bill-config`).send(cfg()).expect(201);
+        expect(res.body.config).toMatchObject({ model: 'perShuttle', startingFeeSatang: 3000 });
+        expect(res.body.result.rows.map((r: { amountSatang: number }) => r.amountSatang)).toEqual([3000, 3000, 3000, 3000]);
+      } finally {
+        await cleanup();
+      }
+    });
+
+    it('an ordinary session refuses perShuttle, even if the group switch is on now', async () => {
+      const { sessionCode, groupCode, cleanup } = await fixture(4);
+      try {
+        await prisma.group.update({ where: { code: groupCode }, data: { shuttleToolsEnabled: true } });
+        const res = await request(server).post(`/sessions/${sessionCode}/bill-config`).send(cfg()).expect(400);
+        expect(res.body.code).toBe('BILL_MODEL_NOT_ALLOWED');
+        expect((await prisma.session.findUniqueOrThrow({ where: { code: sessionCode } })).billConfig).toBeNull();
+      } finally {
+        await cleanup();
+      }
+    });
+
+    it('rejects a negative or fractional starting fee and a body missing it', async () => {
+      const { sessionCode, cleanup } = await fixture(4);
+      try {
+        await setAdvanced(sessionCode, true);
+        await request(server).post(`/sessions/${sessionCode}/bill-config`).send(cfg({ startingFeeSatang: -1 })).expect(400);
+        await request(server).post(`/sessions/${sessionCode}/bill-config`).send(cfg({ startingFeeSatang: 10.5 })).expect(400);
+        const { startingFeeSatang: _drop, ...without } = cfg();
+        void _drop;
+        await request(server).post(`/sessions/${sessionCode}/bill-config`).send(without).expect(400);
+      } finally {
+        await cleanup();
+      }
+    });
+
+    /** Old sessions in the same group, oldest first, each with a saved config. */
+    async function history(groupCode: string, saved: { model: string; advanced: boolean; extra?: Record<string, unknown> }[]) {
+      const codes: string[] = [];
+      for (const [i, h] of saved.entries()) {
+        const code = randomUUID();
+        codes.push(code);
+        await prisma.session.create({
+          data: {
+            code, groupId: groupCode, courtCount: 1, rawImportText: '', shuttleToolsEnabled: h.advanced,
+            createdAt: new Date(Date.UTC(2020, 0, 1 + i)), billConfig: JSON.stringify(cfg({ model: h.model, ...h.extra })),
+          },
+        });
+      }
+      return codes;
+    }
+
+    it('a new ordinary session skips an advanced perShuttle config and uses the newest eligible one', async () => {
+      const { sessionCode, groupCode, cleanup } = await fixture(4);
+      try {
+        await history(groupCode, [
+          { model: 'buffet', advanced: false, extra: { buffetPriceSatang: 9000 } },
+          { model: 'perShuttle', advanced: true },
+        ]);
+        const res = await request(server).get(`/sessions/${sessionCode}/bill`).expect(200);
+        expect(res.body.config.model).toBe('buffet');
+        expect(res.body.configSource).toBe('previous');
+      } finally {
+        await cleanup();
+      }
+    });
+
+    it('falls back to the ordinary default when only perShuttle configs exist', async () => {
+      const { sessionCode, groupCode, cleanup } = await fixture(4);
+      try {
+        await history(groupCode, [{ model: 'perShuttle', advanced: true }, { model: 'perShuttle', advanced: true }]);
+        const res = await request(server).get(`/sessions/${sessionCode}/bill`).expect(200);
+        expect(res.body.config.model).toBe('fair');
+        expect(res.body.configSource).toBe('default');
+      } finally {
+        await cleanup();
+      }
+    });
+
+    it('a new advanced session may inherit perShuttle and its starting fee', async () => {
+      const { sessionCode, groupCode, cleanup } = await fixture(4);
+      try {
+        await setAdvanced(sessionCode, true);
+        await history(groupCode, [{ model: 'perShuttle', advanced: true, extra: { startingFeeSatang: 4200 } }]);
+        const res = await request(server).get(`/sessions/${sessionCode}/bill`).expect(200);
+        expect(res.body.config).toMatchObject({ model: 'perShuttle', startingFeeSatang: 4200 });
+      } finally {
+        await cleanup();
       }
     });
   });

@@ -31,6 +31,18 @@ describe('bill-config', () => {
     expect(withoutPerPerson(c)).toEqual({ ...DEFAULT_BILL_CONFIG, hostFeeSatang: 1000 });
   });
 
+  it('a legacy config with no starting fee reads as zero, and a valid one round-trips', () => {
+    expect(parseBillConfig(JSON.stringify({ model: 'fair' }))!.startingFeeSatang).toBe(0);
+    const c = { ...DEFAULT_BILL_CONFIG, model: 'perShuttle' as const, startingFeeSatang: 4500 };
+    expect(parseBillConfig(serializeBillConfig(c))).toEqual(c);
+  });
+
+  it('an invalid starting fee falls back to zero rather than breaking the read', () => {
+    expect(parseBillConfig(JSON.stringify({ startingFeeSatang: -3 }))!.startingFeeSatang).toBe(0);
+    expect(parseBillConfig(JSON.stringify({ startingFeeSatang: 1.5 }))!.startingFeeSatang).toBe(0);
+    expect(parseBillConfig(JSON.stringify({ startingFeeSatang: 'x' }))!.startingFeeSatang).toBe(0);
+  });
+
   it('sanitizeForRoster drops ids not on the roster', () => {
     const c = { ...DEFAULT_BILL_CONFIG, addedIds: ['a', 'gone'], removedIds: ['gone'], overrides: [{ playerId: 'gone', amountSatang: 1 }] };
     expect(sanitizeForRoster(c, ['a'])).toEqual({ ...DEFAULT_BILL_CONFIG, addedIds: ['a'] });

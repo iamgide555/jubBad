@@ -37,6 +37,8 @@ export function quoteCheckout(snapshot: BillSnapshot, playerId: string, model: C
   if (session.endedAt !== null) throw new ConflictException({ code: 'SESSION_ENDED' });
   const row = session.roster.find((r) => r.playerId === playerId);
   if (!row) throw new NotFoundException({ code: 'PLAYER_NOT_ON_ROSTER' });
+  // Excluded from billing on purpose: the host restores them first, so a quote never silently re-bills them.
+  if (config.removedIds.includes(playerId)) throw new ConflictException({ code: 'PLAYER_REMOVED_FROM_BILL' });
   const settled = activeCheckouts(checkouts);
   if (settled.has(playerId)) throw new ConflictException({ code: 'PLAYER_CHECKED_OUT' });
   // A pending lineup is never edited under the host's hand, and a running game

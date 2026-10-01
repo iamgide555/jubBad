@@ -705,4 +705,151 @@ describe('CheckoutController', () => {
       }
     });
   });
+
+  describe('checkout bill', () => {
+    const bill = (code: string) => request(server).get(`/sessions/${code}/bill`);
+    const setCfg = (code: string, over: Record<string, unknown>) =>
+      prisma.session.update({ where: { code }, data: { billConfig: cfg(over) } });
+
+    it('a settled leaver is one settled row, absent from still-due, with exact totals', async () => {
+      const f = await fixture(8, { config: cfg({ model: 'perShuttle', startingFeeSatang: 3000 }) });
+      try {
+        const ids = f.players.map((x) => x.id);
+        await f.finish(ids.slice(0, 4), [1]);
+        await f.finish(ids.slice(4), [1]);
+        const r = (await f.settle(ids[0], 'perShuttle')).body;
+        expect(r.amountSatang).toBe(4500);
+        const b = (await bill(f.sessionCode).expect(200)).body;
+        expect(b.settled).toEqual([expect.objectContaining({ id: r.id, playerId: ids[0], name: 'P0', model: 'perShuttle', amountSatang: 4500 })]);
+        expect(b.result.rows.map((x: { playerId: string }) => x.playerId)).not.toContain(ids[0]);
+        expect(b.result.rows).toHaveLength(7);
+        expect(b.result.totals).toMatchObject({ settledTotalSatang: 4500, stillDueSatang: 7 * 4500, collectedSatang: 8 * 4500, excessCreditSatang: 0, uncoveredCostSatang: 0 });
+        expect(b.readyToCopy).toBe(true);
+      } finally {
+        await f.cleanup();
+      }
+    });
+
+    it('the receipt keeps its model and amount when the final model, price or config change; removedIds cannot resurrect it', async () => {
+      const f = await fixture(8, { config: cfg({ model: 'perShuttle', startingFeeSatang: 3000 }) });
+      try {
+        const ids = f.players.map((x) => x.id);
+        await f.finish(ids.slice(0, 4), [1]);
+        await f.finish(ids.slice(4), [1]);
+        const r = (await f.settle(ids[0], 'perShuttle')).body;
+        await setCfg(f.sessionCode, { model: 'perGame', entryFeeSatang: 1000, perGameRateSatang: 500, removedIds: [ids[0]], overrides: [{ playerId: ids[0], amountSatang: 1 }] });
+        await prisma.session.update({ where: { code: f.sessionCode }, data: { shuttlePriceSatang: 50000 } });
+        const b = (await bill(f.sessionCode).expect(200)).body;
+        expect(b.settled[0]).toMatchObject({ id: r.id, model: 'perShuttle', amountSatang: 4500 });
+        expect(b.result.rows.map((x: { playerId: string }) => x.playerId)).not.toContain(ids[0]);
+        expect(b.result.totals.settledTotalSatang).toBe(4500);
+      } finally {
+        await f.cleanup();
+      }
+    });
+
+    it('a later reuse of the same physical shuttle changes nothing already settled and is still charged once', async () => {
+      const f = await fixture(12, { config: cfg({ model: 'perShuttle', startingFeeSatang: 3000 }) });
+      try {
+        const ids = f.players.map((x) => x.id);
+        await f.finish(ids.slice(0, 4), [1]);
+        const r = (await f.settle(ids[0], 'perShuttle')).body;
+        await f.finish(ids.slice(4, 8), [1]);
+        await f.finish(ids.slice(8), [1]);
+        const b = (await bill(f.sessionCode).expect(200)).body;
+        expect(b.settled[0].amountSatang).toBe(r.amountSatang);
+        // The shuttle is paid once in total: a's frozen 3000 plus what the rest owe for it.
+        const dueShuttle = b.result.rows.reduce((n: number, x: { shuttleSatang: number }) => n + x.shuttleSatang, 0);
+        expect(r.breakdown.shuttleSatang + dueShuttle).toBe(12000);
+        expect(b.result.totals.excessCreditSatang).toBe(0);
+      } finally {
+        await f.cleanup();
+      }
+    });
+
+    it('a correction that cuts the cost below what was paid shows an excess and blocks copying', async () => {
+      const f = await fixture(5, { config: cfg({ model: 'fair', courtFeeSatang: 1000 }) });
+      try {
+        const ids = f.players.map((x) => x.id);
+        await f.finish(ids.slice(0, 4), []);
+        await setCfg(f.sessionCode, { model: 'perGame', entryFeeSatang: 5000 });
+        await f.settle(ids[0], 'perGame');
+        await prisma.session.update({ where: { code: f.sessionCode }, data: { shuttleCount: 0 } });
+        await setCfg(f.sessionCode, { model: 'fair', courtFeeSatang: 1000 });
+        const b = (await bill(f.sessionCode).expect(200)).body;
+        expect(b.result.totals.excessCreditSatang).toBe(4000);
+        expect(b.result.warnings).toContain('EXCESS_CREDIT');
+        expect(b.readyToCopy).toBe(false);
+        expect(b.result.rows.every((x: { amountSatang: number }) => x.amountSatang >= 0)).toBe(true);
+      } finally {
+        await f.cleanup();
+      }
+    });
+
+    it('everyone left with the cost unpaid reports an uncovered cost, not readyToCopy', async () => {
+      const f = await fixture(4, { config: cfg({ model: 'fair', courtFeeSatang: 10000 }) });
+      try {
+        const ids = f.players.map((x) => x.id);
+        await f.finish(ids, []);
+        await prisma.session.update({ where: { code: f.sessionCode }, data: { shuttleCount: 0 } });
+        for (const id of ids) await f.settle(id, 'perShuttle');
+        const b = (await bill(f.sessionCode).expect(200)).body;
+        expect(b.result.rows).toEqual([]);
+        expect(b.result.totals.uncoveredCostSatang).toBe(10000 - 4 * 2000);
+        expect(b.readyToCopy).toBe(false);
+      } finally {
+        await f.cleanup();
+      }
+    });
+
+    it('an unknown finished game blocks a perShuttle bill; zero price and zero games are valid', async () => {
+      const f = await fixture(4, { priceSatang: 0 });
+      try {
+        let b = (await bill(f.sessionCode).expect(200)).body;
+        expect(b.readyToCopy).toBe(true);
+        await f.finish(f.players.map((x) => x.id), null);
+        b = (await bill(f.sessionCode).expect(200)).body;
+        expect(b.result.warnings).toContain('UNKNOWN_SHUTTLE_USE');
+        expect(b.readyToCopy).toBe(false);
+      } finally {
+        await f.cleanup();
+      }
+    });
+
+    it('an ordinary session bill has no settled rows and zero settlement totals', async () => {
+      const f = await fixture(4, { advanced: false, config: cfg({ model: 'perGame' }) });
+      try {
+        const b = (await bill(f.sessionCode).expect(200)).body;
+        expect(b.settled).toEqual([]);
+        expect(b.result.totals).toMatchObject({ settledTotalSatang: 0, excessCreditSatang: 0, uncoveredCostSatang: 0 });
+      } finally {
+        await f.cleanup();
+      }
+    });
+
+    it('a player removed from the bill must be restored before they can be checked out', async () => {
+      const f = await fixture(4, { config: cfg({ removedIds: [] }) });
+      try {
+        await setCfg(f.sessionCode, { removedIds: [f.players[0].id] });
+        expect((await f.preview(f.players[0].id, 'perGame').expect(409)).body.code).toBe('PLAYER_REMOVED_FROM_BILL');
+        await setCfg(f.sessionCode, { removedIds: [] });
+        await f.preview(f.players[0].id, 'perGame').expect(201);
+      } finally {
+        await f.cleanup();
+      }
+    });
+
+    it('owner-only: the public session read and summary carry no checkout data', async () => {
+      const f = await fixture(5);
+      try {
+        await f.settle(f.players[0].id);
+        for (const path of [`/sessions/${f.sessionCode}`, `/sessions/${f.sessionCode}/summary`]) {
+          const res = await request(server).get(path).expect(200);
+          expect(JSON.stringify(res.body)).not.toMatch(/checkout|amountSatang|idempotency/i);
+        }
+      } finally {
+        await f.cleanup();
+      }
+    });
+  });
 });

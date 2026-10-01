@@ -1,9 +1,10 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service.js';
-import { computeBill, type BillConfig, type BillResult, type ShuttleAllocation } from '../../../engines/bill.ts';
+import { computeBill, type CheckoutModel, type BillConfig, type BillResult, type ShuttleAllocation } from '../../../engines/bill.ts';
 import { deriveShuttleAccounting } from './shuttle-tracking.js';
 import { serializeBillConfig } from './bill-config.js';
 import { engineMatches, loadBillSnapshot } from './bill-snapshot.js';
+import { parseCheckoutBreakdown } from './checkout-pricing.js';
 import { SessionLock } from './session-lock.js';
 import type { SetBillConfigDto } from './dto/set-bill-config.dto.js';
 
@@ -17,6 +18,8 @@ export interface BillResponse {
   config: BillConfig;
   configSource: 'saved' | 'previous' | 'default';
   players: { playerId: string; name: string; games: number; walkIn: boolean }[];
+  /** Early checkouts as frozen (advanced sessions; empty otherwise). They are not still-due rows. */
+  settled: { id: string; playerId: string; name: string; model: CheckoutModel; amountSatang: number; settledAt: string }[];
   result: BillResult;
   /**
    * Where the shuttle count came from and how its cost was shared. The
@@ -60,7 +63,9 @@ export class BillService {
     // the finished games and their shuttle uses come from a single snapshot, so
     // a correction landing mid-read can never pair old uses with a new count.
     const snapshot = await this.prisma.$transaction((tx) => loadBillSnapshot(tx, code));
-    const { session, config, configSource, pairings, uses } = snapshot;
+    const { session, config, configSource, pairings, uses, checkouts } = snapshot;
+    const live = checkouts.filter((c) => c.undoneAt === null);
+    const names = new Map(session.roster.map((r) => [r.playerId, r.player.name]));
 
     const advanced = session.shuttleToolsEnabled;
     const usesByPairing = new Map<string, string[]>();
@@ -101,6 +106,14 @@ export class BillService {
       shuttleCount: effectiveCount,
       shuttlePriceSatang: session.shuttlePriceSatang,
       shuttleAllocation: advanced ? 'identities' : 'legacy',
+      settled: live.map((c) => {
+        const b = parseCheckoutBreakdown(c.breakdown);
+        return {
+          id: c.id, playerId: c.playerId, model: c.model as CheckoutModel, amountSatang: c.amountSatang,
+          settledAt: c.settledAt.toISOString(), walkInFeeSatang: b.walkInFeeSatang, walkInDiscountSatang: b.discountSatang,
+          startingFeeSatang: c.model === 'perShuttle' ? b.baseSatang : 0,
+        };
+      }),
     });
 
     const games = new Map<string, number>();
@@ -118,6 +131,7 @@ export class BillService {
       config,
       configSource,
       players,
+      settled: result.settledRows.map((r) => ({ ...r, name: names.get(r.playerId) ?? '' })),
       result,
       accounting: {
         recordedFinishedShuttles,

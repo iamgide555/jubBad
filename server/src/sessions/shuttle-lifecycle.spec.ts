@@ -366,4 +366,315 @@ describe('shuttle lifecycle', () => {
       }
     });
   });
+
+  /** Proposes, confirms with a new shuttle, and returns the live pairing and its shuttle id. */
+  async function startActive(sessionCode: string, court: number, choice: Parameters<SessionsService['confirmPairing']>[3] = { kind: 'new' }) {
+    const p = await propose(sessionCode, court);
+    const confirmed = await service.confirmPairing(sessionCode, p.id, undefined, choice);
+    return { id: p.id, revision: confirmed.revision, shuttleId: confirmed.lastShuttleId! };
+  }
+  const shuttleRow = (id: string) => prisma.sessionShuttle.findUniqueOrThrow({ where: { id } });
+  const openOne = (sessionCode: string, number: number, extra: Record<string, unknown> = {}) =>
+    prisma.sessionShuttle.create({ data: { sessionId: sessionCode, number, ...extra } });
+
+  describe('shuttle switch', () => {
+    it('switching among session shuttles writes each use once, even when returning to one', async () => {
+      const { sessionCode, cleanup } = await fixture(4, 1);
+      try {
+        const g = await startActive(sessionCode, 1);
+        const two = await openOne(sessionCode, 2);
+        let rev = g.revision;
+        for (const target of [two.id, g.shuttleId, two.id]) {
+          const r = await service.switchShuttle(sessionCode, g.id, { choice: { kind: 'existing', shuttleId: target }, expectedRevision: rev });
+          rev = r.revision;
+          expect(r.lastShuttleId).toBe(target);
+        }
+        expect((await usesOf(g.id)).map((u) => u.shuttleId).sort()).toEqual([g.shuttleId, two.id].sort());
+      } finally {
+        await cleanup();
+      }
+    });
+
+    it('opening a new shuttle mid-game adds it to the game\'s uses', async () => {
+      const { sessionCode, cleanup } = await fixture(4, 1);
+      try {
+        const g = await startActive(sessionCode, 1);
+        const r = await service.switchShuttle(sessionCode, g.id, { choice: { kind: 'new' }, expectedRevision: g.revision });
+        expect(await numbers(sessionCode)).toEqual([1, 2]);
+        expect(await usesOf(g.id)).toHaveLength(2);
+        expect(r.lastShuttleId).not.toBe(g.shuttleId);
+      } finally {
+        await cleanup();
+      }
+    });
+
+    it('another active court cannot claim the current shuttle, and switching away releases it', async () => {
+      const { sessionCode, cleanup } = await fixture(8, 2);
+      try {
+        const a = await startActive(sessionCode, 1);
+        const b = await startActive(sessionCode, 2);
+        const claim = (shuttleId: string, id = b.id, rev = b.revision) =>
+          service.switchShuttle(sessionCode, id, { choice: { kind: 'existing', shuttleId }, expectedRevision: rev });
+        expect(await code(claim(a.shuttleId))).toEqual({ status: 409, code: 'SHUTTLE_UNAVAILABLE' });
+
+        await service.switchShuttle(sessionCode, a.id, { choice: { kind: 'new' }, expectedRevision: a.revision });
+        const claimed = await claim(a.shuttleId);
+        expect(claimed.lastShuttleId).toBe(a.shuttleId);
+      } finally {
+        await cleanup();
+      }
+    });
+
+    it('switch-and-retire is one atomic action; a refused switch retires nothing', async () => {
+      const { sessionCode, cleanup } = await fixture(8, 2);
+      try {
+        const a = await startActive(sessionCode, 1);
+        const b = await startActive(sessionCode, 2);
+        // Refused (court 2's shuttle is busy): the previous shuttle stays usable.
+        expect(
+          await code(
+            service.switchShuttle(sessionCode, a.id, {
+              choice: { kind: 'existing', shuttleId: b.shuttleId },
+              expectedRevision: a.revision,
+              retirePrevious: true,
+            })
+          )
+        ).toEqual({ status: 409, code: 'SHUTTLE_UNAVAILABLE' });
+        expect((await shuttleRow(a.shuttleId)).usable).toBe(true);
+
+        // Accepted: new shuttle in hand and the old one retired together.
+        const r = await service.switchShuttle(sessionCode, a.id, {
+          choice: { kind: 'new' },
+          expectedRevision: a.revision,
+          retirePrevious: true,
+        });
+        expect((await shuttleRow(a.shuttleId)).usable).toBe(false);
+        expect(r.lastShuttleId).not.toBe(a.shuttleId);
+        expect(await usesOf(a.id)).toHaveLength(2);
+      } finally {
+        await cleanup();
+      }
+    });
+
+    it('rejects a stale revision, a pending game, a finished game, an ended session and an ordinary session without any write', async () => {
+      const { sessionCode, cleanup } = await fixture(8, 2);
+      const ordinary = await fixture(4, 1, false);
+      try {
+        const a = await startActive(sessionCode, 1);
+        const sw = (id: string, rev: number, session = sessionCode) =>
+          code(service.switchShuttle(session, id, { choice: { kind: 'new' }, expectedRevision: rev }));
+        expect(await sw(a.id, a.revision + 7)).toEqual({ status: 409, code: 'PAIRING_STALE' });
+
+        const pending = await propose(sessionCode, 2);
+        expect(await sw(pending.id, pending.revision)).toEqual({ status: 409, code: 'PAIRING_CONFIRMATION_REQUIRED' });
+
+        const ordPairing = await propose(ordinary.sessionCode, 1);
+        await service.confirmPairing(ordinary.sessionCode, ordPairing.id);
+        expect(await sw(ordPairing.id, ordPairing.revision + 1, ordinary.sessionCode)).toEqual({
+          status: 409,
+          code: 'SHUTTLE_TRACKING_DISABLED',
+        });
+
+        const finished = await service.finishPairing(sessionCode, a.id, { winner: 'A' });
+        expect(await sw(a.id, finished.revision)).toEqual({ status: 409, code: 'PAIRING_ENDED' });
+        expect(await numbers(sessionCode)).toEqual([1]);
+
+        await prisma.session.update({ where: { code: sessionCode }, data: { endedAt: new Date() } });
+        expect(await sw(a.id, finished.revision)).toEqual({ status: 409, code: 'SESSION_ENDED' });
+        expect(await numbers(ordinary.sessionCode)).toEqual([]);
+      } finally {
+        await cleanup();
+        await ordinary.cleanup();
+      }
+    });
+
+    it('a winner tap that lands first makes the late switch fail, keeping only the accepted update', async () => {
+      const { sessionCode, cleanup } = await fixture(4, 1);
+      try {
+        const g = await startActive(sessionCode, 1);
+        await service.finishPairing(sessionCode, g.id, { winner: 'A', expectedRevision: g.revision });
+        expect(await code(service.switchShuttle(sessionCode, g.id, { choice: { kind: 'new' }, expectedRevision: g.revision }))).toMatchObject({ status: 409 });
+        expect(await numbers(sessionCode)).toEqual([1]);
+        expect((await row(g.id)).winner).toBe('A');
+
+        // The mirror: the switch lands first, so the late winner tap is stale.
+        const h = await startActive(sessionCode, 1);
+        const switched = await service.switchShuttle(sessionCode, h.id, { choice: { kind: 'new' }, expectedRevision: h.revision });
+        expect(await code(service.finishPairing(sessionCode, h.id, { winner: 'B', expectedRevision: h.revision }))).toEqual({
+          status: 409,
+          code: 'PAIRING_STALE',
+        });
+        expect((await row(h.id)).endedAt).toBeNull();
+        expect(switched.revision).toBe(h.revision + 1);
+      } finally {
+        await cleanup();
+      }
+    });
+  });
+
+  describe('shuttle inventory', () => {
+    it('a standalone retire of a current shuttle fails, an idle one retires, and restore works', async () => {
+      const { sessionCode, cleanup } = await fixture(4, 1);
+      try {
+        const g = await startActive(sessionCode, 1);
+        expect(await code(service.setShuttleUsable(sessionCode, g.shuttleId, false))).toEqual({ status: 409, code: 'SHUTTLE_IN_USE' });
+        const idle = await openOne(sessionCode, 2);
+        expect(await service.setShuttleUsable(sessionCode, idle.id, false)).toMatchObject({ usable: false });
+        expect(await service.setShuttleUsable(sessionCode, idle.id, true)).toMatchObject({ usable: true });
+        expect((await shuttleRow(g.shuttleId)).usable).toBe(true);
+      } finally {
+        await cleanup();
+      }
+    });
+
+    it('an unreferenced shuttle can be voided and its number is never reused; referenced, current and foreign ones cannot', async () => {
+      const { sessionCode, cleanup } = await fixture(4, 1);
+      const other = await fixture(4, 1);
+      try {
+        const g = await startActive(sessionCode, 1);
+        const orphan = await openOne(sessionCode, 2);
+        const foreign = await openOne(other.sessionCode, 1);
+        expect(await code(service.voidShuttle(sessionCode, g.shuttleId))).toEqual({ status: 409, code: 'SHUTTLE_IN_USE' });
+        expect(await code(service.voidShuttle(sessionCode, foreign.id))).toEqual({ status: 404, code: 'SHUTTLE_NOT_FOUND' });
+
+        await service.voidShuttle(sessionCode, orphan.id);
+        expect((await shuttleRow(orphan.id)).voidedAt).not.toBeNull();
+        expect(await code(service.voidShuttle(sessionCode, orphan.id))).toEqual({ status: 404, code: 'SHUTTLE_NOT_FOUND' });
+        // #2 stays reserved, so the next opened shuttle is #3.
+        await service.switchShuttle(sessionCode, g.id, { choice: { kind: 'new' }, expectedRevision: g.revision });
+        expect(await numbers(sessionCode)).toEqual([1, 2, 3]);
+      } finally {
+        await cleanup();
+        await other.cleanup();
+      }
+    });
+
+    it('a retired shuttle that has been used cannot be voided, and tracking-off sessions refuse every inventory write', async () => {
+      const { sessionCode, cleanup } = await fixture(4, 1);
+      const ordinary = await fixture(4, 1, false);
+      try {
+        const g = await startActive(sessionCode, 1);
+        await service.finishPairing(sessionCode, g.id, { winner: 'A' });
+        await service.setShuttleUsable(sessionCode, g.shuttleId, false);
+        expect(await code(service.voidShuttle(sessionCode, g.shuttleId))).toEqual({ status: 409, code: 'SHUTTLE_IN_USE' });
+
+        const stray = await openOne(ordinary.sessionCode, 1);
+        expect(await code(service.setShuttleUsable(ordinary.sessionCode, stray.id, false))).toEqual({ status: 409, code: 'SHUTTLE_TRACKING_DISABLED' });
+        expect(await code(service.voidShuttle(ordinary.sessionCode, stray.id))).toEqual({ status: 409, code: 'SHUTTLE_TRACKING_DISABLED' });
+      } finally {
+        await cleanup();
+        await ordinary.cleanup();
+      }
+    });
+  });
+
+  describe('shuttle correction', () => {
+    async function finishedGame(sessionCode: string, court = 1) {
+      const g = await startActive(sessionCode, court);
+      const done = await service.finishPairing(sessionCode, g.id, { winner: 'A', scoreA: 21, scoreB: 15 });
+      return { ...g, revision: done.revision };
+    }
+
+    it('a correction may add a shuttle that is now retired, while a live court may not select it', async () => {
+      const { sessionCode, cleanup } = await fixture(8, 2);
+      try {
+        const old = await finishedGame(sessionCode, 1);
+        const retired = await openOne(sessionCode, 2, { usable: false });
+        const fixed = await service.correctShuttleUse(sessionCode, old.id, { shuttleIds: [old.shuttleId, retired.id], openNew: false, expectedRevision: old.revision });
+        expect((await usesOf(old.id)).map((u) => u.shuttleId).sort()).toEqual([old.shuttleId, retired.id].sort());
+        expect(fixed.shuttleLogKnown).toBe(true);
+
+        const live = await startActive(sessionCode, 2);
+        expect(
+          await code(service.switchShuttle(sessionCode, live.id, { choice: { kind: 'existing', shuttleId: retired.id }, expectedRevision: live.revision }))
+        ).toEqual({ status: 409, code: 'SHUTTLE_UNAVAILABLE' });
+      } finally {
+        await cleanup();
+      }
+    });
+
+    it('correcting to none is known zero and clears the court\'s next-game suggestion; the winner and score are untouched', async () => {
+      const { sessionCode, cleanup } = await fixture(4, 1);
+      try {
+        const old = await finishedGame(sessionCode);
+        await service.correctShuttleUse(sessionCode, old.id, { shuttleIds: [], openNew: false, expectedRevision: old.revision });
+        const after = await row(old.id);
+        expect(after.shuttleLogKnown).toBe(true);
+        expect(await usesOf(old.id)).toEqual([]);
+        expect(after.lastShuttleId).toBeNull();
+        expect(after.winner).toBe('A');
+        expect([after.scoreA, after.scoreB]).toEqual([21, 15]);
+        expect(after.revision).toBe(old.revision + 1);
+      } finally {
+        await cleanup();
+      }
+    });
+
+    it('keeps the next-game suggestion when the corrected log still includes that shuttle', async () => {
+      const { sessionCode, cleanup } = await fixture(4, 1);
+      try {
+        const old = await finishedGame(sessionCode);
+        const extra = await openOne(sessionCode, 2);
+        await service.correctShuttleUse(sessionCode, old.id, { shuttleIds: [old.shuttleId, extra.id], openNew: false, expectedRevision: old.revision });
+        expect((await row(old.id)).lastShuttleId).toBe(old.shuttleId);
+      } finally {
+        await cleanup();
+      }
+    });
+
+    it('opening a missed new shuttle after the session ended works', async () => {
+      const { sessionCode, cleanup } = await fixture(4, 1);
+      try {
+        const old = await finishedGame(sessionCode);
+        await prisma.session.update({ where: { code: sessionCode }, data: { endedAt: new Date(), shuttleCount: 6 } });
+        await service.correctShuttleUse(sessionCode, old.id, { shuttleIds: [old.shuttleId], openNew: true, expectedRevision: old.revision });
+        expect(await numbers(sessionCode)).toEqual([1, 2]);
+        expect(await usesOf(old.id)).toHaveLength(2);
+        // The physical nightly count is never rewritten by a game edit.
+        expect((await prisma.session.findUniqueOrThrow({ where: { code: sessionCode } })).shuttleCount).toBe(6);
+      } finally {
+        await cleanup();
+      }
+    });
+
+    it('rejects duplicates, foreign and voided ids, a stale revision, and a pending or live game with no partial write', async () => {
+      const { sessionCode, cleanup } = await fixture(8, 2);
+      const other = await fixture(4, 1);
+      try {
+        const old = await finishedGame(sessionCode, 1);
+        const foreign = await openOne(other.sessionCode, 1);
+        const voided = await openOne(sessionCode, 2, { voidedAt: new Date() });
+        const fix = (ids: string[], rev = old.revision, id = old.id) =>
+          code(service.correctShuttleUse(sessionCode, id, { shuttleIds: ids, openNew: false, expectedRevision: rev }));
+        expect(await fix([old.shuttleId, old.shuttleId])).toEqual({ status: 400, code: 'DUPLICATE_SHUTTLE_ID' });
+        expect(await fix([foreign.id])).toEqual({ status: 404, code: 'SHUTTLE_NOT_FOUND' });
+        expect(await fix([voided.id])).toEqual({ status: 404, code: 'SHUTTLE_NOT_FOUND' });
+        expect(await fix([], old.revision + 3)).toEqual({ status: 409, code: 'PAIRING_STALE' });
+
+        const live = await startActive(sessionCode, 2);
+        expect(await fix([], live.revision, live.id)).toEqual({ status: 409, code: 'PAIRING_NOT_FINISHED' });
+        expect(await usesOf(old.id)).toHaveLength(1);
+        // #1 opened by the old game, #2 is the voided fixture, #3 opened by the live game:
+        // none of the rejected corrections opened or removed anything.
+        expect(await numbers(sessionCode)).toEqual([1, 2, 3]);
+      } finally {
+        await cleanup();
+        await other.cleanup();
+      }
+    });
+
+    it('an ordinary session refuses corrections', async () => {
+      const ordinary = await fixture(4, 1, false);
+      try {
+        const p = await propose(ordinary.sessionCode, 1);
+        await service.confirmPairing(ordinary.sessionCode, p.id);
+        const done = await service.finishPairing(ordinary.sessionCode, p.id, { winner: 'A' });
+        expect(
+          await code(service.correctShuttleUse(ordinary.sessionCode, p.id, { shuttleIds: [], openNew: false, expectedRevision: done.revision }))
+        ).toEqual({ status: 409, code: 'SHUTTLE_TRACKING_DISABLED' });
+      } finally {
+        await ordinary.cleanup();
+      }
+    });
+  });
 });

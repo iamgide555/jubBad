@@ -7050,4 +7050,77 @@ describe('SessionsController', () => {
       }
     });
   });
+
+  describe('shuttle mutation routes over HTTP', () => {
+    async function advanced() {
+      const groupCode = randomUUID();
+      const sessionCode = randomUUID();
+      await prisma.group.create({ data: { code: groupCode, name: 'Routes' } });
+      const players = await Promise.all(
+        ['A', 'B', 'C', 'D'].map((name) => prisma.player.create({ data: { groupId: groupCode, name, aliases: '[]' } }))
+      );
+      await prisma.session.create({
+        data: { code: sessionCode, groupId: groupCode, courtCount: 1, rawImportText: '', shuttleToolsEnabled: true },
+      });
+      for (const p of players) await prisma.sessionRoster.create({ data: { sessionId: sessionCode, playerId: p.id } });
+      const propose = await request(server).post(`/sessions/${sessionCode}/courts/1/propose`).expect(201);
+      const confirmed = await request(server)
+        .post(`/sessions/${sessionCode}/pairings/${propose.body.pairing.id}/confirm`)
+        .send({ shuttle: { kind: 'new' } })
+        .expect(201);
+      const cleanup = async () => {
+        await prisma.pairingShuttleUse.deleteMany({ where: { pairing: { sessionId: sessionCode } } });
+        await prisma.pairing.deleteMany({ where: { sessionId: sessionCode } });
+        await prisma.sessionShuttle.deleteMany({ where: { sessionId: sessionCode } });
+        await prisma.sessionRoster.deleteMany({ where: { sessionId: sessionCode } });
+        await prisma.session.deleteMany({ where: { code: sessionCode } });
+        await prisma.player.deleteMany({ where: { groupId: groupCode } });
+        await prisma.group.deleteMany({ where: { code: groupCode } });
+      };
+      return { sessionCode, pairing: confirmed.body, cleanup };
+    }
+
+    it('switches, corrects, retires and voids through the real routes', async () => {
+      const { sessionCode, pairing, cleanup } = await advanced();
+      try {
+        const sw = await request(server)
+          .post(`/sessions/${sessionCode}/pairings/${pairing.id}/shuttles/switch`)
+          .send({ choice: { kind: 'new' }, expectedRevision: pairing.revision })
+          .expect(201);
+        const finished = await request(server)
+          .post(`/sessions/${sessionCode}/pairings/${pairing.id}/finish`)
+          .send({ winner: 'A', expectedRevision: sw.body.revision })
+          .expect(201);
+        const ids = (await prisma.pairingShuttleUse.findMany({ where: { pairingId: pairing.id } })).map((u) => u.shuttleId);
+        expect(ids).toHaveLength(2);
+
+        const fix = await request(server)
+          .post(`/sessions/${sessionCode}/pairings/${pairing.id}/shuttles/correct`)
+          .send({ shuttleIds: [ids[0]], openNew: false, expectedRevision: finished.body.revision })
+          .expect(201);
+        expect(fix.body.shuttleLogKnown).toBe(true);
+
+        await request(server).post(`/sessions/${sessionCode}/shuttles/${ids[0]}/usable`).send({ usable: false }).expect(201);
+        const orphan = await prisma.sessionShuttle.findFirstOrThrow({ where: { id: { in: ids }, NOT: { id: ids[0] } } });
+        await request(server).post(`/sessions/${sessionCode}/shuttles/${orphan.id}/void`).send({}).expect(201);
+      } finally {
+        await cleanup();
+      }
+    });
+
+    it('answers 400 for malformed bodies and 409 SHUTTLE_IN_USE for a referenced void', async () => {
+      const { sessionCode, pairing, cleanup } = await advanced();
+      try {
+        await request(server).post(`/sessions/${sessionCode}/pairings/${pairing.id}/shuttles/switch`).send({ choice: { kind: 'new' } }).expect(400);
+        await request(server).post(`/sessions/${sessionCode}/pairings/${pairing.id}/shuttles/switch`).send({ expectedRevision: 1 }).expect(400);
+        await request(server).post(`/sessions/${sessionCode}/pairings/${pairing.id}/shuttles/correct`).send({ shuttleIds: 'x', openNew: false, expectedRevision: 1 }).expect(400);
+        await request(server).post(`/sessions/${sessionCode}/shuttles/anything/usable`).send({ usable: 'yes' }).expect(400);
+        const shuttleId = pairing.lastShuttleId as string;
+        const res = await request(server).post(`/sessions/${sessionCode}/shuttles/${shuttleId}/void`).send({}).expect(409);
+        expect(res.body.code).toBe('SHUTTLE_IN_USE');
+      } finally {
+        await cleanup();
+      }
+    });
+  });
 });

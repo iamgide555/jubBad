@@ -1413,6 +1413,142 @@ export class SessionsService {
     });
   }
 
+  /** Advanced-only gate shared by every shuttle write. */
+  private async advancedSession(sessionCode: string) {
+    const session = await this.prisma.session.findUnique({ where: { code: sessionCode } });
+    if (!session) throw this.notFound('SESSION_NOT_FOUND');
+    if (!session.shuttleToolsEnabled) throw this.conflict('SHUTTLE_TRACKING_DISABLED');
+    return session;
+  }
+
+  /**
+   * Live change of the shuttle in hand on an active game: open a new one or
+   * take an existing idle one, optionally retiring the one put down. The use
+   * is added at most once however often the host goes back and forth.
+   */
+  switchShuttle(
+    sessionCode: string,
+    pairingId: string,
+    dto: { choice: { kind: 'new' | 'existing'; shuttleId?: string }; expectedRevision: number; retirePrevious?: boolean }
+  ) {
+    return this.lock.run(sessionCode, () => this.switchShuttleExclusively(sessionCode, pairingId, dto));
+  }
+
+  private async switchShuttleExclusively(
+    sessionCode: string,
+    pairingId: string,
+    dto: { choice: { kind: 'new' | 'existing'; shuttleId?: string }; expectedRevision: number; retirePrevious?: boolean }
+  ) {
+    const pairing = await this.pairingInSession(sessionCode, pairingId);
+    const session = await this.advancedSession(sessionCode);
+    if (session.endedAt !== null) throw this.conflict('SESSION_ENDED');
+    if (pairing.confirmedAt === null) throw this.conflict('PAIRING_CONFIRMATION_REQUIRED');
+    if (pairing.endedAt !== null) throw this.conflict('PAIRING_ENDED');
+    const choice = parseShuttleChoice(dto.choice);
+    if (!choice) throw this.badRequest('INVALID_SHUTTLE_CHOICE');
+
+    return this.prisma.$transaction(async (tx) => {
+      const shuttleId = await this.startingShuttleId(tx, sessionCode, pairingId, choice);
+      const updated = await tx.pairing.updateMany({
+        where: { id: pairingId, confirmedAt: { not: null }, endedAt: null, revision: dto.expectedRevision },
+        data: { lastShuttleId: shuttleId, shuttleLogKnown: true, revision: { increment: 1 } },
+      });
+      if (updated.count !== 1) throw this.conflict('PAIRING_STALE');
+      await tx.pairingShuttleUse.upsert({
+        where: { pairingId_shuttleId: { pairingId, shuttleId } },
+        create: { pairingId, shuttleId },
+        update: {},
+      });
+      if (dto.retirePrevious && pairing.lastShuttleId && pairing.lastShuttleId !== shuttleId) {
+        await tx.sessionShuttle.update({ where: { id: pairing.lastShuttleId }, data: { usable: false } });
+      }
+      return tx.pairing.findUniqueOrThrow({ where: { id: pairingId } });
+    });
+  }
+
+  /**
+   * Replaces a finished game's shuttle set (including after the session
+   * ended). A retired shuttle may be named — it really was played — but a
+   * duplicate, foreign or voided id may not. Never touches the winner, score,
+   * timestamps, the physical nightly count, or another game's uses.
+   */
+  correctShuttleUse(
+    sessionCode: string,
+    pairingId: string,
+    dto: { shuttleIds: string[]; openNew: boolean; expectedRevision: number }
+  ) {
+    return this.lock.run(sessionCode, () => this.correctShuttleUseExclusively(sessionCode, pairingId, dto));
+  }
+
+  private async correctShuttleUseExclusively(
+    sessionCode: string,
+    pairingId: string,
+    dto: { shuttleIds: string[]; openNew: boolean; expectedRevision: number }
+  ) {
+    const pairing = await this.pairingInSession(sessionCode, pairingId);
+    await this.advancedSession(sessionCode);
+    if (pairing.confirmedAt === null || pairing.endedAt === null) throw this.conflict('PAIRING_NOT_FINISHED');
+    if (new Set(dto.shuttleIds).size !== dto.shuttleIds.length) throw this.badRequest('DUPLICATE_SHUTTLE_ID');
+
+    return this.prisma.$transaction(async (tx) => {
+      const found = await tx.sessionShuttle.findMany({ where: { id: { in: dto.shuttleIds }, sessionId: sessionCode, voidedAt: null } });
+      if (found.length !== dto.shuttleIds.length) throw this.notFound('SHUTTLE_NOT_FOUND');
+
+      const ids = [...dto.shuttleIds];
+      if (dto.openNew) {
+        const created = await tx.sessionShuttle.create({
+          data: { sessionId: sessionCode, number: await this.nextShuttleNumber(tx, sessionCode) },
+        });
+        ids.push(created.id);
+      }
+      // The last shuttle is the court's next-game suggestion: dropping it from
+      // the log drops the suggestion too.
+      const lastShuttleId = pairing.lastShuttleId && ids.includes(pairing.lastShuttleId) ? pairing.lastShuttleId : null;
+      const updated = await tx.pairing.updateMany({
+        where: { id: pairingId, confirmedAt: { not: null }, endedAt: { not: null }, revision: dto.expectedRevision },
+        data: { shuttleLogKnown: true, lastShuttleId, revision: { increment: 1 } },
+      });
+      if (updated.count !== 1) throw this.conflict('PAIRING_STALE');
+      await tx.pairingShuttleUse.deleteMany({ where: { pairingId } });
+      if (ids.length > 0) {
+        await tx.pairingShuttleUse.createMany({ data: ids.map((shuttleId) => ({ pairingId, shuttleId })) });
+      }
+      return tx.pairing.findUniqueOrThrow({ where: { id: pairingId } });
+    });
+  }
+
+  /** Retire (usable=false) or restore a shuttle. A shuttle in a live hand cannot be retired standalone. */
+  setShuttleUsable(sessionCode: string, shuttleId: string, usable: boolean) {
+    return this.lock.run(sessionCode, async () => {
+      await this.advancedSession(sessionCode);
+      const shuttle = await this.prisma.sessionShuttle.findUnique({ where: { id: shuttleId } });
+      if (!shuttle || shuttle.sessionId !== sessionCode || shuttle.voidedAt !== null) throw this.notFound('SHUTTLE_NOT_FOUND');
+      if (!usable && (await this.shuttleHeldElsewhere(this.prisma, sessionCode, shuttleId, ''))) {
+        throw this.conflict('SHUTTLE_IN_USE');
+      }
+      const updated = await this.prisma.sessionShuttle.update({ where: { id: shuttleId }, data: { usable } });
+      return { id: updated.id, number: updated.number, usable: updated.usable };
+    });
+  }
+
+  /**
+   * Logically removes a wrongly opened shuttle. Only an identity no game
+   * references (as a use or as its last) can go; its number stays reserved.
+   */
+  voidShuttle(sessionCode: string, shuttleId: string) {
+    return this.lock.run(sessionCode, async () => {
+      await this.advancedSession(sessionCode);
+      const shuttle = await this.prisma.sessionShuttle.findUnique({ where: { id: shuttleId } });
+      if (!shuttle || shuttle.sessionId !== sessionCode || shuttle.voidedAt !== null) throw this.notFound('SHUTTLE_NOT_FOUND');
+      const referenced =
+        (await this.prisma.pairingShuttleUse.count({ where: { shuttleId } })) > 0 ||
+        (await this.prisma.pairing.count({ where: { lastShuttleId: shuttleId } })) > 0;
+      if (referenced) throw this.conflict('SHUTTLE_IN_USE');
+      const updated = await this.prisma.sessionShuttle.update({ where: { id: shuttleId }, data: { voidedAt: new Date() } });
+      return { id: updated.id, number: updated.number, voided: true };
+    });
+  }
+
   finishPairing(sessionCode: string, id: string, dto: FinishPairingDto) {
     return this.lock.run(sessionCode, () => this.finishPairingExclusively(sessionCode, id, dto));
   }

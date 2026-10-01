@@ -2,6 +2,7 @@ import { Body, Controller, Get, Param, ParseIntPipe, Post, Query, Req } from '@n
 import { AddWalkInDto } from './dto/add-walk-in.dto.js';
 import { CreateSessionDto } from './dto/create-session.dto.js';
 import { FinishPairingDto } from './dto/finish-pairing.dto.js';
+import { ConfirmPairingDto } from './dto/confirm-pairing.dto.js';
 import { PairingRevisionDto } from './dto/pairing-revision.dto.js';
 import { SetCourtCountDto } from './dto/set-court-count.dto.js';
 import { SetCourtFormatDto } from './dto/set-court-format.dto.js';
@@ -107,9 +108,9 @@ export class SessionsController {
   confirmPairing(
     @Param('code') code: string,
     @Param('id') id: string,
-    @Body() dto: PairingRevisionDto
+    @Body() dto: ConfirmPairingDto
   ) {
-    return this.sessionsService.confirmPairing(code, id, dto.expectedRevision);
+    return this.sessionsService.confirmPairing(code, id, dto.expectedRevision, dto.shuttle);
   }
 
   @Post(':code/pairings/:id/finish')

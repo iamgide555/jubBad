@@ -6997,4 +6997,57 @@ describe('SessionsController', () => {
       }
     });
   });
+
+  describe('shuttle confirm payload over HTTP', () => {
+    async function advancedCourt() {
+      const groupCode = randomUUID();
+      const sessionCode = randomUUID();
+      await prisma.group.create({ data: { code: groupCode, name: 'Pay' } });
+      const players = await Promise.all(
+        ['A', 'B', 'C', 'D'].map((name) => prisma.player.create({ data: { groupId: groupCode, name, aliases: '[]' } }))
+      );
+      await prisma.session.create({
+        data: { code: sessionCode, groupId: groupCode, courtCount: 1, rawImportText: '', shuttleToolsEnabled: true },
+      });
+      for (const p of players) await prisma.sessionRoster.create({ data: { sessionId: sessionCode, playerId: p.id } });
+      const propose = await request(server).post(`/sessions/${sessionCode}/courts/1/propose`).expect(201);
+      const cleanup = async () => {
+        await prisma.pairingShuttleUse.deleteMany({ where: { pairing: { sessionId: sessionCode } } });
+        await prisma.pairing.deleteMany({ where: { sessionId: sessionCode } });
+        await prisma.sessionShuttle.deleteMany({ where: { sessionId: sessionCode } });
+        await prisma.sessionRoster.deleteMany({ where: { sessionId: sessionCode } });
+        await prisma.session.deleteMany({ where: { code: sessionCode } });
+        await prisma.player.deleteMany({ where: { groupId: groupCode } });
+        await prisma.group.deleteMany({ where: { code: groupCode } });
+      };
+      return { sessionCode, pairingId: propose.body.pairing.id as string, cleanup };
+    }
+
+    it('confirms with a new-shuttle choice and returns the known log', async () => {
+      const { sessionCode, pairingId, cleanup } = await advancedCourt();
+      try {
+        const res = await request(server)
+          .post(`/sessions/${sessionCode}/pairings/${pairingId}/confirm`)
+          .send({ shuttle: { kind: 'new' } })
+          .expect(201);
+        expect(res.body.shuttleLogKnown).toBe(true);
+        expect(res.body.lastShuttleId).toEqual(expect.any(String));
+      } finally {
+        await cleanup();
+      }
+    });
+
+    it('answers 400 for a missing choice, an unknown kind, and a mismatched id', async () => {
+      const { sessionCode, pairingId, cleanup } = await advancedCourt();
+      try {
+        const confirm = (body: object) => request(server).post(`/sessions/${sessionCode}/pairings/${pairingId}/confirm`).send(body);
+        expect((await confirm({}).expect(400)).body.code).toBe('SHUTTLE_CHOICE_REQUIRED');
+        await confirm({ shuttle: { kind: 'bogus' } }).expect(400);
+        expect((await confirm({ shuttle: { kind: 'new', shuttleId: 'x' } }).expect(400)).body.code).toBe('INVALID_SHUTTLE_CHOICE');
+        expect((await confirm({ shuttle: { kind: 'existing' } }).expect(400)).body.code).toBe('INVALID_SHUTTLE_CHOICE');
+      } finally {
+        await cleanup();
+      }
+    });
+  });
 });

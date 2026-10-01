@@ -57,6 +57,7 @@ import {
   violatedRules,
 } from './session-rules.js';
 import { deriveHistory } from './derive-history.js';
+import { parseShuttleChoice, type ShuttleChoice } from './shuttle-tracking.js';
 import { effectiveCourtMode, isCustomMode, isLevelMode, type SessionMode } from './session-mode.js';
 import {
   CorruptPairingError,
@@ -1081,10 +1082,102 @@ export class SessionsService {
     return pairing;
   }
 
-  confirmPairing(sessionCode: string, id: string, expectedRevision?: number) {
+  confirmPairing(
+    sessionCode: string,
+    id: string,
+    expectedRevision?: number,
+    shuttle?: { kind: 'new' | 'existing'; shuttleId?: string }
+  ) {
     return this.lock.run(sessionCode, () =>
-      this.confirmPairingExclusively(sessionCode, id, expectedRevision)
+      this.confirmPairingExclusively(sessionCode, id, expectedRevision, shuttle)
     );
+  }
+
+  /** The next display number: max over every identity ever opened, voided or not. */
+  private async nextShuttleNumber(tx: Prisma.TransactionClient, sessionCode: string): Promise<number> {
+    const top = await tx.sessionShuttle.aggregate({
+      where: { sessionId: sessionCode },
+      _max: { number: true },
+    });
+    return (top._max.number ?? 0) + 1;
+  }
+
+  /** Whether another active (confirmed, unfinished) game currently holds this shuttle. */
+  private async shuttleHeldElsewhere(
+    tx: Prisma.TransactionClient,
+    sessionCode: string,
+    shuttleId: string,
+    exceptPairingId: string
+  ): Promise<boolean> {
+    const held = await tx.pairing.findFirst({
+      where: {
+        sessionId: sessionCode,
+        confirmedAt: { not: null },
+        endedAt: null,
+        lastShuttleId: shuttleId,
+        id: { not: exceptPairingId },
+      },
+      select: { id: true },
+    });
+    return held !== null;
+  }
+
+  /**
+   * Resolves a host's choice to the shuttle a game starts with, opening a new
+   * numbered identity when asked. Runs inside the caller's transaction so an
+   * opened identity cannot outlive a confirmation that then fails.
+   */
+  private async startingShuttleId(
+    tx: Prisma.TransactionClient,
+    sessionCode: string,
+    pairingId: string,
+    choice: ShuttleChoice
+  ): Promise<string> {
+    if (choice.kind === 'new') {
+      const created = await tx.sessionShuttle.create({
+        data: { sessionId: sessionCode, number: await this.nextShuttleNumber(tx, sessionCode) },
+      });
+      return created.id;
+    }
+    const shuttle = await tx.sessionShuttle.findUnique({ where: { id: choice.shuttleId } });
+    // Foreign and voided identities do not exist as far as this session knows.
+    if (!shuttle || shuttle.sessionId !== sessionCode || shuttle.voidedAt !== null) {
+      throw this.notFound('SHUTTLE_NOT_FOUND');
+    }
+    if (!shuttle.usable || (await this.shuttleHeldElsewhere(tx, sessionCode, shuttle.id, pairingId))) {
+      throw this.conflict('SHUTTLE_UNAVAILABLE');
+    }
+    return shuttle.id;
+  }
+
+  /**
+   * The default for a confirm that cannot ask (the 60-second auto-confirm):
+   * the shuttle this court last finished a game with if it is still usable
+   * and idle, otherwise a freshly opened one.
+   */
+  private async autoShuttleChoice(
+    tx: Prisma.TransactionClient,
+    sessionCode: string,
+    pairing: { id: string; courtNumber: number }
+  ): Promise<ShuttleChoice> {
+    const previous = await tx.pairing.findFirst({
+      where: { sessionId: sessionCode, courtNumber: pairing.courtNumber, endedAt: { not: null } },
+      orderBy: { matchNumber: 'desc' },
+      select: { lastShuttleId: true },
+    });
+    if (previous?.lastShuttleId) {
+      const shuttle = await tx.sessionShuttle.findUnique({ where: { id: previous.lastShuttleId } });
+      if (
+        shuttle &&
+        shuttle.sessionId === sessionCode &&
+        shuttle.usable &&
+        shuttle.voidedAt === null &&
+        !(await this.shuttleHeldElsewhere(tx, sessionCode, shuttle.id, pairing.id))
+      ) {
+        return { kind: 'existing', shuttleId: shuttle.id };
+      }
+    }
+    return { kind: 'new' };
   }
 
   /**
@@ -1159,7 +1252,8 @@ export class SessionsService {
   private async confirmPairingExclusively(
     sessionCode: string,
     id: string,
-    expectedRevision?: number
+    expectedRevision?: number,
+    shuttleInput?: { kind: 'new' | 'existing'; shuttleId?: string }
   ) {
     const pairing = await this.pairingInSession(sessionCode, id);
     const session = await this.prisma.session.findUniqueOrThrow({ where: { code: sessionCode } });
@@ -1178,22 +1272,49 @@ export class SessionsService {
       throw this.conflict(blocker.code, blocker.details);
     }
 
-    const updated = await this.prisma.pairing.updateMany({
-      where: {
-        id,
-        confirmedAt: null,
-        endedAt: null,
-        revision: expectedRevision ?? pairing.revision,
-      },
-      data: {
-        confirmedAt: new Date(),
-        carryOutcomes: await this.carryOutcomesJson(session, pairing, blocker.enabledRules),
-        revision: { increment: 1 },
-      },
-    });
-    if (updated.count !== 1) {
-      throw this.conflict('PAIRING_STALE');
+    const carryOutcomes = await this.carryOutcomesJson(session, pairing, blocker.enabledRules);
+    const guard = {
+      id,
+      confirmedAt: null,
+      endedAt: null,
+      revision: expectedRevision ?? pairing.revision,
+    };
+
+    if (!session.shuttleToolsEnabled) {
+      // An ordinary session has no shuttle prompt: a payload naming one is a
+      // client that thinks the session is advanced, which must not be ignored.
+      if (shuttleInput !== undefined) throw this.conflict('SHUTTLE_TRACKING_DISABLED');
+      const updated = await this.prisma.pairing.updateMany({
+        where: guard,
+        data: { confirmedAt: new Date(), carryOutcomes, revision: { increment: 1 } },
+      });
+      if (updated.count !== 1) {
+        throw this.conflict('PAIRING_STALE');
+      }
+      return this.prisma.pairing.findUniqueOrThrow({ where: { id } });
     }
+
+    if (shuttleInput === undefined) throw this.badRequest('SHUTTLE_CHOICE_REQUIRED');
+    const choice = parseShuttleChoice(shuttleInput);
+    if (!choice) throw this.badRequest('INVALID_SHUTTLE_CHOICE');
+
+    // One transaction: opening the identity, linking the use, and confirming
+    // stand or fall together, so a stale confirm leaves no orphan shuttle.
+    await this.prisma.$transaction(async (tx) => {
+      const shuttleId = await this.startingShuttleId(tx, sessionCode, id, choice);
+      const updated = await tx.pairing.updateMany({
+        where: guard,
+        data: {
+          confirmedAt: new Date(),
+          carryOutcomes,
+          revision: { increment: 1 },
+          shuttleLogKnown: true,
+          lastShuttleId: shuttleId,
+        },
+      });
+      if (updated.count !== 1) throw this.conflict('PAIRING_STALE');
+      await tx.pairingShuttleUse.create({ data: { pairingId: id, shuttleId } });
+    });
     return this.prisma.pairing.findUniqueOrThrow({ where: { id } });
   }
 
@@ -1261,11 +1382,35 @@ export class SessionsService {
     const confirmedAt = new Date(pairing.pendingSince.getTime() + AUTO_CONFIRM_WALK_ON_MS);
     const session = await this.prisma.session.findUniqueOrThrow({ where: { code: pairing.sessionId } });
     const carryOutcomes = await this.carryOutcomesJson(session, pairing, blocker.enabledRules);
-    const updated = await this.prisma.pairing.updateMany({
-      where: { id, confirmedAt: null, endedAt: null, revision: expectedRevision },
-      data: { confirmedAt, carryOutcomes, revision: { increment: 1 } },
+    const guard = { id, confirmedAt: null, endedAt: null, revision: expectedRevision };
+    if (!session.shuttleToolsEnabled) {
+      const updated = await this.prisma.pairing.updateMany({
+        where: guard,
+        data: { confirmedAt, carryOutcomes, revision: { increment: 1 } },
+      });
+      return updated.count === 1;
+    }
+
+    // Cannot prompt: take the court's last idle shuttle or open a new one, in
+    // the same transaction as the confirmation (and under the session lock,
+    // so two courts can never be handed the same shuttle or number).
+    return this.prisma.$transaction(async (tx) => {
+      const choice = await this.autoShuttleChoice(tx, pairing.sessionId, pairing);
+      const shuttleId = await this.startingShuttleId(tx, pairing.sessionId, id, choice);
+      const updated = await tx.pairing.updateMany({
+        where: guard,
+        data: {
+          confirmedAt,
+          carryOutcomes,
+          revision: { increment: 1 },
+          shuttleLogKnown: true,
+          lastShuttleId: shuttleId,
+        },
+      });
+      if (updated.count !== 1) return false;
+      await tx.pairingShuttleUse.create({ data: { pairingId: id, shuttleId } });
+      return true;
     });
-    return updated.count === 1;
   }
 
   finishPairing(sessionCode: string, id: string, dto: FinishPairingDto) {
@@ -2251,6 +2396,15 @@ export class SessionsService {
         return { ok: false as const, reason: 'players-busy' as const };
       }
 
+      // The game's log is kept, but it only takes its last shuttle back in
+      // hand when that shuttle is still usable and idle: restoring must never
+      // pull a shuttle off another court or block a score correction.
+      let lastShuttleId = latest.lastShuttleId;
+      if (lastShuttleId) {
+        const shuttle = await this.prisma.sessionShuttle.findUnique({ where: { id: lastShuttleId } });
+        const held = await this.shuttleHeldElsewhere(this.prisma, sessionCode, lastShuttleId, latest.id);
+        if (!shuttle || !shuttle.usable || shuttle.voidedAt !== null || held) lastShuttleId = null;
+      }
       const restored = await this.prisma.pairing.updateMany({
         where: { id: latest.id, confirmedAt: { not: null }, endedAt: { not: null }, revision: latest.revision },
         data: {
@@ -2258,6 +2412,7 @@ export class SessionsService {
           scoreA: null,
           scoreB: null,
           winner: null,
+          lastShuttleId,
           revision: { increment: 1 },
         },
       });
@@ -2267,15 +2422,27 @@ export class SessionsService {
       return { ok: true as const, undone: 'finish' as const };
     }
 
-    const unconfirmed = await this.prisma.pairing.updateMany({
-      where: { id: latest.id, confirmedAt: { not: null }, endedAt: null, revision: latest.revision },
-      // The carry snapshot belongs to the confirmation being undone; the next
-      // confirm takes a fresh one under whatever rules apply then.
-      data: { confirmedAt: null, pendingSince: null, carryOutcomes: '[]', revision: { increment: 1 } },
+    // The carry snapshot and the shuttle log belong to the confirmation being
+    // undone; the next confirm takes a fresh one. The shuttle itself stays in
+    // the session's inventory — it was physically opened — and can be chosen
+    // again, so numbers are never reused.
+    await this.prisma.$transaction(async (tx) => {
+      const unconfirmed = await tx.pairing.updateMany({
+        where: { id: latest.id, confirmedAt: { not: null }, endedAt: null, revision: latest.revision },
+        data: {
+          confirmedAt: null,
+          pendingSince: null,
+          carryOutcomes: '[]',
+          shuttleLogKnown: false,
+          lastShuttleId: null,
+          revision: { increment: 1 },
+        },
+      });
+      if (unconfirmed.count !== 1) {
+        throw this.conflict('PAIRING_STALE');
+      }
+      await tx.pairingShuttleUse.deleteMany({ where: { pairingId: latest.id } });
     });
-    if (unconfirmed.count !== 1) {
-      throw this.conflict('PAIRING_STALE');
-    }
     return { ok: true as const, undone: 'confirm' as const };
   }
 

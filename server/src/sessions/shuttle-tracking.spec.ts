@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { Test } from '@nestjs/testing';
 import { PrismaModule } from '../prisma/prisma.module.js';
 import { PrismaService } from '../prisma/prisma.service.js';
+import { parseShuttleChoice } from './shuttle-tracking.js';
 
 /**
  * Persistence rules for numbered, reusable shuttles (host feedback D): a
@@ -99,5 +100,18 @@ describe('numbered shuttle persistence', () => {
     } finally {
       await cleanup();
     }
+  });
+});
+
+describe('shuttle choice shape', () => {
+  it('accepts a bare new choice and an existing choice with an id', () => {
+    expect(parseShuttleChoice({ kind: 'new' })).toEqual({ kind: 'new' });
+    expect(parseShuttleChoice({ kind: 'existing', shuttleId: 's1' })).toEqual({ kind: 'existing', shuttleId: 's1' });
+  });
+
+  it('rejects existing without an id, new with an id, and an empty id', () => {
+    expect(parseShuttleChoice({ kind: 'existing' })).toBeNull();
+    expect(parseShuttleChoice({ kind: 'existing', shuttleId: '' })).toBeNull();
+    expect(parseShuttleChoice({ kind: 'new', shuttleId: 's1' })).toBeNull();
   });
 });

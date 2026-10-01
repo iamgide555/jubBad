@@ -262,6 +262,35 @@ describe('shuttle lifecycle', () => {
       }
     });
 
+    it('two courts whose last shuttle is the same one cannot both auto-take it, however the sweeps interleave', async () => {
+      const { sessionCode, cleanup } = await fixture(8, 2);
+      try {
+        // Court 1 then court 2 both finished a game with #1 — it is the last shuttle on both.
+        const a1 = await propose(sessionCode, 1);
+        const b1 = await propose(sessionCode, 2);
+        await service.confirmPairing(sessionCode, a1.id, undefined, { kind: 'new' });
+        const one = await prisma.sessionShuttle.findFirstOrThrow({ where: { sessionId: sessionCode } });
+        await service.finishPairing(sessionCode, a1.id, { winner: 'A' });
+        await service.confirmPairing(sessionCode, b1.id, undefined, { kind: 'existing', shuttleId: one.id });
+        await service.finishPairing(sessionCode, b1.id, { winner: 'A' });
+        expect((await row(a1.id)).lastShuttleId).toBe(one.id);
+        expect((await row(b1.id)).lastShuttleId).toBe(one.id);
+
+        const a2 = await propose(sessionCode, 1);
+        const b2 = await propose(sessionCode, 2);
+        const now = await makeDue([a2.id, b2.id]);
+        await Promise.all([service.autoConfirmDue(now), service.autoConfirmDue(now), service.autoConfirmDue(now)]);
+        const [ra, rb] = [await row(a2.id), await row(b2.id)];
+        expect([ra.confirmedAt, rb.confirmedAt].every((d) => d !== null)).toBe(true);
+        expect(ra.lastShuttleId).not.toBe(rb.lastShuttleId);
+        // Exactly one court kept #1; the other opened #2 — never the same number twice.
+        expect([ra.lastShuttleId, rb.lastShuttleId]).toContain(one.id);
+        expect(await numbers(sessionCode)).toEqual([1, 2]);
+      } finally {
+        await cleanup();
+      }
+    });
+
     it('an ordinary session auto-confirms exactly as before, with no shuttle', async () => {
       const { sessionCode, cleanup } = await fixture(4, 1, false);
       try {

@@ -1505,6 +1505,15 @@ describe('CourtPanel with too few players', () => {
       expect(root(fixture).textContent).toContain('ยืนยันไปแล้ว');
     });
 
+    it('names the court in the prompt title, with the word คอร์ท, using its label', async () => {
+      const { fixture, httpMock } = await createPanel({ ...pendingSession(true), courtLabels: ['ริมหน้าต่าง'] });
+      fixture.detectChanges();
+      button(fixture, 'ยืนยัน')!.click();
+      httpMock.expectOne(`${B}/sessions/sess1/shuttles`).flush(inventory());
+      await settle(fixture);
+      expect(dialog(fixture).querySelector('h2')!.textContent).toContain('คอร์ท ริมหน้าต่าง');
+    });
+
     it('cancelling the prompt confirms nothing', async () => {
       const { fixture, httpMock } = await createPanel(pendingSession(true));
       fixture.detectChanges();

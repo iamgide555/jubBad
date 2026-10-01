@@ -648,6 +648,13 @@ describe('GroupEntry', () => {
       fixture.detectChanges();
     }
 
+    it('keeps the advanced and manage-group buttons in one spaced row, not loose siblings', () => {
+      const row = el().querySelector('.group-actions')!;
+      expect(row).toBeTruthy();
+      const labels = [...row.querySelectorAll('button')].map((b) => b.textContent?.trim());
+      expect(labels).toEqual(['ตั้งค่าขั้นสูง', 'จัดการก๊วน']);
+    });
+
     it('keeps the settings collapsed and makes no request until the host opens them', () => {
       expect(openButton()).toBeTruthy();
       expect(toggle('shuttleTools')).toBeNull();

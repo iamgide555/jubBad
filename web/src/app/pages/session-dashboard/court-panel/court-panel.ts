@@ -116,6 +116,11 @@ export class CourtPanel {
     labelForCourt(this.liveSession.courtLabels(), this.courtNumber())
   );
 
+  /** "คอร์ท 3" / "คอร์ท ริมหน้าต่าง" — the label alone ("3") reads as nothing in a dialog title. */
+  protected readonly courtTitle = computed(
+    () => $localize`:@@court.titleWithLabel:คอร์ท ${this.courtLabel()}:label:`
+  );
+
   private seatViewsFor(team: 'A' | 'B'): SeatView[] {
     const c = this.court();
     if (c.status !== 'pending') return [];

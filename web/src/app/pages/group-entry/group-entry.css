@@ -368,3 +368,9 @@ app-level-picker {
 .switch-title {
   font-weight: 600;
 }
+
+.group-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+}

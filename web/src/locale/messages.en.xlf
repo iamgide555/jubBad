@@ -3095,6 +3095,10 @@
         <source><x id="INTERPOLATION" equiv-text="{{ sh.recordedFinishedShuttles }}"/> ลูก</source>
         <target><x id="INTERPOLATION" equiv-text="{{ sh.recordedFinishedShuttles }}"/> shuttles</target>
       </trans-unit>
+      <trans-unit id="court.titleWithLabel" datatype="html">
+        <source>คอร์ท <x id="label" equiv-text="this.courtLabel()"/></source>
+        <target>Court <x id="label" equiv-text="this.courtLabel()"/></target>
+      </trans-unit>
     </body>
   </file>
 </xliff>

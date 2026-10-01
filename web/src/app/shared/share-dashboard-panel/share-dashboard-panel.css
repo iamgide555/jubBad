@@ -1,0 +1,25 @@
+.share-panel {
+  display: grid;
+  gap: var(--space-1);
+}
+
+.share-link {
+  display: grid;
+  gap: var(--space-1);
+}
+
+.share-link input {
+  width: 100%;
+}
+
+.share-actions,
+.share-confirm {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+}
+
+.share-confirm p {
+  flex-basis: 100%;
+  margin: 0;
+}

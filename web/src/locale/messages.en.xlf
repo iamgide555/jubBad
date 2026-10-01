@@ -3679,6 +3679,62 @@
         <source>ลิงก์อาจถูกปิดแล้ว ขอลิงก์ใหม่จากเจ้าของก๊วน</source>
         <target>The link may have been turned off. Ask the group owner for a new one.</target>
       </trans-unit>
+      <trans-unit id="entry.shareDashboard" datatype="html">
+        <source>ลิงก์หน้าสรุปก๊วน</source>
+        <target>Group summary link</target>
+      </trans-unit>
+      <trans-unit id="share.unavailable" datatype="html">
+        <source>ใช้ได้หลังสร้างก๊วนครั้งแรก</source>
+        <target>Available after the group is created</target>
+      </trans-unit>
+      <trans-unit id="share.hint" datatype="html">
+        <source>สร้างลิงก์หน้าสรุปของก๊วนนี้ ปักไว้ในไลน์ครั้งเดียว สมาชิกเปิดดูเองได้ ไม่ต้องคัดลอกสรุปทุกครั้ง</source>
+        <target>Create a link to this group's summary page. Pin it in LINE once and members can open it themselves, with no pasting after each session.</target>
+      </trans-unit>
+      <trans-unit id="share.create" datatype="html">
+        <source>สร้างลิงก์</source>
+        <target>Create link</target>
+      </trans-unit>
+      <trans-unit id="share.linkLabel" datatype="html">
+        <source>ลิงก์หน้าสรุปก๊วน</source>
+        <target>Group summary link</target>
+      </trans-unit>
+      <trans-unit id="share.copy" datatype="html">
+        <source>คัดลอกลิงก์</source>
+        <target>Copy link</target>
+      </trans-unit>
+      <trans-unit id="share.stop" datatype="html">
+        <source>หยุดแชร์</source>
+        <target>Stop sharing</target>
+      </trans-unit>
+      <trans-unit id="share.copied" datatype="html">
+        <source>คัดลอกแล้ว</source>
+        <target>Copied</target>
+      </trans-unit>
+      <trans-unit id="share.copyFailed" datatype="html">
+        <source>คัดลอกไม่สำเร็จ กดที่ช่องลิงก์แล้วคัดลอกเอง</source>
+        <target>Couldn't copy. Tap the link field and copy it yourself.</target>
+      </trans-unit>
+      <trans-unit id="share.stopWarning" datatype="html">
+        <source>ลิงก์ที่ปักไว้ในไลน์จะเปิดไม่ได้ทันที ถ้าสร้างใหม่ ลิงก์จะเปลี่ยน</source>
+        <target>The link pinned in LINE stops working immediately. If you create one again, the link will be different.</target>
+      </trans-unit>
+      <trans-unit id="share.confirmStop" datatype="html">
+        <source>ยืนยันหยุดแชร์</source>
+        <target>Confirm stop sharing</target>
+      </trans-unit>
+      <trans-unit id="share.cancelStop" datatype="html">
+        <source>ยกเลิก</source>
+        <target>Cancel</target>
+      </trans-unit>
+      <trans-unit id="share.shareFailed" datatype="html">
+        <source>สร้างลิงก์ไม่สำเร็จ ลองอีกครั้ง</source>
+        <target>Couldn't create the link. Try again.</target>
+      </trans-unit>
+      <trans-unit id="share.stopFailed" datatype="html">
+        <source>หยุดแชร์ไม่สำเร็จ ลองอีกครั้ง</source>
+        <target>Couldn't stop sharing. Try again.</target>
+      </trans-unit>
     </body>
   </file>
 </xliff>

@@ -112,9 +112,11 @@ type FillBlocked = { courtNumber: number; ruleIds: string[] };
 
 @Injectable()
 export class SessionsService {
-  private readonly lock = new SessionLock();
-
-  constructor(private readonly prisma: PrismaService) {}
+  /** One lock for the whole sessions module: checkout and bill-config writes queue behind the same session work. */
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly lock: SessionLock
+  ) {}
 
   private badRequest(code: string): BadRequestException {
     return new BadRequestException({ code });
@@ -2875,6 +2877,24 @@ export class SessionsService {
     return Math.max(currentOffset, highest - own + currentOffset);
   }
 
+  /**
+   * The gamesOffset someone returning to the pool gets right now -- the same
+   * arithmetic as the rest toggle and a late walk-in (`rotationCredit`), used
+   * when an early checkout is undone. The caller holds the session lock.
+   */
+  async rotationCreditForReturn(sessionCode: string, playerId: string): Promise<number> {
+    const session = await this.prisma.session.findUniqueOrThrow({ where: { code: sessionCode } });
+    const entry = await this.prisma.sessionRoster.findUniqueOrThrow({
+      where: { sessionId_playerId: { sessionId: sessionCode, playerId } },
+    });
+    const history = await this.loadHistory(session.groupId, sessionCode);
+    const others = await this.prisma.sessionRoster.findMany({
+      where: { sessionId: sessionCode, active: true, playerId: { not: playerId } },
+      select: { playerId: true },
+    });
+    return this.rotationCredit(history.gamesPlayedThisSession, others.map((o) => o.playerId), playerId, entry.gamesOffset);
+  }
+
   private async setRosterActiveExclusively(
     sessionCode: string,
     playerId: string,
@@ -2888,6 +2908,14 @@ export class SessionsService {
       where: { sessionId_playerId: { sessionId: sessionCode, playerId } },
     });
     if (!entry) throw this.notFound('ROSTER_PLAYER_NOT_FOUND');
+    // Resting is temporary; a settled early checkout is final. The roster's
+    // `active` flag cannot tell them apart, so the ledger decides, and no
+    // rest toggle -- in either direction -- may touch a settled leaver. Only
+    // an explicit undo of the checkout restores them.
+    const settled = await this.prisma.sessionCheckout.count({
+      where: { sessionId: sessionCode, playerId, undoneAt: null },
+    });
+    if (settled > 0) throw this.conflict('PLAYER_CHECKED_OUT');
 
     // Coming back needs a credit; going out never does.
     //

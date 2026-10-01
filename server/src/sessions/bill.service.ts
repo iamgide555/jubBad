@@ -4,6 +4,7 @@ import { computeBill, type BillConfig, type BillResult, type ShuttleAllocation }
 import { deriveShuttleAccounting } from './shuttle-tracking.js';
 import { serializeBillConfig } from './bill-config.js';
 import { engineMatches, loadBillSnapshot } from './bill-snapshot.js';
+import { SessionLock } from './session-lock.js';
 import type { SetBillConfigDto } from './dto/set-bill-config.dto.js';
 
 export interface BillResponse {
@@ -49,14 +50,17 @@ export interface BillResponse {
  */
 @Injectable()
 export class BillService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly lock: SessionLock
+  ) {}
 
   async getBill(code: string): Promise<BillResponse> {
     // One read transaction: the session (with its physical count and price),
     // the finished games and their shuttle uses come from a single snapshot, so
     // a correction landing mid-read can never pair old uses with a new count.
     const snapshot = await this.prisma.$transaction((tx) => loadBillSnapshot(tx, code));
-    const { session, config, configSource, pairings, identities, uses } = snapshot;
+    const { session, config, configSource, pairings, uses } = snapshot;
 
     const advanced = session.shuttleToolsEnabled;
     const usesByPairing = new Map<string, string[]>();
@@ -129,7 +133,12 @@ export class BillService {
     };
   }
 
-  async setBillConfig(code: string, dto: SetBillConfigDto): Promise<BillResponse> {
+  /** Under the session lock: a config write can change a checkout quote, so it queues with settlement. */
+  setBillConfig(code: string, dto: SetBillConfigDto): Promise<BillResponse> {
+    return this.lock.run(code, () => this.setBillConfigExclusively(code, dto));
+  }
+
+  private async setBillConfigExclusively(code: string, dto: SetBillConfigDto): Promise<BillResponse> {
     const session = await this.prisma.session.findUnique({ where: { code }, include: { roster: { select: { playerId: true } } } });
     if (!session) throw new NotFoundException({ code: 'SESSION_NOT_FOUND' });
     // perShuttle is an advanced-session model: refused on an ordinary session

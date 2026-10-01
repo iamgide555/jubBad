@@ -1,13 +1,18 @@
 import { randomUUID } from 'node:crypto';
 import { INestApplication, ValidationPipe } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
+import { vi } from 'vitest';
 import request from 'supertest';
 import { DEFAULT_BILL_CONFIG } from '../../../engines/bill.ts';
 import { PrismaModule } from '../prisma/prisma.module.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { serializeBillConfig } from './bill-config.js';
 import { serializeCheckoutBreakdown, serializeCheckoutSnapshot } from './checkout-pricing.js';
+import { BillService } from './bill.service.js';
+import { CheckoutService } from './checkout.service.js';
+import { SessionLock } from './session-lock.js';
 import { SessionsModule } from './sessions.module.js';
+import { SessionsService } from './sessions.service.js';
 
 describe('CheckoutController', () => {
   let app: INestApplication;
@@ -93,7 +98,18 @@ describe('CheckoutController', () => {
     };
     const preview = (playerId: string, model: string) =>
       request(server).post(`/sessions/${sessionCode}/checkouts/${playerId}/preview`).send({ model });
-    return { groupCode, sessionCode, players, finish, pending, preview, cleanup };
+    const confirm = (playerId: string, body: Record<string, unknown>) =>
+      request(server).post(`/sessions/${sessionCode}/checkouts/${playerId}/confirm`).send(body);
+    /** Preview then confirm, as the dialog does. */
+    const settle = async (playerId: string, model = 'perGame', key: string = randomUUID()) => {
+      const pv = await preview(playerId, model).expect(201);
+      return confirm(playerId, { model, snapshotHash: pv.body.snapshotHash, idempotencyKey: key });
+    };
+    const list = () => request(server).get(`/sessions/${sessionCode}/checkouts`);
+    const undo = (checkoutId: string) => request(server).post(`/sessions/${sessionCode}/checkouts/${checkoutId}/undo`).send({});
+    const rosterRow = (playerId: string) =>
+      prisma.sessionRoster.findUniqueOrThrow({ where: { sessionId_playerId: { sessionId: sessionCode, playerId } } });
+    return { groupCode, sessionCode, players, finish, pending, preview, confirm, settle, list, undo, rosterRow, cleanup };
   }
 
   describe('checkout preview', () => {
@@ -311,6 +327,379 @@ describe('CheckoutController', () => {
           },
         });
         expect((await f.preview(p, 'perShuttle').expect(201)).body.snapshotHash).not.toBe(h4);
+      } finally {
+        await f.cleanup();
+      }
+    });
+  });
+
+  describe('checkout settlement', () => {
+    it('confirming freezes the quoted amount and takes the player off the roster', async () => {
+      const f = await fixture(5, { config: cfg({ model: 'fair', entryFeeSatang: 1000, perGameRateSatang: 2000 }) });
+      try {
+        await f.finish(f.players.slice(0, 4).map((x) => x.id), [1]);
+        const pv = await f.preview(f.players[0].id, 'perGame').expect(201);
+        const res = await f.confirm(f.players[0].id, { model: 'perGame', snapshotHash: pv.body.snapshotHash, idempotencyKey: 'k1' }).expect(201);
+        expect(res.body).toMatchObject({ playerId: f.players[0].id, model: 'perGame', amountSatang: pv.body.amountSatang, breakdown: pv.body.breakdown });
+        expect(res.body.id).toEqual(expect.any(String));
+        expect(res.body.settledAt).toEqual(expect.any(String));
+        expect((await f.rosterRow(f.players[0].id)).active).toBe(false);
+        const row = await prisma.sessionCheckout.findUniqueOrThrow({ where: { id: res.body.id } });
+        expect(row).toMatchObject({ amountSatang: pv.body.amountSatang, undoneAt: null, idempotencyKey: 'k1', model: 'perGame' });
+        expect(JSON.parse(row.snapshot)).toMatchObject({ version: 1, hash: pv.body.snapshotHash, games: 1 });
+      } finally {
+        await f.cleanup();
+      }
+    });
+
+    it('a pending or active court refuses settlement without touching the lineup; it succeeds once cleared', async () => {
+      const f = await fixture(8);
+      try {
+        const ids = f.players.map((x) => x.id);
+        const pend = await f.pending(ids.slice(0, 4), true);
+        const res = await f.confirm(ids[0], { model: 'perGame', snapshotHash: 'a'.repeat(64), idempotencyKey: 'k' }).expect(409);
+        expect(res.body).toMatchObject({ code: 'PLAYER_ON_COURT', courtNumber: 2 });
+        expect((await prisma.pairing.findUniqueOrThrow({ where: { id: pend.id } })).teamA).toBe(JSON.stringify(ids.slice(0, 2)));
+        expect((await f.rosterRow(ids[0])).active).toBe(true);
+        await prisma.pairing.update({ where: { id: pend.id }, data: { endedAt: new Date(), winner: null } }); // "no result"
+        await f.settle(ids[0]).then((r) => expect(r.status).toBe(201));
+      } finally {
+        await f.cleanup();
+      }
+    });
+
+    it.each([
+      ['shuttle price', (f: Awaited<ReturnType<typeof fixture>>) => prisma.session.update({ where: { code: f.sessionCode }, data: { shuttlePriceSatang: 13000 } })],
+      ['bill config', (f: Awaited<ReturnType<typeof fixture>>) => prisma.session.update({ where: { code: f.sessionCode }, data: { billConfig: cfg({ startingFeeSatang: 2500 }) } })],
+      ['walk-in mark', (f: Awaited<ReturnType<typeof fixture>>) => prisma.sessionRoster.updateMany({ where: { sessionId: f.sessionCode, playerId: f.players[1].id }, data: { walkIn: true } })],
+      ['a billing override', (f: Awaited<ReturnType<typeof fixture>>) =>
+        prisma.session.update({ where: { code: f.sessionCode }, data: { billConfig: cfg({ overrides: [{ playerId: f.players[0].id, amountSatang: 1 }] }) } })],
+    ])('a changed %s between preview and confirm is CHECKOUT_STALE with no side effects', async (_name, change) => {
+      const f = await fixture(5);
+      try {
+        await f.finish(f.players.slice(0, 4).map((x) => x.id), [1]);
+        const pv = await f.preview(f.players[0].id, 'perShuttle').expect(201);
+        await change(f);
+        const res = await f.confirm(f.players[0].id, { model: 'perShuttle', snapshotHash: pv.body.snapshotHash, idempotencyKey: 'k' }).expect(409);
+        expect(res.body.code).toBe('CHECKOUT_STALE');
+        expect(await prisma.sessionCheckout.count({ where: { sessionId: f.sessionCode } })).toBe(0);
+        expect((await f.rosterRow(f.players[0].id)).active).toBe(true);
+      } finally {
+        await f.cleanup();
+      }
+    });
+
+    it('a game finished, or a shuttle use corrected, between preview and confirm is stale', async () => {
+      const f = await fixture(8);
+      try {
+        const ids = f.players.map((x) => x.id);
+        const g = await f.finish(ids.slice(0, 4), [1]);
+        const pv = await f.preview(ids[0], 'perShuttle').expect(201);
+        await f.finish(ids.slice(4), [2]);
+        expect((await f.confirm(ids[0], { model: 'perShuttle', snapshotHash: pv.body.snapshotHash, idempotencyKey: 'a' })).body.code).toBe('CHECKOUT_STALE');
+        const pv2 = await f.preview(ids[0], 'perShuttle').expect(201);
+        await prisma.pairingShuttleUse.deleteMany({ where: { pairingId: g.id } });
+        await prisma.pairing.update({ where: { id: g.id }, data: { revision: { increment: 1 } } });
+        expect((await f.confirm(ids[0], { model: 'perShuttle', snapshotHash: pv2.body.snapshotHash, idempotencyKey: 'b' })).body.code).toBe('CHECKOUT_STALE');
+        expect(await prisma.sessionCheckout.count({ where: { sessionId: f.sessionCode } })).toBe(0);
+      } finally {
+        await f.cleanup();
+      }
+    });
+
+    it('an earlier settlement between preview and confirm makes the other leaver\'s quote stale', async () => {
+      const f = await fixture(8);
+      try {
+        const ids = f.players.map((x) => x.id);
+        await f.finish(ids.slice(0, 4), [1]);
+        const pvA = await f.preview(ids[0], 'perShuttle').expect(201);
+        await f.settle(ids[1], 'perShuttle').then((r) => expect(r.status).toBe(201));
+        const res = await f.confirm(ids[0], { model: 'perShuttle', snapshotHash: pvA.body.snapshotHash, idempotencyKey: 'late' }).expect(409);
+        expect(res.body.code).toBe('CHECKOUT_STALE');
+      } finally {
+        await f.cleanup();
+      }
+    });
+
+    it('retrying the same key returns the same receipt and never a second ledger entry', async () => {
+      const f = await fixture(5);
+      try {
+        const first = await f.settle(f.players[0].id, 'perGame', 'retry-key').then((r) => r.body);
+        const again = await f.confirm(f.players[0].id, { model: 'perGame', snapshotHash: 'd'.repeat(64) /* ignored on a replay */, idempotencyKey: 'retry-key' }).expect(201);
+        expect(again.body.id).toBe(first.id);
+        expect(again.body.amountSatang).toBe(first.amountSatang);
+        expect(await prisma.sessionCheckout.count({ where: { sessionId: f.sessionCode } })).toBe(1);
+        // The same key for someone else is a client bug, not a replay.
+        const clash = await f.confirm(f.players[1].id, { model: 'perGame', snapshotHash: 'b'.repeat(64), idempotencyKey: 'retry-key' }).expect(409);
+        expect(clash.body.code).toBe('CHECKOUT_KEY_REUSED');
+        expect((await f.rosterRow(f.players[1].id)).active).toBe(true);
+      } finally {
+        await f.cleanup();
+      }
+    });
+
+    it('two different keys racing for one player leave one active receipt and one inactive roster row', async () => {
+      const f = await fixture(5);
+      try {
+        const pv = await f.preview(f.players[0].id, 'perGame').expect(201);
+        const body = (idempotencyKey: string) => ({ model: 'perGame', snapshotHash: pv.body.snapshotHash, idempotencyKey });
+        const results = await Promise.all(Array.from({ length: 5 }, (_, i) => f.confirm(f.players[0].id, body(`race-${i}`))));
+        expect(results.filter((r) => r.status === 201)).toHaveLength(1);
+        for (const r of results.filter((x) => x.status !== 201)) expect(r.body.code).toBe('PLAYER_CHECKED_OUT');
+        expect(await prisma.sessionCheckout.count({ where: { sessionId: f.sessionCode, undoneAt: null } })).toBe(1);
+        expect((await f.rosterRow(f.players[0].id)).active).toBe(false);
+      } finally {
+        await f.cleanup();
+      }
+    });
+
+    it('a failed write leaves both the ledger and the roster unchanged', async () => {
+      const f = await fixture(5);
+      try {
+        const pv = await f.preview(f.players[0].id, 'perGame').expect(201);
+        const real = prisma.$transaction.bind(prisma) as (fn: (tx: unknown) => Promise<unknown>) => Promise<unknown>;
+        const spy = vi.spyOn(prisma, '$transaction').mockImplementationOnce(((fn: (tx: Record<string, unknown>) => Promise<unknown>) =>
+          real((tx) =>
+            fn(
+              new Proxy(tx as Record<string, unknown>, {
+                get(target, prop) {
+                  if (prop === 'sessionRoster') {
+                    return new Proxy(target[prop] as Record<string, unknown>, {
+                      get(rt, rp) {
+                        if (rp === 'updateMany' || rp === 'update') return () => { throw new Error('disk full'); };
+                        return rt[rp as string];
+                      },
+                    });
+                  }
+                  return target[prop as string];
+                },
+              })
+            )
+          )) as never);
+        try {
+          await f.confirm(f.players[0].id, { model: 'perGame', snapshotHash: pv.body.snapshotHash, idempotencyKey: 'boom' }).expect(500);
+        } finally {
+          spy.mockRestore();
+        }
+        expect(await prisma.sessionCheckout.count({ where: { sessionId: f.sessionCode } })).toBe(0);
+        expect((await f.rosterRow(f.players[0].id)).active).toBe(true);
+        // The player can still be settled afterwards.
+        await f.settle(f.players[0].id).then((r) => expect(r.status).toBe(201));
+      } finally {
+        await f.cleanup();
+      }
+    });
+
+    it('an ordinary session answers CHECKOUT_DISABLED for confirm, list and undo', async () => {
+      const f = await fixture(4, { advanced: false });
+      try {
+        const body = { model: 'perGame', snapshotHash: 'a'.repeat(64), idempotencyKey: 'k' };
+        expect((await f.confirm(f.players[0].id, body).expect(400)).body.code).toBe('CHECKOUT_DISABLED');
+        expect((await f.list().expect(400)).body.code).toBe('CHECKOUT_DISABLED');
+      } finally {
+        await f.cleanup();
+      }
+    });
+
+    it('rejects fair, a missing key and a malformed hash before touching anything', async () => {
+      const f = await fixture(4);
+      try {
+        const ok = { model: 'perGame', snapshotHash: 'a'.repeat(64), idempotencyKey: 'k' };
+        await f.confirm(f.players[0].id, { ...ok, model: 'fair' }).expect(400);
+        await f.confirm(f.players[0].id, { model: ok.model, snapshotHash: ok.snapshotHash }).expect(400);
+        await f.confirm(f.players[0].id, { ...ok, idempotencyKey: '' }).expect(400);
+        await f.confirm(f.players[0].id, { ...ok, snapshotHash: 'short' }).expect(400);
+      } finally {
+        await f.cleanup();
+      }
+    });
+
+    it('the list shows current receipts only, stays readable after the session ends, and a settled amount survives later price and config edits', async () => {
+      const f = await fixture(5);
+      try {
+        await f.finish(f.players.slice(0, 4).map((x) => x.id), [1]);
+        const a = (await f.settle(f.players[0].id, 'perShuttle')).body;
+        const b = (await f.settle(f.players[1].id, 'perShuttle')).body;
+        await f.undo(b.id).expect(201);
+        await prisma.session.update({ where: { code: f.sessionCode }, data: { shuttlePriceSatang: 99900, billConfig: cfg({ startingFeeSatang: 9000 }) } });
+        await prisma.session.update({ where: { code: f.sessionCode }, data: { endedAt: new Date() } });
+        const res = await f.list().expect(200);
+        expect(res.body).toHaveLength(1);
+        expect(res.body[0]).toMatchObject({ id: a.id, playerId: f.players[0].id, model: 'perShuttle', amountSatang: a.amountSatang, breakdown: a.breakdown });
+        expect(res.body[0].settledAt).toEqual(expect.any(String));
+        expect(res.body[0]).not.toHaveProperty('snapshot');
+        expect(res.body[0]).not.toHaveProperty('idempotencyKey');
+        const late = await f.confirm(f.players[2].id, { model: 'perGame', snapshotHash: 'e'.repeat(64), idempotencyKey: 'after-end' }).expect(409);
+        expect(late.body.code).toBe('SESSION_ENDED');
+      } finally {
+        await f.cleanup();
+      }
+    });
+
+    it('shares one lock between sessions, bill and checkout writes', async () => {
+      const lock = app.get(SessionLock);
+      for (const svc of [app.get(SessionsService), app.get(BillService), app.get(CheckoutService)]) {
+        expect((svc as unknown as { lock: SessionLock }).lock).toBe(lock);
+      }
+    });
+  });
+
+  describe('checkout roster', () => {
+    const settled = async (n = 5) => {
+      const f = await fixture(n);
+      const receipt = (await f.settle(f.players[0].id)).body;
+      return { f, receipt, leaver: f.players[0].id };
+    };
+
+    it('the ordinary rest toggle cannot bring a settled leaver back, either direction', async () => {
+      const { f, leaver } = await settled();
+      try {
+        for (const active of [true, false]) {
+          const res = await request(server).post(`/sessions/${f.sessionCode}/roster/${leaver}/active`).send({ active }).expect(409);
+          expect(res.body.code).toBe('PLAYER_CHECKED_OUT');
+        }
+        expect((await f.rosterRow(leaver)).active).toBe(false);
+      } finally {
+        await f.cleanup();
+      }
+    });
+
+    it('a resting player is not the same as a settled one: the toggle still works for them', async () => {
+      const f = await fixture(5);
+      try {
+        const id = f.players[1].id;
+        await request(server).post(`/sessions/${f.sessionCode}/roster/${id}/active`).send({ active: false }).expect(201);
+        await request(server).post(`/sessions/${f.sessionCode}/roster/${id}/active`).send({ active: true }).expect(201);
+        expect((await f.rosterRow(id)).active).toBe(true);
+      } finally {
+        await f.cleanup();
+      }
+    });
+
+    it('manual seating and confirming a proposal that holds a settled leaver are refused', async () => {
+      const { f, leaver } = await settled(8);
+      try {
+        const ids = f.players.map((x) => x.id);
+        const draft = await f.pending([ids[1], ids[2], ids[3], ids[4]], false);
+        const seat = await request(server)
+          .post(`/sessions/${f.sessionCode}/pairings/${draft.id}/seats`)
+          .send({ team: 'A', index: 0, playerId: leaver }).expect(409);
+        expect(['PLAYER_UNAVAILABLE', 'PLAYER_CHECKED_OUT']).toContain(seat.body.code);
+        // A stale proposal that still names them cannot start either.
+        const stale = await prisma.pairing.update({
+          where: { id: draft.id },
+          data: { teamA: JSON.stringify([leaver, ids[2]]), pendingSince: new Date() },
+        });
+        const confirm = await request(server)
+          .post(`/sessions/${f.sessionCode}/pairings/${stale.id}/confirm`)
+          .send({ shuttle: { kind: 'new' } }).expect(409);
+        expect(confirm.body.code).toBe('PLAYER_UNAVAILABLE');
+      } finally {
+        await f.cleanup();
+      }
+    });
+
+    it('auto-confirm never starts a proposal that still names a settled leaver', async () => {
+      const { f, leaver } = await settled(8);
+      try {
+        const ids = f.players.map((x) => x.id);
+        const draft = await f.pending([leaver, ids[1], ids[2], ids[3]], false);
+        await prisma.pairing.update({ where: { id: draft.id }, data: { pendingSince: new Date(Date.now() - 120_000) } });
+        const confirmed = await app.get(SessionsService).autoConfirmDue(new Date(Date.now() + 600_000));
+        expect(confirmed).not.toContain(draft.id);
+        expect((await prisma.pairing.findUniqueOrThrow({ where: { id: draft.id } })).confirmedAt).toBeNull();
+      } finally {
+        await f.cleanup();
+      }
+    });
+
+    it('adding the settled leaver again as a walk-in is a duplicate and changes nothing', async () => {
+      const { f, leaver } = await settled();
+      try {
+        const res = await request(server).post(`/sessions/${f.sessionCode}/roster`).send({ playerId: leaver }).expect(409);
+        expect(res.body.code).toBe('ROSTER_DUPLICATE');
+        expect((await f.rosterRow(leaver)).active).toBe(false);
+      } finally {
+        await f.cleanup();
+      }
+    });
+
+    it('court fills never seat a settled leaver', async () => {
+      const f = await fixture(9);
+      try {
+        const leaver = f.players[0].id;
+        await f.settle(leaver).then((r) => expect(r.status).toBe(201));
+        await request(server).post(`/sessions/${f.sessionCode}/courts/fill`).send({}).expect(201);
+        const open = await prisma.pairing.findMany({ where: { sessionId: f.sessionCode } });
+        expect(open.length).toBeGreaterThan(0);
+        for (const p of open) expect(`${p.teamA}${p.teamB}`).not.toContain(leaver);
+      } finally {
+        await f.cleanup();
+      }
+    });
+  });
+
+  describe('checkout undo', () => {
+    it('marks the receipt undone, restores availability with the rotation credit and keeps the audit row', async () => {
+      const f = await fixture(5);
+      try {
+        const ids = f.players.map((x) => x.id);
+        await f.finish(ids.slice(0, 4), [1]);
+        await f.finish(ids.slice(0, 4), [1]);
+        const leaver = ids[4]; // zero games while the others are on two
+        const receipt = (await f.settle(leaver)).body;
+        const before = await f.rosterRow(leaver);
+        const res = await f.undo(receipt.id).expect(201);
+        expect(res.body).toMatchObject({ ok: true, playerId: leaver });
+        const row = await prisma.sessionCheckout.findUniqueOrThrow({ where: { id: receipt.id } });
+        expect(row.undoneAt).not.toBeNull();
+        const after = await f.rosterRow(leaver);
+        expect(after.active).toBe(true);
+        expect(after.gamesOffset).toBe(2); // brought level with the most-played active player
+        expect(after.gamesOffset).toBeGreaterThanOrEqual(before.gamesOffset);
+        expect(after.activatedAt!.getTime()).toBeGreaterThanOrEqual((before.activatedAt ?? new Date(0)).getTime());
+        expect((await f.list().expect(200)).body).toEqual([]);
+        expect(await prisma.sessionCheckout.count({ where: { sessionId: f.sessionCode } })).toBe(1);
+      } finally {
+        await f.cleanup();
+      }
+    });
+
+    it('a second undo, an unknown id, another session\'s receipt and undo after the end are all refused', async () => {
+      const f = await fixture(5);
+      const other = await fixture(5);
+      try {
+        const mine = (await f.settle(f.players[0].id)).body;
+        const theirs = (await other.settle(other.players[0].id)).body;
+        await f.undo(mine.id).expect(201);
+        expect((await f.undo(mine.id).expect(409)).body.code).toBe('CHECKOUT_UNDONE');
+        expect((await f.undo('does-not-exist').expect(404)).body.code).toBe('CHECKOUT_NOT_FOUND');
+        expect((await f.undo(theirs.id).expect(404)).body.code).toBe('CHECKOUT_NOT_FOUND');
+        expect((await other.rosterRow(other.players[0].id)).active).toBe(false);
+        const live = (await f.settle(f.players[1].id)).body;
+        await prisma.session.update({ where: { code: f.sessionCode }, data: { endedAt: new Date() } });
+        expect((await f.undo(live.id).expect(409)).body.code).toBe('SESSION_ENDED');
+        expect((await f.rosterRow(f.players[1].id)).active).toBe(false);
+      } finally {
+        await f.cleanup();
+        await other.cleanup();
+      }
+    });
+
+    it('after an undo the same player can be checked out again under a new key', async () => {
+      const f = await fixture(5);
+      try {
+        const first = (await f.settle(f.players[0].id, 'perGame', 'one')).body;
+        await f.undo(first.id).expect(201);
+        const second = (await f.settle(f.players[0].id, 'perGame', 'two')).body;
+        expect(second.id).not.toBe(first.id);
+        expect(await prisma.sessionCheckout.count({ where: { sessionId: f.sessionCode } })).toBe(2);
+        expect(await prisma.sessionCheckout.count({ where: { sessionId: f.sessionCode, undoneAt: null } })).toBe(1);
+        expect((await f.rosterRow(f.players[0].id)).active).toBe(false);
+        // Replaying the first, undone key does not resurrect it.
+        const replay = await f.confirm(f.players[0].id, { model: 'perGame', snapshotHash: 'c'.repeat(64), idempotencyKey: 'one' }).expect(409);
+        expect(replay.body.code).toBe('CHECKOUT_UNDONE');
+        expect(await prisma.sessionCheckout.count({ where: { sessionId: f.sessionCode, undoneAt: null } })).toBe(1);
       } finally {
         await f.cleanup();
       }

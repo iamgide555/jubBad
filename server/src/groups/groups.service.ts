@@ -540,6 +540,7 @@ export class GroupsService {
             include: { shuttleUses: true },
           },
           shuttles: { orderBy: { number: 'asc' } },
+          checkouts: { orderBy: { settledAt: 'asc' } },
         },
       }),
     ]);
@@ -575,6 +576,19 @@ export class GroupsService {
         rosterPlayerIds: s.roster.map((r) => r.playerId),
         restingPlayerIds: s.roster.filter((r) => !r.active).map((r) => r.playerId),
         waitlistPlayerIds: s.waitlist.map((w) => w.playerId),
+        // The settlement ledger: active and undone receipts, kept as an audit trail.
+        checkouts: s.checkouts.map((c) => ({
+          id: c.id,
+          playerId: c.playerId,
+          model: c.model,
+          amountSatang: c.amountSatang,
+          // Tolerant on export: one corrupt receipt must not block the owner's whole data export.
+          breakdown: parseJsonForExport(c.breakdown),
+          snapshot: parseJsonForExport(c.snapshot),
+          settledAt: c.settledAt,
+          undoneAt: c.undoneAt,
+          idempotencyKey: c.idempotencyKey,
+        })),
         // Voided identities stay listed: their numbers are never reassigned.
         shuttles: s.shuttles.map((sh) => ({
           id: sh.id,
@@ -636,6 +650,8 @@ export class GroupsService {
     const sessionIds = sessions.map((s) => s.code);
 
     return [
+      // Receipts first: they reference both the session and the player.
+      this.prisma.sessionCheckout.deleteMany({ where: { sessionId: { in: sessionIds } } }),
       // Foreign-key order: game/shuttle links, then the games (which may point
       // at a last shuttle), then the identities, and only then the sessions.
       this.prisma.pairingShuttleUse.deleteMany({ where: { pairing: { sessionId: { in: sessionIds } } } }),

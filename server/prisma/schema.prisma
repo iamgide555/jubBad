@@ -102,6 +102,7 @@ model Player {
   waitlistEntries Waitlist[]
   rulesAsA   PlayerRule[] @relation("PlayerRuleA")
   rulesAsB   PlayerRule[] @relation("PlayerRuleB")
+  checkouts SessionCheckout[]
 }
 
 model Session {
@@ -174,6 +175,7 @@ model Session {
   pairings      Pairing[]
   creation      SessionCreation?
   shuttles      SessionShuttle[]
+  checkouts     SessionCheckout[]
 }
 
 model SessionRoster {
@@ -326,4 +328,28 @@ model PairingShuttleUse {
   shuttle   SessionShuttle @relation(fields: [shuttleId], references: [id])
 
   @@id([pairingId, shuttleId])
+}
+
+/// A frozen early-leaver settlement (host feedback E). Money lives here, never
+/// on SessionRoster: `active=false` means rested OR checked out, so only an
+/// entry with `undoneAt` null counts as a settlement. An undone entry is kept
+/// as an audit trail, so a player may have several rows over a night.
+/// `breakdown` and `snapshot` are JSON parsed only by checkout-pricing.ts;
+/// `amountSatang` is the integer amount quoted and never recomputed.
+model SessionCheckout {
+  id             String    @id @default(cuid())
+  sessionId      String
+  playerId       String
+  model          String // 'perGame' | 'perShuttle' | 'buffet'
+  amountSatang   Int
+  breakdown      String
+  snapshot       String
+  settledAt      DateTime  @default(now())
+  undoneAt       DateTime?
+  idempotencyKey String
+  session        Session   @relation(fields: [sessionId], references: [code])
+  player         Player    @relation(fields: [playerId], references: [id])
+
+  @@unique([sessionId, idempotencyKey])
+  @@index([sessionId, playerId])
 }

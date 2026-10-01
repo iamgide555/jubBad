@@ -217,4 +217,26 @@ describe('AdminService.deleteUser', () => {
       await cleanup(owner.id, codes);
     }
   });
+
+  it('checkout ledger: admin deletion removes receipts before sessions and players', async () => {
+    const { owner, codes } = await makeOwner(1);
+    const sessionCode = randomUUID();
+    try {
+      await prisma.session.create({ data: { code: sessionCode, groupId: codes[0], rawImportText: '', shuttleToolsEnabled: true } });
+      const p = await prisma.player.create({ data: { groupId: codes[0], name: 'L', aliases: '[]' } });
+      await prisma.sessionCheckout.create({
+        data: {
+          sessionId: sessionCode, playerId: p.id, model: 'perGame', amountSatang: 100, idempotencyKey: 'k',
+          breakdown: '{}', snapshot: '{}',
+        },
+      });
+      await admin.deleteUser(owner.id, { [codes[0]]: { action: 'delete' } });
+      expect(await prisma.sessionCheckout.count({ where: { sessionId: sessionCode } })).toBe(0);
+      expect(await prisma.group.count({ where: { code: codes[0] } })).toBe(0);
+    } finally {
+      await prisma.sessionCheckout.deleteMany({ where: { sessionId: sessionCode } });
+      await prisma.session.deleteMany({ where: { code: sessionCode } });
+      await cleanup(owner.id, codes);
+    }
+  });
 });

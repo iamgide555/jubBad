@@ -1426,4 +1426,46 @@ describe('GroupsController', () => {
       expect(await prisma.group.count({ where: { code } })).toBe(0);
     });
   });
+
+  describe('checkout ledger export and deletion', () => {
+    const rec = (sessionId: string, playerId: string, key: string, extra: Record<string, unknown> = {}) => ({
+      sessionId, playerId, model: 'perShuttle', amountSatang: 5500, idempotencyKey: key,
+      breakdown: JSON.stringify({ baseSatang: 3000, shuttleSatang: 2500, hostFeeSatang: 0, walkInFeeSatang: 0, discountSatang: 0 }),
+      snapshot: JSON.stringify({ version: 1, hash: 'h', games: 2, shuttleIds: ['n000001'], shuttlePriceSatang: 2500, walkIn: false }),
+      ...extra,
+    });
+    async function seedLedger() {
+      const code = randomUUID();
+      const sessionCode = randomUUID();
+      await prisma.group.create({ data: { code, name: 'Ledger', ownerId: testAdminId } });
+      await prisma.session.create({ data: { code: sessionCode, groupId: code, rawImportText: '', shuttleToolsEnabled: true } });
+      const p = await prisma.player.create({ data: { groupId: code, name: 'Leaver', aliases: '[]' } });
+      await prisma.sessionCheckout.create({ data: rec(sessionCode, p.id, 'k-undone', { undoneAt: new Date('2026-10-01T10:00:00Z') }) });
+      await prisma.sessionCheckout.create({ data: rec(sessionCode, p.id, 'k-active') });
+      return { code, sessionCode, playerId: p.id };
+    }
+
+    it('checkout ledger: the owner export lists active and undone receipts with model, amount and snapshot', async () => {
+      const { code, sessionCode } = await seedLedger();
+      try {
+        const res = await request(server).get(`/groups/${code}/export`).expect(200);
+        const checkouts = res.body.sessions[0].checkouts as { idempotencyKey: string; undoneAt: string | null; amountSatang: number; model: string; snapshot: { hash: string }; breakdown: { baseSatang: number } }[];
+        expect(checkouts.map((c) => c.idempotencyKey).sort()).toEqual(['k-active', 'k-undone']);
+        expect(checkouts.find((c) => c.idempotencyKey === 'k-undone')!.undoneAt).toBe('2026-10-01T10:00:00.000Z');
+        expect(checkouts.find((c) => c.idempotencyKey === 'k-active')).toMatchObject({ model: 'perShuttle', amountSatang: 5500, snapshot: { hash: 'h' }, breakdown: { baseSatang: 3000 } });
+      } finally {
+        await prisma.sessionCheckout.deleteMany({ where: { sessionId: sessionCode } });
+        await prisma.session.deleteMany({ where: { groupId: code } });
+        await prisma.player.deleteMany({ where: { groupId: code } });
+        await prisma.group.deleteMany({ where: { code } });
+      }
+    });
+
+    it('checkout ledger: owner group deletion removes receipts before sessions and players', async () => {
+      const { code, sessionCode } = await seedLedger();
+      await request(server).delete(`/groups/${code}`).expect(200);
+      expect(await prisma.sessionCheckout.count({ where: { sessionId: sessionCode } })).toBe(0);
+      expect(await prisma.group.count({ where: { code } })).toBe(0);
+    });
+  });
 });

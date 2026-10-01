@@ -6,6 +6,7 @@ import type { Level } from '../../../../engines/levels.ts';
 import type { Group } from './group.model';
 import type { GroupSession } from './group-session.model';
 import type { NameReview } from './roster-review';
+import type { GroupLevelsResponse, SaveGroupLevelsRequest } from './group-levels.model';
 import type { CreatePairRuleRequest, PairRule, RuleKind } from './pair-rule.model';
 
 export interface CreateSessionRequest {
@@ -87,6 +88,15 @@ export class RosterService {
       `${this.base}/groups/${groupCode}/players/${playerId}/level`,
       { level }
     );
+  }
+
+  /** Owner-only: the group's ordered ladder, seeds, revision and who is assigned where. */
+  getGroupLevels(groupCode: string) {
+    return this.http.get<GroupLevelsResponse>(`${this.base}/groups/${groupCode}/levels`);
+  }
+
+  saveGroupLevels(groupCode: string, request: SaveGroupLevelsRequest) {
+    return this.http.put<GroupLevelsResponse>(`${this.base}/groups/${groupCode}/levels`, request);
   }
 
   listSessions(groupCode: string) {

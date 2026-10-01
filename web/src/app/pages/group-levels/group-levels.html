@@ -1,0 +1,137 @@
+<div class="page group-levels">
+  <p><a [routerLink]="['/g', groupCode]" i18n="@@levels.back">← กลับ</a></p>
+  <h1 i18n="@@levels.title">ระดับผู้เล่นของก๊วน</h1>
+
+  @if (loadFailed()) {
+    <p class="error" role="alert" i18n="@@levels.loadFailed">โหลดข้อมูลระดับไม่สำเร็จ</p>
+  } @else if (data(); as d) {
+    <p class="hint" data-seed-caveat i18n="@@levels.seedCaveat">
+      ค่า Elo เริ่มต้นใช้กับการกำหนดระดับครั้งต่อไปเท่านั้น คนที่มีระดับอยู่แล้วคงค่าเดิมของเขา และผลการแข่งที่ผ่านมาไม่เปลี่ยน
+    </p>
+
+    @if (error(); as e) {
+      <p class="error" role="alert">{{ e }}</p>
+    }
+    @if (notice(); as n) {
+      <p class="notice" role="status">{{ n }}</p>
+    }
+
+    @if (!isCustom() && draft() === null) {
+      <section class="form-card" data-standard>
+        <h2 i18n="@@levels.standardTitle">ระดับมาตรฐาน</h2>
+        <p class="muted" i18n="@@levels.standardHint">ก๊วนนี้ใช้ระดับมาตรฐานของแอป ถ้าก๊วนของคุณแบ่งระดับต่างออกไป ตั้งระดับของก๊วนเองได้</p>
+        <ol class="level-list">
+          @for (l of d.levels; track l.id) {
+            <li class="level-row readonly">
+              <span class="level-name">{{ l.name }}</span>
+              <span class="level-elo">{{ l.startingElo }}</span>
+              <span class="level-count muted">{{ countOf(l.id) }}</span>
+            </li>
+          }
+        </ol>
+        <button type="button" data-customize (click)="startCustomizing()" i18n="@@levels.customize">ตั้งระดับของก๊วนเอง</button>
+      </section>
+    } @else if (draft(); as rows) {
+      <section class="form-card" data-editor>
+        <h2>
+          @if (isCustom()) {
+            <ng-container i18n="@@levels.customTitle">ระดับของก๊วน (เรียงจากต่ำไปสูง)</ng-container>
+          } @else {
+            <ng-container i18n="@@levels.newTitle">ระดับใหม่ของก๊วน (เรียงจากต่ำไปสูง)</ng-container>
+          }
+        </h2>
+        <ol class="level-list">
+          @for (row of rows; track row.key; let i = $index) {
+            <li class="level-row" [attr.data-level-row]="i">
+              <input
+                type="text"
+                class="level-name-input"
+                maxlength="40"
+                [value]="row.name"
+                (input)="setName(row.key, $event)"
+                i18n-aria-label="@@levels.nameLabel"
+                aria-label="ชื่อระดับ"
+                i18n-placeholder="@@levels.namePlaceholder"
+                placeholder="ชื่อระดับ"
+              />
+              <input
+                type="text"
+                inputmode="numeric"
+                class="level-elo-input"
+                [value]="row.elo"
+                (input)="setElo(row.key, $event)"
+                i18n-aria-label="@@levels.eloLabel"
+                aria-label="ค่า Elo เริ่มต้น"
+              />
+              @if (row.id) {
+                <span class="level-count muted" [attr.title]="'assigned'">{{ countOf(row.id) }}</span>
+              }
+              <span class="row-actions">
+                <button type="button" class="ghost icon-btn" [disabled]="i === 0" (click)="move(row.key, -1)" i18n-aria-label="@@levels.up" aria-label="เลื่อนขึ้น">↑</button>
+                <button type="button" class="ghost icon-btn" [disabled]="i === rows.length - 1" (click)="move(row.key, 1)" i18n-aria-label="@@levels.down" aria-label="เลื่อนลง">↓</button>
+                <button
+                  type="button"
+                  class="ghost icon-btn"
+                  [attr.data-remove]="i"
+                  [disabled]="!canRemove(row)"
+                  [attr.title]="removeBlockedReason(row)"
+                  (click)="removeRow(row.key)"
+                  i18n-aria-label="@@levels.remove"
+                  aria-label="ลบระดับ"
+                >✕</button>
+              </span>
+              @if (removeBlockedReason(row); as why) {
+                <span class="row-note muted" data-remove-blocked>{{ why }}</span>
+              }
+            </li>
+          }
+        </ol>
+
+        <div class="toolbar">
+          <button type="button" class="ghost" data-add-level [disabled]="rows.length >= 16" (click)="addRow()" i18n="@@levels.add">+ เพิ่มระดับ</button>
+          <button type="button" class="ghost" data-suggest (click)="suggestSeeds()" i18n="@@levels.suggest">ตั้งค่า Elo ห่างกัน 100</button>
+        </div>
+
+        @if (problem(); as p) {
+          <p class="error" role="alert" data-problem>{{ p }}</p>
+        }
+
+        <div class="dialog-actions">
+          @if (dirty()) {
+            <button type="button" class="ghost" [disabled]="saving()" (click)="cancelDraft()" i18n="@@levels.cancel">ยกเลิกการแก้</button>
+          }
+          <button type="button" data-save [disabled]="!!problem() || !dirty() || saving()" (click)="requestSave()" i18n="@@levels.save">บันทึกระดับ</button>
+        </div>
+      </section>
+
+      @if (isCustom()) {
+        <section class="form-card">
+          <h3 i18n="@@levels.resetTitle">กลับไปใช้ระดับมาตรฐาน</h3>
+          <button type="button" class="ghost" data-reset [disabled]="saving()" (click)="requestReset()" i18n="@@levels.reset">กลับไปใช้ระดับมาตรฐาน</button>
+        </section>
+      }
+    }
+  } @else {
+    <p class="muted" i18n="@@levels.loading">กำลังโหลด…</p>
+  }
+
+  <dialog #confirmDialog class="sheet-dialog levels-confirm" (close)="confirm.set(null)">
+    @if (confirm(); as c) {
+      <div class="form-card">
+        <h2>
+          @if (c.action === 'customize') {
+            <ng-container i18n="@@levels.confirmCustomizeTitle">เปลี่ยนไปใช้ระดับของก๊วนเอง?</ng-container>
+          } @else {
+            <ng-container i18n="@@levels.confirmResetTitle">กลับไปใช้ระดับมาตรฐาน?</ng-container>
+          }
+        </h2>
+        <p data-confirm-count i18n="@@levels.confirmCount">ระดับของผู้เล่น {{ c.affected }} คนจะถูกล้าง (ไม่มีระดับ)</p>
+        <p class="muted" i18n="@@levels.confirmKeep">ค่า Elo ที่สะสมไว้และผลการแข่งทั้งหมดไม่เปลี่ยน ต้องกำหนดระดับให้ผู้เล่นใหม่เอง</p>
+        <div class="dialog-actions">
+          <button type="button" class="ghost" data-confirm-cancel (click)="cancelConfirm()" i18n="@@levels.confirmCancel">ยกเลิก</button>
+          <button type="button" data-confirm-ok (click)="confirmed()" i18n="@@levels.confirmOk">ยืนยัน</button>
+        </div>
+      </div>
+    }
+  </dialog>
+</div>

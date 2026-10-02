@@ -1,3 +1,4 @@
+import { ShareDashboardPanel } from '../../shared/share-dashboard-panel/share-dashboard-panel';
 import { HttpErrorResponse } from '@angular/common/http';
 import { Component, computed, signal } from '@angular/core';
 import { NgTemplateOutlet } from '@angular/common';
@@ -38,7 +39,7 @@ function todayIso(): string {
 
 @Component({
   selector: 'app-group-entry',
-  imports: [FormsModule, RouterLink, NgTemplateOutlet, PressDirective, RevealDirective, Icon, LevelPicker],
+  imports: [FormsModule, RouterLink, NgTemplateOutlet, PressDirective, RevealDirective, Icon, LevelPicker, ShareDashboardPanel],
   templateUrl: './group-entry.html',
   styleUrl: './group-entry.css',
 })
@@ -64,6 +65,7 @@ export class GroupEntry {
   /** Advanced switches load on first open — they are rarely touched, and a brand-new
    *  group has nothing to read yet. `null` means not loaded (or unavailable). */
   readonly showAdvanced = signal(false);
+  readonly showShare = signal(false);
   readonly shuttleTools = signal<boolean | null>(null);
   readonly crossSessionHistory = signal<boolean | null>(null);
   readonly advancedUnavailable = signal(false);

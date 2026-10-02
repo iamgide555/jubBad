@@ -77,9 +77,13 @@
 
     <hr class="rule" />
     <div class="group-actions">
+      <button type="button" class="ghost" data-share-toggle [attr.aria-expanded]="showShare()" (click)="showShare.set(!showShare())" i18n="@@entry.shareDashboard">ลิงก์หน้าสรุปก๊วน</button>
       <button type="button" class="ghost" [attr.aria-expanded]="showAdvanced()" (click)="toggleAdvanced()" i18n="@@entry.advanced">ตั้งค่าขั้นสูง</button>
       <button type="button" class="ghost" (click)="showDanger.set(!showDanger())" i18n="@@entry.manageGroup">จัดการก๊วน</button>
     </div>
+    @if (showShare()) {
+      <app-share-dashboard-panel [groupCode]="groupCode" />
+    }
     @if (showAdvanced()) {
       <div class="advanced-settings">
         <p class="muted" i18n="@@entry.advancedHint">ตัวเลือกเหล่านี้มีผลกับก๊วนที่สร้างต่อจากนี้เท่านั้น ก๊วนที่เปิดอยู่แล้วไม่เปลี่ยน</p>

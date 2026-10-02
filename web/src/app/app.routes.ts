@@ -35,6 +35,14 @@ export const routes: Routes = [
     loadComponent: () => import('./pages/admin/admin').then((m) => m.Admin),
   },
   {
+    // Unguarded: the group dashboard a host pins in LINE. The unguessable
+    // share token in the URL is the credential (same trust model as the
+    // summary link); its data endpoint is @Public() on the server to match.
+    path: 'd/:token',
+    loadComponent: () =>
+      import('./pages/group-dashboard/group-dashboard').then((m) => m.GroupDashboard),
+  },
+  {
     // Before 'g/:groupCode' so the deeper path wins the match.
     // Unguarded: a player's own stat card, read-only.
     path: 'g/:groupCode/p/:playerId',

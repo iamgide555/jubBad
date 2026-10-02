@@ -651,11 +651,22 @@ describe('GroupEntry', () => {
       fixture.detectChanges();
     }
 
-    it('keeps the advanced and manage-group buttons in one spaced row, not loose siblings', () => {
+    it('keeps the share, advanced and manage-group buttons in one spaced row, not loose siblings', () => {
       const row = el().querySelector('.group-actions')!;
       expect(row).toBeTruthy();
       const labels = [...row.querySelectorAll('button')].map((b) => b.textContent?.trim());
-      expect(labels).toEqual(['ตั้งค่าขั้นสูง', 'จัดการก๊วน']);
+      expect(labels).toEqual(['ลิงก์หน้าสรุปก๊วน', 'ตั้งค่าขั้นสูง', 'จัดการก๊วน']);
+    });
+
+    it('renders the share panel only after the host opens it', () => {
+      expect(el().querySelector('app-share-dashboard-panel')).toBeNull();
+      httpMock.expectNone(`${B}/groups/group1/share`);
+
+      el().querySelector<HTMLButtonElement>('[data-share-toggle]')!.click();
+      fixture.detectChanges();
+
+      expect(el().querySelector('app-share-dashboard-panel')).not.toBeNull();
+      httpMock.expectOne(`${B}/groups/group1/share`).flush({ token: null });
     });
 
     it('keeps the settings collapsed and makes no request until the host opens them', () => {

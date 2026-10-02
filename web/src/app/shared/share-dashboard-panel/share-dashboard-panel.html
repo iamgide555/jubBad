@@ -1,0 +1,35 @@
+<div class="share-panel">
+  @if (unavailable()) {
+    <p class="muted" data-unavailable i18n="@@share.unavailable">ใช้ได้หลังสร้างก๊วนครั้งแรก</p>
+  } @else if (token() === null) {
+    <p class="muted" i18n="@@share.hint">สร้างลิงก์หน้าสรุปของก๊วนนี้ ปักไว้ในไลน์ครั้งเดียว สมาชิกเปิดดูเองได้ ไม่ต้องคัดลอกสรุปทุกครั้ง</p>
+    <button type="button" data-share [disabled]="busy()" (click)="share()" i18n="@@share.create">สร้างลิงก์</button>
+  } @else if (link(); as url) {
+    <label class="share-link">
+      <span class="muted" i18n="@@share.linkLabel">ลิงก์หน้าสรุปก๊วน</span>
+      <input type="text" data-link readonly [value]="url" (focus)="$any($event.target).select()" />
+    </label>
+    <div class="share-actions">
+      <button type="button" data-copy (click)="copy()" i18n="@@share.copy">คัดลอกลิงก์</button>
+      @if (!confirmingStop()) {
+        <button type="button" class="ghost" data-stop [disabled]="busy()" (click)="confirmingStop.set(true)" i18n="@@share.stop">หยุดแชร์</button>
+      }
+    </div>
+    @if (copied()) {
+      <p class="muted" role="status" data-copied i18n="@@share.copied">คัดลอกแล้ว</p>
+    }
+    @if (copyFailed()) {
+      <p class="muted" role="status" data-copy-failed i18n="@@share.copyFailed">คัดลอกไม่สำเร็จ กดที่ช่องลิงก์แล้วคัดลอกเอง</p>
+    }
+    @if (confirmingStop()) {
+      <div class="share-confirm">
+        <p i18n="@@share.stopWarning">ลิงก์ที่ปักไว้ในไลน์จะเปิดไม่ได้ทันที ถ้าสร้างใหม่ ลิงก์จะเปลี่ยน</p>
+        <button type="button" class="danger" data-confirm-stop [disabled]="busy()" (click)="stop()" i18n="@@share.confirmStop">ยืนยันหยุดแชร์</button>
+        <button type="button" class="ghost" data-cancel-stop (click)="confirmingStop.set(false)" i18n="@@share.cancelStop">ยกเลิก</button>
+      </div>
+    }
+  }
+  @if (error()) {
+    <p class="error" role="alert">{{ error() }}</p>
+  }
+</div>

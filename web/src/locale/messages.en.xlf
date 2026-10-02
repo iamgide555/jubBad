@@ -3627,6 +3627,126 @@
         <source>ล้างระดับ</source>
         <target>Clear level</target>
       </trans-unit>
+      <trans-unit id="dashboard.unnamed" datatype="html">
+        <source>ก๊วนแบด</source>
+        <target>Badminton group</target>
+      </trans-unit>
+      <trans-unit id="dashboard.lastPlayed" datatype="html">
+        <source>เล่นล่าสุด</source>
+        <target>Last played</target>
+      </trans-unit>
+      <trans-unit id="dashboard.empty" datatype="html">
+        <source>ยังไม่มีก๊วนที่เล่น</source>
+        <target>No sessions played yet</target>
+      </trans-unit>
+      <trans-unit id="dashboard.sessions" datatype="html">
+        <source>ก๊วนที่ผ่านมา</source>
+        <target>Past sessions</target>
+      </trans-unit>
+      <trans-unit id="dashboard.people" datatype="html">
+        <source>คน</source>
+        <target>players</target>
+      </trans-unit>
+      <trans-unit id="dashboard.matches" datatype="html">
+        <source>แมตช์</source>
+        <target>matches</target>
+      </trans-unit>
+      <trans-unit id="dashboard.live" datatype="html">
+        <source>กำลังเล่น</source>
+        <target>Playing now</target>
+      </trans-unit>
+      <trans-unit id="dashboard.standings" datatype="html">
+        <source>ผู้เล่นที่มาบ่อย</source>
+        <target>Regular players</target>
+      </trans-unit>
+      <trans-unit id="dashboard.colName" datatype="html">
+        <source>ชื่อ</source>
+        <target>Name</target>
+      </trans-unit>
+      <trans-unit id="dashboard.colSessions" datatype="html">
+        <source>มา (ครั้ง)</source>
+        <target>Sessions</target>
+      </trans-unit>
+      <trans-unit id="dashboard.colGames" datatype="html">
+        <source>เล่น (เกม)</source>
+        <target>Games</target>
+      </trans-unit>
+      <trans-unit id="dashboard.notFoundTitle" datatype="html">
+        <source>ไม่พบหน้านี้</source>
+        <target>Page not found</target>
+      </trans-unit>
+      <trans-unit id="dashboard.notFoundHint" datatype="html">
+        <source>ลิงก์อาจถูกปิดแล้ว ขอลิงก์ใหม่จากเจ้าของก๊วน</source>
+        <target>The link may have been turned off. Ask the group owner for a new one.</target>
+      </trans-unit>
+      <trans-unit id="entry.shareDashboard" datatype="html">
+        <source>ลิงก์หน้าสรุปก๊วน</source>
+        <target>Group summary link</target>
+      </trans-unit>
+      <trans-unit id="share.unavailable" datatype="html">
+        <source>ใช้ได้หลังสร้างก๊วนครั้งแรก</source>
+        <target>Available after the group is created</target>
+      </trans-unit>
+      <trans-unit id="share.hint" datatype="html">
+        <source>สร้างลิงก์หน้าสรุปของก๊วนนี้ ปักไว้ในไลน์ครั้งเดียว สมาชิกเปิดดูเองได้ ไม่ต้องคัดลอกสรุปทุกครั้ง</source>
+        <target>Create a link to this group's summary page. Pin it in LINE once and members can open it themselves, with no pasting after each session.</target>
+      </trans-unit>
+      <trans-unit id="share.create" datatype="html">
+        <source>สร้างลิงก์</source>
+        <target>Create link</target>
+      </trans-unit>
+      <trans-unit id="share.linkLabel" datatype="html">
+        <source>ลิงก์หน้าสรุปก๊วน</source>
+        <target>Group summary link</target>
+      </trans-unit>
+      <trans-unit id="share.copy" datatype="html">
+        <source>คัดลอกลิงก์</source>
+        <target>Copy link</target>
+      </trans-unit>
+      <trans-unit id="share.stop" datatype="html">
+        <source>หยุดแชร์</source>
+        <target>Stop sharing</target>
+      </trans-unit>
+      <trans-unit id="share.copied" datatype="html">
+        <source>คัดลอกแล้ว</source>
+        <target>Copied</target>
+      </trans-unit>
+      <trans-unit id="share.copyFailed" datatype="html">
+        <source>คัดลอกไม่สำเร็จ กดที่ช่องลิงก์แล้วคัดลอกเอง</source>
+        <target>Couldn't copy. Tap the link field and copy it yourself.</target>
+      </trans-unit>
+      <trans-unit id="share.stopWarning" datatype="html">
+        <source>ลิงก์ที่ปักไว้ในไลน์จะเปิดไม่ได้ทันที ถ้าสร้างใหม่ ลิงก์จะเปลี่ยน</source>
+        <target>The link pinned in LINE stops working immediately. If you create one again, the link will be different.</target>
+      </trans-unit>
+      <trans-unit id="share.confirmStop" datatype="html">
+        <source>ยืนยันหยุดแชร์</source>
+        <target>Confirm stop sharing</target>
+      </trans-unit>
+      <trans-unit id="share.cancelStop" datatype="html">
+        <source>ยกเลิก</source>
+        <target>Cancel</target>
+      </trans-unit>
+      <trans-unit id="share.shareFailed" datatype="html">
+        <source>สร้างลิงก์ไม่สำเร็จ ลองอีกครั้ง</source>
+        <target>Couldn't create the link. Try again.</target>
+      </trans-unit>
+      <trans-unit id="share.stopFailed" datatype="html">
+        <source>หยุดแชร์ไม่สำเร็จ ลองอีกครั้ง</source>
+        <target>Couldn't stop sharing. Try again.</target>
+      </trans-unit>
+      <trans-unit id="dashboard.failedTitle" datatype="html">
+        <source>โหลดหน้านี้ไม่สำเร็จ</source>
+        <target>Couldn't load this page</target>
+      </trans-unit>
+      <trans-unit id="dashboard.failedHint" datatype="html">
+        <source>ตรวจสัญญาณอินเทอร์เน็ตแล้วลองเปิดลิงก์อีกครั้ง</source>
+        <target>Check your connection and open the link again.</target>
+      </trans-unit>
+      <trans-unit id="dashboard.loading" datatype="html">
+        <source>กำลังโหลด...</source>
+        <target>Loading...</target>
+      </trans-unit>
     </body>
   </file>
 </xliff>

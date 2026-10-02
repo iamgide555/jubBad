@@ -13,6 +13,7 @@ import { PlayerRoster } from './pages/player-roster/player-roster';
 import { Landing } from './pages/landing/landing';
 import { ResetPassword } from './pages/reset-password/reset-password';
 import { Admin } from './pages/admin/admin';
+import { GroupDashboard } from './pages/group-dashboard/group-dashboard';
 import { SessionBill } from './pages/session-bill/session-bill';
 
 /**
@@ -164,6 +165,13 @@ describe('app routes', () => {
       const harness = await RouterTestingHarness.create();
       expect(await harness.navigateByUrl('/s/xyz789/display', SessionDisplay)).toBeInstanceOf(
         SessionDisplay
+      );
+    });
+
+    it('shows the group dashboard without signing in', async () => {
+      const harness = await RouterTestingHarness.create();
+      expect(await harness.navigateByUrl('/d/tok123', GroupDashboard)).toBeInstanceOf(
+        GroupDashboard
       );
     });
 

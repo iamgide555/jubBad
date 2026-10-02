@@ -38,12 +38,18 @@ const PUBLIC_ROUTES = [
     path: (c: Ctx) => `/sessions/${c.sessionCode}/summary`,
     why: 'session summary link, shared by the host',
   },
+  {
+    method: 'get',
+    path: (c: Ctx) => `/dashboards/${c.shareToken}`,
+    why: 'group dashboard link, shared by the host',
+  },
 ] as const;
 
 interface Ctx {
   groupCode: string;
   sessionCode: string;
   playerId: string;
+  shareToken: string;
 }
 
 /**
@@ -97,7 +103,10 @@ describe('auth boundary', () => {
     userId = user.id;
 
     const groupCode = randomUUID();
-    await prisma.group.create({ data: { code: groupCode, name: 'Boundary', ownerId: userId } });
+    const shareToken = randomUUID().replace(/-/g, '').slice(0, 22);
+    await prisma.group.create({
+      data: { code: groupCode, name: 'Boundary', ownerId: userId, shareToken },
+    });
     const player = await prisma.player.create({
       data: { groupId: groupCode, name: 'A', aliases: '[]' },
     });
@@ -105,7 +114,7 @@ describe('auth boundary', () => {
     await prisma.session.create({
       data: { code: sessionCode, groupId: groupCode, rawImportText: '' },
     });
-    ctx = { groupCode, sessionCode, playerId: player.id };
+    ctx = { groupCode, sessionCode, playerId: player.id, shareToken };
   });
 
   afterAll(async () => {
@@ -142,6 +151,7 @@ describe('auth boundary', () => {
       const code = path.startsWith('/sessions') ? ctx.sessionCode : ctx.groupCode;
       const concrete = path
         .replace(':code', code)
+        .replace(':token', ctx.shareToken)
         .replace(':playerId', ctx.playerId)
         .replace(':id', 'some-id')
         .replace(':n', '1');
@@ -203,6 +213,38 @@ describe('auth boundary', () => {
     });
   });
 
+  it('lets the owning host share and stop sharing the dashboard', async () => {
+    const login = await request(server)
+      .post('/auth/login')
+      .send({ email, password: PASSWORD })
+      .expect(201);
+    const cookie = ([] as string[]).concat(login.headers['set-cookie'] ?? [])[0];
+    const share = `/groups/${ctx.groupCode}/share`;
+
+    try {
+      await request(server).delete(share).set('Cookie', cookie).expect(200);
+      await request(server).get(`/dashboards/${ctx.shareToken}`).expect(404);
+      expect((await request(server).get(share).set('Cookie', cookie).expect(200)).body).toEqual({
+        token: null,
+      });
+
+      const created = await request(server).post(share).set('Cookie', cookie).expect(201);
+      const token = created.body.token as string;
+      expect(token).toMatch(/^[A-Za-z0-9_-]{22}$/);
+      expect((await request(server).post(share).set('Cookie', cookie).expect(201)).body.token).toBe(token);
+
+      // Anonymous: the whole point of the link.
+      const shown = await request(server).get(`/dashboards/${token}`).expect(200);
+      expect(shown.body.groupName).toBe('Boundary');
+
+      await request(server).delete(share).set('Cookie', cookie).expect(200);
+      await request(server).get(`/dashboards/${token}`).expect(404);
+    } finally {
+      // The ownership walks below resolve ctx.shareToken; put it back.
+      await prisma.group.update({ where: { code: ctx.groupCode }, data: { shareToken: ctx.shareToken } });
+    }
+  });
+
   it('keeps the full data export behind auth', async () => {
     // An export is every player, session and match in one response — the single
     // most valuable thing to leak, and a GET, which is easy to overlook when
@@ -256,6 +298,7 @@ describe('auth boundary', () => {
         const code = path.startsWith('/sessions') ? ctx.sessionCode : ctx.groupCode;
         const concrete = path
           .replace(':code', code)
+        .replace(':token', ctx.shareToken)
           .replace(':playerId', ctx.playerId)
           .replace(':id', 'some-id')
           .replace(':n', '1');

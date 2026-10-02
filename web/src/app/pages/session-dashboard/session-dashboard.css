@@ -116,7 +116,8 @@
 .wait-mins {
   margin-left: var(--space-0);
   color: var(--ink-soft);
-  font-size: var(--text-xs);
+  font-size: var(--text-sm);
+  font-weight: 600;
 }
 
 /* Real games played (from the stats endpoint), matching .tally on the court
@@ -124,8 +125,8 @@
    courts. */
 .tally {
   margin-left: var(--space-0);
-  font-size: var(--text-xs);
-  font-weight: 400;
+  font-size: var(--text-sm);
+  font-weight: 600;
   color: var(--ink-soft);
   font-variant-numeric: tabular-nums;
 }
@@ -433,6 +434,7 @@
 .roster-actions {
   display: flex;
   flex-wrap: wrap;
+  align-items: center;
   gap: var(--space-1);
   margin: var(--space-2) 0;
 }
@@ -469,3 +471,16 @@
   flex: none;
 }
 
+
+.rule-hint {
+  display: block;
+  font-size: var(--text-xs);
+  color: var(--ink-soft);
+}
+
+.end-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-1);
+}

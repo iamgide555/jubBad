@@ -29,7 +29,7 @@ import type { Player } from '../../../../../engines/fuzzy-match.ts';
 import type { GroupLevelsResponse } from '../../core/group-levels.model';
 import { levelsErrorMessage } from '../../core/group-levels.model';
 import type { Level } from '../../../../../engines/levels.ts';
-import { describeRules, ruleErrorMessage, ruleKindLabel, type CreatePairRuleRequest } from '../../core/pair-rule.model';
+import { describeRules, RULE_KIND_HINTS, ruleErrorMessage, ruleKindLabel, type CreatePairRuleRequest } from '../../core/pair-rule.model';
 import type { PlayerStat } from '../../core/stats.model';
 import type { PlayerPanelRow } from '../../core/player-panel.model';
 
@@ -420,6 +420,7 @@ export class SessionDashboard implements OnDestroy {
       id: r.id,
       players: `${nameOf(r.playerAId)} · ${nameOf(r.playerBId)}`,
       kind: ruleKindLabel(r.kind),
+      hint: RULE_KIND_HINTS[r.kind],
       enabled: !off.has(r.id),
     }));
   });

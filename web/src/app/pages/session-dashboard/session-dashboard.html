@@ -68,11 +68,6 @@
           + เพิ่มคน
         </button>
       }
-      @if (checkoutEnabled()) {
-        <button type="button" class="ghost" data-early-checkout (click)="openCheckoutDialog()" i18n="@@dashboard.earlyCheckout">
-          เช็คเอาต์คนกลับก่อน
-        </button>
-      }
       @if (!ended()) {
         <button type="button" class="ghost" data-add-rule (click)="openAddRuleDialog()" i18n="@@dashboard.addRule">
           + เพิ่มกฎการจับคู่
@@ -107,7 +102,8 @@
                   [disabled]="ended()"
                   (change)="toggleSessionRule(rule.id, !rule.enabled)"
                 />
-                <span>{{ rule.players }} <span class="muted">({{ rule.kind }})</span></span>
+                <span>{{ rule.players }} — <strong>{{ rule.kind }}</strong>
+                  <span class="rule-hint">{{ rule.hint }}</span></span>
               </label>
             </li>
           }
@@ -381,9 +377,20 @@
       ></textarea>
     }
 
-    @if (!ended()) {
+    @if (!ended() || checkoutEnabled()) {
       <hr class="rule" />
-      <button type="button" (click)="openEndSession()" i18n="@@dashboard.endSession">จบก๊วน</button>
+      <div class="end-row">
+        @if (checkoutEnabled()) {
+          <button type="button" class="ghost" data-early-checkout (click)="openCheckoutDialog()" i18n="@@dashboard.earlyCheckout">
+            เช็คเอาต์คนกลับก่อน
+          </button>
+        }
+        @if (!ended()) {
+          <button type="button" class="danger" (click)="openEndSession()" i18n="@@dashboard.endSession">จบก๊วน</button>
+        }
+      </div>
+    }
+    @if (!ended()) {
       <app-shuttle-details-dialog
         #endDialog
         [shuttleCount]="session()!.shuttleCount"

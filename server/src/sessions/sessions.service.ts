@@ -1916,6 +1916,34 @@ export class SessionsService {
       throw this.conflict('PAIRING_NOT_PENDING');
     }
 
+    const session = await this.prisma.session.findUniqueOrThrow({ where: { code: pairing.sessionId } });
+    const rules = await this.loadApplicableRules(session, new Set(rosterPlayerIds));
+
+    // A linked (คู่กัน) player never plays without their partner, so bringing
+    // one on means bringing both: the partner takes the seat of the outgoing
+    // player's teammate, and the two who step off take the pair's old seats.
+    // Without this the host had to swap each half by hand and the first swap
+    // was always refused as a broken rule.
+    if (!sameCourt) {
+      const linked = rules.find(
+        (r) => r.kind === 'must-pair' && (r.playerAId === incomingId || r.playerBId === incomingId)
+      );
+      const partnerId = linked && (linked.playerAId === incomingId ? linked.playerBId : linked.playerAId);
+      const outgoingTeam = [this.oneSeatOf(pairing.teamA), this.oneSeatOf(pairing.teamB)].find((t) =>
+        t.includes(dto.playerId)
+      );
+      const teammates = (outgoingTeam ?? []).filter((id) => id !== null && id !== dto.playerId);
+      if (
+        partnerId &&
+        !onThisCourt.has(partnerId) &&
+        rosterPlayerIds.includes(partnerId) &&
+        outgoingTeam?.length === 2 &&
+        teammates.length === 1
+      ) {
+        return this.swapPairIn(pairing, dto, incomingId, partnerId, teammates[0] as string, nonEnded, rules);
+      }
+    }
+
     const newTeamA = sameCourt
       ? tradeIn(pairing.teamA, dto.playerId, incomingId)
       : replaceIn(pairing.teamA, dto.playerId, incomingId);
@@ -1925,8 +1953,6 @@ export class SessionsService {
     const farTeamA = other ? replaceIn(other.teamA, incomingId, dto.playerId) : undefined;
     const farTeamB = other ? replaceIn(other.teamB, incomingId, dto.playerId) : undefined;
 
-    const session = await this.prisma.session.findUniqueOrThrow({ where: { code: pairing.sessionId } });
-    const rules = await this.loadApplicableRules(session, new Set(rosterPlayerIds));
     this.assertCourtLegal(newTeamA, newTeamB, rules);
     if (farTeamA && farTeamB) this.assertCourtLegal(farTeamA, farTeamB, rules);
 
@@ -1957,6 +1983,86 @@ export class SessionsService {
           data: {
             teamA: JSON.stringify(farTeamA),
             teamB: JSON.stringify(farTeamB),
+            pendingSince: new Date(),
+            revision: { increment: 1 },
+          },
+        });
+        if (far.count !== 1) throw this.conflict('PAIRING_STALE');
+      }
+    });
+
+    const updated = await this.prisma.pairing.findUniqueOrThrow({ where: { id: pairing.id } });
+    return {
+      ok: true as const,
+      pairing: {
+        id: updated.id,
+        courtNumber: updated.courtNumber,
+        matchNumber: updated.matchNumber,
+        revision: updated.revision,
+        teamA: newTeamA,
+        teamB: newTeamB,
+      },
+    };
+  }
+
+  /**
+   * Pair-for-pair swap: `incomingId` and their must-pair partner take the
+   * outgoing player's seat and their teammate's, and those two take whatever
+   * seats (or the waiting list) the incoming pair came from.
+   */
+  private async swapPairIn(
+    pairing: { id: string; revision: number; teamA: string; teamB: string },
+    dto: SwapPlayerDto,
+    incomingId: string,
+    partnerId: string,
+    teammateId: string,
+    nonEnded: { id: string; revision: number; teamA: string; teamB: string; confirmedAt: Date | null }[],
+    rules: readonly PairRule[]
+  ) {
+    const trade = new Map<string, string>([
+      [incomingId, dto.playerId],
+      [partnerId, teammateId],
+      [dto.playerId, incomingId],
+      [teammateId, partnerId],
+    ]);
+    const remap = (raw: string): Seat[] =>
+      this.oneSeatOf(raw).map((id) => (id !== null && trade.has(id) ? trade.get(id)! : id));
+
+    const others = nonEnded.filter((p) => {
+      const players = this.playersOf(p);
+      return players.includes(incomingId) || players.includes(partnerId);
+    });
+    if (others.some((p) => p.confirmedAt !== null)) throw this.conflict('PAIRING_NOT_PENDING');
+
+    const newTeamA = remap(pairing.teamA);
+    const newTeamB = remap(pairing.teamB);
+    const farSides = others.map((p) => ({ p, teamA: remap(p.teamA), teamB: remap(p.teamB) }));
+
+    this.assertCourtLegal(newTeamA, newTeamB, rules);
+    for (const f of farSides) this.assertCourtLegal(f.teamA, f.teamB, rules);
+
+    await this.prisma.$transaction(async (tx) => {
+      const near = await tx.pairing.updateMany({
+        where: {
+          id: pairing.id,
+          confirmedAt: null,
+          endedAt: null,
+          revision: dto.expectedRevision ?? pairing.revision,
+        },
+        data: {
+          teamA: JSON.stringify(newTeamA),
+          teamB: JSON.stringify(newTeamB),
+          pendingSince: new Date(),
+          revision: { increment: 1 },
+        },
+      });
+      if (near.count !== 1) throw this.conflict('PAIRING_STALE');
+      for (const f of farSides) {
+        const far = await tx.pairing.updateMany({
+          where: { id: f.p.id, confirmedAt: null, endedAt: null, revision: f.p.revision },
+          data: {
+            teamA: JSON.stringify(f.teamA),
+            teamB: JSON.stringify(f.teamB),
             pendingSince: new Date(),
             revision: { increment: 1 },
           },

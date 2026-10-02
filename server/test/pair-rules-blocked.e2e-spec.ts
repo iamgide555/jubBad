@@ -227,6 +227,31 @@ describe(`pair rules that cannot be satisfied (e2e, seed ${SEED})`, () => {
     expect(before).toBeTruthy();
   });
 
+  it('swapping in one half of a คู่กัน pair brings the partner too, and both step-offs go to the pair\'s old place', async () => {
+    const f = await fixture(6, 1);
+    await request(server).post(`/sessions/${f.sessionCode}/courts/fill`).expect(201);
+    const [court] = await courtsOf(f.sessionCode);
+    const row = await prisma.pairing.findUniqueOrThrow({ where: { id: court.pairingId } });
+    const seated = idsOf(row);
+    const [b1, b2] = f.players.map((p) => p.id).filter((id) => !seated.includes(id));
+    const rule = await f.addRule(b1, b2, 'must-pair');
+    const out = seated[0];
+    const teamOf = (r: { teamA: string; teamB: string }, id: string) =>
+      (JSON.parse(r.teamA) as string[]).includes(id) ? JSON.parse(r.teamA) as string[] : JSON.parse(r.teamB) as string[];
+    const mate = teamOf(row, out).find((id) => id !== out)!;
+
+    const swap = await request(server)
+      .post(`/sessions/${f.sessionCode}/pairings/${court.pairingId}/swap`)
+      .send({ playerId: out, withPlayerId: b1, expectedRevision: court.revision });
+    expect(swap.status, JSON.stringify(swap.body)).toBeLessThan(300);
+
+    const after = await prisma.pairing.findUniqueOrThrow({ where: { id: court.pairingId } });
+    expect(teamOf(after, b1)).toContain(b2);
+    expect(idsOf(after)).not.toContain(out);
+    expect(idsOf(after)).not.toContain(mate);
+    expect(legal(after, [rule])).toBe(true);
+  });
+
   it('rule storm: dense random rules over 12 nights (8 tight tables, 4 big ones); never a rule broken, never a 5xx, blocked says which rules', async () => {
     const rand = rng(SEED);
     let blockedFills = 0, played = 0, nights = 0;

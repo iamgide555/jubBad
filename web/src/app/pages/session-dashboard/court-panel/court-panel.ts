@@ -205,6 +205,18 @@ export class CourtPanel {
     return elapsedSeconds(c.startedAt, this.clock.now() - this.liveSession.serverSkewMs());
   });
 
+  protected readonly statusText = computed(() => {
+    if (this.ended()) return '';
+    switch (this.court().status) {
+      case 'pending':
+        return $localize`:@@court.statusPending:รอยืนยัน`;
+      case 'active':
+        return $localize`:@@court.statusActive:กำลังเล่น`;
+      default:
+        return $localize`:@@court.statusIdle:ว่าง`;
+    }
+  });
+
   protected readonly timerLabel = computed<string | null>(() => {
     const seconds = this.liveElapsedSeconds();
     return seconds === null ? null : formatClock(seconds);

@@ -3799,6 +3799,18 @@
         <source>เปลี่ยนวิธีคิดค่าลูกไม่ได้ เพราะมีคนเช็คเอาต์ไปแล้ว ยกเลิกเช็คเอาต์ก่อน</source>
         <target>Can't change how shuttles are billed because someone already checked out. Undo the checkout first.</target>
       </trans-unit>
+      <trans-unit id="court.statusPending" datatype="html">
+        <source>รอยืนยัน</source><target>Pending</target>
+      </trans-unit>
+      <trans-unit id="court.statusActive" datatype="html">
+        <source>กำลังเล่น</source><target>Playing</target>
+      </trans-unit>
+      <trans-unit id="court.statusIdle" datatype="html">
+        <source>ว่าง</source><target>Idle</target>
+      </trans-unit>
+      <trans-unit id="court.otherOptions" datatype="html">
+        <source>ตัวเลือกอื่น</source><target>More options</target>
+      </trans-unit>
     </body>
   </file>
 </xliff>

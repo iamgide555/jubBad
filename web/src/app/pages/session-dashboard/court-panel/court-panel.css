@@ -87,6 +87,40 @@
   font-family: var(--font-display);
 }
 
+.status-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  flex: none;
+  font-size: var(--text-xs);
+  font-weight: 600;
+  color: var(--ink-soft);
+  white-space: nowrap;
+}
+
+.status-label.pending {
+  color: var(--accent-ink);
+}
+
+.status-label.active {
+  color: var(--court-ink);
+}
+
+.court-escape > summary {
+  min-height: var(--tap);
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+  color: var(--ink-soft);
+  font-size: var(--text-sm);
+}
+
+.court-escape-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
 .status-dot {
   flex: none;
   width: 10px;
@@ -408,8 +442,8 @@
    number, so this is the same count the summary page will show later. */
 .tally {
   margin-left: var(--space-0);
-  font-size: var(--text-xs);
-  font-weight: 400;
+  font-size: var(--text-sm);
+  font-weight: 600;
   color: var(--ink-soft);
   font-variant-numeric: tabular-nums;
 }

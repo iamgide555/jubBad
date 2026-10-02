@@ -1571,7 +1571,7 @@ describe('SessionDashboard', () => {
       await drainReload(baseSession());
       await flushRules();
       // drainReload re-flushes the player list empty, so names read '?' here.
-      expect(text()).toContain('(ห้ามอยู่ด้วยกัน)');
+      expect(text()).toContain('— ห้ามอยู่ด้วยกัน');
     });
 
     describe('adding a rule from the dashboard', () => {

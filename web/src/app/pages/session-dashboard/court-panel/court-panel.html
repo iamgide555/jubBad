@@ -47,7 +47,9 @@
         label
       }}</span>
     }
-    <span class="status-dot" [class]="c.status"></span>
+    <span class="status-label" [class]="c.status">
+      <span class="status-dot" [class]="c.status" aria-hidden="true"></span>{{ statusText() }}
+    </span>
   </div>
 
   @if (ended()) {
@@ -248,12 +250,19 @@
             <button type="button" class="win win-b" [disabled]="busy()" [attr.aria-label]="wonLabel(bNames)" (click)="finish('B')" i18n="@@court.won">ชนะ</button>
           </div>
         }
-        <button type="button" class="no-result" [disabled]="busy()" (click)="finish(null)" i18n="@@court.noResult">ไม่มีผล</button>
       }
     }
 
     @if (c.status === 'active') {
-      <button type="button" class="undo" [disabled]="busy()" (click)="undo()" i18n="@@court.voidMatch">↩ ยกเลิกแมตช์</button>
+      <!-- Both end the match without a winner, so they live behind one quiet
+           disclosure instead of sitting a thumb-slip below the winner buttons. -->
+      <details class="court-escape" #escape>
+        <summary i18n="@@court.otherOptions">ตัวเลือกอื่น</summary>
+        <div class="court-escape-body">
+          <button type="button" class="no-result" [disabled]="busy()" (click)="escape.open = false; finish(null)" i18n="@@court.noResult">ไม่มีผล</button>
+          <button type="button" class="undo" [disabled]="busy()" (click)="escape.open = false; undo()" i18n="@@court.voidMatch">↩ ยกเลิกแมตช์</button>
+        </div>
+      </details>
     } @else {
       <button type="button" class="undo" [disabled]="busy()" (click)="undo()" i18n="@@court.undo">↩ ย้อนกลับ</button>
     }

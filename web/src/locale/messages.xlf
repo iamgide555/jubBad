@@ -3407,6 +3407,18 @@
           <context context-type="linenumber">125</context>
         </context-group>
       </trans-unit>
+      <trans-unit id="court.statusPending" datatype="html">
+        <source>รอยืนยัน</source>
+      </trans-unit>
+      <trans-unit id="court.statusActive" datatype="html">
+        <source>กำลังเล่น</source>
+      </trans-unit>
+      <trans-unit id="court.statusIdle" datatype="html">
+        <source>ว่าง</source>
+      </trans-unit>
+      <trans-unit id="court.otherOptions" datatype="html">
+        <source>ตัวเลือกอื่น</source>
+      </trans-unit>
     </body>
   </file>
 </xliff>

@@ -13,6 +13,8 @@
 import {
   BILL_MODELS,
   ROUNDING_STEPS,
+  SHUTTLE_CHARGES,
+  distinctShuttlesFor,
   splitByWeight,
   splitEqual,
   type BillConfig,
@@ -120,12 +122,14 @@ export function computeCheckoutPreview(input: CheckoutPreviewInput): CheckoutPre
     ['capSatang', config.capSatang],
     ['buffetPriceSatang', config.buffetPriceSatang],
     ['startingFeeSatang', config.startingFeeSatang],
+    ['perPlayerShuttleSatang', config.perPlayerShuttleSatang],
     ['hostFeeSatang', config.hostFeeSatang],
     ['walkInFeeSatang', config.walkInFeeSatang],
     ['shuttlePriceSatang', input.shuttlePriceSatang],
   ] as const) {
     assertMoney(label, v);
   }
+  if (!SHUTTLE_CHARGES.includes(config.shuttleCharge)) throw new Error(`checkout: unknown shuttleCharge ${config.shuttleCharge}`);
   for (const r of input.otherSettled) assertMoney(`settled ${r.playerId}`, r.amountSatang);
 
   const own = matches.filter((m) => m.players.includes(playerId));
@@ -136,12 +140,20 @@ export function computeCheckoutPreview(input: CheckoutPreviewInput): CheckoutPre
   if (override) return { model, amountSatang: override.amountSatang, games, breakdown: { ...zero, baseSatang: override.amountSatang } };
 
   const pricesShuttles = model === 'perShuttle' || (model === 'buffet' && !config.buffetShuttlesIncluded);
+  const fullCharge = model === 'perShuttle' && config.shuttleCharge === 'full';
+  // Blank charge follows the session shuttle price.
+  const chargeSatang = config.perPlayerShuttleSatang ?? input.shuttlePriceSatang;
   let shuttleSatang = 0;
   if (pricesShuttles) {
     if (own.some((m) => !Array.isArray(m.shuttleIds))) throw new CheckoutBlockedError('UNKNOWN_SHUTTLE_USE');
     if (own.some((m) => (m.shuttleIds ?? []).length > 0)) {
-      if (input.shuttlePriceSatang === null) throw new CheckoutBlockedError('MISSING_SHUTTLE_PRICE');
-      shuttleSatang = shuttleShare(input, input.shuttlePriceSatang);
+      if (fullCharge) {
+        if (chargeSatang === null) throw new CheckoutBlockedError('MISSING_SHUTTLE_PRICE');
+        shuttleSatang = distinctShuttlesFor(playerId, matches) * chargeSatang;
+      } else {
+        if (input.shuttlePriceSatang === null) throw new CheckoutBlockedError('MISSING_SHUTTLE_PRICE');
+        shuttleSatang = shuttleShare(input, input.shuttlePriceSatang);
+      }
     }
   }
 

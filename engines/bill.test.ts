@@ -493,3 +493,101 @@ test('the default config carries a zero starting fee and existing models ignore 
   const without = computeBill(input({ model: 'perGame', perGameRateSatang: 1000 }));
   assert.deepEqual(amounts(withFee), amounts(without));
 });
+
+// ---- perShuttle + full: each player pays the whole charge per distinct shuttle ----
+
+const sm = (players: string[], shuttleIds: string[] | null): BillMatch => ({ players, shuttleIds });
+const FULL: Partial<BillConfig> = {
+  model: 'perShuttle',
+  shuttleCharge: 'full',
+  startingFeeSatang: 1000,
+  hostFeeSatang: 500,
+};
+// a plays game 1 (shuttle s1) and game 2 (s3 and s4); everyone else plays one game.
+const FULL_GAMES: BillMatch[] = [sm(['a', 'b', 'c', 'd'], ['s1']), sm(['a', 'e', 'f', 'g'], ['s3', 's4'])];
+
+test('perShuttle full: pays the charge for every distinct shuttle the player touched', () => {
+  const r = computeBill(input({ ...FULL, perPlayerShuttleSatang: 8000 }, { matches: FULL_GAMES, shuttlePriceSatang: 5000 }));
+  const got = amounts(r);
+  assert.equal(got.a, 1000 + 3 * 8000 + 500);
+  assert.equal(got.b, 1000 + 8000 + 500);
+  assert.equal(got.e, 1000 + 2 * 8000 + 500);
+});
+
+test('perShuttle full: a shuttle reused across a player\'s own games is charged once', () => {
+  const games = [sm(['a', 'b', 'c', 'd'], ['s1']), sm(['a', 'e', 'f', 'g'], ['s1'])];
+  const got = amounts(computeBill(input({ ...FULL, perPlayerShuttleSatang: 8000 }, { matches: games, shuttlePriceSatang: 5000 })));
+  assert.equal(got.a, 1000 + 8000 + 500);
+  assert.equal(got.b, 1000 + 8000 + 500);
+});
+
+test('perShuttle full: a blank charge follows the session shuttle price', () => {
+  const got = amounts(computeBill(input({ ...FULL, perPlayerShuttleSatang: null }, { matches: FULL_GAMES, shuttlePriceSatang: 5000 })));
+  assert.equal(got.b, 1000 + 5000 + 500);
+  assert.equal(got.a, 1000 + 3 * 5000 + 500);
+});
+
+test('perShuttle shared: ignores the per-player charge entirely', () => {
+  const extra = { matches: FULL_GAMES, shuttlePriceSatang: 5000 };
+  const base = amounts(computeBill(input({ model: 'perShuttle', startingFeeSatang: 1000 }, extra)));
+  const withCharge = amounts(computeBill(input({ model: 'perShuttle', startingFeeSatang: 1000, perPlayerShuttleSatang: 99900 }, extra)));
+  assert.deepEqual(withCharge, base);
+});
+
+test('perShuttle full: a game with unknown shuttle use warns', () => {
+  const games = [sm(['a', 'b', 'c', 'd'], ['s1']), sm(['a', 'e', 'f', 'g'], null)];
+  const r = computeBill(input({ ...FULL, perPlayerShuttleSatang: 8000 }, { matches: games, shuttlePriceSatang: 5000 }));
+  assert.ok(r.warnings.includes('UNKNOWN_SHUTTLE_USE'));
+});
+
+test('perShuttle full: shuttles used with no charge and no price warns and bills no shuttle money', () => {
+  const r = computeBill(input({ ...FULL, perPlayerShuttleSatang: null }, { matches: FULL_GAMES, shuttlePriceSatang: null }));
+  assert.ok(r.warnings.includes('MISSING_SHUTTLE_PRICE'));
+  assert.equal(amounts(r).a, 1000 + 500);
+});
+
+test('perShuttle full: a settled leaver is frozen and nobody else\'s amount moves', () => {
+  const cfg = { ...FULL, perPlayerShuttleSatang: 8000 };
+  const extra = { matches: FULL_GAMES, shuttlePriceSatang: 5000 };
+  const without = amounts(computeBill(input(cfg, extra)));
+  const withSettled = computeBill(
+    input(cfg, {
+      ...extra,
+      settled: [
+        {
+          id: 'r1', playerId: 'a', model: 'perShuttle', amountSatang: 25500, settledAt: '2026-10-01T10:00:00Z',
+          walkInFeeSatang: 0, walkInDiscountSatang: 0, startingFeeSatang: 1000,
+        },
+      ],
+    })
+  );
+  const { a: _leaver, ...others } = without;
+  assert.deepEqual(amounts(withSettled), others);
+  assert.equal(withSettled.totals.settledTotalSatang, 25500);
+  assert.equal(withSettled.totals.excessCreditSatang, 0);
+  assert.equal(withSettled.totals.uncoveredCostSatang, 0);
+});
+
+test('perShuttle full: a removed player is not billed and nobody absorbs their share', () => {
+  const cfg = { ...FULL, perPlayerShuttleSatang: 8000 };
+  const extra = { matches: FULL_GAMES, shuttlePriceSatang: 5000 };
+  const base = amounts(computeBill(input(cfg, extra)));
+  const removed = amounts(computeBill(input({ ...cfg, removedIds: ['e'] }, extra)));
+  const { e: _gone, ...rest } = base;
+  assert.equal(removed.e, undefined);
+  assert.deepEqual(removed, rest);
+});
+
+test('perShuttle full: the margin compares collected with the real shuttle cost, not the charge', () => {
+  const r = computeBill(
+    input({ ...FULL, perPlayerShuttleSatang: 8000, courtFeeSatang: 10000 }, { matches: FULL_GAMES, shuttleCount: 4, shuttlePriceSatang: 5000 })
+  );
+  assert.equal(r.totals.costSatang, 10000 + 4 * 5000);
+  assert.equal(r.totals.marginSatang, r.totals.collectedSatang - 30000);
+});
+
+test('perShuttle full: bad config values fail loudly', () => {
+  assert.throws(() => computeBill(input({ ...FULL, shuttleCharge: 'bogus' as never })), /shuttleCharge/);
+  assert.throws(() => computeBill(input({ ...FULL, perPlayerShuttleSatang: -1 })), /perPlayerShuttleSatang/);
+  assert.throws(() => computeBill(input({ ...FULL, perPlayerShuttleSatang: 10.5 })), /perPlayerShuttleSatang/);
+});

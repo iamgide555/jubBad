@@ -205,3 +205,65 @@ test('an earlier perShuttle receipt credits only its shuttle part, not the start
   const r = computeCheckoutPreview(input({ matches, otherSettled: [{ playerId: 's', amountSatang: 4500, walkInFeeSatang: 0, walkInDiscountSatang: 0, startingFeeSatang: 3000 }] }));
   assert.equal(r.breakdown.shuttleSatang, 1500);
 });
+
+// ---- perShuttle + full ----
+
+test('perShuttle full: charges the player for every distinct shuttle they touched', () => {
+  const r = computeCheckoutPreview(
+    input(
+      { matches: [game(['p', 'a', 'b', 'c'], ['s1']), game(['p', 'd', 'e', 'f'], ['s3', 's4'])], shuttlePriceSatang: 5000 },
+      { shuttleCharge: 'full', perPlayerShuttleSatang: 8000, startingFeeSatang: 1000 }
+    )
+  );
+  assert.equal(r.breakdown.shuttleSatang, 3 * 8000);
+  assert.equal(r.amountSatang, 1000 + 24000);
+});
+
+test('perShuttle full: a shuttle reused across the player\'s games is charged once', () => {
+  const r = computeCheckoutPreview(
+    input(
+      { matches: [game(['p', 'a', 'b', 'c'], ['s1']), game(['p', 'd', 'e', 'f'], ['s1'])], shuttlePriceSatang: 5000 },
+      { shuttleCharge: 'full', perPlayerShuttleSatang: 8000 }
+    )
+  );
+  assert.equal(r.breakdown.shuttleSatang, 8000);
+});
+
+test('perShuttle full: a blank charge follows the session shuttle price', () => {
+  const r = computeCheckoutPreview(
+    input(
+      { matches: [game(['p', 'a', 'b', 'c'], ['s1']), game(['p', 'd', 'e', 'f'], ['s3'])], shuttlePriceSatang: 5000 },
+      { shuttleCharge: 'full', perPlayerShuttleSatang: null }
+    )
+  );
+  assert.equal(r.breakdown.shuttleSatang, 2 * 5000);
+});
+
+test('perShuttle full: still blocked by unknown use and by a missing charge+price', () => {
+  assert.throws(
+    () => computeCheckoutPreview(input({ matches: [game(['p', 'a', 'b', 'c'], null)] }, { shuttleCharge: 'full', perPlayerShuttleSatang: 8000 })),
+    (e: unknown) => e instanceof CheckoutBlockedError && e.code === 'UNKNOWN_SHUTTLE_USE'
+  );
+  assert.throws(
+    () =>
+      computeCheckoutPreview(
+        input({ matches: [game(['p', 'a', 'b', 'c'], ['s1'])], shuttlePriceSatang: null }, { shuttleCharge: 'full', perPlayerShuttleSatang: null })
+      ),
+    (e: unknown) => e instanceof CheckoutBlockedError && e.code === 'MISSING_SHUTTLE_PRICE'
+  );
+  // An explicit charge needs no session price at all.
+  const ok = computeCheckoutPreview(
+    input({ matches: [game(['p', 'a', 'b', 'c'], ['s1'])], shuttlePriceSatang: null }, { shuttleCharge: 'full', perPlayerShuttleSatang: 8000 })
+  );
+  assert.equal(ok.breakdown.shuttleSatang, 8000);
+});
+
+test('perShuttle full: what earlier leavers paid does not change this quote', () => {
+  const matches = [game(['p', 'a', 'b', 'c'], ['s1']), game(['d', 'e', 'f', 'g'], ['s1'])];
+  const cfg = { shuttleCharge: 'full' as const, perPlayerShuttleSatang: 8000 };
+  const alone = computeCheckoutPreview(input({ matches }, cfg));
+  const afterLeaver = computeCheckoutPreview(
+    input({ matches, otherSettled: [{ playerId: 'a', amountSatang: 9000, walkInFeeSatang: 0, walkInDiscountSatang: 0, startingFeeSatang: 0 }] }, cfg)
+  );
+  assert.equal(afterLeaver.amountSatang, alone.amountSatang);
+});

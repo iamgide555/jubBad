@@ -1356,6 +1356,24 @@ describe('CourtPanel with too few players', () => {
       expect(text(fixture)).not.toContain('ผู้เล่นในคอร์ทนี้ขัดกับกฎการจับคู่');
     });
 
+    it('names the broken rule when the server refuses a seat edit', async () => {
+      withRules();
+      const { fixture, httpMock } = await createPanel(pendingCourt(['p1', 'p3'], ['p2', 'p4']));
+      fixture.detectChanges();
+      const done = (
+        fixture.componentInstance as unknown as {
+          runSetSeat(pairingId: string, team: 'A' | 'B', index: number, playerId?: string): Promise<void>;
+        }
+      ).runSetSeat('pair1', 'A', 1, 'p2');
+      const req = httpMock.expectOne(`${B}/sessions/sess1/pairings/pair1/seats`);
+      expect(req.request.body).toEqual({ team: 'A', index: 1, playerId: 'p2' });
+      req.flush({ code: 'PAIR_RULE_VIOLATION', ruleIds: ['r1'] }, { status: 409, statusText: 'Conflict' });
+      await done;
+      fixture.detectChanges();
+      expect(text(fixture)).toContain('เปลี่ยนไม่ได้ เพราะขัดกับกฎการจับคู่: ตั้ม · เบส (ห้ามอยู่ด้วยกัน)');
+      expect(text(fixture)).not.toContain('ใส่ผู้เล่นไม่สำเร็จ');
+    });
+
     it('shows a refusal beside the seats, above the action buttons, on a pending court', async () => {
       withRules();
       const { fixture, httpMock } = await createPanel(pendingCourt(['p1', 'p3'], ['p2', 'p4']));

@@ -86,7 +86,17 @@ player, `touched = number of distinct shuttle ids across their finished games`.
 
 - `POST /sessions/:code/bill-config` accepts the two new fields (the DTO
   whitelist would otherwise silently drop them). Both are optional on input
-  for old clients: absent means `shared` / `null`.
+  for old clients: **absent keeps the stored value** (an old open tab editing the
+  host fee must not quietly flip a `full` bill back to `shared`); only an explicit
+  value, `null` included, changes it.
+- The route refuses (`409 SHUTTLE_CHARGE_LOCKED`) to change `shuttleCharge` while
+  an active (not undone) ตามลูกแบด early-checkout receipt exists. Receipts are
+  frozen on the basis they were quoted under, and the cost-sharing credit logic
+  reads their amounts as shuttle money, so flipping the basis under one would
+  price people on two bases at once and could leave a bill stuck behind
+  `EXCESS_CREDIT`. Other edits, and a save that keeps the same basis, are
+  unaffected; undoing the receipt unlocks the switch. The bill page disables the
+  switch and says why.
 - The early-checkout quote response gains `shuttleCharge` and `chargeSatang`
   (the resolved charge, or `null`) so the dialog can say which basis priced it.
 - The bill page saves count and price through the existing

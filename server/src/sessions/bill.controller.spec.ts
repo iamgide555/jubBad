@@ -304,6 +304,20 @@ describe('SessionsController (bill)', () => {
       }
     });
 
+    it('an old client that omits the new fields keeps a stored full basis and charge', async () => {
+      const n = await night();
+      try {
+        await n.saveConfig({ model: 'perShuttle', shuttleCharge: 'full', perPlayerShuttleSatang: 2000 });
+        const res = await n.saveConfig({ model: 'perShuttle', hostFeeSatang: 500 });
+        expect(res.body.config).toMatchObject({ shuttleCharge: 'full', perPlayerShuttleSatang: 2000, hostFeeSatang: 500 });
+        // An explicit null still clears the charge.
+        const cleared = await n.saveConfig({ model: 'perShuttle', shuttleCharge: 'full', perPlayerShuttleSatang: null });
+        expect(cleared.body.config.perPlayerShuttleSatang).toBeNull();
+      } finally {
+        await n.cleanup();
+      }
+    });
+
     it('rejects an unknown switch, a negative charge and a fractional charge', async () => {
       const n = await night();
       try {

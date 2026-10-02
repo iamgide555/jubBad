@@ -760,8 +760,10 @@ so one shared number would make the host-only margin meaningless. The real
 price (and the physical count) stay the cost side of the margin; a blank charge
 follows the real price. `full` is rate-based like per-game and buffet, so an
 early checkout freezes only the leaver and never changes anyone else's amount.
-The settings live in `Session.billConfig` (no migration; older bills read as
-shared). The bill page edits the count and price directly, through the same
+The basis cannot be changed while a ตามลูกแบด receipt is active (receipts are
+frozen on the basis they were quoted under); undo the checkout first. The settings
+live in `Session.billConfig` (no migration; older bills read as shared; a client
+that omits the new fields keeps the stored values). The bill page edits the count and price directly, through the same
 session fields the summary page edits.
 
 **A walk-in's surcharge (C2, C3's D7 amendment) is a group discount, not

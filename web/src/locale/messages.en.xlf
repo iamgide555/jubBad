@@ -3671,6 +3671,14 @@
         <source>ต่อลูก</source>
         <target>per shuttle</target>
       </trans-unit>
+      <trans-unit id="bill.chargeLocked" datatype="html">
+        <source>เปลี่ยนวิธีคิดค่าลูกไม่ได้ เพราะมีคนเช็คเอาต์ตามลูกแบดไปแล้ว ยกเลิกเช็คเอาต์ก่อนถ้าจะเปลี่ยน</source>
+        <target>The shuttle basis can't change because someone already checked out under it. Undo the checkout first to change it.</target>
+      </trans-unit>
+      <trans-unit id="bill.chargeLockedError" datatype="html">
+        <source>เปลี่ยนวิธีคิดค่าลูกไม่ได้ เพราะมีคนเช็คเอาต์ไปแล้ว ยกเลิกเช็คเอาต์ก่อน</source>
+        <target>Can't change how shuttles are billed because someone already checked out. Undo the checkout first.</target>
+      </trans-unit>
     </body>
   </file>
 </xliff>

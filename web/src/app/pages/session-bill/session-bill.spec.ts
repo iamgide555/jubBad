@@ -345,6 +345,35 @@ describe('SessionBill', () => {
       await new Promise((r) => setTimeout(r, 0));
     });
 
+    it('locks the basis switch while a perShuttle receipt exists, and says why', async () => {
+      const b = settledBill();
+      b.config.model = 'perShuttle';
+      b.settled = [{ ...b.settled[0], model: 'perShuttle' }];
+      await load(b);
+      expect((el().querySelector('[data-charge-mode="full"]') as HTMLButtonElement).disabled).toBe(true);
+      expect((el().querySelector('[data-charge-mode="shared"]') as HTMLButtonElement).disabled).toBe(true);
+      expect(el().querySelector('[data-charge-locked]')).toBeTruthy();
+    });
+
+    it('a perGame receipt does not lock the basis switch', async () => {
+      const b = settledBill();
+      b.config.model = 'perShuttle';
+      await load(b);
+      expect((el().querySelector('[data-charge-mode="full"]') as HTMLButtonElement).disabled).toBe(false);
+      expect(el().querySelector('[data-charge-locked]')).toBeNull();
+    });
+
+    it('a locked-switch answer from the server explains itself instead of a generic failure', async () => {
+      const b = advanced();
+      b.config.model = 'perShuttle';
+      await load(b);
+      (el().querySelector('[data-charge-mode="full"]') as HTMLButtonElement).click();
+      http.expectOne(`${B}/sessions/sess1/bill-config`).flush({ code: 'SHUTTLE_CHARGE_LOCKED' }, { status: 409, statusText: 'Conflict' });
+      await new Promise((r) => setTimeout(r, 0));
+      fixture.detectChanges();
+      expect(el().querySelector('.error')!.textContent).toContain('เช็คเอาต์');
+    });
+
     it('saving a starting fee posts it in the full config', async () => {
       const b = advanced();
       b.config.model = 'perShuttle';

@@ -1,5 +1,5 @@
 import { Component, computed, inject, signal } from '@angular/core';
-import { HttpClient } from '@angular/common/http';
+import { HttpClient, HttpErrorResponse } from '@angular/common/http';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
 import { environment } from '../../../environments/environment';
@@ -33,6 +33,8 @@ export class SessionBill {
   protected readonly clipboardFallback = signal<string | null>(null);
 
   protected readonly config = computed(() => this.bill()?.config ?? null);
+  /** A ตามลูกแบด receipt is frozen on the basis it was quoted under, so the basis cannot change while one is active. */
+  protected readonly chargeLocked = computed(() => this.settled().some((r) => r.model === 'perShuttle'));
   protected readonly names = computed(() => new Map((this.bill()?.players ?? []).map((p) => [p.playerId, p.name])));
   protected readonly walkIn = computed(() => new Map((this.bill()?.players ?? []).map((p) => [p.playerId, p.walkIn])));
   protected readonly billed = computed(() => {
@@ -91,8 +93,13 @@ export class SessionBill {
       this.bill.set(
         await firstValueFrom(this.http.post<BillResponse>(`${this.base}/bill-config`, { ...current, ...patch }))
       );
-    } catch {
-      this.error.set($localize`:@@bill.saveFailed:บันทึกไม่สำเร็จ ลองใหม่อีกครั้ง`);
+    } catch (e) {
+      const locked = e instanceof HttpErrorResponse && e.status === 409 && e.error?.code === 'SHUTTLE_CHARGE_LOCKED';
+      this.error.set(
+        locked
+          ? $localize`:@@bill.chargeLockedError:เปลี่ยนวิธีคิดค่าลูกไม่ได้ เพราะมีคนเช็คเอาต์ไปแล้ว ยกเลิกเช็คเอาต์ก่อน`
+          : $localize`:@@bill.saveFailed:บันทึกไม่สำเร็จ ลองใหม่อีกครั้ง`
+      );
     } finally {
       this.saving.set(false);
     }

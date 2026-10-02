@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { computeBill, type CheckoutModel, type BillConfig, type BillResult, type ShuttleAllocation } from '../../../engines/bill.ts';
 import { deriveShuttleAccounting } from './shuttle-tracking.js';
@@ -165,10 +165,19 @@ export class BillService {
     if (referenced.some((id) => !on.has(id))) throw new BadRequestException({ code: 'BILL_PLAYER_NOT_ON_ROSTER' });
     const overrideIds = dto.overrides.map((o) => o.playerId);
     if (new Set(overrideIds).size !== overrideIds.length) throw new BadRequestException({ code: 'BILL_CONFIG_INVALID' });
+    // A field an older open tab does not send keeps its stored value; only an explicit value (null included) changes it.
+    const { config: effective } = await this.prisma.$transaction((tx) => loadBillSnapshot(tx, code));
+    const shuttleCharge = dto.shuttleCharge ?? effective.shuttleCharge;
+    // Receipts are frozen on the basis they were quoted under, and the cost-sharing credit logic reads them as
+    // shuttle money: flipping the basis under an active ตามลูกแบด receipt would price people on two bases at once.
+    if (shuttleCharge !== effective.shuttleCharge) {
+      const active = await this.prisma.sessionCheckout.count({ where: { sessionId: code, model: 'perShuttle', undoneAt: null } });
+      if (active > 0) throw new ConflictException({ code: 'SHUTTLE_CHARGE_LOCKED' });
+    }
     const config: BillConfig = {
       ...dto,
-      shuttleCharge: dto.shuttleCharge ?? 'shared',
-      perPlayerShuttleSatang: dto.perPlayerShuttleSatang ?? null,
+      shuttleCharge,
+      perPlayerShuttleSatang: dto.perPlayerShuttleSatang === undefined ? effective.perPlayerShuttleSatang : dto.perPlayerShuttleSatang,
       overrides: dto.overrides.map((o) => ({ playerId: o.playerId, amountSatang: o.amountSatang })),
     };
     await this.prisma.session.update({ where: { code }, data: { billConfig: serializeBillConfig(config) } });

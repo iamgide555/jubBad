@@ -112,6 +112,46 @@ describe('CheckoutController', () => {
     return { groupCode, sessionCode, players, finish, pending, preview, confirm, settle, list, undo, rosterRow, cleanup };
   }
 
+  describe('shuttle charge lock', () => {
+    const body = (over: Record<string, unknown> = {}) => ({
+      ...DEFAULT_BILL_CONFIG, walkInFeeSatang: 0, model: 'perShuttle', startingFeeSatang: 2000, ...over,
+    });
+    const post = (code: string, b: Record<string, unknown>) => request(server).post(`/sessions/${code}/bill-config`).send(b);
+
+    it('refuses to flip the basis while a perShuttle receipt is active, but still saves other edits', async () => {
+      const f = await fixture(4);
+      try {
+        const [p, a, b, c] = f.players.map((x) => x.id);
+        await f.finish([p, a, b, c], [1]);
+        const settled = await f.settle(p, 'perShuttle');
+        expect(settled.status).toBe(201);
+
+        const flip = await post(f.sessionCode, body({ shuttleCharge: 'full' }));
+        expect(flip.status).toBe(409);
+        expect(flip.body.code).toBe('SHUTTLE_CHARGE_LOCKED');
+        // Same basis, another edit: fine.
+        await post(f.sessionCode, body({ shuttleCharge: 'shared', hostFeeSatang: 500 })).expect(201);
+        // Undoing the receipt unlocks the switch.
+        await f.undo(settled.body.id).expect(201);
+        await post(f.sessionCode, body({ shuttleCharge: 'full' })).expect(201);
+      } finally {
+        await f.cleanup();
+      }
+    });
+
+    it('a perGame receipt does not lock the shuttle basis', async () => {
+      const f = await fixture(4);
+      try {
+        const [p, a, b, c] = f.players.map((x) => x.id);
+        await f.finish([p, a, b, c], [1]);
+        expect((await f.settle(p, 'perGame')).status).toBe(201);
+        await post(f.sessionCode, body({ shuttleCharge: 'full' })).expect(201);
+      } finally {
+        await f.cleanup();
+      }
+    });
+  });
+
   describe('checkout preview', () => {
     it('full: quotes the charge per distinct shuttle and reports the basis', async () => {
       const f = await fixture(7, { config: cfg({ shuttleCharge: 'full', perPlayerShuttleSatang: 3000 }) });

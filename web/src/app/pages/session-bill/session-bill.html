@@ -106,13 +106,16 @@
           <span class="setting-label" i18n="@@bill.chargeMode">วิธีคิดค่าลูก</span>
           <div class="scope-toggle setting-toggle">
             <button type="button" data-charge-mode="shared" [class.active]="b.config.shuttleCharge === 'shared'"
-              [attr.aria-pressed]="b.config.shuttleCharge === 'shared'" [disabled]="saving()"
+              [attr.aria-pressed]="b.config.shuttleCharge === 'shared'" [disabled]="saving() || chargeLocked()"
               (click)="save({ shuttleCharge: 'shared' })" i18n="@@bill.chargeShared">แชร์ตามต้นทุน</button>
             <button type="button" data-charge-mode="full" [class.active]="b.config.shuttleCharge === 'full'"
-              [attr.aria-pressed]="b.config.shuttleCharge === 'full'" [disabled]="saving()"
+              [attr.aria-pressed]="b.config.shuttleCharge === 'full'" [disabled]="saving() || chargeLocked()"
               (click)="save({ shuttleCharge: 'full' })" i18n="@@bill.chargeFull">คิดเต็มต่อคน</button>
           </div>
         </div>
+        @if (chargeLocked()) {
+          <p class="hint" data-charge-locked i18n="@@bill.chargeLocked">เปลี่ยนวิธีคิดค่าลูกไม่ได้ เพราะมีคนเช็คเอาต์ตามลูกแบดไปแล้ว ยกเลิกเช็คเอาต์ก่อนถ้าจะเปลี่ยน</p>
+        }
         @if (b.config.shuttleCharge === 'full') {
           <div class="setting-row">
             <span class="setting-label" i18n="@@bill.chargePerPlayer">ค่าลูกต่อคนต่อลูก (บาท)</span>

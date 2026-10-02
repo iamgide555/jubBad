@@ -6,7 +6,7 @@
  */
 import { createHash } from 'node:crypto';
 import { BadRequestException, ConflictException, NotFoundException } from '@nestjs/common';
-import type { CheckoutModel } from '../../../engines/bill.ts';
+import type { CheckoutModel, ShuttleCharge } from '../../../engines/bill.ts';
 import { CheckoutBlockedError, computeCheckoutPreview, type CheckoutPreview } from '../../../engines/checkout.ts';
 import { engineMatches, type BillSnapshot } from './bill-snapshot.js';
 import { activeCheckouts, parseCheckoutBreakdown } from './checkout-pricing.js';
@@ -19,6 +19,10 @@ export interface CheckoutQuote extends CheckoutPreview {
   shuttleIds: string[];
   shuttlePriceSatang: number | null;
   walkIn: boolean;
+  /** Which basis priced a perShuttle quote; 'shared' for every other model. */
+  shuttleCharge: ShuttleCharge;
+  /** The resolved charge per player per shuttle under 'full', else null. */
+  chargeSatang: number | null;
 }
 
 /** JSON with sorted keys, so the same inputs always hash the same. */
@@ -80,5 +84,9 @@ export function quoteCheckout(snapshot: BillSnapshot, playerId: string, model: C
       })
     )
     .digest('hex');
-  return { ...preview, playerId, snapshotHash, shuttleIds, shuttlePriceSatang: session.shuttlePriceSatang, walkIn: row.walkIn };
+  return { ...preview, playerId, snapshotHash, shuttleIds, shuttlePriceSatang: session.shuttlePriceSatang, walkIn: row.walkIn,
+    shuttleCharge: model === 'perShuttle' ? config.shuttleCharge : 'shared',
+    chargeSatang:
+      model === 'perShuttle' && config.shuttleCharge === 'full' ? (config.perPlayerShuttleSatang ?? session.shuttlePriceSatang) : null,
+  };
 }

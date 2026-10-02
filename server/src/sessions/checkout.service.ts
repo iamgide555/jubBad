@@ -15,7 +15,7 @@ import { SessionsService } from './sessions.service.js';
 
 export type CheckoutPreviewResponse = Pick<
   CheckoutQuote,
-  'playerId' | 'model' | 'amountSatang' | 'games' | 'breakdown' | 'snapshotHash'
+  'playerId' | 'model' | 'amountSatang' | 'games' | 'breakdown' | 'snapshotHash' | 'shuttleCharge' | 'chargeSatang'
 >;
 
 export interface CheckoutReceipt {
@@ -59,7 +59,7 @@ export class CheckoutService {
   async preview(code: string, playerId: string, model: CheckoutModel): Promise<CheckoutPreviewResponse> {
     const snapshot = await this.prisma.$transaction((tx) => loadBillSnapshot(tx, code));
     const q = quoteCheckout(snapshot, playerId, model);
-    return { playerId: q.playerId, model: q.model, amountSatang: q.amountSatang, games: q.games, breakdown: q.breakdown, snapshotHash: q.snapshotHash };
+    return { playerId: q.playerId, model: q.model, amountSatang: q.amountSatang, games: q.games, breakdown: q.breakdown, snapshotHash: q.snapshotHash, shuttleCharge: q.shuttleCharge, chargeSatang: q.chargeSatang };
   }
 
   confirm(code: string, playerId: string, dto: ConfirmCheckoutDto): Promise<CheckoutReceipt> {

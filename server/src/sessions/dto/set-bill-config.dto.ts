@@ -1,9 +1,9 @@
 import { Type } from 'class-transformer';
 import {
-  ArrayUnique, IsArray, IsBoolean, IsIn, IsInt, IsString, Max, Min, MinLength, ValidateIf, ValidateNested,
+  ArrayUnique, IsArray, IsBoolean, IsIn, IsInt, IsOptional, IsString, Max, Min, MinLength, ValidateIf, ValidateNested,
 } from 'class-validator';
 import {
-  BILL_MODELS, ROUNDING_STEPS, SPLIT_MODES, type BillModel, type RoundingStep, type SplitMode,
+  BILL_MODELS, ROUNDING_STEPS, SHUTTLE_CHARGES, SPLIT_MODES, type BillModel, type RoundingStep, type ShuttleCharge, type SplitMode,
 } from '../../../../engines/bill.ts';
 
 const MAX = 2147483647;
@@ -25,6 +25,9 @@ export class SetBillConfigDto {
   @IsInt() @Min(0) @Max(MAX) buffetPriceSatang!: number;
   @IsBoolean() buffetShuttlesIncluded!: boolean;
   @IsInt() @Min(0) @Max(MAX) startingFeeSatang!: number;
+  // Optional on input so an old open tab that predates these fields still saves; absent means shared / follow-the-price.
+  @IsOptional() @IsIn(SHUTTLE_CHARGES) shuttleCharge?: ShuttleCharge;
+  @IsOptional() @IsInt() @Min(0) @Max(MAX) perPlayerShuttleSatang?: number | null;
   @IsInt() @Min(0) @Max(MAX) hostFeeSatang!: number;
   @IsInt() @Min(0) @Max(MAX) walkInFeeSatang!: number;
   @IsIn(ROUNDING_STEPS) roundingBaht!: RoundingStep;

@@ -113,6 +113,79 @@ describe('CheckoutController', () => {
   }
 
   describe('checkout preview', () => {
+    it('full: quotes the charge per distinct shuttle and reports the basis', async () => {
+      const f = await fixture(7, { config: cfg({ shuttleCharge: 'full', perPlayerShuttleSatang: 3000 }) });
+      try {
+        const [p, a, b, c, d, e, g] = f.players.map((x) => x.id);
+        await f.finish([p, a, b, c], [1]);
+        await f.finish([p, d, e, g], [2, 3]);
+        const res = await f.preview(p, 'perShuttle').expect(201);
+        expect(res.body).toMatchObject({
+          amountSatang: 2000 + 3 * 3000, shuttleCharge: 'full', chargeSatang: 3000,
+          breakdown: { baseSatang: 2000, shuttleSatang: 9000 },
+        });
+      } finally {
+        await f.cleanup();
+      }
+    });
+
+    it('full with a blank charge follows the session price and says so', async () => {
+      const f = await fixture(4, { config: cfg({ shuttleCharge: 'full', perPlayerShuttleSatang: null }) });
+      try {
+        const [p, a, b, c] = f.players.map((x) => x.id);
+        await f.finish([p, a, b, c], [1]);
+        const res = await f.preview(p, 'perShuttle').expect(201);
+        expect(res.body).toMatchObject({ amountSatang: 2000 + 12000, shuttleCharge: 'full', chargeSatang: 12000 });
+      } finally {
+        await f.cleanup();
+      }
+    });
+
+    it('shared reports its basis with no charge', async () => {
+      const f = await fixture(4);
+      try {
+        const [p, a, b, c] = f.players.map((x) => x.id);
+        await f.finish([p, a, b, c], [1]);
+        const res = await f.preview(p, 'perShuttle').expect(201);
+        expect(res.body).toMatchObject({ shuttleCharge: 'shared', chargeSatang: null });
+      } finally {
+        await f.cleanup();
+      }
+    });
+
+    it('full: a leaver does not move another player\'s quote', async () => {
+      const f = await fixture(7, { config: cfg({ shuttleCharge: 'full', perPlayerShuttleSatang: 3000 }) });
+      try {
+        const [p, a, b, c, d, e, g] = f.players.map((x) => x.id);
+        await f.finish([p, a, b, c], [1]);
+        await f.finish([d, e, g, a], [2]);
+        const before = (await f.preview(e, 'perShuttle').expect(201)).body.amountSatang;
+        expect((await f.settle(p, 'perShuttle')).status).toBe(201);
+        const after = (await f.preview(e, 'perShuttle').expect(201)).body.amountSatang;
+        expect(after).toBe(before);
+      } finally {
+        await f.cleanup();
+      }
+    });
+
+    it('changing the charge makes an open quote stale', async () => {
+      const f = await fixture(4, { config: cfg({ shuttleCharge: 'full', perPlayerShuttleSatang: 3000 }) });
+      try {
+        const [p, a, b, c] = f.players.map((x) => x.id);
+        await f.finish([p, a, b, c], [1]);
+        const pv = await f.preview(p, 'perShuttle').expect(201);
+        await prisma.session.update({
+          where: { code: f.sessionCode },
+          data: { billConfig: cfg({ shuttleCharge: 'full', perPlayerShuttleSatang: 4000 }) },
+        });
+        const res = await f.confirm(p, { model: 'perShuttle', snapshotHash: pv.body.snapshotHash, idempotencyKey: randomUUID() });
+        expect(res.status).toBe(409);
+        expect(res.body.code).toBe('CHECKOUT_STALE');
+      } finally {
+        await f.cleanup();
+      }
+    });
+
     it('prices a shuttle reused across two finished games once, split game then player', async () => {
       const f = await fixture(8);
       try {

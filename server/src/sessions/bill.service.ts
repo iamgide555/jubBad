@@ -167,6 +167,8 @@ export class BillService {
     if (new Set(overrideIds).size !== overrideIds.length) throw new BadRequestException({ code: 'BILL_CONFIG_INVALID' });
     const config: BillConfig = {
       ...dto,
+      shuttleCharge: dto.shuttleCharge ?? 'shared',
+      perPlayerShuttleSatang: dto.perPlayerShuttleSatang ?? null,
       overrides: dto.overrides.map((o) => ({ playerId: o.playerId, amountSatang: o.amountSatang })),
     };
     await this.prisma.session.update({ where: { code }, data: { billConfig: serializeBillConfig(config) } });

@@ -47,4 +47,21 @@ describe('bill-config', () => {
     const c = { ...DEFAULT_BILL_CONFIG, addedIds: ['a', 'gone'], removedIds: ['gone'], overrides: [{ playerId: 'gone', amountSatang: 1 }] };
     expect(sanitizeForRoster(c, ['a'])).toEqual({ ...DEFAULT_BILL_CONFIG, addedIds: ['a'] });
   });
+
+  it('a legacy config with no shuttle-charge fields reads as shared and follow-the-price', () => {
+    const c = parseBillConfig(JSON.stringify({ model: 'perShuttle', startingFeeSatang: 1000 }))!;
+    expect(c.shuttleCharge).toBe('shared');
+    expect(c.perPlayerShuttleSatang).toBeNull();
+  });
+
+  it('round-trips full with an explicit charge', () => {
+    const c = { ...DEFAULT_BILL_CONFIG, model: 'perShuttle' as const, shuttleCharge: 'full' as const, perPlayerShuttleSatang: 2000 };
+    expect(parseBillConfig(serializeBillConfig(c))).toEqual(c);
+  });
+
+  it('an unknown switch or an invalid charge falls back instead of breaking the read', () => {
+    const c = parseBillConfig(JSON.stringify({ shuttleCharge: 'bogus', perPlayerShuttleSatang: -5 }))!;
+    expect(c.shuttleCharge).toBe('shared');
+    expect(c.perPlayerShuttleSatang).toBeNull();
+  });
 });

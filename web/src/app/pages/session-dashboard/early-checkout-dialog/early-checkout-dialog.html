@@ -98,6 +98,14 @@
         }
 
         @if (receipt() ?? preview(); as q) {
+          @if (!receipt() && preview()?.model === 'perShuttle' && preview()?.shuttleCharge === 'full') {
+            <p class="muted" data-charge-basis>
+              <ng-container i18n="@@checkout.fullBasis">คิดเต็มต่อคน</ng-container>
+              @if (preview()?.chargeSatang != null) {
+                · {{ baht(preview()!.chargeSatang!) }}฿ <ng-container i18n="@@checkout.perShuttleUnit">ต่อลูก</ng-container>
+              }
+            </p>
+          }
           <dl class="breakdown" data-breakdown>
             <div><dt i18n="@@checkout.games">เล่นแล้ว</dt><dd>{{ preview()?.games ?? 0 }} <ng-container i18n="@@checkout.gamesUnit">เกม</ng-container></dd></div>
             <div>

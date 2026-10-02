@@ -18,6 +18,10 @@ export interface CheckoutPreview {
   games: number;
   breakdown: CheckoutBreakdown;
   snapshotHash: string;
+  /** Which basis priced a perShuttle quote (absent on older servers). */
+  shuttleCharge?: 'shared' | 'full';
+  /** The resolved charge per player per shuttle under 'full', else null. */
+  chargeSatang?: number | null;
 }
 
 /** A settled checkout, frozen. */

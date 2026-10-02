@@ -37,6 +37,22 @@
           <span class="money-suffix">฿</span>
         </label>
       </div>
+      <div class="setting-row">
+        <span class="setting-label" i18n="@@bill.shuttleCount">ลูกแบดที่นับจริง (ลูก)</span>
+        <label class="money-field">
+          <input type="text" inputmode="numeric" autocomplete="off" data-shuttle-count
+            [placeholder]="countPlaceholder()" [value]="countText(b.session.shuttleCount)"
+            (change)="onShuttleCount($any($event.target).value)" />
+        </label>
+      </div>
+      <div class="setting-row">
+        <span class="setting-label" i18n="@@bill.shuttlePrice">ราคาต่อลูก (บาท)</span>
+        <label class="money-field">
+          <input type="text" inputmode="decimal" autocomplete="off" placeholder="—" data-shuttle-price
+            [value]="moneyText(b.session.shuttlePriceSatang)" (change)="onShuttlePrice($any($event.target).value)" />
+          <span class="money-suffix">฿</span>
+        </label>
+      </div>
       @if (b.config.model === 'fair') {
         <div class="setting-row">
           <span class="setting-label" i18n="@@bill.courtSplit">ค่าคอร์ท</span>
@@ -86,10 +102,34 @@
             <span class="money-suffix">฿</span>
           </label>
         </div>
-        <p class="hint" data-per-shuttle-hint>
-          <ng-container i18n="@@bill.perShuttleHint">คิดเฉพาะลูกแบดที่บันทึกไว้ในแมตช์ ตามราคาต่อลูก ไม่ขึ้นกับจำนวนลูกที่นับจริง</ng-container>
-          <a class="hint-link" [routerLink]="['/s', sessionCode, 'summary']" i18n="@@bill.perShuttleSetPrice">ตั้งราคาลูกแบดที่หน้าสรุป</a>
-        </p>
+        <div class="setting-row">
+          <span class="setting-label" i18n="@@bill.chargeMode">วิธีคิดค่าลูก</span>
+          <div class="scope-toggle setting-toggle">
+            <button type="button" data-charge-mode="shared" [class.active]="b.config.shuttleCharge === 'shared'"
+              [attr.aria-pressed]="b.config.shuttleCharge === 'shared'" [disabled]="saving() || chargeLocked()"
+              (click)="save({ shuttleCharge: 'shared' })" i18n="@@bill.chargeShared">แชร์ตามต้นทุน</button>
+            <button type="button" data-charge-mode="full" [class.active]="b.config.shuttleCharge === 'full'"
+              [attr.aria-pressed]="b.config.shuttleCharge === 'full'" [disabled]="saving() || chargeLocked()"
+              (click)="save({ shuttleCharge: 'full' })" i18n="@@bill.chargeFull">คิดเต็มต่อคน</button>
+          </div>
+        </div>
+        @if (chargeLocked()) {
+          <p class="hint" data-charge-locked i18n="@@bill.chargeLocked">เปลี่ยนวิธีคิดค่าลูกไม่ได้ เพราะมีคนเช็คเอาต์ตามลูกแบดไปแล้ว ยกเลิกเช็คเอาต์ก่อนถ้าจะเปลี่ยน</p>
+        }
+        @if (b.config.shuttleCharge === 'full') {
+          <div class="setting-row">
+            <span class="setting-label" i18n="@@bill.chargePerPlayer">ค่าลูกต่อคนต่อลูก (บาท)</span>
+            <label class="money-field">
+              <input type="text" inputmode="decimal" data-charge-input [placeholder]="chargePlaceholder()"
+                [value]="moneyText(b.config.perPlayerShuttleSatang)"
+                (change)="onMoney('perPlayerShuttleSatang', $any($event.target).value)" />
+              <span class="money-suffix">฿</span>
+            </label>
+          </div>
+          <p class="hint" data-per-shuttle-hint i18n="@@bill.perShuttleFullHint">ผู้เล่นแต่ละคนจ่ายเต็มจำนวนต่อลูกที่ตัวเองได้เล่น ลูกเดิมที่ใช้ซ้ำนับครั้งเดียว เว้นว่าง = ใช้ราคาต่อลูกด้านบน</p>
+        } @else {
+          <p class="hint" data-per-shuttle-hint i18n="@@bill.perShuttleHint">คิดเฉพาะลูกแบดที่บันทึกไว้ในแมตช์ ตามราคาต่อลูก ไม่ขึ้นกับจำนวนลูกที่นับจริง</p>
+        }
       }
       @if (b.config.model === 'buffet') {
         <div class="setting-row">

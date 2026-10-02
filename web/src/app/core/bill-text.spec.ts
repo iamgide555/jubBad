@@ -11,7 +11,7 @@ function bill(overrides: Partial<BillResponse['config']> = {}): BillResponse {
     session: { code: 's', date: 'อ. 22 ก.ย.', venue: 'สนาม A', endedAt: null, shuttleCount: 18, shuttlePriceSatang: 8500, shuttleToolsEnabled: false },
     config: {
       model: 'fair', courtFeeSatang: 144000, courtSplit: 'equal', shuttleSplit: 'byGames', perGameRateSatang: 0,
-      entryFeeSatang: 0, capSatang: null, buffetPriceSatang: 0, buffetShuttlesIncluded: true, startingFeeSatang: 0, hostFeeSatang: 1000,
+      entryFeeSatang: 0, capSatang: null, buffetPriceSatang: 0, buffetShuttlesIncluded: true, startingFeeSatang: 0, shuttleCharge: 'shared', perPlayerShuttleSatang: null, hostFeeSatang: 1000,
       walkInFeeSatang: 2000, roundingBaht: 1, addedIds: [], removedIds: [], overrides: [], ...overrides,
     },
     configSource: 'saved',
@@ -132,5 +132,16 @@ describe('buildBillText with early checkouts', () => {
   it('describes the per-shuttle model with its starting fee and shuttle price', () => {
     const text = buildBillText(bill({ model: 'perShuttle', startingFeeSatang: 3000 }));
     expect(text).toContain('ค่าเริ่มต้น 30฿/คน + ค่าลูกตามที่ใช้จริง (85฿/ลูก)');
+  });
+
+  it('describes the full per-shuttle charge with an explicit charge', () => {
+    const text = buildBillText(bill({ model: 'perShuttle', startingFeeSatang: 3000, shuttleCharge: 'full', perPlayerShuttleSatang: 2000 }));
+    expect(text).toContain('ค่าเริ่มต้น 30฿/คน + ค่าลูก 20฿ ต่อลูกที่เล่น');
+    expect(text).not.toContain('ตามที่ใช้จริง');
+  });
+
+  it('a blank full charge follows the shuttle price in the text', () => {
+    const text = buildBillText(bill({ model: 'perShuttle', startingFeeSatang: 3000, shuttleCharge: 'full', perPlayerShuttleSatang: null }));
+    expect(text).toContain('ค่าเริ่มต้น 30฿/คน + ค่าลูก 85฿ ต่อลูกที่เล่น');
   });
 });

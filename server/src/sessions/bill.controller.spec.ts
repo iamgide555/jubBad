@@ -258,6 +258,79 @@ describe('SessionsController (bill)', () => {
     }
     const shuttleSum = (b: { result: { rows: { shuttleSatang: number }[] } }) => b.result.rows.reduce((t, r) => t + r.shuttleSatang, 0);
 
+    it('perShuttle full: bills each player the charge for every distinct shuttle they touched', async () => {
+      const n = await night({ price: 5000 });
+      try {
+        const s1 = await n.shuttle(1);
+        const s3 = await n.shuttle(3);
+        const s4 = await n.shuttle(4);
+        await n.game([0, 1, 2, 3], 1, [s1]);
+        await n.game([0, 4, 5, 6], 2, [s3, s4]);
+        await n.saveConfig({
+          model: 'perShuttle', shuttleCharge: 'full', perPlayerShuttleSatang: 8000, startingFeeSatang: 1000, hostFeeSatang: 500,
+        });
+        const b = await n.bill();
+        const amount = (i: number) => b.result.rows.find((r: { playerId: string }) => r.playerId === n.players[i].id).amountSatang;
+        expect(amount(0)).toBe(1000 + 3 * 8000 + 500);
+        expect(amount(1)).toBe(1000 + 8000 + 500);
+        expect(amount(4)).toBe(1000 + 2 * 8000 + 500);
+        expect(b.config).toMatchObject({ shuttleCharge: 'full', perPlayerShuttleSatang: 8000 });
+      } finally {
+        await n.cleanup();
+      }
+    });
+
+    it('perShuttle full with a blank charge follows the session shuttle price', async () => {
+      const n = await night({ price: 5000 });
+      try {
+        const s1 = await n.shuttle(1);
+        await n.game([0, 1, 2, 3], 1, [s1]);
+        await n.saveConfig({ model: 'perShuttle', shuttleCharge: 'full', perPlayerShuttleSatang: null, startingFeeSatang: 0 });
+        const b = await n.bill();
+        expect(b.result.rows.find((r: { playerId: string }) => r.playerId === n.players[0].id).amountSatang).toBe(5000);
+        expect(b.config.perPlayerShuttleSatang).toBeNull();
+      } finally {
+        await n.cleanup();
+      }
+    });
+
+    it('an old client that omits the new fields still saves, as shared', async () => {
+      const n = await night();
+      try {
+        const res = await n.saveConfig({ model: 'perShuttle' });
+        expect(res.body.config).toMatchObject({ shuttleCharge: 'shared', perPlayerShuttleSatang: null });
+      } finally {
+        await n.cleanup();
+      }
+    });
+
+    it('an old client that omits the new fields keeps a stored full basis and charge', async () => {
+      const n = await night();
+      try {
+        await n.saveConfig({ model: 'perShuttle', shuttleCharge: 'full', perPlayerShuttleSatang: 2000 });
+        const res = await n.saveConfig({ model: 'perShuttle', hostFeeSatang: 500 });
+        expect(res.body.config).toMatchObject({ shuttleCharge: 'full', perPlayerShuttleSatang: 2000, hostFeeSatang: 500 });
+        // An explicit null still clears the charge.
+        const cleared = await n.saveConfig({ model: 'perShuttle', shuttleCharge: 'full', perPlayerShuttleSatang: null });
+        expect(cleared.body.config.perPlayerShuttleSatang).toBeNull();
+      } finally {
+        await n.cleanup();
+      }
+    });
+
+    it('rejects an unknown switch, a negative charge and a fractional charge', async () => {
+      const n = await night();
+      try {
+        const post = (over: Record<string, unknown>) =>
+          request(server).post(`/sessions/${n.sessionCode}/bill-config`).send(cfg({ model: 'perShuttle', ...over }));
+        await post({ shuttleCharge: 'bogus' }).expect(400);
+        await post({ perPlayerShuttleSatang: -1 }).expect(400);
+        await post({ perPlayerShuttleSatang: 10.5 }).expect(400);
+      } finally {
+        await n.cleanup();
+      }
+    });
+
     it('shuttle bill: two games sharing #1 with no physical count bill one shuttle', async () => {
       const n = await night();
       try {

@@ -86,6 +86,20 @@ describe('EarlyCheckoutDialog', () => {
     expect(el().querySelector('[data-checkout-total]')!.textContent).toContain('60');
   });
 
+  it('under the full basis the quote says so and shows the charge', async () => {
+    live.previewCheckout.mockResolvedValue(quote({ model: 'perShuttle', shuttleCharge: 'full', chargeSatang: 2000 }));
+    await openAndPick();
+    const basis = el().querySelector('[data-charge-basis]');
+    expect(basis).toBeTruthy();
+    expect(basis!.textContent).toContain('20');
+  });
+
+  it('a shared-basis quote shows no basis label', async () => {
+    live.previewCheckout.mockResolvedValue(quote({ model: 'perShuttle', shuttleCharge: 'shared', chargeSatang: null }));
+    await openAndPick();
+    expect(el().querySelector('[data-charge-basis]')).toBeNull();
+  });
+
   it('a player on a court gets a court-specific message and is never quoted or edited', async () => {
     await openAndPick('p2');
     expect(text()).toContain('คอร์ท 2');

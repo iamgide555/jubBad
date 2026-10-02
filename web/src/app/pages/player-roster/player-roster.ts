@@ -5,6 +5,7 @@ import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
 import type { CanComponentDeactivate } from '../../core/can-deactivate.guard';
+import { absoluteUrl, copyToClipboard } from '../../core/share-link';
 import { RosterService, type ManagedPlayer } from '../../core/roster.service';
 import {
   RULE_KINDS,
@@ -254,6 +255,29 @@ export class PlayerRoster implements CanComponentDeactivate, OnDestroy {
   readonly editPhone = signal('');
   readonly editError = signal<string | null>(null);
   readonly editBusy = signal(false);
+
+  readonly sharedPlayerId = signal<string | null>(null);
+  readonly shareFailed = signal(false);
+  readonly clipboardFallback = signal<string | null>(null);
+
+  async sharePlayer(playerId: string): Promise<void> {
+    this.shareFailed.set(false);
+    this.clipboardFallback.set(null);
+    const url = absoluteUrl(`/g/${this.groupCode}/p/${playerId}`);
+    if (!(await copyToClipboard(url))) {
+      this.shareFailed.set(true);
+      this.clipboardFallback.set(url);
+      return;
+    }
+    this.sharedPlayerId.set(playerId);
+    setTimeout(() => {
+      if (this.sharedPlayerId() === playerId) this.sharedPlayerId.set(null);
+    }, 2000);
+  }
+
+  shareLabel(name: string): string {
+    return $localize`:@@summary.sharePlayerLabel:คัดลอกลิงก์ของ ${name}:name:`;
+  }
 
   startEdit(player: ManagedPlayer): void {
     this.editingId.set(player.id);

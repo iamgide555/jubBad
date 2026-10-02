@@ -72,7 +72,7 @@
         <h4 class="label" i18n="@@profile.bestPartner">คู่ที่ดีที่สุด</h4>
       }
       <p>
-        <a [routerLink]="['/g', groupCode, 'p', partner.playerId]">{{ partner.name }}</a>
+        {{ partner.name }}
         <!-- The space before <span> must stay on this line: Angular strips a
              whitespace-only text node that spans a line break (the default
              preserveWhitespaces behavior), which is what ran the name and
@@ -91,7 +91,7 @@
     @if (p.mostFacedOpponent; as foe) {
       <h4 class="label" i18n="@@profile.mostFaced">เจอบ่อยที่สุด</h4>
       <p>
-        <a [routerLink]="['/g', groupCode, 'p', foe.playerId]">{{ foe.name }}</a>
+        {{ foe.name }}
         <span class="muted"> — {{ foe.played }} <ng-container i18n="@@profile.matches">แมตช์</ng-container></span>
       </p>
     }

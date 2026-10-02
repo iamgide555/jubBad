@@ -90,6 +90,32 @@ describe('PlayerRoster', () => {
     expect(component.players()).toEqual(PLAYERS);
   });
 
+  it('copies the player profile link from the row button', async () => {
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    vi.stubGlobal('navigator', { clipboard: { writeText } });
+    try {
+      const btn = (fixture.nativeElement as HTMLElement).querySelector<HTMLButtonElement>('[data-share-player]')!;
+      btn.click();
+      await fixture.whenStable();
+      expect(writeText).toHaveBeenCalledOnce();
+      expect(writeText.mock.calls[0][0]).toMatch(new RegExp(`/g/group1/p/${PLAYERS[0].id}$`));
+      expect(component.sharedPlayerId()).toBe(PLAYERS[0].id);
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it('shows the link for manual copy when the clipboard is unavailable', async () => {
+    vi.stubGlobal('navigator', { clipboard: { writeText: vi.fn().mockRejectedValue(new Error('no')) } });
+    try {
+      await component.sharePlayer('p1');
+      expect(component.shareFailed()).toBe(true);
+      expect(component.clipboardFallback()).toMatch(/\/g\/group1\/p\/p1$/);
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
   it('saves a level change immediately, without entering edit mode, then reloads ratings', async () => {
     const savePromise = component.setLevel(PLAYERS[0], 'P+');
     const put = httpMock.expectOne(`${B}/groups/group1/players/p1/level`);

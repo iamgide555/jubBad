@@ -176,6 +176,13 @@
               </td>
               <td>
                 <button type="button" class="ghost" [disabled]="editingId() !== null" (click)="startEdit(player)" i18n="@@playerRoster.edit">แก้ไข</button>
+                <button type="button" class="ghost" data-share-player [attr.aria-label]="shareLabel(player.name)" (click)="sharePlayer(player.id)">
+                  @if (sharedPlayerId() === player.id) {
+                    <ng-container i18n="@@summary.shareCopied">คัดลอกแล้ว</ng-container>
+                  } @else {
+                    <ng-container i18n="@@summary.shareLink">ลิงก์</ng-container>
+                  }
+                </button>
               </td>
             }
           </tr>
@@ -183,5 +190,9 @@
       </tbody>
       </table>
     </div>
+    @if (shareFailed()) {
+      <p class="error" role="alert" i18n="@@share.failed">คัดลอกไม่ได้ ลองเลือกข้อความเอง</p>
+      <textarea class="clipboard-fallback" readonly [value]="clipboardFallback()" i18n-aria-label="@@share.fallbackLabel" aria-label="ข้อความสำหรับคัดลอก"></textarea>
+    }
   }
 </div>

@@ -120,3 +120,10 @@
   border-color: var(--court);
   background: var(--court-soft);
 }
+
+.clipboard-fallback {
+  width: 100%;
+  min-height: 4rem;
+  margin-top: var(--space-1);
+  resize: vertical;
+}

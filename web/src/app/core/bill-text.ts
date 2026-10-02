@@ -44,7 +44,12 @@ export function buildBillText(bill: BillResponse): string {
     ].filter(Boolean);
     lines.push(`เกมละ ${formatBaht(c.perGameRateSatang)}฿${extras.length ? ` (${extras.join(', ')})` : ''}`);
   } else if (c.model === 'perShuttle') {
-    lines.push(`ค่าเริ่มต้น ${formatBaht(c.startingFeeSatang)}฿/คน + ค่าลูกตามที่ใช้จริง${session.shuttlePriceSatang !== null ? ` (${formatBaht(session.shuttlePriceSatang)}฿/ลูก)` : ''}`);
+    if (c.shuttleCharge === 'full') {
+      const charge = c.perPlayerShuttleSatang ?? session.shuttlePriceSatang;
+      lines.push(`ค่าเริ่มต้น ${formatBaht(c.startingFeeSatang)}฿/คน + ค่าลูก${charge !== null ? ` ${formatBaht(charge)}฿` : ''} ต่อลูกที่เล่น`);
+    } else {
+      lines.push(`ค่าเริ่มต้น ${formatBaht(c.startingFeeSatang)}฿/คน + ค่าลูกตามที่ใช้จริง${session.shuttlePriceSatang !== null ? ` (${formatBaht(session.shuttlePriceSatang)}฿/ลูก)` : ''}`);
+    }
   } else {
     lines.push(`บุฟเฟ่ต์ ${formatBaht(c.buffetPriceSatang)}฿/คน (${c.buffetShuttlesIncluded ? 'รวมลูก' : 'ลูกแยก'})`);
     if (!c.buffetShuttlesIncluded) shuttleLine();

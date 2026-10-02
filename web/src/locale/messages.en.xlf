@@ -3627,6 +3627,50 @@
         <source>ล้างระดับ</source>
         <target>Clear level</target>
       </trans-unit>
+      <trans-unit id="bill.shuttleCount" datatype="html">
+        <source>ลูกแบดที่นับจริง (ลูก)</source>
+        <target>Shuttles counted (pcs)</target>
+      </trans-unit>
+      <trans-unit id="bill.shuttlePrice" datatype="html">
+        <source>ราคาต่อลูก (บาท)</source>
+        <target>Price per shuttle (baht)</target>
+      </trans-unit>
+      <trans-unit id="bill.chargeMode" datatype="html">
+        <source>วิธีคิดค่าลูก</source>
+        <target>How shuttles are billed</target>
+      </trans-unit>
+      <trans-unit id="bill.chargeShared" datatype="html">
+        <source>แชร์ตามต้นทุน</source>
+        <target>Share the cost</target>
+      </trans-unit>
+      <trans-unit id="bill.chargeFull" datatype="html">
+        <source>คิดเต็มต่อคน</source>
+        <target>Full price per player</target>
+      </trans-unit>
+      <trans-unit id="bill.chargePerPlayer" datatype="html">
+        <source>ค่าลูกต่อคนต่อลูก (บาท)</source>
+        <target>Charge per player per shuttle (baht)</target>
+      </trans-unit>
+      <trans-unit id="bill.perShuttleFullHint" datatype="html">
+        <source>ผู้เล่นแต่ละคนจ่ายเต็มจำนวนต่อลูกที่ตัวเองได้เล่น ลูกเดิมที่ใช้ซ้ำนับครั้งเดียว เว้นว่าง = ใช้ราคาต่อลูกด้านบน</source>
+        <target>Each player pays the full amount for every shuttle they played with. A reused shuttle counts once. Leave blank to use the price per shuttle above.</target>
+      </trans-unit>
+      <trans-unit id="bill.shuttleDetailsFailed" datatype="html">
+        <source>บันทึกข้อมูลลูกแบดไม่สำเร็จ ลองใหม่อีกครั้ง</source>
+        <target>Couldn't save the shuttle details. Try again.</target>
+      </trans-unit>
+      <trans-unit id="bill.badCount" datatype="html">
+        <source>ใส่จำนวนลูกเป็นเลขจำนวนเต็ม</source>
+        <target>Enter the shuttle count as a whole number</target>
+      </trans-unit>
+      <trans-unit id="checkout.fullBasis" datatype="html">
+        <source>คิดเต็มต่อคน</source>
+        <target>Full price per player</target>
+      </trans-unit>
+      <trans-unit id="checkout.perShuttleUnit" datatype="html">
+        <source>ต่อลูก</source>
+        <target>per shuttle</target>
+      </trans-unit>
     </body>
   </file>
 </xliff>

@@ -13,7 +13,7 @@ function response(): BillResponse {
     session: { code: 'sess1', date: null, venue: null, endedAt: null, shuttleCount: 0, shuttlePriceSatang: 0, shuttleToolsEnabled: false },
     config: {
       model: 'fair', courtFeeSatang: 20000, courtSplit: 'equal', shuttleSplit: 'byGames', perGameRateSatang: 0,
-      entryFeeSatang: 0, capSatang: null, buffetPriceSatang: 0, buffetShuttlesIncluded: true, startingFeeSatang: 0, hostFeeSatang: 0,
+      entryFeeSatang: 0, capSatang: null, buffetPriceSatang: 0, buffetShuttlesIncluded: true, startingFeeSatang: 0, shuttleCharge: 'shared', perPlayerShuttleSatang: null, hostFeeSatang: 0,
       walkInFeeSatang: 2000, roundingBaht: 1, addedIds: [], removedIds: [], overrides: [],
     },
     configSource: 'saved',
@@ -262,13 +262,87 @@ describe('SessionBill', () => {
       expect(el().querySelectorAll('[data-model]')).toHaveLength(3);
     });
 
-    it('perShuttle shows the starting fee input and points to the summary for the shuttle price', async () => {
+    it('perShuttle shows the starting fee input and the switch, with no detour to the summary page', async () => {
       const b = advanced();
       b.config.model = 'perShuttle';
       await load(b);
       expect(el().querySelector('[data-starting-fee]')).toBeTruthy();
-      const link = el().querySelector('[data-per-shuttle-hint] a') as HTMLAnchorElement;
-      expect(link.getAttribute('href')).toContain('/s/sess1/summary');
+      expect(el().querySelector('[data-charge-mode="shared"]')).toBeTruthy();
+      expect(el().querySelector('[data-charge-mode="full"]')).toBeTruthy();
+      expect(el().querySelector('[data-per-shuttle-hint] a')).toBeNull();
+    });
+
+    it('the per-player charge field appears only under full, with the shuttle price as its placeholder', async () => {
+      const b = advanced();
+      b.config.model = 'perShuttle';
+      b.session.shuttlePriceSatang = 8500;
+      await load(b);
+      expect(el().querySelector('[data-charge-input]')).toBeNull();
+
+      const full = advanced();
+      full.config.model = 'perShuttle';
+      full.config.shuttleCharge = 'full';
+      full.session.shuttlePriceSatang = 8500;
+      fixture = TestBed.createComponent(SessionBill);
+      await load(full);
+      const input = el().querySelector('[data-charge-input]') as HTMLInputElement;
+      expect(input.placeholder).toBe('85');
+      expect(input.value).toBe('');
+    });
+
+    it('tapping the full switch posts the whole config with shuttleCharge full', async () => {
+      const b = advanced();
+      b.config.model = 'perShuttle';
+      await load(b);
+      (el().querySelector('[data-charge-mode="full"]') as HTMLButtonElement).click();
+      const req = http.expectOne(`${B}/sessions/sess1/bill-config`);
+      expect(req.request.body).toMatchObject({ model: 'perShuttle', shuttleCharge: 'full' });
+      req.flush(b);
+      await new Promise((r) => setTimeout(r, 0));
+    });
+
+    it('typing a charge posts it; clearing it posts null', async () => {
+      const b = advanced();
+      b.config.model = 'perShuttle';
+      b.config.shuttleCharge = 'full';
+      await load(b);
+      const input = el().querySelector('[data-charge-input]') as HTMLInputElement;
+      input.value = '20';
+      input.dispatchEvent(new Event('change'));
+      const set = http.expectOne(`${B}/sessions/sess1/bill-config`);
+      expect(set.request.body).toMatchObject({ perPlayerShuttleSatang: 2000 });
+      set.flush(b);
+      await new Promise((r) => setTimeout(r, 0));
+
+      input.value = '';
+      input.dispatchEvent(new Event('change'));
+      const cleared = http.expectOne(`${B}/sessions/sess1/bill-config`);
+      expect(cleared.request.body.perPlayerShuttleSatang).toBeNull();
+      cleared.flush(b);
+      await new Promise((r) => setTimeout(r, 0));
+    });
+
+    it('the shuttle price and count fields save through shuttle-details, then re-read the bill', async () => {
+      await load();
+      const price = el().querySelector('[data-shuttle-price]') as HTMLInputElement;
+      price.value = '85';
+      price.dispatchEvent(new Event('change'));
+      const post = http.expectOne(`${B}/sessions/sess1/shuttle-details`);
+      expect(post.request.body).toEqual({ shuttlePriceSatang: 8500 });
+      post.flush({});
+      await new Promise((r) => setTimeout(r, 0));
+      http.expectOne(`${B}/sessions/sess1/bill`).flush(response());
+      await new Promise((r) => setTimeout(r, 0));
+
+      const count = el().querySelector('[data-shuttle-count]') as HTMLInputElement;
+      count.value = '12';
+      count.dispatchEvent(new Event('change'));
+      const countPost = http.expectOne(`${B}/sessions/sess1/shuttle-details`);
+      expect(countPost.request.body).toEqual({ shuttleCount: 12 });
+      countPost.flush({});
+      await new Promise((r) => setTimeout(r, 0));
+      http.expectOne(`${B}/sessions/sess1/bill`).flush(response());
+      await new Promise((r) => setTimeout(r, 0));
     });
 
     it('saving a starting fee posts it in the full config', async () => {

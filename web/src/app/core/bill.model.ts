@@ -32,6 +32,10 @@ export interface BillConfig {
   buffetShuttlesIncluded: boolean;
   /** perShuttle only: flat fee per person before their share of the recorded shuttles. */
   startingFeeSatang: number;
+  /** perShuttle only: 'shared' splits the recorded shuttle cost; 'full' charges each player per distinct shuttle. */
+  shuttleCharge: 'shared' | 'full';
+  /** perShuttle + full only: charge per player per shuttle; null follows the session shuttle price. */
+  perPlayerShuttleSatang: number | null;
   hostFeeSatang: number;
   walkInFeeSatang: number;
   roundingBaht: RoundingStep;

@@ -6,13 +6,13 @@ import { environment } from '../../../environments/environment';
 import type { BillConfig, BillModel, BillResponse, RoundingStep } from '../../core/bill.model';
 import { buildBillText, formatBaht } from '../../core/bill-text';
 import { copyToClipboard } from '../../core/share-link';
-import { formatShuttlePriceInput, parseShuttlePriceInput } from '../../core/shuttle-money';
+import { formatShuttleCountInput, formatShuttlePriceInput, parseShuttleCountInput, parseShuttlePriceInput } from '../../core/shuttle-money';
 import { Icon } from '../../shared/icon/icon';
 
 type MoneyField =
   | 'courtFeeSatang' | 'perGameRateSatang' | 'entryFeeSatang' | 'capSatang'
-  | 'buffetPriceSatang' | 'startingFeeSatang' | 'hostFeeSatang' | 'walkInFeeSatang';
-const NULLABLE: ReadonlySet<MoneyField> = new Set(['courtFeeSatang', 'capSatang']);
+  | 'buffetPriceSatang' | 'startingFeeSatang' | 'hostFeeSatang' | 'walkInFeeSatang' | 'perPlayerShuttleSatang';
+const NULLABLE: ReadonlySet<MoneyField> = new Set(['courtFeeSatang', 'capSatang', 'perPlayerShuttleSatang']);
 
 @Component({
   selector: 'app-session-bill',
@@ -56,6 +56,17 @@ export class SessionBill {
   protected readonly roundings: RoundingStep[] = [1, 5, 10];
   protected readonly baht = formatBaht;
   protected readonly moneyText = formatShuttlePriceInput;
+  protected readonly countText = formatShuttleCountInput;
+  /** Placeholder for the count: the count the bill is using when none was typed (derived from the games). */
+  protected readonly countPlaceholder = computed(() => {
+    const n = this.bill()?.accounting.effectiveCount;
+    return n === null || n === undefined ? '—' : String(n);
+  });
+  /** Placeholder for the per-player charge: blank follows the session shuttle price. */
+  protected readonly chargePlaceholder = computed(() => {
+    const p = this.bill()?.session.shuttlePriceSatang;
+    return p === null || p === undefined ? '—' : formatShuttlePriceInput(p);
+  });
   /** Title on a disabled walk-in chip: an override bypasses the walk-in fee and discount entirely. */
   protected readonly walkInOverriddenHint = $localize`:@@bill.walkInOverridden:แก้ยอดเองแล้ว ค่า walk-in ไม่มีผลกับคนนี้`;
 
@@ -85,6 +96,38 @@ export class SessionBill {
     } finally {
       this.saving.set(false);
     }
+  }
+
+  /** Count and price are session fields shared with the summary page; each edit sends only what changed. */
+  private async saveShuttleDetails(patch: { shuttleCount?: number | null; shuttlePriceSatang?: number | null }): Promise<void> {
+    this.saving.set(true);
+    this.error.set(null);
+    try {
+      await firstValueFrom(this.http.post(`${this.base}/shuttle-details`, patch));
+      await this.load();
+    } catch {
+      this.error.set($localize`:@@bill.shuttleDetailsFailed:บันทึกข้อมูลลูกแบดไม่สำเร็จ ลองใหม่อีกครั้ง`);
+    } finally {
+      this.saving.set(false);
+    }
+  }
+
+  protected onShuttlePrice(text: string): void {
+    const parsed = parseShuttlePriceInput(text);
+    if (!parsed.ok) {
+      this.error.set($localize`:@@bill.badAmount:ใส่จำนวนเงินเป็นตัวเลข ทศนิยมไม่เกิน 2 ตำแหน่ง`);
+      return;
+    }
+    void this.saveShuttleDetails({ shuttlePriceSatang: parsed.value });
+  }
+
+  protected onShuttleCount(text: string): void {
+    const parsed = parseShuttleCountInput(text);
+    if (!parsed.ok) {
+      this.error.set($localize`:@@bill.badCount:ใส่จำนวนลูกเป็นเลขจำนวนเต็ม`);
+      return;
+    }
+    void this.saveShuttleDetails({ shuttleCount: parsed.value });
   }
 
   protected onMoney(field: MoneyField, text: string): void {

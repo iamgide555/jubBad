@@ -766,6 +766,20 @@ live in `Session.billConfig` (no migration; older bills read as shared; a client
 that omits the new fields keeps the stored values). The bill page edits the count and price directly, through the same
 session fields the summary page edits.
 
+**ไม่มา — registered but did not come (fair only, 2026-10-04).** A roster
+player who never played can be marked ไม่มา on the bill (`BillConfig.absentIds`,
+a toggle: press again to undo). They pay an *equal* share of the court fee —
+the court was booked per head, so a no-show cost the group their seat — and no
+shuttles, no host fee, no walk-in fee or discount. The share is taken off the
+top as `courtFee / people`, and the rest is split over the attendees by the
+configured court split, so a by-games court split cannot hand a no-show 0.
+Absent people also sit out the shuttle split entirely, even when it is equal.
+Distinct from ไม่คิดเงิน (removed: pays 0, their share is redistributed). Only
+`fair` has a separable court cost, so the other models ignore `absentIds`;
+anyone who played, is removed, or has a settled receipt is also ignored rather
+than rejected, so a stored list can never break a bill read. Before this, a
+roster no-show was not billed at all unless the host added them.
+
 **A walk-in's surcharge (C2, C3's D7 amendment) is a group discount, not
 host profit.** A roster row marked as a walk-in pays a flat fee on top of
 its own bill line; `distributeCapped` hands that fee straight back as an

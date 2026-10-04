@@ -591,3 +591,80 @@ test('perShuttle full: bad config values fail loudly', () => {
   assert.throws(() => computeBill(input({ ...FULL, perPlayerShuttleSatang: -1 })), /perPlayerShuttleSatang/);
   assert.throws(() => computeBill(input({ ...FULL, perPlayerShuttleSatang: 10.5 })), /perPlayerShuttleSatang/);
 });
+
+// ---- absent (registered, did not come): fair only, pays the court share, no shuttles ----
+
+test('fair: an absent player pays the equal court share and no shuttles; attendees pay court + shuttles', () => {
+  // 5 players who played + absent z => court 96000 / 6 = 16000 each
+  const r = computeBill(
+    input(
+      { model: 'fair', courtFeeSatang: 96000, courtSplit: 'equal', shuttleSplit: 'equal', absentIds: ['z'] },
+      { shuttleCount: 3, shuttlePriceSatang: 4000 }
+    )
+  );
+  // shuttles 12000 / 5 attendees = 2400
+  assert.deepEqual(amounts(r), { a: 18400, b: 18400, c: 18400, d: 18400, e: 18400, z: 16000 });
+  const z = r.rows.find((x) => x.playerId === 'z')!;
+  assert.equal(z.absent, true);
+  assert.equal(z.shuttleSatang, 0);
+  assert.equal(z.status, 'billed');
+  assert.equal(r.totals.collectedSatang, 96000 + 12000);
+  assert.equal(r.totals.marginSatang, 0);
+});
+
+test('fair: absent keeps the equal court share even when the court is split by games', () => {
+  const r = computeBill(
+    input({ model: 'fair', courtFeeSatang: 96000, courtSplit: 'byGames', shuttleSplit: 'byGames', absentIds: ['z'] })
+  );
+  const court = Object.fromEntries(r.rows.map((x) => [x.playerId, x.courtSatang]));
+  // z: 96000/6 = 16000; the other 80000 by games 3,3,2,2,2 -> 20000,20000,13334,13333,13333
+  assert.equal(court['z'], 16000);
+  assert.equal(r.rows.reduce((s, x) => s + x.courtSatang, 0), 96000);
+  assert.deepEqual(court, { a: 20000, b: 20000, c: 13334, d: 13333, e: 13333, z: 16000 });
+});
+
+test('fair: absent pays no host fee and no walk-in fee or discount', () => {
+  const r = computeBill(
+    input(
+      { model: 'fair', courtFeeSatang: 96000, hostFeeSatang: 1000, walkInFeeSatang: 2000, absentIds: ['z'] },
+      { walkInIds: ['z'] }
+    )
+  );
+  const z = r.rows.find((x) => x.playerId === 'z')!;
+  assert.equal(z.hostFeeSatang, 0);
+  assert.equal(z.walkIn, false);
+  assert.equal(z.walkInDiscountSatang, 0);
+  assert.equal(z.amountSatang, 16000);
+});
+
+test('absent is ignored outside fair', () => {
+  for (const model of ['perGame', 'buffet'] as const) {
+    const r = computeBill(input({ model, entryFeeSatang: 1000, buffetPriceSatang: 5000, absentIds: ['z'] }));
+    assert.equal(r.rows.some((x) => x.playerId === 'z'), false, model);
+  }
+});
+
+test('absent is ignored for someone who played, is removed, or has an override', () => {
+  const base = { model: 'fair', courtFeeSatang: 100000, courtSplit: 'equal', shuttleSplit: 'equal' } as const;
+  const played = computeBill(input({ ...base, absentIds: ['a'] }));
+  assert.equal(played.rows.find((x) => x.playerId === 'a')!.absent, false);
+  assert.deepEqual(amounts(played), amounts(computeBill(input(base))));
+
+  const removed = computeBill(input({ ...base, absentIds: ['z'], removedIds: ['z'] }));
+  assert.equal(removed.rows.some((x) => x.playerId === 'z'), false);
+  assert.deepEqual(amounts(removed), amounts(computeBill(input(base))));
+
+  const overridden = computeBill(input({ ...base, absentIds: ['z'], overrides: [{ playerId: 'z', amountSatang: 5000 }] }));
+  assert.equal(overridden.rows.find((x) => x.playerId === 'z')!.amountSatang, 5000);
+});
+
+test('fair: with absent players, collected still equals cost', () => {
+  const r = computeBill(
+    input(
+      { model: 'fair', courtFeeSatang: 100001, courtSplit: 'equal', shuttleSplit: 'equal', absentIds: ['y', 'z'], roundingBaht: 1 },
+      { shuttleCount: 3, shuttlePriceSatang: 4000 }
+    )
+  );
+  assert.equal(r.totals.collectedSatang >= r.totals.costSatang!, true);
+  assert.equal(r.rows.filter((x) => x.absent).length, 2);
+});

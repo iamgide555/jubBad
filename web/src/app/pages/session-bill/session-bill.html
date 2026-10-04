@@ -245,6 +245,9 @@
                   @if (r.walkIn) {
                     <span class="tag" i18n="@@bill.walkInTag">walk-in</span>
                   }
+                  @if (r.absent) {
+                    <span class="tag tag-muted" i18n="@@bill.absentTag">ไม่มา</span>
+                  }
                   @if (r.overridden) {
                     <span class="tag tag-muted" i18n="@@bill.overriddenTag">แก้ยอดแล้ว</span>
                   }
@@ -263,6 +266,10 @@
               <button type="button" class="chip" [attr.data-walk-in]="r.playerId" [class.selected]="r.walkIn"
                 [attr.aria-pressed]="r.walkIn" [disabled]="r.overridden" [attr.title]="r.overridden ? walkInOverriddenHint : null"
                 (click)="toggleWalkIn(r.playerId)" i18n="@@bill.walkInChip">walk-in</button>
+              @if (b.config.model === 'fair' && (r.absent || r.games === 0)) {
+                <button type="button" class="chip" [attr.data-absent]="r.playerId" [class.selected]="r.absent"
+                  [attr.aria-pressed]="r.absent" (click)="toggleAbsent(r.playerId)" i18n="@@bill.absentChip">ไม่มา</button>
+              }
               <label class="money-field override">
                 <input type="text" inputmode="decimal" i18n-placeholder="@@bill.overridePlaceholder" placeholder="แก้ยอด"
                   i18n-aria-label="@@bill.overrideLabel" aria-label="แก้ยอดเอง"
@@ -313,6 +320,9 @@
         <div class="chip-row">
           @for (p of addable(); track p.playerId) {
             <button type="button" class="chip" [attr.data-add]="p.playerId" (click)="add(p.playerId)">+ {{ p.name }}</button>
+            @if (b.config.model === 'fair') {
+              <button type="button" class="chip" [attr.data-absent-add]="p.playerId" (click)="toggleAbsent(p.playerId)" i18n="@@bill.absentAdd">{{ p.name }} ไม่มา</button>
+            }
           }
         </div>
       </details>

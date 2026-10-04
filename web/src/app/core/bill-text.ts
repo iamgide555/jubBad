@@ -73,7 +73,7 @@ export function buildBillText(bill: BillResponse): string {
   for (const p of players) {
     const r = byId.get(p.playerId);
     if (!r) continue;
-    lines.push(`${p.name}  ${r.games} เกม  ${formatBaht(r.amountSatang)}฿${r.walkIn ? ' (walk-in)' : ''}`);
+    lines.push(`${p.name}  ${r.absent ? 'ไม่มา' : `${r.games} เกม`}  ${formatBaht(r.amountSatang)}฿${r.walkIn ? ' (walk-in)' : ''}`);
   }
   if (settled.length > 0) {
     lines.push(`เช็คเอาต์แล้ว ${formatBaht(result.totals.settledTotalSatang)}฿`);

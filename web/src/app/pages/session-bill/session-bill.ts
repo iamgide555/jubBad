@@ -188,7 +188,19 @@ export class SessionBill {
       return;
     }
     const removedIds = c.removedIds.includes(playerId) ? c.removedIds : [...c.removedIds, playerId];
-    void this.save({ addedIds, removedIds });
+    void this.save({ addedIds, removedIds, absentIds: c.absentIds.filter((id) => id !== playerId) });
+  }
+
+  /**
+   * Toggles "registered but did not come" (fair only): the player pays an
+   * equal court share and no shuttles. Pressing it again undoes it.
+   */
+  protected toggleAbsent(playerId: string): void {
+    const c = this.config()!;
+    const absentIds = c.absentIds.includes(playerId)
+      ? c.absentIds.filter((id) => id !== playerId)
+      : [...c.absentIds, playerId];
+    void this.save({ absentIds, removedIds: c.removedIds.filter((id) => id !== playerId) });
   }
 
   protected restore(playerId: string): void {

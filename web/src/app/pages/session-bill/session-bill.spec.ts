@@ -14,7 +14,7 @@ function response(): BillResponse {
     config: {
       model: 'fair', courtFeeSatang: 20000, courtSplit: 'equal', shuttleSplit: 'byGames', perGameRateSatang: 0,
       entryFeeSatang: 0, capSatang: null, buffetPriceSatang: 0, buffetShuttlesIncluded: true, startingFeeSatang: 0, shuttleCharge: 'shared', perPlayerShuttleSatang: null, hostFeeSatang: 0,
-      walkInFeeSatang: 2000, roundingBaht: 1, addedIds: [], removedIds: [], overrides: [],
+      walkInFeeSatang: 2000, roundingBaht: 1, addedIds: [], removedIds: [], absentIds: [], overrides: [],
     },
     configSource: 'saved',
     players: [
@@ -25,9 +25,9 @@ function response(): BillResponse {
     settled: [],
     result: {
       rows: [
-        { playerId: 'a', games: 1, status: 'billed', added: false, walkIn: false, courtSatang: 10000, shuttleSatang: 0,
+        { playerId: 'a', games: 1, status: 'billed', added: false, absent: false, walkIn: false, courtSatang: 10000, shuttleSatang: 0,
           baseSatang: 10000, hostFeeSatang: 0, walkInFeeSatang: 0, walkInDiscountSatang: 1000, overridden: false, amountSatang: 9000 },
-        { playerId: 'd', games: 1, status: 'billed', added: false, walkIn: true, courtSatang: 10000, shuttleSatang: 0,
+        { playerId: 'd', games: 1, status: 'billed', added: false, absent: false, walkIn: true, courtSatang: 10000, shuttleSatang: 0,
           baseSatang: 10000, hostFeeSatang: 0, walkInFeeSatang: 2000, walkInDiscountSatang: 1000, overridden: false, amountSatang: 11000 },
       ],
       totals: { settledTotalSatang: 0, stillDueSatang: 0, excessCreditSatang: 0, uncoveredCostSatang: 0, unreturnedSurchargeSatang: 0, collectedSatang: 20000, costSatang: 20000, marginSatang: 0, billedCount: 2, walkInCount: 1 },
@@ -118,6 +118,69 @@ describe('SessionBill', () => {
     expect(other.getAttribute('title')).toBeNull();
   });
 
+  const zedRow = (over: Record<string, unknown> = {}) => ({ playerId: 'z', games: 0, status: 'billed' as const, added: true,
+    absent: false, walkIn: false, courtSatang: 0, shuttleSatang: 0, baseSatang: 0, hostFeeSatang: 0, walkInFeeSatang: 0,
+    walkInDiscountSatang: 0, overridden: false, amountSatang: 0, ...over });
+
+  it('ไม่มา chip: shown on a fair row with no games, hidden for someone who played; pressing posts absentIds', async () => {
+    const body = response();
+    body.config.addedIds = ['z'];
+    body.result.rows.push(zedRow());
+    await load(body);
+    expect(fixture.nativeElement.querySelector('[data-absent="a"]')).toBeNull();
+    const chip = fixture.nativeElement.querySelector('[data-absent="z"]') as HTMLButtonElement;
+    expect(chip.getAttribute('aria-pressed')).toBe('false');
+    fixture.componentInstance['toggleAbsent']('z');
+    const req = http.expectOne(`${B}/sessions/sess1/bill-config`);
+    expect(req.request.body.absentIds).toEqual(['z']);
+    req.flush(response());
+  });
+
+  it('pressing ไม่มา again undoes it', async () => {
+    const body = response();
+    body.config.absentIds = ['z'];
+    body.result.rows.push(zedRow({ added: false, absent: true, courtSatang: 5000, amountSatang: 5000 }));
+    await load(body);
+    const chip = fixture.nativeElement.querySelector('[data-absent="z"]') as HTMLButtonElement;
+    expect(chip.getAttribute('aria-pressed')).toBe('true');
+    fixture.componentInstance['toggleAbsent']('z');
+    const req = http.expectOne(`${B}/sessions/sess1/bill-config`);
+    expect(req.request.body.absentIds).toEqual([]);
+    req.flush(response());
+  });
+
+  it('ไม่มา is not offered outside fair', async () => {
+    const body = response();
+    body.config.model = 'perGame';
+    body.config.addedIds = ['z'];
+    body.result.rows.push(zedRow());
+    await load(body);
+    expect(fixture.nativeElement.querySelector('[data-absent="z"]')).toBeNull();
+    expect(fixture.nativeElement.querySelector('[data-absent-add="z"]')).toBeNull();
+  });
+
+  it('a not-yet-added roster player can be marked ไม่มา straight from the add list', async () => {
+    await load();
+    const chip = fixture.nativeElement.querySelector('[data-absent-add="z"]') as HTMLButtonElement;
+    expect(chip).not.toBeNull();
+    chip.click();
+    const req = http.expectOne(`${B}/sessions/sess1/bill-config`);
+    expect(req.request.body.absentIds).toEqual(['z']);
+    req.flush(response());
+  });
+
+  it('removing an absent player takes them out of absentIds too', async () => {
+    const body = response();
+    body.config.absentIds = ['z'];
+    body.result.rows.push(zedRow({ added: false, absent: true }));
+    await load(body);
+    fixture.componentInstance['remove']('z');
+    const req = http.expectOne(`${B}/sessions/sess1/bill-config`);
+    expect(req.request.body.absentIds).toEqual([]);
+    expect(req.request.body.removedIds).toEqual(['z']);
+    req.flush(response());
+  });
+
   it('removing a player who played puts them in removedIds', async () => {
     await load();
     fixture.componentInstance['remove']('a');
@@ -129,7 +192,7 @@ describe('SessionBill', () => {
   it('removing an added no-show who has no games just un-adds them', async () => {
     const body = response();
     body.config.addedIds = ['z'];
-    body.result.rows.push({ playerId: 'z', games: 0, status: 'billed', added: true, walkIn: false, courtSatang: 0,
+    body.result.rows.push({ playerId: 'z', games: 0, status: 'billed', added: true, absent: false, walkIn: false, courtSatang: 0,
       shuttleSatang: 0, baseSatang: 0, hostFeeSatang: 0, walkInFeeSatang: 0, walkInDiscountSatang: 0, overridden: false,
       amountSatang: 0 });
     await load(body);

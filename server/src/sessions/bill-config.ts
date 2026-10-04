@@ -62,6 +62,7 @@ export function parseBillConfig(raw: string | null): BillConfig | null {
     roundingBaht: pick(o['roundingBaht'], (x) => (ROUNDING_STEPS as readonly unknown[]).includes(x), d.roundingBaht),
     addedIds: ids(o['addedIds']),
     removedIds: ids(o['removedIds']),
+    absentIds: ids(o['absentIds']),
     overrides,
   };
 }
@@ -72,7 +73,7 @@ export function serializeBillConfig(c: BillConfig): string {
 
 /** For prefilling a new session from the previous one: rates and toggles carry over, people don't. */
 export function withoutPerPerson(c: BillConfig): BillConfig {
-  return { ...c, addedIds: [], removedIds: [], overrides: [] };
+  return { ...c, addedIds: [], removedIds: [], absentIds: [], overrides: [] };
 }
 
 export function sanitizeForRoster(c: BillConfig, rosterIds: string[]): BillConfig {
@@ -81,6 +82,7 @@ export function sanitizeForRoster(c: BillConfig, rosterIds: string[]): BillConfi
     ...c,
     addedIds: c.addedIds.filter((id) => on.has(id)),
     removedIds: c.removedIds.filter((id) => on.has(id)),
+    absentIds: c.absentIds.filter((id) => on.has(id)),
     overrides: c.overrides.filter((o) => on.has(o.playerId)),
   };
 }

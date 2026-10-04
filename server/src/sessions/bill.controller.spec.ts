@@ -180,6 +180,27 @@ describe('SessionsController (bill)', () => {
       }
     });
 
+    it('absentIds: an unplayed roster player pays the court share only; a stale tab that omits the field keeps it', async () => {
+      const { sessionCode, players, finishMatch, cleanup } = await fixture(5);
+      try {
+        await finishMatch(players.slice(0, 4).map((p) => p.id), 1);
+        const absentId = players[4].id;
+        const res = await request(server).post(`/sessions/${sessionCode}/bill-config`)
+          .send({ ...baseConfig, courtFeeSatang: 50000, absentIds: [absentId] }).expect(201);
+        expect(res.body.config.absentIds).toEqual([absentId]);
+        const row = res.body.result.rows.find((r: { playerId: string }) => r.playerId === absentId);
+        expect(row).toMatchObject({ absent: true, shuttleSatang: 0, courtSatang: 10000, amountSatang: 10000 });
+        const stale = await request(server).post(`/sessions/${sessionCode}/bill-config`)
+          .send({ ...baseConfig, courtFeeSatang: 50000 }).expect(201);
+        expect(stale.body.config.absentIds).toEqual([absentId]);
+        const off = await request(server).post(`/sessions/${sessionCode}/bill-config`)
+          .send({ ...baseConfig, absentIds: ['stranger'] }).expect(400);
+        expect(off.body.code).toBe('BILL_PLAYER_NOT_ON_ROSTER');
+      } finally {
+        await cleanup();
+      }
+    });
+
     it('works after the session ended; rejects off-roster ids and bad bodies', async () => {
       const { sessionCode, cleanup } = await fixture(4);
       try {

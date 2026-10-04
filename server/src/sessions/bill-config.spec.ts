@@ -48,6 +48,14 @@ describe('bill-config', () => {
     expect(sanitizeForRoster(c, ['a'])).toEqual({ ...DEFAULT_BILL_CONFIG, addedIds: ['a'] });
   });
 
+  it('absentIds: a legacy config reads as none, withoutPerPerson clears it, sanitizeForRoster drops strangers', () => {
+    expect(parseBillConfig(JSON.stringify({ model: 'fair' }))!.absentIds).toEqual([]);
+    const c = { ...DEFAULT_BILL_CONFIG, absentIds: ['a', 'gone'] };
+    expect(parseBillConfig(serializeBillConfig(c))!.absentIds).toEqual(['a', 'gone']);
+    expect(withoutPerPerson(c).absentIds).toEqual([]);
+    expect(sanitizeForRoster(c, ['a']).absentIds).toEqual(['a']);
+  });
+
   it('a legacy config with no shuttle-charge fields reads as shared and follow-the-price', () => {
     const c = parseBillConfig(JSON.stringify({ model: 'perShuttle', startingFeeSatang: 1000 }))!;
     expect(c.shuttleCharge).toBe('shared');

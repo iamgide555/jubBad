@@ -2,7 +2,7 @@ import { buildBillText, formatBaht } from './bill-text';
 import type { BillResponse, BillRow } from './bill.model';
 
 const row = (playerId: string, games: number, amountSatang: number, walkIn = false): BillRow => ({
-  playerId, games, status: 'billed', added: false, walkIn, courtSatang: 0, shuttleSatang: 0, baseSatang: 0,
+  playerId, games, status: 'billed', added: false, absent: false, walkIn, courtSatang: 0, shuttleSatang: 0, baseSatang: 0,
   hostFeeSatang: 0, walkInFeeSatang: walkIn ? 2000 : 0, walkInDiscountSatang: 0, overridden: false, amountSatang,
 });
 
@@ -12,7 +12,7 @@ function bill(overrides: Partial<BillResponse['config']> = {}): BillResponse {
     config: {
       model: 'fair', courtFeeSatang: 144000, courtSplit: 'equal', shuttleSplit: 'byGames', perGameRateSatang: 0,
       entryFeeSatang: 0, capSatang: null, buffetPriceSatang: 0, buffetShuttlesIncluded: true, startingFeeSatang: 0, shuttleCharge: 'shared', perPlayerShuttleSatang: null, hostFeeSatang: 1000,
-      walkInFeeSatang: 2000, roundingBaht: 1, addedIds: [], removedIds: [], overrides: [], ...overrides,
+      walkInFeeSatang: 2000, roundingBaht: 1, addedIds: [], removedIds: [], absentIds: [], overrides: [], ...overrides,
     },
     configSource: 'saved',
     players: [
@@ -43,6 +43,15 @@ describe('formatBaht', () => {
 });
 
 describe('buildBillText', () => {
+  it('an absent player is listed as ไม่มา instead of a game count', () => {
+    const b = bill();
+    b.players = [{ playerId: 'a', name: 'Amp', games: 2, walkIn: false }, { playerId: 'z', name: 'Zed', games: 0, walkIn: false }];
+    b.result.rows = [row('a', 2, 12000), { ...row('z', 0, 8000), absent: true }];
+    const text = buildBillText(b);
+    expect(text).toContain('Amp  2 เกม  120฿');
+    expect(text).toContain('Zed  ไม่มา  80฿');
+  });
+
   it('fair pay with host fee and one walk-in', () => {
     expect(buildBillText(bill())).toBe(
       [

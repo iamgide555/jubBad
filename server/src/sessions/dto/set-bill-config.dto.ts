@@ -33,5 +33,7 @@ export class SetBillConfigDto {
   @IsIn(ROUNDING_STEPS) roundingBaht!: RoundingStep;
   @IsArray() @ArrayUnique() @IsString({ each: true }) @MinLength(1, { each: true }) addedIds!: string[];
   @IsArray() @ArrayUnique() @IsString({ each: true }) @MinLength(1, { each: true }) removedIds!: string[];
+  // Optional on input so an old open tab that predates ไม่มา still saves; absent keeps the stored list.
+  @IsOptional() @IsArray() @ArrayUnique() @IsString({ each: true }) @MinLength(1, { each: true }) absentIds?: string[];
   @IsArray() @ValidateNested({ each: true }) @Type(() => BillOverrideDto) overrides!: BillOverrideDto[];
 }

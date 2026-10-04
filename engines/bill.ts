@@ -52,6 +52,11 @@ export interface BillConfig {
   roundingBaht: RoundingStep;
   addedIds: string[];
   removedIds: string[];
+  /**
+   * fair only: registered but did not come. Pays an equal court share and no
+   * shuttles. Ignored for anyone who played, is removed, or has settled.
+   */
+  absentIds: string[];
   overrides: BillOverride[];
 }
 
@@ -73,6 +78,7 @@ export const DEFAULT_BILL_CONFIG: BillConfig = {
   roundingBaht: 1,
   addedIds: [],
   removedIds: [],
+  absentIds: [],
   overrides: [],
 };
 
@@ -158,6 +164,8 @@ export interface BillRow {
   games: number;
   status: 'billed' | 'removed';
   added: boolean;
+  /** Registered but did not come (fair only): pays the court share, no shuttles, no host or walk-in fee. */
+  absent: boolean;
   walkIn: boolean;
   courtSatang: number;
   shuttleSatang: number;
@@ -256,6 +264,7 @@ function validate(input: BillInput): void {
   for (const o of c.overrides) assertMoney(`override ${o.playerId}`, o.amountSatang);
   assertUnique('addedIds', c.addedIds);
   assertUnique('removedIds', c.removedIds);
+  assertUnique('absentIds', c.absentIds);
   assertUnique('overrides', c.overrides.map((o) => o.playerId));
   const settled = input.settled ?? [];
   assertUnique('settled', settled.map((r) => r.playerId));
@@ -384,8 +393,15 @@ export function computeBill(input: BillInput): BillResult {
   const games = new Map<string, number>();
   for (const match of matches) for (const id of match.players) games.set(id, (games.get(id) ?? 0) + 1);
   const added = new Set(config.addedIds);
-  const participants = [...new Set([...games.keys(), ...config.addedIds])].sort();
   const removed = new Set(config.removedIds.filter((id) => !settledIds.has(id)));
+  // Absent only means something for a fair bill, and only for someone who did
+  // not play and is still due: playing, removal or a settled receipt all win.
+  const absent = new Set(
+    config.model === 'fair'
+      ? config.absentIds.filter((id) => !games.has(id) && !removed.has(id) && !settledIds.has(id))
+      : []
+  );
+  const participants = [...new Set([...games.keys(), ...config.addedIds, ...absent])].sort();
   // Settled people stay in `billed` so the nominal cost shares still count them;
   // `due` is who actually gets a row.
   const billed = participants.filter((id) => !removed.has(id));
@@ -412,16 +428,24 @@ export function computeBill(input: BillInput): BillResult {
       ? 'legacy-unknown'
       : 'identities'
     : chooseShuttleAllocation(input, shuttlesBilled, shuttleTotal);
-  const court =
-    config.model === 'fair'
-      ? costShares(config.courtFeeSatang ?? 0, config.courtSplit, 'court', participants, billed, games, matches)
-      : new Map<string, number>();
+  // Absent people sit out the shuttle split entirely and take an equal share of
+  // the court cost first; the rest is split over the attendees as configured.
+  const attending = participants.filter((id) => !absent.has(id));
+  const attendingBilled = billed.filter((id) => !absent.has(id));
+  let court = new Map<string, number>();
+  if (config.model === 'fair') {
+    const equalShares = splitEqual(config.courtFeeSatang ?? 0, participants.length);
+    const absentCourt = new Map(participants.flatMap((id, i) => (absent.has(id) ? [[id, equalShares[i]] as const] : [])));
+    const rest = (config.courtFeeSatang ?? 0) - [...absentCourt.values()].reduce((a, b) => a + b, 0);
+    court = costShares(rest, config.courtSplit, 'court', attending, attendingBilled, games, matches);
+    for (const [id, v] of absentCourt) court.set(id, v);
+  }
   const shuttle = fullCharge
     ? new Map(billed.map((id) => [id, distinctShuttlesFor(id, matches) * (chargeSatang ?? 0)]))
     : perShuttle
       ? costShares(recordedCost, 'byGames', 'shuttle', participants, billed, games, matches, true)
       : shuttlesBilled
-        ? costShares(shuttleTotal, config.shuttleSplit, 'shuttle', participants, billed, games, matches, allocation === 'identities')
+        ? costShares(shuttleTotal, config.shuttleSplit, 'shuttle', attending, attendingBilled, games, matches, allocation === 'identities')
         : new Map<string, number>();
 
   const overrides = new Map(config.overrides.filter((o) => !settledIds.has(o.playerId)).map((o) => [o.playerId, o.amountSatang]));
@@ -469,7 +493,7 @@ export function computeBill(input: BillInput): BillResult {
       base = config.startingFeeSatang + shuttleSatang;
     } else base = config.buffetPriceSatang + shuttleSatang;
     baseOf.set(id, base);
-    pre.set(id, base + config.hostFeeSatang);
+    pre.set(id, base + (absent.has(id) ? 0 : config.hostFeeSatang));
   }
 
   // Walk-in surcharge is a group discount, not host profit: the fees the
@@ -489,7 +513,7 @@ export function computeBill(input: BillInput): BillResult {
   // adds nothing here; a price-based model owes it back to the people still
   // due, less any discount the receipt already returned.
   const walkIns = new Set(input.walkInIds);
-  const eligible = due.filter((id) => !overrides.has(id));
+  const eligible = due.filter((id) => !overrides.has(id) && !absent.has(id));
   const eligibleWalkIns = eligible.filter((id) => walkIns.has(id));
   const rounded = new Map(due.map((id) => [id, ceilTo(pre.get(id)!, step)]));
   const feeSteps = config.walkInFeeSatang === 0 ? 0 : Math.ceil(config.walkInFeeSatang / step);
@@ -509,7 +533,8 @@ export function computeBill(input: BillInput): BillResult {
   const rows: BillRow[] = participants.filter((id) => !settledIds.has(id)).map((id) => {
     const isBilled = !removed.has(id);
     const overridden = isBilled && overrides.has(id);
-    const isWalkIn = isBilled && !overridden && walkIns.has(id);
+    const isAbsent = absent.has(id);
+    const isWalkIn = isBilled && !overridden && !isAbsent && walkIns.has(id);
     const walkInFeeSatang = isWalkIn ? fee : 0;
     const walkInDiscountSatang = discount.get(id) ?? 0;
     // Already a whole multiple of the step: rounded share, discount and fee all are.
@@ -523,11 +548,12 @@ export function computeBill(input: BillInput): BillResult {
       games: games.get(id) ?? 0,
       status: isBilled ? 'billed' : 'removed',
       added: added.has(id) && !games.has(id),
+      absent: isAbsent,
       walkIn: isWalkIn,
       courtSatang: courtOf.get(id) ?? 0,
       shuttleSatang: shuttleOf.get(id) ?? 0,
       baseSatang: isBilled ? baseOf.get(id)! : 0,
-      hostFeeSatang: isBilled ? config.hostFeeSatang : 0,
+      hostFeeSatang: isBilled && !isAbsent ? config.hostFeeSatang : 0,
       walkInFeeSatang,
       walkInDiscountSatang,
       overridden,

@@ -161,7 +161,7 @@ export class BillService {
       throw new BadRequestException({ code: 'BILL_MODEL_NOT_ALLOWED' });
     }
     const on = new Set(session.roster.map((r) => r.playerId));
-    const referenced = [...dto.addedIds, ...dto.removedIds, ...dto.overrides.map((o) => o.playerId)];
+    const referenced = [...dto.addedIds, ...dto.removedIds, ...(dto.absentIds ?? []), ...dto.overrides.map((o) => o.playerId)];
     if (referenced.some((id) => !on.has(id))) throw new BadRequestException({ code: 'BILL_PLAYER_NOT_ON_ROSTER' });
     const overrideIds = dto.overrides.map((o) => o.playerId);
     if (new Set(overrideIds).size !== overrideIds.length) throw new BadRequestException({ code: 'BILL_CONFIG_INVALID' });
@@ -177,6 +177,7 @@ export class BillService {
     const config: BillConfig = {
       ...dto,
       shuttleCharge,
+      absentIds: dto.absentIds ?? effective.absentIds,
       perPlayerShuttleSatang: dto.perPlayerShuttleSatang === undefined ? effective.perPlayerShuttleSatang : dto.perPlayerShuttleSatang,
       overrides: dto.overrides.map((o) => ({ playerId: o.playerId, amountSatang: o.amountSatang })),
     };

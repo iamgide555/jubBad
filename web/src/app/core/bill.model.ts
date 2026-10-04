@@ -41,6 +41,8 @@ export interface BillConfig {
   roundingBaht: RoundingStep;
   addedIds: string[];
   removedIds: string[];
+  /** fair only: registered but did not come; pays the court share, no shuttles. */
+  absentIds: string[];
   overrides: BillOverride[];
 }
 
@@ -49,6 +51,8 @@ export interface BillRow {
   games: number;
   status: 'billed' | 'removed';
   added: boolean;
+  /** fair only: registered but did not come. */
+  absent: boolean;
   walkIn: boolean;
   courtSatang: number;
   shuttleSatang: number;

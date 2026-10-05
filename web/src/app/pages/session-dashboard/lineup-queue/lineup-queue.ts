@@ -1,5 +1,5 @@
 import { NgTemplateOutlet } from '@angular/common';
-import { Component, ElementRef, computed, effect, input, signal, viewChild } from '@angular/core';
+import { Component, ElementRef, OnDestroy, computed, effect, input, signal, viewChild } from '@angular/core';
 import { PressDirective } from '../../../core/motion/press.directive';
 import { Icon } from '../../../shared/icon/icon';
 import { LiveSessionService } from '../../../core/live-session.service';
@@ -39,7 +39,7 @@ const EMPTY_TEAM = (): Seat[] => [null, null];
   templateUrl: './lineup-queue.html',
   styleUrl: './lineup-queue.css',
 })
-export class LineupQueue {
+export class LineupQueue implements OnDestroy {
   readonly players = input<Player[]>([]);
   /** Players waiting for a court, longest-waiting first. */
   readonly waiting = input<{ id: string; name: string }[]>([]);
@@ -62,12 +62,46 @@ export class LineupQueue {
     });
   }
 
+  /** Clear-all asks twice: the first tap arms it for a few seconds, the second one deletes. */
+  protected readonly clearArmed = signal(false);
+  private clearTimer?: ReturnType<typeof setTimeout>;
+
+  ngOnDestroy(): void {
+    clearTimeout(this.clearTimer);
+  }
+
+  /** Reordering means nothing with a single lineup. */
+  protected readonly canReorder = computed(() => this.liveSession.lineupQueue().length > 1);
+
+  /** What a lineup is waiting on, in words, instead of a red alarm on a normal state. */
+  protected statusLine(entryId: string): string | null {
+    const entry = this.liveSession.lineupQueue().find((e) => e.id === entryId);
+    if (!entry || entry.blocked.length === 0) return null;
+    const names = (reason: 'resting' | 'on-court') =>
+      entry.blocked
+        .filter((b) => b.reason === reason)
+        .map((b) => this.nameOf(b.playerId))
+        .join(', ');
+    const lines: string[] = [];
+    const playing = names('on-court');
+    if (playing) lines.push($localize`:@@lineup.waitingOn:รอ ${playing}:names: เล่นจบก่อน`);
+    const resting = names('resting');
+    if (resting) lines.push($localize`:@@lineup.restingSwap:${resting}:names: พักอยู่ ระบบจะหาคนแทน`);
+    return lines.join(' · ');
+  }
+
   open(): void {
     this.dialog().nativeElement.showModal();
   }
 
   protected close(): void {
     this.dialog().nativeElement.close();
+  }
+
+  protected readonly newHeading = $localize`:@@lineup.newMatch:แมตช์ใหม่`;
+
+  protected editHeading(n: number): string {
+    return $localize`:@@lineup.editMatch:แก้คิวที่ ${n}:n:`;
   }
 
   protected readonly emptySeatLabel = $localize`:@@lineup.emptySeatLabel:เลือกผู้เล่นให้ช่องนี้`;
@@ -229,6 +263,14 @@ export class LineupQueue {
   }
 
   protected async clearAll(): Promise<void> {
+    if (!this.clearArmed()) {
+      this.clearArmed.set(true);
+      clearTimeout(this.clearTimer);
+      this.clearTimer = setTimeout(() => this.clearArmed.set(false), 4000);
+      return;
+    }
+    clearTimeout(this.clearTimer);
+    this.clearArmed.set(false);
     this.error.set(null);
     this.cancelDraft();
     const result = await this.liveSession.clearLineups();

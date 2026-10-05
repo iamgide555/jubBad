@@ -1,11 +1,8 @@
 <dialog #dialog class="lineup-dialog" closedby="any" aria-labelledby="lineup-title">
   <div class="lq-top">
     <h2 id="lineup-title" class="lq-title" i18n="@@lineup.title">คิวล่วงหน้า</h2>
-    <button type="button" class="lq-done" appPress (click)="close()" i18n="@@lineup.done">เสร็จ</button>
+    <button type="button" class="lq-done" [class.is-quiet]="draft() !== null" appPress (click)="close()" i18n="@@lineup.done">เสร็จ</button>
   </div>
-  <p class="lq-sub" i18n="@@lineup.explainer">
-    จัดคนไว้ล่วงหน้า พอคอร์ทว่างระบบจะใช้แมตช์นี้ก่อน ช่องที่เว้นไว้ระบบเลือกให้
-  </p>
 
   <ng-template #seats let-teamA="teamA" let-teamB="teamB" let-entry="entry" let-editing="editing">
     <div class="lq-match">
@@ -21,19 +18,14 @@
               appPress
               [class.is-empty]="seat === null"
               [class.is-picking]="editing && isPicking($any(team), s)"
-              [class.is-blocked]="entry && blockedReason(entry, seat) !== null"
+              [class.is-waiting]="entry && blockedReason(entry, seat) !== null"
               (click)="editing ? tapSeat($any(team), s) : edit(entry)"
               [attr.aria-label]="seat === null ? emptySeatLabel : removeSeatLabel(nameOf(seat)!)"
             >
               @if (seat === null) {
-                <span i18n="@@lineup.openSeat">ให้ระบบเลือก</span>
+                <app-icon name="plus" [size]="16" />
               } @else {
-                {{ nameOf(seat) }}
-                @if (entry && blockedReason(entry, seat) === 'resting') {
-                  <span class="lq-flag" i18n="@@lineup.resting">พัก</span>
-                } @else if (entry && blockedReason(entry, seat) === 'on-court') {
-                  <span class="lq-flag" i18n="@@lineup.onCourt">กำลังเล่น</span>
-                }
+                <span class="lq-seat-name">{{ nameOf(seat) }}</span>
               }
             </button>
           }
@@ -57,67 +49,80 @@
     </div>
   </ng-template>
 
-  <ng-template #draftActions>
-    <div class="lq-actions">
-      <button type="button" class="lq-save" appPress [disabled]="!canSave()" (click)="save()" i18n="@@lineup.save">บันทึก</button>
-      <button type="button" class="lq-cancel" appPress (click)="cancelDraft()" i18n="@@lineup.cancelDraft">ยกเลิก</button>
+  <ng-template #draftBlock let-heading="heading">
+    <div class="lq-draft">
+      <p class="lq-draft-title">{{ heading }}</p>
+      <ng-container *ngTemplateOutlet="seats; context: { teamA: draft()!.teamA, teamB: draft()!.teamB, entry: null, editing: true }" />
+      @if (picking()) {
+        <ng-container *ngTemplateOutlet="picker" />
+      } @else {
+        <p class="lq-hint" i18n="@@lineup.draftHint">แตะ + เพื่อเลือกผู้เล่น ช่องที่เว้นไว้ระบบเลือกให้ · คนที่ยังเล่นอยู่เลือกได้ แมตช์จะรอจนทุกคนว่าง</p>
+      }
     </div>
   </ng-template>
 
-  <div class="lq-list">
+  <div class="lq-body">
     @for (entry of liveSession.lineupQueue(); track entry.id; let i = $index) {
-      <div class="lq-entry" [class.is-draft]="isEditing(entry.id)">
-        <span class="lq-order" aria-hidden="true">{{ i + 1 }}</span>
-        @if (isEditing(entry.id)) {
-          <ng-container *ngTemplateOutlet="seats; context: { teamA: draft()!.teamA, teamB: draft()!.teamB, entry: null, editing: true }" />
-        } @else {
-          <ng-container *ngTemplateOutlet="seats; context: { teamA: entry.teamA, teamB: entry.teamB, entry: entry.id, editing: false }" />
-          <div class="lq-tools">
-            <button type="button" class="lq-tool" appPress [disabled]="i === 0" (click)="move(entry.id, 'up')" aria-label="เลื่อนขึ้น" i18n-aria-label="@@lineup.moveUp"><app-icon class="flip-up" name="chevron" [size]="18" /></button>
-            <button type="button" class="lq-tool" appPress [disabled]="i === liveSession.lineupQueue().length - 1" (click)="move(entry.id, 'down')" aria-label="เลื่อนลง" i18n-aria-label="@@lineup.moveDown"><app-icon name="chevron" [size]="18" /></button>
-            <button type="button" class="lq-tool" appPress (click)="remove(entry.id)" aria-label="ลบคิวนี้" i18n-aria-label="@@lineup.remove"><app-icon name="close" [size]="18" /></button>
-          </div>
-        }
-      </div>
       @if (isEditing(entry.id)) {
-        @if (picking()) {
-          <ng-container *ngTemplateOutlet="picker" />
-        }
-        <ng-container *ngTemplateOutlet="draftActions" />
+        <div class="lq-entry is-editing">
+          <span class="lq-order" aria-hidden="true">{{ i + 1 }}</span>
+          <ng-container *ngTemplateOutlet="draftBlock; context: { heading: editHeading(i + 1) }" />
+        </div>
+      } @else {
+        <div class="lq-entry">
+          <span class="lq-order" aria-hidden="true">{{ i + 1 }}</span>
+          <div class="lq-entry-main">
+            <ng-container *ngTemplateOutlet="seats; context: { teamA: entry.teamA, teamB: entry.teamB, entry: entry.id, editing: false }" />
+            @if (statusLine(entry.id); as status) {
+              <p class="lq-status">{{ status }}</p>
+            }
+          </div>
+          <div class="lq-tools">
+            @if (canReorder()) {
+              <button type="button" class="lq-tool" appPress [disabled]="i === 0" (click)="move(entry.id, 'up')" aria-label="เลื่อนขึ้น" i18n-aria-label="@@lineup.moveUp"><app-icon class="flip-up" name="chevron" [size]="18" /></button>
+              <button type="button" class="lq-tool" appPress [disabled]="i === liveSession.lineupQueue().length - 1" (click)="move(entry.id, 'down')" aria-label="เลื่อนลง" i18n-aria-label="@@lineup.moveDown"><app-icon name="chevron" [size]="18" /></button>
+            }
+            <button type="button" class="lq-tool is-delete" appPress (click)="remove(entry.id)" aria-label="ลบคิวนี้" i18n-aria-label="@@lineup.remove"><app-icon name="close" [size]="18" /></button>
+          </div>
+        </div>
       }
     }
 
     @if (draft(); as d) {
       @if (d.entryId === null) {
-        <div class="lq-entry is-draft">
-          <span class="lq-order" aria-hidden="true">+</span>
-          <ng-container *ngTemplateOutlet="seats; context: { teamA: d.teamA, teamB: d.teamB, entry: null, editing: true }" />
+        <div class="lq-entry is-editing">
+          <span class="lq-order" aria-hidden="true"></span>
+          <ng-container *ngTemplateOutlet="draftBlock; context: { heading: newHeading }" />
         </div>
-        @if (picking()) {
-          <ng-container *ngTemplateOutlet="picker" />
-        } @else {
-          <p class="lq-hint" i18n="@@lineup.draftHint">แตะช่องว่างเพื่อเลือกผู้เล่น · คนที่ยังเล่นอยู่เลือกได้ แมตช์จะรอจนทุกคนว่าง</p>
-        }
-        <ng-container *ngTemplateOutlet="draftActions" />
       }
     } @else if (liveSession.lineupQueue().length === 0) {
-      <p class="muted lq-empty" i18n="@@lineup.empty">ยังไม่มีคิวล่วงหน้า — คอร์ทที่ว่างจะให้ระบบจัดให้ตามปกติ</p>
+      <p class="lq-empty" i18n="@@lineup.explainer">จัดคนไว้ล่วงหน้า พอคอร์ทว่างระบบจะใช้แมตช์นี้ก่อน</p>
+    }
+
+    @if (error()) {
+      <p class="lq-error" role="alert">{{ error() }}</p>
     }
   </div>
 
-  @if (error()) {
-    <p class="lq-error" role="alert">{{ error() }}</p>
-  }
-
   <div class="lq-foot">
-    @if (!draft()) {
+    @if (liveSession.lineupQueue().length > 0 || draft()) {
+      <button type="button" class="lq-clear" [class.is-armed]="clearArmed()" appPress (click)="clearAll()">
+        @if (clearArmed()) {
+          <ng-container i18n="@@lineup.clearConfirm">แตะอีกครั้งเพื่อลบทั้งหมด</ng-container>
+        } @else {
+          <ng-container i18n="@@lineup.clearAll">ล้างทั้งหมด</ng-container>
+        }
+      </button>
+    }
+    <span class="lq-foot-gap"></span>
+    @if (draft()) {
+      <button type="button" class="lq-cancel" appPress (click)="cancelDraft()" i18n="@@lineup.cancelDraft">ยกเลิก</button>
+      <button type="button" class="lq-save" appPress [disabled]="!canSave()" (click)="save()" i18n="@@lineup.save">บันทึก</button>
+    } @else {
       <button type="button" class="lq-add" appPress (click)="startNew()">
         <app-icon name="plus" [size]="16" />
         <ng-container i18n="@@lineup.add">จัดแมตช์ล่วงหน้า</ng-container>
       </button>
-    }
-    @if (liveSession.lineupQueue().length > 0 || draft()) {
-      <button type="button" class="lq-clear" appPress (click)="clearAll()" i18n="@@lineup.clearAll">ล้างทั้งหมด</button>
     }
   </div>
 </dialog>

@@ -3525,7 +3525,7 @@
         </context-group>
       </trans-unit>
       <trans-unit id="lineup.draftHint" datatype="html">
-        <source>แตะช่องว่างเพื่อเลือกผู้เล่น · คนที่ยังเล่นอยู่เลือกได้ แมตช์จะรอจนทุกคนว่าง</source>
+        <source>แตะ + เพื่อเลือกผู้เล่น ช่องที่เว้นไว้ระบบเลือกให้ · คนที่ยังเล่นอยู่เลือกได้ แมตช์จะรอจนทุกคนว่าง</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/session-dashboard/lineup-queue/lineup-queue.html</context>
           <context context-type="linenumber">1</context>
@@ -3658,7 +3658,7 @@
         </context-group>
       </trans-unit>
       <trans-unit id="lineup.explainer" datatype="html">
-        <source>จัดคนไว้ล่วงหน้า พอคอร์ทว่างระบบจะใช้แมตช์นี้ก่อน ช่องที่เว้นไว้ระบบเลือกให้</source>
+        <source>จัดคนไว้ล่วงหน้า พอคอร์ทว่างระบบจะใช้แมตช์นี้ก่อน</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/session-dashboard/lineup-queue/lineup-queue.html</context>
           <context context-type="linenumber">1</context>
@@ -3689,6 +3689,41 @@
         <source>ล้างคิวล่วงหน้าไม่สำเร็จ</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/session-dashboard/lineup-queue/lineup-queue.html</context>
+          <context context-type="linenumber">1</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="lineup.waitingOn" datatype="html">
+        <source>รอ <x id="names" equiv-text="playing"/> เล่นจบก่อน</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/session-dashboard/lineup-queue/lineup-queue.ts</context>
+          <context context-type="linenumber">1</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="lineup.restingSwap" datatype="html">
+        <source><x id="names" equiv-text="resting"/> พักอยู่ ระบบจะหาคนแทน</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/session-dashboard/lineup-queue/lineup-queue.ts</context>
+          <context context-type="linenumber">1</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="lineup.newMatch" datatype="html">
+        <source>แมตช์ใหม่</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/session-dashboard/lineup-queue/lineup-queue.ts</context>
+          <context context-type="linenumber">1</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="lineup.editMatch" datatype="html">
+        <source>แก้คิวที่ <x id="n" equiv-text="n"/></source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/session-dashboard/lineup-queue/lineup-queue.ts</context>
+          <context context-type="linenumber">1</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="lineup.clearConfirm" datatype="html">
+        <source>แตะอีกครั้งเพื่อลบทั้งหมด</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/session-dashboard/lineup-queue/lineup-queue.ts</context>
           <context context-type="linenumber">1</context>
         </context-group>
       </trans-unit>

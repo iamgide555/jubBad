@@ -692,13 +692,12 @@ app-lineup-queue {
     max-height: calc(100dvh - 6rem);
     overflow-y: auto;
     overscroll-behavior: contain;
-    flex-direction: row;
-    flex-wrap: wrap;
-    align-items: flex-start;
-    align-content: flex-start;
-    gap: var(--space-0);
+    flex-direction: column;
+    flex-wrap: nowrap;
+    align-items: stretch;
+    gap: 0;
     margin: 0;
-    padding: var(--space-2);
+    padding: var(--space-2) var(--space-1) var(--space-1);
     border: 1px solid var(--line);
     border-radius: var(--radius-lg);
     box-shadow: var(--shadow-sm);
@@ -706,22 +705,72 @@ app-lineup-queue {
     scrollbar-color: var(--line) transparent;
   }
 
-  /* Chips, as everywhere else: they wrap and take only the width they need. */
+  .waiting-queue .wq-head {
+    padding: 0 var(--space-1);
+  }
+
+  /*
+   * The queue is ordered, so in the rail it reads as a list, not a cloud of
+   * chips: one slim row per player, longest wait first, wait times aligned in
+   * one column. No pill, no border; a hairline between rows and a tint on
+   * hover or hold.
+   */
   .waiting-queue .chip-pick {
+    display: flex;
+    align-items: center;
+    width: 100%;
     margin: 0;
+    padding: 0.15rem var(--space-1);
+    border: 0;
+    border-bottom: 1px solid var(--line);
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
+    text-align: left;
+  }
+
+  .waiting-queue .chip-pick:last-of-type {
+    border-bottom-color: transparent;
+  }
+
+  /* Next up. */
+  .waiting-queue .chip-pick:first-of-type {
+    background: var(--court-soft);
+    border-radius: var(--radius) var(--radius) 0 0;
+    border-bottom-color: transparent;
+  }
+
+  .waiting-queue .chip-pick .wait-mins {
+    margin-left: auto;
+    padding-left: var(--space-1);
+    border-left: 0;
+    font-size: var(--text-xs);
+  }
+
+  /* Wait time is the queue's sort key; the games count would only crowd it. */
+  .waiting-queue .chip-pick .tally {
+    display: none;
+  }
+
+  @media (hover: hover) {
+    .waiting-queue .chip-pick:hover {
+      background: var(--court-soft);
+      border-color: var(--line);
+    }
+  }
+
+  .waiting-queue .chip-pick.is-picked,
+  .waiting-queue .chip-pick.is-picked:hover {
+    background: var(--court-soft);
+    box-shadow: inset 0 0 0 2px var(--court);
+    border-radius: var(--radius);
   }
 
   /* A mouse does not need a 44px finger target; denser rows show more of the queue. */
   @media (pointer: fine) {
     .waiting-queue .chip-pick {
-      min-height: 2.25rem;
-      padding-block: 0.15rem;
+      min-height: 2.125rem;
     }
-  }
-
-  /* In a narrow rail the games count would push every chip onto its own row; wait time is the sort key. */
-  .waiting-queue .chip-pick .tally {
-    display: none;
   }
 
   .waiting-queue .wq-lineup {

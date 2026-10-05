@@ -16,7 +16,8 @@ export type IconName =
   | 'plus'
   | 'minus'
   | 'chevron'
-  | 'pencil';
+  | 'pencil'
+  | 'close';
 
 /**
  * Inline SVG, not an icon font: a font swap can silently ship a missing
@@ -88,6 +89,9 @@ export type IconName =
         }
         @case ('chevron') {
           <path d="M6 9l6 6 6-6" />
+        }
+        @case ('close') {
+          <path d="M6 6l12 12M18 6 6 18" />
         }
         @case ('pencil') {
           <path d="M4 20h4L19 9l-4-4L4 16v4Z" />

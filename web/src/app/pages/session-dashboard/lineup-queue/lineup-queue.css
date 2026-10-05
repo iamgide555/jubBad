@@ -10,6 +10,9 @@
 }
 
 .lq-add {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-0);
   font: inherit;
   font-size: var(--text-sm);
   font-weight: 700;
@@ -27,7 +30,7 @@
   align-items: center;
   gap: 0.5rem;
   padding: 0.5rem 0;
-  border-bottom: 1px solid var(--line, rgb(0 0 0 / 10%));
+  border-bottom: 1px solid var(--line);
 }
 
 .lq-entry.is-draft {
@@ -58,7 +61,7 @@
 
 .lq-vs {
   font-size: var(--text-sm);
-  color: var(--ink-muted, inherit);
+  color: var(--ink-soft);
 }
 
 .lq-seat {
@@ -87,13 +90,13 @@
 }
 
 .lq-seat.is-blocked {
-  border-color: var(--danger, #b3261e);
+  border-color: var(--warn);
 }
 
 .lq-flag {
   margin-left: 0.375rem;
   font-size: 0.75rem;
-  color: var(--danger, #b3261e);
+  color: var(--warn);
 }
 
 .lq-tools {
@@ -135,12 +138,12 @@
 
 .lq-hint {
   font-size: var(--text-sm);
-  color: var(--ink-muted, inherit);
+  color: var(--ink-soft);
   margin: 0.25rem 0 0;
 }
 
 .lq-error {
-  color: var(--danger, #b3261e);
+  color: var(--warn);
   font-size: var(--text-sm);
   margin: 0.5rem 0 0;
 }
@@ -151,5 +154,23 @@
 }
 
 .lq-picker .lq-flag {
-  color: var(--ink-muted, inherit);
+  color: var(--ink-soft);
+}
+
+.lq-tool {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--ink-soft);
+}
+
+.lq-tool .flip-up {
+  transform: rotate(180deg);
+}
+
+@media (hover: hover) {
+  .lq-tool:not(:disabled):hover {
+    color: var(--ink);
+    background: var(--ground-sunk);
+  }
 }

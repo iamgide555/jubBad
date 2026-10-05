@@ -312,10 +312,13 @@
 
       <div #benchAnchor class="bench-anchor" aria-hidden="true"></div>
       <div class="waiting-queue" [class.is-stuck]="benchStuck()" appFlipList>
-        <h4 class="label" i18n="@@dashboard.waiting">รอคิว</h4>
-        @if (benchOpen()) {
-          <span class="bench-hint" i18n="@@dashboard.benchHint">แตะผู้เล่นรอคิวเพื่อสลับ</span>
-        }
+        <div class="wq-head">
+          <h4 class="label" i18n="@@dashboard.waiting">รอคิว</h4>
+          <span class="wq-count tabular">{{ waiting().length }}</span>
+          @if (benchOpen()) {
+            <span class="bench-hint" i18n="@@dashboard.benchHint">แตะผู้เล่นรอคิวเพื่อสลับ</span>
+          }
+        </div>
         @for (w of waiting(); track w.id; let i = $index) {
           <button
             type="button"

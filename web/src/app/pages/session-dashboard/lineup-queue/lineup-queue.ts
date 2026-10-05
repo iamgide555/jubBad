@@ -1,6 +1,7 @@
 import { NgTemplateOutlet } from '@angular/common';
 import { Component, computed, input, signal } from '@angular/core';
 import { PressDirective } from '../../../core/motion/press.directive';
+import { Icon } from '../../../shared/icon/icon';
 import { LiveSessionService } from '../../../core/live-session.service';
 import { resolvePlayerNames } from '../../../core/player-names';
 import type { Seat } from '../../../core/live-session.model';
@@ -30,7 +31,7 @@ const EMPTY_DRAFT = (): Teams => ({ teamA: [null, null], teamB: [null, null] });
  */
 @Component({
   selector: 'app-lineup-queue',
-  imports: [PressDirective, NgTemplateOutlet],
+  imports: [PressDirective, NgTemplateOutlet, Icon],
   templateUrl: './lineup-queue.html',
   styleUrl: './lineup-queue.css',
 })

@@ -976,9 +976,8 @@ charge, blank = follow the shuttle price; buffet: price). They write the same
 `Session.billConfig` / `shuttlePriceSatang` the end-of-night bill reads, so an
 early leaver can be settled mid-session without ending it, and a change applies
 to everyone not yet checked out (a saved receipt stays frozen). It opens by
-itself on a 0-baht quote or a missing shuttle price. The dashboard also links to
-the bill page ("คิดเงิน") all night, and the bill page's back link returns to the
-live session while it is still running.
+itself on a 0-baht quote or a missing shuttle price. The bill page's back link
+returns to the live session while it is still running.
 
 ### Group-owned level ladders (host feedback F)
 

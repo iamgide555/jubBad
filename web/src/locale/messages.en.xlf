@@ -4217,13 +4217,6 @@
           <context context-type="linenumber">1</context>
         </context-group>
       </trans-unit>
-      <trans-unit id="dashboard.billLink" datatype="html">
-        <source>คิดเงิน</source><target>Bill</target>
-        <context-group purpose="location">
-          <context context-type="sourcefile">src/app/pages/session-dashboard/early-checkout-dialog/early-checkout-dialog.html</context>
-          <context context-type="linenumber">1</context>
-        </context-group>
-      </trans-unit>
       <trans-unit id="bill.backLive" datatype="html">
         <source>← กลับไปหน้าคุมก๊วน</source><target>← Back to the session</target>
         <context-group purpose="location">

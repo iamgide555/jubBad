@@ -1460,21 +1460,6 @@ describe('SessionDashboard', () => {
     });
   });
 
-  it('links to the bill page while the night is on, so rates can be set before it ends', async () => {
-    fixture = TestBed.createComponent(SessionDashboard);
-    fixture.detectChanges();
-    httpMock.expectOne(`${B}/sessions/sess1`).flush(baseSession({ rosterPlayerIds: ['p1', 'p2'] }));
-    await new Promise((r) => setTimeout(r, 0));
-    TestBed.tick();
-    for (const r of httpMock.match(`${B}/groups/group1/players`)) r.flush([]);
-    for (const r of httpMock.match(`${B}/sessions/sess1/stats?scope=session`)) r.flush([]);
-    await new Promise((r) => setTimeout(r, 0));
-    fixture.detectChanges();
-    const link = (fixture.nativeElement as HTMLElement).querySelector('[data-bill-link]') as HTMLAnchorElement;
-    expect(link).toBeTruthy();
-    expect(link.getAttribute('href')).toContain('/bill');
-  });
-
   describe('collapsible roster', () => {
     async function load(overrides: Parameters<typeof baseSession>[0]) {
       fixture = TestBed.createComponent(SessionDashboard);

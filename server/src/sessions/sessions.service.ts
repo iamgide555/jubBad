@@ -79,6 +79,7 @@ import type { SetCourtLabelDto } from './dto/set-court-label.dto.js';
 import type { SetCourtModeDto } from './dto/set-court-mode.dto.js';
 import type { SetModeDto } from './dto/set-mode.dto.js';
 import type { SetRosterActiveDto } from './dto/set-roster-active.dto.js';
+import type { LineupDto, MoveLineupDto } from './dto/lineup.dto.js';
 import type { SetRosterWalkInDto } from './dto/set-roster-walk-in.dto.js';
 import type { SetSeatDto } from './dto/set-seat.dto.js';
 import type { SetShuttleDetailsDto } from './dto/set-shuttle-details.dto.js';
@@ -589,7 +590,12 @@ export class SessionsService {
   async getSession(code: string) {
     const session = await this.prisma.session.findUnique({
       where: { code },
-      include: { roster: true, waitlist: { orderBy: { position: 'asc' } }, pairings: true },
+      include: {
+        roster: true,
+        waitlist: { orderBy: { position: 'asc' } },
+        pairings: true,
+        queuedMatches: { orderBy: { position: 'asc' } },
+      },
     });
     if (!session) throw this.notFound('SESSION_NOT_FOUND');
 
@@ -728,6 +734,7 @@ export class SessionsService {
           .map((r) => [r.playerId, r.activatedAt!.toISOString()])
       ),
       waitlistPlayerIds: session.waitlist.map((w) => w.playerId),
+      lineupQueue: session.endedAt !== null ? [] : this.lineupQueueView(session),
       courts,
     };
   }
@@ -934,6 +941,19 @@ export class SessionsService {
     }
     this.assertCourtNumber(session.courtCount, courtNumber);
 
+    // An idle court takes the next queued lineup that fits, if the host set
+    // one. Re-proposing a court that already holds a pending match is a
+    // reshuffle and never consumes the queue.
+    const holdsMatch = await this.prisma.pairing.count({
+      where: { sessionId: sessionCode, courtNumber, endedAt: null },
+    });
+    if (holdsMatch === 0 && (await this.applyQueueToCourts(session, [courtNumber])).length > 0) {
+      const seated = await this.prisma.pairing.findFirstOrThrow({
+        where: { sessionId: sessionCode, courtNumber, endedAt: null },
+      });
+      return { ok: true as const, pairing: this.seatViewOf(seated, this.seatsOf(seated)) };
+    }
+
     const roster = await this.prisma.sessionRoster.findMany({
       where: { sessionId: sessionCode, active: true },
     });
@@ -954,6 +974,8 @@ export class SessionsService {
       }
       for (const id of this.playersOf(p)) reserved.add(id);
     }
+    // Someone the host lined up for a later match is spoken for.
+    for (const id of await this.queuedPlayerIds(sessionCode)) reserved.add(id);
     const available = rosterPlayerIds.filter((id) => !reserved.has(id));
 
     // A per-court mode (custom sessions only) governs this branch, not the
@@ -2183,6 +2205,252 @@ export class SessionsService {
     };
   }
 
+  // ---- Lineup queue -------------------------------------------------------
+  // Host-set lineups for matches that have no court yet. They are not Pairings,
+  // so they never touch history, games played or ratings; they only claim a
+  // court (and their players) when one goes idle. See docs/overview.md.
+
+  private queuedPlayerIds(sessionCode: string, exceptEntryId?: string): Promise<Set<string>> {
+    return this.prisma.queuedMatch
+      .findMany({
+        where: { sessionId: sessionCode, ...(exceptEntryId ? { id: { not: exceptEntryId } } : {}) },
+      })
+      .then((entries) => new Set(entries.flatMap((e) => this.playersOf(e))));
+  }
+
+  /** Every queued lineup, each seated player flagged when they can't take their seat right now. */
+  private lineupQueueView(session: {
+    roster: { playerId: string; active: boolean }[];
+    pairings: { teamA: string; teamB: string; endedAt: Date | null }[];
+    queuedMatches: { id: string; teamA: string; teamB: string }[];
+  }) {
+    const resting = new Set(session.roster.filter((r) => !r.active).map((r) => r.playerId));
+    const onCourt = new Set(
+      session.pairings.filter((p) => p.endedAt === null).flatMap((p) => this.playersOf(p))
+    );
+    return session.queuedMatches.map((e, index) => {
+      const { teamA, teamB } = this.seatsOf(e);
+      const blocked = [...teamA, ...teamB]
+        .filter((id): id is string => id !== null)
+        .flatMap((playerId): { playerId: string; reason: 'resting' | 'on-court' }[] =>
+          resting.has(playerId)
+            ? [{ playerId, reason: 'resting' }]
+            : onCourt.has(playerId)
+              ? [{ playerId, reason: 'on-court' }]
+              : []
+        );
+      return { id: e.id, position: index, teamA, teamB, blocked };
+    });
+  }
+
+  private parseLineup(dto: LineupDto): { teamA: Seat[]; teamB: Seat[] } {
+    const norm = (team: unknown[]): Seat[] =>
+      team.map((seat) => {
+        if (seat === null || seat === undefined) return null;
+        if (typeof seat !== 'string' || seat === '') throw this.badRequest('LINEUP_INVALID');
+        return seat;
+      });
+    const teamA = norm(dto.teamA);
+    const teamB = norm(dto.teamB);
+    if (teamA.length !== teamB.length) throw this.badRequest('LINEUP_INVALID');
+    const seated = [...teamA, ...teamB].filter((id): id is string => id !== null);
+    if (seated.length === 0) throw this.badRequest('LINEUP_EMPTY');
+    if (new Set(seated).size !== seated.length) throw this.badRequest('LINEUP_DUPLICATE');
+    return { teamA, teamB };
+  }
+
+  private async assertLineupUsable(
+    session: Session,
+    seats: { teamA: Seat[]; teamB: Seat[] },
+    exceptEntryId?: string
+  ) {
+    const ids = [...seats.teamA, ...seats.teamB].filter((id): id is string => id !== null);
+    const roster = await this.prisma.sessionRoster.findMany({
+      where: { sessionId: session.code, playerId: { in: ids } },
+    });
+    for (const id of ids) {
+      const row = roster.find((r) => r.playerId === id);
+      if (!row) throw this.notFound('ROSTER_PLAYER_NOT_FOUND');
+      if (!row.active) throw this.conflict('PLAYER_UNAVAILABLE', { playerIds: [id] });
+    }
+    const open = await this.prisma.pairing.findMany({
+      where: { sessionId: session.code, endedAt: null },
+    });
+    for (const p of open) {
+      const clash = this.playersOf(p).find((id) => ids.includes(id));
+      if (clash) throw this.conflict('PLAYER_ALREADY_ON_COURT', { courtNumber: p.courtNumber });
+    }
+    const queued = await this.queuedPlayerIds(session.code, exceptEntryId);
+    const dup = ids.find((id) => queued.has(id));
+    if (dup) throw this.conflict('PLAYER_ALREADY_QUEUED', { playerIds: [dup] });
+    this.assertCourtLegal(seats.teamA, seats.teamB, await this.loadApplicableRules(session));
+  }
+
+  private async liveSessionForQueue(sessionCode: string): Promise<Session> {
+    const session = await this.prisma.session.findUnique({ where: { code: sessionCode } });
+    if (!session) throw this.notFound('SESSION_NOT_FOUND');
+    if (session.endedAt !== null) throw this.conflict('SESSION_ENDED');
+    return session;
+  }
+
+  addLineup(sessionCode: string, dto: LineupDto) {
+    return this.lock.run(sessionCode, async () => {
+      const session = await this.liveSessionForQueue(sessionCode);
+      const seats = this.parseLineup(dto);
+      await this.assertLineupUsable(session, seats);
+      const last = await this.prisma.queuedMatch.findFirst({
+        where: { sessionId: sessionCode },
+        orderBy: { position: 'desc' },
+      });
+      const row = await this.prisma.queuedMatch.create({
+        data: {
+          sessionId: sessionCode,
+          position: (last?.position ?? -1) + 1,
+          teamA: JSON.stringify(seats.teamA),
+          teamB: JSON.stringify(seats.teamB),
+        },
+      });
+      return { ok: true as const, id: row.id };
+    });
+  }
+
+  replaceLineup(sessionCode: string, id: string, dto: LineupDto) {
+    return this.lock.run(sessionCode, async () => {
+      const session = await this.liveSessionForQueue(sessionCode);
+      const entry = await this.prisma.queuedMatch.findFirst({ where: { id, sessionId: sessionCode } });
+      if (!entry) throw this.notFound('LINEUP_NOT_FOUND');
+      const seats = this.parseLineup(dto);
+      await this.assertLineupUsable(session, seats, id);
+      await this.prisma.queuedMatch.update({
+        where: { id },
+        data: { teamA: JSON.stringify(seats.teamA), teamB: JSON.stringify(seats.teamB) },
+      });
+      return { ok: true as const };
+    });
+  }
+
+  removeLineup(sessionCode: string, id: string) {
+    return this.lock.run(sessionCode, async () => {
+      // Idempotent: a double tap or a stale poll must not error.
+      await this.prisma.queuedMatch.deleteMany({ where: { id, sessionId: sessionCode } });
+      return { ok: true as const };
+    });
+  }
+
+  moveLineup(sessionCode: string, id: string, dto: MoveLineupDto) {
+    return this.lock.run(sessionCode, async () => {
+      const entries = await this.prisma.queuedMatch.findMany({
+        where: { sessionId: sessionCode },
+        orderBy: { position: 'asc' },
+      });
+      const from = entries.findIndex((e) => e.id === id);
+      if (from < 0) throw this.notFound('LINEUP_NOT_FOUND');
+      const to = dto.direction === 'up' ? from - 1 : from + 1;
+      if (to < 0 || to >= entries.length) return { ok: true as const };
+      const order = entries.map((e) => e.id);
+      [order[from], order[to]] = [order[to], order[from]];
+      await this.prisma.$transaction(
+        order.map((entryId, position) =>
+          this.prisma.queuedMatch.update({ where: { id: entryId }, data: { position } })
+        )
+      );
+      return { ok: true as const };
+    });
+  }
+
+  /**
+   * Seats the first queued lineup that fits each idle court, in court order,
+   * and returns the courts it filled. Runs inside the session lock.
+   *
+   * A seated player who has since rested, been settled or started elsewhere is
+   * vacated rather than blocking the lineup; open seats are then completed by
+   * the same `completeCourt` path as the host's auto-pair button, so rotation
+   * and pair rules apply. A lineup that has become illegal under the current
+   * rules stays queued and the court falls through to the engine.
+   *
+   * Written with `pendingSince` null: the host set this match on purpose, so
+   * the 60s auto-confirm does not start it. Any later edit to the court
+   * resets the timer like any other pending match.
+   */
+  private async applyQueueToCourts(session: Session, courtNumbers: number[]): Promise<number[]> {
+    if (courtNumbers.length === 0) return [];
+    const entries = await this.prisma.queuedMatch.findMany({
+      where: { sessionId: session.code },
+      orderBy: { position: 'asc' },
+    });
+    if (entries.length === 0) return [];
+
+    const roster = await this.prisma.sessionRoster.findMany({
+      where: { sessionId: session.code, active: true },
+    });
+    const active = new Set(roster.map((r) => r.playerId));
+    const open = await this.prisma.pairing.findMany({
+      where: { sessionId: session.code, endedAt: null },
+    });
+    const onCourt = new Set(open.flatMap((p) => this.playersOf(p)));
+    const rules = await this.loadApplicableRules(session);
+
+    const used = new Set<string>();
+    const applied: number[] = [];
+    for (const courtNumber of courtNumbers) {
+      const size = courtSizeFor(formatAt(session.courtFormats, courtNumber));
+      for (const entry of entries) {
+        if (used.has(entry.id)) continue;
+        const seats = this.seatsOf(entry);
+        if (seats.teamA.length * 2 !== size) continue;
+        const keep = (team: Seat[]): Seat[] =>
+          team.map((id) => (id !== null && active.has(id) && !onCourt.has(id) ? id : null));
+        const teamA = keep(seats.teamA);
+        const teamB = keep(seats.teamB);
+        if ([...teamA, ...teamB].every((id) => id === null)) {
+          used.add(entry.id);
+          await this.prisma.queuedMatch.deleteMany({ where: { id: entry.id } });
+          continue;
+        }
+        try {
+          this.assertCourtLegal(teamA, teamB, rules);
+        } catch {
+          continue;
+        }
+
+        const pairing = await this.prisma.$transaction(async (tx) => {
+          const matchNumber =
+            (await tx.pairing.count({
+              where: { sessionId: session.code, courtNumber, confirmedAt: { not: null } },
+            })) + 1;
+          await tx.queuedMatch.delete({ where: { id: entry.id } });
+          return tx.pairing.create({
+            data: {
+              sessionId: session.code,
+              courtNumber,
+              matchNumber,
+              teamA: JSON.stringify(teamA),
+              teamB: JSON.stringify(teamB),
+              pendingSince: null,
+            },
+          });
+        });
+        used.add(entry.id);
+        for (const id of [...teamA, ...teamB]) if (id !== null) onCourt.add(id);
+
+        const hasEmpty = [...teamA, ...teamB].some((id) => id === null);
+        if (hasEmpty && effectiveCourtMode(session, courtNumber) !== 'custom') {
+          await this.autoPairExclusively(session.code, pairing.id);
+          await this.prisma.pairing.updateMany({
+            where: { id: pairing.id, confirmedAt: null, endedAt: null },
+            data: { pendingSince: null },
+          });
+          // The completed seats belong to this court now too.
+          const done = await this.prisma.pairing.findUniqueOrThrow({ where: { id: pairing.id } });
+          for (const id of this.playersOf(done)) onCourt.add(id);
+        }
+        applied.push(courtNumber);
+        break;
+      }
+    }
+    return applied;
+  }
+
   async autoPair(sessionCode: string, pairingId: string, expectedRevision?: number) {
     const target = await this.pairingInSession(sessionCode, pairingId);
     return this.lock.run(target.sessionId, () =>
@@ -2220,6 +2488,7 @@ export class SessionsService {
       where: { sessionId: sessionCode, endedAt: null, id: { not: pairingId } },
     });
     const reserved = new Set(nonEnded.flatMap((p) => this.playersOf(p)));
+    for (const id of await this.queuedPlayerIds(sessionCode)) reserved.add(id);
     const seatedHere = new Set(this.playersOf(pairing));
     const pool = roster
       .map((r) => r.playerId)
@@ -2760,6 +3029,27 @@ export class SessionsService {
     if (!session) throw this.notFound('SESSION_NOT_FOUND');
     if (session.endedAt !== null) throw this.conflict('SESSION_ENDED');
 
+    // Queued lineups claim idle courts first, in queue order; the engine then
+    // fills whatever courts and players remain.
+    const open = await this.prisma.pairing.findMany({
+      where: { sessionId: sessionCode, endedAt: null },
+      select: { courtNumber: true },
+    });
+    const busy = new Set(open.map((p) => p.courtNumber));
+    const idle = Array.from({ length: session.courtCount ?? 0 }, (_, i) => i + 1).filter((n) => !busy.has(n));
+    const queued = await this.applyQueueToCourts(session, idle);
+    const rest = await this.fillEnginePart(sessionCode);
+    if (queued.length === 0) return rest;
+    return {
+      ok: true as const,
+      filled: [...queued, ...rest.filled].sort((a, b) => a - b),
+      blocked: 'blocked' in rest ? rest.blocked : ([] as FillBlocked[]),
+      inconclusive: 'inconclusive' in rest ? rest.inconclusive : ([] as number[]),
+    };
+  }
+
+  private async fillEnginePart(sessionCode: string) {
+    const session = await this.prisma.session.findUniqueOrThrow({ where: { code: sessionCode } });
     const roster = await this.prisma.sessionRoster.findMany({
       where: { sessionId: sessionCode, active: true },
     });
@@ -2769,6 +3059,7 @@ export class SessionsService {
 
     const busyCourts = new Set(nonEnded.map((p) => p.courtNumber));
     const reserved = new Set(nonEnded.flatMap((p) => this.playersOf(p)));
+    for (const id of await this.queuedPlayerIds(sessionCode)) reserved.add(id);
     const idleCourts = Array.from({ length: session.courtCount ?? 0 }, (_, i) => i + 1).filter(
       (n) => !busyCourts.has(n)
     );

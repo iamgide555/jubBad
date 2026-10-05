@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, ParseIntPipe, Post, Query, Req } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, ParseIntPipe, Post, Query, Req } from '@nestjs/common';
 import { AddWalkInDto } from './dto/add-walk-in.dto.js';
 import { CreateSessionDto } from './dto/create-session.dto.js';
 import { FinishPairingDto } from './dto/finish-pairing.dto.js';
@@ -14,6 +14,7 @@ import { SetCourtModeDto } from './dto/set-court-mode.dto.js';
 import { SetModeDto } from './dto/set-mode.dto.js';
 import { SetRosterActiveDto } from './dto/set-roster-active.dto.js';
 import { SetRosterWalkInDto } from './dto/set-roster-walk-in.dto.js';
+import { LineupDto, MoveLineupDto } from './dto/lineup.dto.js';
 import { SetSeatDto } from './dto/set-seat.dto.js';
 import { SetShuttleDetailsDto } from './dto/set-shuttle-details.dto.js';
 import { SwapPlayerDto } from './dto/swap-player.dto.js';
@@ -180,6 +181,27 @@ export class SessionsController {
     @Body() dto: SetSeatDto
   ) {
     return this.sessionsService.setSeat(code, id, dto);
+  }
+
+  /** Host-set lineups waiting for a free court. Read back through `GET :code` (`lineupQueue`). */
+  @Post(':code/queue')
+  addLineup(@Param('code') code: string, @Body() dto: LineupDto) {
+    return this.sessionsService.addLineup(code, dto);
+  }
+
+  @Post(':code/queue/:id')
+  replaceLineup(@Param('code') code: string, @Param('id') id: string, @Body() dto: LineupDto) {
+    return this.sessionsService.replaceLineup(code, id, dto);
+  }
+
+  @Post(':code/queue/:id/move')
+  moveLineup(@Param('code') code: string, @Param('id') id: string, @Body() dto: MoveLineupDto) {
+    return this.sessionsService.moveLineup(code, id, dto);
+  }
+
+  @Delete(':code/queue/:id')
+  removeLineup(@Param('code') code: string, @Param('id') id: string) {
+    return this.sessionsService.removeLineup(code, id);
   }
 
   @Post(':code/pairings/:id/autopair')

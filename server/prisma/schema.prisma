@@ -193,6 +193,7 @@ model Session {
   creation      SessionCreation?
   shuttles      SessionShuttle[]
   checkouts     SessionCheckout[]
+  queuedMatches QueuedMatch[]
 }
 
 model SessionRoster {
@@ -369,4 +370,21 @@ model SessionCheckout {
 
   @@unique([sessionId, idempotencyKey])
   @@index([sessionId, playerId])
+}
+
+/// A host-set lineup waiting for a court (full or partial). When a court goes
+/// idle the head entry that fits is seated as its pending match; any empty
+/// seats are completed by the engine. `teamA`/`teamB` are JSON Seat[] with the
+/// same shape as Pairing's (null = open seat). Not a Pairing: it never counts
+/// toward history, games played or ratings until the match is confirmed.
+model QueuedMatch {
+  id        String   @id @default(cuid())
+  sessionId String
+  position  Int
+  teamA     String
+  teamB     String
+  createdAt DateTime @default(now())
+  session   Session  @relation(fields: [sessionId], references: [code])
+
+  @@index([sessionId, position])
 }

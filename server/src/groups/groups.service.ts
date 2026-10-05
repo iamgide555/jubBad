@@ -691,6 +691,7 @@ export class GroupsService {
 
     return [
       // Receipts first: they reference both the session and the player.
+      this.prisma.queuedMatch.deleteMany({ where: { sessionId: { in: sessionIds } } }),
       this.prisma.sessionCheckout.deleteMany({ where: { sessionId: { in: sessionIds } } }),
       // Foreign-key order: game/shuttle links, then the games (which may point
       // at a last shuttle), then the identities, and only then the sessions.

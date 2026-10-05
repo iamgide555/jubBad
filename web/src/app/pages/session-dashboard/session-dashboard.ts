@@ -13,6 +13,7 @@ import { FlipListDirective } from '../../core/motion/flip-list.directive';
 import { Odometer } from '../../core/motion/odometer';
 import { PressDirective } from '../../core/motion/press.directive';
 import { RevealDirective } from '../../core/motion/reveal.directive';
+import { LineupQueue } from './lineup-queue/lineup-queue';
 import { CourtPanel } from './court-panel/court-panel';
 import { EarlyCheckoutDialog, type CheckoutPlayer, type SettledPlayer } from './early-checkout-dialog/early-checkout-dialog';
 import { courtName, type CheckoutReceipt } from '../../core/checkout.model';
@@ -37,6 +38,7 @@ import type { PlayerPanelRow } from '../../core/player-panel.model';
   selector: 'app-session-dashboard',
   imports: [
     CourtPanel,
+    LineupQueue,
     CourtLabelEditor,
     RouterLink,
     FlipListDirective,

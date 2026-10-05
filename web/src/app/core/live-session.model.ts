@@ -47,3 +47,17 @@ export type CourtState =
       currentShuttle?: ShuttleRef | null;
       usedShuttles?: ShuttleRef[];
     };
+
+/**
+ * A host-set lineup waiting for a free court. Seats are player ids or null
+ * (open — the engine fills them when a court takes this entry). `blocked`
+ * names seated players who cannot take their seat right now; they are vacated
+ * when the lineup is applied.
+ */
+export interface LineupEntry {
+  id: string;
+  position: number;
+  teamA: Seat[];
+  teamB: Seat[];
+  blocked: { playerId: string; reason: 'resting' | 'on-court' }[];
+}

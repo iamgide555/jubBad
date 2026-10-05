@@ -3447,6 +3447,167 @@
       <trans-unit id="court.otherOptions" datatype="html">
         <source>ตัวเลือกอื่น</source>
       </trans-unit>
+      <trans-unit id="lineup.title" datatype="html">
+        <source>คิวล่วงหน้า</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/session-dashboard/lineup-queue/lineup-queue.html</context>
+          <context context-type="linenumber">1</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="lineup.cancelDraft" datatype="html">
+        <source>ยกเลิก</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/session-dashboard/lineup-queue/lineup-queue.html</context>
+          <context context-type="linenumber">1</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="lineup.add" datatype="html">
+        <source>+ จัดแมตช์ล่วงหน้า</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/session-dashboard/lineup-queue/lineup-queue.html</context>
+          <context context-type="linenumber">1</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="lineup.empty" datatype="html">
+        <source>ยังไม่มีคิวล่วงหน้า — คอร์ทที่ว่างจะให้ระบบจัดให้ตามปกติ</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/session-dashboard/lineup-queue/lineup-queue.html</context>
+          <context context-type="linenumber">1</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="lineup.vs" datatype="html">
+        <source>vs</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/session-dashboard/lineup-queue/lineup-queue.html</context>
+          <context context-type="linenumber">1</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="lineup.openSeat" datatype="html">
+        <source>ให้ระบบเลือก</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/session-dashboard/lineup-queue/lineup-queue.html</context>
+          <context context-type="linenumber">1</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="lineup.resting" datatype="html">
+        <source>พัก</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/session-dashboard/lineup-queue/lineup-queue.html</context>
+          <context context-type="linenumber">1</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="lineup.onCourt" datatype="html">
+        <source>อยู่คอร์ท</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/session-dashboard/lineup-queue/lineup-queue.html</context>
+          <context context-type="linenumber">1</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="lineup.moveUp" datatype="html">
+        <source>เลื่อนขึ้น</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/session-dashboard/lineup-queue/lineup-queue.html</context>
+          <context context-type="linenumber">1</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="lineup.moveDown" datatype="html">
+        <source>เลื่อนลง</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/session-dashboard/lineup-queue/lineup-queue.html</context>
+          <context context-type="linenumber">1</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="lineup.remove" datatype="html">
+        <source>ลบคิวนี้</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/session-dashboard/lineup-queue/lineup-queue.html</context>
+          <context context-type="linenumber">1</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="lineup.draftHint" datatype="html">
+        <source>แตะช่องว่างเพื่อเลือกผู้เล่น ช่องที่เว้นไว้ระบบจะเลือกให้</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/session-dashboard/lineup-queue/lineup-queue.html</context>
+          <context context-type="linenumber">1</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="lineup.pickerLabel" datatype="html">
+        <source>เลือกผู้เล่น</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/session-dashboard/lineup-queue/lineup-queue.html</context>
+          <context context-type="linenumber">1</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="lineup.nobodyToPick" datatype="html">
+        <source>ไม่มีผู้เล่นที่รอคิวให้เลือก</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/session-dashboard/lineup-queue/lineup-queue.html</context>
+          <context context-type="linenumber">1</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="lineup.emptySeatLabel" datatype="html">
+        <source>เลือกผู้เล่นให้ช่องนี้</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/session-dashboard/lineup-queue/lineup-queue.ts</context>
+          <context context-type="linenumber">1</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="err.code.playerAlreadyQueued" datatype="html">
+        <source>ผู้เล่นคนนี้อยู่ในคิวล่วงหน้าแล้ว</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/core/live-session.service.ts</context>
+          <context context-type="linenumber">1</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="err.code.lineupNotFound" datatype="html">
+        <source>ไม่พบคิวนี้แล้ว</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/core/live-session.service.ts</context>
+          <context context-type="linenumber">1</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="err.addLineup" datatype="html">
+        <source>เพิ่มคิวล่วงหน้าไม่สำเร็จ</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/core/live-session.service.ts</context>
+          <context context-type="linenumber">1</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="err.editLineup" datatype="html">
+        <source>แก้คิวล่วงหน้าไม่สำเร็จ</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/core/live-session.service.ts</context>
+          <context context-type="linenumber">1</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="err.moveLineup" datatype="html">
+        <source>ย้ายคิวไม่สำเร็จ</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/core/live-session.service.ts</context>
+          <context context-type="linenumber">1</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="err.removeLineup" datatype="html">
+        <source>ลบคิวล่วงหน้าไม่สำเร็จ</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/core/live-session.service.ts</context>
+          <context context-type="linenumber">1</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="dashboard.queuedTag" datatype="html">
+        <source>คิว</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/session-dashboard/session-dashboard.html</context>
+          <context context-type="linenumber">1</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="lineup.removeSeatLabel" datatype="html">
+        <source>เอา <x id="name" equiv-text="name"/> ออกจากคิว</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/session-dashboard/lineup-queue/lineup-queue.ts</context>
+          <context context-type="linenumber">1</context>
+        </context-group>
+      </trans-unit>
     </body>
   </file>
 </xliff>

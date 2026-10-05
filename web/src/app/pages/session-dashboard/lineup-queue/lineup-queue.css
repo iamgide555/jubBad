@@ -1,0 +1,146 @@
+.lineup-queue {
+  margin: var(--space-3, 1rem) 0;
+}
+
+.lq-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.lq-add {
+  font: inherit;
+  font-size: var(--text-sm);
+  font-weight: 700;
+  min-height: var(--tap);
+  padding: 0 1rem;
+  color: var(--court);
+  background: var(--court-soft);
+  border: 1px solid var(--court);
+  border-radius: 999px;
+  cursor: pointer;
+}
+
+.lq-entry {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0;
+  border-bottom: 1px solid var(--line, rgb(0 0 0 / 10%));
+}
+
+.lq-entry.is-draft {
+  border-bottom-style: dashed;
+}
+
+.lq-order {
+  flex: 0 0 1.5rem;
+  text-align: center;
+  font-weight: 800;
+  color: var(--court);
+}
+
+.lq-match {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.lq-team {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.375rem;
+}
+
+.lq-vs {
+  font-size: var(--text-sm);
+  color: var(--ink-muted, inherit);
+}
+
+.lq-seat {
+  font: inherit;
+  font-size: var(--text-sm);
+  font-weight: 700;
+  min-height: var(--tap);
+  padding: 0 0.875rem;
+  color: var(--ink);
+  background: var(--surface);
+  border: 1px solid var(--court);
+  border-radius: 0.5rem;
+  cursor: pointer;
+}
+
+.lq-seat.is-empty {
+  font-weight: 500;
+  border-style: dashed;
+  opacity: 0.75;
+}
+
+.lq-seat.is-picking {
+  box-shadow: 0 0 0 2px var(--court);
+  background: var(--court-soft);
+  opacity: 1;
+}
+
+.lq-seat.is-blocked {
+  border-color: var(--danger, #b3261e);
+}
+
+.lq-flag {
+  margin-left: 0.375rem;
+  font-size: 0.75rem;
+  color: var(--danger, #b3261e);
+}
+
+.lq-tools {
+  display: flex;
+  gap: 0.25rem;
+}
+
+.lq-tool {
+  font: inherit;
+  min-width: var(--tap);
+  min-height: var(--tap);
+  color: var(--ink);
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 0.5rem;
+  cursor: pointer;
+}
+
+.lq-tool:disabled {
+  opacity: 0.3;
+  cursor: default;
+}
+
+.lq-picker {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.375rem;
+  padding: 0.5rem 0 0.75rem;
+}
+
+.lq-picker .chip-pick {
+  font: inherit;
+  font-size: var(--text-sm);
+  font-weight: 700;
+  color: var(--ink);
+  min-height: var(--tap);
+  cursor: pointer;
+}
+
+.lq-hint {
+  font-size: var(--text-sm);
+  color: var(--ink-muted, inherit);
+  margin: 0.25rem 0 0;
+}
+
+.lq-error {
+  color: var(--danger, #b3261e);
+  font-size: var(--text-sm);
+  margin: 0.5rem 0 0;
+}

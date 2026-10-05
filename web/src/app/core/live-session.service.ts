@@ -3,7 +3,7 @@ import { Injectable, computed, inject, signal } from '@angular/core';
 import { ActivatedRoute } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
 import { environment } from '../../environments/environment';
-import type { CourtFormat, CourtMode, CourtState } from './live-session.model';
+import type { CourtFormat, CourtMode, CourtState, LineupEntry, Seat } from './live-session.model';
 import type { Session } from './session.model';
 import { levelsErrorMessage } from './group-levels.model';
 import type { Level } from '../../../../engines/levels.ts';
@@ -163,6 +163,10 @@ function messageForCode(code: string): string | null {
       return $localize`:@@err.code.shuttleTrackingDisabled:ก๊วนนี้ไม่ได้เปิดการจดลูกแบด`;
     case 'PLAYER_ALREADY_ON_COURT':
       return $localize`:@@err.code.playerAlreadyOnCourt:ผู้เล่นคนนี้อยู่ในคอร์ทอื่นแล้ว`;
+    case 'PLAYER_ALREADY_QUEUED':
+      return $localize`:@@err.code.playerAlreadyQueued:ผู้เล่นคนนี้อยู่ในคิวล่วงหน้าแล้ว`;
+    case 'LINEUP_NOT_FOUND':
+      return $localize`:@@err.code.lineupNotFound:ไม่พบคิวนี้แล้ว`;
     case 'LEVEL_LADDER_STALE':
     case 'LEVEL_UNKNOWN':
       return levelsErrorMessage(code);
@@ -193,6 +197,12 @@ export class LiveSessionService {
   readonly restingPlayerIds = computed(() => {
     if (this.sessionResource.error()) return [];
     return this.sessionResource.value()?.restingPlayerIds ?? [];
+  });
+
+  /** Lineups the host set for upcoming matches, next-to-play first. */
+  readonly lineupQueue = computed<LineupEntry[]>(() => {
+    if (this.sessionResource.error()) return [];
+    return this.sessionResource.value()?.lineupQueue ?? [];
   });
 
   readonly mode = computed<Session['mode']>(() => this.sessionResource.value()?.mode ?? 'variety');
@@ -229,6 +239,14 @@ export class LiveSessionService {
     const resting = new Set(session.restingPlayerIds);
     return session.rosterPlayerIds.filter((id) => !reserved.has(id) && !resting.has(id));
   });
+
+  /** Players already lined up for a later match: still waiting, but spoken for. */
+  readonly queuedPlayerIds = computed(
+    () =>
+      new Set(
+        this.lineupQueue().flatMap((e) => [...e.teamA, ...e.teamB].filter((id): id is string => id !== null))
+      )
+  );
 
   constructor(route: ActivatedRoute) {
     this.sessionCode = route.snapshot.paramMap.get('sessionCode')!;
@@ -315,6 +333,30 @@ export class LiveSessionService {
       { team, index, playerId: playerId ?? null },
       $localize`:@@err.setSeat:ใส่ผู้เล่นไม่สำเร็จ`
     );
+  }
+
+  /** Adds a lineup to the end of the queue. A seat is a player id or null (left for the engine). */
+  addLineup(teamA: Seat[], teamB: Seat[]): Promise<ActionResult> {
+    return this.post('queue', { teamA, teamB }, $localize`:@@err.addLineup:เพิ่มคิวล่วงหน้าไม่สำเร็จ`);
+  }
+
+  replaceLineup(id: string, teamA: Seat[], teamB: Seat[]): Promise<ActionResult> {
+    return this.post(`queue/${id}`, { teamA, teamB }, $localize`:@@err.editLineup:แก้คิวล่วงหน้าไม่สำเร็จ`, true);
+  }
+
+  moveLineup(id: string, direction: 'up' | 'down'): Promise<ActionResult> {
+    return this.post(`queue/${id}/move`, { direction }, $localize`:@@err.moveLineup:ย้ายคิวไม่สำเร็จ`, true);
+  }
+
+  async removeLineup(id: string): Promise<ActionResult> {
+    try {
+      await firstValueFrom(this.http.delete(`${this.base}/sessions/${this.sessionCode}/queue/${id}`));
+      this.sessionResource.reload();
+      return { ok: true };
+    } catch {
+      this.sessionResource.reload();
+      return { ok: false, error: $localize`:@@err.removeLineup:ลบคิวล่วงหน้าไม่สำเร็จ` };
+    }
   }
 
   /** Fills only this court's empty seats from the normal rotation pool,

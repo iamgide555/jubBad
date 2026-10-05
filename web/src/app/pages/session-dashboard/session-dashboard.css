@@ -512,3 +512,14 @@
   align-items: center;
   gap: var(--space-1);
 }
+
+/* A waiting player the host already lined up for a later match. */
+.queued-tag {
+  margin-left: 0.375rem;
+  padding: 0 0.375rem;
+  font-size: 0.75rem;
+  font-weight: 800;
+  color: var(--court);
+  border: 1px solid var(--court);
+  border-radius: 999px;
+}

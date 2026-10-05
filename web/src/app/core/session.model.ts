@@ -1,4 +1,4 @@
-import type { CourtState } from './live-session.model';
+import type { CourtState, LineupEntry } from './live-session.model';
 
 export interface Session {
   code: string;
@@ -39,6 +39,8 @@ export interface Session {
    */
   queueGames: Record<string, number>;
   waitlistPlayerIds: string[];
+  /** Host-set lineups waiting for a free court, in the order they will be used. */
+  lineupQueue?: LineupEntry[];
   courts: CourtState[];
   /** Per-court display names, index 0 = court 1; null/absent = the number.
    *  Resolve with labelForCourt, never read `.length` as a court count. */

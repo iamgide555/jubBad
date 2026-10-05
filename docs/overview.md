@@ -765,8 +765,8 @@ sheet on a phone); clicking outside or Esc closes it. A lineup is built as a
 freeing court take a half-built lineup and would reserve the player before the
 host decided. The draft survives closing the dialog until Save, Cancel or Clear;
 editing a saved lineup works on a copy the same way. Delete, reorder and
-"ล้างทั้งหมด" (`DELETE :code/queue`) are immediate, since they cannot start
-anything. Players are picked inside the dialog (waiting ones first, those still
+"ล้างทั้งหมด" (`DELETE :code/queue`) take effect at once, since they cannot start
+anything (clear-all arms on the first tap and deletes on the second). Players are picked inside the dialog (waiting ones first, those still
 playing marked), so lining someone up never needs a scroll to the waiting list.
 
 The waiting list is pinned to the bottom of the screen as a compact tray (about

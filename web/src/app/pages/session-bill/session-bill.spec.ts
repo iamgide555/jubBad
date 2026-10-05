@@ -62,6 +62,19 @@ describe('SessionBill', () => {
     fixture.detectChanges();
   }
 
+  it('goes back to the live session while the night is on', async () => {
+    await load();
+    expect(fixture.nativeElement.querySelector('[data-back-live]')).toBeTruthy();
+  });
+
+  it('goes back to the summary once the session has ended', async () => {
+    const ended = response();
+    ended.session.endedAt = '2026-10-05T14:00:00.000Z';
+    await load(ended);
+    expect(fixture.nativeElement.querySelector('[data-back-live]')).toBeNull();
+    expect((fixture.nativeElement.querySelector('a.back') as HTMLAnchorElement).getAttribute('href')).toContain('summary');
+  });
+
   it('renders billed rows with amounts and the walk-in mark', async () => {
     await load();
     const text = fixture.nativeElement.textContent as string;

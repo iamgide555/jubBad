@@ -87,14 +87,38 @@
           <p class="muted" i18n="@@checkout.loading">กำลังคำนวณ…</p>
         }
 
-        @if (needsPrice()) {
-          <div class="price-row">
-            <label>
-              <span i18n="@@checkout.priceLabel">ราคาลูกแบดต่อลูก (บาท)</span>
-              <input type="text" inputmode="decimal" name="shuttlePrice" [value]="priceText()" (input)="onPriceInput($event)" />
-            </label>
-            <button type="button" data-save-price (click)="savePrice()" i18n="@@checkout.priceSave">บันทึกราคา</button>
-          </div>
+        @if (!receipt() && (preview() || needsPrice())) {
+          <details class="rates" data-rates [open]="ratesOpen()" (toggle)="ratesOpen.set($any($event.target).open)">
+            <summary i18n="@@checkout.ratesTitle">ตั้งราคา</summary>
+            <p class="muted" i18n="@@checkout.ratesHint">ราคาเดียวกับหน้าคิดเงินตอนจบก๊วน แก้แล้วใช้กับทุกคนที่ยังไม่ได้เช็คเอาต์</p>
+            <div class="rate-grid">
+              @for (key of rateKeys(); track key) {
+                <label class="rate-field">
+                  <span>{{ rateLabel(key) }}</span>
+                  <input
+                    type="text"
+                    inputmode="decimal"
+                    [attr.data-rate]="key"
+                    [value]="rateFields()[key]"
+                    (input)="onRateInput(key, $event)"
+                    (keydown.enter)="saveRates()"
+                  />
+                </label>
+              }
+            </div>
+            @if (ratesError()) {
+              <p class="error" role="alert">{{ ratesError() }}</p>
+            }
+            <div class="rate-actions">
+              <button type="button" data-save-rates [disabled]="ratesBusy()" (click)="saveRates()" i18n="@@checkout.ratesSave">บันทึกราคา</button>
+              @if (ratesSaved()) {
+                <span class="muted" role="status" i18n="@@checkout.ratesSaved">บันทึกแล้ว</span>
+              }
+              @if (sessionCode) {
+                <a [routerLink]="['/s', sessionCode, 'bill']" i18n="@@checkout.ratesMore">ตั้งค่าอื่นๆ ที่หน้าคิดเงิน</a>
+              }
+            </div>
+          </details>
         }
 
         @if (receipt() ?? preview(); as q) {

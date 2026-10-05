@@ -223,3 +223,44 @@ button {
   min-height: 1.5rem;
   flex: none;
 }
+
+/* Rates live behind a fold: usually set once, needed the first time a leaver is settled. */
+.rates {
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: var(--space-1) var(--space-2);
+}
+
+.rates summary {
+  min-height: var(--tap);
+  display: flex;
+  align-items: center;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.rate-grid {
+  display: grid;
+  gap: var(--space-1);
+  margin: var(--space-1) 0;
+}
+
+.rate-field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-0);
+  font-size: var(--text-sm);
+}
+
+.rate-field input {
+  min-height: var(--tap);
+  font-variant-numeric: tabular-nums;
+}
+
+.rate-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  padding-bottom: var(--space-1);
+}

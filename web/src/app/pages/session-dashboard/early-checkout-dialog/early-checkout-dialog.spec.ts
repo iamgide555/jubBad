@@ -23,6 +23,10 @@ const quote = (over: Partial<CheckoutPreview> = {}): CheckoutPreview => ({
   playerId: 'p1', model: 'perGame', amountSatang: 4500, games: 2, breakdown, snapshotHash: 'h1', ...over,
 });
 const receipt: CheckoutReceipt = { id: 'r1', playerId: 'p1', model: 'perGame', amountSatang: 4500, breakdown, settledAt: '2026-10-01T10:00:00Z' };
+const billConfig = {
+  perGameRateSatang: 1500, entryFeeSatang: 0, buffetPriceSatang: 12000, startingFeeSatang: 2000,
+  perPlayerShuttleSatang: null, shuttleCharge: 'shared',
+};
 const http = (status: number, code?: string) => new HttpErrorResponse({ status, error: code ? { code } : null });
 
 describe('EarlyCheckoutDialog', () => {
@@ -32,6 +36,8 @@ describe('EarlyCheckoutDialog', () => {
     confirmCheckout: ReturnType<typeof vi.fn>;
     undoCheckout: ReturnType<typeof vi.fn>;
     setShuttleDetails: ReturnType<typeof vi.fn>;
+    getBillConfig: ReturnType<typeof vi.fn>;
+    saveBillConfig: ReturnType<typeof vi.fn>;
   };
   const el = () => fixture.nativeElement as HTMLElement;
   const btn = (selector: string) => el().querySelector(selector) as HTMLButtonElement;
@@ -47,6 +53,8 @@ describe('EarlyCheckoutDialog', () => {
       confirmCheckout: vi.fn().mockResolvedValue(receipt),
       undoCheckout: vi.fn().mockResolvedValue({ ok: true }),
       setShuttleDetails: vi.fn().mockResolvedValue({ ok: true }),
+      getBillConfig: vi.fn().mockResolvedValue(billConfig),
+      saveBillConfig: vi.fn().mockResolvedValue({ ok: true }),
     };
     await TestBed.configureTestingModule({
       imports: [EarlyCheckoutDialog],
@@ -150,30 +158,82 @@ describe('EarlyCheckoutDialog', () => {
     expect(el().querySelector('[data-checkout-saved]')).toBeTruthy();
   });
 
+  const rate = (key: string) => el().querySelector(`[data-rate="${key}"]`) as HTMLInputElement;
+  const type = (key: string, value: string) => {
+    rate(key).value = value;
+    rate(key).dispatchEvent(new Event('input'));
+  };
+
   it('a missing shuttle price can be set right here and re-quotes', async () => {
     live.previewCheckout.mockRejectedValueOnce(http(409, 'MISSING_SHUTTLE_PRICE'));
     await openAndPick();
     expect(text()).toContain('ยังไม่ได้ใส่ราคาลูกแบด');
-    const input = el().querySelector('input[name="shuttlePrice"]') as HTMLInputElement;
-    input.value = '80';
-    input.dispatchEvent(new Event('input'));
-    btn('[data-save-price]').click();
+    expect((el().querySelector('[data-rates]') as HTMLDetailsElement).open).toBe(true);
+    type('shuttlePrice', '80');
+    btn('[data-save-rates]').click();
     await flush();
     expect(live.setShuttleDetails).toHaveBeenCalledWith({ shuttlePriceSatang: 8000 });
     expect(live.previewCheckout).toHaveBeenCalledTimes(2);
     expect(el().querySelector('[data-checkout-total]')).toBeTruthy();
   });
 
-  it('refuses an invalid price without calling the server', async () => {
+  it('refuses an invalid rate without calling the server', async () => {
     live.previewCheckout.mockRejectedValueOnce(http(409, 'MISSING_SHUTTLE_PRICE'));
     await openAndPick();
-    const input = el().querySelector('input[name="shuttlePrice"]') as HTMLInputElement;
-    input.value = '80.505';
-    input.dispatchEvent(new Event('input'));
-    btn('[data-save-price]').click();
+    type('shuttlePrice', '80.505');
+    btn('[data-save-rates]').click();
     await flush();
     expect(live.setShuttleDetails).not.toHaveBeenCalled();
-    expect(text()).toContain('ราคาไม่ถูกต้อง');
+    expect(live.saveBillConfig).not.toHaveBeenCalled();
+    expect(text()).toContain('ใส่เป็นบาท');
+  });
+
+  it('shows the saved rates for the model on screen and saves edits to the session settings', async () => {
+    await openAndPick();
+    expect(rate('perGameRate').value).toBe('15');
+    expect(rate('entryFee').value).toBe('0');
+    expect(el().querySelector('[data-rate="startingFee"]')).toBeNull();
+    type('perGameRate', '20');
+    type('entryFee', '10.50');
+    btn('[data-save-rates]').click();
+    await flush();
+    expect(live.saveBillConfig).toHaveBeenCalledWith({ perGameRateSatang: 2000, entryFeeSatang: 1050 });
+    expect(live.previewCheckout).toHaveBeenCalledTimes(2); // re-quoted with the new rates
+    expect(text()).toContain('บันทึกแล้ว');
+  });
+
+  it('per-shuttle offers the starting fee and shuttle price, and a blank charge means follow the price', async () => {
+    live.previewCheckout.mockResolvedValue(quote({ model: 'perShuttle', shuttleCharge: 'full', shuttlePriceSatang: 8000 }));
+    await openAndPick();
+    btn('input[name="checkoutModel"][value="perShuttle"]').click();
+    await flush();
+    expect(rate('startingFee').value).toBe('20');
+    expect(rate('shuttlePrice').value).toBe('80');
+    expect(rate('perPlayerShuttle').value).toBe('');
+    type('startingFee', '0');
+    btn('[data-save-rates]').click();
+    await flush();
+    expect(live.saveBillConfig).toHaveBeenCalledWith({ startingFeeSatang: 0, perPlayerShuttleSatang: null });
+    expect(live.setShuttleDetails).toHaveBeenCalledWith({ shuttlePriceSatang: 8000 });
+  });
+
+  it('opens the rates on its own for a 0-baht quote, and keeps them closed otherwise', async () => {
+    await openAndPick();
+    expect((el().querySelector('[data-rates]') as HTMLDetailsElement).open).toBe(false);
+    live.previewCheckout.mockResolvedValue(quote({ amountSatang: 0, breakdown: { ...breakdown, baseSatang: 0, shuttleSatang: 0 } }));
+    btn('input[name="checkoutModel"][value="buffet"]').click();
+    await flush();
+    expect((el().querySelector('[data-rates]') as HTMLDetailsElement).open).toBe(true);
+  });
+
+  it('shows why a rate could not be saved and does not re-quote', async () => {
+    live.saveBillConfig.mockResolvedValueOnce({ ok: false, error: 'เปลี่ยนวิธีคิดค่าลูกไม่ได้ เพราะมีคนเช็คเอาต์ไปแล้ว' });
+    await openAndPick();
+    type('perGameRate', '20');
+    btn('[data-save-rates]').click();
+    await flush();
+    expect(text()).toContain('มีคนเช็คเอาต์ไปแล้ว');
+    expect(live.previewCheckout).toHaveBeenCalledTimes(1);
   });
 
   it('copies Thai text without settling, and shows selectable text if the clipboard is refused', async () => {

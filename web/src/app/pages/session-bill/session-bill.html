@@ -1,5 +1,9 @@
 <div class="page bill">
-  <a class="back" [routerLink]="['/s', sessionCode, 'summary']" i18n="@@bill.back">← กลับไปสรุปก๊วน</a>
+  @if (bill() && bill()!.session.endedAt === null) {
+    <a class="back" data-back-live [routerLink]="['/s', sessionCode]" i18n="@@bill.backLive">← กลับไปหน้าคุมก๊วน</a>
+  } @else {
+    <a class="back" [routerLink]="['/s', sessionCode, 'summary']" i18n="@@bill.back">← กลับไปสรุปก๊วน</a>
+  }
   <h1 i18n="@@bill.title">คิดเงิน</h1>
 
   @if (loadFailed()) {

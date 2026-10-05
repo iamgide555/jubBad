@@ -118,6 +118,9 @@
           + เพิ่มกฎการจับคู่
         </button>
       }
+      @if (!ended()) {
+        <a class="button ghost" data-bill-link [routerLink]="['/s', session()!.code, 'bill']" i18n="@@dashboard.billLink">คิดเงิน</a>
+      }
       <button
         type="button"
         class="ghost"

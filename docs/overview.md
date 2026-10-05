@@ -969,6 +969,17 @@ from being copied until the host resolves them; surcharges stay a group
 transfer, never profit. No checkout data appears on the display, summary or
 profile routes.
 
+**Rates are editable from the quote.** The quote step has a "ตั้งราคา" fold with
+the fields that matter for the model on screen (per game: rate and entry fee;
+per shuttle: starting fee, shuttle price and, for คิดเต็มต่อคน, the per-player
+charge, blank = follow the shuttle price; buffet: price). They write the same
+`Session.billConfig` / `shuttlePriceSatang` the end-of-night bill reads, so an
+early leaver can be settled mid-session without ending it, and a change applies
+to everyone not yet checked out (a saved receipt stays frozen). It opens by
+itself on a 0-baht quote or a missing shuttle price. The dashboard also links to
+the bill page ("คิดเงิน") all night, and the bill page's back link returns to the
+live session while it is still running.
+
 ### Group-owned level ladders (host feedback F)
 
 Every group starts on the built-in ladder (BG, N, S, P-, P, P+, C, B, seeded

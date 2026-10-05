@@ -22,6 +22,8 @@ export interface CheckoutPreview {
   shuttleCharge?: 'shared' | 'full';
   /** The resolved charge per player per shuttle under 'full', else null. */
   chargeSatang?: number | null;
+  /** The session's shuttle price, so the rates form can show what the quote used. */
+  shuttlePriceSatang?: number | null;
 }
 
 /** A settled checkout, frozen. */

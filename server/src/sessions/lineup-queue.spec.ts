@@ -230,6 +230,23 @@ describe('lineup queue', () => {
     }
   });
 
+  it('clears every queued lineup, and only this session\'s', async () => {
+    const d = await fixture(8);
+    const other = await fixture(8);
+    try {
+      await service.addLineup(d.sessionCode, { teamA: [d.ids[0], null], teamB: [null, null] });
+      await service.addLineup(d.sessionCode, { teamA: [d.ids[1], null], teamB: [null, null] });
+      await service.addLineup(other.sessionCode, { teamA: [other.ids[0], null], teamB: [null, null] });
+      await service.clearLineups(d.sessionCode);
+      await service.clearLineups(d.sessionCode); // idempotent
+      expect(await prisma.queuedMatch.count({ where: { sessionId: d.sessionCode } })).toBe(0);
+      expect(await prisma.queuedMatch.count({ where: { sessionId: other.sessionCode } })).toBe(1);
+    } finally {
+      await remove(d);
+      await remove(other);
+    }
+  });
+
   it('leaves a lineup queued, and falls through to the engine, when no court it fits is idle', async () => {
     const d = await fixture(8, 1);
     try {

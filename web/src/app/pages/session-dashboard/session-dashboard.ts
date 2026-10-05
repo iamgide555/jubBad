@@ -1,3 +1,4 @@
+import { NgTemplateOutlet } from '@angular/common';
 import { Component, ElementRef, OnDestroy, computed, effect, inject, signal, viewChild } from '@angular/core';
 import { HttpErrorResponse, httpResource } from '@angular/common/http';
 import { Router, RouterLink } from '@angular/router';
@@ -35,6 +36,9 @@ import { describeRules, RULE_KIND_HINTS, ruleErrorMessage, ruleKindLabel, type C
 import type { PlayerStat } from '../../core/stats.model';
 import type { PlayerPanelRow } from '../../core/player-panel.model';
 
+/** Keep in step with the rail breakpoint in session-dashboard.css. */
+const WIDE_QUERY = '(min-width: 90rem)';
+
 const ROSTER_OPEN_KEY = 'jubbad.dashboard.rosterOpen';
 
 function readRosterOpen(): boolean {
@@ -50,6 +54,7 @@ function readRosterOpen(): boolean {
   imports: [
     CourtPanel,
     LineupQueue,
+    NgTemplateOutlet,
     Icon,
     CourtLabelEditor,
     RouterLink,
@@ -352,6 +357,22 @@ export class SessionDashboard implements OnDestroy {
 
   protected readonly selection = inject(SwapSelectionService);
 
+  private readonly lineupQueue = viewChild<LineupQueue>('lineupQueue');
+
+  protected openLineups(): void {
+    this.lineupQueue()?.open();
+  }
+
+  /** "โอ·นัท vs ไผ่·…" for the first queued lineup, an open seat shown as an ellipsis. */
+  protected readonly lineupPreview = computed(() => {
+    const first = this.liveSession.lineupQueue()[0];
+    if (!first) return null;
+    const ids = [...first.teamA, ...first.teamB].filter((id): id is string => id !== null);
+    const names = new Map(ids.map((id, i) => [id, resolvePlayerNames(ids, this.players())[i]]));
+    const team = (seats: (string | null)[]) => seats.map((id) => (id === null ? '…' : (names.get(id) ?? id))).join('·');
+    return `${team(first.teamA)} vs ${team(first.teamB)}`;
+  });
+
   /** True while the host is holding someone who is on a court, so the next tap is meant for a waiting player. */
   protected readonly benchOpen = computed(() => {
     const held = this.selection.selection();
@@ -369,11 +390,16 @@ export class SessionDashboard implements OnDestroy {
   private readonly benchAnchor = viewChild<ElementRef<HTMLElement>>('benchAnchor');
   private benchObserver?: IntersectionObserver;
 
+  /** On a wide screen the waiting list is a left rail, never the bottom tray. */
+  private readonly wideQuery = typeof matchMedia === 'function' ? matchMedia(WIDE_QUERY) : null;
+  protected readonly wide = signal(this.wideQuery?.matches ?? false);
+  private readonly onWideChange = (e: MediaQueryListEvent) => this.wide.set(e.matches);
+
   private readonly watchBench = effect(() => {
     const anchor = this.benchAnchor()?.nativeElement;
     this.benchObserver?.disconnect();
     this.benchObserver = undefined;
-    if (!anchor || typeof IntersectionObserver === 'undefined') {
+    if (this.wide() || !anchor || typeof IntersectionObserver === 'undefined') {
       this.benchStuck.set(false);
       return;
     }
@@ -464,6 +490,7 @@ export class SessionDashboard implements OnDestroy {
     private roster: RosterService
   ) {
     window.addEventListener('focus', this.onWindowFocus);
+    this.wideQuery?.addEventListener('change', this.onWideChange);
     // Receipts exist only on advanced sessions, which the first session read reveals.
     effect(() => {
       if (this.liveSession.shuttleTools()) void this.loadCheckouts();
@@ -723,6 +750,7 @@ export class SessionDashboard implements OnDestroy {
     clearInterval(this.clock);
     clearInterval(this.refreshInterval);
     this.benchObserver?.disconnect();
+    this.wideQuery?.removeEventListener('change', this.onWideChange);
     window.removeEventListener('focus', this.onWindowFocus);
   }
 

@@ -620,3 +620,107 @@
   border: 1px solid var(--court);
   border-radius: 999px;
 }
+
+/* ---- Lineup launcher ------------------------------------------------------ */
+.lineup-launch-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  font: inherit;
+  font-size: var(--text-sm);
+  font-weight: 700;
+  min-height: var(--tap);
+  padding: 0 var(--space-2);
+  color: var(--court-ink);
+  background: var(--court-soft);
+  border: 1px solid var(--court);
+  border-radius: var(--radius);
+  cursor: pointer;
+}
+
+.lineup-launch-count {
+  min-width: 1.5rem;
+  padding: 0 0.4rem;
+  text-align: center;
+  font-size: var(--text-xs);
+  color: #fff;
+  background: var(--court);
+  border-radius: var(--radius-pill);
+}
+
+.lineup-launch-preview {
+  margin: var(--space-0) 0 0;
+  font-size: var(--text-xs);
+  color: var(--ink-soft);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+app-lineup-queue {
+  display: contents;
+}
+
+/* The rail's own copy of the launcher exists only at rail width. */
+.wq-lineup {
+  display: none;
+}
+
+/*
+ * Wide screens: the waiting list leaves the bottom of the screen and becomes a
+ * left rail beside the courts. One player per row, always full size, so it has
+ * no compact/opened states. Keep the breakpoint in step with WIDE_QUERY.
+ */
+@media (min-width: 90rem) {
+  .dashboard {
+    display: grid;
+    grid-template-columns: 16rem minmax(0, 1fr);
+    column-gap: var(--space-4);
+    max-width: calc(68rem + 16rem + var(--space-4) + 2 * var(--space-3));
+  }
+
+  .dashboard > * {
+    grid-column: 2;
+  }
+
+  .dashboard > .waiting-queue {
+    grid-column: 1;
+    grid-row: 1 / span 99;
+    align-self: start;
+    position: sticky;
+    top: 4.5rem;
+    max-height: calc(100dvh - 6rem);
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    flex-direction: column;
+    flex-wrap: nowrap;
+    align-items: stretch;
+    gap: var(--space-0);
+    margin: 0;
+    padding: var(--space-2);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-sm);
+  }
+
+  .waiting-queue .chip-pick {
+    width: 100%;
+    margin: 0;
+    justify-content: flex-start;
+  }
+
+  .waiting-queue .chip-pick .wait-mins {
+    margin-left: auto;
+  }
+
+  .waiting-queue .wq-lineup {
+    display: block;
+    padding-bottom: var(--space-1);
+    margin-bottom: var(--space-1);
+    border-bottom: 1px solid var(--line);
+  }
+
+  .lineup-launch.in-toolbar {
+    display: none;
+  }
+}

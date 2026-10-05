@@ -199,6 +199,11 @@ export class SessionsController {
     return this.sessionsService.moveLineup(code, id, dto);
   }
 
+  @Delete(':code/queue')
+  clearLineups(@Param('code') code: string) {
+    return this.sessionsService.clearLineups(code);
+  }
+
   @Delete(':code/queue/:id')
   removeLineup(@Param('code') code: string, @Param('id') id: string) {
     return this.sessionsService.removeLineup(code, id);

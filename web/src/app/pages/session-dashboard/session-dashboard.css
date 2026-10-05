@@ -472,6 +472,12 @@
   align-items: center;
   gap: var(--space-0) 0;
   background: var(--surface-raised);
+  /* One tray in both states: same padding and gutter bleed, so it does not
+     jump or lose its shape when the host scrolls to its natural spot. */
+  padding: var(--space-1) var(--space-2) var(--space-0);
+  margin: 0 calc(var(--space-2) * -1);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
 }
 
 .wq-head {
@@ -497,9 +503,8 @@
   max-height: calc(var(--tap) * 2 + var(--space-1) * 2 + 2.25rem);
   overflow-y: auto;
   overscroll-behavior: contain;
-  padding: var(--space-1) var(--space-2) var(--space-0);
-  margin: 0 calc(var(--space-2) * -1);
-  border-top: 1px solid var(--line);
+  /* flush with the screen edge, so only the top corners round */
+  border-bottom: 0;
   border-radius: var(--radius-lg) var(--radius-lg) 0 0;
   box-shadow: 0 -14px 28px -16px rgba(35, 28, 15, 0.28);
 }

@@ -684,7 +684,7 @@ export class SessionsService {
       // 'wait' in a level session, 'games' otherwise — how the waiting list
       // should be ordered to match what the engine actually does. A custom
       // session stays 'games' regardless of any individual court's mode: see
-      // docs/superpowers/specs/2026-09-27-level-rework-design.md, section 3.
+      // docs/archive/specs/2026-09-27-level-rework-design.md, section 3.
       queueBy: isLevelMode(session.mode) ? ('wait' as const) : ('games' as const),
       // Host-editable metadata (see SessionsService.setShuttleDetails), public
       // like the rest of this response — only writing them requires auth.

@@ -1,3 +1,5 @@
+> **Archived 2026-10-05.** Shipped and deployed. The checklist below was not ticked as the work went, so the boxes are left as written rather than checked retroactively; `docs/overview.md` is the source of truth for current behaviour.
+
 # ตามลูกแบด Full Per-Player Charge Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
@@ -8,7 +10,7 @@
 
 **Tech Stack:** TypeScript engines (node:test), NestJS + Prisma + vitest (server), Angular 22 signals + vitest (web).
 
-**Spec:** `docs/superpowers/specs/2026-10-02-shuttle-full-charge-design.md`
+**Spec:** `docs/archive/specs/2026-10-02-shuttle-full-charge-design.md`
 
 ## Global Constraints
 

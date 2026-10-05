@@ -1,3 +1,5 @@
+> **Archived 2026-10-05.** Shipped and deployed. The checklist below was not ticked as the work went, so the boxes are left as written rather than checked retroactively; `docs/overview.md` is the source of truth for current behaviour.
+
 # Reusable Match Shuttles Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
@@ -8,7 +10,7 @@
 
 **Tech Stack:** Prisma/SQLite, NestJS/class-validator/Vitest, dependency-free TypeScript bill engine (`node:test`), Angular standalone components/signals and `ng test`.
 
-**Spec:** `docs/superpowers/specs/2026-09-30-match-shuttles-design.md`
+**Spec:** `docs/archive/specs/2026-09-30-match-shuttles-design.md`
 
 ## Global Constraints
 
@@ -137,7 +139,7 @@
 
 ### Task 9: Summary correction, bill safety and shipped documentation
 
-**Files:** Modify `web/src/app/core/{bill,session-summary}.model.ts`, `web/src/app/pages/session-summary/session-summary.{ts,html,css,spec.ts}`, `web/src/app/pages/session-bill/session-bill.{ts,html,css,spec.ts}`, `web/src/locale/messages.en.xlf`, `docs/overview.md`, `docs/2026-09-27-real-host-feedback.md`.
+**Files:** Modify `web/src/app/core/{bill,session-summary}.model.ts`, `web/src/app/pages/session-summary/session-summary.{ts,html,css,spec.ts}`, `web/src/app/pages/session-bill/session-bill.{ts,html,css,spec.ts}`, `web/src/locale/messages.en.xlf`, `docs/overview.md`, `docs/archive/2026-09-27-real-host-feedback.md`.
 
 **Interfaces:** Consume Task 5 `shuttleAccounting`, `shuttleLog`, and owner inventory; Task 7 `BillResponse.accounting` and `readyToCopy`; Task 4 correction route. `SessionSummary` only enables corrections (and its existing physical count/price editor) after a successful owner-guarded inventory read, not `AuthService.check()` alone. `SessionBill.copy()` returns without touching clipboard or fallback if `!readyToCopy`; the template hides provisional per-person/final totals and disables the button until required inputs are present. Ordinary summary has no numbered log.
 
@@ -145,7 +147,7 @@
 - [ ] **Step 2: Run red:** `cd web && npx ng test --watch=false --include=src/app/pages/session-summary/session-summary.spec.ts --include=src/app/pages/session-bill/session-bill.spec.ts`. Expected FAIL on missing log/readiness UI.
 - [ ] **Step 3: Implement owner-authorized summary editor, read-only public log and bill guard** with Thai source copy and English XLF translations. Use A's `labelForCourt` for retired courts' history; don't trust button state alone in `copy()`. Show separate physical and distinct totals, never a made-up count for old games. On correction, refresh both the public summary and owner inventory, and show stale/rejected writes explicitly.
 - [ ] **Step 4: Run green and check builds:** same targeted web tests, `cd web && npm run build`, `cd server && npm run build`, `npm run test:engines`. Expected PASS. Check 320px courtside layout and public summary plus the existing venue route; no clipped 44px controls or new display controls. Run any focused auth or integration test revealed by the changes.
-- [ ] **Step 5: Document shipped D behavior** in `docs/overview.md`; flip only D's checkbox and update its done note in `docs/2026-09-27-real-host-feedback.md`, explicitly stating that numbered reuse replaces its older per-game integer/default-last wording. Do not mark E/F complete or archive the still-open backlog.
+- [ ] **Step 5: Document shipped D behavior** in `docs/overview.md`; flip only D's checkbox and update its done note in `docs/archive/2026-09-27-real-host-feedback.md`, explicitly stating that numbered reuse replaces its older per-game integer/default-last wording. Do not mark E/F complete or archive the still-open backlog.
 - [ ] **Step 6: Commit** only summary, bill, localization and documentation hunks: `git commit -m "feat: correct shuttle logs and guard bills"`. The host-feedback file was untracked at planning time; ask its owner before staging its existing unrelated content.
 
 At execution, read the spec alongside each task, integrate the existing dirty worktree rather than reverting it, and stage only feature-owned hunks. Leave every checkbox pending until its tests and commit have happened. E's early checkout and F's default-customizable ladder get separate specs and plans after this one; no product code is authorized by this plan alone.

@@ -1,7 +1,7 @@
 # Real-host feedback (2026-09-27/28)
 
-Firsthand feedback from hosts running actual badminton sessions. This is the
-living checklist for items A–F; the competitor-feature review and its C-series
+Firsthand feedback from hosts running actual badminton sessions. This was the
+checklist for items A–G; every item is done, so it was archived 2026-10-05; the competitor-feature review and its C-series
 roadmap remain in the [archived feature review](archive/2026-09-21-feature-review-and-roadmap.md).
 
 ### Feedback items
@@ -74,7 +74,7 @@ numbered session-wide shuttle identities with game/shuttle links, a shuttle
 choice atomic with confirmation (auto-confirm reuses or opens one), live
 open/switch/retire controls, owner corrections after the session ends, and
 distinct-shuttle accounting and bill sharing. Design:
-`docs/superpowers/specs/2026-09-30-match-shuttles-design.md`; behavior:
+`docs/archive/specs/2026-09-30-match-shuttles-design.md`; behavior:
 "Numbered shuttles" in `docs/overview.md`.
 
 **This replaces the older wording below** (a per-game *integer* count on

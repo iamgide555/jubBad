@@ -121,7 +121,7 @@ Tests in `engines/elo.test.ts`:
 
 - `docs/overview.md`: update the Elo section with "level set = rating reset to seed at that
   moment; unlevelled = 1200", including the reason (no double-counting, and 0 breaks Elo).
-- `docs/superpowers/specs/2026-09-22-roadmap-c-series-design.md`: add the three decisions as
+- `docs/archive/specs/2026-09-22-roadmap-c-series-design.md`: add the three decisions as
   another bullet under "C1 amendments, owner 2026-09-23".
 
 ## Verification

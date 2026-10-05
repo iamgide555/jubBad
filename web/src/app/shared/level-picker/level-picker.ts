@@ -9,7 +9,7 @@ interface LevelInfo {
 
 /**
  * Definitions and the yes/no helper are grounded in the C1 design doc's
- * research (docs/superpowers/specs/2026-09-22-roadmap-c-series-design.md
+ * research (docs/archive/specs/2026-09-22-roadmap-c-series-design.md
  * §C1) — there is no single official Thai standard, so these are this app's
  * own working definitions, not a fixed authority.
  */

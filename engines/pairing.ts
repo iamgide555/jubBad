@@ -1186,7 +1186,7 @@ function pickOpponents(
 
 /**
  * The requested court's locked carry group, or null when no carry applies —
- * see docs/superpowers/specs/2026-09-27-level-rework-design.md, section 1b.
+ * see docs/archive/specs/2026-09-27-level-rework-design.md, section 1b.
  *
  * The anchor is the first carry-eligible player in wait order, not
  * necessarily the single longest-waiting player in `roster` — the far-below
@@ -1601,7 +1601,7 @@ export function generateRound(
    *  (every pre-existing caller, the default) keeps games played first. */
   queueBy: 'games' | 'wait' = 'games',
   /** Players eligible for a carry game right now (level mode only) — see
-   *  docs/superpowers/specs/2026-09-27-level-rework-design.md, section 1b. */
+   *  docs/archive/specs/2026-09-27-level-rework-design.md, section 1b. */
   carryEligible?: ReadonlySet<PlayerId>,
   /** Players who have already partnered a carry-eligible player tonight,
    *  deprioritised as the next carry's pro. */

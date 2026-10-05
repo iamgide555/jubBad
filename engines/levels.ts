@@ -77,7 +77,7 @@ export function withinBand(
 
 /**
  * Whether `id` is far enough below tonight's active roster to trigger a
- * carry game (see docs/superpowers/specs/2026-09-27-level-rework-design.md,
+ * carry game (see docs/archive/specs/2026-09-27-level-rework-design.md,
  * section 1b): tagged, fewer than 4 active players (self included) within
  * ±1 of them, and every other tagged player outside that band is above
  * them. An untagged player never qualifies, and — following the same

@@ -4,7 +4,7 @@ Status: implemented (sub-project B); archived 2026-09-30. This is the
 historical approved design, not a description of current behavior. The
 2026-09-28 decision to seat multiple eligible newcomers together supersedes
 the separate-carry rule below; see `docs/overview.md` and
-`docs/2026-09-27-real-host-feedback.md` for current state.
+`docs/archive/2026-09-27-real-host-feedback.md` for current state.
 
 ## Context
 

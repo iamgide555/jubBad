@@ -169,7 +169,7 @@ test('computeRatings: an unseeded player still falls back to STARTING_RATING', (
 
 // --- RatingAnchor: a level set (or edited) mid-session resets the rating to
 // the level's seed at that moment, rather than adding it on top of whatever
-// the player earned while unlevelled (see docs/superpowers/specs/
+// the player earned while unlevelled (see docs/archive/specs/
 // 2026-09-23-c1-level-followup-design.md). `at` timestamps below are plain
 // epoch ms, spaced far enough apart that comparisons are unambiguous.
 

@@ -1,3 +1,5 @@
+> **Archived 2026-10-05.** Shipped and deployed. The checklist below was not ticked as the work went, so the boxes are left as written rather than checked retroactively; `docs/overview.md` is the source of truth for current behaviour.
+
 # Group Dashboard Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
@@ -8,7 +10,7 @@
 
 **Tech Stack:** NestJS + Prisma 7 + SQLite + vitest (server); Angular 22 standalone components, signals, `httpResource`, `$localize` (web).
 
-**Spec:** `docs/superpowers/specs/2026-10-02-group-dashboard-design.md`
+**Spec:** `docs/archive/specs/2026-10-02-group-dashboard-design.md`
 
 ## Global Constraints
 
@@ -59,7 +61,7 @@ In `server/prisma/schema.prisma`, inside `model Group`, after the `levelLadderRe
   /// Credential for the group's public dashboard (/d/:token). Null = not
   /// shared. Random and revocable on purpose: a group code is chosen by the
   /// host, so it is guessable and cannot gate a public page. See
-  /// docs/superpowers/specs/2026-10-02-group-dashboard-design.md.
+  /// docs/archive/specs/2026-10-02-group-dashboard-design.md.
   shareToken          String? @unique
 ```
 

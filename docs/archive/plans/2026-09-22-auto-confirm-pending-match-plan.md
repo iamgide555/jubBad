@@ -17,7 +17,7 @@ exposes the deadline as `autoStartAt` so the dashboard can show a countdown.
 **Tech Stack:** NestJS + Prisma + SQLite (server), Angular + vitest (web). No
 new dependencies — the sweep is a plain `setInterval`.
 
-**Spec:** `docs/superpowers/specs/2026-09-22-auto-confirm-pending-match-design.md`
+**Spec:** `docs/archive/specs/2026-09-22-auto-confirm-pending-match-design.md`
 
 ## Global Constraints
 
@@ -38,7 +38,7 @@ new dependencies — the sweep is a plain `setInterval`.
 - This plan carries a Prisma migration. Before deploying, back up
   (`docker compose exec -T api npm run db:backup`) per `dockerDeploy.md`,
   and check the pull's file list for any other undeployed migration — see
-  `docs/superpowers/specs/2026-09-22-auto-confirm-pending-match-design.md` §9.
+  `docs/archive/specs/2026-09-22-auto-confirm-pending-match-design.md` §9.
 
 ---
 
@@ -89,7 +89,7 @@ new dependencies — the sweep is a plain `setInterval`.
   revision    Int       @default(0)
   /// When this pending pairing last changed. The auto-confirm sweep counts
   /// 60s from here, and backdates `confirmedAt` to 30s after it — see
-  /// docs/superpowers/specs/2026-09-22-auto-confirm-pending-match-design.md.
+  /// docs/archive/specs/2026-09-22-auto-confirm-pending-match-design.md.
   /// Null means auto-confirm is off: a row from before this column existed,
   /// or one an undone confirm just cleared.
   pendingSince DateTime?

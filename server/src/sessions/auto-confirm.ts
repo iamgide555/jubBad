@@ -9,7 +9,7 @@ export const AUTO_CONFIRM_SWEEP_MS = 5_000;
 
 /**
  * Runs `SessionsService.autoConfirmDue` on a timer for the life of the
- * process — see docs/superpowers/specs/2026-09-22-auto-confirm-pending-
+ * process — see docs/archive/specs/2026-09-22-auto-confirm-pending-
  * match-design.md §3. A plain `setInterval` rather than `@nestjs/schedule`:
  * one repeating timer does not need a scheduling library.
  *

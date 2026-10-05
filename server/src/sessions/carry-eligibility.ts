@@ -2,7 +2,7 @@
  * Which active players are eligible for a carry game right now, and who has
  * already carried one tonight — pure, DB-agnostic derivation so it can be
  * unit-tested without Prisma. See
- * docs/superpowers/specs/2026-09-27-level-rework-design.md, section 1b.
+ * docs/archive/specs/2026-09-27-level-rework-design.md, section 1b.
  */
 
 import { DEFAULT_LEVEL_LADDER, isFarBelow } from '../../../engines/levels.ts';

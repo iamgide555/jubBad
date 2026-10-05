@@ -8,7 +8,7 @@ doubles pairing, the host confirms it, plays, and records who won.
 This file is the durable part of the project — what it is, what was decided,
 and why. It is not a status log: `git log`, `docs/archive/plans/` and
 `docs/archive/specs/` record how it got built, and
-`docs/2026-09-27-real-host-feedback.md` tracks firsthand host feedback;
+`docs/archive/2026-09-27-real-host-feedback.md` records firsthand host feedback (all items done, archived);
 `docs/2026-09-25-engine-evidence-gaps.md` tracks questions awaiting real-session
 evidence. The completed competitor review is in
 `docs/archive/2026-09-21-feature-review-and-roadmap.md`.
@@ -54,7 +54,7 @@ not a moat. What still separates this app:
 
 The historical comparison, proposed features and their original priorities
 are in `docs/archive/2026-09-21-feature-review-and-roadmap.md`. Later
-firsthand host feedback is tracked in `docs/2026-09-27-real-host-feedback.md`.
+firsthand host feedback (items A–G, all done) is recorded in `docs/archive/2026-09-27-real-host-feedback.md`.
 
 ## Product decisions (and why)
 
@@ -1059,8 +1059,8 @@ and price, the per-person bill (C3), export and delete, per-user host login
 with an admin console, and a PWA manifest (no service worker, so no offline
 use).
 
-Open host-feedback work and its dependencies are in
-`docs/2026-09-27-real-host-feedback.md`; engine questions awaiting
+All host-feedback items so far are done and archived in
+`docs/archive/2026-09-27-real-host-feedback.md`; engine questions awaiting
 real-session evidence are in `docs/2026-09-25-engine-evidence-gaps.md`.
 The closed competitor-feature review is archived at
 `docs/archive/2026-09-21-feature-review-and-roadmap.md`.

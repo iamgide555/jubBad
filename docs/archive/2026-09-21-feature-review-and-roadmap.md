@@ -4,7 +4,7 @@ Reviewed 2026-09-21 against `main` at `f4891cb`; archived 2026-09-30 after
 all competitor-review proposals were built or deferred. This records the
 competitor-review items from that date, including later decisions to build or
 defer them. Firsthand host feedback has its own checklist in
-`docs/2026-09-27-real-host-feedback.md`. The prior review is archived at
+`docs/archive/2026-09-27-real-host-feedback.md`. The prior review is archived at
 `docs/archive/plans/2026-09-05-review-and-v2-backlog.md`; its two remaining
 observations were never work items and are carried forward below.
 
@@ -163,7 +163,7 @@ Original priority meant:
 Effort is rough: S is up to a day, M is a few days.
 
 Firsthand host feedback from 2026-09-27/28 has its own checklist in
-[real-host feedback](../2026-09-27-real-host-feedback.md) (items A–F).
+[real-host feedback](./2026-09-27-real-host-feedback.md) (items A–F).
 
 ### P0
 
@@ -302,7 +302,7 @@ handle that by hand without friction. Revisit if this starts happening most
 sessions rather than occasionally.
 
 **Reopened 2026-09-27:** real-host feedback item C requests broader pair rules.
-Track that work in [real-host feedback](../2026-09-27-real-host-feedback.md),
+Track that work in [real-host feedback](./2026-09-27-real-host-feedback.md),
 not under the deferred C5 proposal.
 
 Design: `docs/archive/specs/2026-09-22-roadmap-c-series-design.md`, section C5.
@@ -527,7 +527,7 @@ Effort M-L.
 All C-series proposals are built or deferred. C8 and C13 were deferred on
 2026-09-30; neither is queued for implementation. G4–G8 are now separate
 [engine evidence questions](../2026-09-25-engine-evidence-gaps.md), not
-competitor-feature work. Follow [real-host feedback](../2026-09-27-real-host-feedback.md)
+competitor-feature work. Follow [real-host feedback](./2026-09-27-real-host-feedback.md)
 for the separate, firsthand A–F items and their dependencies.
 
 ---

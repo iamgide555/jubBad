@@ -36,7 +36,7 @@ Five inputs easy to miss, each pinned to a task below:
 - `engines/pair-rules.ts`: typed rules, legality and feasibility errors; `engines/pairing.ts`: legal candidate generation, selection, constrained local search, carry and custom completion. Keep the no-rule route unchanged.
 - `server/src/sessions/carry-eligibility.ts`, `sessions.service.ts`: carry outcome snapshot and rule-aware lifecycle/engine calls, including fill-all.
 - `web/src/app/core/roster.service.ts`, `live-session.service.ts`, host roster/dashboard components and locale catalogs: manage persistent rules and session switches; public models unchanged.
-- `docs/overview.md` and the C checklist in `docs/2026-09-27-real-host-feedback.md`: update only once shipped. The host-feedback file was untracked when this plan was written: do not stage its unrelated contents without permission.
+- `docs/overview.md` and the C checklist in `docs/archive/2026-09-27-real-host-feedback.md`: update only once shipped. The host-feedback file was untracked when this plan was written: do not stage its unrelated contents without permission.
 
 ### Task 1: Group rule storage, CRUD, export, deletion
 
@@ -112,7 +112,7 @@ Five inputs easy to miss, each pinned to a task below:
 
 ### Task 7: Session switches, conflict UX, docs
 
-**Files:** Modify `web/src/app/core/live-session.service.{ts,spec.ts}`, `web/src/app/pages/session-dashboard/session-dashboard.{ts,html,css,spec.ts}`, `web/src/app/pages/session-dashboard/court-panel/court-panel.{ts,html,css,spec.ts}`, `web/src/locale/messages.en.xlf`, `docs/overview.md`, `docs/2026-09-27-real-host-feedback.md`.
+**Files:** Modify `web/src/app/core/live-session.service.{ts,spec.ts}`, `web/src/app/pages/session-dashboard/session-dashboard.{ts,html,css,spec.ts}`, `web/src/app/pages/session-dashboard/court-panel/court-panel.{ts,html,css,spec.ts}`, `web/src/locale/messages.en.xlf`, `docs/overview.md`, `docs/archive/2026-09-27-real-host-feedback.md`.
 
 **Interfaces:** Consume Task 2 `GET /sessions/:code/rules`, `POST /sessions/:code/rules/:ruleId/toggle`; Task 5 stable blocked/violation/search-limit codes. Produce `LiveSessionService.getSessionRules(): Promise<{rules: PairRule[];disabledRuleIds: string[]}>` and `toggleSessionRule(ruleId: string, enabled: boolean): Promise<ActionResult>`; session rule state stays host-only and separate from public polling.
 
@@ -120,7 +120,7 @@ Five inputs easy to miss, each pinned to a task below:
 - [x] **Step 2: Run red:** `cd web && npx ng test --watch=false --include=src/app/core/live-session.service.spec.ts --include=src/app/pages/session-dashboard/session-dashboard.spec.ts --include=src/app/pages/session-dashboard/court-panel/court-panel.spec.ts`. Expected FAIL.
 - [x] **Step 3: Implement session controls and localized errors** using host-only resource/action handling; refresh the separate rules resource on successful toggles and the dashboard's existing 30-second/focus refresh, never by adding rules to public session polling. Keep pairing/team IDs and court positions numeric, 44px targets and errors visible on the relevant court. Update English XLF; inspect extraction diff before staging source catalog.
 - [x] **Step 4: Run green and build:** same web selectors; `cd web && npm run build`; `cd server && npm run lint && npm run build`; `npm run test:engines`. Expected PASS. Run server targeted specs if an interaction changed after Task 5.
-- [x] **Step 5: Document only shipped behavior** in `docs/overview.md`; mark feedback C `- [x]` with a done note in `docs/2026-09-27-real-host-feedback.md`. Keep the backlog live with A, D, E, F still open.
+- [x] **Step 5: Document only shipped behavior** in `docs/overview.md`; mark feedback C `- [x]` with a done note in `docs/archive/2026-09-27-real-host-feedback.md`. Keep the backlog live with A, D, E, F still open.
 - [x] **Step 6: Commit** only feature-owned UI, translation and doc hunks: `git commit -m "feat: make pair rules actionable for hosts"`. If the feedback file remains untracked, ask before staging its entire existing content; never include unrelated worktree changes.
 
 At execution, read the spec and preserve the existing dirty worktree; selectively stage feature-owned hunks. A, D, E, and F are separate plans, not prerequisites to implementing C except the already shipped B behavior. Do not check off any plan step before its code/test/commit exists.

@@ -1,7 +1,7 @@
 /**
  * Pure harness measuring whether the real pairing engine delivers more
  * partner variety over a season than two naive baselines. No schema change,
- * no server dependency — see docs/superpowers/specs/2026-09-22-roadmap-c-series-design.md,
+ * no server dependency — see docs/archive/specs/2026-09-22-roadmap-c-series-design.md,
  * section C14.
  */
 

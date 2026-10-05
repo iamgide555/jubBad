@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 JubBad — a badminton court-pairing/session-running app for Thai casual groups ("ก๊วน"). A host pastes a roster copied from LINE, the app fuzzy-matches names against known players, and runs the night: each court proposes a fair pairing, the host confirms it, plays, and records the winner. UI is Thai-primary (`th` source locale) with English as a second locale.
 
-**Read `docs/overview.md` before making any change to the engines, the session lifecycle, or pairing/rating behavior.** It documents the *why* behind nearly every non-obvious rule in this codebase (why fuzzy match never auto-merges, why courts rotate independently instead of in rounds, why history is all-time but games-played is per-session, the auto-confirm timer, undo semantics, etc.) — re-deriving it from the code alone will miss the reasoning and risks reversing a deliberate decision. `docs/2026-09-27-real-host-feedback.md` tracks firsthand host feedback; `docs/2026-09-25-engine-evidence-gaps.md` tracks unverified engine questions. `docs/archive/` holds completed reviews and historical plans/specs, not current behavior.
+**Read `docs/overview.md` before making any change to the engines, the session lifecycle, or pairing/rating behavior.** It documents the *why* behind nearly every non-obvious rule in this codebase (why fuzzy match never auto-merges, why courts rotate independently instead of in rounds, why history is all-time but games-played is per-session, the auto-confirm timer, undo semantics, etc.) — re-deriving it from the code alone will miss the reasoning and risks reversing a deliberate decision. `docs/archive/2026-09-27-real-host-feedback.md` is the finished record of firsthand host feedback (items A–G; start a new `docs/` backlog for the next round); `docs/2026-09-25-engine-evidence-gaps.md` tracks unverified engine questions. `docs/archive/` holds completed reviews and historical plans/specs, not current behavior.
 
 ## Stack and layout
 
@@ -105,7 +105,7 @@ Auth: per-user host login (email + password, signed server-side session cookie),
 
 ## Working against a plan/spec doc
 
-Host-feedback and engine-evidence backlogs and plan docs (e.g. `docs/2026-09-27-real-host-feedback.md`, `docs/2026-09-25-engine-evidence-gaps.md`, `docs/superpowers/specs/*`) track items as `- [ ]` / `- [x]` checklist entries. When you finish implementing or resolving an item from one of these docs:
+Host-feedback and engine-evidence backlogs and plan docs (e.g. `docs/archive/2026-09-27-real-host-feedback.md`, `docs/2026-09-25-engine-evidence-gaps.md`, `docs/archive/specs/*`) track items as `- [ ]` / `- [x]` checklist entries. When you finish implementing or resolving an item from one of these docs:
 
 1. Flip its checkbox to `- [x]` (and update any "done" note the doc's convention uses, e.g. `— done`) in the same change.
 2. If that finishes the *entire* doc (every checklist item done, nothing left open), move plans/specs into `docs/archive/plans/` or `docs/archive/specs/` (matching their kind), or move a completed standalone backlog into `docs/archive/`, rather than leaving a fully-done doc live in `docs/`.

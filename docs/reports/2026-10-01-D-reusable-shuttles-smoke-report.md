@@ -1,8 +1,8 @@
 # Host feedback D — reusable numbered shuttles: build + smoke report
 
 Branch `feat/shuttles-d` (not merged, not deployed). Plan:
-`docs/superpowers/plans/2026-09-30-reusable-shuttles.md`, spec:
-`docs/superpowers/specs/2026-09-30-match-shuttles-design.md`. Written 2026-10-01.
+`docs/archive/plans/2026-09-30-reusable-shuttles.md`, spec:
+`docs/archive/specs/2026-09-30-match-shuttles-design.md`. Written 2026-10-01.
 
 ## Bottom line
 

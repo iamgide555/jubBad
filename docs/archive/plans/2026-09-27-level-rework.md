@@ -5,7 +5,7 @@
 > current task list or a claim that each historical step was followed.
 > This plan predates the later multi-newcomer carry-game decision. See
 > `docs/overview.md` for current behavior and
-> `docs/2026-09-27-real-host-feedback.md` for remaining feedback items.
+> `docs/archive/2026-09-27-real-host-feedback.md` for remaining feedback items.
 > Implementation steps retain original file paths and may differ from shipped
 > behavior; use the Spec link below to find its current archived location.
 

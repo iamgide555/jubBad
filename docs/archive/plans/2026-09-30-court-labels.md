@@ -35,7 +35,7 @@ These less-obvious inputs deserve explicit tests in their owning tasks:
 - `server/src/sessions/dto/set-court-label.dto.ts`, `sessions.controller.ts`, `sessions.service.ts`, `sessions.controller.spec.ts`: host-only write, count-growth check, public read shapes and integration tests. Existing auth boundary tests introspect all controller routes.
 - `web/src/app/core/court-label.ts` and `.spec.ts`, `session.model.ts`, `session-summary.model.ts`, `live-session.service.ts` and `.spec.ts`: shared resolution and typed transport; existing typed fixtures in `court-panel.spec.ts`, `session-dashboard.spec.ts`, `session-display.spec.ts` and `session-summary.spec.ts` gain the new required fields.
 - `web/src/app/pages/session-dashboard/court-label-editor/` (component, template, CSS, spec): one reusable edit control; `court-panel/` and `session-dashboard.*`: current/retired placement and shared-text changes.
-- `web/src/app/pages/session-display/` (including label-wrapping CSS) and `session-summary/`: public labels; `web/src/locale/messages.en.xlf` (and regenerated source `messages.xlf` if extraction changes it): translations; `docs/overview.md` and the A checklist in `docs/2026-09-27-real-host-feedback.md`: shipped behavior only after implementation.
+- `web/src/app/pages/session-display/` (including label-wrapping CSS) and `session-summary/`: public labels; `web/src/locale/messages.en.xlf` (and regenerated source `messages.xlf` if extraction changes it): translations; `docs/overview.md` and the A checklist in `docs/archive/2026-09-27-real-host-feedback.md`: shipped behavior only after implementation.
 
 ### Task 1: Persist and resolve court label slots
 
@@ -105,7 +105,7 @@ These less-obvious inputs deserve explicit tests in their owning tasks:
 ### Task 5: Propagate names to every reader and finish documentation
 
 **Files:**
-- Modify: `web/src/app/pages/session-dashboard/session-dashboard.{ts,spec.ts}`, `web/src/app/pages/session-display/session-display.{ts,html,css,spec.ts}`, `web/src/app/pages/session-summary/session-summary.{ts,html,spec.ts}`, `docs/overview.md`, `docs/2026-09-27-real-host-feedback.md`
+- Modify: `web/src/app/pages/session-dashboard/session-dashboard.{ts,spec.ts}`, `web/src/app/pages/session-display/session-display.{ts,html,css,spec.ts}`, `web/src/app/pages/session-summary/session-summary.{ts,html,spec.ts}`, `docs/overview.md`, `docs/archive/2026-09-27-real-host-feedback.md`
 
 **Interfaces:**
 - Consumes Task 3 `labelForCourt` and the response fields; produces no new domain state. Match lists keep `courtNumber` for identity/order.
@@ -114,7 +114,7 @@ These less-obvious inputs deserve explicit tests in their owning tasks:
 - [x] **Step 2: Run red tests:** `cd web && npx ng test --watch=false --include=src/app/pages/session-dashboard/session-dashboard.spec.ts --include=src/app/pages/session-display/session-display.spec.ts --include=src/app/pages/session-summary/session-summary.spec.ts`. Expected: FAIL on numeric output.
 - [x] **Step 3: Resolve display, share and summary names through `labelForCourt`** without touching route numbers or match keys. Preserve the venue display's 30-second poll and existing Thai/English court-prefix translations. Let a long unbroken `.court-number` wrap without expanding the grid or obscuring player names.
 - [x] **Step 4: Run green tests and builds:** same three selectors; `cd web && npm run build`; `cd server && npm run build`. Expected: PASS. Visually check a 30-character unbroken label at 320px and 1280x720: no horizontal overflow or clipped court/player text. If a targeted test reveals a related failure, fix it in the owning task's code before moving on.
-- [x] **Step 5: Document shipped behavior** in `docs/overview.md`; change only host-feedback A's checkbox to `- [x]` and add a done note in `docs/2026-09-27-real-host-feedback.md`. Do not archive that living backlog while C–F remain open.
+- [x] **Step 5: Document shipped behavior** in `docs/overview.md`; change only host-feedback A's checkbox to `- [x]` and add a done note in `docs/archive/2026-09-27-real-host-feedback.md`. Do not archive that living backlog while C–F remain open.
 - [x] **Step 6: Commit** only reader/test/doc hunks owned by this feature: `git commit -m "feat: show court names everywhere"` after selective staging. If the host-feedback file is still untracked (as at planning time), ask its owner before staging its entire existing content; do not silently commit unrelated work.
 
 At execution time, read the spec and respect the existing dirty worktree: integrate unrelated edits without reverting them; stage only feature-owned hunks. Do not mark this plan's boxes complete until the respective tests and commits are real.

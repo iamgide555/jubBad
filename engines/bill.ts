@@ -2,7 +2,7 @@
  * Per-person bill for one session (roadmap C3). Pure: the server stores only
  * the inputs and recomputes on every read, the same rule as ratings.
  * Integer satang throughout. See the C3 section of
- * docs/superpowers/specs/2026-09-22-roadmap-c-series-design.md.
+ * docs/archive/specs/2026-09-22-roadmap-c-series-design.md.
  */
 
 export const BILL_MODELS = ['fair', 'perGame', 'buffet', 'perShuttle'] as const;

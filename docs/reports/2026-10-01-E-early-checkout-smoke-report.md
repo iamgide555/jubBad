@@ -2,8 +2,8 @@
 
 Branch `feat/early-checkout-e`, stacked on `feat/shuttles-d` (E needs D's
 shuttle identities). Not merged, not deployed. Plan:
-`docs/superpowers/plans/2026-09-30-early-checkout.md`, spec:
-`docs/superpowers/specs/2026-09-30-early-checkout-design.md`. Written 2026-10-01.
+`docs/archive/plans/2026-09-30-early-checkout.md`, spec:
+`docs/archive/specs/2026-09-30-early-checkout-design.md`. Written 2026-10-01.
 
 ## Bottom line
 

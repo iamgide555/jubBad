@@ -40,7 +40,7 @@ model Group {
   /// Credential for the group's public dashboard (/d/:token). Null = not
   /// shared. Random and revocable on purpose: a group code is chosen by the
   /// host, so it is guessable and cannot gate a public page. See
-  /// docs/superpowers/specs/2026-10-02-group-dashboard-design.md.
+  /// docs/archive/specs/2026-10-02-group-dashboard-design.md.
   shareToken          String? @unique
 }
 
@@ -255,7 +255,7 @@ model Pairing {
   revision    Int       @default(0)
   /// When this pending pairing last changed. The auto-confirm sweep counts
   /// 60s from here, and backdates `confirmedAt` to 30s after it — see
-  /// docs/superpowers/specs/2026-09-22-auto-confirm-pending-match-design.md.
+  /// docs/archive/specs/2026-09-22-auto-confirm-pending-match-design.md.
   /// Null means auto-confirm is off: a row from before this column existed,
   /// or one an undone confirm just cleared.
   pendingSince DateTime?

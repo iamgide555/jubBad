@@ -1,3 +1,5 @@
+> **Archived 2026-10-05.** Shipped and deployed. The checklist below was not ticked as the work went, so the boxes are left as written rather than checked retroactively; `docs/overview.md` is the source of truth for current behaviour.
+
 # Advanced Early Checkout Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
@@ -8,7 +10,7 @@
 
 **Tech Stack:** Dependency-free TypeScript billing (`node:test`), NestJS/Prisma/SQLite (Vitest), Angular standalone components/signals (`ng test`).
 
-**Spec:** `docs/superpowers/specs/2026-09-30-early-checkout-design.md`
+**Spec:** `docs/archive/specs/2026-09-30-early-checkout-design.md`
 
 ## Global Constraints
 
@@ -121,7 +123,7 @@
 
 ### Task 8: Fourth-model bill UI and shipped documentation
 
-**Files:** Modify `web/src/app/core/bill.model.ts`, `web/src/app/core/bill-text.ts`, `web/src/app/core/bill-text.spec.ts`, `web/src/app/pages/session-bill/session-bill.{ts,html,css,spec.ts}`, `web/src/locale/messages.en.xlf`, `docs/overview.md`, `docs/2026-09-27-real-host-feedback.md`.
+**Files:** Modify `web/src/app/core/bill.model.ts`, `web/src/app/core/bill-text.ts`, `web/src/app/core/bill-text.spec.ts`, `web/src/app/pages/session-bill/session-bill.{ts,html,css,spec.ts}`, `web/src/locale/messages.en.xlf`, `docs/overview.md`, `docs/archive/2026-09-27-real-host-feedback.md`.
 
 **Interfaces:** Consume Task 6 bill response; `session-bill` offers `perShuttle` and `startingFeeSatang` only when its session snapshot enables tools. `buildBillText` prints settled recipients/model/amount separately from remaining names, still due versus settled totals, and never prints host-only margin. `SessionBill.copy()` remains guarded by `readyToCopy`; refund or shortfall keeps it false until host corrects/undoes the ledger or inputs. Ordinary model menu/text retains three choices.
 
@@ -129,7 +131,7 @@
 - [ ] **Step 2: Run red:** `cd web && npx ng test --watch=false --include=src/app/core/bill-text.spec.ts --include=src/app/pages/session-bill/session-bill.spec.ts`. Expected FAIL.
 - [ ] **Step 3: Implement fourth-model editor, receipt section and copy guards** with Thai source messages and English catalog entries. The bill UI must not treat a settled receipt as an editable override/removal; only explicit undo in the checkout flow changes that status. Maintain 44px host controls and do not change public summary/display pages.
 - [ ] **Step 4: Run green and builds:** same targeted web selectors, `cd web && npm run build`, `cd server && npm run build`, `npm run test:engines`. Expected PASS. Run focused owner-boundary and checkout API suites if integration exposes related regressions.
-- [ ] **Step 5: Document shipped E behavior** in `docs/overview.md`; flip only E's checkbox and add the backlog's done note in `docs/2026-09-27-real-host-feedback.md`. Explicitly describe the three early choices, four advanced final choices, ordinary three-model limitation, frozen credit and undo; do not mark F done or archive the still-open feedback list.
+- [ ] **Step 5: Document shipped E behavior** in `docs/overview.md`; flip only E's checkbox and add the backlog's done note in `docs/archive/2026-09-27-real-host-feedback.md`. Explicitly describe the three early choices, four advanced final choices, ordinary three-model limitation, frozen credit and undo; do not mark F done or archive the still-open feedback list.
 - [ ] **Step 6: Commit** only bill UI/localization/docs hunks: `git commit -m "feat: show early checkouts in final bills"`. The host-feedback file was untracked when planning started: seek permission before staging its existing unrelated content.
 
 At execution, read the spec and D's shipped interfaces first. Preserve the dirty worktree, stage only task-owned changes, and leave these checkboxes open until their tests and commits are real. This plan authorizes no product code until the user separately chooses to implement after all host-feedback plans have been reviewed.

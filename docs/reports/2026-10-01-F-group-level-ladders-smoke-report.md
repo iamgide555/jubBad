@@ -1,8 +1,8 @@
 # Host feedback F — group-owned level ladders: build + smoke report
 
 Branch `feat/level-ladders-f`, **based on `main`** (F is independent of D and E).
-Not merged, not deployed. Plan: `docs/superpowers/plans/2026-09-30-group-level-ladders.md`,
-spec: `docs/superpowers/specs/2026-09-30-group-level-ladders-design.md`. Written 2026-10-01.
+Not merged, not deployed. Plan: `docs/archive/plans/2026-09-30-group-level-ladders.md`,
+spec: `docs/archive/specs/2026-09-30-group-level-ladders-design.md`. Written 2026-10-01.
 
 ## Bottom line
 

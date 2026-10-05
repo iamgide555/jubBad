@@ -1,3 +1,5 @@
+> **Archived 2026-10-05.** Shipped and deployed. The checklist below was not ticked as the work went, so the boxes are left as written rather than checked retroactively; `docs/overview.md` is the source of truth for current behaviour.
+
 # Group-Owned Level Ladders Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
@@ -8,7 +10,7 @@
 
 **Tech Stack:** Pure TypeScript engines (`node:test`), NestJS/Prisma/SQLite (Vitest), Angular standalone components/signals (`ng test`).
 
-**Spec:** `docs/superpowers/specs/2026-09-30-group-level-ladders-design.md`
+**Spec:** `docs/archive/specs/2026-09-30-group-level-ladders-design.md`
 
 ## Global Constraints
 
@@ -107,7 +109,7 @@
 
 ### Task 7: Use configured levels in all host pickers and ship docs
 
-**Files:** Modify `web/src/app/shared/level-picker/level-picker.{ts,html,spec.ts}`, `web/src/app/shared/add-walk-in-dialog/add-walk-in-dialog.{ts,html,spec.ts}`, `web/src/app/core/{roster-review,roster.service,player-panel.model,live-session.service}.ts`, `web/src/app/core/{roster.service,live-session.service}.spec.ts`, `web/src/app/pages/group-entry/group-entry.{ts,html,spec.ts}`, `web/src/app/pages/player-roster/player-roster.{ts,html,spec.ts}`, `web/src/app/pages/session-dashboard/session-dashboard.{ts,html,spec.ts}`, `web/src/locale/messages.en.xlf`, `docs/overview.md`, `docs/2026-09-27-real-host-feedback.md`.
+**Files:** Modify `web/src/app/shared/level-picker/level-picker.{ts,html,spec.ts}`, `web/src/app/shared/add-walk-in-dialog/add-walk-in-dialog.{ts,html,spec.ts}`, `web/src/app/core/{roster-review,roster.service,player-panel.model,live-session.service}.ts`, `web/src/app/core/{roster.service,live-session.service}.spec.ts`, `web/src/app/pages/group-entry/group-entry.{ts,html,spec.ts}`, `web/src/app/pages/player-roster/player-roster.{ts,html,spec.ts}`, `web/src/app/pages/session-dashboard/session-dashboard.{ts,html,spec.ts}`, `web/src/locale/messages.en.xlf`, `docs/overview.md`, `docs/archive/2026-09-27-real-host-feedback.md`.
 
 **Interfaces:** `LevelPicker.levels` is a required input of Task 6 `GroupLevelsResponse['levels']` and `LevelPicker.mode` is a required `GroupLevelsResponse['mode']` input: standard uses built-in definitions, custom shows names alone. Host pages load the protected ladder via `RosterService.getGroupLevels(groupCode)` and pass it to their pickers; roster sorting uses the response list's rank, not the `LEVELS` constant. Level-bearing `RosterService.updatePlayerLevel`, `LiveSessionService.addWalkIn` and the session-creation request include the loaded `expectedLadderRevision` from Task 4. Level fetch failure visibly disables level selection instead of guessing the default; session and public reads do not gain level data. Copy/layout remains Thai-first with English translations.
 
@@ -115,7 +117,7 @@
 - [ ] **Step 2: Run red:** `cd web && npx ng test --watch=false --include=src/app/shared/level-picker/level-picker.spec.ts --include=src/app/shared/add-walk-in-dialog/add-walk-in-dialog.spec.ts --include=src/app/pages/group-entry/group-entry.spec.ts --include=src/app/pages/player-roster/player-roster.spec.ts --include=src/app/pages/session-dashboard/session-dashboard.spec.ts --include=src/app/core/roster.service.spec.ts --include=src/app/core/live-session.service.spec.ts`. Expected FAIL on fixed list/pickers.
 - [ ] **Step 3: Wire one typed ladder read per host page** and required picker input; use the current group's order for sort and names, not literal imports. Keep public player/profile/summary/display routes free of levels.
 - [ ] **Step 4: Run green:** same web selectors, `cd web && npm run build`, `cd server && npm run build`, `npm run test:engines`; run focused owner-boundary tests if wiring reveals regressions. Expected PASS.
-- [ ] **Step 5: Document shipped F behavior** in `docs/overview.md`; check only F and add the feedback backlog's done note, leaving still-open items and unrelated edits intact. Do not stage the currently untracked `docs/2026-09-27-real-host-feedback.md` wholesale without user permission.
+- [ ] **Step 5: Document shipped F behavior** in `docs/overview.md`; check only F and add the feedback backlog's done note, leaving still-open items and unrelated edits intact. Do not stage the currently untracked `docs/archive/2026-09-27-real-host-feedback.md` wholesale without user permission.
 - [ ] **Step 6: Commit** only picker/UI/locale/docs changes: `git commit -m "feat: use group level ladders throughout host UI"`.
 
 At execution, re-read the spec and real A/C/D/E interfaces, take a worktree if isolation is needed, and stage only task-owned hunks. Do not check off plan tasks or mark F shipped until the implementation, validations and commits actually happen.

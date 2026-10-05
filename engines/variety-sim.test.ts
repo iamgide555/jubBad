@@ -1,7 +1,7 @@
 /**
  * Season-length simulation measuring whether the real pairing engine
  * delivers more partner variety than two naive baselines. See
- * docs/superpowers/specs/2026-09-22-roadmap-c-series-design.md, section C14.
+ * docs/archive/specs/2026-09-22-roadmap-c-series-design.md, section C14.
  */
 
 import { test } from 'node:test';

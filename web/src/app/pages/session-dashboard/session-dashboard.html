@@ -31,9 +31,36 @@
       <hr class="rule" />
     }
 
-    <h4 class="label" i18n="@@dashboard.rosterLabel">ผู้เล่นวันนี้ — แตะเพื่อพัก</h4>
-    <div class="roster-chips">
-      @for (p of rosterEntries(); track p.id; let i = $index) {
+    <button
+      type="button"
+      class="roster-toggle"
+      appPress
+      data-roster-toggle
+      [attr.aria-expanded]="rosterOpen()"
+      aria-controls="roster-chips"
+      (click)="toggleRoster()"
+    >
+      <span class="roster-toggle-title" i18n="@@dashboard.rosterLabel">ผู้เล่นวันนี้</span>
+      <span class="roster-toggle-count tabular">{{ rosterEntries().length }}</span>
+      @if (restingCount() > 0) {
+        <span class="roster-toggle-resting" i18n="@@dashboard.rosterResting">พัก {{ restingCount() }}</span>
+      }
+      <span class="roster-toggle-action">
+        @if (rosterOpen()) {
+          <ng-container i18n="@@dashboard.rosterHide">ซ่อน</ng-container>
+        } @else {
+          <ng-container i18n="@@dashboard.rosterShow">แสดงทั้งหมด</ng-container>
+        }
+        <app-icon class="roster-chevron" [class.is-open]="rosterOpen()" name="chevron" [size]="16" />
+      </span>
+    </button>
+    @if (rosterOpen()) {
+      <p class="roster-tip" i18n="@@dashboard.rosterTipOpen">แตะชื่อเพื่อพัก หรือกลับมาเล่น</p>
+    } @else if (visibleRoster().length > 0) {
+      <p class="roster-tip" i18n="@@dashboard.rosterTipResting">พักอยู่ — แตะชื่อเพื่อกลับมาเล่น</p>
+    }
+    <div class="roster-chips" id="roster-chips">
+      @for (p of visibleRoster(); track p.id; let i = $index) {
         <button
           type="button"
           class="chip"
@@ -280,6 +307,10 @@
       </div>
     }
 
+    @if (!ended()) {
+      <app-lineup-queue [players]="players()" [waiting]="waiting()" />
+    }
+
     <div class="courts-list">
       @for (courtNumber of courtNumbers(); track courtNumber; let i = $index) {
         <app-court-panel
@@ -306,8 +337,15 @@
     @if (!ended()) {
       <hr class="rule" />
 
-      <div class="waiting-queue" appFlipList>
-        <h4 class="label" i18n="@@dashboard.waiting">รอคิว</h4>
+      <div #benchAnchor class="bench-anchor" aria-hidden="true"></div>
+      <div class="waiting-queue" [class.is-stuck]="benchStuck()" appFlipList>
+        <div class="wq-head">
+          <h4 class="label" i18n="@@dashboard.waiting">รอคิว</h4>
+          <span class="wq-count tabular">{{ waiting().length }}</span>
+          @if (benchOpen()) {
+            <span class="bench-hint" i18n="@@dashboard.benchHint">แตะผู้เล่นรอคิวเพื่อสลับ</span>
+          }
+        </div>
         @for (w of waiting(); track w.id; let i = $index) {
           <button
             type="button"
@@ -321,6 +359,9 @@
             (click)="pickWaiting(w.id, w.name)"
           >
             {{ w.name }}
+            @if (liveSession.queuedPlayerIds().has(w.id)) {
+              <span class="queued-tag" i18n="@@dashboard.queuedTag">คิว</span>
+            }
             <span class="wait-mins"
               ><app-odometer [value]="w.minutes" /><ng-container i18n="@@dashboard.minutesShort"
                 >น.</ng-container

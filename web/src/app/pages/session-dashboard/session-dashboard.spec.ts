@@ -63,6 +63,8 @@ describe('SessionDashboard', () => {
   let httpMock: HttpTestingController;
 
   beforeEach(async () => {
+    // The roster starts collapsed in the app; most specs here drive its chips, so they start expanded.
+    localStorage.setItem('jubbad.dashboard.rosterOpen', '1');
     await TestBed.configureTestingModule({
       imports: [SessionDashboard],
       providers: [
@@ -1406,6 +1408,90 @@ describe('SessionDashboard', () => {
     ).toBe(`${location.origin}/s/sess1/display`);
   });
 
+  describe('collapsible roster', () => {
+    async function load(overrides: Parameters<typeof baseSession>[0]) {
+      fixture = TestBed.createComponent(SessionDashboard);
+      fixture.detectChanges();
+      httpMock.expectOne(`${B}/sessions/sess1`).flush(baseSession(overrides));
+      await new Promise((r) => setTimeout(r, 0));
+      TestBed.tick();
+      for (const r of httpMock.match(`${B}/groups/group1/players`)) {
+        r.flush([
+          { id: 'p1', name: 'ตั้ม', aliases: [] },
+          { id: 'p2', name: 'เบส', aliases: [] },
+          { id: 'p3', name: 'โอ', aliases: [] },
+        ]);
+      }
+      for (const r of httpMock.match(`${B}/sessions/sess1/stats?scope=session`)) r.flush([]);
+      await new Promise((r) => setTimeout(r, 0));
+      fixture.detectChanges();
+    }
+    const chips = () =>
+      Array.from((fixture.nativeElement as HTMLElement).querySelectorAll('.roster-chips .chip')).map((b) =>
+        b.textContent?.replace(/\s+/g, ' ').trim()
+      );
+    const toggle = () => (fixture.nativeElement as HTMLElement).querySelector('[data-roster-toggle]') as HTMLButtonElement;
+
+    it('starts collapsed, showing only the count and the players who are resting', async () => {
+      localStorage.removeItem('jubbad.dashboard.rosterOpen');
+      await load({ rosterPlayerIds: ['p1', 'p2', 'p3'], restingPlayerIds: ['p2'] });
+      expect(toggle().getAttribute('aria-expanded')).toBe('false');
+      expect(toggle().textContent).toContain('3');
+      expect(chips()).toEqual(['เบส']);
+    });
+
+    it('expands to every player and remembers the choice', async () => {
+      localStorage.removeItem('jubbad.dashboard.rosterOpen');
+      await load({ rosterPlayerIds: ['p1', 'p2', 'p3'], restingPlayerIds: [] });
+      expect(chips()).toEqual([]);
+      toggle().click();
+      fixture.detectChanges();
+      expect(toggle().getAttribute('aria-expanded')).toBe('true');
+      expect(chips()).toEqual(['ตั้ม', 'เบส', 'โอ']);
+      expect(localStorage.getItem('jubbad.dashboard.rosterOpen')).toBe('1');
+    });
+  });
+
+  it('keeps the waiting list compact while its natural spot is below the screen, and opens it once scrolled to', async () => {
+    let notify: IntersectionObserverCallback = () => {};
+    const original = globalThis.IntersectionObserver;
+    globalThis.IntersectionObserver = class {
+      constructor(cb: IntersectionObserverCallback) { notify = cb; }
+      observe() {}
+      disconnect() {}
+      unobserve() {}
+      takeRecords() { return []; }
+    } as unknown as typeof IntersectionObserver;
+    try {
+      fixture = TestBed.createComponent(SessionDashboard);
+      fixture.detectChanges();
+      httpMock.expectOne(`${B}/sessions/sess1`).flush(baseSession({ rosterPlayerIds: ['p1', 'p2'] }));
+      await new Promise((r) => setTimeout(r, 0));
+      TestBed.tick();
+      for (const r of httpMock.match(`${B}/groups/group1/players`)) r.flush([]);
+      for (const r of httpMock.match(`${B}/sessions/sess1/stats?scope=session`)) r.flush([]);
+      await new Promise((r) => setTimeout(r, 0));
+      fixture.detectChanges();
+      const root = fixture.nativeElement as HTMLElement;
+      const entry = (isIntersecting: boolean, top: number) =>
+        [{ isIntersecting, boundingClientRect: { top } }] as unknown as IntersectionObserverEntry[];
+
+      notify(entry(false, 900), {} as IntersectionObserver); // natural spot still below the screen
+      fixture.detectChanges();
+      expect(root.querySelector('.waiting-queue.is-stuck')).toBeTruthy();
+
+      notify(entry(true, 400), {} as IntersectionObserver); // scrolled down to it
+      fixture.detectChanges();
+      expect(root.querySelector('.waiting-queue.is-stuck')).toBeNull();
+
+      notify(entry(false, -50), {} as IntersectionObserver); // scrolled past it
+      fixture.detectChanges();
+      expect(root.querySelector('.waiting-queue.is-stuck')).toBeNull();
+    } finally {
+      globalThis.IntersectionObserver = original;
+    }
+  });
+
   it('lets a waiting player be picked up for a manual swap', async () => {
     fixture = TestBed.createComponent(SessionDashboard);
     fixture.detectChanges();
@@ -1433,6 +1519,10 @@ describe('SessionDashboard', () => {
     fixture.detectChanges();
     expect(fixture.componentInstance['selection'].active()).toBe(true);
     expect(chip.getAttribute('aria-pressed')).toBe('true');
+    // Holding a waiting player is not a court hold, so there is no swap hint.
+    expect(
+      (fixture.nativeElement as HTMLElement).querySelector('.waiting-queue .bench-hint')
+    ).toBeNull();
 
     // Tapping again puts them back, so a mis-tap costs nothing.
     chip.click();
@@ -1477,6 +1567,11 @@ describe('SessionDashboard', () => {
     courtName.click();
     fixture.detectChanges();
     expect(fixture.componentInstance['selection'].isPicked('p1')).toBe(true);
+
+    // Holding a court player shows the swap hint on the (always sticky) waiting list.
+    expect(
+      (fixture.nativeElement as HTMLElement).querySelector('.waiting-queue .bench-hint')
+    ).toBeTruthy();
 
     // Then tap ปอ, who is waiting: ปอ takes ตั้ม's place.
     const chip = (fixture.nativeElement as HTMLElement).querySelector(

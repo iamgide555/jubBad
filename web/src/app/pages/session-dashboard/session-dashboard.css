@@ -54,6 +54,73 @@
   margin-top: var(--space-3);
 }
 
+/* Collapsed by default: a full roster is a wall of chips that pushes every court
+   below the fold. One row says who is here and who is resting. */
+.roster-toggle {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  width: 100%;
+  min-height: var(--tap);
+  padding: 0 var(--space-2);
+  margin-bottom: var(--space-1);
+  font: inherit;
+  color: var(--ink);
+  background: var(--surface);
+  border: 1.5px solid var(--line);
+  border-radius: var(--radius);
+  cursor: pointer;
+  text-align: left;
+}
+
+.roster-toggle-title {
+  font-weight: 700;
+}
+
+.roster-toggle-count {
+  font-weight: 700;
+  color: var(--court-ink);
+}
+
+.roster-toggle-resting {
+  padding: 0 var(--space-1);
+  font-size: var(--text-xs);
+  font-weight: 700;
+  color: var(--accent-ink);
+  background: var(--accent-soft);
+  border-radius: var(--radius-pill);
+}
+
+.roster-toggle-action {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-0);
+  margin-left: auto;
+  font-size: var(--text-sm);
+  color: var(--ink-soft);
+}
+
+.roster-chevron {
+  transition: transform var(--duration-base) var(--ease-out);
+}
+
+.roster-chevron.is-open {
+  transform: rotate(180deg);
+}
+
+@media (hover: hover) {
+  .roster-toggle:hover {
+    border-color: var(--court);
+    background: var(--court-soft);
+  }
+}
+
+.roster-tip {
+  margin: 0 0 var(--space-1);
+  font-size: var(--text-xs);
+  color: var(--ink-soft);
+}
+
 /* The roster chips are the rest control. A resting player stays visible and
    legible — the host still needs to find them to tap them back in — so this is
    a struck-through muted state, not a hidden one. */
@@ -113,10 +180,13 @@
   }
 }
 
+/* Set apart from the name by a hairline so "อาม 21" never reads as one word. */
 .wait-mins {
-  margin-left: var(--space-0);
+  margin-left: var(--space-1);
+  padding-left: var(--space-1);
+  border-left: 1px solid var(--line);
   color: var(--ink-soft);
-  font-size: var(--text-sm);
+  font-size: var(--text-xs);
   font-weight: 600;
 }
 
@@ -389,6 +459,61 @@
   flex-wrap: wrap;
 }
 
+/*
+ * The waiting list is a tray. Its natural home is below every court, so it is
+ * pinned to the bottom of the screen and kept short (a header and two rows of
+ * chips, scrolling inside) until the host scrolls down to where it lives, when
+ * it opens to its full size and rejoins the page.
+ */
+.waiting-queue {
+  position: sticky;
+  bottom: 0;
+  z-index: 5;
+  align-items: center;
+  gap: var(--space-0) 0;
+  background: var(--surface-raised);
+  /* One tray in both states: same padding and gutter bleed, so it does not
+     jump or lose its shape when the host scrolls to its natural spot. */
+  padding: var(--space-1) var(--space-2) var(--space-0);
+  margin: 0 calc(var(--space-2) * -1);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+}
+
+.wq-head {
+  flex: 0 0 100%;
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-1);
+  margin-bottom: var(--space-0);
+}
+
+.waiting-queue .label {
+  margin: 0;
+}
+
+.wq-count {
+  font-size: var(--text-xs);
+  font-weight: 700;
+  color: var(--ink-soft);
+}
+
+.waiting-queue.is-stuck {
+  /* header + two rows of chips; the rest scrolls inside the tray */
+  max-height: calc(var(--tap) * 2 + var(--space-1) * 2 + 2.25rem);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  /* flush with the screen edge, so only the top corners round */
+  border-bottom: 0;
+  border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+  box-shadow: 0 -14px 28px -16px rgba(35, 28, 15, 0.28);
+}
+
+/* Compact: who is next and how long they have waited is all the tray needs. */
+.waiting-queue.is-stuck .tally {
+  display: none;
+}
+
 .waiting-queue .chip-pick {
   font: inherit;
   font-size: var(--text-sm);
@@ -483,4 +608,15 @@
   flex-wrap: wrap;
   align-items: center;
   gap: var(--space-1);
+}
+
+/* A waiting player the host already lined up for a later match. */
+.queued-tag {
+  margin-left: 0.375rem;
+  padding: 0 0.375rem;
+  font-size: 0.75rem;
+  font-weight: 800;
+  color: var(--court);
+  border: 1px solid var(--court);
+  border-radius: 999px;
 }

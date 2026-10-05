@@ -317,6 +317,69 @@ describe('LiveSessionService', () => {
     expect(service.mode()).toBe('custom');
   });
 
+  it('exposes the lineup queue and who in it is already spoken for', async () => {
+    await flushSession(
+      baseSession({
+        lineupQueue: [
+          { id: 'q1', position: 0, teamA: ['p1', null], teamB: ['p2', null], blocked: [] },
+        ],
+      })
+    );
+    expect(service.lineupQueue().map((e) => e.id)).toEqual(['q1']);
+    expect([...service.queuedPlayerIds()].sort()).toEqual(['p1', 'p2']);
+  });
+
+  it('lineup writes hit the queue endpoints and reload', async () => {
+    await flushSession(baseSession());
+    const base = `${environment.apiBaseUrl}/sessions/sess1/queue`;
+    const settle = async () => {
+      await new Promise((r) => setTimeout(r, 0));
+      TestBed.tick();
+      httpMock.expectOne(`${environment.apiBaseUrl}/sessions/sess1`).flush(baseSession());
+    };
+
+    const add = service.addLineup(['p1', null], ['p2', null]);
+    const addReq = httpMock.expectOne(base);
+    expect(addReq.request.method).toBe('POST');
+    expect(addReq.request.body).toEqual({ teamA: ['p1', null], teamB: ['p2', null] });
+    addReq.flush({ ok: true, id: 'q1' });
+    await settle();
+    expect(await add).toEqual({ ok: true });
+
+    const edit = service.replaceLineup('q1', ['p1', 'p3'], ['p2', null]);
+    const editReq = httpMock.expectOne(`${base}/q1`);
+    expect(editReq.request.method).toBe('POST');
+    expect(editReq.request.body).toEqual({ teamA: ['p1', 'p3'], teamB: ['p2', null] });
+    editReq.flush({ ok: true });
+    await settle();
+    expect(await edit).toEqual({ ok: true });
+
+    const move = service.moveLineup('q1', 'down');
+    const moveReq = httpMock.expectOne(`${base}/q1/move`);
+    expect(moveReq.request.body).toEqual({ direction: 'down' });
+    moveReq.flush({ ok: true });
+    await settle();
+    expect(await move).toEqual({ ok: true });
+
+    const remove = service.removeLineup('q1');
+    const delReq = httpMock.expectOne(`${base}/q1`);
+    expect(delReq.request.method).toBe('DELETE');
+    delReq.flush({ ok: true });
+    await settle();
+    expect(await remove).toEqual({ ok: true });
+  });
+
+  it('maps a duplicate-queue refusal to its own message', async () => {
+    await flushSession(baseSession());
+    const promise = service.addLineup(['p1', null], ['p2', null]);
+    httpMock
+      .expectOne(`${environment.apiBaseUrl}/sessions/sess1/queue`)
+      .flush({ code: 'PLAYER_ALREADY_QUEUED' }, { status: 409, statusText: 'Conflict' });
+    const result = await promise;
+    expect(result.ok).toBe(false);
+    expect(result.error).toBe('ผู้เล่นคนนี้อยู่ในคิวล่วงหน้าแล้ว');
+  });
+
   it('setSeat posts team/index/playerId to the seats endpoint and reloads', async () => {
     await flushSession(baseSession());
 

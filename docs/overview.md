@@ -726,6 +726,45 @@ later from the summary page. The price is stored in satang as an integer, and
 null means "not recorded", which is different from 0. The public summary shows
 both.
 
+### Lineup queue (host feedback G)
+
+A host with many courts wants to say "these four play next" before any court is
+free. `QueuedMatch` holds those lineups, in order; each is a pair of seat
+arrays shaped like `Pairing.teamA`/`teamB` (a `null` seat is left for the
+engine), so a partial lineup such as "these two together" is as valid as a full
+one.
+
+- **A queue entry is not a Pairing.** It never counts toward history, games
+  played or ratings; those still change only on confirm.
+- **It claims a court when one goes idle.** `propose` on an idle court, and
+  fill, seat the first entry whose size fits (`applyQueueToCourts`). A
+  re-propose of a court that already holds a pending match is a reshuffle and
+  never consumes the queue. Any open seats are completed by `autoPair`, so
+  rotation and pair rules apply to the gaps.
+- **Queued players are spoken for.** They are excluded from the pool for every
+  other court's propose, fill and auto-pair, so the engine cannot spend them
+  before their lineup gets a court.
+- **A lineup that has gone stale is repaired, not blocked.** A seated player who
+  has since rested, been checked out or started elsewhere is vacated and the
+  engine fills the seat. A lineup that now breaks a pair rule stays queued and
+  the court falls through to the engine.
+- **Lands pending with auto-confirm off** (`pendingSince` null): the host chose
+  this match deliberately, so the 60s timer does not start it. Any later edit to
+  that court resets the timer like any other pending match. Undoing it discards
+  the entry; it is not restored to the queue.
+- **Players still on a court can be lined up for the match after.** Such a
+  lineup is held whole until every player in it is off the courts, then seated;
+  it is never seated with the busy player missing. Its free players stay
+  reserved meanwhile (the cost of "do not put them anywhere else").
+- **Validated at queue time:** players active (resting is refused), not in
+  another entry, no duplicates, legal under the pair rules.
+
+The dashboard's queue panel picks players inline (tap a seat, then any player —
+waiting ones first, those still playing marked), so adding to the queue never
+needs a scroll to the page's waiting list. Separately, the waiting list is
+always pinned to the bottom of the screen, compact (about three rows) until the
+host scrolls down to its natural spot, so a substitution needs no scroll either.
+
 ### Bill (C3)
 
 A host-only "คิดเงิน" button on the session summary turns those two fields,

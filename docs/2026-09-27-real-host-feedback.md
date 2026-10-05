@@ -6,6 +6,15 @@ roadmap remain in the [archived feature review](archive/2026-09-21-feature-revie
 
 ### Feedback items
 
+#### - [x] G. Many-court dashboard: sticky bench + pre-set lineups (2026-10-05) — done
+
+Testing 8 courts with ~60 players: (1) swapping a court player meant scrolling to
+the waiting list at the bottom of the page; (2) hosts want to set "next" lineups
+before a court is free. Done on `feat/bench-bar-and-lineup-queue`: the waiting
+list pins to the screen bottom while a court player is held, and a lineup queue
+(full or partial lineups, ordered, lands pending and needs confirm) — see
+"Lineup queue" in `docs/overview.md`.
+
 #### - [x] B. Level-mode rework: wait-only queue + carry game (2026-09-27 real-host feedback)
 
 Real host feedback, 2026-09-27: groups running level mode only care who has

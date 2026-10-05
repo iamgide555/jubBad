@@ -1,6 +1,8 @@
 import { HttpErrorResponse } from '@angular/common/http';
 import { Component, ElementRef, computed, inject, input, output, signal, viewChild } from '@angular/core';
 import { ActivatedRoute, RouterLink } from '@angular/router';
+import type { BillConfig, BillResponse } from '../../../core/bill.model';
+import { BillSettings } from '../../../shared/bill-settings/bill-settings';
 import { buildCheckoutText } from '../../../core/checkout-text';
 import {
   CHECKOUT_MODELS,
@@ -35,7 +37,7 @@ export interface SettledPlayer {
  */
 @Component({
   selector: 'app-early-checkout-dialog',
-  imports: [RouterLink],
+  imports: [RouterLink, BillSettings],
   templateUrl: './early-checkout-dialog.html',
   styleUrl: './early-checkout-dialog.css',
 })
@@ -62,7 +64,6 @@ export class EarlyCheckoutDialog {
   protected readonly error = signal<string | null>(null);
   /** The quote was blocked only because no shuttle price is set. */
   protected readonly needsPrice = signal(false);
-  protected readonly priceText = signal('');
   protected readonly receipt = signal<CheckoutReceipt | null>(null);
   protected readonly copied = signal(false);
   protected readonly fallbackText = signal<string | null>(null);
@@ -102,6 +103,52 @@ export class EarlyCheckoutDialog {
       (!this.isZeroQuote() || this.zeroAck())
   );
 
+  // ---- Rates: the same settings rows as the bill page (app-bill-settings), so an early
+  // leaver is settled on exactly what the end-of-night bill will use, without ending the session.
+  protected readonly bill = signal<BillResponse | null>(null);
+  protected readonly ratesBusy = signal(false);
+  protected readonly ratesError = signal<string | null>(null);
+  /** Open on its own when a 0 quote or a missing price says the rates were probably never set. */
+  protected readonly ratesOpen = signal(false);
+  /** A shuttle receipt freezes the basis it was quoted under, so the basis cannot change while one is active. */
+  protected readonly chargeLocked = computed(() => (this.bill()?.settled ?? []).some((r) => r.model === 'perShuttle'));
+
+  private async loadBill(): Promise<void> {
+    try {
+      this.bill.set(await this.live.getBill());
+    } catch {
+      this.bill.set(null);
+    }
+  }
+
+  /** Saves one settings change to the session, then re-quotes with it. */
+  protected async onConfigChange(patch: Partial<BillConfig>): Promise<void> {
+    await this.applyRates(() => this.live.saveBillConfig(patch));
+  }
+
+  protected async onShuttlePrice(satang: number | null): Promise<void> {
+    await this.applyRates(() => this.live.setShuttleDetails({ shuttlePriceSatang: satang }));
+  }
+
+  protected onInvalidRate(): void {
+    this.ratesError.set($localize`:@@checkout.err.rateInvalid:ใส่เป็นบาท เช่น 80 หรือ 80.50`);
+  }
+
+  private async applyRates(write: () => Promise<{ ok: boolean; error?: string }>): Promise<void> {
+    this.ratesBusy.set(true);
+    this.ratesError.set(null);
+    const result = await write();
+    if (!result.ok) {
+      this.ratesError.set(result.error ?? $localize`:@@err.saveBillConfig:บันทึกราคาไม่สำเร็จ ลองใหม่อีกครั้ง`);
+      await this.loadBill();
+      this.ratesBusy.set(false);
+      return;
+    }
+    await this.loadBill();
+    await this.loadPreview();
+    this.ratesBusy.set(false);
+  }
+
   open(playerId?: string): void {
     this.reset();
     this.isOpen.set(true);
@@ -135,6 +182,9 @@ export class EarlyCheckoutDialog {
     this.fallbackText.set(null);
     this.undoTarget.set(null);
     this.attempt = null;
+    this.bill.set(null);
+    this.ratesError.set(null);
+    this.ratesOpen.set(false);
   }
 
   protected back(): void {
@@ -179,10 +229,12 @@ export class EarlyCheckoutDialog {
     this.fallbackText.set(null);
     try {
       this.preview.set(await this.live.previewCheckout(playerId, this.model()));
+      if (this.isZeroQuote()) this.ratesOpen.set(true);
     } catch (err) {
       this.preview.set(null);
       const { code, courtNumber } = this.errorOf(err);
       this.needsPrice.set(code === 'MISSING_SHUTTLE_PRICE');
+      if (this.needsPrice()) this.ratesOpen.set(true);
       this.error.set(
         checkoutErrorMessage(code, courtNumber ? courtName(`${courtNumber}`) : undefined) ??
           $localize`:@@checkout.err.preview:คำนวณยอดไม่สำเร็จ ลองใหม่อีกครั้ง`
@@ -190,22 +242,7 @@ export class EarlyCheckoutDialog {
     } finally {
       this.loading.set(false);
     }
-  }
-
-  /** Sets the per-shuttle price right here (so a quote is not blocked) and re-quotes. */
-  protected async savePrice(): Promise<void> {
-    const parsed = parseShuttlePriceInput(this.priceText());
-    if (!parsed.ok || parsed.value === null) {
-      this.error.set($localize`:@@checkout.err.priceInvalid:ราคาไม่ถูกต้อง ใส่เป็นบาท เช่น 80 หรือ 80.50`);
-      return;
-    }
-    const result = await this.live.setShuttleDetails({ shuttlePriceSatang: parsed.value });
-    if (!result.ok) {
-      this.error.set(result.error ?? $localize`:@@checkout.err.priceSave:บันทึกราคาไม่สำเร็จ`);
-      return;
-    }
-    this.priceText.set(formatShuttlePriceInput(parsed.value));
-    await this.loadPreview();
+    if (this.bill() === null) await this.loadBill();
   }
 
   protected onQuery(event: Event): void {
@@ -214,10 +251,6 @@ export class EarlyCheckoutDialog {
 
   protected onZeroAck(event: Event): void {
     this.zeroAck.set((event.target as HTMLInputElement).checked);
-  }
-
-  protected onPriceInput(event: Event): void {
-    this.priceText.set((event.target as HTMLInputElement).value);
   }
 
   protected async copyQuote(): Promise<void> {

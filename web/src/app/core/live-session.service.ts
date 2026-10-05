@@ -7,6 +7,7 @@ import type { CourtFormat, CourtMode, CourtState, LineupEntry, Seat } from './li
 import type { Session } from './session.model';
 import { levelsErrorMessage } from './group-levels.model';
 import type { Level } from '../../../../engines/levels.ts';
+import type { BillConfig, BillResponse } from './bill.model';
 import type { PairRule } from './pair-rule.model';
 import { checkoutErrorMessage, type CheckoutModel, type CheckoutPreview, type CheckoutReceipt } from './checkout.model';
 import type { ShuttleChoice, ShuttleInventory } from './shuttle.model';
@@ -627,6 +628,35 @@ export class LiveSessionService {
    * field from another tab. Available on an ended session's dashboard too —
    * this endpoint has no session-active guard on the server.
    */
+  /** The session's bill, with its saved settings and any settled early leavers. Owner-only. */
+  getBill(): Promise<BillResponse> {
+    return firstValueFrom(this.http.get<BillResponse>(`${this.base}/sessions/${this.sessionCode}/bill`));
+  }
+
+  /**
+   * Saves a change to the bill settings. The server takes the whole config, so
+   * the current one is read first and the patch laid over it, exactly as the
+   * bill page does; an early checkout and the end-of-night bill then share one
+   * set of rates.
+   */
+  async saveBillConfig(patch: Partial<BillConfig>): Promise<ActionResult> {
+    try {
+      const current = (await this.getBill()).config;
+      await firstValueFrom(
+        this.http.post(`${this.base}/sessions/${this.sessionCode}/bill-config`, { ...current, ...patch })
+      );
+      return { ok: true };
+    } catch (err) {
+      const locked = err instanceof HttpErrorResponse && err.error?.code === 'SHUTTLE_CHARGE_LOCKED';
+      return {
+        ok: false,
+        error: locked
+          ? $localize`:@@err.chargeLocked:เปลี่ยนวิธีคิดค่าลูกไม่ได้ เพราะมีคนเช็คเอาต์ไปแล้ว`
+          : $localize`:@@err.saveBillConfig:บันทึกราคาไม่สำเร็จ ลองใหม่อีกครั้ง`,
+      };
+    }
+  }
+
   setShuttleDetails(dto: {
     shuttleCount?: number | null;
     shuttlePriceSatang?: number | null;

@@ -223,3 +223,29 @@ button {
   min-height: 1.5rem;
   flex: none;
 }
+
+/* Rates live behind a fold: usually set once, needed the first time a leaver is settled. */
+.rates {
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: var(--space-1) var(--space-2);
+}
+
+.rates summary {
+  min-height: var(--tap);
+  display: flex;
+  align-items: center;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.rate-rows.is-busy {
+  opacity: 0.6;
+  pointer-events: none;
+}
+
+.rates-more {
+  display: inline-block;
+  padding: var(--space-1) 0;
+  font-size: var(--text-sm);
+}

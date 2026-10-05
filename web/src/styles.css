@@ -816,3 +816,87 @@ button.danger:disabled:hover {
 :root {
   accent-color: var(--court);
 }
+
+/* Bill settings rows: shared by the bill page and the early-checkout dialog (app-bill-settings). */
+/* Label-left / control-right settings row, hairline-divided instead of the
+   retired stack of loosely-aligned split-rows. */
+.setting-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  padding: var(--space-2) 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.setting-row:last-child {
+  border-bottom: none;
+}
+
+.setting-label {
+  font-size: var(--text-sm);
+  line-height: 1.4;
+  flex: 1;
+}
+
+.money-field {
+  position: relative;
+  flex: none;
+  width: 7rem;
+}
+
+.money-field input {
+  width: 100%;
+  min-height: var(--tap);
+  padding-right: 1.75rem;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.money-field .money-suffix {
+  position: absolute;
+  right: 0.7rem;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--ink-soft);
+  font-size: var(--text-sm);
+  pointer-events: none;
+}
+
+/* A settings row's own toggle: shrunk to content width (never a full-width
+   banner, per the segmented-toggle rule) and dropped into the row's own
+   flow rather than the page's default 28rem cap. */
+.setting-toggle {
+  flex: none;
+  max-width: none;
+  margin-bottom: 0;
+}
+
+.setting-toggle button {
+  flex: none;
+  padding: 0 var(--space-2);
+  font-size: var(--text-sm);
+}
+
+.rounding-toggle button {
+  padding: 0 var(--space-1);
+  min-width: 2.75rem;
+}
+
+.hint {
+  color: var(--ink-soft);
+  font-size: var(--text-sm);
+}
+
+.more-rates {
+  border-top: 1px solid var(--line);
+}
+
+.more-rates summary {
+  min-height: var(--tap);
+  display: flex;
+  align-items: center;
+  font-size: var(--text-sm);
+  font-weight: 700;
+  cursor: pointer;
+}

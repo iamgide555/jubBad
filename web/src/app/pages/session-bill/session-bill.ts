@@ -7,16 +7,12 @@ import type { BillConfig, BillModel, BillResponse, RoundingStep } from '../../co
 import { buildBillText, formatBaht } from '../../core/bill-text';
 import { copyToClipboard } from '../../core/share-link';
 import { formatShuttleCountInput, formatShuttlePriceInput, parseShuttleCountInput, parseShuttlePriceInput } from '../../core/shuttle-money';
+import { BillSettings } from '../../shared/bill-settings/bill-settings';
 import { Icon } from '../../shared/icon/icon';
-
-type MoneyField =
-  | 'courtFeeSatang' | 'perGameRateSatang' | 'entryFeeSatang' | 'capSatang'
-  | 'buffetPriceSatang' | 'startingFeeSatang' | 'hostFeeSatang' | 'walkInFeeSatang' | 'perPlayerShuttleSatang';
-const NULLABLE: ReadonlySet<MoneyField> = new Set(['courtFeeSatang', 'capSatang', 'perPlayerShuttleSatang']);
 
 @Component({
   selector: 'app-session-bill',
-  imports: [RouterLink, Icon],
+  imports: [RouterLink, Icon, BillSettings],
   templateUrl: './session-bill.html',
   styleUrl: './session-bill.css',
 })
@@ -55,19 +51,12 @@ export class SessionBill {
   protected readonly models = computed<BillModel[]>(() =>
     this.bill()?.session.shuttleToolsEnabled ? ['fair', 'perGame', 'perShuttle', 'buffet'] : ['fair', 'perGame', 'buffet']
   );
-  protected readonly roundings: RoundingStep[] = [1, 5, 10];
   protected readonly baht = formatBaht;
   protected readonly moneyText = formatShuttlePriceInput;
-  protected readonly countText = formatShuttleCountInput;
   /** Placeholder for the count: the count the bill is using when none was typed (derived from the games). */
   protected readonly countPlaceholder = computed(() => {
     const n = this.bill()?.accounting.effectiveCount;
     return n === null || n === undefined ? '—' : String(n);
-  });
-  /** Placeholder for the per-player charge: blank follows the session shuttle price. */
-  protected readonly chargePlaceholder = computed(() => {
-    const p = this.bill()?.session.shuttlePriceSatang;
-    return p === null || p === undefined ? '—' : formatShuttlePriceInput(p);
   });
   /** Title on a disabled walk-in chip: an override bypasses the walk-in fee and discount entirely. */
   protected readonly walkInOverriddenHint = $localize`:@@bill.walkInOverridden:แก้ยอดเองแล้ว ค่า walk-in ไม่มีผลกับคนนี้`;
@@ -106,7 +95,7 @@ export class SessionBill {
   }
 
   /** Count and price are session fields shared with the summary page; each edit sends only what changed. */
-  private async saveShuttleDetails(patch: { shuttleCount?: number | null; shuttlePriceSatang?: number | null }): Promise<void> {
+  protected async saveShuttleDetails(patch: { shuttleCount?: number | null; shuttlePriceSatang?: number | null }): Promise<void> {
     this.saving.set(true);
     this.error.set(null);
     try {
@@ -119,31 +108,12 @@ export class SessionBill {
     }
   }
 
-  protected onShuttlePrice(text: string): void {
-    const parsed = parseShuttlePriceInput(text);
-    if (!parsed.ok) {
-      this.error.set($localize`:@@bill.badAmount:ใส่จำนวนเงินเป็นตัวเลข ทศนิยมไม่เกิน 2 ตำแหน่ง`);
-      return;
-    }
-    void this.saveShuttleDetails({ shuttlePriceSatang: parsed.value });
-  }
-
-  protected onShuttleCount(text: string): void {
-    const parsed = parseShuttleCountInput(text);
-    if (!parsed.ok) {
-      this.error.set($localize`:@@bill.badCount:ใส่จำนวนลูกเป็นเลขจำนวนเต็ม`);
-      return;
-    }
-    void this.saveShuttleDetails({ shuttleCount: parsed.value });
-  }
-
-  protected onMoney(field: MoneyField, text: string): void {
-    const parsed = parseShuttlePriceInput(text);
-    if (!parsed.ok) {
-      this.error.set($localize`:@@bill.badAmount:ใส่จำนวนเงินเป็นตัวเลข ทศนิยมไม่เกิน 2 ตำแหน่ง`);
-      return;
-    }
-    void this.save({ [field]: parsed.value ?? (NULLABLE.has(field) ? null : 0) });
+  protected onInvalid(kind: 'amount' | 'count'): void {
+    this.error.set(
+      kind === 'count'
+        ? $localize`:@@bill.badCount:ใส่จำนวนลูกเป็นเลขจำนวนเต็ม`
+        : $localize`:@@bill.badAmount:ใส่จำนวนเงินเป็นตัวเลข ทศนิยมไม่เกิน 2 ตำแหน่ง`
+    );
   }
 
   protected onOverride(playerId: string, text: string): void {

@@ -87,14 +87,30 @@
           <p class="muted" i18n="@@checkout.loading">กำลังคำนวณ…</p>
         }
 
-        @if (needsPrice()) {
-          <div class="price-row">
-            <label>
-              <span i18n="@@checkout.priceLabel">ราคาลูกแบดต่อลูก (บาท)</span>
-              <input type="text" inputmode="decimal" name="shuttlePrice" [value]="priceText()" (input)="onPriceInput($event)" />
-            </label>
-            <button type="button" data-save-price (click)="savePrice()" i18n="@@checkout.priceSave">บันทึกราคา</button>
-          </div>
+        @if (!receipt() && bill(); as b) {
+          <details class="rates" data-rates [open]="ratesOpen()" (toggle)="ratesOpen.set($any($event.target).open)">
+            <summary i18n="@@checkout.ratesTitle">ตั้งราคา</summary>
+            <p class="muted" i18n="@@checkout.ratesHint">ตั้งค่าเดียวกับหน้าคิดเงินตอนจบก๊วน แก้แล้วใช้กับทุกคนที่ยังไม่ได้เช็คเอาต์</p>
+            <div class="rate-rows" [class.is-busy]="ratesBusy()">
+              <app-bill-settings
+                variant="checkout"
+                [model]="model()"
+                [config]="b.config"
+                [session]="b.session"
+                [saving]="ratesBusy()"
+                [chargeLocked]="chargeLocked()"
+                (configChange)="onConfigChange($event)"
+                (shuttlePriceChange)="onShuttlePrice($event)"
+                (invalid)="onInvalidRate()"
+              />
+            </div>
+            @if (ratesError()) {
+              <p class="error" role="alert">{{ ratesError() }}</p>
+            }
+            @if (sessionCode) {
+              <a class="rates-more" [routerLink]="['/s', sessionCode, 'bill']" i18n="@@checkout.ratesMore">ตั้งค่าอื่นๆ ที่หน้าคิดเงิน</a>
+            }
+          </details>
         }
 
         @if (receipt() ?? preview(); as q) {

@@ -1406,6 +1406,46 @@ describe('SessionDashboard', () => {
     ).toBe(`${location.origin}/s/sess1/display`);
   });
 
+  it('keeps the waiting list compact while its natural spot is below the screen, and opens it once scrolled to', async () => {
+    let notify: IntersectionObserverCallback = () => {};
+    const original = globalThis.IntersectionObserver;
+    globalThis.IntersectionObserver = class {
+      constructor(cb: IntersectionObserverCallback) { notify = cb; }
+      observe() {}
+      disconnect() {}
+      unobserve() {}
+      takeRecords() { return []; }
+    } as unknown as typeof IntersectionObserver;
+    try {
+      fixture = TestBed.createComponent(SessionDashboard);
+      fixture.detectChanges();
+      httpMock.expectOne(`${B}/sessions/sess1`).flush(baseSession({ rosterPlayerIds: ['p1', 'p2'] }));
+      await new Promise((r) => setTimeout(r, 0));
+      TestBed.tick();
+      for (const r of httpMock.match(`${B}/groups/group1/players`)) r.flush([]);
+      for (const r of httpMock.match(`${B}/sessions/sess1/stats?scope=session`)) r.flush([]);
+      await new Promise((r) => setTimeout(r, 0));
+      fixture.detectChanges();
+      const root = fixture.nativeElement as HTMLElement;
+      const entry = (isIntersecting: boolean, top: number) =>
+        [{ isIntersecting, boundingClientRect: { top } }] as unknown as IntersectionObserverEntry[];
+
+      notify(entry(false, 900), {} as IntersectionObserver); // natural spot still below the screen
+      fixture.detectChanges();
+      expect(root.querySelector('.waiting-queue.is-stuck')).toBeTruthy();
+
+      notify(entry(true, 400), {} as IntersectionObserver); // scrolled down to it
+      fixture.detectChanges();
+      expect(root.querySelector('.waiting-queue.is-stuck')).toBeNull();
+
+      notify(entry(false, -50), {} as IntersectionObserver); // scrolled past it
+      fixture.detectChanges();
+      expect(root.querySelector('.waiting-queue.is-stuck')).toBeNull();
+    } finally {
+      globalThis.IntersectionObserver = original;
+    }
+  });
+
   it('lets a waiting player be picked up for a manual swap', async () => {
     fixture = TestBed.createComponent(SessionDashboard);
     fixture.detectChanges();
@@ -1433,9 +1473,9 @@ describe('SessionDashboard', () => {
     fixture.detectChanges();
     expect(fixture.componentInstance['selection'].active()).toBe(true);
     expect(chip.getAttribute('aria-pressed')).toBe('true');
-    // Holding a waiting player is not a court hold, so the bench is not pinned.
+    // Holding a waiting player is not a court hold, so there is no swap hint.
     expect(
-      (fixture.nativeElement as HTMLElement).querySelector('.waiting-queue.is-bench')
+      (fixture.nativeElement as HTMLElement).querySelector('.waiting-queue .bench-hint')
     ).toBeNull();
 
     // Tapping again puts them back, so a mis-tap costs nothing.
@@ -1482,9 +1522,9 @@ describe('SessionDashboard', () => {
     fixture.detectChanges();
     expect(fixture.componentInstance['selection'].isPicked('p1')).toBe(true);
 
-    // Holding a court player pins the waiting list to the screen bottom.
+    // Holding a court player shows the swap hint on the (always sticky) waiting list.
     expect(
-      (fixture.nativeElement as HTMLElement).querySelector('.waiting-queue.is-bench')
+      (fixture.nativeElement as HTMLElement).querySelector('.waiting-queue .bench-hint')
     ).toBeTruthy();
 
     // Then tap ปอ, who is waiting: ปอ takes ตั้ม's place.

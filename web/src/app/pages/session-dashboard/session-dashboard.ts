@@ -316,14 +316,35 @@ export class SessionDashboard implements OnDestroy {
 
   protected readonly selection = inject(SwapSelectionService);
 
-  /**
-   * Holding someone who is on a court means the next tap is meant for a waiting
-   * player. The waiting list sits below every court, so with many courts it is
-   * pinned to the bottom of the screen for the duration of the hold.
-   */
+  /** True while the host is holding someone who is on a court, so the next tap is meant for a waiting player. */
   protected readonly benchOpen = computed(() => {
     const held = this.selection.selection();
     return held !== null && held.pairingId !== null;
+  });
+
+  /**
+   * The waiting list sits below every court, so it is always pinned to the
+   * bottom of the screen in a compact, scrollable form (about three rows of
+   * chips) and returns to its full size once the host scrolls down to where it
+   * naturally lives. It is "stuck" exactly while its natural spot, marked by
+   * the zero-height anchor above it, is still below the visible screen.
+   */
+  protected readonly benchStuck = signal(false);
+  private readonly benchAnchor = viewChild<ElementRef<HTMLElement>>('benchAnchor');
+  private benchObserver?: IntersectionObserver;
+
+  private readonly watchBench = effect(() => {
+    const anchor = this.benchAnchor()?.nativeElement;
+    this.benchObserver?.disconnect();
+    this.benchObserver = undefined;
+    if (!anchor || typeof IntersectionObserver === 'undefined') {
+      this.benchStuck.set(false);
+      return;
+    }
+    this.benchObserver = new IntersectionObserver(([entry]) => {
+      this.benchStuck.set(!entry.isIntersecting && entry.boundingClientRect.top > 0);
+    });
+    this.benchObserver.observe(anchor);
   });
 
   /**
@@ -665,6 +686,7 @@ export class SessionDashboard implements OnDestroy {
   ngOnDestroy(): void {
     clearInterval(this.clock);
     clearInterval(this.refreshInterval);
+    this.benchObserver?.disconnect();
     window.removeEventListener('focus', this.onWindowFocus);
   }
 

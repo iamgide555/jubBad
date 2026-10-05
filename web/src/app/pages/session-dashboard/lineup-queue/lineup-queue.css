@@ -144,3 +144,12 @@
   font-size: var(--text-sm);
   margin: 0.5rem 0 0;
 }
+
+.lq-picker .chip-pick.is-playing {
+  opacity: 0.7;
+  border-style: dashed;
+}
+
+.lq-picker .lq-flag {
+  color: var(--ink-muted, inherit);
+}

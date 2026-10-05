@@ -310,7 +310,8 @@
     @if (!ended()) {
       <hr class="rule" />
 
-      <div class="waiting-queue" [class.is-bench]="benchOpen()" appFlipList>
+      <div #benchAnchor class="bench-anchor" aria-hidden="true"></div>
+      <div class="waiting-queue" [class.is-stuck]="benchStuck()" appFlipList>
         <h4 class="label" i18n="@@dashboard.waiting">รอคิว</h4>
         @if (benchOpen()) {
           <span class="bench-hint" i18n="@@dashboard.benchHint">แตะผู้เล่นรอคิวเพื่อสลับ</span>

@@ -3889,7 +3889,7 @@
         </context-group>
       </trans-unit>
       <trans-unit id="lineup.onCourt" datatype="html">
-        <source>อยู่คอร์ท</source><target>On court</target>
+        <source>กำลังเล่น</source><target>Playing</target>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/session-dashboard/lineup-queue/lineup-queue.html</context>
           <context context-type="linenumber">1</context>
@@ -3917,7 +3917,7 @@
         </context-group>
       </trans-unit>
       <trans-unit id="lineup.draftHint" datatype="html">
-        <source>แตะช่องว่างเพื่อเลือกผู้เล่น ช่องที่เว้นไว้ระบบจะเลือกให้</source><target>Tap a seat to choose a player; seats left open are filled automatically</target>
+        <source>แตะช่องว่างเพื่อเลือกผู้เล่น ช่องที่เว้นไว้ระบบจะเลือกให้ · คนที่ยังเล่นอยู่เลือกได้ แมตช์จะรอจนทุกคนว่าง</source><target>Tap a seat to choose a player; seats left open are filled automatically · people still playing can be picked, the match waits until everyone is free</target>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/session-dashboard/lineup-queue/lineup-queue.html</context>
           <context context-type="linenumber">1</context>
@@ -3997,6 +3997,13 @@
         <source>เอา <x id="name" equiv-text="name"/> ออกจากคิว</source><target>Remove <x id="name" equiv-text="name"/> from the lineup</target>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/session-dashboard/lineup-queue/lineup-queue.ts</context>
+          <context context-type="linenumber">1</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="lineup.playingTag" datatype="html">
+        <source>กำลังเล่น</source><target>Playing</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/session-dashboard/lineup-queue/lineup-queue.html</context>
           <context context-type="linenumber">1</context>
         </context-group>
       </trans-unit>

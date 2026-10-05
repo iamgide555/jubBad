@@ -2273,13 +2273,8 @@ export class SessionsService {
       if (!row) throw this.notFound('ROSTER_PLAYER_NOT_FOUND');
       if (!row.active) throw this.conflict('PLAYER_UNAVAILABLE', { playerIds: [id] });
     }
-    const open = await this.prisma.pairing.findMany({
-      where: { sessionId: session.code, endedAt: null },
-    });
-    for (const p of open) {
-      const clash = this.playersOf(p).find((id) => ids.includes(id));
-      if (clash) throw this.conflict('PLAYER_ALREADY_ON_COURT', { courtNumber: p.courtNumber });
-    }
+    // Someone still on a court may be lined up for the match after: the lineup
+    // simply is not used until they are free (see applyQueueToCourts).
     const queued = await this.queuedPlayerIds(session.code, exceptEntryId);
     const dup = ids.find((id) => queued.has(id));
     if (dup) throw this.conflict('PLAYER_ALREADY_QUEUED', { playerIds: [dup] });
@@ -2362,9 +2357,9 @@ export class SessionsService {
    * Seats the first queued lineup that fits each idle court, in court order,
    * and returns the courts it filled. Runs inside the session lock.
    *
-   * A seated player who has since rested, been settled or started elsewhere is
-   * vacated rather than blocking the lineup; open seats are then completed by
-   * the same `completeCourt` path as the host's auto-pair button, so rotation
+   * A lineup with anyone still on a court is skipped until they finish. A seated
+   * player who has since rested or been settled is vacated rather than blocking
+   * it, and open seats are then completed by the same `completeCourt` path as the host's auto-pair button, so rotation
    * and pair rules apply. A lineup that has become illegal under the current
    * rules stays queued and the court falls through to the engine.
    *
@@ -2398,8 +2393,15 @@ export class SessionsService {
         if (used.has(entry.id)) continue;
         const seats = this.seatsOf(entry);
         if (seats.teamA.length * 2 !== size) continue;
+        // A lineup waits until everyone in it is off the courts: it is never
+        // seated with a player missing just because they are still playing.
+        // (Resting is different — that is a choice to sit out, so the seat is
+        // vacated and the engine fills it.)
+        if ([...seats.teamA, ...seats.teamB].some((id) => id !== null && active.has(id) && onCourt.has(id))) {
+          continue;
+        }
         const keep = (team: Seat[]): Seat[] =>
-          team.map((id) => (id !== null && active.has(id) && !onCourt.has(id) ? id : null));
+          team.map((id) => (id !== null && active.has(id) ? id : null));
         const teamA = keep(seats.teamA);
         const teamB = keep(seats.teamB);
         if ([...teamA, ...teamB].every((id) => id === null)) {

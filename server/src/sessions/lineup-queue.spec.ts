@@ -157,7 +157,7 @@ describe('lineup queue', () => {
     }
   });
 
-  it('rejects a player already on a court, and a lineup that breaks a pair rule', async () => {
+  it('rejects a lineup that breaks a pair rule', async () => {
     const d = await fixture(8);
     try {
       await prisma.pairing.create({
@@ -167,11 +167,42 @@ describe('lineup queue', () => {
           confirmedAt: new Date(),
         },
       });
-      await expect(service.addLineup(d.sessionCode, { teamA: [d.ids[0], null], teamB: [null, null] })).rejects.toMatchObject({ response: { code: 'PLAYER_ALREADY_ON_COURT' } });
-
       const [x, y] = [d.ids[4], d.ids[5]].sort();
       await prisma.playerRule.create({ data: { groupId: d.groupCode, playerAId: x, playerBId: y, kind: 'never-teammates' } });
       await expect(service.addLineup(d.sessionCode, { teamA: [x, y], teamB: [d.ids[6], d.ids[7]] })).rejects.toMatchObject({ response: { code: 'PAIR_RULE_VIOLATION' } });
+    } finally {
+      await remove(d);
+    }
+  });
+
+  it('accepts players who are still playing and holds the lineup until all of them are free', async () => {
+    const d = await fixture(14, 2);
+    try {
+      const court1 = await prisma.pairing.create({
+        data: {
+          sessionId: d.sessionCode, courtNumber: 1, matchNumber: 1,
+          teamA: JSON.stringify([d.ids[0], d.ids[1]]), teamB: JSON.stringify([d.ids[2], d.ids[3]]),
+          confirmedAt: new Date(),
+        },
+      });
+      // d.ids[0] is still playing on court 1; the other three are free.
+      await service.addLineup(d.sessionCode, { teamA: [d.ids[0], d.ids[4]], teamB: [d.ids[5], d.ids[6]] });
+
+      // Court 2 is idle, but the lineup must not be seated with its player missing.
+      await service.propose(d.sessionCode, 2);
+      const court2 = await pendingOn(d.sessionCode, 2);
+      for (const id of [d.ids[0], d.ids[4], d.ids[5], d.ids[6]]) expect(seated(court2)).not.toContain(id);
+      expect(await prisma.queuedMatch.count({ where: { sessionId: d.sessionCode } })).toBe(1);
+      expect((await service.getSession(d.sessionCode)).lineupQueue[0].blocked).toEqual([
+        { playerId: d.ids[0], reason: 'on-court' },
+      ]);
+
+      // Court 1 finishes, so everyone is free and the lineup takes the next idle court.
+      await prisma.pairing.update({ where: { id: court1.id }, data: { endedAt: new Date() } });
+      await prisma.pairing.deleteMany({ where: { id: court2.id } });
+      await service.propose(d.sessionCode, 2);
+      expect(seated(await pendingOn(d.sessionCode, 2))).toEqual([d.ids[0], d.ids[4], d.ids[5], d.ids[6]]);
+      expect(await prisma.queuedMatch.count({ where: { sessionId: d.sessionCode } })).toBe(0);
     } finally {
       await remove(d);
     }

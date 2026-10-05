@@ -64,13 +64,34 @@ export class LineupQueue {
     return id === null ? null : (this.names().get(id) ?? id);
   }
 
-  /** Waiting players who are not already lined up elsewhere. */
+  /**
+   * Everyone who can still be lined up: waiting players first, in queue order,
+   * then those still on a court (their lineup simply waits until they finish).
+   * Resting players are left out, and nobody already in a lineup appears twice.
+   */
   protected readonly pickable = computed(() => {
     const queued = this.liveSession.queuedPlayerIds();
     const inDraft = new Set(
       this.draft() ? [...this.draft()!.teamA, ...this.draft()!.teamB].filter((id) => id !== null) : []
     );
-    return this.waiting().filter((w) => !queued.has(w.id) && !inDraft.has(w.id));
+    const taken = (id: string) => queued.has(id) || inDraft.has(id);
+    const waiting = this.waiting()
+      .filter((w) => !taken(w.id))
+      .map((w) => ({ id: w.id, name: w.name, playing: false }));
+    const resting = new Set(this.liveSession.restingPlayerIds());
+    const seen = new Set(waiting.map((w) => w.id));
+    const playingIds: string[] = [];
+    for (const court of this.liveSession.courts()) {
+      if (court.status === 'idle') continue;
+      for (const id of [...court.teamA, ...court.teamB]) {
+        if (id !== null && !seen.has(id) && !resting.has(id) && !taken(id)) {
+          seen.add(id);
+          playingIds.push(id);
+        }
+      }
+    }
+    const names = resolvePlayerNames(playingIds, this.players());
+    return [...waiting, ...playingIds.map((id, i) => ({ id, name: names[i], playing: true }))];
   });
 
   protected blockedReason(entryId: string, playerId: Seat): 'resting' | 'on-court' | null {

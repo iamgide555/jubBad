@@ -94,6 +94,22 @@ describe('LineupQueue', () => {
     expect(chips).toEqual(['เบส', 'ปอ']);
   });
 
+  it('offers players who are still playing too, after the waiting ones, and not resting ones', async () => {
+    await load(session({
+      rosterPlayerIds: ['p1', 'p2', 'p3', 'p4', 'p5'],
+      restingPlayerIds: ['p5'],
+      courts: [{ status: 'active', pairingId: 'pair1', format: 'doubles', mode: 'variety', teamA: ['p3', 'p4'], teamB: ['p1', 'p2'], startedAt: '2026-09-08T12:00:00.000Z' }],
+    }));
+    fixture.componentRef.setInput('waiting', [{ id: 'p9', name: 'ว่าง' }]);
+    fixture.detectChanges();
+    (el().querySelector('.lq-add') as HTMLButtonElement).click();
+    fixture.detectChanges();
+    (el().querySelector('.is-draft .lq-seat') as HTMLButtonElement).click();
+    fixture.detectChanges();
+    const chips = Array.from(el().querySelectorAll('.lq-picker .chip-pick')).map((b) => b.textContent?.replace(/\s+/g, ' ').trim());
+    expect(chips).toEqual(['ว่าง', 'โอ กำลังเล่น', 'นัท กำลังเล่น', 'ตั้ม กำลังเล่น', 'เบส กำลังเล่น']);
+  });
+
   it('tapping an occupied seat removes that player, and the last one removes the lineup', async () => {
     await load(session({
       lineupQueue: [{ id: 'q1', position: 0, teamA: ['p3', 'p4'], teamB: [null, null], blocked: [] }],

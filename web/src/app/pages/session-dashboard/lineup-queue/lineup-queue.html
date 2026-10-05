@@ -43,7 +43,7 @@
                   @if (blockedReason(entry.id, seat) === 'resting') {
                     <span class="lq-flag" i18n="@@lineup.resting">พัก</span>
                   } @else if (blockedReason(entry.id, seat) === 'on-court') {
-                    <span class="lq-flag" i18n="@@lineup.onCourt">อยู่คอร์ท</span>
+                    <span class="lq-flag" i18n="@@lineup.onCourt">กำลังเล่น</span>
                   }
                 }
               </button>
@@ -94,7 +94,7 @@
     @if (picking()?.entryId === 'draft') {
       <ng-container *ngTemplateOutlet="picker" />
     } @else {
-      <p class="lq-hint" i18n="@@lineup.draftHint">แตะช่องว่างเพื่อเลือกผู้เล่น ช่องที่เว้นไว้ระบบจะเลือกให้</p>
+      <p class="lq-hint" i18n="@@lineup.draftHint">แตะช่องว่างเพื่อเลือกผู้เล่น ช่องที่เว้นไว้ระบบจะเลือกให้ · คนที่ยังเล่นอยู่เลือกได้ แมตช์จะรอจนทุกคนว่าง</p>
     }
   }
 
@@ -105,7 +105,12 @@
   <ng-template #picker>
     <div class="lq-picker" role="group" aria-label="เลือกผู้เล่น" i18n-aria-label="@@lineup.pickerLabel">
       @for (w of pickable(); track w.id) {
-        <button type="button" class="chip chip-pick" appPress [disabled]="busy()" (click)="choose(w.id)">{{ w.name }}</button>
+        <button type="button" class="chip chip-pick" [class.is-playing]="w.playing" appPress [disabled]="busy()" (click)="choose(w.id)">
+          {{ w.name }}
+          @if (w.playing) {
+            <span class="lq-flag" i18n="@@lineup.playingTag">กำลังเล่น</span>
+          }
+        </button>
       } @empty {
         <p class="muted" i18n="@@lineup.nobodyToPick">ไม่มีผู้เล่นที่รอคิวให้เลือก</p>
       }

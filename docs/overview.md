@@ -752,13 +752,18 @@ one.
   this match deliberately, so the 60s timer does not start it. Any later edit to
   that court resets the timer like any other pending match. Undoing it discards
   the entry; it is not restored to the queue.
-- **Validated at queue time:** players active, not on a court, not in another
-  entry, no duplicates, legal under the pair rules.
+- **Players still on a court can be lined up for the match after.** Such a
+  lineup is held whole until every player in it is off the courts, then seated;
+  it is never seated with the busy player missing. Its free players stay
+  reserved meanwhile (the cost of "do not put them anywhere else").
+- **Validated at queue time:** players active (resting is refused), not in
+  another entry, no duplicates, legal under the pair rules.
 
-The dashboard's queue panel picks players inline (tap a seat, then a waiting
-player), so adding to the queue never needs a scroll to the page's waiting list.
-Separately, holding a court player pins that waiting list to the bottom of the
-screen so a substitution does not either.
+The dashboard's queue panel picks players inline (tap a seat, then any player —
+waiting ones first, those still playing marked), so adding to the queue never
+needs a scroll to the page's waiting list. Separately, the waiting list is
+always pinned to the bottom of the screen, compact (about three rows) until the
+host scrolls down to its natural spot, so a substitution needs no scroll either.
 
 ### Bill (C3)
 

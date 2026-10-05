@@ -31,9 +31,36 @@
       <hr class="rule" />
     }
 
-    <h4 class="label" i18n="@@dashboard.rosterLabel">ผู้เล่นวันนี้ — แตะเพื่อพัก</h4>
-    <div class="roster-chips">
-      @for (p of rosterEntries(); track p.id; let i = $index) {
+    <button
+      type="button"
+      class="roster-toggle"
+      appPress
+      data-roster-toggle
+      [attr.aria-expanded]="rosterOpen()"
+      aria-controls="roster-chips"
+      (click)="toggleRoster()"
+    >
+      <span class="roster-toggle-title" i18n="@@dashboard.rosterLabel">ผู้เล่นวันนี้</span>
+      <span class="roster-toggle-count tabular">{{ rosterEntries().length }}</span>
+      @if (restingCount() > 0) {
+        <span class="roster-toggle-resting" i18n="@@dashboard.rosterResting">พัก {{ restingCount() }}</span>
+      }
+      <span class="roster-toggle-action">
+        @if (rosterOpen()) {
+          <ng-container i18n="@@dashboard.rosterHide">ซ่อน</ng-container>
+        } @else {
+          <ng-container i18n="@@dashboard.rosterShow">แสดงทั้งหมด</ng-container>
+        }
+        <app-icon class="roster-chevron" [class.is-open]="rosterOpen()" name="chevron" [size]="16" />
+      </span>
+    </button>
+    @if (rosterOpen()) {
+      <p class="roster-tip" i18n="@@dashboard.rosterTipOpen">แตะชื่อเพื่อพัก หรือกลับมาเล่น</p>
+    } @else if (visibleRoster().length > 0) {
+      <p class="roster-tip" i18n="@@dashboard.rosterTipResting">พักอยู่ — แตะชื่อเพื่อกลับมาเล่น</p>
+    }
+    <div class="roster-chips" id="roster-chips">
+      @for (p of visibleRoster(); track p.id; let i = $index) {
         <button
           type="button"
           class="chip"

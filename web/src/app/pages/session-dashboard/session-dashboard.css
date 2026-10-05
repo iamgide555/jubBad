@@ -54,6 +54,73 @@
   margin-top: var(--space-3);
 }
 
+/* Collapsed by default: a full roster is a wall of chips that pushes every court
+   below the fold. One row says who is here and who is resting. */
+.roster-toggle {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  width: 100%;
+  min-height: var(--tap);
+  padding: 0 var(--space-2);
+  margin-bottom: var(--space-1);
+  font: inherit;
+  color: var(--ink);
+  background: var(--surface);
+  border: 1.5px solid var(--line);
+  border-radius: var(--radius);
+  cursor: pointer;
+  text-align: left;
+}
+
+.roster-toggle-title {
+  font-weight: 700;
+}
+
+.roster-toggle-count {
+  font-weight: 700;
+  color: var(--court-ink);
+}
+
+.roster-toggle-resting {
+  padding: 0 var(--space-1);
+  font-size: var(--text-xs);
+  font-weight: 700;
+  color: var(--accent-ink);
+  background: var(--accent-soft);
+  border-radius: var(--radius-pill);
+}
+
+.roster-toggle-action {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-0);
+  margin-left: auto;
+  font-size: var(--text-sm);
+  color: var(--ink-soft);
+}
+
+.roster-chevron {
+  transition: transform var(--duration-base) var(--ease-out);
+}
+
+.roster-chevron.is-open {
+  transform: rotate(180deg);
+}
+
+@media (hover: hover) {
+  .roster-toggle:hover {
+    border-color: var(--court);
+    background: var(--court-soft);
+  }
+}
+
+.roster-tip {
+  margin: 0 0 var(--space-1);
+  font-size: var(--text-xs);
+  color: var(--ink-soft);
+}
+
 /* The roster chips are the rest control. A resting player stays visible and
    legible — the host still needs to find them to tap them back in — so this is
    a struck-through muted state, not a hidden one. */

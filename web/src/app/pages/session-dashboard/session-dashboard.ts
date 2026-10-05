@@ -13,6 +13,7 @@ import { FlipListDirective } from '../../core/motion/flip-list.directive';
 import { Odometer } from '../../core/motion/odometer';
 import { PressDirective } from '../../core/motion/press.directive';
 import { RevealDirective } from '../../core/motion/reveal.directive';
+import { Icon } from '../../shared/icon/icon';
 import { LineupQueue } from './lineup-queue/lineup-queue';
 import { CourtPanel } from './court-panel/court-panel';
 import { EarlyCheckoutDialog, type CheckoutPlayer, type SettledPlayer } from './early-checkout-dialog/early-checkout-dialog';
@@ -34,11 +35,22 @@ import { describeRules, RULE_KIND_HINTS, ruleErrorMessage, ruleKindLabel, type C
 import type { PlayerStat } from '../../core/stats.model';
 import type { PlayerPanelRow } from '../../core/player-panel.model';
 
+const ROSTER_OPEN_KEY = 'jubbad.dashboard.rosterOpen';
+
+function readRosterOpen(): boolean {
+  try {
+    return localStorage.getItem(ROSTER_OPEN_KEY) === '1';
+  } catch {
+    return false;
+  }
+}
+
 @Component({
   selector: 'app-session-dashboard',
   imports: [
     CourtPanel,
     LineupQueue,
+    Icon,
     CourtLabelEditor,
     RouterLink,
     FlipListDirective,
@@ -211,6 +223,30 @@ export class SessionDashboard implements OnDestroy {
     }
     this.playerPanelResource.reload();
     void this.loadLevels();
+  }
+
+  /**
+   * The roster is a wall of chips on a 60-player night and pushes every court
+   * below the fold, so it starts collapsed. A collapsed roster still shows the
+   * players who need the host (resting or checked out), so bringing someone
+   * back is one tap either way. Remembered per device, never required.
+   */
+  protected readonly rosterOpen = signal(readRosterOpen());
+  protected readonly restingCount = computed(
+    () => this.rosterEntries().filter((p) => p.resting || p.checkedOut).length
+  );
+  protected readonly visibleRoster = computed(() =>
+    this.rosterOpen() ? this.rosterEntries() : this.rosterEntries().filter((p) => p.resting || p.checkedOut)
+  );
+
+  protected toggleRoster(): void {
+    const next = !this.rosterOpen();
+    this.rosterOpen.set(next);
+    try {
+      localStorage.setItem(ROSTER_OPEN_KEY, next ? '1' : '0');
+    } catch {
+      // Private window or blocked storage: the toggle still works for this visit.
+    }
   }
 
   readonly rosterEntries = computed(() => {

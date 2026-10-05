@@ -63,6 +63,8 @@ describe('SessionDashboard', () => {
   let httpMock: HttpTestingController;
 
   beforeEach(async () => {
+    // The roster starts collapsed in the app; most specs here drive its chips, so they start expanded.
+    localStorage.setItem('jubbad.dashboard.rosterOpen', '1');
     await TestBed.configureTestingModule({
       imports: [SessionDashboard],
       providers: [
@@ -1404,6 +1406,50 @@ describe('SessionDashboard', () => {
     expect(
       (fixture.nativeElement.querySelector('.clipboard-fallback') as HTMLTextAreaElement).value
     ).toBe(`${location.origin}/s/sess1/display`);
+  });
+
+  describe('collapsible roster', () => {
+    async function load(overrides: Parameters<typeof baseSession>[0]) {
+      fixture = TestBed.createComponent(SessionDashboard);
+      fixture.detectChanges();
+      httpMock.expectOne(`${B}/sessions/sess1`).flush(baseSession(overrides));
+      await new Promise((r) => setTimeout(r, 0));
+      TestBed.tick();
+      for (const r of httpMock.match(`${B}/groups/group1/players`)) {
+        r.flush([
+          { id: 'p1', name: 'ตั้ม', aliases: [] },
+          { id: 'p2', name: 'เบส', aliases: [] },
+          { id: 'p3', name: 'โอ', aliases: [] },
+        ]);
+      }
+      for (const r of httpMock.match(`${B}/sessions/sess1/stats?scope=session`)) r.flush([]);
+      await new Promise((r) => setTimeout(r, 0));
+      fixture.detectChanges();
+    }
+    const chips = () =>
+      Array.from((fixture.nativeElement as HTMLElement).querySelectorAll('.roster-chips .chip')).map((b) =>
+        b.textContent?.replace(/\s+/g, ' ').trim()
+      );
+    const toggle = () => (fixture.nativeElement as HTMLElement).querySelector('[data-roster-toggle]') as HTMLButtonElement;
+
+    it('starts collapsed, showing only the count and the players who are resting', async () => {
+      localStorage.removeItem('jubbad.dashboard.rosterOpen');
+      await load({ rosterPlayerIds: ['p1', 'p2', 'p3'], restingPlayerIds: ['p2'] });
+      expect(toggle().getAttribute('aria-expanded')).toBe('false');
+      expect(toggle().textContent).toContain('3');
+      expect(chips()).toEqual(['เบส']);
+    });
+
+    it('expands to every player and remembers the choice', async () => {
+      localStorage.removeItem('jubbad.dashboard.rosterOpen');
+      await load({ rosterPlayerIds: ['p1', 'p2', 'p3'], restingPlayerIds: [] });
+      expect(chips()).toEqual([]);
+      toggle().click();
+      fixture.detectChanges();
+      expect(toggle().getAttribute('aria-expanded')).toBe('true');
+      expect(chips()).toEqual(['ตั้ม', 'เบส', 'โอ']);
+      expect(localStorage.getItem('jubbad.dashboard.rosterOpen')).toBe('1');
+    });
   });
 
   it('keeps the waiting list compact while its natural spot is below the screen, and opens it once scrolled to', async () => {

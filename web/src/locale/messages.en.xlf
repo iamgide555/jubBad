@@ -986,7 +986,7 @@
         </context-group>
       </trans-unit>
       <trans-unit id="dashboard.rosterLabel" datatype="html">
-        <source>ผู้เล่นวันนี้ — แตะเพื่อพัก</source><target>Playing today — tap to rest</target>
+        <source>ผู้เล่นวันนี้</source><target>Players tonight</target>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/session-dashboard/session-dashboard.html</context>
           <context context-type="linenumber">3</context>
@@ -4004,6 +4004,41 @@
         <source>กำลังเล่น</source><target>Playing</target>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/session-dashboard/lineup-queue/lineup-queue.html</context>
+          <context context-type="linenumber">1</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="dashboard.rosterResting" datatype="html">
+        <source>พัก <x id="INTERPOLATION" equiv-text="{{ restingCount() }}"/></source><target>Resting <x id="INTERPOLATION" equiv-text="{{ restingCount() }}"/></target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/session-dashboard/session-dashboard.html</context>
+          <context context-type="linenumber">1</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="dashboard.rosterHide" datatype="html">
+        <source>ซ่อน</source><target>Hide</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/session-dashboard/session-dashboard.html</context>
+          <context context-type="linenumber">1</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="dashboard.rosterShow" datatype="html">
+        <source>แสดงทั้งหมด</source><target>Show all</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/session-dashboard/session-dashboard.html</context>
+          <context context-type="linenumber">1</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="dashboard.rosterTipOpen" datatype="html">
+        <source>แตะชื่อเพื่อพัก หรือกลับมาเล่น</source><target>Tap a name to rest or bring back</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/session-dashboard/session-dashboard.html</context>
+          <context context-type="linenumber">1</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="dashboard.rosterTipResting" datatype="html">
+        <source>พักอยู่ — แตะชื่อเพื่อกลับมาเล่น</source><target>Resting — tap a name to bring them back</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/session-dashboard/session-dashboard.html</context>
           <context context-type="linenumber">1</context>
         </context-group>
       </trans-unit>

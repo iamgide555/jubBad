@@ -31,6 +31,24 @@
       <hr class="rule" />
     }
 
+    <ng-template #lineupLaunch let-where="where">
+      @if (!ended()) {
+        <div class="lineup-launch" [class.in-rail]="where === 'rail'" [class.in-toolbar]="where === 'toolbar'">
+          <button type="button" class="lineup-launch-btn" appPress data-lineup-open (click)="openLineups()">
+            <span i18n="@@lineup.title">คิวล่วงหน้า</span>
+            @if (liveSession.lineupQueue().length > 0) {
+              <span class="lineup-launch-count tabular">{{ liveSession.lineupQueue().length }}</span>
+            }
+          </button>
+          @if (where === 'rail' && lineupPreview(); as preview) {
+            <p class="lineup-launch-preview" data-lineup-preview>
+              <ng-container i18n="@@lineup.nextPrefix">ถัดไป:</ng-container> {{ preview }}
+            </p>
+          }
+        </div>
+      }
+    </ng-template>
+
     <button
       type="button"
       class="roster-toggle"
@@ -209,6 +227,7 @@
             จัดคู่ทุกคอร์ทว่าง
           </button>
         }
+        <ng-container *ngTemplateOutlet="lineupLaunch; context: { where: 'toolbar' }" />
         @if (courtCount() > 1 && liveSession.waitingPlayerIds().length > 1) {
           <button
             type="button"
@@ -308,7 +327,7 @@
     }
 
     @if (!ended()) {
-      <app-lineup-queue [players]="players()" [waiting]="waiting()" />
+      <app-lineup-queue #lineupQueue [players]="players()" [waiting]="waiting()" />
     }
 
     <div class="courts-list">
@@ -339,6 +358,9 @@
 
       <div #benchAnchor class="bench-anchor" aria-hidden="true"></div>
       <div class="waiting-queue" [class.is-stuck]="benchStuck()" appFlipList>
+        <div class="wq-lineup">
+          <ng-container *ngTemplateOutlet="lineupLaunch; context: { where: 'rail' }" />
+        </div>
         <div class="wq-head">
           <h4 class="label" i18n="@@dashboard.waiting">รอคิว</h4>
           <span class="wq-count tabular">{{ waiting().length }}</span>

@@ -348,6 +348,17 @@ export class LiveSessionService {
     return this.post(`queue/${id}/move`, { direction }, $localize`:@@err.moveLineup:ย้ายคิวไม่สำเร็จ`, true);
   }
 
+  async clearLineups(): Promise<ActionResult> {
+    try {
+      await firstValueFrom(this.http.delete(`${this.base}/sessions/${this.sessionCode}/queue`));
+      this.sessionResource.reload();
+      return { ok: true };
+    } catch {
+      this.sessionResource.reload();
+      return { ok: false, error: $localize`:@@err.clearLineups:ล้างคิวล่วงหน้าไม่สำเร็จ` };
+    }
+  }
+
   async removeLineup(id: string): Promise<ActionResult> {
     try {
       await firstValueFrom(this.http.delete(`${this.base}/sessions/${this.sessionCode}/queue/${id}`));

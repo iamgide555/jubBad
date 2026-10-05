@@ -2332,6 +2332,13 @@ export class SessionsService {
     });
   }
 
+  clearLineups(sessionCode: string) {
+    return this.lock.run(sessionCode, async () => {
+      await this.prisma.queuedMatch.deleteMany({ where: { sessionId: sessionCode } });
+      return { ok: true as const };
+    });
+  }
+
   moveLineup(sessionCode: string, id: string, dto: MoveLineupDto) {
     return this.lock.run(sessionCode, async () => {
       const entries = await this.prisma.queuedMatch.findMany({

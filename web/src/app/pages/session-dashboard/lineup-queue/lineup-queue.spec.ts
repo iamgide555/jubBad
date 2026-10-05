@@ -68,30 +68,99 @@ describe('LineupQueue', () => {
     expect(el().querySelector('.lq-flag')?.textContent?.trim()).toBe('พัก');
   });
 
-  it('builds a lineup from the draft and saves it on the first player picked', async () => {
+  const click = (selector: string, index = 0) => {
+    (el().querySelectorAll(selector)[index] as HTMLButtonElement).click();
+    fixture.detectChanges();
+  };
+  const pickerNames = () =>
+    Array.from(el().querySelectorAll('.lq-picker .chip-pick')).map((b) => b.textContent?.replace(/\s+/g, ' ').trim());
+
+  it('keeps a new lineup local until Save, then sends the whole lineup in one request', async () => {
     await load(session());
-    (el().querySelector('.lq-add') as HTMLButtonElement).click();
-    fixture.detectChanges();
-    (el().querySelector('.is-draft .lq-seat') as HTMLButtonElement).click();
-    fixture.detectChanges();
+    click('.lq-add');
+    click('.is-draft .lq-seat');
+    expect(pickerNames()).toEqual(['ตั้ม', 'เบส', 'ปอ']);
 
-    const chips = Array.from(el().querySelectorAll('.lq-picker .chip-pick')).map((b) => b.textContent?.trim());
-    expect(chips).toEqual(['ตั้ม', 'เบส', 'ปอ']);
+    click('.lq-picker .chip-pick');
+    click('.is-draft .lq-seat', 2);
+    click('.lq-picker .chip-pick'); // เบส
+    // Two players placed and nothing has gone to the server yet.
+    http.expectNone(`${B}/sessions/sess1/queue`);
 
-    (el().querySelector('.lq-picker .chip-pick') as HTMLButtonElement).click();
+    click('.lq-save');
     const req = http.expectOne(`${B}/sessions/sess1/queue`);
-    expect(req.request.body).toEqual({ teamA: ['p1', null], teamB: [null, null] });
+    expect(req.request.method).toBe('POST');
+    expect(req.request.body).toEqual({ teamA: ['p1', null], teamB: ['p2', null] });
     req.flush({ ok: true, id: 'q1' });
+  });
+
+  it('cannot Save an empty draft, and Cancel discards it', async () => {
+    await load(session());
+    click('.lq-add');
+    expect((el().querySelector('.lq-save') as HTMLButtonElement).disabled).toBe(true);
+    click('.lq-cancel');
+    expect(el().querySelector('.is-draft')).toBeNull();
+  });
+
+  it('keeps the draft when the server refuses it, showing the reason', async () => {
+    await load(session());
+    click('.lq-add');
+    click('.is-draft .lq-seat');
+    click('.lq-picker .chip-pick');
+    click('.lq-save');
+    http
+      .expectOne(`${B}/sessions/sess1/queue`)
+      .flush({ code: 'PLAYER_ALREADY_QUEUED' }, { status: 409, statusText: 'Conflict' });
+    await new Promise((r) => setTimeout(r, 0));
+    fixture.detectChanges();
+    expect(el().querySelector('.lq-error')?.textContent).toContain('ผู้เล่นคนนี้อยู่ในคิวล่วงหน้าแล้ว');
+    expect(el().querySelector('.is-draft .lq-seat:not(.is-empty)')).toBeTruthy();
   });
 
   it('leaves players already lined up out of the picker', async () => {
     await load(session({
       lineupQueue: [{ id: 'q1', position: 0, teamA: ['p1', null], teamB: [null, null], blocked: [] }],
     }));
-    (el().querySelectorAll('.lq-entry .lq-seat')[1] as HTMLButtonElement).click();
+    click('.lq-add');
+    click('.is-draft .lq-seat');
+    expect(pickerNames()).toEqual(['เบส', 'ปอ']);
+  });
+
+  it('edits a saved lineup as a copy and saves it through replace', async () => {
+    await load(session({
+      lineupQueue: [{ id: 'q1', position: 0, teamA: ['p3', 'p4'], teamB: [null, null], blocked: [] }],
+    }));
+    click('.lq-entry .lq-seat', 0); // starts an edit of q1
+    click('.is-draft .lq-seat', 0); // takes p3 out of the copy
+    http.expectNone(`${B}/sessions/sess1/queue/q1`);
+    click('.lq-save');
+    const req = http.expectOne(`${B}/sessions/sess1/queue/q1`);
+    expect(req.request.method).toBe('POST');
+    expect(req.request.body).toEqual({ teamA: [null, 'p4'], teamB: [null, null] });
+    req.flush({ ok: true });
+  });
+
+  it('drops an edit whose lineup a court has just taken', async () => {
+    await load(session({
+      lineupQueue: [{ id: 'q1', position: 0, teamA: ['p3', 'p4'], teamB: [null, null], blocked: [] }],
+    }));
+    click('.lq-entry .lq-seat', 0);
+    expect(el().querySelector('.lq-save')).toBeTruthy();
+    TestBed.inject(LiveSessionService).sessionResource.set(session({ lineupQueue: [] }));
+    await new Promise((r) => setTimeout(r, 0));
+    TestBed.tick();
     fixture.detectChanges();
-    const chips = Array.from(el().querySelectorAll('.lq-picker .chip-pick')).map((b) => b.textContent?.trim());
-    expect(chips).toEqual(['เบส', 'ปอ']);
+    expect(el().querySelector('.lq-save')).toBeNull();
+  });
+
+  it('clears every lineup with one request', async () => {
+    await load(session({
+      lineupQueue: [{ id: 'q1', position: 0, teamA: ['p3', null], teamB: [null, null], blocked: [] }],
+    }));
+    click('.lq-clear');
+    const req = http.expectOne(`${B}/sessions/sess1/queue`);
+    expect(req.request.method).toBe('DELETE');
+    req.flush({ ok: true });
   });
 
   it('offers players who are still playing too, after the waiting ones, and not resting ones', async () => {
@@ -102,22 +171,19 @@ describe('LineupQueue', () => {
     }));
     fixture.componentRef.setInput('waiting', [{ id: 'p9', name: 'ว่าง' }]);
     fixture.detectChanges();
-    (el().querySelector('.lq-add') as HTMLButtonElement).click();
-    fixture.detectChanges();
-    (el().querySelector('.is-draft .lq-seat') as HTMLButtonElement).click();
-    fixture.detectChanges();
+    click('.lq-add');
+    click('.is-draft .lq-seat');
     const chips = Array.from(el().querySelectorAll('.lq-picker .chip-pick')).map((b) => b.textContent?.replace(/\s+/g, ' ').trim());
     expect(chips).toEqual(['ว่าง', 'โอ กำลังเล่น', 'นัท กำลังเล่น', 'ตั้ม กำลังเล่น', 'เบส กำลังเล่น']);
   });
 
-  it('tapping an occupied seat removes that player, and the last one removes the lineup', async () => {
+  it('deleting a saved lineup is immediate', async () => {
     await load(session({
-      lineupQueue: [{ id: 'q1', position: 0, teamA: ['p3', 'p4'], teamB: [null, null], blocked: [] }],
+      lineupQueue: [{ id: 'q1', position: 0, teamA: ['p3', null], teamB: [null, null], blocked: [] }],
     }));
-    (el().querySelectorAll('.lq-entry .lq-seat')[0] as HTMLButtonElement).click();
-    const edit = http.expectOne(`${B}/sessions/sess1/queue/q1`);
-    expect(edit.request.method).toBe('POST');
-    expect(edit.request.body).toEqual({ teamA: [null, 'p4'], teamB: [null, null] });
-    edit.flush({ ok: true });
+    click('.lq-tool', 2);
+    const req = http.expectOne(`${B}/sessions/sess1/queue/q1`);
+    expect(req.request.method).toBe('DELETE');
+    req.flush({ ok: true });
   });
 });

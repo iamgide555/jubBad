@@ -1,28 +1,59 @@
-.lineup-queue {
-  margin: var(--space-3, 1rem) 0;
+.lineup-dialog {
+  border: none;
+  border-radius: var(--radius-lg);
+  padding: var(--space-3);
+  background: var(--surface);
+  color: var(--ink);
+  box-shadow: var(--shadow-lg);
+  width: min(34rem, calc(100vw - 2 * var(--space-3)));
+  max-height: calc(100dvh - 2 * var(--space-3));
+  overflow-y: auto;
 }
 
-.lq-head {
+.lineup-dialog::backdrop {
+  background: rgba(0, 0, 0, 0.5);
+}
+
+/* A phone gets a bottom sheet: the thumb reaches it and the courts stay behind it. */
+@media (max-width: 40rem) {
+  .lineup-dialog {
+    margin: auto 0 0;
+    width: 100%;
+    max-width: none;
+    max-height: 90dvh;
+    border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+    padding-bottom: calc(var(--space-3) + env(safe-area-inset-bottom, 0px));
+  }
+}
+
+.lq-top {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 0.75rem;
+  gap: var(--space-2);
 }
 
-.lq-add {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-0);
+.lq-title {
+  margin: 0;
+  font-size: var(--text-xl);
+}
+
+.lq-done {
   font: inherit;
-  font-size: var(--text-sm);
   font-weight: 700;
   min-height: var(--tap);
-  padding: 0 1rem;
-  color: var(--court);
-  background: var(--court-soft);
-  border: 1px solid var(--court);
-  border-radius: 999px;
+  padding: 0 var(--space-3);
+  color: #fff;
+  background: var(--court);
+  border: none;
+  border-radius: var(--radius);
   cursor: pointer;
+}
+
+.lq-sub {
+  margin: var(--space-0) 0 var(--space-2);
+  font-size: var(--text-sm);
+  color: var(--ink-soft);
 }
 
 .lq-entry {
@@ -41,7 +72,7 @@
   flex: 0 0 1.5rem;
   text-align: center;
   font-weight: 800;
-  color: var(--court);
+  color: var(--court-ink);
 }
 
 .lq-match {
@@ -105,10 +136,13 @@
 }
 
 .lq-tool {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   font: inherit;
   min-width: var(--tap);
   min-height: var(--tap);
-  color: var(--ink);
+  color: var(--ink-soft);
   background: transparent;
   border: 1px solid transparent;
   border-radius: 0.5rem;
@@ -118,6 +152,17 @@
 .lq-tool:disabled {
   opacity: 0.3;
   cursor: default;
+}
+
+.lq-tool .flip-up {
+  transform: rotate(180deg);
+}
+
+@media (hover: hover) {
+  .lq-tool:not(:disabled):hover {
+    color: var(--ink);
+    background: var(--ground-sunk);
+  }
 }
 
 .lq-picker {
@@ -136,18 +181,6 @@
   cursor: pointer;
 }
 
-.lq-hint {
-  font-size: var(--text-sm);
-  color: var(--ink-soft);
-  margin: 0.25rem 0 0;
-}
-
-.lq-error {
-  color: var(--warn);
-  font-size: var(--text-sm);
-  margin: 0.5rem 0 0;
-}
-
 .lq-picker .chip-pick.is-playing {
   opacity: 0.7;
   border-style: dashed;
@@ -157,20 +190,72 @@
   color: var(--ink-soft);
 }
 
-.lq-tool {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
+.lq-hint,
+.lq-empty {
+  margin: var(--space-1) 0 0;
+  font-size: var(--text-sm);
   color: var(--ink-soft);
 }
 
-.lq-tool .flip-up {
-  transform: rotate(180deg);
+.lq-error {
+  color: var(--warn);
+  font-size: var(--text-sm);
+  margin: var(--space-1) 0 0;
 }
 
-@media (hover: hover) {
-  .lq-tool:not(:disabled):hover {
-    color: var(--ink);
-    background: var(--ground-sunk);
-  }
+.lq-actions {
+  display: flex;
+  gap: var(--space-1);
+  padding: var(--space-1) 0;
+}
+
+.lq-save,
+.lq-cancel,
+.lq-add,
+.lq-clear {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-0);
+  font: inherit;
+  font-weight: 700;
+  min-height: var(--tap);
+  padding: 0 var(--space-3);
+  border-radius: var(--radius);
+  cursor: pointer;
+}
+
+.lq-save {
+  color: #fff;
+  background: var(--court);
+  border: none;
+}
+
+.lq-save:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.lq-cancel,
+.lq-clear {
+  color: var(--ink);
+  background: transparent;
+  border: 1.5px solid var(--line);
+}
+
+.lq-clear {
+  margin-left: auto;
+  color: var(--warn);
+}
+
+.lq-add {
+  color: var(--court-ink);
+  background: var(--court-soft);
+  border: 1px solid var(--court);
+}
+
+.lq-foot {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  margin-top: var(--space-2);
 }

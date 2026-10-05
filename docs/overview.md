@@ -759,11 +759,21 @@ one.
 - **Validated at queue time:** players active (resting is refused), not in
   another entry, no duplicates, legal under the pair rules.
 
-The dashboard's queue panel picks players inline (tap a seat, then any player —
-waiting ones first, those still playing marked), so adding to the queue never
-needs a scroll to the page's waiting list. Separately, the waiting list is
-always pinned to the bottom of the screen, compact (about three rows) until the
-host scrolls down to its natural spot, so a substitution needs no scroll either.
+The lineups live behind a "คิวล่วงหน้า (N)" button that opens a dialog (a bottom
+sheet on a phone); clicking outside or Esc closes it. A lineup is built as a
+**local draft and only Save sends it**: saving on the first pick would let a
+freeing court take a half-built lineup and would reserve the player before the
+host decided. The draft survives closing the dialog until Save, Cancel or Clear;
+editing a saved lineup works on a copy the same way. Delete, reorder and
+"ล้างทั้งหมด" (`DELETE :code/queue`) are immediate, since they cannot start
+anything. Players are picked inside the dialog (waiting ones first, those still
+playing marked), so lining someone up never needs a scroll to the waiting list.
+
+The waiting list is pinned to the bottom of the screen as a compact tray (about
+three rows) until the host scrolls to its natural spot, where it opens up. At
+>= 90rem it becomes a sticky left rail instead (one player per row, always full
+size) carrying the lineup button and a one-line "ถัดไป: …" preview of the first
+queued lineup; the preview is wide-screen only.
 
 ### Bill (C3)
 

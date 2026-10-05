@@ -1408,6 +1408,58 @@ describe('SessionDashboard', () => {
     ).toBe(`${location.origin}/s/sess1/display`);
   });
 
+  describe('lineup launcher', () => {
+    async function load(overrides: Parameters<typeof baseSession>[0]) {
+      fixture = TestBed.createComponent(SessionDashboard);
+      fixture.detectChanges();
+      httpMock.expectOne(`${B}/sessions/sess1`).flush(baseSession(overrides));
+      await new Promise((r) => setTimeout(r, 0));
+      TestBed.tick();
+      for (const r of httpMock.match(`${B}/groups/group1/players`)) {
+        r.flush([
+          { id: 'p1', name: 'ตั้ม', aliases: [] },
+          { id: 'p2', name: 'เบส', aliases: [] },
+          { id: 'p3', name: 'โอ', aliases: [] },
+        ]);
+      }
+      for (const r of httpMock.match(`${B}/sessions/sess1/stats?scope=session`)) r.flush([]);
+      await new Promise((r) => setTimeout(r, 0));
+      fixture.detectChanges();
+    }
+    const root = () => fixture.nativeElement as HTMLElement;
+
+    it('has no inline lineup panel above the courts, only launch buttons with the count', async () => {
+      await load({
+        rosterPlayerIds: ['p1', 'p2', 'p3'],
+        lineupQueue: [
+          { id: 'q1', position: 0, teamA: ['p1', null], teamB: ['p2', null], blocked: [] },
+          { id: 'q2', position: 1, teamA: ['p3', null], teamB: [null, null], blocked: [] },
+        ],
+      });
+      expect(root().querySelector('.courts-list')!.previousElementSibling?.classList.contains('lineup-queue')).toBe(false);
+      const buttons = Array.from(root().querySelectorAll('[data-lineup-open]'));
+      expect(buttons.length).toBe(2); // toolbar copy and rail copy; CSS shows one per width
+      for (const b of buttons) expect(b.querySelector('.lineup-launch-count')?.textContent?.trim()).toBe('2');
+    });
+
+    it('previews the next lineup in the rail copy only', async () => {
+      await load({
+        rosterPlayerIds: ['p1', 'p2', 'p3'],
+        lineupQueue: [{ id: 'q1', position: 0, teamA: ['p1', 'p3'], teamB: ['p2', null], blocked: [] }],
+      });
+      const preview = root().querySelectorAll('[data-lineup-preview]');
+      expect(preview.length).toBe(1);
+      expect(preview[0].closest('.wq-lineup')).toBeTruthy();
+      expect(preview[0].textContent?.replace(/\s+/g, ' ').trim()).toBe('ถัดไป: ตั้ม·โอ vs เบส·…');
+    });
+
+    it('shows no preview and no count when nothing is queued', async () => {
+      await load({ rosterPlayerIds: ['p1', 'p2', 'p3'] });
+      expect(root().querySelector('[data-lineup-preview]')).toBeNull();
+      expect(root().querySelector('.lineup-launch-count')).toBeNull();
+    });
+  });
+
   describe('collapsible roster', () => {
     async function load(overrides: Parameters<typeof baseSession>[0]) {
       fixture = TestBed.createComponent(SessionDashboard);

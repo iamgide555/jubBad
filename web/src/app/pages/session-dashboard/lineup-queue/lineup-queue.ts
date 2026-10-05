@@ -1,5 +1,5 @@
 import { NgTemplateOutlet } from '@angular/common';
-import { Component, computed, input, signal } from '@angular/core';
+import { Component, ElementRef, computed, effect, input, signal, viewChild } from '@angular/core';
 import { PressDirective } from '../../../core/motion/press.directive';
 import { Icon } from '../../../shared/icon/icon';
 import { LiveSessionService } from '../../../core/live-session.service';
@@ -7,27 +7,31 @@ import { resolvePlayerNames } from '../../../core/player-names';
 import type { Seat } from '../../../core/live-session.model';
 import type { Player } from '../../../../../../engines/fuzzy-match.ts';
 
-/** Which seat the host is filling: a saved lineup, or the not-yet-saved draft. */
-interface Target {
-  entryId: string | 'draft';
-  team: 'A' | 'B';
-  index: number;
-}
-
-interface Teams {
+/** A lineup being built or edited. `entryId` is null for a new one. Nothing reaches the server until Save. */
+interface Draft {
+  entryId: string | null;
   teamA: Seat[];
   teamB: Seat[];
 }
 
-const EMPTY_DRAFT = (): Teams => ({ teamA: [null, null], teamB: [null, null] });
+/** Which seat of the draft the host is choosing a player for. */
+interface Picking {
+  team: 'A' | 'B';
+  index: number;
+}
+
+const EMPTY_TEAM = (): Seat[] => [null, null];
 
 /**
- * Lineups the host sets before a court is free. When a court goes idle the
- * server seats the first lineup that fits and the engine completes any open
- * seats, so a partial lineup ("these two together") is as valid as a full one.
+ * The pre-set lineup dialog. Lineups the host sets before a court is free: when
+ * a court goes idle the server seats the first lineup that fits and the engine
+ * completes any open seats, so a partial lineup ("these two together") is as
+ * valid as a full one.
  *
- * Picking happens inside this panel: tap an open seat and the waiting players
- * appear right underneath, so nothing needs a scroll to the page's waiting list.
+ * A lineup is built as a local draft and only Save sends it. Saving on the first
+ * pick would let a freeing court take a half-built lineup, and would reserve the
+ * player before the host had decided. The draft lives in this component, so
+ * closing the dialog (backdrop click, Esc) keeps it until Save, Cancel or Clear.
  */
 @Component({
   selector: 'app-lineup-queue',
@@ -40,20 +44,31 @@ export class LineupQueue {
   /** Players waiting for a court, longest-waiting first. */
   readonly waiting = input<{ id: string; name: string }[]>([]);
 
-  protected readonly draft = signal<Teams | null>(null);
-  protected readonly picking = signal<Target | null>(null);
+  private readonly dialog = viewChild.required<ElementRef<HTMLDialogElement>>('dialog');
+
+  protected readonly draft = signal<Draft | null>(null);
+  protected readonly picking = signal<Picking | null>(null);
   protected readonly error = signal<string | null>(null);
   protected readonly busy = signal(false);
 
-  constructor(protected liveSession: LiveSessionService) {}
+  constructor(protected liveSession: LiveSessionService) {
+    // A lineup a court has just taken (or another device removed) cannot be edited any more.
+    effect(() => {
+      const d = this.draft();
+      if (d?.entryId && !this.liveSession.lineupQueue().some((e) => e.id === d.entryId)) {
+        this.draft.set(null);
+        this.picking.set(null);
+      }
+    });
+  }
 
-  private readonly names = computed(() => {
-    const ids = [
-      ...this.liveSession.lineupQueue().flatMap((e) => [...e.teamA, ...e.teamB]),
-      ...(this.draft() ? [...this.draft()!.teamA, ...this.draft()!.teamB] : []),
-    ].filter((id): id is string => id !== null);
-    return new Map(ids.map((id, i) => [id, resolvePlayerNames([id], this.players())[0] ?? ids[i]]));
-  });
+  open(): void {
+    this.dialog().nativeElement.showModal();
+  }
+
+  protected close(): void {
+    this.dialog().nativeElement.close();
+  }
 
   protected readonly emptySeatLabel = $localize`:@@lineup.emptySeatLabel:เลือกผู้เล่นให้ช่องนี้`;
 
@@ -61,23 +76,49 @@ export class LineupQueue {
     return $localize`:@@lineup.removeSeatLabel:เอา ${name}:name: ออกจากคิว`;
   }
 
+  private readonly names = computed(() => {
+    const d = this.draft();
+    const ids = [
+      ...this.liveSession.lineupQueue().flatMap((e) => [...e.teamA, ...e.teamB]),
+      ...(d ? [...d.teamA, ...d.teamB] : []),
+    ].filter((id): id is string => id !== null);
+    const resolved = resolvePlayerNames(ids, this.players());
+    return new Map(ids.map((id, i) => [id, resolved[i]]));
+  });
+
   protected nameOf(id: Seat): string | null {
     return id === null ? null : (this.names().get(id) ?? id);
   }
 
+  /** The saved lineup being edited sits in the list as its draft editor instead. */
+  protected isEditing(entryId: string): boolean {
+    return this.draft()?.entryId === entryId;
+  }
+
+  protected readonly canSave = computed(() => {
+    const d = this.draft();
+    return d !== null && [...d.teamA, ...d.teamB].some((id) => id !== null) && !this.busy();
+  });
+
   /**
    * Everyone who can still be lined up: waiting players first, in queue order,
    * then those still on a court (their lineup simply waits until they finish).
-   * Resting players are left out, and nobody already in a lineup appears twice.
+   * Resting players are left out, as is anyone already in another lineup or in
+   * this draft. A lineup being edited keeps its own players selectable.
    */
   protected readonly pickable = computed(() => {
-    const queued = this.liveSession.queuedPlayerIds();
-    const inDraft = new Set(
-      this.draft() ? [...this.draft()!.teamA, ...this.draft()!.teamB].filter((id) => id !== null) : []
+    const d = this.draft();
+    const taken = new Set<string>(
+      this.liveSession
+        .lineupQueue()
+        .filter((e) => e.id !== d?.entryId)
+        .flatMap((e) => [...e.teamA, ...e.teamB])
+        .filter((id): id is string => id !== null)
     );
-    const taken = (id: string) => queued.has(id) || inDraft.has(id);
+    for (const id of d ? [...d.teamA, ...d.teamB] : []) if (id !== null) taken.add(id);
+
     const waiting = this.waiting()
-      .filter((w) => !taken(w.id))
+      .filter((w) => !taken.has(w.id))
       .map((w) => ({ id: w.id, name: w.name, playing: false }));
     const resting = new Set(this.liveSession.restingPlayerIds());
     const seen = new Set(waiting.map((w) => w.id));
@@ -85,7 +126,7 @@ export class LineupQueue {
     for (const court of this.liveSession.courts()) {
       if (court.status === 'idle') continue;
       for (const id of [...court.teamA, ...court.teamB]) {
-        if (id !== null && !seen.has(id) && !resting.has(id) && !taken(id)) {
+        if (id !== null && !seen.has(id) && !resting.has(id) && !taken.has(id)) {
           seen.add(id);
           playingIds.push(id);
         }
@@ -101,35 +142,77 @@ export class LineupQueue {
     return entry?.blocked.find((b) => b.playerId === playerId)?.reason ?? null;
   }
 
-  protected isPicking(entryId: string, team: 'A' | 'B', index: number): boolean {
+  protected isPicking(team: 'A' | 'B', index: number): boolean {
     const p = this.picking();
-    return p !== null && p.entryId === entryId && p.team === team && p.index === index;
+    return p !== null && p.team === team && p.index === index;
   }
 
-  protected toggleDraft(): void {
+  protected startNew(): void {
     this.error.set(null);
     this.picking.set(null);
-    this.draft.update((d) => (d ? null : EMPTY_DRAFT()));
+    this.draft.set({ entryId: null, teamA: EMPTY_TEAM(), teamB: EMPTY_TEAM() });
   }
 
-  protected tapSeat(entryId: string | 'draft', team: 'A' | 'B', index: number): void {
+  /** Tapping a seat of a saved lineup opens a copy of it for editing. */
+  protected edit(entryId: string): void {
+    const entry = this.liveSession.lineupQueue().find((e) => e.id === entryId);
+    if (!entry) return;
     this.error.set(null);
-    const teams = this.teamsOf(entryId);
-    if (!teams) return;
-    const occupied = (team === 'A' ? teams.teamA : teams.teamB)[index] !== null;
-    if (occupied) {
+    this.picking.set(null);
+    this.draft.set({ entryId, teamA: [...entry.teamA], teamB: [...entry.teamB] });
+  }
+
+  protected cancelDraft(): void {
+    this.error.set(null);
+    this.picking.set(null);
+    this.draft.set(null);
+  }
+
+  protected tapSeat(team: 'A' | 'B', index: number): void {
+    const d = this.draft();
+    if (!d) return;
+    this.error.set(null);
+    const seats = team === 'A' ? d.teamA : d.teamB;
+    if (seats[index] !== null) {
       this.picking.set(null);
-      void this.setSeat(entryId, team, index, null);
+      this.setSeat(team, index, null);
       return;
     }
-    this.picking.update((p) => (p && this.isPicking(entryId, team, index) ? null : { entryId, team, index }));
+    this.picking.update((p) => (p && p.team === team && p.index === index ? null : { team, index }));
   }
 
   protected choose(playerId: string): void {
     const target = this.picking();
     if (!target) return;
     this.picking.set(null);
-    void this.setSeat(target.entryId, target.team, target.index, playerId);
+    this.setSeat(target.team, target.index, playerId);
+  }
+
+  private setSeat(team: 'A' | 'B', index: number, playerId: string | null): void {
+    this.draft.update((d) => {
+      if (!d) return d;
+      const next = { ...d, teamA: [...d.teamA], teamB: [...d.teamB] };
+      (team === 'A' ? next.teamA : next.teamB)[index] = playerId;
+      return next;
+    });
+  }
+
+  protected async save(): Promise<void> {
+    const d = this.draft();
+    if (!d || !this.canSave()) return;
+    this.busy.set(true);
+    const result = d.entryId
+      ? await this.liveSession.replaceLineup(d.entryId, d.teamA, d.teamB)
+      : await this.liveSession.addLineup(d.teamA, d.teamB);
+    this.busy.set(false);
+    if (result.ok) {
+      this.error.set(null);
+      this.picking.set(null);
+      this.draft.set(null);
+    } else {
+      // The draft stays, so the host can fix the seat the server objected to.
+      this.error.set(result.error ?? null);
+    }
   }
 
   protected async move(id: string, direction: 'up' | 'down'): Promise<void> {
@@ -140,44 +223,15 @@ export class LineupQueue {
 
   protected async remove(id: string): Promise<void> {
     this.error.set(null);
-    this.picking.set(null);
+    if (this.draft()?.entryId === id) this.cancelDraft();
     const result = await this.liveSession.removeLineup(id);
     this.error.set(result.ok ? null : (result.error ?? null));
   }
 
-  private teamsOf(entryId: string | 'draft'): Teams | null {
-    if (entryId === 'draft') return this.draft();
-    const entry = this.liveSession.lineupQueue().find((e) => e.id === entryId);
-    return entry ? { teamA: entry.teamA, teamB: entry.teamB } : null;
-  }
-
-  private async setSeat(entryId: string | 'draft', team: 'A' | 'B', index: number, playerId: string | null) {
-    const current = this.teamsOf(entryId);
-    if (!current) return;
-    const next: Teams = { teamA: [...current.teamA], teamB: [...current.teamB] };
-    (team === 'A' ? next.teamA : next.teamB)[index] = playerId;
-
-    if (entryId === 'draft') {
-      // Nothing is saved until the draft holds someone.
-      const anyone = [...next.teamA, ...next.teamB].some((id) => id !== null);
-      if (!anyone) {
-        this.draft.set(next);
-        return;
-      }
-      this.busy.set(true);
-      const result = await this.liveSession.addLineup(next.teamA, next.teamB);
-      this.busy.set(false);
-      if (result.ok) this.draft.set(null);
-      else this.error.set(result.error ?? null);
-      return;
-    }
-
-    const empty = [...next.teamA, ...next.teamB].every((id) => id === null);
-    this.busy.set(true);
-    const result = empty
-      ? await this.liveSession.removeLineup(entryId)
-      : await this.liveSession.replaceLineup(entryId, next.teamA, next.teamB);
-    this.busy.set(false);
+  protected async clearAll(): Promise<void> {
+    this.error.set(null);
+    this.cancelDraft();
+    const result = await this.liveSession.clearLineups();
     this.error.set(result.ok ? null : (result.error ?? null));
   }
 }

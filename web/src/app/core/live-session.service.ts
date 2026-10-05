@@ -628,10 +628,9 @@ export class LiveSessionService {
    * field from another tab. Available on an ended session's dashboard too —
    * this endpoint has no session-active guard on the server.
    */
-  /** The session's saved bill settings. Owner-only; the same read the bill page makes. */
-  async getBillConfig(): Promise<BillConfig> {
-    const bill = await firstValueFrom(this.http.get<BillResponse>(`${this.base}/sessions/${this.sessionCode}/bill`));
-    return bill.config;
+  /** The session's bill, with its saved settings and any settled early leavers. Owner-only. */
+  getBill(): Promise<BillResponse> {
+    return firstValueFrom(this.http.get<BillResponse>(`${this.base}/sessions/${this.sessionCode}/bill`));
   }
 
   /**
@@ -642,7 +641,7 @@ export class LiveSessionService {
    */
   async saveBillConfig(patch: Partial<BillConfig>): Promise<ActionResult> {
     try {
-      const current = await this.getBillConfig();
+      const current = (await this.getBill()).config;
       await firstValueFrom(
         this.http.post(`${this.base}/sessions/${this.sessionCode}/bill-config`, { ...current, ...patch })
       );

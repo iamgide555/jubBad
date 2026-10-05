@@ -24,9 +24,16 @@ const quote = (over: Partial<CheckoutPreview> = {}): CheckoutPreview => ({
 });
 const receipt: CheckoutReceipt = { id: 'r1', playerId: 'p1', model: 'perGame', amountSatang: 4500, breakdown, settledAt: '2026-10-01T10:00:00Z' };
 const billConfig = {
-  perGameRateSatang: 1500, entryFeeSatang: 0, buffetPriceSatang: 12000, startingFeeSatang: 2000,
-  perPlayerShuttleSatang: null, shuttleCharge: 'shared',
+  model: 'perGame', courtFeeSatang: null, courtSplit: 'equal', shuttleSplit: 'byGames',
+  perGameRateSatang: 1500, entryFeeSatang: 0, capSatang: null, buffetPriceSatang: 12000,
+  buffetShuttlesIncluded: true, startingFeeSatang: 2000, shuttleCharge: 'shared', perPlayerShuttleSatang: null,
+  hostFeeSatang: 0, walkInFeeSatang: 0, roundingBaht: 1, addedIds: [], removedIds: [], absentIds: [], overrides: [],
 };
+const bill = (over: { config?: object; settled?: object[] } = {}) => ({
+  session: { code: 's1', shuttleCount: null, shuttlePriceSatang: 8000 },
+  config: { ...billConfig, ...over.config },
+  settled: over.settled ?? [],
+});
 const http = (status: number, code?: string) => new HttpErrorResponse({ status, error: code ? { code } : null });
 
 describe('EarlyCheckoutDialog', () => {
@@ -36,7 +43,7 @@ describe('EarlyCheckoutDialog', () => {
     confirmCheckout: ReturnType<typeof vi.fn>;
     undoCheckout: ReturnType<typeof vi.fn>;
     setShuttleDetails: ReturnType<typeof vi.fn>;
-    getBillConfig: ReturnType<typeof vi.fn>;
+    getBill: ReturnType<typeof vi.fn>;
     saveBillConfig: ReturnType<typeof vi.fn>;
   };
   const el = () => fixture.nativeElement as HTMLElement;
@@ -53,7 +60,7 @@ describe('EarlyCheckoutDialog', () => {
       confirmCheckout: vi.fn().mockResolvedValue(receipt),
       undoCheckout: vi.fn().mockResolvedValue({ ok: true }),
       setShuttleDetails: vi.fn().mockResolvedValue({ ok: true }),
-      getBillConfig: vi.fn().mockResolvedValue(billConfig),
+      getBill: vi.fn().mockResolvedValue(bill()),
       saveBillConfig: vi.fn().mockResolvedValue({ ok: true }),
     };
     await TestBed.configureTestingModule({
@@ -159,62 +166,77 @@ describe('EarlyCheckoutDialog', () => {
   });
 
   const rate = (key: string) => el().querySelector(`[data-rate="${key}"]`) as HTMLInputElement;
-  const type = (key: string, value: string) => {
-    rate(key).value = value;
-    rate(key).dispatchEvent(new Event('input'));
+  const type = (selector: string, value: string) => {
+    const input = el().querySelector(selector) as HTMLInputElement;
+    input.value = value;
+    input.dispatchEvent(new Event('change'));
   };
 
   it('a missing shuttle price can be set right here and re-quotes', async () => {
     live.previewCheckout.mockRejectedValueOnce(http(409, 'MISSING_SHUTTLE_PRICE'));
+    live.getBill.mockResolvedValue(bill({ config: { model: 'perShuttle' } }));
     await openAndPick();
-    expect(text()).toContain('ยังไม่ได้ใส่ราคาลูกแบด');
+    // The refused quote opens the rates by itself.
     expect((el().querySelector('[data-rates]') as HTMLDetailsElement).open).toBe(true);
-    type('shuttlePrice', '80');
-    btn('[data-save-rates]').click();
+    btn('input[name="checkoutModel"][value="perShuttle"]').click();
+    await flush();
+    type('[data-shuttle-price]', '80');
     await flush();
     expect(live.setShuttleDetails).toHaveBeenCalledWith({ shuttlePriceSatang: 8000 });
-    expect(live.previewCheckout).toHaveBeenCalledTimes(2);
-    expect(el().querySelector('[data-checkout-total]')).toBeTruthy();
+    expect(live.previewCheckout).toHaveBeenCalledTimes(3);
   });
 
   it('refuses an invalid rate without calling the server', async () => {
-    live.previewCheckout.mockRejectedValueOnce(http(409, 'MISSING_SHUTTLE_PRICE'));
     await openAndPick();
-    type('shuttlePrice', '80.505');
-    btn('[data-save-rates]').click();
+    type('[data-rate="perGameRate"]', '80.505');
     await flush();
     expect(live.setShuttleDetails).not.toHaveBeenCalled();
     expect(live.saveBillConfig).not.toHaveBeenCalled();
     expect(text()).toContain('ใส่เป็นบาท');
   });
 
-  it('shows the saved rates for the model on screen and saves edits to the session settings', async () => {
+  it('shows the same settings as the bill page for the model on screen, and saves each edit', async () => {
     await openAndPick();
     expect(rate('perGameRate').value).toBe('15');
     expect(rate('entryFee').value).toBe('0');
+    expect(rate('cap')).toBeTruthy();
     expect(el().querySelector('[data-rate="startingFee"]')).toBeNull();
-    type('perGameRate', '20');
-    type('entryFee', '10.50');
-    btn('[data-save-rates]').click();
+    type('[data-rate="perGameRate"]', '20');
     await flush();
-    expect(live.saveBillConfig).toHaveBeenCalledWith({ perGameRateSatang: 2000, entryFeeSatang: 1050 });
-    expect(live.previewCheckout).toHaveBeenCalledTimes(2); // re-quoted with the new rates
-    expect(text()).toContain('บันทึกแล้ว');
+    expect(live.saveBillConfig).toHaveBeenCalledWith({ perGameRateSatang: 2000 });
+    expect(live.previewCheckout).toHaveBeenCalledTimes(2); // re-quoted with the new rate
   });
 
-  it('per-shuttle offers the starting fee and shuttle price, and a blank charge means follow the price', async () => {
-    live.previewCheckout.mockResolvedValue(quote({ model: 'perShuttle', shuttleCharge: 'full', shuttlePriceSatang: 8000 }));
+  it('per-shuttle offers the basis switch, and full charge adds the per-player charge', async () => {
+    live.getBill.mockResolvedValue(bill({ config: { shuttleCharge: 'full' } }));
     await openAndPick();
     btn('input[name="checkoutModel"][value="perShuttle"]').click();
     await flush();
     expect(rate('startingFee').value).toBe('20');
-    expect(rate('shuttlePrice').value).toBe('80');
+    expect((el().querySelector('[data-shuttle-price]') as HTMLInputElement).value).toBe('80');
     expect(rate('perPlayerShuttle').value).toBe('');
-    type('startingFee', '0');
-    btn('[data-save-rates]').click();
+    (el().querySelector('[data-charge-mode="shared"]') as HTMLButtonElement).click();
     await flush();
-    expect(live.saveBillConfig).toHaveBeenCalledWith({ startingFeeSatang: 0, perPlayerShuttleSatang: null });
-    expect(live.setShuttleDetails).toHaveBeenCalledWith({ shuttlePriceSatang: 8000 });
+    expect(live.saveBillConfig).toHaveBeenCalledWith({ shuttleCharge: 'shared' });
+  });
+
+  it('disables the shuttle basis switch once someone has been checked out under per-shuttle', async () => {
+    live.getBill.mockResolvedValue(bill({ settled: [{ id: 'r9', playerId: 'p9', model: 'perShuttle', amountSatang: 1000, name: 'x', settledAt: '' }] }));
+    await openAndPick();
+    btn('input[name="checkoutModel"][value="perShuttle"]').click();
+    await flush();
+    expect((el().querySelector('[data-charge-mode="full"]') as HTMLButtonElement).disabled).toBe(true);
+    expect(el().querySelector('[data-charge-locked]')).toBeTruthy();
+  });
+
+  it('buffet shows its price and the shuttles toggle; host fee, walk-in fee and rounding sit under one fold', async () => {
+    await openAndPick();
+    btn('input[name="checkoutModel"][value="buffet"]').click();
+    await flush();
+    expect(rate('buffetPrice').value).toBe('120');
+    expect(el().querySelector('[data-more-rates]')).toBeTruthy();
+    expect(rate('hostFee')).toBeTruthy();
+    expect(rate('walkInFee')).toBeTruthy();
   });
 
   it('opens the rates on its own for a 0-baht quote, and keeps them closed otherwise', async () => {
@@ -229,8 +251,7 @@ describe('EarlyCheckoutDialog', () => {
   it('shows why a rate could not be saved and does not re-quote', async () => {
     live.saveBillConfig.mockResolvedValueOnce({ ok: false, error: 'เปลี่ยนวิธีคิดค่าลูกไม่ได้ เพราะมีคนเช็คเอาต์ไปแล้ว' });
     await openAndPick();
-    type('perGameRate', '20');
-    btn('[data-save-rates]').click();
+    type('[data-rate="perGameRate"]', '20');
     await flush();
     expect(text()).toContain('มีคนเช็คเอาต์ไปแล้ว');
     expect(live.previewCheckout).toHaveBeenCalledTimes(1);

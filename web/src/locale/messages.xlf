@@ -3727,48 +3727,6 @@
           <context context-type="linenumber">1</context>
         </context-group>
       </trans-unit>
-      <trans-unit id="checkout.rate.perGame" datatype="html">
-        <source>ค่าเล่นต่อเกม (บาท)</source>
-        <context-group purpose="location">
-          <context context-type="sourcefile">src/app/pages/session-dashboard/early-checkout-dialog/early-checkout-dialog.html</context>
-          <context context-type="linenumber">1</context>
-        </context-group>
-      </trans-unit>
-      <trans-unit id="checkout.rate.entry" datatype="html">
-        <source>ค่าเข้า (บาท)</source>
-        <context-group purpose="location">
-          <context context-type="sourcefile">src/app/pages/session-dashboard/early-checkout-dialog/early-checkout-dialog.html</context>
-          <context context-type="linenumber">1</context>
-        </context-group>
-      </trans-unit>
-      <trans-unit id="checkout.rate.buffet" datatype="html">
-        <source>ราคาบุฟเฟ่ต์ (บาท)</source>
-        <context-group purpose="location">
-          <context context-type="sourcefile">src/app/pages/session-dashboard/early-checkout-dialog/early-checkout-dialog.html</context>
-          <context context-type="linenumber">1</context>
-        </context-group>
-      </trans-unit>
-      <trans-unit id="checkout.rate.starting" datatype="html">
-        <source>ค่าเริ่มต้น (บาท)</source>
-        <context-group purpose="location">
-          <context context-type="sourcefile">src/app/pages/session-dashboard/early-checkout-dialog/early-checkout-dialog.html</context>
-          <context context-type="linenumber">1</context>
-        </context-group>
-      </trans-unit>
-      <trans-unit id="checkout.rate.perPlayerShuttle" datatype="html">
-        <source>ค่าลูกแบดต่อลูก คิดต่อคน (บาท)</source>
-        <context-group purpose="location">
-          <context context-type="sourcefile">src/app/pages/session-dashboard/early-checkout-dialog/early-checkout-dialog.html</context>
-          <context context-type="linenumber">1</context>
-        </context-group>
-      </trans-unit>
-      <trans-unit id="checkout.rate.shuttlePrice" datatype="html">
-        <source>ราคาลูกแบดต่อลูก (บาท)</source>
-        <context-group purpose="location">
-          <context context-type="sourcefile">src/app/pages/session-dashboard/early-checkout-dialog/early-checkout-dialog.html</context>
-          <context context-type="linenumber">1</context>
-        </context-group>
-      </trans-unit>
       <trans-unit id="checkout.err.rateInvalid" datatype="html">
         <source>ใส่เป็นบาท เช่น 80 หรือ 80.50</source>
         <context-group purpose="location">
@@ -3784,21 +3742,7 @@
         </context-group>
       </trans-unit>
       <trans-unit id="checkout.ratesHint" datatype="html">
-        <source>ราคาเดียวกับหน้าคิดเงินตอนจบก๊วน แก้แล้วใช้กับทุกคนที่ยังไม่ได้เช็คเอาต์</source>
-        <context-group purpose="location">
-          <context context-type="sourcefile">src/app/pages/session-dashboard/early-checkout-dialog/early-checkout-dialog.html</context>
-          <context context-type="linenumber">1</context>
-        </context-group>
-      </trans-unit>
-      <trans-unit id="checkout.ratesSave" datatype="html">
-        <source>บันทึกราคา</source>
-        <context-group purpose="location">
-          <context context-type="sourcefile">src/app/pages/session-dashboard/early-checkout-dialog/early-checkout-dialog.html</context>
-          <context context-type="linenumber">1</context>
-        </context-group>
-      </trans-unit>
-      <trans-unit id="checkout.ratesSaved" datatype="html">
-        <source>บันทึกแล้ว</source>
+        <source>ตั้งค่าเดียวกับหน้าคิดเงินตอนจบก๊วน แก้แล้วใช้กับทุกคนที่ยังไม่ได้เช็คเอาต์</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/session-dashboard/early-checkout-dialog/early-checkout-dialog.html</context>
           <context context-type="linenumber">1</context>
@@ -3806,13 +3750,6 @@
       </trans-unit>
       <trans-unit id="checkout.ratesMore" datatype="html">
         <source>ตั้งค่าอื่นๆ ที่หน้าคิดเงิน</source>
-        <context-group purpose="location">
-          <context context-type="sourcefile">src/app/pages/session-dashboard/early-checkout-dialog/early-checkout-dialog.html</context>
-          <context context-type="linenumber">1</context>
-        </context-group>
-      </trans-unit>
-      <trans-unit id="err.chargeLocked" datatype="html">
-        <source>เปลี่ยนวิธีคิดค่าลูกไม่ได้ เพราะมีคนเช็คเอาต์ไปแล้ว</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/session-dashboard/early-checkout-dialog/early-checkout-dialog.html</context>
           <context context-type="linenumber">1</context>
@@ -3829,6 +3766,20 @@
         <source>← กลับไปหน้าคุมก๊วน</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/session-dashboard/early-checkout-dialog/early-checkout-dialog.html</context>
+          <context context-type="linenumber">1</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="checkout.ratesGeneral" datatype="html">
+        <source>ค่าอื่นๆ และการปัดเศษ</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/shared/bill-settings/bill-settings.html</context>
+          <context context-type="linenumber">1</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="err.chargeLocked" datatype="html">
+        <source>เปลี่ยนวิธีคิดค่าลูกไม่ได้ เพราะมีคนเช็คเอาต์ไปแล้ว</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/core/live-session.service.ts</context>
           <context context-type="linenumber">1</context>
         </context-group>
       </trans-unit>

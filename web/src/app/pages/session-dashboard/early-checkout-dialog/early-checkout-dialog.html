@@ -87,37 +87,29 @@
           <p class="muted" i18n="@@checkout.loading">กำลังคำนวณ…</p>
         }
 
-        @if (!receipt() && (preview() || needsPrice())) {
+        @if (!receipt() && bill(); as b) {
           <details class="rates" data-rates [open]="ratesOpen()" (toggle)="ratesOpen.set($any($event.target).open)">
             <summary i18n="@@checkout.ratesTitle">ตั้งราคา</summary>
-            <p class="muted" i18n="@@checkout.ratesHint">ราคาเดียวกับหน้าคิดเงินตอนจบก๊วน แก้แล้วใช้กับทุกคนที่ยังไม่ได้เช็คเอาต์</p>
-            <div class="rate-grid">
-              @for (key of rateKeys(); track key) {
-                <label class="rate-field">
-                  <span>{{ rateLabel(key) }}</span>
-                  <input
-                    type="text"
-                    inputmode="decimal"
-                    [attr.data-rate]="key"
-                    [value]="rateFields()[key]"
-                    (input)="onRateInput(key, $event)"
-                    (keydown.enter)="saveRates()"
-                  />
-                </label>
-              }
+            <p class="muted" i18n="@@checkout.ratesHint">ตั้งค่าเดียวกับหน้าคิดเงินตอนจบก๊วน แก้แล้วใช้กับทุกคนที่ยังไม่ได้เช็คเอาต์</p>
+            <div class="rate-rows" [class.is-busy]="ratesBusy()">
+              <app-bill-settings
+                variant="checkout"
+                [model]="model()"
+                [config]="b.config"
+                [session]="b.session"
+                [saving]="ratesBusy()"
+                [chargeLocked]="chargeLocked()"
+                (configChange)="onConfigChange($event)"
+                (shuttlePriceChange)="onShuttlePrice($event)"
+                (invalid)="onInvalidRate()"
+              />
             </div>
             @if (ratesError()) {
               <p class="error" role="alert">{{ ratesError() }}</p>
             }
-            <div class="rate-actions">
-              <button type="button" data-save-rates [disabled]="ratesBusy()" (click)="saveRates()" i18n="@@checkout.ratesSave">บันทึกราคา</button>
-              @if (ratesSaved()) {
-                <span class="muted" role="status" i18n="@@checkout.ratesSaved">บันทึกแล้ว</span>
-              }
-              @if (sessionCode) {
-                <a [routerLink]="['/s', sessionCode, 'bill']" i18n="@@checkout.ratesMore">ตั้งค่าอื่นๆ ที่หน้าคิดเงิน</a>
-              }
-            </div>
+            @if (sessionCode) {
+              <a class="rates-more" [routerLink]="['/s', sessionCode, 'bill']" i18n="@@checkout.ratesMore">ตั้งค่าอื่นๆ ที่หน้าคิดเงิน</a>
+            }
           </details>
         }
 

@@ -1,0 +1,161 @@
+@let c = config();
+@let m = effectiveModel();
+
+@if (!isCheckout()) {
+  <div class="setting-row">
+    <span class="setting-label" i18n="@@bill.courtFee">ค่าคอร์ททั้งหมด (บาท)</span>
+    <label class="money-field">
+      <input type="text" inputmode="decimal" autocomplete="off" placeholder="—"
+        [value]="moneyText(c.courtFeeSatang)" (change)="onMoney('courtFeeSatang', $any($event.target).value)" />
+      <span class="money-suffix">฿</span>
+    </label>
+  </div>
+  <div class="setting-row">
+    <span class="setting-label" i18n="@@bill.shuttleCount">ลูกแบดที่นับจริง (ลูก)</span>
+    <label class="money-field">
+      <input type="text" inputmode="numeric" autocomplete="off" data-shuttle-count
+        [placeholder]="countPlaceholder()" [value]="countText(session().shuttleCount)"
+        (change)="onShuttleCount($any($event.target).value)" />
+    </label>
+  </div>
+}
+@if (showShuttlePrice()) {
+  <div class="setting-row">
+    <span class="setting-label" i18n="@@bill.shuttlePrice">ราคาต่อลูก (บาท)</span>
+    <label class="money-field">
+      <input type="text" inputmode="decimal" autocomplete="off" placeholder="—" data-shuttle-price
+        [value]="moneyText(session().shuttlePriceSatang)" (change)="onShuttlePrice($any($event.target).value)" />
+      <span class="money-suffix">฿</span>
+    </label>
+  </div>
+}
+@if (m === 'fair') {
+  <div class="setting-row">
+    <span class="setting-label" i18n="@@bill.courtSplit">ค่าคอร์ท</span>
+    <div class="scope-toggle setting-toggle">
+      <button type="button" [class.active]="c.courtSplit === 'equal'" (click)="patch({ courtSplit: 'equal' })" i18n="@@bill.splitEqual">หารเท่า</button>
+      <button type="button" [class.active]="c.courtSplit === 'byGames'" (click)="patch({ courtSplit: 'byGames' })" i18n="@@bill.splitByGames">ตามเกม</button>
+    </div>
+  </div>
+}
+@if (m === 'fair' || (m === 'buffet' && !c.buffetShuttlesIncluded)) {
+  <div class="setting-row">
+    <span class="setting-label" i18n="@@bill.shuttleSplit">ค่าลูก</span>
+    <div class="scope-toggle setting-toggle">
+      <button type="button" [class.active]="c.shuttleSplit === 'equal'" (click)="patch({ shuttleSplit: 'equal' })" i18n="@@bill.splitEqual">หารเท่า</button>
+      <button type="button" [class.active]="c.shuttleSplit === 'byGames'" (click)="patch({ shuttleSplit: 'byGames' })" i18n="@@bill.splitByGames">ตามเกม</button>
+    </div>
+  </div>
+}
+@if (m === 'perGame') {
+  <div class="setting-row">
+    <span class="setting-label" i18n="@@bill.perGameRate">เกมละ (บาท)</span>
+    <label class="money-field">
+      <input type="text" inputmode="decimal" data-rate="perGameRate" [value]="moneyText(c.perGameRateSatang)" (change)="onMoney('perGameRateSatang', $any($event.target).value)" />
+      <span class="money-suffix">฿</span>
+    </label>
+  </div>
+  <div class="setting-row">
+    <span class="setting-label" i18n="@@bill.entryFee">ค่าเข้า (บาท)</span>
+    <label class="money-field">
+      <input type="text" inputmode="decimal" data-rate="entryFee" [value]="moneyText(c.entryFeeSatang)" (change)="onMoney('entryFeeSatang', $any($event.target).value)" />
+      <span class="money-suffix">฿</span>
+    </label>
+  </div>
+  <div class="setting-row">
+    <span class="setting-label" i18n="@@bill.cap">สูงสุดต่อคน (บาท, เว้นว่าง = ไม่จำกัด)</span>
+    <label class="money-field">
+      <input type="text" inputmode="decimal" placeholder="—" data-rate="cap" [value]="moneyText(c.capSatang)" (change)="onMoney('capSatang', $any($event.target).value)" />
+      <span class="money-suffix">฿</span>
+    </label>
+  </div>
+}
+@if (m === 'perShuttle') {
+  <div class="setting-row">
+    <span class="setting-label" i18n="@@bill.startingFee">ค่าเริ่มต้นต่อคน (บาท)</span>
+    <label class="money-field">
+      <input type="text" inputmode="decimal" data-starting-fee data-rate="startingFee" [value]="moneyText(c.startingFeeSatang)" (change)="onMoney('startingFeeSatang', $any($event.target).value)" />
+      <span class="money-suffix">฿</span>
+    </label>
+  </div>
+  <div class="setting-row">
+    <span class="setting-label" i18n="@@bill.chargeMode">วิธีคิดค่าลูก</span>
+    <div class="scope-toggle setting-toggle">
+      <button type="button" data-charge-mode="shared" [class.active]="c.shuttleCharge === 'shared'"
+        [attr.aria-pressed]="c.shuttleCharge === 'shared'" [disabled]="saving() || chargeLocked()"
+        (click)="patch({ shuttleCharge: 'shared' })" i18n="@@bill.chargeShared">แชร์ตามต้นทุน</button>
+      <button type="button" data-charge-mode="full" [class.active]="c.shuttleCharge === 'full'"
+        [attr.aria-pressed]="c.shuttleCharge === 'full'" [disabled]="saving() || chargeLocked()"
+        (click)="patch({ shuttleCharge: 'full' })" i18n="@@bill.chargeFull">คิดเต็มต่อคน</button>
+    </div>
+  </div>
+  @if (chargeLocked()) {
+    <p class="hint" data-charge-locked i18n="@@bill.chargeLocked">เปลี่ยนวิธีคิดค่าลูกไม่ได้ เพราะมีคนเช็คเอาต์ตามลูกแบดไปแล้ว ยกเลิกเช็คเอาต์ก่อนถ้าจะเปลี่ยน</p>
+  }
+  @if (c.shuttleCharge === 'full') {
+    <div class="setting-row">
+      <span class="setting-label" i18n="@@bill.chargePerPlayer">ค่าลูกต่อคนต่อลูก (บาท)</span>
+      <label class="money-field">
+        <input type="text" inputmode="decimal" data-charge-input data-rate="perPlayerShuttle" [placeholder]="chargePlaceholder()"
+          [value]="moneyText(c.perPlayerShuttleSatang)"
+          (change)="onMoney('perPlayerShuttleSatang', $any($event.target).value)" />
+        <span class="money-suffix">฿</span>
+      </label>
+    </div>
+    <p class="hint" data-per-shuttle-hint i18n="@@bill.perShuttleFullHint">ผู้เล่นแต่ละคนจ่ายเต็มจำนวนต่อลูกที่ตัวเองได้เล่น ลูกเดิมที่ใช้ซ้ำนับครั้งเดียว เว้นว่าง = ใช้ราคาต่อลูกด้านบน</p>
+  } @else {
+    <p class="hint" data-per-shuttle-hint i18n="@@bill.perShuttleHint">คิดเฉพาะลูกแบดที่บันทึกไว้ในแมตช์ ตามราคาต่อลูก ไม่ขึ้นกับจำนวนลูกที่นับจริง</p>
+  }
+}
+@if (m === 'buffet') {
+  <div class="setting-row">
+    <span class="setting-label" i18n="@@bill.buffetPrice">บุฟเฟ่ต์ต่อคน (บาท)</span>
+    <label class="money-field">
+      <input type="text" inputmode="decimal" data-rate="buffetPrice" [value]="moneyText(c.buffetPriceSatang)" (change)="onMoney('buffetPriceSatang', $any($event.target).value)" />
+      <span class="money-suffix">฿</span>
+    </label>
+  </div>
+  <div class="setting-row">
+    <span class="setting-label" i18n="@@bill.shuttlesToggle">ลูกแบด</span>
+    <div class="scope-toggle setting-toggle">
+      <button type="button" [class.active]="c.buffetShuttlesIncluded" (click)="patch({ buffetShuttlesIncluded: true })" i18n="@@bill.shuttlesIncluded">รวมลูก</button>
+      <button type="button" [class.active]="!c.buffetShuttlesIncluded" (click)="patch({ buffetShuttlesIncluded: false })" i18n="@@bill.shuttlesSeparate">ลูกแยก</button>
+    </div>
+  </div>
+}
+
+<ng-template #general>
+  <div class="setting-row">
+    <span class="setting-label" i18n="@@bill.hostFee">ค่าจัดก๊วนต่อคน (บาท)</span>
+    <label class="money-field">
+      <input type="text" inputmode="decimal" data-rate="hostFee" [value]="moneyText(c.hostFeeSatang)" (change)="onMoney('hostFeeSatang', $any($event.target).value)" />
+      <span class="money-suffix">฿</span>
+    </label>
+  </div>
+  <div class="setting-row">
+    <span class="setting-label">
+      <ng-container i18n="@@bill.walkInFee">ค่า walk-in ต่อคน (บาท, หารคืนทุกคน)</ng-container>
+    </span>
+    <label class="money-field">
+      <input type="text" inputmode="decimal" data-rate="walkInFee" [value]="moneyText(c.walkInFeeSatang)" (change)="onMoney('walkInFeeSatang', $any($event.target).value)" />
+      <span class="money-suffix">฿</span>
+    </label>
+  </div>
+  <div class="setting-row">
+    <span class="setting-label" i18n="@@bill.rounding">ปัดขึ้น</span>
+    <div class="scope-toggle setting-toggle rounding-toggle">
+      @for (r of roundings; track r) {
+        <button type="button" [class.active]="c.roundingBaht === r" (click)="patch({ roundingBaht: r })">{{ r }}฿</button>
+      }
+    </div>
+  </div>
+</ng-template>
+
+@if (isCheckout()) {
+  <details class="more-rates" data-more-rates>
+    <summary i18n="@@checkout.ratesGeneral">ค่าอื่นๆ และการปัดเศษ</summary>
+    <ng-container *ngTemplateOutlet="general" />
+  </details>
+} @else {
+  <ng-container *ngTemplateOutlet="general" />
+}

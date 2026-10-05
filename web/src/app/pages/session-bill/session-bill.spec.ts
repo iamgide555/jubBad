@@ -231,7 +231,9 @@ describe('SessionBill', () => {
 
   it('rejects a malformed money entry without posting', async () => {
     await load();
-    fixture.componentInstance['onMoney']('hostFeeSatang', '12.345');
+    const input = fixture.nativeElement.querySelector('[data-rate="hostFee"]') as HTMLInputElement;
+    input.value = '12.345';
+    input.dispatchEvent(new Event('change'));
     fixture.detectChanges();
     http.expectNone(`${B}/sessions/sess1/bill-config`);
     expect(fixture.nativeElement.querySelector('[role="alert"]')).not.toBeNull();

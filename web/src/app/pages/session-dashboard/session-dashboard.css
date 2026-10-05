@@ -674,9 +674,9 @@ app-lineup-queue {
 @media (min-width: 90rem) {
   .dashboard {
     display: grid;
-    grid-template-columns: 16rem minmax(0, 1fr);
+    grid-template-columns: 17rem minmax(0, 1fr);
     column-gap: var(--space-4);
-    max-width: calc(68rem + 16rem + var(--space-4) + 2 * var(--space-3));
+    max-width: calc(68rem + 17rem + var(--space-4) + 2 * var(--space-3));
   }
 
   .dashboard > * {
@@ -692,29 +692,41 @@ app-lineup-queue {
     max-height: calc(100dvh - 6rem);
     overflow-y: auto;
     overscroll-behavior: contain;
-    flex-direction: column;
-    flex-wrap: nowrap;
-    align-items: stretch;
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: flex-start;
+    align-content: flex-start;
     gap: var(--space-0);
     margin: 0;
     padding: var(--space-2);
     border: 1px solid var(--line);
     border-radius: var(--radius-lg);
     box-shadow: var(--shadow-sm);
+    scrollbar-width: thin;
+    scrollbar-color: var(--line) transparent;
   }
 
+  /* Chips, as everywhere else: they wrap and take only the width they need. */
   .waiting-queue .chip-pick {
-    width: 100%;
     margin: 0;
-    justify-content: flex-start;
   }
 
-  .waiting-queue .chip-pick .wait-mins {
-    margin-left: auto;
+  /* A mouse does not need a 44px finger target; denser rows show more of the queue. */
+  @media (pointer: fine) {
+    .waiting-queue .chip-pick {
+      min-height: 2.25rem;
+      padding-block: 0.15rem;
+    }
+  }
+
+  /* In a narrow rail the games count would push every chip onto its own row; wait time is the sort key. */
+  .waiting-queue .chip-pick .tally {
+    display: none;
   }
 
   .waiting-queue .wq-lineup {
     display: block;
+    flex: 0 0 100%;
     padding-bottom: var(--space-1);
     margin-bottom: var(--space-1);
     border-bottom: 1px solid var(--line);

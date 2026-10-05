@@ -1433,6 +1433,10 @@ describe('SessionDashboard', () => {
     fixture.detectChanges();
     expect(fixture.componentInstance['selection'].active()).toBe(true);
     expect(chip.getAttribute('aria-pressed')).toBe('true');
+    // Holding a waiting player is not a court hold, so the bench is not pinned.
+    expect(
+      (fixture.nativeElement as HTMLElement).querySelector('.waiting-queue.is-bench')
+    ).toBeNull();
 
     // Tapping again puts them back, so a mis-tap costs nothing.
     chip.click();
@@ -1477,6 +1481,11 @@ describe('SessionDashboard', () => {
     courtName.click();
     fixture.detectChanges();
     expect(fixture.componentInstance['selection'].isPicked('p1')).toBe(true);
+
+    // Holding a court player pins the waiting list to the screen bottom.
+    expect(
+      (fixture.nativeElement as HTMLElement).querySelector('.waiting-queue.is-bench')
+    ).toBeTruthy();
 
     // Then tap ปอ, who is waiting: ปอ takes ตั้ม's place.
     const chip = (fixture.nativeElement as HTMLElement).querySelector(

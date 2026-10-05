@@ -2807,6 +2807,13 @@
           <context context-type="linenumber">255,256</context>
         </context-group>
       </trans-unit>
+      <trans-unit id="dashboard.benchHint" datatype="html">
+        <source>แตะผู้เล่นรอคิวเพื่อสลับ</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/session-dashboard/session-dashboard.html</context>
+          <context context-type="linenumber">36</context>
+        </context-group>
+      </trans-unit>
       <trans-unit id="dashboard.waiting" datatype="html">
         <source>รอคิว</source>
         <context-group purpose="location">

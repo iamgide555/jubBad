@@ -315,6 +315,16 @@ export class SessionDashboard implements OnDestroy {
   protected readonly selection = inject(SwapSelectionService);
 
   /**
+   * Holding someone who is on a court means the next tap is meant for a waiting
+   * player. The waiting list sits below every court, so with many courts it is
+   * pinned to the bottom of the screen for the duration of the hold.
+   */
+  protected readonly benchOpen = computed(() => {
+    const held = this.selection.selection();
+    return held !== null && held.pairingId !== null;
+  });
+
+  /**
    * A waiting player carries no pairing id — they are on nobody's court, so a
    * swap involving them is a plain substitution rather than a trade.
    */

@@ -389,6 +389,34 @@
   flex-wrap: wrap;
 }
 
+/* While a court player is held, the bench stays on screen as one scrolling row. */
+.waiting-queue.is-bench {
+  position: sticky;
+  bottom: 0;
+  z-index: 5;
+  flex-wrap: nowrap;
+  align-items: center;
+  overflow-x: auto;
+  gap: 0.5rem;
+  padding: 0.5rem 0;
+  background: var(--surface);
+  border-top: 2px solid var(--court);
+  box-shadow: 0 -4px 12px rgb(0 0 0 / 12%);
+}
+
+.waiting-queue.is-bench .chip-pick,
+.waiting-queue.is-bench .label,
+.waiting-queue.is-bench .bench-hint {
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
+
+.bench-hint {
+  font-size: var(--text-sm);
+  color: var(--court);
+  font-weight: 700;
+}
+
 .waiting-queue .chip-pick {
   font: inherit;
   font-size: var(--text-sm);

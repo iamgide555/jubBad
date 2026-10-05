@@ -306,8 +306,11 @@
     @if (!ended()) {
       <hr class="rule" />
 
-      <div class="waiting-queue" appFlipList>
+      <div class="waiting-queue" [class.is-bench]="benchOpen()" appFlipList>
         <h4 class="label" i18n="@@dashboard.waiting">รอคิว</h4>
+        @if (benchOpen()) {
+          <span class="bench-hint" i18n="@@dashboard.benchHint">แตะผู้เล่นรอคิวเพื่อสลับ</span>
+        }
         @for (w of waiting(); track w.id; let i = $index) {
           <button
             type="button"

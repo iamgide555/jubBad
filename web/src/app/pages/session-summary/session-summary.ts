@@ -1,3 +1,4 @@
+import { NgTemplateOutlet } from '@angular/common';
 import { Component, computed, inject, signal, viewChild } from '@angular/core';
 import { HttpClient, HttpErrorResponse, httpResource } from '@angular/common/http';
 import { ActivatedRoute, RouterLink } from '@angular/router';
@@ -21,7 +22,7 @@ type SortKey = 'played' | 'won' | 'lost' | 'doublesRate' | 'singlesRate' | 'time
 
 @Component({
   selector: 'app-session-summary',
-  imports: [RouterLink, SceneHost, ShuttleDetailsDialog, ShuttleCorrectionDialog],
+  imports: [NgTemplateOutlet, RouterLink, SceneHost, ShuttleDetailsDialog, ShuttleCorrectionDialog],
   templateUrl: './session-summary.html',
   styleUrl: './session-summary.css',
 })

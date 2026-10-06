@@ -10,6 +10,8 @@ export interface SessionMatch {
   scoreB: number | null;
   result: 'win' | 'loss' | 'no-result';
   durationSeconds: number;
+  /** Advanced sessions only. null = unknown (never recorded); [] = recorded as none. */
+  shuttles?: ShuttleRef[] | null;
 }
 
 export interface FormatRecord {
@@ -40,6 +42,8 @@ export interface ShuttleLogRow {
   courtNumber: number;
   matchNumber: number;
   shuttles: ShuttleRef[] | null;
+  teamA: string[];
+  teamB: string[];
 }
 
 export interface SessionSummary {

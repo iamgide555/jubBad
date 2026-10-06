@@ -30,54 +30,61 @@
     }
 
     @if (shuttleSection(); as sh) {
-      <section class="shuttle-accounting" aria-labelledby="shuttle-log-title">
-        <h2 id="shuttle-log-title" class="label" i18n="@@summary.shuttleLogTitle">ลูกแบดที่ใช้รายแมตช์</h2>
-        <p>
+      <details class="shuttle-log-section">
+        <summary>
+          <span class="label" i18n="@@summary.shuttleLogTitle">ลูกแบดที่ใช้รายแมตช์</span>
           <strong i18n="@@summary.shuttleDistinctCount">{{ sh.recordedFinishedShuttles }} ลูก</strong>
-          <ng-container i18n="@@summary.shuttleDistinct">ที่ใช้ในแมตช์ที่จบแล้ว (นับแต่ละลูกครั้งเดียว)</ng-container>
-          @if (sh.unknownFinishedMatches > 0) {
-            <span class="muted" i18n="@@summary.shuttlePartial"> · ไม่ครบ — {{ sh.unknownFinishedMatches }} แมตช์ไม่ได้บันทึก</span>
+        </summary>
+        <section class="shuttle-accounting" aria-label="ลูกแบดที่ใช้รายแมตช์" i18n-aria-label="@@summary.shuttleLogTitle">
+          <p class="muted">
+            <ng-container i18n="@@summary.shuttleDistinct">ที่ใช้ในแมตช์ที่จบแล้ว (นับแต่ละลูกครั้งเดียว)</ng-container>
+            @if (sh.unknownFinishedMatches > 0) {
+              <span i18n="@@summary.shuttlePartial"> · ไม่ครบ — {{ sh.unknownFinishedMatches }} แมตช์ไม่ได้บันทึก</span>
+            }
+          </p>
+          @if (sh.physical !== null) {
+            <p class="muted" i18n="@@summary.shuttlePhysical">นับจริงทั้งคืน {{ sh.physical }} ลูก</p>
           }
-        </p>
-        @if (sh.physical !== null) {
-          <p class="muted" i18n="@@summary.shuttlePhysical">นับจริงทั้งคืน {{ sh.physical }} ลูก</p>
-        }
-        @if (sh.difference !== null && sh.difference !== 0) {
-          <p class="muted" i18n="@@summary.shuttleDifference">นับจริงต่างจากที่บันทึก {{ signed(sh.difference) }} ลูก</p>
-        }
-      </section>
-      @if (sh.rows.length > 0) {
-        <div class="table-scroll">
-          <table class="shuttle-log">
-            <thead>
-              <tr>
-                <th i18n="@@summary.shuttleColMatch">แมตช์</th>
-                <th i18n="@@summary.shuttleColShuttles">ลูกแบด</th>
-                @if (canCorrect()) { <th></th> }
-              </tr>
-            </thead>
-            <tbody>
-              @for (row of sh.rows; track row.pairingId) {
-                <tr>
-                  <td>{{ rowLabel(row) }}</td>
-                  <td>
-                    @if (row.shuttles === null) {
-                      <span class="muted" i18n="@@summary.shuttleUnknown">ไม่ทราบ</span>
-                    } @else if (row.shuttles.length === 0) {
-                      <span i18n="@@summary.shuttleNone">ไม่ได้ใช้ลูกแบด</span>
-                    } @else {
-                      @for (u of row.shuttles; track u.id) { <span class="shuttle-tag">#{{ u.number }}</span> }
-                    }
-                  </td>
-                  @if (canCorrect()) {
-                    <td><button type="button" class="ghost" data-edit-shuttle-log (click)="openCorrection(row)" i18n="@@summary.shuttleCorrect">แก้ไข</button></td>
-                  }
-                </tr>
+          @if (sh.difference !== null && sh.difference !== 0) {
+            <p class="muted" i18n="@@summary.shuttleDifference">นับจริงต่างจากที่บันทึก {{ signed(sh.difference) }} ลูก</p>
+          }
+        </section>
+        @if (sh.rows.length > 0) {
+          <ul class="shuttle-log">
+            @for (row of sh.rows; track row.pairingId) {
+              <li>
+                @if (canCorrect()) {
+                  <button type="button" class="shuttle-cell" data-edit-shuttle-log (click)="openCorrection(row)" [attr.aria-label]="rowLabel(row)">
+                    <ng-container *ngTemplateOutlet="shuttleCell; context: { $implicit: row }" />
+                    <span class="edit-hint" aria-hidden="true" i18n="@@summary.shuttleCorrect">แก้ไข</span>
+                  </button>
+                } @else {
+                  <div class="shuttle-cell">
+                    <ng-container *ngTemplateOutlet="shuttleCell; context: { $implicit: row }" />
+                  </div>
+                }
+              </li>
+            }
+          </ul>
+          <ng-template #shuttleCell let-row>
+            <span class="cell-label">{{ rowLabel(row) }}</span>
+            <span class="cell-teams">
+              {{ row.teamA.join(' + ') }}
+              <span class="muted" i18n="@@summary.vsOpponents">พบ</span>
+              {{ row.teamB.join(' + ') }}
+            </span>
+            <span class="cell-shuttles">
+              @if (row.shuttles === null) {
+                <span class="muted" i18n="@@summary.shuttleUnknown">ไม่ทราบ</span>
+              } @else if (row.shuttles.length === 0) {
+                <span class="muted" i18n="@@summary.shuttleNone">ไม่ได้ใช้ลูกแบด</span>
+              } @else {
+                @for (u of row.shuttles; track u.id) { <span class="shuttle-tag">#{{ u.number }}</span> }
               }
-            </tbody>
-          </table>
-        </div>
-      }
+            </span>
+          </ng-template>
+        }
+      </details>
       @if (canCorrect()) {
         <app-shuttle-correction-dialog
           #correctionDialog
@@ -235,6 +242,9 @@
                           ({{ m.scoreA }}-{{ m.scoreB }})
                         }
                         <span class="muted stat-games">({{ formatMinutes(m.durationSeconds) }})</span>
+                        @if (m.shuttles) {
+                          @for (u of m.shuttles; track u.id) { <span class="shuttle-tag">#{{ u.number }}</span> }
+                        }
                         <span
                           class="result-badge"
                           [class.win]="m.result === 'win'"

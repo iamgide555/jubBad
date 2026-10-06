@@ -95,6 +95,8 @@ export interface SessionMatch {
   scoreB: number | null;
   result: 'win' | 'loss' | 'no-result';
   durationSeconds: number;
+  /** Advanced sessions only: shuttles used. null = unknown (never recorded); [] = recorded as none. */
+  shuttles?: ShuttleRef[] | null;
 }
 
 /** How long a pending match sits untouched before it confirms itself. */
@@ -3878,6 +3880,13 @@ export class SessionsService {
       ? await this.shuttleSummaryFor(code, pairings)
       : null;
 
+    // Per-match shuttle log, reused on each player's match row. Absent on an
+    // ordinary session; null = unknown game, [] = recorded as none.
+    const shuttlesByPairing = shuttleSummary
+      ? new Map(shuttleSummary.shuttleLog.map((row) => [row.pairingId, row.shuttles]))
+      : null;
+
+    const pairingById = new Map(pairings.map((p) => [p.id, p]));
     const allPlayerIds = new Set<string>();
     for (const p of pairings) {
       for (const id of this.playersOf(p)) allPlayerIds.add(id);
@@ -3952,6 +3961,7 @@ export class SessionsService {
             scoreB: p.scoreB,
             result: teamResult,
             durationSeconds,
+            ...(shuttlesByPairing ? { shuttles: shuttlesByPairing.get(p.id) ?? null } : {}),
           };
           if (!matches.has(id)) matches.set(id, []);
           matches.get(id)!.push(entry);
@@ -3971,7 +3981,18 @@ export class SessionsService {
         shuttlePriceSatang: session.shuttlePriceSatang,
         courtLabels: parseCourtLabels(session.courtLabels),
       },
-      ...shuttleSummary,
+      ...(shuttleSummary
+        ? {
+            ...shuttleSummary,
+            // Names of both teams, so the host can tell which game a row is
+            // when correcting it. Same names the per-player match lists show.
+            shuttleLog: shuttleSummary.shuttleLog.map((row) => {
+              const { teamA, teamB } = this.teamsOf(pairingById.get(row.pairingId)!);
+              const names = (ids: readonly string[]) => ids.map((id) => nameById.get(id) ?? 'Unknown');
+              return { ...row, teamA: names(teamA), teamB: names(teamB) };
+            }),
+          }
+        : {}),
       players: [...played.entries()]
         .map(([playerId, count]) => {
           const formats = byFormat.get(playerId);

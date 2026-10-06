@@ -272,8 +272,64 @@ th:not(:first-child):not(.profile-cell):not(.rate-cell) {
   margin: 0 0 var(--space-0);
 }
 
-.shuttle-log td button {
+/* One compact cell per finished game, flowing in a grid so eight courts fit
+   a screen instead of eight full-width rows. For the host the whole cell is
+   the edit control — no repeated button chrome. */
+.shuttle-log {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(16rem, 1fr));
+  gap: var(--space-1);
+  margin: 0 0 var(--space-3);
+  padding: 0;
+  list-style: none;
+}
+
+.shuttle-cell {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-0);
+  width: 100%;
   min-height: var(--tap);
+  padding: var(--space-1);
+  border: 1px solid var(--rule);
+  border-radius: var(--radius);
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  position: relative;
+}
+
+button.shuttle-cell {
+  cursor: pointer;
+}
+
+button.shuttle-cell:hover {
+  background: var(--ground-sunk);
+}
+
+.cell-label {
+  font-size: var(--text-xs);
+  color: var(--ink-soft);
+}
+
+.cell-shuttles {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-0);
+}
+
+.cell-shuttles .shuttle-tag {
+  margin-right: 0;
+  font-weight: 600;
+}
+
+.edit-hint {
+  position: absolute;
+  top: var(--space-1);
+  right: var(--space-1);
+  font-size: var(--text-xs);
+  color: var(--ink-soft);
 }
 
 .shuttle-tag {
@@ -283,4 +339,31 @@ th:not(:first-child):not(.profile-cell):not(.rate-cell) {
   border-radius: var(--radius-pill);
   background: var(--ground-sunk);
   font-variant-numeric: tabular-nums;
+}
+
+/* The shuttle log is host bookkeeping: closed by default, the summary line
+   keeps the distinct-shuttle count visible. */
+.shuttle-log-section {
+  margin: var(--space-2) 0;
+}
+
+.shuttle-log-section > summary {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-1);
+  min-height: var(--tap);
+  cursor: pointer;
+  align-items: center;
+}
+
+.shuttle-log-section[open] > summary {
+  margin-bottom: var(--space-1);
+}
+
+.shuttle-log-section .shuttle-accounting {
+  margin-top: 0;
+}
+
+.cell-teams {
+  padding-right: 2.5rem;
 }

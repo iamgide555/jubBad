@@ -4397,7 +4397,7 @@ describe('SessionsController', () => {
 
       const a = byId.get(players[0].id);
       expect(a).toMatchObject({ name: 'A', played: 2, won: 1, lost: 0, totalSeconds: 1200 });
-      expect(a.matches).toEqual([
+      expect(a.matches).toMatchObject([
         {
           matchNumber: 1,
           courtNumber: 1,
@@ -4422,7 +4422,7 @@ describe('SessionsController', () => {
 
       const c = byId.get(players[2].id);
       expect(c).toMatchObject({ name: 'C', played: 2, won: 0, lost: 1, totalSeconds: 1200 });
-      expect(c.matches[0]).toEqual({
+      expect(c.matches[0]).toMatchObject({
         matchNumber: 1,
         courtNumber: 1,
         partnerName: 'D',
@@ -7189,6 +7189,16 @@ describe('SessionsController', () => {
         expect(log[0].shuttles).toEqual([{ id: g1.lastShuttleId, number: 1 }]);
         expect(log[1].shuttles).toEqual([{ id: g1.lastShuttleId, number: 1 }]);
         expect(JSON.stringify(res.body)).not.toContain('revision');
+        // Log rows name both teams so the host can tell which game a row is.
+        const named = res.body.shuttleLog as { teamA: string[]; teamB: string[] }[];
+        expect(named[0].teamA).toHaveLength(2);
+        expect(named[0].teamB).toHaveLength(2);
+        // Each player's match row carries the same shuttles.
+        const players = res.body.players as { matches: { matchNumber: number; shuttles: { number: number }[] }[] }[];
+        expect(players.length).toBeGreaterThan(0);
+        for (const pl of players) {
+          for (const m of pl.matches) expect(m.shuttles.map((u) => u.number)).toEqual([1]);
+        }
       } finally {
         await n.cleanup();
       }
@@ -7226,6 +7236,9 @@ describe('SessionsController', () => {
         const res = await request(server).get(`/sessions/${n.sessionCode}/summary`).expect(200);
         expect(res.body.shuttleLog).toBeUndefined();
         expect(res.body.shuttleAccounting).toBeUndefined();
+        for (const pl of res.body.players as { matches: object[] }[]) {
+          for (const m of pl.matches) expect(m).not.toHaveProperty('shuttles');
+        }
         expect(res.body.session.shuttleCount).toBe(9);
       } finally {
         await n.cleanup();

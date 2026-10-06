@@ -4175,6 +4175,10 @@
           <context context-type="linenumber">1</context>
         </context-group>
       </trans-unit>
+      <trans-unit id="dashboard.liveSummary" datatype="html">
+        <source>สรุป / แก้ไขผล</source>
+        <target>Summary / fix results</target>
+      </trans-unit>
     </body>
   </file>
 </xliff>

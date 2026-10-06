@@ -384,6 +384,48 @@ fill-all) ever becomes a carry court. See `engines/pairing.ts`'s
 `buildCarryCourt` and the historical design at
 `docs/archive/specs/2026-09-27-level-rework-design.md`.
 
+**A level-mode court can be aimed at a half of tonight's roster** (2026-10-07,
+real-session feedback: a group split beginner and pro courts by hand). Each
+ระดับ court has อัตโนมัติ / มือล่าง / มือบน (`Session.courtTargets`, parsed only
+in `server/src/sessions/court-targets.ts`; only read when the court's
+*effective* mode is level, so it also works per-court inside เลือกเอง).
+อัตโนมัติ is the ±1 band exactly as before. The host reaches for this when the
+night is mixed and wants pros playing pros rather than being paired with
+beginners; a same-level group leaves everything on auto.
+
+The split is **relative to who turned up, not to the ladder**
+(`splitTonight`, `engines/levels.ts`): a group that is all P- to P+ would
+otherwise sit entirely in one half of the ladder. The cut is the rung that
+leaves the two sides closest in headcount, taken over everyone checked in
+tonight (not just who is free this minute, so it only moves when the roster
+does); a tie goes to the lower cut, making มือบน the larger side. Untagged
+players belong to neither half and fit either court. Fewer than two distinct
+tagged levels is no split, and every target then does nothing.
+
+How it steers, and why it is built this way: the engine picks *who plays*
+first, then `searchArrangement` re-deals those players across courts, so
+biasing selection alone would not form a Low court. `targetMiss` (tagged
+players on a court who belong to the other half) is therefore a score
+component, compared right after `groupRepeat` and before `bandBreaks` — the
+host's explicit choice outranks the soft band — in `compareArrangements` and
+`compareComponents`. Selection (`bandOrderedByCourt`) is also biased so the
+right people are chosen to play. It is **soft**, like the band: a High court
+with too few pros takes the nearest players rather than sit empty. Because
+courts are no longer interchangeable once one has a target, the exact
+search (up to 8 players) stops fixing the first player to the first court and
+enumerates every filling; with no active target the old path runs untouched,
+so auto output is byte-identical.
+
+Interactions to remember. A targeted court never gets a **carry game** (it
+would seat a far-below player against a court set to exclude them); an auto
+court still can. A targeted court's *substitute* (rest/leave swap) prefers
+the same half before wait order. **Starvation is the accepted trade-off:** a
+targeted court skips the "longest waiter always anchors" guarantee, so if
+every court is set the same way the other half stops playing; the host can
+always flip a court back to auto, and the dashboard explains the setting
+inline. Queued matches, custom courts and manual tap-swaps bypass the engine
+and ignore targets, as do สลับคู่/สูสี courts.
+
 **Pair rules are hard constraints above every mode** (host feedback C,
 2026-09-30). A host links two group players as คู่กัน (`must-pair`: doubles
 teammates or both sit), ห้ามอยู่ด้วยกัน (`never-teammates`: opponents are

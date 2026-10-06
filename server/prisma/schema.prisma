@@ -159,6 +159,12 @@ model Session {
   /// written only by server/src/sessions/court-labels.ts; same
   /// not-trimmed-on-shrink convention as courtFormats.
   courtLabels   String?
+  /// Per-court target level for ระดับ courts, JSON-encoded ('auto'|'low'|'high')[],
+  /// index 0 = court 1. Null/missing/invalid entries read as 'auto' (today's
+  /// behaviour). Read only when the court's effective mode is level. Parsed and
+  /// written only by server/src/sessions/court-targets.ts; same
+  /// not-trimmed-on-shrink convention as courtFormats.
+  courtTargets  String?
   /// Snapshot of Group.shuttleToolsEnabled at creation. A session created with
   /// it on keeps numbered shuttle tracking even if the group later switches it
   /// off; older sessions read false and never convert retroactively.

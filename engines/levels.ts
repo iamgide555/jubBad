@@ -154,3 +154,56 @@ export function centeredLevelSpecs(names: readonly string[]): LevelSpec[] {
   const middle = (names.length - 1) / 2;
   return names.map((name, i) => ({ name, startingElo: UNTAGGED_SEED + Math.round((i - middle) * 100) }));
 }
+
+/**
+ * A court's target for tonight: 'low' and 'high' aim it at one half of the
+ * roster, 'auto' leaves it to the ordinary ±1 band.
+ */
+export const COURT_TARGETS = ['auto', 'low', 'high'] as const;
+export type CourtTarget = (typeof COURT_TARGETS)[number];
+
+export function isCourtTarget(value: unknown): value is CourtTarget {
+  return typeof value === 'string' && (COURT_TARGETS as readonly string[]).includes(value);
+}
+
+/**
+ * Which half of tonight's roster each tagged player is in, for per-court
+ * Low/High targets. The cut is relative to who actually turned up, not to the
+ * ladder: a group that is all P- to P+ would otherwise land entirely in one
+ * half of the ladder and a target would do nothing.
+ *
+ * The cut is the rung that leaves the two sides closest in headcount
+ * (Low = strictly below it, High = at or above it), so a group of five
+ * beginners and one pro splits 5/1 instead of everyone landing in High. On a
+ * tie the lower cut wins, making High the larger side. Untagged players and
+ * anyone off the roster are left out (they fit either half). Fewer than two
+ * distinct tagged levels is no split at all: an empty map, and every target
+ * then does nothing.
+ */
+export function splitTonight(
+  levels: ReadonlyMap<string, Level | null>,
+  rosterIds: readonly string[],
+  ladder: readonly LevelSpec[] = DEFAULT_LEVEL_LADDER
+): Map<string, 'low' | 'high'> {
+  const tagged: { id: string; index: number }[] = [];
+  for (const id of rosterIds) {
+    const level = levels.get(id) ?? null;
+    if (level !== null) tagged.push({ id, index: levelIndex(level, ladder) });
+  }
+  const distinct = [...new Set(tagged.map((t) => t.index))].sort((a, b) => a - b);
+  const split = new Map<string, 'low' | 'high'>();
+  if (distinct.length < 2) return split;
+
+  let cut = distinct[1];
+  let bestGap = Infinity;
+  for (const candidate of distinct.slice(1)) {
+    const below = tagged.filter((t) => t.index < candidate).length;
+    const gap = Math.abs(tagged.length - 2 * below);
+    if (gap < bestGap) {
+      bestGap = gap;
+      cut = candidate;
+    }
+  }
+  for (const t of tagged) split.set(t.id, t.index < cut ? 'low' : 'high');
+  return split;
+}

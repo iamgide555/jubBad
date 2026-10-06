@@ -12,6 +12,7 @@ import { SetCourtCountDto } from './dto/set-court-count.dto.js';
 import { SetCourtFormatDto } from './dto/set-court-format.dto.js';
 import { SetCourtLabelDto } from './dto/set-court-label.dto.js';
 import { SetCourtModeDto } from './dto/set-court-mode.dto.js';
+import { SetCourtTargetDto } from './dto/set-court-target.dto.js';
 import { SetModeDto } from './dto/set-mode.dto.js';
 import { SetRosterActiveDto } from './dto/set-roster-active.dto.js';
 import { SetRosterWalkInDto } from './dto/set-roster-walk-in.dto.js';
@@ -93,6 +94,19 @@ export class SessionsController {
     @Body() dto: SetCourtModeDto
   ) {
     return this.sessionsService.setCourtMode(code, courtNumber, dto);
+  }
+
+  /**
+   * Per-court Low/High target for ระดับ courts. Settable in any court state,
+   * like the mode: it only steers the next propose/reshuffle.
+   */
+  @Post(':code/courts/:n/target')
+  setCourtTarget(
+    @Param('code') code: string,
+    @Param('n', ParseIntPipe) courtNumber: number,
+    @Body() dto: SetCourtTargetDto
+  ) {
+    return this.sessionsService.setCourtTarget(code, courtNumber, dto);
   }
 
   /**

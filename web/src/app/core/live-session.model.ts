@@ -7,6 +7,11 @@ export type CourtFormat = 'doubles' | 'singles';
  *  effectiveCourtMode). */
 export type CourtMode = 'variety' | 'balanced' | 'level' | 'custom';
 
+/** A level-mode court's target: 'low' / 'high' aim it at the lower / upper half
+ *  of tonight's roster; 'auto' is the ordinary ±1 band. Only ever steers a
+ *  court whose `mode` is 'level'. */
+export type CourtTarget = 'auto' | 'low' | 'high';
+
 /** A seat is a player id, or empty — possible only on a pending court, and
  *  only in custom mode (see server/src/sessions/pairing-teams.ts). Confirm
  *  refuses while any seat is empty, so an active court's teams are always
@@ -14,12 +19,13 @@ export type CourtMode = 'variety' | 'balanced' | 'level' | 'custom';
 export type Seat = string | null;
 
 export type CourtState =
-  | { status: 'idle'; format: CourtFormat; mode: CourtMode }
+  | { status: 'idle'; format: CourtFormat; mode: CourtMode; target?: CourtTarget }
   | {
       status: 'pending';
       pairingId: string;
       format: CourtFormat;
       mode: CourtMode;
+      target?: CourtTarget;
       teamA: Seat[];
       teamB: Seat[];
       /** ISO timestamp of when this match auto-confirms if nobody touches
@@ -32,6 +38,7 @@ export type CourtState =
       pairingId: string;
       format: CourtFormat;
       mode: CourtMode;
+      target?: CourtTarget;
       teamA: string[];
       teamB: string[];
       /** ISO timestamp of the server's `Pairing.confirmedAt` — when this

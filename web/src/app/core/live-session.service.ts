@@ -3,7 +3,7 @@ import { Injectable, computed, inject, signal } from '@angular/core';
 import { ActivatedRoute } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
 import { environment } from '../../environments/environment';
-import type { CourtFormat, CourtMode, CourtState, LineupEntry, Seat } from './live-session.model';
+import type { CourtFormat, CourtMode, CourtState, CourtTarget, LineupEntry, Seat } from './live-session.model';
 import type { Session } from './session.model';
 import { levelsErrorMessage } from './group-levels.model';
 import type { Level } from '../../../../engines/levels.ts';
@@ -588,6 +588,16 @@ export class LiveSessionService {
       `courts/${courtNumber}/mode`,
       { mode },
       $localize`:@@err.courtMode:เปลี่ยนโหมดคอร์ทไม่สำเร็จ`
+    );
+  }
+
+  /** Allowed in any court state, like the mode: it only steers the next
+   *  propose/reshuffle of a level-mode court. */
+  setCourtTarget(courtNumber: number, target: CourtTarget): Promise<ActionResult> {
+    return this.post(
+      `courts/${courtNumber}/target`,
+      { target },
+      $localize`:@@err.courtTarget:เปลี่ยนกลุ่มผู้เล่นของคอร์ทไม่สำเร็จ`
     );
   }
 

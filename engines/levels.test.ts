@@ -11,6 +11,7 @@ import {
   DEFAULT_LEVEL_LADDER,
   validateLevelSpecs,
   centeredLevelSpecs,
+  splitTonight,
   type Level,
   type LevelSpec,
 } from './levels.ts';
@@ -221,5 +222,52 @@ describe('configurable ladders (host feedback F)', () => {
       bad([{ name: 'a', startingElo: 1000 }, { name: 'b', startingElo: 1000 }], /higher than/i);
       bad([{ name: 'a', startingElo: 1100 }, { name: 'b', startingElo: 1000 }], /higher than/i);
     });
+  });
+});
+
+describe('splitTonight', () => {
+  const lv = (record: Record<string, Level | null>): Map<string, Level | null> => new Map(Object.entries(record));
+
+  it('cuts a mixed roster into a balanced low and high half', () => {
+    const split = splitTonight(lv({ a: 'N', b: 'N', c: 'P+', d: 'P+' }), ['a', 'b', 'c', 'd']);
+    assert.deepEqual([...split].sort(), [['a', 'low'], ['b', 'low'], ['c', 'high'], ['d', 'high']]);
+  });
+
+  it('is empty when fewer than two distinct levels are tagged', () => {
+    assert.equal(splitTonight(lv({ a: 'P', b: 'P', c: 'P', d: null }), ['a', 'b', 'c', 'd']).size, 0);
+    assert.equal(splitTonight(lv({ a: null, b: null }), ['a', 'b']).size, 0);
+    assert.equal(splitTonight(lv({}), []).size, 0);
+  });
+
+  it('balances by headcount, not by rung number, when the group is skewed', () => {
+    // Five at one rung and one far above: a plain midpoint would put everyone Low or High.
+    const split = splitTonight(lv({ a: 'N', b: 'N', c: 'N', d: 'N', e: 'N', f: 'C' }), 'abcdef'.split(''));
+    assert.equal(split.get('f'), 'high');
+    assert.equal(split.get('a'), 'low');
+  });
+
+  it('on a tie in balance, the lower cut wins so the High side is the larger', () => {
+    const split = splitTonight(lv({ a: 'N', b: 'P', c: 'C' }), ['a', 'b', 'c']);
+    assert.equal(split.get('a'), 'low');
+    assert.equal(split.get('b'), 'high');
+    assert.equal(split.get('c'), 'high');
+  });
+
+  it('ignores untagged players and anyone not on the roster', () => {
+    const split = splitTonight(lv({ a: 'N', b: 'P+', c: null, z: 'C' }), ['a', 'b', 'c']);
+    assert.equal(split.has('c'), false);
+    assert.equal(split.has('z'), false);
+    assert.equal(split.get('a'), 'low');
+    assert.equal(split.get('b'), 'high');
+  });
+
+  it('honours a custom ladder', () => {
+    const ladder: LevelSpec[] = [
+      { name: 'x', startingElo: 1000 },
+      { name: 'y', startingElo: 1100 },
+    ];
+    const split = splitTonight(lv({ a: 'x', b: 'y' }), ['a', 'b'], ladder);
+    assert.equal(split.get('a'), 'low');
+    assert.equal(split.get('b'), 'high');
   });
 });

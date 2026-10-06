@@ -549,7 +549,15 @@ describe('GroupEntry', () => {
     await confirmPromise;
   });
 
+  it('saveGroupName does not call the server for a brand-new group (no PUT to a group that does not exist yet)', async () => {
+    component.groupName.set('Group A');
+    await component.saveGroupName();
+    httpMock.expectNone(`${B}/groups/group1`);
+    expect(component.renameError()).toBeNull();
+  });
+
   it('saveGroupName sends the group name via renameGroup', async () => {
+    (component as unknown as { groupExists: boolean }).groupExists = true;
     component.groupName.set('Group A');
     const save = component.saveGroupName();
 
@@ -561,6 +569,7 @@ describe('GroupEntry', () => {
   });
 
   it('preserves the group name and allows a retry when renaming fails', async () => {
+    (component as unknown as { groupExists: boolean }).groupExists = true;
     component.groupName.set('Group A');
     const failedSave = component.saveGroupName();
     expect(component.isRenaming()).toBe(true);

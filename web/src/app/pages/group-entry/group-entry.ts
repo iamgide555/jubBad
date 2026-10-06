@@ -53,6 +53,8 @@ export class GroupEntry {
   readonly rosterReviews = signal<NameReview[]>([]);
   readonly waitlistReviews = signal<NameReview[]>([]);
   readonly groupName = signal('');
+  /** False for a brand-new code: the group is created by the first parse (which also sends the name), so renaming it would 404. */
+  private groupExists = false;
   readonly lastSessionCode = signal<string | null>(null);
   readonly warnings = signal<string[]>([]);
   readonly unrecognizedLines = signal<string[]>([]);
@@ -207,6 +209,7 @@ export class GroupEntry {
     this.groupCode = route.snapshot.paramMap.get('groupCode')!;
     this.rosterService.getGroup(this.groupCode).subscribe({
       next: (group) => {
+        this.groupExists = true;
         this.groupName.set(group.name ?? '');
         this.lastSessionCode.set(group.lastSessionCode);
       },
@@ -261,7 +264,7 @@ export class GroupEntry {
   }
 
   async saveGroupName(): Promise<void> {
-    if (!this.groupName().trim() || this.isRenaming()) return;
+    if (!this.groupExists || !this.groupName().trim() || this.isRenaming()) return;
 
     this.renameError.set(null);
     this.isRenaming.set(true);

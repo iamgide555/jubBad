@@ -1045,20 +1045,14 @@ describe('CourtPanel with too few players', () => {
     for (const button of targetToggleButtons(fixture)) expect(button.disabled).toBe(true);
   });
 
-  it('explains a Low/High target', async () => {
+  it('explains the target in a tooltip, not as always-on text', async () => {
     const { fixture } = await createPanel(
       baseSession({ mode: 'level', courts: [{ status: 'idle', format: 'doubles', mode: 'level', target: 'low' }] })
     );
     fixture.detectChanges();
-    expect((fixture.nativeElement as HTMLElement).textContent).toContain('เทียบกับคนที่มาคืนนี้');
-  });
-
-  it('says nothing extra for an auto target', async () => {
-    const { fixture } = await createPanel(
-      baseSession({ mode: 'level', courts: [{ status: 'idle', format: 'doubles', mode: 'level' }] })
-    );
-    fixture.detectChanges();
-    expect((fixture.nativeElement as HTMLElement).textContent).not.toContain('เทียบกับคนที่มาคืนนี้');
+    const el = fixture.nativeElement as HTMLElement;
+    expect(el.querySelector('.court-target-toggle')!.getAttribute('title')).toContain('เทียบกับคนที่มาคืนนี้');
+    expect(el.textContent).not.toContain('เทียบกับคนที่มาคืนนี้');
   });
 
   it('disables the toggle once the session has ended', async () => {

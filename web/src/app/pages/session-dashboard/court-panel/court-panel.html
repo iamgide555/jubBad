@@ -43,7 +43,7 @@
       </div>
     }
     @if (c.mode === 'level') {
-      <div class="scope-toggle court-target-toggle" role="group" [attr.aria-label]="targetGroupLabel">
+      <div class="scope-toggle court-target-toggle" role="group" [attr.aria-label]="targetGroupLabel" [attr.title]="targetHint">
         @for (t of courtTargets; track t) {
           <button
             type="button"
@@ -64,10 +64,6 @@
       <span class="status-dot" [class]="c.status" aria-hidden="true"></span>{{ statusText() }}
     </span>
   </div>
-
-  @if (c.mode === 'level' && c.target && c.target !== 'auto' && !ended()) {
-    <p class="hint" i18n="@@court.targetHint">เทียบกับคนที่มาคืนนี้ — ถ้าคนในกลุ่มไม่พอ จะเติมจากกลุ่มใกล้เคียง</p>
-  }
 
   @if (ended()) {
     <p class="matchup idle-label" i18n="@@court.sessionEnded">จบก๊วนแล้ว</p>

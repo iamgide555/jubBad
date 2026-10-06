@@ -2539,7 +2539,7 @@
       <trans-unit id="court.targetHint" datatype="html">
         <source>เทียบกับคนที่มาคืนนี้ — ถ้าคนในกลุ่มไม่พอ จะเติมจากกลุ่มใกล้เคียง</source>
         <context-group purpose="location">
-          <context context-type="sourcefile">src/app/pages/session-dashboard/court-panel/court-panel.html</context>
+          <context context-type="sourcefile">src/app/pages/session-dashboard/court-panel/court-panel.ts</context>
           <context context-type="linenumber">1</context>
         </context-group>
       </trans-unit>

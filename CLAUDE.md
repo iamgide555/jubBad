@@ -87,6 +87,7 @@ These are load-bearing product decisions, not incidental implementation choices 
 - **Courts rotate independently** — there is no shared "round" object; whoever finishes first gets the next match.
 - **History updates only on confirm, never on propose.** This is what makes free reshuffling, resting a player, and undo all compose correctly without extra engine bookkeeping.
 - **Bad input to the engines fails loudly** (throws on duplicate/empty player id, fractional/negative court count, invalid history counts) rather than coping — a swallowed corruption used to surface as a misleading "not enough players" to the host.
+- **A ระดับ court can be aimed at the lower/upper half of tonight's roster** (มือล่าง/มือบน; `Session.courtTargets`, `splitTonight`). The split is relative to who is checked in, not to the ladder; it is a soft score component (`targetMiss`) ranked above the ±1 band, a targeted court never gets a carry game, and auto must stay byte-identical. See `docs/overview.md`.
 - **Games-played rotation applies to สลับคู่/สูสี only.** ระดับ (level) courts — including a per-court ระดับ inside a เลือกเอง session — queue by wait time alone; games played is ignored. See `docs/overview.md`'s Pairing section.
 - Exhaustive search up to 8 players on court; local search (random-restart steepest-descent) above that, continuously checked against exhaustive results in `engines/pairing-quality.test.ts` so the engine can't silently regress even while unit tests stay green.
 

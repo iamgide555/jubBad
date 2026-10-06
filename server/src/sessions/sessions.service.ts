@@ -17,6 +17,7 @@ import {
   groupKey,
   InvalidRoundInputError,
   type CourtSize,
+  type Targeting,
   type Team,
 } from '../../../engines/pairing.ts';
 import { isValidIsoDate } from '../../../engines/parser.ts';
@@ -27,7 +28,7 @@ import {
   rulesTouching,
   type PairRule,
 } from '../../../engines/pair-rules.ts';
-import type { Level, LevelSpec } from '../../../engines/levels.ts';
+import { splitTonight, type Level, type LevelSpec } from '../../../engines/levels.ts';
 import { waitingSinceMap } from '../../../engines/waiting.ts';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { levelWrite, loadLevelSetAt, loadPlayerLevels, loadRatingAnchors } from '../player-levels.js';
@@ -41,6 +42,7 @@ import {
   withFormatAt,
 } from './court-formats.js';
 import { modeAt, withModeAt } from './court-modes.js';
+import { targetAt, withTargetAt } from './court-targets.js';
 import {
   editableCourtCount,
   hasDuplicateCourtLabels,
@@ -77,6 +79,7 @@ import type { SetCourtCountDto } from './dto/set-court-count.dto.js';
 import type { SetCourtFormatDto } from './dto/set-court-format.dto.js';
 import type { SetCourtLabelDto } from './dto/set-court-label.dto.js';
 import type { SetCourtModeDto } from './dto/set-court-mode.dto.js';
+import type { SetCourtTargetDto } from './dto/set-court-target.dto.js';
 import type { SetModeDto } from './dto/set-mode.dto.js';
 import type { SetRosterActiveDto } from './dto/set-roster-active.dto.js';
 import type { LineupDto, MoveLineupDto } from './dto/lineup.dto.js';
@@ -168,6 +171,37 @@ export class SessionsService {
     const group = await this.prisma.group.findUniqueOrThrow({ where: { code: groupId } });
     const ladder = this.groupLevels.ladderOf(group).levels;
     return { ladder, levels: await loadPlayerLevels(this.prisma, groupId, ladder) };
+  }
+
+  /**
+   * Low/High targets for the courts about to be planned, positional with
+   * `courtNumbers` (the same order the engine receives its sizes in). Only a
+   * court whose effective mode is ระดับ is ever steered, whatever is stored.
+   * Undefined when no court is, so the common path stays exactly as it was.
+   * The Low/High cut is taken over everyone checked in tonight — not just
+   * whoever is free right now — so it only moves when the roster does.
+   */
+  private async targetingFor(
+    session: { code: string; mode: string; courtModes: string | null; courtTargets: string | null },
+    courtNumbers: readonly number[],
+    levels: ReadonlyMap<string, Level | null>,
+    ladder: readonly LevelSpec[],
+    activeIds?: ReadonlySet<string>
+  ): Promise<Targeting | undefined> {
+    const courtTargets = courtNumbers.map((n) =>
+      effectiveCourtMode(session, n) === 'level' ? targetAt(session.courtTargets, n) : ('auto' as const)
+    );
+    if (courtTargets.every((t) => t === 'auto')) return undefined;
+    const rosterIds =
+      activeIds !== undefined
+        ? [...activeIds]
+        : (
+            await this.prisma.sessionRoster.findMany({
+              where: { sessionId: session.code, active: true },
+              select: { playerId: true },
+            })
+          ).map((r) => r.playerId);
+    return { courtTargets, split: splitTonight(levels, rosterIds, ladder) };
   }
 
   private runGenerateRound(...args: Parameters<typeof generateRound>) {
@@ -638,11 +672,13 @@ export class SessionsService {
       // Per-court mode, only ever different from session.mode in a custom
       // session — see effectiveCourtMode.
       const mode = effectiveCourtMode(session, courtNumber);
+      // Only meaningful for a level court; everything else reads as auto.
+      const target = mode === 'level' ? targetAt(session.courtTargets, courtNumber) : ('auto' as const);
       const current = session.pairings
         .filter((p) => p.courtNumber === courtNumber && p.endedAt === null)
         .sort((a, b) => b.matchNumber - a.matchNumber)[0];
 
-      if (!current) return { courtNumber, status: 'idle' as const, format, mode };
+      if (!current) return { courtNumber, status: 'idle' as const, format, mode, target };
 
       // Tolerant: a pending custom-mode draft may still have unfilled seats,
       // and the dashboard needs to render them, not have this 500.
@@ -655,6 +691,7 @@ export class SessionsService {
             revision: current.revision,
             format,
             mode,
+            target,
             teamA,
             teamB,
             startedAt: current.confirmedAt.toISOString(),
@@ -674,6 +711,7 @@ export class SessionsService {
             revision: current.revision,
             format,
             mode,
+            target,
             teamA,
             teamB,
             autoStartAt: this.autoStartAtFor(current, session.roster),
@@ -1088,6 +1126,7 @@ export class SessionsService {
     );
 
     const ruled = await this.engineRulesFor(session, new Set(rosterPlayerIds), available);
+    const targeting = await this.targetingFor(session, orderedCourtNumbers, levels, ladder);
 
     let result: ReturnType<typeof generateRound>;
     try {
@@ -1105,7 +1144,8 @@ export class SessionsService {
         carry?.carriedTonight,
         ruled.rules,
         'requested',
-        ladder
+        ladder,
+        targeting
       );
     } catch (error) {
       if (error instanceof NoLegalRuleMatchError) return this.rulesBlocked(error.ruleIds);
@@ -1845,6 +1885,18 @@ export class SessionsService {
     const ratings = courtMode === 'balanced' ? await this.loadRatings(session.groupId) : undefined;
     const { ladder, levels } = await this.levelsFor(session.groupId);
 
+    // A Low/High court keeps its substitute in the same half when it can: a
+    // wrong-half replacement is only ever taken when nobody else is free.
+    const targeting =
+      courtMode === 'level'
+        ? await this.targetingFor(session, [pairing.courtNumber], levels, ladder)
+        : undefined;
+    const courtTarget = targeting?.courtTargets[0];
+    const wrongHalf = (candidate: string): number => {
+      const half = targeting?.split.get(candidate);
+      return courtTarget && courtTarget !== 'auto' && half !== undefined && half !== courtTarget ? 1 : 0;
+    };
+
     const swapIn = (candidate: string): [string[], string[]] => {
       const replace = (team: string[]): string[] =>
         team.map((id) => (id === dto.playerId ? candidate : id));
@@ -1866,6 +1918,7 @@ export class SessionsService {
         const [candidateA, candidateB] = swapIn(candidate);
         return {
           substitute: candidate,
+          miss: wrongHalf(candidate),
           games: history.gamesPlayedThisSession.get(candidate) ?? 0,
           waitingSince: history.waitingSince?.get(candidate) ?? 0,
           assignment: { teamA: candidateA, teamB: candidateB },
@@ -1873,6 +1926,7 @@ export class SessionsService {
       })
       .sort(
         (one, other) =>
+          one.miss - other.miss ||
           (courtMode === 'level'
             ? (one.waitingSince ?? 0) - (other.waitingSince ?? 0)
             : one.games - other.games || one.waitingSince - other.waitingSince) ||
@@ -2962,6 +3016,38 @@ export class SessionsService {
     };
   }
 
+  setCourtTarget(code: string, courtNumber: number, dto: SetCourtTargetDto) {
+    return this.lock.run(code, () => this.setCourtTargetExclusively(code, courtNumber, dto));
+  }
+
+  /**
+   * Like the mode switch, allowed in any court state: a target only changes
+   * what the next propose/reshuffle does, never a pending pairing.
+   */
+  private async setCourtTargetExclusively(code: string, courtNumber: number, dto: SetCourtTargetDto) {
+    const session = await this.prisma.session.findUnique({ where: { code } });
+    if (!session) throw this.notFound('SESSION_NOT_FOUND');
+    if (session.endedAt !== null) throw this.conflict('SESSION_ENDED');
+    this.assertCourtNumber(session.courtCount, courtNumber);
+
+    let courtTargets: string;
+    try {
+      courtTargets = withTargetAt(session.courtTargets, courtNumber, dto.target);
+    } catch (error) {
+      if (error instanceof InvalidCourtNumberError) throw this.badRequest('INVALID_COURT_NUMBER');
+      throw error;
+    }
+    const updated = await this.prisma.session.update({
+      where: { code },
+      data: { courtTargets },
+    });
+    return {
+      code: updated.code,
+      courtNumber,
+      target: targetAt(updated.courtTargets, courtNumber),
+    };
+  }
+
   /**
    * Reverses the single most recent step on one court, whatever it was: a
    * finish goes back to active, a confirm back to pending, and an unconfirmed
@@ -3262,6 +3348,7 @@ export class SessionsService {
     const ratings = mode === 'balanced' ? await this.loadRatings(session.groupId) : undefined;
     const { ladder, levels } = await this.levelsFor(session.groupId);
     const carry = level ? await this.loadCarryEligibility(session) : undefined;
+    const targeting = level ? await this.targetingFor(session, chosen, levels, ladder, activeIds) : undefined;
 
     let result: ReturnType<typeof generateRound>;
     try {
@@ -3279,7 +3366,8 @@ export class SessionsService {
         carry?.carriedTonight,
         ruled.rules,
         'partial',
-        ladder
+        ladder,
+        targeting
       );
     } catch (error) {
       if (error instanceof NoLegalRuleMatchError) {

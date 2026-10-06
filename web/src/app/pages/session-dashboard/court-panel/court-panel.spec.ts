@@ -968,6 +968,99 @@ describe('CourtPanel with too few players', () => {
     await fixture.whenStable();
   });
 
+  // --- Per-court target (Low / High) --------------------------------------
+
+  function targetToggleButtons(fixture: ComponentFixture<CourtPanel>): HTMLButtonElement[] {
+    return [...(fixture.nativeElement as HTMLElement).querySelectorAll('.court-target-toggle button')] as HTMLButtonElement[];
+  }
+
+  it('shows the target toggle on a level court, with the stored target active', async () => {
+    const { fixture } = await createPanel(
+      baseSession({ mode: 'level', courts: [{ status: 'idle', format: 'doubles', mode: 'level', target: 'high' }] })
+    );
+    fixture.detectChanges();
+    const buttons = targetToggleButtons(fixture);
+    expect(buttons.map((b) => b.textContent?.trim())).toEqual(['อัตโนมัติ', 'มือล่าง', 'มือบน']);
+    expect(buttons.map((b) => b.classList.contains('active'))).toEqual([false, false, true]);
+  });
+
+  it('reads a missing target as auto', async () => {
+    const { fixture } = await createPanel(
+      baseSession({ mode: 'level', courts: [{ status: 'idle', format: 'doubles', mode: 'level' }] })
+    );
+    fixture.detectChanges();
+    expect(targetToggleButtons(fixture)[0].classList).toContain('active');
+  });
+
+  it('hides the target toggle on a court that is not in level mode', async () => {
+    const { fixture } = await createPanel(
+      baseSession({ mode: 'variety', courts: [{ status: 'idle', format: 'doubles', mode: 'variety' }] })
+    );
+    fixture.detectChanges();
+    expect(targetToggleButtons(fixture)).toHaveLength(0);
+  });
+
+  it('shows the target toggle on a level court inside a custom session', async () => {
+    const { fixture } = await createPanel(
+      baseSession({ mode: 'custom', courts: [{ status: 'idle', format: 'doubles', mode: 'level' }] })
+    );
+    fixture.detectChanges();
+    expect(targetToggleButtons(fixture)).toHaveLength(3);
+  });
+
+  it('posts the new target when a segment is tapped, and reloads', async () => {
+    const { fixture, httpMock } = await createPanel(
+      baseSession({ mode: 'level', courts: [{ status: 'idle', format: 'doubles', mode: 'level' }] })
+    );
+    fixture.detectChanges();
+    targetToggleButtons(fixture)[1].click();
+
+    const req = httpMock.expectOne(`${B}/sessions/sess1/courts/1/target`);
+    expect(req.request.body).toEqual({ target: 'low' });
+    req.flush({ code: 'sess1', courtNumber: 1, target: 'low' });
+    await new Promise((r) => setTimeout(r, 0));
+    TestBed.tick();
+    httpMock
+      .expectOne(`${B}/sessions/sess1`)
+      .flush(baseSession({ mode: 'level', courts: [{ status: 'idle', format: 'doubles', mode: 'level', target: 'low' }] }));
+    await fixture.whenStable();
+  });
+
+  it('keeps the target toggle settable while a match is active', async () => {
+    const { fixture } = await createPanel(
+      baseSession({
+        mode: 'level',
+        courts: [{ status: 'active', pairingId: 'pair1', format: 'doubles', mode: 'level', teamA: ['p1', 'p2'], teamB: ['p3', 'p4'], startedAt: '2026-09-08T12:00:00.000Z' }],
+      })
+    );
+    fixture.detectChanges();
+    for (const button of targetToggleButtons(fixture)) expect(button.disabled).toBe(false);
+  });
+
+  it('disables the target toggle once the session has ended', async () => {
+    const { fixture } = await createPanel(
+      baseSession({ mode: 'level', endedAt: '2026-09-08T20:00:00.000Z', courts: [{ status: 'idle', format: 'doubles', mode: 'level' }] })
+    );
+    fixture.detectChanges();
+    for (const button of targetToggleButtons(fixture)) expect(button.disabled).toBe(true);
+  });
+
+  it('explains a Low/High target', async () => {
+    const { fixture } = await createPanel(
+      baseSession({ mode: 'level', courts: [{ status: 'idle', format: 'doubles', mode: 'level', target: 'low' }] })
+    );
+    fixture.detectChanges();
+    expect((fixture.nativeElement as HTMLElement).textContent).toContain('เทียบกับคนที่มาคืนนี้');
+  });
+
+  it('says nothing extra for an auto target', async () => {
+    const { fixture } = await createPanel(
+      baseSession({ mode: 'level', courts: [{ status: 'idle', format: 'doubles', mode: 'level' }] })
+    );
+    fixture.detectChanges();
+    expect((fixture.nativeElement as HTMLElement).textContent).not.toContain('เทียบกับคนที่มาคืนนี้');
+  });
+
   it('disables the toggle once the session has ended', async () => {
     const { fixture } = await createPanel(baseSession({ endedAt: '2026-09-08T20:00:00.000Z' }));
     fixture.detectChanges();

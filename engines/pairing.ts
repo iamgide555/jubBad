@@ -11,7 +11,14 @@
  */
 
 import { ratingGap, type RatingTracks } from './elo.ts';
-import { DEFAULT_LEVEL_LADDER, levelIndex, withinBand, type Level, type LevelSpec } from './levels.ts';
+import {
+  DEFAULT_LEVEL_LADDER,
+  levelIndex,
+  withinBand,
+  type CourtTarget,
+  type Level,
+  type LevelSpec,
+} from './levels.ts';
 import { InvalidRoundInputError } from './errors.ts';
 import {
   assertValidPairRules,
@@ -88,6 +95,38 @@ function consumedSizes(sizes: CourtSize[], available: number): CourtSize[] {
   return consumed;
 }
 
+/**
+ * Per-court Low/High targets (ระดับ courts). `courtTargets` is positional —
+ * index i is the i-th court of the sizes passed alongside it — and `split`
+ * says which half of tonight's roster each tagged player is in (see
+ * `splitTonight`). A court is only steered when it is Low or High *and* the
+ * split is non-empty; otherwise nothing here changes behaviour.
+ */
+export interface Targeting {
+  courtTargets: readonly CourtTarget[];
+  split: ReadonlyMap<PlayerId, 'low' | 'high'>;
+}
+
+function targetAt(targeting: Targeting | null | undefined, position: number): 'low' | 'high' | null {
+  const target = targeting?.courtTargets[position];
+  return target === 'low' || target === 'high' ? target : null;
+}
+
+function targetingActive(targeting: Targeting | null | undefined): targeting is Targeting {
+  return (
+    !!targeting && targeting.split.size > 0 && targeting.courtTargets.some((t) => t === 'low' || t === 'high')
+  );
+}
+
+/** The same targeting for a subset/reordering of courts: position k becomes `positions[k]`. */
+function targetingForPositions(targeting: Targeting | undefined, positions: readonly number[]): Targeting | undefined {
+  if (!targetingActive(targeting)) return undefined;
+  return {
+    split: targeting.split,
+    courtTargets: positions.map((i) => targeting.courtTargets[i] ?? 'auto'),
+  };
+}
+
 export function selectSittingOut(
   roster: PlayerId[],
   courtCount: number | CourtSize[],
@@ -130,7 +169,9 @@ export function selectSittingOut(
    */
   rules?: readonly PairRule[],
   /** The group's ordered level ladder, for the ±1 band. Omitted: the built-in one. */
-  ladder: readonly LevelSpec[] = DEFAULT_LEVEL_LADDER
+  ladder: readonly LevelSpec[] = DEFAULT_LEVEL_LADDER,
+  /** Per-court Low/High targets, positional with `courtCount`. Omitted: selection is unchanged. */
+  targeting?: Targeting
 ): { playing: PlayerId[]; sittingOut: PlayerId[] } {
   const sizes = normalizeSizes(courtCount);
   const offered = consumedSizes(sizes, roster.length);
@@ -163,7 +204,8 @@ export function selectSittingOut(
   // priority — clustering it around each court's anchor — so everything
   // below (the natural cut, and the single-court group-repeat swap) works on
   // whichever ordering it's handed without needing to know band is involved.
-  const priorityOrder = band && levels ? bandOrderedByCourt(sorted, offered, levels, ladder) : sorted;
+  const priorityOrder =
+    band && levels ? bandOrderedByCourt(sorted, offered, levels, ladder, targeting) : sorted;
 
   const units = rules ? unitsInOrder([...priorityOrder].reverse(), rules) : null;
   if (units && units.some((u) => u.length === 2)) {
@@ -238,13 +280,32 @@ function bandOrderedByCourt(
   sorted: PlayerId[],
   offered: CourtSize[],
   levels: ReadonlyMap<PlayerId, Level | null>,
-  ladder: readonly LevelSpec[]
+  ladder: readonly LevelSpec[],
+  targeting?: Targeting
 ): PlayerId[] {
   let remaining = [...sorted].reverse(); // front = most deserving to play
   const chosenPerCourt: PlayerId[][] = [];
 
-  for (const size of offered) {
+  for (const [position, size] of offered.entries()) {
     if (remaining.length === 0) break;
+    const target = targetAt(targeting, position);
+    if (target && targeting) {
+      // A Low/High court is filled from its own half first, longest wait
+      // first, then anyone untagged (they fit either half), then the other
+      // half only if there are not enough. The ±1 band is left to the
+      // arrangement score here: a half spans several rungs by design.
+      const ownHalf = remaining.filter((p) => targeting.split.get(p) === target);
+      const untagged = remaining.filter((p) => !targeting.split.has(p));
+      const chosen = [
+        ...ownHalf,
+        ...untagged,
+        ...remaining.filter((p) => targeting.split.has(p) && targeting.split.get(p) !== target),
+      ].slice(0, size);
+      chosenPerCourt.push(chosen);
+      const chosenSet = new Set(chosen);
+      remaining = remaining.filter((p) => !chosenSet.has(p));
+      continue;
+    }
     // The band is checked against the court's running level range, not the
     // anchor alone: P- and P+ are each one from a P anchor but two from each
     // other, and `courtBreaksBand` scores exactly that court as broken.
@@ -395,6 +456,8 @@ export function scoreArrangement(
 export interface ArrangementScoreComponents {
   /** Courts whose players (any split) match a group that recently played together. */
   groupRepeat: number;
+  /** Tagged players on a Low/High court who belong to the other half of tonight's roster. */
+  targetMiss: number;
   /** Courts containing two players more than one level apart (the ±1 band). */
   bandBreaks: number;
   partner: number;
@@ -435,18 +498,29 @@ export function arrangementScoreComponents(
   recentGroupKeys?: Set<string> | null,
   /** Only when the ±1 band is on for this session; omitted, bandBreaks is always 0. */
   levels?: ReadonlyMap<PlayerId, Level | null>,
-  ladder: readonly LevelSpec[] = DEFAULT_LEVEL_LADDER
+  ladder: readonly LevelSpec[] = DEFAULT_LEVEL_LADDER,
+  /** Per-court targets, positional with `courts` (offset by `firstPosition`). */
+  targeting?: Targeting,
+  firstPosition = 0
 ): ArrangementScoreComponents {
   let groupRepeat = 0;
+  let targetMiss = 0;
   let bandBreaks = 0;
   let partner = 0;
   let opponent = 0;
   let balance = 0;
 
-  for (const { teamA, teamB } of courts) {
+  for (const [i, { teamA, teamB }] of courts.entries()) {
     const group = [...teamA, ...teamB];
     if (recentGroupKeys && recentGroupKeys.has(groupKey(group))) {
       groupRepeat += 1;
+    }
+    const target = targetAt(targeting, firstPosition + i);
+    if (target && targeting) {
+      for (const id of group) {
+        const half = targeting.split.get(id);
+        if (half !== undefined && half !== target) targetMiss += 1;
+      }
     }
     if (levels && courtBreaksBand(group, levels, ladder)) {
       bandBreaks += 1;
@@ -481,7 +555,7 @@ export function arrangementScoreComponents(
     }
   }
 
-  return { groupRepeat, bandBreaks, partner, opponent, balance };
+  return { groupRepeat, targetMiss, bandBreaks, partner, opponent, balance };
 }
 
 /**
@@ -508,7 +582,8 @@ export function compareArrangements(
   floors: HistoryFloors = { partner: 0, opponent: 0 },
   recentGroupKeys?: Set<string> | null,
   levels?: ReadonlyMap<PlayerId, Level | null>,
-  ladder: readonly LevelSpec[] = DEFAULT_LEVEL_LADDER
+  ladder: readonly LevelSpec[] = DEFAULT_LEVEL_LADDER,
+  targeting?: Targeting
 ): number {
   const first = arrangementScoreComponents(
     one,
@@ -518,7 +593,8 @@ export function compareArrangements(
     floors,
     recentGroupKeys,
     levels,
-    ladder
+    ladder,
+    targeting
   );
   const second = arrangementScoreComponents(
     other,
@@ -528,10 +604,12 @@ export function compareArrangements(
     floors,
     recentGroupKeys,
     levels,
-    ladder
+    ladder,
+    targeting
   );
 
   if (first.groupRepeat !== second.groupRepeat) return first.groupRepeat - second.groupRepeat;
+  if (first.targetMiss !== second.targetMiss) return first.targetMiss - second.targetMiss;
   if (first.bandBreaks !== second.bandBreaks) return first.bandBreaks - second.bandBreaks;
 
   if (!ratings) {
@@ -707,12 +785,19 @@ interface SearchContext {
   levels?: ReadonlyMap<PlayerId, Level | null>;
   /** The group's ladder the band is judged against; unset means the built-in one. */
   ladder?: readonly LevelSpec[];
+  /** Per-court Low/High targets, positional with the courts being searched. Unset when none is active. */
+  targeting?: Targeting;
   /** Enabled, applicable pair rules — hard filters applied before any
    *  scoring. Unset (never an empty array) on the no-rule path. */
   rules?: readonly PairRule[];
 }
 
-function courtComponents(teamA: Team, teamB: Team, ctx: SearchContext): ArrangementScoreComponents {
+function courtComponents(
+  teamA: Team,
+  teamB: Team,
+  ctx: SearchContext,
+  courtIndex: number
+): ArrangementScoreComponents {
   return arrangementScoreComponents(
     [{ teamA, teamB }],
     ctx.partnerCounts,
@@ -721,7 +806,9 @@ function courtComponents(teamA: Team, teamB: Team, ctx: SearchContext): Arrangem
     ctx.floors,
     ctx.recentGroupKeys,
     ctx.levels,
-    ctx.ladder
+    ctx.ladder,
+    ctx.targeting,
+    courtIndex
   );
 }
 
@@ -732,6 +819,7 @@ function compareComponents(
   ratings?: RatingsInput
 ): number {
   if (first.groupRepeat !== second.groupRepeat) return first.groupRepeat - second.groupRepeat;
+  if (first.targetMiss !== second.targetMiss) return first.targetMiss - second.targetMiss;
   if (first.bandBreaks !== second.bandBreaks) return first.bandBreaks - second.bandBreaks;
   if (!ratings) {
     return first.partner - second.partner || first.opponent - second.opponent;
@@ -828,7 +916,7 @@ function bestSplitForGroup(
   for (const { teamA, teamB } of patterns) {
     if (avoidKeys && teamA.length === 2 && isAvoidedSplit(teamA, teamB, avoidKeys)) continue;
 
-    const components = courtComponents(teamA, teamB, ctx);
+    const components = courtComponents(teamA, teamB, ctx, courtIndex);
     const total =
       components.partner * PARTNER_WEIGHT +
       components.opponent * OPPONENT_WEIGHT +
@@ -860,18 +948,20 @@ function groupOf(court: CourtAssignment): Group {
 
 function totalComponents(parts: ArrangementScoreComponents[]): ArrangementScoreComponents {
   let groupRepeat = 0;
+  let targetMiss = 0;
   let bandBreaks = 0;
   let partner = 0;
   let opponent = 0;
   let balance = 0;
   for (const part of parts) {
     groupRepeat += part.groupRepeat;
+    targetMiss += part.targetMiss;
     bandBreaks += part.bandBreaks;
     partner += part.partner;
     opponent += part.opponent;
     balance += part.balance;
   }
-  return { groupRepeat, bandBreaks, partner, opponent, balance };
+  return { groupRepeat, targetMiss, bandBreaks, partner, opponent, balance };
 }
 
 /**
@@ -894,7 +984,7 @@ function improveArrangement(start: CourtAssignment[], ctx: SearchContext): Court
 
   let courts = start.map((assignment) => ({
     assignment,
-    components: courtComponents(assignment.teamA, assignment.teamB, ctx),
+    components: courtComponents(assignment.teamA, assignment.teamB, ctx, assignment.court - 1),
   }));
 
   for (let pass = 0; pass < MAX_IMPROVEMENT_PASSES; pass++) {
@@ -972,6 +1062,7 @@ const DOUBLES_PAIRS: readonly [number, number][] = [
 function negate(components: ArrangementScoreComponents): ArrangementScoreComponents {
   return {
     groupRepeat: -components.groupRepeat,
+    targetMiss: -components.targetMiss,
     bandBreaks: -components.bandBreaks,
     partner: -components.partner,
     opponent: -components.opponent,
@@ -1000,10 +1091,17 @@ function negate(components: ArrangementScoreComponents): ArrangementScoreCompone
 function forEachExactArrangement(
   playing: PlayerId[],
   sizes: number[],
-  visit: (groups: Group[]) => void
+  visit: (groups: Group[]) => void,
+  /**
+   * Court-specific scoring (a Low/High target) means courts are no longer
+   * interchangeable, so head-fixing would never put the head player on a
+   * later court. Enumerating every ordered filling covers every group on every
+   * court. Off by default: the usual enumeration is untouched.
+   */
+  exhaustive = false
 ): void {
   const groups: Group[] = [];
-  const uniform = sizes.every((s) => s === sizes[0]);
+  const uniform = !exhaustive && sizes.every((s) => s === sizes[0]);
 
   const chooseSubset = (
     pool: PlayerId[],
@@ -1384,12 +1482,21 @@ function searchArrangement(
 ): CourtAssignment[] | null {
   let best: CourtAssignment[] | null = null;
   const uniform = offered.every((s) => s === offered[0]);
+  const steered = targetingActive(ctx.targeting);
 
   if (playing.length <= EXACT_ENUMERATION_MAX_PLAYING) {
     // Shuffled so that equally-scoring arrangements — an untouched history
     // makes every arrangement equal — are still picked at random rather than
     // by roster order.
     forEachExactArrangement(shuffle(playing, random), offered, (groups) => {
+      if (steered) {
+        // Courts are not interchangeable under a target, and the exhaustive
+        // enumeration already visits every group at every position, so score
+        // each filling as it stands.
+        const candidate = bestArrangementForGroups(groups, ctx);
+        if (candidate && better(candidate, best)) best = candidate;
+        return;
+      }
       if (uniform) {
         // Every position has the same size, so a full rotation is valid and
         // gives every group in the partition a turn at position 0 — the only
@@ -1417,7 +1524,7 @@ function searchArrangement(
           if (candidate && better(candidate, best)) best = candidate;
         }
       }
-    });
+    }, steered);
   } else {
     // A known-legal grouping (pair rules only) seeds the search: random
     // restarts alone can miss every legal arrangement of a constrained round.
@@ -1459,6 +1566,8 @@ interface RulePlanInput {
   queueBy: 'games' | 'wait';
   rules: readonly PairRule[];
   requireFirstCourt: boolean;
+  /** Positional with `sizes`. */
+  targeting?: Targeting;
 }
 
 /**
@@ -1484,6 +1593,7 @@ function planWithRules(p: RulePlanInput): RoundResult {
       recentGroupKeys: p.recentGroupKeys,
       levels: p.band ? p.levels : undefined,
       ladder: p.ladder,
+      targeting: targetingForPositions(p.targeting, courtIndexes),
       rules,
     };
     const better = (candidate: CourtAssignment[], incumbent: CourtAssignment[] | null): boolean =>
@@ -1497,7 +1607,8 @@ function planWithRules(p: RulePlanInput): RoundResult {
         floors,
         p.recentGroupKeys,
         ctx.levels,
-        p.ladder
+        p.ladder,
+        ctx.targeting
       ) < 0;
     const offered = courtIndexes.map((i) => sizes[i]);
     const best = searchArrangement(playing, offered, ctx, random, better, seedGroups);
@@ -1524,7 +1635,8 @@ function planWithRules(p: RulePlanInput): RoundResult {
     p.band,
     p.queueBy,
     rules,
-    p.ladder
+    p.ladder,
+    p.targeting
   );
   const offered = consumedSizes(sizes, natural.playing.length);
   const offeredSeats = offered.reduce((sum, size) => sum + size, 0);
@@ -1615,7 +1727,10 @@ export function generateRound(
    *  when rules apply. */
   ruleFillPolicy: 'requested' | 'partial' = 'requested',
   /** The group's ordered level ladder for the band and carry rules. Omitted: the built-in one. */
-  ladder: readonly LevelSpec[] = DEFAULT_LEVEL_LADDER
+  ladder: readonly LevelSpec[] = DEFAULT_LEVEL_LADDER,
+  /** Per-court Low/High targets, positional with `courtCount` (level mode only).
+   *  Omitted, or with nothing Low/High, behaviour is unchanged. */
+  targeting?: Targeting
 ): RoundResult {
   validateRoundInput(roster, courtCount, history, avoidSplit, ratings);
   if (rules) assertValidPairRules(roster, rules);
@@ -1634,6 +1749,9 @@ export function generateRound(
   if (
     band &&
     levels &&
+    // A Low/High court is the host's explicit choice; a carry game would seat
+    // a far-below player against a court that was set to exclude them.
+    !targetAt(targetingActive(targeting) ? targeting : undefined, 0) &&
     carryEligible?.size &&
     sizes[0] === 4 &&
     roster.length >= 4 &&
@@ -1663,6 +1781,12 @@ export function generateRound(
 
   const effectiveRoster = carryGroup ? roster.filter((id) => !carryGroup!.has(id)) : roster;
   const effectiveSizes = carryCourt ? sizes.slice(1) : sizes;
+  const effectiveTargeting = targetingActive(targeting)
+    ? {
+        split: targeting.split,
+        courtTargets: carryCourt ? targeting.courtTargets.slice(1) : targeting.courtTargets,
+      }
+    : undefined;
   // A carry court already consumed avoidSplit (as buildCarryCourt's
   // avoidReshuffle) — it must not also exclude a split in the remaining
   // search, which no longer shares any court with it.
@@ -1716,6 +1840,7 @@ export function generateRound(
       queueBy,
       rules: remainingRules,
       requireFirstCourt: ruleFillPolicy === 'requested' && !carryCourt,
+      targeting: effectiveTargeting,
     });
     const shifted = planned.courts.map((c) => (carryCourt ? { ...c, court: c.court + 1 } : c));
     return { courts: carryCourt ? [carryCourt, ...shifted] : shifted, sittingOut: planned.sittingOut };
@@ -1732,7 +1857,8 @@ export function generateRound(
     band,
     queueBy,
     undefined,
-    ladder
+    ladder,
+    effectiveTargeting
   );
 
   const offered = consumedSizes(effectiveSizes, playing.length);
@@ -1751,6 +1877,7 @@ export function generateRound(
     recentGroupKeys,
     levels: band ? levels : undefined,
     ladder,
+    targeting: effectiveTargeting,
   };
 
   const better = (candidate: CourtAssignment[], incumbent: CourtAssignment[] | null): boolean =>
@@ -1764,7 +1891,8 @@ export function generateRound(
       floors,
       recentGroupKeys,
       ctx.levels,
-      ladder
+      ladder,
+      ctx.targeting
     ) < 0;
 
   const best = searchArrangement(playing, offered, ctx, random, better);

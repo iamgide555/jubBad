@@ -560,11 +560,12 @@ describe('SessionsController', () => {
           revision: 0,
           format: 'doubles',
           mode: 'variety',
+          target: 'auto',
           teamA: [players[0].id, players[1].id],
           teamB: [players[2].id, players[3].id],
           startedAt: confirmedAt.toISOString(),
         },
-        { courtNumber: 2, status: 'idle', format: 'doubles', mode: 'variety' },
+        { courtNumber: 2, status: 'idle', format: 'doubles', mode: 'variety', target: 'auto' },
       ]);
       expect(new Date(res.body.serverNow).getTime()).not.toBeNaN();
     } finally {
@@ -608,6 +609,7 @@ describe('SessionsController', () => {
         revision: 0,
         format: 'doubles',
         mode: 'variety',
+        target: 'auto',
         teamA: [players[0].id, null],
         teamB: [players[1].id, players[2].id],
         autoStartAt: null,

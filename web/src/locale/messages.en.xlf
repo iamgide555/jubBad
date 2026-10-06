@@ -889,6 +889,48 @@
           <context context-type="linenumber">161</context>
         </context-group>
       </trans-unit>
+      <trans-unit id="court.targetLabel" datatype="html">
+        <source>กลุ่มผู้เล่นของคอร์ทนี้</source><target>This court's players</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/session-dashboard/court-panel/court-panel.ts</context>
+          <context context-type="linenumber">1</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="court.targetAuto" datatype="html">
+        <source>อัตโนมัติ</source><target>Auto</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/session-dashboard/court-panel/court-panel.ts</context>
+          <context context-type="linenumber">1</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="court.targetLow" datatype="html">
+        <source>มือล่าง</source><target>Lower</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/session-dashboard/court-panel/court-panel.ts</context>
+          <context context-type="linenumber">1</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="court.targetHigh" datatype="html">
+        <source>มือบน</source><target>Upper</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/session-dashboard/court-panel/court-panel.ts</context>
+          <context context-type="linenumber">1</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="court.targetHint" datatype="html">
+        <source>เทียบกับคนที่มาคืนนี้ — ถ้าคนในกลุ่มไม่พอ จะเติมจากกลุ่มใกล้เคียง</source><target>Relative to tonight's players — if the group is too small, the court fills from the nearest group</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/session-dashboard/court-panel/court-panel.html</context>
+          <context context-type="linenumber">1</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="err.courtTarget" datatype="html">
+        <source>เปลี่ยนกลุ่มผู้เล่นของคอร์ทไม่สำเร็จ</source><target>Couldn't change the court's players</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/core/live-session.service.ts</context>
+          <context context-type="linenumber">1</context>
+        </context-group>
+      </trans-unit>
       <trans-unit id="court.modeCustom" datatype="html">
         <source>เลือกเอง</source><target>Manual</target>
         <context-group purpose="location">

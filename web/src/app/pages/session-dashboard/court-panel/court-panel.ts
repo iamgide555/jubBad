@@ -8,7 +8,7 @@ import { describeRules } from '../../../core/pair-rule.model';
 import { isLegalCourt } from '../../../../../../engines/pair-rules.ts';
 import { resolvePlayerNames } from '../../../core/player-names';
 import { SwapSelectionService, type SwapPick } from '../../../core/swap-selection.service';
-import type { CourtFormat, CourtMode, CourtState, Seat } from '../../../core/live-session.model';
+import type { CourtFormat, CourtMode, CourtState, CourtTarget, Seat } from '../../../core/live-session.model';
 import type { Player } from '../../../../../../engines/fuzzy-match.ts';
 import { Icon } from '../../../shared/icon/icon';
 import { labelForCourt } from '../../../core/court-label';
@@ -175,6 +175,28 @@ export class CourtPanel {
   protected readonly modeLabelBalanced = $localize`:@@court.modeBalanced:สูสี`;
   protected readonly modeLabelLevel = $localize`:@@court.modeLevel:ระดับ`;
   protected readonly modeLabelCustom = $localize`:@@court.modeCustom:เลือกเอง`;
+
+  /** Only shown on a level-mode court. Low/High are relative to tonight's
+   *  roster, not to the ladder — see splitTonight in engines/levels.ts. */
+  protected readonly targetGroupLabel = $localize`:@@court.targetLabel:กลุ่มผู้เล่นของคอร์ทนี้`;
+
+  protected readonly courtTargets: readonly CourtTarget[] = ['auto', 'low', 'high'];
+
+  protected readonly targetLabelAuto = $localize`:@@court.targetAuto:อัตโนมัติ`;
+  protected readonly targetLabelLow = $localize`:@@court.targetLow:มือล่าง`;
+  protected readonly targetLabelHigh = $localize`:@@court.targetHigh:มือบน`;
+
+  protected async setCourtTarget(target: CourtTarget): Promise<void> {
+    if (this.busy() || this.ended() || (this.court().target ?? 'auto') === target) return;
+    this.busy.set(true);
+    this.actionError.set(null);
+    try {
+      const result = await this.liveSession.setCourtTarget(this.courtNumber(), target);
+      this.actionError.set(this.failureMessage(result));
+    } finally {
+      this.busy.set(false);
+    }
+  }
 
   protected async setCourtMode(mode: CourtMode): Promise<void> {
     if (this.busy() || this.ended() || this.court().mode === mode) return;

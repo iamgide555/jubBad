@@ -405,7 +405,20 @@
   transition: background-color var(--duration-fast) ease;
 }
 
+/* Same anchor, quiet: a live-session shortcut beside the ghost share buttons. */
+.btn-link.quiet {
+  background: transparent;
+  color: var(--ink);
+  border: 1px solid var(--rule);
+  box-shadow: none;
+}
+
 @media (hover: hover) {
+  .btn-link.quiet:hover {
+    background: var(--ground-sunk);
+    box-shadow: none;
+  }
+
   .btn-link:hover {
     background: var(--court-dark);
     box-shadow: var(--shadow-sm);

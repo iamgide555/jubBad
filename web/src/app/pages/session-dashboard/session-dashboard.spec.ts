@@ -193,6 +193,17 @@ describe('SessionDashboard', () => {
       expect(el().querySelector('[data-early-checkout]')).toBeNull();
     });
 
+    it('a live session links to the summary so the host can correct games before ending', async () => {
+      await load(baseSession());
+      const link = el().querySelector<HTMLAnchorElement>('[data-live-summary]');
+      expect(link?.getAttribute('href')).toBe('/s/sess1/summary');
+    });
+
+    it('an ended session has no live-summary shortcut (the ended banner carries the link)', async () => {
+      await load(baseSession({ endedAt: '2026-09-08T20:00:00.000Z' }));
+      expect(el().querySelector('[data-live-summary]')).toBeNull();
+    });
+
     it('a settled player is a distinct, disabled, non-reactivatable chip', async () => {
       const receipt = { id: 'r1', playerId: 'p1', model: 'perGame', amountSatang: 4500, breakdown: { baseSatang: 4500, shuttleSatang: 0, hostFeeSatang: 0, walkInFeeSatang: 0, discountSatang: 0 }, settledAt: '2026-09-08T13:00:00.000Z' };
       await load(baseSession({ shuttleToolsEnabled: true, restingPlayerIds: ['p1'] }), [receipt]);

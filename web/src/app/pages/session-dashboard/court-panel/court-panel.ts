@@ -180,6 +180,9 @@ export class CourtPanel {
    *  roster, not to the ladder — see splitTonight in engines/levels.ts. */
   protected readonly targetGroupLabel = $localize`:@@court.targetLabel:กลุ่มผู้เล่นของคอร์ทนี้`;
 
+  /** Tooltip only — always-on text repeated under every targeted court. */
+  protected readonly targetHint = $localize`:@@court.targetHint:เทียบกับคนที่มาคืนนี้ — ถ้าคนในกลุ่มไม่พอ จะเติมจากกลุ่มใกล้เคียง`;
+
   protected readonly courtTargets: readonly CourtTarget[] = ['auto', 'low', 'high'];
 
   protected readonly targetLabelAuto = $localize`:@@court.targetAuto:อัตโนมัติ`;

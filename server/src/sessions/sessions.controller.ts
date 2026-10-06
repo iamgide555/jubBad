@@ -4,6 +4,7 @@ import { CreateSessionDto } from './dto/create-session.dto.js';
 import { FinishPairingDto } from './dto/finish-pairing.dto.js';
 import { ConfirmPairingDto } from './dto/confirm-pairing.dto.js';
 import { CorrectShuttleUseDto } from './dto/correct-shuttle-use.dto.js';
+import { CorrectResultDto } from './dto/correct-result.dto.js';
 import { SetShuttleUsableDto } from './dto/set-shuttle-usable.dto.js';
 import { SwitchShuttleDto } from './dto/switch-shuttle.dto.js';
 import { PairingRevisionDto } from './dto/pairing-revision.dto.js';
@@ -158,6 +159,21 @@ export class SessionsController {
     @Body() dto: FinishPairingDto
   ) {
     return this.sessionsService.finishPairing(code, id, dto);
+  }
+
+  /**
+   * Owner-only: fix a finished game's winner/score, also after the session
+   * ended. Ratings are replayed on read, so a correction flows through.
+   */
+  @Post(':code/pairings/:id/result/correct')
+  correctResult(@Param('code') code: string, @Param('id') id: string, @Body() dto: CorrectResultDto) {
+    return this.sessionsService.correctResult(code, id, dto);
+  }
+
+  /** Owner-only: each finished game's revision, which a result correction must send. */
+  @Get(':code/results')
+  getResultRevisions(@Param('code') code: string) {
+    return this.sessionsService.getResultRevisions(code);
   }
 
   @Post(':code/pairings/:id/swap')

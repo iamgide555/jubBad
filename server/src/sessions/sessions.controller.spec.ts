@@ -4397,7 +4397,7 @@ describe('SessionsController', () => {
 
       const a = byId.get(players[0].id);
       expect(a).toMatchObject({ name: 'A', played: 2, won: 1, lost: 0, totalSeconds: 1200 });
-      expect(a.matches).toEqual([
+      expect(a.matches).toMatchObject([
         {
           matchNumber: 1,
           courtNumber: 1,
@@ -4422,7 +4422,7 @@ describe('SessionsController', () => {
 
       const c = byId.get(players[2].id);
       expect(c).toMatchObject({ name: 'C', played: 2, won: 0, lost: 1, totalSeconds: 1200 });
-      expect(c.matches[0]).toEqual({
+      expect(c.matches[0]).toMatchObject({
         matchNumber: 1,
         courtNumber: 1,
         partnerName: 'D',
@@ -7156,6 +7156,35 @@ describe('SessionsController', () => {
       return { groupCode, sessionCode, start, finish, cleanup };
     }
 
+    it('result correction: flips the winner and score, marks the game corrected, refuses stale, unfinished and incoherent edits', async () => {
+      const n = await night(false);
+      try {
+        const g = await n.start(1);
+        const done = await n.finish(g);
+        const post = (id: string, body: object) => request(server).post(`/sessions/${n.sessionCode}/pairings/${id}/result/correct`).send(body);
+
+        const revs = await request(server).get(`/sessions/${n.sessionCode}/results`).expect(200);
+        expect(revs.body.games).toEqual([{ pairingId: g.id, revision: done.body.revision }]);
+
+        await post(g.id, { winner: 'A', scoreA: 10, scoreB: 21, expectedRevision: done.body.revision }).expect(400); // winner/score mismatch
+        const fixed = await post(g.id, { winner: 'B', scoreA: 18, scoreB: 21, expectedRevision: done.body.revision }).expect(201);
+        expect(fixed.body).toMatchObject({ winner: 'B', scoreA: 18, scoreB: 21, revision: done.body.revision + 1 });
+        const stale = await post(g.id, { winner: 'A', expectedRevision: done.body.revision }).expect(409);
+        expect(stale.body.code).toBe('PAIRING_STALE');
+
+        const summary = await request(server).get(`/sessions/${n.sessionCode}/summary`).expect(200);
+        const match = summary.body.players[0].matches[0];
+        expect(match).toMatchObject({ pairingId: g.id, winner: 'B', resultCorrected: true, scoreA: 18, scoreB: 21 });
+        expect(match.teamA).toHaveLength(2);
+
+        const active = await n.start(2);
+        const notFinished = await post(active.id, { winner: 'A', expectedRevision: active.revision }).expect(409);
+        expect(notFinished.body.code).toBe('PAIRING_NOT_FINISHED');
+      } finally {
+        await n.cleanup();
+      }
+    });
+
     it('shuttle accounting: one shuttle in two finished games counts once, an active game is excluded', async () => {
       const n = await night(true);
       try {
@@ -7189,6 +7218,16 @@ describe('SessionsController', () => {
         expect(log[0].shuttles).toEqual([{ id: g1.lastShuttleId, number: 1 }]);
         expect(log[1].shuttles).toEqual([{ id: g1.lastShuttleId, number: 1 }]);
         expect(JSON.stringify(res.body)).not.toContain('revision');
+        // Log rows name both teams so the host can tell which game a row is.
+        const named = res.body.shuttleLog as { teamA: string[]; teamB: string[] }[];
+        expect(named[0].teamA).toHaveLength(2);
+        expect(named[0].teamB).toHaveLength(2);
+        // Each player's match row carries the same shuttles.
+        const players = res.body.players as { matches: { matchNumber: number; shuttles: { number: number }[] }[] }[];
+        expect(players.length).toBeGreaterThan(0);
+        for (const pl of players) {
+          for (const m of pl.matches) expect(m.shuttles.map((u) => u.number)).toEqual([1]);
+        }
       } finally {
         await n.cleanup();
       }
@@ -7226,6 +7265,9 @@ describe('SessionsController', () => {
         const res = await request(server).get(`/sessions/${n.sessionCode}/summary`).expect(200);
         expect(res.body.shuttleLog).toBeUndefined();
         expect(res.body.shuttleAccounting).toBeUndefined();
+        for (const pl of res.body.players as { matches: object[] }[]) {
+          for (const m of pl.matches) expect(m).not.toHaveProperty('shuttles');
+        }
         expect(res.body.session.shuttleCount).toBe(9);
       } finally {
         await n.cleanup();

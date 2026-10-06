@@ -10,6 +10,15 @@ export interface SessionMatch {
   scoreB: number | null;
   result: 'win' | 'loss' | 'no-result';
   durationSeconds: number;
+  pairingId: string;
+  /** Both teams, so a correction dialog can name the sides. */
+  teamA: string[];
+  teamB: string[];
+  winner: 'A' | 'B' | null;
+  /** The host corrected this game's result after it was finished. */
+  resultCorrected: boolean;
+  /** Advanced sessions only. null = unknown (never recorded); [] = recorded as none. */
+  shuttles?: ShuttleRef[] | null;
 }
 
 export interface FormatRecord {
@@ -40,6 +49,8 @@ export interface ShuttleLogRow {
   courtNumber: number;
   matchNumber: number;
   shuttles: ShuttleRef[] | null;
+  teamA: string[];
+  teamB: string[];
 }
 
 export interface SessionSummary {

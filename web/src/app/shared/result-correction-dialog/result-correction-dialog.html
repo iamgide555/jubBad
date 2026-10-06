@@ -1,0 +1,41 @@
+<dialog #dialog class="result-correction-dialog sheet-dialog" (close)="onDialogClose()" (cancel)="onCancelAttempt($event)">
+  @if (isOpen()) {
+    <div class="form-card">
+      <h2 i18n="@@resultFix.title">แก้ผลการแข่ง — {{ rowLabel() }}</h2>
+      <p class="muted" i18n="@@resultFix.hint">เลือกทีมที่ชนะจริง คะแนนไม่บังคับ</p>
+
+      <fieldset class="winner-picker" [disabled]="saving()">
+        <legend i18n="@@resultFix.legend">ทีมที่ชนะ</legend>
+        <button type="button" class="winner-choice" data-winner="A" [attr.aria-pressed]="winner() === 'A'" (click)="winner.set('A')">
+          {{ teamAName() }}
+        </button>
+        <button type="button" class="winner-choice" data-winner="B" [attr.aria-pressed]="winner() === 'B'" (click)="winner.set('B')">
+          {{ teamBName() }}
+        </button>
+        <button type="button" class="winner-choice none" data-winner="none" [attr.aria-pressed]="winner() === null" (click)="winner.set(null)" i18n="@@resultFix.noResult">
+          ไม่มีผล
+        </button>
+      </fieldset>
+
+      <div class="score-row">
+        <label>
+          <span class="muted" i18n="@@resultFix.scoreA">คะแนนทีมแรก</span>
+          <input type="number" inputmode="numeric" min="0" name="scoreA" [value]="scoreA()" [disabled]="saving()" (input)="scoreA.set($any($event.target).value)" />
+        </label>
+        <label>
+          <span class="muted" i18n="@@resultFix.scoreB">คะแนนทีมสอง</span>
+          <input type="number" inputmode="numeric" min="0" name="scoreB" [value]="scoreB()" [disabled]="saving()" (input)="scoreB.set($any($event.target).value)" />
+        </label>
+      </div>
+
+      @if (localError() ?? error(); as message) {
+        <p class="error" role="alert">{{ message }}</p>
+      }
+
+      <div class="dialog-actions">
+        <button type="button" class="ghost" [disabled]="saving()" (click)="close()" i18n="@@resultFix.cancel">ยกเลิก</button>
+        <button type="button" data-save-result [disabled]="saving()" (click)="submit()" i18n="@@resultFix.save">บันทึก</button>
+      </div>
+    </div>
+  }
+</dialog>

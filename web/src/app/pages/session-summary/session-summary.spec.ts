@@ -62,6 +62,7 @@ function summary(overrides: Partial<Summary> = {}): Summary {
             scoreB: 15,
             result: 'win',
             durationSeconds: 720,
+            pairingId: 'm64', teamA: ['นก', 'เจ'], teamB: ['ต้น', 'แมน'], winner: null, resultCorrected: false,
           },
           {
             matchNumber: 2,
@@ -72,6 +73,7 @@ function summary(overrides: Partial<Summary> = {}): Summary {
             scoreB: 21,
             result: 'loss',
             durationSeconds: 480,
+            pairingId: 'm74', teamA: ['นก', 'เจ'], teamB: ['ต้น', 'แมน'], winner: null, resultCorrected: false,
           },
         ],
       },
@@ -115,7 +117,11 @@ describe('SessionSummary', () => {
    * logged-in host triggers (an anonymous viewer makes none). `'denied'`
    * stands in for a logged-in host who does not own this session (a 404).
    */
-  async function load(body: Summary | null, inventory: ShuttleInventory | 'denied' = ORDINARY) {
+  async function load(
+    body: Summary | null,
+    inventory: ShuttleInventory | 'denied' = ORDINARY,
+    results: { pairingId: string; revision: number }[] = []
+  ) {
     fixture.detectChanges();
     const req = httpMock.expectOne(`${B}/sessions/sess1/summary`);
     if (body) req.flush(body);
@@ -125,6 +131,10 @@ describe('SessionSummary', () => {
     for (const r of httpMock.match(`${B}/sessions/sess1/shuttles`)) {
       if (inventory === 'denied') r.flush('Not Found', { status: 404, statusText: 'Not Found' });
       else r.flush(inventory);
+    }
+    for (const r of httpMock.match(`${B}/sessions/sess1/results`)) {
+      if (inventory === 'denied') r.flush('Not Found', { status: 404, statusText: 'Not Found' });
+      else r.flush({ games: results });
     }
     await new Promise((r) => setTimeout(r, 0));
     TestBed.tick();
@@ -178,6 +188,7 @@ describe('SessionSummary', () => {
                 scoreB: 15,
                 result: 'win',
                 durationSeconds: 900,
+                pairingId: 'm180', teamA: ['นก', 'เจ'], teamB: ['ต้น', 'แมน'], winner: null, resultCorrected: false,
               },
             ],
           },
@@ -393,6 +404,7 @@ describe('SessionSummary', () => {
                 scoreB: null,
                 result: 'no-result',
                 durationSeconds: 600,
+                pairingId: 'm395', teamA: ['นก', 'เจ'], teamB: ['ต้น', 'แมน'], winner: null, resultCorrected: false,
               },
             ],
           },
@@ -602,12 +614,12 @@ describe('SessionSummary', () => {
   describe('shuttle log and corrections (advanced sessions)', () => {
     const ref = (n: number) => ({ id: `s${n}`, number: n });
     const advanced = (
-      log: { pairingId: string; courtNumber: number; matchNumber: number; shuttles: { id: string; number: number }[] | null }[],
+      log: { pairingId: string; courtNumber: number; matchNumber: number; shuttles: { id: string; number: number }[] | null; teamA?: string[]; teamB?: string[] }[],
       accounting: { recordedFinishedShuttles: number; unknownFinishedMatches: number; finishedMatches: number },
       physical: number | null = null,
       endedAt: string | null = '2026-09-10T20:00:00.000Z'
     ): Summary =>
-      summary({ session: { ...summary().session, shuttleCount: physical, endedAt }, shuttleLog: log, shuttleAccounting: accounting });
+      summary({ session: { ...summary().session, shuttleCount: physical, endedAt }, shuttleLog: log.map((r) => ({ teamA: ['นก', 'เจ'], teamB: ['ต้น', 'แมน'], ...r })), shuttleAccounting: accounting });
     const twoGames = () =>
       advanced(
         [
@@ -633,7 +645,7 @@ describe('SessionSummary', () => {
     });
     const el = () => fixture.nativeElement as HTMLElement;
     const text = () => el().textContent ?? '';
-    const logRows = () => [...el().querySelectorAll('.shuttle-log tbody tr')] as HTMLElement[];
+    const logRows = () => [...el().querySelectorAll('.shuttle-log li')] as HTMLElement[];
     const editRow = (n: number) => el().querySelectorAll('[data-edit-shuttle-log]')[n] as HTMLButtonElement | undefined;
     const dialog = () => el().querySelector('dialog.shuttle-correction-dialog') as HTMLDialogElement;
 
@@ -649,8 +661,8 @@ describe('SessionSummary', () => {
 
       it('counts a shuttle reused across games once in the distinct total', async () => {
         await load(twoGames());
-        expect(el().querySelector('.shuttle-accounting')!.textContent).toContain('1 ลูก');
-        expect(el().querySelector('.shuttle-accounting')!.textContent).not.toContain('2 ลูก');
+        expect(el().querySelector('.shuttle-log-section > summary')!.textContent).toContain('1 ลูก');
+        expect(el().querySelector('.shuttle-log-section > summary')!.textContent).not.toContain('2 ลูก');
       });
 
       it('tells unknown apart from recorded-as-none', async () => {
@@ -719,6 +731,45 @@ describe('SessionSummary', () => {
     describe('for the owning host', () => {
       beforeEach(() => configure(true));
 
+      describe('result correction', () => {
+        const openFirstMatch = async () => {
+          await load(summary(), ORDINARY, [{ pairingId: 'm64', revision: 3 }]);
+          (el().querySelector('.row-toggle') as HTMLButtonElement).click();
+          fixture.detectChanges();
+        };
+
+        it('offers a fix button on each match once the owner read succeeded, even on an ordinary session', async () => {
+          await openFirstMatch();
+          expect(el().querySelectorAll('[data-edit-result]').length).toBeGreaterThan(0);
+        });
+
+        it('posts the corrected result with the revision it read, then refreshes', async () => {
+          await openFirstMatch();
+          (el().querySelector('[data-edit-result]') as HTMLButtonElement).click();
+          fixture.detectChanges();
+          await fixture.whenStable();
+          fixture.detectChanges();
+          (el().querySelector('[data-winner="B"]') as HTMLButtonElement).click();
+          for (const name of ['scoreA', 'scoreB']) {
+            const input = el().querySelector(`input[name="${name}"]`) as HTMLInputElement;
+            input.value = name === 'scoreA' ? '10' : '21';
+            input.dispatchEvent(new Event('input'));
+          }
+          fixture.detectChanges();
+          (el().querySelector('[data-save-result]') as HTMLButtonElement).click();
+          const req = httpMock.expectOne(`${B}/sessions/sess1/pairings/m64/result/correct`);
+          expect(req.request.body).toEqual({ winner: 'B', scoreA: 10, scoreB: 21, expectedRevision: 3 });
+          req.flush({});
+          await new Promise((r) => setTimeout(r, 0));
+          TestBed.tick();
+          httpMock.expectOne(`${B}/sessions/sess1/summary`).flush(summary());
+          httpMock.expectOne(`${B}/sessions/sess1/shuttles`).flush(ORDINARY);
+          for (const r of httpMock.match(`${B}/sessions/sess1/results`)) r.flush({ games: [] });
+          await new Promise((r) => setTimeout(r, 0));
+          TestBed.tick();
+        });
+      });
+
       it('gets a correction button on every finished game, even after the session ended', async () => {
         await load(twoGames(), inventory());
         expect(el().querySelectorAll('[data-edit-shuttle-log]')).toHaveLength(2);
@@ -753,12 +804,13 @@ describe('SessionSummary', () => {
         next.shuttleAccounting!.recordedFinishedShuttles = 2;
         httpMock.expectOne(`${B}/sessions/sess1/summary`).flush(next);
         httpMock.expectOne(`${B}/sessions/sess1/shuttles`).flush(inventory({ games: [{ pairingId: 'g1', revision: 5, shuttleIds: ['s1'] }, { pairingId: 'g2', revision: 7, shuttleIds: ['s1', 's2'] }] }));
+        for (const r of httpMock.match(`${B}/sessions/sess1/results`)) r.flush({ games: [] });
         await new Promise((r) => setTimeout(r, 0));
         TestBed.tick();
         fixture.detectChanges();
         expect(dialog().hasAttribute('open')).toBe(false);
         expect(logRows()[1].textContent).toContain('#2');
-        expect(el().querySelector('.shuttle-accounting')!.textContent).toContain('2 ลูก');
+        expect(el().querySelector('.shuttle-log-section > summary')!.textContent).toContain('2 ลูก');
       });
 
       it('shows a stale correction as a localized error, keeps the dialog, and re-reads the truth', async () => {
@@ -775,6 +827,7 @@ describe('SessionSummary', () => {
         TestBed.tick();
         httpMock.expectOne(`${B}/sessions/sess1/summary`).flush(twoGames());
         httpMock.expectOne(`${B}/sessions/sess1/shuttles`).flush(inventory());
+        for (const r of httpMock.match(`${B}/sessions/sess1/results`)) r.flush({ games: [] });
         await new Promise((r) => setTimeout(r, 0));
         TestBed.tick();
         fixture.detectChanges();

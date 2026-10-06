@@ -1,5 +1,5 @@
 @if (sessionExists()) {
-  <div class="page page-wide dashboard">
+  <div class="page page-wide dashboard" [class.is-ended]="ended()">
     <div class="board-head">
       <h1>
         <span class="board-date">{{ session()!.date ?? session()!.code }}</span>
@@ -429,6 +429,10 @@
           <ng-container i18n="@@dashboard.copyDisplayLink">ลิงก์จอแสดงผล</ng-container>
         }
       </button>
+
+      @if (!ended()) {
+        <a class="btn-link quiet" data-live-summary [routerLink]="['/s', session()!.code, 'summary']" i18n="@@dashboard.liveSummary">สรุป / แก้ไขผล</a>
+      }
     </div>
     @if (clipboardFallback()) {
       <textarea

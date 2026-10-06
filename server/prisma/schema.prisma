@@ -286,6 +286,10 @@ model Pairing {
   lastShuttleId String?
   lastShuttle SessionShuttle? @relation("LastShuttle", fields: [lastShuttleId], references: [id])
   shuttleUses PairingShuttleUse[]
+  /// Set when the host corrected the recorded winner/score after the game was
+  /// finished; public (the recap marks the game as edited). Cleared if the
+  /// finish itself is undone. See SessionsService.correctResult.
+  resultCorrectedAt DateTime?
   session     Session   @relation(fields: [sessionId], references: [code])
 }
 

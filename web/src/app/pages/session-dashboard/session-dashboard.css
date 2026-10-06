@@ -685,18 +685,20 @@ app-lineup-queue {
  * no compact/opened states. Keep the breakpoint in step with WIDE_QUERY.
  */
 @media (min-width: 90rem) {
-  .dashboard {
+  /* An ended session renders no waiting list, so it keeps the normal single
+     column instead of reserving an empty rail. */
+  .dashboard:not(.is-ended) {
     display: grid;
     grid-template-columns: 17rem minmax(0, 1fr);
     column-gap: var(--space-4);
     max-width: calc(68rem + 17rem + var(--space-4) + 2 * var(--space-3));
   }
 
-  .dashboard > * {
+  .dashboard:not(.is-ended) > * {
     grid-column: 2;
   }
 
-  .dashboard > .waiting-queue {
+  .dashboard:not(.is-ended) > .waiting-queue {
     grid-column: 1;
     grid-row: 1 / span 99;
     align-self: start;

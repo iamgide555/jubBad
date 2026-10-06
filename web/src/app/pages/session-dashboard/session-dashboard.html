@@ -1,5 +1,5 @@
 @if (sessionExists()) {
-  <div class="page page-wide dashboard">
+  <div class="page page-wide dashboard" [class.is-ended]="ended()">
     <div class="board-head">
       <h1>
         <span class="board-date">{{ session()!.date ?? session()!.code }}</span>

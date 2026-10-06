@@ -855,6 +855,23 @@ unlike almost every other session mutation — stay reachable after the
 session has ended, since a host normally sits down to bill only once the
 night is actually over.
 
+### Correcting a finished result
+
+The host can fix a finished game's winner or score from the session summary,
+**live or after the session ended** (`POST /sessions/:code/pairings/:id/result/correct`,
+owner-only, serialized by the session lock and guarded by `Pairing.revision`
+like the shuttle correction). Undo only reaches the latest step on a court and
+refuses once the players started elsewhere, so a wrong tap noticed an hour later
+had no recovery. Same coherence rules as finishing (`assertCoherentResult`; a
+null winner is "no result"). It never touches timestamps, players or the shuttle
+log, and sets `Pairing.resultCorrectedAt`, which is public: the recap marks the
+game "แก้ไขแล้ว" so a shared link never silently changes. Nothing else needs
+rewriting because Elo is replayed on read, and pairing/partner history records
+who played, not who won. Undoing the finish clears the mark. The summary's
+shuttle log and match list are the entry points; the dashboard links to the
+summary while the session is live. Revisions come from the owner-only
+`GET /sessions/:code/results`, which works on ordinary sessions too.
+
 ### Numbered shuttles (host feedback D)
 
 An opt-in, per-group advanced tool (`Group.shuttleToolsEnabled`, default off,

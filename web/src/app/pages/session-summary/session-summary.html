@@ -256,6 +256,12 @@
                             @default { <ng-container i18n="@@summary.resultNone">ไม่มีผล</ng-container> }
                           }
                         </span>
+                        @if (m.resultCorrected) {
+                          <span class="muted stat-games" i18n="@@summary.resultCorrected">แก้ไขแล้ว</span>
+                        }
+                        @if (canCorrectResult()) {
+                          <button type="button" class="ghost fix-result" data-edit-result (click)="openResultCorrection(m)" i18n="@@summary.fixResult">แก้ผล</button>
+                        }
                       </li>
                     }
                   </ul>
@@ -266,6 +272,18 @@
         </tbody>
       </table>
       </div>
+      @if (canCorrectResult()) {
+        <app-result-correction-dialog
+          #resultDialog
+          [rowLabel]="correctingMatch() ? matchLabel(correctingMatch()!) : ''"
+          [teamA]="correctingMatch()?.teamA ?? []"
+          [teamB]="correctingMatch()?.teamB ?? []"
+          [initial]="correctingResult()"
+          [saving]="resultSaving()"
+          [error]="resultError()"
+          (save)="saveResult($event)"
+        />
+      }
       @if (shareFailed()) {
         <p class="error" role="alert" i18n="@@share.failed">คัดลอกไม่ได้ ลองเลือกข้อความเอง</p>
         <textarea class="clipboard-fallback" readonly [value]="clipboardFallback()" i18n-aria-label="@@share.fallbackLabel" aria-label="ข้อความสำหรับคัดลอก"></textarea>

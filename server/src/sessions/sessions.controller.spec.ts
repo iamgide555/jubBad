@@ -7156,6 +7156,35 @@ describe('SessionsController', () => {
       return { groupCode, sessionCode, start, finish, cleanup };
     }
 
+    it('result correction: flips the winner and score, marks the game corrected, refuses stale, unfinished and incoherent edits', async () => {
+      const n = await night(false);
+      try {
+        const g = await n.start(1);
+        const done = await n.finish(g);
+        const post = (id: string, body: object) => request(server).post(`/sessions/${n.sessionCode}/pairings/${id}/result/correct`).send(body);
+
+        const revs = await request(server).get(`/sessions/${n.sessionCode}/results`).expect(200);
+        expect(revs.body.games).toEqual([{ pairingId: g.id, revision: done.body.revision }]);
+
+        await post(g.id, { winner: 'A', scoreA: 10, scoreB: 21, expectedRevision: done.body.revision }).expect(400); // winner/score mismatch
+        const fixed = await post(g.id, { winner: 'B', scoreA: 18, scoreB: 21, expectedRevision: done.body.revision }).expect(201);
+        expect(fixed.body).toMatchObject({ winner: 'B', scoreA: 18, scoreB: 21, revision: done.body.revision + 1 });
+        const stale = await post(g.id, { winner: 'A', expectedRevision: done.body.revision }).expect(409);
+        expect(stale.body.code).toBe('PAIRING_STALE');
+
+        const summary = await request(server).get(`/sessions/${n.sessionCode}/summary`).expect(200);
+        const match = summary.body.players[0].matches[0];
+        expect(match).toMatchObject({ pairingId: g.id, winner: 'B', resultCorrected: true, scoreA: 18, scoreB: 21 });
+        expect(match.teamA).toHaveLength(2);
+
+        const active = await n.start(2);
+        const notFinished = await post(active.id, { winner: 'A', expectedRevision: active.revision }).expect(409);
+        expect(notFinished.body.code).toBe('PAIRING_NOT_FINISHED');
+      } finally {
+        await n.cleanup();
+      }
+    });
+
     it('shuttle accounting: one shuttle in two finished games counts once, an active game is excluded', async () => {
       const n = await night(true);
       try {

@@ -62,6 +62,7 @@ function summary(overrides: Partial<Summary> = {}): Summary {
             scoreB: 15,
             result: 'win',
             durationSeconds: 720,
+            pairingId: 'm64', teamA: ['นก', 'เจ'], teamB: ['ต้น', 'แมน'], winner: null, resultCorrected: false,
           },
           {
             matchNumber: 2,
@@ -72,6 +73,7 @@ function summary(overrides: Partial<Summary> = {}): Summary {
             scoreB: 21,
             result: 'loss',
             durationSeconds: 480,
+            pairingId: 'm74', teamA: ['นก', 'เจ'], teamB: ['ต้น', 'แมน'], winner: null, resultCorrected: false,
           },
         ],
       },
@@ -186,6 +188,7 @@ describe('SessionSummary', () => {
                 scoreB: 15,
                 result: 'win',
                 durationSeconds: 900,
+                pairingId: 'm180', teamA: ['นก', 'เจ'], teamB: ['ต้น', 'แมน'], winner: null, resultCorrected: false,
               },
             ],
           },
@@ -401,6 +404,7 @@ describe('SessionSummary', () => {
                 scoreB: null,
                 result: 'no-result',
                 durationSeconds: 600,
+                pairingId: 'm395', teamA: ['นก', 'เจ'], teamB: ['ต้น', 'แมน'], winner: null, resultCorrected: false,
               },
             ],
           },
@@ -726,6 +730,45 @@ describe('SessionSummary', () => {
 
     describe('for the owning host', () => {
       beforeEach(() => configure(true));
+
+      describe('result correction', () => {
+        const openFirstMatch = async () => {
+          await load(summary(), ORDINARY, [{ pairingId: 'm64', revision: 3 }]);
+          (el().querySelector('.row-toggle') as HTMLButtonElement).click();
+          fixture.detectChanges();
+        };
+
+        it('offers a fix button on each match once the owner read succeeded, even on an ordinary session', async () => {
+          await openFirstMatch();
+          expect(el().querySelectorAll('[data-edit-result]').length).toBeGreaterThan(0);
+        });
+
+        it('posts the corrected result with the revision it read, then refreshes', async () => {
+          await openFirstMatch();
+          (el().querySelector('[data-edit-result]') as HTMLButtonElement).click();
+          fixture.detectChanges();
+          await fixture.whenStable();
+          fixture.detectChanges();
+          (el().querySelector('[data-winner="B"]') as HTMLButtonElement).click();
+          for (const name of ['scoreA', 'scoreB']) {
+            const input = el().querySelector(`input[name="${name}"]`) as HTMLInputElement;
+            input.value = name === 'scoreA' ? '10' : '21';
+            input.dispatchEvent(new Event('input'));
+          }
+          fixture.detectChanges();
+          (el().querySelector('[data-save-result]') as HTMLButtonElement).click();
+          const req = httpMock.expectOne(`${B}/sessions/sess1/pairings/m64/result/correct`);
+          expect(req.request.body).toEqual({ winner: 'B', scoreA: 10, scoreB: 21, expectedRevision: 3 });
+          req.flush({});
+          await new Promise((r) => setTimeout(r, 0));
+          TestBed.tick();
+          httpMock.expectOne(`${B}/sessions/sess1/summary`).flush(summary());
+          httpMock.expectOne(`${B}/sessions/sess1/shuttles`).flush(ORDINARY);
+          for (const r of httpMock.match(`${B}/sessions/sess1/results`)) r.flush({ games: [] });
+          await new Promise((r) => setTimeout(r, 0));
+          TestBed.tick();
+        });
+      });
 
       it('gets a correction button on every finished game, even after the session ended', async () => {
         await load(twoGames(), inventory());

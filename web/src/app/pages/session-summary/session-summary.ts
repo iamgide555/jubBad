@@ -14,15 +14,16 @@ import {
   ShuttleDetailsDialog,
   type ShuttleDetailsPatch,
 } from '../../shared/shuttle-details-dialog/shuttle-details-dialog';
+import { ResultCorrectionDialog, type ResultCorrection } from '../../shared/result-correction-dialog/result-correction-dialog';
 import { ShuttleCorrectionDialog } from '../../shared/shuttle-correction-dialog/shuttle-correction-dialog';
-import type { PlayerSessionStat, SessionSummary as Summary, ShuttleLogRow } from '../../core/session-summary.model';
+import type { PlayerSessionStat, SessionMatch, SessionSummary as Summary, ShuttleLogRow } from '../../core/session-summary.model';
 import type { ShuttleInventory } from '../../core/shuttle.model';
 
 type SortKey = 'played' | 'won' | 'lost' | 'doublesRate' | 'singlesRate' | 'time';
 
 @Component({
   selector: 'app-session-summary',
-  imports: [NgTemplateOutlet, RouterLink, SceneHost, ShuttleDetailsDialog, ShuttleCorrectionDialog],
+  imports: [NgTemplateOutlet, RouterLink, SceneHost, ShuttleDetailsDialog, ShuttleCorrectionDialog, ResultCorrectionDialog],
   templateUrl: './session-summary.html',
   styleUrl: './session-summary.css',
 })
@@ -132,7 +133,24 @@ export class SessionSummary {
   protected readonly owner = computed(() => this.inventory() !== null);
   protected readonly canCorrect = computed(() => this.inventory()?.enabled === true);
 
+  /** Owner-only revisions of finished games, which a result correction must send (works on ordinary sessions too). */
+  private readonly resultRevisions = signal<ReadonlyMap<string, number>>(new Map());
+
+  private async loadResultRevisions(): Promise<void> {
+    try {
+      const res = await firstValueFrom(
+        this.http.get<{ games: { pairingId: string; revision: number }[] }>(
+          `${environment.apiBaseUrl}/sessions/${this.sessionCode}/results`
+        )
+      );
+      this.resultRevisions.set(new Map(res.games.map((g) => [g.pairingId, g.revision])));
+    } catch {
+      this.resultRevisions.set(new Map());
+    }
+  }
+
   private async loadInventory(): Promise<void> {
+    void this.loadResultRevisions();
     try {
       this.inventory.set(
         await firstValueFrom(
@@ -217,6 +235,57 @@ export class SessionSummary {
       );
     } finally {
       this.correctionSaving.set(false);
+      this.summaryResource.reload();
+      void this.loadInventory();
+    }
+  }
+
+  // ---- result correction (owner-only, any session) ----
+  private readonly resultDialog = viewChild<ResultCorrectionDialog>('resultDialog');
+  protected readonly correctingMatch = signal<SessionMatch | null>(null);
+  protected readonly resultSaving = signal(false);
+  protected readonly resultError = signal<string | null>(null);
+
+  protected readonly canCorrectResult = computed(() => this.owner() && this.resultRevisions().size > 0);
+
+  protected readonly correctingResult = computed<ResultCorrection>(() => {
+    const m = this.correctingMatch();
+    return { winner: m?.winner ?? null, scoreA: m?.scoreA ?? null, scoreB: m?.scoreB ?? null };
+  });
+
+  protected matchLabel(m: SessionMatch): string {
+    return $localize`:@@summary.shuttleRowLabel:คอร์ท ${this.courtName(m.courtNumber)}:court: · แมตช์ ${m.matchNumber}:match:`;
+  }
+
+  protected openResultCorrection(m: SessionMatch): void {
+    this.correctingMatch.set(m);
+    this.resultError.set(null);
+    this.resultDialog()?.open();
+  }
+
+  protected async saveResult(event: ResultCorrection): Promise<void> {
+    const m = this.correctingMatch();
+    const revision = m ? this.resultRevisions().get(m.pairingId) : undefined;
+    if (!m || revision === undefined || this.resultSaving()) return;
+    this.resultSaving.set(true);
+    this.resultError.set(null);
+    try {
+      await firstValueFrom(
+        this.http.post(
+          `${environment.apiBaseUrl}/sessions/${this.sessionCode}/pairings/${m.pairingId}/result/correct`,
+          { ...event, expectedRevision: revision }
+        )
+      );
+      this.resultDialog()?.close();
+    } catch (err) {
+      const code = err instanceof HttpErrorResponse && typeof err.error?.code === 'string' ? err.error.code : null;
+      this.resultError.set(
+        code === 'PAIRING_STALE'
+          ? $localize`:@@summary.correctionStale:ข้อมูลถูกแก้ไขจากอุปกรณ์อื่นแล้ว กรุณาลองใหม่อีกครั้ง`
+          : $localize`:@@summary.correctionFailed:บันทึกไม่สำเร็จ ลองอีกครั้ง`
+      );
+    } finally {
+      this.resultSaving.set(false);
       this.summaryResource.reload();
       void this.loadInventory();
     }

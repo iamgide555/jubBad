@@ -82,6 +82,7 @@ import type { SetRosterActiveDto } from './dto/set-roster-active.dto.js';
 import type { LineupDto, MoveLineupDto } from './dto/lineup.dto.js';
 import type { SetRosterWalkInDto } from './dto/set-roster-walk-in.dto.js';
 import type { SetSeatDto } from './dto/set-seat.dto.js';
+import type { CorrectResultDto } from './dto/correct-result.dto.js';
 import type { SetShuttleDetailsDto } from './dto/set-shuttle-details.dto.js';
 import type { SwapPlayerDto } from './dto/swap-player.dto.js';
 
@@ -95,6 +96,13 @@ export interface SessionMatch {
   scoreB: number | null;
   result: 'win' | 'loss' | 'no-result';
   durationSeconds: number;
+  pairingId: string;
+  /** Both teams, so a correction dialog can name the sides. */
+  teamA: string[];
+  teamB: string[];
+  winner: 'A' | 'B' | null;
+  /** The host corrected this game's result after it was finished. */
+  resultCorrected: boolean;
   /** Advanced sessions only: shuttles used. null = unknown (never recorded); [] = recorded as none. */
   shuttles?: ShuttleRef[] | null;
 }
@@ -1678,7 +1686,43 @@ export class SessionsService {
     return this.prisma.pairing.findUniqueOrThrow({ where: { id } });
   }
 
-  private assertCoherentResult(dto: FinishPairingDto): void {
+  /**
+   * Replaces a finished game's winner/score (also after the session ended),
+   * marking it corrected. Never touches timestamps, players or the shuttle
+   * log. Pairing and partner history record who played, not who won, and Elo
+   * is replayed on read, so nothing else needs rewriting.
+   */
+  correctResult(sessionCode: string, pairingId: string, dto: CorrectResultDto) {
+    return this.lock.run(sessionCode, async () => {
+      const pairing = await this.pairingInSession(sessionCode, pairingId);
+      if (pairing.confirmedAt === null || pairing.endedAt === null) throw this.conflict('PAIRING_NOT_FINISHED');
+      this.assertCoherentResult(dto);
+      const updated = await this.prisma.pairing.updateMany({
+        where: { id: pairingId, confirmedAt: { not: null }, endedAt: { not: null }, revision: dto.expectedRevision },
+        data: {
+          scoreA: dto.scoreA ?? null,
+          scoreB: dto.scoreB ?? null,
+          winner: dto.winner ?? null,
+          resultCorrectedAt: new Date(),
+          revision: { increment: 1 },
+        },
+      });
+      if (updated.count !== 1) throw this.conflict('PAIRING_STALE');
+      return this.prisma.pairing.findUniqueOrThrow({ where: { id: pairingId } });
+    });
+  }
+
+  async getResultRevisions(code: string) {
+    const session = await this.prisma.session.findUnique({ where: { code }, select: { code: true } });
+    if (!session) throw this.notFound('SESSION_NOT_FOUND');
+    const finished = await this.prisma.pairing.findMany({
+      where: { sessionId: code, confirmedAt: { not: null }, endedAt: { not: null } },
+      select: { id: true, revision: true },
+    });
+    return { games: finished.map((p) => ({ pairingId: p.id, revision: p.revision })) };
+  }
+
+  private assertCoherentResult(dto: { scoreA?: number | null; scoreB?: number | null; winner?: 'A' | 'B' | null }): void {
     const scoreA = dto.scoreA ?? null;
     const scoreB = dto.scoreB ?? null;
     const winner = dto.winner ?? null;
@@ -2991,6 +3035,7 @@ export class SessionsService {
           scoreA: null,
           scoreB: null,
           winner: null,
+          resultCorrectedAt: null,
           lastShuttleId,
           revision: { increment: 1 },
         },
@@ -3961,6 +4006,11 @@ export class SessionsService {
             scoreB: p.scoreB,
             result: teamResult,
             durationSeconds,
+            pairingId: p.id,
+            teamA: teamA.map((tid) => nameById.get(tid) ?? 'Unknown'),
+            teamB: teamB.map((tid) => nameById.get(tid) ?? 'Unknown'),
+            winner: p.winner === 'A' || p.winner === 'B' ? p.winner : null,
+            resultCorrected: p.resultCorrectedAt !== null,
             ...(shuttlesByPairing ? { shuttles: shuttlesByPairing.get(p.id) ?? null } : {}),
           };
           if (!matches.has(id)) matches.set(id, []);

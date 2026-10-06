@@ -367,3 +367,8 @@ button.shuttle-cell:hover {
 .cell-teams {
   padding-right: 2.5rem;
 }
+
+.fix-result {
+  min-height: var(--tap);
+  margin-left: var(--space-1);
+}

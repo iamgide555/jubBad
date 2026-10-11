@@ -137,4 +137,66 @@ describe('Landing', () => {
     expect(component.removingCode()).toBeNull();
     // No DELETE is issued — httpMock.verify() in afterEach enforces that.
   });
+
+  describe('as an admin, with other hosts\' groups in the list', () => {
+    const row = (code: string, name: string, mine: boolean, ownerEmail: string | null) => ({
+      code,
+      name,
+      sessionCount: 1,
+      playerCount: 8,
+      lastSessionCode: `s-${code}`,
+      lastSessionAt: '2026-09-01T10:00:00.000Z',
+      mine,
+      ownerEmail,
+    });
+    const MIXED = [
+      row('m1', 'ของฉัน', true, 'admin@x.test'),
+      row('a1', 'ก๊วนของนุ้ย', false, 'nui@x.test'),
+      row('a2', 'ก๊วนวันเสาร์', false, 'nui@x.test'),
+      row('b1', 'ก๊วนของบอย', false, 'boy@x.test'),
+      row('o1', 'ก๊วนไม่มีเจ้าของ', false, null),
+    ];
+
+    it("lists only the admin's own groups until the others are opened", async () => {
+      await loadWith(MIXED as never);
+      const text = fixture.nativeElement.textContent;
+      expect(fixture.nativeElement.querySelectorAll('.group-row').length).toBe(1);
+      expect(text).toContain('ของฉัน');
+      expect(text).not.toContain('ก๊วนของนุ้ย');
+      // The collapsed row says how many are inside, so it is worth opening.
+      expect(fixture.nativeElement.querySelector('.others-toggle').textContent).toContain('4');
+    });
+
+    it('opens to one heading per host, ownerless last, with their groups under it', async () => {
+      await loadWith(MIXED as never);
+      component.toggleOthers();
+      fixture.detectChanges();
+
+      const headings = [...fixture.nativeElement.querySelectorAll('.owner-heading')].map(
+        (h) => (h as HTMLElement).textContent!.trim(),
+      );
+      expect(headings.length).toBe(3);
+      expect(headings[0]).toContain('boy@x.test');
+      expect(headings[1]).toContain('nui@x.test');
+      expect(headings[1]).toContain('2');
+      expect(fixture.nativeElement.textContent).toContain('ก๊วนวันเสาร์');
+    });
+
+    it("never offers delete on another host's group, only on the admin's own", async () => {
+      await loadWith(MIXED as never);
+      component.toggleOthers();
+      fixture.detectChanges();
+
+      const rows = [...fixture.nativeElement.querySelectorAll('.group-row')] as HTMLElement[];
+      expect(rows.length).toBe(5);
+      const withRemove = rows.filter((r) => r.querySelector('.remove'));
+      expect(withRemove.length).toBe(1);
+      expect(withRemove[0].textContent).toContain('ของฉัน');
+    });
+
+    it('shows no "other users" row to a host, whose response has no mine flag', async () => {
+      await loadWith();
+      expect(fixture.nativeElement.querySelector('.others-toggle')).toBeFalsy();
+    });
+  });
 });

@@ -16,6 +16,8 @@ export interface AdminGroup {
   code: string;
   name: string | null;
   owner: { id: string; email: string } | null;
+  /** Owned by the signed-in admin; the list is ordered mine-first. */
+  mine?: boolean;
 }
 
 export interface ResetRequest {

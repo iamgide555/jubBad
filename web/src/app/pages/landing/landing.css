@@ -149,3 +149,30 @@
     min-width: 14rem;
   }
 }
+
+/* Other hosts' groups: a quiet disclosure under the admin's own list, then one
+   small heading per host. Same row markup as above, so nothing new to learn. */
+.others-toggle {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  width: 100%;
+  min-height: var(--tap);
+  margin: 0 0 var(--space-2);
+  padding: 0;
+  background: none;
+  border: none;
+  box-shadow: none;
+  color: var(--ink-soft);
+  text-align: left;
+  cursor: pointer;
+}
+
+.owner-heading {
+  margin: var(--space-3) 0 var(--space-1);
+  font-family: var(--font-body);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--ink-soft);
+  overflow-wrap: anywhere;
+}

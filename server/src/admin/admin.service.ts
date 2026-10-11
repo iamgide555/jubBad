@@ -159,17 +159,33 @@ export class AdminService {
     return { deleted: true };
   }
 
-  /** Every group with its owner — the admin's view across every host. */
-  async listGroups() {
+  /**
+   * Every group with its owner — the admin's view across every host. The
+   * caller's own groups come first, then other hosts' grouped by owner email,
+   * ownerless last; newest first within each, so the groups the admin actually
+   * runs are never buried under everyone else's.
+   */
+  async listGroups(callerId: string) {
     const groups = await this.prisma.group.findMany({
       include: { owner: { select: { id: true, email: true } } },
       orderBy: { createdAt: 'desc' },
     });
-    return groups.map((g) => ({
-      code: g.code,
-      name: g.name,
-      owner: g.owner ? { id: g.owner.id, email: g.owner.email } : null,
-    }));
+    const rank = (g: { mine: boolean; owner: unknown }) => (g.mine ? 0 : g.owner ? 1 : 2);
+    return groups
+      .map((g) => ({
+        code: g.code,
+        name: g.name,
+        mine: g.ownerId === callerId,
+        owner: g.owner ? { id: g.owner.id, email: g.owner.email } : null,
+        createdAt: g.createdAt,
+      }))
+      .sort(
+        (a, b) =>
+          rank(a) - rank(b) ||
+          (a.owner?.email ?? '').localeCompare(b.owner?.email ?? '') ||
+          b.createdAt.getTime() - a.createdAt.getTime()
+      )
+      .map(({ createdAt: _createdAt, ...g }) => g);
   }
 
   async reassignGroupOwner(code: string, toUserId: string) {

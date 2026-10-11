@@ -50,8 +50,8 @@ export class AdminController {
   }
 
   @Get('groups')
-  listGroups() {
-    return this.adminService.listGroups();
+  listGroups(@Req() req: AuthenticatedRequest) {
+    return this.adminService.listGroups(req.user.id);
   }
 
   @Post('groups/:code/owner')

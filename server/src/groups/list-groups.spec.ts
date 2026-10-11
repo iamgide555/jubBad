@@ -80,4 +80,49 @@ describe('GroupsService.listGroups', () => {
     const row = (await service.listGroups(ADMIN_CALLER)).find((g) => g.code === code);
     expect(typeof row?.lastSessionCode).toBe('string');
   });
+
+  describe('owner info', () => {
+    const userIds: string[] = [];
+    afterEach(async () => {
+      await prisma.group.deleteMany({ where: { ownerId: { in: userIds } } });
+      await prisma.user.deleteMany({ where: { id: { in: userIds.splice(0) } } });
+    });
+
+    async function makeUser(email: string, role = 'host') {
+      const user = await prisma.user.create({
+        data: { email: `${randomUUID()}-${email}`, passwordHash: 'x', role },
+      });
+      userIds.push(user.id);
+      return user;
+    }
+    async function ownedGroup(ownerId: string | null, name: string) {
+      const code = randomUUID();
+      codes.push(code);
+      await prisma.group.create({ data: { code, name, ownerId } });
+      return code;
+    }
+
+    it('tells an admin which groups are theirs and who owns the rest', async () => {
+      const admin = await makeUser('admin@x.test', 'admin');
+      const host = await makeUser('host@x.test');
+      const mine = await ownedGroup(admin.id, 'Mine');
+      const theirs = await ownedGroup(host.id, 'Theirs');
+      const orphan = await ownedGroup(null, 'Orphan');
+
+      const rows = await service.listGroups({ id: admin.id, role: 'admin' });
+      expect(rows.find((g) => g.code === mine)).toMatchObject({ mine: true, ownerEmail: admin.email });
+      expect(rows.find((g) => g.code === theirs)).toMatchObject({ mine: false, ownerEmail: host.email });
+      expect(rows.find((g) => g.code === orphan)).toMatchObject({ mine: false, ownerEmail: null });
+    });
+
+    it('never gives a host the owner fields, not even for their own groups', async () => {
+      const host = await makeUser('host@x.test');
+      const mine = await ownedGroup(host.id, 'Mine');
+
+      const rows = await service.listGroups({ id: host.id, role: 'host' });
+      expect(rows.map((g) => g.code)).toEqual([mine]);
+      expect(Object.keys(rows[0])).not.toContain('mine');
+      expect(Object.keys(rows[0])).not.toContain('ownerEmail');
+    });
+  });
 });

@@ -1,4 +1,5 @@
 import { HttpClient } from '@angular/common/http';
+import { NgTemplateOutlet } from '@angular/common';
 import { Component, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
@@ -14,6 +15,15 @@ export interface GroupSummary {
   playerCount: number;
   lastSessionCode: string | null;
   lastSessionAt: string | null;
+  /** Admin responses only. A host's response has neither field. */
+  mine?: boolean;
+  ownerEmail?: string | null;
+}
+
+export interface OwnerGroups {
+  /** null: a group nobody owns. */
+  ownerEmail: string | null;
+  groups: GroupSummary[];
 }
 
 /**
@@ -23,7 +33,7 @@ export interface GroupSummary {
  */
 @Component({
   selector: 'app-landing',
-  imports: [FormsModule, RouterLink, SceneHost],
+  imports: [FormsModule, NgTemplateOutlet, RouterLink, SceneHost],
   templateUrl: './landing.html',
   styleUrl: './landing.css',
 })
@@ -36,6 +46,33 @@ export class Landing {
   readonly groups = signal<GroupSummary[]>([]);
   readonly loaded = signal(false);
   readonly loadError = signal(false);
+
+  /**
+   * Only an admin's response says `mine: false`; for a host every group is
+   * theirs. The admin's home is their own list, like any host's, and other
+   * hosts' groups sit behind a collapsed row.
+   */
+  readonly mineGroups = computed(() => this.groups().filter((g) => g.mine !== false));
+  readonly otherCount = computed(() => this.groups().filter((g) => g.mine === false).length);
+  readonly othersOpen = signal(false);
+
+  /** One entry per host, by email, ownerless last. */
+  readonly otherGroups = computed<OwnerGroups[]>(() => {
+    const byOwner = new Map<string | null, GroupSummary[]>();
+    for (const g of this.groups().filter((x) => x.mine === false)) {
+      const key = g.ownerEmail ?? null;
+      byOwner.set(key, [...(byOwner.get(key) ?? []), g]);
+    }
+    return [...byOwner.entries()]
+      .map(([ownerEmail, groups]) => ({ ownerEmail, groups }))
+      .sort((a, b) =>
+        a.ownerEmail === null ? 1 : b.ownerEmail === null ? -1 : a.ownerEmail.localeCompare(b.ownerEmail),
+      );
+  });
+
+  toggleOthers(): void {
+    this.othersOpen.update((open) => !open);
+  }
 
   readonly removingCode = signal<string | null>(null);
   readonly removeConfirmText = signal('');

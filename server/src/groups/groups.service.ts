@@ -62,6 +62,7 @@ export class GroupsService {
           take: 1,
           select: { code: true, createdAt: true },
         },
+        owner: { select: { email: true } },
       },
     });
 
@@ -75,6 +76,11 @@ export class GroupsService {
           playerCount: group._count.players,
           lastSessionCode: last?.code ?? null,
           lastSessionAt: last?.createdAt.toISOString() ?? null,
+          // Admin only: a host's own response carries no owner fields at all,
+          // so another host's email can never ride along on this endpoint.
+          ...(caller.role === 'admin'
+            ? { mine: group.ownerId === caller.id, ownerEmail: group.owner?.email ?? null }
+            : {}),
         };
       })
       .sort((a, b) => (b.lastSessionAt ?? '').localeCompare(a.lastSessionAt ?? ''));

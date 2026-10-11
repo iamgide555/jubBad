@@ -1,5 +1,5 @@
 .profile-hero {
-  height: clamp(6rem, 20vh, 8rem);
+  height: clamp(4rem, 12vh, 6rem);
   margin-bottom: var(--space-2);
 }
 

@@ -6,6 +6,9 @@
 
 .roster-table {
   width: 100%;
+  /* A phone scrolls the table sideways (.table-scroll) rather than squeezing
+     Thai headers and the แก้ไข/ลิงก์ buttons into stacked fragments. */
+  min-width: 36rem;
   border-collapse: collapse;
   margin-top: var(--space-2);
 }

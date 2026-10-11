@@ -110,6 +110,13 @@ export interface SessionMatch {
   shuttles?: ShuttleRef[] | null;
 }
 
+/**
+ * How many games behind the most-played active player a returning or late
+ * player is credited to. One, not zero: crediting all the way up queued them
+ * behind the whole room for a full rotation.
+ */
+export const REJOIN_GAMES_BEHIND = 1;
+
 /** How long a pending match sits untouched before it confirms itself. */
 export const AUTO_CONFIRM_DELAY_MS = 60_000;
 
@@ -3440,16 +3447,23 @@ export class SessionsService {
    */
   private rotationCredit(
     gamesPlayedThisSession: Map<string, number>,
-    activeOtherIds: string[],
+    activeOthers: { playerId: string; gamesOffset: number }[],
     ownId: string,
     currentOffset: number
   ): number {
-    const highest = activeOtherIds.reduce(
-      (max, id) => Math.max(max, gamesPlayedThisSession.get(id) ?? 0),
+    // Real games only: `gamesPlayedThisSession` already has every offset added
+    // in, and crediting against that let one credit become the next returner's
+    // target, so offsets grew past anything actually played (dd55e771).
+    const real = (id: string, offset: number) => (gamesPlayedThisSession.get(id) ?? 0) - offset;
+    const highest = activeOthers.reduce(
+      (max, o) => Math.max(max, real(o.playerId, o.gamesOffset)),
       0
     );
-    const own = gamesPlayedThisSession.get(ownId) ?? 0;
-    return Math.max(currentOffset, highest - own + currentOffset);
+    const own = real(ownId, currentOffset);
+    // One game behind the most-played: a returning or late player queues behind
+    // everyone who has played less, but not behind the whole room.
+    const target = Math.max(0, highest - REJOIN_GAMES_BEHIND);
+    return Math.max(currentOffset, target - own);
   }
 
   /**
@@ -3465,9 +3479,9 @@ export class SessionsService {
     const history = await this.loadHistory(session.groupId, sessionCode);
     const others = await this.prisma.sessionRoster.findMany({
       where: { sessionId: sessionCode, active: true, playerId: { not: playerId } },
-      select: { playerId: true },
+      select: { playerId: true, gamesOffset: true },
     });
-    return this.rotationCredit(history.gamesPlayedThisSession, others.map((o) => o.playerId), playerId, entry.gamesOffset);
+    return this.rotationCredit(history.gamesPlayedThisSession, others, playerId, entry.gamesOffset);
   }
 
   private async setRosterActiveExclusively(
@@ -3508,11 +3522,11 @@ export class SessionsService {
       const history = await this.loadHistory(session.groupId, sessionCode);
       const others = await this.prisma.sessionRoster.findMany({
         where: { sessionId: sessionCode, active: true, playerId: { not: playerId } },
-        select: { playerId: true },
+        select: { playerId: true, gamesOffset: true },
       });
       gamesOffset = this.rotationCredit(
         history.gamesPlayedThisSession,
-        others.map((o) => o.playerId),
+        others,
         playerId,
         entry.gamesOffset
       );
@@ -3634,11 +3648,11 @@ export class SessionsService {
     const history = await this.loadHistory(session.groupId, sessionCode);
     const others = await this.prisma.sessionRoster.findMany({
       where: { sessionId: sessionCode, active: true },
-      select: { playerId: true },
+      select: { playerId: true, gamesOffset: true },
     });
     const gamesOffset = this.rotationCredit(
       history.gamesPlayedThisSession,
-      others.map((o) => o.playerId),
+      others,
       playerId,
       0
     );

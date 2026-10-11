@@ -985,7 +985,75 @@ describe('SessionsController', () => {
     }
   });
 
-  it('credits a returning player up to the highest active games-played count', async () => {
+  it('credits a returning player from real games, not from other players\' inflated offsets', async () => {
+    // Regression: dd55e771 (2026-10-11). The credit used the highest *effective*
+    // count, offsets included, so a credited player's offset became the next
+    // returner's target and offsets grew past anything actually played — the
+    // never-credited players then out-played the credited ones by 5 games.
+    const groupCode = randomUUID();
+    const sessionCode = randomUUID();
+    await prisma.group.create({ data: { code: groupCode, name: 'G' } });
+    const players = await Promise.all(
+      ['A', 'B', 'C', 'D', 'E', 'F'].map((name) =>
+        prisma.player.create({ data: { groupId: groupCode, name, aliases: '[]' } })
+      )
+    );
+    await prisma.session.create({
+      data: { code: sessionCode, groupId: groupCode, courtCount: 1, rawImportText: '' },
+    });
+    for (const p of players) {
+      await prisma.sessionRoster.create({ data: { sessionId: sessionCode, playerId: p.id } });
+    }
+
+    try {
+      for (const rested of [players[4], players[5]]) {
+        await request(server)
+          .post(`/sessions/${sessionCode}/roster/${rested.id}/active`)
+          .send({ active: false })
+          .expect(201);
+      }
+      for (let i = 0; i < 3; i++) {
+        const proposed = await request(server)
+          .post(`/sessions/${sessionCode}/courts/1/propose`)
+          .expect(201);
+        const pairingId = proposed.body.pairing.id;
+        await request(server)
+          .post(`/sessions/${sessionCode}/pairings/${pairingId}/confirm`)
+          .send({ expectedRevision: proposed.body.pairing.revision })
+          .expect(201);
+        await request(server)
+          .post(`/sessions/${sessionCode}/pairings/${pairingId}/finish`)
+          .send({ scoreA: null, scoreB: null, winner: null })
+          .expect(201);
+      }
+      // E already carries an inflated offset (as a deprioritize or an earlier
+      // return would have left it) while F is still resting.
+      await prisma.sessionRoster.update({
+        where: { sessionId_playerId: { sessionId: sessionCode, playerId: players[4].id } },
+        data: { active: true, gamesOffset: 6 },
+      });
+
+      await request(server)
+        .post(`/sessions/${sessionCode}/roster/${players[5].id}/active`)
+        .send({ active: true })
+        .expect(201);
+
+      const entry = await prisma.sessionRoster.findUniqueOrThrow({
+        where: { sessionId_playerId: { sessionId: sessionCode, playerId: players[5].id } },
+      });
+      // A..D played 3 real games; E's offset of 6 must not count. F rejoins one
+      // game behind the most-played: 3 - 1 - 0 = 2.
+      expect(entry.gamesOffset).toBe(2);
+    } finally {
+      await prisma.pairing.deleteMany({ where: { sessionId: sessionCode } });
+      await prisma.sessionRoster.deleteMany({ where: { sessionId: sessionCode } });
+      await prisma.session.deleteMany({ where: { code: sessionCode } });
+      await prisma.player.deleteMany({ where: { groupId: groupCode } });
+      await prisma.group.deleteMany({ where: { code: groupCode } });
+    }
+  });
+
+  it('credits a returning player to one game behind the highest active games-played count', async () => {
     const groupCode = randomUUID();
     const sessionCode = randomUUID();
     await prisma.group.create({ data: { code: groupCode, name: 'G' } });
@@ -1032,9 +1100,9 @@ describe('SessionsController', () => {
       const entry = await prisma.sessionRoster.findUniqueOrThrow({
         where: { sessionId_playerId: { sessionId: sessionCode, playerId: players[4].id } },
       });
-      // A..D each played 2 games; E played 0 before returning, so E's credit
-      // must bring them level: highest (2) - own (0) + currentOffset (0) = 2.
-      expect(entry.gamesOffset).toBe(2);
+      // A..D each played 2 games; E played 0 before returning, so E is credited
+      // to one behind them: (highest 2 - 1) - own 0 + currentOffset 0 = 1.
+      expect(entry.gamesOffset).toBe(1);
     } finally {
       await prisma.pairing.deleteMany({ where: { sessionId: sessionCode } });
       await prisma.sessionRoster.deleteMany({ where: { sessionId: sessionCode } });
@@ -1413,7 +1481,7 @@ describe('SessionsController', () => {
       }
     });
 
-    it("credits the walk-in to the highest active games-played count, so they don't win the next draw", async () => {
+    it("credits the walk-in to one game behind the highest count, so they don't win every draw", async () => {
       const groupCode = randomUUID();
       const sessionCode = randomUUID();
       await prisma.group.create({ data: { code: groupCode, name: 'G' } });
@@ -1455,23 +1523,20 @@ describe('SessionsController', () => {
         const entry = await prisma.sessionRoster.findUniqueOrThrow({
           where: { sessionId_playerId: { sessionId: sessionCode, playerId: walkInId } },
         });
-        expect(entry.gamesOffset).toBe(3);
+        expect(entry.gamesOffset).toBe(2);
 
-        // With only 1 court and 5 active players (A-D on 3, walk-in on an
-        // effective 3 via the offset), someone must sit out every round, and it
-        // must never be the walk-in winning a place over a 3-games player would
-        // be a tie, not a win — assert they are never left playing while an
-        // untouched A-D-level player sits, across enough draws to be conclusive.
-        let walkInEverSatOut = false;
-        for (let i = 0; i < 40 && !walkInEverSatOut; i++) {
+        // One court, five active: A-D are on 3 games, the walk-in on an
+        // effective 2. Someone must sit out every round, and it must be one of
+        // A-D — the walk-in is one game behind, so they play, but only one
+        // game ahead of the room's leaders, never a free run of turns.
+        for (let i = 0; i < 20; i++) {
           const proposed = await request(server)
             .post(`/sessions/${sessionCode}/courts/1/propose`)
             .expect(201);
           const onCourt = [...proposed.body.pairing.teamA, ...proposed.body.pairing.teamB];
-          if (!onCourt.includes(walkInId)) walkInEverSatOut = true;
-          await prisma.pairing.deleteMany({ where: { sessionId: sessionCode } });
+          expect(onCourt).toContain(walkInId);
+          await prisma.pairing.delete({ where: { id: proposed.body.pairing.id } });
         }
-        expect(walkInEverSatOut).toBe(true);
       } finally {
         await prisma.pairing.deleteMany({ where: { sessionId: sessionCode } });
         await prisma.sessionRoster.deleteMany({ where: { sessionId: sessionCode } });
@@ -3220,7 +3285,7 @@ describe('SessionsController', () => {
     }
   });
 
-  it('credits a returning player with the highest count already on the roster', async () => {
+  it('credits a returning player to one behind the highest count already on the roster', async () => {
     const groupCode = randomUUID();
     const sessionCode = randomUUID();
     await prisma.group.create({ data: { code: groupCode, name: 'G' } });
@@ -3262,7 +3327,7 @@ describe('SessionsController', () => {
       const row = await prisma.sessionRoster.findFirstOrThrow({
         where: { sessionId: sessionCode, playerId: late.id },
       });
-      expect(row.gamesOffset).toBe(3);
+      expect(row.gamesOffset).toBe(2);
 
       // The stats table must still report what actually happened.
       const stats = await request(server)

@@ -752,10 +752,15 @@ text.
 A walk-in — someone not on the pasted list — can also be added to a session
 that is already running, from a "+ เพิ่มคน" button on the dashboard. The same
 search-or-create choice applies: an existing group player (their history
-carries over) or a brand-new one. They are credited `gamesOffset` up to the
-highest active games-played count already on the roster, the same rotation-
-fairness credit a returning (rested) player gets on the way back in (B14),
-so they join the rotation instead of winning every draw until they catch up.
+carries over) or a brand-new one. They are credited `gamesOffset` up to
+one game behind the highest *real* games-played count among active players
+(`REJOIN_GAMES_BEHIND`), the same rotation-fairness credit a returning
+(rested) player gets on the way back in (B14), so they join the rotation
+instead of winning every draw until they catch up. Real means confirmed
+pairings only, offsets excluded: crediting against effective counts let one
+credit become the next returner's target, and offsets grew past anything
+actually played (session dd55e771, 2026-10-11: 7 games vs 12). One behind, not
+level: level queued a late player behind the whole room for a full rotation.
 Someone already on tonight's roster, including a resting one, is refused as
 a duplicate; the search field points the host at the existing roster chip
 instead of creating a second row for the same person.

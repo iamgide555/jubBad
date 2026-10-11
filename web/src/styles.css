@@ -25,8 +25,8 @@
   --line: #e5dfd5;
 
   --ink: #16130f;
-  --ink-soft: #6b6459;
-  --ink-faint: #a49b8c;
+  --ink-soft: #655e53;
+  --ink-faint: #70685c;
   /* Kept as aliases, not distinct values — see the block comment above.
      Every component that already rescopes these on a card (.court-panel,
      .ended-banner, .notice-block, .remove-confirm, .create-user-dialog) still
@@ -64,7 +64,7 @@
   --warn: #b0201a;
   --warn-wash: #fdecea;
   --error-ink: var(--warn);
-  --waiting: #a49b8c;
+  --waiting: #70685c;
   /* The one warm neutral outside the green/orange pair — a winner's stat, a
      top-of-leaderboard mark. Never a status, never interactive. */
   --gold: #b3801f;

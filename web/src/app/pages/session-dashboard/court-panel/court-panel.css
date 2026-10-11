@@ -492,3 +492,28 @@
   font-weight: 700;
   font-variant-numeric: tabular-nums;
 }
+
+/* The 60s auto-start window drains left to right under its label, so a host
+   glancing at three courts sees which one is about to start without reading
+   a number. Linear on purpose: it is a clock, not a transition. */
+.auto-start-bar {
+  height: 4px;
+  margin: var(--space-0) 0 var(--space-1);
+  border-radius: var(--radius-pill);
+  background: var(--ground-sunk);
+  overflow: hidden;
+}
+
+.auto-start-bar > span {
+  display: block;
+  height: 100%;
+  background: var(--accent);
+  border-radius: inherit;
+  transition: width 1s linear;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .auto-start-bar > span {
+    transition: none;
+  }
+}

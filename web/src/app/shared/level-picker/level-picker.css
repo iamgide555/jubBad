@@ -66,19 +66,15 @@
   align-self: flex-end;
 }
 
-/* One row of 9 chips (8 levels + "ไม่ระบุ") — nowrap with a horizontal
-   scroll fallback rather than wrapping to a second line, so the row keeps
-   a predictable height in a review list. flex: 1 1 0 lets each chip shrink
-   evenly to fit a phone-width viewport before scrolling kicks in. */
+/* 9 choices (8 levels + "ไม่ระบุ") in a grid that wraps once the viewport can no
+   longer give each one a full 44px tap target, rather than squeezing them thin. */
 .chips {
-  display: flex;
-  flex-wrap: nowrap;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(var(--tap), 1fr));
   gap: 0.25rem;
-  overflow-x: auto;
 }
 
 .chip {
-  flex: 1 1 0;
   min-width: 0;
   min-height: var(--tap);
   padding: 0 0.15rem;

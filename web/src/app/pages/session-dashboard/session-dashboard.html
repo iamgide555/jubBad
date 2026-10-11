@@ -502,7 +502,9 @@
     />
   </div>
 } @else {
-  <div class="page">
-    <p i18n="@@dashboard.notFound">ไม่พบก๊วนนี้</p>
+  <div class="page not-found">
+    <h1 i18n="@@dashboard.notFound">ไม่พบก๊วนนี้</h1>
+    <p class="muted" i18n="@@dashboard.notFoundHint2">ลิงก์อาจพิมพ์ผิดหรือก๊วนถูกลบไปแล้ว</p>
+    <a class="ghost" routerLink="/" i18n="@@notFound.home">กลับหน้าแรก</a>
   </div>
 }

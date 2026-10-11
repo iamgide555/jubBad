@@ -3763,6 +3763,18 @@
         <source>ลิงก์อาจถูกปิดแล้ว ขอลิงก์ใหม่จากเจ้าของก๊วน</source>
         <target>The link may have been turned off. Ask the group owner for a new one.</target>
       </trans-unit>
+      <trans-unit id="notFound.hint" datatype="html">
+        <source>ลิงก์อาจพิมพ์ผิดหรือถูกปิดไปแล้ว ขอลิงก์ใหม่จากคนที่ส่งให้</source>
+        <target>The link may be mistyped or turned off. Ask whoever sent it for a new one.</target>
+      </trans-unit>
+      <trans-unit id="dashboard.notFoundHint2" datatype="html">
+        <source>ลิงก์อาจพิมพ์ผิดหรือก๊วนถูกลบไปแล้ว</source>
+        <target>The link may be mistyped, or the session was deleted.</target>
+      </trans-unit>
+      <trans-unit id="notFound.home" datatype="html">
+        <source>กลับหน้าแรก</source>
+        <target>Back to home</target>
+      </trans-unit>
       <trans-unit id="entry.shareDashboard" datatype="html">
         <source>ลิงก์หน้าสรุปก๊วน</source>
         <target>Group summary link</target>

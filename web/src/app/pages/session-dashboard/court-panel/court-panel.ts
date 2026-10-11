@@ -348,6 +348,12 @@ export class CourtPanel {
     return result.error ? this.withRules(result.error, result.ruleIds) : null;
   }
 
+  /** How much of the 60s auto-start window is left, 0..1, for the draining bar. */
+  protected readonly autoStartFraction = computed<number>(() => {
+    const seconds = this.autoStartSecondsRemaining();
+    return seconds === null ? 0 : Math.min(1, Math.max(0, seconds / 60));
+  });
+
   protected readonly autoStartLabel = computed<string | null>(() => {
     if (this.ruleConflictIds().length > 0) return null;
     const seconds = this.autoStartSecondsRemaining();

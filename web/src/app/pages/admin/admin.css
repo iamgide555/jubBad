@@ -131,6 +131,9 @@
 
 .admin-table {
   width: 100%;
+  /* Wide enough that Thai labels never wrap one syllable per line; a phone
+     scrolls the table sideways (.table-scroll) instead of squeezing it. */
+  min-width: 40rem;
   border-collapse: collapse;
 }
 
@@ -152,6 +155,10 @@
   display: flex;
   flex-wrap: wrap;
   gap: var(--space-1);
+}
+
+.admin-actions button {
+  white-space: nowrap;
 }
 
 .detail-row td {

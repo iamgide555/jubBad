@@ -317,8 +317,9 @@
    without shrinking the others further. */
 .mode-toggle .scope-toggle button {
   flex: 0 0 auto;
+  min-width: var(--tap);
   padding: 0.3rem 0.5rem;
-  font-size: var(--text-xs);
+  font-size: var(--text-sm);
 }
 
 .mode-hint {
@@ -342,8 +343,9 @@
 
 .court-count .scope-toggle button {
   flex: 0 0 auto;
+  min-width: var(--tap);
   padding: 0.3rem 0.9rem;
-  font-size: var(--text-xs);
+  font-size: var(--text-sm);
 }
 
 .court-count-value {
@@ -512,14 +514,32 @@
 }
 
 .waiting-queue.is-stuck {
-  /* header + two rows of chips; the rest scrolls inside the tray */
-  max-height: calc(var(--tap) * 2 + var(--space-1) * 2 + 2.25rem);
-  overflow-y: auto;
+  /* One row: the header sits inline with the chips, which scroll sideways, so
+     the tray costs one chip's height of the screen instead of a quarter of it. */
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  overflow-y: hidden;
   overscroll-behavior: contain;
+  scrollbar-width: none;
   /* flush with the screen edge, so only the top corners round */
   border-bottom: 0;
   border-radius: var(--radius-lg) var(--radius-lg) 0 0;
   box-shadow: 0 -14px 28px -16px rgba(35, 28, 15, 0.28);
+}
+
+.waiting-queue.is-stuck .wq-head {
+  flex: 0 0 auto;
+  margin: 0 var(--space-1) 0 0;
+}
+
+.waiting-queue.is-stuck .chip-pick {
+  flex: 0 0 auto;
+}
+
+/* The bench hint needs room a one-row tray hasn't got; it comes back the moment
+   the tray opens at its natural spot. */
+.waiting-queue.is-stuck .bench-hint {
+  display: none;
 }
 
 /* Compact: who is next and how long they have waited is all the tray needs. */

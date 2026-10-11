@@ -768,7 +768,7 @@ describe('CheckoutController', () => {
         expect(row.undoneAt).not.toBeNull();
         const after = await f.rosterRow(leaver);
         expect(after.active).toBe(true);
-        expect(after.gamesOffset).toBe(2); // brought level with the most-played active player
+        expect(after.gamesOffset).toBe(1); // one game behind the most-played active player
         expect(after.gamesOffset).toBeGreaterThanOrEqual(before.gamesOffset);
         expect(after.activatedAt!.getTime()).toBeGreaterThanOrEqual((before.activatedAt ?? new Date(0)).getTime());
         expect((await f.list().expect(200)).body).toEqual([]);

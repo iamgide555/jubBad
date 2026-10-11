@@ -121,6 +121,27 @@ describe('admin module', () => {
     }
   });
 
+  it("lists the admin's own groups first, then other hosts' (by owner), ownerless last", async () => {
+    const mine = randomUUID();
+    const theirs = randomUUID();
+    const orphan = randomUUID();
+    // Created oldest-first for the admin's group so plain newest-first order
+    // would put it last; the ordering under test has to override that.
+    await prisma.group.create({ data: { code: mine, name: 'Mine', ownerId: adminId, createdAt: new Date('2026-01-01') } });
+    await prisma.group.create({ data: { code: theirs, name: 'Theirs', ownerId: hostId, createdAt: new Date('2026-06-01') } });
+    await prisma.group.create({ data: { code: orphan, name: 'Orphan', ownerId: null, createdAt: new Date('2026-07-01') } });
+    try {
+      const res = await request(server).get('/admin/groups').set('Cookie', adminCookie).expect(200);
+      const rows = res.body as { code: string; mine: boolean }[];
+      const order = rows.map((g) => g.code).filter((c) => [mine, theirs, orphan].includes(c));
+      expect(order).toEqual([mine, theirs, orphan]);
+      expect(rows.find((g) => g.code === mine)?.mine).toBe(true);
+      expect(rows.find((g) => g.code === theirs)?.mine).toBe(false);
+    } finally {
+      await prisma.group.deleteMany({ where: { code: { in: [mine, theirs, orphan] } } });
+    }
+  });
+
   it('creates, edits and disables a user end to end', async () => {
     const email = `created-${randomUUID()}@example.test`;
     const created = await request(server)

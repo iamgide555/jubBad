@@ -55,7 +55,7 @@ whiteboard, or by eyeballing a chat group. Self-hosted, per-user host login
 
 ## Capabilities and Constraints
 
-- Three routes are admin-guarded (landing, group creation, group home and its settings and roster screens, session dashboard);
+- The host routes are admin-guarded (landing, group creation, group home and its settings, players and roster-entry screens, session dashboard);
   three are public and read-only (player profile, session display, session
   summary) — this access split is fixed.
 - Matchmaking/scoring logic, API behavior, and the data model are engine and

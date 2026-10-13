@@ -49,7 +49,8 @@ export class GroupsService {
    * Sorted by most recent session rather than by creation, so the group being
    * played tonight is at the top rather than whichever was made first. Groups
    * with no sessions yet sort last but are never dropped: a group exists from
-   * the moment a roster is parsed into it, before any session is created.
+   * the moment it is created by name at POST /groups (parsing a roster into a
+   * new code still creates one for older clients), before any session exists.
    *
    * Scoped to `caller`'s own groups; an admin sees every group, since the
    * admin console needs exactly that view.

@@ -73,7 +73,7 @@ export class GroupCreate {
     this.creating.set(true);
     try {
       const group = await firstValueFrom(this.roster.createGroup(this.code, name));
-      await this.router.navigateByUrl(`/g/${group.code}`);
+      await this.router.navigateByUrl(`/g/${group.code}`, { replaceUrl: true });
     } catch (err) {
       if (err instanceof HttpErrorResponse && err.status === 404) this.code = crypto.randomUUID();
       this.error.set($localize`:@@group.createFailed:สร้างก๊วนไม่สำเร็จ กรุณาลองอีกครั้ง`);

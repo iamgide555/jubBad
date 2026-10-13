@@ -45,4 +45,9 @@ export class RosterDraftService {
   clear(groupCode: string): void {
     this.drafts.delete(groupCode);
   }
+
+  /** Every group's draft — for sign-out, so the next host on this tab sees none of them. */
+  clearAll(): void {
+    this.drafts.clear();
+  }
 }

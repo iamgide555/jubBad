@@ -2,6 +2,7 @@ import { TestBed } from '@angular/core/testing';
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { AuthService } from './auth.service';
+import { RosterDraftService } from './roster-draft.service';
 import { environment } from '../../environments/environment';
 
 const B = environment.apiBaseUrl;
@@ -115,6 +116,20 @@ describe('AuthService', () => {
     expect(service.isAuthed()).toBe(false);
     expect(service.role()).toBeNull();
     expect(service.email()).toBeNull();
+  });
+
+  it('drops every roster draft on logout, even when the request fails', async () => {
+    const drafts = TestBed.inject(RosterDraftService);
+    const clearAll = vi.spyOn(drafts, 'clearAll');
+    const ok = service.logout();
+    httpMock.expectOne(`${B}/auth/logout`).flush({ authenticated: false });
+    await ok;
+    expect(clearAll).toHaveBeenCalledTimes(1);
+
+    const failed = service.logout();
+    httpMock.expectOne(`${B}/auth/logout`).flush('x', { status: 500, statusText: 'Err' });
+    await expect(failed).rejects.toBeTruthy();
+    expect(clearAll).toHaveBeenCalledTimes(2);
   });
 
   it('reports whether the email matched an account', async () => {

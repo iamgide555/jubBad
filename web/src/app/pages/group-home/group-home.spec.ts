@@ -219,6 +219,20 @@ describe('GroupHome', () => {
     expect(TestBed.inject(Router).url).toBe('/g/group1');
   });
 
+  it('does not navigate back to the group once the page has been left', async () => {
+    await harness.navigateByUrl('/g/group1?settings=levels', GroupHome);
+    const group = httpMock.expectOne(`${B}/groups/group1`);
+    const sessions = httpMock.expectOne(`${B}/groups/group1/sessions`);
+    await harness.navigateByUrl('/groups/new');
+    for (const r of httpMock.match(() => true)) r.flush([]);
+    group.flush({ code: 'group1', name: 'ก๊วนอังคาร', lastSessionCode: null });
+    sessions.flush([]);
+    await settle();
+    await tick();
+    expect(TestBed.inject(Router).url).toBe('/groups/new');
+    for (const r of httpMock.match(() => true)) r.flush([]);
+  });
+
   it('an unknown ?settings value opens settings without moving focus', async () => {
     await open('/g/group1?settings=bogus');
     flushValues();

@@ -2617,6 +2617,14 @@
         <source>คู่กัน: ลงเป็นคู่เดียวกันหรือพักพร้อมกัน · ห้ามอยู่ด้วยกัน: เป็นคู่แข่งกันได้ · ห้ามเล่นด้วยกัน: ไม่ลงสนามเดียวกัน</source>
         <target>Must pair: play as partners or sit out together · Never teammates: may still face each other · Never same court: never on the same court</target>
       </trans-unit>
+      <trans-unit id="playerRoster.empty" datatype="html">
+        <source>ยังไม่มีผู้เล่นในก๊วนนี้ — ผู้เล่นจะเข้ามาเมื่อเริ่มรอบ วางรายชื่อจาก LINE หรือเพิ่มรายชื่อเอง</source>
+        <target>No players in this group yet. Players join when you start a session: paste a roster from LINE or add names yourself.</target>
+      </trans-unit>
+      <trans-unit id="playerRoster.emptyStart" datatype="html">
+        <source>เริ่มรอบใหม่ →</source>
+        <target>Start a session →</target>
+      </trans-unit>
       <trans-unit id="playerRoster.noRules" datatype="html">
         <source>ยังไม่มีกฎ</source>
         <target>No rules yet</target>
@@ -3547,7 +3555,7 @@
       </trans-unit>
       <trans-unit id="dashboard.notFoundHint2" datatype="html">
         <source>ลิงก์อาจพิมพ์ผิดหรือก๊วนถูกลบไปแล้ว</source>
-        <target>The link may be mistyped, or the session was deleted.</target>
+        <target>The link may be mistyped, or the group was deleted.</target>
       </trans-unit>
       <trans-unit id="notFound.home" datatype="html">
         <source>กลับหน้าแรก</source>

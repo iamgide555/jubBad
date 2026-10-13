@@ -90,6 +90,16 @@ describe('PlayerRoster', () => {
     expect(component.players()).toEqual(PLAYERS);
   });
 
+  it('explains an empty group: players join when a session starts', () => {
+    const el = fixture.nativeElement as HTMLElement;
+    expect(el.querySelector('[data-empty]')).toBeNull();
+    component.players.set([]);
+    fixture.detectChanges();
+    expect(el.querySelector('[data-empty]')?.textContent).toContain('ผู้เล่นจะเข้ามาเมื่อเริ่มรอบ');
+    expect(el.querySelector('[data-empty-start]')?.getAttribute('href')).toBe('/g/group1/start');
+    expect(el.querySelector<HTMLElement>('.table-scroll')?.hidden).toBe(true);
+  });
+
   it('copies the player profile link from the row button', async () => {
     const writeText = vi.fn().mockResolvedValue(undefined);
     vi.stubGlobal('navigator', { clipboard: { writeText } });

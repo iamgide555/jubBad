@@ -95,7 +95,7 @@ These are load-bearing product decisions, not incidental implementation choices 
 
 Each court: **idle** → propose → **pending** (free reshuffling, tap-swap) → confirm → **active** → finish (records winner or "no result") → idle again. A pending match with every seat filled auto-confirms after 60s of inactivity (any edit resets the timer). Undo reverses the most recent step on one court and refuses if the players involved already started elsewhere.
 
-Three routes, access split is fixed:
+Host and venue routes, access split is fixed:
 - `/groups/new` — name-only group creation (admin-guarded)
 - `/g/:groupCode` — group home: name, settings disclosure, resume and session actions (admin-guarded)
 - `/g/:groupCode/start` — roster entry for a saved group, paste or manual (admin-guarded)

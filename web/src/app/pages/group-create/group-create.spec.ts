@@ -105,7 +105,7 @@ describe('GroupCreate', () => {
     expect(navigate).not.toHaveBeenCalled();
     req.flush({ code: req.request.body.code, name: 'ก๊วนอังคาร' });
     await done;
-    expect(navigate).toHaveBeenCalledWith(`/g/${req.request.body.code}`);
+    expect(navigate).toHaveBeenCalledWith(`/g/${req.request.body.code}`, { replaceUrl: true });
   });
 
   it('disables the button and says it is creating while the request is in flight', async () => {

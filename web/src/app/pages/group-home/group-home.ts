@@ -1,5 +1,5 @@
 import { HttpErrorResponse } from '@angular/common/http';
-import { ChangeDetectorRef, Component, ElementRef, computed, inject, signal } from '@angular/core';
+import { ChangeDetectorRef, Component, DestroyRef, ElementRef, computed, inject, signal } from '@angular/core';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
 import type { Group } from '../../core/group.model';
@@ -47,6 +47,7 @@ export class GroupHome {
   readonly settingsOpen = signal(false);
   readonly values = signal<RowValues>({});
   private valuesRequested = false;
+  private destroyed = false;
 
   readonly latest = computed(() => {
     const code = this.group()?.lastSessionCode;
@@ -55,6 +56,7 @@ export class GroupHome {
   });
 
   constructor() {
+    inject(DestroyRef).onDestroy(() => (this.destroyed = true));
     void this.load();
   }
 
@@ -65,6 +67,7 @@ export class GroupHome {
         firstValueFrom(this.roster.getGroup(this.groupCode)),
         firstValueFrom(this.roster.listSessions(this.groupCode)),
       ]);
+      if (this.destroyed) return;
       this.group.set(group);
       this.sessions.set(sessions);
       this.status.set('ready');

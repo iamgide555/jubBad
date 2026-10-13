@@ -1,6 +1,7 @@
 import { HttpClient, HttpErrorResponse } from '@angular/common/http';
 import { Injectable, inject, signal } from '@angular/core';
 import { firstValueFrom } from 'rxjs';
+import { RosterDraftService } from './roster-draft.service';
 import { environment } from '../../environments/environment';
 
 export type LoginResult = boolean | 'throttled';
@@ -21,6 +22,7 @@ interface MeResponse {
 @Injectable({ providedIn: 'root' })
 export class AuthService {
   private readonly http = inject(HttpClient);
+  private readonly drafts = inject(RosterDraftService);
   private readonly base = environment.apiBaseUrl;
 
   private readonly authed = signal(false);
@@ -55,6 +57,8 @@ export class AuthService {
       // Locally signed out even if the request failed: leaving the UI in a
       // signed-in state after someone asked to leave is the worse failure.
       this.setUnauthenticated();
+      // Pasted names must not outlive the host who pasted them.
+      this.drafts.clearAll();
     }
   }
 

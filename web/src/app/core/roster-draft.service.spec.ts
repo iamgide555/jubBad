@@ -34,6 +34,14 @@ describe('RosterDraftService', () => {
     expect(drafts.get('g2')?.rawText).toBe('two');
   });
 
+  it('clearAll empties every group', () => {
+    drafts.save('g1', draft('one'));
+    drafts.save('g2', draft('two'));
+    drafts.clearAll();
+    expect(drafts.get('g1')).toBeNull();
+    expect(drafts.get('g2')).toBeNull();
+  });
+
   it('clears only the named group', () => {
     drafts.save('g1', draft('one'));
     drafts.save('g2', draft('two'));

@@ -138,7 +138,7 @@ Shipped copy uses ก๊วน for both the reusable group and a single night ("
 
 - **Rule:** ก๊วน names only the reusable group: its name, players, levels, settings, deletion, and owner. รอบ names one session: ending it, its summary, its bill, its display, its history, and its errors. นัด is retired; `home.sessionsSuffix` becomes `รอบ`.
 - **Session-meaning strings to change** (Thai source; check English for the same group/session confusion). This list is a seed taken from a grep, not an exhaustive one:
-  - **Display, dashboard, court:** `display.sessionEnded`, `display.notFound`, `dashboard.sessionEnded`, `dashboard.endSession`, `dashboard.copySummaryLink`, `dashboard.notFound`, `dashboard.notFoundHint2`, `court.sessionEnded`.
+  - **Display, dashboard, court:** `display.sessionEnded`, `display.notFound`, `dashboard.sessionEnded`, `dashboard.endSession`, `dashboard.copySummaryLink`, `dashboard.notFound`, `court.sessionEnded`.
   - **Summary:** `summary.title`, `summary.noMatches`, `summary.notFound`.
   - **Bill and checkout:** `bill.backLive`, `bill.back`, `bill.prefilled`, `bill.warnUnknownUse`, `bill.settledHint`, `checkout.ratesHint`, `checkout.err.unknownUse`, `checkout.err.disabled`, `checkout.err.ended`.
   - **Errors and levels:** `err.code.sessionEnded`, `err.code.sessionNotFound`, `err.code.invalidSessionState`, `err.code.rosterPlayerNotFound`, `err.code.rosterDuplicate`, `err.code.shuttleTrackingDisabled`, `err.endSession`, `levels.err.activeSession`.

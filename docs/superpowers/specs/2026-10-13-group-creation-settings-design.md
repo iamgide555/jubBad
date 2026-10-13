@@ -20,6 +20,7 @@
 - **Success:** navigate to `/g/:groupCode`, showing the saved group name and access to settings.
 - **Leave and return:** a saved group with no sessions appears in the existing group list and can be reopened. Starting a session is optional.
 - **Cancel:** provide a return to the group list before submission; no group is created merely by opening the form.
+- **Same-name warning (decided 2026-10-13):** if the host already owns a group with the same name (trimmed, whitespace-collapsed, case-insensitive), the first submit does not create. It shows a non-blocking note, **คุณมีก๊วนชื่อนี้อยู่แล้ว**, with a link to open the existing group. Submitting again with the same name creates the new group anyway, since one host may genuinely run two same-named groups. Editing the name clears the note. The check is against the caller's own groups only (`GET /groups` is already owner-filtered; an admin's other-host rows are ignored). Other hosts' names are never checked, since that would reveal their groups. It is a client-side courtesy, not a server rule: if the list cannot be read, creation proceeds without the check. Renaming in **จัดการก๊วน** applies the same warning, excluding the group being renamed.
 
 ### Group home and settings
 
@@ -159,6 +160,7 @@ Shipped copy uses ก๊วน for both the reusable group and a single night ("
 ## Acceptance and validation
 
 - [ ] **Creation:** a host saves a named group without a LINE message, player, or session; it survives reload and appears in the group list.
+- [ ] **Same-name warning:** creating or renaming to a name the host already uses warns once with a link to the existing group, then proceeds on a second submit. Another host's identical name never triggers it, and a failed list read never blocks creation.
 - [ ] **Retry and authorization:** repeated creation yields one owned group; cross-owner attempts cannot read or alter another group's settings through creation.
 - [ ] **Discovery:** settings is visible beside the group name on initial load and stays above session actions and history for new and existing groups.
 - [ ] **Disclosure:** all five options open from the top control; closing and returning from detail views preserve predictable focus and navigation.

@@ -23,6 +23,7 @@ A root-provided, in-memory `RosterDraftService` keeps an unfinished roster alive
 - New group code format: a full lowercase canonical UUID, `/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/`. Legacy 8-hex codes stay valid everywhere they are read.
 - `POST /groups` never takes an owner from the body. A code owned by anyone else, an admin included, returns 404, never 403.
 - A group name is trimmed before validation and stored trimmed. Whitespace-only is rejected. There is no maximum length.
+- Duplicate names are allowed. Creating or renaming to a name the host already owns warns once (client-side, own groups only via `GET /groups`) and proceeds on a second submit. Other hosts' names are never checked.
 - Controls come from `web/src/styles.css`, not from the prototype:
   - default `button` is filled `--court`; `button.ghost`; `button.danger`
   - the global `:focus-visible` ring; hover only inside `@media (hover: hover)`
@@ -41,7 +42,8 @@ A root-provided, in-memory `RosterDraftService` keeps an unfinished roster alive
 2. **A bookmarked legacy 8-hex group URL.** The host expects it to open, rename and start sessions exactly as before. Home and start screens load an 8-hex code, and `POST /groups` rejects one. Tests in Tasks 1 and 5.
 3. **Opening `/g/:code` for a group that is deleted or not theirs.** The host expects "not found", never a blank group they could start filling in. A 404 shows the not-found state with no settings and no start button. Test in Task 5.
 4. **A settings value fetch fails.** The host expects the row's plain description, never a made-up "0 คน" or "ยังไม่แชร์". Test in Task 5.
-5. **A pasted roster, then a detour through settings and back.** The host expects the roster still there, and gone once the session is created. Tests in Task 6.
+5. **A host types a name they already use.** The host expects a heads-up with a link to the existing group, never a block, and never a warning caused by another host's group. Tests in Tasks 2, 3 and 4.
+6. **A pasted roster, then a detour through settings and back.** The host expects the roster still there, and gone once the session is created. Tests in Task 6.
 
 ---
 
@@ -451,6 +453,8 @@ git commit -m "feat(groups): name-only POST /groups, strictly caller-owned; trim
 - Modify: `web/src/app/core/roster.service.ts`
 - Modify: `web/src/app/core/roster.service.spec.ts`
 - Create: `web/src/app/core/settings-sections.ts`
+- Create: `web/src/app/core/group-name.ts`
+- Create: `web/src/app/core/group-name.spec.ts`
 - Create: `web/src/app/core/roster-draft.service.ts`
 - Create: `web/src/app/core/roster-draft.service.spec.ts`
 - Modify: `web/src/app/shared/icon/icon.ts`
@@ -458,6 +462,8 @@ git commit -m "feat(groups): name-only POST /groups, strictly caller-owned; trim
 **Interfaces:**
 - Produces: `RosterService.createGroup(code: string, name: string): Observable<{ code: string; name: string | null }>`, which posts to `${base}/groups`.
 - Produces: `RosterService.getShare(code: string): Observable<{ token: string | null }>`, which gets `${base}/groups/${code}/share`.
+- Produces: `RosterService.listGroups(): Observable<OwnGroupRow[]>`, which gets `${base}/groups`. `OwnGroupRow` is `{ code: string; name: string | null; mine?: boolean }`, where `mine` is present only for an admin.
+- Produces: `sameGroupName(a: string, b: string): boolean` and `findOwnDuplicate(groups: OwnGroupRow[], name: string, exceptCode?: string): { code: string; name: string } | null`, both in `core/group-name.ts`.
 - Produces: `SETTINGS_SECTIONS`, `SettingsSection` (`'players' | 'levels' | 'share' | 'advanced' | 'manage'`), `DetailSection` (`'share' | 'advanced' | 'manage'`), `isSettingsSection(v: string | null): v is SettingsSection`, `isDetailSection(v: string | null): v is DetailSection`, `settingsReturn(groupCode: string, section: SettingsSection): { commands: string[]; queryParams: { settings: SettingsSection } }`.
 - Produces: `RosterDraft` and `RosterDraftService` with `get(code): RosterDraft | null`, `save(code, draft): void` and `clear(code): void`.
 - Produces: `IconName` gains `'gear'`.
@@ -476,12 +482,56 @@ Append to `web/src/app/core/roster.service.spec.ts`, inside its top-level `descr
     expect(body).toEqual({ code: '11111111-2222-3333-4444-555555555555', name: 'ก๊วนอังคาร' });
   });
 
+  it('listGroups reads the caller\'s group list', () => {
+    let body: unknown;
+    service.listGroups().subscribe((r) => (body = r));
+    httpMock.expectOne({ url: `${B}/groups`, method: 'GET' }).flush([{ code: 'g1', name: 'ก๊วนอังคาร' }]);
+    expect(body).toEqual([{ code: 'g1', name: 'ก๊วนอังคาร' }]);
+  });
+
   it('getShare reads the share state', () => {
     let body: unknown;
     service.getShare('g1').subscribe((r) => (body = r));
     httpMock.expectOne({ url: `${B}/groups/g1/share`, method: 'GET' }).flush({ token: null });
     expect(body).toEqual({ token: null });
   });
+```
+
+Create `web/src/app/core/group-name.spec.ts`:
+
+```ts
+import { findOwnDuplicate, sameGroupName } from './group-name';
+
+describe('sameGroupName', () => {
+  it('ignores surrounding and repeated whitespace and Latin case', () => {
+    expect(sameGroupName('  ก๊วน  อังคาร ', 'ก๊วน อังคาร')).toBe(true);
+    expect(sameGroupName('Badminton Club', 'badminton club')).toBe(true);
+  });
+
+  it('treats different names as different', () => {
+    expect(sameGroupName('ก๊วนอังคาร', 'ก๊วนพุธ')).toBe(false);
+  });
+});
+
+describe('findOwnDuplicate', () => {
+  const groups = [
+    { code: 'a', name: 'ก๊วนอังคาร' },
+    { code: 'b', name: null },
+    { code: 'c', name: 'ของคนอื่น', mine: false },
+  ];
+
+  it('finds the caller\'s own group with the same name', () => {
+    expect(findOwnDuplicate(groups, ' ก๊วนอังคาร ')).toEqual({ code: 'a', name: 'ก๊วนอังคาร' });
+  });
+
+  it('ignores another host\'s group, even with the same name (admin list rows)', () => {
+    expect(findOwnDuplicate(groups, 'ของคนอื่น')).toBeNull();
+  });
+
+  it('skips the group being renamed', () => {
+    expect(findOwnDuplicate(groups, 'ก๊วนอังคาร', 'a')).toBeNull();
+  });
+});
 ```
 
 Create `web/src/app/core/roster-draft.service.spec.ts`:
@@ -535,8 +585,8 @@ describe('RosterDraftService', () => {
 
 - [ ] **Step 2: Run the tests and confirm they fail**
 
-Run: `cd web && npx ng test --watch=false --include=src/app/core/roster.service.spec.ts --include=src/app/core/roster-draft.service.spec.ts`
-Expected: FAIL. `createGroup`/`getShare` are not functions, and `roster-draft.service` cannot be resolved.
+Run: `cd web && npx ng test --watch=false --include=src/app/core/roster.service.spec.ts --include=src/app/core/roster-draft.service.spec.ts --include=src/app/core/group-name.spec.ts`
+Expected: FAIL. `createGroup`/`getShare`/`listGroups` are not functions, and `roster-draft.service` and `group-name` cannot be resolved.
 
 - [ ] **Step 3: Implement**
 
@@ -552,6 +602,46 @@ In `web/src/app/core/roster.service.ts`, add these methods after `getGroup`:
   getShare(code: string) {
     return this.http.get<{ token: string | null }>(`${this.base}/groups/${code}/share`);
   }
+
+  /** The caller's groups (every group, flagged `mine`, for an admin). Used for the same-name warning. */
+  listGroups() {
+    return this.http.get<OwnGroupRow[]>(`${this.base}/groups`);
+  }
+```
+
+Add `import type { OwnGroupRow } from './group-name';` to the top of `roster.service.ts`.
+
+Create `web/src/app/core/group-name.ts`:
+
+```ts
+/** One row of GET /groups, as far as the same-name warning needs it. `mine` is present only for an admin. */
+export interface OwnGroupRow {
+  code: string;
+  name: string | null;
+  mine?: boolean;
+}
+
+/** Trimmed, inner whitespace collapsed, Latin case folded. Thai has no case, so it compares as typed. */
+export function sameGroupName(a: string, b: string): boolean {
+  const norm = (s: string) => s.trim().replace(/\s+/g, ' ').toLocaleLowerCase();
+  return norm(a) === norm(b);
+}
+
+/**
+ * The caller's own group already using `name`, if any. Other hosts' rows (an
+ * admin's `mine: false`) never count: the warning must not reveal or depend on
+ * anyone else's groups. `exceptCode` skips the group being renamed.
+ */
+export function findOwnDuplicate(
+  groups: readonly OwnGroupRow[],
+  name: string,
+  exceptCode?: string
+): { code: string; name: string } | null {
+  const hit = groups.find(
+    (g) => g.mine !== false && g.code !== exceptCode && g.name !== null && sameGroupName(g.name, name)
+  );
+  return hit ? { code: hit.code, name: hit.name! } : null;
+}
 ```
 
 Create `web/src/app/core/settings-sections.ts`:
@@ -649,14 +739,14 @@ In `web/src/app/shared/icon/icon.ts`, add `| 'gear'` to `IconName`. Then add thi
 
 - [ ] **Step 4: Run the tests and confirm they pass**
 
-Run: `cd web && npx ng test --watch=false --include=src/app/core/roster.service.spec.ts --include=src/app/core/roster-draft.service.spec.ts --include=src/app/shared/icon/icon.spec.ts`
+Run: `cd web && npx ng test --watch=false --include=src/app/core/roster.service.spec.ts --include=src/app/core/roster-draft.service.spec.ts --include=src/app/core/group-name.spec.ts --include=src/app/shared/icon/icon.spec.ts`
 Expected: PASS. If `icon.spec.ts` does not exist, drop that `--include`.
 
 - [ ] **Step 5: Commit**
 
 ```bash
-git add web/src/app/core/roster.service.ts web/src/app/core/roster.service.spec.ts web/src/app/core/settings-sections.ts web/src/app/core/roster-draft.service.ts web/src/app/core/roster-draft.service.spec.ts web/src/app/shared/icon/icon.ts
-git commit -m "feat(web): createGroup/getShare API, settings sections, in-memory roster draft, gear icon"
+git add web/src/app/core/roster.service.ts web/src/app/core/roster.service.spec.ts web/src/app/core/settings-sections.ts web/src/app/core/group-name.ts web/src/app/core/group-name.spec.ts web/src/app/core/roster-draft.service.ts web/src/app/core/roster-draft.service.spec.ts web/src/app/shared/icon/icon.ts
+git commit -m "feat(web): createGroup/getShare/listGroups API, same-name helper, settings sections, roster draft, gear icon"
 ```
 
 ---
@@ -672,8 +762,8 @@ git commit -m "feat(web): createGroup/getShare API, settings sections, in-memory
 - Modify: `web/src/app/pages/landing/landing.ts` (`startNewGroup`), `web/src/app/pages/landing/landing.spec.ts`
 
 **Interfaces:**
-- Consumes: `RosterService.createGroup` (Task 2).
-- Produces: route `groups/new` → `GroupCreate`. On success it navigates to `/g/:code`.
+- Consumes: `RosterService.createGroup`, `RosterService.listGroups` and `findOwnDuplicate` (Task 2).
+- Produces: route `groups/new` → `GroupCreate`. On success it navigates to `/g/:code`. `GroupCreate.duplicateOf: Signal<{ code: string; name: string } | null>`.
 
 - [ ] **Step 1: Write the failing tests**
 
@@ -691,6 +781,11 @@ import { environment } from '../../../environments/environment';
 
 const B = environment.apiBaseUrl;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
+/** The caller's own list: one group of theirs, and (as an admin sees it) one of another host's. */
+const OWN = [
+  { code: 'existing1', name: 'ก๊วน อังคารเดิม' },
+  { code: 'other1', name: 'ของคนอื่น', mine: false },
+];
 
 describe('GroupCreate', () => {
   let fixture: ComponentFixture<GroupCreate>;
@@ -712,12 +807,45 @@ describe('GroupCreate', () => {
     navigate = vi.spyOn(TestBed.inject(Router), 'navigateByUrl').mockResolvedValue(true);
     fixture = TestBed.createComponent(GroupCreate);
     component = fixture.componentInstance;
+    // The constructor reads the host's own groups for the same-name warning.
+    httpMock.expectOne({ url: `${B}/groups`, method: 'GET' }).flush(OWN);
     await fixture.whenStable();
   });
 
   afterEach(() => httpMock.verify());
 
   const el = () => fixture.nativeElement as HTMLElement;
+
+  it('warns once about a name the host already uses, links to it, and creates on a second submit', async () => {
+    component.name.set('  ก๊วน  อังคารเดิม ');
+    await component.submit();
+    fixture.detectChanges();
+    httpMock.expectNone({ url: `${B}/groups`, method: 'POST' });
+    const note = el().querySelector('[data-duplicate]')!;
+    expect(note.textContent).toContain('คุณมีก๊วนชื่อนี้อยู่แล้ว');
+    expect(note.querySelector('a')?.getAttribute('href')).toBe('/g/existing1');
+
+    const done = component.submit();
+    const req = httpMock.expectOne({ url: `${B}/groups`, method: 'POST' });
+    req.flush({ code: req.request.body.code, name: 'ก๊วน อังคารเดิม' });
+    await done;
+  });
+
+  it('editing the name clears the same-name note', async () => {
+    component.name.set('ก๊วนอังคารเดิม');
+    await component.submit();
+    component.onNameChange('ก๊วนอังคารใหม่');
+    expect(component.duplicateOf()).toBeNull();
+  });
+
+  it("never warns about another host's group with the same name", async () => {
+    component.name.set('ของคนอื่น');
+    const done = component.submit();
+    const req = httpMock.expectOne({ url: `${B}/groups`, method: 'POST' });
+    req.flush({ code: req.request.body.code, name: 'ของคนอื่น' });
+    await done;
+    expect(component.duplicateOf()).toBeNull();
+  });
 
   it('offers a way back to the group list before anything is created', () => {
     const back = [...el().querySelectorAll('a')].find((a) => a.getAttribute('href') === '/');
@@ -796,6 +924,18 @@ describe('GroupCreate', () => {
     next.flush({ code: next.request.body.code, name: 'ก๊วนอังคาร' });
     await second;
   });
+
+  it('creates without the check when the group list could not be read', async () => {
+    const again = TestBed.createComponent(GroupCreate);
+    httpMock.expectOne({ url: `${B}/groups`, method: 'GET' }).flush('x', { status: 500, statusText: 'x' });
+    await again.whenStable();
+    again.componentInstance.name.set('ก๊วน อังคารเดิม');
+    const done = again.componentInstance.submit();
+    const req = httpMock.expectOne({ url: `${B}/groups`, method: 'POST' });
+    req.flush({ code: req.request.body.code, name: 'ก๊วน อังคารเดิม' });
+    await done;
+    again.destroy();
+  });
 });
 ```
 
@@ -838,6 +978,7 @@ import { FormsModule } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
 import { RosterService } from '../../core/roster.service';
+import { findOwnDuplicate, sameGroupName, type OwnGroupRow } from '../../core/group-name';
 import { PressDirective } from '../../core/motion/press.directive';
 import { Icon } from '../../shared/icon/icon';
 
@@ -868,9 +1009,22 @@ export class GroupCreate {
    */
   private code = crypto.randomUUID();
 
+  /**
+   * The host's own groups, for the same-name note. Empty when the list could
+   * not be read: the note is a courtesy, never a gate on creating.
+   */
+  private readonly ownGroups = signal<OwnGroupRow[]>([]);
+  /** The existing group the note is pointing at; a second submit with this name creates anyway. */
+  readonly duplicateOf = signal<{ code: string; name: string } | null>(null);
+
+  constructor() {
+    this.roster.listGroups().subscribe({ next: (groups) => this.ownGroups.set(groups), error: () => undefined });
+  }
+
   onNameChange(value: string): void {
     this.name.set(value);
     this.error.set(null);
+    this.duplicateOf.set(null);
   }
 
   async submit(): Promise<void> {
@@ -880,6 +1034,14 @@ export class GroupCreate {
       this.error.set($localize`:@@entry.errNoGroupName:กรุณาใส่ชื่อก๊วนก่อน`);
       this.nameInput()?.nativeElement.focus();
       return;
+    }
+    const warned = this.duplicateOf();
+    if (!(warned && sameGroupName(warned.name, name))) {
+      const clash = findOwnDuplicate(this.ownGroups(), name);
+      if (clash) {
+        this.duplicateOf.set(clash);
+        return;
+      }
     }
     this.error.set(null);
     this.creating.set(true);
@@ -922,6 +1084,13 @@ export class GroupCreate {
     @if (error()) {
       <p id="group-name-error" class="error" role="alert">{{ error() }}</p>
     }
+    @if (duplicateOf(); as dup) {
+      <p class="duplicate-note" role="status" data-duplicate>
+        <ng-container i18n="@@group.duplicateName">คุณมีก๊วนชื่อนี้อยู่แล้ว</ng-container>
+        <a [routerLink]="['/g', dup.code]" i18n="@@group.openExisting">เปิดก๊วนเดิม</a>
+        <span class="muted" i18n="@@group.duplicateAgain">กด “สร้างก๊วน” อีกครั้งเพื่อสร้างก๊วนใหม่ชื่อเดียวกัน</span>
+      </p>
+    }
     <button type="submit" class="create-submit" appPress [disabled]="creating()" [attr.aria-busy]="creating()">
       @if (creating()) {
         <app-icon name="feather" [size]="16" [spin]="true" />
@@ -956,6 +1125,24 @@ export class GroupCreate {
 
 .create-form label {
   margin-bottom: var(--space-0);
+}
+
+.duplicate-note {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--space-0) var(--space-1);
+  margin-top: var(--space-1);
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius);
+  background: var(--ground-sunk);
+  font-size: var(--text-sm);
+}
+
+.duplicate-note a {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--tap);
 }
 
 .create-submit {
@@ -1003,6 +1190,9 @@ In `web/src/locale/messages.en.xlf`, add one `<trans-unit>` per new id, followin
 | `group.creating` | `กำลังสร้างก๊วน...` | `Creating group…` |
 | `group.create` | `สร้างก๊วน` | `Create group` |
 | `group.createFailed` | `สร้างก๊วนไม่สำเร็จ กรุณาลองอีกครั้ง` | `Couldn't create the group. Please try again.` |
+| `group.duplicateName` | `คุณมีก๊วนชื่อนี้อยู่แล้ว` | `You already have a group with this name.` |
+| `group.openExisting` | `เปิดก๊วนเดิม` | `Open it` |
+| `group.duplicateAgain` | `กด “สร้างก๊วน” อีกครั้งเพื่อสร้างก๊วนใหม่ชื่อเดียวกัน` | `Tap "Create group" again to make a new one with the same name.` |
 
 Regenerating `messages.xlf` happens once, in Task 8.
 
@@ -1034,7 +1224,7 @@ This task moves share, advanced and manage out of `GroupEntry` into their own sc
 - Modify: `web/src/app/app.routes.ts`, `web/src/app/app.routes.spec.ts`
 
 **Interfaces:**
-- Consumes: `RosterService.getGroup`, `renameGroup`, `exportGroup`, `deleteGroup`, `getShuttleTools`, `setShuttleTools`, `getCrossSessionHistory`, `setCrossSessionHistory`. Also `ShareDashboardPanel`, and `isDetailSection`/`settingsReturn` from Task 2.
+- Consumes: `RosterService.getGroup`, `listGroups`, `renameGroup`, `exportGroup`, `deleteGroup`, `getShuttleTools`, `setShuttleTools`, `getCrossSessionHistory`, `setCrossSessionHistory`. Also `ShareDashboardPanel`, and `isDetailSection`/`settingsReturn`/`findOwnDuplicate`/`sameGroupName` from Task 2.
 - Produces: route `g/:groupCode/settings/:section` → `GroupSettingsDetail`. Its back link is `/g/:code?settings=<section>`.
 
 - [ ] **Step 1: Write the failing tests**
@@ -1078,6 +1268,14 @@ describe('GroupSettingsDetail', () => {
     const page = await harness.navigateByUrl(`/g/group1/settings/${section}`, GroupSettingsDetail);
     httpMock.expectOne(`${B}/groups/group1`).flush(GROUP);
     await harness.fixture.whenStable();
+    // Manage reads the host's own groups for the same-name note on rename.
+    if (section === 'manage') {
+      httpMock.expectOne({ url: `${B}/groups`, method: 'GET' }).flush([
+        { code: 'group1', name: 'ก๊วนอังคาร' },
+        { code: 'group2', name: 'ก๊วนพุธ' },
+      ]);
+      await harness.fixture.whenStable();
+    }
     return page;
   }
   const el = () => harness.routeNativeElement as HTMLElement;
@@ -1167,6 +1365,27 @@ describe('GroupSettingsDetail', () => {
       expect(el().querySelector('a.back')?.textContent).toContain('ก๊วนพุธ');
     });
 
+    it("warns once when renaming to another of the host's group names, then renames on a second save", async () => {
+      const page = await open('manage');
+      page.renameDraft.set('ก๊วนพุธ');
+      await page.rename();
+      await harness.fixture.whenStable();
+      httpMock.expectNone({ url: `${B}/groups/group1`, method: 'PUT' });
+      expect(el().querySelector('[data-duplicate]')?.textContent).toContain('คุณมีก๊วนชื่อนี้อยู่แล้ว');
+
+      const done = page.rename();
+      httpMock.expectOne({ url: `${B}/groups/group1`, method: 'PUT' }).flush({ code: 'group1', name: 'ก๊วนพุธ' });
+      await done;
+    });
+
+    it('does not warn when saving the group under its own current name', async () => {
+      const page = await open('manage');
+      page.renameDraft.set('ก๊วนอังคาร');
+      const done = page.rename();
+      httpMock.expectOne({ url: `${B}/groups/group1`, method: 'PUT' }).flush({ code: 'group1', name: 'ก๊วนอังคาร' });
+      await done;
+    });
+
     it('refuses a blank rename inline without a request', async () => {
       const page = await open('manage');
       page.renameDraft.set('   ');
@@ -1241,6 +1460,7 @@ import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
 import { RosterService } from '../../core/roster.service';
+import { findOwnDuplicate, sameGroupName, type OwnGroupRow } from '../../core/group-name';
 import { isDetailSection, settingsReturn, type DetailSection } from '../../core/settings-sections';
 import { ShareDashboardPanel } from '../../shared/share-dashboard-panel/share-dashboard-panel';
 
@@ -1283,6 +1503,9 @@ export class GroupSettingsDetail {
   readonly renaming = signal(false);
   readonly renameError = signal<string | null>(null);
   readonly renameSaved = signal(false);
+  /** Same-name courtesy note on rename; a second save with this name goes ahead. */
+  readonly renameDuplicateOf = signal<{ code: string; name: string } | null>(null);
+  private readonly ownGroups = signal<OwnGroupRow[]>([]);
   readonly deleteConfirmText = signal('');
   readonly dangerError = signal<string | null>(null);
   readonly canDelete = computed(
@@ -1301,6 +1524,9 @@ export class GroupSettingsDetail {
       this.renameDraft.set(group.name ?? '');
       this.status.set('ready');
       if (this.section === 'advanced') this.loadAdvanced();
+      if (this.section === 'manage') {
+        this.roster.listGroups().subscribe({ next: (g) => this.ownGroups.set(g), error: () => undefined });
+      }
     } catch (err) {
       this.status.set(err instanceof HttpErrorResponse && err.status === 404 ? 'not-found' : 'error');
     }
@@ -1355,6 +1581,15 @@ export class GroupSettingsDetail {
       this.renameError.set($localize`:@@entry.errNoGroupName:กรุณาใส่ชื่อก๊วนก่อน`);
       return;
     }
+    const warned = this.renameDuplicateOf();
+    if (!(warned && sameGroupName(warned.name, name))) {
+      const clash = findOwnDuplicate(this.ownGroups(), name, this.groupCode);
+      if (clash) {
+        this.renameDuplicateOf.set(clash);
+        return;
+      }
+    }
+    this.renameDuplicateOf.set(null);
     this.renameError.set(null);
     this.renaming.set(true);
     try {
@@ -1476,11 +1711,18 @@ export class GroupSettingsDetail {
           <form class="rename" (ngSubmit)="rename()" novalidate>
             <label for="rename-input" i18n="@@entry.groupName">ชื่อก๊วน</label>
             <div class="rename-row">
-              <input id="rename-input" name="rename" type="text" autocomplete="off" [ngModel]="renameDraft()" (ngModelChange)="renameDraft.set($event)" [disabled]="renaming()" />
+              <input id="rename-input" name="rename" type="text" autocomplete="off" [ngModel]="renameDraft()" (ngModelChange)="renameDraft.set($event); renameDuplicateOf.set(null)" [disabled]="renaming()" />
               <button type="submit" class="ghost" [disabled]="renaming()" i18n="@@group.saveName">บันทึกชื่อ</button>
             </div>
             @if (renameError()) {
               <p class="error" role="alert">{{ renameError() }}</p>
+            }
+            @if (renameDuplicateOf(); as dup) {
+              <p class="duplicate-note" role="status" data-duplicate>
+                <ng-container i18n="@@group.duplicateName">คุณมีก๊วนชื่อนี้อยู่แล้ว</ng-container>
+                <a [routerLink]="['/g', dup.code]" i18n="@@group.openExisting">เปิดก๊วนเดิม</a>
+                <span class="muted" i18n="@@group.duplicateRenameAgain">กด “บันทึกชื่อ” อีกครั้งเพื่อใช้ชื่อนี้</span>
+              </p>
             }
             @if (renameSaved()) {
               <p class="saved" role="status" i18n="@@group.nameSaved">บันทึกชื่อก๊วนแล้ว</p>
@@ -1604,6 +1846,24 @@ export class GroupSettingsDetail {
   margin-top: var(--space-2);
 }
 
+.duplicate-note {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--space-0) var(--space-1);
+  margin-top: var(--space-1);
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius);
+  background: var(--ground-sunk);
+  font-size: var(--text-sm);
+}
+
+.duplicate-note a {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--tap);
+}
+
 .saved {
   margin-top: var(--space-1);
   color: var(--court-ink);
@@ -1659,6 +1919,7 @@ English targets to add to `messages.en.xlf`:
 | `group.row.manage` | `จัดการก๊วน` | `Manage group` |
 | `group.saveName` | `บันทึกชื่อ` | `Save name` |
 | `group.nameSaved` | `บันทึกชื่อก๊วนแล้ว` | `Group name saved` |
+| `group.duplicateRenameAgain` | `กด “บันทึกชื่อ” อีกครั้งเพื่อใช้ชื่อนี้` | `Tap "Save name" again to use it anyway.` |
 | `group.exportTitle` | `ดาวน์โหลดข้อมูล` | `Download data` |
 | `group.exportHint` | `ผู้เล่น รอบ และผลแมตช์ทั้งหมดของก๊วน เป็นไฟล์ JSON` | `Every player, session and match in this group, as a JSON file.` |
 | `group.deleteTitle` | `ลบก๊วน` | `Delete group` |

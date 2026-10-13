@@ -194,6 +194,23 @@ describe('GroupSettingsDetail', () => {
     expect(el().textContent).toContain('ไม่พบหน้านี้');
   });
 
+  it('offers a retry when the group fails to load for a reason other than not-found', async () => {
+    const page = await harness.navigateByUrl('/g/group1/settings/manage', GroupSettingsDetail);
+    httpMock.expectOne(`${B}/groups/group1`).flush('x', { status: 500, statusText: 'x' });
+    await settle();
+    expect(el().querySelector('[role="alert"]')?.textContent).toContain('โหลดก๊วนไม่สำเร็จ');
+    expect(el().textContent).not.toContain('ไม่พบก๊วนนี้');
+
+    el().querySelector<HTMLButtonElement>('[role="alert"] button')!.click();
+    httpMock.expectOne(`${B}/groups/group1`).flush(GROUP);
+    await settle();
+    httpMock.expectOne({ url: `${B}/groups`, method: 'GET' }).flush([{ code: 'group1', name: 'ก๊วนอังคาร' }]);
+    await settle();
+    expect(page.status()).toBe('ready');
+    expect(el().querySelector('a.back')?.textContent).toContain('ก๊วนอังคาร');
+    expect(el().querySelector('.danger-zone')).toBeTruthy();
+  });
+
   it('shows not-found when the group does not exist', async () => {
     await harness.navigateByUrl('/g/group1/settings/manage', GroupSettingsDetail);
     httpMock.expectOne(`${B}/groups/group1`).flush('x', { status: 404, statusText: 'Not Found' });

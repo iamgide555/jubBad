@@ -43,6 +43,13 @@ export const routes: Routes = [
       import('./pages/group-dashboard/group-dashboard').then((m) => m.GroupDashboard),
   },
   {
+    // Name-only group creation. Guarded: creating a group is a host action, and
+    // POST /groups is behind AuthGuard on the server to match.
+    path: 'groups/new',
+    canActivate: [adminGuard],
+    loadComponent: () => import('./pages/group-create/group-create').then((m) => m.GroupCreate),
+  },
+  {
     // Before 'g/:groupCode' so the deeper path wins the match.
     // Unguarded: a player's own stat card, read-only.
     path: 'g/:groupCode/p/:playerId',

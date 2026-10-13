@@ -10,6 +10,7 @@ import { SessionDashboard } from './pages/session-dashboard/session-dashboard';
 import { SessionDisplay } from './pages/session-display/session-display';
 import { PlayerProfile } from './pages/player-profile/player-profile';
 import { PlayerRoster } from './pages/player-roster/player-roster';
+import { GroupCreate } from './pages/group-create/group-create';
 import { Landing } from './pages/landing/landing';
 import { ResetPassword } from './pages/reset-password/reset-password';
 import { Admin } from './pages/admin/admin';
@@ -42,6 +43,11 @@ function configure(signedIn: boolean) {
 describe('app routes', () => {
   describe('signed in', () => {
     beforeEach(() => configure(true));
+
+    it('/groups/new resolves to GroupCreate', async () => {
+      const harness = await RouterTestingHarness.create();
+      expect(await harness.navigateByUrl('/groups/new', GroupCreate)).toBeInstanceOf(GroupCreate);
+    });
 
     it('/ resolves to Landing', async () => {
       const harness = await RouterTestingHarness.create();
@@ -192,6 +198,7 @@ describe('app routes', () => {
     it.each([
       ['/', 'the group list'],
       ['/g/abc123', 'a group'],
+      ['/groups/new', 'group creation'],
       ['/s/xyz789', 'a live session'],
       ['/s/xyz789/bill', 'a session bill'],
     ])('redirects %s to the login page', async (url) => {

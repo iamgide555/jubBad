@@ -1,0 +1,40 @@
+<div class="page group-create">
+  <p><a class="back" [routerLink]="['/']" i18n="@@group.backToList">← ก๊วนของฉัน</a></p>
+  <h1 class="create-title" i18n="@@group.createTitle">สร้างก๊วนใหม่</h1>
+  <p class="muted" i18n="@@group.createLede">ตั้งชื่อก๊วนไว้ก่อน รายชื่อผู้เล่นค่อยเพิ่มตอนเริ่มรอบ</p>
+
+  <form class="create-form" (ngSubmit)="submit()" novalidate>
+    <label for="group-name" i18n="@@entry.groupName">ชื่อก๊วน</label>
+    <input
+      #nameInput
+      id="group-name"
+      name="groupName"
+      type="text"
+      autocomplete="off"
+      [ngModel]="name()"
+      (ngModelChange)="onNameChange($event)"
+      [attr.aria-invalid]="error() ? true : null"
+      [attr.aria-describedby]="error() ? 'group-name-error' : null"
+      i18n-placeholder="@@entry.groupNamePlaceholder"
+      placeholder="เช่น ก๊วนอังคาร"
+    />
+    @if (error()) {
+      <p id="group-name-error" class="error" role="alert">{{ error() }}</p>
+    }
+    @if (duplicateOf(); as dup) {
+      <p class="duplicate-note" role="status" data-duplicate>
+        <ng-container i18n="@@group.duplicateName">คุณมีก๊วนชื่อนี้อยู่แล้ว</ng-container>
+        <a [routerLink]="['/g', dup.code]" i18n="@@group.openExisting">เปิดก๊วนเดิม</a>
+        <span class="muted" i18n="@@group.duplicateAgain">กด “สร้างก๊วน” อีกครั้งเพื่อสร้างก๊วนใหม่ชื่อเดียวกัน</span>
+      </p>
+    }
+    <button type="submit" class="create-submit" appPress [disabled]="creating()" [attr.aria-busy]="creating()">
+      @if (creating()) {
+        <app-icon name="feather" [size]="16" [spin]="true" />
+        <ng-container i18n="@@group.creating">กำลังสร้างก๊วน...</ng-container>
+      } @else {
+        <ng-container i18n="@@group.create">สร้างก๊วน</ng-container>
+      }
+    </button>
+  </form>
+</div>

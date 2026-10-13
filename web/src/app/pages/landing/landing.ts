@@ -102,9 +102,9 @@ export class Landing {
     void this.load();
   }
 
+  /** The group is saved by name first; the code is minted on the creation screen. */
   startNewGroup(): void {
-    const groupCode = crypto.randomUUID().slice(0, 8);
-    this.router.navigateByUrl(`/g/${groupCode}`);
+    this.router.navigateByUrl('/groups/new');
   }
 
   startRemove(group: GroupSummary): void {

@@ -4303,6 +4303,42 @@
         <source>คะแนนไม่ตรงกับทีมที่ชนะ</source>
         <target>The scores don't match the winning team</target>
       </trans-unit>
+      <trans-unit id="group.backToList" datatype="html">
+        <source>← ก๊วนของฉัน</source>
+        <target>← My groups</target>
+      </trans-unit>
+      <trans-unit id="group.createTitle" datatype="html">
+        <source>สร้างก๊วนใหม่</source>
+        <target>New group</target>
+      </trans-unit>
+      <trans-unit id="group.createLede" datatype="html">
+        <source>ตั้งชื่อก๊วนไว้ก่อน รายชื่อผู้เล่นค่อยเพิ่มตอนเริ่มรอบ</source>
+        <target>Name the group now. Add players when you start a session.</target>
+      </trans-unit>
+      <trans-unit id="group.creating" datatype="html">
+        <source>กำลังสร้างก๊วน...</source>
+        <target>Creating group…</target>
+      </trans-unit>
+      <trans-unit id="group.create" datatype="html">
+        <source>สร้างก๊วน</source>
+        <target>Create group</target>
+      </trans-unit>
+      <trans-unit id="group.createFailed" datatype="html">
+        <source>สร้างก๊วนไม่สำเร็จ กรุณาลองอีกครั้ง</source>
+        <target>Couldn't create the group. Please try again.</target>
+      </trans-unit>
+      <trans-unit id="group.duplicateName" datatype="html">
+        <source>คุณมีก๊วนชื่อนี้อยู่แล้ว</source>
+        <target>You already have a group with this name.</target>
+      </trans-unit>
+      <trans-unit id="group.openExisting" datatype="html">
+        <source>เปิดก๊วนเดิม</source>
+        <target>Open it</target>
+      </trans-unit>
+      <trans-unit id="group.duplicateAgain" datatype="html">
+        <source>กด “สร้างก๊วน” อีกครั้งเพื่อสร้างก๊วนใหม่ชื่อเดียวกัน</source>
+        <target>Tap &quot;Create group&quot; again to make a new one with the same name.</target>
+      </trans-unit>
     </body>
   </file>
 </xliff>

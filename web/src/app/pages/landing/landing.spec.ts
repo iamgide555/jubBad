@@ -122,12 +122,12 @@ describe('Landing', () => {
     expect(fixture.nativeElement.textContent).not.toContain('วันอังคาร');
   });
 
-  it('starts a new group and navigates to it', async () => {
+  it('sends "create a group" to the name-only creation screen', async () => {
     await loadWith();
     const router = TestBed.inject(Router);
     const spy = vi.spyOn(router, 'navigateByUrl');
     component.startNewGroup();
-    expect(spy).toHaveBeenCalledWith(expect.stringMatching(/^\/g\/[0-9a-f]{8}$/));
+    expect(spy).toHaveBeenCalledWith('/groups/new');
   });
 
   it('cancelling a removal leaves the group alone', async () => {

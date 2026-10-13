@@ -1,0 +1,47 @@
+.back {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--tap);
+  text-decoration: none;
+  font-size: var(--text-sm);
+}
+
+.create-title {
+  font-size: var(--text-2xl);
+  overflow-wrap: anywhere;
+}
+
+.create-form {
+  margin-top: var(--space-3);
+}
+
+.create-form label {
+  margin-bottom: var(--space-0);
+}
+
+.duplicate-note {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--space-0) var(--space-1);
+  margin-top: var(--space-1);
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius);
+  background: var(--ground-sunk);
+  font-size: var(--text-sm);
+}
+
+.duplicate-note a {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--tap);
+}
+
+.create-submit {
+  width: 100%;
+  margin-top: var(--space-3);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-1);
+}

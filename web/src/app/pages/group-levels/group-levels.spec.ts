@@ -303,4 +303,10 @@ describe('GroupLevels', () => {
     expect(q('[data-editor]')).toBeNull();
     expect(q('[data-customize]')).toBeNull();
   });
+
+  it('its back link returns to the group home with settings open on this row', async () => {
+    await load(standard());
+    const back = [...el().querySelectorAll('a')].find((a) => a.textContent?.includes('กลับ')) as HTMLAnchorElement;
+    expect(back.getAttribute('href')).toBe('/g/g1?settings=levels');
+  });
 });

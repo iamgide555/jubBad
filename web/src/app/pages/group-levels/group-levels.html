@@ -1,5 +1,5 @@
 <div class="page group-levels">
-  <p><a [routerLink]="['/g', groupCode]" i18n="@@levels.back">← กลับ</a></p>
+  <p><a [routerLink]="back.commands" [queryParams]="back.queryParams" i18n="@@levels.back">← กลับ</a></p>
   <h1 i18n="@@levels.title">ระดับผู้เล่นของก๊วน</h1>
 
   @if (loadFailed()) {

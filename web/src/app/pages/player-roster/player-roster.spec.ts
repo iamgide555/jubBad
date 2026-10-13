@@ -231,17 +231,17 @@ describe('PlayerRoster', () => {
   });
 
   it('replaces the back link with a non-navigable indicator while editing', () => {
-    expect(fixture.nativeElement.querySelector('a[href="/g/group1"]')).toBeTruthy();
+    expect(fixture.nativeElement.querySelector('a[href="/g/group1?settings=players"]')).toBeTruthy();
 
     component.startEdit(PLAYERS[0]);
     fixture.detectChanges();
 
-    expect(fixture.nativeElement.querySelector('a[href="/g/group1"]')).toBeNull();
+    expect(fixture.nativeElement.querySelector('a[href="/g/group1?settings=players"]')).toBeNull();
 
     component.cancelEdit();
     fixture.detectChanges();
 
-    expect(fixture.nativeElement.querySelector('a[href="/g/group1"]')).toBeTruthy();
+    expect(fixture.nativeElement.querySelector('a[href="/g/group1?settings=players"]')).toBeTruthy();
   });
 
   it('canDeactivate allows navigation with no open edit, without prompting', () => {
@@ -543,5 +543,12 @@ describe('PlayerRoster', () => {
       fixture.detectChanges();
       expect(el().querySelector('[data-bulk]')).toBeNull();
     });
+  });
+
+  it('its back link returns to the group home with settings open on this row', () => {
+    const back = [...fixture.nativeElement.querySelectorAll('a')].find((a: HTMLAnchorElement) =>
+      a.textContent?.includes('กลับ')
+    ) as HTMLAnchorElement;
+    expect(back.getAttribute('href')).toBe('/g/group1?settings=players');
   });
 });

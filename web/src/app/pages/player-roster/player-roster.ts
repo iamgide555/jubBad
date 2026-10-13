@@ -18,6 +18,7 @@ import { AddRuleDialog } from '../../shared/add-rule-dialog/add-rule-dialog';
 import { LevelPicker } from '../../shared/level-picker/level-picker';
 import type { Level } from '../../../../../engines/levels.ts';
 import { levelRank, levelsErrorMessage, type GroupLevelsResponse } from '../../core/group-levels.model';
+import { settingsReturn } from '../../core/settings-sections';
 
 type SortKey = 'rating' | 'singlesRating' | 'winRate' | 'level';
 
@@ -34,6 +35,8 @@ export class PlayerRoster implements CanComponentDeactivate, OnDestroy {
   private readonly rosterService = inject(RosterService);
 
   readonly groupCode: string;
+  /** Back to group home with the settings list reopened on this row. */
+  protected readonly back: ReturnType<typeof settingsReturn>;
   readonly players = signal<ManagedPlayer[]>([]);
   readonly loaded = signal(false);
   readonly loadError = signal(false);
@@ -68,6 +71,7 @@ export class PlayerRoster implements CanComponentDeactivate, OnDestroy {
 
   constructor(route: ActivatedRoute) {
     this.groupCode = route.snapshot.paramMap.get('groupCode')!;
+    this.back = settingsReturn(this.groupCode, 'players');
     void this.load(true);
     void this.loadLadder();
     // Covers the navigation paths canDeactivate() cannot: closing the tab,

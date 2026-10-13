@@ -11,6 +11,7 @@ import {
   type SaveGroupLevelsRequest,
 } from '../../core/group-levels.model';
 import { RosterService } from '../../core/roster.service';
+import { settingsReturn } from '../../core/settings-sections';
 
 /** One editable row. `id` exists only for a level already saved in a custom ladder. */
 interface DraftRow {
@@ -42,6 +43,8 @@ const MAX_NAME = 16;
 export class GroupLevels implements CanComponentDeactivate {
   private readonly roster = inject(RosterService);
   protected readonly groupCode = inject(ActivatedRoute).snapshot.paramMap.get('groupCode')!;
+  /** Back to group home with the settings list reopened on this row. */
+  protected readonly back = settingsReturn(this.groupCode, 'levels');
 
   protected readonly data = signal<GroupLevelsResponse | null>(null);
   protected readonly loadFailed = signal(false);

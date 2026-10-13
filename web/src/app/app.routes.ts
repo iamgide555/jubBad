@@ -50,6 +50,14 @@ export const routes: Routes = [
     loadComponent: () => import('./pages/group-create/group-create').then((m) => m.GroupCreate),
   },
   {
+    // Before 'g/:groupCode'. Guarded: share, advanced and manage are host-only,
+    // and every server route they call is owner-only.
+    path: 'g/:groupCode/settings/:section',
+    canActivate: [adminGuard],
+    loadComponent: () =>
+      import('./pages/group-settings-detail/group-settings-detail').then((m) => m.GroupSettingsDetail),
+  },
+  {
     // Before 'g/:groupCode' so the deeper path wins the match.
     // Unguarded: a player's own stat card, read-only.
     path: 'g/:groupCode/p/:playerId',

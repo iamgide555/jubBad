@@ -1,0 +1,119 @@
+<div class="page group-settings-detail">
+  <p>
+    <a class="back" [routerLink]="back().commands" [queryParams]="back().queryParams">← {{ groupName() || groupCode }}</a>
+  </p>
+
+  @switch (status()) {
+    @case ('loading') {
+      <p class="muted" role="status" i18n="@@group.loading">กำลังโหลดก๊วน...</p>
+    }
+    @case ('not-found') {
+      <h1 class="detail-title" i18n="@@group.notFound">ไม่พบก๊วนนี้</h1>
+      <p class="muted" i18n="@@group.notFoundHint">ลิงก์อาจพิมพ์ผิด หรือก๊วนถูกลบไปแล้ว</p>
+    }
+    @case ('error') {
+      <p class="error" role="alert">
+        <ng-container i18n="@@group.loadFailed">โหลดก๊วนไม่สำเร็จ</ng-container>
+        <button type="button" class="ghost" (click)="load()" i18n="@@entry.retry">ลองอีกครั้ง</button>
+      </p>
+    }
+    @case ('ready') {
+      @switch (section) {
+        @case ('share') {
+          <h1 class="detail-title" i18n="@@group.row.share">แชร์หน้าสรุปก๊วน</h1>
+          <p class="audience">
+            <strong i18n="@@group.shareAudience">ทุกคนที่มีลิงก์สามารถดูหน้าสรุปก๊วนได้</strong><br />
+            <span class="muted" i18n="@@group.shareShows">แสดงเฉพาะจำนวนเกมที่เล่น ไม่มีเรตติ้งหรือข้อมูลติดต่อ</span>
+          </p>
+          <app-share-dashboard-panel [groupCode]="groupCode" />
+        }
+        @case ('advanced') {
+          <h1 class="detail-title" i18n="@@group.row.advanced">ตั้งค่าขั้นสูง</h1>
+          <p class="muted" i18n="@@group.advancedHint">มีผลกับรอบที่สร้างต่อจากนี้ รอบที่เปิดอยู่แล้วไม่เปลี่ยน</p>
+          @if (advancedLoadFailed()) {
+            <p class="error" role="alert" i18n="@@group.advancedLoadFailed">โหลดการตั้งค่าไม่สำเร็จ</p>
+          }
+          <div class="advanced-settings">
+            <label class="switch-row">
+              <input
+                type="checkbox"
+                name="shuttleTools"
+                [checked]="shuttleTools() === true"
+                [disabled]="shuttleTools() === null || advancedSaving()"
+                (change)="setAdvanced('shuttleTools', $any($event.target))"
+              />
+              <span class="switch-text">
+                <span class="switch-title" i18n="@@entry.shuttleTools">จดลูกแบดเป็นหมายเลข</span>
+                <span class="muted" i18n="@@entry.shuttleToolsHint">ตอนยืนยันแมตช์จะให้เลือกลูกแบด และบิลจะนับตามลูกที่ใช้จริง</span>
+              </span>
+            </label>
+            <label class="switch-row">
+              <input
+                type="checkbox"
+                name="crossSessionHistory"
+                [checked]="crossSessionHistory() === true"
+                [disabled]="crossSessionHistory() === null || advancedSaving()"
+                (change)="setAdvanced('crossSessionHistory', $any($event.target))"
+              />
+              <span class="switch-text">
+                <span class="switch-title" i18n="@@group.crossSessionHistory">นับประวัติคู่ข้ามรอบ</span>
+                <span class="muted" i18n="@@group.crossSessionHistoryHint">ปิด: เลี่ยงคู่ซ้ำเฉพาะคืนนี้ · เปิด: นับทุกรอบที่ผ่านมา</span>
+              </span>
+            </label>
+          </div>
+          @if (advancedError()) {
+            <p class="error" role="alert">{{ advancedError() }}</p>
+          }
+          @if (advancedSaved()) {
+            <p class="saved" role="status" i18n="@@group.saved">บันทึกแล้ว</p>
+          }
+        }
+        @case ('manage') {
+          <h1 class="detail-title" i18n="@@group.row.manage">จัดการก๊วน</h1>
+          <form class="rename" (ngSubmit)="rename()" novalidate>
+            <label for="rename-input" i18n="@@entry.groupName">ชื่อก๊วน</label>
+            <div class="rename-row">
+              <input id="rename-input" name="rename" type="text" autocomplete="off" [ngModel]="renameDraft()" (ngModelChange)="renameDraft.set($event); renameDuplicateOf.set(null)" [disabled]="renaming()" />
+              <button type="submit" class="ghost" [disabled]="renaming()" i18n="@@group.saveName">บันทึกชื่อ</button>
+            </div>
+            @if (renameError()) {
+              <p class="error" role="alert">{{ renameError() }}</p>
+            }
+            @if (renameDuplicateOf(); as dup) {
+              <p class="duplicate-note" role="status" data-duplicate>
+                <ng-container i18n="@@group.duplicateName">คุณมีก๊วนชื่อนี้อยู่แล้ว</ng-container>
+                <a [routerLink]="['/g', dup.code]" i18n="@@group.openExisting">เปิดก๊วนเดิม</a>
+                <span class="muted" i18n="@@group.duplicateRenameAgain">กด “บันทึกชื่อ” อีกครั้งเพื่อใช้ชื่อนี้</span>
+              </p>
+            }
+            @if (renameSaved()) {
+              <p class="saved" role="status" i18n="@@group.nameSaved">บันทึกชื่อก๊วนแล้ว</p>
+            }
+          </form>
+
+          <section class="detail-section">
+            <h2 i18n="@@group.exportTitle">ดาวน์โหลดข้อมูล</h2>
+            <p class="muted" i18n="@@group.exportHint">ผู้เล่น รอบ และผลแมตช์ทั้งหมดของก๊วน เป็นไฟล์ JSON</p>
+            <button type="button" class="ghost" (click)="exportGroup()" i18n="@@entry.export">ดาวน์โหลดข้อมูล (JSON)</button>
+          </section>
+
+          <section class="detail-section">
+            <h2 i18n="@@group.deleteTitle">ลบก๊วน</h2>
+            <div class="danger-zone">
+              <p i18n="@@group.deleteWarning">ลบก๊วนนี้ถาวร รวมผู้เล่นและประวัติทุกรอบ กู้คืนไม่ได้</p>
+              <label for="delete-confirm" i18n="@@entry.typeNameToDelete">พิมพ์ชื่อก๊วนเพื่อยืนยัน</label>
+              <input id="delete-confirm" name="deleteConfirm" type="text" autocomplete="off" [ngModel]="deleteConfirmText()" (ngModelChange)="deleteConfirmText.set($event)" />
+              <button type="button" class="danger" [disabled]="!canDelete()" (click)="deleteGroup()" i18n="@@entry.deleteGroup">ลบก๊วนนี้</button>
+            </div>
+          </section>
+          @if (dangerError()) {
+            <p class="error" role="alert">{{ dangerError() }}</p>
+          }
+        }
+        @default {
+          <h1 class="detail-title" i18n="@@group.sectionNotFound">ไม่พบหน้านี้</h1>
+        }
+      }
+    }
+  }
+</div>

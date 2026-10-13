@@ -11,6 +11,7 @@ import { SessionDisplay } from './pages/session-display/session-display';
 import { PlayerProfile } from './pages/player-profile/player-profile';
 import { PlayerRoster } from './pages/player-roster/player-roster';
 import { GroupCreate } from './pages/group-create/group-create';
+import { GroupSettingsDetail } from './pages/group-settings-detail/group-settings-detail';
 import { Landing } from './pages/landing/landing';
 import { ResetPassword } from './pages/reset-password/reset-password';
 import { Admin } from './pages/admin/admin';
@@ -47,6 +48,13 @@ describe('app routes', () => {
     it('/groups/new resolves to GroupCreate', async () => {
       const harness = await RouterTestingHarness.create();
       expect(await harness.navigateByUrl('/groups/new', GroupCreate)).toBeInstanceOf(GroupCreate);
+    });
+
+    it('/g/:groupCode/settings/:section resolves to GroupSettingsDetail', async () => {
+      const harness = await RouterTestingHarness.create();
+      expect(await harness.navigateByUrl('/g/abc123/settings/share', GroupSettingsDetail)).toBeInstanceOf(
+        GroupSettingsDetail
+      );
     });
 
     it('/ resolves to Landing', async () => {
@@ -199,6 +207,7 @@ describe('app routes', () => {
       ['/', 'the group list'],
       ['/g/abc123', 'a group'],
       ['/groups/new', 'group creation'],
+      ['/g/abc123/settings/manage', 'group settings'],
       ['/s/xyz789', 'a live session'],
       ['/s/xyz789/bill', 'a session bill'],
     ])('redirects %s to the login page', async (url) => {

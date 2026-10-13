@@ -40,7 +40,7 @@ describe('ShareDashboardPanel', () => {
     expect(el().querySelector('[data-link]')).toBeNull();
   });
 
-  it('says it is unavailable for a group that does not exist yet', async () => {
+  it('says the sharing status could not be loaded when the group cannot be read', async () => {
     await open('missing');
     expect(button('share')).toBeNull();
     expect(el().querySelector('[data-unavailable]')).not.toBeNull();

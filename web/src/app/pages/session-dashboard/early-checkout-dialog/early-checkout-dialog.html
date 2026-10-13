@@ -90,7 +90,7 @@
         @if (!receipt() && bill(); as b) {
           <details class="rates" data-rates [open]="ratesOpen()" (toggle)="ratesOpen.set($any($event.target).open)">
             <summary i18n="@@checkout.ratesTitle">ตั้งราคา</summary>
-            <p class="muted" i18n="@@checkout.ratesHint">ตั้งค่าเดียวกับหน้าคิดเงินตอนจบก๊วน แก้แล้วใช้กับทุกคนที่ยังไม่ได้เช็คเอาต์</p>
+            <p class="muted" i18n="@@checkout.ratesHint">ตั้งค่าเดียวกับหน้าคิดเงินตอนจบรอบ แก้แล้วใช้กับทุกคนที่ยังไม่ได้เช็คเอาต์</p>
             <div class="rate-rows" [class.is-busy]="ratesBusy()">
               <app-bill-settings
                 variant="checkout"

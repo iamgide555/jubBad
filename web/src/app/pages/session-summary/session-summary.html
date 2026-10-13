@@ -6,7 +6,7 @@
     <div class="summary-hero" aria-hidden="true">
       <app-scene-host variant="hero" />
     </div>
-    <h1 i18n="@@summary.title">สรุปก๊วน</h1>
+    <h1 i18n="@@summary.title">สรุปรอบ</h1>
     <p class="muted">
       {{ s.session.date }}
       @if (s.session.venue) { · {{ s.session.venue }} }
@@ -126,7 +126,7 @@
     }
 
     @if (s.players.length === 0) {
-      <p class="muted" i18n="@@summary.noMatches">ก๊วนนี้ยังไม่มีการแข่งขัน</p>
+      <p class="muted" i18n="@@summary.noMatches">รอบนี้ยังไม่มีการแข่งขัน</p>
     } @else {
       <div class="table-scroll">
       <table>
@@ -292,7 +292,7 @@
   </div>
 } @else if (notFound()) {
   <div class="page not-found">
-    <h1 i18n="@@summary.notFound">ไม่พบก๊วนนี้</h1>
+    <h1 i18n="@@summary.notFound">ไม่พบรอบนี้</h1>
     <p class="muted" i18n="@@notFound.hint">ลิงก์อาจพิมพ์ผิดหรือถูกปิดไปแล้ว ขอลิงก์ใหม่จากคนที่ส่งให้</p>
   </div>
 }

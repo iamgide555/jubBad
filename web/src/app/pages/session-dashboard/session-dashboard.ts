@@ -786,7 +786,7 @@ export class SessionDashboard implements OnDestroy {
       }
       const result = await this.liveSession.endSession();
       if (!result.ok) {
-        this.endSessionError.set(result.error ?? $localize`:@@err.endSession:จบก๊วนไม่สำเร็จ`);
+        this.endSessionError.set(result.error ?? $localize`:@@err.endSession:จบรอบไม่สำเร็จ`);
         return;
       }
       this.endDialog()?.close();

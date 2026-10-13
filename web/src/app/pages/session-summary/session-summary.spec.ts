@@ -337,13 +337,13 @@ describe('SessionSummary', () => {
 
   it('shows a not-found message when the session is unknown', async () => {
     await load(null);
-    expect((fixture.nativeElement as HTMLElement).textContent).toContain('ไม่พบก๊วนนี้');
+    expect((fixture.nativeElement as HTMLElement).textContent).toContain('ไม่พบรอบนี้');
   });
 
   it('shows an empty-state message when no matches were played', async () => {
     await load(summary({ players: [] }));
     expect((fixture.nativeElement as HTMLElement).textContent).toContain(
-      'ก๊วนนี้ยังไม่มีการแข่งขัน'
+      'รอบนี้ยังไม่มีการแข่งขัน'
     );
   });
 

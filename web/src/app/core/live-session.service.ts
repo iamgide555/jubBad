@@ -91,9 +91,9 @@ function fillDetails(response: MutationResponse): Pick<ActionResult, 'blocked' |
 function messageForCode(code: string): string | null {
   switch (code) {
     case 'SESSION_ENDED':
-      return $localize`:@@err.code.sessionEnded:ก๊วนนี้จบไปแล้ว`;
+      return $localize`:@@err.code.sessionEnded:รอบนี้จบไปแล้ว`;
     case 'SESSION_NOT_FOUND':
-      return $localize`:@@err.code.sessionNotFound:ไม่พบก๊วนนี้`;
+      return $localize`:@@err.code.sessionNotFound:ไม่พบรอบนี้`;
     case 'SESSION_HAS_UNFINISHED_PAIRINGS':
       return $localize`:@@err.code.sessionHasUnfinishedPairings:ยังมีแมตช์ที่ยังไม่จบ กรุณาบันทึกผลให้ครบก่อน`;
     case 'COURT_ACTIVE':
@@ -109,7 +109,7 @@ function messageForCode(code: string): string | null {
     case 'COURT_LABEL_CONFLICT':
       return $localize`:@@err.code.courtLabelConflict:ชื่อคอร์ทนี้ซ้ำกับคอร์ทอื่น`;
     case 'INVALID_SESSION_STATE':
-      return $localize`:@@err.code.invalidSessionState:ข้อมูลก๊วนนี้ผิดปกติ จัดคู่ต่อไม่ได้ กรุณาแจ้งผู้ดูแล`;
+      return $localize`:@@err.code.invalidSessionState:ข้อมูลรอบนี้ผิดปกติ จัดคู่ต่อไม่ได้ กรุณาแจ้งผู้ดูแล`;
     case 'PAIRING_STALE':
     case 'ROSTER_STALE':
       return $localize`:@@err.code.stale:ข้อมูลถูกแก้ไขจากอุปกรณ์อื่นแล้ว กรุณาลองใหม่อีกครั้ง`;
@@ -126,9 +126,9 @@ function messageForCode(code: string): string | null {
     case 'PAIRING_PLAYER_NOT_FOUND':
       return $localize`:@@err.code.pairingPlayerNotFound:ไม่พบผู้เล่นคนนี้ในแมตช์`;
     case 'ROSTER_PLAYER_NOT_FOUND':
-      return $localize`:@@err.code.rosterPlayerNotFound:ไม่พบผู้เล่นคนนี้ในก๊วน`;
+      return $localize`:@@err.code.rosterPlayerNotFound:ไม่พบผู้เล่นคนนี้ในรอบนี้`;
     case 'ROSTER_DUPLICATE':
-      return $localize`:@@err.code.rosterDuplicate:ผู้เล่นคนนี้อยู่ในก๊วนแล้ว`;
+      return $localize`:@@err.code.rosterDuplicate:ผู้เล่นคนนี้อยู่ในรอบนี้แล้ว`;
     case 'INCOMPLETE_SCORES':
       return $localize`:@@err.code.incompleteScores:กรุณากรอกคะแนนให้ครบทั้งสองฝั่ง`;
     case 'INVALID_SCORE':
@@ -161,7 +161,7 @@ function messageForCode(code: string): string | null {
     case 'SHUTTLE_IN_USE':
       return $localize`:@@err.code.shuttleInUse:ลูกแบดลูกนี้ยังถูกใช้อยู่ ปิดการใช้งานไม่ได้`;
     case 'SHUTTLE_TRACKING_DISABLED':
-      return $localize`:@@err.code.shuttleTrackingDisabled:ก๊วนนี้ไม่ได้เปิดการจดลูกแบด`;
+      return $localize`:@@err.code.shuttleTrackingDisabled:รอบนี้ไม่ได้เปิดการจดลูกแบด`;
     case 'PLAYER_ALREADY_ON_COURT':
       return $localize`:@@err.code.playerAlreadyOnCourt:ผู้เล่นคนนี้อยู่ในคอร์ทอื่นแล้ว`;
     case 'PLAYER_ALREADY_QUEUED':
@@ -625,7 +625,7 @@ export class LiveSessionService {
   }
 
   endSession(): Promise<ActionResult> {
-    return this.post('end', {}, $localize`:@@err.endSession:จบก๊วนไม่สำเร็จ`);
+    return this.post('end', {}, $localize`:@@err.endSession:จบรอบไม่สำเร็จ`);
   }
 
   /**

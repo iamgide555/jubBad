@@ -1,8 +1,8 @@
 <div class="page bill">
   @if (bill() && bill()!.session.endedAt === null) {
-    <a class="back" data-back-live [routerLink]="['/s', sessionCode]" i18n="@@bill.backLive">← กลับไปหน้าคุมก๊วน</a>
+    <a class="back" data-back-live [routerLink]="['/s', sessionCode]" i18n="@@bill.backLive">← กลับไปหน้าคุมรอบ</a>
   } @else {
-    <a class="back" [routerLink]="['/s', sessionCode, 'summary']" i18n="@@bill.back">← กลับไปสรุปก๊วน</a>
+    <a class="back" [routerLink]="['/s', sessionCode, 'summary']" i18n="@@bill.back">← กลับไปสรุปรอบ</a>
   }
   <h1 i18n="@@bill.title">คิดเงิน</h1>
 
@@ -15,7 +15,7 @@
 
   @if (bill(); as b) {
     @if (b.configSource === 'previous') {
-      <p class="hint" i18n="@@bill.prefilled">ใช้ค่าจากก๊วนครั้งก่อน</p>
+      <p class="hint" i18n="@@bill.prefilled">ใช้ค่าจากรอบก่อน</p>
     }
 
     <div class="scope-toggle" role="group" i18n-aria-label="@@bill.modeGroup" aria-label="รูปแบบการคิดเงิน">
@@ -85,7 +85,7 @@
               @case ('MISSING_SHUTTLE_COUNT') { <ng-container i18n="@@bill.warnShuttleCount">ยังไม่ได้ใส่จำนวนลูก</ng-container> }
               @case ('MISSING_SHUTTLE_PRICE') { <ng-container i18n="@@bill.warnShuttlePrice">ยังไม่ได้ใส่ราคาลูก</ng-container> }
               @case ('MISSING_COURT_FEE') { <ng-container i18n="@@bill.warnCourtFee">ยังไม่ได้ใส่ค่าคอร์ท</ng-container> }
-              @case ('UNKNOWN_SHUTTLE_USE') { <ng-container i18n="@@bill.warnUnknownUse">มีแมตช์ที่ไม่ได้บันทึกลูกแบด แก้ในหน้าสรุปก๊วนก่อน</ng-container> }
+              @case ('UNKNOWN_SHUTTLE_USE') { <ng-container i18n="@@bill.warnUnknownUse">มีแมตช์ที่ไม่ได้บันทึกลูกแบด แก้ในหน้าสรุปรอบก่อน</ng-container> }
               @case ('EXCESS_CREDIT') { <ng-container i18n="@@bill.warnExcess">ยอดที่เช็คเอาต์ไปแล้วเกินต้นทุน {{ baht(b.result.totals.excessCreditSatang) }}฿ — ต้องคืนเงินเองนอกแอป หรือยกเลิกเช็คเอาต์</ng-container> }
               @case ('UNCOVERED_COST') { <ng-container i18n="@@bill.warnUncovered">ไม่มีใครเหลือจ่ายส่วนที่ขาด {{ baht(b.result.totals.uncoveredCostSatang) }}฿ — ยกเลิกเช็คเอาต์หรือแก้ข้อมูลก่อน</ng-container> }
               @case ('UNRETURNED_SURCHARGE') { <ng-container i18n="@@bill.warnSurcharge">ค่า walk-in {{ baht(b.result.totals.unreturnedSurchargeSatang) }}฿ ไม่มีใครรับคืนได้ — ไม่นับเป็นกำไร แก้ก่อนแชร์</ng-container> }
@@ -173,7 +173,7 @@
           </li>
         }
       </ul>
-      <p class="hint" i18n="@@bill.settledHint">ยกเลิกเช็คเอาต์ได้ที่หน้าก๊วนระหว่างเล่นเท่านั้น</p>
+      <p class="hint" i18n="@@bill.settledHint">ยกเลิกเช็คเอาต์ได้ที่หน้าคุมรอบระหว่างเล่นเท่านั้น</p>
     }
 
     @if (removed().length > 0) {

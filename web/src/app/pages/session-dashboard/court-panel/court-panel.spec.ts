@@ -354,7 +354,7 @@ describe('CourtPanel', () => {
     const { fixture } = await createPanel(baseSession({ endedAt: '2026-09-08T20:00:00.000Z' }));
     fixture.detectChanges();
     const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
-    expect(text).toContain('จบก๊วนแล้ว');
+    expect(text).toContain('จบรอบแล้ว');
     expect(text).not.toContain('เริ่มแมตช์ถัดไป');
   });
 

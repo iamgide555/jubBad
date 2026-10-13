@@ -233,7 +233,7 @@ describe('GroupLevels', () => {
     q<HTMLButtonElement>('[data-save]').click();
     http.expectOne(URL).flush({ code: 'LEVEL_LADDER_ACTIVE_SESSION' }, { status: 409, statusText: 'Conflict' });
     await settle();
-    expect(el().textContent).toContain('จบก๊วนก่อน');
+    expect(el().textContent).toContain('จบรอบก่อน');
     expect(qa('.level-name-input')[1].value).toBe('กลางๆ');
   });
 

@@ -70,7 +70,7 @@
       <p class="group-meta muted">
         {{ group.playerCount }}<ng-container i18n="@@home.playersSuffix"> คน</ng-container>
         ·
-        {{ group.sessionCount }}<ng-container i18n="@@home.sessionsSuffix"> นัด</ng-container>
+        {{ group.sessionCount }}<ng-container i18n="@@home.sessionsSuffix"> รอบ</ng-container>
       </p>
     </div>
 
@@ -85,7 +85,7 @@
 
     @if (removable && removingCode() === group.code) {
       <div class="remove-confirm">
-        <p class="muted" i18n="@@home.removeWarning">ลบแล้วกู้คืนไม่ได้ — ทั้งผู้เล่น ก๊วนย้อนหลัง และผลแมตช์จะหายทั้งหมด</p>
+        <p class="muted" i18n="@@home.removeWarning">ลบแล้วกู้คืนไม่ได้ — ทั้งผู้เล่น รอบย้อนหลัง และผลแมตช์จะหายทั้งหมด</p>
         <label [attr.for]="'confirm-' + group.code" i18n="@@home.removePrompt">พิมพ์ชื่อก๊วนเพื่อยืนยัน</label>
         <input
           [attr.id]="'confirm-' + group.code"

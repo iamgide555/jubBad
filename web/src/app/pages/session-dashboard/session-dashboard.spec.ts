@@ -699,7 +699,7 @@ describe('SessionDashboard', () => {
     await new Promise((r) => setTimeout(r, 0));
     fixture.detectChanges();
 
-    expect(dialog.querySelector('.error')?.textContent).toContain('ผู้เล่นคนนี้อยู่ในก๊วนแล้ว');
+    expect(dialog.querySelector('.error')?.textContent).toContain('ผู้เล่นคนนี้อยู่ในรอบนี้แล้ว');
     expect(dialog.hasAttribute('open')).toBe(true);
   });
 
@@ -784,7 +784,7 @@ describe('SessionDashboard', () => {
 
     fixture.detectChanges();
     const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
-    expect(text).toContain('ไม่พบก๊วนนี้');
+    expect(text).toContain('ไม่พบรอบนี้');
   });
 
   /**
@@ -793,7 +793,7 @@ describe('SessionDashboard', () => {
    * regression test for that: opening it must not, by itself, touch the
    * network at all.
    */
-  it('clicking จบก๊วน opens the confirm dialog without any HTTP request', async () => {
+  it('clicking จบรอบ opens the confirm dialog without any HTTP request', async () => {
     await settled();
     await openEndDialog();
 
@@ -808,7 +808,7 @@ describe('SessionDashboard', () => {
     await settled();
     await openEndDialog();
 
-    dialogButtonWith('จบก๊วน').click();
+    dialogButtonWith('จบรอบ').click();
 
     httpMock.expectNone(`${B}/sessions/sess1/shuttle-details`);
     const req = httpMock.expectOne(`${B}/sessions/sess1/end`);
@@ -835,7 +835,7 @@ describe('SessionDashboard', () => {
     await openEndDialog();
     typeInto(dialogInputs().count!, '12');
 
-    dialogButtonWith('จบก๊วน').click();
+    dialogButtonWith('จบรอบ').click();
 
     const shuttleReq = httpMock.expectOne(`${B}/sessions/sess1/shuttle-details`);
     expect(shuttleReq.request.body).toEqual({ shuttleCount: 12 });
@@ -855,7 +855,7 @@ describe('SessionDashboard', () => {
     await openEndDialog();
     typeInto(dialogInputs().count!, '7');
 
-    dialogButtonWith('จบก๊วน').click();
+    dialogButtonWith('จบรอบ').click();
     httpMock
       .expectOne(`${B}/sessions/sess1/shuttle-details`)
       .flush(
@@ -875,7 +875,7 @@ describe('SessionDashboard', () => {
     await settled();
     await openEndDialog();
 
-    dialogButtonWith('จบก๊วน').click();
+    dialogButtonWith('จบรอบ').click();
     httpMock.expectNone(`${B}/sessions/sess1/shuttle-details`);
     const req = httpMock.expectOne(`${B}/sessions/sess1/end`);
     req.flush(
@@ -905,7 +905,7 @@ describe('SessionDashboard', () => {
     await settled();
     await openEndDialog();
 
-    const confirmButton = dialogButtonWith('จบก๊วน');
+    const confirmButton = dialogButtonWith('จบรอบ');
     confirmButton.click();
     confirmButton.click();
 
@@ -916,7 +916,7 @@ describe('SessionDashboard', () => {
     const { count, price } = dialogInputs();
     expect(count!.disabled).toBe(true);
     expect(price!.disabled).toBe(true);
-    expect(dialogButtonWith('จบก๊วน').disabled).toBe(true);
+    expect(dialogButtonWith('จบรอบ').disabled).toBe(true);
     expect(dialogButtonWith('ยกเลิก').disabled).toBe(true);
 
     const reqs = httpMock.match(`${B}/sessions/sess1/end`);
@@ -944,7 +944,7 @@ describe('SessionDashboard', () => {
 
   /**
    * Excludes any button inside the end-session dialog: its confirm button
-   * shares the same "จบก๊วน" text as the opener button that reveals it, so a
+   * shares the same "จบรอบ" text as the opener button that reveals it, so a
    * plain unscoped match would silently grab whichever one comes first.
    */
   function buttonWith(text: string): HTMLButtonElement {
@@ -984,7 +984,7 @@ describe('SessionDashboard', () => {
    * note) — needed before the dialog's freshly-mounted inputs are readable.
    */
   async function openEndDialog(): Promise<void> {
-    buttonWith('จบก๊วน').click();
+    buttonWith('จบรอบ').click();
     fixture.detectChanges();
     await Promise.resolve();
     fixture.detectChanges();

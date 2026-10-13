@@ -110,7 +110,7 @@ describe('AddWalkInDialog', () => {
 
     const hint = (fixture.nativeElement as HTMLElement).querySelector('.hint');
     expect(hint?.textContent).toContain('ตั้ม');
-    expect(hint?.textContent).toContain('อยู่ในก๊วนคืนนี้แล้ว');
+    expect(hint?.textContent).toContain('อยู่ในรอบนี้แล้ว');
   });
 
   describe('group ladders (host feedback F)', () => {

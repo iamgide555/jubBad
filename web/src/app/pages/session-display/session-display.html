@@ -6,7 +6,7 @@
     <h1>{{ header() }}</h1>
 
     @if (ended()) {
-      <p class="ended-notice" i18n="@@display.sessionEnded">จบก๊วนแล้ว</p>
+      <p class="ended-notice" i18n="@@display.sessionEnded">จบรอบแล้ว</p>
     } @else {
       <div class="courts">
         @for (line of courtLines(); track line.courtNumber) {
@@ -29,7 +29,7 @@
   </div>
 } @else {
   <div class="page-dark not-found">
-    <h1 i18n="@@display.notFound">ไม่พบก๊วนนี้</h1>
+    <h1 i18n="@@display.notFound">ไม่พบรอบนี้</h1>
     <p class="muted" i18n="@@notFound.hint">ลิงก์อาจพิมพ์ผิดหรือถูกปิดไปแล้ว ขอลิงก์ใหม่จากคนที่ส่งให้</p>
   </div>
 }

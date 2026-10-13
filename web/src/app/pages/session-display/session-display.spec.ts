@@ -205,7 +205,7 @@ describe('SessionDisplay', () => {
     fixture.detectChanges();
 
     const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
-    expect(text).toContain('จบก๊วนแล้ว');
+    expect(text).toContain('จบรอบแล้ว');
   });
 
   it('clicking refresh calls liveSession.refresh', async () => {
@@ -292,6 +292,6 @@ describe('SessionDisplay with an unknown sessionCode', () => {
 
     fixture.detectChanges();
     const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
-    expect(text).toContain('ไม่พบก๊วนนี้');
+    expect(text).toContain('ไม่พบรอบนี้');
   });
 });

@@ -64,19 +64,19 @@ export function checkoutErrorMessage(code: string | null, courtLabel?: string): 
         ? $localize`:@@checkout.err.onCourtNamed:คนนี้อยู่ที่ ${courtLabel}:court: — เอาออกจากคู่ หรือจบแมตช์ก่อน`
         : $localize`:@@checkout.err.onCourt:คนนี้อยู่บนคอร์ท — เอาออกจากคู่ หรือจบแมตช์ก่อน`;
     case 'UNKNOWN_SHUTTLE_USE':
-      return $localize`:@@checkout.err.unknownUse:เกมของคนนี้ยังไม่ได้บันทึกลูกแบด แก้ในหน้าสรุปก๊วนก่อน`;
+      return $localize`:@@checkout.err.unknownUse:เกมของคนนี้ยังไม่ได้บันทึกลูกแบด แก้ในหน้าสรุปรอบก่อน`;
     case 'MISSING_SHUTTLE_PRICE':
       return $localize`:@@checkout.err.noPrice:ยังไม่ได้ใส่ราคาลูกแบด`;
     case 'PLAYER_REMOVED_FROM_BILL':
       return $localize`:@@checkout.err.removed:คนนี้ถูกตัดออกจากบิล คืนค่าในหน้าบิลก่อน`;
     case 'CHECKOUT_DISABLED':
-      return $localize`:@@checkout.err.disabled:ก๊วนนี้ไม่ได้เปิดเครื่องมือลูกแบด`;
+      return $localize`:@@checkout.err.disabled:รอบนี้ไม่ได้เปิดเครื่องมือลูกแบด`;
     case 'CHECKOUT_UNDONE':
       return $localize`:@@checkout.err.undone:การเช็คเอาต์นี้ถูกยกเลิกไปแล้ว`;
     case 'CHECKOUT_NOT_FOUND':
       return $localize`:@@checkout.err.notFound:ไม่พบรายการเช็คเอาต์นี้`;
     case 'SESSION_ENDED':
-      return $localize`:@@checkout.err.ended:ก๊วนนี้จบไปแล้ว`;
+      return $localize`:@@checkout.err.ended:รอบนี้จบไปแล้ว`;
     default:
       return null;
   }

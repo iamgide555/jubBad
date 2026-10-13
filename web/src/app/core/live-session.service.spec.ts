@@ -309,7 +309,7 @@ describe('LiveSessionService', () => {
     expect(req.request.body).toEqual({ name: 'สมชาย' });
     req.flush({ code: 'ROSTER_DUPLICATE' }, { status: 409, statusText: 'Conflict' });
 
-    expect(await promise).toEqual({ ok: false, error: 'ผู้เล่นคนนี้อยู่ในก๊วนแล้ว' });
+    expect(await promise).toEqual({ ok: false, error: 'ผู้เล่นคนนี้อยู่ในรอบนี้แล้ว' });
   });
 
   it('exposes mode from the fetched session', async () => {
@@ -519,7 +519,7 @@ describe('LiveSessionService', () => {
       .expectOne(`${environment.apiBaseUrl}/sessions/sess1/shuttle-details`)
       .flush({ statusCode: 404, code: 'SESSION_NOT_FOUND' }, { status: 404, statusText: 'Not Found' });
 
-    expect(await promise).toEqual({ ok: false, error: 'ไม่พบก๊วนนี้' });
+    expect(await promise).toEqual({ ok: false, error: 'ไม่พบรอบนี้' });
   });
 
   it('setShuttleDetails falls back to a generic error on a validation failure with no code', async () => {
@@ -541,7 +541,7 @@ describe('LiveSessionService', () => {
     httpMock
       .expectOne(`${environment.apiBaseUrl}/sessions/sess1/end`)
       .flush({ code: 'SOMETHING_NEW' }, { status: 409, statusText: 'Conflict' });
-    expect(await unknown).toEqual({ ok: false, error: 'จบก๊วนไม่สำเร็จ' });
+    expect(await unknown).toEqual({ ok: false, error: 'จบรอบไม่สำเร็จ' });
 
     const noCode = service.fillCourts();
     httpMock

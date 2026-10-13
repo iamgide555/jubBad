@@ -15,10 +15,10 @@
     }
 
     @if (d.sessions.length === 0) {
-      <p class="empty muted" i18n="@@dashboard.empty">ยังไม่มีก๊วนที่เล่น</p>
+      <p class="empty muted" i18n="@@dashboard.empty">ยังไม่มีรอบที่เล่น</p>
     } @else {
       <section aria-labelledby="dash-sessions">
-        <h2 id="dash-sessions" class="label" i18n="@@dashboard.sessions">ก๊วนที่ผ่านมา</h2>
+        <h2 id="dash-sessions" class="label" i18n="@@dashboard.sessions">รอบที่ผ่านมา</h2>
         <ul class="session-list">
           @for (s of d.sessions; track s.code) {
             <li>

@@ -11,19 +11,19 @@
 
     @if (ended()) {
       <div class="ended-banner">
-        <p class="ended-notice" i18n="@@dashboard.sessionEnded">จบก๊วนแล้ว</p>
+        <p class="ended-notice" i18n="@@dashboard.sessionEnded">จบรอบแล้ว</p>
         <div class="ended-actions">
           <a
             class="btn-link"
             [routerLink]="['/s', session()!.code, 'summary']"
             i18n="@@dashboard.viewSummary"
-            >ดูสรุปก๊วน</a
+            >ดูสรุปรอบ</a
           >
           <button type="button" class="ghost" (click)="copySummaryLink()">
             @if (summaryLinkCopied()) {
               <ng-container i18n="@@dashboard.copied">คัดลอกแล้ว</ng-container>
             } @else {
-              <ng-container i18n="@@dashboard.copySummaryLink">ลิงก์สรุปก๊วน</ng-container>
+              <ng-container i18n="@@dashboard.copySummaryLink">ลิงก์สรุปรอบ</ng-container>
             }
           </button>
         </div>
@@ -453,7 +453,7 @@
           </button>
         }
         @if (!ended()) {
-          <button type="button" class="danger" (click)="openEndSession()" i18n="@@dashboard.endSession">จบก๊วน</button>
+          <button type="button" class="danger" (click)="openEndSession()" i18n="@@dashboard.endSession">จบรอบ</button>
         }
       </div>
     }
@@ -462,11 +462,11 @@
         #endDialog
         [shuttleCount]="session()!.shuttleCount"
         [shuttlePriceSatang]="session()!.shuttlePriceSatang"
-        heading="จบก๊วนวันนี้?"
+        heading="จบรอบวันนี้?"
         i18n-heading="@@dashboard.endSessionTitle"
         intro="จบแล้วจะจัดแมตช์ต่อไม่ได้ ใส่จำนวนลูกแบดที่ใช้ได้เลย หรือเว้นว่างไว้แล้วมาแก้ทีหลังก็ได้"
         i18n-intro="@@dashboard.endSessionIntro"
-        confirmLabel="จบก๊วน"
+        confirmLabel="จบรอบ"
         i18n-confirmLabel="@@dashboard.endSession"
         [saving]="endSessionBusy()"
         [error]="endSessionError()"
@@ -503,7 +503,7 @@
   </div>
 } @else {
   <div class="page not-found">
-    <h1 i18n="@@dashboard.notFound">ไม่พบก๊วนนี้</h1>
+    <h1 i18n="@@dashboard.notFound">ไม่พบรอบนี้</h1>
     <p class="muted" i18n="@@dashboard.notFoundHint2">ลิงก์อาจพิมพ์ผิดหรือก๊วนถูกลบไปแล้ว</p>
     <a class="ghost" routerLink="/" i18n="@@notFound.home">กลับหน้าแรก</a>
   </div>

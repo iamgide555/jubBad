@@ -33,7 +33,7 @@ export function levelsErrorMessage(code: string | null, counts?: Record<string, 
     case 'LEVEL_LADDER_STALE':
       return $localize`:@@levels.err.stale:มีการแก้ระดับจากที่อื่นแล้ว โหลดข้อมูลล่าสุดให้แล้ว ตรวจก่อนบันทึกอีกครั้ง`;
     case 'LEVEL_LADDER_ACTIVE_SESSION':
-      return $localize`:@@levels.err.activeSession:ยังมีก๊วนที่ไม่ได้จบ แก้ระดับไม่ได้ จบก๊วนก่อนแล้วค่อยแก้`;
+      return $localize`:@@levels.err.activeSession:ยังมีรอบที่ไม่ได้จบ แก้ระดับไม่ได้ จบรอบก่อนแล้วค่อยแก้`;
     case 'LEVEL_IN_USE': {
       const n = counts ? Object.values(counts).reduce((a, b) => a + b, 0) : 0;
       return $localize`:@@levels.err.inUse:ลบระดับนี้ไม่ได้ เพราะยังมี ${n}:n: คนอยู่ในระดับนี้ ย้ายหรือล้างระดับของคนเหล่านั้นก่อน`;

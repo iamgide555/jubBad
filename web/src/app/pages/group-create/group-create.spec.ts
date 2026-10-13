@@ -62,6 +62,7 @@ describe('GroupCreate', () => {
   it('editing the name clears the same-name note', async () => {
     component.name.set('ก๊วน อังคารเดิม');
     await component.submit();
+    expect(component.duplicateOf()).not.toBeNull();
     component.onNameChange('ก๊วนอังคารใหม่');
     expect(component.duplicateOf()).toBeNull();
   });
@@ -101,6 +102,7 @@ describe('GroupCreate', () => {
     const req = httpMock.expectOne({ url: `${B}/groups`, method: 'POST' });
     expect(req.request.body.name).toBe('ก๊วนอังคาร');
     expect(req.request.body.code).toMatch(UUID);
+    expect(navigate).not.toHaveBeenCalled();
     req.flush({ code: req.request.body.code, name: 'ก๊วนอังคาร' });
     await done;
     expect(navigate).toHaveBeenCalledWith(`/g/${req.request.body.code}`);
@@ -144,6 +146,8 @@ describe('GroupCreate', () => {
     const code = dead.request.body.code;
     dead.flush('Not Found', { status: 404, statusText: 'Not Found' });
     await first;
+    fixture.detectChanges();
+    expect(el().querySelector('[role="alert"]')?.textContent).toContain('สร้างก๊วนไม่สำเร็จ');
 
     const second = component.submit();
     const next = httpMock.expectOne(`${B}/groups`);

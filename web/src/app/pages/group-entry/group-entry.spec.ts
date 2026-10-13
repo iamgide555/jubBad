@@ -138,12 +138,18 @@ describe('GroupEntry', () => {
   });
 
   it('startManual reads the group players and lands on an empty confirm screen without parsing', async () => {
+    component.rawText.set('leftover');
     const done = component.startManual();
     httpMock.expectOne(`${B}/groups/group1/players`).flush([]);
     await done;
     httpMock.expectNone(`${B}/groups/group1/parse`);
     expect(component.state()).toBe('confirm');
     expect(component.rosterReviews()).toEqual([]);
+    expect(component.waitlistReviews()).toEqual([]);
+    expect(component.rawText()).toBe('');
+    expect(component.warnings()).toEqual([]);
+    // Today is the starting default for an ad-hoc night.
+    expect(component.date().length).toBeGreaterThan(0);
   });
 
   it('startManual allows a retry when reading players fails', async () => {
@@ -536,7 +542,18 @@ describe('GroupEntry', () => {
   });
 
   it('clears the draft once the session is created', async () => {
+    // Start from a restored draft, so the draft exists in the service when the session is made.
     component.rawText.set('1. ตั้ม\n2. เกียร์\n3. มด\n4. มะนาว');
+    fixture.destroy();
+    expect(TestBed.inject(RosterDraftService).get('group1')).not.toBeNull();
+    fixture = TestBed.createComponent(GroupEntry);
+    component = fixture.componentInstance;
+    httpMock
+      .expectOne(`${B}/groups/group1`)
+      .flush({ code: 'group1', name: 'ก๊วนทดสอบ', lastSessionCode: null });
+    await fixture.whenStable();
+    expect(component.rawText()).toBe('1. ตั้ม\n2. เกียร์\n3. มด\n4. มะนาว');
+
     const parsePromise = component.parse();
     httpMock.expectOne(`${B}/groups/group1/parse`).flush({
       header: { isoDate: null, venue: null, courtCount: null },

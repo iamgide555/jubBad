@@ -103,6 +103,19 @@ describe('GroupHome', () => {
     expect(el().querySelector('[data-hint]')).toBeNull();
     expect(el().querySelector('[data-start]')?.textContent).toContain('เริ่มรอบใหม่');
     expect(el().textContent).toContain('รอบที่ผ่านมา');
+    const row = el().querySelector<HTMLElement>('.session-list li')!;
+    expect(row.querySelector('a')?.getAttribute('href')).toBe('/s/s1');
+    expect(row.querySelector('a')?.textContent).toContain('2026-10-11');
+    expect(row.textContent).toContain('22');
+    expect(row.textContent).toContain('แมตช์');
+    expect(row.querySelector('.live-tag')?.textContent).toContain('ยังไม่จบ');
+  });
+
+  it('links back to the group list', async () => {
+    await open();
+    const back = el().querySelector<HTMLAnchorElement>('a.back')!;
+    expect(back.getAttribute('href')).toBe('/');
+    expect(back.textContent).toContain('ก๊วนของฉัน');
   });
 
   it('the start action goes to the roster screen', async () => {

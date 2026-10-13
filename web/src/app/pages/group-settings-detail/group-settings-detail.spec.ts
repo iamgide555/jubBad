@@ -103,6 +103,18 @@ describe('GroupSettingsDetail', () => {
       expect(box('shuttleTools').checked).toBe(true);
     });
 
+    it('saves the cross-session history switch independently of shuttle tools', async () => {
+      await openAdvanced(false, false);
+      box('crossSessionHistory').checked = true;
+      box('crossSessionHistory').dispatchEvent(new Event('change'));
+      const req = httpMock.expectOne({ url: `${B}/groups/group1/cross-session-history`, method: 'POST' });
+      expect(req.request.body).toEqual({ enabled: true });
+      req.flush({ enabled: true });
+      await harness.fixture.whenStable();
+      expect(box('crossSessionHistory').checked).toBe(true);
+      expect(box('shuttleTools').checked).toBe(false);
+    });
+
     it('puts the switch back and says so when saving fails', async () => {
       await openAdvanced(false, false);
       box('crossSessionHistory').checked = true;
@@ -157,6 +169,28 @@ describe('GroupSettingsDetail', () => {
       const done = page.rename();
       httpMock.expectOne({ url: `${B}/groups/group1`, method: 'PUT' }).flush({ code: 'group1', name: 'ก๊วนอังคาร' });
       await done;
+    });
+
+    it('keeps the typed name and allows a retry when renaming fails', async () => {
+      const page = await open('manage');
+      page.renameDraft.set('ก๊วนพฤหัส');
+      const failed = page.rename();
+      httpMock
+        .expectOne({ url: `${B}/groups/group1`, method: 'PUT' })
+        .flush('x', { status: 500, statusText: 'Server Error' });
+      await failed;
+      await settle();
+      expect(el().querySelector('[role="alert"]')?.textContent).toContain('บันทึกชื่อก๊วนไม่สำเร็จ');
+      expect(page.renameDraft()).toBe('ก๊วนพฤหัส');
+      expect(el().querySelector('a.back')?.textContent).toContain('ก๊วนอังคาร');
+
+      const retry = page.rename();
+      httpMock.expectOne({ url: `${B}/groups/group1`, method: 'PUT' }).flush({ code: 'group1', name: 'ก๊วนพฤหัส' });
+      await retry;
+      await settle();
+      expect(page.renameError()).toBeNull();
+      expect(el().querySelector('[role="alert"]')).toBeNull();
+      expect(el().querySelector('a.back')?.textContent).toContain('ก๊วนพฤหัส');
     });
 
     it('refuses a blank rename inline without a request', async () => {

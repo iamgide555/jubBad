@@ -5,6 +5,7 @@ import { ActivatedRoute, convertToParamMap, provideRouter, Router } from '@angul
 import { GroupEntry } from './group-entry';
 import { routes } from '../../app.routes';
 import { AuthService } from '../../core/auth.service';
+import { RosterDraftService } from '../../core/roster-draft.service';
 import { standardLadderFixture } from '../../core/group-levels.testing';
 import { environment } from '../../../environments/environment';
 
@@ -48,17 +49,18 @@ describe('GroupEntry', () => {
     fixture = TestBed.createComponent(GroupEntry);
     component = fixture.componentInstance;
 
-    // Constructor fires GET /groups/group1 - respond 404 (brand-new group) by
-    // default; tests that need a pre-existing group flush a real body instead.
-    httpMock.expectOne(`${B}/groups/group1`).flush('Not Found', { status: 404, statusText: 'Not Found' });
-    // The constructor also asks for the group's past sessions.
-    httpMock.expectOne(`${B}/groups/group1/sessions`).flush([]);
+    // Constructor reads the saved group. The group always exists before this
+    // screen now — it is created at /groups/new.
+    httpMock
+      .expectOne(`${B}/groups/group1`)
+      .flush({ code: 'group1', name: 'ก๊วนทดสอบ', lastSessionCode: null });
     await fixture.whenStable();
   });
 
   afterEach(() => {
     // The review opens a read of the group's ladder, not the subject of most tests here.
     for (const req of httpMock.match((r) => r.url.endsWith('/groups/group1/levels'))) req.flush(standardLadderFixture());
+    TestBed.inject(RosterDraftService).clear('group1');
     httpMock.verify();
   });
 
@@ -66,17 +68,6 @@ describe('GroupEntry', () => {
     expect(component).toBeTruthy();
   });
 
-  it('links back to the group list', () => {
-    const links = [...fixture.nativeElement.querySelectorAll('a')] as HTMLAnchorElement[];
-    const back = links.find((a) => a.textContent?.trim() === '← กลับ');
-    expect(back?.getAttribute('href')).toBe('/');
-  });
-
-  it('links to the player roster page', () => {
-    const links = [...fixture.nativeElement.querySelectorAll('a')] as HTMLAnchorElement[];
-    const manage = links.find((a) => a.getAttribute('href') === '/g/group1/players');
-    expect(manage).toBeTruthy();
-  });
 
   it('starts in the paste state', () => {
     expect(component.state()).toBe('paste');
@@ -88,22 +79,6 @@ describe('GroupEntry', () => {
     expect(buttons.some((b) => b.textContent?.trim() === 'เพิ่มรายชื่อเอง')).toBe(true);
   });
 
-  it('groupName is empty when no Group exists yet', () => {
-    expect(component.groupName()).toBe('');
-  });
-
-  it('lastSessionCode is null when no Group exists yet', () => {
-    expect(component.lastSessionCode()).toBeNull();
-  });
-
-  it('parse shows an error and stays in the paste state when the group name is empty', async () => {
-    component.groupName.set('');
-    component.rawText.set('1. ตั้ม');
-    await component.parse();
-
-    expect(component.state()).toBe('paste');
-    expect(component.pasteError()).toContain('ชื่อก๊วน');
-  });
 
   it('parse shows an error and stays in the paste state when nothing has been pasted', async () => {
     component.groupName.set('Group A');
@@ -162,68 +137,25 @@ describe('GroupEntry', () => {
     expect(component.state()).toBe('confirm');
   });
 
-  it('startManual shows an error and stays in the paste state when the group name is empty', async () => {
-    component.groupName.set('');
-    await component.startManual();
-
-    expect(component.state()).toBe('paste');
-    expect(component.pasteError()).toContain('ชื่อก๊วน');
-  });
-
-  it('startManual claims the group with an empty parse and lands on an empty confirm screen', async () => {
-    component.groupName.set('Group A');
-    component.rawText.set('leftover text that must not be sent to the server');
-
-    const manualPromise = component.startManual();
-    const req = httpMock.expectOne(`${B}/groups/group1/parse`);
-    expect(req.request.body).toEqual({ groupName: 'Group A', rawText: '' });
-    req.flush({
-      header: { isoDate: null, venue: null, courtCount: null },
-      rosterReviews: [],
-      waitlistReviews: [],
-      warnings: [
-        'Could not find the start of a numbered roster list (expected a line starting with "1.").',
-      ],
-      unrecognizedLines: [],
-    });
-    await new Promise((r) => setTimeout(r, 0));
+  it('startManual reads the group players and lands on an empty confirm screen without parsing', async () => {
+    const done = component.startManual();
     httpMock.expectOne(`${B}/groups/group1/players`).flush([]);
-    await manualPromise;
-
+    await done;
+    httpMock.expectNone(`${B}/groups/group1/parse`);
     expect(component.state()).toBe('confirm');
     expect(component.rosterReviews()).toEqual([]);
-    expect(component.waitlistReviews()).toEqual([]);
-    expect(component.rawText()).toBe('');
-    // The parser's "nothing to find" warnings are noise here — there was
-    // never a roster message to begin with.
-    expect(component.warnings()).toEqual([]);
-    expect(component.date().length).toBeGreaterThan(0);
   });
 
-  it('startManual allows a retry when the claim request fails', async () => {
-    component.groupName.set('Group A');
-
-    const failed = component.startManual();
-    httpMock
-      .expectOne(`${B}/groups/group1/parse`)
-      .flush('Server error', { status: 500, statusText: 'Server Error' });
-    await failed;
-
+  it('startManual allows a retry when reading players fails', async () => {
+    const first = component.startManual();
+    httpMock.expectOne(`${B}/groups/group1/players`).flush('x', { status: 500, statusText: 'x' });
+    await first;
     expect(component.state()).toBe('paste');
     expect(component.pasteError()).toContain('อ่านรายชื่อไม่สำเร็จ');
 
-    const retry = component.startManual();
-    httpMock.expectOne(`${B}/groups/group1/parse`).flush({
-      header: { isoDate: null, venue: null, courtCount: null },
-      rosterReviews: [],
-      waitlistReviews: [],
-      warnings: [],
-      unrecognizedLines: [],
-    });
-    await new Promise((r) => setTimeout(r, 0));
+    const second = component.startManual();
     httpMock.expectOne(`${B}/groups/group1/players`).flush([]);
-    await retry;
-
+    await second;
     expect(component.state()).toBe('confirm');
   });
 
@@ -512,7 +444,7 @@ describe('GroupEntry', () => {
     first.flush('Server error', { status: 500, statusText: 'Server Error' });
     await failedCreate;
 
-    expect(component.confirmError()).toContain('สร้างก๊วนไม่สำเร็จ');
+    expect(component.confirmError()).toContain('สร้างรอบไม่สำเร็จ');
     expect(component.isSubmitting()).toBe(false);
     expect(component.rosterReviews()).toHaveLength(4);
 
@@ -549,243 +481,106 @@ describe('GroupEntry', () => {
     await confirmPromise;
   });
 
-  it('saveGroupName does not call the server for a brand-new group (no PUT to a group that does not exist yet)', async () => {
-    component.groupName.set('Group A');
-    await component.saveGroupName();
-    httpMock.expectNone(`${B}/groups/group1`);
-    expect(component.renameError()).toBeNull();
+  it('names the group in a back link to group home', () => {
+    const back = fixture.nativeElement.querySelector('a.back') as HTMLAnchorElement;
+    expect(back.textContent).toContain('ก๊วนทดสอบ');
+    expect(back.getAttribute('href')).toBe('/g/group1');
   });
 
-  it('saveGroupName sends the group name via renameGroup', async () => {
-    (component as unknown as { groupExists: boolean }).groupExists = true;
-    component.groupName.set('Group A');
-    const save = component.saveGroupName();
-
-    const req = httpMock.expectOne(`${B}/groups/group1`);
-    expect(req.request.method).toBe('PUT');
-    expect(req.request.body).toEqual({ name: 'Group A' });
-    req.flush({ code: 'group1', name: 'Group A' });
-    await save;
+  it('titles a group without sessions เริ่มรอบแรก', () => {
+    expect(fixture.nativeElement.querySelector('h1')?.textContent).toContain('เริ่มรอบแรก');
   });
 
-  it('preserves the group name and allows a retry when renaming fails', async () => {
-    (component as unknown as { groupExists: boolean }).groupExists = true;
-    component.groupName.set('Group A');
-    const failedSave = component.saveGroupName();
-    expect(component.isRenaming()).toBe(true);
+  it('keeps no settings on this screen', () => {
+    const text = fixture.nativeElement.textContent as string;
+    expect(text).not.toContain('ตั้งค่าขั้นสูง');
+    expect(text).not.toContain('ลบก๊วนนี้');
+    expect(fixture.nativeElement.querySelector('app-share-dashboard-panel')).toBeNull();
+  });
+
+  it('restores a pasted draft after leaving and coming back', async () => {
+    component.rawText.set('1. ตั้ม\n2. มด');
+    fixture.destroy();
+
+    const again = TestBed.createComponent(GroupEntry);
     httpMock
       .expectOne(`${B}/groups/group1`)
-      .flush('Server error', { status: 500, statusText: 'Server Error' });
-    await failedSave;
-
-    expect(component.groupName()).toBe('Group A');
-    expect(component.renameError()).toContain('บันทึกชื่อก๊วนไม่สำเร็จ');
-    expect(component.isRenaming()).toBe(false);
-
-    const retry = component.saveGroupName();
-    httpMock.expectOne(`${B}/groups/group1`).flush({ code: 'group1', name: 'Group A' });
-    await retry;
-    expect(component.renameError()).toBeNull();
+      .flush({ code: 'group1', name: 'ก๊วนทดสอบ', lastSessionCode: null });
+    await again.whenStable();
+    expect(again.componentInstance.rawText()).toBe('1. ตั้ม\n2. มด');
+    again.destroy();
   });
 
-  it('lists past sessions for the group', async () => {
-    // The default beforeEach flushed an empty list; re-create with real rows.
-    httpMock.verify();
-    fixture = TestBed.createComponent(GroupEntry);
-    component = fixture.componentInstance;
-    httpMock.expectOne(`${B}/groups/group1`).flush({ code: 'group1', name: 'G', lastSessionCode: null });
-    httpMock.expectOne(`${B}/groups/group1/sessions`).flush([
-      {
-        code: 'sess9',
-        date: '2026-09-08',
-        venue: 'ยิมกลาง',
-        courtCount: 2,
-        createdAt: '2026-09-08T10:00:00.000Z',
-        endedAt: null,
-        matchCount: 4,
-      },
-    ]);
-    await fixture.whenStable();
-    fixture.detectChanges();
+  it('restores a confirm-step draft — reviews, manual rows and the idempotency key — after a settings detour', async () => {
+    const done = component.startManual();
+    httpMock.expectOne(`${B}/groups/group1/players`).flush([{ id: 'p1', name: 'ตั้ม', aliases: [] }]);
+    await done;
+    component.addExisting('p1');
+    const review = component.rosterReviews()[0];
+    expect(component.isManualReview(review)).toBe(true);
+    // The key is minted on the first create attempt; a retry after the detour must reuse it.
+    (component as unknown as { creationIdempotencyKey: string | null }).creationIdempotencyKey = 'key-1';
+    fixture.destroy();
 
-    const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
-    expect(text).toContain('2026-09-08');
-    expect(text).toContain('ยิมกลาง');
-    expect(text).toContain('ยังไม่จบ');
-  });
-
-  it('only enables delete once the group name is typed back', async () => {
-    component.groupName.set('ก๊วนอังคาร');
-    expect(component.canDelete()).toBe(false);
-
-    component.deleteConfirmText.set('ผิด');
-    expect(component.canDelete()).toBe(false);
-
-    component.deleteConfirmText.set('ก๊วนอังคาร');
-    expect(component.canDelete()).toBe(true);
-  });
-
-  it('does not delete when the confirmation does not match', async () => {
-    component.groupName.set('ก๊วนอังคาร');
-    component.deleteConfirmText.set('อะไรก็ไม่รู้');
-    await component.deleteGroup();
-    // No request at all — httpMock.verify() in afterEach proves it.
-    expect(component.canDelete()).toBe(false);
-  });
-
-  it('deletes the group and returns to the landing page', async () => {
-    component.groupName.set('ก๊วนอังคาร');
-    component.deleteConfirmText.set('ก๊วนอังคาร');
-    const promise = component.deleteGroup();
-
-    const req = httpMock.expectOne(`${B}/groups/group1`);
-    expect(req.request.method).toBe('DELETE');
-    req.flush({ code: 'group1', deleted: true });
-    await promise;
-  });
-  describe('advanced group settings', () => {
-    // This block sits in a describe whose setup does not render the template yet.
-    beforeEach(() => fixture.detectChanges());
-    const el = () => fixture.nativeElement as HTMLElement;
-    const openButton = () =>
-      [...el().querySelectorAll('button')].find((b) => b.textContent?.trim() === 'ตั้งค่าขั้นสูง') as HTMLButtonElement;
-    const toggle = (name: string) => el().querySelector(`input[type="checkbox"][name="${name}"]`) as HTMLInputElement;
-
-    async function openWith(shuttle: boolean, history: boolean) {
-      openButton().click();
-      fixture.detectChanges();
-      httpMock.expectOne(`${B}/groups/group1/shuttle-tools`).flush({ enabled: shuttle });
-      httpMock.expectOne(`${B}/groups/group1/cross-session-history`).flush({ enabled: history });
-      await fixture.whenStable();
-      fixture.detectChanges();
-    }
-
-    it('keeps the share, advanced and manage-group buttons in one spaced row, not loose siblings', () => {
-      const row = el().querySelector('.group-actions')!;
-      expect(row).toBeTruthy();
-      const labels = [...row.querySelectorAll('button')].map((b) => b.textContent?.trim());
-      expect(labels).toEqual(['ลิงก์หน้าสรุปก๊วน', 'ตั้งค่าขั้นสูง', 'จัดการก๊วน']);
-    });
-
-    it('renders the share panel only after the host opens it', () => {
-      expect(el().querySelector('app-share-dashboard-panel')).toBeNull();
-      httpMock.expectNone(`${B}/groups/group1/share`);
-
-      el().querySelector<HTMLButtonElement>('[data-share-toggle]')!.click();
-      fixture.detectChanges();
-
-      expect(el().querySelector('app-share-dashboard-panel')).not.toBeNull();
-      httpMock.expectOne(`${B}/groups/group1/share`).flush({ token: null });
-    });
-
-    it('keeps the settings collapsed and makes no request until the host opens them', () => {
-      expect(openButton()).toBeTruthy();
-      expect(toggle('shuttleTools')).toBeNull();
-    });
-
-    it('shows both saved switches once opened, off by default', async () => {
-      await openWith(false, false);
-      expect(toggle('shuttleTools').checked).toBe(false);
-      expect(toggle('crossSessionHistory').checked).toBe(false);
-    });
-
-    it('reflects switches that are already on', async () => {
-      await openWith(true, true);
-      expect(toggle('shuttleTools').checked).toBe(true);
-      expect(toggle('crossSessionHistory').checked).toBe(true);
-    });
-
-    it('explains that a switch only affects future sessions', async () => {
-      await openWith(false, false);
-      expect(el().textContent).toContain('ก๊วนที่สร้างต่อจากนี้');
-    });
-
-    it('saves the shuttle-tools switch and shows the saved value', async () => {
-      await openWith(false, false);
-      toggle('shuttleTools').click();
-      fixture.detectChanges();
-      const req = httpMock.expectOne(`${B}/groups/group1/shuttle-tools`);
-      expect(req.request.method).toBe('POST');
-      expect(req.request.body).toEqual({ enabled: true });
-      req.flush({ enabled: true });
-      await fixture.whenStable();
-      fixture.detectChanges();
-      expect(toggle('shuttleTools').checked).toBe(true);
-    });
-
-    it('saves the cross-session history switch independently', async () => {
-      await openWith(false, false);
-      toggle('crossSessionHistory').click();
-      const req = httpMock.expectOne(`${B}/groups/group1/cross-session-history`);
-      expect(req.request.body).toEqual({ enabled: true });
-      req.flush({ enabled: true });
-      await fixture.whenStable();
-      fixture.detectChanges();
-      expect(toggle('crossSessionHistory').checked).toBe(true);
-      expect(toggle('shuttleTools').checked).toBe(false);
-    });
-
-    it('puts the switch back and says so when saving fails', async () => {
-      await openWith(false, false);
-      toggle('shuttleTools').click();
-      httpMock.expectOne(`${B}/groups/group1/shuttle-tools`).flush('no', { status: 500, statusText: 'Server Error' });
-      await fixture.whenStable();
-      fixture.detectChanges();
-      expect(toggle('shuttleTools').checked).toBe(false);
-      expect(el().querySelector('[role="alert"]')?.textContent).toContain('บันทึกไม่สำเร็จ');
-    });
-
-    it('disables the switches with a note when the group does not exist yet', async () => {
-      openButton().click();
-      fixture.detectChanges();
-      httpMock.expectOne(`${B}/groups/group1/shuttle-tools`).flush('x', { status: 404, statusText: 'Not Found' });
-      httpMock.expectOne(`${B}/groups/group1/cross-session-history`).flush('x', { status: 404, statusText: 'Not Found' });
-      await fixture.whenStable();
-      fixture.detectChanges();
-      expect(toggle('shuttleTools').disabled).toBe(true);
-      expect(el().textContent).toContain('หลังสร้างก๊วนครั้งแรก');
-    });
-  });
-
-});
-
-describe('GroupEntry with an existing group', () => {
-  let fixture: ComponentFixture<GroupEntry>;
-  let httpMock: HttpTestingController;
-
-  beforeEach(async () => {
-    await TestBed.configureTestingModule({
-      imports: [GroupEntry],
-      providers: [
-        provideHttpClient(),
-        provideHttpClientTesting(),
-        provideRouter(routes),
-        {
-          provide: ActivatedRoute,
-          useValue: { snapshot: { paramMap: convertToParamMap({ groupCode: 'group1' }) } },
-        },
-      ],
-    }).compileComponents();
-
-    httpMock = TestBed.inject(HttpTestingController);
-    fixture = TestBed.createComponent(GroupEntry);
-  });
-
-  afterEach(() => {
-    // The review opens a read of the group's ladder, not the subject of most tests here.
-    for (const req of httpMock.match((r) => r.url.endsWith('/groups/group1/levels'))) req.flush(standardLadderFixture());
-    httpMock.verify();
-  });
-
-  it('prefills groupName and lastSessionCode from the fetched Group', async () => {
+    const again = TestBed.createComponent(GroupEntry);
     httpMock
-      .expectOne(`${environment.apiBaseUrl}/groups/group1`)
-      .flush({ code: 'group1', name: 'Group A', lastSessionCode: 'sess1' });
-    httpMock.expectOne(`${environment.apiBaseUrl}/groups/group1/sessions`).flush([]);
-    await fixture.whenStable();
+      .expectOne(`${B}/groups/group1`)
+      .flush({ code: 'group1', name: 'ก๊วนทดสอบ', lastSessionCode: null });
+    await again.whenStable();
+    const restored = again.componentInstance;
+    expect(restored.state()).toBe('confirm');
+    expect(restored.rosterReviews()).toHaveLength(1);
+    expect(restored.isManualReview(restored.rosterReviews()[0])).toBe(true);
+    expect((restored as unknown as { creationIdempotencyKey: string | null }).creationIdempotencyKey).toBe('key-1');
+    again.destroy();
+  });
 
-    expect(fixture.componentInstance.groupName()).toBe('Group A');
-    expect(fixture.componentInstance.lastSessionCode()).toBe('sess1');
+  it('clears the draft once the session is created', async () => {
+    component.rawText.set('1. ตั้ม\n2. เกียร์\n3. มด\n4. มะนาว');
+    const parsePromise = component.parse();
+    httpMock.expectOne(`${B}/groups/group1/parse`).flush({
+      header: { isoDate: null, venue: null, courtCount: null },
+      rosterReviews: fourNewPlayers(),
+      waitlistReviews: [],
+      warnings: [],
+      unrecognizedLines: [],
+    });
+    await new Promise((r) => setTimeout(r, 0));
+    httpMock.expectOne(`${B}/groups/group1/players`).flush([]);
+    await parsePromise;
+    component.date.set('2026-09-08');
+    component.courtCount.set(2);
+
+    const confirmPromise = component.confirmRoster();
+    httpMock.expectOne(`${B}/sessions`).flush({ code: 'sess1' });
+    await confirmPromise;
+    fixture.destroy();
+    expect(TestBed.inject(RosterDraftService).get('group1')).toBeNull();
+  });
+
+  it('discardDraft empties the roster and returns to the paste box', async () => {
+    const done = component.startManual();
+    httpMock.expectOne(`${B}/groups/group1/players`).flush([]);
+    await done;
+    component.rawText.set('1. ตั้ม');
+    component.manualQuery.set('น้องใหม่');
+    component.addNew();
+    expect(component.rosterReviews()).toHaveLength(1);
+    component.discardDraft();
+    expect(component.state()).toBe('paste');
+    expect(component.rawText()).toBe('');
+    expect(component.rosterReviews()).toEqual([]);
+    expect(TestBed.inject(RosterDraftService).get('group1')).toBeNull();
+  });
+
+  it('a missing group is not found here too, with no paste box', async () => {
+    fixture.destroy();
+    const again = TestBed.createComponent(GroupEntry);
+    httpMock.expectOne(`${B}/groups/group1`).flush('x', { status: 404, statusText: 'Not Found' });
+    await again.whenStable();
+    expect(again.nativeElement.textContent).toContain('ไม่พบก๊วนนี้');
+    expect(again.nativeElement.querySelector('textarea')).toBeNull();
+    again.destroy();
   });
 });
 
@@ -819,8 +614,7 @@ describe('GroupEntry manual roster add UI (Task 2)', () => {
     fixture = TestBed.createComponent(GroupEntry);
     component = fixture.componentInstance;
 
-    httpMock.expectOne(`${B}/groups/group1`).flush('Not Found', { status: 404, statusText: 'Not Found' });
-    httpMock.expectOne(`${B}/groups/group1/sessions`).flush([]);
+    httpMock.expectOne(`${B}/groups/group1`).flush({ code: 'group1', name: 'Group A', lastSessionCode: null });
     await fixture.whenStable();
 
     component.groupName.set('Group A');
@@ -1004,8 +798,7 @@ describe('GroupEntry manual roster add — behavior (Task 3)', () => {
     fixture = TestBed.createComponent(GroupEntry);
     component = fixture.componentInstance;
 
-    httpMock.expectOne(`${B}/groups/group1`).flush('Not Found', { status: 404, statusText: 'Not Found' });
-    httpMock.expectOne(`${B}/groups/group1/sessions`).flush([]);
+    httpMock.expectOne(`${B}/groups/group1`).flush({ code: 'group1', name: 'Group A', lastSessionCode: null });
     await fixture.whenStable();
 
     component.groupName.set('Group A');
@@ -1317,13 +1110,12 @@ describe('GroupEntry roster review and group ladders (host feedback F)', () => {
     httpMock = TestBed.inject(HttpTestingController);
     fixture = TestBed.createComponent(GroupEntry);
     component = fixture.componentInstance;
-    httpMock.expectOne(`${B}/groups/group1`).flush('Not Found', { status: 404, statusText: 'Not Found' });
-    httpMock.expectOne(`${B}/groups/group1/sessions`).flush([]);
+    httpMock.expectOne(`${B}/groups/group1`).flush({ code: 'group1', name: 'Group A', lastSessionCode: null });
     await fixture.whenStable();
   });
   afterEach(() => httpMock.verify());
 
-  /** Parses a brand-new group's roster; the review opens only after the parse created the group. */
+  /** Parses the group's roster; the review opens, and reads the ladder, once the parse returns. */
   async function openReview(ladder: object | 'fail') {
     component.groupName.set('Group A');
     component.rawText.set('1. ตั้ม\n2. เกียร์\n3. มด\n4. มะนาว');
@@ -1345,7 +1137,7 @@ describe('GroupEntry roster review and group ladders (host feedback F)', () => {
     fixture.detectChanges();
   }
 
-  it('reads the ladder only after the parse created the group, and offers its own names to new players', async () => {
+  it('reads the ladder once the review opens, and offers its own names to new players', async () => {
     await openReview(custom);
     const chips = [...(fixture.nativeElement as HTMLElement).querySelectorAll('.review-row app-level-picker')][0].querySelectorAll('.chip');
     expect([...chips].map((b) => b.textContent!.trim())).toEqual(['-', 'BG', 'BGN', 'N']);

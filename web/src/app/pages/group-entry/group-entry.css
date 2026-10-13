@@ -3,7 +3,7 @@
    read as plainer than the rest of the app. Reuses the same elevation
    language as everything else (surface + radius-lg + shadow-sm), just
    applied to plain form sections instead of only the review-flow's
-   notice-block/danger-zone. */
+   notice-block. */
 .entry-card {
   background: var(--surface);
   color: var(--ink);
@@ -16,14 +16,6 @@
 .entry-card label:last-child,
 .entry-card p:last-child {
   margin-bottom: 0;
-}
-
-.entry-card .session-list {
-  margin-top: var(--space-2);
-}
-
-.resume-link {
-  margin-top: var(--space-2);
 }
 
 .paste-card-head {
@@ -304,73 +296,15 @@ app-level-picker {
   margin-top: var(--space-1);
 }
 
-.session-list {
-  list-style: none;
-  padding: 0;
-  margin: 0 0 var(--space-2);
-}
-
-.session-list li {
-  padding: var(--space-1) 0;
-  border-bottom: 1px solid var(--line);
-}
-
-.live-tag {
-  margin-left: var(--space-1);
-  padding: 0.1rem 0.5rem;
-  border-radius: var(--radius-pill);
-  background: var(--accent);
-  color: #ffffff;
-  font-size: var(--text-xs);
-  font-weight: 600;
-}
-
-/* Deliberately plain until opened, and the delete stays disabled until the
-   group's name is typed — there is no auth and no undo behind this. */
-.danger-zone {
-  margin-top: var(--space-2);
-  padding: var(--space-2);
-  border: 1.5px dashed var(--warn);
-  border-radius: var(--radius);
-}
-
-.danger-zone button {
+.back {
+  display: inline-flex;
+  align-items: center;
   min-height: var(--tap);
+  text-decoration: none;
+  font-size: var(--text-sm);
 }
 
-.advanced-settings {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-1);
-  margin: var(--space-2) 0;
-}
-
-.switch-row {
-  display: flex;
-  align-items: flex-start;
-  gap: var(--space-2);
-  min-height: var(--tap);
-  cursor: pointer;
-}
-
-.switch-row input {
-  width: 1.5rem;
-  min-height: 1.5rem;
-  flex: none;
-  margin-top: var(--space-0);
-}
-
-.switch-text {
-  display: flex;
-  flex-direction: column;
-}
-
-.switch-title {
-  font-weight: 600;
-}
-
-.group-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-1);
+.entry-title {
+  font-size: var(--text-2xl);
+  overflow-wrap: anywhere;
 }

@@ -4519,6 +4519,14 @@
         <source>รอบที่ผ่านมา</source>
         <target>Past sessions</target>
       </trans-unit>
+      <trans-unit id="entry.discardDraft" datatype="html">
+        <source>ล้างรายชื่อแล้วเริ่มใหม่</source>
+        <target>Clear the list and start over</target>
+      </trans-unit>
+      <trans-unit id="entry.createSessionFailed" datatype="html">
+        <source>สร้างรอบไม่สำเร็จ กรุณาลองอีกครั้ง</source>
+        <target>Couldn't create the session. Please try again.</target>
+      </trans-unit>
     </body>
   </file>
 </xliff>

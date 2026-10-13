@@ -1,6 +1,5 @@
-import { ShareDashboardPanel } from '../../shared/share-dashboard-panel/share-dashboard-panel';
 import { HttpErrorResponse } from '@angular/common/http';
-import { Component, computed, signal } from '@angular/core';
+import { Component, DestroyRef, computed, inject, signal } from '@angular/core';
 import { NgTemplateOutlet } from '@angular/common';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { FormsModule } from '@angular/forms';
@@ -16,8 +15,8 @@ import {
   type NameReview,
   type PlayerCandidate,
 } from '../../core/roster-review';
-import type { GroupSession } from '../../core/group-session.model';
 import { RosterService, type ParseRosterResponse } from '../../core/roster.service';
+import { RosterDraftService, type RosterDraft } from '../../core/roster-draft.service';
 import { resolvePlayerNames } from '../../core/player-names';
 import { PressDirective } from '../../core/motion/press.directive';
 import { RevealDirective } from '../../core/motion/reveal.directive';
@@ -39,7 +38,7 @@ function todayIso(): string {
 
 @Component({
   selector: 'app-group-entry',
-  imports: [FormsModule, RouterLink, NgTemplateOutlet, PressDirective, RevealDirective, Icon, LevelPicker, ShareDashboardPanel],
+  imports: [FormsModule, RouterLink, NgTemplateOutlet, PressDirective, RevealDirective, Icon, LevelPicker],
   templateUrl: './group-entry.html',
   styleUrl: './group-entry.css',
 })
@@ -53,32 +52,19 @@ export class GroupEntry {
   readonly rosterReviews = signal<NameReview[]>([]);
   readonly waitlistReviews = signal<NameReview[]>([]);
   readonly groupName = signal('');
-  /** False for a brand-new code: the group is created by the first parse (which also sends the name), so renaming it would 404. */
-  private groupExists = false;
   readonly lastSessionCode = signal<string | null>(null);
   readonly warnings = signal<string[]>([]);
   readonly unrecognizedLines = signal<string[]>([]);
   readonly pasteError = signal<string | null>(null);
-  readonly renameError = signal<string | null>(null);
   readonly confirmError = signal<string | null>(null);
-  readonly pastSessions = signal<GroupSession[]>([]);
-  readonly showDanger = signal(false);
-
-  /** Advanced switches load on first open — they are rarely touched, and a brand-new
-   *  group has nothing to read yet. `null` means not loaded (or unavailable). */
-  readonly showAdvanced = signal(false);
-  readonly showShare = signal(false);
-  readonly shuttleTools = signal<boolean | null>(null);
-  readonly crossSessionHistory = signal<boolean | null>(null);
-  readonly advancedUnavailable = signal(false);
-  readonly advancedError = signal<string | null>(null);
-  readonly advancedSaving = signal(false);
-  private advancedLoaded = false;
-  readonly deleteConfirmText = signal('');
-  readonly dangerError = signal<string | null>(null);
   readonly isParsing = signal(false);
-  readonly isRenaming = signal(false);
   readonly isSubmitting = signal(false);
+
+  /** The saved group this roster is for. Not found is a dead end here: groups are created at /groups/new. */
+  readonly groupStatus = signal<'loading' | 'ready' | 'not-found' | 'error'>('loading');
+  private readonly drafts = inject(RosterDraftService);
+  /** Set once the session exists, so leaving afterwards does not save a stale draft back. */
+  private sessionCreated = false;
 
   /** One full doubles court — the default court format — is the floor for a
    *  session worth starting. Below it the dashboard would open to a court
@@ -207,74 +193,81 @@ export class GroupEntry {
     private router: Router
   ) {
     this.groupCode = route.snapshot.paramMap.get('groupCode')!;
-    this.rosterService.getGroup(this.groupCode).subscribe({
-      next: (group) => {
-        this.groupExists = true;
-        this.groupName.set(group.name ?? '');
-        this.lastSessionCode.set(group.lastSessionCode);
-      },
-      error: () => {
-        // Brand-new group - nothing to prefill, stays at defaults.
-      },
-    });
-    this.rosterService.listSessions(this.groupCode).subscribe({
-      next: (sessions) => this.pastSessions.set(sessions),
-      error: () => {
-        // Same as above: a group that does not exist yet simply has none.
-      },
-    });
+    void this.loadGroup();
+    const draft = this.drafts.get(this.groupCode);
+    if (draft) this.applyDraft(draft);
+    inject(DestroyRef).onDestroy(() => this.persistDraft());
+  }
+
+  async loadGroup(): Promise<void> {
+    this.groupStatus.set('loading');
+    try {
+      const group = await firstValueFrom(this.rosterService.getGroup(this.groupCode));
+      this.groupName.set(group.name ?? '');
+      this.lastSessionCode.set(group.lastSessionCode);
+      this.groupStatus.set('ready');
+    } catch (err) {
+      this.groupStatus.set(err instanceof HttpErrorResponse && err.status === 404 ? 'not-found' : 'error');
+    }
   }
 
   /**
-   * Typing the group's name is the guard on an irreversible delete. A plain
-   * confirm() dialog is too easy to dismiss by reflex, and there is no auth to
-   * fall back on.
+   * Leaving for group settings must not lose a roster in progress. An empty
+   * paste box has nothing worth keeping, and a created session has already
+   * consumed the draft.
    */
-  readonly canDelete = computed(
-    () =>
-      this.groupName().trim().length > 0 &&
-      this.deleteConfirmText().trim() === this.groupName().trim()
-  );
-
-  async exportGroup(): Promise<void> {
-    this.dangerError.set(null);
-    try {
-      const data = await firstValueFrom(this.rosterService.exportGroup(this.groupCode));
-      const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = `jubbad-${this.groupCode}.json`;
-      link.click();
-      URL.revokeObjectURL(url);
-    } catch {
-      this.dangerError.set($localize`:@@entry.exportFailed:ดาวน์โหลดไม่สำเร็จ`);
+  private persistDraft(): void {
+    if (this.sessionCreated) return;
+    if (this.state() === 'paste' && !this.rawText().trim()) {
+      this.drafts.clear(this.groupCode);
+      return;
     }
+    this.drafts.save(this.groupCode, {
+      state: this.state(),
+      rawText: this.rawText(),
+      date: this.date(),
+      venue: this.venue(),
+      courtCount: this.courtCount(),
+      warnings: this.warnings(),
+      unrecognizedLines: this.unrecognizedLines(),
+      rosterReviews: this.rosterReviews(),
+      waitlistReviews: this.waitlistReviews(),
+      players: this.players(),
+      manualReviews: new Set(this.manualReviews),
+      openReviews: new Set(this.openReviews),
+      idempotencyKey: this.creationIdempotencyKey,
+    });
   }
 
-  async deleteGroup(): Promise<void> {
-    if (!this.canDelete()) return;
-    this.dangerError.set(null);
-    try {
-      await firstValueFrom(this.rosterService.deleteGroup(this.groupCode));
-      this.router.navigateByUrl('/');
-    } catch {
-      this.dangerError.set($localize`:@@entry.deleteFailed:ลบก๊วนไม่สำเร็จ`);
-    }
+  private applyDraft(draft: RosterDraft): void {
+    this.rawText.set(draft.rawText);
+    this.date.set(draft.date);
+    this.venue.set(draft.venue);
+    this.courtCount.set(draft.courtCount);
+    this.warnings.set(draft.warnings);
+    this.unrecognizedLines.set(draft.unrecognizedLines);
+    this.rosterReviews.set(draft.rosterReviews);
+    this.waitlistReviews.set(draft.waitlistReviews);
+    this.players.set(draft.players);
+    for (const r of draft.manualReviews) this.manualReviews.add(r);
+    for (const r of draft.openReviews) this.openReviews.add(r);
+    this.creationIdempotencyKey = draft.idempotencyKey;
+    this.state.set(draft.state);
+    if (draft.state === 'confirm') void this.loadLadder();
   }
 
-  async saveGroupName(): Promise<void> {
-    if (!this.groupExists || !this.groupName().trim() || this.isRenaming()) return;
-
-    this.renameError.set(null);
-    this.isRenaming.set(true);
-    try {
-      await firstValueFrom(this.rosterService.renameGroup(this.groupCode, this.groupName()));
-    } catch {
-      this.renameError.set($localize`:@@entry.renameFailed:บันทึกชื่อก๊วนไม่สำเร็จ`);
-    } finally {
-      this.isRenaming.set(false);
-    }
+  /** Throw the roster away and start from an empty paste box. */
+  discardDraft(): void {
+    this.drafts.clear(this.groupCode);
+    this.rawText.set('');
+    this.rosterReviews.set([]);
+    this.waitlistReviews.set([]);
+    this.manualReviews.clear();
+    this.openReviews.clear();
+    this.creationIdempotencyKey = null;
+    this.pasteError.set(null);
+    this.confirmError.set(null);
+    this.state.set('paste');
   }
 
   /**
@@ -339,10 +332,6 @@ export class GroupEntry {
     if (this.isParsing()) return;
     this.pasteError.set(null);
 
-    if (!this.groupName().trim()) {
-      this.pasteError.set($localize`:@@entry.errNoGroupName:กรุณาใส่ชื่อก๊วนก่อน`);
-      return;
-    }
     if (!this.rawText().trim()) {
       this.pasteError.set($localize`:@@entry.errNoText:วางข้อความรายชื่อก่อน`);
       return;
@@ -351,7 +340,7 @@ export class GroupEntry {
     this.isParsing.set(true);
     try {
       const result = await firstValueFrom(
-        this.rosterService.parseRoster(this.groupCode, this.groupName(), this.rawText())
+        this.rosterService.parseRoster(this.groupCode, this.groupName() || this.groupCode, this.rawText())
       );
 
       if (result.rosterReviews.length === 0) {
@@ -373,29 +362,18 @@ export class GroupEntry {
   /**
    * For a host with nothing to paste (ad-hoc night, no LINE message) — lands
    * on the same confirm step as `parse()`, empty, and the manual add field
-   * already there does the rest. Still goes through `rosterService.parseRoster`
-   * with an empty `rawText`: that endpoint is the only place a group gets
-   * created/claimed (`GroupsService.parse`'s upsert + ownership check), and a
-   * brand-new group has no row yet to attach a session to otherwise.
+   * already there does the rest. The group already exists (it is created at
+   * /groups/new), so a manual start only needs the group's players: nothing
+   * is parsed.
    */
   async startManual(): Promise<void> {
     if (this.isParsing()) return;
     this.pasteError.set(null);
 
-    if (!this.groupName().trim()) {
-      this.pasteError.set($localize`:@@entry.errNoGroupName:กรุณาใส่ชื่อก๊วนก่อน`);
-      return;
-    }
-
     this.isParsing.set(true);
     try {
-      await firstValueFrom(this.rosterService.parseRoster(this.groupCode, this.groupName(), ''));
       const players = await firstValueFrom(this.rosterService.getPlayers(this.groupCode));
       this.rawText.set('');
-      // An empty rawText parses to nothing worth keeping — the parser's own
-      // "could not find a roster list" warnings would be noise here (there
-      // was never a roster to find), so only today's date is taken as a
-      // starting default and everything else is a blank confirm screen.
       this.enterConfirm(
         {
           header: { isoDate: todayIso(), venue: null, courtCount: null },
@@ -416,9 +394,8 @@ export class GroupEntry {
   /** Shared by `parse()` and `startManual()`: applies a parsed (or synthetic
    *  empty) result and drops the confirm screen into its starting state. */
   /**
-   * The group's ordered ladder, read once the review opens -- after the parse has created
-   * the group when it is brand new. Null while unread or unreadable: the level choices are
-   * then disabled rather than offered from a guess.
+   * The group's ordered ladder, read once the review opens. Null while unread or unreadable:
+   * the level choices are then disabled rather than offered from a guess.
    */
   readonly ladder = signal<GroupLevelsResponse | null>(null);
 
@@ -729,6 +706,8 @@ export class GroupEntry {
           waitlistReviews: this.waitlistReviews(),
         })
       );
+      this.sessionCreated = true;
+      this.drafts.clear(this.groupCode);
       await this.router.navigateByUrl(`/s/${result.code}`);
     } catch (err) {
       const code = err instanceof HttpErrorResponse && typeof err.error?.code === 'string' ? err.error.code : null;
@@ -742,51 +721,9 @@ export class GroupEntry {
         this.confirmError.set(levelsErrorMessage(code));
         return;
       }
-      this.confirmError.set($localize`:@@entry.createFailed:สร้างก๊วนไม่สำเร็จ กรุณาลองอีกครั้ง`);
+      this.confirmError.set($localize`:@@entry.createSessionFailed:สร้างรอบไม่สำเร็จ กรุณาลองอีกครั้ง`);
     } finally {
       this.isSubmitting.set(false);
     }
-  }
-
-  toggleAdvanced(): void {
-    this.showAdvanced.set(!this.showAdvanced());
-    if (!this.showAdvanced() || this.advancedLoaded) return;
-    this.advancedLoaded = true;
-    this.rosterService.getShuttleTools(this.groupCode).subscribe({
-      next: (r) => this.shuttleTools.set(r.enabled),
-      error: () => this.advancedUnavailable.set(true),
-    });
-    this.rosterService.getCrossSessionHistory(this.groupCode).subscribe({
-      next: (r) => this.crossSessionHistory.set(r.enabled),
-      error: () => this.advancedUnavailable.set(true),
-    });
-  }
-
-  /**
-   * Saves one switch. The box never shows an unsaved value: it snaps back to
-   * the saved state at once (while disabled for the write) and only moves when
-   * the server confirms, so a failed save cannot leave it lying.
-   */
-  setAdvanced(which: 'shuttleTools' | 'crossSessionHistory', input: HTMLInputElement): void {
-    const target = which === 'shuttleTools' ? this.shuttleTools : this.crossSessionHistory;
-    const enabled = input.checked;
-    input.checked = target() === true;
-    this.advancedError.set(null);
-    this.advancedSaving.set(true);
-    const save =
-      which === 'shuttleTools'
-        ? this.rosterService.setShuttleTools(this.groupCode, enabled)
-        : this.rosterService.setCrossSessionHistory(this.groupCode, enabled);
-    save.subscribe({
-      next: (r) => {
-        target.set(r.enabled);
-        input.checked = r.enabled;
-        this.advancedSaving.set(false);
-      },
-      error: () => {
-        this.advancedError.set($localize`:@@entry.advancedSaveFailed:บันทึกไม่สำเร็จ ลองอีกครั้ง`);
-        this.advancedSaving.set(false);
-      },
-    });
   }
 }

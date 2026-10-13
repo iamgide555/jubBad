@@ -1,30 +1,24 @@
 <div class="page group-entry">
-  <p><a [routerLink]="['/']" i18n="@@entry.back">← กลับ</a></p>
+  <p><a class="back" [routerLink]="['/g', groupCode]">← {{ groupName() || groupCode }}</a></p>
 
-  <div class="entry-card" [appReveal]="0">
-    <label>
-      <ng-container i18n="@@entry.groupName">ชื่อก๊วน</ng-container>
-      <input type="text" [(ngModel)]="groupName" [disabled]="isRenaming()" [attr.aria-busy]="isRenaming()" (blur)="saveGroupName()" i18n-placeholder="@@entry.groupNamePlaceholder" placeholder="เช่น ก๊วนอังคาร" />
-    </label>
-    @if (isRenaming()) {
-      <p class="muted" i18n="@@entry.savingGroup">กำลังบันทึกชื่อก๊วน...</p>
-    }
-    @if (renameError()) {
-      <p class="error" role="alert">
-        {{ renameError() }}
-        <button type="button" class="ghost" [disabled]="isRenaming()" (click)="saveGroupName()" i18n="@@entry.retry">ลองอีกครั้ง</button>
-      </p>
-    }
-
+  @if (groupStatus() === 'not-found') {
+    <h1 class="entry-title" i18n="@@group.notFound">ไม่พบก๊วนนี้</h1>
+    <p class="muted" i18n="@@group.notFoundHint">ลิงก์อาจพิมพ์ผิด หรือก๊วนถูกลบไปแล้ว</p>
+  } @else if (groupStatus() === 'error') {
+    <p class="error" role="alert">
+      <ng-container i18n="@@group.loadFailed">โหลดก๊วนไม่สำเร็จ</ng-container>
+      <button type="button" class="ghost" (click)="loadGroup()" i18n="@@entry.retry">ลองอีกครั้ง</button>
+    </p>
+  } @else {
+  <h1 class="entry-title">
     @if (lastSessionCode()) {
-      <p class="resume-link"><a [routerLink]="['/s', lastSessionCode()]" i18n="@@entry.resumeLast">กลับไปรอบล่าสุด →</a></p>
+      <ng-container i18n="@@group.startNext">เริ่มรอบใหม่</ng-container>
+    } @else {
+      <ng-container i18n="@@group.startFirst">เริ่มรอบแรก</ng-container>
     }
-  </div>
+  </h1>
 
   @if (state() === 'paste') {
-    <!-- The paste box is the one thing every host is here to do, so it goes
-         first — above the past-sessions recap, which used to push it below
-         the fold on a group with any session history. -->
     <div class="entry-card paste-card" [appReveal]="1">
       <div class="paste-card-head">
         <app-icon name="feather" [size]="18" />
@@ -37,7 +31,7 @@
         <p class="error" role="alert">{{ pasteError() }}</p>
       }
       <div class="paste-actions">
-        <button type="button" appPress [disabled]="isParsing()" [attr.aria-busy]="isParsing()" (click)="parse()">
+        <button type="button" appPress [disabled]="isParsing() || groupStatus() !== 'ready'" [attr.aria-busy]="isParsing()" (click)="parse()">
           @if (isParsing()) {
             <app-icon name="feather" [size]="16" [spin]="true" />
             <ng-container i18n="@@entry.parsingRoster">กำลังอ่านรายชื่อ...</ng-container>
@@ -48,93 +42,11 @@
         <!-- For a host with nothing to paste (ad-hoc night, no LINE message) —
              lands on the same confirm step with empty roster/waitlist, using
              the manual add field already there for imported rosters. -->
-        <button type="button" class="ghost" appPress [disabled]="isParsing()" [attr.aria-busy]="isParsing()" (click)="startManual()">
+        <button type="button" class="ghost" appPress [disabled]="isParsing() || groupStatus() !== 'ready'" [attr.aria-busy]="isParsing()" (click)="startManual()">
           <ng-container i18n="@@entry.startManual">เพิ่มรายชื่อเอง</ng-container>
         </button>
       </div>
     </div>
-  }
-
-  @if (state() === 'paste' && pastSessions().length > 0) {
-    <div class="entry-card" [appReveal]="2">
-      <h4 class="label" i18n="@@entry.pastSessions">ก๊วนที่ผ่านมา</h4>
-      <ul class="session-list">
-        @for (s of pastSessions(); track s.code) {
-          <li>
-            <a [routerLink]="['/s', s.code]">{{ s.date ?? s.code }}</a>
-            @if (s.venue) { <span class="muted">· {{ s.venue }}</span> }
-            <span class="muted">· {{ s.matchCount }} <ng-container i18n="@@entry.matches">แมตช์</ng-container></span>
-            @if (!s.endedAt) { <span class="live-tag" i18n="@@entry.stillOpen">ยังไม่จบ</span> }
-          </li>
-        }
-      </ul>
-    </div>
-  }
-
-  @if (state() === 'paste') {
-    <p><a [routerLink]="['/g', groupCode, 'players']" i18n="@@entry.managePlayers">จัดการผู้เล่น →</a></p>
-    <p><a [routerLink]="['/g', groupCode, 'levels']" data-levels-link i18n="@@entry.groupLevels">ระดับผู้เล่นของก๊วน →</a></p>
-
-    <hr class="rule" />
-    <div class="group-actions">
-      <button type="button" class="ghost" data-share-toggle [attr.aria-expanded]="showShare()" (click)="showShare.set(!showShare())" i18n="@@entry.shareDashboard">ลิงก์หน้าสรุปก๊วน</button>
-      <button type="button" class="ghost" [attr.aria-expanded]="showAdvanced()" (click)="toggleAdvanced()" i18n="@@entry.advanced">ตั้งค่าขั้นสูง</button>
-      <button type="button" class="ghost" (click)="showDanger.set(!showDanger())" i18n="@@entry.manageGroup">จัดการก๊วน</button>
-    </div>
-    @if (showShare()) {
-      <app-share-dashboard-panel [groupCode]="groupCode" />
-    }
-    @if (showAdvanced()) {
-      <div class="advanced-settings">
-        <p class="muted" i18n="@@entry.advancedHint">ตัวเลือกเหล่านี้มีผลกับก๊วนที่สร้างต่อจากนี้เท่านั้น ก๊วนที่เปิดอยู่แล้วไม่เปลี่ยน</p>
-        @if (advancedUnavailable()) {
-          <p class="muted" i18n="@@entry.advancedUnavailable">ตั้งค่าได้หลังสร้างก๊วนครั้งแรก</p>
-        }
-        <label class="switch-row">
-          <input
-            type="checkbox"
-            name="shuttleTools"
-            [checked]="shuttleTools() === true"
-            [disabled]="shuttleTools() === null || advancedSaving()"
-            (change)="setAdvanced('shuttleTools', $any($event.target))"
-          />
-          <span class="switch-text">
-            <span class="switch-title" i18n="@@entry.shuttleTools">จดลูกแบดเป็นหมายเลข</span>
-            <span class="muted" i18n="@@entry.shuttleToolsHint">ตอนยืนยันแมตช์จะให้เลือกลูกแบด และบิลจะนับตามลูกที่ใช้จริง</span>
-          </span>
-        </label>
-        <label class="switch-row">
-          <input
-            type="checkbox"
-            name="crossSessionHistory"
-            [checked]="crossSessionHistory() === true"
-            [disabled]="crossSessionHistory() === null || advancedSaving()"
-            (change)="setAdvanced('crossSessionHistory', $any($event.target))"
-          />
-          <span class="switch-text">
-            <span class="switch-title" i18n="@@entry.crossSessionHistory">นับประวัติคู่ข้ามก๊วน</span>
-            <span class="muted" i18n="@@entry.crossSessionHistoryHint">ปิด: เลี่ยงคู่ซ้ำเฉพาะคืนนี้ · เปิด: นับทุกก๊วนที่ผ่านมา</span>
-          </span>
-        </label>
-        @if (advancedError()) {
-          <p class="error" role="alert">{{ advancedError() }}</p>
-        }
-      </div>
-    }
-    @if (showDanger()) {
-      <div class="danger-zone">
-        <button type="button" class="ghost" (click)="exportGroup()" i18n="@@entry.export">ดาวน์โหลดข้อมูล (JSON)</button>
-        <p class="muted" i18n="@@entry.deleteWarning">ลบก๊วนนี้ถาวร รวมผู้เล่นและประวัติทั้งหมด กู้คืนไม่ได้</p>
-        <label>
-          <ng-container i18n="@@entry.typeNameToDelete">พิมพ์ชื่อก๊วนเพื่อยืนยัน</ng-container>
-          <input type="text" [ngModel]="deleteConfirmText()" (ngModelChange)="deleteConfirmText.set($event)" />
-        </label>
-        <button type="button" class="danger" [disabled]="!canDelete()" (click)="deleteGroup()" i18n="@@entry.deleteGroup">ลบก๊วนนี้</button>
-        @if (dangerError()) {
-          <p class="error" role="alert">{{ dangerError() }}</p>
-        }
-      </div>
-    }
   }
 
   @if (state() === 'confirm') {
@@ -156,6 +68,9 @@
     }
 
     <hr class="rule" />
+    <p>
+      <button type="button" class="ghost" data-discard [disabled]="isSubmitting()" (click)="discardDraft()" i18n="@@entry.discardDraft">ล้างรายชื่อแล้วเริ่มใหม่</button>
+    </p>
 
     <div class="field-row">
       <label>
@@ -412,5 +327,6 @@
         <button type="button" class="ghost" [disabled]="isSubmitting()" (click)="confirmRoster()" i18n="@@entry.retry">ลองอีกครั้ง</button>
       </p>
     }
+  }
   }
 </div>

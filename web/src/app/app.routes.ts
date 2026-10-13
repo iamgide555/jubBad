@@ -58,6 +58,14 @@ export const routes: Routes = [
       import('./pages/group-settings-detail/group-settings-detail').then((m) => m.GroupSettingsDetail),
   },
   {
+    // Before 'g/:groupCode'. Guarded: roster entry for a saved group (paste
+    // from LINE or build by hand). The group is always created first, at
+    // /groups/new — this screen never creates one.
+    path: 'g/:groupCode/start',
+    canActivate: [adminGuard],
+    loadComponent: () => import('./pages/group-entry/group-entry').then((m) => m.GroupEntry),
+  },
+  {
     // Before 'g/:groupCode' so the deeper path wins the match.
     // Unguarded: a player's own stat card, read-only.
     path: 'g/:groupCode/p/:playerId',
@@ -88,7 +96,7 @@ export const routes: Routes = [
   {
     path: 'g/:groupCode',
     canActivate: [adminGuard],
-    loadComponent: () => import('./pages/group-entry/group-entry').then((m) => m.GroupEntry),
+    loadComponent: () => import('./pages/group-home/group-home').then((m) => m.GroupHome),
   },
   {
     // Unguarded: the venue wall display, read-only.

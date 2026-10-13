@@ -6,6 +6,7 @@ import { provideHttpClientTesting } from '@angular/common/http/testing';
 import { routes } from './app.routes';
 import { AuthService } from './core/auth.service';
 import { GroupEntry } from './pages/group-entry/group-entry';
+import { GroupHome } from './pages/group-home/group-home';
 import { SessionDashboard } from './pages/session-dashboard/session-dashboard';
 import { SessionDisplay } from './pages/session-display/session-display';
 import { PlayerProfile } from './pages/player-profile/player-profile';
@@ -62,9 +63,14 @@ describe('app routes', () => {
       expect(await harness.navigateByUrl('/', Landing)).toBeInstanceOf(Landing);
     });
 
-    it('/g/:groupCode resolves to GroupEntry', async () => {
+    it('/g/:groupCode resolves to GroupHome', async () => {
       const harness = await RouterTestingHarness.create();
-      expect(await harness.navigateByUrl('/g/abc123', GroupEntry)).toBeInstanceOf(GroupEntry);
+      expect(await harness.navigateByUrl('/g/abc123', GroupHome)).toBeInstanceOf(GroupHome);
+    });
+
+    it('/g/:groupCode/start resolves to GroupEntry', async () => {
+      const harness = await RouterTestingHarness.create();
+      expect(await harness.navigateByUrl('/g/abc123/start', GroupEntry)).toBeInstanceOf(GroupEntry);
     });
 
     it('/s/:sessionCode resolves to SessionDashboard', async () => {
@@ -206,6 +212,7 @@ describe('app routes', () => {
     it.each([
       ['/', 'the group list'],
       ['/g/abc123', 'a group'],
+      ['/g/abc123/start', 'roster entry'],
       ['/groups/new', 'group creation'],
       ['/g/abc123/settings/manage', 'group settings'],
       ['/s/xyz789', 'a live session'],

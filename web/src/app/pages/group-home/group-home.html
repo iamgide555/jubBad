@@ -1,0 +1,136 @@
+<div class="page group-home">
+  <p><a class="back" [routerLink]="['/']" i18n="@@group.backToList">← ก๊วนของฉัน</a></p>
+
+  @switch (status()) {
+    @case ('loading') {
+      <p class="muted" role="status" i18n="@@group.loading">กำลังโหลดก๊วน...</p>
+    }
+    @case ('not-found') {
+      <h1 class="group-title" i18n="@@group.notFound">ไม่พบก๊วนนี้</h1>
+      <p class="muted" i18n="@@group.notFoundHint">ลิงก์อาจพิมพ์ผิด หรือก๊วนถูกลบไปแล้ว</p>
+    }
+    @case ('error') {
+      <p class="error" role="alert">
+        <ng-container i18n="@@group.loadFailed">โหลดก๊วนไม่สำเร็จ</ng-container>
+        <button type="button" class="ghost" (click)="load()" i18n="@@entry.retry">ลองอีกครั้ง</button>
+      </p>
+    }
+    @case ('ready') {
+      <div class="group-head">
+        <h1 class="group-title">{{ group()?.name || groupCode }}</h1>
+        <button
+          type="button"
+          class="ghost settings-trigger"
+          data-settings-trigger
+          appPress
+          aria-controls="group-settings"
+          [attr.aria-expanded]="settingsOpen()"
+          (click)="toggleSettings()"
+        >
+          <app-icon name="gear" [size]="18" />
+          <ng-container i18n="@@group.settings">ตั้งค่าก๊วน</ng-container>
+        </button>
+      </div>
+
+      @if (latest(); as last) {
+        <a class="resume" data-resume [routerLink]="['/s', last.code]">
+          <span class="dot" aria-hidden="true"></span>
+          <ng-container i18n="@@group.resumeLast">กลับไปรอบล่าสุด</ng-container>
+          @if (last.date) {
+            <span class="resume-date">· {{ last.date }}</span>
+          }
+        </a>
+      } @else {
+        <p class="muted hint" data-hint i18n="@@group.newHint">บันทึกก๊วนแล้ว เริ่มรอบได้ทันที ระดับผู้เล่นและตัวเลือกอื่นอยู่ใน “ตั้งค่าก๊วน”</p>
+      }
+
+      <ul id="group-settings" class="settings" [hidden]="!settingsOpen()" i18n-aria-label="@@group.settingsList" aria-label="ตัวเลือกของก๊วน">
+        <li>
+          <a class="row" data-section="players" appPress [routerLink]="rowLink('players')" aria-describedby="desc-players val-players">
+            <span class="row-text">
+              <span class="row-title">
+                <ng-container i18n="@@group.row.players">จัดการผู้เล่น</ng-container>
+                @if (playersValue(); as v) { <span class="value" id="val-players">{{ v }}</span> }
+              </span>
+              <span class="row-desc" id="desc-players" i18n="@@group.row.playersDesc">รายชื่อและข้อมูลติดต่อของผู้เล่น</span>
+            </span>
+            <app-icon class="row-chevron" name="chevron" [size]="18" />
+          </a>
+        </li>
+        <li>
+          <a class="row" data-section="levels" appPress [routerLink]="rowLink('levels')" aria-describedby="desc-levels val-levels">
+            <span class="row-text">
+              <span class="row-title">
+                <ng-container i18n="@@group.row.levels">ระดับผู้เล่นของก๊วน</ng-container>
+                @if (levelsValue(); as v) { <span class="value" id="val-levels" [class.on]="isOn('levels')">{{ v }}</span> }
+              </span>
+              <span class="row-desc" id="desc-levels" i18n="@@group.row.levelsDesc">ใช้ระดับมาตรฐาน หรือตั้งระดับของก๊วนเอง</span>
+            </span>
+            <app-icon class="row-chevron" name="chevron" [size]="18" />
+          </a>
+        </li>
+        <li>
+          <a class="row" data-section="share" appPress [routerLink]="rowLink('share')" aria-describedby="desc-share val-share">
+            <span class="row-text">
+              <span class="row-title">
+                <ng-container i18n="@@group.row.share">แชร์หน้าสรุปก๊วน</ng-container>
+                @if (shareValue(); as v) { <span class="value" id="val-share" [class.on]="isOn('share')">{{ v }}</span> }
+              </span>
+              <span class="row-desc" id="desc-share" i18n="@@group.row.shareDesc">ลิงก์สำหรับปักไว้ใน LINE</span>
+            </span>
+            <app-icon class="row-chevron" name="chevron" [size]="18" />
+          </a>
+        </li>
+        <li>
+          <a class="row" data-section="advanced" appPress [routerLink]="rowLink('advanced')" aria-describedby="desc-advanced val-advanced">
+            <span class="row-text">
+              <span class="row-title">
+                <ng-container i18n="@@group.row.advanced">ตั้งค่าขั้นสูง</ng-container>
+                @if (advancedValue(); as v) { <span class="value" id="val-advanced" [class.on]="isOn('advanced')">{{ v }}</span> }
+              </span>
+              <span class="row-desc" id="desc-advanced" i18n="@@group.row.advancedDesc">จดลูกแบดเป็นหมายเลข · ประวัติคู่ข้ามรอบ</span>
+            </span>
+            <app-icon class="row-chevron" name="chevron" [size]="18" />
+          </a>
+        </li>
+        <li class="manage">
+          <a class="row" data-section="manage" appPress [routerLink]="rowLink('manage')" aria-describedby="desc-manage">
+            <span class="row-text">
+              <span class="row-title" i18n="@@group.row.manage">จัดการก๊วน</span>
+              <span class="row-desc" id="desc-manage" i18n="@@group.row.manageDesc">ชื่อก๊วน / ดาวน์โหลดข้อมูล / ลบก๊วน</span>
+            </span>
+            <app-icon class="row-chevron" name="chevron" [size]="18" />
+          </a>
+        </li>
+      </ul>
+
+      <div class="session-area">
+        <button type="button" class="start" data-start appPress [routerLink]="['/g', groupCode, 'start']">
+          @if (latest()) {
+            <ng-container i18n="@@group.startNext">เริ่มรอบใหม่</ng-container>
+          } @else {
+            <ng-container i18n="@@group.startFirst">เริ่มรอบแรก</ng-container>
+          }
+          <app-icon class="start-chevron" name="chevron" [size]="18" />
+        </button>
+        <p class="muted start-sub" i18n="@@group.startSub">วางรายชื่อจาก LINE หรือเพิ่มรายชื่อเอง</p>
+      </div>
+
+      @if (sessions().length > 0) {
+        <section class="past">
+          <h2 class="label" i18n="@@group.pastSessions">รอบที่ผ่านมา</h2>
+          <ul class="session-list">
+            @for (s of sessions(); track s.code) {
+              <li>
+                <a [routerLink]="['/s', s.code]">{{ s.date ?? s.code }}</a>
+                @if (s.venue) { <span class="muted">· {{ s.venue }}</span> }
+                <span class="muted">· {{ s.matchCount }} <ng-container i18n="@@entry.matches">แมตช์</ng-container></span>
+                @if (!s.endedAt) { <span class="live-tag" i18n="@@entry.stillOpen">ยังไม่จบ</span> }
+              </li>
+            }
+          </ul>
+        </section>
+      }
+    }
+  }
+</div>

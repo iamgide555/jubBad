@@ -4427,6 +4427,98 @@
         <source>โหลดสถานะการแชร์ไม่สำเร็จ</source>
         <target>Couldn't load the sharing status.</target>
       </trans-unit>
+      <trans-unit id="group.settings" datatype="html">
+        <source>ตั้งค่าก๊วน</source>
+        <target>Group settings</target>
+      </trans-unit>
+      <trans-unit id="group.settingsList" datatype="html">
+        <source>ตัวเลือกของก๊วน</source>
+        <target>Group options</target>
+      </trans-unit>
+      <trans-unit id="group.resumeLast" datatype="html">
+        <source>กลับไปรอบล่าสุด</source>
+        <target>Back to latest session</target>
+      </trans-unit>
+      <trans-unit id="group.newHint" datatype="html">
+        <source>บันทึกก๊วนแล้ว เริ่มรอบได้ทันที ระดับผู้เล่นและตัวเลือกอื่นอยู่ใน “ตั้งค่าก๊วน”</source>
+        <target>Group saved — you can start a session now. Player levels and other options are under "Group settings".</target>
+      </trans-unit>
+      <trans-unit id="group.row.players" datatype="html">
+        <source>จัดการผู้เล่น</source>
+        <target>Players</target>
+      </trans-unit>
+      <trans-unit id="group.row.playersDesc" datatype="html">
+        <source>รายชื่อและข้อมูลติดต่อของผู้เล่น</source>
+        <target>Names and contact details</target>
+      </trans-unit>
+      <trans-unit id="group.row.levels" datatype="html">
+        <source>ระดับผู้เล่นของก๊วน</source>
+        <target>Player levels</target>
+      </trans-unit>
+      <trans-unit id="group.row.levelsDesc" datatype="html">
+        <source>ใช้ระดับมาตรฐาน หรือตั้งระดับของก๊วนเอง</source>
+        <target>Use the standard levels, or set your own</target>
+      </trans-unit>
+      <trans-unit id="group.row.shareDesc" datatype="html">
+        <source>ลิงก์สำหรับปักไว้ใน LINE</source>
+        <target>A link to pin in LINE</target>
+      </trans-unit>
+      <trans-unit id="group.row.advancedDesc" datatype="html">
+        <source>จดลูกแบดเป็นหมายเลข · ประวัติคู่ข้ามรอบ</source>
+        <target>Numbered shuttles · partner history across sessions</target>
+      </trans-unit>
+      <trans-unit id="group.row.manageDesc" datatype="html">
+        <source>ชื่อก๊วน / ดาวน์โหลดข้อมูล / ลบก๊วน</source>
+        <target>Group name / download data / delete group</target>
+      </trans-unit>
+      <trans-unit id="group.value.players" datatype="html">
+        <source><x id="count" equiv-text="n"/> คน</source>
+        <target><x id="count" equiv-text="n"/> players</target>
+      </trans-unit>
+      <trans-unit id="group.value.levelsStandard" datatype="html">
+        <source>มาตรฐาน</source>
+        <target>Standard</target>
+      </trans-unit>
+      <trans-unit id="group.value.levelsCustom" datatype="html">
+        <source>กำหนดเอง · <x id="count" equiv-text="l.count"/> ระดับ</source>
+        <target>Custom · <x id="count" equiv-text="l.count"/> levels</target>
+      </trans-unit>
+      <trans-unit id="group.value.shared" datatype="html">
+        <source>แชร์อยู่</source>
+        <target>Shared</target>
+      </trans-unit>
+      <trans-unit id="group.value.notShared" datatype="html">
+        <source>ยังไม่แชร์</source>
+        <target>Not shared</target>
+      </trans-unit>
+      <trans-unit id="group.value.allOff" datatype="html">
+        <source>ปิดทั้งหมด</source>
+        <target>All off</target>
+      </trans-unit>
+      <trans-unit id="group.value.allOn" datatype="html">
+        <source>เปิดทั้งหมด</source>
+        <target>All on</target>
+      </trans-unit>
+      <trans-unit id="group.value.oneOn" datatype="html">
+        <source>เปิด 1 จาก 2</source>
+        <target>1 of 2 on</target>
+      </trans-unit>
+      <trans-unit id="group.startFirst" datatype="html">
+        <source>เริ่มรอบแรก</source>
+        <target>Start first session</target>
+      </trans-unit>
+      <trans-unit id="group.startNext" datatype="html">
+        <source>เริ่มรอบใหม่</source>
+        <target>Start new session</target>
+      </trans-unit>
+      <trans-unit id="group.startSub" datatype="html">
+        <source>วางรายชื่อจาก LINE หรือเพิ่มรายชื่อเอง</source>
+        <target>Paste from LINE, or add players yourself</target>
+      </trans-unit>
+      <trans-unit id="group.pastSessions" datatype="html">
+        <source>รอบที่ผ่านมา</source>
+        <target>Past sessions</target>
+      </trans-unit>
     </body>
   </file>
 </xliff>

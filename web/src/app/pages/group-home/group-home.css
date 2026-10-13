@@ -169,10 +169,28 @@
 
 .start {
   width: 100%;
+  box-sizing: border-box;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: var(--space-1);
+  min-height: var(--tap);
+  padding: 0.65rem 1.1rem;
+  border-radius: var(--radius);
+  background: var(--court);
+  color: #ffffff;
+  font-size: var(--text-base);
+  font-weight: 700;
+  text-decoration: none;
+  box-shadow: var(--shadow-xs);
+  touch-action: manipulation;
+  transition: background-color var(--duration-fast) ease;
+}
+
+@media (hover: hover) {
+  .start:hover {
+    background: var(--court-dark);
+  }
 }
 
 .start-chevron {

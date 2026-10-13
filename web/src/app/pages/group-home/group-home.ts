@@ -1,5 +1,5 @@
 import { HttpErrorResponse } from '@angular/common/http';
-import { Component, ElementRef, computed, inject, signal } from '@angular/core';
+import { ChangeDetectorRef, Component, ElementRef, computed, inject, signal } from '@angular/core';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
 import type { Group } from '../../core/group.model';
@@ -37,6 +37,7 @@ export class GroupHome {
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
   private readonly roster = inject(RosterService);
+  private readonly cdr = inject(ChangeDetectorRef);
   private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
 
   protected readonly groupCode = this.route.snapshot.paramMap.get('groupCode')!;
@@ -134,18 +135,19 @@ export class GroupHome {
   /**
    * Back from a settings detail lands on /g/:code?settings=<section>: reopen,
    * focus that row, then drop the parameter with replaceUrl so a reload or
-   * Back does not reopen settings. The focus waits one macrotask for the rows
-   * to render (a render hook here raced test infrastructure elsewhere — see
-   * core/motion/reveal.directive.ts).
+   * Back does not reopen settings.
    */
   private restoreFromQuery(): void {
     const section = this.route.snapshot.queryParamMap.get('settings');
     if (section === null) return;
     this.setSettings(true);
     if (isSettingsSection(section)) {
-      setTimeout(() =>
-        this.host.nativeElement.querySelector<HTMLElement>(`[data-section="${section}"]`)?.focus()
-      );
+      // Render now so the list is un-hidden before focusing: focusing a
+      // still-hidden element silently does nothing. A synchronous
+      // detectChanges is deterministic; a timer or render hook only hoped
+      // the render had happened.
+      this.cdr.detectChanges();
+      this.host.nativeElement.querySelector<HTMLElement>(`[data-section="${section}"]`)?.focus();
     }
     void this.router.navigate([], {
       relativeTo: this.route,

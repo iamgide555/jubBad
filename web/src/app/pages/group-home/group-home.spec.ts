@@ -108,7 +108,10 @@ describe('GroupHome', () => {
   it('the start action goes to the roster screen', async () => {
     await open();
     const nav = vi.spyOn(TestBed.inject(Router), 'navigateByUrl').mockResolvedValue(true);
-    el().querySelector<HTMLButtonElement>('[data-start]')!.click();
+    const start = el().querySelector<HTMLAnchorElement>('[data-start]')!;
+    expect(start.tagName).toBe('A');
+    expect(start.getAttribute('href')).toBe('/g/group1/start');
+    start.click();
     expect(nav).toHaveBeenCalledTimes(1);
     expect(nav.mock.calls[0][0].toString()).toBe('/g/group1/start');
   });
@@ -131,6 +134,11 @@ describe('GroupHome', () => {
       '/g/group1/settings/manage',
     ]);
     expect(rows[4].textContent).toContain('ชื่อก๊วน / ดาวน์โหลดข้อมูล / ลบก๊วน');
+    const titles = ['จัดการผู้เล่น', 'ระดับผู้เล่นของก๊วน', 'แชร์หน้าสรุปก๊วน', 'ตั้งค่าขั้นสูง', 'จัดการก๊วน'];
+    rows.forEach((r, i) => {
+      const id = r.getAttribute('aria-labelledby')!;
+      expect(document.getElementById(id)?.textContent?.trim()).toBe(titles[i]);
+    });
   });
 
   it('rows show live values once loaded', async () => {
@@ -192,7 +200,9 @@ describe('GroupHome', () => {
     await settle();
     await tick();
     expect(list().hidden).toBe(false);
-    expect((document.activeElement as HTMLElement).dataset['section']).toBe('levels');
+    const focused = document.activeElement as HTMLElement;
+    expect(focused).toBe(list().querySelector('[data-section="levels"]'));
+    expect(focused.closest('[hidden]')).toBeNull();
     expect(TestBed.inject(Router).url).toBe('/g/group1');
   });
 

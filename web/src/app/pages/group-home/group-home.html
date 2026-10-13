@@ -46,10 +46,10 @@
 
       <ul id="group-settings" class="settings" [hidden]="!settingsOpen()" i18n-aria-label="@@group.settingsList" aria-label="ตัวเลือกของก๊วน">
         <li>
-          <a class="row" data-section="players" appPress [routerLink]="rowLink('players')" aria-describedby="desc-players val-players">
+          <a class="row" data-section="players" appPress [routerLink]="rowLink('players')" aria-labelledby="title-players" aria-describedby="desc-players val-players">
             <span class="row-text">
               <span class="row-title">
-                <ng-container i18n="@@group.row.players">จัดการผู้เล่น</ng-container>
+                <span id="title-players" i18n="@@group.row.players">จัดการผู้เล่น</span>
                 @if (playersValue(); as v) { <span class="value" id="val-players">{{ v }}</span> }
               </span>
               <span class="row-desc" id="desc-players" i18n="@@group.row.playersDesc">รายชื่อและข้อมูลติดต่อของผู้เล่น</span>
@@ -58,10 +58,10 @@
           </a>
         </li>
         <li>
-          <a class="row" data-section="levels" appPress [routerLink]="rowLink('levels')" aria-describedby="desc-levels val-levels">
+          <a class="row" data-section="levels" appPress [routerLink]="rowLink('levels')" aria-labelledby="title-levels" aria-describedby="desc-levels val-levels">
             <span class="row-text">
               <span class="row-title">
-                <ng-container i18n="@@group.row.levels">ระดับผู้เล่นของก๊วน</ng-container>
+                <span id="title-levels" i18n="@@group.row.levels">ระดับผู้เล่นของก๊วน</span>
                 @if (levelsValue(); as v) { <span class="value" id="val-levels" [class.on]="isOn('levels')">{{ v }}</span> }
               </span>
               <span class="row-desc" id="desc-levels" i18n="@@group.row.levelsDesc">ใช้ระดับมาตรฐาน หรือตั้งระดับของก๊วนเอง</span>
@@ -70,10 +70,10 @@
           </a>
         </li>
         <li>
-          <a class="row" data-section="share" appPress [routerLink]="rowLink('share')" aria-describedby="desc-share val-share">
+          <a class="row" data-section="share" appPress [routerLink]="rowLink('share')" aria-labelledby="title-share" aria-describedby="desc-share val-share">
             <span class="row-text">
               <span class="row-title">
-                <ng-container i18n="@@group.row.share">แชร์หน้าสรุปก๊วน</ng-container>
+                <span id="title-share" i18n="@@group.row.share">แชร์หน้าสรุปก๊วน</span>
                 @if (shareValue(); as v) { <span class="value" id="val-share" [class.on]="isOn('share')">{{ v }}</span> }
               </span>
               <span class="row-desc" id="desc-share" i18n="@@group.row.shareDesc">ลิงก์สำหรับปักไว้ใน LINE</span>
@@ -82,10 +82,10 @@
           </a>
         </li>
         <li>
-          <a class="row" data-section="advanced" appPress [routerLink]="rowLink('advanced')" aria-describedby="desc-advanced val-advanced">
+          <a class="row" data-section="advanced" appPress [routerLink]="rowLink('advanced')" aria-labelledby="title-advanced" aria-describedby="desc-advanced val-advanced">
             <span class="row-text">
               <span class="row-title">
-                <ng-container i18n="@@group.row.advanced">ตั้งค่าขั้นสูง</ng-container>
+                <span id="title-advanced" i18n="@@group.row.advanced">ตั้งค่าขั้นสูง</span>
                 @if (advancedValue(); as v) { <span class="value" id="val-advanced" [class.on]="isOn('advanced')">{{ v }}</span> }
               </span>
               <span class="row-desc" id="desc-advanced" i18n="@@group.row.advancedDesc">จดลูกแบดเป็นหมายเลข · ประวัติคู่ข้ามรอบ</span>
@@ -94,9 +94,9 @@
           </a>
         </li>
         <li class="manage">
-          <a class="row" data-section="manage" appPress [routerLink]="rowLink('manage')" aria-describedby="desc-manage">
+          <a class="row" data-section="manage" appPress [routerLink]="rowLink('manage')" aria-labelledby="title-manage" aria-describedby="desc-manage">
             <span class="row-text">
-              <span class="row-title" i18n="@@group.row.manage">จัดการก๊วน</span>
+              <span class="row-title"><span id="title-manage" i18n="@@group.row.manage">จัดการก๊วน</span></span>
               <span class="row-desc" id="desc-manage" i18n="@@group.row.manageDesc">ชื่อก๊วน / ดาวน์โหลดข้อมูล / ลบก๊วน</span>
             </span>
             <app-icon class="row-chevron" name="chevron" [size]="18" />
@@ -105,14 +105,14 @@
       </ul>
 
       <div class="session-area">
-        <button type="button" class="start" data-start appPress [routerLink]="['/g', groupCode, 'start']">
+        <a class="start" data-start appPress [routerLink]="['/g', groupCode, 'start']">
           @if (latest()) {
             <ng-container i18n="@@group.startNext">เริ่มรอบใหม่</ng-container>
           } @else {
             <ng-container i18n="@@group.startFirst">เริ่มรอบแรก</ng-container>
           }
           <app-icon class="start-chevron" name="chevron" [size]="18" />
-        </button>
+        </a>
         <p class="muted start-sub" i18n="@@group.startSub">วางรายชื่อจาก LINE หรือเพิ่มรายชื่อเอง</p>
       </div>
 

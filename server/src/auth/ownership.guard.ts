@@ -47,10 +47,11 @@ export class OwnershipGuard implements CanActivate {
     // same way an unrecognised route shape would be.
     if (path.startsWith('/admin')) throw new NotFoundException();
 
-    // Addresses no group at all, so ownership has nothing to check: GET /
-    // (AppController's scaffold route). GET /groups is filtered by owner at
-    // the service layer (GroupsService.listGroups) instead of here, and POST
-    // /sessions names its group in the body, not the URL — checked in
+    // Addresses no group by URL, so ownership has nothing to check here: GET /
+    // (AppController's scaffold route); GET /groups is filtered by owner in
+    // GroupsService.listGroups; POST /groups names its new code in the body and
+    // GroupsService.create refuses a code the caller does not own (no admin
+    // exception there); POST /sessions names its group in the body, checked in
     // SessionsService.createSession, which is the only place that can.
     if (path === '/' || path === '/groups' || path === '/sessions') return true;
 

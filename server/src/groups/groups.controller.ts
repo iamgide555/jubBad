@@ -5,6 +5,7 @@ import { GroupShareService } from './group-share.service.js';
 import { SaveGroupLevelsDto } from './dto/save-group-levels.dto.js';
 import { Public } from '../auth/public.decorator.js';
 import type { AuthenticatedRequest } from '../auth/auth.guard.js';
+import { CreateGroupDto } from './dto/create-group.dto.js';
 import { UpdateGroupDto } from './dto/update-group.dto.js';
 import { ParseRosterDto } from './dto/parse-roster.dto.js';
 import { UpdatePlayerDto } from './dto/update-player.dto.js';
@@ -65,6 +66,15 @@ export class GroupsController {
   @Get()
   list(@Req() req: AuthenticatedRequest) {
     return this.groupsService.listGroups(req.user);
+  }
+
+  /**
+   * Name-only creation. Not addressed by a :code, so OwnershipGuard passes it
+   * like GET /groups; the ownership decision is GroupsService.create's.
+   */
+  @Post()
+  create(@Body() dto: CreateGroupDto, @Req() req: AuthenticatedRequest) {
+    return this.groupsService.create(dto, req.user);
   }
 
   /** Public: the venue display shows the group's name. */

@@ -94,6 +94,38 @@ describe('GroupsController', () => {
     }
   });
 
+  it('rejects a whitespace-only name on rename', async () => {
+    const code = randomUUID();
+    await prisma.group.create({ data: { code, name: 'X' } });
+    try {
+      await request(server).put(`/groups/${code}`).send({ name: '   ' }).expect(400);
+      expect((await prisma.group.findUniqueOrThrow({ where: { code } })).name).toBe('X');
+    } finally {
+      await prisma.group.deleteMany({ where: { code } });
+    }
+  });
+
+  it('stores a renamed group name trimmed', async () => {
+    const code = randomUUID();
+    await prisma.group.create({ data: { code, name: 'X' } });
+    try {
+      const res = await request(server).put(`/groups/${code}`).send({ name: '  Renamed  ' }).expect(200);
+      expect(res.body).toEqual({ code, name: 'Renamed' });
+    } finally {
+      await prisma.group.deleteMany({ where: { code } });
+    }
+  });
+
+  it('still renames a legacy 8-hex group', async () => {
+    const code = randomUUID().slice(0, 8);
+    await prisma.group.create({ data: { code, name: 'Old' } });
+    try {
+      await request(server).put(`/groups/${code}`).send({ name: 'New' }).expect(200);
+    } finally {
+      await prisma.group.deleteMany({ where: { code } });
+    }
+  });
+
   it('parses a roster message, upserting the group but never renaming it on re-parse', async () => {
     const code = randomUUID();
     // Verified directly against parseLineRosterMessage before writing this test:

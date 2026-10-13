@@ -1,4 +1,5 @@
 import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { computeRatingTracks, STARTING_RATING } from '../../../engines/elo.ts';
 import { matchRoster } from '../../../engines/fuzzy-match.ts';
 import { GroupLevelsService } from './group-levels.service.js';
@@ -10,6 +11,7 @@ import { levelWrite, loadPlayerLevels, loadRatingAnchors } from '../player-level
 import { parseCourtFormats } from '../sessions/court-formats.js';
 import { parseSeatTeams, parseTeams } from '../sessions/pairing-teams.js';
 import { SessionLock } from '../sessions/session-lock.js';
+import type { CreateGroupDto } from './dto/create-group.dto.js';
 import type { UpdateGroupDto } from './dto/update-group.dto.js';
 import type { ParseRosterDto } from './dto/parse-roster.dto.js';
 import type { UpdatePlayerDto } from './dto/update-player.dto.js';
@@ -97,6 +99,36 @@ export class GroupsService {
     });
 
     return { code: group.code, name: group.name, lastSessionCode: lastSession?.code ?? null };
+  }
+
+  /**
+   * The dedicated, name-only way to make a group (the parse endpoint's
+   * create-or-own stays for older clients). Create-or-read: a retry with the
+   * same code returns the caller's existing group untouched — no rename, no
+   * settings reset — so a double tap or a lost response never makes two.
+   *
+   * Strictly the caller's own: unlike `parse`, an admin gets no exception
+   * here. Creation must never become a way to take over someone else's code,
+   * and the 404 matches the rest of the ownership boundary.
+   *
+   * The upsert is serialized by SQLite; the P2002 branch covers Prisma's
+   * read-then-create upsert losing a race on the same fresh code, in which
+   * case the row that won is read back and judged the same way.
+   */
+  async create(dto: CreateGroupDto, caller: Caller) {
+    let group: { code: string; name: string | null; ownerId: string | null } | null;
+    try {
+      group = await this.prisma.group.upsert({
+        where: { code: dto.code },
+        create: { code: dto.code, name: dto.name, ownerId: caller.id },
+        update: {},
+      });
+    } catch (error) {
+      if (!(error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002')) throw error;
+      group = await this.prisma.group.findUnique({ where: { code: dto.code } });
+    }
+    if (!group || group.ownerId !== caller.id) throw new NotFoundException();
+    return { code: group.code, name: group.name };
   }
 
   async update(code: string, dto: UpdateGroupDto) {

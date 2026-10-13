@@ -326,6 +326,29 @@ describe('auth boundary', () => {
       ).toEqual([]);
     });
 
+    it("refuses a second host creating a group over the first host's code", async () => {
+      await request(server)
+        .post('/groups')
+        .set('Cookie', otherCookie)
+        .send({ code: ctx.groupCode, name: 'Taken' })
+        .expect(404);
+      expect((await prisma.group.findUniqueOrThrow({ where: { code: ctx.groupCode } })).name).toBe('Boundary');
+    });
+
+    it('lets a host create a group of their own by name alone', async () => {
+      const code = randomUUID();
+      try {
+        const res = await request(server)
+          .post('/groups')
+          .set('Cookie', otherCookie)
+          .send({ code, name: 'ของฉันเอง' })
+          .expect(201);
+        expect(res.body).toEqual({ code, name: 'ของฉันเอง' });
+      } finally {
+        await prisma.group.deleteMany({ where: { code } });
+      }
+    });
+
     it('refuses to create a session by naming a group the caller does not own', async () => {
       // POST /sessions has no :code in the path, so the ownership check the
       // guard applies everywhere else runs inside

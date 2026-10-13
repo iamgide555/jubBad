@@ -8,6 +8,7 @@ import type { GroupSession } from './group-session.model';
 import type { NameReview } from './roster-review';
 import type { GroupLevelsResponse, SaveGroupLevelsRequest } from './group-levels.model';
 import type { CreatePairRuleRequest, PairRule, RuleKind } from './pair-rule.model';
+import type { OwnGroupRow } from './group-name';
 
 export interface CreateSessionRequest {
   groupCode: string;
@@ -57,6 +58,21 @@ export class RosterService {
 
   getGroup(code: string) {
     return this.http.get<Group>(`${this.base}/groups/${code}`);
+  }
+
+  /** Name-only creation. `code` is one UUID per creation attempt, reused for retries. */
+  createGroup(code: string, name: string) {
+    return this.http.post<{ code: string; name: string | null }>(`${this.base}/groups`, { code, name });
+  }
+
+  /** Owner-only: whether the group's public dashboard link exists. */
+  getShare(code: string) {
+    return this.http.get<{ token: string | null }>(`${this.base}/groups/${code}/share`);
+  }
+
+  /** The caller's groups (every group, flagged `mine`, for an admin). Used for the same-name warning. */
+  listGroups() {
+    return this.http.get<OwnGroupRow[]>(`${this.base}/groups`);
   }
 
   renameGroup(code: string, name: string) {

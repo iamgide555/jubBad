@@ -4,6 +4,8 @@ import { TestBed } from '@angular/core/testing';
 import { RosterService, type CreateSessionRequest } from './roster.service';
 import { environment } from '../../environments/environment';
 
+const B = environment.apiBaseUrl;
+
 describe('RosterService', () => {
   let service: RosterService;
   let httpMock: HttpTestingController;
@@ -18,6 +20,29 @@ describe('RosterService', () => {
 
   afterEach(() => {
     httpMock.verify();
+  });
+
+  it('createGroup posts the code and name to /groups', () => {
+    let body: unknown;
+    service.createGroup('11111111-2222-3333-4444-555555555555', 'ก๊วนอังคาร').subscribe((r) => (body = r));
+    const req = httpMock.expectOne({ url: `${B}/groups`, method: 'POST' });
+    expect(req.request.body).toEqual({ code: '11111111-2222-3333-4444-555555555555', name: 'ก๊วนอังคาร' });
+    req.flush({ code: '11111111-2222-3333-4444-555555555555', name: 'ก๊วนอังคาร' });
+    expect(body).toEqual({ code: '11111111-2222-3333-4444-555555555555', name: 'ก๊วนอังคาร' });
+  });
+
+  it('listGroups reads the caller\'s group list', () => {
+    let body: unknown;
+    service.listGroups().subscribe((r) => (body = r));
+    httpMock.expectOne({ url: `${B}/groups`, method: 'GET' }).flush([{ code: 'g1', name: 'ก๊วนอังคาร' }]);
+    expect(body).toEqual([{ code: 'g1', name: 'ก๊วนอังคาร' }]);
+  });
+
+  it('getShare reads the share state', () => {
+    let body: unknown;
+    service.getShare('g1').subscribe((r) => (body = r));
+    httpMock.expectOne({ url: `${B}/groups/g1/share`, method: 'GET' }).flush({ token: null });
+    expect(body).toEqual({ token: null });
   });
 
   it('getGroup requests GET /groups/:code', () => {

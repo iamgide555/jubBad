@@ -64,6 +64,12 @@
   --warn: #b0201a;
   --warn-wash: #fdecea;
   --error-ink: var(--warn);
+
+  /* Text and icons on a filled --court, --warn or --accent surface (primary
+     and danger buttons, selected chips, count badges). White here; the dark
+     blocks below swap in the dark ground, because white on the dark theme's
+     bright green is 2.0:1 and the dark ground clears 4.5:1 on all three. */
+  --on-fill: #ffffff;
   --waiting: #70685c;
   /* The one warm neutral outside the green/orange pair — a winner's stat, a
      top-of-leaderboard mark. Never a status, never interactive. */
@@ -154,6 +160,7 @@
 
     --warn: #ff6b60;
     --warn-wash: #33130f;
+    --on-fill: #0e1310;
     --waiting: #6c766b;
     --gold: #e3b155;
 
@@ -193,6 +200,7 @@
 
   --warn: #ff6b60;
   --warn-wash: #33130f;
+  --on-fill: #0e1310;
   --waiting: #6c766b;
   --gold: #e3b155;
 
@@ -351,7 +359,7 @@ button {
   min-height: var(--tap);
   padding: 0.65rem 1.1rem;
   background: var(--court);
-  color: #ffffff;
+  color: var(--on-fill);
   box-shadow: var(--shadow-xs);
   transition: background-color var(--duration-fast) ease, box-shadow var(--duration-fast) ease,
     transform var(--duration-fast) var(--ease-spring);
@@ -533,8 +541,14 @@ label > textarea {
    host never mistakes a clipped column for the whole table. Replaces the
    old per-page `table { display: block; white-space: nowrap }` hack, which
    broke native column alignment once the table stopped being `display:
-   table`. */
+   table`.
+
+   `position: relative` is load-bearing: the sort hint inside a <th> is an
+   absolutely positioned .sr-only span, and with this wrapper `position:
+   static` it is positioned against the viewport and escapes the overflow clip,
+   widening the document — on a phone the whole page then pans sideways. */
 .table-scroll {
+  position: relative;
   overflow-x: auto;
   -webkit-overflow-scrolling: touch;
   box-shadow: inset -12px 0 12px -12px rgba(0, 0, 0, 0.2);
@@ -670,12 +684,14 @@ button.sort-head.active::after {
 
 button.danger {
   background: var(--warn);
-  color: #ffffff;
+  color: var(--on-fill);
 }
 
 @media (hover: hover) {
+  /* Derived from --warn rather than a fixed dark red: in the dark theme
+     --on-fill is near-black, which a fixed #8f1a15 would leave at 2.1:1. */
   button.danger:hover:not(:disabled) {
-    background: #8f1a15;
+    background: color-mix(in srgb, var(--warn) 85%, black);
   }
 }
 

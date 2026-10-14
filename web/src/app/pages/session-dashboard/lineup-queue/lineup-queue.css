@@ -49,7 +49,7 @@
   font-weight: 700;
   min-height: var(--tap);
   padding: 0 var(--space-3);
-  color: #fff;
+  color: var(--on-fill);
   background: var(--court);
   border: none;
   border-radius: var(--radius);
@@ -299,7 +299,7 @@
 }
 
 .lq-save {
-  color: #fff;
+  color: var(--on-fill);
   background: var(--court);
   border: none;
 }
@@ -316,7 +316,7 @@
 }
 
 .lq-add {
-  color: #fff;
+  color: var(--on-fill);
   background: var(--court);
   border: none;
 }

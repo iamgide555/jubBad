@@ -178,7 +178,7 @@
   padding: 0.65rem 1.1rem;
   border-radius: var(--radius);
   background: var(--court);
-  color: #ffffff;
+  color: var(--on-fill);
   font-size: var(--text-base);
   font-weight: 700;
   text-decoration: none;

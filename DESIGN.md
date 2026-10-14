@@ -19,6 +19,7 @@ colors:
   accent-ink: "#bd3414"
   warn: "#b0201a"
   warn-wash: "#fdecea"
+  on-fill: "#ffffff"
   waiting: "#a49b8c"
   gold: "#b3801f"
 typography:
@@ -62,14 +63,14 @@ spacing:
 components:
   button-primary:
     backgroundColor: "{colors.court}"
-    textColor: "#ffffff"
+    textColor: "{colors.on-fill}"
     rounded: "{rounded.md}"
     padding: "0.65rem 1.1rem"
   button-primary-hover:
     backgroundColor: "{colors.court-dark}"
   button-danger:
     backgroundColor: "{colors.warn}"
-    textColor: "#ffffff"
+    textColor: "{colors.on-fill}"
     rounded: "{rounded.md}"
     padding: "0.65rem 1.1rem"
   button-ghost:
@@ -129,6 +130,8 @@ Two hues do the app's signalling — green for "expected/good," orange for "need
 **The One Ground Rule.** Ground and surface sit in the same lightness family in both themes; a card reads as "the same light, slightly raised," never a second material. Depth is elevation's job (`--shadow-*`) and a colored ring, not a color-family jump — the retired system's two-ground/two-ink split (dark board vs. light paper) is gone because this world no longer has two materials to ink for. `--ink-on-paper`/`--ink-on-paper-soft`/`--ink-on-court`/`--ink-on-court-soft` still exist as CSS custom properties (plain aliases of `--ink`/`--ink-soft`) purely so pre-existing component CSS that rescopes them keeps working; they carry no independent value and should not be treated as a live two-ground system in new work.
 
 **The One Orange Rule.** `--accent` means "the host must act on this court right now" and only that — never the primary/confirm action (`--court`) and never ordinary navigation (`--court-ink`). Diluting it into a general highlight removes the one signal the host actually needs at a glance.
+
+**The On-Fill Rule.** Text on a filled brand colour (`--court`, `--warn`, `--accent`) uses `--on-fill`, never a literal white: white in light theme, the dark ground (`#0e1310`) in dark theme, because white on the dark theme's bright green (`#3fd07a`) is 2.0:1 and the dark ground clears 4.5:1 on all three fills.
 
 ## Typography
 

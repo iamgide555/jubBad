@@ -197,7 +197,7 @@ app-level-picker {
    safe default, just a clear "this one, not that one" mark once chosen. */
 .review-decision-toggle button.accept-choice.active {
   background: var(--court);
-  color: #ffffff;
+  color: var(--on-fill);
 }
 
 @media (hover: hover) {

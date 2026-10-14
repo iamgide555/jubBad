@@ -87,7 +87,7 @@
 
 .chip.selected {
   background: var(--accent);
-  color: #fff;
+  color: var(--on-fill);
   border-color: var(--accent);
 }
 

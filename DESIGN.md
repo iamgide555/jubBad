@@ -131,7 +131,7 @@ Two hues do the app's signalling — green for "expected/good," orange for "need
 
 **The One Orange Rule.** `--accent` means "the host must act on this court right now" and only that — never the primary/confirm action (`--court`) and never ordinary navigation (`--court-ink`). Diluting it into a general highlight removes the one signal the host actually needs at a glance.
 
-**The On-Fill Rule.** Text on a filled brand colour (`--court`, `--warn`, `--accent`) uses `--on-fill`, never a literal white: white in light theme, the dark ground (`#0e1310`) in dark theme, because white on the dark theme's bright green (`#3fd07a`) is 2.0:1 and the dark ground clears 4.5:1 on all three fills.
+**The On-Fill Rule.** Text on a filled brand colour (`--court`, `--warn`, `--accent`) uses `--on-fill`, never a literal white: white in light theme, the dark ground (`#0e1310`) in dark theme, because white on the dark theme's bright green (`#3fd07a`) is 2.0:1 and the dark ground clears 4.5:1 on all three fills. A known gap: white on the light theme's `--accent` is 3.10:1, below 4.5:1, tracked by the `it.todo` in `web/src/styles.contrast.spec.ts` and affecting the selected level chip.
 
 ## Typography
 

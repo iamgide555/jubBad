@@ -18,15 +18,27 @@
     }
   </h1>
 
+  <!-- "Clear list" can be taken back for a few seconds. The live region is
+       always in the page, so its words are announced when they appear; it is
+       empty, and takes no room, the rest of the time. -->
+  <div class="undo-slot" role="status">
+    @if (undoSnapshot()) {
+      <div class="undo-notice">
+        <span i18n="@@entry.rosterCleared">ล้างรายชื่อแล้ว</span>
+        <button type="button" class="ghost" data-undo (click)="undoDiscard()" i18n="@@entry.undoClear">เลิกทำ</button>
+      </div>
+    }
+  </div>
+
   @if (state() === 'paste') {
     <div class="entry-card paste-card" [appReveal]="1">
       <div class="paste-card-head">
         <app-icon name="feather" [size]="18" />
-        <label>
+        <label for="roster-text">
           <ng-container i18n="@@entry.rosterMessage">ข้อความรายชื่อ</ng-container>
         </label>
       </div>
-      <textarea [(ngModel)]="rawText" rows="15" i18n-placeholder="@@entry.rosterPlaceholder" placeholder="วางข้อความรายชื่อจากไลน์ที่นี่"></textarea>
+      <textarea id="roster-text" [ngModel]="rawText()" (ngModelChange)="onRawTextChange($event)" rows="15" i18n-placeholder="@@entry.rosterPlaceholder" placeholder="วางข้อความรายชื่อจากไลน์ที่นี่"></textarea>
       @if (pasteError()) {
         <p class="error" role="alert">{{ pasteError() }}</p>
       }
@@ -50,6 +62,12 @@
   }
 
   @if (state() === 'confirm') {
+    @if (rawText().trim()) {
+      <p class="edit-paste">
+        <button type="button" class="ghost" data-edit-paste [disabled]="isSubmitting()" (click)="editPaste()" i18n="@@entry.editPaste">← แก้ข้อความที่วาง</button>
+      </p>
+    }
+
     @if (warnings().length > 0) {
       <div class="notice-block warnings">
         @for (w of warnings(); track w) {
@@ -68,9 +86,6 @@
     }
 
     <hr class="rule" />
-    <p>
-      <button type="button" class="ghost" data-discard [disabled]="isSubmitting()" (click)="discardDraft()" i18n="@@entry.discardDraft">ล้างรายชื่อแล้วเริ่มใหม่</button>
-    </p>
 
     <div class="field-row">
       <label>
@@ -311,7 +326,7 @@
       </ol>
     }
 
-    <button type="button" [disabled]="isSubmitting() || !canConfirm()" [attr.aria-busy]="isSubmitting()" (click)="confirmRoster()">
+    <button type="button" class="confirm-roster" [disabled]="isSubmitting() || !canConfirm()" [attr.aria-busy]="isSubmitting()" (click)="confirmRoster()">
       @if (isSubmitting()) {
         <ng-container i18n="@@entry.confirmingRoster">กำลังบันทึกรายชื่อ...</ng-container>
       } @else {
@@ -327,6 +342,11 @@
         <button type="button" class="ghost" [disabled]="isSubmitting()" (click)="confirmRoster()" i18n="@@entry.retry">ลองอีกครั้ง</button>
       </p>
     }
+
+    <!-- Last, and quiet: throwing the list away is rare, and can be undone for a few seconds. -->
+    <p class="clear-roster">
+      <button type="button" class="ghost" data-discard [disabled]="isSubmitting()" (click)="discardDraft()" i18n="@@entry.clearRoster">ล้างรายชื่อ</button>
+    </p>
   }
   }
 </div>

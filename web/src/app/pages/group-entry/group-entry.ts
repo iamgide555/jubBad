@@ -36,6 +36,9 @@ function todayIso(): string {
   return `${now.getFullYear()}-${month}-${day}`;
 }
 
+/** How long "clear list" can be taken back. */
+const UNDO_MS = 8000;
+
 @Component({
   selector: 'app-group-entry',
   imports: [FormsModule, RouterLink, NgTemplateOutlet, PressDirective, RevealDirective, Icon, LevelPicker],
@@ -196,7 +199,10 @@ export class GroupEntry {
     void this.loadGroup();
     const draft = this.drafts.get(this.groupCode);
     if (draft) this.applyDraft(draft);
-    inject(DestroyRef).onDestroy(() => this.persistDraft());
+    inject(DestroyRef).onDestroy(() => {
+      this.clearUndo();
+      this.persistDraft();
+    });
   }
 
   async loadGroup(): Promise<void> {
@@ -222,7 +228,15 @@ export class GroupEntry {
       this.drafts.clear(this.groupCode);
       return;
     }
-    this.drafts.save(this.groupCode, {
+    this.drafts.save(this.groupCode, this.snapshotDraft());
+  }
+
+  /**
+   * The whole screen as it stands, for `persistDraft` (leaving) and `discardDraft` (undo).
+   * The Sets are copied: the live ones are cleared on discard, and must not empty the snapshot with them.
+   */
+  private snapshotDraft(): RosterDraft {
+    return {
       state: this.state(),
       rawText: this.rawText(),
       date: this.date(),
@@ -236,7 +250,7 @@ export class GroupEntry {
       manualReviews: new Set(this.manualReviews),
       openReviews: new Set(this.openReviews),
       idempotencyKey: this.creationIdempotencyKey,
-    });
+    };
   }
 
   private applyDraft(draft: RosterDraft): void {
@@ -256,8 +270,17 @@ export class GroupEntry {
     if (draft.state === 'confirm') void this.loadLadder();
   }
 
-  /** Throw the roster away and start from an empty paste box. */
+  /**
+   * What the last "clear list" threw away, held for `UNDO_MS` so the host can
+   * take it back. Never the live draft: `persistDraft` reads the live signals,
+   * so leaving with an undo pending saves the empty paste box, not this.
+   */
+  readonly undoSnapshot = signal<RosterDraft | null>(null);
+  private undoTimer: ReturnType<typeof setTimeout> | null = null;
+
+  /** Throw the roster away and start from an empty paste box — undoable for a few seconds. */
   discardDraft(): void {
+    const snapshot = this.snapshotDraft();
     this.drafts.clear(this.groupCode);
     this.rawText.set('');
     this.rosterReviews.set([]);
@@ -268,6 +291,39 @@ export class GroupEntry {
     this.pasteError.set(null);
     this.confirmError.set(null);
     this.state.set('paste');
+    this.clearUndo();
+    this.undoSnapshot.set(snapshot);
+    this.undoTimer = setTimeout(() => {
+      this.undoTimer = null;
+      this.undoSnapshot.set(null);
+    }, UNDO_MS);
+  }
+
+  /** Puts back exactly what the last clear threw away. Never after the session exists. */
+  undoDiscard(): void {
+    const snapshot = this.undoSnapshot();
+    this.clearUndo();
+    if (!snapshot || this.sessionCreated) return;
+    this.applyDraft(snapshot);
+  }
+
+  /** Withdraws the undo offer: the host has moved on (new text, a new parse, a manual start, a session, or leaving). */
+  private clearUndo(): void {
+    if (this.undoTimer !== null) clearTimeout(this.undoTimer);
+    this.undoTimer = null;
+    this.undoSnapshot.set(null);
+  }
+
+  /** Back from the review to the pasted message, text kept. The reviews stay until the next parse replaces them. */
+  editPaste(): void {
+    if (this.isSubmitting()) return;
+    this.state.set('paste');
+  }
+
+  /** The paste box's input. Any new text means the host has moved on from the list they cleared. */
+  onRawTextChange(value: string): void {
+    this.rawText.set(value);
+    this.clearUndo();
   }
 
   /**
@@ -337,6 +393,7 @@ export class GroupEntry {
       return;
     }
 
+    this.clearUndo();
     this.isParsing.set(true);
     try {
       const result = await firstValueFrom(
@@ -369,6 +426,7 @@ export class GroupEntry {
   async startManual(): Promise<void> {
     if (this.isParsing()) return;
     this.pasteError.set(null);
+    this.clearUndo();
 
     this.isParsing.set(true);
     try {
@@ -707,6 +765,7 @@ export class GroupEntry {
         })
       );
       this.sessionCreated = true;
+      this.clearUndo();
       this.drafts.clear(this.groupCode);
       await this.router.navigateByUrl(`/s/${result.code}`);
     } catch (err) {

@@ -35,6 +35,8 @@ const PLAYERS = [
   },
 ];
 
+const GROUP = { code: 'group1', name: 'ก๊วนอังคาร', lastSessionCode: null };
+
 // jsdom implements no showModal()/close() on <dialog>; the shared add-rule
 // modal needs them. Guarded so a future jsdom that implements them takes over.
 beforeAll(() => {
@@ -76,6 +78,8 @@ describe('PlayerRoster', () => {
     httpMock.expectOne(`${B}/groups/group1/players/manage`).flush(PLAYERS);
     httpMock.expectOne(`${B}/groups/group1/rules`).flush([]);
     httpMock.expectOne(`${B}/groups/group1/levels`).flush(standardLadderFixture());
+    // The back link names the group.
+    httpMock.expectOne(`${B}/groups/group1`).flush(GROUP);
     await fixture.whenStable();
     fixture.detectChanges();
   });
@@ -98,6 +102,26 @@ describe('PlayerRoster', () => {
     expect(el.querySelector('[data-empty]')?.textContent).toContain('ผู้เล่นจะเข้ามาเมื่อเริ่มรอบ');
     expect(el.querySelector('[data-empty-start]')?.getAttribute('href')).toBe('/g/group1/start');
     expect(el.querySelector<HTMLElement>('.table-scroll')?.hidden).toBe(true);
+  });
+
+  it('an empty group offers its first session, full tap height, and none of the controls that need players', () => {
+    const el = fixture.nativeElement as HTMLElement;
+    // With players, the rules, the levels link and bulk tagging are all there.
+    expect(el.querySelector('details.pair-rules')).not.toBeNull();
+    expect(el.querySelector('[data-levels-link]')).not.toBeNull();
+    expect(el.querySelector('[data-bulk]')).not.toBeNull();
+
+    component.players.set([]);
+    fixture.detectChanges();
+    const start = el.querySelector<HTMLAnchorElement>('[data-empty-start]')!;
+    expect(start.textContent!.trim()).toBe('เริ่มรอบแรก →');
+    expect(start.getAttribute('href')).toBe('/g/group1/start');
+    expect(getComputedStyle(start).display).toBe('inline-flex');
+    expect(getComputedStyle(start).minHeight).toBe('var(--tap)');
+    expect(el.querySelector('details.pair-rules')).toBeNull();
+    expect(el.querySelector('[data-levels-link]')).toBeNull();
+    expect(el.querySelector('[data-bulk]')).toBeNull();
+    expect(el.querySelector('[data-bulk-toggle]')).toBeNull();
   });
 
   it('copies the player profile link from the row button', async () => {
@@ -555,10 +579,45 @@ describe('PlayerRoster', () => {
     });
   });
 
-  it('its back link returns to the group home with settings open on this row', () => {
-    const back = [...fixture.nativeElement.querySelectorAll('a')].find((a: HTMLAnchorElement) =>
-      a.textContent?.includes('กลับ')
-    ) as HTMLAnchorElement;
+  it('its back link names the group and returns to the group home with settings open on this row', () => {
+    const back = (fixture.nativeElement as HTMLElement).querySelector<HTMLAnchorElement>('a.back')!;
+    expect(back.textContent).toContain('ก๊วนอังคาร');
+    expect(back.textContent).toContain('←');
     expect(back.getAttribute('href')).toBe('/g/group1?settings=players');
+    const style = getComputedStyle(back);
+    expect(style.display).toBe('inline-flex');
+    expect(style.minHeight).toBe('var(--tap)');
+    expect(style.textDecoration).toBe('none');
+  });
+
+  it('the back link says ← กลับ until the group name arrives, and when it cannot be read', async () => {
+    const again = TestBed.createComponent(PlayerRoster);
+    httpMock.expectOne(`${B}/groups/group1/players/manage`).flush(PLAYERS);
+    httpMock.expectOne(`${B}/groups/group1/rules`).flush([]);
+    httpMock.expectOne(`${B}/groups/group1/levels`).flush(standardLadderFixture());
+    await again.whenStable();
+    again.detectChanges();
+    const back = () => (again.nativeElement as HTMLElement).querySelector<HTMLAnchorElement>('a.back')!;
+    expect(back().textContent!.trim()).toBe('← กลับ');
+    expect(back().getAttribute('href')).toBe('/g/group1?settings=players');
+
+    httpMock.expectOne(`${B}/groups/group1`).flush('x', { status: 500, statusText: 'Server Error' });
+    await again.whenStable();
+    again.detectChanges();
+    await again.whenStable();
+    expect(back().textContent!.trim()).toBe('← กลับ');
+    expect(back().getAttribute('href')).toBe('/g/group1?settings=players');
+    again.destroy();
+  });
+
+  it('while editing, the stand-in for the back link keeps its layout and the group name', () => {
+    component.startEdit(PLAYERS[0]);
+    fixture.detectChanges();
+    const el = fixture.nativeElement as HTMLElement;
+    expect(el.querySelector('a.back')).toBeNull();
+    const stand = el.querySelector<HTMLElement>('span.back')!;
+    expect(stand.textContent).toContain('ก๊วนอังคาร');
+    expect(getComputedStyle(stand).display).toBe('inline-flex');
+    expect(getComputedStyle(stand).minHeight).toBe('var(--tap)');
   });
 });

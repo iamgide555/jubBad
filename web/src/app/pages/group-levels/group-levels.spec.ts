@@ -8,6 +8,8 @@ import { GroupLevels } from './group-levels';
 
 const B = environment.apiBaseUrl;
 const URL = `${B}/groups/g1/levels`;
+const GROUP_URL = `${B}/groups/g1`;
+const GROUP = { code: 'g1', name: 'ก๊วนพุธ', lastSessionCode: null };
 
 beforeAll(() => {
   if (!HTMLDialogElement.prototype.showModal) {
@@ -71,6 +73,8 @@ describe('GroupLevels', () => {
   async function load(body: GroupLevelsResponse) {
     fixture.detectChanges();
     http.expectOne(URL).flush(body);
+    // The back link names the group.
+    http.expectOne(GROUP_URL).flush(GROUP);
     await settle();
   }
   function type(input: HTMLInputElement, value: string) {
@@ -298,15 +302,44 @@ describe('GroupLevels', () => {
   it('a group the host does not own shows no usable editor', async () => {
     fixture.detectChanges();
     http.expectOne(URL).flush({}, { status: 404, statusText: 'Not Found' });
+    http.expectOne(GROUP_URL).flush({}, { status: 404, statusText: 'Not Found' });
     await settle();
     expect(el().textContent).toContain('โหลดข้อมูลระดับไม่สำเร็จ');
     expect(q('[data-editor]')).toBeNull();
     expect(q('[data-customize]')).toBeNull();
   });
 
-  it('its back link returns to the group home with settings open on this row', async () => {
+  it('its back link names the group and returns to the group home with settings open on this row', async () => {
     await load(standard());
-    const back = [...el().querySelectorAll('a')].find((a) => a.textContent?.includes('กลับ')) as HTMLAnchorElement;
+    const back = q<HTMLAnchorElement>('a.back');
+    expect(back.textContent).toContain('ก๊วนพุธ');
+    expect(back.textContent).toContain('←');
     expect(back.getAttribute('href')).toBe('/g/g1?settings=levels');
+    const style = getComputedStyle(back);
+    expect(style.display).toBe('inline-flex');
+    expect(style.minHeight).toBe('var(--tap)');
+    expect(style.textDecoration).toBe('none');
+  });
+
+  it('the back link says ← กลับ until the group name arrives', async () => {
+    fixture.detectChanges();
+    http.expectOne(URL).flush(standard());
+    await settle();
+    expect(q('a.back').textContent!.trim()).toBe('← กลับ');
+    expect(q('a.back').getAttribute('href')).toBe('/g/g1?settings=levels');
+    http.expectOne(GROUP_URL).flush(GROUP);
+    await settle();
+    await fixture.whenStable();
+    expect(q('a.back').textContent).toContain('ก๊วนพุธ');
+  });
+
+  it('the back link says ← กลับ when the group name cannot be read', async () => {
+    fixture.detectChanges();
+    http.expectOne(URL).flush(standard());
+    http.expectOne(GROUP_URL).flush('x', { status: 500, statusText: 'Server Error' });
+    await settle();
+    await fixture.whenStable();
+    expect(q('a.back').textContent!.trim()).toBe('← กลับ');
+    expect(q('a.back').getAttribute('href')).toBe('/g/g1?settings=levels');
   });
 });

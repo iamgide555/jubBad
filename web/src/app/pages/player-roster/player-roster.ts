@@ -37,9 +37,13 @@ export class PlayerRoster implements CanComponentDeactivate, OnDestroy {
   readonly groupCode: string;
   /** Back to group home with the settings list reopened on this row. */
   protected readonly back: ReturnType<typeof settingsReturn>;
+  /** Names the group in the back link; empty while loading or unreadable, which shows "← กลับ". */
+  readonly groupName = signal('');
   readonly players = signal<ManagedPlayer[]>([]);
   readonly loaded = signal(false);
   readonly loadError = signal(false);
+  /** Loaded, readable, and nobody yet: the page then offers only the first session. */
+  readonly isEmpty = computed(() => this.loaded() && !this.loadError() && this.players().length === 0);
 
   // Rank always reflects whichever metric is currently sorted, not a fixed
   // column — see the design spec's "Frontend" section.
@@ -74,6 +78,7 @@ export class PlayerRoster implements CanComponentDeactivate, OnDestroy {
     this.back = settingsReturn(this.groupCode, 'players');
     void this.load(true);
     void this.loadLadder();
+    void this.loadGroupName();
     // Covers the navigation paths canDeactivate() cannot: closing the tab,
     // reloading, or typing a new URL — none of which run the Angular
     // Router's guards, since the app itself is about to unload.
@@ -102,6 +107,15 @@ export class PlayerRoster implements CanComponentDeactivate, OnDestroy {
     return window.confirm(
       $localize`:@@playerRoster.confirmDiscard:คุณกำลังแก้ไขข้อมูลผู้เล่นอยู่ ออกจากหน้านี้โดยไม่บันทึกใช่หรือไม่?`
     );
+  }
+
+  private async loadGroupName(): Promise<void> {
+    try {
+      const group = await firstValueFrom(this.rosterService.getGroup(this.groupCode));
+      this.groupName.set(group.name?.trim() ?? '');
+    } catch {
+      // The back link keeps saying "← กลับ"; it still goes to the same place.
+    }
   }
 
   private async load(withRules = false): Promise<void> {

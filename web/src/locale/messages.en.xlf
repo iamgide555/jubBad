@@ -2625,6 +2625,10 @@
         <source>เริ่มรอบใหม่ →</source>
         <target>Start a session →</target>
       </trans-unit>
+      <trans-unit id="playerRoster.emptyStartFirst" datatype="html">
+        <source>เริ่มรอบแรก →</source>
+        <target>Start first session →</target>
+      </trans-unit>
       <trans-unit id="playerRoster.noRules" datatype="html">
         <source>ยังไม่มีกฎ</source>
         <target>No rules yet</target>
@@ -4226,8 +4230,8 @@
         <target>Players</target>
       </trans-unit>
       <trans-unit id="group.row.playersDesc" datatype="html">
-        <source>รายชื่อและข้อมูลติดต่อของผู้เล่น</source>
-        <target>Names and contact details</target>
+        <source>รายชื่อ ระดับ ข้อมูลติดต่อ และกฎการจับคู่</source>
+        <target>Names, levels, contact details and pairing rules</target>
       </trans-unit>
       <trans-unit id="group.row.levels" datatype="html">
         <source>ระดับผู้เล่นของก๊วน</source>
@@ -4300,6 +4304,22 @@
       <trans-unit id="entry.discardDraft" datatype="html">
         <source>ล้างรายชื่อแล้วเริ่มใหม่</source>
         <target>Clear the list and start over</target>
+      </trans-unit>
+      <trans-unit id="entry.clearRoster" datatype="html">
+        <source>ล้างรายชื่อ</source>
+        <target>Clear list</target>
+      </trans-unit>
+      <trans-unit id="entry.rosterCleared" datatype="html">
+        <source>ล้างรายชื่อแล้ว</source>
+        <target>List cleared</target>
+      </trans-unit>
+      <trans-unit id="entry.undoClear" datatype="html">
+        <source>เลิกทำ</source>
+        <target>Undo</target>
+      </trans-unit>
+      <trans-unit id="entry.editPaste" datatype="html">
+        <source>← แก้ข้อความที่วาง</source>
+        <target>← Edit pasted text</target>
       </trans-unit>
       <trans-unit id="entry.createSessionFailed" datatype="html">
         <source>สร้างรอบไม่สำเร็จ กรุณาลองอีกครั้ง</source>

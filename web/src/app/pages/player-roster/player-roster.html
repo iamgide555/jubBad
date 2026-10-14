@@ -1,13 +1,19 @@
 <div class="page player-roster">
   <p>
+    <!-- Same back link as the settings detail screens: arrow and group name, a full tap target.
+         While editing it is a same-sized stand-in, so nothing jumps. -->
     @if (editingId() === null) {
-      <a [routerLink]="back.commands" [queryParams]="back.queryParams" i18n="@@playerRoster.back">← กลับ</a>
+      <a class="back" [routerLink]="back.commands" [queryParams]="back.queryParams">
+        @if (groupName()) { ← {{ groupName() }} } @else { <ng-container i18n="@@playerRoster.back">← กลับ</ng-container> }
+      </a>
     } @else {
-      <span class="muted" i18n-title="@@playerRoster.backDisabledHint" title="บันทึกหรือยกเลิกก่อนออกจากหน้านี้" i18n="@@playerRoster.back">← กลับ</span>
+      <span class="back muted" i18n-title="@@playerRoster.backDisabledHint" title="บันทึกหรือยกเลิกก่อนออกจากหน้านี้">
+        @if (groupName()) { ← {{ groupName() }} } @else { <ng-container i18n="@@playerRoster.back">← กลับ</ng-container> }
+      </span>
     }
   </p>
   <h1 i18n="@@playerRoster.title">ผู้เล่นในก๊วน</h1>
-  @if (editingId() === null) {
+  @if (editingId() === null && !isEmpty()) {
     <p><a [routerLink]="['/g', groupCode, 'levels']" data-levels-link i18n="@@playerRoster.groupLevels">ตั้งชื่อระดับของก๊วน →</a></p>
   }
 
@@ -19,69 +25,70 @@
     @if (levelSaveError()) {
       <p class="error" role="alert">{{ levelSaveError() }}</p>
     }
-    <details class="pair-rules" [open]="rulesOpen()" (toggle)="rulesOpen.set($any($event.target).open)">
-      <summary i18n="@@playerRoster.rulesTitle">กฎการจับคู่ ({{ rules().length }})</summary>
-      <p class="muted" i18n="@@playerRoster.rulesHint">คู่กัน: ลงเป็นคู่เดียวกันหรือพักพร้อมกัน · ห้ามอยู่ด้วยกัน: เป็นคู่แข่งกันได้ · ห้ามเล่นด้วยกัน: ไม่ลงสนามเดียวกัน</p>
-      @if (rulesError()) {
-        <p class="error" role="alert">{{ rulesError() }}</p>
-      }
-      @if (rules().length === 0) {
-        <p class="muted" i18n="@@playerRoster.noRules">ยังไม่มีกฎ</p>
-      } @else {
-        <ul class="rule-list">
-          @for (rule of rules(); track rule.id) {
-            <li class="rule-row">
-              <span class="rule-players">{{ playerName(rule.playerAId) }} · {{ playerName(rule.playerBId) }}</span>
-              <select
-                i18n-aria-label="@@playerRoster.ruleKindLabel"
-                aria-label="ประเภทกฎ"
-                [ngModel]="rule.kind"
-                (ngModelChange)="setRuleKind(rule, $event)"
-              >
-                @for (k of ruleKinds; track k.kind) {
-                  <option [ngValue]="k.kind">{{ k.label }}</option>
-                }
-              </select>
-              <button type="button" class="ghost" (click)="deleteRule(rule)" i18n="@@playerRoster.removeRule">ลบ</button>
-            </li>
-          }
-        </ul>
-      }
-      <button type="button" class="ghost" data-add-rule (click)="openAddRuleDialog()" i18n="@@playerRoster.addRule">+ เพิ่มกฎการจับคู่</button>
-    </details>
-
-    <app-add-rule-dialog
-      #addRuleDialog
-      [players]="players()"
-      [saving]="addRuleSaving()"
-      [error]="addRuleError()"
-      (add)="submitAddRule($event)"
-    />
-
-    @if (ladder(); as lad) {
-      <section class="bulk" data-bulk>
-        <button type="button" class="ghost" data-bulk-toggle [attr.aria-expanded]="bulkOn()" (click)="toggleBulk()">
-          @if (bulkOn()) {
-            <ng-container i18n="@@playerRoster.bulkDone">เสร็จการตั้งระดับ</ng-container>
-          } @else {
-            <ng-container i18n="@@playerRoster.bulkStart">ตั้งระดับหลายคน</ng-container>
-          }
-        </button>
-        @if (bulkOn()) {
-          <p class="muted" i18n="@@playerRoster.bulkHint">เลือกระดับก่อน แล้วแตะชื่อผู้เล่นที่อยู่ในระดับนั้น</p>
-          <div class="bulk-chips" role="group" i18n-aria-label="@@playerRoster.bulkLevelGroup" aria-label="ระดับที่จะตั้ง">
-            <button type="button" class="chip" data-bulk-level="none" [class.selected]="bulkLevel() === null" [attr.aria-pressed]="bulkLevel() === null" (click)="pickBulkLevel(null)" i18n="@@playerRoster.bulkClear">ล้างระดับ</button>
-            @for (l of lad.levels; track l.id) {
-              <button type="button" class="chip" [attr.data-bulk-level]="l.name" [class.selected]="bulkLevel() === l.name" [attr.aria-pressed]="bulkLevel() === l.name" (click)="pickBulkLevel(l.name)">{{ l.name }}</button>
-            }
-          </div>
-        }
-      </section>
-    }
-
-    @if (players().length === 0) {
+    @if (isEmpty()) {
+      <!-- Nothing here to set rules or levels on yet: the only useful step is the first session. -->
       <p class="muted" data-empty i18n="@@playerRoster.empty">ยังไม่มีผู้เล่นในก๊วนนี้ — ผู้เล่นจะเข้ามาเมื่อเริ่มรอบ วางรายชื่อจาก LINE หรือเพิ่มรายชื่อเอง</p>
-      <p><a [routerLink]="['/g', groupCode, 'start']" data-empty-start i18n="@@playerRoster.emptyStart">เริ่มรอบใหม่ →</a></p>
+      <p><a class="empty-start" [routerLink]="['/g', groupCode, 'start']" data-empty-start i18n="@@playerRoster.emptyStartFirst">เริ่มรอบแรก →</a></p>
+    } @else {
+      <details class="pair-rules" [open]="rulesOpen()" (toggle)="rulesOpen.set($any($event.target).open)">
+        <summary i18n="@@playerRoster.rulesTitle">กฎการจับคู่ ({{ rules().length }})</summary>
+        <p class="muted" i18n="@@playerRoster.rulesHint">คู่กัน: ลงเป็นคู่เดียวกันหรือพักพร้อมกัน · ห้ามอยู่ด้วยกัน: เป็นคู่แข่งกันได้ · ห้ามเล่นด้วยกัน: ไม่ลงสนามเดียวกัน</p>
+        @if (rulesError()) {
+          <p class="error" role="alert">{{ rulesError() }}</p>
+        }
+        @if (rules().length === 0) {
+          <p class="muted" i18n="@@playerRoster.noRules">ยังไม่มีกฎ</p>
+        } @else {
+          <ul class="rule-list">
+            @for (rule of rules(); track rule.id) {
+              <li class="rule-row">
+                <span class="rule-players">{{ playerName(rule.playerAId) }} · {{ playerName(rule.playerBId) }}</span>
+                <select
+                  i18n-aria-label="@@playerRoster.ruleKindLabel"
+                  aria-label="ประเภทกฎ"
+                  [ngModel]="rule.kind"
+                  (ngModelChange)="setRuleKind(rule, $event)"
+                >
+                  @for (k of ruleKinds; track k.kind) {
+                    <option [ngValue]="k.kind">{{ k.label }}</option>
+                  }
+                </select>
+                <button type="button" class="ghost" (click)="deleteRule(rule)" i18n="@@playerRoster.removeRule">ลบ</button>
+              </li>
+            }
+          </ul>
+        }
+        <button type="button" class="ghost" data-add-rule (click)="openAddRuleDialog()" i18n="@@playerRoster.addRule">+ เพิ่มกฎการจับคู่</button>
+      </details>
+
+      <app-add-rule-dialog
+        #addRuleDialog
+        [players]="players()"
+        [saving]="addRuleSaving()"
+        [error]="addRuleError()"
+        (add)="submitAddRule($event)"
+      />
+
+      @if (ladder(); as lad) {
+        <section class="bulk" data-bulk>
+          <button type="button" class="ghost" data-bulk-toggle [attr.aria-expanded]="bulkOn()" (click)="toggleBulk()">
+            @if (bulkOn()) {
+              <ng-container i18n="@@playerRoster.bulkDone">เสร็จการตั้งระดับ</ng-container>
+            } @else {
+              <ng-container i18n="@@playerRoster.bulkStart">ตั้งระดับหลายคน</ng-container>
+            }
+          </button>
+          @if (bulkOn()) {
+            <p class="muted" i18n="@@playerRoster.bulkHint">เลือกระดับก่อน แล้วแตะชื่อผู้เล่นที่อยู่ในระดับนั้น</p>
+            <div class="bulk-chips" role="group" i18n-aria-label="@@playerRoster.bulkLevelGroup" aria-label="ระดับที่จะตั้ง">
+              <button type="button" class="chip" data-bulk-level="none" [class.selected]="bulkLevel() === null" [attr.aria-pressed]="bulkLevel() === null" (click)="pickBulkLevel(null)" i18n="@@playerRoster.bulkClear">ล้างระดับ</button>
+              @for (l of lad.levels; track l.id) {
+                <button type="button" class="chip" [attr.data-bulk-level]="l.name" [class.selected]="bulkLevel() === l.name" [attr.aria-pressed]="bulkLevel() === l.name" (click)="pickBulkLevel(l.name)">{{ l.name }}</button>
+              }
+            </div>
+          }
+        </section>
+      }
     }
 
     <div class="table-scroll" [hidden]="players().length === 0">

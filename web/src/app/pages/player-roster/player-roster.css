@@ -130,3 +130,20 @@
   margin-top: var(--space-1);
   resize: vertical;
 }
+
+/* Same back link as the settings detail screens: arrow and group name, a
+   full tap target, no underline. The editing stand-in shares the class so
+   swapping between them does not move anything. */
+.back {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--tap);
+  text-decoration: none;
+  font-size: var(--text-sm);
+}
+
+.empty-start {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--tap);
+}

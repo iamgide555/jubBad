@@ -45,6 +45,8 @@ export class GroupLevels implements CanComponentDeactivate {
   protected readonly groupCode = inject(ActivatedRoute).snapshot.paramMap.get('groupCode')!;
   /** Back to group home with the settings list reopened on this row. */
   protected readonly back = settingsReturn(this.groupCode, 'levels');
+  /** Names the group in the back link; empty while loading or unreadable, which shows "← กลับ". */
+  protected readonly groupName = signal('');
 
   protected readonly data = signal<GroupLevelsResponse | null>(null);
   protected readonly loadFailed = signal(false);
@@ -76,6 +78,16 @@ export class GroupLevels implements CanComponentDeactivate {
 
   constructor() {
     void this.load();
+    void this.loadGroupName();
+  }
+
+  private async loadGroupName(): Promise<void> {
+    try {
+      const group = await firstValueFrom(this.roster.getGroup(this.groupCode));
+      this.groupName.set(group.name?.trim() ?? '');
+    } catch {
+      // The back link keeps saying "← กลับ"; it still goes to the same place.
+    }
   }
 
   canDeactivate(): boolean {

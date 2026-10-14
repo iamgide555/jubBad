@@ -110,3 +110,13 @@ button {
   justify-content: flex-end;
   gap: var(--space-1);
 }
+
+/* Same back link as the settings detail screens: arrow and group name, a
+   full tap target, no underline. */
+.back {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--tap);
+  text-decoration: none;
+  font-size: var(--text-sm);
+}

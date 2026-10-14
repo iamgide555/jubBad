@@ -346,7 +346,16 @@ describe('GroupHome', () => {
     await settle();
     await tick();
     expect(list().querySelectorAll('.value').length).toBe(0);
-    expect(list().querySelector('[data-section="players"]')?.textContent).toContain('รายชื่อและข้อมูลติดต่อของผู้เล่น');
+    expect(list().querySelector('[data-section="players"]')?.textContent).toContain('รายชื่อ ระดับ ข้อมูลติดต่อ และกฎการจับคู่');
+  });
+
+  it('the players row describes everything that page holds: names, levels, contact details and pairing rules', async () => {
+    await open();
+    trigger().click();
+    await harness.fixture.whenStable();
+    flushValues();
+    await settle();
+    expect(el().querySelector('#desc-players')?.textContent?.trim()).toBe('รายชื่อ ระดับ ข้อมูลติดต่อ และกฎการจับคู่');
   });
 
   it('values are fetched once, not on every reopen', async () => {

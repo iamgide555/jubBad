@@ -1207,3 +1207,293 @@ describe('GroupEntry roster review and group ladders (host feedback F)', () => {
     expect(component.ladder()?.revision).toBe(7);
   });
 });
+
+// UX review: the review step's discard used to be its first, irreversible control and wiped
+// the paste with it. It now sits last, says ล้างรายชื่อ, and can be taken back for a few
+// seconds; a pasted roster can also go back to its text without losing it.
+describe('GroupEntry review step: clear with undo, edit the paste (UX review)', () => {
+  let component: GroupEntry;
+  let fixture: ComponentFixture<GroupEntry>;
+  let httpMock: HttpTestingController;
+  const PASTE = '1. ตัม\n2. เกียร์';
+  const el = () => fixture.nativeElement as HTMLElement;
+  const undoButton = () => el().querySelector<HTMLButtonElement>('[role="status"] [data-undo]');
+  const buttonByText = (text: string) =>
+    [...el().querySelectorAll<HTMLButtonElement>('button')].find((b) => b.textContent?.trim() === text) ?? null;
+
+  beforeEach(async () => {
+    await TestBed.configureTestingModule({
+      imports: [GroupEntry],
+      providers: [
+        provideHttpClient(),
+        provideHttpClientTesting(),
+        provideRouter(routes),
+        { provide: AuthService, useValue: { check: () => Promise.resolve(true) } },
+        { provide: ActivatedRoute, useValue: { snapshot: { paramMap: convertToParamMap({ groupCode: 'group1' }) } } },
+      ],
+    }).compileComponents();
+    httpMock = TestBed.inject(HttpTestingController);
+    fixture = TestBed.createComponent(GroupEntry);
+    component = fixture.componentInstance;
+    httpMock.expectOne(`${B}/groups/group1`).flush({ code: 'group1', name: 'ก๊วนทดสอบ', lastSessionCode: null });
+    await render();
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+    for (const req of httpMock.match((r) => r.url.endsWith('/groups/group1/levels'))) req.flush(standardLadderFixture());
+    TestBed.inject(RosterDraftService).clear('group1');
+    httpMock.verify();
+  });
+
+  async function render(): Promise<void> {
+    await fixture.whenStable();
+    fixture.detectChanges();
+    await fixture.whenStable();
+  }
+
+  /** A pasted roster: one fuzzy question (opens a choice) and one new player. */
+  async function parsePasted(text = PASTE): Promise<void> {
+    component.rawText.set(text);
+    const parsing = component.parse();
+    httpMock.expectOne(`${B}/groups/group1/parse`).flush({
+      header: { isoDate: '2026-09-08', venue: 'KIP', courtCount: 2 },
+      rosterReviews: [
+        { inputName: 'ตัม', match: { type: 'fuzzy', playerId: 'p1', score: 0.8 } },
+        { inputName: 'เกียร์', match: { type: 'new' } },
+      ],
+      waitlistReviews: [],
+      warnings: [],
+      unrecognizedLines: [],
+    });
+    await new Promise((r) => setTimeout(r, 0));
+    httpMock.expectOne(`${B}/groups/group1/players`).flush([{ id: 'p1', name: 'ตั้ม', aliases: [] }]);
+    await parsing;
+    httpMock.expectOne(`${B}/groups/group1/levels`).flush(standardLadderFixture());
+    await render();
+  }
+
+  async function startManualRoster(): Promise<void> {
+    const done = component.startManual();
+    httpMock.expectOne(`${B}/groups/group1/players`).flush([{ id: 'p1', name: 'ตั้ม', aliases: [] }]);
+    await done;
+    httpMock.expectOne(`${B}/groups/group1/levels`).flush(standardLadderFixture());
+    await render();
+  }
+
+  const key = () => (component as unknown as { creationIdempotencyKey: string | null }).creationIdempotencyKey;
+  const setKey = (k: string) =>
+    ((component as unknown as { creationIdempotencyKey: string | null }).creationIdempotencyKey = k);
+
+  it('labels the paste box: the label points at the textarea', () => {
+    const textarea = el().querySelector('textarea')!;
+    expect(textarea.id).toBe('roster-text');
+    const label = el().querySelector<HTMLLabelElement>(`label[for="${textarea.id}"]`);
+    expect(label?.textContent).toContain('ข้อความรายชื่อ');
+  });
+
+  it('puts ล้างรายชื่อ after the confirm button, never as the review step\'s first control', async () => {
+    await parsePasted();
+    const discard = el().querySelector<HTMLButtonElement>('[data-discard]')!;
+    const confirm = buttonByText('ยืนยันรายชื่อ')!;
+    expect(discard.textContent!.trim()).toBe('ล้างรายชื่อ');
+    expect(discard.classList).toContain('ghost');
+    expect(confirm.compareDocumentPosition(discard) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(el().querySelector('button')).not.toBe(discard);
+  });
+
+  it('the confirm button spans the container', async () => {
+    await parsePasted();
+    const confirm = buttonByText('ยืนยันรายชื่อ')!;
+    expect(confirm.classList).toContain('confirm-roster');
+    expect(getComputedStyle(confirm).width).toBe('100%');
+  });
+
+  it('clearing offers an undo above the paste box that brings the whole review back', async () => {
+    await parsePasted();
+    component.manualQuery.set('น้องใหม่');
+    component.addNew();
+    component.date.set('2026-09-20');
+    component.courtCount.set(3);
+    setKey('key-1');
+    const before = component.rosterReviews();
+    expect(component.isOpen(before[0])).toBe(true);
+    expect(component.isManualReview(before[2])).toBe(true);
+    await render();
+
+    el().querySelector<HTMLButtonElement>('[data-discard]')!.click();
+    await render();
+    expect(component.state()).toBe('paste');
+    expect(component.rosterReviews()).toEqual([]);
+    expect(component.rawText()).toBe('');
+    expect(key()).toBeNull();
+    expect(undoButton()?.textContent?.trim()).toBe('เลิกทำ');
+    expect(undoButton()!.closest('[role="status"]')!.textContent).toContain('ล้างรายชื่อแล้ว');
+    expect(undoButton()!.compareDocumentPosition(el().querySelector('textarea')!) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+
+    undoButton()!.click();
+    await render();
+    expect(component.state()).toBe('confirm');
+    expect(component.rawText()).toBe(PASTE);
+    const restored = component.rosterReviews();
+    expect(restored).toEqual(before);
+    expect(component.isOpen(restored[0])).toBe(true);
+    expect(component.isManualReview(restored[2])).toBe(true);
+    expect(component.date()).toBe('2026-09-20');
+    expect(component.courtCount()).toBe(3);
+    expect(key()).toBe('key-1');
+    expect(component.undoSnapshot()).toBeNull();
+    expect(undoButton()).toBeNull();
+    expect(el().textContent).not.toContain('ล้างรายชื่อแล้ว');
+  });
+
+  it('the undo offer lapses after 8 seconds, and undo does nothing afterwards', async () => {
+    await parsePasted();
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+    component.discardDraft();
+    fixture.detectChanges();
+    expect(undoButton()).not.toBeNull();
+
+    vi.advanceTimersByTime(7999);
+    fixture.detectChanges();
+    expect(component.undoSnapshot()).not.toBeNull();
+    expect(undoButton()).not.toBeNull();
+
+    vi.advanceTimersByTime(1);
+    fixture.detectChanges();
+    expect(component.undoSnapshot()).toBeNull();
+    expect(undoButton()).toBeNull();
+
+    component.undoDiscard();
+    expect(component.state()).toBe('paste');
+    expect(component.rosterReviews()).toEqual([]);
+    expect(component.rawText()).toBe('');
+  });
+
+  it('parsing again withdraws the undo offer', async () => {
+    await parsePasted();
+    component.discardDraft();
+    expect(component.undoSnapshot()).not.toBeNull();
+
+    await parsePasted('1. มด');
+    expect(component.undoSnapshot()).toBeNull();
+    expect(undoButton()).toBeNull();
+    const after = component.rosterReviews();
+    component.undoDiscard();
+    expect(component.rosterReviews()).toBe(after);
+    expect(component.rawText()).toBe('1. มด');
+  });
+
+  it('starting a manual roster withdraws the undo offer', async () => {
+    await parsePasted();
+    component.discardDraft();
+    expect(component.undoSnapshot()).not.toBeNull();
+
+    await startManualRoster();
+    expect(component.undoSnapshot()).toBeNull();
+    component.undoDiscard();
+    expect(component.rosterReviews()).toEqual([]);
+    expect(component.rawText()).toBe('');
+  });
+
+  it('typing new text into the paste box withdraws the undo offer', async () => {
+    await parsePasted();
+    component.discardDraft();
+    await render();
+    expect(undoButton()).not.toBeNull();
+
+    const textarea = el().querySelector('textarea')!;
+    textarea.value = '1. คนใหม่';
+    textarea.dispatchEvent(new Event('input'));
+    await render();
+    expect(component.rawText()).toBe('1. คนใหม่');
+    expect(component.undoSnapshot()).toBeNull();
+    expect(undoButton()).toBeNull();
+    component.undoDiscard();
+    expect(component.state()).toBe('paste');
+    expect(component.rawText()).toBe('1. คนใหม่');
+  });
+
+  it('creating the session withdraws the undo offer', async () => {
+    await parsePasted();
+    component.discardDraft();
+    expect(component.undoSnapshot()).not.toBeNull();
+    // Back to a confirmable review without going through undo.
+    component.date.set('2026-09-08');
+    component.courtCount.set(1);
+    component.rosterReviews.set(fourNewPlayers().map((r) => ({ ...r, decision: 'accept' as const })));
+    component.state.set('confirm');
+
+    const creating = component.confirmRoster();
+    httpMock.expectOne(`${B}/sessions`).flush({ code: 'sess1' });
+    await creating;
+    expect(component.undoSnapshot()).toBeNull();
+    const after = component.rosterReviews();
+    component.undoDiscard();
+    expect(component.rosterReviews()).toBe(after);
+  });
+
+  it('a clear tapped after the session was created never brings the roster back', async () => {
+    await parsePasted();
+    component.date.set('2026-09-08');
+    component.courtCount.set(1);
+    component.rosterReviews.set(fourNewPlayers().map((r) => ({ ...r, decision: 'accept' as const })));
+    const creating = component.confirmRoster();
+    httpMock.expectOne(`${B}/sessions`).flush({ code: 'sess1' });
+    await creating;
+
+    // A late tap while the dashboard is opening.
+    component.discardDraft();
+    component.undoDiscard();
+    expect(component.state()).toBe('paste');
+    expect(component.rosterReviews()).toEqual([]);
+  });
+
+  it('leaving with an undo pending clears its timer and saves no draft from it', async () => {
+    await parsePasted();
+    const setSpy = vi.spyOn(globalThis, 'setTimeout');
+    const clearSpy = vi.spyOn(globalThis, 'clearTimeout');
+    try {
+      component.discardDraft();
+      const call = setSpy.mock.calls.findIndex((c) => c[1] === 8000);
+      expect(call).toBeGreaterThanOrEqual(0);
+      const timer = setSpy.mock.results[call].value;
+      fixture.destroy();
+      expect(clearSpy).toHaveBeenCalledWith(timer);
+      expect(component.undoSnapshot()).toBeNull();
+      // The live screen was an empty paste box: nothing to keep, and the cleared roster is not it.
+      expect(TestBed.inject(RosterDraftService).get('group1')).toBeNull();
+    } finally {
+      setSpy.mockRestore();
+      clearSpy.mockRestore();
+    }
+  });
+
+  it('a pasted roster can go back to its text: the paste box returns with the text kept', async () => {
+    await parsePasted();
+    const edit = el().querySelector<HTMLButtonElement>('[data-edit-paste]')!;
+    expect(edit.textContent!.trim()).toBe('← แก้ข้อความที่วาง');
+    expect(edit.classList).toContain('ghost');
+    // Directly under the title: the review's first control, before the date and the roster.
+    expect(el().querySelector('button')).toBe(edit);
+    expect(el().querySelector('h1')!.compareDocumentPosition(edit) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(edit.compareDocumentPosition(el().querySelector('input[type="date"]')!) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+
+    edit.click();
+    await render();
+    expect(component.state()).toBe('paste');
+    expect(component.rawText()).toBe(PASTE);
+    expect(el().querySelector('textarea')!.value).toBe(PASTE);
+
+    fixture.destroy();
+    const draft = TestBed.inject(RosterDraftService).get('group1');
+    expect(draft?.state).toBe('paste');
+    expect(draft?.rawText).toBe(PASTE);
+  });
+
+  it('a manual-start roster has no pasted text to go back to', async () => {
+    await startManualRoster();
+    expect(component.state()).toBe('confirm');
+    expect(el().querySelector('[data-edit-paste]')).toBeNull();
+  });
+});

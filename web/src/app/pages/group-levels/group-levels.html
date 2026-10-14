@@ -1,5 +1,10 @@
 <div class="page group-levels">
-  <p><a [routerLink]="back.commands" [queryParams]="back.queryParams" i18n="@@levels.back">← กลับ</a></p>
+  <p>
+    <!-- Same back link as the settings detail screens: arrow and group name, a full tap target. -->
+    <a class="back" [routerLink]="back.commands" [queryParams]="back.queryParams">
+      @if (groupName()) { ← {{ groupName() }} } @else { <ng-container i18n="@@levels.back">← กลับ</ng-container> }
+    </a>
+  </p>
   <h1 i18n="@@levels.title">ระดับผู้เล่นของก๊วน</h1>
 
   @if (loadFailed()) {

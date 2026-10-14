@@ -259,7 +259,7 @@ th:not(:first-child):not(.profile-cell):not(.rate-cell) {
     padding-right: var(--space-1);
   }
 
-  td:nth-child(7) .stat-games {
+  td:nth-child(7) .time-average {
     display: none;
   }
 }
@@ -372,3 +372,7 @@ button.shuttle-cell:hover {
   min-height: var(--tap);
   margin-left: var(--space-1);
 }
+
+.time-cell { white-space: normal; }
+.duration-qualifier { display: block; font-size: var(--text-sm); overflow-wrap: anywhere; }
+.time-average { display: block; }

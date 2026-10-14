@@ -197,10 +197,21 @@
                   <span class="muted stat-games" i18n="@@summary.gamesCount">({{ row.singles.played }} เกม)</span>
                 } @else { <span class="no-data">–</span> }
               </td>
-              <td class="rate-cell">
-                {{ formatMinutes(row.totalSeconds) }}
-                @if (averageMinutes(row.totalSeconds, row.played); as avg) {
-                  <span class="muted stat-games" i18n="@@summary.avgGameTime">(เฉลี่ย {{ avg }}/เกม)</span>
+              <td class="rate-cell time-cell">
+                @let time = durationSummary(row.matches);
+                @if (row.matches.length === 0 || time.measuredMatchCount + time.estimatedMatchCount > 0) {
+                  {{ formatMinutes(row.totalSeconds) }}
+                } @else {
+                  <span class="muted" i18n="@@duration.unknown">ไม่ทราบเวลา</span>
+                }
+                @if (time.estimatedMatchCount > 0) {
+                  <span class="muted duration-qualifier" i18n="@@duration.estimated">โดยประมาณ</span>
+                }
+                @if (time.unknownDurationMatchCount > 0 && time.measuredMatchCount + time.estimatedMatchCount > 0) {
+                  <span class="muted duration-qualifier" i18n="@@duration.partial">เวลารวมไม่ครบ</span>
+                }
+                @if (averageMinutes(time.measuredTotalSeconds, time.measuredMatchCount); as avg) {
+                  <span class="muted stat-games time-average" i18n="@@summary.avgGameTime">(เฉลี่ย {{ avg }}/เกม)</span>
                 }
               </td>
               @if (isHost()) {
@@ -241,7 +252,14 @@
                         @if (m.scoreA !== null && m.scoreB !== null) {
                           ({{ m.scoreA }}-{{ m.scoreB }})
                         }
-                        <span class="muted stat-games">({{ formatMinutes(m.durationSeconds) }})</span>
+                        @if (m.durationSeconds !== null) {
+                          <span class="muted stat-games">({{ formatMinutes(m.durationSeconds) }})</span>
+                          @if (m.durationSource === 'estimated') {
+                            <span class="muted stat-games" i18n="@@duration.estimated">โดยประมาณ</span>
+                          }
+                        } @else {
+                          <span class="muted stat-games" i18n="@@duration.unknown">ไม่ทราบเวลา</span>
+                        }
                         @if (m.shuttles) {
                           @for (u of m.shuttles; track u.id) { <span class="shuttle-tag">#{{ u.number }}</span> }
                         }

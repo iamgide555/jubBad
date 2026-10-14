@@ -79,6 +79,18 @@ describe('RosterService', () => {
     expect(result).toEqual([{ id: 'p1', name: 'ตั้ม', aliases: [] }]);
   });
 
+  it('previews forgotten closure without posting changes', () => {
+    service.previewForgottenSession('old').subscribe();
+    httpMock.expectOne({ url: `${B}/sessions/old/close-preview`, method: 'GET' }).flush({ code: 'old' });
+  });
+
+  it('posts only the reviewed hash when closing', () => {
+    service.closeForgottenSession('old', 'a'.repeat(64)).subscribe();
+    const req = httpMock.expectOne({ url: `${B}/sessions/old/close-forgotten`, method: 'POST' });
+    expect(req.request.body).toEqual({ snapshotHash: 'a'.repeat(64) });
+    req.flush({ code: 'old', endedAt: '2026-10-14T10:00:00Z' });
+  });
+
   it('createSession sends POST /sessions with the given body', () => {
     let result: unknown;
     const dto = {

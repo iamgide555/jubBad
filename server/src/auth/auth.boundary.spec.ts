@@ -213,6 +213,23 @@ describe('auth boundary', () => {
     });
   });
 
+  it('lets the owning host preview and close a forgotten session, validates consent, and accepts retry', async () => {
+    const login = await request(server).post('/auth/login').send({ email, password: PASSWORD }).expect(201);
+    const cookie = ([] as string[]).concat(login.headers['set-cookie'] ?? [])[0];
+    const code = randomUUID();
+    await prisma.session.create({ data: { code, groupId: ctx.groupCode, rawImportText: '' } });
+    try {
+      const preview = await request(server).get(`/sessions/${code}/close-preview`).set('Cookie', cookie).expect(200);
+      expect(preview.body).toMatchObject({ pendingCount: 0, activeCount: 0, queuedCount: 0, averageDurationSeconds: null });
+      await request(server).post(`/sessions/${code}/close-forgotten`).set('Cookie', cookie).send({ snapshotHash: 'invalid' }).expect(400);
+      expect((await prisma.session.findUniqueOrThrow({ where: { code } })).endedAt).toBeNull();
+      const closed = await request(server).post(`/sessions/${code}/close-forgotten`).set('Cookie', cookie).send({ snapshotHash: preview.body.snapshotHash }).expect(201);
+      const retry = await request(server).post(`/sessions/${code}/close-forgotten`).set('Cookie', cookie).send({ snapshotHash: preview.body.snapshotHash }).expect(201);
+      expect(retry.body).toEqual(closed.body);
+      await request(server).get(`/sessions/${randomUUID()}/close-preview`).set('Cookie', cookie).expect(404);
+    } finally { await prisma.session.delete({ where: { code } }); }
+  });
+
   it('lets the owning host share and stop sharing the dashboard', async () => {
     const login = await request(server)
       .post('/auth/login')

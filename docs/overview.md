@@ -718,7 +718,7 @@ alone would tell a player who arrived an hour late that they had been waiting
 an hour, contradicting the rotation, which deliberately does not owe them that
 time.
 
-How long a game took is derived the same way, from the same two `Pairing`
+**Recorded match duration** is derived from the same two `Pairing`
 timestamps: `confirmedAt` (host confirms, players go on court) to `endedAt`
 (score submitted, court freed). The live dashboard shows a ticking stopwatch
 on the active court; the post-session summary shows each match's duration and
@@ -775,6 +775,17 @@ rather than tracked per match. Both fields are optional and can be corrected
 later from the summary page. The price is stored in satang as an integer, and
 null means "not recorded", which is different from 0. The public summary shows
 both.
+
+### Closing a forgotten session
+
+- **On-demand recovery:** roster entry checks all sessions for the group, not only the newest. An open session offers resume or an explicit preview and confirmation to close it. Drafts stay intact; no background expiry job runs.
+- **Creation guard:** a fresh creation request refuses while any session in that group has `endedAt` null. A retry with the same successful `SessionCreation` key still returns its original session. Group-scoped locking serializes competing creation requests.
+- **Unplayed matches:** pending pairings and queued lineups are discarded. Confirmed active matches finish with no winner or scores, count once as played, and retain their recorded shuttle logs and participation history. Completed games and settled receipts stay intact. Recovery can therefore change game-based billing, and the confirmation explains this.
+- **Honest duration:** `endedAt` records the actual closure time. `closedWithoutResultAt` marks a recovered match; its separate `estimatedDurationSeconds` uses the rounded mean of positive recorded durations from completed games in the same session, capped to the time since that active game started. Without a sample, duration is unknown. The host never enters a duration.
+- **Summary:** estimates and unknown durations are labeled. Known estimates contribute to total play time, with an estimated label; missing durations make totals partial. Measured game averages exclude every recovered match, even if its winner is corrected later. Exports preserve the recovery markers.
+- **Consent and retries:** the owner reviews a snapshot hash; game or queue changes require another review. Closing runs in one transaction under the group then session lock, so stale consent or a failed write never partly closes a session. A repeated successful close returns its original end time. Ordinary manual ending still refuses unfinished games.
+
+---
 
 ### Lineup queue (host feedback G)
 

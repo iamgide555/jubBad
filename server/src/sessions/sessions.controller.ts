@@ -1,3 +1,4 @@
+import { CloseForgottenSessionDto } from './dto/close-forgotten-session.dto.js';
 import { Body, Controller, Delete, Get, Param, ParseIntPipe, Post, Query, Req } from '@nestjs/common';
 import { AddWalkInDto } from './dto/add-walk-in.dto.js';
 import { CreateSessionDto } from './dto/create-session.dto.js';
@@ -49,6 +50,16 @@ export class SessionsController {
   @Get(':code')
   findOne(@Param('code') code: string) {
     return this.sessionsService.getSession(code);
+  }
+
+  @Get(':code/close-preview')
+  closePreview(@Param('code') code: string) {
+    return this.sessionsService.previewForgottenSession(code);
+  }
+
+  @Post(':code/close-forgotten')
+  closeForgotten(@Param('code') code: string, @Body() dto: CloseForgottenSessionDto) {
+    return this.sessionsService.closeForgottenSession(code, dto);
   }
 
   @Post(':code/courts/fill')

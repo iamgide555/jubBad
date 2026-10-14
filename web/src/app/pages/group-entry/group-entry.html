@@ -10,7 +10,7 @@
       <button type="button" class="ghost" (click)="loadGroup()" i18n="@@entry.retry">ลองอีกครั้ง</button>
     </p>
   } @else {
-  <h1 class="entry-title">
+  <h1 #entryHeading data-entry-heading class="entry-title" tabindex="-1">
     @if (lastSessionCode()) {
       <ng-container i18n="@@group.startNext">เริ่มรอบใหม่</ng-container>
     } @else {
@@ -18,6 +18,90 @@
     }
   </h1>
 
+  @if (sessionGateStatus() === 'loading') {
+    <p role="status" i18n="@@entry.checkingSessions">กำลังตรวจสอบรอบก่อนหน้า...</p>
+  } @else if (sessionGateStatus() === 'error') {
+    <p class="error" role="alert" i18n="@@entry.sessionListFailed">ตรวจสอบรอบก่อนหน้าไม่สำเร็จ</p>
+    <button type="button" class="ghost" (click)="loadOpenSessions()" i18n="@@entry.retry">ลองอีกครั้ง</button>
+  } @else if (openSessions().length > 0) {
+    <section #sessionGate data-session-gate class="entry-card session-gate" tabindex="-1" aria-labelledby="open-session-title">
+      <h2 id="open-session-title" i18n="@@entry.openSessionTitle">ยังมีรอบที่ไม่ปิด</h2>
+      <p class="muted" i18n="@@entry.openSessionHint">กลับไปเล่นต่อ หรือปิดรอบก่อนหน้าเพื่อเริ่มรอบใหม่</p>
+      @for (old of openSessions(); track old.code) {
+        <div class="open-session-row">
+          <p>{{ old.date || old.code }} @if (old.venue) { · {{ old.venue }} }</p>
+          <div class="paste-actions">
+            <a class="button ghost" data-resume-session [routerLink]="['/s', old.code]" i18n="@@entry.resumeOpenSession">กลับไปเล่นต่อ</a>
+            <button type="button" class="ghost" [disabled]="closureBusy()" (click)="previewClosure(old.code)" i18n="@@entry.reviewClosure">ตรวจสอบก่อนปิด</button>
+          </div>
+        </div>
+      }
+    </section>
+  }
+  @if (closePreview(); as preview) {
+    <section #closurePanel class="entry-card closure-panel" tabindex="-1" aria-labelledby="closure-title" [attr.aria-busy]="closureBusy()">
+      <h2 id="closure-title" i18n="@@entry.confirmClosureTitle">ปิดรอบก่อนหน้า?</h2>
+      <p class="closure-session" data-closure-session>{{ selectedClosureLabel() }}</p>
+      @if (preview.pendingCount + preview.activeCount + preview.queuedCount > 0) {
+        <ul class="closure-outcomes">
+          @if (preview.pendingCount > 0) {
+            <li i18n="@@entry.closureDiscardPending">ลบคู่ที่ยังไม่เริ่ม {{ preview.pendingCount }} คู่</li>
+          }
+          @if (preview.activeCount > 0) {
+            <li i18n="@@entry.closureFinishActive">นับ {{ preview.activeCount }} เกมที่กำลังเล่นว่าเล่นแล้ว แต่ไม่มีผล</li>
+          }
+          @if (preview.queuedCount > 0) {
+            <li i18n="@@entry.closureDiscardQueued">ลบคิวล่วงหน้า {{ preview.queuedCount }} คู่</li>
+          }
+        </ul>
+      } @else {
+        <p class="muted" i18n="@@entry.closureNoUnfinished">ไม่มีเกมหรือคิวที่ค้างอยู่</p>
+      }
+      @if (preview.activeCount > 0) {
+        @if (preview.averageDurationSeconds !== null) {
+          <p class="muted" i18n="@@entry.closureEstimate">เวลาโดยประมาณต่อเกม: {{ (preview.averageDurationSeconds / 60).toFixed(1) }} นาที (ไม่เกินเวลาที่เกมเริ่มมาแล้ว)</p>
+        } @else {
+          <p class="muted" i18n="@@entry.closureUnknown">ไม่มีเกมที่จบแล้วให้คำนวณ เวลาเล่นจะระบุว่าไม่ทราบเวลา</p>
+        }
+        <p class="closure-bill-note" i18n="@@entry.closureBillNote">เกมที่เพิ่มอาจทำให้ยอดบิลรอบนี้เปลี่ยน</p>
+      }
+      <div class="paste-actions">
+        <button type="button" class="ghost" [disabled]="closureBusy()" (click)="cancelClosure()" i18n="@@entry.cancelClosure">ยกเลิก</button>
+        <button type="button" class="danger" [disabled]="closureBusy()" (click)="confirmClosure()">
+          @if (closurePhase() === 'closing') {
+            <ng-container i18n="@@entry.closureClosing">กำลังปิดรอบ...</ng-container>
+          } @else {
+            <ng-container i18n="@@entry.confirmClosure">ปิดรอบนี้และไปต่อ</ng-container>
+          }
+        </button>
+      </div>
+    </section>
+  }
+  <div role="status" aria-live="polite" data-closure-status>
+    @if (closurePhase() === 'preview') {
+      <p class="closure-progress"><app-icon name="feather" [size]="16" [spin]="true" /><span i18n="@@entry.closurePreviewLoading">กำลังโหลดรายละเอียดรอบ...</span></p>
+    } @else if (closurePhase() === 'closing') {
+      <p class="closure-progress"><app-icon name="feather" [size]="16" [spin]="true" /><span i18n="@@entry.closureClosing">กำลังปิดรอบ...</span></p>
+    } @else if (closedSession(); as closed) {
+      <p class="closure-success" i18n="@@entry.closureSuccess">ปิดรอบ {{ closed.label }} แล้ว</p>
+      @if (sessionGateStatus() === 'ready') {
+        @if (openSessions().length > 0) {
+          <p class="muted" i18n="@@entry.closureMoreOpen">ปิดรอบที่เหลือเพื่อเริ่มรอบใหม่</p>
+        } @else {
+          <p class="muted" i18n="@@entry.closureContinue">เริ่มรอบใหม่ต่อได้ รายชื่อที่เตรียมไว้ยังอยู่</p>
+        }
+      }
+      <p><a data-closed-summary [routerLink]="['/s', closed.code, 'summary']" i18n="@@entry.closedSummary">ดูสรุปรอบที่ปิด</a></p>
+    }
+    @if (closureError()) {
+      <p class="error">{{ closureError() }}</p>
+      @if (previewErrorCode(); as code) {
+        <button type="button" class="ghost" data-retry-closure-preview [disabled]="closureBusy()" (click)="previewClosure(code)" i18n="@@entry.retry">ลองอีกครั้ง</button>
+      }
+    }
+  </div>
+
+  @if (sessionGateStatus() !== 'error' && openSessions().length === 0) {
   <!-- "Clear list" can be taken back for a few seconds. The live region is
        always in the page, so its words are announced when they appear; it is
        empty, and takes no room, the rest of the time. -->
@@ -354,6 +438,7 @@
     <p class="clear-roster">
       <button #clearButton type="button" class="ghost" data-discard [disabled]="isSubmitting()" (click)="discardDraft()" i18n="@@entry.clearRoster">ล้างรายชื่อ</button>
     </p>
+  }
   }
   }
 </div>

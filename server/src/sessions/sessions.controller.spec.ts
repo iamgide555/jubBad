@@ -6923,6 +6923,7 @@ describe('SessionsController', () => {
       try {
         const first = await create(groupCode).expect(201);
         await prisma.group.update({ where: { code: groupCode }, data: { shuttleToolsEnabled: false } });
+        await service.endSession(first.body.code);
         const second = await create(groupCode).expect(201);
         const rows = await prisma.session.findMany({ where: { code: { in: [first.body.code, second.body.code] } } });
         const byCode = new Map(rows.map((r) => [r.code, r.shuttleToolsEnabled]));

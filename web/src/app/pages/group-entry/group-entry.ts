@@ -1,5 +1,8 @@
+import { formatSessionDate } from '../../core/session-date';
+import type { GroupSession } from '../../core/group-session.model';
+import type { ClosePreview } from '../../core/session-closure.model';
 import { HttpErrorResponse } from '@angular/common/http';
-import { ChangeDetectorRef, Component, DestroyRef, ElementRef, computed, inject, signal, viewChild } from '@angular/core';
+import { ChangeDetectorRef, Component, DestroyRef, ElementRef, LOCALE_ID, computed, inject, signal, viewChild } from '@angular/core';
 import { DOCUMENT, NgTemplateOutlet } from '@angular/common';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { FormsModule } from '@angular/forms';
@@ -64,6 +67,23 @@ export class GroupEntry {
   readonly isSubmitting = signal(false);
 
   /** The saved group this roster is for. Not found is a dead end here: groups are created at /groups/new. */
+  readonly openSessions = signal<GroupSession[]>([]);
+  readonly sessionGateStatus = signal<'loading' | 'ready' | 'error'>('loading');
+  readonly closePreview = signal<ClosePreview | null>(null);
+  readonly closureBusy = signal(false);
+  readonly closurePhase = signal<'preview' | 'closing' | null>(null);
+  readonly previewErrorCode = signal<string | null>(null);
+  readonly closedSession = signal<{ code: string; label: string } | null>(null);
+  readonly selectedClosureLabel = computed(() => {
+    const code = this.closePreview()?.code;
+    return code ? this.sessionLabel(code) : '';
+  });
+  private readonly locale = inject(LOCALE_ID);
+  private readonly entryHeading = viewChild<ElementRef<HTMLElement>>('entryHeading');
+  readonly closureError = signal<string | null>(null);
+  private readonly sessionGate = viewChild<ElementRef<HTMLElement>>('sessionGate');
+  private readonly closurePanel = viewChild<ElementRef<HTMLElement>>('closurePanel');
+
   readonly groupStatus = signal<'loading' | 'ready' | 'not-found' | 'error'>('loading');
   private readonly drafts = inject(RosterDraftService);
   private readonly cdr = inject(ChangeDetectorRef);
@@ -228,6 +248,7 @@ export class GroupEntry {
     this.groupStatus.set('loading');
     try {
       const group = await firstValueFrom(this.rosterService.getGroup(this.groupCode));
+      if (this.destroyed) return;
       this.groupName.set(group.name ?? '');
       this.lastSessionCode.set(group.lastSessionCode);
       this.groupStatus.set('ready');
@@ -235,7 +256,102 @@ export class GroupEntry {
       this.groupStatus.set(err instanceof HttpErrorResponse && err.status === 404 ? 'not-found' : 'error');
       return;
     }
-    this.focusEmptyPasteBox();
+    await this.loadOpenSessions();
+    if (this.openSessions().length === 0 && this.sessionGateStatus() === 'ready') this.focusEmptyPasteBox();
+  }
+
+  async loadOpenSessions(): Promise<void> {
+    this.sessionGateStatus.set('loading');
+    try {
+      const sessions = await firstValueFrom(this.rosterService.listSessions(this.groupCode));
+      if (this.destroyed) return;
+      this.openSessions.set(sessions.filter(s => s.endedAt === null).sort((a, b) =>
+        b.createdAt.localeCompare(a.createdAt) || a.code.localeCompare(b.code)));
+      this.sessionGateStatus.set('ready');
+    } catch {
+      if (!this.destroyed) this.sessionGateStatus.set('error');
+    }
+  }
+
+  private sessionLabel(code: string): string {
+    const session = this.openSessions().find(row => row.code === code);
+    const date = formatSessionDate(session?.date ?? null, this.locale) || code;
+    return session?.venue ? `${date} · ${session.venue}` : date;
+  }
+
+  async previewClosure(code: string): Promise<void> {
+    if (this.closureBusy()) return;
+    this.closureBusy.set(true);
+    this.closurePhase.set('preview');
+    this.previewErrorCode.set(null);
+    this.closedSession.set(null);
+    this.closureError.set(null);
+    this.closePreview.set(null);
+    try {
+      const preview = await firstValueFrom(this.rosterService.previewForgottenSession(code));
+      if (this.destroyed) return;
+      if (preview.endedAt !== null) { await this.loadOpenSessions(); return; }
+      this.closePreview.set(preview);
+      this.cdr.detectChanges();
+      this.closurePanel()?.nativeElement.focus();
+    } catch {
+      if (this.destroyed) return;
+      this.previewErrorCode.set(code);
+      this.closureError.set($localize`:@@entry.closurePreviewFailed:โหลดรายละเอียดรอบไม่สำเร็จ กรุณาลองอีกครั้ง`);
+    } finally { this.closureBusy.set(false); this.closurePhase.set(null); }
+  }
+
+  cancelClosure(): void {
+    if (this.closureBusy()) return;
+    this.closePreview.set(null);
+    this.previewErrorCode.set(null);
+    this.closureError.set(null);
+    this.cdr.detectChanges();
+    this.sessionGate()?.nativeElement.focus();
+  }
+
+  async confirmClosure(): Promise<void> {
+    const preview = this.closePreview();
+    if (!preview || this.closureBusy()) return;
+    this.closureBusy.set(true);
+    this.closurePhase.set('closing');
+    this.previewErrorCode.set(null);
+    this.closureError.set(null);
+    const label = this.sessionLabel(preview.code);
+    try {
+      await firstValueFrom(this.rosterService.closeForgottenSession(preview.code, preview.snapshotHash));
+      if (this.destroyed) return;
+      this.closePreview.set(null);
+      this.closedSession.set({ code: preview.code, label });
+      await this.loadOpenSessions();
+      if (this.destroyed) return;
+      this.cdr.detectChanges();
+      if (this.sessionGateStatus() === 'ready' && this.openSessions().length > 0) this.sessionGate()?.nativeElement.focus();
+      else this.entryHeading()?.nativeElement.focus();
+    } catch (err) {
+      if (this.destroyed) return;
+      if (err instanceof HttpErrorResponse && err.error?.code === 'SESSION_CLOSE_STALE') {
+        this.closurePhase.set('preview');
+        this.closePreview.set(null);
+        try {
+          const updated = await firstValueFrom(this.rosterService.previewForgottenSession(preview.code));
+          if (this.destroyed) return;
+          if (updated.endedAt !== null) await this.loadOpenSessions();
+          else {
+            this.closePreview.set(updated);
+            this.cdr.detectChanges();
+            this.closurePanel()?.nativeElement.focus();
+          }
+          this.closureError.set($localize`:@@entry.closureChanged:รอบก่อนหน้ามีการเปลี่ยนแปลง กรุณาตรวจสอบอีกครั้งก่อนปิด`);
+        } catch {
+          if (this.destroyed) return;
+          this.previewErrorCode.set(preview.code);
+          this.closureError.set($localize`:@@entry.closurePreviewFailed:โหลดรายละเอียดรอบไม่สำเร็จ กรุณาลองอีกครั้ง`);
+        }
+      } else {
+        this.closureError.set($localize`:@@entry.closureFailed:ปิดรอบก่อนหน้าไม่สำเร็จ กรุณาลองอีกครั้ง`);
+      }
+    } finally { this.closureBusy.set(false); this.closurePhase.set(null); }
   }
 
   /**
@@ -617,6 +733,7 @@ export class GroupEntry {
 
   canConfirm(): boolean {
     return (
+      this.sessionGateStatus() === 'ready' && this.openSessions().length === 0 &&
       this.date().length > 0 &&
       this.courtCount() !== null &&
       this.courtCount()! > 0 &&
@@ -889,6 +1006,11 @@ export class GroupEntry {
       await this.router.navigateByUrl(`/s/${result.code}`);
     } catch (err) {
       const code = err instanceof HttpErrorResponse && typeof err.error?.code === 'string' ? err.error.code : null;
+      if (code === 'GROUP_HAS_OPEN_SESSIONS') {
+        await this.loadOpenSessions();
+        this.confirmError.set($localize`:@@entry.openSessionConflict:มีรอบที่ยังไม่ปิด กรุณาปิดรอบก่อนหน้าหรือกลับไปเล่นต่อ`);
+        return;
+      }
       if (code === 'LEVEL_LADDER_STALE' || code === 'LEVEL_UNKNOWN') {
         // Visible, and no session was made: reread the ladder and drop choices it no longer has.
         await this.loadLadder();

@@ -18,7 +18,7 @@ change reads from.
 |---|---|---|
 | Night running | Roster paste, fuzzy-match, manual add, walk-in, courts propose/confirm/finish/undo, auto-confirm, wait timers, rest player, one-tap fill | Lineup queue (G, `QueuedMatch`) |
 | Matchmaking | สลับคู่ (variety), เลือกเอง (custom), per-court singles/doubles, court labels | สูสี (balanced), ระดับ (level), per-court mode inside เลือกเอง, custom level ladder (F), player rules (`PlayerRule`), cross-session history |
-| Money | Fair pay, per-game, buffet, rounding, remove/add person, shuttle total count and price, copy to LINE | Host fee, walk-in fee, ไม่มา, คิดเต็มต่อคน, numbered shuttles, per-match shuttle log, per-player shuttle breakdown, early checkout |
+| Money | Fair pay, per-game, buffet, rounding, remove/add person, shuttle total count and price, copy to LINE | Host fee, walk-in fee, ไม่มา, ตามลูกแบด (bill model, with its คิดเต็มต่อคน switch), numbered shuttles, per-match shuttle log, per-player shuttle breakdown, early checkout |
 | Results | Record winner; correct a finished game's winner or score | |
 | Public | Venue display, session recap link | Group dashboard `/d/:token` |
 | History and stats | Session archive capped at 30 days | Full archive, player stat cards, rating and win rate, host roster page, export |
@@ -28,11 +28,15 @@ Annual: pay 10, get 12.
 
 ## Decisions and their reasons (2026-10-06)
 
-- **Bill extras are paid.** Host fee, walk-in fee, ไม่มา and คิดเต็มต่อคน answer "how do I
-  collect and earn", not "how do I split cost". The owner uses host fee and walk-in
-  himself and the pilot host charges similar extras. Fair pay, rounding, remove/add,
-  per-game and buffet stay free: many hosts already charge flat, and gating those
-  would make the bill unusable for them.
+- **Bill extras are paid.** Host fee, walk-in fee, ไม่มา and ตามลูกแบด (including its
+  คิดเต็มต่อคน switch) answer "how do I collect and earn", not "how do I split cost".
+  The owner uses host fee and walk-in himself and the pilot host charges similar
+  extras. Fair pay, rounding, remove/add, per-game and buffet stay free: many hosts
+  already charge flat, and gating those would make the bill unusable for them.
+- **ตามลูกแบด is paid as a whole model,** not only its คิดเต็มต่อคน switch. It prices
+  people from the numbered-shuttle log, so it rides with the numbered-shuttle items
+  and the `shuttleToolsEnabled` switch. Free keeps the plain shuttle total count and
+  price, which fair pay, per-game and buffet can still use.
 - **Correct winner/score is free.** It fixes a tap mistake courtside; a free host with
   wrong stats and no fix would blame the app, not the tier. Never needed at a real
   night yet, kept free because mistakes happen.

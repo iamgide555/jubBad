@@ -5089,6 +5089,257 @@
           <context context-type="linenumber">125</context>
         </context-group>
       </trans-unit>
+      <trans-unit id="entry.checkingSessions" datatype="html">
+        <source>กำลังตรวจสอบรอบก่อนหน้า...</source><target>Checking previous sessions...</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/group-entry/group-entry.html</context>
+          <context context-type="linenumber">22,23</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="entry.sessionListFailed" datatype="html">
+        <source>ตรวจสอบรอบก่อนหน้าไม่สำเร็จ</source><target>Could not check previous sessions.</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/group-entry/group-entry.html</context>
+          <context context-type="linenumber">24,25</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="entry.openSessionTitle" datatype="html">
+        <source>ยังมีรอบที่ไม่ปิด</source><target>A previous session is still open</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/group-entry/group-entry.html</context>
+          <context context-type="linenumber">28,29</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="entry.openSessionHint" datatype="html">
+        <source>กลับไปเล่นต่อ หรือปิดรอบก่อนหน้าเพื่อเริ่มรอบใหม่</source><target>Resume it, or close it before starting a new session.</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/group-entry/group-entry.html</context>
+          <context context-type="linenumber">29,30</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="entry.resumeOpenSession" datatype="html">
+        <source>กลับไปเล่นต่อ</source><target>Resume session</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/group-entry/group-entry.html</context>
+          <context context-type="linenumber">34,35</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="entry.reviewClosure" datatype="html">
+        <source>ตรวจสอบก่อนปิด</source><target>Review closure</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/group-entry/group-entry.html</context>
+          <context context-type="linenumber">35,37</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="entry.confirmClosureTitle" datatype="html">
+        <source>ปิดรอบก่อนหน้า?</source><target>Close the previous session?</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/group-entry/group-entry.html</context>
+          <context context-type="linenumber">43,44</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="entry.closureConsequences" datatype="html">
+        <source>คู่ที่ยังไม่เริ่มและคิวล่วงหน้าจะถูกลบ เกมที่กำลังเล่นจะนับว่าเล่นแล้วแต่ไม่มีผล เวลาเล่นจะคำนวณโดยประมาณจากเกมที่จบแล้วหากมีข้อมูล และอาจทำให้ยอดบิลรอบก่อนหน้าเปลี่ยน</source><target>Pending lineups and queued matches will be discarded. Active matches will count as played with no result. Their durations will be estimated from completed games when available. This may change the previous session’s bill.</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/group-entry/group-entry.html</context>
+          <context context-type="linenumber">44,46</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="entry.closurePending" datatype="html">
+        <source>คู่ที่ยังไม่เริ่ม: <x id="INTERPOLATION" equiv-text="{{ preview.pendingCount }}"/></source><target>Pending lineups: <x id="INTERPOLATION" equiv-text="{{ preview.pendingCount }}"/></target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/group-entry/group-entry.html</context>
+          <context context-type="linenumber">46,47</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="entry.closureActive" datatype="html">
+        <source>เกมที่กำลังเล่น: <x id="INTERPOLATION" equiv-text="{{ preview.activeCount }}"/></source><target>Active matches: <x id="INTERPOLATION" equiv-text="{{ preview.activeCount }}"/></target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/group-entry/group-entry.html</context>
+          <context context-type="linenumber">47,48</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="entry.closureQueued" datatype="html">
+        <source>คิวล่วงหน้า: <x id="INTERPOLATION" equiv-text="{{ preview.queuedCount }}"/></source><target>Queued lineups: <x id="INTERPOLATION" equiv-text="{{ preview.queuedCount }}"/></target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/group-entry/group-entry.html</context>
+          <context context-type="linenumber">48,49</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="entry.closureEstimate" datatype="html">
+        <source>เวลาโดยประมาณต่อเกม: <x id="INTERPOLATION" equiv-text="{{ (preview.averageDurationSeconds / 60).toFixed(1) }}"/> นาที (ไม่เกินเวลาที่เกมเริ่มมาแล้ว)</source><target>Estimated time per game: <x id="INTERPOLATION" equiv-text="{{ (preview.averageDurationSeconds / 60).toFixed(1) }}"/> min (capped at the time since the game started)</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/group-entry/group-entry.html</context>
+          <context context-type="linenumber">51,52</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="entry.closureUnknown" datatype="html">
+        <source>ไม่มีเกมที่จบแล้วให้คำนวณ เวลาเล่นจะระบุว่าไม่ทราบเวลา</source><target>There are no completed games to use as a sample. Match duration will be unknown.</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/group-entry/group-entry.html</context>
+          <context context-type="linenumber">53,55</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="entry.cancelClosure" datatype="html">
+        <source>ยกเลิก</source><target>Cancel</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/group-entry/group-entry.html</context>
+          <context context-type="linenumber">56,57</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="entry.confirmClosure" datatype="html">
+        <source>ปิดรอบนี้และไปต่อ</source><target>Close this session and continue</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/group-entry/group-entry.html</context>
+          <context context-type="linenumber">74,76</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="entry.closureFailed" datatype="html">
+        <source>ปิดรอบก่อนหน้าไม่สำเร็จ กรุณาลองอีกครั้ง</source><target>Could not close the previous session. Please try again.</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/group-entry/group-entry.ts</context>
+          <context context-type="linenumber">278</context>
+        </context-group>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/group-entry/group-entry.ts</context>
+          <context context-type="linenumber">309</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="entry.closureChanged" datatype="html">
+        <source>รอบก่อนหน้ามีการเปลี่ยนแปลง กรุณาตรวจสอบอีกครั้งก่อนปิด</source><target>The previous session changed. Review it again before closing.</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/group-entry/group-entry.ts</context>
+          <context context-type="linenumber">307</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="entry.openSessionConflict" datatype="html">
+        <source>มีรอบที่ยังไม่ปิด กรุณาปิดรอบก่อนหน้าหรือกลับไปเล่นต่อ</source><target>A session is still open. Close it or resume it before starting another.</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/group-entry/group-entry.ts</context>
+          <context context-type="linenumber">968</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="duration.unknown" datatype="html">
+        <source>ไม่ทราบเวลา</source><target>Duration unknown</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/session-summary/session-summary.html</context>
+          <context context-type="linenumber">205,207</context>
+        </context-group>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/session-summary/session-summary.html</context>
+          <context context-type="linenumber">261,262</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="duration.estimated" datatype="html">
+        <source>โดยประมาณ</source><target>Estimated</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/session-summary/session-summary.html</context>
+          <context context-type="linenumber">208,210</context>
+        </context-group>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/session-summary/session-summary.html</context>
+          <context context-type="linenumber">258,259</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="duration.partial" datatype="html">
+        <source>เวลารวมไม่ครบ</source><target>Partial total</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/session-summary/session-summary.html</context>
+          <context context-type="linenumber">211,213</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="entry.closureDiscardPending" datatype="html">
+        <source>ลบคู่ที่ยังไม่เริ่ม <x id="INTERPOLATION" equiv-text="{{ preview.pendingCount }}"/> คู่</source><target>Discard pending lineups: <x id="INTERPOLATION" equiv-text="{{ preview.pendingCount }}"/></target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/group-entry/group-entry.html</context>
+          <context context-type="linenumber">48,49</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="entry.closureFinishActive" datatype="html">
+        <source>นับ <x id="INTERPOLATION" equiv-text="{{ preview.activeCount }}"/> เกมที่กำลังเล่นว่าเล่นแล้ว แต่ไม่มีผล</source><target>Record active games as played without a result: <x id="INTERPOLATION" equiv-text="{{ preview.activeCount }}"/></target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/group-entry/group-entry.html</context>
+          <context context-type="linenumber">51,52</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="entry.closureDiscardQueued" datatype="html">
+        <source>ลบคิวล่วงหน้า <x id="INTERPOLATION" equiv-text="{{ preview.queuedCount }}"/> คู่</source><target>Remove queued lineups: <x id="INTERPOLATION" equiv-text="{{ preview.queuedCount }}"/></target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/group-entry/group-entry.html</context>
+          <context context-type="linenumber">54,55</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="entry.closureNoUnfinished" datatype="html">
+        <source>ไม่มีเกมหรือคิวที่ค้างอยู่</source><target>There are no unfinished games or queued lineups.</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/group-entry/group-entry.html</context>
+          <context context-type="linenumber">58,60</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="entry.closureBillNote" datatype="html">
+        <source>เกมที่เพิ่มอาจทำให้ยอดบิลรอบนี้เปลี่ยน</source><target>These additional games may change this session’s bill.</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/group-entry/group-entry.html</context>
+          <context context-type="linenumber">66,68</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="entry.closureClosing" datatype="html">
+        <source>กำลังปิดรอบ...</source><target>Closing session...</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/group-entry/group-entry.html</context>
+          <context context-type="linenumber">72,73</context>
+        </context-group>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/group-entry/group-entry.html</context>
+          <context context-type="linenumber">84,85</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="entry.closurePreviewLoading" datatype="html">
+        <source>กำลังโหลดรายละเอียดรอบ...</source><target>Loading session details...</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/group-entry/group-entry.html</context>
+          <context context-type="linenumber">82,83</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="entry.closureSuccess" datatype="html">
+        <source>ปิดรอบ <x id="INTERPOLATION" equiv-text="{{ closed.label }}"/> แล้ว</source><target>Closed session <x id="INTERPOLATION" equiv-text="{{ closed.label }}"/>.</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/group-entry/group-entry.html</context>
+          <context context-type="linenumber">86,87</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="entry.closureMoreOpen" datatype="html">
+        <source>ปิดรอบที่เหลือเพื่อเริ่มรอบใหม่</source><target>Close the remaining sessions before starting a new one.</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/group-entry/group-entry.html</context>
+          <context context-type="linenumber">89,91</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="entry.closureContinue" datatype="html">
+        <source>เริ่มรอบใหม่ต่อได้ รายชื่อที่เตรียมไว้ยังอยู่</source><target>You can continue starting a new session. Your prepared roster is still here.</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/group-entry/group-entry.html</context>
+          <context context-type="linenumber">91,94</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="entry.closedSummary" datatype="html">
+        <source>ดูสรุปรอบที่ปิด</source><target>View the closed session summary</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/group-entry/group-entry.html</context>
+          <context context-type="linenumber">94,96</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="entry.closurePreviewFailed" datatype="html">
+        <source>โหลดรายละเอียดรอบไม่สำเร็จ กรุณาลองอีกครั้ง</source><target>Could not load session details. Please try again.</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/group-entry/group-entry.ts</context>
+          <context context-type="linenumber">300</context>
+        </context-group>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/group-entry/group-entry.ts</context>
+          <context context-type="linenumber">349</context>
+        </context-group>
+      </trans-unit>
     </body>
   </file>
 </xliff>

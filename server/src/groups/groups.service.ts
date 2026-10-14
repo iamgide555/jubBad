@@ -650,6 +650,7 @@ export class GroupsService {
         courtFormats: parseCourtFormats(s.courtFormats),
         createdAt: s.createdAt,
         endedAt: s.endedAt,
+        closedAsForgottenAt: s.closedAsForgottenAt,
         rawImportText: s.rawImportText,
         disabledRuleIds: parseJsonForExport(s.disabledRuleIds ?? '[]'),
         rosterPlayerIds: s.roster.map((r) => r.playerId),
@@ -687,6 +688,8 @@ export class GroupsService {
           winner: p.winner,
           confirmedAt: p.confirmedAt,
           endedAt: p.endedAt,
+          closedWithoutResultAt: p.closedWithoutResultAt,
+          estimatedDurationSeconds: p.estimatedDurationSeconds,
           carryOutcomes: parseJsonForExport(p.carryOutcomes),
           // Known false = a legacy or ordinary game whose shuttle use was never
           // recorded; known true with no ids = recorded as zero shuttles.

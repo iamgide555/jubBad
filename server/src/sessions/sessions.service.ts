@@ -1,3 +1,6 @@
+import { matchDuration } from './match-duration.js';
+import { readClosureSnapshot, closeForgottenInTransaction } from './forgotten-session.js';
+import type { CloseForgottenSessionDto } from './dto/close-forgotten-session.dto.js';
 import { randomUUID } from 'node:crypto';
 import {
   BadRequestException,
@@ -98,7 +101,8 @@ export interface SessionMatch {
   scoreA: number | null;
   scoreB: number | null;
   result: 'win' | 'loss' | 'no-result';
-  durationSeconds: number;
+  durationSeconds: number | null;
+  durationSource: 'recorded' | 'estimated' | 'unknown';
   pairingId: string;
   /** Both teams, so a correction dialog can name the sides. */
   teamA: string[];
@@ -483,17 +487,6 @@ export class SessionsService {
   ): Promise<{ code: string }> {
     try {
       return await this.prisma.$transaction(async (tx) => {
-        const prior = await tx.sessionCreation.findUnique({
-          where: {
-            groupId_idempotencyKey: {
-              groupId: dto.groupCode,
-              idempotencyKey: dto.idempotencyKey,
-            },
-          },
-          select: { sessionId: true },
-        });
-        if (prior) return { code: prior.sessionId };
-
         const group = await tx.group.findUnique({
           where: { code: dto.groupCode },
           select: { code: true, ownerId: true, shuttleToolsEnabled: true, crossSessionHistory: true, levelLadder: true, levelLadderRevision: true },
@@ -507,6 +500,23 @@ export class SessionsService {
         if (!group || (group.ownerId !== caller.id && caller.role !== 'admin')) {
           throw new NotFoundException();
         }
+
+        const prior = await tx.sessionCreation.findUnique({
+          where: {
+            groupId_idempotencyKey: {
+              groupId: dto.groupCode,
+              idempotencyKey: dto.idempotencyKey,
+            },
+          },
+          select: { sessionId: true },
+        });
+        if (prior) return { code: prior.sessionId };
+
+        const open = await tx.session.findMany({
+          where: { groupId: dto.groupCode, endedAt: null },
+          orderBy: [{ createdAt: 'desc' }, { code: 'asc' }], select: { code: true },
+        });
+        if (open.length) throw this.conflict('GROUP_HAS_OPEN_SESSIONS', { sessionCodes: open.map(row => row.code) });
 
         // Level choices are checked against THIS group's ladder at the revision the host
         // saw, before anything is written: a stale tab (even one naming a level the new
@@ -1721,6 +1731,8 @@ export class SessionsService {
       },
       data: {
         endedAt: new Date(),
+        closedWithoutResultAt: null,
+        estimatedDurationSeconds: null,
         scoreA: dto.scoreA ?? null,
         scoreB: dto.scoreB ?? null,
         winner: dto.winner ?? null,
@@ -1797,6 +1809,18 @@ export class SessionsService {
     ) {
       throw this.badRequest('WINNER_SCORE_MISMATCH');
     }
+  }
+
+  async previewForgottenSession(code: string) {
+    return this.prisma.$transaction(async tx => (await readClosureSnapshot(tx, code)).preview);
+  }
+
+  async closeForgottenSession(code: string, dto: CloseForgottenSessionDto) {
+    const session = await this.prisma.session.findUnique({ where: { code }, select: { groupId: true } });
+    if (!session) throw this.notFound('SESSION_NOT_FOUND');
+    return this.groupLevels.withGroupLock(session.groupId, () => this.lock.run(code, () =>
+      this.prisma.$transaction(tx => closeForgottenInTransaction(tx, code, dto.snapshotHash, new Date()))
+    ));
   }
 
   endSession(code: string) {
@@ -3125,6 +3149,8 @@ export class SessionsService {
         where: { id: latest.id, confirmedAt: { not: null }, endedAt: { not: null }, revision: latest.revision },
         data: {
           endedAt: null,
+          closedWithoutResultAt: null,
+          estimatedDurationSeconds: null,
           scoreA: null,
           scoreB: null,
           winner: null,
@@ -3148,6 +3174,8 @@ export class SessionsService {
         where: { id: latest.id, confirmedAt: { not: null }, endedAt: null, revision: latest.revision },
         data: {
           confirmedAt: null,
+          closedWithoutResultAt: null,
+          estimatedDurationSeconds: null,
           pendingSince: null,
           carryOutcomes: '[]',
           shuttleLogKnown: false,
@@ -4047,6 +4075,10 @@ export class SessionsService {
     const won = new Map<string, number>();
     const lost = new Map<string, number>();
     const totalSeconds = new Map<string, number>();
+    const measuredTotalSeconds = new Map<string, number>();
+    const measuredMatchCount = new Map<string, number>();
+    const estimatedMatchCount = new Map<string, number>();
+    const unknownDurationMatchCount = new Map<string, number>();
     const matches = new Map<string, SessionMatch[]>();
     const partnerIds = new Map<string, Set<string>>();
     // Same played/won/lost tallies, but split by format (team size 1 =
@@ -4067,12 +4099,7 @@ export class SessionsService {
     for (const p of pairings) {
       const { teamA, teamB } = this.teamsOf(p);
       const format = teamA.length === 1 ? 'singles' : 'doubles';
-      // finishedMatch above guarantees both timestamps are set; clamped
-      // against a clock-adjusted row producing a negative duration.
-      const durationSeconds = Math.max(
-        0,
-        Math.round((p.endedAt!.getTime() - p.confirmedAt!.getTime()) / 1000)
-      );
+      const { seconds: durationSeconds, source: durationSource } = matchDuration(p);
 
       for (const [team, letter, opponents] of [
         [teamA, 'A', teamB],
@@ -4084,7 +4111,15 @@ export class SessionsService {
           played.set(id, (played.get(id) ?? 0) + 1);
           if (teamResult === 'win') won.set(id, (won.get(id) ?? 0) + 1);
           if (teamResult === 'loss') lost.set(id, (lost.get(id) ?? 0) + 1);
-          totalSeconds.set(id, (totalSeconds.get(id) ?? 0) + durationSeconds);
+          totalSeconds.set(id, (totalSeconds.get(id) ?? 0) + (durationSeconds ?? 0));
+          if (durationSource === 'recorded') {
+            measuredTotalSeconds.set(id, (measuredTotalSeconds.get(id) ?? 0) + (durationSeconds ?? 0));
+            measuredMatchCount.set(id, (measuredMatchCount.get(id) ?? 0) + 1);
+          } else if (durationSource === 'estimated') {
+            estimatedMatchCount.set(id, (estimatedMatchCount.get(id) ?? 0) + 1);
+          } else {
+            unknownDurationMatchCount.set(id, (unknownDurationMatchCount.get(id) ?? 0) + 1);
+          }
 
           const fRow = formatRow(id)[format];
           fRow.played += 1;
@@ -4108,6 +4143,7 @@ export class SessionsService {
             scoreB: p.scoreB,
             result: teamResult,
             durationSeconds,
+            durationSource,
             pairingId: p.id,
             teamA: teamA.map((tid) => nameById.get(tid) ?? 'Unknown'),
             teamB: teamB.map((tid) => nameById.get(tid) ?? 'Unknown'),
@@ -4155,6 +4191,10 @@ export class SessionsService {
             won: won.get(playerId) ?? 0,
             lost: lost.get(playerId) ?? 0,
             totalSeconds: totalSeconds.get(playerId) ?? 0,
+            measuredTotalSeconds: measuredTotalSeconds.get(playerId) ?? 0,
+            measuredMatchCount: measuredMatchCount.get(playerId) ?? 0,
+            estimatedMatchCount: estimatedMatchCount.get(playerId) ?? 0,
+            unknownDurationMatchCount: unknownDurationMatchCount.get(playerId) ?? 0,
             distinctPartners: partnerIds.get(playerId)?.size ?? 0,
             singles: formats && formats.singles.played > 0 ? formats.singles : null,
             doubles: formats && formats.doubles.played > 0 ? formats.doubles : null,

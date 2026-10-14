@@ -370,6 +370,40 @@ describe('SessionSummary', () => {
     expect(text).toContain('10 น.');
   });
 
+  it('labels estimated and unknown time and averages only recorded games', async () => {
+    const payload = summary();
+    payload.players[0].played = 3;
+    payload.players[0].totalSeconds = 1620;
+    payload.players[0].matches[1] = { ...payload.players[0].matches[1], durationSeconds: 900, durationSource: 'estimated' };
+    payload.players[0].matches.push({ ...payload.players[0].matches[0], pairingId: 'unknown', durationSeconds: null, durationSource: 'unknown' });
+    await load(payload);
+    fixture.componentInstance['togglePlayer']('p1'); fixture.detectChanges();
+    const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
+    expect(text).toContain('โดยประมาณ'); expect(text).toContain('ไม่ทราบเวลา');
+    expect(text).toContain('เวลารวมไม่ครบ'); expect(text).toContain('เฉลี่ย 12 น./เกม');
+    const timeCell = (fixture.nativeElement as HTMLElement).querySelector('tbody tr td:nth-child(7)')!;
+    const qualifiers = [...timeCell.querySelectorAll('.duration-qualifier')].map(el => el.textContent?.trim());
+    expect(qualifiers).toEqual(['โดยประมาณ', 'เวลารวมไม่ครบ']);
+    expect(timeCell.querySelector('.time-average')?.textContent).toContain('12 น.');
+
+  });
+
+  it('keeps a known zero total for a player without games', async () => {
+    const payload = summary(); payload.players[0].played = 0; payload.players[0].totalSeconds = 0; payload.players[0].matches = [];
+    await load(payload);
+    const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
+    expect(text).toContain('0 น.'); expect(text).not.toContain('ไม่ทราบเวลา');
+  });
+
+  it('shows unknown instead of a zero total when no durations are known', async () => {
+    const payload = summary();
+    payload.players[0].totalSeconds = 0;
+    payload.players[0].matches = payload.players[0].matches.map(m => ({ ...m, durationSeconds: null, durationSource: 'unknown' }));
+    await load(payload);
+    const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
+    expect(text).toContain('ไม่ทราบเวลา'); expect(text).not.toContain('0 น.');
+  });
+
   it('shows each match\'s own duration in the expanded list', async () => {
     await load(summary());
     fixture.componentInstance['togglePlayer']('p1');

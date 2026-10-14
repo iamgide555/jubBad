@@ -11,6 +11,12 @@ import { environment } from '../../../environments/environment';
 
 const B = environment.apiBaseUrl;
 
+/** Existing fixture groups have no open sessions unless the case explicitly supplies them. */
+async function settleSessionGate(httpMock: HttpTestingController): Promise<void> {
+  await Promise.resolve();
+  for (const req of httpMock.match(`${B}/groups/group1/sessions`)) req.flush([]);
+}
+
 /** Four brand-new-player reviews — the roster's `minRoster` floor — for tests
  *  that need to clear the minimum without that being what's under test. */
 function fourNewPlayers() {
@@ -54,7 +60,143 @@ describe('GroupEntry', () => {
     httpMock
       .expectOne(`${B}/groups/group1`)
       .flush({ code: 'group1', name: 'ก๊วนทดสอบ', lastSessionCode: null });
+    await settleSessionGate(httpMock);
     await fixture.whenStable();
+  });
+
+  describe('forgotten sessions', () => {
+    const old = { code: 'old', date: '2026-10-01', venue: 'Gym', courtCount: 1, createdAt: '2026-10-01T10:00:00Z', endedAt: null, matchCount: 1 };
+    const preview = { code: 'old', endedAt: null, snapshotHash: 'a'.repeat(64), pendingCount: 1, activeCount: 1, queuedCount: 2, averageDurationSeconds: 900 };
+    async function gate() {
+      const loading = component.loadOpenSessions();
+      httpMock.expectOne(`${B}/groups/group1/sessions`).flush([old]);
+      await loading; fixture.detectChanges();
+    }
+    it('blocks new creation, offers resume, and cancelling sends no close request', async () => {
+      await gate();
+      component.state.set('confirm'); component.date.set('2026-10-14'); component.courtCount.set(1);
+      component.rosterReviews.set(fourNewPlayers().map(r => ({ ...r, decision: 'accept' as const })));
+      expect(component.canConfirm()).toBe(false);
+      const root = fixture.nativeElement as HTMLElement;
+      expect(root.querySelector('[data-resume-session]')?.getAttribute('href')).toBe('/s/old');
+      const loading = component.previewClosure('old');
+      httpMock.expectOne(`${B}/sessions/old/close-preview`).flush(preview); await loading;
+      fixture.detectChanges(); expect(root.textContent).toContain('ไม่มีผล');
+      expect(root.querySelector('input[data-duration]')).toBeNull();
+      component.cancelClosure();
+      httpMock.expectNone(`${B}/sessions/old/close-forgotten`);
+      expect(component.closePreview()).toBeNull();
+      fixture.detectChanges();
+      expect(document.activeElement).toBe((fixture.nativeElement as HTMLElement).querySelector('[data-session-gate]'));
+    });
+    it('closes once on double tap, keeps the roster, and unlocks after reloading', async () => {
+      await gate(); component.rawText.set('staged roster');
+      const loading = component.previewClosure('old'); httpMock.expectOne(`${B}/sessions/old/close-preview`).flush(preview); await loading;
+      const closing = component.confirmClosure(); void component.confirmClosure();
+      const req = httpMock.expectOne(`${B}/sessions/old/close-forgotten`);
+      expect(req.request.body).toEqual({ snapshotHash: preview.snapshotHash });
+      req.flush({ code: 'old', endedAt: '2026-10-14T10:00:00Z' });
+      await Promise.resolve();
+      httpMock.expectOne(`${B}/groups/group1/sessions`).flush([]); await closing;
+      expect(component.openSessions()).toEqual([]); expect(component.rawText()).toBe('staged roster');
+    });
+    it('requires renewed consent after a stale preview', async () => {
+      await gate();
+      const loading = component.previewClosure('old'); httpMock.expectOne(`${B}/sessions/old/close-preview`).flush(preview); await loading;
+      const closing = component.confirmClosure();
+      httpMock.expectOne(`${B}/sessions/old/close-forgotten`).flush({ code: 'SESSION_CLOSE_STALE' }, { status: 409, statusText: 'Conflict' });
+      await Promise.resolve();
+      fixture.detectChanges();
+      httpMock.expectOne(`${B}/sessions/old/close-preview`).flush({ ...preview, snapshotHash: 'b'.repeat(64), activeCount: 2 });
+      await closing;
+      expect(component.closePreview()?.snapshotHash).toBe('b'.repeat(64));
+      fixture.detectChanges();
+      expect(document.activeElement).toBe((fixture.nativeElement as HTMLElement).querySelector('[aria-labelledby=closure-title]'));
+      expect(component.closureError()).toContain('เปลี่ยน');
+      httpMock.expectNone(`${B}/sessions/old/close-forgotten`);
+    });
+    it('keeps creation inputs and request key when another session appeared during roster preparation', async () => {
+      component.state.set('confirm'); component.date.set('2026-10-14'); component.courtCount.set(2); component.venue.set('Gym');
+      component.rawText.set('staged roster'); component.rosterReviews.set(fourNewPlayers().map(r => ({ ...r, decision: 'accept' as const })));
+      const creating = component.confirmRoster();
+      const first = httpMock.expectOne(`${B}/sessions`); const key = first.request.body.idempotencyKey;
+      first.flush({ code: 'GROUP_HAS_OPEN_SESSIONS', sessionCodes: ['old'] }, { status: 409, statusText: 'Conflict' });
+      await Promise.resolve(); httpMock.expectOne(`${B}/groups/group1/sessions`).flush([old]); await creating;
+      expect(component.rawText()).toBe('staged roster'); expect(component.rosterReviews()).toHaveLength(4);
+      expect(component.date()).toBe('2026-10-14'); expect(component.courtCount()).toBe(2); expect(component.venue()).toBe('Gym');
+      const checking = component.loadOpenSessions(); httpMock.expectOne(`${B}/groups/group1/sessions`).flush([]); await checking;
+      const retry = component.confirmRoster(); const second = httpMock.expectOne(`${B}/sessions`);
+      expect(second.request.body.idempotencyKey).toBe(key);
+      second.flush({ code: 'new' }); await retry;
+    });
+    it('finds all legacy open sessions even when the newest session was ended', async () => {
+      const loading = component.loadOpenSessions();
+      httpMock.expectOne(`${B}/groups/group1/sessions`).flush([
+        { ...old, code: 'older', createdAt: '2026-09-01T10:00:00Z' },
+        { ...old, code: 'ended', endedAt: '2026-10-14T10:00:00Z', createdAt: '2026-10-14T09:00:00Z' }, old,
+      ]);
+      await loading; expect(component.openSessions().map(s => s.code)).toEqual(['old', 'older']);
+    });
+    it('keeps reviewed consent for a safe retry after a lost network response', async () => {
+      await gate();
+      const checking = component.previewClosure('old'); httpMock.expectOne(`${B}/sessions/old/close-preview`).flush(preview); await checking;
+      const closing = component.confirmClosure();
+      httpMock.expectOne(`${B}/sessions/old/close-forgotten`).error(new ProgressEvent('error')); await closing;
+      expect(component.closePreview()?.snapshotHash).toBe(preview.snapshotHash);
+      expect(component.closureBusy()).toBe(false);
+      const retry = component.confirmClosure();
+      const req = httpMock.expectOne(`${B}/sessions/old/close-forgotten`); expect(req.request.body.snapshotHash).toBe(preview.snapshotHash);
+      req.flush({ code: 'old', endedAt: '2026-10-14T10:00:00Z' });
+      await Promise.resolve(); httpMock.expectOne(`${B}/groups/group1/sessions`).flush([]); await retry;
+    });
+    it('identifies the selected session and shows only applicable outcomes with a danger action', async () => {
+      await gate();
+      const checking = component.previewClosure('old');
+      httpMock.expectOne(`${B}/sessions/old/close-preview`).flush({ ...preview, pendingCount: 0, queuedCount: 0 }); await checking;
+      fixture.detectChanges();
+      const panel = (fixture.nativeElement as HTMLElement).querySelector('[aria-labelledby=closure-title]')!;
+      expect(panel.querySelector('[data-closure-session]')?.textContent).toContain('Gym');
+      expect(panel.querySelector('[data-closure-session]')?.textContent).toContain('1 ต.ค.');
+      expect(panel.querySelectorAll('li')).toHaveLength(1);
+      expect(panel.querySelector('li')?.textContent).toContain('ไม่มีผล');
+      expect(panel.querySelector('button.danger')).not.toBeNull();
+    });
+    it('uses the selected code when an older session has no date or venue', async () => {
+      const loading = component.loadOpenSessions();
+      httpMock.expectOne(`${B}/groups/group1/sessions`).flush([old, { ...old, code: 'older', date: null, venue: null }]); await loading;
+      const checking = component.previewClosure('older'); httpMock.expectOne(`${B}/sessions/older/close-preview`).flush({ ...preview, code: 'older' }); await checking;
+      fixture.detectChanges();
+      expect((fixture.nativeElement as HTMLElement).querySelector('[data-closure-session]')?.textContent).toContain('older');
+    });
+    it('announces preview loading and offers a correctly named preview retry on failure', async () => {
+      await gate(); const checking = component.previewClosure('old'); fixture.detectChanges();
+      const root = fixture.nativeElement as HTMLElement;
+      expect(root.querySelector('[data-closure-status]')?.textContent).toContain('กำลังโหลดรายละเอียดรอบ');
+      httpMock.expectOne(`${B}/sessions/old/close-preview`).flush('failed', { status: 503, statusText: 'Unavailable' }); await checking; fixture.detectChanges();
+      expect(component.closureError()).toContain('โหลดรายละเอียด');
+      expect(root.querySelector('[data-retry-closure-preview]')).not.toBeNull();
+      const retry = component.previewClosure('old'); httpMock.expectOne(`${B}/sessions/old/close-preview`).flush(preview); await retry;
+      expect(component.closePreview()?.code).toBe('old');
+    });
+    it.each(['paste', 'confirm'] as const)('announces closure and continues from a neutral heading in %s state', async state => {
+      await gate(); component.state.set(state); component.rawText.set('saved draft');
+      const checking = component.previewClosure('old'); httpMock.expectOne(`${B}/sessions/old/close-preview`).flush(preview); await checking;
+      const closing = component.confirmClosure(); fixture.detectChanges();
+      const root = fixture.nativeElement as HTMLElement;
+      expect(root.querySelector('[data-closure-status]')?.textContent).toContain('กำลังปิดรอบ');
+      httpMock.expectOne(`${B}/sessions/old/close-forgotten`).flush({ code: 'old', endedAt: '2026-10-14T10:00:00Z' });
+      await Promise.resolve(); httpMock.expectOne(`${B}/groups/group1/sessions`).flush([]); await closing; fixture.detectChanges();
+      expect(root.querySelector('[data-closure-status]')?.textContent).toContain('ปิดรอบ');
+      expect(root.querySelector('[data-closure-status]')?.textContent).toContain('แล้ว');
+      expect(root.querySelector('[data-closed-summary]')?.getAttribute('href')).toBe('/s/old/summary');
+      expect(document.activeElement).toBe(root.querySelector('[data-entry-heading]'));
+      expect(component.rawText()).toBe('saved draft');
+    });
+    it('fails closed when the open-session list cannot load', async () => {
+      const loading = component.loadOpenSessions();
+      httpMock.expectOne(`${B}/groups/group1/sessions`).flush('failed', { status: 503, statusText: 'Unavailable' });
+      await loading; expect(component.sessionGateStatus()).toBe('error'); expect(component.canConfirm()).toBe(false);
+    });
   });
 
   afterEach(() => {
@@ -408,6 +550,7 @@ describe('GroupEntry', () => {
     });
     req.flush({ code: 'sess1' });
     await confirmPromise;
+    await settleSessionGate(httpMock);
     await fixture.whenStable();
 
     expect(router.url).toBe('/s/sess1');
@@ -512,6 +655,7 @@ describe('GroupEntry', () => {
     httpMock
       .expectOne(`${B}/groups/group1`)
       .flush({ code: 'group1', name: 'ก๊วนทดสอบ', lastSessionCode: null });
+    await settleSessionGate(httpMock);
     await again.whenStable();
     expect(again.componentInstance.rawText()).toBe('1. ตั้ม\n2. มด');
     again.destroy();
@@ -532,6 +676,7 @@ describe('GroupEntry', () => {
     httpMock
       .expectOne(`${B}/groups/group1`)
       .flush({ code: 'group1', name: 'ก๊วนทดสอบ', lastSessionCode: null });
+    await settleSessionGate(httpMock);
     await again.whenStable();
     const restored = again.componentInstance;
     expect(restored.state()).toBe('confirm');
@@ -551,6 +696,7 @@ describe('GroupEntry', () => {
     httpMock
       .expectOne(`${B}/groups/group1`)
       .flush({ code: 'group1', name: 'ก๊วนทดสอบ', lastSessionCode: null });
+    await settleSessionGate(httpMock);
     await fixture.whenStable();
     expect(component.rawText()).toBe('1. ตั้ม\n2. เกียร์\n3. มด\n4. มะนาว');
 
@@ -594,6 +740,7 @@ describe('GroupEntry', () => {
     fixture.destroy();
     const again = TestBed.createComponent(GroupEntry);
     httpMock.expectOne(`${B}/groups/group1`).flush('x', { status: 404, statusText: 'Not Found' });
+    await settleSessionGate(httpMock);
     await again.whenStable();
     expect(again.nativeElement.textContent).toContain('ไม่พบก๊วนนี้');
     expect(again.nativeElement.querySelector('textarea')).toBeNull();
@@ -632,6 +779,7 @@ describe('GroupEntry manual roster add UI (Task 2)', () => {
     component = fixture.componentInstance;
 
     httpMock.expectOne(`${B}/groups/group1`).flush({ code: 'group1', name: 'Group A', lastSessionCode: null });
+    await settleSessionGate(httpMock);
     await fixture.whenStable();
 
     component.groupName.set('Group A');
@@ -816,6 +964,7 @@ describe('GroupEntry manual roster add — behavior (Task 3)', () => {
     component = fixture.componentInstance;
 
     httpMock.expectOne(`${B}/groups/group1`).flush({ code: 'group1', name: 'Group A', lastSessionCode: null });
+    await settleSessionGate(httpMock);
     await fixture.whenStable();
 
     component.groupName.set('Group A');
@@ -1128,6 +1277,7 @@ describe('GroupEntry roster review and group ladders (host feedback F)', () => {
     fixture = TestBed.createComponent(GroupEntry);
     component = fixture.componentInstance;
     httpMock.expectOne(`${B}/groups/group1`).flush({ code: 'group1', name: 'Group A', lastSessionCode: null });
+    await settleSessionGate(httpMock);
     await fixture.whenStable();
   });
   afterEach(() => httpMock.verify());
@@ -1150,6 +1300,7 @@ describe('GroupEntry roster review and group ladders (host feedback F)', () => {
     const req = httpMock.expectOne(`${B}/groups/group1/levels`);
     if (ladder === 'fail') req.flush('x', { status: 500, statusText: 'Server Error' });
     else req.flush(ladder);
+    await settleSessionGate(httpMock);
     await fixture.whenStable();
     fixture.detectChanges();
   }
@@ -1249,8 +1400,10 @@ describe('GroupEntry review step: clear with undo, edit the paste (UX review)', 
   });
 
   async function render(): Promise<void> {
+    await settleSessionGate(httpMock);
     await fixture.whenStable();
     fixture.detectChanges();
+    await settleSessionGate(httpMock);
     await fixture.whenStable();
   }
 
@@ -1741,13 +1894,16 @@ describe('GroupEntry weekly paste path: autofocus and paste from the clipboard (
     component = fixture.componentInstance;
     if (group === 'ready') {
       httpMock.expectOne(`${B}/groups/group1`).flush(GROUP);
-      await fixture.whenStable();
+      await settleSessionGate(httpMock);
+    await fixture.whenStable();
     }
     fixture.detectChanges();
+    await settleSessionGate(httpMock);
     await fixture.whenStable();
   }
   async function answerGroup(): Promise<void> {
     httpMock.expectOne(`${B}/groups/group1`).flush(GROUP);
+    await settleSessionGate(httpMock);
     await fixture.whenStable();
     fixture.detectChanges();
   }
@@ -1785,6 +1941,7 @@ describe('GroupEntry weekly paste path: autofocus and paste from the clipboard (
       warnings: [],
       unrecognizedLines: [],
     });
+    await settleSessionGate(httpMock);
     await settle();
     if (rosterReviews.length > 0) httpMock.expectOne(`${B}/groups/group1/players`).flush([]);
   }
@@ -1802,7 +1959,8 @@ describe('GroupEntry weekly paste path: autofocus and paste from the clipboard (
       await open('pending');
       expect(document.activeElement).not.toBe(textarea());
       httpMock.expectOne(`${B}/groups/group1`).flush({ ...GROUP, lastSessionCode: 's1' });
-      await fixture.whenStable();
+      await settleSessionGate(httpMock);
+    await fixture.whenStable();
       expect(document.activeElement).toBe(textarea());
     });
 
@@ -1944,13 +2102,15 @@ describe('GroupEntry weekly paste path: autofocus and paste from the clipboard (
       fixture = TestBed.createComponent(GroupEntry);
       component = fixture.componentInstance;
       httpMock.expectOne(`${B}/groups/group1`).flush('x', { status: 503, statusText: 'Unavailable' });
-      await fixture.whenStable();
+      await settleSessionGate(httpMock);
+    await fixture.whenStable();
       fixture.detectChanges();
       expect(component.groupStatus()).toBe('error');
       expect(textarea()).toBeNull();
 
       const retry = component.loadGroup();
       httpMock.expectOne(`${B}/groups/group1`).flush(GROUP);
+      await settleSessionGate(httpMock);
       await retry;
       expect(document.activeElement).toBe(textarea());
     });
@@ -1983,7 +2143,8 @@ describe('GroupEntry weekly paste path: autofocus and paste from the clipboard (
       clipButton()!.click();
       // User activation: iOS refuses a read made after an await.
       expect(clipboard.readText).toHaveBeenCalledTimes(1);
-      await settle();
+      await settleSessionGate(httpMock);
+    await settle();
       expect(component.isParsing()).toBe(true);
       const parse = httpMock.expectOne(parseUrl);
       expect(parse.request.body).toEqual({ groupName: 'ก๊วนทดสอบ', rawText: ROSTER });
@@ -1994,9 +2155,11 @@ describe('GroupEntry weekly paste path: autofocus and paste from the clipboard (
         warnings: [],
         unrecognizedLines: [],
       });
-      await settle();
+      await settleSessionGate(httpMock);
+    await settle();
       httpMock.expectOne(`${B}/groups/group1/players`).flush([]);
-      await settle();
+      await settleSessionGate(httpMock);
+    await settle();
 
       expect(component.rawText()).toBe(ROSTER);
       expect(component.state()).toBe('confirm');
@@ -2008,7 +2171,8 @@ describe('GroupEntry weekly paste path: autofocus and paste from the clipboard (
       stubClipboard(readingWith(ROSTER));
       await open();
       const done = component.pasteFromClipboard();
-      await settle();
+      await settleSessionGate(httpMock);
+    await settle();
       await answerParse();
       await done;
       expect((component as unknown as { creationIdempotencyKey: string | null }).creationIdempotencyKey).toBeNull();
@@ -2090,7 +2254,8 @@ describe('GroupEntry weekly paste path: autofocus and paste from the clipboard (
       stubClipboard(readingWith('ไกด์\nเตย'));
       await open();
       const done = component.pasteFromClipboard();
-      await settle();
+      await settleSessionGate(httpMock);
+    await settle();
       await answerParse([]);
       await done;
       expect(component.state()).toBe('paste');
@@ -2104,7 +2269,8 @@ describe('GroupEntry weekly paste path: autofocus and paste from the clipboard (
       stubClipboard(readingWith(ROSTER));
       await open();
       const done = component.pasteFromClipboard();
-      await settle();
+      await settleSessionGate(httpMock);
+    await settle();
       httpMock.expectOne(parseUrl).flush('boom', { status: 500, statusText: 'Server Error' });
       await done;
       expect(component.state()).toBe('paste');
@@ -2120,7 +2286,8 @@ describe('GroupEntry weekly paste path: autofocus and paste from the clipboard (
       expect(el().querySelector('[data-undo]')).not.toBeNull();
 
       const done = component.pasteFromClipboard();
-      await settle();
+      await settleSessionGate(httpMock);
+    await settle();
       expect(component.undoSnapshot()).toBeNull();
       await answerParse();
       await done;
@@ -2180,9 +2347,11 @@ describe('GroupEntry weekly paste path: autofocus and paste from the clipboard (
       clipButton()!.click();
       expect(clipboard.readText).toHaveBeenCalledTimes(1);
       resolveRead(ROSTER);
-      await settle();
+      await settleSessionGate(httpMock);
+    await settle();
       await answerParse();
-      await settle();
+      await settleSessionGate(httpMock);
+    await settle();
       expect(component.state()).toBe('confirm');
       expect(clipboard.readText).toHaveBeenCalledTimes(1);
     });
@@ -2201,7 +2370,8 @@ describe('GroupEntry weekly paste path: autofocus and paste from the clipboard (
       stubClipboard(clipboard);
       await open();
       const first = component.pasteFromClipboard();
-      await settle();
+      await settleSessionGate(httpMock);
+    await settle();
       expect(component.isParsing()).toBe(true);
 
       clipboard.readText.mockImplementation(() => Promise.resolve('1. คนอื่น\n2. อีกคน'));
@@ -2222,7 +2392,8 @@ describe('GroupEntry weekly paste path: autofocus and paste from the clipboard (
       expect(clipButton()!.disabled).toBe(false);
 
       const done = component.pasteFromClipboard();
-      await settle();
+      await settleSessionGate(httpMock);
+    await settle();
       fixture.detectChanges();
       expect(clipButton()!.disabled).toBe(true);
       await answerParse();
@@ -2258,7 +2429,8 @@ describe('GroupEntry weekly paste path: autofocus and paste from the clipboard (
         const pending = component.pasteFromClipboard();
         const typed = component.parse();
         resolveRead(ROSTER);
-        await settle();
+        await settleSessionGate(httpMock);
+    await settle();
         await answerParse();
         await Promise.all([pending, typed]);
         expect(component.rawText()).toBe('1. พิมพ์เอง');

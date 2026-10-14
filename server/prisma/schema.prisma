@@ -131,6 +131,8 @@ model Session {
   rawImportText String
   createdAt     DateTime        @default(now())
   endedAt       DateTime?
+  /// Host explicitly recovered a forgotten session; this is the actual closure time.
+  closedAsForgottenAt DateTime?
   /// 'variety' (default) spreads partners and opponents; 'balanced' also
   /// pulls the two sides of each match together on Elo rating; 'level'
   /// spreads partners like 'variety' but dominated first by the ±1 skill
@@ -275,6 +277,9 @@ model Pairing {
   shownSplits String    @default("[]")
   confirmedAt DateTime?
   endedAt     DateTime?
+  /// Recovery closure time; its elapsed timestamp is not a measured game duration.
+  closedWithoutResultAt DateTime?
+  estimatedDurationSeconds Int?
   /// JSON-encoded { playerId, partnerId: string | null }[] snapshotted at
   /// confirmation for every tagged player with an enabled must-pair link:
   /// partnerId is set only when that game counted as their carry. "[]" for

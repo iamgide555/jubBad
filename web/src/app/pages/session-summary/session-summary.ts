@@ -1,3 +1,4 @@
+import { durationSummary } from '../../core/session-duration-summary';
 import { NgTemplateOutlet } from '@angular/common';
 import { Component, computed, inject, signal, viewChild } from '@angular/core';
 import { HttpClient, HttpErrorResponse, httpResource } from '@angular/common/http';
@@ -58,8 +59,10 @@ export class SessionSummary {
         return row.doubles ? this.winPercent(row.doubles.played, row.doubles.won) : null;
       case 'singlesRate':
         return row.singles ? this.winPercent(row.singles.played, row.singles.won) : null;
-      case 'time':
-        return row.totalSeconds;
+      case 'time': {
+        const time = durationSummary(row.matches);
+        return row.matches.length > 0 && time.measuredMatchCount + time.estimatedMatchCount === 0 ? null : row.totalSeconds;
+      }
     }
   }
 
@@ -108,6 +111,8 @@ export class SessionSummary {
   protected readonly formatShuttlePriceInput = formatShuttlePriceInput;
 
   /** Null when this player never played — same guard as winPercent. */
+  protected readonly durationSummary = durationSummary;
+
   protected averageMinutes(totalSeconds: number, played: number): string | null {
     return played === 0 ? null : formatMinutes(totalSeconds / played);
   }

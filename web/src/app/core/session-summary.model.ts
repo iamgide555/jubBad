@@ -9,7 +9,9 @@ export interface SessionMatch {
   scoreA: number | null;
   scoreB: number | null;
   result: 'win' | 'loss' | 'no-result';
-  durationSeconds: number;
+  durationSeconds: number | null;
+  /** Optional while older API bundles are still deployed. */
+  durationSource?: 'recorded' | 'estimated' | 'unknown';
   pairingId: string;
   /** Both teams, so a correction dialog can name the sides. */
   teamA: string[];
@@ -35,6 +37,11 @@ export interface PlayerSessionStat {
   lost: number;
   /** Sum of durationSeconds across this player's matches. */
   totalSeconds: number;
+  /** Older API bundles omit these; the view derives its fallback from matches. */
+  measuredTotalSeconds?: number;
+  measuredMatchCount?: number;
+  estimatedMatchCount?: number;
+  unknownDurationMatchCount?: number;
   /** Tonight's distinct doubles partners; a repeated partner counts once. */
   distinctPartners: number;
   /** Null when this player never played that format this session. */

@@ -1,3 +1,4 @@
+import type { ClosePreview } from './session-closure.model';
 import { HttpClient } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { environment } from '../../environments/environment';
@@ -63,6 +64,15 @@ export class RosterService {
   /** Name-only creation. `code` is one UUID per creation attempt, reused for retries. */
   createGroup(code: string, name: string) {
     return this.http.post<{ code: string; name: string | null }>(`${this.base}/groups`, { code, name });
+  }
+
+  previewForgottenSession(code: string) {
+    return this.http.get<ClosePreview>(`${this.base}/sessions/${code}/close-preview`);
+  }
+
+  closeForgottenSession(code: string, snapshotHash: string) {
+    return this.http.post<{ code: string; endedAt: string }>(
+      `${this.base}/sessions/${code}/close-forgotten`, { snapshotHash });
   }
 
   /** Owner-only: whether the group's public dashboard link exists. */

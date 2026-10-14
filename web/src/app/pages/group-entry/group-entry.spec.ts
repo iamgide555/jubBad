@@ -1252,16 +1252,19 @@ describe('GroupEntry review step: clear with undo, edit the paste (UX review)', 
     await fixture.whenStable();
   }
 
-  /** A pasted roster: one fuzzy question (opens a choice) and one new player. */
-  async function parsePasted(text = PASTE): Promise<void> {
+  /** By default a pasted roster with one fuzzy question (opens a choice) and one new player. */
+  async function parsePasted(
+    text = PASTE,
+    rosterReviews: object[] = [
+      { inputName: 'ตัม', match: { type: 'fuzzy', playerId: 'p1', score: 0.8 } },
+      { inputName: 'เกียร์', match: { type: 'new' } },
+    ]
+  ): Promise<void> {
     component.rawText.set(text);
     const parsing = component.parse();
     httpMock.expectOne(`${B}/groups/group1/parse`).flush({
       header: { isoDate: '2026-09-08', venue: 'KIP', courtCount: 2 },
-      rosterReviews: [
-        { inputName: 'ตัม', match: { type: 'fuzzy', playerId: 'p1', score: 0.8 } },
-        { inputName: 'เกียร์', match: { type: 'new' } },
-      ],
+      rosterReviews,
       waitlistReviews: [],
       warnings: [],
       unrecognizedLines: [],
@@ -1495,5 +1498,130 @@ describe('GroupEntry review step: clear with undo, edit the paste (UX review)', 
     await startManualRoster();
     expect(component.state()).toBe('confirm');
     expect(el().querySelector('[data-edit-paste]')).toBeNull();
+  });
+
+  // Fix round 1 (Task 3 review).
+
+  /** Fails one create, so the attempt's idempotency key is minted; returns it. */
+  async function failCreate(): Promise<string> {
+    const creating = component.confirmRoster();
+    const req = httpMock.expectOne(`${B}/sessions`);
+    const sent = req.request.body.idempotencyKey as string;
+    req.flush('Server error', { status: 500, statusText: 'Server Error' });
+    await creating;
+    expect(component.confirmError()).toContain('สร้างรอบไม่สำเร็จ');
+    return sent;
+  }
+
+  it('a fresh parse after edit-paste is a fresh attempt: the failed attempt\'s idempotency key is not reused', async () => {
+    await parsePasted(PASTE, fourNewPlayers());
+    const first = await failCreate();
+    expect(key()).toBe(first);
+
+    component.editPaste();
+    await parsePasted('1. ตั้ม\n2. เกียร์\n3. มด\n4. มะนาว\n5. ส้ม', fourNewPlayers());
+    const creating = component.confirmRoster();
+    const req = httpMock.expectOne(`${B}/sessions`);
+    expect(req.request.body.idempotencyKey).toEqual(expect.any(String));
+    expect(req.request.body.idempotencyKey).not.toBe(first);
+    req.flush({ code: 'sess2' });
+    await creating;
+  });
+
+  it('a draft restored after a detour is the same attempt: the failed attempt\'s key is kept', async () => {
+    await parsePasted(PASTE, fourNewPlayers());
+    const first = await failCreate();
+    fixture.destroy();
+
+    fixture = TestBed.createComponent(GroupEntry);
+    component = fixture.componentInstance;
+    httpMock.expectOne(`${B}/groups/group1`).flush({ code: 'group1', name: 'ก๊วนทดสอบ', lastSessionCode: null });
+    httpMock.expectOne(`${B}/groups/group1/levels`).flush(standardLadderFixture());
+    await render();
+    expect(component.state()).toBe('confirm');
+    expect(key()).toBe(first);
+
+    const creating = component.confirmRoster();
+    const req = httpMock.expectOne(`${B}/sessions`);
+    expect(req.request.body.idempotencyKey).toBe(first);
+    req.flush({ code: 'sess1' });
+    await creating;
+  });
+
+  it('a second clear while the undo is pending keeps the first snapshot, not an empty one', async () => {
+    await parsePasted();
+    component.discardDraft();
+    const pending = component.undoSnapshot();
+    expect(pending?.rosterReviews).toHaveLength(2);
+
+    component.discardDraft();
+    expect(component.undoSnapshot()).toBe(pending);
+    component.undoDiscard();
+    expect(component.state()).toBe('confirm');
+    expect(component.rosterReviews()).toHaveLength(2);
+    expect(component.rawText()).toBe(PASTE);
+  });
+
+  describe('focus at the moments a control disappears', () => {
+    const textarea = () => el().querySelector<HTMLTextAreaElement>('#roster-text');
+
+    it('the fixture is in the document, so focus is real', () => {
+      expect(document.body.contains(el())).toBe(true);
+    });
+
+    it('after a clear, focus is on the undo button', async () => {
+      await parsePasted();
+      el().querySelector<HTMLButtonElement>('[data-discard]')!.focus();
+      el().querySelector<HTMLButtonElement>('[data-discard]')!.click();
+      expect(undoButton()).not.toBeNull();
+      expect(document.activeElement).toBe(undoButton());
+      await render();
+      expect(document.activeElement).toBe(undoButton());
+    });
+
+    it('when the undo lapses while focused, focus moves to the paste box, not the page', async () => {
+      await parsePasted();
+      vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+      component.discardDraft();
+      expect(document.activeElement).toBe(undoButton());
+      vi.advanceTimersByTime(8000);
+      fixture.detectChanges();
+      expect(undoButton()).toBeNull();
+      expect(document.activeElement).toBe(textarea());
+    });
+
+    it('when the undo lapses while focus is elsewhere, focus is left where the host put it', async () => {
+      await parsePasted();
+      vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+      component.discardDraft();
+      const back = el().querySelector<HTMLAnchorElement>('a.back')!;
+      back.focus();
+      expect(document.activeElement).toBe(back);
+      vi.advanceTimersByTime(8000);
+      fixture.detectChanges();
+      expect(document.activeElement).toBe(back);
+    });
+
+    it('after undo, focus returns to the clear button the host acted from', async () => {
+      await parsePasted();
+      component.discardDraft();
+      undoButton()!.click();
+      const discard = el().querySelector<HTMLButtonElement>('[data-discard]');
+      expect(discard).not.toBeNull();
+      expect(document.activeElement).toBe(discard);
+      await render();
+      expect(document.activeElement).toBe(el().querySelector('[data-discard]'));
+    });
+
+    it('after edit-paste, focus is in the paste box', async () => {
+      await parsePasted();
+      const edit = el().querySelector<HTMLButtonElement>('[data-edit-paste]')!;
+      edit.focus();
+      edit.click();
+      expect(textarea()).not.toBeNull();
+      expect(document.activeElement).toBe(textarea());
+      await render();
+      expect(document.activeElement).toBe(textarea());
+    });
   });
 });

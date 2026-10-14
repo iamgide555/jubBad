@@ -25,7 +25,7 @@
     @if (undoSnapshot()) {
       <div class="undo-notice">
         <span i18n="@@entry.rosterCleared">ล้างรายชื่อแล้ว</span>
-        <button type="button" class="ghost" data-undo (click)="undoDiscard()" i18n="@@entry.undoClear">เลิกทำ</button>
+        <button #undoButton type="button" class="ghost" data-undo (click)="undoDiscard()" i18n="@@entry.undoClear">เลิกทำ</button>
       </div>
     }
   </div>
@@ -38,7 +38,7 @@
           <ng-container i18n="@@entry.rosterMessage">ข้อความรายชื่อ</ng-container>
         </label>
       </div>
-      <textarea id="roster-text" [ngModel]="rawText()" (ngModelChange)="onRawTextChange($event)" rows="15" i18n-placeholder="@@entry.rosterPlaceholder" placeholder="วางข้อความรายชื่อจากไลน์ที่นี่"></textarea>
+      <textarea #rosterText id="roster-text" [ngModel]="rawText()" (ngModelChange)="onRawTextChange($event)" rows="15" i18n-placeholder="@@entry.rosterPlaceholder" placeholder="วางข้อความรายชื่อจากไลน์ที่นี่"></textarea>
       @if (pasteError()) {
         <p class="error" role="alert">{{ pasteError() }}</p>
       }
@@ -345,7 +345,7 @@
 
     <!-- Last, and quiet: throwing the list away is rare, and can be undone for a few seconds. -->
     <p class="clear-roster">
-      <button type="button" class="ghost" data-discard [disabled]="isSubmitting()" (click)="discardDraft()" i18n="@@entry.clearRoster">ล้างรายชื่อ</button>
+      <button #clearButton type="button" class="ghost" data-discard [disabled]="isSubmitting()" (click)="discardDraft()" i18n="@@entry.clearRoster">ล้างรายชื่อ</button>
     </p>
   }
   }

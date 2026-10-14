@@ -1,6 +1,6 @@
 import { HttpErrorResponse } from '@angular/common/http';
-import { Component, DestroyRef, computed, inject, signal } from '@angular/core';
-import { NgTemplateOutlet } from '@angular/common';
+import { ChangeDetectorRef, Component, DestroyRef, ElementRef, computed, inject, signal, viewChild } from '@angular/core';
+import { DOCUMENT, NgTemplateOutlet } from '@angular/common';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { firstValueFrom } from 'rxjs';
@@ -66,6 +66,12 @@ export class GroupEntry {
   /** The saved group this roster is for. Not found is a dead end here: groups are created at /groups/new. */
   readonly groupStatus = signal<'loading' | 'ready' | 'not-found' | 'error'>('loading');
   private readonly drafts = inject(RosterDraftService);
+  private readonly cdr = inject(ChangeDetectorRef);
+  private readonly document = inject(DOCUMENT);
+  /** Where focus goes when the control the host just used disappears (clear, undo, edit-paste). */
+  private readonly undoButton = viewChild<ElementRef<HTMLButtonElement>>('undoButton');
+  private readonly clearButton = viewChild<ElementRef<HTMLButtonElement>>('clearButton');
+  private readonly rosterText = viewChild<ElementRef<HTMLTextAreaElement>>('rosterText');
   /** Set once the session exists, so leaving afterwards does not save a stale draft back. */
   private sessionCreated = false;
 
@@ -280,6 +286,9 @@ export class GroupEntry {
 
   /** Throw the roster away and start from an empty paste box — undoable for a few seconds. */
   discardDraft(): void {
+    // Only the review has a list to clear. Anywhere else this would replace a
+    // pending undo with a snapshot of an empty paste box.
+    if (this.state() !== 'confirm') return;
     const snapshot = this.snapshotDraft();
     this.drafts.clear(this.groupCode);
     this.rawText.set('');
@@ -295,8 +304,12 @@ export class GroupEntry {
     this.undoSnapshot.set(snapshot);
     this.undoTimer = setTimeout(() => {
       this.undoTimer = null;
+      // The notice is about to go: a host still on its button lands in the paste box, not on the page.
+      if (this.document.activeElement === this.undoButton()?.nativeElement) this.rosterText()?.nativeElement.focus();
       this.undoSnapshot.set(null);
     }, UNDO_MS);
+    // The clear button just disappeared with the review: put focus on the way back.
+    this.focusAfterRender(this.undoButton);
   }
 
   /** Puts back exactly what the last clear threw away. Never after the session exists. */
@@ -305,6 +318,17 @@ export class GroupEntry {
     this.clearUndo();
     if (!snapshot || this.sessionCreated) return;
     this.applyDraft(snapshot);
+    this.focusAfterRender(this.clearButton);
+  }
+
+  /**
+   * Renders now, then focuses — the target only exists once the state change
+   * has rendered. Synchronous detectChanges, like GroupHome.restoreFromQuery;
+   * no afterNextRender (see core/motion/reveal.directive.ts).
+   */
+  private focusAfterRender(target: () => ElementRef<HTMLElement> | undefined): void {
+    this.cdr.detectChanges();
+    target()?.nativeElement.focus();
   }
 
   /** Withdraws the undo offer: the host has moved on (new text, a new parse, a manual start, a session, or leaving). */
@@ -318,6 +342,7 @@ export class GroupEntry {
   editPaste(): void {
     if (this.isSubmitting()) return;
     this.state.set('paste');
+    this.focusAfterRender(this.rosterText);
   }
 
   /** The paste box's input. Any new text means the host has moved on from the list they cleared. */
@@ -492,6 +517,12 @@ export class GroupEntry {
     this.manualActiveIndex.set(-1);
     this.manualSuggestionsDismissed.set(false);
     this.manualStatusMessage.set('');
+
+    // A fresh parse (or manual start) is a fresh attempt. A key carried over
+    // from a failed create would hand back that attempt's session — old roster
+    // and all — if it had in fact committed. A restored draft (applyDraft)
+    // keeps its key: that is the same attempt after a detour.
+    this.creationIdempotencyKey = null;
 
     this.state.set('confirm');
   }

@@ -30,6 +30,18 @@
   margin: 0;
 }
 
+/* The one-tap route: full width above the box, at the ghost button's own 44px tap height. */
+.paste-clipboard {
+  width: 100%;
+  margin-bottom: var(--space-1);
+}
+
+/* Padding, not margin: `.entry-card p:last-child` above zeroes a last paragraph's bottom margin. */
+.clipboard-note p {
+  margin: 0;
+  padding-bottom: var(--space-1);
+}
+
 .paste-actions {
   display: flex;
   gap: var(--space-2);

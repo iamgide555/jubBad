@@ -5,7 +5,7 @@ import { ActivatedRoute, convertToParamMap, provideRouter, Router } from '@angul
 import { GroupEntry } from './group-entry';
 import { routes } from '../../app.routes';
 import { AuthService } from '../../core/auth.service';
-import { RosterDraftService } from '../../core/roster-draft.service';
+import { RosterDraftService, type RosterDraft } from '../../core/roster-draft.service';
 import { standardLadderFixture } from '../../core/group-levels.testing';
 import { environment } from '../../../environments/environment';
 
@@ -1623,5 +1623,535 @@ describe('GroupEntry review step: clear with undo, edit the paste (UX review)', 
       await render();
       expect(document.activeElement).toBe(textarea());
     });
+  });
+});
+
+describe('GroupEntry weekly paste path: autofocus and paste from the clipboard (UX review)', () => {
+  let component: GroupEntry;
+  let fixture: ComponentFixture<GroupEntry>;
+  let httpMock: HttpTestingController;
+  const ROSTER = '1. ตั้ม\n2. เกียร์\n3. มด\n4. มะนาว';
+  const GROUP = { code: 'group1', name: 'ก๊วนทดสอบ', lastSessionCode: null };
+  const FALLBACK = 'วางเองในช่องด้านล่างได้เลย';
+  const EMPTY = 'คลิปบอร์ดว่างอยู่ คัดลอกข้อความรายชื่อจาก LINE ก่อน';
+  const el = () => fixture.nativeElement as HTMLElement;
+  const textarea = () => el().querySelector<HTMLTextAreaElement>('#roster-text');
+  const clipButton = () => el().querySelector<HTMLButtonElement>('[data-paste-clipboard]');
+  // Reading the page is what the browser's own render would have done by then.
+  const noteSlot = () => {
+    fixture.detectChanges();
+    return el().querySelector<HTMLElement>('[data-clipboard-note]');
+  };
+  const note = () => noteSlot()?.textContent?.trim() ?? '';
+  const settle = () => new Promise<void>((r) => setTimeout(r, 0));
+  const parseUrl = `${B}/groups/group1/parse`;
+
+  // jsdom has no navigator.clipboard, so a stub is an own property to delete again, not one to put back.
+  const stubClipboard = (value: unknown) =>
+    Object.defineProperty(navigator, 'clipboard', { value, configurable: true });
+  const readingWith = (text: string) => ({ readText: vi.fn(() => Promise.resolve(text)) });
+
+  beforeEach(async () => {
+    await TestBed.configureTestingModule({
+      imports: [GroupEntry],
+      providers: [
+        provideHttpClient(),
+        provideHttpClientTesting(),
+        provideRouter(routes),
+        { provide: AuthService, useValue: { check: () => Promise.resolve(true) } },
+        { provide: ActivatedRoute, useValue: { snapshot: { paramMap: convertToParamMap({ groupCode: 'group1' }) } } },
+      ],
+    }).compileComponents();
+    httpMock = TestBed.inject(HttpTestingController);
+  });
+
+  afterEach(() => {
+    delete (navigator as unknown as { clipboard?: unknown }).clipboard;
+    // A test that stopped early must not leave the next one a half-built TestBed.
+    for (const req of httpMock.match(`${B}/groups/group1`)) req.flush(GROUP);
+    for (const req of httpMock.match((r) => r.url.endsWith('/groups/group1/levels'))) req.flush(standardLadderFixture());
+    TestBed.inject(RosterDraftService).clear('group1');
+    httpMock.verify();
+  });
+
+  /** Opens the screen. `group: 'pending'` leaves the group request unanswered, as on a slow connection. */
+  async function open(group: 'ready' | 'pending' = 'ready'): Promise<void> {
+    fixture = TestBed.createComponent(GroupEntry);
+    component = fixture.componentInstance;
+    if (group === 'ready') {
+      httpMock.expectOne(`${B}/groups/group1`).flush(GROUP);
+      await fixture.whenStable();
+    }
+    fixture.detectChanges();
+    await fixture.whenStable();
+  }
+  async function answerGroup(): Promise<void> {
+    httpMock.expectOne(`${B}/groups/group1`).flush(GROUP);
+    await fixture.whenStable();
+    fixture.detectChanges();
+  }
+  const seedDraft = (over: Partial<RosterDraft>) =>
+    TestBed.inject(RosterDraftService).save('group1', {
+      state: 'paste',
+      rawText: '',
+      date: '',
+      venue: '',
+      courtCount: null,
+      warnings: [],
+      unrecognizedLines: [],
+      rosterReviews: [],
+      waitlistReviews: [],
+      players: [],
+      manualReviews: new Set(),
+      openReviews: new Set(),
+      idempotencyKey: null,
+      ...over,
+    });
+  const confirmDraft = (): Partial<RosterDraft> => ({
+    state: 'confirm',
+    rawText: ROSTER,
+    date: '2026-09-08',
+    courtCount: 2,
+    rosterReviews: [{ inputName: 'ตั้ม', match: { type: 'new' }, decision: 'accept' }],
+  });
+
+  /** Answers the parse and players reads a roster message sets going. */
+  async function answerParse(rosterReviews: object[] = fourNewPlayers()): Promise<void> {
+    httpMock.expectOne(parseUrl).flush({
+      header: { isoDate: '2026-09-08', venue: null, courtCount: 2 },
+      rosterReviews,
+      waitlistReviews: [],
+      warnings: [],
+      unrecognizedLines: [],
+    });
+    await settle();
+    if (rosterReviews.length > 0) httpMock.expectOne(`${B}/groups/group1/players`).flush([]);
+  }
+
+  describe('autofocus', () => {
+    it('focuses the empty paste box once the group has loaded, not before', async () => {
+      await open('pending');
+      expect(textarea()).not.toBeNull();
+      expect(document.activeElement).not.toBe(textarea());
+      await answerGroup();
+      expect(document.activeElement).toBe(textarea());
+    });
+
+    it('focuses the box on a group that already has sessions too', async () => {
+      await open('pending');
+      httpMock.expectOne(`${B}/groups/group1`).flush({ ...GROUP, lastSessionCode: 's1' });
+      await fixture.whenStable();
+      expect(document.activeElement).toBe(textarea());
+    });
+
+    it('does not focus the box when a draft with text was restored', async () => {
+      seedDraft({ rawText: ROSTER });
+      await open();
+      expect(component.rawText()).toBe(ROSTER);
+      expect(document.activeElement).not.toBe(textarea());
+    });
+
+    it('does not focus anything when the restored draft is the review step', async () => {
+      seedDraft(confirmDraft());
+      await open();
+      expect(component.state()).toBe('confirm');
+      expect(textarea()).toBeNull();
+      expect(document.activeElement).toBe(document.body);
+    });
+
+    it('does not take focus from the undo button when a clear beats a slow group load', async () => {
+      // A restored review is on screen while the group is still loading. The host clears it, and
+      // the undo button is focused. The state is then paste and the box empty — the group answering
+      // late must not pull focus away.
+      seedDraft(confirmDraft());
+      await open('pending');
+      const discard = el().querySelector<HTMLButtonElement>('[data-discard]')!;
+      discard.focus();
+      discard.click();
+      const undo = el().querySelector<HTMLButtonElement>('[data-undo]');
+      expect(undo).not.toBeNull();
+      expect(document.activeElement).toBe(undo);
+
+      await answerGroup();
+      expect(component.state()).toBe('paste');
+      expect(component.rawText()).toBe('');
+      expect(document.activeElement).toBe(undo);
+    });
+
+    it('leaves focus alone after edit-paste, even if the group answers late', async () => {
+      seedDraft(confirmDraft());
+      await open('pending');
+      el().querySelector<HTMLButtonElement>('[data-edit-paste]')!.click();
+      expect(document.activeElement).toBe(textarea());
+      el().querySelector<HTMLAnchorElement>('a.back')!.focus();
+
+      await answerGroup();
+      expect(document.activeElement).toBe(el().querySelector('a.back'));
+    });
+
+    it('leaves focus where it is once the host has typed, even if the group answers after', async () => {
+      await open('pending');
+      const back = el().querySelector<HTMLAnchorElement>('a.back')!;
+      back.focus();
+      component.onRawTextChange('1. ตั้ม');
+      await answerGroup();
+      expect(document.activeElement).toBe(back);
+    });
+
+    it('focuses the box when a retry after a failed load succeeds', async () => {
+      fixture = TestBed.createComponent(GroupEntry);
+      component = fixture.componentInstance;
+      httpMock.expectOne(`${B}/groups/group1`).flush('x', { status: 503, statusText: 'Unavailable' });
+      await fixture.whenStable();
+      fixture.detectChanges();
+      expect(component.groupStatus()).toBe('error');
+      expect(textarea()).toBeNull();
+
+      const retry = component.loadGroup();
+      httpMock.expectOne(`${B}/groups/group1`).flush(GROUP);
+      await retry;
+      expect(document.activeElement).toBe(textarea());
+    });
+
+    it('does not throw when the group answers after the screen was left', async () => {
+      await open('pending');
+      const second = component.loadGroup();
+      fixture.destroy();
+      for (const req of httpMock.match(`${B}/groups/group1`)) req.flush(GROUP);
+      await expect(second).resolves.toBeUndefined();
+    });
+  });
+
+  describe('paste from the clipboard', () => {
+    it('has a full-width ghost button above the paste box, inside the paste card', async () => {
+      await open();
+      const button = clipButton()!;
+      expect(button.textContent?.trim()).toBe('วางจากคลิปบอร์ด');
+      expect(button.type).toBe('button');
+      expect(button.classList.contains('ghost')).toBe(true);
+      expect(button.closest('.paste-card')).not.toBeNull();
+      expect(button.compareDocumentPosition(textarea()!) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    });
+
+    it('a tap reads the clipboard in the tap itself, parses the roster once and lands on the review', async () => {
+      const clipboard = readingWith(ROSTER);
+      stubClipboard(clipboard);
+      await open();
+
+      clipButton()!.click();
+      // User activation: iOS refuses a read made after an await.
+      expect(clipboard.readText).toHaveBeenCalledTimes(1);
+      await settle();
+      expect(component.isParsing()).toBe(true);
+      const parse = httpMock.expectOne(parseUrl);
+      expect(parse.request.body).toEqual({ groupName: 'ก๊วนทดสอบ', rawText: ROSTER });
+      parse.flush({
+        header: { isoDate: '2026-09-08', venue: null, courtCount: 2 },
+        rosterReviews: fourNewPlayers(),
+        waitlistReviews: [],
+        warnings: [],
+        unrecognizedLines: [],
+      });
+      await settle();
+      httpMock.expectOne(`${B}/groups/group1/players`).flush([]);
+      await settle();
+
+      expect(component.rawText()).toBe(ROSTER);
+      expect(component.state()).toBe('confirm');
+      expect(component.rosterReviews()).toHaveLength(4);
+      expect(clipboard.readText).toHaveBeenCalledTimes(1);
+    });
+
+    it('a fresh parse through the clipboard is a fresh attempt, like a typed one', async () => {
+      stubClipboard(readingWith(ROSTER));
+      await open();
+      const done = component.pasteFromClipboard();
+      await settle();
+      await answerParse();
+      await done;
+      expect((component as unknown as { creationIdempotencyKey: string | null }).creationIdempotencyKey).toBeNull();
+    });
+
+    it('an empty clipboard says so, parses nothing, and leaves the box alone', async () => {
+      stubClipboard(readingWith('  \n '));
+      await open();
+      component.rawText.set('1. เก่า');
+      component.pasteError.set('ข้อผิดพลาดเก่า');
+      clipButton()!.focus();
+      await component.pasteFromClipboard();
+
+      expect(note()).toBe(EMPTY);
+      expect(noteSlot()!.getAttribute('role')).toBe('status');
+      expect(noteSlot()!.querySelector('p')!.classList.contains('muted')).toBe(true);
+      expect(el().querySelector('[data-clipboard-note] .error')).toBeNull();
+      expect(component.rawText()).toBe('1. เก่า');
+      expect(component.pasteError()).toBeNull();
+      expect(document.activeElement).toBe(clipButton());
+      httpMock.expectNone(parseUrl);
+      expect(component.isParsing()).toBe(false);
+    });
+
+    it('a refused clipboard read falls back to typing: message, focus in the box, no parse', async () => {
+      const denied = { readText: vi.fn(() => Promise.reject(new DOMException('denied', 'NotAllowedError'))) };
+      stubClipboard(denied);
+      await open();
+      textarea()!.blur();
+      document.body.focus();
+      component.rawText.set('1. เก่า');
+      await component.pasteFromClipboard();
+
+      expect(denied.readText).toHaveBeenCalledTimes(1);
+      expect(note()).toBe(FALLBACK);
+      expect(noteSlot()!.getAttribute('role')).toBe('status');
+      expect(noteSlot()!.querySelector('p')!.classList.contains('muted')).toBe(true);
+      expect(el().querySelector('[data-clipboard-note] .error')).toBeNull();
+      expect(document.activeElement).toBe(textarea());
+      expect(component.rawText()).toBe('1. เก่า');
+      expect(component.pasteError()).toBeNull();
+      httpMock.expectNone(parseUrl);
+    });
+
+    it('a read that throws outright falls back the same way', async () => {
+      stubClipboard({
+        readText: () => {
+          throw new TypeError('not a function');
+        },
+      });
+      await open();
+      await component.pasteFromClipboard();
+      expect(note()).toBe(FALLBACK);
+      expect(document.activeElement).toBe(textarea());
+      httpMock.expectNone(parseUrl);
+    });
+
+    it('without a clipboard API, the same fallback', async () => {
+      stubClipboard(undefined);
+      await open();
+      await component.pasteFromClipboard();
+      expect(note()).toBe(FALLBACK);
+      expect(document.activeElement).toBe(textarea());
+      httpMock.expectNone(parseUrl);
+    });
+
+    it('with a clipboard that cannot read text, the same fallback', async () => {
+      stubClipboard({});
+      await open();
+      await component.pasteFromClipboard();
+      expect(note()).toBe(FALLBACK);
+      expect(document.activeElement).toBe(textarea());
+      httpMock.expectNone(parseUrl);
+    });
+
+    it('shows a roster-less clipboard exactly as a typed paste does', async () => {
+      stubClipboard(readingWith('ไกด์\nเตย'));
+      await open();
+      const done = component.pasteFromClipboard();
+      await settle();
+      await answerParse([]);
+      await done;
+      expect(component.state()).toBe('paste');
+      expect(component.rawText()).toBe('ไกด์\nเตย');
+      expect(component.pasteError()).toContain('ไม่พบรายชื่อผู้เล่น');
+      expect(el().querySelector('p.error[role="alert"]')?.textContent).toContain('ไม่พบรายชื่อผู้เล่น');
+      expect(note()).toBe('');
+    });
+
+    it('shows a failed parse exactly as a typed paste does, text kept for a retry', async () => {
+      stubClipboard(readingWith(ROSTER));
+      await open();
+      const done = component.pasteFromClipboard();
+      await settle();
+      httpMock.expectOne(parseUrl).flush('boom', { status: 500, statusText: 'Server Error' });
+      await done;
+      expect(component.state()).toBe('paste');
+      expect(component.rawText()).toBe(ROSTER);
+      expect(component.pasteError()).toContain('อ่านรายชื่อไม่สำเร็จ');
+      expect(component.isParsing()).toBe(false);
+    });
+
+    it('withdraws a pending undo, as typing would', async () => {
+      stubClipboard(readingWith(ROSTER));
+      await open();
+      seedUndo();
+      expect(el().querySelector('[data-undo]')).not.toBeNull();
+
+      const done = component.pasteFromClipboard();
+      await settle();
+      expect(component.undoSnapshot()).toBeNull();
+      await answerParse();
+      await done;
+    });
+
+    it('keeps the undo offer when nothing was pasted', async () => {
+      stubClipboard(readingWith(''));
+      await open();
+      seedUndo();
+      await component.pasteFromClipboard();
+      expect(component.undoSnapshot()).not.toBeNull();
+      expect(el().querySelector('[data-undo]')).not.toBeNull();
+    });
+
+    it('the message goes when the host types, and when a manual roster is started', async () => {
+      stubClipboard(readingWith(''));
+      await open();
+      await component.pasteFromClipboard();
+      expect(note()).toBe(EMPTY);
+      component.onRawTextChange('1. ตั้ม');
+      expect(note()).toBe('');
+
+      await component.pasteFromClipboard();
+      expect(note()).toBe(EMPTY);
+      const manual = component.startManual();
+      httpMock.expectOne(`${B}/groups/group1/players`).flush([]);
+      await manual;
+      component.discardDraft();
+      fixture.detectChanges();
+      expect(component.state()).toBe('paste');
+      expect(note()).toBe('');
+    });
+
+    it('a new tap takes the old message down while its own read waits', async () => {
+      let resolveRead!: (text: string) => void;
+      const clipboard = { readText: vi.fn(() => Promise.resolve('')) };
+      stubClipboard(clipboard);
+      await open();
+      await component.pasteFromClipboard();
+      expect(note()).toBe(EMPTY);
+
+      clipboard.readText.mockImplementation(() => new Promise<string>((r) => (resolveRead = r)));
+      const again = component.pasteFromClipboard();
+      expect(note()).toBe('');
+      resolveRead('');
+      await again;
+      expect(note()).toBe(EMPTY);
+    });
+
+    it('a second tap while the read is pending does not read twice', async () => {
+      let resolveRead!: (text: string) => void;
+      const clipboard = { readText: vi.fn(() => new Promise<string>((r) => (resolveRead = r))) };
+      stubClipboard(clipboard);
+      await open();
+
+      clipButton()!.click();
+      clipButton()!.click();
+      expect(clipboard.readText).toHaveBeenCalledTimes(1);
+      resolveRead(ROSTER);
+      await settle();
+      await answerParse();
+      await settle();
+      expect(component.state()).toBe('confirm');
+      expect(clipboard.readText).toHaveBeenCalledTimes(1);
+    });
+
+    it('can be tapped again once a read has finished empty', async () => {
+      const clipboard = { readText: vi.fn(() => Promise.resolve('')) };
+      stubClipboard(clipboard);
+      await open();
+      await component.pasteFromClipboard();
+      await component.pasteFromClipboard();
+      expect(clipboard.readText).toHaveBeenCalledTimes(2);
+    });
+
+    it('a tap while a parse is in flight neither reads nor replaces the text being parsed', async () => {
+      const clipboard = readingWith(ROSTER);
+      stubClipboard(clipboard);
+      await open();
+      const first = component.pasteFromClipboard();
+      await settle();
+      expect(component.isParsing()).toBe(true);
+
+      clipboard.readText.mockImplementation(() => Promise.resolve('1. คนอื่น\n2. อีกคน'));
+      await component.pasteFromClipboard();
+      expect(clipboard.readText).toHaveBeenCalledTimes(1);
+      expect(component.rawText()).toBe(ROSTER);
+
+      await answerParse();
+      await first;
+      httpMock.expectNone(parseUrl);
+    });
+
+    it('is disabled while the group loads, enabled once it is ready, disabled again while parsing', async () => {
+      stubClipboard(readingWith(ROSTER));
+      await open('pending');
+      expect(clipButton()!.disabled).toBe(true);
+      await answerGroup();
+      expect(clipButton()!.disabled).toBe(false);
+
+      const done = component.pasteFromClipboard();
+      await settle();
+      fixture.detectChanges();
+      expect(clipButton()!.disabled).toBe(true);
+      await answerParse();
+      await done;
+    });
+
+    it('does nothing before the group is ready', async () => {
+      const clipboard = readingWith(ROSTER);
+      stubClipboard(clipboard);
+      await open('pending');
+      await component.pasteFromClipboard();
+      expect(clipboard.readText).not.toHaveBeenCalled();
+      expect(note()).toBe('');
+      httpMock.expectNone(parseUrl);
+      await answerGroup();
+    });
+
+    it('leaves the typed buttons as they were', async () => {
+      await open();
+      const labels = [...el().querySelectorAll<HTMLButtonElement>('.paste-actions button')].map((b) => b.textContent?.trim());
+      expect(labels).toEqual(['อ่านรายชื่อ', 'เพิ่มรายชื่อเอง']);
+    });
+
+    describe('a read that answers after the host has moved on', () => {
+      let resolveRead!: (text: string) => void;
+      beforeEach(() => {
+        stubClipboard({ readText: vi.fn(() => new Promise<string>((r) => (resolveRead = r))) });
+      });
+
+      it('does not parse over a read the host started by tapping อ่านรายชื่อ', async () => {
+        await open();
+        component.rawText.set('1. พิมพ์เอง');
+        const pending = component.pasteFromClipboard();
+        const typed = component.parse();
+        resolveRead(ROSTER);
+        await settle();
+        await answerParse();
+        await Promise.all([pending, typed]);
+        expect(component.rawText()).toBe('1. พิมพ์เอง');
+        httpMock.expectNone(parseUrl);
+      });
+
+      it('does not write into the box once a manual roster has taken over', async () => {
+        await open();
+        const pending = component.pasteFromClipboard();
+        const manual = component.startManual();
+        httpMock.expectOne(`${B}/groups/group1/players`).flush([]);
+        await manual;
+        expect(component.state()).toBe('confirm');
+        resolveRead(ROSTER);
+        await pending;
+        expect(component.rawText()).toBe('');
+        expect(component.state()).toBe('confirm');
+        httpMock.expectNone(parseUrl);
+      });
+
+      it('does nothing after the screen was left', async () => {
+        await open();
+        const pending = component.pasteFromClipboard();
+        fixture.destroy();
+        resolveRead(ROSTER);
+        await pending;
+        httpMock.expectNone(parseUrl);
+      });
+    });
+
+    /** A pending undo, by clearing a real review. */
+    function seedUndo(): void {
+      component.rosterReviews.set([{ inputName: 'ตั้ม', match: { type: 'new' }, decision: 'accept' }]);
+      component.rawText.set(ROSTER);
+      component.state.set('confirm');
+      component.discardDraft();
+      fixture.detectChanges();
+    }
   });
 });

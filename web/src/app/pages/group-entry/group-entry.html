@@ -38,6 +38,13 @@
           <ng-container i18n="@@entry.rosterMessage">ข้อความรายชื่อ</ng-container>
         </label>
       </div>
+      <button type="button" class="ghost paste-clipboard" data-paste-clipboard [disabled]="isParsing() || groupStatus() !== 'ready'" (click)="pasteFromClipboard()" i18n="@@entry.pasteClipboard">วางจากคลิปบอร์ด</button>
+      <!-- Always in the page, like the undo slot, so its words are announced when they appear. -->
+      <div class="clipboard-note" role="status" data-clipboard-note>
+        @if (clipboardNote(); as message) {
+          <p class="muted">{{ message }}</p>
+        }
+      </div>
       <textarea #rosterText id="roster-text" [ngModel]="rawText()" (ngModelChange)="onRawTextChange($event)" rows="15" i18n-placeholder="@@entry.rosterPlaceholder" placeholder="วางข้อความรายชื่อจากไลน์ที่นี่"></textarea>
       @if (pasteError()) {
         <p class="error" role="alert">{{ pasteError() }}</p>

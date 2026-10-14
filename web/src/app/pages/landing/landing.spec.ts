@@ -122,6 +122,49 @@ describe('Landing', () => {
     expect(fixture.nativeElement.textContent).not.toContain('วันอังคาร');
   });
 
+  it('puts เริ่มรอบ on every own group row, a link straight to the roster screen', async () => {
+    // A host with a weekly group otherwise needs list -> group -> เริ่มรอบใหม่ -> paste.
+    await loadWith();
+    const rows = [...fixture.nativeElement.querySelectorAll('.group-row')] as HTMLElement[];
+    expect(rows.length).toBe(2);
+    for (const [i, group] of GROUPS.entries()) {
+      const link = rows[i].querySelector<HTMLAnchorElement>('[data-start-link]');
+      expect(link, group.code).not.toBeNull();
+      expect(link!.getAttribute('href')).toBe(`/g/${group.code}/start`);
+      expect(link!.textContent?.trim()).toBe('เริ่มรอบ');
+      expect(link!.closest('.group-actions')).not.toBeNull();
+    }
+  });
+
+  it('offers เริ่มรอบ even on a group that has never had a session', async () => {
+    await loadWith();
+    const row = [...fixture.nativeElement.querySelectorAll('.group-row')][1] as HTMLElement;
+    expect(row.textContent).not.toContain('ไปรอบล่าสุด');
+    expect(row.querySelector('[data-start-link]')).not.toBeNull();
+  });
+
+  it('puts เริ่มรอบ before ไปรอบล่าสุด in the row', async () => {
+    await loadWith();
+    const actions = fixture.nativeElement.querySelector('.group-actions') as HTMLElement;
+    const labels = [...actions.querySelectorAll('a, button')].map((el) => el.textContent?.trim());
+    expect(labels).toEqual(['เริ่มรอบ', 'ไปรอบล่าสุด', 'ลบ']);
+  });
+
+  it('sizes the group name link as a tap target, in every row', async () => {
+    await loadWith();
+    // Component CSS is attached to the document, so the computed style is the rule as shipped.
+    // --tap lives in the global stylesheet, which this spec does not load; give it a value.
+    (fixture.nativeElement as HTMLElement).style.setProperty('--tap', '44px');
+    const links = [...fixture.nativeElement.querySelectorAll('.group-name')] as HTMLAnchorElement[];
+    expect(links.length).toBe(2);
+    for (const link of links) {
+      const style = getComputedStyle(link);
+      expect(style.display).toBe('inline-flex');
+      expect(style.alignItems).toBe('center');
+      expect(style.minHeight).toBe('var(--tap)');
+    }
+  });
+
   it('sends "create a group" to the name-only creation screen', async () => {
     await loadWith();
     const router = TestBed.inject(Router);
@@ -192,6 +235,23 @@ describe('Landing', () => {
       const withRemove = rows.filter((r) => r.querySelector('.remove'));
       expect(withRemove.length).toBe(1);
       expect(withRemove[0].textContent).toContain('ของฉัน');
+    });
+
+    it("offers เริ่มรอบ on the admin's own group only, never on another host's", async () => {
+      await loadWith(MIXED as never);
+      component.toggleOthers();
+      fixture.detectChanges();
+
+      const rows = [...fixture.nativeElement.querySelectorAll('.group-row')] as HTMLElement[];
+      expect(rows.length).toBe(5);
+      const withStart = rows.filter((r) => r.querySelector('[data-start-link]'));
+      expect(withStart.length).toBe(1);
+      expect(withStart[0].textContent).toContain('ของฉัน');
+      expect(withStart[0].querySelector('[data-start-link]')!.getAttribute('href')).toBe('/g/m1/start');
+      // The others' rows still have their names and tap-sized name links.
+      for (const row of rows.filter((r) => !r.querySelector('[data-start-link]'))) {
+        expect(row.querySelector('.group-name')).not.toBeNull();
+      }
     });
 
     it('shows no "other users" row to a host, whose response has no mine flag', async () => {

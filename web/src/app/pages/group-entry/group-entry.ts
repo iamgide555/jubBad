@@ -74,6 +74,14 @@ export class GroupEntry {
   private readonly rosterText = viewChild<ElementRef<HTMLTextAreaElement>>('rosterText');
   /** Set once the session exists, so leaving afterwards does not save a stale draft back. */
   private sessionCreated = false;
+  /** This screen came back from a draft: the host is mid-task here, so it is not a fresh start to autofocus. */
+  private restoredDraft = false;
+  /** The screen was left; a late clipboard read must not act on it. */
+  private destroyed = false;
+  /** A clipboard read is waiting on the browser (a permission prompt, iOS's "Paste" callout). */
+  private readingClipboard = false;
+  /** What the clipboard button last had to say — muted, never an error: typing the paste is always open. */
+  readonly clipboardNote = signal<string | null>(null);
 
   /** One full doubles court — the default court format — is the floor for a
    *  session worth starting. Below it the dashboard would open to a court
@@ -202,10 +210,14 @@ export class GroupEntry {
     private router: Router
   ) {
     this.groupCode = route.snapshot.paramMap.get('groupCode')!;
-    void this.loadGroup();
     const draft = this.drafts.get(this.groupCode);
-    if (draft) this.applyDraft(draft);
+    if (draft) {
+      this.applyDraft(draft);
+      this.restoredDraft = true;
+    }
+    void this.loadGroup();
     inject(DestroyRef).onDestroy(() => {
+      this.destroyed = true;
       this.clearUndo();
       this.persistDraft();
     });
@@ -220,7 +232,20 @@ export class GroupEntry {
       this.groupStatus.set('ready');
     } catch (err) {
       this.groupStatus.set(err instanceof HttpErrorResponse && err.status === 404 ? 'not-found' : 'error');
+      return;
     }
+    this.focusEmptyPasteBox();
+  }
+
+  /**
+   * The weekly job is to paste, so a fresh start puts the cursor in the box. Only a fresh one: a
+   * restored draft, a review, or text already typed means the host is already somewhere, and a
+   * group that answers late must not pull them away from it. Outside loadGroup's try, so a render
+   * failure here is not reported as the group failing to load.
+   */
+  private focusEmptyPasteBox(): void {
+    if (this.restoredDraft || this.state() !== 'paste' || this.rawText()) return;
+    this.focusAfterRender(this.rosterText);
   }
 
   /**
@@ -349,6 +374,7 @@ export class GroupEntry {
   onRawTextChange(value: string): void {
     this.rawText.set(value);
     this.clearUndo();
+    this.clipboardNote.set(null);
   }
 
   /**
@@ -442,6 +468,52 @@ export class GroupEntry {
   }
 
   /**
+   * One-tap paste of this week's LINE message: read the clipboard, then parse exactly as a typed
+   * paste would. Whatever parse() reports shows the way it does for typed text.
+   *
+   * UNVERIFIED: the Clipboard API's readText has not been tried inside LINE's in-app browser or on
+   * iOS Safari, which shows its own "Paste" callout the host must tap. Every failure therefore ends
+   * at the typed-paste path (a note and the cursor in the box), so at worst this costs a tap and
+   * never stands in the way of pasting by hand.
+   */
+  async pasteFromClipboard(): Promise<void> {
+    // isParsing: the text being parsed must not be replaced under it. readingClipboard: a second
+    // tap while the browser's callout is up must not open a second read.
+    if (this.isParsing() || this.readingClipboard || this.groupStatus() !== 'ready') return;
+    this.clipboardNote.set(null);
+    this.pasteError.set(null);
+
+    this.readingClipboard = true;
+    // No await before this: iOS only allows the read inside the tap that asked for it.
+    const text = await this.readClipboard();
+    this.readingClipboard = false;
+    // The host may have gone elsewhere while the read waited on a prompt.
+    if (this.destroyed || this.isParsing() || this.state() !== 'paste') return;
+
+    if (text === null) {
+      this.clipboardNote.set($localize`:@@entry.clipboardFallback:วางเองในช่องด้านล่างได้เลย`);
+      this.rosterText()?.nativeElement.focus();
+      return;
+    }
+    if (!text.trim()) {
+      this.clipboardNote.set($localize`:@@entry.clipboardEmpty:คลิปบอร์ดว่างอยู่ คัดลอกข้อความรายชื่อจาก LINE ก่อน`);
+      return;
+    }
+    // Same as typing the text in: a new paste withdraws a pending undo.
+    this.onRawTextChange(text);
+    await this.parse();
+  }
+
+  /** The clipboard's text, or null when it cannot be read: no API, permission refused, or the read threw. */
+  private async readClipboard(): Promise<string | null> {
+    try {
+      return (await navigator.clipboard?.readText?.()) ?? null;
+    } catch {
+      return null;
+    }
+  }
+
+  /**
    * For a host with nothing to paste (ad-hoc night, no LINE message) — lands
    * on the same confirm step as `parse()`, empty, and the manual add field
    * already there does the rest. The group already exists (it is created at
@@ -517,6 +589,7 @@ export class GroupEntry {
     this.manualActiveIndex.set(-1);
     this.manualSuggestionsDismissed.set(false);
     this.manualStatusMessage.set('');
+    this.clipboardNote.set(null);
 
     // A fresh parse (or manual start) is a fresh attempt. A key carried over
     // from a failed create would hand back that attempt's session — old roster

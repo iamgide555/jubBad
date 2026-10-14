@@ -59,6 +59,9 @@
 }
 
 .group-name {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--tap);
   font-family: var(--font-display);
   font-size: var(--text-lg);
   font-weight: 700;

@@ -1379,6 +1379,10 @@
           <context context-type="linenumber">24</context>
         </context-group>
       </trans-unit>
+      <trans-unit id="home.startSession" datatype="html">
+        <source>เริ่มรอบ</source>
+        <target>Start session</target>
+      </trans-unit>
       <trans-unit id="home.remove" datatype="html">
         <source>ลบ</source><target>Remove</target>
         <context-group purpose="location">
@@ -4320,6 +4324,18 @@
       <trans-unit id="entry.editPaste" datatype="html">
         <source>← แก้ข้อความที่วาง</source>
         <target>← Edit pasted text</target>
+      </trans-unit>
+      <trans-unit id="entry.pasteClipboard" datatype="html">
+        <source>วางจากคลิปบอร์ด</source>
+        <target>Paste from clipboard</target>
+      </trans-unit>
+      <trans-unit id="entry.clipboardFallback" datatype="html">
+        <source>วางเองในช่องด้านล่างได้เลย</source>
+        <target>You can paste into the box below</target>
+      </trans-unit>
+      <trans-unit id="entry.clipboardEmpty" datatype="html">
+        <source>คลิปบอร์ดว่างอยู่ คัดลอกข้อความรายชื่อจาก LINE ก่อน</source>
+        <target>Clipboard is empty — copy the roster message from LINE first</target>
       </trans-unit>
       <trans-unit id="entry.createSessionFailed" datatype="html">
         <source>สร้างรอบไม่สำเร็จ กรุณาลองอีกครั้ง</source>

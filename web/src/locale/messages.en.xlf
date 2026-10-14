@@ -216,13 +216,6 @@
           <context context-type="linenumber">19,20</context>
         </context-group>
       </trans-unit>
-      <trans-unit id="entry.stillOpen" datatype="html">
-        <source>ยังไม่จบ</source><target>still open</target>
-        <context-group purpose="location">
-          <context context-type="sourcefile">src/app/pages/group-entry/group-entry.html</context>
-          <context context-type="linenumber">20,22</context>
-        </context-group>
-      </trans-unit>
       <trans-unit id="entry.rosterMessage" datatype="html">
         <source>ข้อความรายชื่อ</source><target>Roster message</target>
         <context-group purpose="location">
@@ -2625,10 +2618,6 @@
         <source>ยังไม่มีผู้เล่นในก๊วนนี้ — ผู้เล่นจะเข้ามาเมื่อเริ่มรอบ วางรายชื่อจาก LINE หรือเพิ่มรายชื่อเอง</source>
         <target>No players in this group yet. Players join when you start a session: paste a roster from LINE or add names yourself.</target>
       </trans-unit>
-      <trans-unit id="playerRoster.emptyStart" datatype="html">
-        <source>เริ่มรอบใหม่ →</source>
-        <target>Start a session →</target>
-      </trans-unit>
       <trans-unit id="playerRoster.emptyStartFirst" datatype="html">
         <source>เริ่มรอบแรก →</source>
         <target>Start first session →</target>
@@ -4304,10 +4293,6 @@
       <trans-unit id="group.pastSessions" datatype="html">
         <source>รอบที่ผ่านมา</source>
         <target>Past sessions</target>
-      </trans-unit>
-      <trans-unit id="entry.discardDraft" datatype="html">
-        <source>ล้างรายชื่อแล้วเริ่มใหม่</source>
-        <target>Clear the list and start over</target>
       </trans-unit>
       <trans-unit id="entry.clearRoster" datatype="html">
         <source>ล้างรายชื่อ</source>

@@ -38,7 +38,7 @@
           <ng-container i18n="@@entry.rosterMessage">ข้อความรายชื่อ</ng-container>
         </label>
       </div>
-      <button type="button" class="ghost paste-clipboard" data-paste-clipboard [disabled]="isParsing() || groupStatus() !== 'ready'" (click)="pasteFromClipboard()" i18n="@@entry.pasteClipboard">วางจากคลิปบอร์ด</button>
+      <button #clipboardButton type="button" class="ghost paste-clipboard" data-paste-clipboard [disabled]="isParsing() || groupStatus() !== 'ready'" (click)="pasteFromClipboard()" i18n="@@entry.pasteClipboard">วางจากคลิปบอร์ด</button>
       <!-- Always in the page, like the undo slot, so its words are announced when they appear. -->
       <div class="clipboard-note" role="status" data-clipboard-note>
         @if (clipboardNote(); as message) {

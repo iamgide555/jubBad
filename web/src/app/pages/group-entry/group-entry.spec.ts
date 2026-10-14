@@ -1241,6 +1241,8 @@ describe('GroupEntry review step: clear with undo, edit the paste (UX review)', 
 
   afterEach(() => {
     vi.useRealTimers();
+    // jsdom has no navigator.clipboard: a stub is an own property to delete again.
+    delete (navigator as unknown as { clipboard?: unknown }).clipboard;
     for (const req of httpMock.match((r) => r.url.endsWith('/groups/group1/levels'))) req.flush(standardLadderFixture());
     TestBed.inject(RosterDraftService).clear('group1');
     httpMock.verify();
@@ -1562,8 +1564,37 @@ describe('GroupEntry review step: clear with undo, edit the paste (UX review)', 
     expect(component.rawText()).toBe(PASTE);
   });
 
+  it('old notes do not come back after clear, undo and edit-paste', async () => {
+    await parsePasted();
+    component.discardDraft();
+    // With the undo pending the host is on the paste step. A clipboard that cannot be read leaves
+    // its fallback note, and reading the empty box leaves an error. Neither withdraws the undo.
+    Object.defineProperty(navigator, 'clipboard', { value: undefined, configurable: true });
+    await component.pasteFromClipboard();
+    await component.parse();
+    fixture.detectChanges();
+    expect(component.clipboardNote()).toBe('วางเองในช่องด้านล่างได้เลย');
+    expect(component.pasteError()).toContain('วางข้อความรายชื่อก่อน');
+    expect(el().querySelector('[data-clipboard-note]')!.textContent).toContain('วางเองในช่องด้านล่างได้เลย');
+    expect(el().querySelector('p.error[role="alert"]')).not.toBeNull();
+    expect(component.undoSnapshot()).not.toBeNull();
+
+    component.undoDiscard();
+    expect(component.state()).toBe('confirm');
+    component.editPaste();
+    fixture.detectChanges();
+
+    expect(component.state()).toBe('paste');
+    expect(component.rawText()).toBe(PASTE);
+    expect(component.clipboardNote()).toBeNull();
+    expect(component.pasteError()).toBeNull();
+    expect(el().querySelector('[data-clipboard-note]')!.textContent!.trim()).toBe('');
+    expect(el().querySelector('p.error[role="alert"]')).toBeNull();
+  });
+
   describe('focus at the moments a control disappears', () => {
     const textarea = () => el().querySelector<HTMLTextAreaElement>('#roster-text');
+    const clipboardButton = () => el().querySelector<HTMLButtonElement>('[data-paste-clipboard]');
 
     it('the fixture is in the document, so focus is real', () => {
       expect(document.body.contains(el())).toBe(true);
@@ -1579,7 +1610,7 @@ describe('GroupEntry review step: clear with undo, edit the paste (UX review)', 
       expect(document.activeElement).toBe(undoButton());
     });
 
-    it('when the undo lapses while focused, focus moves to the paste box, not the page', async () => {
+    it('when the undo lapses while focused, focus moves to the clipboard button, not the page', async () => {
       await parsePasted();
       vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
       component.discardDraft();
@@ -1587,7 +1618,20 @@ describe('GroupEntry review step: clear with undo, edit the paste (UX review)', 
       vi.advanceTimersByTime(8000);
       fixture.detectChanges();
       expect(undoButton()).toBeNull();
-      expect(document.activeElement).toBe(textarea());
+      expect(clipboardButton()).not.toBeNull();
+      expect(document.activeElement).toBe(clipboardButton());
+    });
+
+    it('when the undo lapses, the paste box is not focused, so a phone keyboard stays closed', async () => {
+      await parsePasted();
+      vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+      component.discardDraft();
+      expect(textarea()).not.toBeNull();
+      expect(document.activeElement).not.toBe(textarea());
+      vi.advanceTimersByTime(8000);
+      fixture.detectChanges();
+      expect(undoButton()).toBeNull();
+      expect(document.activeElement).not.toBe(textarea());
     });
 
     it('when the undo lapses while focus is elsewhere, focus is left where the host put it', async () => {
@@ -1870,6 +1914,21 @@ describe('GroupEntry weekly paste path: autofocus and paste from the clipboard (
 
       await answerGroup();
       expect(document.activeElement).toBe(el().querySelector('a.back'));
+    });
+
+    it('leaves focus where it is when the host has already moved it, even on an empty box', async () => {
+      // Nothing typed, no draft, no undo: only the focus on the back link says the host is
+      // already somewhere. The group answering late must not pull them off it.
+      await open('pending');
+      const back = el().querySelector<HTMLAnchorElement>('a.back')!;
+      back.focus();
+      expect(document.activeElement).toBe(back);
+      expect(component.rawText()).toBe('');
+      expect(component.undoSnapshot()).toBeNull();
+
+      await answerGroup();
+      expect(document.activeElement).toBe(back);
+      expect(document.activeElement).not.toBe(textarea());
     });
 
     it('leaves focus where it is once the host has typed, even if the group answers after', async () => {

@@ -201,6 +201,51 @@ describe('GroupHome', () => {
       expect(start().classList.contains('ghost-start')).toBe(false);
     });
 
+    // One link holding a label, a title, a date, a venue and a count would read as a single long
+    // run. The title names it; the label line and the sub-line are the description.
+    describe('the card is named by its title and described by its label and sub-line', () => {
+      const byId = (id: string) => el().querySelector<HTMLElement>(`[id="${id}"]`);
+      const expectNamedByTitle = (title: string) => {
+        const card = resume();
+        const labelledBy = card.getAttribute('aria-labelledby');
+        expect(labelledBy).toBeTruthy();
+        expect(labelledBy!.trim().split(/\s+/)).toHaveLength(1);
+        const named = byId(labelledBy!)!;
+        expect(named).toBe(card.querySelector('.resume-title'));
+        expect(named.textContent?.trim()).toBe(title);
+
+        const describedBy = card.getAttribute('aria-describedby')!.trim().split(/\s+/);
+        expect(describedBy).toHaveLength(2);
+        expect(byId(describedBy[0])).toBe(card.querySelector('.resume-label'));
+        expect(byId(describedBy[1])).toBe(card.querySelector('.resume-sub'));
+        // Neither is the name, and every id is unique on the page.
+        expect(describedBy).not.toContain(labelledBy);
+        for (const id of [labelledBy!, ...describedBy]) expect(el().querySelectorAll(`[id="${id}"]`)).toHaveLength(1);
+        const ids = [...el().querySelectorAll('[id]')].map((e) => e.id);
+        expect(new Set(ids).size).toBe(ids.length);
+      };
+
+      it('a live card is named กลับไปรอบที่เล่นอยู่ and described by กำลังเล่นอยู่ and the sub-line', async () => {
+        await open('/g/group1', { lastSessionCode: 's1', sessions: [{ ...LIVE, venue: 'KIP' }] });
+        expectNamedByTitle('กลับไปรอบที่เล่นอยู่');
+        expect(byId(resume().getAttribute('aria-describedby')!.split(' ')[0])!.textContent).toContain('กำลังเล่นอยู่');
+        expect(byId(resume().getAttribute('aria-describedby')!.split(' ')[1])!.textContent).toContain('KIP');
+      });
+
+      it('an open card is named ดูรอบล่าสุด and described by ยังไม่ปิดรอบ and the sub-line', async () => {
+        await open('/g/group1', { lastSessionCode: 's1', sessions: [OPEN] });
+        expectNamedByTitle('ดูรอบล่าสุด');
+        expect(byId(resume().getAttribute('aria-describedby')!.split(' ')[0])!.textContent).toContain('ยังไม่ปิดรอบ');
+      });
+
+      it('the ended text link keeps its own text as its name', async () => {
+        await open('/g/group1', { lastSessionCode: 's1', sessions: [SESSION] });
+        expect(resume().hasAttribute('aria-labelledby')).toBe(false);
+        expect(resume().hasAttribute('aria-describedby')).toBe(false);
+        expect(resume().textContent).toContain('ดูรอบล่าสุด');
+      });
+    });
+
     it('a latest session missing from the list says only กลับไปรอบล่าสุด, with no state claim', async () => {
       await open('/g/group1', { lastSessionCode: 'gone', sessions: [SESSION] });
       const link = resume();

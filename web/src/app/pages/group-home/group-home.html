@@ -48,12 +48,14 @@
           <a
             class="resume-card"
             [class.ring]="last.state === 'live'"
+            aria-labelledby="resume-title"
+            aria-describedby="resume-label resume-sub"
             data-resume
             [attr.data-state]="last.state"
             [routerLink]="['/s', last.code]"
           >
             <span class="resume-body">
-              <span class="resume-label">
+              <span class="resume-label" id="resume-label">
                 @if (last.state === 'live') {
                   <span class="dot" aria-hidden="true"></span>
                   <ng-container i18n="@@group.playingNow">กำลังเล่นอยู่</ng-container>
@@ -61,14 +63,14 @@
                   <ng-container i18n="@@group.notEnded">ยังไม่ปิดรอบ</ng-container>
                 }
               </span>
-              <span class="resume-title">
+              <span class="resume-title" id="resume-title">
                 @if (last.state === 'live') {
                   <ng-container i18n="@@group.backToLive">กลับไปรอบที่เล่นอยู่</ng-container>
                 } @else {
                   <ng-container i18n="@@group.viewLatest">ดูรอบล่าสุด</ng-container>
                 }
               </span>
-              <span class="resume-sub">
+              <span class="resume-sub" id="resume-sub">
                 @if (last.dateLabel) {
                   <span>{{ last.dateLabel }}</span>
                 }

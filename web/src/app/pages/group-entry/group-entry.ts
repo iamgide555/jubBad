@@ -72,6 +72,7 @@ export class GroupEntry {
   private readonly undoButton = viewChild<ElementRef<HTMLButtonElement>>('undoButton');
   private readonly clearButton = viewChild<ElementRef<HTMLButtonElement>>('clearButton');
   private readonly rosterText = viewChild<ElementRef<HTMLTextAreaElement>>('rosterText');
+  private readonly clipboardButton = viewChild<ElementRef<HTMLButtonElement>>('clipboardButton');
   /** Set once the session exists, so leaving afterwards does not save a stale draft back. */
   private sessionCreated = false;
   /** This screen came back from a draft: the host is mid-task here, so it is not a fresh start to autofocus. */
@@ -239,14 +240,18 @@ export class GroupEntry {
 
   /**
    * The weekly job is to paste, so a fresh start puts the cursor in the box. Only a fresh one: a
-   * restored draft, a review, a pending undo, or text already typed means the host is already
-   * somewhere, and a group that answers late must not pull them away from it. Not on a touch
+   * restored draft, a review, a pending undo, text already typed, or focus already moved to
+   * something else means the host is already somewhere, and a group that answers late must not
+   * pull them away from it. Not on a touch
    * screen either: focus there opens the soft keyboard over the one-tap clipboard button, and the
    * host reaches the box with a tap anyway. Outside loadGroup's try, so a render failure here is
    * not reported as the group failing to load.
    */
   private focusEmptyPasteBox(): void {
     if (this.restoredDraft || this.state() !== 'paste' || this.rawText() || this.undoSnapshot()) return;
+    // Focus is already on something (the back link, say): the host has moved on, so leave it there.
+    const focused = this.document.activeElement;
+    if (focused && focused !== this.document.body) return;
     // No matchMedia (jsdom, very old browsers) is not a touch screen: keep the autofocus.
     if (this.document.defaultView?.matchMedia?.('(pointer: fine)')?.matches === false) return;
     this.focusAfterRender(this.rosterText);
@@ -333,8 +338,10 @@ export class GroupEntry {
     this.undoSnapshot.set(snapshot);
     this.undoTimer = setTimeout(() => {
       this.undoTimer = null;
-      // The notice is about to go: a host still on its button lands in the paste box, not on the page.
-      if (this.document.activeElement === this.undoButton()?.nativeElement) this.rosterText()?.nativeElement.focus();
+      // The notice is about to go: a host still on its button lands on the clipboard button just
+      // above the paste box, not on the page. Not in the box itself: on a phone that would open the
+      // keyboard over the one-tap button, and the host asked for nothing to be typed.
+      if (this.document.activeElement === this.undoButton()?.nativeElement) this.clipboardButton()?.nativeElement.focus();
       this.undoSnapshot.set(null);
     }, UNDO_MS);
     // The clear button just disappeared with the review: put focus on the way back.
@@ -370,6 +377,10 @@ export class GroupEntry {
   /** Back from the review to the pasted message, text kept. The reviews stay until the next parse replaces them. */
   editPaste(): void {
     if (this.isSubmitting()) return;
+    // A clipboard note or a paste error from before the clear and undo describes a screen the host
+    // has left: it must not greet them again on the way back to the text.
+    this.clipboardNote.set(null);
+    this.pasteError.set(null);
     this.state.set('paste');
     this.focusAfterRender(this.rosterText);
   }

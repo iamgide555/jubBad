@@ -1,10 +1,11 @@
 import { HttpErrorResponse } from '@angular/common/http';
-import { ChangeDetectorRef, Component, DestroyRef, ElementRef, computed, inject, signal } from '@angular/core';
+import { ChangeDetectorRef, Component, DestroyRef, ElementRef, LOCALE_ID, computed, inject, signal } from '@angular/core';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
 import type { Group } from '../../core/group.model';
 import type { GroupSession } from '../../core/group-session.model';
 import { RosterService } from '../../core/roster.service';
+import { formatSessionDate, sessionState, type SessionState } from '../../core/session-date';
 import { isSettingsSection, type SettingsSection } from '../../core/settings-sections';
 import { PressDirective } from '../../core/motion/press.directive';
 import { Icon } from '../../shared/icon/icon';
@@ -21,7 +22,9 @@ interface RowValues {
  * disclosure, closed by default, above the session actions, and it stays
  * there however much history the group grows (spec: Group home and settings).
  * Opening it may push the session actions down; that is the approved order.
- * The resume link sits in the header instead, so it never leaves the screen.
+ * The resume link sits in the header instead, so it never leaves the screen,
+ * and it says what the latest session actually is: a green-ringed card while it
+ * is tonight's, a plain card when it was left open, a text link once ended.
  *
  * A missing group is "not found", never a blank group to fill in: creating
  * happens only at /groups/new.
@@ -39,6 +42,7 @@ export class GroupHome {
   private readonly roster = inject(RosterService);
   private readonly cdr = inject(ChangeDetectorRef);
   private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
+  private readonly locale = inject(LOCALE_ID);
 
   protected readonly groupCode = this.route.snapshot.paramMap.get('groupCode')!;
   readonly status = signal<'loading' | 'ready' | 'not-found' | 'error'>('loading');
@@ -49,11 +53,33 @@ export class GroupHome {
   private valuesRequested = false;
   private destroyed = false;
 
-  readonly latest = computed(() => {
+  /**
+   * The group's latest session, joined to the already-loaded list. If it is not
+   * in that list there is no data to describe it, so it is the plain ended-style
+   * link with no state or date claim — never a live or open claim without data.
+   */
+  readonly latest = computed<{
+    code: string;
+    session: GroupSession | null;
+    state: SessionState;
+    dateLabel: string;
+  } | null>(() => {
     const code = this.group()?.lastSessionCode;
     if (!code) return null;
-    return { code, date: this.sessions().find((s) => s.code === code)?.date ?? null };
+    const session = this.sessions().find((s) => s.code === code) ?? null;
+    if (!session) return { code, session: null, state: 'ended', dateLabel: '' };
+    return { code, session, state: sessionState(session), dateLabel: formatSessionDate(session.date, this.locale) };
   });
+
+  /** Past-session rows with the state and date label worked out once per load, not per change detection. */
+  readonly pastRows = computed(() =>
+    this.sessions().map((session) => ({
+      session,
+      state: sessionState(session),
+      // A session saved without a date is still findable by its code.
+      label: formatSessionDate(session.date, this.locale) || session.code,
+    }))
+  );
 
   constructor() {
     inject(DestroyRef).onDestroy(() => (this.destroyed = true));

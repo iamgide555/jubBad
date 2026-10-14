@@ -4193,6 +4193,30 @@
         <source>กลับไปรอบล่าสุด</source>
         <target>Back to latest session</target>
       </trans-unit>
+      <trans-unit id="group.viewLatest" datatype="html">
+        <source>ดูรอบล่าสุด</source>
+        <target>View latest session</target>
+      </trans-unit>
+      <trans-unit id="group.playingNow" datatype="html">
+        <source>กำลังเล่นอยู่</source>
+        <target>Playing now</target>
+      </trans-unit>
+      <trans-unit id="group.backToLive" datatype="html">
+        <source>กลับไปรอบที่เล่นอยู่</source>
+        <target>Back to the live session</target>
+      </trans-unit>
+      <trans-unit id="group.notEnded" datatype="html">
+        <source>ยังไม่ปิดรอบ</source>
+        <target>Not ended yet</target>
+      </trans-unit>
+      <trans-unit id="group.playing" datatype="html">
+        <source>กำลังเล่น</source>
+        <target>Playing</target>
+      </trans-unit>
+      <trans-unit id="group.manageList" datatype="html">
+        <source>จัดการก๊วน</source>
+        <target>Manage group</target>
+      </trans-unit>
       <trans-unit id="group.newHint" datatype="html">
         <source>บันทึกก๊วนแล้ว เริ่มรอบได้ทันที ระดับผู้เล่นและตัวเลือกอื่นอยู่ใน “ตั้งค่าก๊วน”</source>
         <target>Group saved — you can start a session now. Player levels and other options are under "Group settings".</target>

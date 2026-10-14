@@ -40,7 +40,8 @@
   text-decoration: none;
 }
 
-.resume .dot {
+.dot {
+  flex: none;
   width: 8px;
   height: 8px;
   border-radius: 50%;
@@ -59,8 +60,98 @@
   max-width: 34ch;
 }
 
+/* Tonight's session, or one left open: a card the whole of which is the link.
+   The green ring is the one thing that says "live"; an open card has none. */
+.resume-card {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: 4.25rem;
+  margin-top: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+  box-shadow: var(--shadow-sm);
+  color: var(--ink);
+  font-weight: 400;
+  text-decoration: none;
+  transition: background-color var(--duration-fast) ease;
+}
+
+.resume-card.ring {
+  box-shadow: 0 0 0 2px var(--court), var(--shadow-sm);
+}
+
+/* The global focus ring squares a link's corners; a card keeps its own. */
+.resume-card:focus-visible {
+  border-radius: var(--radius-lg);
+}
+
+@media (hover: hover) {
+  .resume-card:hover {
+    background: var(--court-hover);
+  }
+}
+
+.resume-body {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.resume-label {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  color: var(--ink-soft);
+  font-size: var(--text-xs);
+  font-weight: 600;
+}
+
+.resume-card.ring .resume-label {
+  color: var(--court-ink);
+}
+
+.resume-title {
+  font-weight: 700;
+}
+
+.resume-sub {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0 var(--space-1);
+  color: var(--ink-soft);
+  font-size: var(--text-sm);
+}
+
+/* The middot is drawn, not typed into the template: a missing part (no date, no
+   venue) then takes its separator with it, and the second `content` keeps it
+   out of the accessible name where the alt-text syntax is supported. */
+.resume-sub > span + span::before,
+.session-meta + .session-meta::before {
+  content: '·';
+  content: '·' / '';
+  margin-right: var(--space-1);
+}
+
+.resume-chevron {
+  flex: none;
+  color: var(--ink-faint);
+  transform: rotate(-90deg);
+}
+
+/* Two cards in one disclosure: the routine rows, then management on its own. */
+.settings-group {
+  margin-top: var(--space-3);
+}
+
+.settings-group:not([hidden]) {
+  animation: settings-in var(--duration-slow) var(--ease-out) both;
+}
+
 .settings {
-  margin: var(--space-3) 0 0;
+  margin: 0;
   padding: var(--space-0) 0;
   list-style: none;
   background: var(--surface);
@@ -68,8 +159,8 @@
   box-shadow: var(--shadow-sm);
 }
 
-.settings:not([hidden]) {
-  animation: settings-in var(--duration-slow) var(--ease-out) both;
+.settings-manage {
+  margin-top: var(--space-2);
 }
 
 @keyframes settings-in {
@@ -106,7 +197,13 @@
 }
 
 .settings li:first-child .row {
-  border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+  border-top-left-radius: var(--radius-lg);
+  border-top-right-radius: var(--radius-lg);
+}
+
+.settings li:last-child .row {
+  border-bottom-left-radius: var(--radius-lg);
+  border-bottom-right-radius: var(--radius-lg);
 }
 
 .row-text {
@@ -152,17 +249,6 @@
   color: var(--court-ink);
 }
 
-/* Management is a different kind of row: separated by a band of ground. */
-.settings li.manage {
-  margin-top: var(--space-1);
-  border-top: var(--space-1) solid var(--ground);
-}
-
-.settings li.manage .row {
-  border-top: 0;
-  border-radius: 0 0 var(--radius-lg) var(--radius-lg);
-}
-
 .session-area {
   margin-top: var(--space-4);
 }
@@ -193,6 +279,21 @@
   }
 }
 
+/* While a session is live, starting another is secondary: the live card is the
+   one thing to tap. Same size and tap target as the filled start — the border
+   is an inset shadow so it takes no room. */
+.start.ghost-start {
+  background: transparent;
+  color: var(--ink);
+  box-shadow: inset 0 0 0 1.5px var(--line);
+}
+
+@media (hover: hover) {
+  .start.ghost-start:hover {
+    background: var(--court-hover);
+  }
+}
+
 .start-chevron {
   transform: rotate(-90deg);
 }
@@ -207,8 +308,14 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .settings:not([hidden]) {
+  .settings-group:not([hidden]) {
     animation: none;
+  }
+
+  .row,
+  .resume-card,
+  .start {
+    transition: none;
   }
 }
 
@@ -218,17 +325,54 @@
   margin: 0 0 var(--space-2);
 }
 
-.session-list li {
-  padding: var(--space-1) 0;
+/* A row is as tall as a tap target and the date link fills its left side, so
+   the whole strip is easy to hit one-handed. Spacing between the parts is the
+   flex gap, never whitespace in the template. */
+.session-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0 var(--space-1);
+  min-height: var(--tap);
   border-bottom: 1px solid var(--line);
 }
 
-.live-tag {
-  margin-left: var(--space-1);
-  padding: 0.1rem 0.5rem;
+.session-link {
+  flex: 1 1 auto;
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--tap);
+}
+
+.session-meta {
+  font-size: var(--text-sm);
+}
+
+.tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 0 var(--space-1);
   border-radius: var(--radius-pill);
-  background: var(--accent);
-  color: #ffffff;
   font-size: var(--text-xs);
   font-weight: 600;
+  line-height: 1.7;
+}
+
+.tag-live {
+  background: var(--court-soft);
+  color: var(--court-ink);
+}
+
+.tag-open {
+  background: var(--ground-sunk);
+  color: var(--ink-soft);
+}
+
+.tag-dot {
+  flex: none;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
 }

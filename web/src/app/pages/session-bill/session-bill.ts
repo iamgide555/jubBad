@@ -3,7 +3,8 @@ import { HttpClient, HttpErrorResponse } from '@angular/common/http';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
 import { environment } from '../../../environments/environment';
-import type { BillConfig, BillModel, BillResponse, RoundingStep } from '../../core/bill.model';
+import type { BillConfig, BillModel, BillResponse, BillRow, RoundingStep } from '../../core/bill.model';
+import { billBreakdown } from '../../core/bill-breakdown';
 import { buildBillText, formatBaht } from '../../core/bill-text';
 import { copyToClipboard } from '../../core/share-link';
 import { formatShuttleCountInput, formatShuttlePriceInput, parseShuttleCountInput, parseShuttlePriceInput } from '../../core/shuttle-money';
@@ -52,6 +53,8 @@ export class SessionBill {
     this.bill()?.session.shuttleToolsEnabled ? ['fair', 'perGame', 'perShuttle', 'buffet'] : ['fair', 'perGame', 'buffet']
   );
   protected readonly baht = formatBaht;
+  protected readonly gamesUnit = $localize`:@@bill.bd.gamesUnit:เกม`;
+  protected readonly shuttleUnit = $localize`:@@bill.bd.shuttleUnit:ลูก`;
   protected readonly moneyText = formatShuttlePriceInput;
   /** Placeholder for the count: the count the bill is using when none was typed (derived from the games). */
   protected readonly countPlaceholder = computed(() => {
@@ -130,6 +133,12 @@ export class SessionBill {
       return;
     }
     void this.save({ overrides: [...rest, { playerId, amountSatang: parsed.value }] });
+  }
+
+  /** The row's amount explained term by term, for the host. */
+  protected breakdown(row: BillRow) {
+    const b = this.bill()!;
+    return billBreakdown(row, b.config, b.session.shuttlePriceSatang);
   }
 
   protected overrideText(playerId: string): string {

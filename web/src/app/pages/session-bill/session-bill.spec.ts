@@ -131,6 +131,44 @@ describe('SessionBill', () => {
     expect(other.getAttribute('title')).toBeNull();
   });
 
+  describe('row breakdown', () => {
+    const rowsOf = () => Array.from(fixture.nativeElement.querySelectorAll('.bill-rows > li')) as HTMLElement[];
+    const lineOf = (li: HTMLElement, kind: string) => li.querySelector(`[data-bd="${kind}"]`) as HTMLElement | null;
+    const amountOf = (li: HTMLElement, kind: string) => lineOf(li, kind)?.querySelector('dd')?.textContent?.trim();
+
+    it('explains a walk-in row term by term and ends on the amount shown on the row', async () => {
+      await load();
+      const dee = rowsOf()[1];
+      expect(amountOf(dee, 'court')).toBe('100฿');
+      expect(amountOf(dee, 'walkInFee')).toBe('20฿');
+      expect(amountOf(dee, 'walkInDiscount')).toBe('-10฿');
+      expect(amountOf(dee, 'total')).toBe('110฿');
+      expect(dee.querySelector('summary .amount')!.textContent!.trim()).toBe('110฿');
+    });
+
+    it('says how the court cost was shared', async () => {
+      await load();
+      expect(lineOf(rowsOf()[0], 'court')!.textContent).toContain('หารเท่า');
+    });
+
+    it('an overridden row shows the computed amount struck through, then the override', async () => {
+      const body = response();
+      body.config.overrides = [{ playerId: 'a', amountSatang: 5000 }];
+      body.result.rows[0] = { ...body.result.rows[0], walkInDiscountSatang: 0, overridden: true, amountSatang: 5000 };
+      await load(body);
+      const amp = rowsOf()[0];
+      expect(lineOf(amp, 'computed')!.querySelector('s')!.textContent!.trim()).toBe('100฿');
+      expect(amountOf(amp, 'total')).toBe('50฿');
+    });
+
+    it('stays hidden while the bill is not ready, like the amounts', async () => {
+      const body = response();
+      body.readyToCopy = false;
+      await load(body);
+      expect(fixture.nativeElement.querySelector('[data-breakdown]')).toBeNull();
+    });
+  });
+
   const zedRow = (over: Record<string, unknown> = {}) => ({ playerId: 'z', games: 0, status: 'billed' as const, added: true,
     absent: false, walkIn: false, courtSatang: 0, shuttleSatang: 0, baseSatang: 0, hostFeeSatang: 0, walkInFeeSatang: 0,
     walkInDiscountSatang: 0, overridden: false, amountSatang: 0, ...over });

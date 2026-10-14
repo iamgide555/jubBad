@@ -131,6 +131,57 @@
               }
               <app-icon name="chevron" [size]="18" class="disclosure" />
             </summary>
+            @if (b.readyToCopy) {
+              @let bd = breakdown(r);
+              <dl class="breakdown" data-breakdown>
+                @for (l of bd.lines; track l.kind) {
+                  <div class="bd-line" [attr.data-bd]="l.kind">
+                    <dt>
+                      @switch (l.kind) {
+                        @case ('court') { <ng-container i18n="@@bill.bd.court">ค่าคอร์ท</ng-container> }
+                        @case ('shuttle') { <ng-container i18n="@@bill.bd.shuttle">ค่าลูก</ng-container> }
+                        @case ('entry') { <ng-container i18n="@@bill.bd.entry">ค่าเข้า</ng-container> }
+                        @case ('games') { <ng-container i18n="@@bill.bd.games">ค่าเล่น</ng-container> }
+                        @case ('cap') { <ng-container i18n="@@bill.bd.cap">ถึงเพดานสูงสุดต่อคน</ng-container> }
+                        @case ('startingFee') { <ng-container i18n="@@bill.bd.startingFee">ค่าเริ่มต้น</ng-container> }
+                        @case ('buffet') { <ng-container i18n="@@bill.bd.buffet">บุฟเฟ่ต์</ng-container> }
+                        @case ('hostFee') { <ng-container i18n="@@bill.bd.hostFee">ค่าจัดก๊วน</ng-container> }
+                        @case ('rounding') { <ng-container i18n="@@bill.bd.rounding">ปัดขึ้น</ng-container> }
+                        @case ('walkInFee') { <ng-container i18n="@@bill.bd.walkInFee">ค่า walk-in</ng-container> }
+                        @case ('walkInDiscount') { <ng-container i18n="@@bill.bd.walkInDiscount">ส่วนลดจากค่า walk-in ที่หารคืน</ng-container> }
+                      }
+                      @if (l.count !== undefined && l.rateSatang !== undefined) {
+                        <span class="bd-note">{{ l.count }} {{ l.kind === 'games' ? gamesUnit : shuttleUnit }} × {{ baht(l.rateSatang) }}฿</span>
+                      } @else if (l.split) {
+                        <span class="bd-note">
+                          @switch (l.split) {
+                            @case ('equal') { <ng-container i18n="@@bill.bd.splitEqual">หารเท่า</ng-container> }
+                            @case ('byGames') { <ng-container i18n="@@bill.bd.splitByGames">ตามเกม</ng-container> }
+                            @case ('shared') { <ng-container i18n="@@bill.bd.splitShared">แชร์ตามต้นทุน</ng-container> }
+                          }
+                        </span>
+                      }
+                    </dt>
+                    <dd>{{ baht(l.amountSatang) }}฿</dd>
+                  </div>
+                }
+                @if (bd.overridden) {
+                  <div class="bd-line bd-computed" data-bd="computed">
+                    <dt i18n="@@bill.bd.computed">ยอดที่คำนวณได้</dt>
+                    <dd><s>{{ baht(bd.computedSatang) }}฿</s></dd>
+                  </div>
+                  <div class="bd-line bd-total" data-bd="total">
+                    <dt i18n="@@bill.bd.overridden">แก้ยอดเอง</dt>
+                    <dd>{{ baht(r.amountSatang) }}฿</dd>
+                  </div>
+                } @else {
+                  <div class="bd-line bd-total" data-bd="total">
+                    <dt i18n="@@bill.bd.total">รวม</dt>
+                    <dd>{{ baht(bd.computedSatang) }}฿</dd>
+                  </div>
+                }
+              </dl>
+            }
             <div class="row-detail">
               <!-- State comes from the row, which is what the engine actually billed:
                    an overridden row never pays the walk-in fee or gets the discount,

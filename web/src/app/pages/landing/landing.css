@@ -53,8 +53,14 @@
   border-bottom: 1px solid var(--line);
 }
 
+/* flex-basis auto (not 0) is what makes the row wrap sensibly: flex-wrap breaks
+   a line using each item's basis, and auto is the name's own unwrapped width.
+   A name that fits beside the actions keeps the one-line row; one that does not
+   sends the actions to their own line (right-aligned, see .group-actions)
+   instead of being squeezed into a sliver and wrapping word by word. The name
+   column on a shared line is therefore never narrower than its own text. */
 .group-main {
-  flex: 1;
+  flex: 1 1 auto;
   min-width: 0;
 }
 
@@ -76,6 +82,7 @@
   display: flex;
   align-items: center;
   gap: var(--space-1);
+  margin-left: auto;
 }
 
 .ghost-link {

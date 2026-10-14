@@ -377,6 +377,12 @@ button:active {
   box-shadow: var(--shadow-xs);
 }
 
+/* appPress owns the press scale on these (spring, in press.directive.ts);
+   keeping the CSS scale too would stack the two on every tap. */
+button[data-press]:active {
+  transform: none;
+}
+
 button:disabled {
   background: var(--line);
   color: var(--ink-faint);

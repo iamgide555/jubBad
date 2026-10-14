@@ -239,12 +239,16 @@ export class GroupEntry {
 
   /**
    * The weekly job is to paste, so a fresh start puts the cursor in the box. Only a fresh one: a
-   * restored draft, a review, or text already typed means the host is already somewhere, and a
-   * group that answers late must not pull them away from it. Outside loadGroup's try, so a render
-   * failure here is not reported as the group failing to load.
+   * restored draft, a review, a pending undo, or text already typed means the host is already
+   * somewhere, and a group that answers late must not pull them away from it. Not on a touch
+   * screen either: focus there opens the soft keyboard over the one-tap clipboard button, and the
+   * host reaches the box with a tap anyway. Outside loadGroup's try, so a render failure here is
+   * not reported as the group failing to load.
    */
   private focusEmptyPasteBox(): void {
-    if (this.restoredDraft || this.state() !== 'paste' || this.rawText()) return;
+    if (this.restoredDraft || this.state() !== 'paste' || this.rawText() || this.undoSnapshot()) return;
+    // No matchMedia (jsdom, very old browsers) is not a touch screen: keep the autofocus.
+    if (this.document.defaultView?.matchMedia?.('(pointer: fine)')?.matches === false) return;
     this.focusAfterRender(this.rosterText);
   }
 

@@ -1650,6 +1650,21 @@ describe('GroupEntry weekly paste path: autofocus and paste from the clipboard (
   const stubClipboard = (value: unknown) =>
     Object.defineProperty(navigator, 'clipboard', { value, configurable: true });
   const readingWith = (text: string) => ({ readText: vi.fn(() => Promise.resolve(text)) });
+  /** `(pointer: fine)` answers `fine`; any other query answers the opposite, so only that query can decide. */
+  const stubPointer = (fine: boolean) => {
+    const matchMedia = vi.fn((query: string) => ({
+      matches: query === '(pointer: fine)' ? fine : !fine,
+      addEventListener: () => {},
+      removeEventListener: () => {},
+    }));
+    Object.defineProperty(window, 'matchMedia', { value: matchMedia, configurable: true, writable: true });
+    return matchMedia;
+  };
+  /** open() autofocuses the box, so a test about focus *arriving* there must first take focus away and prove it. */
+  const leaveBox = () => {
+    textarea()!.blur();
+    expect(document.activeElement).not.toBe(textarea());
+  };
 
   beforeEach(async () => {
     await TestBed.configureTestingModule({
@@ -1667,6 +1682,8 @@ describe('GroupEntry weekly paste path: autofocus and paste from the clipboard (
 
   afterEach(() => {
     delete (navigator as unknown as { clipboard?: unknown }).clipboard;
+    delete (window as unknown as { matchMedia?: unknown }).matchMedia;
+    vi.useRealTimers();
     // A test that stopped early must not leave the next one a half-built TestBed.
     for (const req of httpMock.match(`${B}/groups/group1`)) req.flush(GROUP);
     for (const req of httpMock.match((r) => r.url.endsWith('/groups/group1/levels'))) req.flush(standardLadderFixture());
@@ -1739,9 +1756,55 @@ describe('GroupEntry weekly paste path: autofocus and paste from the clipboard (
 
     it('focuses the box on a group that already has sessions too', async () => {
       await open('pending');
+      expect(document.activeElement).not.toBe(textarea());
       httpMock.expectOne(`${B}/groups/group1`).flush({ ...GROUP, lastSessionCode: 's1' });
       await fixture.whenStable();
       expect(document.activeElement).toBe(textarea());
+    });
+
+    it('does not focus the box on a touch screen, where focus would open the keyboard over the clipboard button', async () => {
+      const matchMedia = stubPointer(false);
+      await open('pending');
+      await answerGroup();
+      expect(matchMedia).toHaveBeenCalledWith('(pointer: fine)');
+      expect(document.activeElement).not.toBe(textarea());
+      // The box and the button are there and usable; only the focus is withheld.
+      expect(textarea()).not.toBeNull();
+      expect(clipButton()!.disabled).toBe(false);
+    });
+
+    it('focuses the box with a mouse or trackpad (pointer: fine)', async () => {
+      const matchMedia = stubPointer(true);
+      await open('pending');
+      expect(document.activeElement).not.toBe(textarea());
+      await answerGroup();
+      expect(matchMedia).toHaveBeenCalledWith('(pointer: fine)');
+      expect(document.activeElement).toBe(textarea());
+    });
+
+    it('focuses the box where there is no matchMedia at all', async () => {
+      expect((window as unknown as { matchMedia?: unknown }).matchMedia).toBeUndefined();
+      await open('pending');
+      expect(document.activeElement).not.toBe(textarea());
+      await answerGroup();
+      expect(document.activeElement).toBe(textarea());
+    });
+
+    it('does not focus the box while an undo is pending, even on a screen that did not come from a draft', async () => {
+      // No draft is restored here: the only thing standing between the late group answer and the
+      // undo button's focus is the pending undo itself.
+      await open('pending');
+      component.state.set('confirm');
+      component.discardDraft();
+      const undo = el().querySelector<HTMLButtonElement>('[data-undo]');
+      expect(undo).not.toBeNull();
+      expect(document.activeElement).toBe(undo);
+      expect(component.state()).toBe('paste');
+      expect(component.rawText()).toBe('');
+
+      await answerGroup();
+      expect(component.undoSnapshot()).not.toBeNull();
+      expect(document.activeElement).toBe(undo);
     });
 
     it('does not focus the box when a draft with text was restored', async () => {
@@ -1776,6 +1839,26 @@ describe('GroupEntry weekly paste path: autofocus and paste from the clipboard (
       expect(component.state()).toBe('paste');
       expect(component.rawText()).toBe('');
       expect(document.activeElement).toBe(undo);
+    });
+
+    it('does not focus the box for a restored draft whose cleared list has already gone past undo', async () => {
+      // The undo is no longer pending, the state is paste and the box is empty: only the fact that
+      // this screen came back from a draft says the host is mid-task and not at a fresh start.
+      seedDraft(confirmDraft());
+      await open('pending');
+      vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+      el().querySelector<HTMLButtonElement>('[data-discard]')!.click();
+      const back = el().querySelector<HTMLAnchorElement>('a.back')!;
+      back.focus();
+      vi.advanceTimersByTime(8000);
+      fixture.detectChanges();
+      expect(component.undoSnapshot()).toBeNull();
+      expect(component.state()).toBe('paste');
+      expect(component.rawText()).toBe('');
+      vi.useRealTimers();
+
+      await answerGroup();
+      expect(document.activeElement).toBe(back);
     });
 
     it('leaves focus alone after edit-paste, even if the group answers late', async () => {
@@ -1895,8 +1978,7 @@ describe('GroupEntry weekly paste path: autofocus and paste from the clipboard (
       const denied = { readText: vi.fn(() => Promise.reject(new DOMException('denied', 'NotAllowedError'))) };
       stubClipboard(denied);
       await open();
-      textarea()!.blur();
-      document.body.focus();
+      leaveBox();
       component.rawText.set('1. เก่า');
       await component.pasteFromClipboard();
 
@@ -1918,6 +2000,7 @@ describe('GroupEntry weekly paste path: autofocus and paste from the clipboard (
         },
       });
       await open();
+      leaveBox();
       await component.pasteFromClipboard();
       expect(note()).toBe(FALLBACK);
       expect(document.activeElement).toBe(textarea());
@@ -1927,6 +2010,7 @@ describe('GroupEntry weekly paste path: autofocus and paste from the clipboard (
     it('without a clipboard API, the same fallback', async () => {
       stubClipboard(undefined);
       await open();
+      leaveBox();
       await component.pasteFromClipboard();
       expect(note()).toBe(FALLBACK);
       expect(document.activeElement).toBe(textarea());
@@ -1936,6 +2020,7 @@ describe('GroupEntry weekly paste path: autofocus and paste from the clipboard (
     it('with a clipboard that cannot read text, the same fallback', async () => {
       stubClipboard({});
       await open();
+      leaveBox();
       await component.pasteFromClipboard();
       expect(note()).toBe(FALLBACK);
       expect(document.activeElement).toBe(textarea());

@@ -527,6 +527,16 @@
   box-shadow: 0 -14px 28px -16px rgba(35, 28, 15, 0.28);
 }
 
+/* Opened, the tray is just the last section of the page. It must not stay
+   pinned: a full queue is often taller than the screen, and a pinned tray that
+   tall freezes on screen while the page scrolls behind it, with its top rows
+   past the pinned edge where no amount of scrolling can bring them back (a real
+   session with 53 waiting players: at 700px wide the first 631px of a 1551px
+   tray were unreachable). The wide-screen rail below outranks this rule. */
+.waiting-queue:not(.is-stuck) {
+  position: static;
+}
+
 .waiting-queue.is-stuck .wq-head {
   flex: 0 0 auto;
   margin: 0 var(--space-1) 0 0;

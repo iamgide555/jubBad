@@ -1,5 +1,7 @@
 # Group Creation and Discoverable Settings Implementation Plan
 
+> **Archived 2026-10-15.** Implemented and merged to `main` (branch `feature/group-creation-settings`). Task checkboxes below were never ticked during execution and were not retroactively checked; read this as a record of the order of work, not of per-step status.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** A host saves a group with only a name, finds every group setting beside the group's name, and starts sessions later from a separate roster screen. The UI uses ก๊วน for the group and รอบ for a session everywhere.
@@ -16,7 +18,7 @@ A root-provided, in-memory `RosterDraftService` keeps an unfinished roster alive
 - Server: NestJS + Prisma + SQLite, vitest + supertest. Tests run from `server/` with `fileParallelism: false`.
 - Web: Angular 22 standalone components with signals, vitest via `ng test`, `@angular/localize` with a Thai source catalogue and an English XLF.
 
-**Spec:** `docs/superpowers/specs/2026-10-13-group-creation-settings-design.md`. Read it before starting any task. Its "Prototype deviations implementers must not copy" table is binding.
+**Spec:** `docs/archive/specs/2026-10-13-group-creation-settings-design.md`. Read it before starting any task. Its "Prototype deviations implementers must not copy" table is binding.
 
 ## Global Constraints
 
@@ -3340,7 +3342,7 @@ git commit -m "fix(i18n): ก๊วน names the group, รอบ names the sess
 - Modify: `CLAUDE.md` (the routes list near "Three routes, access split is fixed")
 - Modify: `docs/overview.md` (line 65's table row, "How a session runs" around line 631, the manual-roster paragraph around line 747)
 - Modify: `PRODUCT.md` ("Capabilities and Constraints" first bullet)
-- Modify: `docs/superpowers/specs/2026-10-13-group-creation-settings-design.md`
+- Modify: `docs/archive/specs/2026-10-13-group-creation-settings-design.md`
 - Move: the spec to `docs/archive/specs/`, and this plan to `docs/archive/plans/`
 
 - [ ] **Step 1: Update the route docs**
@@ -3388,7 +3390,7 @@ In the spec's "Acceptance and validation" list, change `- [ ]` to `- [x]` only f
 Only if every acceptance item is checked:
 
 ```bash
-git mv docs/superpowers/specs/2026-10-13-group-creation-settings-design.md docs/archive/specs/
+git mv docs/archive/specs/2026-10-13-group-creation-settings-design.md docs/archive/specs/
 git mv docs/superpowers/plans/2026-10-13-group-creation-settings.md docs/archive/plans/
 ```
 

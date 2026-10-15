@@ -1,5 +1,7 @@
 # UX Review Fixes Implementation Plan
 
+> **Archived 2026-10-15.** Implemented and merged to `main` with `feature/group-creation-settings`. Task checkboxes below were never ticked during execution and were not retroactively checked; read this as a record of the order of work, not of per-step status.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Apply the owner-approved fixes from the 2026-10-14 UX critique (`.impeccable/critique/2026-10-13T18-21-19Z__web-src-app-pages-group-home-group-home-html.md`, 27/40) to the group creation and settings flow: readable contrast, no sideways page scroll, a group home that knows live from ended, a safer roster review step, consistent settings screens, and a shorter weekly paste path.
@@ -8,7 +10,7 @@
 
 **Tech Stack:** Angular 22 (standalone, signals, zoneless), vitest through `ng test`, `@angular/localize` with a Thai source catalogue and an English XLF.
 
-**Spec:** `docs/superpowers/specs/2026-10-13-group-creation-settings-design.md`. The settings-above-session-action order is FIXED by the owner and must not change. Task 5 updates the spec where this plan changes a stated behaviour (resume card, discard placement, weekly-path shortcuts).
+**Spec:** `docs/archive/specs/2026-10-13-group-creation-settings-design.md`. The settings-above-session-action order is FIXED by the owner and must not change. Task 5 updates the spec where this plan changes a stated behaviour (resume card, discard placement, weekly-path shortcuts).
 
 ## Global Constraints
 
@@ -278,7 +280,7 @@ git commit -m "feat(web): start a session from the group list; paste from the cl
 
 **Files:**
 - Modify: `web/src/locale/messages.xlf` (regenerated) and `messages.en.xlf`
-- Modify: `docs/superpowers/specs/2026-10-13-group-creation-settings-design.md`
+- Modify: `docs/archive/specs/2026-10-13-group-creation-settings-design.md`
 - Modify: `docs/overview.md` only if it describes the changed behaviour (the resume link, the discard button, the weekly path)
 
 - [ ] **Step 1: Regenerate and reconcile the catalogue**

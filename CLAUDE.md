@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 JubBad — a badminton court-pairing/session-running app for Thai casual groups ("ก๊วน"). A host pastes a roster copied from LINE, the app fuzzy-matches names against known players, and runs the night: each court proposes a fair pairing, the host confirms it, plays, and records the winner. UI is Thai-primary (`th` source locale) with English as a second locale.
 
-**Read `docs/overview.md` before making any change to the engines, the session lifecycle, or pairing/rating behavior.** It documents the *why* behind nearly every non-obvious rule in this codebase (why fuzzy match never auto-merges, why courts rotate independently instead of in rounds, why history is all-time but games-played is per-session, the auto-confirm timer, undo semantics, etc.) — re-deriving it from the code alone will miss the reasoning and risks reversing a deliberate decision. `docs/archive/2026-09-27-real-host-feedback.md` is the finished record of firsthand host feedback (items A–G; start a new `docs/` backlog for the next round); `docs/2026-09-25-engine-evidence-gaps.md` tracks unverified engine questions. `docs/archive/` holds completed reviews and historical plans/specs, not current behavior.
+**Read `docs/overview.md` before making any change to the engines, the session lifecycle, or pairing/rating behavior.** It documents the *why* behind nearly every non-obvious rule in this codebase (why fuzzy match never auto-merges, why courts rotate independently instead of in rounds, why history scope is a per-group switch while games-played is per-session, the auto-confirm timer, undo semantics, etc.) — re-deriving it from the code alone will miss the reasoning and risks reversing a deliberate decision. `docs/archive/2026-09-27-real-host-feedback.md` is the finished record of firsthand host feedback (items A–G; start a new `docs/` backlog for the next round); `docs/2026-09-25-engine-evidence-gaps.md` tracks unverified engine questions. `docs/archive/` holds completed reviews and historical plans/specs, not current behavior.
 
 ## Stack and layout
 
@@ -82,7 +82,7 @@ npm test                    # ng test (Angular's vitest-based unit-test builder)
 These are load-bearing product decisions, not incidental implementation choices — don't "fix" them without reading the relevant section of `docs/overview.md` first:
 
 - **Fuzzy match never auto-links.** Only an exact match auto-links a pasted name to a known player; a fuzzy hit is always a suggestion the host must tap to confirm. A missed prompt just creates a duplicate player (recoverable); an unwanted auto-merge cannot be undone.
-- **Partner/opponent history is all-time across sessions; games-played (for sit-out rotation) is session-only.**
+- **Partner/opponent history is per-session by default; games-played (for sit-out rotation) is always session-only.** A group can opt into all-time partner/opponent history with `Group.crossSessionHistory` (default off, snapshotted per session).
 - **Repeat-partner avoidance is primary, opponent balancing is a secondary tiebreak** — compared lexicographically, not by a fixed weight ratio (a prior 10:1 weighting couldn't actually guarantee the priority).
 - **Courts rotate independently** — there is no shared "round" object; whoever finishes first gets the next match.
 - **History updates only on confirm, never on propose.** This is what makes free reshuffling, resting a player, and undo all compose correctly without extra engine bookkeeping.

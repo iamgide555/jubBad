@@ -272,8 +272,11 @@ an already-small namespace.
 
 Two scopes, deliberately different:
 
-- **Partner and opponent history is all-time across sessions.** The whole
-  point is spreading variety over the group's life, not just one evening.
+- **Partner and opponent history is per-session by default.** Frequent
+  attenders otherwise accumulate partner history from attendance alone
+  (evidence-gaps G5, 2026-10-01). A group can opt into history across every
+  session with `Group.crossSessionHistory` (see "Group switch for history
+  scope" below) when spreading variety over the group's life matters more.
 - **Games played is this session only.** Sit-out rotation should be fair within
   tonight, not carried over from weeks ago.
 

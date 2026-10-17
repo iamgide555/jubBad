@@ -888,10 +888,6 @@ export class SessionsService {
       if (courtCount > 0) {
         const recentGroups = finished.slice(-courtCount).map((p) => this.playersOf(p));
         history.recentGroupKeys = new Set(recentGroups.map((group) => groupKey(group)));
-        // Raw, unhashed — server-only, used by deprioritizeWaitingExclusively
-        // to target the actual players in the last group, not just detect a
-        // repeat. Not part of MatchHistory; the engine never reads it.
-        (history as typeof history & { recentGroups: string[][] }).recentGroups = recentGroups;
       }
     }
 
@@ -3729,97 +3725,6 @@ export class SessionsService {
     }
 
     return { playerId };
-  }
-
-  deprioritizeWaiting(sessionCode: string) {
-    return this.lock.run(sessionCode, () => this.deprioritizeWaitingExclusively(sessionCode));
-  }
-
-  /**
-   * Manual escape hatch for the async-court-desync case the pairing engine
-   * handles automatically (see recentGroupKeys in loadHistory) but only ever
-   * by swapping the single player nearest the fairness boundary. A host who
-   * wants more than that can credit everyone waiting except the one with the
-   * fewest games up to the roster-wide max, so the next draw favours them —
-   * and additionally push half of the last-played group's still-waiting
-   * members above that level (2 of 4 for a doubles group, 1 of 2 for
-   * singles), guaranteeing at least that many sit out next. Half, not the
-   * whole group: pushing everyone by an identical amount would just keep
-   * them tied to each other and reforming as a unit later, rather than
-   * actually breaking it up. Reuses the same gamesOffset rotation-only
-   * credit as re-activating a player — stats read the Pairing rows directly
-   * and never see it.
-   */
-  private async deprioritizeWaitingExclusively(sessionCode: string) {
-    const session = await this.prisma.session.findUnique({ where: { code: sessionCode } });
-    if (!session) throw this.notFound('SESSION_NOT_FOUND');
-    if (session.endedAt !== null) throw this.conflict('SESSION_ENDED');
-
-    const roster = await this.prisma.sessionRoster.findMany({
-      where: { sessionId: sessionCode, active: true },
-    });
-    const nonEnded = await this.prisma.pairing.findMany({
-      where: { sessionId: sessionCode, endedAt: null },
-    });
-    const onCourt = new Set<string>();
-    for (const p of nonEnded) {
-      for (const id of this.playersOf(p)) onCourt.add(id);
-    }
-    const waiting = roster.filter((r) => !onCourt.has(r.playerId));
-    if (waiting.length <= 1) {
-      return { ok: true as const, deprioritized: [] as string[] };
-    }
-
-    const history = await this.loadHistory(session.groupId, sessionCode);
-    const recentGroups = (history as typeof history & { recentGroups?: string[][] }).recentGroups ?? [];
-    const effective = (playerId: string, gamesOffset: number) =>
-      (history.gamesPlayedThisSession.get(playerId) ?? 0) + gamesOffset;
-
-    // Whole roster, not just who's currently on court — meaningful even when
-    // both courts are already idle, which is exactly when this gets clicked.
-    const target = roster.reduce((max, r) => Math.max(max, effective(r.playerId, r.gamesOffset)), 0);
-    const lowest = waiting.reduce((min, r) =>
-      effective(r.playerId, r.gamesOffset) < effective(min.playerId, min.gamesOffset) ? r : min
-    );
-
-    const waitingIds = new Set(waiting.map((r) => r.playerId));
-    const pushIds = new Set<string>();
-    for (const group of recentGroups) {
-      const candidates = group.filter((id) => waitingIds.has(id) && id !== lowest.playerId);
-      // Half the group, not all of it — pushing everyone by an identical
-      // amount would just keep them tied to each other, reforming as a unit
-      // later, rather than actually breaking it up. `slice(0, 2)` for a
-      // 4-player group; for a 2-player singles group that generalizes to 1,
-      // since pushing both would push the whole group after all.
-      const pushCount = Math.max(1, Math.floor(group.length / 2));
-      for (const id of candidates.slice(0, pushCount)) pushIds.add(id);
-    }
-
-    const updates = waiting
-      .filter((r) => r.id !== lowest.id)
-      .map((r) => {
-        const level = pushIds.has(r.playerId) ? target + 1 : target;
-        return {
-          entry: r,
-          // max() so this can only ever add credit, never take it away.
-          gamesOffset: Math.max(r.gamesOffset, level - effective(r.playerId, r.gamesOffset) + r.gamesOffset),
-        };
-      })
-      .filter(({ entry, gamesOffset }) => gamesOffset !== entry.gamesOffset);
-
-    const results = await Promise.all(
-      updates.map(({ entry, gamesOffset }) =>
-        this.prisma.sessionRoster.updateMany({
-          where: { id: entry.id, gamesOffset: entry.gamesOffset },
-          data: { gamesOffset },
-        })
-      )
-    );
-    if (results.some((r) => r.count !== 1)) {
-      throw this.conflict('ROSTER_STALE');
-    }
-
-    return { ok: true as const, deprioritized: updates.map(({ entry }) => entry.playerId) };
   }
 
   async getStats(code: string, scope: 'session' | 'all') {

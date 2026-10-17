@@ -546,13 +546,6 @@
           <context context-type="linenumber">485</context>
         </context-group>
       </trans-unit>
-      <trans-unit id="err.deprioritizeWaiting" datatype="html">
-        <source>จัดคิวใหม่ไม่สำเร็จ</source>
-        <context-group purpose="location">
-          <context context-type="sourcefile">src/app/core/live-session.service.ts</context>
-          <context context-type="linenumber">499</context>
-        </context-group>
-      </trans-unit>
       <trans-unit id="err.addWalkIn" datatype="html">
         <source>เพิ่มผู้เล่นไม่สำเร็จ</source>
         <context-group purpose="location">
@@ -5056,13 +5049,6 @@
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/session-dashboard/session-dashboard.html</context>
           <context context-type="linenumber">227,229</context>
-        </context-group>
-      </trans-unit>
-      <trans-unit id="dashboard.deprioritizeWaiting" datatype="html">
-        <source> จัดคิวใหม่ </source>
-        <context-group purpose="location">
-          <context context-type="sourcefile">src/app/pages/session-dashboard/session-dashboard.html</context>
-          <context context-type="linenumber">238,242</context>
         </context-group>
       </trans-unit>
       <trans-unit id="dashboard.modeLabel" datatype="html">

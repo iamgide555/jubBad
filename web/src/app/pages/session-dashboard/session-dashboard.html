@@ -228,16 +228,6 @@
           </button>
         }
         <ng-container *ngTemplateOutlet="lineupLaunch; context: { where: 'toolbar' }" />
-        @if (courtCount() > 1 && liveSession.waitingPlayerIds().length > 1) {
-          <button
-            type="button"
-            class="ghost"
-            (click)="deprioritizeWaiting()"
-            i18n="@@dashboard.deprioritizeWaiting"
-          >
-            จัดคิวใหม่
-          </button>
-        }
 
         <div class="mode-toggle">
           <span class="mode-label" i18n="@@dashboard.modeLabel">โหมดจัดคู่</span>

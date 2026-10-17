@@ -4333,13 +4333,6 @@
           <context context-type="linenumber">131</context>
         </context-group>
       </trans-unit>
-      <trans-unit id="err.deprioritizeWaiting" datatype="html">
-        <source>จัดคิวใหม่ไม่สำเร็จ</source><target>Couldn't reorder the queue.</target>
-        <context-group purpose="location">
-          <context context-type="sourcefile">src/app/core/live-session.service.ts</context>
-          <context context-type="linenumber">499</context>
-        </context-group>
-      </trans-unit>
       <trans-unit id="err.addWalkIn" datatype="html">
         <source>เพิ่มผู้เล่นไม่สำเร็จ</source><target>Couldn't add the player.</target>
         <context-group purpose="location">
@@ -4883,13 +4876,6 @@
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/session-dashboard/session-dashboard.html</context>
           <context context-type="linenumber">113,115</context>
-        </context-group>
-      </trans-unit>
-      <trans-unit id="dashboard.deprioritizeWaiting" datatype="html">
-        <source> จัดคิวใหม่ </source><target> Reorder queue </target>
-        <context-group purpose="location">
-          <context context-type="sourcefile">src/app/pages/session-dashboard/session-dashboard.html</context>
-          <context context-type="linenumber">238,242</context>
         </context-group>
       </trans-unit>
       <trans-unit id="dashboard.gamesTally" datatype="html">

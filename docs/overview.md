@@ -839,6 +839,38 @@ three rows) until the host scrolls to its natural spot, where it opens up. At
 size) carrying the lineup button and a one-line "ถัดไป: …" preview of the first
 queued lineup; the preview is wide-screen only.
 
+### Venues (shared list)
+
+The venue field on roster entry is a search box over one **shared list of
+venues across every host** (`Venue`, `GET /venues/search`, logged-in hosts
+only). It carries no price, hours or court-fee data: hosts add courts
+mid-session, so a per-court-hour rate was dropped as too hard to define. The
+host still types the court fee by hand in bill settings.
+
+**Only an exact match links; a similar name is only ever a suggestion.** Same
+reasoning as fuzzy player matching: a missed suggestion just makes a duplicate
+venue (recoverable by hand in the DB), a wrong auto-merge would be silent and
+permanent. "Exact" means equal after `normalizeVenueName` (`engines/venues.ts`):
+NFC, lowercased, all whitespace removed, because Thai is often typed without
+spaces. The search returns `{ exact, suggestions }`; the web lists the exact
+venue first and never selects anything on the host's behalf.
+
+**The client sends venue text, never a venue id.** `SessionsService.createSession`
+resolves the text to a `Venue` inside its own transaction (`VenuesService.findOrCreate`,
+an upsert on the unique `normalizedName`, so two hosts adding the same new venue at
+once end on one row) and stores `Session.venueId`. `Session.venue` keeps the text
+exactly as sent, so dashboards, bill text and the display page are unchanged and
+public pages still show only a name. A blank or omitted venue links nothing.
+
+**History is not backfilled by the migration.** Existing sessions keep their text
+and a null `venueId`. For one host's mapped groups there is a one-off script,
+`server/scripts/backfill-venues.mjs` (`--owner <email> --map "<group>=<venue>"
+[--dry-run]`, after `npm run build`): every session in a group owned by that host
+and named in a `--map` is set to that venue, **overwriting** its venue text; every
+other group, and every other host's, is left alone and joins the list when its next
+session is created. It is safe to run twice. Dry-run first and `npm run db:backup`
+before a real run.
+
 ### Bill (C3)
 
 A host-only "คิดเงิน" button on the session summary turns those two fields,

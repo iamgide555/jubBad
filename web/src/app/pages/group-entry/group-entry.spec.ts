@@ -604,6 +604,20 @@ describe('GroupEntry', () => {
     await retry;
   });
 
+  it('shows the venue field as a searchable box bound to the venue signal', async () => {
+    component.state.set('confirm');
+    component.venue.set('KIP');
+    fixture.detectChanges();
+    await fixture.whenStable(); // ngModel writes the input value in a microtask
+    const box = (fixture.nativeElement as HTMLElement).querySelector('app-venue-search input') as HTMLInputElement;
+    expect(box).not.toBeNull();
+    expect(box.value).toBe('KIP');
+
+    box.value = 'Mama';
+    box.dispatchEvent(new Event('input'));
+    expect(component.venue()).toBe('Mama');
+  });
+
   it('confirmRoster trims a whitespace-only venue to null', async () => {
     component.groupName.set('Group A');
     component.rawText.set('1. ตั้ม\n2. เกียร์\n3. มด\n4. มะนาว');

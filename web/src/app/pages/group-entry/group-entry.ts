@@ -25,6 +25,7 @@ import { PressDirective } from '../../core/motion/press.directive';
 import { RevealDirective } from '../../core/motion/reveal.directive';
 import { Icon } from '../../shared/icon/icon';
 import { LevelPicker } from '../../shared/level-picker/level-picker';
+import { VenueSearch } from '../../shared/venue-search/venue-search';
 import type { Player } from '../../../../../engines/fuzzy-match.ts';
 import type { Level } from '../../../../../engines/levels.ts';
 import { levelsErrorMessage, type GroupLevelsResponse } from '../../core/group-levels.model';
@@ -44,7 +45,7 @@ const UNDO_MS = 8000;
 
 @Component({
   selector: 'app-group-entry',
-  imports: [FormsModule, RouterLink, NgTemplateOutlet, PressDirective, RevealDirective, Icon, LevelPicker],
+  imports: [FormsModule, RouterLink, NgTemplateOutlet, PressDirective, RevealDirective, Icon, LevelPicker, VenueSearch],
   templateUrl: './group-entry.html',
   styleUrl: './group-entry.css',
 })

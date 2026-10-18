@@ -1,0 +1,10 @@
+<input type="text" autocomplete="off" [ngModel]="value()" (ngModelChange)="value.set($event)" />
+@if (options().length > 0) {
+  <ul class="venue-options" aria-label="สนามที่เคยใช้" i18n-aria-label="@@venueSearch.list">
+    @for (option of options(); track option.id) {
+      <li>
+        <button type="button" class="venue-option" (click)="choose(option)">{{ option.displayName }}</button>
+      </li>
+    }
+  </ul>
+}

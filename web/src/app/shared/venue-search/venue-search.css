@@ -1,0 +1,42 @@
+:host {
+  display: block;
+}
+
+/* Matches the `label > input` offset in styles.css, which no longer applies
+   now the input sits inside this component rather than directly in the label. */
+input {
+  margin-top: 0.35rem;
+  font-weight: 400;
+  color: var(--ink);
+}
+
+.venue-options {
+  list-style: none;
+  margin: var(--space-1) 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+/* A neutral choice row, not a primary action: the app's default button is the
+   solid green CTA, which would read as "submit" under a text field. */
+.venue-option {
+  width: 100%;
+  min-height: var(--tap);
+  padding: 0 var(--space-2);
+  text-align: start;
+  background: var(--surface);
+  color: var(--ink);
+  border: 1px solid var(--line);
+  box-shadow: none;
+  font-size: var(--text-base);
+  font-weight: 400;
+}
+
+@media (hover: hover) {
+  .venue-option:hover {
+    background: var(--ground-sunk);
+    box-shadow: none;
+  }
+}

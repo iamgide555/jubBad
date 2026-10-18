@@ -44,6 +44,19 @@ model Group {
   shareToken          String? @unique
 }
 
+/// Shared across every host: the roster-entry venue field searches this list.
+/// Only an exact normalized-name match auto-links; a similar name is only ever
+/// a suggestion (engines/venues.ts).
+model Venue {
+  id             String    @id @default(cuid())
+  displayName    String
+  /// Lowercased, whitespace-free, NFC form from normalizeVenueName. Unique, so
+  /// concurrent creators of the same new venue converge on one row.
+  normalizedName String    @unique
+  createdAt      DateTime  @default(now())
+  sessions       Session[]
+}
+
 model User {
   id           String   @id @default(cuid())
   email        String   @unique
@@ -194,6 +207,12 @@ model Session {
   /// value is invalid session state, never "ignore the rules". Parsed only
   /// in server/src/sessions/session-rules.ts.
   disabledRuleIds     String?         @default("[]")
+  /// Link into the shared venue list, set on create from the venue text (exact
+  /// normalized match, else a new Venue). Null for sessions with no venue and
+  /// for history that was never linked; `venue` stays the display text. Declared
+  /// last so the column is a plain ADD COLUMN, not a table rebuild.
+  venueId             String?
+  venueRef            Venue?          @relation(fields: [venueId], references: [id], onDelete: SetNull)
   group         Group           @relation(fields: [groupId], references: [code])
   roster        SessionRoster[]
   waitlist      Waitlist[]

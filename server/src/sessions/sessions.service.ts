@@ -34,6 +34,7 @@ import {
 import { splitTonight, type Level, type LevelSpec } from '../../../engines/levels.ts';
 import { waitingSinceMap } from '../../../engines/waiting.ts';
 import { PrismaService } from '../prisma/prisma.service.js';
+import { VenuesService } from '../venues/venues.service.js';
 import { levelWrite, loadLevelSetAt, loadPlayerLevels, loadRatingAnchors } from '../player-levels.js';
 import { computeCarryEligibility } from './carry-eligibility.js';
 import { carryOutcomesForConfirm, InvalidCarryOutcomesError, parseCarryOutcomes } from './carry-outcomes.js';
@@ -142,7 +143,8 @@ export class SessionsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly lock: SessionLock,
-    private readonly groupLevels: GroupLevelsService
+    private readonly groupLevels: GroupLevelsService,
+    private readonly venues: VenuesService
   ) {}
 
   private badRequest(code: string): BadRequestException {
@@ -599,12 +601,16 @@ export class SessionsService {
             tx.player.update({ where: { id }, data: levelWrite(null, level, ladder?.levels) })
           )
         );
+        // Exact normalized match reuses a venue, anything else adds one; the
+        // text itself is stored as sent so every existing read path is unchanged.
+        const venueId = await this.venues.findOrCreate(tx, dto.venue);
         await tx.session.create({
           data: {
             code,
             groupId: dto.groupCode,
             date: dto.date,
             venue: dto.venue,
+            venueId,
             courtCount: dto.courtCount,
             rawImportText: dto.rawImportText,
             // Snapshots: a later change to the group switches never reaches this session.

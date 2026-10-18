@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { GroupsModule } from '../groups/groups.module.js';
+import { VenuesModule } from '../venues/venues.module.js';
 import { BillController } from './bill.controller.js';
 import { BillService } from './bill.service.js';
 import { CheckoutController } from './checkout.controller.js';
@@ -9,7 +10,7 @@ import { SessionsController } from './sessions.controller.js';
 import { SessionsService } from './sessions.service.js';
 
 @Module({
-  imports: [GroupsModule],
+  imports: [GroupsModule, VenuesModule],
   controllers: [SessionsController, BillController, CheckoutController],
   providers: [SessionLock, SessionsService, BillService, CheckoutService],
   exports: [SessionsService],

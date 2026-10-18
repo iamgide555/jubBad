@@ -103,7 +103,7 @@ describe('venues', () => {
       expect(await prisma.venue.count({ where: { normalizedName: { contains: run } } })).toBe(1);
     });
 
-    it.each([['   '], [''], [null]])('returns null for a blank name (%j)', async (raw) => {
+    it.each([['   '], [''], [null], [undefined]])('returns null for a blank or omitted name (%j)', async (raw) => {
       expect(await venues.findOrCreate(prisma, raw)).toBeNull();
       expect(await prisma.venue.count({ where: { normalizedName: { contains: run } } })).toBe(0);
     });

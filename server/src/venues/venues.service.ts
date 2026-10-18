@@ -36,8 +36,9 @@ export class VenuesService {
    * on the unique normalized name so two hosts adding the same new venue at once
    * end up on one row.
    */
-  async findOrCreate(tx: Prisma.TransactionClient, rawName: string | null): Promise<string | null> {
-    if (rawName === null) return null;
+  async findOrCreate(tx: Prisma.TransactionClient, rawName: string | null | undefined): Promise<string | null> {
+    // The create DTO's venue is optional, so a client that omits it sends undefined.
+    if (rawName == null) return null;
     const normalizedName = normalizeVenueName(rawName);
     if (normalizedName === '') return null;
     const venue = await tx.venue.upsert({

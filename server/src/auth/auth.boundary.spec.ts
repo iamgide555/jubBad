@@ -175,6 +175,7 @@ describe('auth boundary', () => {
     const cookie = ([] as string[]).concat(login.headers['set-cookie'] ?? [])[0];
 
     await request(server).get('/groups').set('Cookie', cookie).expect(200);
+    await request(server).get('/venues/search?q=kip').set('Cookie', cookie).expect(200);
     await request(server)
       .get(`/groups/${ctx.groupCode}/sessions`)
       .set('Cookie', cookie)
@@ -329,6 +330,9 @@ describe('auth boundary', () => {
         // exercised by the race test below). A blanket 404 here would be
         // testing the wrong layer for exactly these three routes.
         if (concrete === '/' || concrete === '/groups' || concrete === '/sessions') continue;
+        // The shared venue list belongs to no group, so any logged-in host may
+        // search it (OwnershipGuard passes this one path); admitted below.
+        if (concrete === '/venues/search') continue;
 
         const res = await request(server)
           [method as 'get'](concrete)

@@ -109,6 +109,14 @@ describe('OwnershipGuard', () => {
     await expect(g.canActivate(contextFor(OWNER, '/sessions', {}))).resolves.toBe(true);
   });
 
+  it('lets any host through on GET /venues/search — the venue list is shared, not group-owned', async () => {
+    const g = guard(false, []);
+    await expect(g.canActivate(contextFor(OTHER_HOST, '/venues/search', {}))).resolves.toBe(true);
+    await expect(
+      g.canActivate(contextFor(OTHER_HOST, '/venues/other', {}))
+    ).rejects.toBeInstanceOf(NotFoundException);
+  });
+
   describe('/groups/:code', () => {
     it('admits the owner', async () => {
       const g = guard(false, [{ code: 'g1', ownerId: OWNER.id }]);

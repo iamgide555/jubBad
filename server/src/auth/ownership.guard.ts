@@ -55,6 +55,11 @@ export class OwnershipGuard implements CanActivate {
     // SessionsService.createSession, which is the only place that can.
     if (path === '/' || path === '/groups' || path === '/sessions') return true;
 
+    // The shared venue list belongs to no group: any logged-in host may search
+    // it (AuthGuard already ran). Only this one path; the rest of /venues/ is
+    // refused by the default-deny below.
+    if (path === '/venues/search') return true;
+
     // Express types params as `string | string[]` (a repeated segment could
     // in principle produce an array); every route here declares :code once,
     // so anything but a single string is not a shape this guard recognises.

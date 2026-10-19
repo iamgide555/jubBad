@@ -201,7 +201,13 @@ export class GroupsController {
     return this.groupsService.deleteRule(code, ruleId);
   }
 
-  /** Public: a player's own stat card, read-only. */
+  /**
+   * Public, read-only player stat card, and the one public route that is
+   * plan-gated: it exposes ratings, which a free plan does not show. It is gated
+   * by ruling (see docs/overview.md, Plans), so a free group's profile link
+   * answers 403 PLAN_REQUIRED and the profile page shows a calm "stats aren't
+   * available" message rather than the host-oriented upgrade prompt.
+   */
   @Public()
   @Get(':code/players/:playerId/stats')
   async playerStats(@Param('code') code: string, @Param('playerId') playerId: string) {
@@ -210,12 +216,13 @@ export class GroupsController {
   }
 
   /**
-   * Gated. Every player, session and match in one response — a GET, which makes
-   * it easy to overlook when thinking of auth as protecting writes.
+   * Owner-only. Every player, session and match in one response — a GET, which
+   * makes it easy to overlook when thinking of auth as protecting writes. Not
+   * plan-gated: a free owner gets the last 30 days of sessions (and their
+   * matches), a paid owner everything; see GroupsService.exportGroup.
    */
   @Get(':code/export')
   async export(@Param('code') code: string) {
-    await this.plans.requireGroupPlan(code, 'host');
     return this.groupsService.exportGroup(code);
   }
 

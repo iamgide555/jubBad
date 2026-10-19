@@ -137,7 +137,6 @@ describe('plan gates on paid group routes', () => {
     ],
     ['PUT rules/:ruleId', 'put', (c) => `/groups/${c}/rules/no-such-rule`, { kind: 'avoid' }],
     ['GET player stats', 'get', (c) => `/groups/${c}/players/no-such-player/stats`],
-    ['GET export', 'get', (c) => `/groups/${c}/export`],
   ];
 
   it.each(gated)('%s is refused on a free group', async (_name, verb, path, body) => {
@@ -202,6 +201,30 @@ describe('plan gates on paid group routes', () => {
       const codes = (res.body as Array<{ code: string }>).map((s) => s.code);
       expect(codes).toContain(hostOldSession);
       expect(codes).toHaveLength(2);
+    });
+
+    type Exported = {
+      players: Array<{ id: string }>;
+      sessions: Array<{ code: string; matches: unknown[] }>;
+    };
+
+    it('exports only the last 30 days of sessions and their matches on a free group, but every player', async () => {
+      requestUserId = freeId;
+      const res = await request(server).get(`/groups/${freeCode}/export`).expect(200);
+      const body = res.body as Exported;
+      expect(body.sessions.map((s) => s.code)).toEqual([freeRecentSession]);
+      expect(body.sessions.flatMap((s) => s.matches)).toHaveLength(0);
+      // Players are not windowed: the 40-day-old match's four players plus A and B.
+      expect(body.players).toHaveLength(6);
+    });
+
+    it('exports the whole archive, with its matches, for a host-plan group', async () => {
+      requestUserId = hostId;
+      const res = await request(server).get(`/groups/${hostCode}/export`).expect(200);
+      const body = res.body as Exported;
+      expect(body.sessions.map((s) => s.code)).toContain(hostOldSession);
+      expect(body.sessions).toHaveLength(2);
+      expect(body.sessions.find((s) => s.code === hostOldSession)!.matches).toHaveLength(1);
     });
 
     it('still serves the public summary of a session older than 30 days on a free group', async () => {

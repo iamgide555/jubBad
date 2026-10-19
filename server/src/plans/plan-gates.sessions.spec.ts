@@ -148,6 +148,31 @@ describe('plan gates on paid session controls', () => {
     }
   });
 
+  describe('player panel rating delta', () => {
+    const deltaOf = async (owner: string) => {
+      const f = await fixture({ mode: 'variety', players: 2, owner });
+      try {
+        await prisma.player.update({ where: { id: f.players[0].id }, data: { level: 'P', levelSetAt: new Date() } });
+        const rows = await sessions.getPlayerPanel(f.sessionCode);
+        return rows.find((r) => r.playerId === f.players[0].id)!;
+      } finally {
+        await f.cleanup();
+      }
+    };
+
+    it('is null for a free owner even when the player has a level', async () => {
+      const row = await deltaOf(freeId);
+      expect(row.level).toBe('P');
+      expect(row.ratingDelta).toBeNull();
+    });
+
+    it('is unchanged for a host owner', async () => {
+      const row = await deltaOf(hostId);
+      expect(row.level).toBe('P');
+      expect(row.ratingDelta).toBe(0);
+    });
+  });
+
   describe('creation snapshots', () => {
     const create = async (code: string, ownerId: string) =>
       sessions.createSession(

@@ -57,8 +57,10 @@ export async function loadBillSnapshot(tx: Prisma.TransactionClient, code: strin
     config = prev ? withoutPerPerson(prev) : DEFAULT_BILL_CONFIG;
     // Prefill from an earlier (possibly paid) session must not carry the paid extras into a free one. Applied
     // here, where the effective config is decided, so the bill and checkout quotes agree with the echoed config.
-    // A saved config is running state and is never altered.
-    if (effectivePlan(session.group.owner, new Date()) === 'free') config = withoutPaidExtras(config);
+    // A saved config is running state and is never altered. The plan is the one at session creation, so a host
+    // plan that lapses mid-night does not change a running session's prefilled bill (as with the shuttle-tools
+    // and cross-session-history snapshots).
+    if (effectivePlan(session.group.owner, session.createdAt) === 'free') config = withoutPaidExtras(config);
     configSource = prev ? 'previous' : 'default';
   }
   config = sanitizeForRoster(config, session.roster.map((r) => r.playerId));

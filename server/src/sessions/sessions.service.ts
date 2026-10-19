@@ -3791,7 +3791,9 @@ export class SessionsService {
    * /won/lost, and their rating as a difference from the level's seed
    * (`ratingDelta`) — the host reads "P +50", not a bare 1350 that means
    * nothing without the seed in their head. `ratingDelta` is null with no
-   * level (no seed to diff against), 0 the moment a level is freshly set
+   * level (no seed to diff against) and, on a free owner's session, always
+   * (ratings are a paid view; the plan is read from the owner at read time and
+   * the web already renders a null delta as nothing). It is 0 the moment a level is freshly set
    * with no games yet on top of it (see engines/elo.ts's RatingAnchor and
    * `loadRatings` below for the reset-on-set rule this reflects).
    */
@@ -3809,6 +3811,7 @@ export class SessionsService {
     ]);
 
     const nameById = new Map(players.map((p) => [p.id, p.name]));
+    const showRatings = planAtLeast(await this.plans.planForSession(code), 'host');
 
     const played = new Map<string, number>();
     const won = new Map<string, number>();
@@ -3839,7 +3842,7 @@ export class SessionsService {
         won: won.get(r.playerId) ?? 0,
         lost: lost.get(r.playerId) ?? 0,
         ratingDelta:
-          level === null || !anchor
+          !showRatings || level === null || !anchor
             ? null
             : Math.round((ratings.doubles.get(r.playerId) ?? anchor.rating) - anchor.rating),
       };

@@ -6,6 +6,7 @@ import { DEFAULT_BILL_CONFIG } from '../../../engines/bill.ts';
 import { GroupsModule } from '../groups/groups.module.js';
 import { PrismaModule } from '../prisma/prisma.module.js';
 import { PrismaService } from '../prisma/prisma.service.js';
+import { CheckoutService } from '../sessions/checkout.service.js';
 import { SessionsModule } from '../sessions/sessions.module.js';
 
 describe('plan gates on paid bill extras', () => {
@@ -14,6 +15,8 @@ describe('plan gates on paid bill extras', () => {
   let server: ReturnType<INestApplication['getHttpServer']>;
   let freeId: string;
   let hostId: string;
+  let lapsedId: string;
+  let longLapsedId: string;
 
   beforeAll(async () => {
     const moduleRef = await Test.createTestingModule({ imports: [PrismaModule, GroupsModule, SessionsModule] }).compile();
@@ -22,6 +25,9 @@ describe('plan gates on paid bill extras', () => {
     const tag = randomUUID();
     freeId = (await prisma.user.create({ data: { email: `bg-free-${tag}@example.test`, passwordHash: 'x', role: 'host', plan: 'free' } })).id;
     hostId = (await prisma.user.create({ data: { email: `bg-host-${tag}@example.test`, passwordHash: 'x', role: 'host', plan: 'host' } })).id;
+    // A host plan that ran out an hour ago, and one that ran out three days ago.
+    lapsedId = (await prisma.user.create({ data: { email: `bg-lapsed-${tag}@example.test`, passwordHash: 'x', role: 'host', plan: 'host', planRenewsAt: new Date(Date.now() - 3_600_000) } })).id;
+    longLapsedId = (await prisma.user.create({ data: { email: `bg-longlapsed-${tag}@example.test`, passwordHash: 'x', role: 'host', plan: 'host', planRenewsAt: new Date(Date.now() - 3 * 86_400_000) } })).id;
     app.use((req: { user?: unknown }, _res: unknown, next: () => void) => {
       req.user = { id: freeId, role: 'host' };
       next();
@@ -32,13 +38,13 @@ describe('plan gates on paid bill extras', () => {
     await new Promise<void>((resolve) => server.listen(0, resolve));
   });
   afterAll(async () => {
-    await prisma.group.updateMany({ where: { ownerId: { in: [freeId, hostId] } }, data: { ownerId: null } });
-    await prisma.user.deleteMany({ where: { id: { in: [freeId, hostId] } } });
+    await prisma.group.updateMany({ where: { ownerId: { in: [freeId, hostId, lapsedId, longLapsedId] } }, data: { ownerId: null } });
+    await prisma.user.deleteMany({ where: { id: { in: [freeId, hostId, lapsedId, longLapsedId] } } });
     await app.close();
   });
 
   /** A group with two sessions: an older one (optionally with a saved config) and a new one with none. */
-  async function fixture(opts: { players?: number; owner: string; olderConfig?: object; newConfig?: object }) {
+  async function fixture(opts: { players?: number; owner: string; olderConfig?: object; newConfig?: object; newCreatedAt?: Date; shuttleTools?: boolean }) {
     const code = randomUUID();
     const olderCode = randomUUID();
     const newCode = randomUUID();
@@ -55,6 +61,8 @@ describe('plan gates on paid bill extras', () => {
     await prisma.session.create({
       data: {
         code: newCode, groupId: code, courtCount: 1, rawImportText: '',
+        ...(opts.newCreatedAt ? { createdAt: opts.newCreatedAt } : {}),
+        ...(opts.shuttleTools ? { shuttleToolsEnabled: true, shuttlePriceSatang: 12000 } : {}),
         billConfig: opts.newConfig ? JSON.stringify(opts.newConfig) : null,
       },
     });
@@ -152,6 +160,54 @@ describe('plan gates on paid bill extras', () => {
       await f.cleanup();
     }
   });
+  describe('a host plan that lapses after the session was created', () => {
+    const paid = { ...DEFAULT_BILL_CONFIG, model: 'fair', hostFeeSatang: 2000, walkInFeeSatang: 1000 };
+    const hoursAgo = (h: number) => new Date(Date.now() - h * 3_600_000);
+
+    it('keeps the prefilled host and walk-in fee on the bill and lets them be re-posted', async () => {
+      const f = await fixture({ owner: lapsedId, olderConfig: paid, newCreatedAt: hoursAgo(2) });
+      try {
+        const res = await request(server).get(`/sessions/${f.newCode}/bill`).expect(200);
+        expect(res.body.configSource).toBe('previous');
+        expect(res.body.config).toMatchObject({ hostFeeSatang: 2000, walkInFeeSatang: 1000 });
+        // The gate sees the prefilled value as the stored one, so re-posting it is not "turning it on".
+        await request(server)
+          .post(`/sessions/${f.newCode}/bill-config`)
+          .send(body({ hostFeeSatang: 2000, walkInFeeSatang: 1000 }))
+          .expect(201);
+      } finally {
+        await f.cleanup();
+      }
+    });
+
+    it('still strips the prefill when the plan had already lapsed at creation', async () => {
+      const f = await fixture({ owner: longLapsedId, olderConfig: paid, newCreatedAt: hoursAgo(2) });
+      try {
+        const res = await request(server).get(`/sessions/${f.newCode}/bill`).expect(200);
+        expect(res.body.configSource).toBe('previous');
+        expect(res.body.config).toMatchObject({ hostFeeSatang: 0, walkInFeeSatang: 0 });
+      } finally {
+        await f.cleanup();
+      }
+    });
+
+    it('quotes a checkout from the same config the bill shows', async () => {
+      const perShuttle = { ...DEFAULT_BILL_CONFIG, model: 'perShuttle', startingFeeSatang: 2000, hostFeeSatang: 2000, walkInFeeSatang: 0 };
+      const checkout = app.get(CheckoutService, { strict: false });
+      const free = await fixture({ owner: longLapsedId, olderConfig: perShuttle, newCreatedAt: hoursAgo(2), shuttleTools: true });
+      const kept = await fixture({ owner: lapsedId, olderConfig: perShuttle, newCreatedAt: hoursAgo(2), shuttleTools: true });
+      try {
+        const stripped = await checkout.preview(free.newCode, free.playerId, 'perShuttle');
+        expect(stripped.breakdown.hostFeeSatang).toBe(0);
+        const prefilled = await checkout.preview(kept.newCode, kept.playerId, 'perShuttle');
+        expect(prefilled.breakdown.hostFeeSatang).toBe(2000);
+      } finally {
+        await free.cleanup();
+        await kept.cleanup();
+      }
+    });
+  });
+
   describe('a free session with saved paid values (running state)', () => {
     const saved = { ...DEFAULT_BILL_CONFIG, model: 'fair', hostFeeSatang: 2000, walkInFeeSatang: 1000 };
     const post = (code: string, extra: object) => request(server).post(`/sessions/${code}/bill-config`).send(body(extra));

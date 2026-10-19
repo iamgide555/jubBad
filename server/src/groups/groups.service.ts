@@ -612,16 +612,27 @@ export class GroupsService {
     if (clash) throw new ConflictException({ code: 'PAIR_RULE_MUST_PAIR_TAKEN', ruleId: clash.id });
   }
 
-  async exportGroup(code: string) {
+  /**
+   * The owner's data export. On the free plan it is limited, like the archive
+   * list, to sessions from the last FREE_ARCHIVE_DAYS days (by createdAt); each
+   * session carries its own matches, checkouts and shuttles, so those are
+   * windowed with it. Players, aliases, rules and the level ladder are not
+   * windowed. A paid owner gets everything.
+   */
+  async exportGroup(code: string, now: Date = new Date()) {
     const group = await this.prisma.group.findUnique({ where: { code } });
     if (!group) throw new NotFoundException();
+
+    const archiveStart = planAtLeast(await this.plans.planForGroup(code, now), 'host')
+      ? undefined
+      : new Date(now.getTime() - FREE_ARCHIVE_DAYS * 24 * 60 * 60 * 1000);
 
     const ladder = parseGroupLadder(group.levelLadder);
     const [players, rules, sessions] = await Promise.all([
       this.prisma.player.findMany({ where: { groupId: code } }),
       this.prisma.playerRule.findMany({ where: { groupId: code }, orderBy: [{ createdAt: 'asc' }, { id: 'asc' }] }),
       this.prisma.session.findMany({
-        where: { groupId: code },
+        where: { groupId: code, ...(archiveStart ? { createdAt: { gte: archiveStart } } : {}) },
         orderBy: { createdAt: 'asc' },
         include: {
           roster: true,

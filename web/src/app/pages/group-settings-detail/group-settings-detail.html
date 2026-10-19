@@ -46,7 +46,7 @@
                 <span class="switch-title" i18n="@@entry.shuttleTools">จดลูกแบดเป็นหมายเลข</span>
                 <span class="muted" i18n="@@entry.shuttleToolsHint">ตอนยืนยันแมตช์จะให้เลือกลูกแบด และบิลจะนับตามลูกที่ใช้จริง</span>
                 @if (!paid()) {
-                  <app-plan-lock />
+                  <app-plan-lock [hint]="switchLockHint('shuttleTools')" />
                 }
               </span>
             </label>
@@ -62,7 +62,7 @@
                 <span class="switch-title" i18n="@@group.crossSessionHistory">นับประวัติคู่ข้ามรอบ</span>
                 <span class="muted" i18n="@@group.crossSessionHistoryHint">ปิด: เลี่ยงคู่ซ้ำเฉพาะคืนนี้ · เปิด: นับทุกรอบที่ผ่านมา</span>
                 @if (!paid()) {
-                  <app-plan-lock />
+                  <app-plan-lock [hint]="switchLockHint('crossSessionHistory')" />
                 }
               </span>
             </label>

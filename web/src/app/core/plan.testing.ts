@@ -22,7 +22,7 @@ export function stubPlanService() {
         },
       },
     },
-    answer: (plan: Plan) => reply.next({ plan, renewsAt: null }),
+    answer: (plan: Plan, renewsAt: string | null = null) => reply.next({ plan, renewsAt }),
     fail: () => reply.error(new HttpErrorResponse({ status: 500 })),
   };
 }

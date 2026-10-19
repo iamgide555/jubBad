@@ -580,6 +580,13 @@
           <context context-type="linenumber">106</context>
         </context-group>
       </trans-unit>
+      <trans-unit id="profile.planLockedHint" datatype="html">
+        <source>ผู้ดูแลก๊วนยังไม่เปิดให้ดูข้อมูลผู้เล่นคนนี้</source><target>The group host hasn't opened this player's stats</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/player-profile/player-profile.html</context>
+          <context context-type="linenumber">112</context>
+        </context-group>
+      </trans-unit>
       <trans-unit id="summary.back" datatype="html">
         <source>← กลับ</source><target>← Back</target>
         <context-group purpose="location">
@@ -1969,6 +1976,13 @@
           <context context-type="linenumber">354,357</context>
         </context-group>
       </trans-unit>
+      <trans-unit id="admin.planSaved" datatype="html">
+        <source>บันทึกแล้ว</source><target>Saved</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/admin/admin.html</context>
+          <context context-type="linenumber">364</context>
+        </context-group>
+      </trans-unit>
       <trans-unit id="admin.reassignFailed" datatype="html">
         <source>ย้ายเจ้าของไม่สำเร็จ</source><target>Could not reassign the owner</target>
         <context-group purpose="location">
@@ -2128,6 +2142,28 @@
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/session-dashboard/session-dashboard.html</context>
           <context context-type="linenumber">75,77</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="dashboard.modeOneWay" datatype="html">
+        <source>เปลี่ยนแล้วจะกลับมาใช้โหมดนี้ไม่ได้ในแพ็กเกจนี้</source><target>If you switch, you can't come back to this mode on this plan.</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/session-dashboard/session-dashboard.html</context>
+          <context context-type="linenumber">291</context>
+        </context-group>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/session-dashboard/court-panel/court-panel.html</context>
+          <context context-type="linenumber">49</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="dashboard.modeOneWayConfirm" datatype="html">
+        <source>เปลี่ยนโหมด</source><target>Switch mode</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/session-dashboard/session-dashboard.html</context>
+          <context context-type="linenumber">293</context>
+        </context-group>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/session-dashboard/court-panel/court-panel.html</context>
+          <context context-type="linenumber">51</context>
         </context-group>
       </trans-unit>
       <trans-unit id="court.emptySeat" datatype="html">
@@ -2746,7 +2782,7 @@
         </context-group>
       </trans-unit>
       <trans-unit id="plan.groupLimit" datatype="html">
-        <source>แพ็กเกจของคุณสร้างก๊วนได้สูงสุด <x id="limit" equiv-text="limit"/> ก๊วน</source><target>Your plan allows up to <x id="limit" equiv-text="limit"/> groups</target>
+        <source>แพ็กเกจของคุณสร้างก๊วนได้สูงสุด <x id="limit" equiv-text="limit"/> ก๊วน ติดต่อผู้ดูแลเพื่ออัปเกรด</source><target>Your plan allows up to <x id="limit" equiv-text="limit"/> groups. Contact the admin to upgrade.</target>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/core/plan.ts</context>
           <context context-type="linenumber">49</context>
@@ -2764,6 +2800,41 @@
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/shared/plan-lock/plan-lock.html</context>
           <context context-type="linenumber">2</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="plan.lock.modes" datatype="html">
+        <source>โหมดสูสีและตามระดับใช้ได้ในแพ็กเกจโฮสต์</source><target>Balanced and Level modes need the Host plan</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/core/plan.ts</context>
+          <context context-type="linenumber">56</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="plan.lock.courtModes" datatype="html">
+        <source>การตั้งโหมดแยกคอร์ทใช้ได้ในแพ็กเกจโฮสต์</source><target>Per-court modes need the Host plan</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/core/plan.ts</context>
+          <context context-type="linenumber">61</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="plan.lock.target" datatype="html">
+        <source>การเล็งมือล่าง/มือบนใช้ได้ในแพ็กเกจโฮสต์</source><target>Targeting the lower/upper half needs the Host plan</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/core/plan.ts</context>
+          <context context-type="linenumber">66</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="plan.lock.onInactive" datatype="html">
+        <source>เปิดอยู่ แต่รอบใหม่จะไม่ใช้ในแพ็กเกจนี้</source><target>On, but new rounds won't use it on this plan</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/core/plan.ts</context>
+          <context context-type="linenumber">74</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="plan.until" datatype="html">
+        <source>ถึง <x id="date" equiv-text="date"/></source><target>until <x id="date" equiv-text="date"/></target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/core/plan.ts</context>
+          <context context-type="linenumber">97</context>
         </context-group>
       </trans-unit>
       <trans-unit id="err.code.pairRuleViolation" datatype="html">
@@ -4411,6 +4482,20 @@
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/group-home/group-home.html</context>
           <context context-type="linenumber">170</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="group.archiveNoteHome" datatype="html">
+        <source>แสดงเฉพาะรอบใน 30 วันล่าสุด ดูย้อนหลังทั้งหมดได้ในแพ็กเกจโฮสต์</source><target>Showing the last 30 days only. See everything on the Host plan.</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/group-home/group-home.html</context>
+          <context context-type="linenumber">173</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="group.planLine" datatype="html">
+        <source>แพ็กเกจ: <x id="plan" equiv-text="name"/></source><target>Plan: <x id="plan" equiv-text="name"/></target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/group-home/group-home.ts</context>
+          <context context-type="linenumber">103</context>
         </context-group>
       </trans-unit>
       <trans-unit id="entry.clearRoster" datatype="html">

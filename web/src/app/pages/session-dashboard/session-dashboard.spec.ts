@@ -1905,6 +1905,88 @@ describe('SessionDashboard', () => {
       });
     }
 
+    it('free: the mode lock says which modes need the Host plan', async () => {
+      await loadWithPlan(baseSession(), 'free');
+      const lock = el().querySelector('.mode-toggle app-plan-lock')?.textContent ?? '';
+      expect(lock).toContain('โหมดสูสีและตามระดับใช้ได้ในแพ็กเกจโฮสต์');
+      expect(lock).toContain('ติดต่อผู้ดูแลเพื่ออัปเกรด');
+    });
+
+    describe('one-way switch away from a paid mode', () => {
+      const confirmBox = () => el().querySelector('.mode-toggle [data-mode-confirm]');
+      const modePosts = () => httpMock.match(`${B}/sessions/sess1/mode`);
+      async function drainAfterSwitch(mode: Session['mode']) {
+        for (let round = 0; round < 5; round++) {
+          await new Promise((r) => setTimeout(r, 0));
+          TestBed.tick();
+          const pending = [
+            ...httpMock.match(`${B}/sessions/sess1`),
+            ...httpMock.match(`${B}/groups/group1/players`),
+            ...httpMock.match(`${B}/sessions/sess1/stats?scope=session`),
+          ];
+          if (pending.length === 0) break;
+          for (const r of pending) {
+            if (r.request.url.endsWith('/sessions/sess1')) r.flush(baseSession({ mode }));
+            else r.flush([]);
+          }
+        }
+        fixture.detectChanges();
+      }
+
+      it('free on สูสี: pressing สลับคู่ asks first and sends nothing', async () => {
+        await loadWithPlan(baseSession({ mode: 'balanced' }), 'free');
+        modeBtn('variety').click();
+        fixture.detectChanges();
+        expect(modePosts()).toEqual([]);
+        expect(confirmBox()?.textContent).toContain('เปลี่ยนแล้วจะกลับมาใช้โหมดนี้ไม่ได้ในแพ็กเกจนี้');
+      });
+
+      it('free on สูสี: cancel closes the confirm and keeps the mode', async () => {
+        await loadWithPlan(baseSession({ mode: 'balanced' }), 'free');
+        modeBtn('variety').click();
+        fixture.detectChanges();
+        (confirmBox()!.querySelector('[data-mode-confirm-cancel]') as HTMLButtonElement).click();
+        fixture.detectChanges();
+        expect(confirmBox()).toBeNull();
+        expect(modePosts()).toEqual([]);
+        expect(modeBtn('balanced').classList).toContain('active');
+      });
+
+      it('free on ตามระดับ: confirming performs the switch to เลือกเอง', async () => {
+        await loadWithPlan(baseSession({ mode: 'level' }), 'free');
+        modeBtn('custom').click();
+        fixture.detectChanges();
+        expect(modePosts()).toEqual([]);
+        (confirmBox()!.querySelector('[data-mode-confirm-ok]') as HTMLButtonElement).click();
+        const req = httpMock.expectOne(`${B}/sessions/sess1/mode`);
+        expect(req.request.body).toEqual({ mode: 'custom' });
+        req.flush({ code: 'sess1', mode: 'custom' });
+        await drainAfterSwitch('custom');
+        expect(confirmBox()).toBeNull();
+      });
+
+      it('free on สลับคู่: switching to เลือกเอง is immediate (nothing paid is given up)', async () => {
+        await loadWithPlan(baseSession({ mode: 'variety' }), 'free');
+        modeBtn('custom').click();
+        const req = httpMock.expectOne(`${B}/sessions/sess1/mode`);
+        req.flush({ code: 'sess1', mode: 'custom' });
+        await drainAfterSwitch('custom');
+        expect(confirmBox()).toBeNull();
+      });
+
+      for (const reply of ['host', 'error', 'pending'] as const) {
+        it(`${reply}: switching away from สูสี is immediate`, async () => {
+          await loadWithPlan(baseSession({ mode: 'balanced' }), reply);
+          modeBtn('variety').click();
+          const req = httpMock.expectOne(`${B}/sessions/sess1/mode`);
+          expect(req.request.body).toEqual({ mode: 'variety' });
+          req.flush({ code: 'sess1', mode: 'variety' });
+          await drainAfterSwitch('variety');
+          expect(confirmBox()).toBeNull();
+        });
+      }
+    });
+
     it('free: the court panels and the lineup queue are told the plan', async () => {
       await loadWithPlan(baseSession({ mode: 'custom', courts: [{ status: 'idle', format: 'doubles', mode: 'custom' }] }), 'free');
       const courtModes = [...el().querySelectorAll<HTMLButtonElement>('.court-mode-toggle button')];

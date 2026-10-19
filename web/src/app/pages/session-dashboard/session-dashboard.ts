@@ -5,7 +5,7 @@ import { Router, RouterLink } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
 import { environment } from '../../../environments/environment';
 import { LiveSessionService } from '../../core/live-session.service';
-import { isPaid, planErrorMessage, type Plan } from '../../core/plan';
+import { isPaid, modesLockHint, planErrorMessage, type Plan } from '../../core/plan';
 import { PlanService } from '../../core/plan.service';
 import { RosterService } from '../../core/roster.service';
 import { absoluteUrl, copyToClipboard } from '../../core/share-link';
@@ -498,6 +498,44 @@ export class SessionDashboard implements OnDestroy {
    */
   protected modeLocked(mode: 'variety' | 'balanced' | 'level' | 'custom'): boolean {
     return !this.paid() && (mode === 'balanced' || mode === 'level') && this.mode() !== mode;
+  }
+
+  protected readonly modesLockHint = modesLockHint();
+
+  /**
+   * A free host on สูสี / ตามระดับ (a lapsed host's running session) who switches to สลับคู่ or
+   * เลือกเอง cannot switch back — so that one press asks first, inline. Paid and unknown plans
+   * switch immediately, as before.
+   */
+  protected readonly pendingModeSwitch = signal<'variety' | 'custom' | null>(null);
+
+  private isOneWaySwitch(mode: 'variety' | 'balanced' | 'level' | 'custom'): mode is 'variety' | 'custom' {
+    const current = this.mode();
+    return (
+      !this.paid() &&
+      (current === 'balanced' || current === 'level') &&
+      (mode === 'variety' || mode === 'custom')
+    );
+  }
+
+  /** The mode toggle's press: asks first when the switch is one-way on this plan. */
+  async requestMode(mode: 'variety' | 'balanced' | 'level' | 'custom'): Promise<void> {
+    if (this.isOneWaySwitch(mode)) {
+      this.pendingModeSwitch.set(mode);
+      return;
+    }
+    this.pendingModeSwitch.set(null);
+    await this.setMode(mode);
+  }
+
+  async confirmModeSwitch(): Promise<void> {
+    const mode = this.pendingModeSwitch();
+    this.pendingModeSwitch.set(null);
+    if (mode) await this.setMode(mode);
+  }
+
+  cancelModeSwitch(): void {
+    this.pendingModeSwitch.set(null);
   }
   /** Custom session only: true when at least one court is set to ระดับ, so
    *  the shared waiting list (which stays games-then-wait in a custom

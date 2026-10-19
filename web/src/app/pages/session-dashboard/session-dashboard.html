@@ -247,7 +247,7 @@
               data-mode="variety"
               [class.active]="mode() === 'variety'"
               [disabled]="modeLocked('variety')"
-              (click)="setMode('variety')"
+              (click)="requestMode('variety')"
               i18n="@@dashboard.modeVariety"
             >
               สลับคู่
@@ -257,7 +257,7 @@
               data-mode="balanced"
               [class.active]="mode() === 'balanced'"
               [disabled]="modeLocked('balanced')"
-              (click)="setMode('balanced')"
+              (click)="requestMode('balanced')"
               i18n="@@dashboard.modeBalanced"
             >
               สูสี
@@ -267,7 +267,7 @@
               data-mode="level"
               [class.active]="mode() === 'level'"
               [disabled]="modeLocked('level')"
-              (click)="setMode('level')"
+              (click)="requestMode('level')"
               i18n="@@dashboard.modeLevel"
             >
               ตามระดับ
@@ -277,14 +277,23 @@
               data-mode="custom"
               [class.active]="mode() === 'custom'"
               [disabled]="modeLocked('custom')"
-              (click)="setMode('custom')"
+              (click)="requestMode('custom')"
               i18n="@@dashboard.modeCustom"
             >
               เลือกเอง
             </button>
           </div>
           @if (!paid()) {
-            <app-plan-lock class="mode-lock" />
+            <app-plan-lock class="mode-lock" [hint]="modesLockHint" />
+          }
+          @if (pendingModeSwitch()) {
+            <div class="mode-confirm" data-mode-confirm role="group" aria-labelledby="mode-confirm-text">
+              <p id="mode-confirm-text" class="mode-confirm-text" i18n="@@dashboard.modeOneWay">เปลี่ยนแล้วจะกลับมาใช้โหมดนี้ไม่ได้ในแพ็กเกจนี้</p>
+              <div class="mode-confirm-actions">
+                <button type="button" data-mode-confirm-ok (click)="confirmModeSwitch()" i18n="@@dashboard.modeOneWayConfirm">เปลี่ยนโหมด</button>
+                <button type="button" class="ghost" data-mode-confirm-cancel (click)="cancelModeSwitch()" i18n="@@court.cancelPick">ยกเลิก</button>
+              </div>
+            </div>
           }
           @switch (mode()) {
             @case ('balanced') {

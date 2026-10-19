@@ -375,6 +375,54 @@ describe('GroupLevels', () => {
       expect(locks()).toBeGreaterThan(0);
     });
 
+    it('free: a standard group cannot open the editor; both entry buttons are locked with the hint', async () => {
+      await load(standard());
+      plan.answer('free');
+      await settle();
+      expect(q<HTMLButtonElement>('[data-customize-standard]').disabled).toBe(true);
+      expect(q<HTMLButtonElement>('[data-customize]').disabled).toBe(true);
+      expect(q('[data-standard] app-plan-lock')).toBeTruthy();
+      q<HTMLButtonElement>('[data-customize]').click();
+      fixture.detectChanges();
+      expect(q('[data-editor]')).toBeNull();
+      // Reading the standard ladder stays.
+      expect(qa('[data-standard] .level-row')).toHaveLength(8);
+    });
+
+    for (const p of ['host', 'unknown', 'failed'] as const) {
+      it(`${p}: the editor entry buttons are open and carry no hint`, async () => {
+        await load(standard());
+        if (p === 'host') plan.answer('host');
+        if (p === 'failed') plan.fail();
+        await settle();
+        expect(q<HTMLButtonElement>('[data-customize-standard]').disabled).toBe(false);
+        expect(q<HTMLButtonElement>('[data-customize]').disabled).toBe(false);
+        expect(locks()).toBe(0);
+      });
+    }
+
+    it('free: a custom ladder (lapsed host) still reads, but its editing controls are locked', async () => {
+      await load(custom());
+      plan.answer('free');
+      await settle();
+      const names = qa('.level-name-input');
+      expect(names.map((i) => i.value)).toEqual(['มือใหม่', 'กลาง', 'เก่ง']);
+      expect(names.every((i) => i.disabled)).toBe(true);
+      expect(qa('.level-elo-input').every((i) => i.disabled)).toBe(true);
+      expect(q<HTMLButtonElement>('[data-add-level]').disabled).toBe(true);
+      expect(q<HTMLButtonElement>('[data-suggest]').disabled).toBe(true);
+      expect(qa('[data-editor] .row-actions button').every((b) => b.disabled)).toBe(true);
+      expect(q('[data-editor] app-plan-lock')).toBeTruthy();
+    });
+
+    it('host: a custom ladder stays editable', async () => {
+      await load(custom());
+      plan.answer('host');
+      await settle();
+      expect(qa('.level-name-input').some((i) => i.disabled)).toBe(false);
+      expect(q<HTMLButtonElement>('[data-add-level]').disabled).toBe(false);
+    });
+
     it('host: the ladder saves and there is no hint', async () => {
       await draftReady('host');
       expect(q<HTMLButtonElement>('[data-save]').disabled).toBe(false);

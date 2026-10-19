@@ -32,7 +32,7 @@
             [class.active]="c.mode === m"
             [disabled]="busy() || ended() || modeLocked(m)"
             [attr.aria-pressed]="c.mode === m"
-            (click)="setCourtMode(m)"
+            (click)="requestCourtMode(m)"
           >{{
             m === 'variety' ? modeLabelVariety
               : m === 'balanced' ? modeLabelBalanced
@@ -42,7 +42,16 @@
         }
       </div>
       @if (!paid()) {
-        <app-plan-lock />
+        <app-plan-lock [hint]="courtModesLockHint" />
+      }
+      @if (confirmingCustom()) {
+        <div class="court-mode-confirm" data-court-mode-confirm role="group" [attr.aria-label]="modeGroupLabel">
+          <p class="court-mode-confirm-text" i18n="@@dashboard.modeOneWay">เปลี่ยนแล้วจะกลับมาใช้โหมดนี้ไม่ได้ในแพ็กเกจนี้</p>
+          <div class="court-mode-confirm-actions">
+            <button type="button" data-court-mode-confirm-ok [disabled]="busy() || ended()" (click)="confirmCourtCustom()" i18n="@@dashboard.modeOneWayConfirm">เปลี่ยนโหมด</button>
+            <button type="button" class="ghost" data-court-mode-confirm-cancel (click)="cancelCourtCustom()" i18n="@@court.cancelPick">ยกเลิก</button>
+          </div>
+        </div>
       }
     }
     @if (c.mode === 'level') {
@@ -58,7 +67,7 @@
         }
       </div>
       @if (!paid()) {
-        <app-plan-lock />
+        <app-plan-lock [hint]="targetLockHint" />
       }
     }
     @if (timerLabel(); as label) {

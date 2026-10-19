@@ -46,7 +46,53 @@ export function planErrorMessage(err: unknown): string | null {
   if (body?.code === 'PLAN_REQUIRED') return planRequiredMessage();
   if (body?.code === 'GROUP_LIMIT' && typeof body.limit === 'number') {
     const limit = body.limit;
-    return $localize`:@@plan.groupLimit:แพ็กเกจของคุณสร้างก๊วนได้สูงสุด ${limit}:limit: ก๊วน`;
+    return $localize`:@@plan.groupLimit:แพ็กเกจของคุณสร้างก๊วนได้สูงสุด ${limit}:limit: ก๊วน ติดต่อผู้ดูแลเพื่ออัปเกรด`;
   }
   return null;
+}
+
+/** The first line of the plan-lock under a session's mode toggle. */
+export function modesLockHint(): string {
+  return $localize`:@@plan.lock.modes:โหมดสูสีและตามระดับใช้ได้ในแพ็กเกจโฮสต์`;
+}
+
+/** The first line of the plan-lock under a court's own mode toggle, where only เลือกเอง is free. */
+export function courtModesLockHint(): string {
+  return $localize`:@@plan.lock.courtModes:การตั้งโหมดแยกคอร์ทใช้ได้ในแพ็กเกจโฮสต์`;
+}
+
+/** The first line of the plan-lock under a ระดับ court's มือล่าง/มือบน control. */
+export function targetLockHint(): string {
+  return $localize`:@@plan.lock.target:การเล็งมือล่าง/มือบนใช้ได้ในแพ็กเกจโฮสต์`;
+}
+
+/**
+ * The first line of the plan-lock beside a group switch that is ON on a free plan: the stored
+ * setting stays (so it can be turned off), but sessions snapshot it off at creation.
+ */
+export function onButInactiveLockHint(): string {
+  return $localize`:@@plan.lock.onInactive:เปิดอยู่ แต่รอบใหม่จะไม่ใช้ในแพ็กเกจนี้`;
+}
+
+/**
+ * A renewal instant is the end of a Bangkok day (UTC+7, no DST), so its Bangkok calendar date
+ * is the one the admin typed, as `YYYY-MM-DD` (a date input's value). '' when there is none.
+ */
+export function bangkokDate(iso: string | null): string {
+  if (!iso) return '';
+  return new Date(new Date(iso).getTime() + 7 * 60 * 60 * 1000).toISOString().slice(0, 10);
+}
+
+/** The same Bangkok calendar date for reading, as `dd/mm/yyyy`. '' when there is none. */
+export function bangkokDisplayDate(iso: string | null): string {
+  const ymd = bangkokDate(iso);
+  if (!ymd) return '';
+  const [y, m, d] = ymd.split('-');
+  return `${d}/${m}/${y}`;
+}
+
+/** "until dd/mm/yyyy" beside a plan with a renewal date (group home, admin list). */
+export function planUntil(iso: string): string {
+  const date = bangkokDisplayDate(iso);
+  return $localize`:@@plan.until:ถึง ${date}:date:`;
 }

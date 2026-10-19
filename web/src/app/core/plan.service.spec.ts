@@ -2,7 +2,7 @@ import { HttpErrorResponse, provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
 import { environment } from '../../environments/environment';
-import { isPaid, planErrorMessage } from './plan';
+import { bangkokDate, bangkokDisplayDate, isPaid, planErrorMessage } from './plan';
 import { PlanService } from './plan.service';
 
 const B = environment.apiBaseUrl;
@@ -48,7 +48,7 @@ describe('planErrorMessage', () => {
 
   it('names the limit on GROUP_LIMIT', () => {
     const msg = planErrorMessage(refusal(403, { code: 'GROUP_LIMIT', limit: 3 }));
-    expect(msg).toBe('แพ็กเกจของคุณสร้างก๊วนได้สูงสุด 3 ก๊วน');
+    expect(msg).toBe('แพ็กเกจของคุณสร้างก๊วนได้สูงสุด 3 ก๊วน ติดต่อผู้ดูแลเพื่ออัปเกรด');
   });
 
   it('explains PLAN_REQUIRED', () => {
@@ -61,5 +61,21 @@ describe('planErrorMessage', () => {
     expect(planErrorMessage(refusal(409, { code: 'PLAN_REQUIRED' }))).toBeNull();
     expect(planErrorMessage(new Error('x'))).toBeNull();
     expect(planErrorMessage(null)).toBeNull();
+  });
+});
+
+describe('bangkokDate / bangkokDisplayDate', () => {
+  it('reads a renewal instant (end of a Bangkok day) as that Bangkok calendar date', () => {
+    expect(bangkokDate('2026-11-19T16:59:59.999Z')).toBe('2026-11-19');
+    expect(bangkokDisplayDate('2026-11-19T16:59:59.999Z')).toBe('19/11/2026');
+  });
+
+  it('rolls past UTC midnight into the next Bangkok day', () => {
+    expect(bangkokDisplayDate('2026-01-31T18:00:00.000Z')).toBe('01/02/2026');
+  });
+
+  it('is empty when there is no date', () => {
+    expect(bangkokDate(null)).toBe('');
+    expect(bangkokDisplayDate(null)).toBe('');
   });
 });

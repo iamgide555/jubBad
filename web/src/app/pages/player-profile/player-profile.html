@@ -103,7 +103,13 @@
   </div>
 } @else if (planLocked()) {
   <div class="page plan-locked" data-plan-locked>
+    @if (canGoBack()) {
+      <p><a class="back" [routerLink]="['/g', groupCode]" i18n="@@summary.back">← กลับ</a></p>
+    } @else if (hasHistory) {
+      <p><a class="back" href="" (click)="goBack($event)" i18n="@@summary.back">← กลับ</a></p>
+    }
     <h1 i18n="@@profile.planLocked">ยังไม่เปิดดูข้อมูลผู้เล่นคนนี้</h1>
+    <p class="muted" i18n="@@profile.planLockedHint">ผู้ดูแลก๊วนยังไม่เปิดให้ดูข้อมูลผู้เล่นคนนี้</p>
   </div>
 } @else if (notFound()) {
   <div class="page not-found">

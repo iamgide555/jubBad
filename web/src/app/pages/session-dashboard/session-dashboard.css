@@ -329,6 +329,24 @@
   margin-top: var(--space-0);
 }
 
+/* Inline, not a native dialog: a free host leaving สูสี/ตามระดับ is told it is one-way. */
+.mode-confirm {
+  max-width: 16rem;
+  margin: var(--space-1) 0 0 auto;
+}
+
+.mode-confirm-text {
+  margin: 0 0 var(--space-1);
+  font-size: var(--text-sm);
+  color: var(--ink);
+}
+
+.mode-confirm-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-1);
+}
+
 .mode-hint {
   margin: var(--space-0) 0 0;
   max-width: 13rem;

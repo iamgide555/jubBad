@@ -1,3 +1,4 @@
+import { Location } from '@angular/common';
 import { Component, computed, inject, signal } from '@angular/core';
 import { HttpErrorResponse, httpResource } from '@angular/common/http';
 import { ActivatedRoute, RouterLink } from '@angular/router';
@@ -62,6 +63,19 @@ export class PlayerProfile {
    * Shown only to someone who can actually use it.
    */
   protected readonly canGoBack = signal(false);
+
+  /**
+   * The plan-locked page has no public place to send a visitor (the group home is host-only and
+   * the public dashboard's token is not known here), so a visitor goes back in history — offered
+   * only when there is a page to go back to; a link opened straight from LINE has none.
+   */
+  protected readonly hasHistory = typeof window !== 'undefined' && window.history.length > 1;
+  private readonly location = inject(Location);
+
+  protected goBack(event: Event): void {
+    event.preventDefault();
+    this.location.back();
+  }
 
   constructor(route: ActivatedRoute) {
     const auth = inject(AuthService);

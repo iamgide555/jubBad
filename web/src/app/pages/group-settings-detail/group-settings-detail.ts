@@ -3,7 +3,7 @@ import { Component, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
-import { isPaid, planErrorMessage, type Plan } from '../../core/plan';
+import { isPaid, onButInactiveLockHint, planErrorMessage, type Plan } from '../../core/plan';
 import { PlanService } from '../../core/plan.service';
 import { RosterService } from '../../core/roster.service';
 import { findOwnDuplicate, sameGroupName, type OwnGroupRow } from '../../core/group-name';
@@ -89,6 +89,18 @@ export class GroupSettingsDetail {
     const value = which === 'shuttleTools' ? this.shuttleTools() : this.crossSessionHistory();
     return !this.paid() && value === false;
   }
+
+  /**
+   * The plan-lock's first line beside a switch on the free plan. An ON switch stays ON (so it can
+   * be turned off), but sessions snapshot it off at creation — say so instead of the plain hint.
+   * Null keeps the plain hint.
+   */
+  protected switchLockHint(which: 'shuttleTools' | 'crossSessionHistory'): string | null {
+    const value = which === 'shuttleTools' ? this.shuttleTools() : this.crossSessionHistory();
+    return value === true ? this.onButInactiveHint : null;
+  }
+
+  private readonly onButInactiveHint = onButInactiveLockHint();
 
   async load(): Promise<void> {
     this.status.set('loading');

@@ -11,6 +11,7 @@ import { SwapSelectionService, type SwapPick } from '../../../core/swap-selectio
 import type { CourtFormat, CourtMode, CourtState, CourtTarget, Seat } from '../../../core/live-session.model';
 import type { Player } from '../../../../../../engines/fuzzy-match.ts';
 import { PlanLock } from '../../../shared/plan-lock/plan-lock';
+import { courtModesLockHint, targetLockHint } from '../../../core/plan';
 import { Icon } from '../../../shared/icon/icon';
 import { labelForCourt } from '../../../core/court-label';
 import { CourtLabelEditor } from '../court-label-editor/court-label-editor';
@@ -218,6 +219,35 @@ export class CourtPanel {
     } finally {
       this.busy.set(false);
     }
+  }
+
+  protected readonly courtModesLockHint = courtModesLockHint();
+  protected readonly targetLockHint = targetLockHint();
+
+  /**
+   * On the free plan a court on a paid mode (a lapsed host's court) that is switched to เลือกเอง
+   * cannot be switched back, so that press asks first, inline. Paid and unknown plans switch
+   * immediately.
+   */
+  protected readonly confirmingCustom = signal(false);
+
+  protected requestCourtMode(mode: CourtMode): void {
+    if (!this.paid() && mode === 'custom' && this.court().mode !== 'custom') {
+      if (this.busy() || this.ended()) return;
+      this.confirmingCustom.set(true);
+      return;
+    }
+    this.confirmingCustom.set(false);
+    void this.setCourtMode(mode);
+  }
+
+  protected confirmCourtCustom(): void {
+    this.confirmingCustom.set(false);
+    void this.setCourtMode('custom');
+  }
+
+  protected cancelCourtCustom(): void {
+    this.confirmingCustom.set(false);
   }
 
   protected async setCourtMode(mode: CourtMode): Promise<void> {

@@ -99,6 +99,7 @@
                 [session]="b.session"
                 [saving]="ratesBusy()"
                 [chargeLocked]="chargeLocked()"
+                [paid]="paid()"
                 (configChange)="onConfigChange($event)"
                 (shuttlePriceChange)="onShuttlePrice($event)"
                 (invalid)="onInvalidRate()"

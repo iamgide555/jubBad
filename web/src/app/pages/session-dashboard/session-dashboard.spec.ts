@@ -1,4 +1,4 @@
-import { provideHttpClient } from '@angular/common/http';
+import { HttpErrorResponse, provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { ActivatedRoute, convertToParamMap, provideRouter, Router } from '@angular/router';
@@ -9,6 +9,9 @@ import { ClockService } from '../../core/clock.service';
 import { environment } from '../../../environments/environment';
 import type { Session } from '../../core/session.model';
 import { standardLadderFixture } from '../../core/group-levels.testing';
+import type { GroupPlan } from '../../core/plan';
+import { PlanService } from '../../core/plan.service';
+import { Subject } from 'rxjs';
 
 const B = environment.apiBaseUrl;
 
@@ -61,13 +64,29 @@ function baseSession(overrides: Partial<Session> = {}): Session {
 describe('SessionDashboard', () => {
   let fixture: ComponentFixture<SessionDashboard>;
   let httpMock: HttpTestingController;
+  // The plan read is stubbed (an open HTTP request would keep fixture.whenStable() waiting in
+  // every spec that is not about plans). It never answers unless a test pushes a reply, and an
+  // unanswered plan means "unknown", which locks nothing.
+  let planReply: Subject<GroupPlan>;
+  let planCalls: string[];
 
   beforeEach(async () => {
     // The roster starts collapsed in the app; most specs here drive its chips, so they start expanded.
     localStorage.setItem('jubbad.dashboard.rosterOpen', '1');
+    planReply = new Subject<GroupPlan>();
+    planCalls = [];
     await TestBed.configureTestingModule({
       imports: [SessionDashboard],
       providers: [
+        {
+          provide: PlanService,
+          useValue: {
+            forGroup: (groupCode: string) => {
+              planCalls.push(groupCode);
+              return planReply;
+            },
+          },
+        },
         provideHttpClient(),
         provideHttpClientTesting(),
         provideRouter(routes),
@@ -1800,5 +1819,64 @@ describe('SessionDashboard', () => {
       expect(text()).not.toContain('ผู้เล่นไม่พอ');
     });
   });
-});
 
+  describe('plan lock', () => {
+    type PlanReply = 'free' | 'host' | 'club' | 'error' | 'pending';
+
+    async function loadWithPlan(session: Session, reply: PlanReply) {
+      fixture = TestBed.createComponent(SessionDashboard);
+      fixture.detectChanges();
+      httpMock.expectOne(`${B}/sessions/sess1`).flush(session);
+      await new Promise((r) => setTimeout(r, 0));
+      TestBed.tick();
+      httpMock.expectOne(`${B}/groups/group1/players`).flush([]);
+      httpMock.expectOne(`${B}/sessions/sess1/stats?scope=session`).flush([]);
+      if (reply === 'error') planReply.error(new HttpErrorResponse({ status: 500 }));
+      else if (reply !== 'pending') planReply.next({ plan: reply, renewsAt: null });
+      await fixture.whenStable();
+      fixture.detectChanges();
+    }
+    const el = () => fixture.nativeElement as HTMLElement;
+    const modeBtn = (m: string) => el().querySelector(`.mode-toggle [data-mode="${m}"]`) as HTMLButtonElement;
+    const lockedModes = () => ['variety', 'balanced', 'level', 'custom'].filter((m) => modeBtn(m).disabled);
+
+    it('reads the plan once, from the session\'s group', async () => {
+      await loadWithPlan(baseSession({ groupCode: 'group1' }), 'free');
+      expect(planCalls).toEqual(['group1']);
+    });
+
+    it('free: สูสี and ตามระดับ are disabled with the lock hint; สลับคู่ and เลือกเอง are not', async () => {
+      await loadWithPlan(baseSession(), 'free');
+      expect(lockedModes()).toEqual(['balanced', 'level']);
+      expect(el().querySelector('.mode-toggle app-plan-lock')).toBeTruthy();
+    });
+
+    it('free: a session already on สูสี keeps สลับคู่ and เลือกเอง enabled, and สูสี itself', async () => {
+      await loadWithPlan(baseSession({ mode: 'balanced' }), 'free');
+      expect(lockedModes()).toEqual(['level']);
+    });
+
+    it('free: a session already on ตามระดับ can still switch away', async () => {
+      await loadWithPlan(baseSession({ mode: 'level' }), 'free');
+      expect(lockedModes()).toEqual(['balanced']);
+    });
+
+    for (const reply of ['host', 'club', 'error', 'pending'] as const) {
+      it(`${reply}: nothing is locked and no lock hint shows`, async () => {
+        await loadWithPlan(baseSession({ mode: 'custom', courts: [{ status: 'idle', format: 'doubles', mode: 'level' }] }), reply);
+        expect(lockedModes()).toEqual([]);
+        expect(el().querySelector('.court-mode-toggle button:disabled')).toBeNull();
+        expect(el().querySelector('.court-target-toggle button:disabled')).toBeNull();
+        expect(el().querySelector('app-lineup-queue .lq-add:disabled')).toBeNull();
+        expect(el().querySelector('app-plan-lock')).toBeNull();
+      });
+    }
+
+    it('free: the court panels and the lineup queue are told the plan', async () => {
+      await loadWithPlan(baseSession({ mode: 'custom', courts: [{ status: 'idle', format: 'doubles', mode: 'custom' }] }), 'free');
+      const courtModes = [...el().querySelectorAll<HTMLButtonElement>('.court-mode-toggle button')];
+      expect(courtModes.filter((b) => b.disabled).map((b) => b.textContent?.trim())).toEqual(['สลับคู่', 'สูสี', 'ระดับ']);
+      expect((el().querySelector('app-lineup-queue .lq-add') as HTMLButtonElement).disabled).toBe(true);
+    });
+  });
+});

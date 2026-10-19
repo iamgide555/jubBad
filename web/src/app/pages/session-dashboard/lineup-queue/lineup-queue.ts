@@ -1,6 +1,7 @@
 import { NgTemplateOutlet } from '@angular/common';
 import { Component, ElementRef, OnDestroy, computed, effect, input, signal, viewChild } from '@angular/core';
 import { PressDirective } from '../../../core/motion/press.directive';
+import { PlanLock } from '../../../shared/plan-lock/plan-lock';
 import { Icon } from '../../../shared/icon/icon';
 import { LiveSessionService } from '../../../core/live-session.service';
 import { resolvePlayerNames } from '../../../core/player-names';
@@ -35,7 +36,7 @@ const EMPTY_TEAM = (): Seat[] => [null, null];
  */
 @Component({
   selector: 'app-lineup-queue',
-  imports: [PressDirective, NgTemplateOutlet, Icon],
+  imports: [PressDirective, NgTemplateOutlet, Icon, PlanLock],
   templateUrl: './lineup-queue.html',
   styleUrl: './lineup-queue.css',
 })
@@ -43,6 +44,12 @@ export class LineupQueue implements OnDestroy {
   readonly players = input<Player[]>([]);
   /** Players waiting for a court, longest-waiting first. */
   readonly waiting = input<{ id: string; name: string }[]>([]);
+  /**
+   * Whether the group's plan lets the host add or replace a lineup. Defaults to
+   * true so an unknown plan never blocks a host; the server still refuses.
+   * Moving, deleting and clearing are free either way.
+   */
+  readonly paid = input(true);
 
   private readonly dialog = viewChild.required<ElementRef<HTMLDialogElement>>('dialog');
 
@@ -182,6 +189,7 @@ export class LineupQueue implements OnDestroy {
   }
 
   protected startNew(): void {
+    if (!this.paid()) return;
     this.error.set(null);
     this.picking.set(null);
     this.draft.set({ entryId: null, teamA: EMPTY_TEAM(), teamB: EMPTY_TEAM() });
@@ -189,6 +197,7 @@ export class LineupQueue implements OnDestroy {
 
   /** Tapping a seat of a saved lineup opens a copy of it for editing. */
   protected edit(entryId: string): void {
+    if (!this.paid()) return;
     const entry = this.liveSession.lineupQueue().find((e) => e.id === entryId);
     if (!entry) return;
     this.error.set(null);

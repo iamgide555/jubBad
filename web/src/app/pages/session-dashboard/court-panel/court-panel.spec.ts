@@ -1762,3 +1762,69 @@ describe('CourtPanel with too few players', () => {
   });
 });
 
+
+// --- Plan lock: a free group's paid per-court controls ---------------------
+
+describe('CourtPanel plan lock', () => {
+  beforeEach(async () => {
+    clockNow = signal(Date.now());
+    await TestBed.configureTestingModule({
+      imports: [CourtPanel],
+      providers: [
+        provideHttpClient(),
+        provideHttpClientTesting(),
+        LiveSessionService,
+        { provide: ClockService, useValue: { now: clockNow } },
+        { provide: ActivatedRoute, useValue: { snapshot: { paramMap: convertToParamMap({ sessionCode: 'sess1' }) } } },
+      ],
+    }).compileComponents();
+  });
+
+  afterEach(() => {
+    TestBed.inject(HttpTestingController).verify();
+  });
+
+  async function panel(paid: boolean | undefined, session: Session) {
+    const { fixture } = await createPanel(session);
+    if (paid !== undefined) fixture.componentRef.setInput('paid', paid);
+    fixture.detectChanges();
+    return fixture;
+  }
+  const modeBtns = (f: ComponentFixture<CourtPanel>) =>
+    [...(f.nativeElement as HTMLElement).querySelectorAll<HTMLButtonElement>('.court-mode-toggle button')];
+  const targetBtns = (f: ComponentFixture<CourtPanel>) =>
+    [...(f.nativeElement as HTMLElement).querySelectorAll<HTMLButtonElement>('.court-target-toggle button')];
+  const disabledLabels = (btns: HTMLButtonElement[]) => btns.filter((b) => b.disabled).map((b) => b.textContent?.trim());
+  const customCourt = (mode: 'variety' | 'balanced' | 'level' | 'custom', target?: 'auto' | 'low' | 'high') =>
+    baseSession({ mode: 'custom', courts: [{ status: 'idle', format: 'doubles', mode, ...(target ? { target } : {}) }] });
+
+  it('free: every per-court mode but เลือกเอง is disabled, with the lock hint beside it', async () => {
+    const f = await panel(false, customCourt('custom'));
+    expect(disabledLabels(modeBtns(f))).toEqual(['สลับคู่', 'สูสี', 'ระดับ']);
+    expect((f.nativeElement as HTMLElement).querySelector('app-plan-lock')).toBeTruthy();
+  });
+
+  it('free: a court already on a paid mode keeps it and เลือกเอง enabled so the host can switch back', async () => {
+    const f = await panel(false, customCourt('level'));
+    expect(disabledLabels(modeBtns(f))).toEqual(['สลับคู่', 'สูสี']);
+  });
+
+  it('free: target low/high are disabled, auto stays enabled', async () => {
+    const f = await panel(false, customCourt('level', 'auto'));
+    expect(disabledLabels(targetBtns(f))).toEqual(['มือล่าง', 'มือบน']);
+  });
+
+  it('free: a court already aimed at มือบน keeps it and อัตโนมัติ enabled', async () => {
+    const f = await panel(false, customCourt('level', 'high'));
+    expect(disabledLabels(targetBtns(f))).toEqual(['มือล่าง']);
+  });
+
+  for (const [label, paid] of [['paid', true], ['no plan input (default)', undefined]] as const) {
+    it(`${label}: nothing is disabled and no lock hint shows`, async () => {
+      const f = await panel(paid, customCourt('level', 'auto'));
+      expect(modeBtns(f).some((b) => b.disabled)).toBe(false);
+      expect(targetBtns(f).some((b) => b.disabled)).toBe(false);
+      expect((f.nativeElement as HTMLElement).querySelector('app-plan-lock')).toBeNull();
+    });
+  }
+});

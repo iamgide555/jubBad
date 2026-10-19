@@ -53,7 +53,17 @@ describe('SessionBill', () => {
     fixture = TestBed.createComponent(SessionBill);
     http = TestBed.inject(HttpTestingController);
   });
-  afterEach(() => http.verify());
+  afterEach(() => {
+    // The page also reads the group's plan (session -> group -> plan) as a fire-and-forget
+    // side effect; most tests are not about it, so whatever is still open is drained here.
+    for (const req of http.match((r) => r.url === `${B}/sessions/sess1`)) {
+      req.flush({}, { status: 500, statusText: 'Server Error' });
+    }
+    for (const req of http.match((r) => r.url === `${B}/groups/group1/plan`)) {
+      req.flush({ plan: 'club', renewsAt: null });
+    }
+    http.verify();
+  });
 
   async function load(body = response()) {
     fixture.detectChanges();
@@ -554,5 +564,101 @@ describe('SessionBill', () => {
       expect(el().querySelector('[data-settled-rows]')).toBeNull();
       expect(el().querySelector('[data-split-totals]')).toBeNull();
     });
+  });
+
+  describe('plan lock', () => {
+    type PlanReply = 'free' | 'host' | 'club' | 'error' | 'pending';
+
+    async function loadWithPlan(reply: PlanReply, body = response()) {
+      fixture.detectChanges();
+      http.expectOne(`${B}/sessions/sess1/bill`).flush(body);
+      http.expectOne(`${B}/sessions/sess1`).flush({ groupCode: 'group1' });
+      await new Promise((r) => setTimeout(r, 0));
+      const planReq = http.expectOne(`${B}/groups/group1/plan`);
+      if (reply === 'error') planReq.flush({}, { status: 500, statusText: 'Server Error' });
+      else if (reply !== 'pending') planReq.flush({ plan: reply, renewsAt: null });
+      await new Promise((r) => setTimeout(r, 0));
+      fixture.detectChanges();
+    }
+    const el = () => fixture.nativeElement as HTMLElement;
+    const input = (rate: string) => el().querySelector(`[data-rate="${rate}"]`) as HTMLInputElement;
+    const feeFree = () => {
+      const b = response();
+      b.config.walkInFeeSatang = 0;
+      return b;
+    };
+    const withZed = (b = response(), over: Record<string, unknown> = {}) => {
+      b.config.addedIds = ['z'];
+      b.result.rows.push({ playerId: 'z', games: 0, status: 'billed' as const, added: true, absent: false, walkIn: false,
+        courtSatang: 0, shuttleSatang: 0, baseSatang: 0, hostFeeSatang: 0, walkInFeeSatang: 0, walkInDiscountSatang: 0,
+        overridden: false, amountSatang: 0, ...over });
+      return b;
+    };
+
+    it('free: host fee and walk-in fee inputs are disabled, each with the lock hint', async () => {
+      await loadWithPlan('free', feeFree());
+      expect(input('hostFee').disabled).toBe(true);
+      expect(input('walkInFee').disabled).toBe(true);
+      expect(el().querySelectorAll('.setting-row app-plan-lock').length).toBe(2);
+    });
+
+    it('free: a saved non-zero walk-in fee stays editable so the host can clear it', async () => {
+      await loadWithPlan('free');
+      expect(input('walkInFee').disabled).toBe(false);
+      expect(input('hostFee').disabled).toBe(true);
+    });
+
+    it('free: an unrelated edit posts the fees exactly as the bill returned them, and a 403 reaches the host', async () => {
+      await loadWithPlan('free');
+      const court = el().querySelector('.money-field input') as HTMLInputElement;
+      court.value = '300';
+      court.dispatchEvent(new Event('change'));
+      const req = http.expectOne(`${B}/sessions/sess1/bill-config`);
+      expect(req.request.body.walkInFeeSatang).toBe(2000);
+      expect(req.request.body.hostFeeSatang).toBe(0);
+      req.flush({ code: 'PLAN_REQUIRED', requiredPlan: 'host' }, { status: 403, statusText: 'Forbidden' });
+      await new Promise((r) => setTimeout(r, 0));
+      fixture.detectChanges();
+      expect(el().textContent).toContain('ฟีเจอร์นี้ใช้ได้ในแพ็กเกจโฮสต์');
+    });
+
+    it('free: ไม่มา is disabled on a row with no games', async () => {
+      const b = withZed();
+      b.config.addedIds = [];
+      await loadWithPlan('free', b);
+      expect((el().querySelector('[data-absent="z"]') as HTMLButtonElement).disabled).toBe(true);
+      expect(el().querySelector('.row-detail app-plan-lock')).toBeTruthy();
+    });
+
+    it('free: ไม่มา on someone already marked can still be undone', async () => {
+      const b = withZed(response(), { added: false, absent: true, courtSatang: 5000, amountSatang: 5000 });
+      b.config.absentIds = ['z'];
+      await loadWithPlan('free', b);
+      expect((el().querySelector('[data-absent="z"]') as HTMLButtonElement).disabled).toBe(false);
+    });
+
+    it('free: the add-section ไม่มา chip is disabled with a lock hint', async () => {
+      await loadWithPlan('free');
+      expect((el().querySelector('[data-absent-add="z"]') as HTMLButtonElement).disabled).toBe(true);
+      expect((el().querySelector('[data-add="z"]') as HTMLButtonElement).disabled).toBe(false);
+      expect(el().querySelector('.add-section app-plan-lock')).toBeTruthy();
+    });
+
+    for (const reply of ['host', 'club', 'error', 'pending'] as const) {
+      it(`${reply}: every bill control is enabled and no lock hint shows`, async () => {
+        await loadWithPlan(reply, feeFree());
+        expect(input('hostFee').disabled).toBe(false);
+        expect(input('walkInFee').disabled).toBe(false);
+        expect((el().querySelector('[data-absent-add="z"]') as HTMLButtonElement).disabled).toBe(false);
+        expect(el().querySelector('app-plan-lock')).toBeNull();
+      });
+
+      it(`${reply}: the row ไม่มา chip is enabled`, async () => {
+        const b = withZed();
+        b.config.addedIds = [];
+        await loadWithPlan(reply, b);
+        expect((el().querySelector('[data-absent="z"]') as HTMLButtonElement).disabled).toBe(false);
+      });
+    }
   });
 });

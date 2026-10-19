@@ -728,6 +728,18 @@ describe('LiveSessionService', () => {
       req.flush({ enabled: true, identities: [], games: [], heldShuttleIds: [], lastShuttleByCourt: [] });
       expect((await promise).enabled).toBe(true);
     });
+
+    it('saveBillConfig turns a PLAN_REQUIRED refusal into the upgrade message', async () => {
+      await flushSession(baseSession());
+      const promise = service.saveBillConfig({ hostFeeSatang: 500 });
+      httpMock.expectOne(`${B}/sessions/sess1/bill`).flush({ config: { hostFeeSatang: 0 } });
+      await new Promise((r) => setTimeout(r, 0));
+      httpMock
+        .expectOne(`${B}/sessions/sess1/bill-config`)
+        .flush({ code: 'PLAN_REQUIRED', requiredPlan: 'host' }, { status: 403, statusText: 'Forbidden' });
+      const result = await promise;
+      expect(result).toMatchObject({ ok: false });
+      expect((result as { error?: string }).error).toContain('ฟีเจอร์นี้ใช้ได้ในแพ็กเกจโฮสต์');
+    });
   });
 });
-

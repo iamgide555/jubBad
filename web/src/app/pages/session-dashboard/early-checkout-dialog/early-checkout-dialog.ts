@@ -48,6 +48,8 @@ export class EarlyCheckoutDialog {
   /** Roster players who can still be checked out. */
   readonly players = input<readonly CheckoutPlayer[]>([]);
   readonly settled = input<readonly SettledPlayer[]>([]);
+  /** Whether the group's plan includes the paid fees in the rates form. Defaults to true. */
+  readonly paid = input(true);
   /** Fires after a settlement or an undo, so the dashboard re-reads receipts and the roster. */
   readonly changed = output<void>();
 

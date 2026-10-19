@@ -30,7 +30,7 @@
           <button
             type="button"
             [class.active]="c.mode === m"
-            [disabled]="busy() || ended()"
+            [disabled]="busy() || ended() || modeLocked(m)"
             [attr.aria-pressed]="c.mode === m"
             (click)="setCourtMode(m)"
           >{{
@@ -41,6 +41,9 @@
           }}</button>
         }
       </div>
+      @if (!paid()) {
+        <app-plan-lock />
+      }
     }
     @if (c.mode === 'level') {
       <div class="scope-toggle court-target-toggle" role="group" [attr.aria-label]="targetGroupLabel" [attr.title]="targetHint">
@@ -48,12 +51,15 @@
           <button
             type="button"
             [class.active]="(c.target ?? 'auto') === t"
-            [disabled]="busy() || ended()"
+            [disabled]="busy() || ended() || targetLocked(t)"
             [attr.aria-pressed]="(c.target ?? 'auto') === t"
             (click)="setCourtTarget(t)"
           >{{ t === 'low' ? targetLabelLow : t === 'high' ? targetLabelHigh : targetLabelAuto }}</button>
         }
       </div>
+      @if (!paid()) {
+        <app-plan-lock />
+      }
     }
     @if (timerLabel(); as label) {
       <span class="court-timer tabular" [class.overrun]="overrun()" [attr.aria-label]="timerAriaLabel()">{{

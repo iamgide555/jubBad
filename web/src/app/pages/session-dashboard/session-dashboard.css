@@ -322,6 +322,13 @@
   font-size: var(--text-sm);
 }
 
+.mode-lock {
+  align-items: flex-end;
+  max-width: 13rem;
+  margin-left: auto;
+  margin-top: var(--space-0);
+}
+
 .mode-hint {
   margin: var(--space-0) 0 0;
   max-width: 13rem;

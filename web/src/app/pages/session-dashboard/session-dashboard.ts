@@ -5,6 +5,8 @@ import { Router, RouterLink } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
 import { environment } from '../../../environments/environment';
 import { LiveSessionService } from '../../core/live-session.service';
+import { isPaid, type Plan } from '../../core/plan';
+import { PlanService } from '../../core/plan.service';
 import { RosterService } from '../../core/roster.service';
 import { absoluteUrl, copyToClipboard } from '../../core/share-link';
 import { resolvePlayerNames } from '../../core/player-names';
@@ -15,6 +17,7 @@ import { Odometer } from '../../core/motion/odometer';
 import { PressDirective } from '../../core/motion/press.directive';
 import { RevealDirective } from '../../core/motion/reveal.directive';
 import { Icon } from '../../shared/icon/icon';
+import { PlanLock } from '../../shared/plan-lock/plan-lock';
 import { LineupQueue } from './lineup-queue/lineup-queue';
 import { CourtPanel } from './court-panel/court-panel';
 import { EarlyCheckoutDialog, type CheckoutPlayer, type SettledPlayer } from './early-checkout-dialog/early-checkout-dialog';
@@ -67,6 +70,7 @@ function readRosterOpen(): boolean {
     AddRuleDialog,
     EarlyCheckoutDialog,
     LevelPicker,
+    PlanLock,
   ],
   providers: [LiveSessionService],
   templateUrl: './session-dashboard.html',
@@ -465,6 +469,36 @@ export class SessionDashboard implements OnDestroy {
 
   readonly ended = computed(() => this.session()?.endedAt != null);
   readonly mode = computed(() => this.session()?.mode ?? 'variety');
+
+  private readonly planService = inject(PlanService);
+
+  /**
+   * The group owner's plan, read once the session names its group. A failed or
+   * still-pending read is `null`, which `isPaid` treats as paid: a hiccup must
+   * never lock a host out courtside (the server still refuses what the plan
+   * does not allow).
+   */
+  private readonly plan = signal<Plan | null>(null);
+  private readonly groupCode = computed(() => this.session()?.groupCode);
+
+  protected readonly paid = computed(() => isPaid(this.plan()));
+
+  private async loadPlan(groupCode: string): Promise<void> {
+    try {
+      this.plan.set((await firstValueFrom(this.planService.forGroup(groupCode))).plan);
+    } catch {
+      // Unknown plan: leave everything enabled; the server still refuses what the plan does not allow.
+    }
+  }
+
+  /**
+   * On the free plan สูสี and ตามระดับ cannot be switched ON. The session's
+   * current mode stays enabled, so a lapsed host's running session is never
+   * trapped, and สลับคู่ / เลือกเอง are always open.
+   */
+  protected modeLocked(mode: 'variety' | 'balanced' | 'level' | 'custom'): boolean {
+    return !this.paid() && (mode === 'balanced' || mode === 'level') && this.mode() !== mode;
+  }
   /** Custom session only: true when at least one court is set to ระดับ, so
    *  the shared waiting list (which stays games-then-wait in a custom
    *  session — see waiting-time.ts) can warn that a level court may pick
@@ -494,6 +528,11 @@ export class SessionDashboard implements OnDestroy {
     // Receipts exist only on advanced sessions, which the first session read reveals.
     effect(() => {
       if (this.liveSession.shuttleTools()) void this.loadCheckouts();
+    });
+    // Once the first session read names the group, read its plan (once: the code is a string, so polls do not retrigger).
+    effect(() => {
+      const code = this.groupCode();
+      if (code) void this.loadPlan(code);
     });
     // Once the first session read names the group, read its ladder.
     effect(() => {

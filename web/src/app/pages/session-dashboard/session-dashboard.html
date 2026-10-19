@@ -234,7 +234,9 @@
           <div class="scope-toggle">
             <button
               type="button"
+              data-mode="variety"
               [class.active]="mode() === 'variety'"
+              [disabled]="modeLocked('variety')"
               (click)="setMode('variety')"
               i18n="@@dashboard.modeVariety"
             >
@@ -242,7 +244,9 @@
             </button>
             <button
               type="button"
+              data-mode="balanced"
               [class.active]="mode() === 'balanced'"
+              [disabled]="modeLocked('balanced')"
               (click)="setMode('balanced')"
               i18n="@@dashboard.modeBalanced"
             >
@@ -250,7 +254,9 @@
             </button>
             <button
               type="button"
+              data-mode="level"
               [class.active]="mode() === 'level'"
+              [disabled]="modeLocked('level')"
               (click)="setMode('level')"
               i18n="@@dashboard.modeLevel"
             >
@@ -258,13 +264,18 @@
             </button>
             <button
               type="button"
+              data-mode="custom"
               [class.active]="mode() === 'custom'"
+              [disabled]="modeLocked('custom')"
               (click)="setMode('custom')"
               i18n="@@dashboard.modeCustom"
             >
               เลือกเอง
             </button>
           </div>
+          @if (!paid()) {
+            <app-plan-lock class="mode-lock" />
+          }
           @switch (mode()) {
             @case ('balanced') {
               <p class="mode-hint" i18n="@@dashboard.modeBalancedHint">
@@ -317,7 +328,7 @@
     }
 
     @if (!ended()) {
-      <app-lineup-queue #lineupQueue [players]="players()" [waiting]="waiting()" />
+      <app-lineup-queue #lineupQueue [players]="players()" [waiting]="waiting()" [paid]="paid()" />
     }
 
     <div class="courts-list">
@@ -327,6 +338,7 @@
           [courtNumber]="courtNumber"
           [players]="players()"
           [gamesPlayed]="gamesPlayed()"
+          [paid]="paid()"
         />
       }
     </div>
@@ -477,6 +489,7 @@
         #checkoutDialog
         [players]="checkoutPlayers()"
         [settled]="settledPlayers()"
+        [paid]="paid()"
         (changed)="onCheckoutChanged()"
       />
     }

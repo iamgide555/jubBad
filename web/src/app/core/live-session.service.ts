@@ -8,7 +8,7 @@ import type { Session } from './session.model';
 import { levelsErrorMessage } from './group-levels.model';
 import type { Level } from '../../../../engines/levels.ts';
 import type { BillConfig, BillResponse } from './bill.model';
-import { planRequiredMessage } from './plan';
+import { planErrorMessage, planRequiredMessage } from './plan';
 import type { PairRule } from './pair-rule.model';
 import { checkoutErrorMessage, type CheckoutModel, type CheckoutPreview, type CheckoutReceipt } from './checkout.model';
 import type { ShuttleChoice, ShuttleInventory } from './shuttle.model';
@@ -649,9 +649,11 @@ export class LiveSessionService {
       const locked = err instanceof HttpErrorResponse && err.error?.code === 'SHUTTLE_CHARGE_LOCKED';
       return {
         ok: false,
-        error: locked
-          ? $localize`:@@err.chargeLocked:เปลี่ยนวิธีคิดค่าลูกไม่ได้ เพราะมีคนเช็คเอาต์ไปแล้ว`
-          : $localize`:@@err.saveBillConfig:บันทึกราคาไม่สำเร็จ ลองใหม่อีกครั้ง`,
+        error:
+          planErrorMessage(err) ??
+          (locked
+            ? $localize`:@@err.chargeLocked:เปลี่ยนวิธีคิดค่าลูกไม่ได้ เพราะมีคนเช็คเอาต์ไปแล้ว`
+            : $localize`:@@err.saveBillConfig:บันทึกราคาไม่สำเร็จ ลองใหม่อีกครั้ง`),
       };
     }
   }

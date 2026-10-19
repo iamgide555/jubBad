@@ -855,6 +855,11 @@ button.danger:disabled:hover {
   border-bottom: none;
 }
 
+.setting-label-group {
+  flex: 1;
+  min-width: 0;
+}
+
 .setting-label {
   font-size: var(--text-sm);
   line-height: 1.4;

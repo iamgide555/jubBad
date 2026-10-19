@@ -262,6 +262,10 @@
   color: var(--ink-soft);
 }
 
+.lq-lock {
+  margin: var(--space-1) 0;
+}
+
 .lq-error {
   margin: var(--space-1) 0;
   font-size: var(--text-sm);

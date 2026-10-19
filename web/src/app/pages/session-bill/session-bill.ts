@@ -6,19 +6,23 @@ import { environment } from '../../../environments/environment';
 import type { BillConfig, BillModel, BillResponse, BillRow, RoundingStep } from '../../core/bill.model';
 import { billBreakdown } from '../../core/bill-breakdown';
 import { buildBillText, formatBaht } from '../../core/bill-text';
+import { isPaid, planErrorMessage, type Plan } from '../../core/plan';
+import { PlanService } from '../../core/plan.service';
 import { copyToClipboard } from '../../core/share-link';
 import { formatShuttleCountInput, formatShuttlePriceInput, parseShuttleCountInput, parseShuttlePriceInput } from '../../core/shuttle-money';
 import { BillSettings } from '../../shared/bill-settings/bill-settings';
 import { Icon } from '../../shared/icon/icon';
+import { PlanLock } from '../../shared/plan-lock/plan-lock';
 
 @Component({
   selector: 'app-session-bill',
-  imports: [RouterLink, Icon, BillSettings],
+  imports: [RouterLink, Icon, BillSettings, PlanLock],
   templateUrl: './session-bill.html',
   styleUrl: './session-bill.css',
 })
 export class SessionBill {
   private readonly http = inject(HttpClient);
+  private readonly planService = inject(PlanService);
   protected readonly sessionCode = inject(ActivatedRoute).snapshot.paramMap.get('sessionCode')!;
   private readonly base = `${environment.apiBaseUrl}/sessions/${this.sessionCode}`;
 
@@ -28,6 +32,10 @@ export class SessionBill {
   protected readonly error = signal<string | null>(null);
   protected readonly copied = signal(false);
   protected readonly clipboardFallback = signal<string | null>(null);
+
+  /** The group owner's plan. `null` (not loaded, or the read failed) counts as paid, so a hiccup never locks the host out. */
+  private readonly plan = signal<Plan | null>(null);
+  protected readonly paid = computed(() => isPaid(this.plan()));
 
   protected readonly config = computed(() => this.bill()?.config ?? null);
   /** A ตามลูกแบด receipt is frozen on the basis it was quoted under, so the basis cannot change while one is active. */
@@ -66,6 +74,17 @@ export class SessionBill {
 
   constructor() {
     void this.load();
+    void this.loadPlan();
+  }
+
+  /** The bill response does not name its group, so the public session read supplies the group code. */
+  private async loadPlan(): Promise<void> {
+    try {
+      const { groupCode } = await firstValueFrom(this.http.get<{ groupCode: string }>(this.base));
+      this.plan.set((await firstValueFrom(this.planService.forGroup(groupCode))).plan);
+    } catch {
+      // Unknown plan: leave everything enabled; the server still refuses what the plan does not allow.
+    }
   }
 
   private async load(): Promise<void> {
@@ -88,9 +107,10 @@ export class SessionBill {
     } catch (e) {
       const locked = e instanceof HttpErrorResponse && e.status === 409 && e.error?.code === 'SHUTTLE_CHARGE_LOCKED';
       this.error.set(
-        locked
+        planErrorMessage(e) ??
+        (locked
           ? $localize`:@@bill.chargeLockedError:เปลี่ยนวิธีคิดค่าลูกไม่ได้ เพราะมีคนเช็คเอาต์ไปแล้ว ยกเลิกเช็คเอาต์ก่อน`
-          : $localize`:@@bill.saveFailed:บันทึกไม่สำเร็จ ลองใหม่อีกครั้ง`
+          : $localize`:@@bill.saveFailed:บันทึกไม่สำเร็จ ลองใหม่อีกครั้ง`)
       );
     } finally {
       this.saving.set(false);
@@ -180,6 +200,14 @@ export class SessionBill {
       ? c.absentIds.filter((id) => id !== playerId)
       : [...c.absentIds, playerId];
     void this.save({ absentIds, removedIds: c.removedIds.filter((id) => id !== playerId) });
+  }
+
+  /**
+   * ไม่มา is a paid extra: on the free plan it cannot be turned on. A player
+   * already marked stays toggleable so the mark can be undone.
+   */
+  protected absentLocked(playerId: string): boolean {
+    return !this.paid() && !(this.config()?.absentIds ?? []).includes(playerId);
   }
 
   protected restore(playerId: string): void {

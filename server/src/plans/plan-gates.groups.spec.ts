@@ -5,6 +5,9 @@ import request from 'supertest';
 import { PrismaModule } from '../prisma/prisma.module.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { GroupsModule } from '../groups/groups.module.js';
+import { SessionsModule } from '../sessions/sessions.module.js';
+
+const DAY_MS = 24 * 60 * 60 * 1000;
 
 type Verb = 'get' | 'post' | 'put' | 'delete';
 
@@ -19,10 +22,15 @@ describe('plan gates on paid group routes', () => {
   let requestUserId: string;
   let freePlayerIds: string[];
   let freeRuleId: string;
+  let freeOldSession: string;
+  let freeRecentSession: string;
+  let hostOldSession: string;
+  let freeWinnerId: string;
+  let hostWinnerId: string;
 
   beforeAll(async () => {
     const moduleRef = await Test.createTestingModule({
-      imports: [PrismaModule, GroupsModule],
+      imports: [PrismaModule, GroupsModule, SessionsModule],
     }).compile();
     app = moduleRef.createNestApplication();
     prisma = app.get(PrismaService);
@@ -50,6 +58,51 @@ describe('plan gates on paid group routes', () => {
     });
     freeRuleId = rule.id;
 
+    // A doubles match from 40 days ago (outside the free archive window) and an
+    // empty session from 2 days ago, in each group.
+    const seedArchive = async (groupCode: string, tag: string) => {
+      const ids: string[] = [];
+      for (const n of ['W1', 'W2', 'L1', 'L2']) {
+        const p = await prisma.player.create({ data: { groupId: groupCode, name: n, aliases: '[]' } });
+        ids.push(p.id);
+      }
+      const oldAt = new Date(Date.now() - 40 * DAY_MS);
+      const oldCode = `${tag}-old-${randomUUID()}`;
+      await prisma.session.create({
+        data: { code: oldCode, groupId: groupCode, courtCount: 1, rawImportText: '', createdAt: oldAt },
+      });
+      await prisma.pairing.create({
+        data: {
+          sessionId: oldCode,
+          courtNumber: 1,
+          matchNumber: 1,
+          teamA: JSON.stringify([ids[0], ids[1]]),
+          teamB: JSON.stringify([ids[2], ids[3]]),
+          confirmedAt: oldAt,
+          endedAt: oldAt,
+          winner: 'A',
+        },
+      });
+      const recentCode = `${tag}-new-${randomUUID()}`;
+      await prisma.session.create({
+        data: {
+          code: recentCode,
+          groupId: groupCode,
+          courtCount: 1,
+          rawImportText: '',
+          createdAt: new Date(Date.now() - 2 * DAY_MS),
+        },
+      });
+      return { ids, oldCode, recentCode };
+    };
+    const seededFree = await seedArchive(freeCode, 'gate-f');
+    const seededHost = await seedArchive(hostCode, 'gate-h');
+    freeOldSession = seededFree.oldCode;
+    freeRecentSession = seededFree.recentCode;
+    hostOldSession = seededHost.oldCode;
+    freeWinnerId = seededFree.ids[0];
+    hostWinnerId = seededHost.ids[0];
+
     requestUserId = freeId;
     app.use((req: { user?: unknown }, _res: unknown, next: () => void) => {
       req.user = { id: requestUserId, role: 'host' };
@@ -61,6 +114,8 @@ describe('plan gates on paid group routes', () => {
   });
 
   afterAll(async () => {
+    await prisma.pairing.deleteMany({ where: { session: { groupId: { in: [freeCode, hostCode] } } } });
+    await prisma.session.deleteMany({ where: { groupId: { in: [freeCode, hostCode] } } });
     await prisma.playerRule.deleteMany({ where: { groupId: { in: [freeCode, hostCode] } } });
     await prisma.player.deleteMany({ where: { groupId: { in: [freeCode, hostCode] } } });
     await prisma.group.deleteMany({ where: { code: { in: [freeCode, hostCode] } } });
@@ -108,5 +163,64 @@ describe('plan gates on paid group routes', () => {
       .send({ level: 'N', expectedLadderRevision: 0 })
       .expect(200);
     await request(server).delete(`/groups/${freeCode}/rules/${freeRuleId}`).expect(200);
+  });
+
+  describe('free-plan data shaping', () => {
+    type ManagedRow = { id: string; rating: number | null; singlesRating: number | null; winRate: number | null };
+
+    it('hides rating, singles rating and win rate on a free group', async () => {
+      requestUserId = freeId;
+      const res = await request(server).get(`/groups/${freeCode}/players/manage`).expect(200);
+      const rows = res.body as ManagedRow[];
+      expect(rows.length).toBeGreaterThan(0);
+      for (const row of rows) {
+        expect(row.rating).toBeNull();
+        expect(row.singlesRating).toBeNull();
+        expect(row.winRate).toBeNull();
+      }
+    });
+
+    it('shows ratings on a host-plan group from the same data', async () => {
+      requestUserId = hostId;
+      const res = await request(server).get(`/groups/${hostCode}/players/manage`).expect(200);
+      const rows = res.body as ManagedRow[];
+      const winner = rows.find((r) => r.id === hostWinnerId)!;
+      expect(typeof winner.rating).toBe('number');
+      expect(winner.rating).toBeGreaterThan(1200);
+      expect(winner.winRate).toBe(1);
+    });
+
+    it('lists only the last 30 days of sessions on a free group', async () => {
+      requestUserId = freeId;
+      const res = await request(server).get(`/groups/${freeCode}/sessions`).expect(200);
+      expect((res.body as Array<{ code: string }>).map((s) => s.code)).toEqual([freeRecentSession]);
+    });
+
+    it('lists the whole archive on a host-plan group', async () => {
+      requestUserId = hostId;
+      const res = await request(server).get(`/groups/${hostCode}/sessions`).expect(200);
+      const codes = (res.body as Array<{ code: string }>).map((s) => s.code);
+      expect(codes).toContain(hostOldSession);
+      expect(codes).toHaveLength(2);
+    });
+
+    it('still serves the public summary of a session older than 30 days on a free group', async () => {
+      await request(server).get(`/sessions/${freeOldSession}/summary`).expect(200);
+    });
+
+    it('replays the full history once the owner upgrades, including the 40-day-old session', async () => {
+      requestUserId = freeId;
+      await prisma.user.update({ where: { id: freeId }, data: { plan: 'host' } });
+      try {
+        const res = await request(server).get(`/groups/${freeCode}/players/manage`).expect(200);
+        const winner = (res.body as ManagedRow[]).find((r) => r.id === freeWinnerId)!;
+        expect(winner.rating).not.toBe(1200);
+        expect(winner.rating).toBeGreaterThan(1200);
+        const sessions = await request(server).get(`/groups/${freeCode}/sessions`).expect(200);
+        expect(sessions.body as unknown[]).toHaveLength(2);
+      } finally {
+        await prisma.user.update({ where: { id: freeId }, data: { plan: 'free' } });
+      }
+    });
   });
 });

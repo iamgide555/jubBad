@@ -5,6 +5,8 @@ import { matchRoster } from '../../../engines/fuzzy-match.ts';
 import { GroupLevelsService } from './group-levels.service.js';
 import { parseLineRosterMessage } from '../../../engines/parser.ts';
 import type { RuleKind } from '../../../engines/pair-rules.ts';
+import { FREE_ARCHIVE_DAYS, planAtLeast } from '../plans/plan.js';
+import { PlansService } from '../plans/plans.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { parseGroupLadder } from './group-levels.js';
 import { levelWrite, loadPlayerLevels, loadRatingAnchors } from '../player-levels.js';
@@ -38,7 +40,8 @@ export class GroupsService {
 
   constructor(
     private readonly prisma: PrismaService,
-    private readonly groupLevels: GroupLevelsService
+    private readonly groupLevels: GroupLevelsService,
+    private readonly plans: PlansService
   ) {}
 
   /**
@@ -183,6 +186,10 @@ export class GroupsService {
     if (!group) throw new NotFoundException();
 
     const players = await this.prisma.player.findMany({ where: { groupId: code } });
+    // Ratings and win rate are a paid view. The free plan gets nulls, but the
+    // replay below always runs over the full history, so an upgrade shows
+    // ratings that include every past session.
+    const showRatings = planAtLeast(await this.plans.planForGroup(code), 'host');
     const matches = await this.finishedMatches(code);
     const decisiveMatches = matches.filter(
       (m): m is typeof m & { winner: 'A' | 'B' } => m.winner !== null
@@ -218,9 +225,11 @@ export class GroupsService {
         email: p.email,
         phone: p.phone,
         level: levels.get(p.id) ?? null,
-        rating: Math.round(ratings.doubles.get(p.id) ?? anchors.get(p.id)?.rating ?? STARTING_RATING),
-        singlesRating: ratings.singles.has(p.id) ? Math.round(ratings.singles.get(p.id)!) : null,
-        winRate: !row || row.decisive === 0 ? null : row.won / row.decisive,
+        rating: !showRatings
+          ? null
+          : Math.round(ratings.doubles.get(p.id) ?? anchors.get(p.id)?.rating ?? STARTING_RATING),
+        singlesRating: showRatings && ratings.singles.has(p.id) ? Math.round(ratings.singles.get(p.id)!) : null,
+        winRate: !showRatings || !row || row.decisive === 0 ? null : row.won / row.decisive,
       };
     });
   }
@@ -293,12 +302,20 @@ export class GroupsService {
     return { id: updated.id, level: updated.level };
   }
 
-  async listSessions(code: string) {
+  /**
+   * The free plan's archive is the last FREE_ARCHIVE_DAYS days. This list is the
+   * only place that window applies: older sessions stay readable by their public
+   * summary link and still count toward ratings (see finishedMatches).
+   */
+  async listSessions(code: string, now: Date = new Date()) {
     const group = await this.prisma.group.findUnique({ where: { code } });
     if (!group) throw new NotFoundException();
 
+    const archiveStart = planAtLeast(await this.plans.planForGroup(code, now), 'host')
+      ? undefined
+      : new Date(now.getTime() - FREE_ARCHIVE_DAYS * 24 * 60 * 60 * 1000);
     const sessions = await this.prisma.session.findMany({
-      where: { groupId: code },
+      where: { groupId: code, ...(archiveStart ? { createdAt: { gte: archiveStart } } : {}) },
       orderBy: { createdAt: 'desc' },
       include: {
         _count: {

@@ -1217,7 +1217,7 @@ a free host's group is gated as that host.
 
 | Area | Gated (turning it on / writing it) |
 | --- | --- |
-| Group routes | player levels `PUT`; share `POST`; shuttle tools and cross-session history turn-on; rules `POST`/`PUT`; player stats; export |
+| Group routes | level ladder `PUT /groups/:code/levels` (the per-player level edit stays free); share `POST`; shuttle tools and cross-session history turn-on; rules `POST`/`PUT`; player stats; export |
 | Session controls | session mode `balanced` / `level`; per-court mode other than `custom`; court target other than `auto`; lineup queue add/replace |
 | Session snapshots | `shuttleToolsEnabled` and cross-session history are snapshotted **off** for a free owner at session creation |
 | Bill extras | `hostFeeSatang > 0`, `walkInFeeSatang > 0`, or a non-empty `absentIds` (ไม่มา) in `POST bill-config` |

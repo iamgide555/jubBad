@@ -67,10 +67,12 @@ describe('Admin plan control', () => {
     );
   });
 
-  it('does not mark an admin account as lapsed (its effective plan is always club)', async () => {
+  it('shows an admin account as having everything, with no plan to choose or save', async () => {
     await setup([user({ role: 'admin', plan: 'free', effectivePlan: 'club' })]);
     expect(row('u1').querySelector('[data-plan-lapsed]')).toBeNull();
-    expect(row('u1').querySelector('select')).not.toBeNull();
+    expect(row('u1').querySelector('select')).toBeNull();
+    expect(row('u1').querySelector('[data-plan-save]')).toBeNull();
+    expect(row('u1').querySelector('[data-plan-admin]')!.textContent).toContain('เข้าถึงได้ทุกอย่าง');
   });
 
   it('offers the three plans and saves the chosen one with no renewal date as null', async () => {

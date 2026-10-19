@@ -1180,6 +1180,13 @@
           <context context-type="linenumber">307,308</context>
         </context-group>
       </trans-unit>
+      <trans-unit id="admin.planAdminAll" datatype="html">
+        <source>ผู้ดูแลระบบ เข้าถึงได้ทุกอย่าง</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/admin/admin.html</context>
+          <context context-type="linenumber">327</context>
+        </context-group>
+      </trans-unit>
       <trans-unit id="admin.planLapsed" datatype="html">
         <source>หมดอายุ — ใช้แบบฟรีอยู่</source>
         <context-group purpose="location">

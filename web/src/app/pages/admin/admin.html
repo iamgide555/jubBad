@@ -322,6 +322,10 @@
 
 <ng-template #planCell let-user>
   <td class="plan-cell" [attr.data-plan-row]="user.id">
+    @if (user.role === 'admin') {
+      <!-- An admin is always treated as the top tier, so there is nothing to choose or save. -->
+      <strong data-plan-admin i18n="@@admin.planAdminAll">ผู้ดูแลระบบ เข้าถึงได้ทุกอย่าง</strong>
+    } @else {
     <div class="plan-current">
       <strong data-plan-label>{{ planLabel(user.effectivePlan) }}</strong>
       @if (isLapsed(user)) {
@@ -352,6 +356,7 @@
     </div>
     @if (planErrorId() === user.id) {
       <p class="error" role="alert" i18n="@@admin.planFailed">บันทึกแพ็กเกจไม่สำเร็จ</p>
+    }
     }
   </td>
 </ng-template>

@@ -234,3 +234,41 @@
    wrapper in the template (shared with player-roster/session-summary) —
    this used to force `.admin-table { display: block; white-space: nowrap }`
    here, which broke the table's own column alignment instead of fixing it. */
+
+/* Plan: what the host is really on, then the three controls that change it.
+   The controls wrap on a phone rather than forcing the table wider. */
+.plan-cell {
+  min-width: 14rem;
+}
+
+.plan-current {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--space-1);
+  margin-bottom: var(--space-1);
+}
+
+/* A lapsed plan is a fact the admin acts on (renew or leave), so it gets the
+   same accent as the owner flag instead of reading as muted text. */
+.plan-lapsed {
+  color: var(--accent-ink);
+  font-size: var(--text-sm);
+  font-weight: 600;
+}
+
+.plan-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+}
+
+.plan-controls select,
+.plan-controls input {
+  flex: 1 1 8rem;
+  width: auto;
+}
+
+.plan-controls button {
+  white-space: nowrap;
+}

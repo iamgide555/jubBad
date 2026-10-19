@@ -1738,6 +1738,13 @@
           <context context-type="linenumber">76</context>
         </context-group>
       </trans-unit>
+      <trans-unit id="admin.colPlan" datatype="html">
+        <source>แพ็กเกจ</source><target>Plan</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/admin/admin.html</context>
+          <context context-type="linenumber">103,105</context>
+        </context-group>
+      </trans-unit>
       <trans-unit id="admin.save" datatype="html">
         <source>บันทึก</source><target>Save</target>
         <context-group purpose="location">
@@ -1927,6 +1934,27 @@
           <context context-type="linenumber">238</context>
         </context-group>
       </trans-unit>
+      <trans-unit id="admin.planLapsed" datatype="html">
+        <source>หมดอายุ — ใช้แบบฟรีอยู่</source><target>Lapsed: on Free</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/admin/admin.html</context>
+          <context context-type="linenumber">328,331</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="admin.planSave" datatype="html">
+        <source> บันทึกแพ็กเกจ </source><target>Save plan</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/admin/admin.html</context>
+          <context context-type="linenumber">350,352</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="admin.planFailed" datatype="html">
+        <source>บันทึกแพ็กเกจไม่สำเร็จ</source><target>Could not save the plan</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/admin/admin.html</context>
+          <context context-type="linenumber">354,357</context>
+        </context-group>
+      </trans-unit>
       <trans-unit id="admin.reassignFailed" datatype="html">
         <source>ย้ายเจ้าของไม่สำเร็จ</source><target>Could not reassign the owner</target>
         <context-group purpose="location">
@@ -1946,6 +1974,20 @@
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/admin/admin.ts</context>
           <context context-type="linenumber">121</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="admin.planSelectAria" datatype="html">
+        <source>แพ็กเกจ</source><target>Plan</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/admin/admin.ts</context>
+          <context context-type="linenumber">159</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="admin.planRenewAria" datatype="html">
+        <source>วันต่ออายุ (เว้นว่างถ้าไม่หมดอายุ)</source><target>Renewal date (leave empty if it never expires)</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/admin/admin.ts</context>
+          <context context-type="linenumber">160</context>
         </context-group>
       </trans-unit>
       <trans-unit id="admin.passwordLabel" datatype="html">
@@ -2660,6 +2702,27 @@
       <trans-unit id="playerRoster.ruleSaveFailed" datatype="html">
         <source>บันทึกกฎไม่สำเร็จ</source>
         <target>Could not save the rule</target>
+      </trans-unit>
+      <trans-unit id="plan.free" datatype="html">
+        <source>ฟรี</source><target>Free</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/core/plan.ts</context>
+          <context context-type="linenumber">10</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="plan.host" datatype="html">
+        <source>โฮสต์</source><target>Host</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/core/plan.ts</context>
+          <context context-type="linenumber">12</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="plan.club" datatype="html">
+        <source>ก๊วนใหญ่</source><target>Club</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/core/plan.ts</context>
+          <context context-type="linenumber">14</context>
+        </context-group>
       </trans-unit>
       <trans-unit id="err.code.pairRuleViolation" datatype="html">
         <source>เปลี่ยนไม่ได้ เพราะขัดกับกฎการจับคู่</source>

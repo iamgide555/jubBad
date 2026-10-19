@@ -1,4 +1,4 @@
-import { DatePipe } from '@angular/common';
+import { DatePipe, NgTemplateOutlet } from '@angular/common';
 import { Component, ElementRef, ViewChild, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
@@ -11,11 +11,12 @@ import {
   type ResetRequest,
 } from '../../core/admin.service';
 import { AuthService, type Role } from '../../core/auth.service';
+import { PLANS, planLabel, type Plan } from '../../core/plan';
 import { absoluteUrl, copyToClipboard } from '../../core/share-link';
 
 @Component({
   selector: 'app-admin',
-  imports: [FormsModule, DatePipe],
+  imports: [FormsModule, DatePipe, NgTemplateOutlet],
   templateUrl: './admin.html',
   styleUrl: './admin.css',
 })
@@ -150,6 +151,57 @@ export class Admin {
     } catch {
       // Left as-is on failure; the table simply keeps showing the last known
       // state rather than guessing at a new one.
+    }
+  }
+
+  // ---- plan ----
+
+  readonly planAria = $localize`:@@admin.planSelectAria:แพ็กเกจ`;
+  readonly renewAria = $localize`:@@admin.planRenewAria:วันต่ออายุ (เว้นว่างถ้าไม่หมดอายุ)`;
+  readonly plans = PLANS;
+  readonly planLabel = planLabel;
+  /** Unsaved choices, keyed by user id; a row with no entry shows what is stored. */
+  readonly planDraft = signal<Record<string, Plan | undefined>>({});
+  readonly renewDraft = signal<Record<string, string | undefined>>({});
+  readonly planBusyId = signal<string | null>(null);
+  readonly planErrorId = signal<string | null>(null);
+
+  planOf(user: AdminUser): Plan {
+    return this.planDraft()[user.id] ?? user.plan;
+  }
+
+  renewOf(user: AdminUser): string {
+    return this.renewDraft()[user.id] ?? bangkokDate(user.planRenewsAt);
+  }
+
+  isLapsed(user: AdminUser): boolean {
+    return user.plan !== user.effectivePlan;
+  }
+
+  setPlanDraft(user: AdminUser, plan: Plan): void {
+    this.planDraft.update((m) => ({ ...m, [user.id]: plan }));
+  }
+
+  setRenewDraft(user: AdminUser, date: string): void {
+    this.renewDraft.update((m) => ({ ...m, [user.id]: date }));
+  }
+
+  async savePlan(user: AdminUser): Promise<void> {
+    if (this.planBusyId()) return;
+    this.planBusyId.set(user.id);
+    this.planErrorId.set(null);
+    try {
+      const updated = await firstValueFrom(
+        this.adminService.setPlan(user.id, this.planOf(user), this.renewOf(user) || null)
+      );
+      this.users.update((list) => list.map((u) => (u.id === user.id ? { ...u, ...updated } : u)));
+      // The row now reflects the server; drop the drafts so it reads from it.
+      this.planDraft.update(({ [user.id]: _p, ...rest }) => rest);
+      this.renewDraft.update(({ [user.id]: _r, ...rest }) => rest);
+    } catch {
+      this.planErrorId.set(user.id);
+    } finally {
+      this.planBusyId.set(null);
     }
   }
 
@@ -293,4 +345,13 @@ export class Admin {
       // Left in the list on failure — the admin can just try again.
     }
   }
+}
+
+/**
+ * The renewal instant is the end of a Bangkok day (UTC+7, no DST), so its
+ * Bangkok calendar date is the one the admin typed. '' when there is none.
+ */
+function bangkokDate(iso: string | null): string {
+  if (!iso) return '';
+  return new Date(new Date(iso).getTime() + 7 * 60 * 60 * 1000).toISOString().slice(0, 10);
 }

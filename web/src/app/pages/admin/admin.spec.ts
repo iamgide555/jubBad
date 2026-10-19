@@ -50,11 +50,38 @@ describe('Admin plan control', () => {
 
   const el = () => fixture.nativeElement as HTMLElement;
   const row = (id: string) => el().querySelector(`[data-plan-row="${id}"]`)!;
+  const edit = async (id: string) => {
+    (row(id).closest('tr')!.querySelector('[data-edit]') as HTMLButtonElement).click();
+    await fixture.whenStable();
+    fixture.detectChanges();
+  };
 
   it('shows the effective plan label on each user row', async () => {
     await setup([user({ id: 'u1', plan: 'host', effectivePlan: 'host' })]);
     expect(row('u1').querySelector('[data-plan-label]')!.textContent).toContain('โฮสต์');
     expect(row('u1').querySelector('[data-plan-lapsed]')).toBeNull();
+  });
+
+  it('keeps the package controls out of the row until แก้ไข is pressed, and drops unsaved drafts on cancel', async () => {
+    await setup([user({})]);
+    expect(row('u1').querySelector('select')).toBeNull();
+    expect(row('u1').querySelector('input[type="date"]')).toBeNull();
+    expect(row('u1').querySelector('[data-plan-save]')).toBeNull();
+    expect(row('u1').querySelector('[data-plan-label]')!.textContent).toContain('ก๊วนใหญ่');
+
+    await edit('u1');
+    const select = row('u1').querySelector('select') as HTMLSelectElement;
+    select.value = 'free';
+    select.dispatchEvent(new Event('change'));
+    await fixture.whenStable();
+
+    (row('u1').closest('tr')!.querySelector('.ghost:not([data-edit])') as HTMLButtonElement).click();
+    await fixture.whenStable();
+    fixture.detectChanges();
+    expect(row('u1').querySelector('select')).toBeNull();
+
+    await edit('u1');
+    expect((row('u1').querySelector('select') as HTMLSelectElement).value).toBe('club');
   });
 
   it('marks a lapsed plan and shows the plan it is really on', async () => {
@@ -73,10 +100,14 @@ describe('Admin plan control', () => {
     expect(row('u1').querySelector('select')).toBeNull();
     expect(row('u1').querySelector('[data-plan-save]')).toBeNull();
     expect(row('u1').querySelector('[data-plan-admin]')!.textContent).toContain('เข้าถึงได้ทุกอย่าง');
+    await edit('u1');
+    expect(row('u1').querySelector('select')).toBeNull();
+    expect(row('u1').querySelector('[data-plan-save]')).toBeNull();
   });
 
   it('offers the three plans and saves the chosen one with no renewal date as null', async () => {
     await setup([user({})]);
+    await edit('u1');
     const select = row('u1').querySelector('select') as HTMLSelectElement;
     expect([...select.options].map((o) => o.value)).toEqual(['free', 'host', 'club']);
     select.value = 'free';
@@ -96,6 +127,7 @@ describe('Admin plan control', () => {
   it('sends the renewal date as YYYY-MM-DD and reads a stored one back as its Bangkok date', async () => {
     // End of 31 Jan in Bangkok is 16:59:59.999Z the same day.
     await setup([user({ planRenewsAt: '2026-01-31T16:59:59.999Z' })]);
+    await edit('u1');
     const date = row('u1').querySelector('input[type="date"]') as HTMLInputElement;
     expect(date.value).toBe('2026-01-31');
 
@@ -115,6 +147,7 @@ describe('Admin plan control', () => {
 
   it('keeps the row as it was when the save fails and says so', async () => {
     await setup([user({})]);
+    await edit('u1');
     (row('u1').querySelector('[data-plan-save]') as HTMLButtonElement).click();
     httpMock
       .expectOne(`${B}/admin/users/u1/plan`)

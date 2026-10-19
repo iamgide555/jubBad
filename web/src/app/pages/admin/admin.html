@@ -127,7 +127,7 @@
                     <p class="error" role="alert">{{ editError() }}</p>
                   }
                 </td>
-                <ng-container *ngTemplateOutlet="planCell; context: { $implicit: user }" />
+                <ng-container *ngTemplateOutlet="planCell; context: { $implicit: user, editing: true }" />
                 <td class="admin-actions">
                   <button type="button" [disabled]="editBusy()" (click)="saveEdit(user)" i18n="@@admin.save">บันทึก</button>
                   <button type="button" class="ghost" (click)="cancelEdit()" i18n="@@admin.cancel">ยกเลิก</button>
@@ -156,9 +156,9 @@
                     {{ user.ownedGroups.map((g) => g.name || g.code).join(', ') }}
                   }
                 </td>
-                <ng-container *ngTemplateOutlet="planCell; context: { $implicit: user }" />
+                <ng-container *ngTemplateOutlet="planCell; context: { $implicit: user, editing: false }" />
                 <td class="admin-actions">
-                  <button type="button" class="ghost" (click)="startEdit(user)" i18n="@@admin.edit">แก้ไข</button>
+                  <button type="button" class="ghost" data-edit (click)="startEdit(user)" i18n="@@admin.edit">แก้ไข</button>
                   <button type="button" class="ghost" (click)="toggleDisabled(user)">
                     @if (user.disabled) {
                       <ng-container i18n="@@admin.enable">เปิดใช้งาน</ng-container>
@@ -320,43 +320,46 @@
   }
 </div>
 
-<ng-template #planCell let-user>
+<ng-template #planCell let-user let-editing="editing">
   <td class="plan-cell" [attr.data-plan-row]="user.id">
     @if (user.role === 'admin') {
       <!-- An admin is always treated as the top tier, so there is nothing to choose or save. -->
       <strong data-plan-admin i18n="@@admin.planAdminAll">ผู้ดูแลระบบ เข้าถึงได้ทุกอย่าง</strong>
     } @else {
-    <div class="plan-current">
-      <strong data-plan-label>{{ planLabel(user.effectivePlan) }}</strong>
-      @if (isLapsed(user)) {
-        <span class="plan-lapsed" data-plan-lapsed i18n="@@admin.planLapsed">หมดอายุ — ใช้แบบฟรีอยู่</span>
-      }
-    </div>
-    <div class="plan-controls">
-      <select
-        [attr.aria-label]="planAria"
-        [ngModel]="planOf(user)"
-        (ngModelChange)="setPlanDraft(user, $event)"
-        name="plan-{{ user.id }}"
-      >
-        @for (p of plans; track p) {
-          <option [value]="p">{{ planLabel(p) }}</option>
+      <div class="plan-current">
+        <strong data-plan-label>{{ planLabel(user.effectivePlan) }}</strong>
+        @if (isLapsed(user)) {
+          <span class="plan-lapsed" data-plan-lapsed i18n="@@admin.planLapsed">หมดอายุ — ใช้แบบฟรีอยู่</span>
         }
-      </select>
-      <input
-        type="date"
-        [attr.aria-label]="renewAria"
-        [ngModel]="renewOf(user)"
-        (ngModelChange)="setRenewDraft(user, $event)"
-        name="renew-{{ user.id }}"
-      />
-      <button type="button" data-plan-save [disabled]="planBusyId() === user.id" (click)="savePlan(user)" i18n="@@admin.planSave">
-        บันทึกแพ็กเกจ
-      </button>
-    </div>
-    @if (planErrorId() === user.id) {
-      <p class="error" role="alert" i18n="@@admin.planFailed">บันทึกแพ็กเกจไม่สำเร็จ</p>
-    }
+      </div>
+      <!-- The package is changed from the edit row only. -->
+      @if (editing) {
+        <div class="plan-controls">
+          <select
+            [attr.aria-label]="planAria"
+            [ngModel]="planOf(user)"
+            (ngModelChange)="setPlanDraft(user, $event)"
+            name="plan-{{ user.id }}"
+          >
+            @for (p of plans; track p) {
+              <option [value]="p">{{ planLabel(p) }}</option>
+            }
+          </select>
+          <input
+            type="date"
+            [attr.aria-label]="renewAria"
+            [ngModel]="renewOf(user)"
+            (ngModelChange)="setRenewDraft(user, $event)"
+            name="renew-{{ user.id }}"
+          />
+          <button type="button" data-plan-save [disabled]="planBusyId() === user.id" (click)="savePlan(user)" i18n="@@admin.planSave">
+            บันทึกแพ็กเกจ
+          </button>
+        </div>
+      }
+      @if (planErrorId() === user.id) {
+        <p class="error" role="alert" i18n="@@admin.planFailed">บันทึกแพ็กเกจไม่สำเร็จ</p>
+      }
     }
   </td>
 </ng-template>

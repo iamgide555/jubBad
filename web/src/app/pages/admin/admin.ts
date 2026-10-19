@@ -113,6 +113,7 @@ export class Admin {
   readonly editError = signal<string | null>(null);
 
   startEdit(user: AdminUser): void {
+    this.clearPlanDraft(user.id);
     this.editingId.set(user.id);
     this.editEmail.set(user.email);
     this.editRole.set(user.role);
@@ -120,7 +121,10 @@ export class Admin {
   }
 
   cancelEdit(): void {
+    const id = this.editingId();
     this.editingId.set(null);
+    // Drop unsaved plan drafts so reopening the row starts from what is stored.
+    if (id) this.clearPlanDraft(id);
   }
 
   async saveEdit(user: AdminUser): Promise<void> {
@@ -177,6 +181,12 @@ export class Admin {
   /** An admin account is club whatever its column says, so it never reads as lapsed. */
   isLapsed(user: AdminUser): boolean {
     return user.role !== 'admin' && user.plan !== user.effectivePlan;
+  }
+
+  private clearPlanDraft(id: string): void {
+    this.planDraft.update(({ [id]: _p, ...rest }) => rest);
+    this.renewDraft.update(({ [id]: _r, ...rest }) => rest);
+    this.planErrorId.set(null);
   }
 
   setPlanDraft(user: AdminUser, plan: Plan): void {

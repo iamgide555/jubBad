@@ -1209,26 +1209,38 @@ keeps today's behaviour until an admin deliberately sets a lower plan.
 paid thing is switched on from too low a plan, and `GROUP_LIMIT` (with `limit`)
 when creating a group past the plan's cap (free 1, host 3, club 10; admins have
 none). Gating only ever blocks turning a paid thing on, never turning it off and
-never a running session's state, and public routes are never gated.
-`GET /groups/:code/plan` reports the owner's effective plan, so an admin opening
+never a running session's state, and public routes are never gated, with one
+named exception: `GET /groups/:code/players/:playerId/stats` is `@Public()` and
+plan-gated by ruling, because it exposes ratings (it answers 403 `PLAN_REQUIRED`
+and the profile page shows a calm "stats aren't available" message, not a
+host-facing upgrade prompt). `GET /groups/:code/plan` reports the owner's effective plan, so an admin opening
 a free host's group is gated as that host.
 
 **What a free plan cannot switch on (403 `PLAN_REQUIRED`):**
 
 | Area | Gated (turning it on / writing it) |
 | --- | --- |
-| Group routes | level ladder `PUT /groups/:code/levels` (the per-player level edit stays free); share `POST`; shuttle tools and cross-session history turn-on; rules `POST`/`PUT`; player stats; export |
+| Group routes | level ladder `PUT /groups/:code/levels` (the per-player level edit stays free); share `POST`; shuttle tools and cross-session history turn-on; rules `POST`/`PUT`; player stats (the one public route that is gated) |
 | Session controls | session mode `balanced` / `level`; per-court mode other than `custom`; court target other than `auto`; lineup queue add/replace |
 | Session snapshots | `shuttleToolsEnabled` and cross-session history are snapshotted **off** for a free owner at session creation |
 | Bill extras | `POST bill-config` that sets a non-zero `hostFeeSatang` / `walkInFeeSatang` different from the stored value, or adds an id to `absentIds` (ไม่มา) not already stored; zeros, the stored value re-sent, and fewer ไม่มา marks pass |
 
-**Shaping instead of refusing (free):** ratings come back `null`; the archive
-list (`listSessions`) is limited to the last 30 days (`FREE_ARCHIVE_DAYS`). Elo
+**Shaping instead of refusing (free):** ratings come back `null`, including the
+session dashboard's per-player `ratingDelta` (`getPlayerPanel`, resolved from the
+owner at read time); the archive list (`listSessions`) and the owner export
+(`GET /groups/:code/export`, never refused) are limited to the last 30 days
+(`FREE_ARCHIVE_DAYS`). The export windows *sessions* by `createdAt`, and each
+session carries its own matches, checkouts and shuttles, so those are windowed
+with it; players, aliases, rules and the level ladder are always exported in full,
+and a paid owner's export is unchanged. Elo
 always replays the full history; the 30-day filter never reaches
 `finishedMatches()` or any `computeRatingTracks` input. A bill prefilled from an
 earlier session (`configSource` `previous` or `default`) has the host fee,
 walk-in fee and ไม่มา stripped (`withoutPaidExtras`, applied in
-`loadBillSnapshot`, so the echoed config, the bill and checkout quotes agree);
+`loadBillSnapshot`, so the echoed config, the bill and checkout quotes agree).
+The plan is judged **at session creation** (`effectivePlan(owner, session.createdAt)`),
+so a host plan that lapses mid-night does not change a running session's
+prefilled bill;
 a `saved` config is running state and is never altered on read. The default
 config's walk-in fee (2000) therefore reads as 0 on a free session.
 

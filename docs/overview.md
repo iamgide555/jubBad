@@ -1183,6 +1183,36 @@ written).
 The session list shows the newest 30. An ended session nobody played is left
 out; a live one is always shown and links to the public venue display.
 
+### Plans
+
+Paid features are gated by the **group owner's** plan, set by hand by an admin
+(`PUT /admin/users/:id/plan`); there is no payment provider. Tiers and what each
+unlocks: `docs/2026-10-06-pricing-tiers.md`. Pure rules live in
+`server/src/plans/plan.ts`; `PlansService` resolves a group's or session's plan
+from its owner at read time.
+
+**Fields on `User`:** `plan` (`free` | `host` | `club`) and `planRenewsAt`
+(nullable). An admin enters the renewal date as `YYYY-MM-DD`, stored as the end
+of that day in Bangkok (`23:59:59.999+07:00`), so a plan paid through the 19th
+works all of the 19th. An impossible date such as 2026-02-31 is a 400.
+
+**`effectivePlan` is derived, never stored per feature.** A plan lapses to free
+once `now > planRenewsAt`; `planRenewsAt = null` never lapses. An owner with
+role `admin` is club whatever the column says, an ownerless group is club
+(production never has one, and existing fixtures rely on it), and an unknown
+plan string reads as free. `User.disabled` is never touched by plan code.
+
+**The column defaults to `club`, so the deploy is dormant.** Every existing user
+keeps today's behaviour until an admin deliberately sets a lower plan.
+
+**Refusals are 403 with a code:** `PLAN_REQUIRED` (with `requiredPlan`) when a
+paid thing is switched on from too low a plan, and `GROUP_LIMIT` (with `limit`)
+when creating a group past the plan's cap (free 1, host 3, club 10; admins have
+none). Gating only ever blocks turning a paid thing on, never turning it off and
+never a running session's state, and public routes are never gated.
+`GET /groups/:code/plan` reports the owner's effective plan, so an admin opening
+a free host's group is gated as that host.
+
 ## Current state
 
 Everything described above is built: the three engines, the API, the Angular

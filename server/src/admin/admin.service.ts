@@ -5,6 +5,8 @@ import { GroupsService } from '../groups/groups.service.js';
 import { PasswordResetService } from '../auth/password-reset.service.js';
 import { UsersService } from '../users/users.service.js';
 import type { CreateUserDto } from './dto/create-user.dto.js';
+import type { SetPlanDto } from './dto/set-plan.dto.js';
+import { effectivePlan } from '../plans/plan.js';
 import type { UpdateUserDto } from './dto/update-user.dto.js';
 import type { GroupDisposition } from './dto/delete-user.dto.js';
 
@@ -27,12 +29,16 @@ export class AdminService {
       include: { groups: { select: { code: true, name: true } } },
       orderBy: { createdAt: 'asc' },
     });
+    const now = new Date();
     return users.map((u) => ({
       id: u.id,
       email: u.email,
       role: u.role,
       disabled: u.disabled,
       createdAt: u.createdAt,
+      plan: u.plan,
+      planRenewsAt: u.planRenewsAt?.toISOString() ?? null,
+      effectivePlan: effectivePlan(u, now),
       ownedGroups: u.groups.map((g) => ({ code: g.code, name: g.name })),
     }));
   }
@@ -63,6 +69,39 @@ export class AdminService {
       }
       throw error;
     }
+  }
+
+  /**
+   * Sets a user's plan by hand (no payment provider). `renewsAt` is a calendar
+   * date stored as the end of that day in Bangkok, so a plan paid through the
+   * 19th still works all of the 19th; null never lapses. A syntactically valid
+   * but impossible date (2026-02-31) is refused rather than rolled over.
+   */
+  async setPlan(id: string, dto: SetPlanDto) {
+    const planRenewsAt = dto.renewsAt === null ? null : new Date(`${dto.renewsAt}T23:59:59.999+07:00`);
+    // V8 rolls 2026-02-31 over to March 3 instead of returning NaN, so the date
+    // must also read back as the same calendar day in Bangkok (UTC+7).
+    if (
+      planRenewsAt &&
+      (Number.isNaN(planRenewsAt.getTime()) ||
+        new Date(planRenewsAt.getTime() + 7 * 3_600_000).toISOString().slice(0, 10) !== dto.renewsAt)
+    ) {
+      throw new BadRequestException('วันต่ออายุไม่ถูกต้อง');
+    }
+
+    const user = await this.prisma.user.findUnique({ where: { id } });
+    if (!user) throw new NotFoundException();
+
+    const updated = await this.prisma.user.update({
+      where: { id },
+      data: { plan: dto.plan, planRenewsAt },
+    });
+    return {
+      id: updated.id,
+      plan: updated.plan,
+      planRenewsAt: updated.planRenewsAt?.toISOString() ?? null,
+      effectivePlan: effectivePlan(updated, new Date()),
+    };
   }
 
   /**

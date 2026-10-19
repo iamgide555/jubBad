@@ -92,6 +92,8 @@ import type { SetSeatDto } from './dto/set-seat.dto.js';
 import type { CorrectResultDto } from './dto/correct-result.dto.js';
 import type { SetShuttleDetailsDto } from './dto/set-shuttle-details.dto.js';
 import type { SwapPlayerDto } from './dto/swap-player.dto.js';
+import { PlansService } from '../plans/plans.service.js';
+import { planAtLeast } from '../plans/plan.js';
 
 export interface SessionMatch {
   matchNumber: number;
@@ -144,7 +146,8 @@ export class SessionsService {
     private readonly prisma: PrismaService,
     private readonly lock: SessionLock,
     private readonly groupLevels: GroupLevelsService,
-    private readonly venues: VenuesService
+    private readonly venues: VenuesService,
+    private readonly plans: PlansService
   ) {}
 
   private badRequest(code: string): BadRequestException {
@@ -487,6 +490,9 @@ export class SessionsService {
     dto: CreateSessionDto,
     caller: { id: string; role: string }
   ): Promise<{ code: string }> {
+    // Resolved before the transaction (its body is SQLite-serialized). A missing group reads as club;
+    // the 404 below still decides.
+    const paid = planAtLeast(await this.plans.planForGroup(dto.groupCode), 'host');
     try {
       return await this.prisma.$transaction(async (tx) => {
         const group = await tx.group.findUnique({
@@ -614,8 +620,9 @@ export class SessionsService {
             courtCount: dto.courtCount,
             rawImportText: dto.rawImportText,
             // Snapshots: a later change to the group switches never reaches this session.
-            shuttleToolsEnabled: group.shuttleToolsEnabled,
-            crossSessionHistory: group.crossSessionHistory,
+            // Both are paid, so a lapsed owner's switches snapshot off.
+            shuttleToolsEnabled: group.shuttleToolsEnabled && paid,
+            crossSessionHistory: group.crossSessionHistory && paid,
           },
         });
         await tx.sessionCreation.create({

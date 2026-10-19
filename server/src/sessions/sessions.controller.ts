@@ -23,12 +23,16 @@ import { SetShuttleDetailsDto } from './dto/set-shuttle-details.dto.js';
 import { SwapPlayerDto } from './dto/swap-player.dto.js';
 import { TogglePairRuleDto } from './dto/toggle-pair-rule.dto.js';
 import { Public } from '../auth/public.decorator.js';
+import { PlansService } from '../plans/plans.service.js';
 import type { AuthenticatedRequest } from '../auth/auth.guard.js';
 import { SessionsService } from './sessions.service.js';
 
 @Controller('sessions')
 export class SessionsController {
-  constructor(private readonly sessionsService: SessionsService) {}
+  constructor(
+    private readonly sessionsService: SessionsService,
+    private readonly plans: PlansService
+  ) {}
 
   /**
    * The group is named in the body (`dto.groupCode`), not the URL, so
@@ -99,11 +103,13 @@ export class SessionsController {
    * toggle, since it never changes a live pairing's shape.
    */
   @Post(':code/courts/:n/mode')
-  setCourtMode(
+  async setCourtMode(
     @Param('code') code: string,
     @Param('n', ParseIntPipe) courtNumber: number,
     @Body() dto: SetCourtModeDto
   ) {
+    // Paid: switching a court to anything but custom. Turning it back to custom stays free.
+    if (dto.mode !== 'custom') await this.plans.requireSessionPlan(code, 'host');
     return this.sessionsService.setCourtMode(code, courtNumber, dto);
   }
 
@@ -112,11 +118,13 @@ export class SessionsController {
    * like the mode: it only steers the next propose/reshuffle.
    */
   @Post(':code/courts/:n/target')
-  setCourtTarget(
+  async setCourtTarget(
     @Param('code') code: string,
     @Param('n', ParseIntPipe) courtNumber: number,
     @Body() dto: SetCourtTargetDto
   ) {
+    // Paid: aiming a court at the lower or upper half. Back to auto stays free.
+    if (dto.target !== 'auto') await this.plans.requireSessionPlan(code, 'host');
     return this.sessionsService.setCourtTarget(code, courtNumber, dto);
   }
 
@@ -226,12 +234,15 @@ export class SessionsController {
 
   /** Host-set lineups waiting for a free court. Read back through `GET :code` (`lineupQueue`). */
   @Post(':code/queue')
-  addLineup(@Param('code') code: string, @Body() dto: LineupDto) {
+  async addLineup(@Param('code') code: string, @Body() dto: LineupDto) {
+    // Paid: queueing a lineup. Move and both DELETEs stay open so a lapsed host can empty the queue.
+    await this.plans.requireSessionPlan(code, 'host');
     return this.sessionsService.addLineup(code, dto);
   }
 
   @Post(':code/queue/:id')
-  replaceLineup(@Param('code') code: string, @Param('id') id: string, @Body() dto: LineupDto) {
+  async replaceLineup(@Param('code') code: string, @Param('id') id: string, @Body() dto: LineupDto) {
+    await this.plans.requireSessionPlan(code, 'host');
     return this.sessionsService.replaceLineup(code, id, dto);
   }
 
@@ -288,7 +299,9 @@ export class SessionsController {
   }
 
   @Post(':code/mode')
-  setMode(@Param('code') code: string, @Body() dto: SetModeDto) {
+  async setMode(@Param('code') code: string, @Body() dto: SetModeDto) {
+    // Paid: สูสี (balanced) and ระดับ (level). Switching to variety or custom stays free.
+    if (dto.mode === 'balanced' || dto.mode === 'level') await this.plans.requireSessionPlan(code, 'host');
     return this.sessionsService.setMode(code, dto);
   }
 

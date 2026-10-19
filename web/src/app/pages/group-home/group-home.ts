@@ -189,6 +189,21 @@ export class GroupHome {
     return false;
   }
 
+  /**
+   * A row is disabled only on a known free plan, and only when its page holds nothing a free
+   * host can do: no share link to stop, no switch to turn off, no custom ladder to look at. A
+   * fact still loading, or failed, leaves the row a link — never trap a host out of cleaning up.
+   * Players and manage are never disabled.
+   */
+  locked(section: SettingsSection): boolean {
+    if (this.paid()) return false;
+    const v = this.values();
+    if (section === 'levels') return v.levels?.mode === 'standard';
+    if (section === 'share') return v.shared === false;
+    if (section === 'advanced') return !!v.advanced && !v.advanced.shuttleTools && !v.advanced.crossSessionHistory;
+    return false;
+  }
+
   private setSettings(open: boolean): void {
     this.settingsOpen.set(open);
     if (open) this.loadValues();

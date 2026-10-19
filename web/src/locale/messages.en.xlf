@@ -4482,6 +4482,20 @@
           <context context-type="linenumber">103</context>
         </context-group>
       </trans-unit>
+      <trans-unit id="group.row.planBadge" datatype="html">
+        <source>แพ็กเกจโฮสต์</source><target>Host plan</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/group-home/group-home.html</context>
+          <context context-type="linenumber">110</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="group.row.planHint" datatype="html">
+        <source>ใช้ได้ในแพ็กเกจโฮสต์</source><target>Needs the Host plan</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/group-home/group-home.html</context>
+          <context context-type="linenumber">113</context>
+        </context-group>
+      </trans-unit>
       <trans-unit id="entry.clearRoster" datatype="html">
         <source>ล้างรายชื่อ</source>
         <target>Clear list</target>

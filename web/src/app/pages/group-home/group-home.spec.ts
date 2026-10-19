@@ -222,6 +222,103 @@ describe('GroupHome', () => {
     });
   });
 
+  describe('rows that lead nowhere on a free plan are disabled', () => {
+    const row = (s: string) => list().querySelector<HTMLElement>(`[data-section="${s}"]`)!;
+    const byId = (id: string) => document.getElementById(id);
+
+    async function openSettings(answer: 'free' | 'host' | 'club' | 'fail' | null, values: Parameters<typeof flushValues>[0] = {}) {
+      await open();
+      if (answer === 'fail') plan.fail();
+      else if (answer) plan.answer(answer);
+      trigger().click();
+      await harness.fixture.whenStable();
+      flushValues(values);
+      await settle();
+    }
+
+    const expectDisabled = (s: string) => {
+      const r = row(s);
+      expect(r.getAttribute('aria-disabled')).toBe('true');
+      expect(r.hasAttribute('href')).toBe(false);
+      expect(r.hasAttribute('tabindex')).toBe(false);
+      expect(r.hasAttribute('data-press')).toBe(false);
+      expect(r.querySelector('.row-chevron')).toBeNull();
+      // The status badge is replaced by the plan badge.
+      const badges = [...r.querySelectorAll('.value')].map((b) => b.textContent?.trim());
+      expect(badges).toEqual(['แพ็กเกจโฮสต์']);
+      // A screen reader hears why: the description and the plan hint, by id.
+      const described = r.getAttribute('aria-describedby')!.split(/\s+/).map((id) => byId(id)?.textContent?.trim());
+      expect(described).toContain('ใช้ได้ในแพ็กเกจโฮสต์');
+      expect(byId(r.getAttribute('aria-labelledby')!)?.textContent?.trim()).toBeTruthy();
+    };
+
+    const expectLink = (s: string) => {
+      const r = row(s);
+      expect(r.tagName).toBe('A');
+      expect(r.hasAttribute('aria-disabled')).toBe(false);
+      expect(r.getAttribute('href')).toBeTruthy();
+      expect(r.querySelector('.row-chevron')).not.toBeNull();
+      expect(r.textContent).not.toContain('แพ็กเกจโฮสต์');
+    };
+
+    it('free with nothing set up: levels, share and advanced are disabled; players and manage stay links', async () => {
+      await openSettings('free');
+      for (const s of ['levels', 'share', 'advanced']) expectDisabled(s);
+      for (const s of ['players', 'manage']) expectLink(s);
+    });
+
+    it('a disabled row does not navigate when tapped', async () => {
+      await openSettings('free');
+      const nav = vi.spyOn(TestBed.inject(Router), 'navigateByUrl').mockResolvedValue(true);
+      for (const s of ['levels', 'share', 'advanced']) row(s).click();
+      expect(nav).not.toHaveBeenCalled();
+    });
+
+    it('free with a share token: share stays a link so the host can stop sharing', async () => {
+      await openSettings('free', { shared: true });
+      expectLink('share');
+      expect(row('share').querySelector('.value')?.textContent?.trim()).toBe('แชร์อยู่');
+    });
+
+    it('free with one advanced switch on: advanced stays a link so the host can turn it off', async () => {
+      await openSettings('free', { history: true });
+      expectLink('advanced');
+      expect(row('advanced').querySelector('.value')?.textContent?.trim()).toBe('เปิด 1 จาก 2');
+    });
+
+    it('free with the shuttle switch on: advanced stays a link', async () => {
+      await openSettings('free', { shuttle: true });
+      expectLink('advanced');
+    });
+
+    it('free with a custom ladder: levels stays a link so the host can still see it', async () => {
+      await openSettings('free', { custom: true });
+      expectLink('levels');
+    });
+
+    it('free but a fact is still unknown (fetch failed): that row stays a link', async () => {
+      await open();
+      plan.answer('free');
+      trigger().click();
+      await harness.fixture.whenStable();
+      httpMock.expectOne(`${B}/groups/group1/players`).flush([]);
+      httpMock.expectOne(`${B}/groups/group1/levels`).flush('x', { status: 500, statusText: 'x' });
+      httpMock.expectOne(`${B}/groups/group1/share`).flush('x', { status: 500, statusText: 'x' });
+      httpMock.expectOne(`${B}/groups/group1/shuttle-tools`).flush({ enabled: false });
+      httpMock.expectOne(`${B}/groups/group1/cross-session-history`).flush('x', { status: 500, statusText: 'x' });
+      await settle();
+      await tick();
+      for (const s of ['players', 'levels', 'share', 'advanced', 'manage']) expectLink(s);
+    });
+
+    for (const answer of ['host', 'club', 'fail', null] as const) {
+      it(`${answer ?? 'unknown'} plan: every row is an ordinary link, even with nothing set up`, async () => {
+        await openSettings(answer);
+        for (const s of ['players', 'levels', 'share', 'advanced', 'manage']) expectLink(s);
+      });
+    }
+  });
+
   describe('the resume link knows live from open from ended', () => {
     const resume = () => el().querySelector<HTMLAnchorElement>('[data-resume]')!;
     const start = () => el().querySelector<HTMLAnchorElement>('[data-start]')!;

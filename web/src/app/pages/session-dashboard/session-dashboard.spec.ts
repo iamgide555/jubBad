@@ -9,7 +9,7 @@ import { ClockService } from '../../core/clock.service';
 import { environment } from '../../../environments/environment';
 import type { Session } from '../../core/session.model';
 import { standardLadderFixture } from '../../core/group-levels.testing';
-import type { GroupPlan } from '../../core/plan';
+import { planRequiredMessage, type GroupPlan } from '../../core/plan';
 import { PlanService } from '../../core/plan.service';
 import { Subject } from 'rxjs';
 
@@ -1790,6 +1790,22 @@ describe('SessionDashboard', () => {
         // Nothing was created, so the rules are not re-read.
         expect(httpMock.match(`${B}/sessions/sess1/rules`)).toEqual([]);
       });
+
+      it('shows the plan message, not the generic failure, when the server answers 403 PLAN_REQUIRED', async () => {
+        await settled();
+        await flushRules([], []);
+        await openAndFill();
+
+        (dialog().querySelector('[data-submit-rule]') as HTMLButtonElement).click();
+        httpMock
+          .expectOne(`${B}/groups/group1/rules`)
+          .flush({ code: 'PLAN_REQUIRED', requiredPlan: 'host' }, { status: 403, statusText: 'Forbidden' });
+        await new Promise((r) => setTimeout(r, 0));
+        fixture.detectChanges();
+
+        expect(dialog().hasAttribute('open')).toBe(true);
+        expect(dialog().textContent).toContain(planRequiredMessage());
+      });
     });
 
     async function fill(response: object) {
@@ -1869,6 +1885,23 @@ describe('SessionDashboard', () => {
         expect(el().querySelector('.court-target-toggle button:disabled')).toBeNull();
         expect(el().querySelector('app-lineup-queue .lq-add:disabled')).toBeNull();
         expect(el().querySelector('app-plan-lock')).toBeNull();
+      });
+    }
+
+    const addRule = () => el().querySelector('[data-add-rule]') as HTMLButtonElement;
+    const addRuleLock = () => el().querySelector('.roster-actions app-plan-lock');
+
+    it('free: the add-rule button is disabled and carries the lock hint', async () => {
+      await loadWithPlan(baseSession(), 'free');
+      expect(addRule().disabled).toBe(true);
+      expect(addRuleLock()).toBeTruthy();
+    });
+
+    for (const reply of ['host', 'error'] as const) {
+      it(`${reply}: the add-rule button is enabled with no lock hint`, async () => {
+        await loadWithPlan(baseSession(), reply);
+        expect(addRule().disabled).toBe(false);
+        expect(addRuleLock()).toBeNull();
       });
     }
 

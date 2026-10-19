@@ -5,7 +5,7 @@ import { Router, RouterLink } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
 import { environment } from '../../../environments/environment';
 import { LiveSessionService } from '../../core/live-session.service';
-import { isPaid, type Plan } from '../../core/plan';
+import { isPaid, planErrorMessage, type Plan } from '../../core/plan';
 import { PlanService } from '../../core/plan.service';
 import { RosterService } from '../../core/roster.service';
 import { absoluteUrl, copyToClipboard } from '../../core/share-link';
@@ -600,7 +600,7 @@ export class SessionDashboard implements OnDestroy {
       await firstValueFrom(this.roster.createRule(groupCode, rule));
     } catch (err) {
       this.addRuleSaving.set(false);
-      this.addRuleError.set(ruleErrorMessage(err));
+      this.addRuleError.set(planErrorMessage(err) ?? ruleErrorMessage(err));
       return;
     }
     await this.liveSession.loadSessionRules();

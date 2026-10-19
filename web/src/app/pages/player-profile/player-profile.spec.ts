@@ -169,7 +169,8 @@ describe('PlayerProfile', () => {
     fixture.detectChanges();
     const el = fixture.nativeElement as HTMLElement;
     expect(el.querySelector('[data-plan-locked]')).toBeTruthy();
-    expect(el.querySelector('app-plan-lock')).toBeTruthy();
+    // Players open this from a shared link: no host-facing upgrade prompt.
+    expect(el.querySelector('app-plan-lock')).toBeNull();
     expect(el.textContent).not.toContain('ไม่พบผู้เล่น');
     expect(el.querySelector('.profile-hero')).toBeNull();
   });

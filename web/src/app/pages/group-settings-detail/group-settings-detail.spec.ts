@@ -250,11 +250,12 @@ describe('GroupSettingsDetail', () => {
       expect(lockHints()).toBe(2);
     });
 
-    it('free: a switch that is already on stays enabled so it can be turned off, with no hint beside it', async () => {
+    it('free: a switch that is already on stays enabled so it can be turned off, and still shows the plan hint', async () => {
       await openAdvancedAs('free', true, true);
       expect(box('shuttleTools').disabled).toBe(false);
       expect(box('crossSessionHistory').disabled).toBe(false);
-      expect(lockHints()).toBe(0);
+      // Still marked as not on the plan, so an inactive-looking ON switch is explained.
+      expect(lockHints()).toBe(2);
       box('shuttleTools').checked = false;
       box('shuttleTools').dispatchEvent(new Event('change'));
       const req = httpMock.expectOne({ url: `${B}/groups/group1/shuttle-tools`, method: 'POST' });
@@ -263,7 +264,7 @@ describe('GroupSettingsDetail', () => {
       await settle();
       // Once off, the lock applies again.
       expect(box('shuttleTools').disabled).toBe(true);
-      expect(lockHints()).toBe(1);
+      expect(lockHints()).toBe(2);
     });
 
     it('host: nothing is locked', async () => {
@@ -328,12 +329,13 @@ describe('GroupSettingsDetail', () => {
       expect(lockHints()).toBe(0);
     });
 
-    it('free: the export button is disabled with a plan hint beside it, and rename and delete stay', async () => {
+    it('free: the export button is enabled with a 30-day note and no plan lock, and rename and delete stay', async () => {
       await open('manage');
       plan.answer('free');
       await settle();
-      expect(exportBtn().disabled).toBe(true);
-      expect(el().querySelector('.detail-section app-plan-lock')).toBeTruthy();
+      expect(exportBtn().disabled).toBe(false);
+      expect(el().querySelector('.detail-section app-plan-lock')).toBeNull();
+      expect(el().querySelector('[data-export-note]')?.textContent).toContain('30 วัน');
       expect(el().querySelector<HTMLButtonElement>('.rename-row button')!.disabled).toBe(false);
       expect(el().querySelector('.danger-zone')).toBeTruthy();
     });
@@ -344,6 +346,7 @@ describe('GroupSettingsDetail', () => {
       await settle();
       expect(exportBtn().disabled).toBe(false);
       expect(lockHints()).toBe(0);
+      expect(el().querySelector('[data-export-note]')).toBeNull();
     });
   });
 

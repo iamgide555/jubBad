@@ -45,7 +45,7 @@
               <span class="switch-text">
                 <span class="switch-title" i18n="@@entry.shuttleTools">จดลูกแบดเป็นหมายเลข</span>
                 <span class="muted" i18n="@@entry.shuttleToolsHint">ตอนยืนยันแมตช์จะให้เลือกลูกแบด และบิลจะนับตามลูกที่ใช้จริง</span>
-                @if (switchLocked('shuttleTools')) {
+                @if (!paid()) {
                   <app-plan-lock />
                 }
               </span>
@@ -61,7 +61,7 @@
               <span class="switch-text">
                 <span class="switch-title" i18n="@@group.crossSessionHistory">นับประวัติคู่ข้ามรอบ</span>
                 <span class="muted" i18n="@@group.crossSessionHistoryHint">ปิด: เลี่ยงคู่ซ้ำเฉพาะคืนนี้ · เปิด: นับทุกรอบที่ผ่านมา</span>
-                @if (switchLocked('crossSessionHistory')) {
+                @if (!paid()) {
                   <app-plan-lock />
                 }
               </span>
@@ -100,9 +100,9 @@
           <section class="detail-section">
             <h2 i18n="@@group.exportTitle">ดาวน์โหลดข้อมูล</h2>
             <p class="muted" i18n="@@group.exportHint">ผู้เล่น รอบ และผลแมตช์ทั้งหมดของก๊วน เป็นไฟล์ JSON</p>
-            <button type="button" class="ghost" [disabled]="!paid()" (click)="exportGroup()" i18n="@@entry.export">ดาวน์โหลดข้อมูล (JSON)</button>
+            <button type="button" class="ghost" (click)="exportGroup()" i18n="@@entry.export">ดาวน์โหลดข้อมูล (JSON)</button>
             @if (!paid()) {
-              <app-plan-lock class="export-lock" />
+              <p class="muted export-note" data-export-note i18n="@@group.archiveNote">แสดงเฉพาะรอบใน 30 วันล่าสุด</p>
             }
           </section>
 

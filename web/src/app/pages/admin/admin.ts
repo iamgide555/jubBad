@@ -174,8 +174,9 @@ export class Admin {
     return this.renewDraft()[user.id] ?? bangkokDate(user.planRenewsAt);
   }
 
+  /** An admin account is club whatever its column says, so it never reads as lapsed. */
   isLapsed(user: AdminUser): boolean {
-    return user.plan !== user.effectivePlan;
+    return user.role !== 'admin' && user.plan !== user.effectivePlan;
   }
 
   setPlanDraft(user: AdminUser, plan: Plan): void {

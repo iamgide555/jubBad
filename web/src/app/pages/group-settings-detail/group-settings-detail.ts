@@ -83,7 +83,7 @@ export class GroupSettingsDetail {
 
   /**
    * On the free plan a switch cannot be turned ON. One that is already on stays enabled, so a
-   * lapsed host can always turn it off.
+   * lapsed host can always turn it off (the plan hint still shows beside it, whatever its value).
    */
   protected switchLocked(which: 'shuttleTools' | 'crossSessionHistory'): boolean {
     const value = which === 'shuttleTools' ? this.shuttleTools() : this.crossSessionHistory();

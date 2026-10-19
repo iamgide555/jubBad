@@ -67,6 +67,12 @@ describe('Admin plan control', () => {
     );
   });
 
+  it('does not mark an admin account as lapsed (its effective plan is always club)', async () => {
+    await setup([user({ role: 'admin', plan: 'free', effectivePlan: 'club' })]);
+    expect(row('u1').querySelector('[data-plan-lapsed]')).toBeNull();
+    expect(row('u1').querySelector('select')).not.toBeNull();
+  });
+
   it('offers the three plans and saves the chosen one with no renewal date as null', async () => {
     await setup([user({})]);
     const select = row('u1').querySelector('select') as HTMLSelectElement;

@@ -114,9 +114,19 @@
         </button>
       }
       @if (!ended()) {
-        <button type="button" class="ghost" data-add-rule (click)="openAddRuleDialog()" i18n="@@dashboard.addRule">
+        <button
+          type="button"
+          class="ghost"
+          data-add-rule
+          [disabled]="!paid()"
+          (click)="openAddRuleDialog()"
+          i18n="@@dashboard.addRule"
+        >
           + เพิ่มกฎการจับคู่
         </button>
+        @if (!paid()) {
+          <app-plan-lock />
+        }
       }
       <button
         type="button"

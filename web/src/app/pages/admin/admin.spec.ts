@@ -145,6 +145,85 @@ describe('Admin plan control', () => {
     });
   });
 
+  describe('renewal date in view mode', () => {
+    const until = (id: string) => row(id).querySelector('[data-plan-until]');
+
+    it('shows "ถึง dd/mm/yyyy" in Bangkok under the plan for a user with a renewal date', async () => {
+      await setup([user({ plan: 'host', effectivePlan: 'host', planRenewsAt: '2026-11-19T16:59:59.999Z' })]);
+      expect(until('u1')!.textContent!.trim()).toBe('ถึง 19/11/2026');
+      expect(until('u1')!.classList).toContain('muted');
+    });
+
+    it('shows nothing when the plan never expires', async () => {
+      await setup([user({ planRenewsAt: null })]);
+      expect(until('u1')).toBeNull();
+    });
+
+    it('an admin account shows no date', async () => {
+      await setup([user({ role: 'admin', planRenewsAt: '2026-11-19T16:59:59.999Z' })]);
+      expect(until('u1')).toBeNull();
+    });
+
+    it('is not repeated in the edit row, where the date field already holds it', async () => {
+      await setup([user({ planRenewsAt: '2026-11-19T16:59:59.999Z' })]);
+      await edit('u1');
+      expect(until('u1')).toBeNull();
+    });
+  });
+
+  describe('saved confirmation', () => {
+    const saved = () => row('u1').querySelector('[data-plan-saved]');
+    async function saveOk() {
+      (row('u1').querySelector('[data-plan-save]') as HTMLButtonElement).click();
+      httpMock
+        .expectOne(`${B}/admin/users/u1/plan`)
+        .flush({ id: 'u1', plan: 'host', planRenewsAt: null, effectivePlan: 'host' });
+      await fixture.whenStable();
+      fixture.detectChanges();
+    }
+
+    it('says บันทึกแล้ว beside the save button after a successful save', async () => {
+      await setup([user({})]);
+      await edit('u1');
+      expect(saved()).toBeNull();
+      await saveOk();
+      expect(saved()!.textContent!.trim()).toBe('บันทึกแล้ว');
+    });
+
+    it('clears once the row is edited again', async () => {
+      await setup([user({})]);
+      await edit('u1');
+      await saveOk();
+      const select = row('u1').querySelector('select') as HTMLSelectElement;
+      select.value = 'free';
+      select.dispatchEvent(new Event('change'));
+      await fixture.whenStable();
+      fixture.detectChanges();
+      expect(saved()).toBeNull();
+    });
+
+    it('clears on cancel', async () => {
+      await setup([user({})]);
+      await edit('u1');
+      await saveOk();
+      (row('u1').closest('tr')!.querySelector('.ghost:not([data-edit])') as HTMLButtonElement).click();
+      await fixture.whenStable();
+      fixture.detectChanges();
+      await edit('u1');
+      expect(saved()).toBeNull();
+    });
+
+    it('does not show after a failed save', async () => {
+      await setup([user({})]);
+      await edit('u1');
+      (row('u1').querySelector('[data-plan-save]') as HTMLButtonElement).click();
+      httpMock.expectOne(`${B}/admin/users/u1/plan`).flush({ message: 'no' }, { status: 400, statusText: 'Bad Request' });
+      await fixture.whenStable();
+      fixture.detectChanges();
+      expect(saved()).toBeNull();
+    });
+  });
+
   it('keeps the row as it was when the save fails and says so', async () => {
     await setup([user({})]);
     await edit('u1');

@@ -333,6 +333,10 @@
           <span class="plan-lapsed" data-plan-lapsed i18n="@@admin.planLapsed">หมดอายุ — ใช้แบบฟรีอยู่</span>
         }
       </div>
+      <!-- View mode only: the edit row's date field already holds it. -->
+      @if (!editing && user.planRenewsAt) {
+        <p class="muted plan-until" data-plan-until>{{ planUntil(user.planRenewsAt) }}</p>
+      }
       <!-- The package is changed from the edit row only. -->
       @if (editing) {
         <div class="plan-controls">
@@ -356,6 +360,9 @@
           <button type="button" data-plan-save [disabled]="planBusyId() === user.id" (click)="savePlan(user)" i18n="@@admin.planSave">
             บันทึกแพ็กเกจ
           </button>
+          @if (planSavedId() === user.id) {
+            <span class="muted plan-saved" data-plan-saved role="status" i18n="@@admin.planSaved">บันทึกแล้ว</span>
+          }
         </div>
       }
       @if (planErrorId() === user.id) {

@@ -273,6 +273,14 @@
   white-space: nowrap;
 }
 
+.plan-until {
+  margin: 0 0 var(--space-1);
+}
+
+.plan-saved {
+  align-self: center;
+}
+
 /* The edit row swaps text for controls. Without a floor the auto table layout
    squeezes the email and role columns to whatever the plan controls leave over,
    and the role select shows two letters of "ผู้ดูแล…". The table already

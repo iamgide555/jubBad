@@ -4,7 +4,7 @@ import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
 import type { Group } from '../../core/group.model';
 import type { GroupSession } from '../../core/group-session.model';
-import { isPaid, type Plan } from '../../core/plan';
+import { isPaid, planLabel, planUntil, type GroupPlan } from '../../core/plan';
 import { PlanService } from '../../core/plan.service';
 import { RosterService } from '../../core/roster.service';
 import { formatSessionDate, sessionState, type SessionState } from '../../core/session-date';
@@ -85,11 +85,24 @@ export class GroupHome {
   );
 
   /**
-   * The group owner's plan, read only to explain the archive window. A failed or still-pending
-   * read is `null`, which `isPaid` treats as paid: no note, nothing hidden.
+   * The group owner's plan, read to explain the archive window and to tell the host which plan
+   * they are on. A failed or still-pending read is `null`, which `isPaid` treats as paid: no
+   * note, no plan line, nothing hidden.
    */
-  private readonly plan = signal<Plan | null>(null);
-  protected readonly paid = computed(() => isPaid(this.plan()));
+  private readonly plan = signal<GroupPlan | null>(null);
+  protected readonly paid = computed(() => isPaid(this.plan()?.plan ?? null));
+
+  /**
+   * "แพ็กเกจ: โฮสต์ · ถึง 19/11/2026" in the settings disclosure. The date shows only on a paid
+   * effective plan: `renewsAt` is the raw stored date, so on free it may be a lapsed one.
+   */
+  protected readonly planLine = computed(() => {
+    const p = this.plan();
+    if (!p) return null;
+    const name = planLabel(p.plan);
+    const line = $localize`:@@group.planLine:แพ็กเกจ: ${name}:plan:`;
+    return p.plan !== 'free' && p.renewsAt ? `${line} · ${planUntil(p.renewsAt)}` : line;
+  });
 
   constructor() {
     inject(DestroyRef).onDestroy(() => (this.destroyed = true));
@@ -99,7 +112,7 @@ export class GroupHome {
 
   private async loadPlan(): Promise<void> {
     try {
-      const { plan } = await firstValueFrom(this.planService.forGroup(this.groupCode));
+      const plan = await firstValueFrom(this.planService.forGroup(this.groupCode));
       if (!this.destroyed) this.plan.set(plan);
     } catch {
       // Unknown plan: no note; the list simply shows what the server returned.

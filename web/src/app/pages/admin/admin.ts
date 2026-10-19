@@ -11,7 +11,7 @@ import {
   type ResetRequest,
 } from '../../core/admin.service';
 import { AuthService, type Role } from '../../core/auth.service';
-import { PLANS, planLabel, type Plan } from '../../core/plan';
+import { PLANS, bangkokDate, planLabel, planUntil, type Plan } from '../../core/plan';
 import { absoluteUrl, copyToClipboard } from '../../core/share-link';
 
 @Component({
@@ -169,6 +169,9 @@ export class Admin {
   readonly renewDraft = signal<Record<string, string | undefined>>({});
   readonly planBusyId = signal<string | null>(null);
   readonly planErrorId = signal<string | null>(null);
+  /** The row whose plan just saved; cleared as soon as that row changes again or closes. */
+  readonly planSavedId = signal<string | null>(null);
+  readonly planUntil = planUntil;
 
   planOf(user: AdminUser): Plan {
     return this.planDraft()[user.id] ?? user.plan;
@@ -187,13 +190,16 @@ export class Admin {
     this.planDraft.update(({ [id]: _p, ...rest }) => rest);
     this.renewDraft.update(({ [id]: _r, ...rest }) => rest);
     this.planErrorId.set(null);
+    this.planSavedId.set(null);
   }
 
   setPlanDraft(user: AdminUser, plan: Plan): void {
+    this.planSavedId.set(null);
     this.planDraft.update((m) => ({ ...m, [user.id]: plan }));
   }
 
   setRenewDraft(user: AdminUser, date: string): void {
+    this.planSavedId.set(null);
     this.renewDraft.update((m) => ({ ...m, [user.id]: date }));
   }
 
@@ -201,6 +207,7 @@ export class Admin {
     if (this.planBusyId()) return;
     this.planBusyId.set(user.id);
     this.planErrorId.set(null);
+    this.planSavedId.set(null);
     try {
       const updated = await firstValueFrom(
         this.adminService.setPlan(user.id, this.planOf(user), this.renewOf(user) || null)
@@ -209,6 +216,7 @@ export class Admin {
       // The row now reflects the server; drop the drafts so it reads from it.
       this.planDraft.update(({ [user.id]: _p, ...rest }) => rest);
       this.renewDraft.update(({ [user.id]: _r, ...rest }) => rest);
+      this.planSavedId.set(user.id);
     } catch {
       this.planErrorId.set(user.id);
     } finally {
@@ -358,11 +366,3 @@ export class Admin {
   }
 }
 
-/**
- * The renewal instant is the end of a Bangkok day (UTC+7, no DST), so its
- * Bangkok calendar date is the one the admin typed. '' when there is none.
- */
-function bangkokDate(iso: string | null): string {
-  if (!iso) return '';
-  return new Date(new Date(iso).getTime() + 7 * 60 * 60 * 1000).toISOString().slice(0, 10);
-}

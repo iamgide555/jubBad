@@ -158,6 +158,13 @@ describe('GroupHome', () => {
       expect(note()?.textContent).toContain('แสดงเฉพาะรอบใน 30 วันล่าสุด');
     });
 
+    it('free: the note points to the Host plan for the full history', async () => {
+      await open('/g/group1', { lastSessionCode: 's1', sessions: [SESSION] });
+      plan.answer('free');
+      await settle();
+      expect(note()?.textContent?.trim()).toBe('แสดงเฉพาะรอบใน 30 วันล่าสุด ดูย้อนหลังทั้งหมดได้ในแพ็กเกจโฮสต์');
+    });
+
     it('host: no note', async () => {
       await open('/g/group1', { lastSessionCode: 's1', sessions: [SESSION] });
       plan.answer('host');
@@ -175,6 +182,43 @@ describe('GroupHome', () => {
       plan.fail();
       await settle();
       expect(note()).toBeNull();
+    });
+  });
+
+  describe('plan line in the settings disclosure', () => {
+    const line = () => list().querySelector('[data-plan-line]');
+
+    it('free: names the plan and never shows a date, even with one stored', async () => {
+      await open();
+      plan.answer('free', '2026-11-19T16:59:59.999Z');
+      await settle();
+      expect(line()?.textContent?.trim()).toBe('แพ็กเกจ: ฟรี');
+    });
+
+    it('host with a renewal date: names the plan and the Bangkok date it runs until', async () => {
+      await open();
+      plan.answer('host', '2026-11-19T16:59:59.999Z');
+      await settle();
+      expect(line()?.textContent?.trim()).toBe('แพ็กเกจ: โฮสต์ · ถึง 19/11/2026');
+    });
+
+    it('club with no renewal date: just the plan', async () => {
+      await open();
+      plan.answer('club');
+      await settle();
+      expect(line()?.textContent?.trim()).toBe('แพ็กเกจ: ก๊วนใหญ่');
+    });
+
+    it('an unknown plan (never answered) shows nothing', async () => {
+      await open();
+      expect(line()).toBeNull();
+    });
+
+    it('a failed plan read shows nothing', async () => {
+      await open();
+      plan.fail();
+      await settle();
+      expect(line()).toBeNull();
     });
   });
 

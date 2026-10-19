@@ -149,6 +149,9 @@
             </a>
           </li>
         </ul>
+        @if (planLine(); as line) {
+          <p class="muted plan-line" data-plan-line>{{ line }}</p>
+        }
       </div>
 
       <div class="session-area">
@@ -167,7 +170,7 @@
         <section class="past">
           <h2 class="label" i18n="@@group.pastSessions">รอบที่ผ่านมา</h2>
           @if (!paid()) {
-            <p class="muted archive-note" data-archive-note i18n="@@group.archiveNote">แสดงเฉพาะรอบใน 30 วันล่าสุด</p>
+            <p class="muted archive-note" data-archive-note i18n="@@group.archiveNoteHome">แสดงเฉพาะรอบใน 30 วันล่าสุด ดูย้อนหลังทั้งหมดได้ในแพ็กเกจโฮสต์</p>
           }
           <ul class="session-list">
             @for (row of pastRows(); track row.session.code) {

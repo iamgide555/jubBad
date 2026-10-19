@@ -4,7 +4,7 @@
 
 **Goal:** Gate paid features by the group owner's plan (free / host / club), with the plan set by an admin only. There is no billing integration, so payment stays manual PromptPay.
 
-**Architecture:** `User` gains `plan` and `planRenewsAt`. A pure `effectivePlan()` derives the live plan at read time, and a lapse is never stored. A `PlansService` resolves the plan of a group's *owner* and refuses with 403 `PLAN_REQUIRED`. Route gates sit in controllers, one line each, so the paid surface can be audited in two files. Body-dependent gates (bill fields, session-creation snapshots) sit in services. The work ships in three phases, and each phase can be deployed on its own. Phase 1 is dormant by construction: the DB default is `host` with no renewal date, so nobody changes tier until an admin changes them.
+**Architecture:** `User` gains `plan` and `planRenewsAt`. A pure `effectivePlan()` derives the live plan at read time, and a lapse is never stored. A `PlansService` resolves the plan of a group's *owner* and refuses with 403 `PLAN_REQUIRED`. Route gates sit in controllers, one line each, so the paid surface can be audited in two files. Body-dependent gates (bill fields, session-creation snapshots) sit in services. The work ships in three phases, and each phase can be deployed on its own. Phase 1 is dormant by construction: the DB default is `club` with no renewal date, so nobody changes tier until an admin changes them. (`club` rather than `host`, because `host` carries a 3-group cap that would refuse new groups for an existing host who already runs more.)
 
 **Tech Stack:** NestJS + Prisma + SQLite (server, vitest), Angular standalone + signals (web, `ng test`), `@angular/localize` (Thai source, English target).
 
@@ -101,13 +101,13 @@ it('pins the group limits', () => expect(GROUP_LIMIT).toEqual({ free: 1, host: 3
 - [ ] **Step 2: Run it and confirm it fails.** Run `cd server && npx vitest run src/plans/plan.spec.ts`. Expected: FAIL, cannot resolve `./plan.js`.
 
 - [ ] **Step 3: Add the schema fields and migration.** In `model User`, add:
-  - `plan String @default("host")`, with a `///` comment saying the default `host` is what makes this deploy dormant and that new users are set by an admin.
+  - `plan String @default("club")`, with a `///` comment saying the default `club` is what makes this deploy dormant (no group cap, every feature) and that new users are set by an admin.
   - `planRenewsAt DateTime?`, with a comment saying null means it never lapses.
 
   The migration is plain `ADD COLUMN`, never a table redefine (same reason as `20261002100000_group_share_token`):
 
 ```sql
-ALTER TABLE "User" ADD COLUMN "plan" TEXT NOT NULL DEFAULT 'host';
+ALTER TABLE "User" ADD COLUMN "plan" TEXT NOT NULL DEFAULT 'club';
 ALTER TABLE "User" ADD COLUMN "planRenewsAt" DATETIME;
 ```
 
@@ -214,7 +214,7 @@ ALTER TABLE "User" ADD COLUMN "planRenewsAt" DATETIME;
 
 - [ ] **Step 5: Commit.** `git commit -m "feat(web): admin sets a host's plan"`
 
-> **Phase 1 checkpoint:** deployable. Every existing user reads `host` with no expiry, so no behaviour changes. Before rebuilding the container, confirm the server runs the `20261020000000_user_plan` migration (see the 2026-09-21 deploy lesson in memory).
+> **Phase 1 checkpoint:** deployable. Every existing user reads `club` with no expiry, so no behaviour changes. Before rebuilding the container, confirm the server runs the `20261020000000_user_plan` migration (see the 2026-09-21 deploy lesson in memory).
 
 ---
 
@@ -255,7 +255,7 @@ Each gate is one `await this.plans.requireGroupPlan(code, 'host')` line at the t
 
 - [ ] **Step 3: Implement the gates per the table.**
 
-- [ ] **Step 4: Run the tests.** Run the spec, then `npm test`. Expected: PASS. Existing specs stay green because their owners are admin, ownerless or default `host`.
+- [ ] **Step 4: Run the tests.** Run the spec, then `npm test`. Expected: PASS. Existing specs stay green because their owners are admin, ownerless or default `club`.
 
 - [ ] **Step 5: Commit.** `git commit -m "feat(server): gate paid group routes by plan"`
 

@@ -38,11 +38,13 @@ describe('plan gates on paid bill extras', () => {
   });
 
   /** A group with two sessions: an older one (optionally with a saved config) and a new one with none. */
-  async function fixture(opts: { owner: string; olderConfig?: object; newConfig?: object }) {
+  async function fixture(opts: { players?: number; owner: string; olderConfig?: object; newConfig?: object }) {
     const code = randomUUID();
     const olderCode = randomUUID();
     const newCode = randomUUID();
     await prisma.group.create({ data: { code, name: 'BillGate', ownerId: opts.owner } });
+    const extra = [];
+    for (let i = 1; i < (opts.players ?? 1); i++) extra.push(await prisma.player.create({ data: { groupId: code, name: `P${i}`, aliases: '[]' } }));
     const p = await prisma.player.create({ data: { groupId: code, name: 'P0', aliases: '[]' } });
     await prisma.session.create({
       data: {
@@ -56,14 +58,14 @@ describe('plan gates on paid bill extras', () => {
         billConfig: opts.newConfig ? JSON.stringify(opts.newConfig) : null,
       },
     });
-    await prisma.sessionRoster.create({ data: { sessionId: newCode, playerId: p.id } });
+    for (const x of [p, ...extra]) await prisma.sessionRoster.create({ data: { sessionId: newCode, playerId: x.id } });
     const cleanup = async () => {
       await prisma.sessionRoster.deleteMany({ where: { session: { groupId: code } } });
       await prisma.session.deleteMany({ where: { groupId: code } });
       await prisma.player.deleteMany({ where: { groupId: code } });
       await prisma.group.deleteMany({ where: { code } });
     };
-    return { code, newCode, playerId: p.id, cleanup };
+    return { code, newCode, playerId: p.id, otherId: extra[0]?.id ?? '', cleanup };
   }
 
   const refused = { code: 'PLAN_REQUIRED', requiredPlan: 'host' };
@@ -149,5 +151,85 @@ describe('plan gates on paid bill extras', () => {
     } finally {
       await f.cleanup();
     }
+  });
+  describe('a free session with saved paid values (running state)', () => {
+    const saved = { ...DEFAULT_BILL_CONFIG, model: 'fair', hostFeeSatang: 2000, walkInFeeSatang: 1000 };
+    const post = (code: string, extra: object) => request(server).post(`/sessions/${code}/bill-config`).send(body(extra));
+
+    it('lets the stored values be re-posted unchanged', async () => {
+      const f = await fixture({ owner: freeId, newConfig: saved });
+      try {
+        await post(f.newCode, { hostFeeSatang: 2000, walkInFeeSatang: 1000 }).expect(201);
+      } finally {
+        await f.cleanup();
+      }
+    });
+
+    it('lets one paid value be cleared while the other stays', async () => {
+      const f = await fixture({ owner: freeId, newConfig: saved });
+      try {
+        const res = await post(f.newCode, { hostFeeSatang: 0, walkInFeeSatang: 1000 }).expect(201);
+        expect(res.body.config).toMatchObject({ hostFeeSatang: 0, walkInFeeSatang: 1000 });
+        await post(f.newCode, { hostFeeSatang: 0, walkInFeeSatang: 0 }).expect(201);
+      } finally {
+        await f.cleanup();
+      }
+    });
+
+    it('refuses a changed non-zero host or walk-in fee', async () => {
+      const f = await fixture({ owner: freeId, newConfig: saved });
+      try {
+        const a = await post(f.newCode, { hostFeeSatang: 3000, walkInFeeSatang: 1000 }).expect(403);
+        expect(a.body).toMatchObject(refused);
+        const b = await post(f.newCode, { hostFeeSatang: 2000, walkInFeeSatang: 1500 }).expect(403);
+        expect(b.body).toMatchObject(refused);
+        const stored = JSON.parse((await prisma.session.findUniqueOrThrow({ where: { code: f.newCode } })).billConfig ?? '{}');
+        expect(stored).toMatchObject({ hostFeeSatang: 2000, walkInFeeSatang: 1000 });
+      } finally {
+        await f.cleanup();
+      }
+    });
+
+    it('refuses a new ไม่มา id, but lets stored ids be re-sent or reduced', async () => {
+      const f = await fixture({ owner: freeId, players: 2, newConfig: { ...DEFAULT_BILL_CONFIG, model: 'fair', walkInFeeSatang: 0 } });
+      try {
+        await prisma.session.update({
+          where: { code: f.newCode },
+          data: { billConfig: JSON.stringify({ ...DEFAULT_BILL_CONFIG, model: 'fair', walkInFeeSatang: 0, absentIds: [f.playerId, f.otherId] }) },
+        });
+        const fresh = await fixture({ owner: freeId, players: 2, newConfig: { ...DEFAULT_BILL_CONFIG, model: 'fair', walkInFeeSatang: 0, absentIds: [] } });
+        try {
+          const res = await post(fresh.newCode, { absentIds: [fresh.otherId] }).expect(403);
+          expect(res.body).toMatchObject(refused);
+        } finally {
+          await fresh.cleanup();
+        }
+        await post(f.newCode, { absentIds: [f.playerId, f.otherId] }).expect(201);
+        const fewer = await post(f.newCode, { absentIds: [f.otherId] }).expect(201);
+        expect(fewer.body.config.absentIds).toEqual([f.otherId]);
+        await post(f.newCode, { absentIds: [] }).expect(201);
+      } finally {
+        await f.cleanup();
+      }
+    });
+
+    it('still refuses a posted host fee when the config only came from a stripped prefill', async () => {
+      const f = await fixture({ owner: freeId, olderConfig: saved });
+      try {
+        const res = await post(f.newCode, { hostFeeSatang: 2000 }).expect(403);
+        expect(res.body).toMatchObject(refused);
+      } finally {
+        await f.cleanup();
+      }
+    });
+
+    it('lets a host owner change any paid value', async () => {
+      const f = await fixture({ owner: hostId, newConfig: saved });
+      try {
+        await post(f.newCode, { hostFeeSatang: 3000, walkInFeeSatang: 1500 }).expect(201);
+      } finally {
+        await f.cleanup();
+      }
+    });
   });
 });

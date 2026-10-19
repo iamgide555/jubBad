@@ -1220,7 +1220,7 @@ a free host's group is gated as that host.
 | Group routes | level ladder `PUT /groups/:code/levels` (the per-player level edit stays free); share `POST`; shuttle tools and cross-session history turn-on; rules `POST`/`PUT`; player stats; export |
 | Session controls | session mode `balanced` / `level`; per-court mode other than `custom`; court target other than `auto`; lineup queue add/replace |
 | Session snapshots | `shuttleToolsEnabled` and cross-session history are snapshotted **off** for a free owner at session creation |
-| Bill extras | `hostFeeSatang > 0`, `walkInFeeSatang > 0`, or a non-empty `absentIds` (ไม่มา) in `POST bill-config` |
+| Bill extras | `POST bill-config` that sets a non-zero `hostFeeSatang` / `walkInFeeSatang` different from the stored value, or adds an id to `absentIds` (ไม่มา) not already stored; zeros, the stored value re-sent, and fewer ไม่มา marks pass |
 
 **Shaping instead of refusing (free):** ratings come back `null`; the archive
 list (`listSessions`) is limited to the last 30 days (`FREE_ARCHIVE_DAYS`). Elo

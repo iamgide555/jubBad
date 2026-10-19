@@ -162,17 +162,23 @@ export class BillService {
     if (dto.model === 'perShuttle' && !session.shuttleToolsEnabled) {
       throw new BadRequestException({ code: 'BILL_MODEL_NOT_ALLOWED' });
     }
-    // Paid extras (host fee, walk-in fee, ไม่มา) are refused before any write on a free plan.
-    if (dto.hostFeeSatang > 0 || dto.walkInFeeSatang > 0 || (dto.absentIds ?? []).length > 0) {
-      await this.plans.requireSessionPlan(code, 'host');
-    }
+    // A field an older open tab does not send keeps its stored value; only an explicit value (null included) changes it.
+    const { config: effective } = await this.prisma.$transaction((tx) => loadBillSnapshot(tx, code));
+    // Paid extras (host fee, walk-in fee, ไม่มา) are refused on a free plan before any write, but only when this
+    // save turns one ON or changes it to another non-zero value. Zeros, the stored value re-sent unchanged, and
+    // fewer ไม่มา marks always pass, so a lapsed host can still clear one value of a config the form re-posts whole.
+    // `effective` is read after the prefill strip, so a stripped prefill counts as 0.
+    const storedAbsent = new Set(effective.absentIds);
+    const turnsPaidOn =
+      (dto.hostFeeSatang > 0 && dto.hostFeeSatang !== effective.hostFeeSatang) ||
+      (dto.walkInFeeSatang > 0 && dto.walkInFeeSatang !== effective.walkInFeeSatang) ||
+      (dto.absentIds ?? []).some((id) => !storedAbsent.has(id));
+    if (turnsPaidOn) await this.plans.requireSessionPlan(code, 'host');
     const on = new Set(session.roster.map((r) => r.playerId));
     const referenced = [...dto.addedIds, ...dto.removedIds, ...(dto.absentIds ?? []), ...dto.overrides.map((o) => o.playerId)];
     if (referenced.some((id) => !on.has(id))) throw new BadRequestException({ code: 'BILL_PLAYER_NOT_ON_ROSTER' });
     const overrideIds = dto.overrides.map((o) => o.playerId);
     if (new Set(overrideIds).size !== overrideIds.length) throw new BadRequestException({ code: 'BILL_CONFIG_INVALID' });
-    // A field an older open tab does not send keeps its stored value; only an explicit value (null included) changes it.
-    const { config: effective } = await this.prisma.$transaction((tx) => loadBillSnapshot(tx, code));
     const shuttleCharge = dto.shuttleCharge ?? effective.shuttleCharge;
     // Receipts are frozen on the basis they were quoted under, and the cost-sharing credit logic reads them as
     // shuttle money: flipping the basis under an active ตามลูกแบด receipt would price people on two bases at once.

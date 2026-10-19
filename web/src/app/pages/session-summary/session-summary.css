@@ -373,6 +373,12 @@ button.shuttle-cell:hover {
   margin-left: var(--space-1);
 }
 
+/* Sits right after the win/loss badge; without a gap "แพ้" and "แก้ไขแล้ว" ran
+   together and read as one word. */
+.result-corrected {
+  margin-left: var(--space-1);
+}
+
 .time-cell { white-space: normal; }
 .duration-qualifier { display: block; font-size: var(--text-sm); overflow-wrap: anywhere; }
 .time-average { display: block; }

@@ -4189,16 +4189,8 @@
         <source>แก้ผลการแข่ง — <x id="INTERPOLATION" equiv-text="{{ rowLabel() }}"/></source>
         <target>Fix result — <x id="INTERPOLATION" equiv-text="{{ rowLabel() }}"/></target>
       </trans-unit>
-      <trans-unit id="resultFix.hint" datatype="html">
-        <source>เลือกทีมที่ชนะจริง คะแนนไม่บังคับ</source>
-        <target>Pick the team that really won. Scores are optional.</target>
-      </trans-unit>
-      <trans-unit id="resultFix.legend" datatype="html">
-        <source>ทีมที่ชนะ</source>
-        <target>Winning team</target>
-      </trans-unit>
       <trans-unit id="resultFix.noResult" datatype="html">
-        <source> ไม่มีผล </source>
+        <source>ไม่มีผล</source>
         <target>No result</target>
       </trans-unit>
       <trans-unit id="resultFix.scoreA" datatype="html">
@@ -4213,10 +4205,6 @@
         <source>ยกเลิก</source>
         <target>Cancel</target>
       </trans-unit>
-      <trans-unit id="resultFix.save" datatype="html">
-        <source>บันทึก</source>
-        <target>Save</target>
-      </trans-unit>
       <trans-unit id="resultFix.badScore" datatype="html">
         <source>คะแนนต้องเป็นจำนวนเต็มตั้งแต่ 0</source>
         <target>Scores must be whole numbers, 0 or more</target>
@@ -4224,10 +4212,6 @@
       <trans-unit id="resultFix.incompleteScore" datatype="html">
         <source>ใส่คะแนนให้ครบทั้งสองทีม หรือเว้นว่างทั้งคู่</source>
         <target>Enter both scores, or leave both empty</target>
-      </trans-unit>
-      <trans-unit id="resultFix.winnerNeeded" datatype="html">
-        <source>เลือกทีมที่ชนะเมื่อมีคะแนน</source>
-        <target>Pick the winning team when entering scores</target>
       </trans-unit>
       <trans-unit id="resultFix.mismatch" datatype="html">
         <source>คะแนนไม่ตรงกับทีมที่ชนะ</source>

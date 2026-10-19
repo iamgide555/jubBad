@@ -120,6 +120,11 @@ export class GroupsService {
    * case the row that won is read back and judged the same way.
    */
   async create(dto: CreateGroupDto, caller: Caller) {
+    // Only a code with no group yet counts toward the plan's limit, so a retry
+    // on an existing own code is never refused and a taken code keeps its 404.
+    if (!(await this.prisma.group.findUnique({ where: { code: dto.code }, select: { code: true } }))) {
+      await this.plans.assertCanCreateGroup(caller);
+    }
     let group: { code: string; name: string | null; ownerId: string | null } | null;
     try {
       group = await this.prisma.group.upsert({
@@ -779,6 +784,11 @@ export class GroupsService {
    * letting them import a roster into someone else's new group.
    */
   async parse(code: string, dto: ParseRosterDto, caller: Caller) {
+    // Same rule as create: the limit applies only when this call would make a
+    // new group, and runs before the upsert so the claim logic below is untouched.
+    if (!(await this.prisma.group.findUnique({ where: { code }, select: { code: true } }))) {
+      await this.plans.assertCanCreateGroup(caller);
+    }
     const group = await this.prisma.group.upsert({
       where: { code },
       create: { code, name: dto.groupName, ownerId: caller.id },

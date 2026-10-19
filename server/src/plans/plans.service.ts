@@ -1,6 +1,6 @@
 import { ForbiddenException, Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service.js';
-import { effectivePlan, planAtLeast, type PaidPlan, type Plan, type PlanOwner } from './plan.js';
+import { effectivePlan, GROUP_LIMIT, planAtLeast, type PaidPlan, type Plan, type PlanOwner } from './plan.js';
 
 const OWNER_SELECT = { role: true, plan: true, planRenewsAt: true } as const;
 
@@ -47,6 +47,21 @@ export class PlansService {
 
   async requireSessionPlan(sessionCode: string, required: PaidPlan): Promise<void> {
     this.assertAtLeast(await this.planForSession(sessionCode), required);
+  }
+
+  /**
+   * Refuses a caller who already owns as many groups as their plan allows.
+   * Reads the caller's own plan (not a group owner's); an admin has no limit.
+   *
+   * Two concurrent creates can both pass the count and exceed the limit by one.
+   * That is accepted: billing is manual and this is not a security boundary.
+   */
+  async assertCanCreateGroup(caller: { id: string; role: string }, now: Date = new Date()): Promise<void> {
+    if (caller.role === 'admin') return;
+    const user = await this.prisma.user.findUnique({ where: { id: caller.id }, select: OWNER_SELECT });
+    const limit = GROUP_LIMIT[effectivePlan(user, now)];
+    const owned = await this.prisma.group.count({ where: { ownerId: caller.id } });
+    if (owned >= limit) throw new ForbiddenException({ code: 'GROUP_LIMIT', limit });
   }
 
   private assertAtLeast(plan: Plan, required: PaidPlan): void {

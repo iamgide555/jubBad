@@ -24,7 +24,7 @@
         i18n="@@court.formatSingles"
       >เดี่ยว</button>
     </div>
-    @if (isCustom()) {
+    @if (isCustom() && showModeToggle()) {
       <div class="scope-toggle court-mode-toggle" role="group" [attr.aria-label]="modeGroupLabel">
         @for (m of courtModes; track m) {
           <button
@@ -54,7 +54,7 @@
         </div>
       }
     }
-    @if (c.mode === 'level') {
+    @if (c.mode === 'level' && showTargetToggle()) {
       <div class="scope-toggle court-target-toggle" role="group" [attr.aria-label]="targetGroupLabel" [attr.title]="targetHint">
         @for (t of courtTargets; track t) {
           <button

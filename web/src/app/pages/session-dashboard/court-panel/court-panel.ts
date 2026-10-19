@@ -209,6 +209,15 @@ export class CourtPanel {
     return !this.paid() && target !== 'auto' && (this.court().target ?? 'auto') !== target;
   }
 
+  /**
+   * On the free plan the live screen hides a per-court control (and its lock note) that has
+   * nothing a free host can do: a court on เลือกเอง has no mode to pick, a court on อัตโนมัติ no
+   * target to set. A court already on a paid mode or target keeps its control so the host can
+   * switch it off — a running state is never trapped. Paid and unknown plans show both.
+   */
+  protected readonly showModeToggle = computed(() => this.paid() || this.court().mode !== 'custom');
+  protected readonly showTargetToggle = computed(() => this.paid() || (this.court().target ?? 'auto') !== 'auto');
+
   protected async setCourtTarget(target: CourtTarget): Promise<void> {
     if (this.busy() || this.ended() || (this.court().target ?? 'auto') === target) return;
     this.busy.set(true);

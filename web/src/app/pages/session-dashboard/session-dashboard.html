@@ -32,7 +32,7 @@
     }
 
     <ng-template #lineupLaunch let-where="where">
-      @if (!ended()) {
+      @if (!ended() && showLineupLaunch()) {
         <div class="lineup-launch" [class.in-rail]="where === 'rail'" [class.in-toolbar]="where === 'toolbar'">
           <button type="button" class="lineup-launch-btn" appPress data-lineup-open (click)="openLineups()">
             <span i18n="@@lineup.title">คิวล่วงหน้า</span>
@@ -113,20 +113,16 @@
           + เพิ่มคน
         </button>
       }
-      @if (!ended()) {
+      @if (!ended() && paid()) {
         <button
           type="button"
           class="ghost"
           data-add-rule
-          [disabled]="!paid()"
           (click)="openAddRuleDialog()"
           i18n="@@dashboard.addRule"
         >
           + เพิ่มกฎการจับคู่
         </button>
-        @if (!paid()) {
-          <app-plan-lock />
-        }
       }
       <button
         type="button"
@@ -379,9 +375,11 @@
 
       <div #benchAnchor class="bench-anchor" aria-hidden="true"></div>
       <div class="waiting-queue" [class.is-stuck]="benchStuck()" appFlipList>
-        <div class="wq-lineup">
-          <ng-container *ngTemplateOutlet="lineupLaunch; context: { where: 'rail' }" />
-        </div>
+        @if (showLineupLaunch()) {
+          <div class="wq-lineup">
+            <ng-container *ngTemplateOutlet="lineupLaunch; context: { where: 'rail' }" />
+          </div>
+        }
         <div class="wq-head">
           <h4 class="label" i18n="@@dashboard.waiting">รอคิว</h4>
           <span class="wq-count tabular">{{ waiting().length }}</span>

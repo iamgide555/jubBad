@@ -1891,10 +1891,25 @@ describe('SessionDashboard', () => {
     const addRule = () => el().querySelector('[data-add-rule]') as HTMLButtonElement;
     const addRuleLock = () => el().querySelector('.roster-actions app-plan-lock');
 
-    it('free: the add-rule button is disabled and carries the lock hint', async () => {
+    it('free: the add-rule button and its lock note are hidden on the live screen', async () => {
       await loadWithPlan(baseSession(), 'free');
-      expect(addRule().disabled).toBe(true);
-      expect(addRuleLock()).toBeTruthy();
+      expect(addRule()).toBeNull();
+      expect(addRuleLock()).toBeNull();
+      // The rest of the row stays.
+      expect(el().querySelector('.roster-actions [data-add-walk-in]')).toBeTruthy();
+      expect(el().querySelector('.roster-actions [data-player-panel-toggle]')).toBeTruthy();
+    });
+
+    it("free: tonight's rules list and each rule's toggle stay as they are", async () => {
+      await loadWithPlan(baseSession(), 'free');
+      const rule = { id: 'r1', groupId: 'g1', playerAId: 'p1', playerBId: 'p2', kind: 'never-teammates' as const, createdAt: '2026-09-30T00:00:00.000Z' };
+      for (const r of httpMock.match(`${B}/sessions/sess1/rules`)) r.flush({ rules: [rule], disabledRuleIds: [] });
+      await fixture.whenStable();
+      fixture.detectChanges();
+      expect(el().querySelector('.session-rules summary')?.textContent).toContain('กฎการจับคู่คืนนี้ (1)');
+      const toggle = el().querySelector('.session-rules input[type="checkbox"]') as HTMLInputElement;
+      expect(toggle.disabled).toBe(false);
+      expect(toggle.checked).toBe(true);
     });
 
     for (const reply of ['host', 'error'] as const) {
@@ -1902,6 +1917,40 @@ describe('SessionDashboard', () => {
         await loadWithPlan(baseSession(), reply);
         expect(addRule().disabled).toBe(false);
         expect(addRuleLock()).toBeNull();
+      });
+    }
+
+    describe('lineup queue launchers', () => {
+      const launchers = () => el().querySelectorAll('[data-lineup-open]');
+      const queued = [{ id: 'q1', position: 0, teamA: ['p1', null], teamB: ['p2', null], blocked: [] }];
+
+      it('free with nothing queued: both launchers are hidden and the rail slot is gone', async () => {
+        await loadWithPlan(baseSession(), 'free');
+        expect(launchers().length).toBe(0);
+        expect(el().querySelector('.wq-lineup')).toBeNull();
+        expect(el().querySelector('.lineup-launch')).toBeNull();
+      });
+
+      it('free with a lineup already queued: both launchers stay so the queue can be managed', async () => {
+        await loadWithPlan(baseSession({ lineupQueue: queued }), 'free');
+        expect(launchers().length).toBe(2);
+        expect(el().querySelector('.wq-lineup [data-lineup-open]')).toBeTruthy();
+        expect(el().querySelector('.court-toolbar [data-lineup-open]')).toBeTruthy();
+      });
+
+      for (const reply of ['host', 'club', 'error', 'pending'] as const) {
+        it(`${reply}: both launchers show even with nothing queued`, async () => {
+          await loadWithPlan(baseSession(), reply);
+          expect(launchers().length).toBe(2);
+          expect(el().querySelector('.wq-lineup')).toBeTruthy();
+        });
+      }
+    });
+
+    for (const reply of ['host', 'club', 'error', 'pending'] as const) {
+      it(`${reply}: a เลือกเอง court on เลือกเอง keeps its per-court mode toggle`, async () => {
+        await loadWithPlan(baseSession({ mode: 'custom', courts: [{ status: 'idle', format: 'doubles', mode: 'custom' }] }), reply);
+        expect(el().querySelectorAll('.court-mode-toggle button').length).toBe(4);
       });
     }
 
@@ -1988,9 +2037,9 @@ describe('SessionDashboard', () => {
     });
 
     it('free: the court panels and the lineup queue are told the plan', async () => {
-      await loadWithPlan(baseSession({ mode: 'custom', courts: [{ status: 'idle', format: 'doubles', mode: 'custom' }] }), 'free');
+      await loadWithPlan(baseSession({ mode: 'custom', courts: [{ status: 'idle', format: 'doubles', mode: 'level' }] }), 'free');
       const courtModes = [...el().querySelectorAll<HTMLButtonElement>('.court-mode-toggle button')];
-      expect(courtModes.filter((b) => b.disabled).map((b) => b.textContent?.trim())).toEqual(['สลับคู่', 'สูสี', 'ระดับ']);
+      expect(courtModes.filter((b) => b.disabled).map((b) => b.textContent?.trim())).toEqual(['สลับคู่', 'สูสี']);
       expect((el().querySelector('app-lineup-queue .lq-add') as HTMLButtonElement).disabled).toBe(true);
     });
   });

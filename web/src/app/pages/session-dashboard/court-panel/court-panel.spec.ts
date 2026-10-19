@@ -1798,10 +1798,21 @@ describe('CourtPanel plan lock', () => {
   const customCourt = (mode: 'variety' | 'balanced' | 'level' | 'custom', target?: 'auto' | 'low' | 'high') =>
     baseSession({ mode: 'custom', courts: [{ status: 'idle', format: 'doubles', mode, ...(target ? { target } : {}) }] });
 
-  it('free: every per-court mode but เลือกเอง is disabled, with the lock hint beside it', async () => {
+  it('free: a court on เลือกเอง shows no per-court mode toggle and no lock note', async () => {
     const f = await panel(false, customCourt('custom'));
-    expect(disabledLabels(modeBtns(f))).toEqual(['สลับคู่', 'สูสี', 'ระดับ']);
-    expect((f.nativeElement as HTMLElement).querySelector('app-plan-lock')).toBeTruthy();
+    expect(modeBtns(f)).toEqual([]);
+    expect((f.nativeElement as HTMLElement).querySelector('.court-mode-toggle')).toBeNull();
+    expect((f.nativeElement as HTMLElement).querySelector('app-plan-lock')).toBeNull();
+    // The rest of the head row is untouched.
+    expect((f.nativeElement as HTMLElement).querySelectorAll('.format-toggle button').length).toBe(2);
+    expect((f.nativeElement as HTMLElement).querySelector('.court-panel-head .status-label')).toBeTruthy();
+  });
+
+  it('free: a court already on a paid mode keeps its toggle with the lock note', async () => {
+    const f = await panel(false, customCourt('variety'));
+    expect(modeBtns(f).length).toBe(4);
+    expect(disabledLabels(modeBtns(f))).toEqual(['สูสี', 'ระดับ']);
+    expect((f.nativeElement as HTMLElement).querySelector('app-plan-lock')?.textContent).toContain('การตั้งโหมดแยกคอร์ทใช้ได้ในแพ็กเกจโฮสต์');
   });
 
   it('free: a court already on a paid mode keeps it and เลือกเอง enabled so the host can switch back', async () => {
@@ -1809,9 +1820,17 @@ describe('CourtPanel plan lock', () => {
     expect(disabledLabels(modeBtns(f))).toEqual(['สลับคู่', 'สูสี']);
   });
 
-  it('free: target low/high are disabled, auto stays enabled', async () => {
+  it('free: a ระดับ court on อัตโนมัติ shows no target control and no target lock note', async () => {
     const f = await panel(false, customCourt('level', 'auto'));
-    expect(disabledLabels(targetBtns(f))).toEqual(['มือล่าง', 'มือบน']);
+    expect(targetBtns(f)).toEqual([]);
+    expect((f.nativeElement as HTMLElement).querySelector('.court-target-toggle')).toBeNull();
+    const locks = [...(f.nativeElement as HTMLElement).querySelectorAll('app-plan-lock')].map((l) => l.textContent ?? '');
+    expect(locks.some((l) => l.includes('การเล็งมือล่าง/มือบน'))).toBe(false);
+  });
+
+  it('free: a ระดับ court with no stored target counts as อัตโนมัติ: no target control', async () => {
+    const f = await panel(false, customCourt('level'));
+    expect(targetBtns(f)).toEqual([]);
   });
 
   it('free: a court already aimed at มือบน keeps it and อัตโนมัติ enabled', async () => {
@@ -1820,7 +1839,7 @@ describe('CourtPanel plan lock', () => {
   });
 
   it('free: the mode lock and the target lock say what each one needs', async () => {
-    const f = await panel(false, customCourt('level', 'auto'));
+    const f = await panel(false, customCourt('level', 'high'));
     const locks = [...(f.nativeElement as HTMLElement).querySelectorAll('app-plan-lock')].map((l) => l.textContent ?? '');
     expect(locks).toHaveLength(2);
     expect(locks[0]).toContain('การตั้งโหมดแยกคอร์ทใช้ได้ในแพ็กเกจโฮสต์');
@@ -1884,6 +1903,16 @@ describe('CourtPanel plan lock', () => {
       expect(modeBtns(f).some((b) => b.disabled)).toBe(false);
       expect(targetBtns(f).some((b) => b.disabled)).toBe(false);
       expect((f.nativeElement as HTMLElement).querySelector('app-plan-lock')).toBeNull();
+    });
+
+    it(`${label}: a court on เลือกเอง keeps all four per-court modes`, async () => {
+      const f = await panel(paid, customCourt('custom'));
+      expect(modeBtns(f).length).toBe(4);
+    });
+
+    it(`${label}: a ระดับ court on อัตโนมัติ keeps its target control`, async () => {
+      const f = await panel(paid, customCourt('level', 'auto'));
+      expect(targetBtns(f).length).toBe(3);
     });
   }
 });

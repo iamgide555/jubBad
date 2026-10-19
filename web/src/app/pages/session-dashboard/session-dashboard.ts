@@ -363,6 +363,13 @@ export class SessionDashboard implements OnDestroy {
 
   private readonly lineupQueue = viewChild<LineupQueue>('lineupQueue');
 
+  /**
+   * On the free plan adding to the lineup queue is locked, so the live screen hides both
+   * launchers while the queue is empty. A queue that already holds entries keeps them, so it can
+   * still be reordered and cleared. Paid and unknown plans always show them.
+   */
+  protected readonly showLineupLaunch = computed(() => this.paid() || this.liveSession.lineupQueue().length > 0);
+
   protected openLineups(): void {
     this.lineupQueue()?.open();
   }

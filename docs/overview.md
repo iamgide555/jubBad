@@ -1213,6 +1213,36 @@ never a running session's state, and public routes are never gated.
 `GET /groups/:code/plan` reports the owner's effective plan, so an admin opening
 a free host's group is gated as that host.
 
+**What a free plan cannot switch on (403 `PLAN_REQUIRED`):**
+
+| Area | Gated (turning it on / writing it) |
+| --- | --- |
+| Group routes | player levels `PUT`; share `POST`; shuttle tools and cross-session history turn-on; rules `POST`/`PUT`; player stats; export |
+| Session controls | session mode `balanced` / `level`; per-court mode other than `custom`; court target other than `auto`; lineup queue add/replace |
+| Session snapshots | `shuttleToolsEnabled` and cross-session history are snapshotted **off** for a free owner at session creation |
+| Bill extras | `hostFeeSatang > 0`, `walkInFeeSatang > 0`, or a non-empty `absentIds` (ไม่มา) in `POST bill-config` |
+
+**Shaping instead of refusing (free):** ratings come back `null`; the archive
+list (`listSessions`) is limited to the last 30 days (`FREE_ARCHIVE_DAYS`). Elo
+always replays the full history; the 30-day filter never reaches
+`finishedMatches()` or any `computeRatingTracks` input. A bill prefilled from an
+earlier session (`configSource` `previous` or `default`) has the host fee,
+walk-in fee and ไม่มา stripped (`withoutPaidExtras`, applied in
+`loadBillSnapshot`, so the echoed config, the bill and checkout quotes agree);
+a `saved` config is running state and is never altered on read. The default
+config's walk-in fee (2000) therefore reads as 0 on a free session.
+
+**Group limit:** free 1, host 3, club 10, checked on group creation; admins none.
+
+**Deliberately never gated:** switching to `variety` or `custom`, a court to
+`custom`, a target back to `auto`; turning shuttle tools or cross-session
+history off; deleting a rule, stopping sharing, clearing or deleting lineups;
+level tags and the player-level edit; rename, aliases and contact edits; fair /
+per-game / buffet models, rounding, remove or add person, and the plain shuttle
+count and price; `GET /sessions/:code`, display, summary and an issued
+`/d/:token`; and anything in a session already running (a lapsed host keeps
+proposing and confirming in สูสี).
+
 ## Current state
 
 Everything described above is built: the three engines, the API, the Angular

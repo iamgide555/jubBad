@@ -76,6 +76,11 @@ export function withoutPerPerson(c: BillConfig): BillConfig {
   return { ...c, addedIds: [], removedIds: [], absentIds: [], overrides: [] };
 }
 
+/** A free plan cannot carry the paid extras (host fee, walk-in fee, ไม่มา) in from an earlier session's config. */
+export function withoutPaidExtras(c: BillConfig): BillConfig {
+  return { ...c, hostFeeSatang: 0, walkInFeeSatang: 0, absentIds: [] };
+}
+
 export function sanitizeForRoster(c: BillConfig, rosterIds: string[]): BillConfig {
   const on = new Set(rosterIds);
   return {

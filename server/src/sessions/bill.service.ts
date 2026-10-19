@@ -1,4 +1,5 @@
 import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
+import { PlansService } from '../plans/plans.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { computeBill, type CheckoutModel, type BillConfig, type BillResult, type ShuttleAllocation } from '../../../engines/bill.ts';
 import { deriveShuttleAccounting } from './shuttle-tracking.js';
@@ -55,7 +56,8 @@ export interface BillResponse {
 export class BillService {
   constructor(
     private readonly prisma: PrismaService,
-    private readonly lock: SessionLock
+    private readonly lock: SessionLock,
+    private readonly plans: PlansService
   ) {}
 
   async getBill(code: string): Promise<BillResponse> {
@@ -159,6 +161,10 @@ export class BillService {
     // whatever the group's switch says today (the session's snapshot decides).
     if (dto.model === 'perShuttle' && !session.shuttleToolsEnabled) {
       throw new BadRequestException({ code: 'BILL_MODEL_NOT_ALLOWED' });
+    }
+    // Paid extras (host fee, walk-in fee, ไม่มา) are refused before any write on a free plan.
+    if (dto.hostFeeSatang > 0 || dto.walkInFeeSatang > 0 || (dto.absentIds ?? []).length > 0) {
+      await this.plans.requireSessionPlan(code, 'host');
     }
     const on = new Set(session.roster.map((r) => r.playerId));
     const referenced = [...dto.addedIds, ...dto.removedIds, ...(dto.absentIds ?? []), ...dto.overrides.map((o) => o.playerId)];

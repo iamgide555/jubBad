@@ -110,6 +110,7 @@
               @if (editingId() === user.id) {
                 <td>
                   <input
+                    class="edit-email"
                     type="email"
                     [ngModel]="editEmail()"
                     (ngModelChange)="editEmail.set($event)"
@@ -117,7 +118,7 @@
                   />
                 </td>
                 <td>
-                  <select [ngModel]="editRole()" (ngModelChange)="editRole.set($event)" name="editRole-{{ user.id }}">
+                  <select class="edit-role" [ngModel]="editRole()" (ngModelChange)="editRole.set($event)" name="editRole-{{ user.id }}">
                     <option value="host" i18n="@@admin.roleHost">ผู้ดูแลก๊วน</option>
                     <option value="admin" i18n="@@admin.roleAdmin">ผู้ดูแลระบบ</option>
                   </select>
@@ -324,7 +325,7 @@
   <td class="plan-cell" [attr.data-plan-row]="user.id">
     @if (user.role === 'admin') {
       <!-- An admin is always treated as the top tier, so there is nothing to choose or save. -->
-      <strong data-plan-admin i18n="@@admin.planAdminAll">ผู้ดูแลระบบ เข้าถึงได้ทุกอย่าง</strong>
+      <strong class="plan-admin" data-plan-admin i18n="@@admin.planAdminAll">ผู้ดูแลระบบ เข้าถึงได้ทุกอย่าง</strong>
     } @else {
       <div class="plan-current">
         <strong data-plan-label>{{ planLabel(user.effectivePlan) }}</strong>

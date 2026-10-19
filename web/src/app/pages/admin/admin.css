@@ -272,3 +272,22 @@
 .plan-controls button {
   white-space: nowrap;
 }
+
+/* The edit row swaps text for controls. Without a floor the auto table layout
+   squeezes the email and role columns to whatever the plan controls leave over,
+   and the role select shows two letters of "ผู้ดูแล…". The table already
+   scrolls sideways on a phone (.table-scroll). */
+.edit-email {
+  min-width: 15rem;
+}
+
+.edit-role {
+  min-width: 11rem;
+}
+
+/* Same top edge as the controls beside it: the cells are top-aligned, and a
+   bare line of text would sit above a 44px-tall input's text. */
+.plan-admin {
+  display: block;
+  padding-block: 0.7rem;
+}

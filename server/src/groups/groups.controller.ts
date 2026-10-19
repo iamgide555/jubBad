@@ -1,7 +1,8 @@
-import { Body, Controller, Delete, Get, Param, Post, Put, Req } from '@nestjs/common';
+import { Body, Controller, Delete, Get, NotFoundException, Param, Post, Put, Req } from '@nestjs/common';
 import { GroupsService } from './groups.service.js';
 import { GroupLevelsService } from './group-levels.service.js';
 import { GroupShareService } from './group-share.service.js';
+import { PlansService } from '../plans/plans.service.js';
 import { SaveGroupLevelsDto } from './dto/save-group-levels.dto.js';
 import { Public } from '../auth/public.decorator.js';
 import type { AuthenticatedRequest } from '../auth/auth.guard.js';
@@ -18,7 +19,8 @@ export class GroupsController {
   constructor(
     private readonly groupsService: GroupsService,
     private readonly groupLevels: GroupLevelsService,
-    private readonly groupShare: GroupShareService
+    private readonly groupShare: GroupShareService,
+    private readonly plans: PlansService
   ) {}
 
   /** Owner-only (no @Public): the ladder and its seeds are host-only. */
@@ -87,6 +89,17 @@ export class GroupsController {
   @Put(':code')
   update(@Param('code') code: string, @Body() dto: UpdateGroupDto) {
     return this.groupsService.update(code, dto);
+  }
+
+  /**
+   * The group owner's effective plan, never the caller's: an admin opening a
+   * free host's group sees (and is gated by) the owner's plan.
+   */
+  @Get(':code/plan')
+  async getPlan(@Param('code') code: string) {
+    const info = await this.plans.describeGroup(code);
+    if (!info) throw new NotFoundException();
+    return info;
   }
 
   /**

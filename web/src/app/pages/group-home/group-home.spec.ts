@@ -10,6 +10,7 @@ import { AuthService } from '../../core/auth.service';
 import { environment } from '../../../environments/environment';
 import type { GroupSession } from '../../core/group-session.model';
 import { formatSessionDate } from '../../core/session-date';
+import { stubPlanService } from '../../core/plan.testing';
 
 const B = environment.apiBaseUrl;
 const tick = () => new Promise<void>((r) => setTimeout(r));
@@ -44,10 +45,13 @@ const OPEN: GroupSession = {
 describe('GroupHome', () => {
   let httpMock: HttpTestingController;
   let harness: RouterTestingHarness;
+  let plan: ReturnType<typeof stubPlanService>;
 
   beforeEach(async () => {
+    plan = stubPlanService();
     TestBed.configureTestingModule({
       providers: [
+        plan.provider,
         provideHttpClient(),
         provideHttpClientTesting(),
         provideRouter(routes),
@@ -134,6 +138,44 @@ describe('GroupHome', () => {
     expect(row.textContent).toContain('แมตช์');
     // An ended session carries no state tag at all.
     expect(row.querySelector('.tag')).toBeNull();
+  });
+
+  describe('archive window note', () => {
+    const note = () => el().querySelector('[data-archive-note]');
+
+    it('free: says only the last 30 days are shown', async () => {
+      await open('/g/group1', { lastSessionCode: 's1', sessions: [SESSION] });
+      plan.answer('free');
+      await settle();
+      expect(plan.calls).toEqual(['group1']);
+      expect(note()?.textContent).toContain('แสดงเฉพาะรอบใน 30 วันล่าสุด');
+    });
+
+    it('free: still says so when no session falls inside the window', async () => {
+      await open();
+      plan.answer('free');
+      await settle();
+      expect(note()?.textContent).toContain('แสดงเฉพาะรอบใน 30 วันล่าสุด');
+    });
+
+    it('host: no note', async () => {
+      await open('/g/group1', { lastSessionCode: 's1', sessions: [SESSION] });
+      plan.answer('host');
+      await settle();
+      expect(note()).toBeNull();
+    });
+
+    it('an unknown plan (never answered) shows no note', async () => {
+      await open('/g/group1', { lastSessionCode: 's1', sessions: [SESSION] });
+      expect(note()).toBeNull();
+    });
+
+    it('a failed plan read shows no note', async () => {
+      await open('/g/group1', { lastSessionCode: 's1', sessions: [SESSION] });
+      plan.fail();
+      await settle();
+      expect(note()).toBeNull();
+    });
   });
 
   describe('the resume link knows live from open from ended', () => {

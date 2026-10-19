@@ -1,9 +1,9 @@
-# Pricing tiers: feature map (draft, not implemented)
+# Pricing tiers: feature map (built, dormant)
 
-Status: **decided 2026-10-06, revised 2026-10-19, nothing built.** No `plan` field,
-no gating code, no billing integration exists yet. Per the commercial plan, billing
-stays manual PromptPay until 2-3 hosts are paying, so this doc is the spec a future
-gating change reads from.
+Status: **decided 2026-10-06, revised 2026-10-19, built behind admin-set plans,
+dormant until a host is set to free.** There is no billing integration; per the
+commercial plan, billing stays manual PromptPay until 2-3 hosts are paying. How
+the gating works is in `docs/overview.md` ("Plans"); this doc is the feature map.
 
 ## Principle
 

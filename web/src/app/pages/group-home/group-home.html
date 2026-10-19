@@ -163,9 +163,12 @@
         <p class="muted start-sub" i18n="@@group.startSub">วางรายชื่อจาก LINE หรือเพิ่มรายชื่อเอง</p>
       </div>
 
-      @if (sessions().length > 0) {
+      @if (sessions().length > 0 || !paid()) {
         <section class="past">
           <h2 class="label" i18n="@@group.pastSessions">รอบที่ผ่านมา</h2>
+          @if (!paid()) {
+            <p class="muted archive-note" data-archive-note i18n="@@group.archiveNote">แสดงเฉพาะรอบใน 30 วันล่าสุด</p>
+          }
           <ul class="session-list">
             @for (row of pastRows(); track row.session.code) {
               <li class="session-row">

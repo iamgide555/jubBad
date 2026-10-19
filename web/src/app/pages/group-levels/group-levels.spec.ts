@@ -5,6 +5,7 @@ import { ActivatedRoute, convertToParamMap, provideRouter } from '@angular/route
 import { environment } from '../../../environments/environment';
 import type { GroupLevelsResponse } from '../../core/group-levels.model';
 import { GroupLevels } from './group-levels';
+import { stubPlanService } from '../../core/plan.testing';
 
 const B = environment.apiBaseUrl;
 const URL = `${B}/groups/g1/levels`;
@@ -47,6 +48,7 @@ const custom = (over: Partial<GroupLevelsResponse> = {}): GroupLevelsResponse =>
 describe('GroupLevels', () => {
   let fixture: ComponentFixture<GroupLevels>;
   let http: HttpTestingController;
+  let plan: ReturnType<typeof stubPlanService>;
   const el = () => fixture.nativeElement as HTMLElement;
   const q = <T extends Element>(sel: string) => el().querySelector(sel) as T;
   const qa = (sel: string) => [...el().querySelectorAll<HTMLInputElement>(sel)];
@@ -56,9 +58,11 @@ describe('GroupLevels', () => {
   };
 
   beforeEach(async () => {
+    plan = stubPlanService();
     await TestBed.configureTestingModule({
       imports: [GroupLevels],
       providers: [
+        plan.provider,
         provideHttpClient(),
         provideHttpClientTesting(),
         provideRouter([]),
@@ -341,5 +345,67 @@ describe('GroupLevels', () => {
     await fixture.whenStable();
     expect(q('a.back').textContent!.trim()).toBe('← กลับ');
     expect(q('a.back').getAttribute('href')).toBe('/g/g1?settings=levels');
+  });
+
+  describe('plan', () => {
+    async function draftReady(p: 'free' | 'host' | null) {
+      await load(standard());
+      q<HTMLButtonElement>('[data-customize]').click();
+      fixture.detectChanges();
+      ['มือใหม่', 'กลาง', 'เก่ง'].forEach((n, i) => type(qa('.level-name-input')[i], n));
+      if (p) plan.answer(p);
+      await settle();
+    }
+    const locks = () => el().querySelectorAll('app-plan-lock').length;
+
+    it('free: a ready ladder cannot be saved, with a plan hint beside the button', async () => {
+      await draftReady('free');
+      expect(plan.calls).toEqual(['g1']);
+      expect(q<HTMLButtonElement>('[data-save]').disabled).toBe(true);
+      expect(q('[data-editor] app-plan-lock')).toBeTruthy();
+      // Browsing and editing the draft stays available.
+      expect(q<HTMLButtonElement>('[data-add-level]').disabled).toBe(false);
+    });
+
+    it('free: resetting a custom ladder is a write the plan refuses too, so it is locked', async () => {
+      await load(custom());
+      plan.answer('free');
+      await settle();
+      expect(q<HTMLButtonElement>('[data-reset]').disabled).toBe(true);
+      expect(locks()).toBeGreaterThan(0);
+    });
+
+    it('host: the ladder saves and there is no hint', async () => {
+      await draftReady('host');
+      expect(q<HTMLButtonElement>('[data-save]').disabled).toBe(false);
+      expect(locks()).toBe(0);
+    });
+
+    it('an unknown plan (never answered) locks nothing', async () => {
+      await draftReady(null);
+      expect(q<HTMLButtonElement>('[data-save]').disabled).toBe(false);
+      expect(locks()).toBe(0);
+    });
+
+    it('a failed plan read locks nothing', async () => {
+      await load(standard());
+      plan.fail();
+      q<HTMLButtonElement>('[data-customize]').click();
+      fixture.detectChanges();
+      ['มือใหม่', 'กลาง', 'เก่ง'].forEach((n, i) => type(qa('.level-name-input')[i], n));
+      await settle();
+      expect(q<HTMLButtonElement>('[data-save]').disabled).toBe(false);
+      expect(locks()).toBe(0);
+    });
+
+    it('shows the plan refusal when the server still answers PLAN_REQUIRED', async () => {
+      await draftReady('host');
+      q<HTMLButtonElement>('[data-save]').click();
+      fixture.detectChanges();
+      q<HTMLButtonElement>('[data-confirm-ok]').click();
+      http.expectOne(URL).flush({ code: 'PLAN_REQUIRED', requiredPlan: 'host' }, { status: 403, statusText: 'Forbidden' });
+      await settle();
+      expect(q('[role="alert"]').textContent).toContain('แพ็กเกจโฮสต์');
+    });
   });
 });

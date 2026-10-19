@@ -108,3 +108,7 @@
   font-size: var(--text-sm);
   font-weight: 600;
 }
+
+.export-lock {
+  margin-top: var(--space-1);
+}

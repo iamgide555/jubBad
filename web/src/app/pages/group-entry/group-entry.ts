@@ -20,6 +20,7 @@ import {
 } from '../../core/roster-review';
 import { RosterService, type ParseRosterResponse } from '../../core/roster.service';
 import { RosterDraftService, type RosterDraft } from '../../core/roster-draft.service';
+import { planErrorMessage } from '../../core/plan';
 import { resolvePlayerNames } from '../../core/player-names';
 import { PressDirective } from '../../core/motion/press.directive';
 import { RevealDirective } from '../../core/motion/reveal.directive';
@@ -592,8 +593,9 @@ export class GroupEntry {
 
       const players = await firstValueFrom(this.rosterService.getPlayers(this.groupCode));
       this.enterConfirm(result, players);
-    } catch {
-      this.pasteError.set($localize`:@@entry.parseFailed:อ่านรายชื่อไม่สำเร็จ กรุณาลองอีกครั้ง`);
+    } catch (err) {
+      // The server also claims a not-yet-existing group code here, so it can refuse GROUP_LIMIT.
+      this.pasteError.set(planErrorMessage(err) ?? $localize`:@@entry.parseFailed:อ่านรายชื่อไม่สำเร็จ กรุณาลองอีกครั้ง`);
     } finally {
       this.isParsing.set(false);
     }

@@ -249,6 +249,20 @@ describe('GroupEntry', () => {
     expect(component.pasteError()).toContain('ไม่พบรายชื่อผู้เล่น');
   });
 
+  it('says the plan allows no more groups when parsing is refused with GROUP_LIMIT', async () => {
+    component.groupName.set('Group A');
+    component.rawText.set('1. Alice');
+    const refused = component.parse();
+    httpMock
+      .expectOne(`${B}/groups/group1/parse`)
+      .flush({ code: 'GROUP_LIMIT', limit: 1 }, { status: 403, statusText: 'Forbidden' });
+    await refused;
+    expect(component.state()).toBe('paste');
+    expect(component.rawText()).toBe('1. Alice');
+    expect(component.pasteError()).toContain('สร้างก๊วนได้สูงสุด 1 ก๊วน');
+    expect(component.pasteError()).not.toContain('อ่านรายชื่อไม่สำเร็จ');
+  });
+
   it('keeps pasted input and allows a retry when parsing fails', async () => {
     component.groupName.set('Group A');
     component.rawText.set('1. Alice');

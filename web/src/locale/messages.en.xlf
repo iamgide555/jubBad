@@ -573,6 +573,13 @@
           <context context-type="linenumber">51,54</context>
         </context-group>
       </trans-unit>
+      <trans-unit id="profile.planLocked" datatype="html">
+        <source>ยังไม่เปิดดูข้อมูลผู้เล่นคนนี้</source><target>This player's stats aren't available</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/player-profile/player-profile.html</context>
+          <context context-type="linenumber">106</context>
+        </context-group>
+      </trans-unit>
       <trans-unit id="summary.back" datatype="html">
         <source>← กลับ</source><target>← Back</target>
         <context-group purpose="location">
@@ -4391,6 +4398,13 @@
       <trans-unit id="group.pastSessions" datatype="html">
         <source>รอบที่ผ่านมา</source>
         <target>Past sessions</target>
+      </trans-unit>
+      <trans-unit id="group.archiveNote" datatype="html">
+        <source>แสดงเฉพาะรอบใน 30 วันล่าสุด</source><target>Showing the last 30 days only</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/group-home/group-home.html</context>
+          <context context-type="linenumber">170</context>
+        </context-group>
       </trans-unit>
       <trans-unit id="entry.clearRoster" datatype="html">
         <source>ล้างรายชื่อ</source>

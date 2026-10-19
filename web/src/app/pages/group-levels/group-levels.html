@@ -115,13 +115,19 @@
           @if (dirty()) {
             <button type="button" class="ghost" [disabled]="saving()" (click)="cancelDraft()" i18n="@@levels.cancel">ยกเลิกการแก้</button>
           }
-          <button type="button" data-save [disabled]="!!problem() || !dirty() || saving()" (click)="requestSave()" i18n="@@levels.save">บันทึกระดับ</button>
+          <button type="button" data-save [disabled]="!paid() || !!problem() || !dirty() || saving()" (click)="requestSave()" i18n="@@levels.save">บันทึกระดับ</button>
         </div>
+        @if (!paid()) {
+          <app-plan-lock class="levels-lock" />
+        }
       </section>
 
       @if (isCustom()) {
         <section class="form-card">
-          <button type="button" class="ghost" data-reset [disabled]="saving()" (click)="requestReset()" i18n="@@levels.reset">กลับไปใช้ระดับมาตรฐาน</button>
+          <button type="button" class="ghost" data-reset [disabled]="!paid() || saving()" (click)="requestReset()" i18n="@@levels.reset">กลับไปใช้ระดับมาตรฐาน</button>
+          @if (!paid()) {
+            <app-plan-lock />
+          }
         </section>
       }
     }

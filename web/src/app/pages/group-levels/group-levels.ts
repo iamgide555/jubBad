@@ -10,8 +10,11 @@ import {
   type LevelAction,
   type SaveGroupLevelsRequest,
 } from '../../core/group-levels.model';
+import { isPaid, planErrorMessage, type Plan } from '../../core/plan';
+import { PlanService } from '../../core/plan.service';
 import { RosterService } from '../../core/roster.service';
 import { settingsReturn } from '../../core/settings-sections';
+import { PlanLock } from '../../shared/plan-lock/plan-lock';
 
 /** One editable row. `id` exists only for a level already saved in a custom ladder. */
 interface DraftRow {
@@ -36,12 +39,13 @@ const MAX_NAME = 16;
  */
 @Component({
   selector: 'app-group-levels',
-  imports: [RouterLink],
+  imports: [RouterLink, PlanLock],
   templateUrl: './group-levels.html',
   styleUrl: './group-levels.css',
 })
 export class GroupLevels implements CanComponentDeactivate {
   private readonly roster = inject(RosterService);
+  private readonly planService = inject(PlanService);
   protected readonly groupCode = inject(ActivatedRoute).snapshot.paramMap.get('groupCode')!;
   /** Back to group home with the settings list reopened on this row. */
   protected readonly back = settingsReturn(this.groupCode, 'levels');
@@ -76,9 +80,27 @@ export class GroupLevels implements CanComponentDeactivate {
   });
   protected readonly problem = computed(() => (this.draft() ? this.validate(this.draft()!) : null));
 
+  /**
+   * The group owner's plan. A failed or still-pending read is `null`, which `isPaid` treats as
+   * paid: a hiccup must never lock a host out (the server still refuses what the plan does not
+   * allow). On the free plan the ladder cannot be written at all (PUT is refused whatever the
+   * action), so save and reset are both locked; browsing and drafting stay open.
+   */
+  private readonly plan = signal<Plan | null>(null);
+  protected readonly paid = computed(() => isPaid(this.plan()));
+
   constructor() {
     void this.load();
     void this.loadGroupName();
+    void this.loadPlan();
+  }
+
+  private async loadPlan(): Promise<void> {
+    try {
+      this.plan.set((await firstValueFrom(this.planService.forGroup(this.groupCode))).plan);
+    } catch {
+      // Unknown plan: leave everything enabled; the server still refuses what the plan does not allow.
+    }
   }
 
   private async loadGroupName(): Promise<void> {
@@ -266,7 +288,7 @@ export class GroupLevels implements CanComponentDeactivate {
     } catch (err) {
       const body = err instanceof HttpErrorResponse ? err.error : null;
       const code = typeof body?.code === 'string' ? body.code : null;
-      this.error.set(levelsErrorMessage(code, body?.counts) ?? $localize`:@@levels.err.save:บันทึกไม่สำเร็จ ลองใหม่อีกครั้ง`);
+      this.error.set(planErrorMessage(err) ?? levelsErrorMessage(code, body?.counts) ?? $localize`:@@levels.err.save:บันทึกไม่สำเร็จ ลองใหม่อีกครั้ง`);
       // A stale answer reloads what the server has, without throwing away the host's edits.
       if (code === 'LEVEL_LADDER_STALE') await this.load(true);
     } finally {

@@ -1,15 +1,16 @@
 import { Component, computed, inject, signal } from '@angular/core';
-import { httpResource } from '@angular/common/http';
+import { HttpErrorResponse, httpResource } from '@angular/common/http';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { AuthService } from '../../core/auth.service';
 import { environment } from '../../../environments/environment';
 import { SceneHost } from '../../core/three/scene-host';
+import { PlanLock } from '../../shared/plan-lock/plan-lock';
 import { Odometer } from '../../core/motion/odometer';
 import type { FormatRecord, PlayerProfile as Profile } from '../../core/player-stats.model';
 
 @Component({
   selector: 'app-player-profile',
-  imports: [RouterLink, SceneHost, Odometer],
+  imports: [RouterLink, SceneHost, Odometer, PlanLock],
   templateUrl: './player-profile.html',
   styleUrl: './player-profile.css',
 })
@@ -24,8 +25,21 @@ export class PlayerProfile {
     return this.profileResource.value();
   });
 
+  /**
+   * The group's plan does not include player stats (403 PLAN_REQUIRED). A public visitor reaches
+   * this with a link a host once copied, so it gets a plain message, not a blank page or "not found".
+   */
+  protected readonly planLocked = computed(() => {
+    const err = this.profileResource.error();
+    return (
+      err instanceof HttpErrorResponse &&
+      err.status === 403 &&
+      (err.error as { code?: unknown } | null)?.code === 'PLAN_REQUIRED'
+    );
+  });
+
   protected readonly notFound = computed(
-    () => this.profileResource.error() !== undefined
+    () => this.profileResource.error() !== undefined && !this.planLocked()
   );
 
   /** Whole percent — a casual group does not need decimal places. */

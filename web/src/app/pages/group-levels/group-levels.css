@@ -120,3 +120,9 @@ button {
   text-decoration: none;
   font-size: var(--text-sm);
 }
+
+.levels-lock {
+  align-items: flex-end;
+  margin-top: var(--space-1);
+  text-align: right;
+}

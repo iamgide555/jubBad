@@ -307,6 +307,11 @@
   margin-top: var(--space-4);
 }
 
+.archive-note {
+  margin: 0 0 var(--space-1);
+  font-size: var(--text-sm);
+}
+
 @media (prefers-reduced-motion: reduce) {
   .settings-group:not([hidden]) {
     animation: none;

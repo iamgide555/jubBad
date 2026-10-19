@@ -2101,6 +2101,13 @@
           <context context-type="linenumber">166,167</context>
         </context-group>
       </trans-unit>
+      <trans-unit id="group.archiveNote" datatype="html">
+        <source>แสดงเฉพาะรอบใน 30 วันล่าสุด</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/group-home/group-home.html</context>
+          <context context-type="linenumber">170</context>
+        </context-group>
+      </trans-unit>
       <trans-unit id="group.playing" datatype="html">
         <source>กำลังเล่น</source>
         <context-group purpose="location">
@@ -3014,6 +3021,13 @@
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/player-profile/player-profile.html</context>
           <context context-type="linenumber">106,107</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="profile.planLocked" datatype="html">
+        <source>ยังไม่เปิดดูข้อมูลผู้เล่นคนนี้</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/player-profile/player-profile.html</context>
+          <context context-type="linenumber">106</context>
         </context-group>
       </trans-unit>
       <trans-unit id="notFound.hint" datatype="html">

@@ -6,6 +6,8 @@ import { ActivatedRoute, RouterLink } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
 import type { CanComponentDeactivate } from '../../core/can-deactivate.guard';
 import { absoluteUrl, copyToClipboard } from '../../core/share-link';
+import { isPaid, planErrorMessage, type Plan } from '../../core/plan';
+import { PlanService } from '../../core/plan.service';
 import { RosterService, type ManagedPlayer } from '../../core/roster.service';
 import {
   RULE_KINDS,
@@ -16,6 +18,7 @@ import {
 } from '../../core/pair-rule.model';
 import { AddRuleDialog } from '../../shared/add-rule-dialog/add-rule-dialog';
 import { LevelPicker } from '../../shared/level-picker/level-picker';
+import { PlanLock } from '../../shared/plan-lock/plan-lock';
 import type { Level } from '../../../../../engines/levels.ts';
 import { levelRank, levelsErrorMessage, type GroupLevelsResponse } from '../../core/group-levels.model';
 import { settingsReturn } from '../../core/settings-sections';
@@ -27,12 +30,13 @@ const PHONE_RE = /^[0-9+\- ]{6,20}$/;
 
 @Component({
   selector: 'app-player-roster',
-  imports: [FormsModule, RouterLink, DecimalPipe, LevelPicker, AddRuleDialog],
+  imports: [FormsModule, RouterLink, DecimalPipe, LevelPicker, AddRuleDialog, PlanLock],
   templateUrl: './player-roster.html',
   styleUrl: './player-roster.css',
 })
 export class PlayerRoster implements CanComponentDeactivate, OnDestroy {
   private readonly rosterService = inject(RosterService);
+  private readonly planService = inject(PlanService);
 
   readonly groupCode: string;
   /** Back to group home with the settings list reopened on this row. */
@@ -49,8 +53,20 @@ export class PlayerRoster implements CanComponentDeactivate, OnDestroy {
   // column — see the design spec's "Frontend" section.
   readonly sortKey = signal<SortKey>('rating');
 
+  /**
+   * The group owner's plan. A failed or still-pending read is `null`, which `isPaid` treats as
+   * paid: a hiccup must never lock a host out (the server still refuses what the plan does not
+   * allow). On free the server withholds ratings and win rate, and the rules and the public
+   * profile link are paid, so the page hides the first and the link and disables the rules.
+   */
+  private readonly plan = signal<Plan | null>(null);
+  protected readonly paid = computed(() => isPaid(this.plan()));
+
+  /** The metric actually sorted by: ratings are withheld on free, so a rating sort falls back to level. */
+  protected readonly activeSort = computed<SortKey>(() => (this.paid() ? this.sortKey() : 'level'));
+
   readonly sortedPlayers = computed(() => {
-    const key = this.sortKey();
+    const key = this.activeSort();
     // 'level' is a name in the group's own ladder, not a number —
     // compared by its position in that ladder (levelRank) rather than the
     // generic numeric subtraction the other three metrics share.
@@ -79,6 +95,7 @@ export class PlayerRoster implements CanComponentDeactivate, OnDestroy {
     void this.load(true);
     void this.loadLadder();
     void this.loadGroupName();
+    void this.loadPlan();
     // Covers the navigation paths canDeactivate() cannot: closing the tab,
     // reloading, or typing a new URL — none of which run the Angular
     // Router's guards, since the app itself is about to unload.
@@ -115,6 +132,14 @@ export class PlayerRoster implements CanComponentDeactivate, OnDestroy {
       this.groupName.set(group.name?.trim() ?? '');
     } catch {
       // The back link keeps saying "← กลับ"; it still goes to the same place.
+    }
+  }
+
+  private async loadPlan(): Promise<void> {
+    try {
+      this.plan.set((await firstValueFrom(this.planService.forGroup(this.groupCode))).plan);
+    } catch {
+      // Unknown plan: leave everything enabled; the server still refuses what the plan does not allow.
     }
   }
 
@@ -163,7 +188,7 @@ export class PlayerRoster implements CanComponentDeactivate, OnDestroy {
       this.rulesOpen.set(true);
       this.addRuleDialog()?.close();
     } catch (err) {
-      this.addRuleError.set(ruleErrorMessage(err));
+      this.addRuleError.set(planErrorMessage(err) ?? ruleErrorMessage(err));
     } finally {
       this.addRuleSaving.set(false);
     }
@@ -178,7 +203,7 @@ export class PlayerRoster implements CanComponentDeactivate, OnDestroy {
       this.rules.update((list) => list.map((r) => (r.id === rule.id ? saved : r)));
     } catch (err) {
       this.rules.update((list) => list.map((r) => (r.id === rule.id ? rule : r)));
-      this.rulesError.set(ruleErrorMessage(err));
+      this.rulesError.set(planErrorMessage(err) ?? ruleErrorMessage(err));
     }
   }
 

@@ -3,9 +3,12 @@ import { Component, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
+import { isPaid, planErrorMessage, type Plan } from '../../core/plan';
+import { PlanService } from '../../core/plan.service';
 import { RosterService } from '../../core/roster.service';
 import { findOwnDuplicate, sameGroupName, type OwnGroupRow } from '../../core/group-name';
 import { isDetailSection, settingsReturn, type DetailSection } from '../../core/settings-sections';
+import { PlanLock } from '../../shared/plan-lock/plan-lock';
 import { ShareDashboardPanel } from '../../shared/share-dashboard-panel/share-dashboard-panel';
 
 /**
@@ -17,7 +20,7 @@ import { ShareDashboardPanel } from '../../shared/share-dashboard-panel/share-da
  */
 @Component({
   selector: 'app-group-settings-detail',
-  imports: [FormsModule, RouterLink, ShareDashboardPanel],
+  imports: [FormsModule, RouterLink, ShareDashboardPanel, PlanLock],
   templateUrl: './group-settings-detail.html',
   styleUrl: './group-settings-detail.css',
 })
@@ -25,6 +28,7 @@ export class GroupSettingsDetail {
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
   private readonly roster = inject(RosterService);
+  private readonly planService = inject(PlanService);
 
   protected readonly groupCode = this.route.snapshot.paramMap.get('groupCode')!;
   private readonly rawSection = this.route.snapshot.paramMap.get('section');
@@ -56,8 +60,34 @@ export class GroupSettingsDetail {
     () => this.groupName().trim().length > 0 && this.deleteConfirmText().trim() === this.groupName().trim()
   );
 
+  /**
+   * The group owner's plan. A failed or still-pending read is `null`, which `isPaid` treats as
+   * paid: a hiccup must never lock a host out (the server still refuses what the plan does not
+   * allow).
+   */
+  private readonly plan = signal<Plan | null>(null);
+  protected readonly paid = computed(() => isPaid(this.plan()));
+
   constructor() {
     void this.load();
+    void this.loadPlan();
+  }
+
+  private async loadPlan(): Promise<void> {
+    try {
+      this.plan.set((await firstValueFrom(this.planService.forGroup(this.groupCode))).plan);
+    } catch {
+      // Unknown plan: leave everything enabled; the server still refuses what the plan does not allow.
+    }
+  }
+
+  /**
+   * On the free plan a switch cannot be turned ON. One that is already on stays enabled, so a
+   * lapsed host can always turn it off.
+   */
+  protected switchLocked(which: 'shuttleTools' | 'crossSessionHistory'): boolean {
+    const value = which === 'shuttleTools' ? this.shuttleTools() : this.crossSessionHistory();
+    return !this.paid() && value === false;
   }
 
   async load(): Promise<void> {
@@ -110,8 +140,8 @@ export class GroupSettingsDetail {
         this.advancedSaving.set(false);
         this.advancedSaved.set(true);
       },
-      error: () => {
-        this.advancedError.set($localize`:@@entry.advancedSaveFailed:บันทึกไม่สำเร็จ ลองอีกครั้ง`);
+      error: (err) => {
+        this.advancedError.set(planErrorMessage(err) ?? $localize`:@@entry.advancedSaveFailed:บันทึกไม่สำเร็จ ลองอีกครั้ง`);
         this.advancedSaving.set(false);
       },
     });
@@ -159,8 +189,8 @@ export class GroupSettingsDetail {
       link.download = `jubbad-${this.groupCode}.json`;
       link.click();
       URL.revokeObjectURL(url);
-    } catch {
-      this.dangerError.set($localize`:@@entry.exportFailed:ดาวน์โหลดไม่สำเร็จ`);
+    } catch (err) {
+      this.dangerError.set(planErrorMessage(err) ?? $localize`:@@entry.exportFailed:ดาวน์โหลดไม่สำเร็จ`);
     }
   }
 

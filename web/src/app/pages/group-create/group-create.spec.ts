@@ -139,6 +139,21 @@ describe('GroupCreate', () => {
     await second;
   });
 
+  it('says the plan allows no more groups, with the limit, when creation is refused with GROUP_LIMIT', async () => {
+    component.name.set('ก๊วนอังคาร');
+    const done = component.submit();
+    httpMock
+      .expectOne({ url: `${B}/groups`, method: 'POST' })
+      .flush({ code: 'GROUP_LIMIT', limit: 1 }, { status: 403, statusText: 'Forbidden' });
+    await done;
+    fixture.detectChanges();
+    const alert = el().querySelector('[role="alert"]')?.textContent ?? '';
+    expect(alert).toContain('สร้างก๊วนได้สูงสุด 1 ก๊วน');
+    expect(alert).not.toContain('สร้างก๊วนไม่สำเร็จ');
+    expect(navigate).not.toHaveBeenCalled();
+    expect(component.creating()).toBe(false);
+  });
+
   it('switches to a fresh code after a 404, so it never retries a dead code', async () => {
     component.name.set('ก๊วนอังคาร');
     const first = component.submit();

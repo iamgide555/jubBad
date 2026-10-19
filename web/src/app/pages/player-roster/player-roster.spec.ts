@@ -5,6 +5,7 @@ import { ActivatedRoute, convertToParamMap } from '@angular/router';
 import { PlayerRoster } from './player-roster';
 import { standardLadderFixture } from '../../core/group-levels.testing';
 import { environment } from '../../../environments/environment';
+import { stubPlanService } from '../../core/plan.testing';
 
 const B = environment.apiBaseUrl;
 
@@ -57,11 +58,14 @@ describe('PlayerRoster', () => {
   let component: PlayerRoster;
   let fixture: ComponentFixture<PlayerRoster>;
   let httpMock: HttpTestingController;
+  let plan: ReturnType<typeof stubPlanService>;
 
   beforeEach(async () => {
+    plan = stubPlanService();
     await TestBed.configureTestingModule({
       imports: [PlayerRoster],
       providers: [
+        plan.provider,
         provideHttpClient(),
         provideHttpClientTesting(),
         {
@@ -619,5 +623,97 @@ describe('PlayerRoster', () => {
     expect(stand.textContent).toContain('ก๊วนอังคาร');
     expect(getComputedStyle(stand).display).toBe('inline-flex');
     expect(getComputedStyle(stand).minHeight).toBe('var(--tap)');
+  });
+});
+
+describe('PlayerRoster on a free plan', () => {
+  let httpMock: HttpTestingController;
+  let fixture: ComponentFixture<PlayerRoster>;
+  let plan: ReturnType<typeof stubPlanService>;
+  const el = () => fixture.nativeElement as HTMLElement;
+  const FREE_PLAYERS = PLAYERS.map((p) => ({ ...p, rating: null, singlesRating: null, winRate: null }));
+  const RULE = { id: 'r1', playerAId: 'p1', playerBId: 'p2', kind: 'must-pair' };
+
+  async function open(answer: 'free' | 'host' | null, players: unknown[] = FREE_PLAYERS) {
+    plan = stubPlanService();
+    await TestBed.configureTestingModule({
+      imports: [PlayerRoster],
+      providers: [
+        plan.provider,
+        provideHttpClient(),
+        provideHttpClientTesting(),
+        { provide: ActivatedRoute, useValue: { snapshot: { paramMap: convertToParamMap({ groupCode: 'group1' }) } } },
+      ],
+    }).compileComponents();
+    httpMock = TestBed.inject(HttpTestingController);
+    fixture = TestBed.createComponent(PlayerRoster);
+    httpMock.expectOne(`${B}/groups/group1/players/manage`).flush(players);
+    httpMock.expectOne(`${B}/groups/group1/rules`).flush([RULE]);
+    httpMock.expectOne(`${B}/groups/group1/levels`).flush(standardLadderFixture());
+    httpMock.expectOne(`${B}/groups/group1`).flush(GROUP);
+    if (answer) plan.answer(answer);
+    await fixture.whenStable();
+    fixture.detectChanges();
+  }
+  afterEach(() => httpMock.verify());
+
+  const sortHeads = () => [...el().querySelectorAll('.sort-head')].map((b) => b.textContent!.trim());
+
+  it('hides the rating, singles-rating and win-rate columns and keeps rank, name, level and the edit action', async () => {
+    await open('free');
+    expect(plan.calls).toEqual(['group1']);
+    expect(sortHeads()).toEqual(['ระดับ']);
+    const text = el().querySelector('.roster-table thead')!.textContent!;
+    expect(text).not.toContain('เรตติ้ง');
+    expect(text).not.toContain('อัตราชนะ');
+    expect(el().querySelectorAll('tbody tr:first-child td')).toHaveLength(4);
+    expect(el().querySelector('app-level-picker')).toBeTruthy();
+    expect([...el().querySelectorAll('button')].some((b) => b.textContent!.trim() === 'แก้ไข')).toBe(true);
+  });
+
+  it('hides the per-player share link', async () => {
+    await open('free');
+    expect(el().querySelector('[data-share-player]')).toBeNull();
+  });
+
+  it('disables add-rule with a plan hint beside it, and the rule kind select, while delete stays', async () => {
+    await open('free');
+    expect(el().querySelector<HTMLButtonElement>('[data-add-rule]')!.disabled).toBe(true);
+    expect(el().querySelector('.pair-rules app-plan-lock')).toBeTruthy();
+    expect(el().querySelector<HTMLSelectElement>('.rule-row select')!.disabled).toBe(true);
+    const del = [...el().querySelectorAll<HTMLButtonElement>('.rule-row button')].find((b) => b.textContent!.trim() === 'ลบ')!;
+    expect(del.disabled).toBe(false);
+  });
+
+  it('an edit row spans only the four visible columns', async () => {
+    await open('free');
+    const page = fixture.componentInstance;
+    page.startEdit(page.players()[0]);
+    fixture.detectChanges();
+    expect(el().querySelector('td[colspan]')?.getAttribute('colspan')).toBe('4');
+  });
+
+  it('sorts by level, not by a hidden all-empty rating, on free', async () => {
+    await open('free', [
+      { ...FREE_PLAYERS[0], level: null },
+      { ...FREE_PLAYERS[1], level: 'P' },
+    ]);
+    const names = [...el().querySelectorAll('tbody tr')].map((r) => r.querySelectorAll('td')[1].textContent!.trim());
+    expect(names).toEqual(['มด', 'ตั้ม']);
+  });
+
+  it('host: every column, the share link and add-rule are available, and no hint shows', async () => {
+    await open('host', PLAYERS);
+    expect(sortHeads()).toEqual(['ระดับ', 'เรตติ้งคู่', 'เรตติ้งเดี่ยว', 'อัตราชนะ']);
+    expect(el().querySelector('[data-share-player]')).toBeTruthy();
+    expect(el().querySelector<HTMLButtonElement>('[data-add-rule]')!.disabled).toBe(false);
+    expect(el().querySelector('app-plan-lock')).toBeNull();
+  });
+
+  it('an unknown plan (never answered) locks nothing', async () => {
+    await open(null, PLAYERS);
+    expect(sortHeads()).toHaveLength(4);
+    expect(el().querySelector<HTMLButtonElement>('[data-add-rule]')!.disabled).toBe(false);
+    expect(el().querySelector('app-plan-lock')).toBeNull();
   });
 });

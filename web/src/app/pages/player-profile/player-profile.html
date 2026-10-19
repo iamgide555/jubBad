@@ -101,6 +101,11 @@
       <p class="muted" i18n="@@profile.noMatches">ยังไม่ได้ลงเล่น</p>
     }
   </div>
+} @else if (planLocked()) {
+  <div class="page plan-locked" data-plan-locked>
+    <h1 i18n="@@profile.planLocked">ยังไม่เปิดดูข้อมูลผู้เล่นคนนี้</h1>
+    <app-plan-lock />
+  </div>
 } @else if (notFound()) {
   <div class="page not-found">
     <h1 i18n="@@profile.notFound">ไม่พบผู้เล่นคนนี้</h1>

@@ -3,6 +3,7 @@ import { Component, ElementRef, inject, signal, viewChild } from '@angular/core'
 import { FormsModule } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
+import { planErrorMessage } from '../../core/plan';
 import { RosterService } from '../../core/roster.service';
 import { findOwnDuplicate, sameGroupName, type OwnGroupRow } from '../../core/group-name';
 import { PressDirective } from '../../core/motion/press.directive';
@@ -76,7 +77,7 @@ export class GroupCreate {
       await this.router.navigateByUrl(`/g/${group.code}`, { replaceUrl: true });
     } catch (err) {
       if (err instanceof HttpErrorResponse && err.status === 404) this.code = crypto.randomUUID();
-      this.error.set($localize`:@@group.createFailed:สร้างก๊วนไม่สำเร็จ กรุณาลองอีกครั้ง`);
+      this.error.set(planErrorMessage(err) ?? $localize`:@@group.createFailed:สร้างก๊วนไม่สำเร็จ กรุณาลองอีกครั้ง`);
     } finally {
       this.creating.set(false);
     }

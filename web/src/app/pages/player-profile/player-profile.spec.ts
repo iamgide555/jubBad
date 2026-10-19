@@ -159,6 +159,30 @@ describe('PlayerProfile', () => {
     expect((fixture.nativeElement as HTMLElement).textContent).toContain('ไม่พบผู้เล่น');
   });
 
+  it('shows a calm plan message, not "player not found", when the group\'s plan does not include profiles', async () => {
+    fixture.detectChanges();
+    httpMock
+      .expectOne(`${B}/groups/group1/players/p1/stats`)
+      .flush({ code: 'PLAN_REQUIRED', requiredPlan: 'host' }, { status: 403, statusText: 'Forbidden' });
+    await new Promise((r) => setTimeout(r, 0));
+    TestBed.tick();
+    fixture.detectChanges();
+    const el = fixture.nativeElement as HTMLElement;
+    expect(el.querySelector('[data-plan-locked]')).toBeTruthy();
+    expect(el.querySelector('app-plan-lock')).toBeTruthy();
+    expect(el.textContent).not.toContain('ไม่พบผู้เล่น');
+    expect(el.querySelector('.profile-hero')).toBeNull();
+  });
+
+  it('still says not found for a 403 that is not a plan refusal', async () => {
+    fixture.detectChanges();
+    httpMock.expectOne(`${B}/groups/group1/players/p1/stats`).flush('x', { status: 403, statusText: 'Forbidden' });
+    await new Promise((r) => setTimeout(r, 0));
+    TestBed.tick();
+    fixture.detectChanges();
+    expect((fixture.nativeElement as HTMLElement).textContent).toContain('ไม่พบผู้เล่น');
+  });
+
   it('shows the partner win rate once the pairing has enough games', async () => {
     await load(profile());
     const text = (fixture.nativeElement as HTMLElement).textContent ?? '';

@@ -25,7 +25,7 @@
             <strong i18n="@@group.shareAudience">ทุกคนที่มีลิงก์สามารถดูหน้าสรุปก๊วนได้</strong><br />
             <span class="muted" i18n="@@group.shareShows">แสดงเฉพาะจำนวนเกมที่เล่น ไม่มีเรตติ้งหรือข้อมูลติดต่อ</span>
           </p>
-          <app-share-dashboard-panel [groupCode]="groupCode" />
+          <app-share-dashboard-panel [groupCode]="groupCode" [paid]="paid()" />
         }
         @case ('advanced') {
           <h1 class="detail-title" i18n="@@group.row.advanced">ตั้งค่าขั้นสูง</h1>
@@ -39,12 +39,15 @@
                 type="checkbox"
                 name="shuttleTools"
                 [checked]="shuttleTools() === true"
-                [disabled]="shuttleTools() === null || advancedSaving()"
+                [disabled]="shuttleTools() === null || advancedSaving() || switchLocked('shuttleTools')"
                 (change)="setAdvanced('shuttleTools', $any($event.target))"
               />
               <span class="switch-text">
                 <span class="switch-title" i18n="@@entry.shuttleTools">จดลูกแบดเป็นหมายเลข</span>
                 <span class="muted" i18n="@@entry.shuttleToolsHint">ตอนยืนยันแมตช์จะให้เลือกลูกแบด และบิลจะนับตามลูกที่ใช้จริง</span>
+                @if (switchLocked('shuttleTools')) {
+                  <app-plan-lock />
+                }
               </span>
             </label>
             <label class="switch-row">
@@ -52,12 +55,15 @@
                 type="checkbox"
                 name="crossSessionHistory"
                 [checked]="crossSessionHistory() === true"
-                [disabled]="crossSessionHistory() === null || advancedSaving()"
+                [disabled]="crossSessionHistory() === null || advancedSaving() || switchLocked('crossSessionHistory')"
                 (change)="setAdvanced('crossSessionHistory', $any($event.target))"
               />
               <span class="switch-text">
                 <span class="switch-title" i18n="@@group.crossSessionHistory">นับประวัติคู่ข้ามรอบ</span>
                 <span class="muted" i18n="@@group.crossSessionHistoryHint">ปิด: เลี่ยงคู่ซ้ำเฉพาะคืนนี้ · เปิด: นับทุกรอบที่ผ่านมา</span>
+                @if (switchLocked('crossSessionHistory')) {
+                  <app-plan-lock />
+                }
               </span>
             </label>
           </div>
@@ -94,7 +100,10 @@
           <section class="detail-section">
             <h2 i18n="@@group.exportTitle">ดาวน์โหลดข้อมูล</h2>
             <p class="muted" i18n="@@group.exportHint">ผู้เล่น รอบ และผลแมตช์ทั้งหมดของก๊วน เป็นไฟล์ JSON</p>
-            <button type="button" class="ghost" (click)="exportGroup()" i18n="@@entry.export">ดาวน์โหลดข้อมูล (JSON)</button>
+            <button type="button" class="ghost" [disabled]="!paid()" (click)="exportGroup()" i18n="@@entry.export">ดาวน์โหลดข้อมูล (JSON)</button>
+            @if (!paid()) {
+              <app-plan-lock class="export-lock" />
+            }
           </section>
 
           <section class="detail-section">

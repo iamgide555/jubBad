@@ -40,7 +40,8 @@ export interface ManagedPlayer {
   email: string | null;
   phone: string | null;
   level: Level | null;
-  rating: number;
+  /** null on the free plan, with singlesRating and winRate: the server withholds ratings there. */
+  rating: number | null;
   singlesRating: number | null;
   winRate: number | null;
 }

@@ -29,8 +29,10 @@ export class GroupsController {
     return this.groupLevels.get(code);
   }
 
+  /** Paid gates below: a free group is refused with PLAN_REQUIRED before any lookup. */
   @Put(':code/levels')
-  saveLevels(@Param('code') code: string, @Body() dto: SaveGroupLevelsDto) {
+  async saveLevels(@Param('code') code: string, @Body() dto: SaveGroupLevelsDto) {
+    await this.plans.requireGroupPlan(code, 'host');
     return this.groupLevels.save(code, dto);
   }
 
@@ -45,7 +47,8 @@ export class GroupsController {
 
   /** Idempotent: sharing twice returns the same token, never rotates it. */
   @Post(':code/share')
-  enableShare(@Param('code') code: string) {
+  async enableShare(@Param('code') code: string) {
+    await this.plans.requireGroupPlan(code, 'host');
     return this.groupShare.enable(code);
   }
 
@@ -113,7 +116,9 @@ export class GroupsController {
   }
 
   @Post(':code/shuttle-tools')
-  setShuttleTools(@Param('code') code: string, @Body() dto: SetShuttleToolsDto) {
+  async setShuttleTools(@Param('code') code: string, @Body() dto: SetShuttleToolsDto) {
+    // Only turning it on is paid; a lapsed host can always switch it off.
+    if (dto.enabled === true) await this.plans.requireGroupPlan(code, 'host');
     return this.groupsService.setShuttleTools(code, dto.enabled);
   }
 
@@ -124,7 +129,8 @@ export class GroupsController {
   }
 
   @Post(':code/cross-session-history')
-  setCrossSessionHistory(@Param('code') code: string, @Body() dto: SetShuttleToolsDto) {
+  async setCrossSessionHistory(@Param('code') code: string, @Body() dto: SetShuttleToolsDto) {
+    if (dto.enabled === true) await this.plans.requireGroupPlan(code, 'host');
     return this.groupsService.setCrossSessionHistory(code, dto.enabled);
   }
 
@@ -179,12 +185,14 @@ export class GroupsController {
   }
 
   @Post(':code/rules')
-  createRule(@Param('code') code: string, @Body() dto: SetPlayerRuleDto) {
+  async createRule(@Param('code') code: string, @Body() dto: SetPlayerRuleDto) {
+    await this.plans.requireGroupPlan(code, 'host');
     return this.groupsService.createRule(code, dto);
   }
 
   @Put(':code/rules/:ruleId')
-  setRuleKind(@Param('code') code: string, @Param('ruleId') ruleId: string, @Body() dto: SetPlayerRuleKindDto) {
+  async setRuleKind(@Param('code') code: string, @Param('ruleId') ruleId: string, @Body() dto: SetPlayerRuleKindDto) {
+    await this.plans.requireGroupPlan(code, 'host');
     return this.groupsService.setRuleKind(code, ruleId, dto.kind);
   }
 
@@ -196,7 +204,8 @@ export class GroupsController {
   /** Public: a player's own stat card, read-only. */
   @Public()
   @Get(':code/players/:playerId/stats')
-  playerStats(@Param('code') code: string, @Param('playerId') playerId: string) {
+  async playerStats(@Param('code') code: string, @Param('playerId') playerId: string) {
+    await this.plans.requireGroupPlan(code, 'host');
     return this.groupsService.playerStats(code, playerId);
   }
 
@@ -205,7 +214,8 @@ export class GroupsController {
    * it easy to overlook when thinking of auth as protecting writes.
    */
   @Get(':code/export')
-  export(@Param('code') code: string) {
+  async export(@Param('code') code: string) {
+    await this.plans.requireGroupPlan(code, 'host');
     return this.groupsService.exportGroup(code);
   }
 

@@ -1255,6 +1255,18 @@ count and price; `GET /sessions/:code`, display, summary and an issued
 `/d/:token`; and anything in a session already running (a lapsed host keeps
 proposing and confirming in สูสี).
 
+**What a free host sees (web).** Planning surfaces show paid options locked
+(greyed with a "needs the Host plan" note): the session mode toggle, the bill
+extras, the level-ladder entry buttons, and the roster page's add-rule. The
+group settings list greys a row (badge "แพ็กเกจโฮสต์", not a link) only when its
+page would have nothing a free host can do: share with no link yet, advanced
+with both switches off, levels on the standard ladder. A row that holds paid
+data stays a link so it can be cleaned up. The busy live court screen hides
+paid-only controls instead of locking them (per-court mode and target, add-rule,
+the lineup-queue buttons), each staying visible while something paid is already
+in use (a court on a paid mode or a non-auto target, a non-empty queue). A
+failed or unloaded plan hides and disables nothing.
+
 ## Current state
 
 Everything described above is built: the three engines, the API, the Angular

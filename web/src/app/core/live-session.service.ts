@@ -8,6 +8,7 @@ import type { Session } from './session.model';
 import { levelsErrorMessage } from './group-levels.model';
 import type { Level } from '../../../../engines/levels.ts';
 import type { BillConfig, BillResponse } from './bill.model';
+import { planRequiredMessage } from './plan';
 import type { PairRule } from './pair-rule.model';
 import { checkoutErrorMessage, type CheckoutModel, type CheckoutPreview, type CheckoutReceipt } from './checkout.model';
 import type { ShuttleChoice, ShuttleInventory } from './shuttle.model';
@@ -168,6 +169,8 @@ function messageForCode(code: string): string | null {
       return $localize`:@@err.code.playerAlreadyQueued:ผู้เล่นคนนี้อยู่ในคิวล่วงหน้าแล้ว`;
     case 'LINEUP_NOT_FOUND':
       return $localize`:@@err.code.lineupNotFound:ไม่พบคิวนี้แล้ว`;
+    case 'PLAN_REQUIRED':
+      return planRequiredMessage();
     case 'LEVEL_LADDER_STALE':
     case 'LEVEL_UNKNOWN':
       return levelsErrorMessage(code);

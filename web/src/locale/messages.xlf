@@ -755,6 +755,34 @@
           <context context-type="linenumber">14</context>
         </context-group>
       </trans-unit>
+      <trans-unit id="plan.required" datatype="html">
+        <source>ฟีเจอร์นี้ใช้ได้ในแพ็กเกจโฮสต์ ติดต่อผู้ดูแลเพื่ออัปเกรด</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/core/plan.ts</context>
+          <context context-type="linenumber">39</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="plan.groupLimit" datatype="html">
+        <source>แพ็กเกจของคุณสร้างก๊วนได้สูงสุด <x id="limit" equiv-text="limit"/> ก๊วน</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/core/plan.ts</context>
+          <context context-type="linenumber">49</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="plan.lock.hint" datatype="html">
+        <source>ใช้ได้ในแพ็กเกจโฮสต์</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/shared/plan-lock/plan-lock.html</context>
+          <context context-type="linenumber">1</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="plan.lock.sub" datatype="html">
+        <source>ติดต่อผู้ดูแลเพื่ออัปเกรด</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/shared/plan-lock/plan-lock.html</context>
+          <context context-type="linenumber">2</context>
+        </context-group>
+      </trans-unit>
       <trans-unit id="admin.title" datatype="html">
         <source>ผู้ดูแลระบบ</source>
         <context-group purpose="location">

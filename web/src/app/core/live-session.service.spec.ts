@@ -594,6 +594,18 @@ describe('LiveSessionService', () => {
       });
     });
 
+    it('maps a 403 PLAN_REQUIRED refusal to the plan copy', async () => {
+      await flushSession(baseSession());
+      const promise = service.confirmMatch('pair1');
+      httpMock
+        .expectOne(`${B}/sessions/sess1/pairings/pair1/confirm`)
+        .flush({ code: 'PLAN_REQUIRED', requiredPlan: 'host' }, { status: 403, statusText: 'Forbidden' });
+      expect(await promise).toEqual({
+        ok: false,
+        error: 'ฟีเจอร์นี้ใช้ได้ในแพ็กเกจโฮสต์ ติดต่อผู้ดูแลเพื่ออัปเกรด',
+      });
+    });
+
     it('maps the search-limit 503 apart from not-enough-players', async () => {
       await flushSession(baseSession());
       const promise = service.proposeMatch(1);

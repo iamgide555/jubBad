@@ -1,0 +1,12 @@
+:host {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  color: var(--ink-soft);
+  font-size: 0.875rem;
+}
+
+.lock-sub {
+  font-size: 0.8125rem;
+  opacity: 0.85;
+}

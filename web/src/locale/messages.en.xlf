@@ -2724,6 +2724,34 @@
           <context context-type="linenumber">14</context>
         </context-group>
       </trans-unit>
+      <trans-unit id="plan.required" datatype="html">
+        <source>ฟีเจอร์นี้ใช้ได้ในแพ็กเกจโฮสต์ ติดต่อผู้ดูแลเพื่ออัปเกรด</source><target>This feature needs the Host plan. Contact the admin to upgrade.</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/core/plan.ts</context>
+          <context context-type="linenumber">39</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="plan.groupLimit" datatype="html">
+        <source>แพ็กเกจของคุณสร้างก๊วนได้สูงสุด <x id="limit" equiv-text="limit"/> ก๊วน</source><target>Your plan allows up to <x id="limit" equiv-text="limit"/> groups</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/core/plan.ts</context>
+          <context context-type="linenumber">49</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="plan.lock.hint" datatype="html">
+        <source>ใช้ได้ในแพ็กเกจโฮสต์</source><target>Available on the Host plan</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/shared/plan-lock/plan-lock.html</context>
+          <context context-type="linenumber">1</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="plan.lock.sub" datatype="html">
+        <source>ติดต่อผู้ดูแลเพื่ออัปเกรด</source><target>Contact the admin to upgrade</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/shared/plan-lock/plan-lock.html</context>
+          <context context-type="linenumber">2</context>
+        </context-group>
+      </trans-unit>
       <trans-unit id="err.code.pairRuleViolation" datatype="html">
         <source>เปลี่ยนไม่ได้ เพราะขัดกับกฎการจับคู่</source>
         <target>Can't change that — it breaks a pairing rule</target>

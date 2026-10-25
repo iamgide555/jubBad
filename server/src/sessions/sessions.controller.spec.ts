@@ -4204,6 +4204,70 @@ describe('SessionsController', () => {
     }
   });
 
+  it('GET /sessions/:code/summary lists a player\'s matches in the order they were played, not by court', async () => {
+    const groupCode = randomUUID();
+    const sessionCode = randomUUID();
+    await prisma.group.create({ data: { code: groupCode, name: 'G' } });
+    const players = await Promise.all(
+      ['A', 'B', 'C', 'D'].map((name) =>
+        prisma.player.create({ data: { groupId: groupCode, name, aliases: '[]' } })
+      )
+    );
+    await prisma.session.create({
+      data: {
+        code: sessionCode,
+        groupId: groupCode,
+        date: '2026-09-10',
+        venue: 'Court X',
+        courtCount: 2,
+        rawImportText: '',
+        endedAt: new Date(),
+      },
+    });
+    const teams = (a: number[], b: number[]) => ({
+      teamA: JSON.stringify(a.map((i) => players[i].id)),
+      teamB: JSON.stringify(b.map((i) => players[i].id)),
+    });
+    const start = new Date('2026-09-10T10:00:00.000Z');
+    const end = (m: number) => new Date(start.getTime() + m * 60_000);
+    // A plays court 2 first, then court 1 — court order would reverse this.
+    await prisma.pairing.create({
+      data: {
+        sessionId: sessionCode,
+        courtNumber: 2,
+        matchNumber: 1,
+        ...teams([0, 1], [2, 3]),
+        confirmedAt: start,
+        endedAt: end(10),
+        winner: 'A',
+      },
+    });
+    await prisma.pairing.create({
+      data: {
+        sessionId: sessionCode,
+        courtNumber: 1,
+        matchNumber: 1,
+        ...teams([0, 2], [1, 3]),
+        confirmedAt: end(11),
+        endedAt: end(21),
+        winner: 'B',
+      },
+    });
+
+    try {
+      const res = await request(server).get(`/sessions/${sessionCode}/summary`).expect(200);
+      const a = (res.body.players as { playerId: string; matches: { courtNumber: number }[] }[]).find(
+        (r) => r.playerId === players[0].id
+      );
+      expect(a!.matches.map((m) => m.courtNumber)).toEqual([2, 1]);
+    } finally {
+      await prisma.pairing.deleteMany({ where: { sessionId: sessionCode } });
+      await prisma.player.deleteMany({ where: { groupId: groupCode } });
+      await prisma.session.deleteMany({ where: { code: sessionCode } });
+      await prisma.group.deleteMany({ where: { code: groupCode } });
+    }
+  });
+
   it('GET /sessions/:code/summary splits played/won/lost by singles vs doubles', async () => {
     const groupCode = randomUUID();
     const sessionCode = randomUUID();

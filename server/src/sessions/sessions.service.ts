@@ -3955,9 +3955,12 @@ export class SessionsService {
     if (!session) throw this.notFound('SESSION_NOT_FOUND');
 
     const finishedMatch = { confirmedAt: { not: null }, endedAt: { not: null } } as const;
+    // Courts rotate independently, so chronological order (start time, oldest
+    // first) is what each player's match list should read as; court and match
+    // number only break ties.
     const pairings = await this.prisma.pairing.findMany({
       where: { sessionId: code, ...finishedMatch },
-      orderBy: [{ courtNumber: 'asc' }, { matchNumber: 'asc' }],
+      orderBy: [{ confirmedAt: 'asc' }, { courtNumber: 'asc' }, { matchNumber: 'asc' }],
     });
 
     // Advanced sessions publish a read-only chronological shuttle log. An

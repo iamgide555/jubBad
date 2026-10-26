@@ -60,6 +60,10 @@ export class OwnershipGuard implements CanActivate {
     // refused by the default-deny below.
     if (path === '/venues/search') return true;
 
+    // The caller's own plan (GET /plans/me): it names no group, and the service
+    // reads only the signed-in user's row.
+    if (path === '/plans/me') return true;
+
     // Express types params as `string | string[]` (a repeated segment could
     // in principle produce an array); every route here declares :code once,
     // so anything but a single string is not a shape this guard recognises.

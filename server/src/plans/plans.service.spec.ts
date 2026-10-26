@@ -119,7 +119,7 @@ describe('PlansService', () => {
     const owner = await makeUser({ plan: 'free' });
     const code = await makeGroup(owner.id);
     const res = await request(server).get(`/groups/${code}/plan`).expect(200);
-    expect(res.body).toEqual({ plan: 'free', renewsAt: null });
+    expect(res.body).toEqual({ plan: 'free', renewsAt: null, lapsedAt: null, paused: false, archiveHidden: 0 });
   });
 
   it('GET /groups/:code/plan reports the renewal date as ISO', async () => {
@@ -127,7 +127,114 @@ describe('PlansService', () => {
     const owner = await makeUser({ plan: 'host', planRenewsAt: renewsAt });
     const code = await makeGroup(owner.id);
     const res = await request(server).get(`/groups/${code}/plan`).expect(200);
-    expect(res.body).toEqual({ plan: 'host', renewsAt: renewsAt.toISOString() });
+    expect(res.body).toEqual({
+      plan: 'host',
+      renewsAt: renewsAt.toISOString(),
+      lapsedAt: null,
+      paused: false,
+      archiveHidden: 0,
+    });
+  });
+
+  async function sessionIn(groupId: string, createdAt: Date) {
+    const code = randomUUID();
+    await prisma.session.create({ data: { code, groupId, rawImportText: '', createdAt } });
+    sessionCodes.push(code);
+    return code;
+  }
+  const daysAgo = (n: number) => new Date(Date.now() - n * 24 * 3600 * 1000);
+
+  it('pausedGroupCodes pauses the older-ranked group of a free owner', async () => {
+    const owner = await makeUser({ plan: 'free' });
+    const a = await makeGroup(owner.id);
+    const b = await makeGroup(owner.id);
+    await sessionIn(a, daysAgo(20));
+    await sessionIn(b, daysAgo(2));
+    expect([...(await plans.pausedGroupCodes(owner.id))]).toEqual([a]);
+  });
+
+  it('pausedGroupCodes unpauses the next group once the usable one is deleted', async () => {
+    const owner = await makeUser({ plan: 'free' });
+    const a = await makeGroup(owner.id);
+    const b = await makeGroup(owner.id);
+    await sessionIn(a, daysAgo(20));
+    const bSession = await sessionIn(b, daysAgo(2));
+    await prisma.session.delete({ where: { code: bSession } });
+    await prisma.group.delete({ where: { code: b } });
+    expect((await plans.pausedGroupCodes(owner.id)).size).toBe(0);
+  });
+
+  it('pausedGroupCodes with no sessions anywhere pauses only the older group', async () => {
+    const owner = await makeUser({ plan: 'free' });
+    const older = await makeGroup(owner.id);
+    await prisma.group.update({ where: { code: older }, data: { createdAt: daysAgo(30) } });
+    await makeGroup(owner.id);
+    expect([...(await plans.pausedGroupCodes(owner.id))]).toEqual([older]);
+  });
+
+  it('pausedGroupCodes pauses nothing for a host owner with 2 groups or an admin with 12', async () => {
+    const host = await makeUser({ plan: 'host' });
+    await makeGroup(host.id);
+    await makeGroup(host.id);
+    expect((await plans.pausedGroupCodes(host.id)).size).toBe(0);
+    const admin = await makeUser({ role: 'admin', plan: 'free' });
+    for (let i = 0; i < 12; i++) await makeGroup(admin.id);
+    expect((await plans.pausedGroupCodes(admin.id)).size).toBe(0);
+  });
+
+  it('isGroupPaused is false for an ownerless or missing group', async () => {
+    expect(await plans.isGroupPaused(await makeGroup(null))).toBe(false);
+    expect(await plans.isGroupPaused(randomUUID())).toBe(false);
+  });
+
+  it('describeGroup reports a lapse, a pause and the hidden archive count', async () => {
+    const renewsAt = daysAgo(10);
+    const owner = await makeUser({ plan: 'host', planRenewsAt: renewsAt });
+    const code = await makeGroup(owner.id);
+    await sessionIn(code, daysAgo(60));
+    await sessionIn(code, daysAgo(40));
+    await sessionIn(code, daysAgo(3));
+    const info = await plans.describeGroup(code);
+    expect(info).toEqual({
+      plan: 'free',
+      renewsAt: renewsAt.toISOString(),
+      lapsedAt: renewsAt.toISOString(),
+      paused: false,
+      archiveHidden: 2,
+    });
+  });
+
+  it('describeCaller reports the cap and counts for a free user, and no limit for an admin', async () => {
+    const free = await makeUser({ plan: 'free' });
+    await makeGroup(free.id);
+    await makeGroup(free.id);
+    expect(await plans.describeCaller({ id: free.id, role: 'host' })).toMatchObject({
+      plan: 'free',
+      groupCount: 2,
+      groupLimit: 1,
+      lapsedAt: null,
+    });
+    const admin = await makeUser({ role: 'admin', plan: 'free' });
+    expect(await plans.describeCaller({ id: admin.id, role: 'admin' })).toMatchObject({
+      plan: 'club',
+      groupLimit: null,
+    });
+  });
+
+  it('describeCaller takes the contact link from UPGRADE_CONTACT_URL, https only', async () => {
+    const owner = await makeUser({ plan: 'free' });
+    const before = process.env.UPGRADE_CONTACT_URL;
+    try {
+      process.env.UPGRADE_CONTACT_URL = 'https://line.me/R/ti/p/@jubbad';
+      expect((await plans.describeCaller({ id: owner.id, role: 'host' })).upgradeUrl).toBe('https://line.me/R/ti/p/@jubbad');
+      process.env.UPGRADE_CONTACT_URL = 'javascript:alert(1)';
+      expect((await plans.describeCaller({ id: owner.id, role: 'host' })).upgradeUrl).toBeNull();
+      delete process.env.UPGRADE_CONTACT_URL;
+      expect((await plans.describeCaller({ id: owner.id, role: 'host' })).upgradeUrl).toBeNull();
+    } finally {
+      if (before === undefined) delete process.env.UPGRADE_CONTACT_URL;
+      else process.env.UPGRADE_CONTACT_URL = before;
+    }
   });
 
   it('GET /groups/:code/plan 404s for an unknown group', async () => {

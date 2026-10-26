@@ -117,6 +117,14 @@ describe('OwnershipGuard', () => {
     ).rejects.toBeInstanceOf(NotFoundException);
   });
 
+  it('lets any host through on GET /plans/me — it reads the caller own plan, not a group', async () => {
+    const g = guard(false, []);
+    await expect(g.canActivate(contextFor(OTHER_HOST, '/plans/me', {}))).resolves.toBe(true);
+    await expect(
+      g.canActivate(contextFor(OTHER_HOST, '/plans/other', {}))
+    ).rejects.toBeInstanceOf(NotFoundException);
+  });
+
   describe('/groups/:code', () => {
     it('admits the owner', async () => {
       const g = guard(false, [{ code: 'g1', ownerId: OWNER.id }]);

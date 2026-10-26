@@ -36,3 +36,38 @@ export function effectivePlan(owner: PlanOwner | null, now: Date): Plan {
 export function planAtLeast(plan: Plan, required: PaidPlan): boolean {
   return PLANS.indexOf(plan) >= PLANS.indexOf(required);
 }
+
+/**
+ * Codes of an owner's groups, most-usable first: newest session, then newest
+ * group, then code (so the order is total). The first GROUP_LIMIT[plan] stay
+ * usable; the rest are paused. Re-read every time, never stored, so deleting
+ * a group unpauses the next one at once.
+ */
+export function rankForCap(groups: { code: string; createdAt: Date; lastSessionAt: Date | null }[]): string[] {
+  return [...groups]
+    .sort((a, b) => {
+      const sessions = (b.lastSessionAt?.getTime() ?? -Infinity) - (a.lastSessionAt?.getTime() ?? -Infinity);
+      if (sessions !== 0 && !Number.isNaN(sessions)) return sessions;
+      const created = b.createdAt.getTime() - a.createdAt.getTime();
+      return created !== 0 ? created : a.code.localeCompare(b.code);
+    })
+    .map((g) => g.code);
+}
+
+/** The renewal date of a paid plan that has run out; null for anything else. */
+export function lapsedAt(owner: PlanOwner | null, now: Date): Date | null {
+  if (!owner || owner.role === 'admin') return null;
+  if (owner.plan !== 'host' && owner.plan !== 'club') return null;
+  if (!owner.planRenewsAt || now.getTime() <= owner.planRenewsAt.getTime()) return null;
+  return owner.planRenewsAt;
+}
+
+/** The upgrade contact link, only when it is a well-formed https URL. */
+export function upgradeContactUrl(raw: string | undefined): string | null {
+  if (!raw) return null;
+  try {
+    return new URL(raw).protocol === 'https:' ? raw : null;
+  } catch {
+    return null;
+  }
+}

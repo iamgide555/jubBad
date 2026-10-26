@@ -1,6 +1,17 @@
 import { ForbiddenException, Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service.js';
-import { effectivePlan, GROUP_LIMIT, planAtLeast, type PaidPlan, type Plan, type PlanOwner } from './plan.js';
+import {
+  effectivePlan,
+  FREE_ARCHIVE_DAYS,
+  GROUP_LIMIT,
+  lapsedAt,
+  planAtLeast,
+  rankForCap,
+  upgradeContactUrl,
+  type PaidPlan,
+  type Plan,
+  type PlanOwner,
+} from './plan.js';
 
 const OWNER_SELECT = { role: true, plan: true, planRenewsAt: true } as const;
 
@@ -25,20 +36,82 @@ export class PlansService {
     return effectivePlan(session?.group.owner ?? null, now);
   }
 
-  /** The owner's plan and renewal date, for the plan endpoint. Null when the group does not exist. */
+  /**
+   * The owner's plan facts for the plan endpoint. Null when the group does not exist.
+   * `paused`: this group is past the cap of a plan the owner is on now.
+   * `archiveHidden`: sessions the free 30-day window hides from the host's lists.
+   */
   async describeGroup(
     groupCode: string,
     now: Date = new Date()
-  ): Promise<{ plan: Plan; renewsAt: string | null } | null> {
+  ): Promise<{
+    plan: Plan;
+    renewsAt: string | null;
+    lapsedAt: string | null;
+    paused: boolean;
+    archiveHidden: number;
+  } | null> {
     const group = await this.prisma.group.findUnique({
       where: { code: groupCode },
-      select: { owner: { select: OWNER_SELECT } },
+      select: { ownerId: true, owner: { select: OWNER_SELECT } },
     });
     if (!group) return null;
+    const plan = effectivePlan(group.owner, now);
+    const archiveHidden =
+      plan === 'free'
+        ? await this.prisma.session.count({
+            where: {
+              groupId: groupCode,
+              createdAt: { lt: new Date(now.getTime() - FREE_ARCHIVE_DAYS * 24 * 60 * 60 * 1000) },
+            },
+          })
+        : 0;
     return {
-      plan: effectivePlan(group.owner, now),
+      plan,
       renewsAt: group.owner?.planRenewsAt?.toISOString() ?? null,
+      lapsedAt: lapsedAt(group.owner, now)?.toISOString() ?? null,
+      paused: group.ownerId ? (await this.pausedGroupCodes(group.ownerId, now)).has(groupCode) : false,
+      archiveHidden,
     };
+  }
+
+  /** The signed-in user's own plan, group count and cap, for the landing page and the upgrade sheet. */
+  async describeCaller(caller: { id: string; role: string }, now: Date = new Date()) {
+    const user = await this.prisma.user.findUnique({ where: { id: caller.id }, select: OWNER_SELECT });
+    const plan = effectivePlan(user, now);
+    return {
+      plan,
+      renewsAt: user?.planRenewsAt?.toISOString() ?? null,
+      lapsedAt: lapsedAt(user, now)?.toISOString() ?? null,
+      groupCount: await this.prisma.group.count({ where: { ownerId: caller.id } }),
+      groupLimit: caller.role === 'admin' ? null : GROUP_LIMIT[plan],
+      upgradeUrl: upgradeContactUrl(process.env.UPGRADE_CONTACT_URL),
+    };
+  }
+
+  /**
+   * Groups past the cap of the owner's current plan, ranked by newest session
+   * then newest group (see rankForCap). Read fresh each time: nothing is stored,
+   * so a delete or a renewal changes the answer immediately. An admin owner or
+   * an unknown owner pauses nothing.
+   */
+  async pausedGroupCodes(ownerId: string, now: Date = new Date()): Promise<Set<string>> {
+    const owner = await this.prisma.user.findUnique({ where: { id: ownerId }, select: OWNER_SELECT });
+    if (!owner || owner.role === 'admin') return new Set();
+    const groups = await this.prisma.group.findMany({
+      where: { ownerId },
+      select: { code: true, createdAt: true, sessions: { orderBy: { createdAt: 'desc' }, take: 1, select: { createdAt: true } } },
+    });
+    const ranked = rankForCap(
+      groups.map((g) => ({ code: g.code, createdAt: g.createdAt, lastSessionAt: g.sessions[0]?.createdAt ?? null }))
+    );
+    return new Set(ranked.slice(GROUP_LIMIT[effectivePlan(owner, now)]));
+  }
+
+  async isGroupPaused(groupCode: string, now: Date = new Date()): Promise<boolean> {
+    const group = await this.prisma.group.findUnique({ where: { code: groupCode }, select: { ownerId: true } });
+    if (!group?.ownerId) return false;
+    return (await this.pausedGroupCodes(group.ownerId, now)).has(groupCode);
   }
 
   async requireGroupPlan(groupCode: string, required: PaidPlan): Promise<void> {

@@ -14,7 +14,7 @@
 
 **Tech Stack:** NestJS + Prisma + SQLite (vitest, `fileParallelism: false`), Angular standalone + signals (`ng test`), `engines/` pure TypeScript (`node:test`), LINE Messaging API (webhook + reply + group/member summary).
 
-**Status (2026-10-26):** Tasks 1 to 9 built and verified on branch `feat/line-bot-roster`; the only open boxes are the owner's real-LINE check (Task 9 step 4) and archiving this plan after that. Rulings made during the build are in the PR description and `docs/overview.md`'s LINE bot section.
+**Status (2026-10-26):** Done and deployed (head `4123065`, with plan gating). Real-LINE check passed on a test group on the live URL: link, roster pre-fill, unlink. Not testable: message edit (needs LINE Premium); the code assumes LINE's event type `messageEdited`. Rulings made during the build are in `docs/overview.md`'s LINE bot section.
 
 **Spec:** `docs/superpowers/specs/2026-10-26-line-bot-roster-design.md`. This plan covers spec sections 1 (Linking), 2 (Capture) and 3 (Start). Section 4 (Phase 2, weekly auto-post) is **out of scope**: the spec makes the LINE push-quota check a precondition for it. It gets its own plan once that is answered.
 
@@ -538,8 +538,8 @@ Behaviour:
   5. Put `LINE_CHANNEL_SECRET`, `LINE_CHANNEL_ACCESS_TOKEN` and `LINE_BOT_ADD_URL` in the server env.
   6. Run `npm run db:backup` before deploying the migration, then deploy.
   7. Press **Verify** next to the webhook URL in the LINE console. If it fails, check that Cloudflare (Bot Fight Mode or WAF rules) is not blocking LINE's requests to `/api/line/webhook`, and add a skip rule for that path if it is.
-- [ ] **Step 4: Owner's real-LINE check** (manual, after deploy, on the owner's own group): link, post a roster, open start, and confirm the pre-fill. Then edit the roster message and confirm start shows the edited text, unsend it and confirm it disappears from start, and unlink and confirm the bot leaves the LINE group. Note the exact event type string LINE sends for an edit and fix Task 4 if it differs from `messageEdited`. Record the result in the spec.
-- [ ] **Step 5: Archive this plan,** then commit with message `docs: LINE bot roster capture (phase 1)`
+- [x] **Step 4: Owner's real-LINE check** (manual, after deploy, on the owner's own group): link, post a roster, open start, and confirm the pre-fill. Then edit the roster message and confirm start shows the edited text, unsend it and confirm it disappears from start, and unlink and confirm the bot leaves the LINE group. Note the exact event type string LINE sends for an edit and fix Task 4 if it differs from `messageEdited`. Record the result in the spec.
+- [x] **Step 5: Archive this plan,** then commit with message `docs: LINE bot roster capture (phase 1)`
 
 ## Out of scope
 

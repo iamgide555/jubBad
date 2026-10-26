@@ -1332,7 +1332,7 @@ and "เกจ" so a Thai line never breaks inside the word.
 ### LINE bot (phase 1)
 
 Design: `docs/superpowers/specs/2026-10-26-line-bot-roster-design.md`; build plan:
-`docs/superpowers/plans/2026-10-26-line-bot-roster.md` (archived when finished). Phase 2, the
+`docs/archive/plans/2026-10-26-line-bot-roster.md` (finished and deployed 2026-10-26). Phase 2, the
 weekly auto-post of the template, is not built: LINE counts a group push once per member against
 the shared bot's monthly quota, so the quota has to be checked first.
 

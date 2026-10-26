@@ -1,6 +1,6 @@
 # LINE bot roster capture and weekly auto-post — design
 
-Status: **phase 1 built on branch `feat/line-bot-roster` (2026-10-26), not merged or deployed; phase 2 (weekly auto-post) pending the push-quota check.** Written from a brainstorming
+Status: **phase 1 built, deployed and checked on a real LINE group (2026-10-26); message edit untested (needs LINE Premium). Phase 2 (weekly auto-post) pending the push-quota check.** Written from a brainstorming
 conversation. Items marked **(my call)** were decided by the writer, not the owner.
 
 ## Intent and why

@@ -233,8 +233,12 @@ export class SessionsService {
    * The group's rules minus this session's switched-off ones, read fresh on
    * every call so a group edit applies to the next operation. An unknown
    * kind is corrupt data, not a rule to quietly skip.
+   *
+   * Rules are a paid feature: in a session created on the free plan they steer
+   * nothing (they stay stored, and listed, so an upgrade brings them back).
    */
-  private async loadEnabledRules(session: { groupId: string; disabledRuleIds: string | null }): Promise<PairRule[]> {
+  private async loadEnabledRules(session: { code: string; groupId: string; disabledRuleIds: string | null }): Promise<PairRule[]> {
+    if (!planAtLeast(await this.plans.planAtSessionCreation(session.code), 'host')) return [];
     const disabled = this.parseDisabledOrThrow(session.disabledRuleIds);
     const rows = await this.prisma.playerRule.findMany({
       where: { groupId: session.groupId },
@@ -2832,6 +2836,7 @@ export class SessionsService {
     });
     const ids = new Set(rules.map((r) => r.id));
     return {
+      rulesActive: planAtLeast(await this.plans.planAtSessionCreation(code), 'host'),
       rules: rules.map((r) => ({
         id: r.id,
         groupId: r.groupId,

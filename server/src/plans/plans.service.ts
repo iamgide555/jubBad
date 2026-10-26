@@ -114,6 +114,19 @@ export class PlansService {
     return (await this.pausedGroupCodes(group.ownerId, now)).has(groupCode);
   }
 
+  /**
+   * The owner's plan at the moment the session was created, the same instant the
+   * shuttle-tools and bill snapshots use, so a plan that lapses mid-night changes
+   * nothing for a session already running. A missing session reads as club.
+   */
+  async planAtSessionCreation(sessionCode: string): Promise<Plan> {
+    const session = await this.prisma.session.findUnique({
+      where: { code: sessionCode },
+      select: { createdAt: true, group: { select: { owner: { select: OWNER_SELECT } } } },
+    });
+    return session ? effectivePlan(session.group.owner, session.createdAt) : 'club';
+  }
+
   async requireGroupPlan(groupCode: string, required: PaidPlan): Promise<void> {
     this.assertAtLeast(await this.planForGroup(groupCode), required);
   }

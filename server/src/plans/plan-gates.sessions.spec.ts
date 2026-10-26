@@ -276,4 +276,55 @@ describe('plan gates on paid session controls', () => {
       }
     });
   });
+
+  describe('pair rules in a session created on free', () => {
+    const daysAgo = (n: number) => new Date(Date.now() - n * 24 * 3600 * 1000);
+
+    /** 4 players, 1 court's worth, with a never-same-court rule P0/P1: active rules block the only match. */
+    async function ruled(owner: string, createdAt?: Date) {
+      const f = await fixture({ mode: 'variety', owner });
+      if (createdAt) await prisma.session.update({ where: { code: f.sessionCode }, data: { createdAt } });
+      await prisma.playerRule.create({
+        data: { groupId: f.code, playerAId: f.players[0].id, playerBId: f.players[1].id, kind: 'never-same-court' },
+      });
+      return { ...f, cleanup: async () => { await prisma.playerRule.deleteMany({ where: { groupId: f.code } }); await f.cleanup(); } };
+    }
+    const propose = (sessionCode: string) =>
+      request(server).post(`/sessions/${sessionCode}/courts/1/propose`).send({}).expect(201);
+
+    it('does not apply the rule, and says so, when the session was created on free', async () => {
+      const f = await ruled(freeId);
+      try {
+        expect((await propose(f.sessionCode)).body).not.toMatchObject({ reason: 'pair-rules-blocked' });
+        const rules = (await request(server).get(`/sessions/${f.sessionCode}/rules`).expect(200)).body;
+        expect(rules.rulesActive).toBe(false);
+        expect(rules.rules).toHaveLength(1);
+      } finally {
+        await f.cleanup();
+      }
+    });
+
+    it('still applies the rule in a session created while the plan was paid, after a lapse', async () => {
+      const lapsed = await prisma.user.create({
+        data: { email: `sg-lapsed-${randomUUID()}@example.test`, passwordHash: 'x', role: 'host', plan: 'host', planRenewsAt: daysAgo(5) },
+      });
+      const f = await ruled(lapsed.id, daysAgo(10));
+      try {
+        expect((await propose(f.sessionCode)).body).toMatchObject({ reason: 'pair-rules-blocked' });
+        expect((await request(server).get(`/sessions/${f.sessionCode}/rules`).expect(200)).body.rulesActive).toBe(true);
+      } finally {
+        await f.cleanup();
+        await prisma.user.delete({ where: { id: lapsed.id } });
+      }
+    });
+
+    it('applies the rule for a host plan owner as before', async () => {
+      const f = await ruled(hostId);
+      try {
+        expect((await propose(f.sessionCode)).body).toMatchObject({ reason: 'pair-rules-blocked' });
+      } finally {
+        await f.cleanup();
+      }
+    });
+  });
 });

@@ -323,8 +323,8 @@
 }
 
 .mode-lock {
-  align-items: flex-end;
-  max-width: 13rem;
+  justify-content: flex-end;
+  max-width: 16rem;
   margin-left: auto;
   margin-top: var(--space-0);
 }

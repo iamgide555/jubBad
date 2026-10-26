@@ -150,7 +150,7 @@
                 <input
                   type="checkbox"
                   [checked]="rule.enabled"
-                  [disabled]="ended()"
+                  [disabled]="ended() || !rulesActive()"
                   (change)="toggleSessionRule(rule.id, !rule.enabled)"
                 />
                 <span>{{ rule.players }} — <strong>{{ rule.kind }}</strong>
@@ -159,6 +159,9 @@
             </li>
           }
         </ul>
+        @if (!rulesActive()) {
+          <p class="muted" data-rules-inactive i18n="@@dashboard.rulesInactive">กฎไม่ใช้ในรอบนี้ — รอบนี้เริ่มในแพ็ก⁠เกจฟรี</p>
+        }
         <p class="muted" i18n="@@dashboard.sessionRulesHint">ปิดกฎเฉพาะคืนนี้ — แก้หรือลบกฎถาวรที่หน้าผู้เล่นในก๊วน</p>
         @if (rulesError()) {
           <p class="error" role="alert">{{ rulesError() }}</p>
@@ -279,18 +282,6 @@
               เลือกเอง
             </button>
           </div>
-          @if (!paid()) {
-            <app-plan-lock class="mode-lock" [hint]="modesLockHint" />
-          }
-          @if (pendingModeSwitch()) {
-            <div class="mode-confirm" data-mode-confirm role="group" aria-labelledby="mode-confirm-text">
-              <p id="mode-confirm-text" class="mode-confirm-text" i18n="@@dashboard.modeOneWay">เปลี่ยนแล้วจะกลับมาใช้โหมดนี้ไม่ได้ในแพ็ก⁠เกจนี้</p>
-              <div class="mode-confirm-actions">
-                <button type="button" data-mode-confirm-ok (click)="confirmModeSwitch()" i18n="@@dashboard.modeOneWayConfirm">เปลี่ยนโหมด</button>
-                <button type="button" class="ghost" data-mode-confirm-cancel (click)="cancelModeSwitch()" i18n="@@court.cancelPick">ยกเลิก</button>
-              </div>
-            </div>
-          }
           @switch (mode()) {
             @case ('balanced') {
               <p class="mode-hint" i18n="@@dashboard.modeBalancedHint">
@@ -311,6 +302,18 @@
             @default {
               <p class="mode-hint" i18n="@@dashboard.modeVarietyHint">เน้นไม่ให้ซ้ำคู่เดิม</p>
             }
+          }
+          @if (!paid()) {
+            <app-plan-lock class="mode-lock" [hint]="modesLockHint" />
+          }
+          @if (pendingModeSwitch()) {
+            <div class="mode-confirm" data-mode-confirm role="group" aria-labelledby="mode-confirm-text">
+              <p id="mode-confirm-text" class="mode-confirm-text">{{ modeOneWayText() }}</p>
+              <div class="mode-confirm-actions">
+                <button type="button" data-mode-confirm-ok (click)="confirmModeSwitch()" i18n="@@dashboard.modeOneWayConfirm">เปลี่ยนโหมด</button>
+                <button type="button" class="ghost" data-mode-confirm-cancel (click)="cancelModeSwitch()" i18n="@@court.cancelPick">ยกเลิก</button>
+              </div>
+            </div>
           }
         </div>
 

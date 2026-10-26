@@ -544,6 +544,14 @@ export class SessionDashboard implements OnDestroy {
   cancelModeSwitch(): void {
     this.pendingModeSwitch.set(null);
   }
+
+  /** "You can't come back to สูสี": names the mode being given up, never "this mode". */
+  protected readonly modeOneWayText = computed(() => {
+    const mode = this.mode() === 'level'
+      ? $localize`:@@dashboard.modeNameLevel:ตามระดับ`
+      : $localize`:@@dashboard.modeNameBalanced:สูสี`;
+    return $localize`:@@dashboard.modeOneWay:เปลี่ยนแล้วจะกลับมาใช้${mode}:mode:ไม่ได้ในแพ็ก⁠เกจนี้`;
+  });
   /** Custom session only: true when at least one court is set to ระดับ, so
    *  the shared waiting list (which stays games-then-wait in a custom
    *  session — see waiting-time.ts) can warn that a level court may pick
@@ -604,6 +612,9 @@ export class SessionDashboard implements OnDestroy {
       enabled: !off.has(r.id),
     }));
   });
+
+  /** False in a session created on free: rules are listed but do nothing there. */
+  protected readonly rulesActive = computed(() => this.liveSession.sessionRules()?.rulesActive !== false);
 
   protected readonly rulesError = signal<string | null>(null);
 

@@ -22,6 +22,11 @@ export interface BlockedCourt {
 export interface SessionRules {
   rules: PairRule[];
   disabledRuleIds: string[];
+  /**
+   * False in a session created on the free plan: the rules stay listed but steer nothing.
+   * Absent (an older server) counts as active.
+   */
+  rulesActive?: boolean;
 }
 
 interface ProposeResponse {

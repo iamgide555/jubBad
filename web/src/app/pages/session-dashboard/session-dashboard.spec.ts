@@ -1661,8 +1661,10 @@ describe('SessionDashboard', () => {
     };
     const text = () => (fixture.nativeElement as HTMLElement).textContent ?? '';
 
-    async function flushRules(disabledRuleIds: string[] = [], rules = [rule]) {
-      for (const r of httpMock.match(`${B}/sessions/sess1/rules`)) r.flush({ rules, disabledRuleIds });
+    async function flushRules(disabledRuleIds: string[] = [], rules = [rule], rulesActive?: boolean) {
+      for (const r of httpMock.match(`${B}/sessions/sess1/rules`)) {
+        r.flush(rulesActive === undefined ? { rules, disabledRuleIds } : { rules, disabledRuleIds, rulesActive });
+      }
       await fixture.whenStable();
       fixture.detectChanges();
     }
@@ -1694,6 +1696,21 @@ describe('SessionDashboard', () => {
       expect(ruleToggle().checked).toBe(true);
       // The group's own rule list is never written from the dashboard.
       expect(httpMock.match((r) => r.url.includes('/groups/group1/rules'))).toEqual([]);
+    });
+
+    it('says the rules are off, and freezes their switches, in a session created on the free plan', async () => {
+      await settled();
+      await flushRules([], [rule], false);
+      expect(text()).toContain('กฎไม่ใช้ในรอบนี้ — รอบนี้เริ่มในแพ็ก⁠เกจฟรี');
+      expect(text()).toContain('ตั้ม · เบส');
+      expect(ruleToggle().disabled).toBe(true);
+    });
+
+    it('shows no inactive note and enabled switches when the rules are active or the flag is absent', async () => {
+      await settled();
+      await flushRules([], [rule], true);
+      expect(text()).not.toContain('กฎไม่ใช้ในรอบนี้');
+      expect(ruleToggle().disabled).toBe(false);
     });
 
     it('picks up a rule added in another tab when the window regains focus', async () => {
@@ -1987,7 +2004,36 @@ describe('SessionDashboard', () => {
         modeBtn('variety').click();
         fixture.detectChanges();
         expect(modePosts()).toEqual([]);
-        expect(confirmBox()?.textContent).toContain('เปลี่ยนแล้วจะกลับมาใช้โหมดนี้ไม่ได้ในแพ็ก⁠เกจนี้');
+        expect(confirmBox()?.textContent).toContain('เปลี่ยนแล้วจะกลับมาใช้สูสีไม่ได้ในแพ็ก⁠เกจนี้');
+      });
+
+      it('free on ตามระดับ: the confirm names ตามระดับ, not "this mode"', async () => {
+        await loadWithPlan(baseSession({ mode: 'level' }), 'free');
+        modeBtn('custom').click();
+        fixture.detectChanges();
+        expect(confirmBox()?.textContent).toContain('เปลี่ยนแล้วจะกลับมาใช้ตามระดับไม่ได้ในแพ็ก⁠เกจนี้');
+        expect(confirmBox()?.textContent).not.toContain('โหมดนี้');
+      });
+
+      it('free on สูสี: the mode description sits right under the toggle, then the lock, then the confirm', async () => {
+        await loadWithPlan(baseSession({ mode: 'balanced' }), 'free');
+        modeBtn('variety').click();
+        fixture.detectChanges();
+        const kids = [...el().querySelector('.mode-toggle')!.children].map((c) =>
+          c.classList.contains('scope-toggle')
+            ? 'toggle'
+            : c.classList.contains('mode-hint')
+              ? 'hint'
+              : c.tagName === 'APP-PLAN-LOCK'
+                ? 'lock'
+                : c.hasAttribute('data-mode-confirm')
+                  ? 'confirm'
+                  : 'other'
+        );
+        const order = kids.filter((k) => k !== 'other');
+        expect(order.slice(0, 2)).toEqual(['toggle', 'hint']);
+        expect(order.indexOf('lock')).toBeGreaterThan(order.lastIndexOf('hint'));
+        expect(order.indexOf('confirm')).toBeGreaterThan(order.indexOf('lock'));
       });
 
       it('free on สูสี: cancel closes the confirm and keeps the mode', async () => {

@@ -5909,6 +5909,14 @@
           <context context-type="linenumber">200</context>
         </context-group>
       </trans-unit>
+      <trans-unit id="summary.lineBusy" datatype="html">
+        <source>กำลังส่งสรุปอยู่ รอสักครู่แล้วลองใหม่</source>
+        <target>A summary is already being sent; wait a moment and try again</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/session-summary/session-summary.ts</context>
+          <context context-type="linenumber">197</context>
+        </context-group>
+      </trans-unit>
     </body>
   </file>
 </xliff>

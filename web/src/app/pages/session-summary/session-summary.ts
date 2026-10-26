@@ -180,7 +180,8 @@ export class SessionSummary {
 
   protected readonly canSendLineSummary = computed(() => {
     const state = this.lineState();
-    return this.owner() && state !== null && state.available && !state.sent;
+    // The card is about a finished night: the page is also reachable mid-session from the dashboard.
+    return this.owner() && state !== null && state.available && !state.sent && this.summary()?.session.endedAt != null;
   });
 
   /** The line under the title about the card, or null when there is nothing to say. */
@@ -192,6 +193,8 @@ export class SessionSummary {
       return $localize`:@@summary.lineSent:ส่งสรุปเข้ากลุ่ม LINE แล้ว`;
     }
     switch (outcome) {
+      case 'busy':
+        return $localize`:@@summary.lineBusy:กำลังส่งสรุปอยู่ รอสักครู่แล้วลองใหม่`;
       case 'quota':
         return $localize`:@@summary.lineQuota:โควตาข้อความ LINE เดือนนี้หมดแล้ว ส่งสรุปไม่ได้`;
       case 'failed':

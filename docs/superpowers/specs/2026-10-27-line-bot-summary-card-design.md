@@ -70,9 +70,13 @@ It starts ticked or unticked from the group's setting (default ticked **(my call
 
 ### Exactly once
 
-A session records when its card was sent. The send claims that slot first (set only if it is
-empty), then pushes; if the push fails, the claim is released so a resend can try again. Two
-taps, or the end dialog racing the resend button, cannot post twice.
+A send first claims the session (a claim time, set only while nothing was sent and no fresh claim
+exists), then pushes. "Sent" is recorded only after LINE accepted the push. A failed push releases the
+claim; a claim older than 30 seconds counts as abandoned (the process may have died), so a missed
+card is never stuck as "sent". Two taps, or the end dialog racing the resend button, cannot post
+twice: the second gets "busy" or "already sent". Every push carries a LINE retry key derived from the
+session code, so a timeout whose answer was lost can be retried without a duplicate card (LINE
+answers 409 to a repeat, which counts as sent). **(added after the final review)**
 
 ### Resend from the summary page
 
@@ -90,8 +94,8 @@ groups don't show it, matching phase 1's paused state.
 
 ### The card
 
-- A Flex Message bubble: a header with the group name, rows for date (the session's own date
-  text as the summary page shows it; if it has none, the end date in Thai format, Asia/Bangkok),
+- A Flex Message bubble: a header with the group name, rows for date (the stored yyyy-mm-dd date
+  written as a Thai date, other date text as written; if there is none, the end date, Asia/Bangkok),
   venue (omitted when the session has none), number of players, number of games, and one URI
   button "ดูสรุป" to the summary page.
 - Alt text (shown in notifications and the chat list): `สรุปก๊วน <ชื่อกลุ่ม> <วันที่>`.

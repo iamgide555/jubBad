@@ -21,11 +21,21 @@ export class LineClient {
     await this.call('POST', '/message/reply', { replyToken, messages: [{ type: 'text', text }] });
   }
 
-  /** Counts against the monthly quota once per group member; never throws. */
-  async push(lineGroupId: string, messages: unknown[]): Promise<LinePushOutcome> {
-    const result = await this.send('POST', '/message/push', { to: lineGroupId, messages });
+  /**
+   * Counts against the monthly quota once per group member; never throws. `retryKey` (a UUID) makes LINE
+   * drop a repeat of the same push, so a timeout we could not read the answer to is safe to retry.
+   */
+  async push(lineGroupId: string, messages: unknown[], retryKey?: string): Promise<LinePushOutcome> {
+    const result = await this.send(
+      'POST',
+      '/message/push',
+      { to: lineGroupId, messages },
+      retryKey ? { 'X-Line-Retry-Key': retryKey } : undefined
+    );
     if (result === null) return 'failed';
     if (result.status >= 200 && result.status < 300) return 'ok';
+    // LINE already accepted a push with this retry key: our earlier attempt got through, the answer was lost.
+    if (result.status === 409) return 'ok';
     const reason = typeof result.body?.message === 'string' ? result.body.message : '';
     return result.status === 429 && /monthly limit/i.test(reason) ? 'quota' : 'failed';
   }
@@ -66,14 +76,15 @@ export class LineClient {
   private async send(
     method: 'GET' | 'POST',
     path: string,
-    payload?: unknown
+    payload?: unknown,
+    extraHeaders?: Record<string, string>
   ): Promise<{ status: number; body: Record<string, unknown> | null } | null> {
     const { token } = lineConfig();
     if (!token) return null;
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
     try {
-      const headers: Record<string, string> = { Authorization: `Bearer ${token}` };
+      const headers: Record<string, string> = { Authorization: `Bearer ${token}`, ...extraHeaders };
       const init: RequestInit = { method, headers, signal: controller.signal };
       if (payload !== undefined) {
         headers['Content-Type'] = 'application/json';

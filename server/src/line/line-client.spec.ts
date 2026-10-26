@@ -122,6 +122,19 @@ describe('LineClient', () => {
       expect(await client.push('Cgroup', [message])).toBe('failed');
     });
 
+    it('sends the retry key header when given one, and none otherwise', async () => {
+      fetchMock.mockResolvedValue(jsonResponse(200, {}));
+      await client.push('Cgroup', [message], '5b7e1c0a-0000-4000-8000-000000000001');
+      expect(fetchMock.mock.calls[0][1].headers['X-Line-Retry-Key']).toBe('5b7e1c0a-0000-4000-8000-000000000001');
+      await client.push('Cgroup', [message]);
+      expect(fetchMock.mock.calls[1][1].headers['X-Line-Retry-Key']).toBeUndefined();
+    });
+
+    it('reads a 409 (this retry key was already accepted) as ok', async () => {
+      fetchMock.mockResolvedValue(jsonResponse(409, { message: 'The retry key is already accepted' }));
+      expect(await client.push('Cgroup', [message], '5b7e1c0a-0000-4000-8000-000000000001')).toBe('ok');
+    });
+
     it('is failed without calling LINE when the access token is unset', async () => {
       delete process.env.LINE_CHANNEL_ACCESS_TOKEN;
       expect(await client.push('Cgroup', [message])).toBe('failed');

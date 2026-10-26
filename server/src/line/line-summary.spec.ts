@@ -120,6 +120,8 @@ describe('LineSummaryService', () => {
     const session = await prisma.session.findUniqueOrThrow({ where: { code: sessionCode } });
     expect(session.lineSummarySentAt).not.toBeNull();
     expect(await summary.state(sessionCode)).toMatchObject({ sent: true });
+    // The retry key is stable per session, a UUID, so LINE can drop a duplicate of this exact push.
+    expect(fakeClient.push.mock.calls[0][2]).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/);
   });
 
   it('never sends a second card for the same session', async () => {
@@ -142,6 +144,7 @@ describe('LineSummaryService', () => {
     expect(await summary.send(sessionCode)).toBe('failed');
     const session = await prisma.session.findUniqueOrThrow({ where: { code: sessionCode } });
     expect(session.lineSummarySentAt).toBeNull();
+    expect(session.lineSummaryClaimedAt).toBeNull();
     expect(await summary.send(sessionCode)).toBe('sent');
   });
 
@@ -159,6 +162,46 @@ describe('LineSummaryService', () => {
     expect(await summary.send(sessionCode)).toBe('failed');
     const session = await prisma.session.findUniqueOrThrow({ where: { code: sessionCode } });
     expect(session.lineSummarySentAt).toBeNull();
+  });
+
+  it('uses the same retry key for every attempt on one session and a different one per session', async () => {
+    const one = await setup();
+    const two = await setup();
+    fakeClient.push.mockResolvedValueOnce('failed');
+    await summary.send(one.sessionCode);
+    await summary.send(one.sessionCode);
+    await summary.send(two.sessionCode);
+    const keys = fakeClient.push.mock.calls.map((c) => c[2]);
+    expect(keys[0]).toBe(keys[1]);
+    expect(keys[2]).not.toBe(keys[0]);
+  });
+
+  it('is not marked sent while a card is only claimed, and a fresh claim reads as busy', async () => {
+    const { sessionCode } = await setup();
+    await prisma.session.update({ where: { code: sessionCode }, data: { lineSummaryClaimedAt: new Date() } });
+    expect(await summary.state(sessionCode)).toMatchObject({ sent: false });
+    expect(await summary.send(sessionCode)).toBe('busy');
+    expect(fakeClient.push).not.toHaveBeenCalled();
+  });
+
+  it('can send again when an earlier attempt claimed and then died without sending', async () => {
+    const { sessionCode } = await setup();
+    await prisma.session.update({
+      where: { code: sessionCode },
+      data: { lineSummaryClaimedAt: new Date(Date.now() - 2 * 60_000) },
+    });
+    expect(await summary.send(sessionCode)).toBe('sent');
+    expect(fakeClient.push).toHaveBeenCalledTimes(1);
+    const session = await prisma.session.findUniqueOrThrow({ where: { code: sessionCode } });
+    expect(session.lineSummarySentAt).not.toBeNull();
+  });
+
+  it('writes a stored yyyy-mm-dd date on the card as a Thai date', async () => {
+    const { sessionCode } = await setup({ date: '2026-10-29' });
+    await summary.send(sessionCode);
+    const altText = fakeClient.push.mock.calls[0][1][0].altText as string;
+    expect(altText).not.toContain('2026-10-29');
+    expect(altText).toContain('ต.ค.');
   });
 
   it('falls back to the end date when the session has no date text', async () => {

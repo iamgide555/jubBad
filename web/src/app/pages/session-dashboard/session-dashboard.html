@@ -495,7 +495,7 @@
         (confirm)="confirmEndSession($event)"
       >
         @if (showLineSummary()) {
-          <label class="switch-row">
+          <label class="send-line-summary">
             <input
               type="checkbox"
               name="sendLineSummary"
@@ -504,9 +504,7 @@
               [disabled]="endSessionBusy()"
               (change)="toggleLineSummary($any($event.target))"
             />
-            <span class="switch-text">
-              <span class="switch-title" i18n="@@dashboard.sendLineSummary">ส่งสรุปเข้ากลุ่ม LINE</span>
-            </span>
+            <span i18n="@@dashboard.sendLineSummary">ส่งสรุปเข้ากลุ่ม LINE</span>
           </label>
         }
       </app-shuttle-details-dialog>

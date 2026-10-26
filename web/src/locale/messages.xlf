@@ -661,7 +661,7 @@
         </context-group>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/session-summary/session-summary.ts</context>
-          <context context-type="linenumber">395</context>
+          <context context-type="linenumber">398</context>
         </context-group>
       </trans-unit>
       <trans-unit id="pairRule.mustPair" datatype="html">
@@ -4130,7 +4130,7 @@
         </context-group>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/session-summary/session-summary.ts</context>
-          <context context-type="linenumber">426</context>
+          <context context-type="linenumber">429</context>
         </context-group>
       </trans-unit>
       <trans-unit id="playerRoster.errNoName" datatype="html">
@@ -6200,28 +6200,28 @@
         <source>ส่งสรุปเข้ากลุ่ม LINE</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/session-dashboard/session-dashboard.html</context>
-          <context context-type="linenumber">508,510</context>
+          <context context-type="linenumber">507,510</context>
         </context-group>
       </trans-unit>
       <trans-unit id="dashboard.notFound" datatype="html">
         <source>ไม่พบรอบนี้</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/session-dashboard/session-dashboard.html</context>
-          <context context-type="linenumber">545,546</context>
+          <context context-type="linenumber">543,544</context>
         </context-group>
       </trans-unit>
       <trans-unit id="dashboard.notFoundHint2" datatype="html">
         <source>ลิงก์อาจพิมพ์ผิดหรือก๊วนถูกลบไปแล้ว</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/session-dashboard/session-dashboard.html</context>
-          <context context-type="linenumber">546,547</context>
+          <context context-type="linenumber">544,545</context>
         </context-group>
       </trans-unit>
       <trans-unit id="notFound.home" datatype="html">
         <source>กลับหน้าแรก</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/session-dashboard/session-dashboard.html</context>
-          <context context-type="linenumber">547,550</context>
+          <context context-type="linenumber">545,548</context>
         </context-group>
       </trans-unit>
       <trans-unit id="dashboard.levelSaveFailed" datatype="html">
@@ -6735,68 +6735,75 @@
         <source>ส่งสรุปเข้ากลุ่ม LINE แล้ว</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/session-summary/session-summary.ts</context>
-          <context context-type="linenumber">192</context>
+          <context context-type="linenumber">193</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="summary.lineBusy" datatype="html">
+        <source>กำลังส่งสรุปอยู่ รอสักครู่แล้วลองใหม่</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/session-summary/session-summary.ts</context>
+          <context context-type="linenumber">197</context>
         </context-group>
       </trans-unit>
       <trans-unit id="summary.lineQuota" datatype="html">
         <source>โควตาข้อความ LINE เดือนนี้หมดแล้ว ส่งสรุปไม่ได้</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/session-summary/session-summary.ts</context>
-          <context context-type="linenumber">196</context>
+          <context context-type="linenumber">199</context>
         </context-group>
       </trans-unit>
       <trans-unit id="summary.lineFailed" datatype="html">
         <source>ส่งสรุปเข้ากลุ่ม LINE ไม่สำเร็จ ลองอีกครั้งได้</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/session-summary/session-summary.ts</context>
-          <context context-type="linenumber">198</context>
+          <context context-type="linenumber">201</context>
         </context-group>
       </trans-unit>
       <trans-unit id="summary.lineUnavailable" datatype="html">
         <source>ส่งสรุปไม่ได้ กลุ่มยังไม่ได้เชื่อม LINE หรือแพ็กเกจหมดอายุ</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/session-summary/session-summary.ts</context>
-          <context context-type="linenumber">200</context>
+          <context context-type="linenumber">203</context>
         </context-group>
       </trans-unit>
       <trans-unit id="summary.shuttleRowLabel" datatype="html">
         <source>คอร์ท <x id="court" equiv-text="this.courtName(row.courtNumber)"/> · แมตช์ <x id="match" equiv-text="row.matchNumber"/></source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/session-summary/session-summary.ts</context>
-          <context context-type="linenumber">250</context>
+          <context context-type="linenumber">253</context>
         </context-group>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/session-summary/session-summary.ts</context>
-          <context context-type="linenumber">322</context>
+          <context context-type="linenumber">325</context>
         </context-group>
       </trans-unit>
       <trans-unit id="summary.correctionStale" datatype="html">
         <source>ข้อมูลถูกแก้ไขจากอุปกรณ์อื่นแล้ว กรุณาลองใหม่อีกครั้ง</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/session-summary/session-summary.ts</context>
-          <context context-type="linenumber">296</context>
+          <context context-type="linenumber">299</context>
         </context-group>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/session-summary/session-summary.ts</context>
-          <context context-type="linenumber">349</context>
+          <context context-type="linenumber">352</context>
         </context-group>
       </trans-unit>
       <trans-unit id="summary.correctionNotFound" datatype="html">
         <source>ไม่พบลูกแบดลูกนี้ อาจถูกลบไปแล้ว</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/session-summary/session-summary.ts</context>
-          <context context-type="linenumber">298</context>
+          <context context-type="linenumber">301</context>
         </context-group>
       </trans-unit>
       <trans-unit id="summary.correctionFailed" datatype="html">
         <source>บันทึกไม่สำเร็จ ลองอีกครั้ง</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/session-summary/session-summary.ts</context>
-          <context context-type="linenumber">299</context>
+          <context context-type="linenumber">302</context>
         </context-group>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/session-summary/session-summary.ts</context>
-          <context context-type="linenumber">350</context>
+          <context context-type="linenumber">353</context>
         </context-group>
       </trans-unit>
       <trans-unit id="addRule.title" datatype="html">

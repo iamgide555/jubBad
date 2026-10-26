@@ -11,7 +11,7 @@ export interface LineStatus {
 }
 
 /** Mirrors server/src/line/line-summary.service.ts. */
-export type LineSummaryOutcome = 'sent' | 'already-sent' | 'quota' | 'failed' | 'unavailable';
+export type LineSummaryOutcome = 'sent' | 'already-sent' | 'busy' | 'quota' | 'failed' | 'unavailable';
 
 export interface LineSummaryState {
   /** A card could be posted for this session (it may still be open). */

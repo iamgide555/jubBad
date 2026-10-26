@@ -962,6 +962,22 @@ describe('SessionSummary', () => {
         expect(q('[data-line-summary-outcome]')?.textContent).toContain('ส่งสรุปเข้ากลุ่ม LINE แล้ว');
       });
 
+      it('offers no button on a session that has not ended, even though a card could be sent later', async () => {
+        lineState = { available: true, sent: false, defaultOn: true };
+        await load(summary({ session: { ...summary().session, endedAt: null } }));
+        expect(q('[data-send-line-summary]')).toBeNull();
+      });
+
+      it('says a send is already in progress and keeps the button', async () => {
+        lineState = { available: true, sent: false, defaultOn: true };
+        await load(summary());
+        q('[data-send-line-summary]')!.click();
+        httpMock.expectOne({ url: `${B}/sessions/sess1/line-summary`, method: 'POST' }).flush({ outcome: 'busy' });
+        await settle();
+        expect(q('[data-send-line-summary]')).not.toBeNull();
+        expect(q('[data-line-summary-outcome]')?.textContent).toContain('กำลังส่ง');
+      });
+
       it('shows nothing about LINE when no card can go out', async () => {
         await load(summary());
         expect(q('[data-send-line-summary]')).toBeNull();

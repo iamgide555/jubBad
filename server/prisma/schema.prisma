@@ -261,7 +261,9 @@ model Session {
   /// normalized match, else a new Venue). Null for sessions with no venue and
   /// for history that was never linked; `venue` stays the display text. Declared
   /// last so the column is a plain ADD COLUMN, not a table rebuild.
-  /// When the LINE summary card was posted; set by the claim before the push, cleared if the push fails.
+  /// A send in flight: set before the push, cleared if it fails, and ignored once older than 30s (the process may have died).
+  lineSummaryClaimedAt DateTime?
+  /// When LINE accepted the summary card. Only set after a successful push.
   lineSummarySentAt   DateTime?
   venueId             String?
   venueRef            Venue?          @relation(fields: [venueId], references: [id], onDelete: SetNull)

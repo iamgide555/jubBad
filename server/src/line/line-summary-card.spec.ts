@@ -75,6 +75,19 @@ describe('summaryCard', () => {
   });
 });
 
+describe('cardDate with the ISO dates the app stores', () => {
+  it('writes a stored yyyy-mm-dd date as a Thai date, not as raw digits', () => {
+    const text = cardDate('2026-10-29', new Date('2026-10-30T10:00:00Z'));
+    expect(text).not.toContain('2026-10-29');
+    expect(text).toContain('29');
+    expect(text).toContain('ต.ค.');
+  });
+
+  it('keeps a date that is not ISO exactly as written', () => {
+    expect(cardDate('พฤ. 29 ต.ค.', new Date())).toBe('พฤ. 29 ต.ค.');
+  });
+});
+
 describe('cardDate', () => {
   it('uses the session date text as written, trimmed', () => {
     expect(cardDate('  26 ต.ค.  ', base.endedAt)).toBe('26 ต.ค.');

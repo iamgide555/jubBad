@@ -855,3 +855,24 @@ app-lineup-queue {
     display: none;
   }
 }
+
+/* The end dialog's "send the summary to LINE" checkbox. Projected into the shared dialog, so it is
+   styled from here, not from the dialog's own sheet. */
+.send-line-summary {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: var(--tap);
+  margin: 0;
+  cursor: pointer;
+  color: var(--ink);
+  font-size: var(--text-base);
+  font-weight: 600;
+}
+
+.send-line-summary input {
+  width: 1.5rem;
+  min-height: 1.5rem;
+  flex: none;
+  accent-color: var(--court);
+}

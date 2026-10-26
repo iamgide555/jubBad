@@ -28,17 +28,26 @@ function present(value: string | null): string | null {
   return trimmed ? trimmed : null;
 }
 
-/** The session's date text when it has one, else the day it ended, in Thai and Bangkok time. */
+const THAI_DATE = new Intl.DateTimeFormat('th-TH', {
+  timeZone: 'Asia/Bangkok',
+  day: 'numeric',
+  month: 'short',
+  year: 'numeric',
+});
+
+/**
+ * The session's date for the card. The app stores a yyyy-mm-dd date, which reads as raw digits in a chat, so
+ * it is written as a Thai date; any other text is kept as written, and a missing date falls back to the day
+ * the session ended, in Bangkok time.
+ */
 export function cardDate(date: string | null, endedAt: Date): string {
-  return (
-    present(date) ??
-    new Intl.DateTimeFormat('th-TH', {
-      timeZone: 'Asia/Bangkok',
-      day: 'numeric',
-      month: 'short',
-      year: 'numeric',
-    }).format(endedAt)
-  );
+  const text = present(date);
+  if (text === null) return THAI_DATE.format(endedAt);
+  if (/^\d{4}-\d{2}-\d{2}$/.test(text)) {
+    const noonInBangkok = new Date(`${text}T12:00:00+07:00`);
+    if (!Number.isNaN(noonInBangkok.getTime())) return THAI_DATE.format(noonInBangkok);
+  }
+  return text;
 }
 
 function row(label: string, value: string) {

@@ -1,6 +1,7 @@
-import { Controller, Delete, Get, Param, Post } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Patch, Post } from '@nestjs/common';
 import { LineLinkService } from './line-link.service.js';
 import { LineRosterService } from './line-roster.service.js';
+import { SetSummaryDefaultDto } from './set-summary-default.dto.js';
 
 /** Owner routes (no @Public): OwnershipGuard covers /groups/:code/... and refuses a non-owner with 404. */
 @Controller('groups')
@@ -24,6 +25,12 @@ export class LineController {
   @Post(':code/line/code')
   createCode(@Param('code') code: string) {
     return this.link.createCode(code);
+  }
+
+  /** Whether the end-of-session summary checkbox starts ticked. Paid and linked only. */
+  @Patch(':code/line')
+  async setSummaryDefault(@Param('code') code: string, @Body() dto: SetSummaryDefaultDto) {
+    return { summaryDefault: await this.link.setSummaryDefault(code, dto.summaryDefault) };
   }
 
   /** Always allowed, including on a free or lapsed plan, so a host can always disconnect. */

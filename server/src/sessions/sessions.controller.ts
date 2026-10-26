@@ -2,6 +2,8 @@ import { CloseForgottenSessionDto } from './dto/close-forgotten-session.dto.js';
 import { Body, Controller, Delete, Get, Param, ParseIntPipe, Post, Query, Req } from '@nestjs/common';
 import { AddWalkInDto } from './dto/add-walk-in.dto.js';
 import { CreateSessionDto } from './dto/create-session.dto.js';
+import { EndSessionDto } from './dto/end-session.dto.js';
+import { LineSummaryService } from '../line/line-summary.service.js';
 import { FinishPairingDto } from './dto/finish-pairing.dto.js';
 import { ConfirmPairingDto } from './dto/confirm-pairing.dto.js';
 import { CorrectShuttleUseDto } from './dto/correct-shuttle-use.dto.js';
@@ -31,7 +33,8 @@ import { SessionsService } from './sessions.service.js';
 export class SessionsController {
   constructor(
     private readonly sessionsService: SessionsService,
-    private readonly plans: PlansService
+    private readonly plans: PlansService,
+    private readonly lineSummary: LineSummaryService
   ) {}
 
   /**
@@ -333,9 +336,17 @@ export class SessionsController {
     return this.sessionsService.getLevels(code);
   }
 
+  /**
+   * The end itself is settled first and never depends on LINE: the summary card is posted only after
+   * `endSession` has returned (so outside the session lock), and any failure there is reported in
+   * `lineSummary`, never thrown.
+   */
   @Post(':code/end')
-  endSession(@Param('code') code: string) {
-    return this.sessionsService.endSession(code);
+  async endSession(@Param('code') code: string, @Body() dto: EndSessionDto) {
+    const ended = await this.sessionsService.endSession(code);
+    if (dto.sendLineSummary !== true) return ended;
+    const lineSummary = await this.lineSummary.send(code).catch(() => 'failed' as const);
+    return { ...ended, lineSummary };
   }
 
   /**

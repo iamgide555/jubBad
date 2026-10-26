@@ -1,5 +1,5 @@
 import { createHash, randomUUID } from 'node:crypto';
-import { INestApplication } from '@nestjs/common';
+import { INestApplication, ValidationPipe } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { vi } from 'vitest';
 import request from 'supertest';
@@ -64,6 +64,7 @@ describe('LINE link codes, status and unlink', () => {
       req.user = { id: requestUserId, role: 'host' };
       next();
     });
+    app.useGlobalPipes(new ValidationPipe({ whitelist: true, transform: true }));
     await app.init();
     server = app.getHttpServer();
     await new Promise<void>((resolve) => server.listen(0, resolve));
@@ -208,6 +209,7 @@ describe('LINE link codes, status and unlink', () => {
         lineGroupName: null,
         linkedAt: null,
         leftAt: null,
+        summaryDefault: true,
       });
     });
 
@@ -224,6 +226,35 @@ describe('LINE link codes, status and unlink', () => {
       const relinked = await link.status(code);
       expect(relinked.linked).toBe(true);
       expect(relinked.leftAt).toBeNull();
+    });
+  });
+
+  describe('summary default', () => {
+    it('is saved for a linked group on a paid plan and shown in the status', async () => {
+      const code = await makeGroup(hostId, { lineGroupId: lineId() });
+      expect(await link.setSummaryDefault(code, false)).toBe(false);
+      expect((await link.status(code)).summaryDefault).toBe(false);
+      expect(await link.setSummaryDefault(code, true)).toBe(true);
+      expect((await link.status(code)).summaryDefault).toBe(true);
+    });
+
+    it('is refused on a free plan with the plan error', async () => {
+      const code = await makeGroup(freeId, { lineGroupId: lineId() });
+      await expect(link.setSummaryDefault(code, false)).rejects.toMatchObject({ status: 403 });
+    });
+
+    it('is refused when the group is not linked', async () => {
+      const code = await makeGroup(hostId);
+      await expect(link.setSummaryDefault(code, false)).rejects.toMatchObject({
+        response: { code: 'LINE_NOT_LINKED' },
+      });
+    });
+
+    it('is a PATCH on the group line route', async () => {
+      const code = await makeGroup(hostId, { lineGroupId: lineId() });
+      const res = await request(server).patch(`/groups/${code}/line`).send({ summaryDefault: false }).expect(200);
+      expect(res.body).toEqual({ summaryDefault: false });
+      await request(server).patch(`/groups/${code}/line`).send({ summaryDefault: 'no' }).expect(400);
     });
   });
 

@@ -1,4 +1,5 @@
 import { provideHttpClient } from '@angular/common/http';
+import { of } from 'rxjs';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { ActivatedRoute, convertToParamMap, provideRouter, Router } from '@angular/router';
@@ -9,6 +10,7 @@ import { RosterDraftService, type RosterDraft } from '../../core/roster-draft.se
 import { standardLadderFixture } from '../../core/group-levels.testing';
 import { environment } from '../../../environments/environment';
 import { stubPlanService } from '../../core/plan.testing';
+import { LineService } from '../../core/line.service';
 
 const B = environment.apiBaseUrl;
 
@@ -17,6 +19,9 @@ async function settleSessionGate(httpMock: HttpTestingController): Promise<void>
   await Promise.resolve();
   for (const req of httpMock.match(`${B}/groups/group1/sessions`)) req.flush([]);
 }
+
+/** Most specs are not about the LINE bot: it has kept no roster, so the screen is the plain paste box. */
+const noLineBot = { provide: LineService, useValue: { latestRoster: () => of({ roster: null }) } };
 
 /** Four brand-new-player reviews — the roster's `minRoster` floor — for tests
  *  that need to clear the minimum without that being what's under test. */
@@ -43,6 +48,7 @@ describe('GroupEntry', () => {
         plan.provider,
         provideHttpClient(),
         provideHttpClientTesting(),
+        noLineBot,
         provideRouter(routes),
         // The real route table is used here, and its guarded routes would
         // otherwise fire a real GET /auth/me the moment a test navigates. These
@@ -837,6 +843,7 @@ describe('GroupEntry manual roster add UI (Task 2)', () => {
         stubPlanService().provider,
         provideHttpClient(),
         provideHttpClientTesting(),
+        noLineBot,
         provideRouter(routes),
         { provide: AuthService, useValue: { check: () => Promise.resolve(true) } },
         {
@@ -1023,6 +1030,7 @@ describe('GroupEntry manual roster add — behavior (Task 3)', () => {
         stubPlanService().provider,
         provideHttpClient(),
         provideHttpClientTesting(),
+        noLineBot,
         provideRouter(routes),
         { provide: AuthService, useValue: { check: () => Promise.resolve(true) } },
         {
@@ -1342,6 +1350,7 @@ describe('GroupEntry roster review and group ladders (host feedback F)', () => {
         stubPlanService().provider,
         provideHttpClient(),
         provideHttpClientTesting(),
+        noLineBot,
         provideRouter(routes),
         { provide: AuthService, useValue: { check: () => Promise.resolve(true) } },
         { provide: ActivatedRoute, useValue: { snapshot: { paramMap: convertToParamMap({ groupCode: 'group1' }) } } },
@@ -1453,6 +1462,7 @@ describe('GroupEntry review step: clear with undo, edit the paste (UX review)', 
         stubPlanService().provider,
         provideHttpClient(),
         provideHttpClientTesting(),
+        noLineBot,
         provideRouter(routes),
         { provide: AuthService, useValue: { check: () => Promise.resolve(true) } },
         { provide: ActivatedRoute, useValue: { snapshot: { paramMap: convertToParamMap({ groupCode: 'group1' }) } } },
@@ -1945,6 +1955,7 @@ describe('GroupEntry weekly paste path: autofocus and paste from the clipboard (
         stubPlanService().provider,
         provideHttpClient(),
         provideHttpClientTesting(),
+        noLineBot,
         provideRouter(routes),
         { provide: AuthService, useValue: { check: () => Promise.resolve(true) } },
         { provide: ActivatedRoute, useValue: { snapshot: { paramMap: convertToParamMap({ groupCode: 'group1' }) } } },
@@ -2545,5 +2556,208 @@ describe('GroupEntry weekly paste path: autofocus and paste from the clipboard (
       component.discardDraft();
       fixture.detectChanges();
     }
+  });
+});
+
+describe('GroupEntry LINE roster pre-fill', () => {
+  let component: GroupEntry;
+  let fixture: ComponentFixture<GroupEntry>;
+  let httpMock: HttpTestingController;
+  let plan: ReturnType<typeof stubPlanService>;
+
+  const ROSTER_TEXT = 'ก๊วนพฤหัส 8/10/26\n19.00-21.00\n1. ตั้ม\n2. มด\n3. นก';
+  const NEWER_TEXT = `${ROSTER_TEXT}\n4. แมว`;
+  const LINE = `${B}/groups/group1/line/latest-roster`;
+  const roster = (over: Record<string, unknown> = {}) => ({
+    text: ROSTER_TEXT,
+    senderName: 'Nok',
+    postedAt: new Date(Date.now() - 5 * 60_000).toISOString(),
+    stale: false,
+    ...over,
+  });
+  const el = () => fixture.nativeElement as HTMLElement;
+  const box = () => el().querySelector<HTMLTextAreaElement>('#roster-text')!;
+  const q = (selector: string) => el().querySelector<HTMLElement>(selector);
+
+  const seedDraft = (rawText: string) =>
+    TestBed.inject(RosterDraftService).save('group1', {
+      state: 'paste',
+      rawText,
+      date: '',
+      venue: '',
+      courtCount: null,
+      warnings: [],
+      unrecognizedLines: [],
+      rosterReviews: [],
+      waitlistReviews: [],
+      players: [],
+      manualReviews: new Set(),
+      openReviews: new Set(),
+      idempotencyKey: null,
+    });
+
+  /** Builds the screen and answers the group and session reads, but not the LINE read. */
+  async function create(beforeCreate?: () => void) {
+    plan = stubPlanService();
+    await TestBed.configureTestingModule({
+      imports: [GroupEntry],
+      providers: [
+        plan.provider,
+        provideHttpClient(),
+        provideHttpClientTesting(),
+        provideRouter(routes),
+        { provide: AuthService, useValue: { check: () => Promise.resolve(true) } },
+        { provide: ActivatedRoute, useValue: { snapshot: { paramMap: convertToParamMap({ groupCode: 'group1' }) } } },
+      ],
+    }).compileComponents();
+    httpMock = TestBed.inject(HttpTestingController);
+    TestBed.inject(RosterDraftService).clear('group1');
+    beforeCreate?.();
+    fixture = TestBed.createComponent(GroupEntry);
+    component = fixture.componentInstance;
+    httpMock.expectOne(`${B}/groups/group1`).flush({ code: 'group1', name: 'ก๊วนทดสอบ', lastSessionCode: null });
+    await settleSessionGate(httpMock);
+    await fixture.whenStable();
+  }
+
+  async function answerLine(body: object) {
+    httpMock.expectOne(LINE).flush(body);
+    await fixture.whenStable();
+    fixture.detectChanges();
+  }
+
+  afterEach(() => {
+    TestBed.inject(RosterDraftService).clear('group1');
+    httpMock.verify();
+  });
+
+  it('fills the paste box with the newest LINE roster and says who posted it and when', async () => {
+    await create();
+    await answerLine({ roster: roster() });
+    expect(component.rawText()).toBe(ROSTER_TEXT);
+    expect(box().value).toBe(ROSTER_TEXT);
+    const from = q('[data-line-from]')!.textContent!;
+    expect(from).toContain('Nok');
+    expect(from).toMatch(/\d{2}:\d{2}/);
+    expect(q('[data-line-stale]')).toBeNull();
+    expect(q('[data-line-newer]')).toBeNull();
+  });
+
+  it('warns under the provenance line when the roster is older than the last round', async () => {
+    await create();
+    await answerLine({ roster: roster({ stale: true }) });
+    expect(q('[data-line-stale]')?.textContent).toContain('รายชื่อนี้เก่ากว่ารอบที่แล้ว');
+  });
+
+  it('says ไม่ทราบชื่อ when LINE would not name the sender', async () => {
+    await create();
+    await answerLine({ roster: roster({ senderName: null }) });
+    expect(q('[data-line-from]')?.textContent).toContain('ไม่ทราบชื่อ');
+  });
+
+  it('never parses by itself: the host still taps อ่านรายชื่อ', async () => {
+    await create();
+    await answerLine({ roster: roster() });
+    httpMock.expectNone(`${B}/groups/group1/parse`);
+  });
+
+  it('leaves a restored draft alone: no overwrite and no provenance line', async () => {
+    await create(() => seedDraft('draft the host was typing'));
+    await answerLine({ roster: roster() });
+    expect(component.rawText()).toBe('draft the host was typing');
+    expect(q('[data-line-from]')).toBeNull();
+  });
+
+  it('leaves text typed before the answer arrived alone', async () => {
+    await create();
+    component.onRawTextChange('typed first');
+    await answerLine({ roster: roster() });
+    expect(component.rawText()).toBe('typed first');
+    expect(q('[data-line-from]')).toBeNull();
+  });
+
+  it('shows today\'s empty paste box for a null roster, a failed read and a read that never answers', async () => {
+    await create();
+    await answerLine({ roster: null });
+    expect(component.rawText()).toBe('');
+    expect(q('[data-line-from]')).toBeNull();
+    expect(q('[data-line-newer]')).toBeNull();
+  });
+
+  it('a failed LINE read changes nothing on the screen', async () => {
+    await create();
+    httpMock.expectOne(LINE).flush('x', { status: 500, statusText: 'x' });
+    await fixture.whenStable();
+    fixture.detectChanges();
+    expect(component.rawText()).toBe('');
+    expect(q('[data-line-from]')).toBeNull();
+    expect(q('#roster-text')).not.toBeNull();
+  });
+
+  it('a LINE read that never answers leaves the empty paste box usable', async () => {
+    await create();
+    expect(component.rawText()).toBe('');
+    component.onRawTextChange('pasted by hand');
+    expect(component.rawText()).toBe('pasted by hand');
+    httpMock.expectOne(LINE);
+  });
+
+  it('keeps host edits local: the parse carries the edited text and no LINE endpoint is touched', async () => {
+    await create();
+    await answerLine({ roster: roster() });
+    component.onRawTextChange(`${ROSTER_TEXT}\n4. เพิ่มเอง`);
+    const parsing = component.parse();
+    const req = httpMock.expectOne(`${B}/groups/group1/parse`);
+    expect(req.request.body.rawText).toBe(`${ROSTER_TEXT}\n4. เพิ่มเอง`);
+    req.flush({ date: '2026-10-08', venue: null, courtCount: null, rosterReviews: [], waitlistReviews: [], warnings: [], unrecognizedLines: [] });
+    await parsing;
+    httpMock.expectNone(LINE);
+  });
+
+  it('offers a newer list over a restored draft that differs, without touching the draft', async () => {
+    await create(() => seedDraft('old draft'));
+    await answerLine({ roster: roster({ text: NEWER_TEXT, senderName: 'Mod' }) });
+    expect(component.rawText()).toBe('old draft');
+    expect(q('[data-line-newer]')?.textContent).toContain('มีรายชื่อใหม่กว่าใน LINE');
+    expect(q('[data-line-newer]')?.textContent).toContain('Mod');
+  });
+
+  it('using the newer list replaces the text, and เลิกทำ brings the old text back', async () => {
+    await create(() => seedDraft('old draft'));
+    await answerLine({ roster: roster({ text: NEWER_TEXT }) });
+    q('[data-use-newer]')!.click();
+    fixture.detectChanges();
+    expect(component.rawText()).toBe(NEWER_TEXT);
+    expect(q('[data-line-newer]')).toBeNull();
+    expect(q('[data-line-from]')).not.toBeNull();
+    expect(q('.undo-notice')?.textContent).toContain('เปลี่ยนเป็นรายชื่อล่าสุดจาก LINE');
+    q('[data-undo]')!.click();
+    fixture.detectChanges();
+    expect(component.rawText()).toBe('old draft');
+  });
+
+  it('offers nothing when the box already holds exactly the newest roster', async () => {
+    await create(() => seedDraft(ROSTER_TEXT));
+    await answerLine({ roster: roster() });
+    expect(q('[data-line-newer]')).toBeNull();
+  });
+
+  it('after filling, host edits do not raise a newer-list offer for the same message', async () => {
+    await create();
+    await answerLine({ roster: roster() });
+    component.onRawTextChange(`${ROSTER_TEXT}\n4. เพิ่มเอง`);
+    fixture.detectChanges();
+    expect(q('[data-line-newer]')).toBeNull();
+  });
+
+  it('checks again when the host comes back to the paste step, and offers a list that arrived meanwhile', async () => {
+    await create();
+    await answerLine({ roster: roster() });
+    component.state.set('confirm');
+    fixture.detectChanges();
+    component.editPaste();
+    await answerLine({ roster: roster({ text: NEWER_TEXT, postedAt: new Date().toISOString(), senderName: 'Mod' }) });
+    expect(component.rawText()).toBe(ROSTER_TEXT);
+    expect(q('[data-line-newer]')?.textContent).toContain('Mod');
   });
 });

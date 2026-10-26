@@ -20,6 +20,8 @@ import {
 } from '../../core/roster-review';
 import { RosterService, type ParseRosterResponse } from '../../core/roster.service';
 import { RosterDraftService, type RosterDraft } from '../../core/roster-draft.service';
+import { LineService } from '../../core/line.service';
+import { formatPostedAt, type LatestRoster } from '../../core/line.model';
 import { planErrorMessage, type GroupPlan } from '../../core/plan';
 import { PlanService } from '../../core/plan.service';
 import { PlanNotice } from '../../shared/plan-notice/plan-notice';
@@ -41,6 +43,11 @@ function todayIso(): string {
   const month = String(now.getMonth() + 1).padStart(2, '0');
   const day = String(now.getDate()).padStart(2, '0');
   return `${now.getFullYear()}-${month}-${day}`;
+}
+
+/** One LINE roster message's identity: the same list posted again is not news. */
+function lineRosterKey(roster: LatestRoster): string {
+  return `${roster.postedAt}|${roster.text}`;
 }
 
 /** How long "clear list" can be taken back. */
@@ -90,6 +97,7 @@ export class GroupEntry {
 
   readonly groupStatus = signal<'loading' | 'ready' | 'not-found' | 'error'>('loading');
   private readonly drafts = inject(RosterDraftService);
+  private readonly lineService = inject(LineService);
   private readonly planService = inject(PlanService);
   /**
    * The group owner's plan. Unknown (loading, or the read failed) says nothing and blocks nothing;
@@ -110,6 +118,27 @@ export class GroupEntry {
   private restoredDraft = false;
   /** The screen was left; a late clipboard read must not act on it. */
   private destroyed = false;
+
+  /** The newest roster the group's LINE bot has kept, as of the last read; null when there is none. */
+  private readonly lineRoster = signal<LatestRoster | null>(null);
+  /** The LINE roster whose text is in the box right now, for the "who posted it" line. */
+  readonly lineFilled = signal<LatestRoster | null>(null);
+  /** Which LINE roster the host has already been given (filled in or offered and taken), so editing it never looks like news. */
+  private readonly lineSeenKey = signal<string | null>(null);
+  private lineRequested = false;
+
+  /**
+   * A newer list than what is in the box: shown while pasting, only over text the host (or a restored
+   * draft) put there, and never for the roster that was already filled in. It never replaces anything
+   * by itself; the host taps it.
+   */
+  readonly lineOffer = computed<LatestRoster | null>(() => {
+    const roster = this.lineRoster();
+    if (!roster || this.state() !== 'paste') return null;
+    const raw = this.rawText();
+    if (!raw.trim() || raw === roster.text) return null;
+    return lineRosterKey(roster) === this.lineSeenKey() ? null : roster;
+  });
   /** A clipboard read is waiting on the browser (a permission prompt, iOS's "Paste" callout). */
   private readingClipboard = false;
   /** What the clipboard button last had to say — muted, never an error: typing the paste is always open. */
@@ -273,12 +302,62 @@ export class GroupEntry {
       this.groupName.set(group.name ?? '');
       this.lastSessionCode.set(group.lastSessionCode);
       this.groupStatus.set('ready');
+      if (!this.lineRequested) {
+        this.lineRequested = true;
+        void this.loadLatestRoster(true);
+      }
     } catch (err) {
       this.groupStatus.set(err instanceof HttpErrorResponse && err.status === 404 ? 'not-found' : 'error');
       return;
     }
     await this.loadOpenSessions();
     if (this.openSessions().length === 0 && this.sessionGateStatus() === 'ready') this.focusEmptyPasteBox();
+  }
+
+  /**
+   * Asks the group's LINE bot for the newest roster it kept. Any failure, or no roster, leaves the
+   * screen exactly as it was: start is never blocked on LINE. The first answer fills the box only if
+   * it is still a fresh start (no restored draft, nothing typed, still pasting, group not paused);
+   * later reads (coming back from the review) only feed the "newer list" offer.
+   */
+  private async loadLatestRoster(fill: boolean): Promise<void> {
+    try {
+      const { roster } = await firstValueFrom(this.lineService.latestRoster(this.groupCode));
+      if (this.destroyed) return;
+      this.lineRoster.set(roster);
+      if (fill && roster && !this.restoredDraft && this.state() === 'paste' && !this.rawText() && !this.paused()) {
+        this.rawText.set(roster.text);
+        this.lineFilled.set(roster);
+        this.lineSeenKey.set(lineRosterKey(roster));
+      }
+    } catch {
+      // No LINE roster: the paste box stays as it is.
+    }
+  }
+
+  protected lineFromText(roster: LatestRoster): string {
+    const name = roster.senderName ?? $localize`:@@entry.lineUnknown:ไม่ทราบชื่อ`;
+    const time = formatPostedAt(roster.postedAt, new Date(), this.locale);
+    return $localize`:@@entry.lineFrom:รายชื่อล่าสุดจาก LINE โดย ${name}:name: · ${time}:time:`;
+  }
+
+  protected lineNewerText(roster: LatestRoster): string {
+    const name = roster.senderName ?? $localize`:@@entry.lineUnknown:ไม่ทราบชื่อ`;
+    const time = formatPostedAt(roster.postedAt, new Date(), this.locale);
+    return $localize`:@@entry.lineNewer:มีรายชื่อใหม่กว่าใน LINE (โดย ${name}:name: · ${time}:time:)`;
+  }
+
+  /** Replaces the box with the newer LINE list. The old text can be taken back, like a cleared list. */
+  useNewerLineRoster(): void {
+    const roster = this.lineOffer();
+    if (!roster || this.state() !== 'paste') return;
+    const snapshot = this.snapshotDraft();
+    this.rawText.set(roster.text);
+    this.lineFilled.set(roster);
+    this.lineSeenKey.set(lineRosterKey(roster));
+    this.clipboardNote.set(null);
+    this.pasteError.set(null);
+    this.offerUndo(snapshot, 'newer');
   }
 
   async loadOpenSessions(): Promise<void> {
@@ -471,7 +550,19 @@ export class GroupEntry {
     this.pasteError.set(null);
     this.confirmError.set(null);
     this.state.set('paste');
+    this.lineFilled.set(null);
+    this.offerUndo(snapshot, 'clear');
+    // The clear button just disappeared with the review: put focus on the way back.
+    this.focusAfterRender(this.undoButton);
+  }
+
+  /** What the notice says it can take back: a cleared list, or a list swapped for the newer LINE one. */
+  readonly undoKind = signal<'clear' | 'newer'>('clear');
+
+  /** Offers to take back the last change for a few seconds. */
+  private offerUndo(snapshot: RosterDraft, kind: 'clear' | 'newer'): void {
     this.clearUndo();
+    this.undoKind.set(kind);
     this.undoSnapshot.set(snapshot);
     this.undoTimer = setTimeout(() => {
       this.undoTimer = null;
@@ -481,16 +572,17 @@ export class GroupEntry {
       if (this.document.activeElement === this.undoButton()?.nativeElement) this.clipboardButton()?.nativeElement.focus();
       this.undoSnapshot.set(null);
     }, UNDO_MS);
-    // The clear button just disappeared with the review: put focus on the way back.
-    this.focusAfterRender(this.undoButton);
   }
 
   /** Puts back exactly what the last clear threw away. Never after the session exists. */
   undoDiscard(): void {
     const snapshot = this.undoSnapshot();
+    const wasNewer = this.undoKind() === 'newer';
     this.clearUndo();
     if (!snapshot || this.sessionCreated) return;
     this.applyDraft(snapshot);
+    // Undoing a swap puts the old text back, so "latest list from LINE" no longer describes the box.
+    if (wasNewer) this.lineFilled.set(null);
     this.focusAfterRender(this.clearButton);
   }
 
@@ -520,6 +612,8 @@ export class GroupEntry {
     this.pasteError.set(null);
     this.state.set('paste');
     this.focusAfterRender(this.rosterText);
+    // A newer list may have been posted while the host was reviewing.
+    void this.loadLatestRoster(false);
   }
 
   /** The paste box's input. Any new text means the host has moved on from the list they cleared. */
@@ -527,6 +621,7 @@ export class GroupEntry {
     this.rawText.set(value);
     this.clearUndo();
     this.clipboardNote.set(null);
+    if (!value.trim()) this.lineFilled.set(null);
   }
 
   /**

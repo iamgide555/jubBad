@@ -1629,7 +1629,7 @@
         </context-group>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/group-entry/group-entry.html</context>
-          <context context-type="linenumber">436,438</context>
+          <context context-type="linenumber">455,457</context>
         </context-group>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/group-home/group-home.html</context>
@@ -1824,389 +1824,435 @@
           <context context-type="linenumber">97,99</context>
         </context-group>
       </trans-unit>
+      <trans-unit id="entry.lineReplaced" datatype="html">
+        <source>เปลี่ยนเป็นรายชื่อล่าสุดจาก LINE แล้ว</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/group-entry/group-entry.html</context>
+          <context context-type="linenumber">115,117</context>
+        </context-group>
+      </trans-unit>
       <trans-unit id="entry.rosterCleared" datatype="html">
         <source>ล้างรายชื่อแล้ว</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/group-entry/group-entry.html</context>
-          <context context-type="linenumber">114,115</context>
+          <context context-type="linenumber">117,119</context>
         </context-group>
       </trans-unit>
       <trans-unit id="entry.undoClear" datatype="html">
         <source>เลิกทำ</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/group-entry/group-entry.html</context>
-          <context context-type="linenumber">115,118</context>
+          <context context-type="linenumber">119,122</context>
         </context-group>
       </trans-unit>
       <trans-unit id="entry.rosterMessage" datatype="html">
         <source>ข้อความรายชื่อ</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/group-entry/group-entry.html</context>
-          <context context-type="linenumber">125,127</context>
+          <context context-type="linenumber">129,131</context>
         </context-group>
       </trans-unit>
       <trans-unit id="entry.pasteClipboard" datatype="html">
         <source>วางจากคลิปบอร์ด</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/group-entry/group-entry.html</context>
-          <context context-type="linenumber">128,129</context>
+          <context context-type="linenumber">132,133</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="entry.lineStale" datatype="html">
+        <source>รายชื่อนี้เก่ากว่ารอบที่แล้ว ตรวจให้แน่ใจว่าเป็นของรอบนี้</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/group-entry/group-entry.html</context>
+          <context context-type="linenumber">144,147</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="entry.lineUseNewer" datatype="html">
+        <source>ใช้รายชื่อนี้</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/group-entry/group-entry.html</context>
+          <context context-type="linenumber">150,152</context>
         </context-group>
       </trans-unit>
       <trans-unit id="entry.rosterPlaceholder" datatype="html">
         <source>วางข้อความรายชื่อจากไลน์ที่นี่</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/group-entry/group-entry.html</context>
-          <context context-type="linenumber">135,136</context>
+          <context context-type="linenumber">154,155</context>
         </context-group>
       </trans-unit>
       <trans-unit id="entry.parsingRoster" datatype="html">
         <source>กำลังอ่านรายชื่อ...</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/group-entry/group-entry.html</context>
-          <context context-type="linenumber">143,144</context>
+          <context context-type="linenumber">162,163</context>
         </context-group>
       </trans-unit>
       <trans-unit id="entry.parse" datatype="html">
         <source>อ่านรายชื่อ</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/group-entry/group-entry.html</context>
-          <context context-type="linenumber">145,146</context>
+          <context context-type="linenumber">164,165</context>
         </context-group>
       </trans-unit>
       <trans-unit id="entry.startManual" datatype="html">
         <source>เพิ่มรายชื่อเอง</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/group-entry/group-entry.html</context>
-          <context context-type="linenumber">152,153</context>
+          <context context-type="linenumber">171,172</context>
         </context-group>
       </trans-unit>
       <trans-unit id="entry.editPaste" datatype="html">
         <source>← แก้ข้อความที่วาง</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/group-entry/group-entry.html</context>
-          <context context-type="linenumber">161,165</context>
+          <context context-type="linenumber">180,184</context>
         </context-group>
       </trans-unit>
       <trans-unit id="entry.notes" datatype="html">
         <source>หมายเหตุ</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/group-entry/group-entry.html</context>
-          <context context-type="linenumber">175,176</context>
+          <context context-type="linenumber">194,195</context>
         </context-group>
       </trans-unit>
       <trans-unit id="entry.date" datatype="html">
         <source>วันที่</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/group-entry/group-entry.html</context>
-          <context context-type="linenumber">186,187</context>
+          <context context-type="linenumber">205,206</context>
         </context-group>
       </trans-unit>
       <trans-unit id="entry.courtCount" datatype="html">
         <source>จำนวนคอร์ท</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/group-entry/group-entry.html</context>
-          <context context-type="linenumber">190,191</context>
+          <context context-type="linenumber">209,210</context>
         </context-group>
       </trans-unit>
       <trans-unit id="entry.venue" datatype="html">
         <source>สนาม</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/group-entry/group-entry.html</context>
-          <context context-type="linenumber">195,196</context>
+          <context context-type="linenumber">214,215</context>
         </context-group>
       </trans-unit>
       <trans-unit id="entry.manualRemove" datatype="html">
         <source>นำออก</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/group-entry/group-entry.html</context>
-          <context context-type="linenumber">220,221</context>
+          <context context-type="linenumber">239,240</context>
         </context-group>
       </trans-unit>
       <trans-unit id="entry.newPlayer" datatype="html">
         <source>คนใหม่</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/group-entry/group-entry.html</context>
-          <context context-type="linenumber">223,224</context>
+          <context context-type="linenumber">242,243</context>
         </context-group>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/group-entry/group-entry.html</context>
-          <context context-type="linenumber">235,236</context>
+          <context context-type="linenumber">254,255</context>
         </context-group>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/group-entry/group-entry.html</context>
-          <context context-type="linenumber">302,305</context>
+          <context context-type="linenumber">321,324</context>
         </context-group>
       </trans-unit>
       <trans-unit id="entry.knownPlayer" datatype="html">
         <source>มีอยู่แล้ว</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/group-entry/group-entry.html</context>
-          <context context-type="linenumber">232,234</context>
+          <context context-type="linenumber">251,253</context>
         </context-group>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/group-entry/group-entry.html</context>
-          <context context-type="linenumber">299,301</context>
+          <context context-type="linenumber">318,320</context>
         </context-group>
       </trans-unit>
       <trans-unit id="entry.duplicateOf" datatype="html">
         <source> ซ้ำกับ <x id="INTERPOLATION" equiv-text="{{ playerName(review.match.playerId) }}"/> </source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/group-entry/group-entry.html</context>
-          <context context-type="linenumber">253,254</context>
+          <context context-type="linenumber">272,273</context>
         </context-group>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/group-entry/group-entry.html</context>
-          <context context-type="linenumber">296,297</context>
+          <context context-type="linenumber">315,316</context>
         </context-group>
       </trans-unit>
       <trans-unit id="entry.isThis" datatype="html">
         <source> ใช่ <x id="INTERPOLATION" equiv-text="{{ playerName(review.match.playerId) }}"/> ไหม? </source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/group-entry/group-entry.html</context>
-          <context context-type="linenumber">257,258</context>
+          <context context-type="linenumber">276,277</context>
         </context-group>
       </trans-unit>
       <trans-unit id="entry.changeAnswer" datatype="html">
         <source>เปลี่ยนคำตอบ</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/group-entry/group-entry.html</context>
-          <context context-type="linenumber">291,292</context>
+          <context context-type="linenumber">310,311</context>
         </context-group>
       </trans-unit>
       <trans-unit id="entry.roster" datatype="html">
         <source>รายชื่อ</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/group-entry/group-entry.html</context>
-          <context context-type="linenumber">307,308</context>
+          <context context-type="linenumber">326,327</context>
         </context-group>
       </trans-unit>
       <trans-unit id="entry.manualAddLabel" datatype="html">
         <source>เพิ่มผู้เล่นด้วยตนเอง</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/group-entry/group-entry.html</context>
-          <context context-type="linenumber">325,328</context>
+          <context context-type="linenumber">344,347</context>
         </context-group>
       </trans-unit>
       <trans-unit id="entry.manualAddPlaceholder" datatype="html">
         <source>ค้นหาชื่อผู้เล่น หรือพิมพ์ชื่อใหม่</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/group-entry/group-entry.html</context>
-          <context context-type="linenumber">344,347</context>
+          <context context-type="linenumber">363,366</context>
         </context-group>
       </trans-unit>
       <trans-unit id="entry.manualResultsCount" datatype="html">
         <source>ผลการค้นหา</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/group-entry/group-entry.html</context>
-          <context context-type="linenumber">354,356</context>
+          <context context-type="linenumber">373,375</context>
         </context-group>
       </trans-unit>
       <trans-unit id="entry.manualSuggestionsLabel" datatype="html">
         <source>ผลการค้นหา</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/group-entry/group-entry.html</context>
-          <context context-type="linenumber">365,367</context>
+          <context context-type="linenumber">384,386</context>
         </context-group>
       </trans-unit>
       <trans-unit id="entry.manualFuzzyHint" datatype="html">
         <source>คล้ายกัน</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/group-entry/group-entry.html</context>
-          <context context-type="linenumber">379,381</context>
+          <context context-type="linenumber">398,400</context>
         </context-group>
       </trans-unit>
       <trans-unit id="entry.manualAddAsNew" datatype="html">
         <source>เพิ่มเป็นคนใหม่: <x id="INTERPOLATION" equiv-text="{{ manualQuery().trim() }}"/></source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/group-entry/group-entry.html</context>
-          <context context-type="linenumber">394,395</context>
+          <context context-type="linenumber">413,414</context>
         </context-group>
       </trans-unit>
       <trans-unit id="entry.manualAlreadySelected" datatype="html">
         <source> <x id="INTERPOLATION" equiv-text="{{ name }}"/> ถูกเลือกไว้แล้ว </source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/group-entry/group-entry.html</context>
-          <context context-type="linenumber">402,404</context>
+          <context context-type="linenumber">421,423</context>
         </context-group>
       </trans-unit>
       <trans-unit id="entry.waitlist" datatype="html">
         <source>สำรอง</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/group-entry/group-entry.html</context>
-          <context context-type="linenumber">412,413</context>
+          <context context-type="linenumber">431,432</context>
         </context-group>
       </trans-unit>
       <trans-unit id="entry.confirmingRoster" datatype="html">
         <source>กำลังบันทึกรายชื่อ...</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/group-entry/group-entry.html</context>
-          <context context-type="linenumber">425,427</context>
+          <context context-type="linenumber">444,446</context>
         </context-group>
       </trans-unit>
       <trans-unit id="entry.confirmRoster" datatype="html">
         <source>ยืนยันรายชื่อ</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/group-entry/group-entry.html</context>
-          <context context-type="linenumber">427,429</context>
+          <context context-type="linenumber">446,448</context>
         </context-group>
       </trans-unit>
       <trans-unit id="entry.errMinPlayers" datatype="html">
         <source>ต้องมีผู้เล่นอย่างน้อย 4 คน</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/group-entry/group-entry.html</context>
-          <context context-type="linenumber">431,433</context>
+          <context context-type="linenumber">450,452</context>
         </context-group>
       </trans-unit>
       <trans-unit id="entry.clearRoster" datatype="html">
         <source>ล้างรายชื่อ</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/group-entry/group-entry.html</context>
-          <context context-type="linenumber">442,447</context>
+          <context context-type="linenumber">461,466</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="entry.lineUnknown" datatype="html">
+        <source>ไม่ทราบชื่อ</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/group-entry/group-entry.ts</context>
+          <context context-type="linenumber">339</context>
+        </context-group>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/group-entry/group-entry.ts</context>
+          <context context-type="linenumber">345</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="entry.lineFrom" datatype="html">
+        <source>รายชื่อล่าสุดจาก LINE โดย <x id="name" equiv-text="name"/> · <x id="time" equiv-text="time"/></source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/group-entry/group-entry.ts</context>
+          <context context-type="linenumber">341</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="entry.lineNewer" datatype="html">
+        <source>มีรายชื่อใหม่กว่าใน LINE (โดย <x id="name" equiv-text="name"/> · <x id="time" equiv-text="time"/>)</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/group-entry/group-entry.ts</context>
+          <context context-type="linenumber">347</context>
         </context-group>
       </trans-unit>
       <trans-unit id="entry.closurePreviewFailed" datatype="html">
         <source>โหลดรายละเอียดรอบไม่สำเร็จ กรุณาลองอีกครั้ง</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/group-entry/group-entry.ts</context>
-          <context context-type="linenumber">321</context>
+          <context context-type="linenumber">400</context>
         </context-group>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/group-entry/group-entry.ts</context>
-          <context context-type="linenumber">370</context>
+          <context context-type="linenumber">449</context>
         </context-group>
       </trans-unit>
       <trans-unit id="entry.closureChanged" datatype="html">
         <source>รอบก่อนหน้ามีการเปลี่ยนแปลง กรุณาตรวจสอบอีกครั้งก่อนปิด</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/group-entry/group-entry.ts</context>
-          <context context-type="linenumber">366</context>
+          <context context-type="linenumber">445</context>
         </context-group>
       </trans-unit>
       <trans-unit id="entry.closureFailed" datatype="html">
         <source>ปิดรอบก่อนหน้าไม่สำเร็จ กรุณาลองอีกครั้ง</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/group-entry/group-entry.ts</context>
-          <context context-type="linenumber">373</context>
+          <context context-type="linenumber">452</context>
         </context-group>
       </trans-unit>
       <trans-unit id="entry.decisionSamePerson" datatype="html">
         <source>คนเดียวกัน</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/group-entry/group-entry.ts</context>
-          <context context-type="linenumber">547</context>
+          <context context-type="linenumber">642</context>
         </context-group>
       </trans-unit>
       <trans-unit id="entry.decisionDifferentPerson" datatype="html">
         <source>คนละคน</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/group-entry/group-entry.ts</context>
-          <context context-type="linenumber">548</context>
+          <context context-type="linenumber">643</context>
         </context-group>
       </trans-unit>
       <trans-unit id="entry.decisionYes" datatype="html">
         <source>ใช่</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/group-entry/group-entry.ts</context>
-          <context context-type="linenumber">551</context>
+          <context context-type="linenumber">646</context>
         </context-group>
       </trans-unit>
       <trans-unit id="entry.decisionNew" datatype="html">
         <source>ไม่ใช่ เพิ่มใหม่</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/group-entry/group-entry.ts</context>
-          <context context-type="linenumber">552</context>
+          <context context-type="linenumber">647</context>
         </context-group>
       </trans-unit>
       <trans-unit id="entry.errNoText" datatype="html">
         <source>วางข้อความรายชื่อก่อน</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/group-entry/group-entry.ts</context>
-          <context context-type="linenumber">595</context>
+          <context context-type="linenumber">690</context>
         </context-group>
       </trans-unit>
       <trans-unit id="entry.errNoPlayers" datatype="html">
         <source>ไม่พบรายชื่อผู้เล่น — ตรวจว่าแต่ละชื่ออยู่บรรทัดของตัวเองและมีเลขนำหน้า (เช่น &quot;1. ชื่อ&quot;)</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/group-entry/group-entry.ts</context>
-          <context context-type="linenumber">608</context>
+          <context context-type="linenumber">703</context>
         </context-group>
       </trans-unit>
       <trans-unit id="entry.parseFailed" datatype="html">
         <source>อ่านรายชื่อไม่สำเร็จ กรุณาลองอีกครั้ง</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/group-entry/group-entry.ts</context>
-          <context context-type="linenumber">617</context>
+          <context context-type="linenumber">712</context>
         </context-group>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/group-entry/group-entry.ts</context>
-          <context context-type="linenumber">696</context>
+          <context context-type="linenumber">791</context>
         </context-group>
       </trans-unit>
       <trans-unit id="entry.clipboardFallback" datatype="html">
         <source>วางเองในช่องด้านล่างได้เลย</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/group-entry/group-entry.ts</context>
-          <context context-type="linenumber">647</context>
+          <context context-type="linenumber">742</context>
         </context-group>
       </trans-unit>
       <trans-unit id="entry.clipboardEmpty" datatype="html">
         <source>คลิปบอร์ดว่างอยู่ คัดลอกข้อความรายชื่อจาก LINE ก่อน</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/group-entry/group-entry.ts</context>
-          <context context-type="linenumber">652</context>
+          <context context-type="linenumber">747</context>
         </context-group>
       </trans-unit>
       <trans-unit id="entry.manualAddEmpty" datatype="html">
         <source>กรุณาพิมพ์ชื่อก่อน</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/group-entry/group-entry.ts</context>
-          <context context-type="linenumber">831</context>
+          <context context-type="linenumber">926</context>
         </context-group>
       </trans-unit>
       <trans-unit id="entry.manualAddExactExists" datatype="html">
         <source>มีผู้เล่นชื่อนี้อยู่แล้ว กรุณาเลือกจากรายการ</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/group-entry/group-entry.ts</context>
-          <context context-type="linenumber">836</context>
+          <context context-type="linenumber">931</context>
         </context-group>
       </trans-unit>
       <trans-unit id="entry.manualAddDuplicate" datatype="html">
         <source>เพิ่มชื่อนี้ไปแล้ว</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/group-entry/group-entry.ts</context>
-          <context context-type="linenumber">842</context>
+          <context context-type="linenumber">937</context>
         </context-group>
       </trans-unit>
       <trans-unit id="entry.manualAddedAnnounce" datatype="html">
         <source>เพิ่ม <x id="name" equiv-text="candidate.player.name"/> แล้ว</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/group-entry/group-entry.ts</context>
-          <context context-type="linenumber">966</context>
+          <context context-type="linenumber">1061</context>
         </context-group>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/group-entry/group-entry.ts</context>
-          <context context-type="linenumber">983</context>
+          <context context-type="linenumber">1078</context>
         </context-group>
       </trans-unit>
       <trans-unit id="entry.manualRemovedAnnounce" datatype="html">
         <source>ลบ <x id="name" equiv-text="name"/> แล้ว</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/group-entry/group-entry.ts</context>
-          <context context-type="linenumber">998</context>
+          <context context-type="linenumber">1093</context>
         </context-group>
       </trans-unit>
       <trans-unit id="entry.openSessionConflict" datatype="html">
         <source>มีรอบที่ยังไม่ปิด กรุณาปิดรอบก่อนหน้าหรือกลับไปเล่นต่อ</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/group-entry/group-entry.ts</context>
-          <context context-type="linenumber">1033</context>
+          <context context-type="linenumber">1128</context>
         </context-group>
       </trans-unit>
       <trans-unit id="entry.createSessionFailed" datatype="html">
         <source>สร้างรอบไม่สำเร็จ กรุณาลองอีกครั้ง</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/group-entry/group-entry.ts</context>
-          <context context-type="linenumber">1046</context>
+          <context context-type="linenumber">1141</context>
         </context-group>
       </trans-unit>
       <trans-unit id="group.loading" datatype="html">

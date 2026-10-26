@@ -385,3 +385,33 @@ app-level-picker {
 .closure-bill-note { font-weight: 600; }
 .closure-progress { display: flex; align-items: center; gap: var(--space-1); }
 .closure-success { color: var(--court-ink); font-weight: 600; }
+
+.line-note {
+  display: grid;
+  gap: var(--space-1);
+}
+
+.line-note p {
+  margin: 0;
+}
+
+.line-stale {
+  color: var(--warn);
+  font-size: var(--text-sm);
+  font-weight: 600;
+}
+
+.line-newer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-1);
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius);
+  background: var(--ground-sunk);
+  font-size: var(--text-sm);
+}
+
+.line-newer button {
+  min-height: var(--tap);
+}

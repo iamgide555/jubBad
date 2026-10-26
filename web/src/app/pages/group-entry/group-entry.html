@@ -111,7 +111,11 @@
   <div class="undo-slot" role="status">
     @if (undoSnapshot()) {
       <div class="undo-notice">
-        <span i18n="@@entry.rosterCleared">ล้างรายชื่อแล้ว</span>
+        @if (undoKind() === 'newer') {
+          <span i18n="@@entry.lineReplaced">เปลี่ยนเป็นรายชื่อล่าสุดจาก LINE แล้ว</span>
+        } @else {
+          <span i18n="@@entry.rosterCleared">ล้างรายชื่อแล้ว</span>
+        }
         <button #undoButton type="button" class="ghost" data-undo (click)="undoDiscard()" i18n="@@entry.undoClear">เลิกทำ</button>
       </div>
     }
@@ -130,6 +134,21 @@
       <div class="clipboard-note" role="status" data-clipboard-note>
         @if (clipboardNote(); as message) {
           <p class="muted">{{ message }}</p>
+        }
+      </div>
+ <!-- The LINE bot's newest roster: who posted it, a warning when it is old, and an offer when a newer one exists. Always in the page, so these lines are announced when they appear. -->
+      <div class="line-note" role="status">
+        @if (lineFilled(); as filled) {
+          <p class="muted" data-line-from>{{ lineFromText(filled) }}</p>
+          @if (filled.stale) {
+            <p class="line-stale" data-line-stale i18n="@@entry.lineStale">รายชื่อนี้เก่ากว่ารอบที่แล้ว ตรวจให้แน่ใจว่าเป็นของรอบนี้</p>
+          }
+        }
+        @if (lineOffer(); as offer) {
+          <p class="line-newer" data-line-newer>
+            <span>{{ lineNewerText(offer) }}</span>
+            <button type="button" class="ghost" data-use-newer (click)="useNewerLineRoster()" i18n="@@entry.lineUseNewer">ใช้รายชื่อนี้</button>
+          </p>
         }
       </div>
       <textarea #rosterText id="roster-text" [ngModel]="rawText()" (ngModelChange)="onRawTextChange($event)" rows="15" i18n-placeholder="@@entry.rosterPlaceholder" placeholder="วางข้อความรายชื่อจากไลน์ที่นี่"></textarea>

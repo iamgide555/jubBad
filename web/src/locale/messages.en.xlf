@@ -5797,6 +5797,30 @@
         <source>ยกเลิกการเชื่อมไม่สำเร็จ ลองอีกครั้ง</source>
         <target>Could not unlink. Try again</target>
       </trans-unit>
+      <trans-unit id="entry.lineReplaced" datatype="html">
+        <source>เปลี่ยนเป็นรายชื่อล่าสุดจาก LINE แล้ว</source>
+        <target>Switched to the latest list from LINE</target>
+      </trans-unit>
+      <trans-unit id="entry.lineStale" datatype="html">
+        <source>รายชื่อนี้เก่ากว่ารอบที่แล้ว ตรวจให้แน่ใจว่าเป็นของรอบนี้</source>
+        <target>This list is older than the last round. Check it is for this one</target>
+      </trans-unit>
+      <trans-unit id="entry.lineUseNewer" datatype="html">
+        <source>ใช้รายชื่อนี้</source>
+        <target>Use this list</target>
+      </trans-unit>
+      <trans-unit id="entry.lineUnknown" datatype="html">
+        <source>ไม่ทราบชื่อ</source>
+        <target>unknown</target>
+      </trans-unit>
+      <trans-unit id="entry.lineFrom" datatype="html">
+        <source>รายชื่อล่าสุดจาก LINE โดย <x id="name" equiv-text="name"/> · <x id="time" equiv-text="time"/></source>
+        <target>Latest roster from LINE by <x id="name" equiv-text="name"/> · <x id="time" equiv-text="time"/></target>
+      </trans-unit>
+      <trans-unit id="entry.lineNewer" datatype="html">
+        <source>มีรายชื่อใหม่กว่าใน LINE (โดย <x id="name" equiv-text="name"/> · <x id="time" equiv-text="time"/>)</source>
+        <target>There is a newer list in LINE (by <x id="name" equiv-text="name"/> · <x id="time" equiv-text="time"/>)</target>
+      </trans-unit>
     </body>
   </file>
 </xliff>

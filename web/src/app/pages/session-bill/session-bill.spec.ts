@@ -601,6 +601,8 @@ describe('SessionBill', () => {
       expect(input('walkInFee').disabled).toBe(true);
       expect(el().querySelectorAll('app-bill-settings app-plan-lock').length).toBe(1);
       expect(el().querySelector('.setting-row app-plan-lock')).toBeNull();
+      // One lock for two fields, so it names them.
+      expect(el().querySelector('app-bill-settings app-plan-lock')?.textContent).toContain('ค่าจัดก๊วนและค่า walk-in');
     });
 
     it('free: the fees lock stays while only one of the two is locked', async () => {
@@ -638,6 +640,7 @@ describe('SessionBill', () => {
       // One lock for the whole ไม่มา group, never one per person row.
       expect(el().querySelector('.row-detail app-plan-lock')).toBeNull();
       expect(el().querySelectorAll('app-plan-lock.absent-lock').length).toBe(1);
+      expect(el().querySelector('app-plan-lock.absent-lock')?.textContent).toContain('ไม่มา');
     });
 
     it('free: ไม่มา on someone already marked can still be undone', async () => {

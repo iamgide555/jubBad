@@ -10,7 +10,7 @@
 
 .lock-more {
   min-height: var(--tap);
-  padding: 0 var(--space-0);
+  padding: 0;
   border: 0;
   background: none;
   color: var(--court-ink);

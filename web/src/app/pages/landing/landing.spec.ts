@@ -274,6 +274,8 @@ describe('Landing', () => {
       await fixture.whenStable();
       fixture.detectChanges();
       expect(capped()?.textContent).toContain('ก๊วน 1/1');
+      // Not the green call to action: it does not create, it explains.
+      expect(capped()?.classList.contains('ghost')).toBe(true);
       expect(root().querySelector('app-plan-lock')?.textContent).toContain('สร้างได้ 1 ก๊วน');
       const nav = vi.spyOn(TestBed.inject(Router), 'navigateByUrl').mockResolvedValue(true);
       const open = vi.spyOn(TestBed.inject(UpgradeSheetService), 'open').mockImplementation(() => undefined);

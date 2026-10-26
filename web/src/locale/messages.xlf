@@ -815,39 +815,53 @@
           <context context-type="linenumber">6,7</context>
         </context-group>
       </trans-unit>
+      <trans-unit id="plan.lock.fees" datatype="html">
+        <source>ค่าจัดก๊วนและค่า walk-in ใช้ได้ในแพ็ก⁠เกจโฮสต์</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/core/plan.ts</context>
+          <context context-type="linenumber">121</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="plan.lock.absent" datatype="html">
+        <source>การทำเครื่องหมายไม่มาใช้ได้ในแพ็ก⁠เกจโฮสต์</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/core/plan.ts</context>
+          <context context-type="linenumber">126</context>
+        </context-group>
+      </trans-unit>
       <trans-unit id="plan.lock.modes" datatype="html">
         <source>โหมดสูสีและตามระดับใช้ได้ในแพ็ก⁠เกจโฮสต์</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/core/plan.ts</context>
-          <context context-type="linenumber">121</context>
+          <context context-type="linenumber">131</context>
         </context-group>
       </trans-unit>
       <trans-unit id="plan.lock.courtModes" datatype="html">
         <source>การตั้งโหมดแยกคอร์ทใช้ได้ในแพ็ก⁠เกจโฮสต์</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/core/plan.ts</context>
-          <context context-type="linenumber">126</context>
+          <context context-type="linenumber">136</context>
         </context-group>
       </trans-unit>
       <trans-unit id="plan.lock.target" datatype="html">
         <source>การเล็งมือล่าง/มือบนใช้ได้ในแพ็ก⁠เกจโฮสต์</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/core/plan.ts</context>
-          <context context-type="linenumber">131</context>
+          <context context-type="linenumber">141</context>
         </context-group>
       </trans-unit>
       <trans-unit id="plan.lock.onInactive" datatype="html">
         <source>เปิดอยู่ แต่รอบใหม่จะไม่ใช้ในแพ็ก⁠เกจนี้</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/core/plan.ts</context>
-          <context context-type="linenumber">139</context>
+          <context context-type="linenumber">149</context>
         </context-group>
       </trans-unit>
       <trans-unit id="plan.until" datatype="html">
         <source>ถึง <x id="date" equiv-text="date"/></source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/core/plan.ts</context>
-          <context context-type="linenumber">162</context>
+          <context context-type="linenumber">172</context>
         </context-group>
       </trans-unit>
       <trans-unit id="admin.title" datatype="html">
@@ -3694,7 +3708,7 @@
         </context-group>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/session-bill/session-bill.ts</context>
-          <context context-type="linenumber">273</context>
+          <context context-type="linenumber">274</context>
         </context-group>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/session-dashboard/session-dashboard.ts</context>
@@ -4361,64 +4375,64 @@
         <source>เกม</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/session-bill/session-bill.ts</context>
-          <context context-type="linenumber">74</context>
+          <context context-type="linenumber">75</context>
         </context-group>
       </trans-unit>
       <trans-unit id="bill.bd.shuttleUnit" datatype="html">
         <source>ลูก</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/session-bill/session-bill.ts</context>
-          <context context-type="linenumber">75</context>
+          <context context-type="linenumber">76</context>
         </context-group>
       </trans-unit>
       <trans-unit id="bill.walkInOverridden" datatype="html">
         <source>แก้ยอดเองแล้ว ค่า walk-in ไม่มีผลกับคนนี้</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/session-bill/session-bill.ts</context>
-          <context context-type="linenumber">83</context>
+          <context context-type="linenumber">84</context>
         </context-group>
       </trans-unit>
       <trans-unit id="bill.chargeLockedError" datatype="html">
         <source>เปลี่ยนวิธีคิดค่าลูกไม่ได้ เพราะมีคนเช็คเอาต์ไปแล้ว ยกเลิกเช็คเอาต์ก่อน</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/session-bill/session-bill.ts</context>
-          <context context-type="linenumber">122</context>
+          <context context-type="linenumber">123</context>
         </context-group>
       </trans-unit>
       <trans-unit id="bill.saveFailed" datatype="html">
         <source>บันทึกไม่สำเร็จ ลองใหม่อีกครั้ง</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/session-bill/session-bill.ts</context>
-          <context context-type="linenumber">123</context>
+          <context context-type="linenumber">124</context>
         </context-group>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/session-bill/session-bill.ts</context>
-          <context context-type="linenumber">236</context>
+          <context context-type="linenumber">237</context>
         </context-group>
       </trans-unit>
       <trans-unit id="bill.shuttleDetailsFailed" datatype="html">
         <source>บันทึกข้อมูลลูกแบดไม่สำเร็จ ลองใหม่อีกครั้ง</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/session-bill/session-bill.ts</context>
-          <context context-type="linenumber">138</context>
+          <context context-type="linenumber">139</context>
         </context-group>
       </trans-unit>
       <trans-unit id="bill.badCount" datatype="html">
         <source>ใส่จำนวนลูกเป็นเลขจำนวนเต็ม</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/session-bill/session-bill.ts</context>
-          <context context-type="linenumber">147</context>
+          <context context-type="linenumber">148</context>
         </context-group>
       </trans-unit>
       <trans-unit id="bill.badAmount" datatype="html">
         <source>ใส่จำนวนเงินเป็นตัวเลข ทศนิยมไม่เกิน 2 ตำแหน่ง</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/session-bill/session-bill.ts</context>
-          <context context-type="linenumber">148</context>
+          <context context-type="linenumber">149</context>
         </context-group>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/session-bill/session-bill.ts</context>
-          <context context-type="linenumber">162</context>
+          <context context-type="linenumber">163</context>
         </context-group>
       </trans-unit>
       <trans-unit id="courtLabel.save" datatype="html">

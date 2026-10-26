@@ -300,6 +300,13 @@
   padding-block: 0.7rem;
 }
 
+.plan-controls .add-month {
+  background: transparent;
+  border: 1.5px solid var(--line);
+  box-shadow: none;
+  color: var(--ink);
+}
+
 .plan-overcap {
   margin-left: var(--space-1);
   color: var(--warn);

@@ -254,7 +254,7 @@
       </details>
     }
     @if (absentLockShown()) {
-      <app-plan-lock class="absent-lock" />
+      <app-plan-lock class="absent-lock" [hint]="absentLockHint" />
     }
 
     <div class="bill-footer">

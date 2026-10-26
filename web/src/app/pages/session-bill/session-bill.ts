@@ -6,7 +6,7 @@ import { environment } from '../../../environments/environment';
 import type { BillConfig, BillModel, BillResponse, BillRow, RoundingStep } from '../../core/bill.model';
 import { billBreakdown } from '../../core/bill-breakdown';
 import { buildBillText, formatBaht } from '../../core/bill-text';
-import { isPaid, planErrorMessage, type Plan } from '../../core/plan';
+import { absentLockHint, isPaid, planErrorMessage, type Plan } from '../../core/plan';
 import { PlanService } from '../../core/plan.service';
 import { copyToClipboard } from '../../core/share-link';
 import { formatShuttleCountInput, formatShuttlePriceInput, parseShuttleCountInput, parseShuttlePriceInput } from '../../core/shuttle-money';
@@ -36,6 +36,7 @@ export class SessionBill {
   /** The group owner's plan. `null` (not loaded, or the read failed) counts as paid, so a hiccup never locks the host out. */
   private readonly plan = signal<Plan | null>(null);
   protected readonly paid = computed(() => isPaid(this.plan()));
+  protected readonly absentLockHint = absentLockHint();
 
   protected readonly config = computed(() => this.bill()?.config ?? null);
   /** A ตามลูกแบด receipt is frozen on the basis it was quoted under, so the basis cannot change while one is active. */

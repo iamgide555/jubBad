@@ -116,6 +116,16 @@ export function seePlanLabel(): string {
   return $localize`:@@plan.lock.more:ดูแพ็ก⁠เกจ`;
 }
 
+/** The line under the bill's host fee and walk-in fee: one lock for two fields, so it names them. */
+export function feesLockHint(): string {
+  return $localize`:@@plan.lock.fees:ค่าจัดก๊วนและค่า walk-in ใช้ได้ในแพ็ก⁠เกจโฮสต์`;
+}
+
+/** The line under the bill's ไม่มา chips: one lock for the whole group. */
+export function absentLockHint(): string {
+  return $localize`:@@plan.lock.absent:การทำเครื่องหมายไม่มาใช้ได้ในแพ็ก⁠เกจโฮสต์`;
+}
+
 /** The first line of the plan-lock under a session's mode toggle. */
 export function modesLockHint(): string {
   return $localize`:@@plan.lock.modes:โหมดสูสีและตามระดับใช้ได้ในแพ็ก⁠เกจโฮสต์`;

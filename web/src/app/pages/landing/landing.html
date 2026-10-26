@@ -62,7 +62,7 @@
 
   @if (atCap()) {
     <div class="new-group-capped">
-      <button type="button" class="new-group" data-new-group-capped (click)="upgradeSheet.open()">
+      <button type="button" class="new-group ghost" data-new-group-capped (click)="upgradeSheet.open()">
         <ng-container i18n="@@home.startNewGroup">สร้างก๊วนใหม่</ng-container>
         <span class="cap-count">{{ capLabel() }}</span>
       </button>

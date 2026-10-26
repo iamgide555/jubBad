@@ -1,6 +1,7 @@
 import { NgTemplateOutlet } from '@angular/common';
 import { Component, computed, input, output } from '@angular/core';
 import { PlanLock } from '../plan-lock/plan-lock';
+import { feesLockHint } from '../../core/plan';
 import type { BillConfig, BillModel, RoundingStep } from '../../core/bill.model';
 import {
   formatShuttleCountInput,
@@ -32,6 +33,7 @@ const NULLABLE: ReadonlySet<MoneyField> = new Set(['courtFeeSatang', 'capSatang'
   templateUrl: './bill-settings.html',
 })
 export class BillSettings {
+  protected readonly feesLockHint = feesLockHint();
   readonly config = input.required<BillConfig>();
   readonly session = input.required<{ shuttleCount: number | null; shuttlePriceSatang: number | null }>();
   readonly variant = input<'bill' | 'checkout'>('bill');

@@ -14,6 +14,8 @@
 
 **Tech Stack:** NestJS + Prisma + SQLite (vitest, `fileParallelism: false`), Angular standalone + signals (`ng test`), `engines/` pure TypeScript (`node:test`), LINE Messaging API (webhook + reply + group/member summary).
 
+**Status (2026-10-26):** Tasks 1 to 9 built and verified on branch `feat/line-bot-roster`; the only open boxes are the owner's real-LINE check (Task 9 step 4) and archiving this plan after that. Rulings made during the build are in the PR description and `docs/overview.md`'s LINE bot section.
+
 **Spec:** `docs/superpowers/specs/2026-10-26-line-bot-roster-design.md`. This plan covers spec sections 1 (Linking), 2 (Capture) and 3 (Start). Section 4 (Phase 2, weekly auto-post) is **out of scope**: the spec makes the LINE push-quota check a precondition for it. It gets its own plan once that is answered.
 
 ## Decisions this plan makes (spec marked these "left to the builder" or "my call")
@@ -87,7 +89,7 @@
   - `MAX_KEPT_DAYS = 30`
   - `messagesToPurge(rows: { id: string; postedAt: Date }[], now: Date): string[]`. Returns the ids to delete: everything beyond the newest 20 by `postedAt`, plus anything older than 30 days.
 
-- [ ] **Step 1: Write failing tests in `engines/line-roster.test.ts`**
+- [x] **Step 1: Write failing tests in `engines/line-roster.test.ts`**
   - `isRosterMessage`:
     - A real-shaped roster (a header line with a date or time, `1. ตั้ม`, `2. มด`, `3.`) is true.
     - The empty weekly template with numbered blank lines `1.` to `20.` is true.
@@ -102,10 +104,10 @@
     - 25 rows over 5 days returns the 5 oldest ids.
     - 3 rows, one 31 days old, returns that id.
     - An empty array returns `[]`.
-- [ ] **Step 2: Run** `node --experimental-strip-types --test engines/line-roster.test.ts`. Expected: FAIL (module not found).
-- [ ] **Step 3: Implement** with `isRosterMessage` using `const r = parseLineRosterMessage(text)`: true when `r.roster.length + r.waitlist.length >= MIN_ROSTER_LINES` and (`r.header.rawDate !== null || r.header.venue !== null || r.header.timeSlots.length > 0`).
-- [ ] **Step 4: Run** the same command and then `npm run test:engines`. Expected: PASS, with no other engine test changed.
-- [ ] **Step 5: Commit** with message `feat(engines): line roster recognition, staleness and purge rules`
+- [x] **Step 2: Run** `node --experimental-strip-types --test engines/line-roster.test.ts`. Expected: FAIL (module not found).
+- [x] **Step 3: Implement** with `isRosterMessage` using `const r = parseLineRosterMessage(text)`: true when `r.roster.length + r.waitlist.length >= MIN_ROSTER_LINES` and (`r.header.rawDate !== null || r.header.venue !== null || r.header.timeSlots.length > 0`).
+- [x] **Step 4: Run** the same command and then `npm run test:engines`. Expected: PASS, with no other engine test changed.
+- [x] **Step 5: Commit** with message `feat(engines): line roster recognition, staleness and purge rules`
 
 ### Task 2: Server: schema, LINE config, signature and client
 
@@ -131,7 +133,7 @@
     - `leave(lineGroupId: string): Promise<void>`: `POST /v2/bot/group/{id}/leave`.
     - All four use `https://api.line.me/v2/bot/...` with `Authorization: Bearer <token>` and a 3 second timeout (`AbortSignal.timeout(3000)`). They return null, or do nothing, when the token is unset, the call fails or it times out, and they never throw.
 
-- [ ] **Step 1: Write failing tests**
+- [x] **Step 1: Write failing tests**
   - Signature:
     - A body signed with secret `s` verifies.
     - A one-byte change fails.
@@ -146,10 +148,10 @@
     - `memberName` for the same group and user twice makes one fetch (cache).
     - A fetch that never resolves returns null once the 3 second timeout fires.
   - Cascade: deleting a group that has one `LineLinkCode` and one `LineRosterMessage` leaves zero of each.
-- [ ] **Step 2: Run** `cd server && SESSION_SECRET=test npx vitest run src/line src/groups`. Expected: FAIL.
-- [ ] **Step 3: Implement.** Add the schema and migration, then the files above. Add `LINE_CHANNEL_SECRET=`, `LINE_CHANNEL_ACCESS_TOKEN=` and `LINE_BOT_ADD_URL=` to `.env.example`, with one comment line each.
-- [ ] **Step 4: Run** the same command, then the full `SESSION_SECRET=test npx vitest run`. Expected: PASS everywhere. The full run proves `rawBody: true` broke nothing.
-- [ ] **Step 5: Commit** with message `feat(server): line bot schema, config, signature and client`
+- [x] **Step 2: Run** `cd server && SESSION_SECRET=test npx vitest run src/line src/groups`. Expected: FAIL.
+- [x] **Step 3: Implement.** Add the schema and migration, then the files above. Add `LINE_CHANNEL_SECRET=`, `LINE_CHANNEL_ACCESS_TOKEN=` and `LINE_BOT_ADD_URL=` to `.env.example`, with one comment line each.
+- [x] **Step 4: Run** the same command, then the full `SESSION_SECRET=test npx vitest run`. Expected: PASS everywhere. The full run proves `rawBody: true` broke nothing.
+- [x] **Step 5: Commit** with message `feat(server): line bot schema, config, signature and client`
 
 ### Task 3: Server: link codes, status and unlink (owner routes)
 
@@ -173,7 +175,7 @@
     - 409 `{ code: 'LINE_ALREADY_LINKED' }` when already linked.
   - `DELETE /groups/:code/line` returns `{ unlinked: true }`.
 
-- [ ] **Step 1: Write failing tests**
+- [x] **Step 1: Write failing tests**
   - Code creation:
     - The code is 6 characters from the fixed alphabet, `expiresAt` is now + 10 minutes, and the DB holds only the hash, never the code.
     - Creating a second code makes the first unredeemable.
@@ -197,14 +199,14 @@
     - Deleting a linked JubBad group also calls `LineClient.leave`.
     - A later `leave` event for the same LINE group is a no-op (the group is no longer linked).
   - Ownership: another host's `GET /groups/:code/line` answers 404.
-- [ ] **Step 2: Run** `cd server && SESSION_SECRET=test npx vitest run src/line`. Expected: FAIL.
-- [ ] **Step 3: Implement.**
+- [x] **Step 2: Run** `cd server && SESSION_SECRET=test npx vitest run src/line`. Expected: FAIL.
+- [x] **Step 3: Implement.**
   - Hash with `createHash('sha256')`.
   - Generate codes with `randomInt` over the alphabet.
   - Do the redeem check-and-set in one `$transaction` so two redeems cannot both link.
   - Hook the group-delete path in `server/src/groups/` to call the same release logic before the row is deleted.
-- [ ] **Step 4: Run** the same command plus `src/auth`. Expected: PASS, and the auth boundary walk still holds.
-- [ ] **Step 5: Commit** with message `feat(server): line link codes, status and unlink`
+- [x] **Step 4: Run** the same command plus `src/auth`. Expected: PASS, and the auth boundary walk still holds.
+- [x] **Step 5: Commit** with message `feat(server): line link codes, status and unlink`
 
 ### Task 4: Server: signed webhook (/link, capture, unsend, leave)
 
@@ -241,7 +243,7 @@
   - Then delete `messagesToPurge` ids for that group.
 - Scheduler: `LinePurgeScheduler` runs `purge()` every 6 hours (`unref`'d). It also deletes expired or used `LineLinkCode` rows older than a day.
 
-- [ ] **Step 1: Write failing tests** (sign bodies with `LINE_CHANNEL_SECRET=test-secret`; fake `LineClient` via `overrideProvider`; build the app with `createNestApplication({ rawBody: true })`)
+- [x] **Step 1: Write failing tests** (sign bodies with `LINE_CHANNEL_SECRET=test-secret`; fake `LineClient` via `overrideProvider`; build the app with `createNestApplication({ rawBody: true })`)
   - Signature:
     - An unsigned body returns 401.
     - A tampered body returns 401.
@@ -265,10 +267,10 @@
   - A `memberName` that never resolves does not stop the webhook answering 200 (the LineClient timeout fires).
   - `leave` unlinks, sets `lineLeftAt`, and deletes the group's messages.
   - Purge: after 22 captures only 20 remain, and a row with `postedAt` 31 days ago is gone after `purge()`.
-- [ ] **Step 2: Run** `cd server && SESSION_SECRET=test npx vitest run src/line src/auth`. Expected: the new tests FAIL. The boundary spec fails until the exception line is added.
-- [ ] **Step 3: Implement.** Read the raw body via `RawBodyRequest<Request>` (`req.rawBody`).
-- [ ] **Step 4: Run** `cd server && SESSION_SECRET=test npx vitest run && npm run lint`. Expected: PASS, lint clean.
-- [ ] **Step 5: Commit** with message `feat(server): signed line webhook with link, capture, unsend and leave`
+- [x] **Step 2: Run** `cd server && SESSION_SECRET=test npx vitest run src/line src/auth`. Expected: the new tests FAIL. The boundary spec fails until the exception line is added.
+- [x] **Step 3: Implement.** Read the raw body via `RawBodyRequest<Request>` (`req.rawBody`).
+- [x] **Step 4: Run** `cd server && SESSION_SECRET=test npx vitest run && npm run lint`. Expected: PASS, lint clean.
+- [x] **Step 5: Commit** with message `feat(server): signed line webhook with link, capture, unsend and leave`
 
 ### Task 5: Server: latest roster for start
 
@@ -284,17 +286,17 @@
   - It is `null` when the group is unlinked, has no message, or the owner is not paid now.
   - `stale` comes from `rosterStaleness(postedAt, newest Session.endedAt of the group or null, now)`.
 
-- [ ] **Step 1: Write failing tests**
+- [x] **Step 1: Write failing tests**
   - The newest by `postedAt` is returned, not the last inserted.
   - `stale` is true when an ended session's `endedAt` is after `postedAt`, and false when the message is newer.
   - With no sessions, an 8-day-old message is stale.
   - Unlinked returns null.
   - A free owner returns null (Review Focus 4).
   - Another host gets 404 (ownership).
-- [ ] **Step 2: Run** `cd server && SESSION_SECRET=test npx vitest run src/line`. Expected: FAIL.
-- [ ] **Step 3: Implement.**
-- [ ] **Step 4: Run** the same command. Expected: PASS.
-- [ ] **Step 5: Commit** with message `feat(server): latest captured roster for start`
+- [x] **Step 2: Run** `cd server && SESSION_SECRET=test npx vitest run src/line`. Expected: FAIL.
+- [x] **Step 3: Implement.**
+- [x] **Step 4: Run** the same command. Expected: PASS.
+- [x] **Step 5: Commit** with message `feat(server): latest captured roster for start`
 
 ### Task 6: Web: the "กลุ่ม LINE" settings section
 
@@ -350,7 +352,7 @@ Copy:
 | `line.notConfigured` | ยังไม่ได้ตั้งค่าบอท LINE ของระบบ | The LINE bot is not set up yet |
 | `plan.lock.line` | การเชื่อมกลุ่ม LINE ใช้ได้ในแพ็ก⁠เกจโฮสต์ | Linking a LINE group is on the Host plan |
 
-- [ ] **Step 1: Write failing tests**
+- [x] **Step 1: Write failing tests**
   - `LineService` URLs and methods.
   - Group home:
     - The row shows `เชื่อมแล้ว` with the group name, or `ยังไม่เชื่อม`.
@@ -363,10 +365,10 @@ Copy:
     - Unlink asks, then DELETEs, then shows the not-linked state.
     - A 403 `PLAN_REQUIRED` shows `planErrorMessage`.
     - A 503 shows `line.notConfigured`.
-- [ ] **Step 2: Run** `cd web && npx ng test --watch=false`. Expected: the new specs FAIL.
-- [ ] **Step 3: Implement.** Extract i18n and add the English targets.
-- [ ] **Step 4: Run** `cd web && npx ng test --watch=false && npx ng build`. Expected: PASS, and the build has no missing translations.
-- [ ] **Step 5: Commit** with message `feat(web): link a LINE group from group settings`
+- [x] **Step 2: Run** `cd web && npx ng test --watch=false`. Expected: the new specs FAIL.
+- [x] **Step 3: Implement.** Extract i18n and add the English targets.
+- [x] **Step 4: Run** `cd web && npx ng test --watch=false && npx ng build`. Expected: PASS, and the build has no missing translations.
+- [x] **Step 5: Commit** with message `feat(web): link a LINE group from group settings`
 
 ### Task 7: Web: roster entry pre-fills the latest LINE roster
 
@@ -398,7 +400,7 @@ Behaviour:
 | `entry.lineNewer` | มีรายชื่อใหม่กว่าใน LINE (โดย {name} · {time}) | There is a newer list in LINE (by {name} · {time}) |
 | `entry.lineUseNewer` | ใช้รายชื่อนี้ | Use this list |
 
-- [ ] **Step 1: Write failing tests** (`group-entry.spec.ts`, plus `line.model` spec)
+- [x] **Step 1: Write failing tests** (`group-entry.spec.ts`, plus `line.model` spec)
   - A fresh screen fills `rawText` with the roster text and shows `entry.lineFrom` with the name and the Bangkok time.
   - `stale: true` adds `entry.lineStale`.
   - A null `senderName` shows `entry.lineUnknown` (Review Focus 7).
@@ -415,10 +417,10 @@ Behaviour:
   - Newer list after going back: after อ่านรายชื่อ, going back with "← แก้ข้อความที่วาง" re-checks `latestRoster`. A newer message answered there shows `entry.lineNewer`.
   - No offer when the box already holds exactly the newest roster.
   - `formatPostedAt`: same day gives `18:42`; a different day includes the date; the Bangkok day boundary is respected at 23:30 UTC.
-- [ ] **Step 2: Run** `cd web && npx ng test --watch=false`. Expected: the new specs FAIL.
-- [ ] **Step 3: Implement.** Extract i18n and add the English targets.
-- [ ] **Step 4: Run** `cd web && npx ng test --watch=false && npx ng build`. Expected: PASS.
-- [ ] **Step 5: Commit** with message `feat(web): roster entry pre-fills the latest LINE roster`
+- [x] **Step 2: Run** `cd web && npx ng test --watch=false`. Expected: the new specs FAIL.
+- [x] **Step 3: Implement.** Extract i18n and add the English targets.
+- [x] **Step 4: Run** `cd web && npx ng test --watch=false && npx ng build`. Expected: PASS.
+- [x] **Step 5: Commit** with message `feat(web): roster entry pre-fills the latest LINE roster`
 
 ### Task 8: Web: rename (searchable) or remove any name on the roster review step
 
@@ -481,7 +483,7 @@ Behaviour:
 | `entry.renameCancel` | ยกเลิก | Cancel |
 | `entry.removedRow` | นำ {name} ออกแล้ว | Removed {name} |
 
-- [ ] **Step 1: Write failing tests**
+- [x] **Step 1: Write failing tests**
   - `player-search-field.spec.ts`:
     - Typing shows ranked candidates.
     - Arrow keys and Enter pick a candidate (`pickExisting` emits the id).
@@ -506,10 +508,10 @@ Behaviour:
     - **Similar names:** a name only similar to a player is offered as a candidate but never linked unless tapped.
     - **Escape:** cancels and leaves the row as it was.
     - **Confirm payload:** after a rename and a removal, ยืนยันรายชื่อ posts `rosterReviews` reflecting both.
-- [ ] **Step 2: Run** `cd web && npx ng test --watch=false`. Expected: the new specs FAIL, and the existing manual-add specs still PASS (before and after the extraction).
-- [ ] **Step 3: Implement.** Extract the field first and run the suite (manual-add specs green), then add rename and remove. Extract i18n and add the English targets.
-- [ ] **Step 4: Run** `cd web && npx ng test --watch=false && npx ng build`. Expected: PASS.
-- [ ] **Step 5: Commit** with message `feat(web): searchable rename and remove for any name on the roster review`
+- [x] **Step 2: Run** `cd web && npx ng test --watch=false`. Expected: the new specs FAIL, and the existing manual-add specs still PASS (before and after the extraction).
+- [x] **Step 3: Implement.** Extract the field first and run the suite (manual-add specs green), then add rename and remove. Extract i18n and add the English targets.
+- [x] **Step 4: Run** `cd web && npx ng test --watch=false && npx ng build`. Expected: PASS.
+- [x] **Step 5: Commit** with message `feat(web): searchable rename and remove for any name on the roster review`
 
 ### Task 9: Docs, full verification, and the owner's real-LINE check
 
@@ -522,13 +524,13 @@ Behaviour:
   - The spec's Status line: "phase 1 built; phase 2 pending the push-quota check".
 - Move: this plan to `docs/archive/plans/` when every box is checked.
 
-- [ ] **Step 1: Run** `npm test` (repo root) with `SESSION_SECRET=test` set for the server suite, then `cd server && npm run lint`. Expected: everything passes, lint clean.
-- [ ] **Step 2: Browser check** on an isolated scratch DB and own ports (memory `reference-e2e-browser-setup`), at 390, 820 and 1180.
+- [x] **Step 1: Run** `npm test` (repo root) with `SESSION_SECRET=test` set for the server suite, then `cd server && npm run lint`. Expected: everything passes, lint clean.
+- [x] **Step 2: Browser check** on an isolated scratch DB and own ports (memory `reference-e2e-browser-setup`), at 390, 820 and 1180.
   - **Settings states:** not configured, not linked with a code, linked, free locked.
   - **Linking from the webhook side:** simulate the webhook with a locally signed `curl`: `/link CODE`, then a roster message.
   - **Roster entry:** the pre-fill with the provenance line, the stale warning, and a restored draft left alone.
   - **Roster review:** at 390, 820 and 1180, rename a row by searching (existing player, add as new, a similar name tapped), remove a row and undo it, check manual add still behaves the same, then confirm and check the session roster matches.
-- [ ] **Step 3: Write the owner's one-time LINE setup in `dockerDeploy.md`.**
+- [x] **Step 3: Write the owner's one-time LINE setup in `dockerDeploy.md`.**
   1. Create the Messaging API channel.
   2. Set the webhook URL to `https://jubbad.wongnok.dev/api/line/webhook` and turn "Use webhook" on.
   3. Turn auto-reply and greeting messages off.

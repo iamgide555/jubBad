@@ -375,6 +375,24 @@ describe('GroupLevels', () => {
       expect(locks()).toBeGreaterThan(0);
     });
 
+    it('free on the standard ladder: no Elo intro and no seed numbers, but names and counts stay', async () => {
+      await load(standard({ N: 3 }));
+      plan.answer('free');
+      await settle();
+      expect(q('[data-seed-caveat]')).toBeNull();
+      expect(qa('[data-standard] .level-elo')).toHaveLength(0);
+      expect(qa('[data-standard] .level-name')).toHaveLength(8);
+      expect(qa('[data-standard] .level-count')[1].textContent).toContain('3');
+    });
+
+    it('host: the Elo intro and the seed numbers show', async () => {
+      await load(standard());
+      plan.answer('host');
+      await settle();
+      expect(q('[data-seed-caveat]')).not.toBeNull();
+      expect(qa('[data-standard] .level-elo')).toHaveLength(8);
+    });
+
     it('free: a standard group cannot open the editor; both entry buttons are locked with the hint', async () => {
       await load(standard());
       plan.answer('free');

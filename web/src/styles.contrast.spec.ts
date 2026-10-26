@@ -125,4 +125,8 @@ describe('styles.css .table-scroll', () => {
   it('is positioned, so its absolute .sr-only children are clipped and cannot widen the page', () => {
     expect(declaration(ruleBody('.table-scroll'), 'position')).toBe('relative');
   });
+
+  it('a disabled select reads as disabled: dimmed, with a not-allowed cursor', () => {
+    expect(css).toMatch(/select:disabled\s*\{[^}]*opacity:\s*0?\.\d+[^}]*cursor:\s*not-allowed/);
+  });
 });

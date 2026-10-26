@@ -194,7 +194,8 @@ describe('PlayerProfile', () => {
     it('explains, in neutral words for players, that the host has not opened these stats', async () => {
       const el = await loadLocked();
       const line = el.querySelector('[data-plan-locked] .muted');
-      expect(line?.textContent).toContain('ผู้ดูแลก๊วนยังไม่เปิดให้ดูข้อมูลผู้เล่นคนนี้');
+      expect(line?.textContent).toContain('สถิติของก๊วนนี้ยังไม่เปิดให้ดู');
+      expect(line?.textContent).not.toContain('ผู้ดูแล');
       expect(el.querySelector('app-plan-lock')).toBeNull();
     });
 

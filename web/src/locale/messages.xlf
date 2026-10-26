@@ -2536,200 +2536,200 @@
         <source> ค่า Elo เริ่มต้นใช้กับการกำหนดระดับครั้งต่อไปเท่านั้น คนที่มีระดับอยู่แล้วคงค่าเดิมของเขา และผลการแข่งที่ผ่านมาไม่เปลี่ยน </source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/group-levels/group-levels.html</context>
-          <context context-type="linenumber">14,17</context>
+          <context context-type="linenumber">15,19</context>
         </context-group>
       </trans-unit>
       <trans-unit id="levels.standardTitle" datatype="html">
         <source>ระดับมาตรฐาน</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/group-levels/group-levels.html</context>
-          <context context-type="linenumber">26,27</context>
+          <context context-type="linenumber">28,29</context>
         </context-group>
       </trans-unit>
       <trans-unit id="levels.standardHint" datatype="html">
         <source>ก๊วนนี้ใช้ระดับมาตรฐานของแอป ถ้าก๊วนของคุณแบ่งระดับต่างออกไป ตั้งระดับของก๊วนเองได้</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/group-levels/group-levels.html</context>
-          <context context-type="linenumber">27,28</context>
+          <context context-type="linenumber">29,30</context>
         </context-group>
       </trans-unit>
       <trans-unit id="levels.people" datatype="html">
         <source>คน</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/group-levels/group-levels.html</context>
-          <context context-type="linenumber">33,34</context>
+          <context context-type="linenumber">37,38</context>
         </context-group>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/group-levels/group-levels.html</context>
-          <context context-type="linenumber">81,82</context>
+          <context context-type="linenumber">85,86</context>
         </context-group>
       </trans-unit>
       <trans-unit id="levels.fromStandard" datatype="html">
         <source>เริ่มจากระดับมาตรฐานแล้วแก้</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/group-levels/group-levels.html</context>
-          <context context-type="linenumber">38,39</context>
+          <context context-type="linenumber">42,43</context>
         </context-group>
       </trans-unit>
       <trans-unit id="levels.customize" datatype="html">
         <source>เริ่มใหม่ทั้งหมด</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/group-levels/group-levels.html</context>
-          <context context-type="linenumber">39,41</context>
+          <context context-type="linenumber">43,45</context>
         </context-group>
       </trans-unit>
       <trans-unit id="levels.customTitle" datatype="html">
         <source>ระดับของก๊วน (เรียงจากต่ำไปสูง)</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/group-levels/group-levels.html</context>
-          <context context-type="linenumber">49,50</context>
+          <context context-type="linenumber">53,54</context>
         </context-group>
       </trans-unit>
       <trans-unit id="levels.newTitle" datatype="html">
         <source>ระดับใหม่ของก๊วน (เรียงจากต่ำไปสูง)</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/group-levels/group-levels.html</context>
-          <context context-type="linenumber">51,53</context>
+          <context context-type="linenumber">55,57</context>
         </context-group>
       </trans-unit>
       <trans-unit id="levels.eloHelp" datatype="html">
         <source>Elo คือคะแนนฝีมือเริ่มต้นของระดับนั้น ห่างกัน 100 คะแนน ฝั่งที่เก่งกว่าชนะราวสองในสาม</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/group-levels/group-levels.html</context>
-          <context context-type="linenumber">54,55</context>
+          <context context-type="linenumber">58,59</context>
         </context-group>
       </trans-unit>
       <trans-unit id="levels.nameLabel" datatype="html">
         <source>ชื่อระดับ</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/group-levels/group-levels.html</context>
-          <context context-type="linenumber">66,67</context>
+          <context context-type="linenumber">70,71</context>
         </context-group>
       </trans-unit>
       <trans-unit id="levels.namePlaceholder" datatype="html">
         <source>ชื่อระดับ</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/group-levels/group-levels.html</context>
-          <context context-type="linenumber">68,70</context>
+          <context context-type="linenumber">72,74</context>
         </context-group>
       </trans-unit>
       <trans-unit id="levels.eloLabel" datatype="html">
         <source>ค่า Elo เริ่มต้น</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/group-levels/group-levels.html</context>
-          <context context-type="linenumber">78,80</context>
+          <context context-type="linenumber">82,84</context>
         </context-group>
       </trans-unit>
       <trans-unit id="levels.up" datatype="html">
         <source>เลื่อนขึ้น</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/group-levels/group-levels.html</context>
-          <context context-type="linenumber">84,85</context>
+          <context context-type="linenumber">88,89</context>
         </context-group>
       </trans-unit>
       <trans-unit id="levels.down" datatype="html">
         <source>เลื่อนลง</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/group-levels/group-levels.html</context>
-          <context context-type="linenumber">85,86</context>
+          <context context-type="linenumber">89,90</context>
         </context-group>
       </trans-unit>
       <trans-unit id="levels.remove" datatype="html">
         <source>ลบระดับ</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/group-levels/group-levels.html</context>
-          <context context-type="linenumber">95</context>
+          <context context-type="linenumber">99</context>
         </context-group>
       </trans-unit>
       <trans-unit id="levels.add" datatype="html">
         <source>+ เพิ่มระดับ</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/group-levels/group-levels.html</context>
-          <context context-type="linenumber">105,106</context>
+          <context context-type="linenumber">109,110</context>
         </context-group>
       </trans-unit>
       <trans-unit id="levels.suggestConfirm" datatype="html">
         <source>กดอีกครั้งเพื่อเปลี่ยนค่า Elo ทุกระดับ</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/group-levels/group-levels.html</context>
-          <context context-type="linenumber">108,109</context>
+          <context context-type="linenumber">112,113</context>
         </context-group>
       </trans-unit>
       <trans-unit id="levels.suggest" datatype="html">
         <source>ตั้งค่า Elo ห่างกัน 100</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/group-levels/group-levels.html</context>
-          <context context-type="linenumber">110,111</context>
+          <context context-type="linenumber">114,115</context>
         </context-group>
       </trans-unit>
       <trans-unit id="levels.cancel" datatype="html">
         <source>ยกเลิกการแก้</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/group-levels/group-levels.html</context>
-          <context context-type="linenumber">121,123</context>
+          <context context-type="linenumber">125,127</context>
         </context-group>
       </trans-unit>
       <trans-unit id="levels.save" datatype="html">
         <source>บันทึกระดับ</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/group-levels/group-levels.html</context>
-          <context context-type="linenumber">123,125</context>
+          <context context-type="linenumber">127,129</context>
         </context-group>
       </trans-unit>
       <trans-unit id="levels.reset" datatype="html">
         <source>กลับไปใช้ระดับมาตรฐาน</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/group-levels/group-levels.html</context>
-          <context context-type="linenumber">132,133</context>
+          <context context-type="linenumber">136,137</context>
         </context-group>
       </trans-unit>
       <trans-unit id="levels.loading" datatype="html">
         <source>กำลังโหลด…</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/group-levels/group-levels.html</context>
-          <context context-type="linenumber">140,143</context>
+          <context context-type="linenumber">144,147</context>
         </context-group>
       </trans-unit>
       <trans-unit id="levels.confirmCustomizeTitle" datatype="html">
         <source>เปลี่ยนไปใช้ระดับของก๊วนเอง?</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/group-levels/group-levels.html</context>
-          <context context-type="linenumber">148,150</context>
+          <context context-type="linenumber">152,154</context>
         </context-group>
       </trans-unit>
       <trans-unit id="levels.confirmResetTitle" datatype="html">
         <source>กลับไปใช้ระดับมาตรฐาน?</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/group-levels/group-levels.html</context>
-          <context context-type="linenumber">150,152</context>
+          <context context-type="linenumber">154,156</context>
         </context-group>
       </trans-unit>
       <trans-unit id="levels.confirmCount" datatype="html">
         <source>ระดับของผู้เล่น <x id="INTERPOLATION" equiv-text="{{ c.affected }}"/> คนจะถูกล้าง (ไม่มีระดับ)</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/group-levels/group-levels.html</context>
-          <context context-type="linenumber">153,154</context>
+          <context context-type="linenumber">157,158</context>
         </context-group>
       </trans-unit>
       <trans-unit id="levels.confirmKeep" datatype="html">
         <source>ค่า Elo ที่สะสมไว้และผลการแข่งทั้งหมดไม่เปลี่ยน ต้องกำหนดระดับให้ผู้เล่นใหม่เอง</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/group-levels/group-levels.html</context>
-          <context context-type="linenumber">154,155</context>
+          <context context-type="linenumber">158,159</context>
         </context-group>
       </trans-unit>
       <trans-unit id="levels.confirmCancel" datatype="html">
         <source>ยกเลิก</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/group-levels/group-levels.html</context>
-          <context context-type="linenumber">156,157</context>
+          <context context-type="linenumber">160,161</context>
         </context-group>
       </trans-unit>
       <trans-unit id="levels.confirmOk" datatype="html">
         <source>ยืนยัน</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/group-levels/group-levels.html</context>
-          <context context-type="linenumber">157,159</context>
+          <context context-type="linenumber">161,163</context>
         </context-group>
       </trans-unit>
       <trans-unit id="levels.confirmDiscard" datatype="html">
@@ -3397,7 +3397,7 @@
         </context-group>
       </trans-unit>
       <trans-unit id="profile.planLockedHint" datatype="html">
-        <source>ผู้ดูแลก๊วนยังไม่เปิดให้ดูข้อมูลผู้เล่นคนนี้</source>
+        <source>สถิติของก๊วนนี้ยังไม่เปิดให้ดู</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/player-profile/player-profile.html</context>
           <context context-type="linenumber">112,114</context>

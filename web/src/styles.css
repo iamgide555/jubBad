@@ -416,6 +416,13 @@ select {
   }
 }
 
+/* A control the plan (or anything else) has switched off must look off: dimmed, and a
+   cursor that says so. Without this a locked select reads as a working one. */
+select:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
 input:focus,
 textarea:focus,
 select:focus {

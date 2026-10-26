@@ -13,7 +13,7 @@
     }
   </p>
   <h1 i18n="@@playerRoster.title">ผู้เล่นในก๊วน</h1>
-  @if (editingId() === null && !isEmpty()) {
+  @if (editingId() === null && !isEmpty() && (paid() || ladder()?.mode === 'custom')) {
     <p><a [routerLink]="['/g', groupCode, 'levels']" data-levels-link i18n="@@playerRoster.groupLevels">ตั้งชื่อระดับของก๊วน →</a></p>
   }
 

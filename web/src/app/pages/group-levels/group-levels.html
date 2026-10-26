@@ -10,9 +10,11 @@
   @if (loadFailed()) {
     <p class="error" role="alert" i18n="@@levels.loadFailed">โหลดข้อมูลระดับไม่สำเร็จ</p>
   } @else if (data(); as d) {
+    @if (paid() || isCustom()) {
     <p class="hint" data-seed-caveat i18n="@@levels.seedCaveat">
       ค่า Elo เริ่มต้นใช้กับการกำหนดระดับครั้งต่อไปเท่านั้น คนที่มีระดับอยู่แล้วคงค่าเดิมของเขา และผลการแข่งที่ผ่านมาไม่เปลี่ยน
     </p>
+    }
 
     @if (error(); as e) {
       <p class="error" role="alert">{{ e }}</p>
@@ -29,7 +31,9 @@
           @for (l of d.levels; track l.id) {
             <li class="level-row readonly">
               <span class="level-name">{{ l.name }}</span>
-              <span class="level-elo">{{ l.startingElo }}</span>
+              @if (paid()) {
+                <span class="level-elo">{{ l.startingElo }}</span>
+              }
               <span class="level-count muted">{{ countOf(l.id) }} <ng-container i18n="@@levels.people">คน</ng-container></span>
             </li>
           }

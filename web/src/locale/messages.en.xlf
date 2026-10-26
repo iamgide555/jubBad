@@ -581,10 +581,10 @@
         </context-group>
       </trans-unit>
       <trans-unit id="profile.planLockedHint" datatype="html">
-        <source>ผู้ดูแลก๊วนยังไม่เปิดให้ดูข้อมูลผู้เล่นคนนี้</source><target>The group host hasn't opened this player's stats</target>
+        <source>สถิติของก๊วนนี้ยังไม่เปิดให้ดู</source><target>Stats aren't available for this group</target>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/player-profile/player-profile.html</context>
-          <context context-type="linenumber">112</context>
+          <context context-type="linenumber">112,114</context>
         </context-group>
       </trans-unit>
       <trans-unit id="summary.back" datatype="html">

@@ -634,7 +634,7 @@ describe('PlayerRoster on a free plan', () => {
   const FREE_PLAYERS = PLAYERS.map((p) => ({ ...p, rating: null, singlesRating: null, winRate: null }));
   const RULE = { id: 'r1', playerAId: 'p1', playerBId: 'p2', kind: 'must-pair' };
 
-  async function open(answer: 'free' | 'host' | null, players: unknown[] = FREE_PLAYERS) {
+  async function open(answer: 'free' | 'host' | null, players: unknown[] = FREE_PLAYERS, ladder = standardLadderFixture()) {
     plan = stubPlanService();
     await TestBed.configureTestingModule({
       imports: [PlayerRoster],
@@ -649,7 +649,7 @@ describe('PlayerRoster on a free plan', () => {
     fixture = TestBed.createComponent(PlayerRoster);
     httpMock.expectOne(`${B}/groups/group1/players/manage`).flush(players);
     httpMock.expectOne(`${B}/groups/group1/rules`).flush([RULE]);
-    httpMock.expectOne(`${B}/groups/group1/levels`).flush(standardLadderFixture());
+    httpMock.expectOne(`${B}/groups/group1/levels`).flush(ladder);
     httpMock.expectOne(`${B}/groups/group1`).flush(GROUP);
     if (answer) plan.answer(answer);
     await fixture.whenStable();
@@ -669,6 +669,21 @@ describe('PlayerRoster on a free plan', () => {
     expect(el().querySelectorAll('tbody tr:first-child td')).toHaveLength(4);
     expect(el().querySelector('app-level-picker')).toBeTruthy();
     expect([...el().querySelectorAll('button')].some((b) => b.textContent!.trim() === 'แก้ไข')).toBe(true);
+  });
+
+  it('free on the standard ladder: no link into the locked levels page', async () => {
+    await open('free');
+    expect(el().querySelector('[data-levels-link]')).toBeNull();
+  });
+
+  it('free with a custom ladder: the levels link stays, so it can still be looked at', async () => {
+    await open('free', FREE_PLAYERS, standardLadderFixture({ mode: 'custom' }));
+    expect(el().querySelector('[data-levels-link]')).not.toBeNull();
+  });
+
+  it('host: the levels link shows', async () => {
+    await open('host');
+    expect(el().querySelector('[data-levels-link]')).not.toBeNull();
   });
 
   it('hides the per-player share link', async () => {

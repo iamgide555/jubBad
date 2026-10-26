@@ -250,6 +250,28 @@ rm -f server/prisma/dev.db server/prisma/dev.db-wal server/prisma/dev.db-shm
 docker compose up -d --build
 ```
 
+## LINE bot (one-time setup)
+
+The roster-capture bot needs one shared LINE Messaging API channel, set up once by the owner. Until
+it is, the feature reports "not configured" and everything else works as before.
+
+1. In the LINE Developers console, create a Messaging API channel (a LINE Official Account).
+2. Set the webhook URL to `https://jubbad.wongnok.dev/api/line/webhook` and turn **Use webhook** on.
+3. Turn auto-reply and greeting messages off.
+4. Turn on **Allow bot to join group chats**. A LINE group can hold only one Official Account, so a
+   ก๊วน that already has another bot must remove it first.
+5. Put `LINE_CHANNEL_SECRET`, `LINE_CHANNEL_ACCESS_TOKEN` and `LINE_BOT_ADD_URL` (the bot's https
+   add-friend link) in `server/.env` on the PC.
+6. Run `npm run db:backup`, then deploy (this release has a migration; see "When the release
+   contains a migration").
+7. Press **Verify** next to the webhook URL in the console. If it fails, check that Cloudflare
+   (Bot Fight Mode or WAF rules) is not blocking LINE's requests to `/api/line/webhook`, and add a
+   skip rule for that path if it is.
+8. Real-LINE check on a test group: link it, post a roster, open start and confirm the pre-fill;
+   edit the roster message and confirm start shows the edit (note the event type LINE sends for an
+   edit; the code assumes `messageEdited`); unsend one and confirm it disappears; unlink and
+   confirm the bot leaves the LINE group.
+
 ## Rollback
 ```bash
 git checkout <prev-sha>

@@ -28,7 +28,7 @@ server/      NestJS + Prisma + SQLite. Imports engines/ by relative path
              docs/overview.md. Serialization itself is
              server/src/sessions/session-lock.ts (in-process; a
              single-container deployment).
-             Modules: auth, admin, groups, sessions, users, prisma.
+             Modules: auth, admin, groups, sessions, users, line, prisma.
 
 web/         Angular (standalone components, signals). Talks to the API
              only — no business logic, no localStorage state.

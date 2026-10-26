@@ -23,7 +23,7 @@ the gating works is in `docs/overview.md` ("Plans"); this doc is the feature map
 | Results | Record winner; correct a finished game's winner or score | |
 | Public | Venue display, session recap link (permanent, never expires) | Group dashboard `/d/:token` |
 | History and stats | In-app archive, stat history and export limited to the last 30 days | Full archive, player stat cards, rating and win rate, host roster page, export |
-| Platform | Login, PWA, delete group, shared venue field, 1 group | Up to 3 groups. ก๊วนใหญ่ 499฿/mo: up to 10 groups and 5 managers |
+| Platform | Login, PWA, delete group, shared venue field, 1 group | LINE bot roster capture (2026-10-26): pre-fills the roster from the group's LINE chat. Up to 3 groups. ก๊วนใหญ่ 499฿/mo: up to 10 groups and 5 managers |
 
 Annual: pay 10, get 12.
 

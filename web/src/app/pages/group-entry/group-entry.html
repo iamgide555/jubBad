@@ -225,6 +225,7 @@
       @if (renaming() === review) {
         <!-- Rename: search an existing player or type a new name. Nothing is saved
              until ยืนยันรายชื่อ; ยกเลิก, Escape or leaving the field keeps the row as it was. -->
+        <button type="button" class="ghost link-action" data-cancel-rename (click)="cancelRename()" i18n="@@entry.renameCancel">ยกเลิก</button>
         <app-player-search-field
           idPrefix="rename"
           i18n-label="@@entry.renameLabel"
@@ -240,7 +241,6 @@
           (pickNew)="renameToNew(review, $event)"
           (cancel)="cancelRename()"
         />
-        <button type="button" class="ghost link-action" data-cancel-rename (click)="cancelRename()" i18n="@@entry.renameCancel">ยกเลิก</button>
       } @else {
       <span class="review-name">{{ displayName(review) }}</span>
       @if (!isManualReview(review)) {

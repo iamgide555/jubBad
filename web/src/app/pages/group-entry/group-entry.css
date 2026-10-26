@@ -428,6 +428,10 @@ app-level-picker {
   display: none;
 }
 
+.removed-slot:not(:empty) {
+  margin-bottom: var(--space-1);
+}
+
 .removed-slot button {
   min-height: var(--tap);
 }

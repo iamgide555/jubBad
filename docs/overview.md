@@ -60,12 +60,12 @@ firsthand host feedback (items A–G, all done) is recorded in `docs/archive/202
 
 | Decision | Why |
 |---|---|
-| No bot in the LINE group chat, ever | A posting bot notifies people who aren't even playing that day — spammy |
-| No passive "listener" bot | Even listen-only, it technically sees the *entire* conversation; the host's consent doesn't cover the other ~15-20 people in the chat. Bigger trust risk than the convenience is worth for a casual friend group |
-| Import is paste-based | The app's data footprint = exactly what the host explicitly hands over. No infra (no webhook server, no persistent message store). **A host with nothing to paste (ad-hoc night, no LINE message) can still start a session via "เพิ่มรายชื่อเอง" on the roster screen (2026-09-24) — it lands on the same confirm step empty and reuses the existing manual add field; the principle is unchanged, since a manual roster is still exactly what the host typed in, not something the app fetched or inferred** |
+| No bot in the LINE group chat, ever | A posting bot notifies people who aren't even playing that day — spammy. **Narrowed 2026-10-26 (LINE bot, phase 1).** A roster-only bot now exists, and the only thing it ever posts is a one-line reply to `/link`. A scheduled weekly template post is phase 2: not built, and gated on the push-quota check in the LINE bot design |
+| No passive "listener" bot | Even listen-only, it technically sees the *entire* conversation; the host's consent doesn't cover the other ~15-20 people in the chat. Bigger trust risk than the convenience is worth for a casual friend group. **Reversed in part 2026-10-26, by the owner's decision, with the retention risk designed out.** For a group a host has linked (opt-in, paid, a host-only code typed into the chat), LINE delivers every message to the server, but anything that is not a roster is dropped before it reaches the database; only roster messages are stored (text, sender id and display name, time), at most the newest 20 and nothing older than 30 days, and the `/link` reply tells the chat exactly that. The owner judged the members fine with it. See "LINE bot" below |
+| Import is paste-based | The app's data footprint = exactly what the host explicitly hands over. No infra (no webhook server, no persistent message store) — **that part no longer holds for a linked group (2026-10-26): a signed LINE webhook and a roster-message table exist. The principle still does: start only pre-fills a box the host still reads and parses, and every failure falls back to a plain manual paste.** **A host with nothing to paste (ad-hoc night, no LINE message) can still start a session via "เพิ่มรายชื่อเอง" on the roster screen (2026-09-24) — it lands on the same confirm step empty and reuses the existing manual add field; the principle is unchanged, since a manual roster is still exactly what the host typed in, not something the app fetched or inferred** |
 | No LIFF / LINE Login / LINE platform integration | Paste-based import plus manual share means zero technical touchpoint with LINE's platform is needed. Pure UX polish, addable later |
 | Per-user accounts for hosts, not player accounts | Administrative screens and writes require signing in as a real user (email + password, session cookie signed server-side). Each user owns the groups they create; an admin role sees and manages every user and group. There are still no individual *player* accounts or profiles — this is identity for whoever runs a session, not for who plays in one. Superseded the earlier one-shared-token design (backlog B12, done 2026-09-12); see the per-user-login design doc for the schema and guard design. |
-| Trigger-word LINE bot (reconsidered, still rejected) | The idea: a bot watches the group for a keyword ("Play") then auto-extracts the roster, skipping the manual paste. Rejected on inspection — the LINE Messaging API has no message-history endpoint (confirmed in LINE's docs), so a bot can only look *forward* from when it joins. In real use the roster is posted days before "Play" is typed, so the bot would have to continuously store *all* group messages in a rolling buffer to look backward — that is full passive listening plus retention, the exact risk rejected above, not a lighter trigger-gated version. It also reopens "no infra" and "no posting bot" at once. Revisit only if paste friction proves to be a real dealbreaker; the lower-risk fix for the typing/copying pain is a tap-to-register roster link |
+| Trigger-word LINE bot (reconsidered, still rejected) | The idea: a bot watches the group for a keyword ("Play") then auto-extracts the roster, skipping the manual paste. Rejected on inspection — the LINE Messaging API has no message-history endpoint (confirmed in LINE's docs), so a bot can only look *forward* from when it joins. In real use the roster is posted days before "Play" is typed, so the bot would have to continuously store *all* group messages in a rolling buffer to look backward — that is full passive listening plus retention, the exact risk rejected above, not a lighter trigger-gated version. It also reopens "no infra" and "no posting bot" at once. Revisit only if paste friction proves to be a real dealbreaker; the lower-risk fix for the typing/copying pain is a tap-to-register roster link. **Superseded 2026-10-26:** the owner runs sessions from an iPad that is not logged into their personal LINE, so copying the roster meant logging in and out every week. The design that shipped is not trigger-word: it stores roster-shaped messages only, as they arrive, which is the only look-back LINE allows |
 | No cost-splitting / PromptPay QR in-app | KhunThong (ขุนทอง), KBank/KBTG's LINE bot, already does this well — bill split (equal or not), PromptPay QR, and payment verification by e-slip scan, which the planned v1 didn't even have. The host invites KhunThong separately; no integration needed. **Partly reopened 2026-09-21, and narrowed 2026-09-22, not reversed.** The session now records its shuttle count and price, and every Thai competitor leads with a per-person bill. The owner decided the app will *calculate* each player's share and copy it out as text for LINE, under one of three charging models (fair pay, per game, buffet), with an optional host-fee line. The QR, payment tracking and slip checking stay with KhunThong. Built 2026-09-24 (roadmap C3); see "Bill (C3)" below and `docs/archive/specs/2026-09-22-roadmap-c-series-design.md`. |
 | Score logging: final score only, no live scoreboard | Point-by-point, serve indicators and timers are scope creep nobody asked for. A final score per court is low-friction and still bootstraps the match history that future skill/Elo balancing would need |
 | Per-group host role (resolved 2026-09-08 decision, built 2026-09-12) | Was: one shared admin token distinguished no one from anyone else — equal power for every holder, including deleting a group, with all-or-nothing revocation. Closed by backlog B12: `Group.ownerId` names one owner per group, `OwnershipGuard` refuses any other host with a 404 (never a 403 — that would confirm the code exists), and disabling one user bumps only their `tokenVersion`, signing out just that person's devices. An admin role bypasses ownership and manages every user and group from `/admin`. Built on a branch and merged into `main` on 2026-09-12 (`559ea5a`). |
@@ -79,7 +79,7 @@ firsthand host feedback (items A–G, all done) is recorded in `docs/archive/202
 - Multi-sport support — badminton-only, Thai-first. This used to be called
   the moat. Since the Thai competitors above exist, it no longer is; it stays
   out of scope because focus is still worth more than breadth.
-- Any LINE bot, posting or passively listening (reconsidered once; still out).
+- A LINE bot that posts, or that reads or keeps ordinary chat. A roster-only bot exists since 2026-10-26 (see "LINE bot" below); it drops every message that is not a roster before storing anything.
 - LIFF / LINE Login as an identity provider. Note that plain user accounts left
   this list on 2026-09-08 and are now built (backlog B12): per-user login,
   each host owning the groups they create. What stays out of scope is
@@ -745,6 +745,13 @@ pairing never reaches the venue screen. It refreshes every 30 seconds and has
 a manual refresh control; neither needs extra server infrastructure such as
 websockets.
 
+On the same screen any parsed name, on the roster or the waitlist, can be renamed
+(search an existing player or type a new name) or taken off, with one tap to bring
+a removal back. A rename to an existing player keeps the parsed text and becomes a
+host-confirmed fuzzy pairing, so the server learns the text as an alias the way it
+does when the host accepts a suggestion; fuzzy matches are still never linked
+without a tap. Nothing is sent until the host confirms.
+
 The roster review screen, before a session is created, also has one search
 field for adding someone the paste missed. It finds an existing player (so
 their history carries over) or creates a new one. Confirm requires at least
@@ -1322,6 +1329,46 @@ instead of failing after a name is typed, and a พักไว้ badge on a pa
 **Word joiner.** Every "แพ็ก⁠เกจ" in the web copy carries U+2060 between "แพ็ก"
 and "เกจ" so a Thai line never breaks inside the word.
 
+### LINE bot (phase 1)
+
+Design: `docs/superpowers/specs/2026-10-26-line-bot-roster-design.md`; build plan:
+`docs/superpowers/plans/2026-10-26-line-bot-roster.md` (archived when finished). Phase 2, the
+weekly auto-post of the template, is not built: LINE counts a group push once per member against
+the shared bot's monthly quota, so the quota has to be checked first.
+
+A host links a group to its LINE group from `/g/:code/settings/line`: the page makes a one-time
+code (6 characters, 10 minutes, stored only as a SHA-256 hash), the host invites the shared bot
+into the LINE group and types `/link <code>` there. The bot replies with what it keeps. A wrong or
+expired code gets one generic Thai reply (it never says which); a sender who has failed 10 times in
+15 minutes gets no reply. One LINE group per JubBad group and the other way round.
+
+- **Webhook** `POST /line/webhook` is `@Public` but authenticated by LINE's HMAC signature over
+  the raw body (`rawBody: true` in `main.ts`). Unconfigured (`LINE_CHANNEL_SECRET`,
+  `LINE_CHANNEL_ACCESS_TOKEN`) it answers 503. One failing event never turns the batch into a
+  non-2xx.
+- **Capture** keeps a message only when `isRosterMessage` says so (`engines/line-roster.ts`: at
+  least 3 numbered lines **and** a header with a date, venue or time slot, so a numbered rules post
+  never becomes "the newest roster"), and only for a linked group whose owner is on a paid plan
+  right now. Stored: text, sender LINE id and name (null for members on LINE for PC, who have no
+  user id), LINE's event time (never arrival time). Kept: the newest 20 per group, nothing older
+  than 30 days, swept every 6 hours. An edit follows the stored text, an edit that stops being a
+  roster removes it, and unsend removes it.
+- **Start** (`GET /groups/:code/line/latest-roster`) pre-fills the paste box only on a fresh start:
+  no restored draft, nothing typed, still pasting, group not paused. It never parses by itself. A
+  roster older than the last finished session (or older than 7 days when there is none) shows a
+  warning. A newer list that arrives later is offered, never swapped in; taking it can be undone.
+- **Plan:** Host and up. Creating a code and redeeming it need a paid plan; capture and the
+  latest-roster read stop the moment the plan lapses, with the link kept. A lapsed group shows the
+  settings row as "paused" with Unlink as its only action, and resumes by itself on renewal
+  (derived from the plan, never stored). Unlink and status always work.
+- **Unlink and delete** ask the bot to leave the LINE group (best effort) and delete everything
+  stored for it, so re-linking means inviting the bot again. Bot removed from the chat: the link is
+  cleared and the settings page says so.
+- **Fallback:** every failure (no bot configured, LINE down, nothing captured, lapsed plan) leaves
+  the plain empty paste box, exactly as before.
+- **Unverified until a real LINE group is used:** the exact type string of LINE's edit event
+  (`messageEdited` per the docs summary) and that Cloudflare lets LINE's webhook through.
+
 ## Current state
 
 Everything described above is built: the three engines, the API, the Angular
@@ -1330,7 +1377,7 @@ undo, resting players, wait timers, one-tap fill, all four pairing modes
 (variety, balanced, level, custom), per-court singles/doubles format, session
 archive, the public session summary, player pages, the host-only player roster
 page (contact details, plus rank by rating or win rate), manual add on the
-roster review screen, adding a walk-in to a running session, shuttle count
+roster review screen (and rename or remove of any parsed name), adding a walk-in to a running session, shuttle count
 and price, the per-person bill (C3), export and delete, per-user host login
 with an admin console, and a PWA manifest (no service worker, so no offline
 use).

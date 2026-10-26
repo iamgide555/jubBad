@@ -100,6 +100,15 @@ describe('PlayerSearchField', () => {
     expect(options().some((o) => o.textContent?.includes('ตั้ม'))).toBe(true);
   });
 
+  it('selects the initial text, so the first keystroke replaces it', async () => {
+    fixture.componentRef.setInput('initialText', 'ตั้ม 19.00');
+    fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.detectChanges();
+    expect(input().selectionStart).toBe(0);
+    expect(input().selectionEnd).toBe('ตั้ม 19.00'.length);
+  });
+
   it('never offers a player that another row has claimed, and says so on an exact match', async () => {
     fixture.componentRef.setInput('claimedIds', new Set(['p2']));
     fixture.detectChanges();

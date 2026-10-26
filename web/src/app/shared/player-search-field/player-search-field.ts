@@ -75,7 +75,11 @@ export class PlayerSearchField implements AfterViewInit {
   });
 
   ngAfterViewInit(): void {
-    this.inputRef().nativeElement.focus();
+    const field = this.inputRef().nativeElement;
+    field.focus();
+    // ngModel writes the starting text in a microtask; select it after that, so the first keystroke
+    // replaces the row's old name instead of appending to it.
+    void Promise.resolve().then(() => field.select());
   }
 
   protected onQueryChange(value: string): void {

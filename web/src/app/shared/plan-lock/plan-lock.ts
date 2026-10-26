@@ -8,7 +8,7 @@ import { Component, input } from '@angular/core';
 })
 export class PlanLock {
   /**
-   * Replaces the generic first line ("ใช้ได้ในแพ็กเกจโฮสต์") when the caller can say
+   * Replaces the generic first line ("ใช้ได้ในแพ็ก⁠เกจโฮสต์") when the caller can say
    * exactly what is locked. The upgrade sub-line always stays.
    */
   readonly hint = input<string | null>(null);

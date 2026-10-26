@@ -160,7 +160,7 @@ export class Admin {
 
   // ---- plan ----
 
-  readonly planAria = $localize`:@@admin.planSelectAria:แพ็กเกจ`;
+  readonly planAria = $localize`:@@admin.planSelectAria:แพ็ก⁠เกจ`;
   readonly renewAria = $localize`:@@admin.planRenewAria:วันต่ออายุ (เว้นว่างถ้าไม่หมดอายุ)`;
   readonly plans = PLANS;
   readonly planLabel = planLabel;

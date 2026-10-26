@@ -93,14 +93,14 @@ export class GroupHome {
   protected readonly paid = computed(() => isPaid(this.plan()?.plan ?? null));
 
   /**
-   * "แพ็กเกจ: โฮสต์ · ถึง 19/11/2026" in the settings disclosure. The date shows only on a paid
+   * "แพ็ก⁠เกจ: โฮสต์ · ถึง 19/11/2026" in the settings disclosure. The date shows only on a paid
    * effective plan: `renewsAt` is the raw stored date, so on free it may be a lapsed one.
    */
   protected readonly planLine = computed(() => {
     const p = this.plan();
     if (!p) return null;
     const name = planLabel(p.plan);
-    const line = $localize`:@@group.planLine:แพ็กเกจ: ${name}:plan:`;
+    const line = $localize`:@@group.planLine:แพ็ก⁠เกจ: ${name}:plan:`;
     return p.plan !== 'free' && p.renewsAt ? `${line} · ${planUntil(p.renewsAt)}` : line;
   });
 

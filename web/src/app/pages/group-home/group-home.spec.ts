@@ -162,7 +162,7 @@ describe('GroupHome', () => {
       await open('/g/group1', { lastSessionCode: 's1', sessions: [SESSION] });
       plan.answer('free');
       await settle();
-      expect(note()?.textContent?.trim()).toBe('แสดงเฉพาะรอบใน 30 วันล่าสุด ดูย้อนหลังทั้งหมดได้ในแพ็กเกจโฮสต์');
+      expect(note()?.textContent?.trim()).toBe('แสดงเฉพาะรอบใน 30 วันล่าสุด ดูย้อนหลังทั้งหมดได้ในแพ็ก⁠เกจโฮสต์');
     });
 
     it('host: no note', async () => {
@@ -192,21 +192,21 @@ describe('GroupHome', () => {
       await open();
       plan.answer('free', '2026-11-19T16:59:59.999Z');
       await settle();
-      expect(line()?.textContent?.trim()).toBe('แพ็กเกจ: ฟรี');
+      expect(line()?.textContent?.trim()).toBe('แพ็ก⁠เกจ: ฟรี');
     });
 
     it('host with a renewal date: names the plan and the Bangkok date it runs until', async () => {
       await open();
       plan.answer('host', '2026-11-19T16:59:59.999Z');
       await settle();
-      expect(line()?.textContent?.trim()).toBe('แพ็กเกจ: โฮสต์ · ถึง 19/11/2026');
+      expect(line()?.textContent?.trim()).toBe('แพ็ก⁠เกจ: โฮสต์ · ถึง 19/11/2026');
     });
 
     it('club with no renewal date: just the plan', async () => {
       await open();
       plan.answer('club');
       await settle();
-      expect(line()?.textContent?.trim()).toBe('แพ็กเกจ: ก๊วนใหญ่');
+      expect(line()?.textContent?.trim()).toBe('แพ็ก⁠เกจ: ก๊วนใหญ่');
     });
 
     it('an unknown plan (never answered) shows nothing', async () => {
@@ -245,10 +245,10 @@ describe('GroupHome', () => {
       expect(r.querySelector('.row-chevron')).toBeNull();
       // The status badge is replaced by the plan badge.
       const badges = [...r.querySelectorAll('.value')].map((b) => b.textContent?.trim());
-      expect(badges).toEqual(['แพ็กเกจโฮสต์']);
+      expect(badges).toEqual(['แพ็ก⁠เกจโฮสต์']);
       // A screen reader hears why: the description and the plan hint, by id.
       const described = r.getAttribute('aria-describedby')!.split(/\s+/).map((id) => byId(id)?.textContent?.trim());
-      expect(described).toContain('ใช้ได้ในแพ็กเกจโฮสต์');
+      expect(described).toContain('ใช้ได้ในแพ็ก⁠เกจโฮสต์');
       expect(byId(r.getAttribute('aria-labelledby')!)?.textContent?.trim()).toBeTruthy();
     };
 
@@ -258,7 +258,7 @@ describe('GroupHome', () => {
       expect(r.hasAttribute('aria-disabled')).toBe(false);
       expect(r.getAttribute('href')).toBeTruthy();
       expect(r.querySelector('.row-chevron')).not.toBeNull();
-      expect(r.textContent).not.toContain('แพ็กเกจโฮสต์');
+      expect(r.textContent).not.toContain('แพ็ก⁠เกจโฮสต์');
     };
 
     it('free with nothing set up: levels, share and advanced are disabled; players and manage stay links', async () => {

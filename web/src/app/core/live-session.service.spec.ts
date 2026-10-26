@@ -602,7 +602,7 @@ describe('LiveSessionService', () => {
         .flush({ code: 'PLAN_REQUIRED', requiredPlan: 'host' }, { status: 403, statusText: 'Forbidden' });
       expect(await promise).toEqual({
         ok: false,
-        error: 'ฟีเจอร์นี้ใช้ได้ในแพ็กเกจโฮสต์ ติดต่อผู้ดูแลเพื่ออัปเกรด',
+        error: 'ฟีเจอร์นี้ใช้ได้ในแพ็ก⁠เกจโฮสต์ ติดต่อผู้ดูแลเพื่ออัปเกรด',
       });
     });
 
@@ -739,7 +739,7 @@ describe('LiveSessionService', () => {
         .flush({ code: 'PLAN_REQUIRED', requiredPlan: 'host' }, { status: 403, statusText: 'Forbidden' });
       const result = await promise;
       expect(result).toMatchObject({ ok: false });
-      expect((result as { error?: string }).error).toContain('ฟีเจอร์นี้ใช้ได้ในแพ็กเกจโฮสต์');
+      expect((result as { error?: string }).error).toContain('ฟีเจอร์นี้ใช้ได้ในแพ็ก⁠เกจโฮสต์');
     });
   });
 });

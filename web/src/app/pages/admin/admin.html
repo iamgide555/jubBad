@@ -100,7 +100,7 @@
             <th i18n="@@admin.colRole">บทบาท</th>
             <th i18n="@@admin.colStatus">สถานะ</th>
             <th i18n="@@admin.colGroups">ก๊วนที่เป็นเจ้าของ</th>
-            <th i18n="@@admin.colPlan">แพ็กเกจ</th>
+            <th i18n="@@admin.colPlan">แพ็ก⁠เกจ</th>
             <th></th>
           </tr>
         </thead>
@@ -358,7 +358,7 @@
             name="renew-{{ user.id }}"
           />
           <button type="button" data-plan-save [disabled]="planBusyId() === user.id" (click)="savePlan(user)" i18n="@@admin.planSave">
-            บันทึกแพ็กเกจ
+            บันทึกแพ็ก⁠เกจ
           </button>
           @if (planSavedId() === user.id) {
             <span class="muted plan-saved" data-plan-saved role="status" i18n="@@admin.planSaved">บันทึกแล้ว</span>
@@ -366,7 +366,7 @@
         </div>
       }
       @if (planErrorId() === user.id) {
-        <p class="error" role="alert" i18n="@@admin.planFailed">บันทึกแพ็กเกจไม่สำเร็จ</p>
+        <p class="error" role="alert" i18n="@@admin.planFailed">บันทึกแพ็ก⁠เกจไม่สำเร็จ</p>
       }
     }
   </td>

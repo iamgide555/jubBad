@@ -619,7 +619,7 @@ describe('SessionBill', () => {
       req.flush({ code: 'PLAN_REQUIRED', requiredPlan: 'host' }, { status: 403, statusText: 'Forbidden' });
       await new Promise((r) => setTimeout(r, 0));
       fixture.detectChanges();
-      expect(el().textContent).toContain('ฟีเจอร์นี้ใช้ได้ในแพ็กเกจโฮสต์');
+      expect(el().textContent).toContain('ฟีเจอร์นี้ใช้ได้ในแพ็ก⁠เกจโฮสต์');
     });
 
     it('free: ไม่มา is disabled on a row with no games', async () => {

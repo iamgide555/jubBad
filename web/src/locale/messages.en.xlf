@@ -1753,7 +1753,7 @@
         </context-group>
       </trans-unit>
       <trans-unit id="admin.colPlan" datatype="html">
-        <source>แพ็กเกจ</source><target>Plan</target>
+        <source>แพ็ก⁠เกจ</source><target>Plan</target>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/admin/admin.html</context>
           <context context-type="linenumber">103,105</context>
@@ -1963,14 +1963,14 @@
         </context-group>
       </trans-unit>
       <trans-unit id="admin.planSave" datatype="html">
-        <source> บันทึกแพ็กเกจ </source><target>Save plan</target>
+        <source> บันทึกแพ็ก⁠เกจ </source><target>Save plan</target>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/admin/admin.html</context>
           <context context-type="linenumber">350,352</context>
         </context-group>
       </trans-unit>
       <trans-unit id="admin.planFailed" datatype="html">
-        <source>บันทึกแพ็กเกจไม่สำเร็จ</source><target>Could not save the plan</target>
+        <source>บันทึกแพ็ก⁠เกจไม่สำเร็จ</source><target>Could not save the plan</target>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/admin/admin.html</context>
           <context context-type="linenumber">354,357</context>
@@ -2005,7 +2005,7 @@
         </context-group>
       </trans-unit>
       <trans-unit id="admin.planSelectAria" datatype="html">
-        <source>แพ็กเกจ</source><target>Plan</target>
+        <source>แพ็ก⁠เกจ</source><target>Plan</target>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/admin/admin.ts</context>
           <context context-type="linenumber">159</context>
@@ -2145,7 +2145,7 @@
         </context-group>
       </trans-unit>
       <trans-unit id="dashboard.modeOneWay" datatype="html">
-        <source>เปลี่ยนแล้วจะกลับมาใช้โหมดนี้ไม่ได้ในแพ็กเกจนี้</source><target>If you switch, you can't come back to this mode on this plan.</target>
+        <source>เปลี่ยนแล้วจะกลับมาใช้โหมดนี้ไม่ได้ในแพ็ก⁠เกจนี้</source><target>If you switch, you can't come back to this mode on this plan.</target>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/session-dashboard/session-dashboard.html</context>
           <context context-type="linenumber">291</context>
@@ -2775,21 +2775,21 @@
         </context-group>
       </trans-unit>
       <trans-unit id="plan.required" datatype="html">
-        <source>ฟีเจอร์นี้ใช้ได้ในแพ็กเกจโฮสต์ ติดต่อผู้ดูแลเพื่ออัปเกรด</source><target>This feature needs the Host plan. Contact the admin to upgrade.</target>
+        <source>ฟีเจอร์นี้ใช้ได้ในแพ็ก⁠เกจโฮสต์ ติดต่อผู้ดูแลเพื่ออัปเกรด</source><target>This feature needs the Host plan. Contact the admin to upgrade.</target>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/core/plan.ts</context>
           <context context-type="linenumber">39</context>
         </context-group>
       </trans-unit>
       <trans-unit id="plan.groupLimit" datatype="html">
-        <source>แพ็กเกจของคุณสร้างก๊วนได้สูงสุด <x id="limit" equiv-text="limit"/> ก๊วน ติดต่อผู้ดูแลเพื่ออัปเกรด</source><target>Your plan allows up to <x id="limit" equiv-text="limit"/> groups. Contact the admin to upgrade.</target>
+        <source>แพ็ก⁠เกจของคุณสร้างก๊วนได้สูงสุด <x id="limit" equiv-text="limit"/> ก๊วน ติดต่อผู้ดูแลเพื่ออัปเกรด</source><target>Your plan allows up to <x id="limit" equiv-text="limit"/> groups. Contact the admin to upgrade.</target>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/core/plan.ts</context>
           <context context-type="linenumber">49</context>
         </context-group>
       </trans-unit>
       <trans-unit id="plan.lock.hint" datatype="html">
-        <source>ใช้ได้ในแพ็กเกจโฮสต์</source><target>Available on the Host plan</target>
+        <source>ใช้ได้ในแพ็ก⁠เกจโฮสต์</source><target>Available on the Host plan</target>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/shared/plan-lock/plan-lock.html</context>
           <context context-type="linenumber">1</context>
@@ -2803,28 +2803,28 @@
         </context-group>
       </trans-unit>
       <trans-unit id="plan.lock.modes" datatype="html">
-        <source>โหมดสูสีและตามระดับใช้ได้ในแพ็กเกจโฮสต์</source><target>Balanced and Level modes need the Host plan</target>
+        <source>โหมดสูสีและตามระดับใช้ได้ในแพ็ก⁠เกจโฮสต์</source><target>Balanced and Level modes need the Host plan</target>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/core/plan.ts</context>
           <context context-type="linenumber">56</context>
         </context-group>
       </trans-unit>
       <trans-unit id="plan.lock.courtModes" datatype="html">
-        <source>การตั้งโหมดแยกคอร์ทใช้ได้ในแพ็กเกจโฮสต์</source><target>Per-court modes need the Host plan</target>
+        <source>การตั้งโหมดแยกคอร์ทใช้ได้ในแพ็ก⁠เกจโฮสต์</source><target>Per-court modes need the Host plan</target>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/core/plan.ts</context>
           <context context-type="linenumber">61</context>
         </context-group>
       </trans-unit>
       <trans-unit id="plan.lock.target" datatype="html">
-        <source>การเล็งมือล่าง/มือบนใช้ได้ในแพ็กเกจโฮสต์</source><target>Targeting the lower/upper half needs the Host plan</target>
+        <source>การเล็งมือล่าง/มือบนใช้ได้ในแพ็ก⁠เกจโฮสต์</source><target>Targeting the lower/upper half needs the Host plan</target>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/core/plan.ts</context>
           <context context-type="linenumber">66</context>
         </context-group>
       </trans-unit>
       <trans-unit id="plan.lock.onInactive" datatype="html">
-        <source>เปิดอยู่ แต่รอบใหม่จะไม่ใช้ในแพ็กเกจนี้</source><target>On, but new rounds won't use it on this plan</target>
+        <source>เปิดอยู่ แต่รอบใหม่จะไม่ใช้ในแพ็ก⁠เกจนี้</source><target>On, but new rounds won't use it on this plan</target>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/core/plan.ts</context>
           <context context-type="linenumber">74</context>
@@ -4469,28 +4469,28 @@
         </context-group>
       </trans-unit>
       <trans-unit id="group.archiveNoteHome" datatype="html">
-        <source>แสดงเฉพาะรอบใน 30 วันล่าสุด ดูย้อนหลังทั้งหมดได้ในแพ็กเกจโฮสต์</source><target>Showing the last 30 days only. See everything on the Host plan.</target>
+        <source>แสดงเฉพาะรอบใน 30 วันล่าสุด ดูย้อนหลังทั้งหมดได้ในแพ็ก⁠เกจโฮสต์</source><target>Showing the last 30 days only. See everything on the Host plan.</target>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/group-home/group-home.html</context>
           <context context-type="linenumber">173</context>
         </context-group>
       </trans-unit>
       <trans-unit id="group.planLine" datatype="html">
-        <source>แพ็กเกจ: <x id="plan" equiv-text="name"/></source><target>Plan: <x id="plan" equiv-text="name"/></target>
+        <source>แพ็ก⁠เกจ: <x id="plan" equiv-text="name"/></source><target>Plan: <x id="plan" equiv-text="name"/></target>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/group-home/group-home.ts</context>
           <context context-type="linenumber">103</context>
         </context-group>
       </trans-unit>
       <trans-unit id="group.row.planBadge" datatype="html">
-        <source>แพ็กเกจโฮสต์</source><target>Host plan</target>
+        <source>แพ็ก⁠เกจโฮสต์</source><target>Host plan</target>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/group-home/group-home.html</context>
           <context context-type="linenumber">110</context>
         </context-group>
       </trans-unit>
       <trans-unit id="group.row.planHint" datatype="html">
-        <source>ใช้ได้ในแพ็กเกจโฮสต์</source><target>Needs the Host plan</target>
+        <source>ใช้ได้ในแพ็ก⁠เกจโฮสต์</source><target>Needs the Host plan</target>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/group-home/group-home.html</context>
           <context context-type="linenumber">113</context>

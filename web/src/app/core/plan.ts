@@ -36,7 +36,7 @@ export function isPaid(plan: Plan | null): boolean {
 
 /** The copy for a 403 PLAN_REQUIRED refusal. */
 export function planRequiredMessage(): string {
-  return $localize`:@@plan.required:ฟีเจอร์นี้ใช้ได้ในแพ็กเกจโฮสต์ ติดต่อผู้ดูแลเพื่ออัปเกรด`;
+  return $localize`:@@plan.required:ฟีเจอร์นี้ใช้ได้ในแพ็ก⁠เกจโฮสต์ ติดต่อผู้ดูแลเพื่ออัปเกรด`;
 }
 
 /** Maps the server's plan refusals (403 PLAN_REQUIRED / GROUP_LIMIT) to host-facing copy. */
@@ -46,24 +46,24 @@ export function planErrorMessage(err: unknown): string | null {
   if (body?.code === 'PLAN_REQUIRED') return planRequiredMessage();
   if (body?.code === 'GROUP_LIMIT' && typeof body.limit === 'number') {
     const limit = body.limit;
-    return $localize`:@@plan.groupLimit:แพ็กเกจของคุณสร้างก๊วนได้สูงสุด ${limit}:limit: ก๊วน ติดต่อผู้ดูแลเพื่ออัปเกรด`;
+    return $localize`:@@plan.groupLimit:แพ็ก⁠เกจของคุณสร้างก๊วนได้สูงสุด ${limit}:limit: ก๊วน ติดต่อผู้ดูแลเพื่ออัปเกรด`;
   }
   return null;
 }
 
 /** The first line of the plan-lock under a session's mode toggle. */
 export function modesLockHint(): string {
-  return $localize`:@@plan.lock.modes:โหมดสูสีและตามระดับใช้ได้ในแพ็กเกจโฮสต์`;
+  return $localize`:@@plan.lock.modes:โหมดสูสีและตามระดับใช้ได้ในแพ็ก⁠เกจโฮสต์`;
 }
 
 /** The first line of the plan-lock under a court's own mode toggle, where only เลือกเอง is free. */
 export function courtModesLockHint(): string {
-  return $localize`:@@plan.lock.courtModes:การตั้งโหมดแยกคอร์ทใช้ได้ในแพ็กเกจโฮสต์`;
+  return $localize`:@@plan.lock.courtModes:การตั้งโหมดแยกคอร์ทใช้ได้ในแพ็ก⁠เกจโฮสต์`;
 }
 
 /** The first line of the plan-lock under a ระดับ court's มือล่าง/มือบน control. */
 export function targetLockHint(): string {
-  return $localize`:@@plan.lock.target:การเล็งมือล่าง/มือบนใช้ได้ในแพ็กเกจโฮสต์`;
+  return $localize`:@@plan.lock.target:การเล็งมือล่าง/มือบนใช้ได้ในแพ็ก⁠เกจโฮสต์`;
 }
 
 /**
@@ -71,7 +71,7 @@ export function targetLockHint(): string {
  * setting stays (so it can be turned off), but sessions snapshot it off at creation.
  */
 export function onButInactiveLockHint(): string {
-  return $localize`:@@plan.lock.onInactive:เปิดอยู่ แต่รอบใหม่จะไม่ใช้ในแพ็กเกจนี้`;
+  return $localize`:@@plan.lock.onInactive:เปิดอยู่ แต่รอบใหม่จะไม่ใช้ในแพ็ก⁠เกจนี้`;
 }
 
 /**

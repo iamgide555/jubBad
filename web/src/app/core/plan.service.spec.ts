@@ -48,12 +48,12 @@ describe('planErrorMessage', () => {
 
   it('names the limit on GROUP_LIMIT', () => {
     const msg = planErrorMessage(refusal(403, { code: 'GROUP_LIMIT', limit: 3 }));
-    expect(msg).toBe('แพ็กเกจของคุณสร้างก๊วนได้สูงสุด 3 ก๊วน ติดต่อผู้ดูแลเพื่ออัปเกรด');
+    expect(msg).toBe('แพ็ก⁠เกจของคุณสร้างก๊วนได้สูงสุด 3 ก๊วน ติดต่อผู้ดูแลเพื่ออัปเกรด');
   });
 
   it('explains PLAN_REQUIRED', () => {
     const msg = planErrorMessage(refusal(403, { code: 'PLAN_REQUIRED', requiredPlan: 'host' }));
-    expect(msg).toBe('ฟีเจอร์นี้ใช้ได้ในแพ็กเกจโฮสต์ ติดต่อผู้ดูแลเพื่ออัปเกรด');
+    expect(msg).toBe('ฟีเจอร์นี้ใช้ได้ในแพ็ก⁠เกจโฮสต์ ติดต่อผู้ดูแลเพื่ออัปเกรด');
   });
 
   it('ignores everything else', () => {

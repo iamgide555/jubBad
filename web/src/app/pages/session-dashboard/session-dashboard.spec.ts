@@ -1957,7 +1957,7 @@ describe('SessionDashboard', () => {
     it('free: the mode lock says which modes need the Host plan', async () => {
       await loadWithPlan(baseSession(), 'free');
       const lock = el().querySelector('.mode-toggle app-plan-lock')?.textContent ?? '';
-      expect(lock).toContain('โหมดสูสีและตามระดับใช้ได้ในแพ็กเกจโฮสต์');
+      expect(lock).toContain('โหมดสูสีและตามระดับใช้ได้ในแพ็ก⁠เกจโฮสต์');
       expect(lock).toContain('ติดต่อผู้ดูแลเพื่ออัปเกรด');
     });
 
@@ -1987,7 +1987,7 @@ describe('SessionDashboard', () => {
         modeBtn('variety').click();
         fixture.detectChanges();
         expect(modePosts()).toEqual([]);
-        expect(confirmBox()?.textContent).toContain('เปลี่ยนแล้วจะกลับมาใช้โหมดนี้ไม่ได้ในแพ็กเกจนี้');
+        expect(confirmBox()?.textContent).toContain('เปลี่ยนแล้วจะกลับมาใช้โหมดนี้ไม่ได้ในแพ็ก⁠เกจนี้');
       });
 
       it('free on สูสี: cancel closes the confirm and keeps the mode', async () => {

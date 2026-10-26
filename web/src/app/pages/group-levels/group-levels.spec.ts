@@ -453,7 +453,7 @@ describe('GroupLevels', () => {
       q<HTMLButtonElement>('[data-confirm-ok]').click();
       http.expectOne(URL).flush({ code: 'PLAN_REQUIRED', requiredPlan: 'host' }, { status: 403, statusText: 'Forbidden' });
       await settle();
-      expect(q('[role="alert"]').textContent).toContain('แพ็กเกจโฮสต์');
+      expect(q('[role="alert"]').textContent).toContain('แพ็ก⁠เกจโฮสต์');
     });
   });
 });

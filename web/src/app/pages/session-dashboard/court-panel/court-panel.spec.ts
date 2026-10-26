@@ -1812,7 +1812,7 @@ describe('CourtPanel plan lock', () => {
     const f = await panel(false, customCourt('variety'));
     expect(modeBtns(f).length).toBe(4);
     expect(disabledLabels(modeBtns(f))).toEqual(['สูสี', 'ระดับ']);
-    expect((f.nativeElement as HTMLElement).querySelector('app-plan-lock')?.textContent).toContain('การตั้งโหมดแยกคอร์ทใช้ได้ในแพ็กเกจโฮสต์');
+    expect((f.nativeElement as HTMLElement).querySelector('app-plan-lock')?.textContent).toContain('การตั้งโหมดแยกคอร์ทใช้ได้ในแพ็ก⁠เกจโฮสต์');
   });
 
   it('free: a court already on a paid mode keeps it and เลือกเอง enabled so the host can switch back', async () => {
@@ -1842,8 +1842,8 @@ describe('CourtPanel plan lock', () => {
     const f = await panel(false, customCourt('level', 'high'));
     const locks = [...(f.nativeElement as HTMLElement).querySelectorAll('app-plan-lock')].map((l) => l.textContent ?? '');
     expect(locks).toHaveLength(2);
-    expect(locks[0]).toContain('การตั้งโหมดแยกคอร์ทใช้ได้ในแพ็กเกจโฮสต์');
-    expect(locks[1]).toContain('การเล็งมือล่าง/มือบนใช้ได้ในแพ็กเกจโฮสต์');
+    expect(locks[0]).toContain('การตั้งโหมดแยกคอร์ทใช้ได้ในแพ็ก⁠เกจโฮสต์');
+    expect(locks[1]).toContain('การเล็งมือล่าง/มือบนใช้ได้ในแพ็ก⁠เกจโฮสต์');
     for (const l of locks) expect(l).toContain('ติดต่อผู้ดูแลเพื่ออัปเกรด');
   });
 
@@ -1858,7 +1858,7 @@ describe('CourtPanel plan lock', () => {
       customBtn(f).click();
       f.detectChanges();
       expect(modePosts()).toEqual([]);
-      expect(confirmBox(f)?.textContent).toContain('เปลี่ยนแล้วจะกลับมาใช้โหมดนี้ไม่ได้ในแพ็กเกจนี้');
+      expect(confirmBox(f)?.textContent).toContain('เปลี่ยนแล้วจะกลับมาใช้โหมดนี้ไม่ได้ในแพ็ก⁠เกจนี้');
       (confirmBox(f)!.querySelector('[data-court-mode-confirm-cancel]') as HTMLButtonElement).click();
       f.detectChanges();
       expect(confirmBox(f)).toBeNull();

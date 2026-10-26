@@ -46,7 +46,7 @@
       }
       @if (confirmingCustom()) {
         <div class="court-mode-confirm" data-court-mode-confirm role="group" [attr.aria-label]="modeGroupLabel">
-          <p class="court-mode-confirm-text" i18n="@@dashboard.modeOneWay">เปลี่ยนแล้วจะกลับมาใช้โหมดนี้ไม่ได้ในแพ็กเกจนี้</p>
+          <p class="court-mode-confirm-text" i18n="@@dashboard.modeOneWay">เปลี่ยนแล้วจะกลับมาใช้โหมดนี้ไม่ได้ในแพ็ก⁠เกจนี้</p>
           <div class="court-mode-confirm-actions">
             <button type="button" data-court-mode-confirm-ok [disabled]="busy() || ended()" (click)="confirmCourtCustom()" i18n="@@dashboard.modeOneWayConfirm">เปลี่ยนโหมด</button>
             <button type="button" class="ghost" data-court-mode-confirm-cancel (click)="cancelCourtCustom()" i18n="@@court.cancelPick">ยกเลิก</button>

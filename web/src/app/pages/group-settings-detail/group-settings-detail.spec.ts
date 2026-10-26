@@ -271,21 +271,21 @@ describe('GroupSettingsDetail', () => {
 
     it('free: an ON switch says it is on but new rounds will not use it; an OFF one keeps the plain hint', async () => {
       await openAdvancedAs('free', true, false);
-      expect(lockOf('shuttleTools')).toContain('เปิดอยู่ แต่รอบใหม่จะไม่ใช้ในแพ็กเกจนี้');
+      expect(lockOf('shuttleTools')).toContain('เปิดอยู่ แต่รอบใหม่จะไม่ใช้ในแพ็ก⁠เกจนี้');
       expect(lockOf('shuttleTools')).toContain('ติดต่อผู้ดูแลเพื่ออัปเกรด');
-      expect(lockOf('crossSessionHistory')).toContain('ใช้ได้ในแพ็กเกจโฮสต์');
+      expect(lockOf('crossSessionHistory')).toContain('ใช้ได้ในแพ็ก⁠เกจโฮสต์');
       expect(lockOf('crossSessionHistory')).not.toContain('เปิดอยู่');
     });
 
     it('free: turning an ON switch off brings back the plain hint', async () => {
       await openAdvancedAs('free', false, true);
-      expect(lockOf('crossSessionHistory')).toContain('เปิดอยู่ แต่รอบใหม่จะไม่ใช้ในแพ็กเกจนี้');
+      expect(lockOf('crossSessionHistory')).toContain('เปิดอยู่ แต่รอบใหม่จะไม่ใช้ในแพ็ก⁠เกจนี้');
       box('crossSessionHistory').checked = false;
       box('crossSessionHistory').dispatchEvent(new Event('change'));
       httpMock.expectOne({ url: `${B}/groups/group1/cross-session-history`, method: 'POST' }).flush({ enabled: false });
       await settle();
       expect(lockOf('crossSessionHistory')).not.toContain('เปิดอยู่');
-      expect(lockOf('crossSessionHistory')).toContain('ใช้ได้ในแพ็กเกจโฮสต์');
+      expect(lockOf('crossSessionHistory')).toContain('ใช้ได้ในแพ็ก⁠เกจโฮสต์');
     });
 
     it('host: nothing is locked', async () => {
@@ -319,7 +319,7 @@ describe('GroupSettingsDetail', () => {
         .expectOne({ url: `${B}/groups/group1/shuttle-tools`, method: 'POST' })
         .flush({ code: 'PLAN_REQUIRED', requiredPlan: 'host' }, { status: 403, statusText: 'Forbidden' });
       await settle();
-      expect(el().querySelector('[role="alert"]')?.textContent).toContain('แพ็กเกจโฮสต์');
+      expect(el().querySelector('[role="alert"]')?.textContent).toContain('แพ็ก⁠เกจโฮสต์');
     });
 
     it('free: share with no token shows the plan hint instead of the enable button', async () => {

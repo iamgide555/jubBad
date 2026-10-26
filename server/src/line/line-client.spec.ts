@@ -92,4 +92,40 @@ describe('LineClient', () => {
     await vi.advanceTimersByTimeAsync(3100);
     expect(await pending).toBeNull();
   });
+
+  describe('push', () => {
+    const message = { type: 'flex', altText: 'x', contents: {} };
+
+    it('posts to the push endpoint with the group id and messages and reads a 200 as ok', async () => {
+      fetchMock.mockResolvedValue(jsonResponse(200, {}));
+      expect(await client.push('Cgroup', [message])).toBe('ok');
+      const [url, init] = fetchMock.mock.calls[0];
+      expect(url).toBe('https://api.line.me/v2/bot/message/push');
+      expect(init.method).toBe('POST');
+      expect(JSON.parse(init.body)).toEqual({ to: 'Cgroup', messages: [message] });
+    });
+
+    it('reads a 429 monthly limit as quota', async () => {
+      fetchMock.mockResolvedValue(jsonResponse(429, { message: 'You have reached your monthly limit.' }));
+      expect(await client.push('Cgroup', [message])).toBe('quota');
+    });
+
+    it('reads any other 429 as failed', async () => {
+      fetchMock.mockResolvedValue(jsonResponse(429, { message: 'Too many requests' }));
+      expect(await client.push('Cgroup', [message])).toBe('failed');
+    });
+
+    it('reads a 500 and a network error as failed', async () => {
+      fetchMock.mockResolvedValueOnce(jsonResponse(500, { message: 'boom' }));
+      expect(await client.push('Cgroup', [message])).toBe('failed');
+      fetchMock.mockRejectedValueOnce(new Error('network down'));
+      expect(await client.push('Cgroup', [message])).toBe('failed');
+    });
+
+    it('is failed without calling LINE when the access token is unset', async () => {
+      delete process.env.LINE_CHANNEL_ACCESS_TOKEN;
+      expect(await client.push('Cgroup', [message])).toBe('failed');
+      expect(fetchMock).not.toHaveBeenCalled();
+    });
+  });
 });

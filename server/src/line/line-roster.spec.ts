@@ -219,6 +219,69 @@ describe('LineRosterService capture, edit, unsend and purge', () => {
     });
   });
 
+  describe('latest', () => {
+    async function addMessage(groupId: string, postedAt: Date, text = ROSTER) {
+      return prisma.lineRosterMessage.create({
+        data: { groupId, text, postedAt, lineMessageId: messageId(), senderName: 'Nok', senderUserId: 'U1' },
+      });
+    }
+    async function endSession(groupId: string, endedAt: Date) {
+      await prisma.session.create({
+        data: { code: `ls-${randomUUID().slice(0, 12)}`, groupId, rawImportText: '', endedAt },
+      });
+    }
+    const now = new Date('2026-10-26T12:00:00Z');
+
+    it('returns the newest by posted time, not the last inserted', async () => {
+      const { code } = await linkedGroup();
+      await addMessage(code, new Date(now.getTime() - HOUR), `${ROSTER}\n4. ใหม่`);
+      await addMessage(code, new Date(now.getTime() - 3 * HOUR), ROSTER);
+      const latest = await roster.latest(code, now);
+      expect(latest).toEqual({
+        text: `${ROSTER}\n4. ใหม่`,
+        senderName: 'Nok',
+        postedAt: new Date(now.getTime() - HOUR).toISOString(),
+        stale: false,
+      });
+    });
+
+    it('is stale when a session ended after it was posted, fresh when it is newer', async () => {
+      const { code } = await linkedGroup();
+      await endSession(code, new Date(now.getTime() - 2 * HOUR));
+      await addMessage(code, new Date(now.getTime() - 5 * HOUR));
+      expect((await roster.latest(code, now))?.stale).toBe(true);
+      await addMessage(code, new Date(now.getTime() - HOUR));
+      expect((await roster.latest(code, now))?.stale).toBe(false);
+    });
+
+    it('with no session, an 8 day old message is stale and a 1 day old one is fresh', async () => {
+      const old = await linkedGroup();
+      await addMessage(old.code, new Date(now.getTime() - 8 * DAY));
+      expect((await roster.latest(old.code, now))?.stale).toBe(true);
+      const recent = await linkedGroup();
+      await addMessage(recent.code, new Date(now.getTime() - DAY));
+      expect((await roster.latest(recent.code, now))?.stale).toBe(false);
+    });
+
+    it('is null for a linked group with no message', async () => {
+      const { code } = await linkedGroup();
+      expect(await roster.latest(code, now)).toBeNull();
+    });
+
+    it('is null for a group that is not linked', async () => {
+      const code = `lr-${randomUUID().slice(0, 10)}`;
+      await prisma.group.create({ data: { code, name: code, ownerId: hostId } });
+      await addMessage(code, new Date(now.getTime() - HOUR));
+      expect(await roster.latest(code, now)).toBeNull();
+    });
+
+    it('is null when the owner is on the free plan', async () => {
+      const { code } = await linkedGroup(freeId);
+      await addMessage(code, new Date(now.getTime() - HOUR));
+      expect(await roster.latest(code, now)).toBeNull();
+    });
+  });
+
   describe('purge', () => {
     it('removes a row older than 30 days and keeps the recent ones', async () => {
       const { code } = await linkedGroup();

@@ -302,6 +302,20 @@ describe('LINE link codes, status and unlink', () => {
       expect(res.body).toMatchObject({ configured: true, linked: false });
     });
 
+    it('GET /groups/:code/line/latest-roster returns the newest captured roster, or null', async () => {
+      const code = await makeGroup(hostId, { lineGroupId: lineId() });
+      expect((await request(server).get(`/groups/${code}/line/latest-roster`).expect(200)).body).toEqual({ roster: null });
+      await prisma.lineRosterMessage.create({
+        data: {
+          groupId: code, text: '8/10/26\n1. a\n2. b\n3. c', postedAt: new Date(), lineMessageId: randomUUID(),
+          senderName: 'Nok',
+        },
+      });
+      const res = await request(server).get(`/groups/${code}/line/latest-roster`).expect(200);
+      expect(res.body.roster).toMatchObject({ senderName: 'Nok', stale: false });
+      expect(res.body.roster.text).toContain('1. a');
+    });
+
     it('POST /groups/:code/line/code returns a code on a paid plan', async () => {
       const code = await makeGroup(hostId);
       const res = await request(server).post(`/groups/${code}/line/code`).expect(201);

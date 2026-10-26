@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
-import { isRosterMessage, messagesToPurge } from '../../../engines/line-roster.ts';
+import { isRosterMessage, messagesToPurge, rosterStaleness } from '../../../engines/line-roster.ts';
 import { planAtLeast } from '../plans/plan.js';
 import { PlansService } from '../plans/plans.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
@@ -13,6 +13,13 @@ export interface CaptureInput {
   senderUserId: string | null;
   /** LINE's own event time, never the arrival time: redelivery can reorder events. */
   postedAt: Date;
+}
+
+export interface LatestRoster {
+  text: string;
+  senderName: string | null;
+  postedAt: string;
+  stale: boolean;
 }
 
 /**
@@ -69,6 +76,33 @@ export class LineRosterService {
     }
     await this.prisma.lineRosterMessage.update({ where: { id: existing.id }, data: { text: input.text } });
     return 'updated';
+  }
+
+  /**
+   * What start pre-fills: the newest captured roster, with whether it is older than
+   * the group's last finished session. Null (so start shows the manual paste) when
+   * the group is unlinked, nothing was captured, or the owner is not paid now.
+   */
+  async latest(groupCode: string, now: Date = new Date()): Promise<LatestRoster | null> {
+    const group = await this.prisma.group.findUnique({ where: { code: groupCode }, select: { lineGroupId: true } });
+    if (!group?.lineGroupId) return null;
+    if (!planAtLeast(await this.plans.planForGroup(groupCode, now), 'host')) return null;
+    const newest = await this.prisma.lineRosterMessage.findFirst({
+      where: { groupId: groupCode },
+      orderBy: { postedAt: 'desc' },
+    });
+    if (!newest) return null;
+    const lastEnded = await this.prisma.session.findFirst({
+      where: { groupId: groupCode, endedAt: { not: null } },
+      orderBy: { endedAt: 'desc' },
+      select: { endedAt: true },
+    });
+    return {
+      text: newest.text,
+      senderName: newest.senderName,
+      postedAt: newest.postedAt.toISOString(),
+      stale: rosterStaleness(newest.postedAt, lastEnded?.endedAt ?? null, now) === 'stale',
+    };
   }
 
   async unsend(lineMessageId: string): Promise<void> {

@@ -1844,7 +1844,7 @@ describe('CourtPanel plan lock', () => {
     expect(locks).toHaveLength(2);
     expect(locks[0]).toContain('การตั้งโหมดแยกคอร์ทใช้ได้ในแพ็ก⁠เกจโฮสต์');
     expect(locks[1]).toContain('การเล็งมือล่าง/มือบนใช้ได้ในแพ็ก⁠เกจโฮสต์');
-    for (const l of locks) expect(l).toContain('ติดต่อผู้ดูแลเพื่ออัปเกรด');
+    for (const l of locks) expect(l).toContain('ดูแพ็ก⁠เกจ');
   });
 
   describe('one-way switch of a court to เลือกเอง', () => {

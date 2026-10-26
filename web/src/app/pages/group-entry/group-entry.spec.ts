@@ -259,7 +259,7 @@ describe('GroupEntry', () => {
     await refused;
     expect(component.state()).toBe('paste');
     expect(component.rawText()).toBe('1. Alice');
-    expect(component.pasteError()).toContain('สร้างก๊วนได้สูงสุด 1 ก๊วน');
+    expect(component.pasteError()).toContain('สร้างได้ 1 ก๊วน');
     expect(component.pasteError()).not.toContain('อ่านรายชื่อไม่สำเร็จ');
   });
 

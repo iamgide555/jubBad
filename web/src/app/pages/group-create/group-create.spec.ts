@@ -148,7 +148,7 @@ describe('GroupCreate', () => {
     await done;
     fixture.detectChanges();
     const alert = el().querySelector('[role="alert"]')?.textContent ?? '';
-    expect(alert).toContain('สร้างก๊วนได้สูงสุด 1 ก๊วน');
+    expect(alert).toContain('สร้างได้ 1 ก๊วน');
     expect(alert).not.toContain('สร้างก๊วนไม่สำเร็จ');
     expect(navigate).not.toHaveBeenCalled();
     expect(component.creating()).toBe(false);

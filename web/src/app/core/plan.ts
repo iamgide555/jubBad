@@ -23,6 +23,33 @@ export interface GroupPlan {
   /** The raw stored date. Not "the plan is active" — the server already
    *  resolved a lapse into `plan`. */
   renewsAt: string | null;
+  /** The renewal date of a paid plan that has run out; null otherwise. */
+  lapsedAt: string | null;
+  /** This group is past the cap of the owner's current plan: it cannot start a new session. */
+  paused: boolean;
+  /** Sessions the free 30-day window hides from the host's lists (0 on a paid plan). */
+  archiveHidden: number;
+}
+
+/** What `GET /plans/me` returns: the signed-in user's own plan, group count and cap. */
+export interface MyPlan {
+  plan: Plan;
+  renewsAt: string | null;
+  lapsedAt: string | null;
+  groupCount: number;
+  /** Null for an admin, who has no cap. */
+  groupLimit: number | null;
+  /** An https contact link from server config, or null (the sheet then shows text only). */
+  upgradeUrl: string | null;
+}
+
+const EXPIRY_WARNING_MS = 5 * 24 * 60 * 60 * 1000;
+
+/** A paid plan whose renewal date is still ahead but within 5 days. */
+export function expiresSoon(p: GroupPlan, now: Date): boolean {
+  if (p.plan === 'free' || !p.renewsAt) return false;
+  const left = new Date(p.renewsAt).getTime() - now.getTime();
+  return left > 0 && left <= EXPIRY_WARNING_MS;
 }
 
 /**
@@ -36,7 +63,7 @@ export function isPaid(plan: Plan | null): boolean {
 
 /** The copy for a 403 PLAN_REQUIRED refusal. */
 export function planRequiredMessage(): string {
-  return $localize`:@@plan.required:ฟีเจอร์นี้ใช้ได้ในแพ็ก⁠เกจโฮสต์ ติดต่อผู้ดูแลเพื่ออัปเกรด`;
+  return $localize`:@@plan.required:ฟีเจอร์นี้ใช้ได้ในแพ็ก⁠เกจโฮสต์`;
 }
 
 /** Maps the server's plan refusals (403 PLAN_REQUIRED / GROUP_LIMIT) to host-facing copy. */
@@ -46,7 +73,11 @@ export function planErrorMessage(err: unknown): string | null {
   if (body?.code === 'PLAN_REQUIRED') return planRequiredMessage();
   if (body?.code === 'GROUP_LIMIT' && typeof body.limit === 'number') {
     const limit = body.limit;
-    return $localize`:@@plan.groupLimit:แพ็ก⁠เกจของคุณสร้างก๊วนได้สูงสุด ${limit}:limit: ก๊วน ติดต่อผู้ดูแลเพื่ออัปเกรด`;
+    return $localize`:@@plan.groupLimit:แพ็ก⁠เกจของคุณสร้างได้ ${limit}:limit: ก๊วน`;
+  }
+  if (body?.code === 'GROUP_PAUSED' && typeof body.limit === 'number') {
+    const limit = body.limit;
+    return $localize`:@@plan.groupPaused:ก๊วนนี้พักไว้ — แพ็ก⁠เกจของคุณเปิดรอบได้ ${limit}:limit: ก๊วน (ก๊วนที่เล่นล่าสุด)`;
   }
   return null;
 }

@@ -1,0 +1,53 @@
+.sheet-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.benefits {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.benefit {
+  padding-left: 1.5rem;
+  position: relative;
+}
+
+/* A drawn tick rather than a glyph, so it needs no Thai-capable font fallback. */
+.benefit::before {
+  content: '';
+  position: absolute;
+  left: 0.25rem;
+  top: 0.55em;
+  width: 0.5rem;
+  height: 0.3rem;
+  border-left: 2px solid var(--court-ink);
+  border-bottom: 2px solid var(--court-ink);
+  transform: rotate(-45deg);
+}
+
+.contact {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: var(--tap);
+  border-radius: var(--radius-pill, 999px);
+  background: var(--court);
+  color: var(--on-fill);
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.contact-text {
+  margin: 0;
+  color: var(--ink-soft);
+}
+
+.close {
+  min-height: var(--tap);
+}

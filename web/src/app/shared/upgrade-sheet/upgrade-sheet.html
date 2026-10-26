@@ -1,0 +1,20 @@
+<dialog #dialog class="upgrade-sheet sheet-dialog" (close)="onDialogClose()" aria-labelledby="upgrade-title">
+  @if (sheet.isOpen()) {
+    <div class="sheet-card">
+      <h2 id="upgrade-title" i18n="@@upgrade.title">แพ็ก⁠เกจโฮสต์</h2>
+      <ul class="benefits">
+        <li class="benefit" i18n="@@upgrade.b1">สูสีและตามระดับ จัดคู่ตามฝีมือ</li>
+        <li class="benefit" i18n="@@upgrade.b2">กฎจับคู่ คิวล่วงหน้า และโหมดแยกคอร์ท</li>
+        <li class="benefit" i18n="@@upgrade.b3">ค่าโฮสต์ ค่า walk-in และไม่มา ในบิล</li>
+        <li class="benefit" i18n="@@upgrade.b4">ดูย้อนหลังทั้งหมด เรตติ้ง และหน้าสรุปก๊วน</li>
+        <li class="benefit" i18n="@@upgrade.b5">สร้างได้ 3 ก๊วน</li>
+      </ul>
+      @if (sheet.contactUrl(); as url) {
+        <a class="contact" [href]="url" target="_blank" rel="noopener noreferrer" i18n="@@upgrade.contact">ติดต่อทาง LINE</a>
+      } @else {
+        <p class="contact-text" i18n="@@upgrade.contactText">ติดต่อทีม JubBad เพื่ออัปเกรด</p>
+      }
+      <button type="button" class="close ghost" (click)="sheet.close()" i18n="@@upgrade.close">ปิด</button>
+    </div>
+  }
+</dialog>

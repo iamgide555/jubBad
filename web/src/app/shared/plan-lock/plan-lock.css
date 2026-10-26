@@ -1,12 +1,21 @@
 :host {
   display: flex;
-  flex-direction: column;
-  gap: 0.1rem;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0 var(--space-1);
   color: var(--ink-soft);
   font-size: 0.875rem;
+  text-align: start;
 }
 
-.lock-sub {
-  font-size: 0.8125rem;
-  opacity: 0.85;
+.lock-more {
+  min-height: var(--tap);
+  padding: 0 var(--space-0);
+  border: 0;
+  background: none;
+  color: var(--court-ink);
+  font: inherit;
+  font-weight: 600;
+  text-decoration: underline;
+  cursor: pointer;
 }

@@ -1,6 +1,6 @@
 import { HttpErrorResponse } from '@angular/common/http';
 import { ReplaySubject } from 'rxjs';
-import type { GroupPlan, Plan } from './plan';
+import type { GroupPlan, MyPlan, Plan } from './plan';
 import { PlanService } from './plan.service';
 
 /**
@@ -10,6 +10,7 @@ import { PlanService } from './plan.service';
  */
 export function stubPlanService() {
   const reply = new ReplaySubject<GroupPlan>(1);
+  const mineReply = new ReplaySubject<MyPlan>(1);
   const calls: string[] = [];
   return {
     calls,
@@ -20,9 +21,14 @@ export function stubPlanService() {
           calls.push(groupCode);
           return reply;
         },
+        mine: () => mineReply,
       },
     },
-    answer: (plan: Plan, renewsAt: string | null = null) => reply.next({ plan, renewsAt }),
+    answer: (plan: Plan, renewsAt: string | null = null, extra: Partial<GroupPlan> = {}) =>
+      reply.next({ plan, renewsAt, lapsedAt: null, paused: false, archiveHidden: 0, ...extra }),
+    answerMine: (mine: Partial<MyPlan> = {}) =>
+      mineReply.next({ plan: 'free', renewsAt: null, lapsedAt: null, groupCount: 0, groupLimit: 1, upgradeUrl: null, ...mine }),
     fail: () => reply.error(new HttpErrorResponse({ status: 500 })),
+    failMine: () => mineReply.error(new HttpErrorResponse({ status: 500 })),
   };
 }

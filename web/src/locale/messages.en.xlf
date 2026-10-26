@@ -2775,17 +2775,17 @@
         </context-group>
       </trans-unit>
       <trans-unit id="plan.required" datatype="html">
-        <source>ฟีเจอร์นี้ใช้ได้ในแพ็ก⁠เกจโฮสต์ ติดต่อผู้ดูแลเพื่ออัปเกรด</source><target>This feature needs the Host plan. Contact the admin to upgrade.</target>
+        <source>ฟีเจอร์นี้ใช้ได้ในแพ็ก⁠เกจโฮสต์</source><target>This feature needs the Host plan</target>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/core/plan.ts</context>
-          <context context-type="linenumber">39</context>
+          <context context-type="linenumber">66</context>
         </context-group>
       </trans-unit>
       <trans-unit id="plan.groupLimit" datatype="html">
-        <source>แพ็ก⁠เกจของคุณสร้างก๊วนได้สูงสุด <x id="limit" equiv-text="limit"/> ก๊วน ติดต่อผู้ดูแลเพื่ออัปเกรด</source><target>Your plan allows up to <x id="limit" equiv-text="limit"/> groups. Contact the admin to upgrade.</target>
+        <source>แพ็ก⁠เกจของคุณสร้างได้ <x id="limit" equiv-text="limit"/> ก๊วน</source><target>Your plan allows <x id="limit" equiv-text="limit"/> groups</target>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/core/plan.ts</context>
-          <context context-type="linenumber">49</context>
+          <context context-type="linenumber">76</context>
         </context-group>
       </trans-unit>
       <trans-unit id="plan.lock.hint" datatype="html">
@@ -2793,13 +2793,6 @@
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/shared/plan-lock/plan-lock.html</context>
           <context context-type="linenumber">1</context>
-        </context-group>
-      </trans-unit>
-      <trans-unit id="plan.lock.sub" datatype="html">
-        <source>ติดต่อผู้ดูแลเพื่ออัปเกรด</source><target>Contact the admin to upgrade</target>
-        <context-group purpose="location">
-          <context context-type="sourcefile">src/app/shared/plan-lock/plan-lock.html</context>
-          <context context-type="linenumber">2</context>
         </context-group>
       </trans-unit>
       <trans-unit id="plan.lock.modes" datatype="html">
@@ -5526,6 +5519,83 @@
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/group-entry/group-entry.ts</context>
           <context context-type="linenumber">349</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="plan.groupPaused" datatype="html">
+        <source>ก๊วนนี้พักไว้ — แพ็ก⁠เกจของคุณเปิดรอบได้ <x id="limit" equiv-text="limit"/> ก๊วน (ก๊วนที่เล่นล่าสุด)</source><target>This group is paused: your plan runs <x id="limit" equiv-text="limit"/> group(s), the most recently played</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/core/plan.ts</context>
+          <context context-type="linenumber">80</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="plan.lock.more" datatype="html">
+        <source>ดูแพ็ก⁠เกจ</source><target>See plan</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/shared/plan-lock/plan-lock.html</context>
+          <context context-type="linenumber">6,7</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="upgrade.title" datatype="html">
+        <source>แพ็ก⁠เกจโฮสต์</source><target>Host plan</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/shared/upgrade-sheet/upgrade-sheet.html</context>
+          <context context-type="linenumber">4,5</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="upgrade.b1" datatype="html">
+        <source>สูสีและตามระดับ จัดคู่ตามฝีมือ</source><target>Balanced and level modes</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/shared/upgrade-sheet/upgrade-sheet.html</context>
+          <context context-type="linenumber">6,7</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="upgrade.b2" datatype="html">
+        <source>กฎจับคู่ คิวล่วงหน้า และโหมดแยกคอร์ท</source><target>Pair rules, lineup queue, per-court modes</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/shared/upgrade-sheet/upgrade-sheet.html</context>
+          <context context-type="linenumber">7,8</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="upgrade.b3" datatype="html">
+        <source>ค่าโฮสต์ ค่า walk-in และไม่มา ในบิล</source><target>Host fee, walk-in fee and no-shows in the bill</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/shared/upgrade-sheet/upgrade-sheet.html</context>
+          <context context-type="linenumber">8,9</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="upgrade.b4" datatype="html">
+        <source>ดูย้อนหลังทั้งหมด เรตติ้ง และหน้าสรุปก๊วน</source><target>Full history, ratings and the group dashboard</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/shared/upgrade-sheet/upgrade-sheet.html</context>
+          <context context-type="linenumber">9,10</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="upgrade.b5" datatype="html">
+        <source>สร้างได้ 3 ก๊วน</source><target>Up to 3 groups</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/shared/upgrade-sheet/upgrade-sheet.html</context>
+          <context context-type="linenumber">10,12</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="upgrade.contact" datatype="html">
+        <source>ติดต่อทาง LINE</source><target>Contact on LINE</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/shared/upgrade-sheet/upgrade-sheet.html</context>
+          <context context-type="linenumber">13,15</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="upgrade.contactText" datatype="html">
+        <source>ติดต่อทีม JubBad เพื่ออัปเกรด</source><target>Contact the JubBad team to upgrade</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/shared/upgrade-sheet/upgrade-sheet.html</context>
+          <context context-type="linenumber">15,17</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="upgrade.close" datatype="html">
+        <source>ปิด</source><target>Close</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/shared/upgrade-sheet/upgrade-sheet.html</context>
+          <context context-type="linenumber">17,20</context>
         </context-group>
       </trans-unit>
     </body>

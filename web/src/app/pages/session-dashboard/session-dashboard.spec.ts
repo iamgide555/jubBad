@@ -1848,7 +1848,7 @@ describe('SessionDashboard', () => {
       httpMock.expectOne(`${B}/groups/group1/players`).flush([]);
       httpMock.expectOne(`${B}/sessions/sess1/stats?scope=session`).flush([]);
       if (reply === 'error') planReply.error(new HttpErrorResponse({ status: 500 }));
-      else if (reply !== 'pending') planReply.next({ plan: reply, renewsAt: null });
+      else if (reply !== 'pending') planReply.next({ plan: reply, renewsAt: null, lapsedAt: null, paused: false, archiveHidden: 0 });
       await fixture.whenStable();
       fixture.detectChanges();
     }
@@ -1958,7 +1958,7 @@ describe('SessionDashboard', () => {
       await loadWithPlan(baseSession(), 'free');
       const lock = el().querySelector('.mode-toggle app-plan-lock')?.textContent ?? '';
       expect(lock).toContain('โหมดสูสีและตามระดับใช้ได้ในแพ็ก⁠เกจโฮสต์');
-      expect(lock).toContain('ติดต่อผู้ดูแลเพื่ออัปเกรด');
+      expect(lock).toContain('ดูแพ็ก⁠เกจ');
     });
 
     describe('one-way switch away from a paid mode', () => {

@@ -5,6 +5,7 @@ import { filter, map, startWith } from 'rxjs';
 import { PressDirective } from '../../core/motion/press.directive';
 import { ThemeService } from '../../core/theme/theme.service';
 import { Icon } from '../icon/icon';
+import { UpgradeSheet } from '../upgrade-sheet/upgrade-sheet';
 
 /**
  * The one piece of chrome every route sits inside — a thin top bar carrying
@@ -19,7 +20,7 @@ import { Icon } from '../icon/icon';
  */
 @Component({
   selector: 'app-shell',
-  imports: [Icon, PressDirective],
+  imports: [Icon, PressDirective, UpgradeSheet],
   templateUrl: './app-shell.html',
   styleUrl: './app-shell.css',
 })

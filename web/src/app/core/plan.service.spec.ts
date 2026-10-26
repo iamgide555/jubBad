@@ -2,7 +2,7 @@ import { HttpErrorResponse, provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
 import { environment } from '../../environments/environment';
-import { bangkokDate, bangkokDisplayDate, isPaid, planErrorMessage } from './plan';
+import { bangkokDate, bangkokDisplayDate, expiresSoon, isPaid, modesLockHint, planErrorMessage, type GroupPlan } from './plan';
 import { PlanService } from './plan.service';
 
 const B = environment.apiBaseUrl;
@@ -29,6 +29,43 @@ describe('PlanService', () => {
     req.flush({ plan: 'host', renewsAt: null });
     expect(got).toEqual({ plan: 'host', renewsAt: null });
   });
+
+  it("loads the signed-in user's own plan", () => {
+    let got: unknown;
+    service.mine().subscribe((p) => (got = p));
+    const req = httpMock.expectOne(`${B}/plans/me`);
+    expect(req.request.method).toBe('GET');
+    const mine = { plan: 'free', renewsAt: null, lapsedAt: null, groupCount: 2, groupLimit: 1, upgradeUrl: null };
+    req.flush(mine);
+    expect(got).toEqual(mine);
+  });
+});
+
+describe('expiresSoon', () => {
+  const now = new Date('2026-10-26T12:00:00Z');
+  const plan = (p: GroupPlan['plan'], renewsAt: string | null): GroupPlan => ({
+    plan: p,
+    renewsAt,
+    lapsedAt: null,
+    paused: false,
+    archiveHidden: 0,
+  });
+  const inMs = (ms: number) => new Date(now.getTime() + ms).toISOString();
+  const H = 3600 * 1000;
+
+  it('is true with 4 days 23 hours left', () => expect(expiresSoon(plan('host', inMs(119 * H)), now)).toBe(true));
+  it('is false with 5 days 1 hour left', () => expect(expiresSoon(plan('host', inMs(121 * H)), now)).toBe(false));
+  it('is false once the date has passed', () => expect(expiresSoon(plan('host', inMs(-H)), now)).toBe(false));
+  it('is false on free and with no renewal date', () => {
+    expect(expiresSoon(plan('free', inMs(H)), now)).toBe(false);
+    expect(expiresSoon(plan('host', null), now)).toBe(false);
+  });
+});
+
+describe('plan copy', () => {
+  it('keeps แพ็ก⁠เกจ unbreakable inside the lock hints', () => {
+    expect(modesLockHint()).toContain('แพ็ก\u2060เกจ');
+  });
 });
 
 describe('isPaid', () => {
@@ -48,12 +85,17 @@ describe('planErrorMessage', () => {
 
   it('names the limit on GROUP_LIMIT', () => {
     const msg = planErrorMessage(refusal(403, { code: 'GROUP_LIMIT', limit: 3 }));
-    expect(msg).toBe('แพ็ก⁠เกจของคุณสร้างก๊วนได้สูงสุด 3 ก๊วน ติดต่อผู้ดูแลเพื่ออัปเกรด');
+    expect(msg).toBe('แพ็ก⁠เกจของคุณสร้างได้ 3 ก๊วน');
   });
 
   it('explains PLAN_REQUIRED', () => {
     const msg = planErrorMessage(refusal(403, { code: 'PLAN_REQUIRED', requiredPlan: 'host' }));
-    expect(msg).toBe('ฟีเจอร์นี้ใช้ได้ในแพ็ก⁠เกจโฮสต์ ติดต่อผู้ดูแลเพื่ออัปเกรด');
+    expect(msg).toBe('ฟีเจอร์นี้ใช้ได้ในแพ็ก⁠เกจโฮสต์');
+  });
+
+  it('explains GROUP_PAUSED with the limit', () => {
+    const msg = planErrorMessage(refusal(403, { code: 'GROUP_PAUSED', limit: 1 }));
+    expect(msg).toBe('ก๊วนนี้พักไว้ — แพ็ก⁠เกจของคุณเปิดรอบได้ 1 ก๊วน (ก๊วนที่เล่นล่าสุด)');
   });
 
   it('ignores everything else', () => {

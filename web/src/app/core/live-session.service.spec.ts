@@ -602,7 +602,7 @@ describe('LiveSessionService', () => {
         .flush({ code: 'PLAN_REQUIRED', requiredPlan: 'host' }, { status: 403, statusText: 'Forbidden' });
       expect(await promise).toEqual({
         ok: false,
-        error: 'ฟีเจอร์นี้ใช้ได้ในแพ็ก⁠เกจโฮสต์ ติดต่อผู้ดูแลเพื่ออัปเกรด',
+        error: 'ฟีเจอร์นี้ใช้ได้ในแพ็ก⁠เกจโฮสต์',
       });
     });
 

@@ -272,7 +272,7 @@ describe('GroupSettingsDetail', () => {
     it('free: an ON switch says it is on but new rounds will not use it; an OFF one keeps the plain hint', async () => {
       await openAdvancedAs('free', true, false);
       expect(lockOf('shuttleTools')).toContain('เปิดอยู่ แต่รอบใหม่จะไม่ใช้ในแพ็ก⁠เกจนี้');
-      expect(lockOf('shuttleTools')).toContain('ติดต่อผู้ดูแลเพื่ออัปเกรด');
+      expect(lockOf('shuttleTools')).toContain('ดูแพ็ก⁠เกจ');
       expect(lockOf('crossSessionHistory')).toContain('ใช้ได้ในแพ็ก⁠เกจโฮสต์');
       expect(lockOf('crossSessionHistory')).not.toContain('เปิดอยู่');
     });

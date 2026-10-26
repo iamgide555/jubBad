@@ -12,6 +12,15 @@
       @if (s.session.venue) { · {{ s.session.venue }} }
     </p>
 
+    @if (lineSummaryMessage(); as message) {
+      <p class="muted line-summary" role="status" data-line-summary-outcome>{{ message }}</p>
+    }
+    @if (canSendLineSummary()) {
+      <p>
+        <button type="button" class="ghost" data-send-line-summary [disabled]="lineSending()" (click)="sendLineSummary()" i18n="@@summary.sendLine">ส่งสรุปเข้ากลุ่ม LINE</button>
+      </p>
+    }
+
     @if (s.session.shuttleCount !== null || s.session.shuttlePriceSatang !== null) {
       <p class="muted shuttle-summary">
         <ng-container i18n="@@summary.shuttleLabel">ลูกแบด</ng-container>:

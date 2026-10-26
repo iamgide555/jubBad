@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { Test } from '@nestjs/testing';
 import { PrismaModule } from '../prisma/prisma.module.js';
+import { LineModule } from '../line/line.module.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { GroupsService } from './groups.service.js';
 import { GroupLevelsService } from './group-levels.service.js';
@@ -19,7 +20,7 @@ describe('GroupsService.listGroups', () => {
 
   beforeAll(async () => {
     const moduleRef = await Test.createTestingModule({
-      imports: [PrismaModule],
+      imports: [PrismaModule, LineModule],
       providers: [GroupsService, GroupLevelsService, PlansService],
     }).compile();
     service = moduleRef.get(GroupsService);

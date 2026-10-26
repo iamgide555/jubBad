@@ -42,6 +42,46 @@ model Group {
   /// host, so it is guessable and cannot gate a public page. See
   /// docs/archive/specs/2026-10-02-group-dashboard-design.md.
   shareToken          String? @unique
+  /// The one LINE group this JubBad group is tied to by `/link <code>`
+  /// (docs/superpowers/specs/2026-10-26-line-bot-roster-design.md). Unique both
+  /// ways: a LINE group maps to at most one JubBad group. Null = not linked.
+  lineGroupId         String? @unique
+  lineGroupName       String?
+  lineLinkedAt        DateTime?
+  /// Set when the bot was removed from the LINE group; cleared by a re-link.
+  lineLeftAt          DateTime?
+  lineLinkCodes       LineLinkCode[]
+  lineRosterMessages  LineRosterMessage[]
+}
+
+/// A one-time `/link <code>` credential. Only the SHA-256 hash is stored.
+model LineLinkCode {
+  id        String    @id @default(cuid())
+  groupId   String
+  group     Group     @relation(fields: [groupId], references: [code], onDelete: Cascade)
+  codeHash  String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([groupId])
+}
+
+/// A roster message the bot captured from a linked LINE group. Roster messages
+/// only: every other chat message is dropped before it reaches this table.
+model LineRosterMessage {
+  id            String   @id @default(cuid())
+  groupId       String
+  group         Group    @relation(fields: [groupId], references: [code], onDelete: Cascade)
+  text          String
+  senderUserId  String?
+  senderName    String?
+  postedAt      DateTime
+  lineMessageId String   @unique
+  botPosted     Boolean  @default(false)
+  createdAt     DateTime @default(now())
+
+  @@index([groupId, postedAt])
 }
 
 /// Shared across every host: the roster-entry venue field searches this list.

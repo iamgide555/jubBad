@@ -786,6 +786,10 @@ export class GroupsService {
       // Rules reference players, so they go first.
       this.prisma.playerRule.deleteMany({ where: { groupId: code } }),
       this.prisma.player.deleteMany({ where: { groupId: code } }),
+      // Explicit like the rest, though the schema also cascades them: the LINE bot's
+      // stored roster messages and unredeemed link codes must not outlive the group.
+      this.prisma.lineRosterMessage.deleteMany({ where: { groupId: code } }),
+      this.prisma.lineLinkCode.deleteMany({ where: { groupId: code } }),
       this.prisma.group.delete({ where: { code } }),
     ];
   }

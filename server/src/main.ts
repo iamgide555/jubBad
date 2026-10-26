@@ -11,7 +11,7 @@ import { parseCorsOrigins } from './cors.js';
 import { SESSION_SECRET } from './auth/auth.module.js';
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
+  const app = await NestFactory.create(AppModule, { rawBody: true });
   /**
    * Production traffic reaches the API through exactly one trusted nginx hop.
    * nginx overwrites X-Forwarded-For with Cloudflare's client address, so

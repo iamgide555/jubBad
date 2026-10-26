@@ -476,8 +476,9 @@ describe('GroupEntry', () => {
     const rowLabels = (fixture.nativeElement as HTMLElement).querySelectorAll(
       '.review-list .review-row'
     );
+    // The rename and remove actions are on every parsed row now; this is about the answer controls.
     const labelsPerRow = Array.from(rowLabels).map((row) =>
-      Array.from(row.querySelectorAll('button')).map((b) => b.textContent!.trim())
+      Array.from(row.querySelectorAll('button:not([data-rename-row]):not([data-remove-row])')).map((b) => b.textContent!.trim())
     );
     expect(labelsPerRow).toEqual([['เปลี่ยนคำตอบ'], ['เปลี่ยนคำตอบ']]);
     expect(component.rosterReviews().map((r) => r.decision)).toEqual(['accept', 'accept']);
@@ -2759,5 +2760,264 @@ describe('GroupEntry LINE roster pre-fill', () => {
     await answerLine({ roster: roster({ text: NEWER_TEXT, postedAt: new Date().toISOString(), senderName: 'Mod' }) });
     expect(component.rawText()).toBe(ROSTER_TEXT);
     expect(q('[data-line-newer]')?.textContent).toContain('Mod');
+  });
+});
+
+// Rename or remove any name on the roster review (owner request, 2026-10-26), for parsed rows and
+// the waitlist alike. Players: p1 ตั้ม, p2 เกียร์, p3 มด, p4 มะนาว.
+describe('GroupEntry review step: rename or remove any name', () => {
+  let component: GroupEntry;
+  let fixture: ComponentFixture<GroupEntry>;
+  let httpMock: HttpTestingController;
+
+  beforeEach(async () => {
+    await TestBed.configureTestingModule({
+      imports: [GroupEntry],
+      providers: [
+        stubPlanService().provider,
+        provideHttpClient(),
+        provideHttpClientTesting(),
+        noLineBot,
+        provideRouter(routes),
+        { provide: AuthService, useValue: { check: () => Promise.resolve(true) } },
+        { provide: ActivatedRoute, useValue: { snapshot: { paramMap: convertToParamMap({ groupCode: 'group1' }) } } },
+      ],
+    }).compileComponents();
+    httpMock = TestBed.inject(HttpTestingController);
+    TestBed.inject(RosterDraftService).clear('group1');
+    fixture = TestBed.createComponent(GroupEntry);
+    component = fixture.componentInstance;
+    httpMock.expectOne(`${B}/groups/group1`).flush({ code: 'group1', name: 'Group A', lastSessionCode: null });
+    await settleSessionGate(httpMock);
+    await fixture.whenStable();
+
+    component.groupName.set('Group A');
+    component.rawText.set('1. ตั้ม 19.00');
+    const parsing = component.parse();
+    httpMock.expectOne(`${B}/groups/group1/parse`).flush({
+      header: { isoDate: '2026-09-08', venue: null, courtCount: 1 },
+      rosterReviews: [
+        { inputName: 'ตั้ม 19.00', match: { type: 'new' } },
+        { inputName: 'เกียร์', match: { type: 'exact', playerId: 'p2' } },
+        { inputName: 'มด', match: { type: 'exact', playerId: 'p3' } },
+        { inputName: 'มะนาว', match: { type: 'exact', playerId: 'p4' } },
+      ],
+      waitlistReviews: [{ inputName: 'นก', match: { type: 'new' } }],
+      warnings: [],
+      unrecognizedLines: [],
+    });
+    await new Promise((r) => setTimeout(r, 0));
+    httpMock.expectOne(`${B}/groups/group1/players`).flush([
+      { id: 'p1', name: 'ตั้ม', aliases: [] },
+      { id: 'p2', name: 'เกียร์', aliases: [] },
+      { id: 'p3', name: 'มด', aliases: [] },
+      { id: 'p4', name: 'มะนาว', aliases: [] },
+    ]);
+    await parsing;
+    fixture.detectChanges();
+  });
+
+  afterEach(() => {
+    for (const req of httpMock.match((r) => r.url.endsWith('/groups/group1/levels'))) req.flush(standardLadderFixture());
+    httpMock.verify();
+  });
+
+  const el = () => fixture.nativeElement as HTMLElement;
+  const rows = () => [...el().querySelectorAll<HTMLElement>('.review-row')];
+  const rowButton = (row: number, attr: string) => rows()[row].querySelector<HTMLButtonElement>(`[${attr}]`)!;
+  const field = () => el().querySelector<HTMLInputElement>('#rename-add-input');
+  const names = () => component.rosterReviews().map((r) => r.inputName);
+
+  async function type(text: string) {
+    const input = field()!;
+    input.value = text;
+    input.dispatchEvent(new Event('input'));
+    fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.detectChanges();
+  }
+
+  const optionTexts = () => [...el().querySelectorAll<HTMLElement>('#rename-add-input ~ ul [role="option"]')].map((o) => o.textContent?.trim());
+
+  it('offers แก้ชื่อ and นำออก on a parsed row, and the same on a waitlist row', () => {
+    for (const i of [0, 1, 4]) {
+      expect(rowButton(i, 'data-rename-row')?.textContent).toContain('แก้ชื่อ');
+      expect(rowButton(i, 'data-remove-row')?.textContent).toContain('นำออก');
+    }
+  });
+
+  it('removes a parsed row, says so, and เลิกทำ puts it back at the same place', () => {
+    rowButton(0, 'data-remove-row').click();
+    fixture.detectChanges();
+    expect(names()).toEqual(['เกียร์', 'มด', 'มะนาว']);
+    expect(el().textContent).toContain('นำ ตั้ม 19.00 ออกแล้ว');
+    el().querySelector<HTMLButtonElement>('[data-undo-remove]')!.click();
+    fixture.detectChanges();
+    expect(names()).toEqual(['ตั้ม 19.00', 'เกียร์', 'มด', 'มะนาว']);
+    expect(el().textContent).not.toContain('นำ ตั้ม 19.00 ออกแล้ว');
+  });
+
+  it('removes a waitlist row and puts it back', () => {
+    rowButton(4, 'data-remove-row').click();
+    fixture.detectChanges();
+    expect(component.waitlistReviews()).toHaveLength(0);
+    el().querySelector<HTMLButtonElement>('[data-undo-remove]')!.click();
+    fixture.detectChanges();
+    expect(component.waitlistReviews().map((r) => r.inputName)).toEqual(['นก']);
+  });
+
+  it('a second removal replaces what เลิกทำ can take back', () => {
+    rowButton(0, 'data-remove-row').click();
+    fixture.detectChanges();
+    rowButton(0, 'data-remove-row').click();
+    fixture.detectChanges();
+    expect(names()).toEqual(['มด', 'มะนาว']);
+    el().querySelector<HTMLButtonElement>('[data-undo-remove]')!.click();
+    fixture.detectChanges();
+    expect(names()).toEqual(['เกียร์', 'มด', 'มะนาว']);
+  });
+
+  it('removing below the minimum disables ยืนยันรายชื่อ', async () => {
+    component.date.set('2026-09-08');
+    component.courtCount.set(1);
+    // The four parsed roster rows are the minimum; the gate reads the session gate too.
+    fixture.detectChanges();
+    expect(component.canConfirm()).toBe(true);
+    rowButton(1, 'data-remove-row').click();
+    fixture.detectChanges();
+    expect(component.canConfirm()).toBe(false);
+    expect(el().querySelector<HTMLButtonElement>('.confirm-roster')!.disabled).toBe(true);
+  });
+
+  it('แก้ชื่อ opens the search holding the row name, and typing lists the existing player', async () => {
+    rowButton(0, 'data-rename-row').click();
+    fixture.detectChanges();
+    // ngModel writes the field's value in a microtask.
+    await fixture.whenStable();
+    fixture.detectChanges();
+    expect(field()!.value).toBe('ตั้ม 19.00');
+    await type('ตั้ม');
+    expect(optionTexts().some((t) => t?.includes('ตั้ม') && !t.includes('เพิ่มเป็นคนใหม่'))).toBe(true);
+  });
+
+  it('picking an existing player re-points the row at them, keeping the parsed text for the alias', async () => {
+    rowButton(0, 'data-rename-row').click();
+    fixture.detectChanges();
+    await type('ตั้ม');
+    el().querySelector<HTMLElement>('#rename-add-input ~ ul [role="option"]')!.click();
+    fixture.detectChanges();
+    expect(component.rosterReviews()[0]).toEqual({
+      inputName: 'ตั้ม 19.00',
+      match: { type: 'fuzzy', playerId: 'p1', score: expect.any(Number) },
+      decision: 'accept',
+    });
+    expect(field()).toBeNull();
+    expect(rows()[0].textContent).toContain('ตั้ม');
+  });
+
+  it('picking add-as-new makes a new row in the same place, keeping a level already chosen', async () => {
+    component.setLevel(component.rosterReviews()[0], 'B' as never);
+    fixture.detectChanges();
+    rowButton(0, 'data-rename-row').click();
+    fixture.detectChanges();
+    await type('ตั้มใหม่');
+    el().querySelector<HTMLElement>('.manual-option-add')!.click();
+    fixture.detectChanges();
+    expect(component.rosterReviews()[0]).toEqual({
+      inputName: 'ตั้มใหม่',
+      match: { type: 'new' },
+      decision: 'accept',
+      level: 'B',
+    });
+    expect(names().slice(1)).toEqual(['เกียร์', 'มด', 'มะนาว']);
+  });
+
+  it('does not offer a player another row has claimed, and says so on an exact name', async () => {
+    rowButton(0, 'data-rename-row').click();
+    fixture.detectChanges();
+    await type('เกียร์');
+    expect(optionTexts().every((t) => !t?.includes('เกียร์') || t.includes('เพิ่มเป็นคนใหม่'))).toBe(true);
+    expect(el().textContent).toContain('เกียร์ ถูกเลือกไว้แล้ว');
+    expect(component.rosterReviews()[0].inputName).toBe('ตั้ม 19.00');
+  });
+
+  it('refuses a name already drafted as new on another row', async () => {
+    rowButton(0, 'data-rename-row').click();
+    fixture.detectChanges();
+    await type('นก');
+    el().querySelector<HTMLElement>('.manual-option-add')!.click();
+    fixture.detectChanges();
+    expect(el().textContent).toContain('เพิ่มชื่อนี้ไปแล้ว');
+    expect(component.rosterReviews()[0].inputName).toBe('ตั้ม 19.00');
+  });
+
+  it('still offers the row own player while renaming it', async () => {
+    rowButton(1, 'data-rename-row').click();
+    fixture.detectChanges();
+    await type('เกียร์');
+    expect(optionTexts().some((t) => t?.includes('เกียร์'))).toBe(true);
+    expect(el().textContent).not.toContain('เกียร์ ถูกเลือกไว้แล้ว');
+  });
+
+  it('a similar name is only a candidate and links nobody until tapped', async () => {
+    rowButton(0, 'data-rename-row').click();
+    fixture.detectChanges();
+    await type('ตั้มม');
+    expect(el().querySelector('#rename-add-input ~ ul [role="option"]')).not.toBeNull();
+    expect(component.rosterReviews()[0].match).toEqual({ type: 'new' });
+  });
+
+  it('Escape leaves the row as it was', async () => {
+    rowButton(0, 'data-rename-row').click();
+    fixture.detectChanges();
+    await type('ตั้ม');
+    const before = component.rosterReviews()[0];
+    field()!.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', cancelable: true, bubbles: true }));
+    fixture.detectChanges();
+    field()!.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', cancelable: true, bubbles: true }));
+    fixture.detectChanges();
+    expect(field()).toBeNull();
+    expect(component.rosterReviews()[0]).toBe(before);
+  });
+
+  it('ยกเลิก closes the rename and leaves the row as it was', () => {
+    rowButton(0, 'data-rename-row').click();
+    fixture.detectChanges();
+    const before = component.rosterReviews()[0];
+    el().querySelector<HTMLButtonElement>('[data-cancel-rename]')!.click();
+    fixture.detectChanges();
+    expect(field()).toBeNull();
+    expect(component.rosterReviews()[0]).toBe(before);
+  });
+
+  it('only one row can be in rename mode at a time', () => {
+    rowButton(0, 'data-rename-row').click();
+    fixture.detectChanges();
+    rowButton(1, 'data-rename-row').click();
+    fixture.detectChanges();
+    expect(el().querySelectorAll('#rename-add-input')).toHaveLength(1);
+    expect(rows()[1].querySelector('#rename-add-input')).not.toBeNull();
+  });
+
+  it('confirming sends the edited reviews: a rename and a removal', async () => {
+    component.date.set('2026-09-08');
+    component.courtCount.set(1);
+    rowButton(0, 'data-rename-row').click();
+    fixture.detectChanges();
+    await type('ตั้ม');
+    el().querySelector<HTMLElement>('#rename-add-input ~ ul [role="option"]')!.click();
+    fixture.detectChanges();
+    rowButton(4, 'data-remove-row').click();
+    fixture.detectChanges();
+    const confirming = component.confirmRoster();
+    const req = httpMock.expectOne(`${B}/sessions`);
+    expect(req.request.body.rosterReviews[0]).toMatchObject({
+      inputName: 'ตั้ม 19.00',
+      match: { type: 'fuzzy', playerId: 'p1' },
+      decision: 'accept',
+    });
+    expect(req.request.body.waitlistReviews).toEqual([]);
+    req.flush({ code: 'new' });
+    await confirming;
   });
 });

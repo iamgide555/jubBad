@@ -30,8 +30,9 @@ import { PressDirective } from '../../core/motion/press.directive';
 import { RevealDirective } from '../../core/motion/reveal.directive';
 import { Icon } from '../../shared/icon/icon';
 import { LevelPicker } from '../../shared/level-picker/level-picker';
+import { PlayerSearchField } from '../../shared/player-search-field/player-search-field';
 import { VenueSearch } from '../../shared/venue-search/venue-search';
-import type { Player } from '../../../../../engines/fuzzy-match.ts';
+import { similarity, type Player } from '../../../../../engines/fuzzy-match.ts';
 import type { Level } from '../../../../../engines/levels.ts';
 import { levelsErrorMessage, type GroupLevelsResponse } from '../../core/group-levels.model';
 
@@ -55,7 +56,7 @@ const UNDO_MS = 8000;
 
 @Component({
   selector: 'app-group-entry',
-  imports: [FormsModule, RouterLink, NgTemplateOutlet, PressDirective, RevealDirective, Icon, LevelPicker, VenueSearch, PlanNotice],
+  imports: [FormsModule, RouterLink, NgTemplateOutlet, PressDirective, RevealDirective, Icon, LevelPicker, PlayerSearchField, VenueSearch, PlanNotice],
   templateUrl: './group-entry.html',
   styleUrl: './group-entry.css',
 })
@@ -551,6 +552,8 @@ export class GroupEntry {
     this.confirmError.set(null);
     this.state.set('paste');
     this.lineFilled.set(null);
+    this.clearRemoved();
+    this.renaming.set(null);
     this.offerUndo(snapshot, 'clear');
     // The clear button just disappeared with the review: put focus on the way back.
     this.focusAfterRender(this.undoButton);
@@ -611,6 +614,8 @@ export class GroupEntry {
     this.clipboardNote.set(null);
     this.pasteError.set(null);
     this.state.set('paste');
+    this.clearRemoved();
+    this.renaming.set(null);
     this.focusAfterRender(this.rosterText);
     // A newer list may have been posted while the host was reviewing.
     void this.loadLatestRoster(false);
@@ -1092,6 +1097,119 @@ export class GroupEntry {
     if (this.rosterReviews().length < before) {
       this.manualStatusMessage.set($localize`:@@entry.manualRemovedAnnounce:ลบ ${name}:name: แล้ว`);
     }
+  }
+
+  /**
+   * Rename or remove any name before confirming (owner request, 2026-10-26). Everything here is
+   * client-only until ยืนยันรายชื่อ: the confirm payload simply carries the edited reviews.
+   * Manual additions keep their own นำออก and are not renamed (remove and add again).
+   */
+  readonly renaming = signal<NameReview | null>(null);
+  /** The row just removed, so one tap can bring it back. A second removal replaces it. */
+  readonly removedRow = signal<{ name: string } | null>(null);
+  private removedRestore: { review: NameReview; list: 'roster' | 'waitlist'; index: number; open: boolean } | null = null;
+
+  protected readonly playerList = computed(() => this.players());
+
+  /** Players taken by the other rows: the row being renamed may keep, or swap away from, its own. */
+  protected readonly renameClaimedIds = computed(() => {
+    const row = this.renaming();
+    return claimedPlayerIds(
+      this.rosterReviews().filter((r) => r !== row),
+      this.waitlistReviews().filter((r) => r !== row)
+    );
+  });
+
+  /** Names the other rows already stage as new players. */
+  protected readonly renameDrafts = computed(() => {
+    const row = this.renaming();
+    return literalNewNameDrafts(
+      this.rosterReviews().filter((r) => r !== row),
+      this.waitlistReviews().filter((r) => r !== row)
+    );
+  });
+
+  startRename(review: NameReview): void {
+    if (this.isSubmitting() || this.isManualReview(review)) return;
+    this.renaming.set(review);
+  }
+
+  cancelRename(): void {
+    this.renaming.set(null);
+  }
+
+  /**
+   * The row now points at an existing player. It keeps the parsed text as `inputName` and becomes a
+   * host-confirmed `fuzzy` pairing, so the server learns that text as an alias the same way it does
+   * when the host accepts a suggestion, and next week's paste of it matches on its own. A fuzzy
+   * pairing here is the host's own tap, never an automatic link.
+   */
+  renameToExisting(review: NameReview, playerId: string): void {
+    if (this.isSubmitting() || this.renaming() !== review) return;
+    const player = this.players().find((p) => p.id === playerId);
+    if (!player || this.renameClaimedIds().has(playerId)) return;
+    const score = similarity(literalKey(review.inputName), literalKey(player.name));
+    this.replaceReview(review, { inputName: review.inputName, match: { type: 'fuzzy', playerId, score }, decision: 'accept' });
+  }
+
+  /** The row becomes a brand-new player with the typed name, keeping a level the host already chose. */
+  renameToNew(review: NameReview, name: string): void {
+    if (this.isSubmitting() || this.renaming() !== review) return;
+    const trimmed = name.trim();
+    if (!trimmed) return;
+    const next: NameReview = { inputName: trimmed, match: { type: 'new' }, decision: 'accept' };
+    if (review.level) next.level = review.level;
+    this.replaceReview(review, next);
+  }
+
+  private replaceReview(review: NameReview, next: NameReview): void {
+    const swap = (reviews: NameReview[]) => reviews.map((r) => (r === review ? next : r));
+    this.rosterReviews.update(swap);
+    this.waitlistReviews.update(swap);
+    this.renaming.set(null);
+  }
+
+  /** Takes a parsed row off the list, for the roster or the waitlist. */
+  removeReview(review: NameReview): void {
+    if (this.isSubmitting() || this.isManualReview(review)) return;
+    let list: 'roster' | 'waitlist' = 'roster';
+    let index = this.rosterReviews().indexOf(review);
+    if (index < 0) {
+      list = 'waitlist';
+      index = this.waitlistReviews().indexOf(review);
+      if (index < 0) return;
+    }
+    const name = this.displayName(review);
+    this.removedRestore = { review, list, index, open: this.openReviews.has(review) };
+    const without = (reviews: NameReview[]) => reviews.filter((r) => r !== review);
+    if (list === 'roster') this.rosterReviews.update(without);
+    else this.waitlistReviews.update(without);
+    this.openReviews.delete(review);
+    if (this.renaming() === review) this.renaming.set(null);
+    this.removedRow.set({ name });
+  }
+
+  undoRemoveReview(): void {
+    const restore = this.removedRestore;
+    if (!restore || this.isSubmitting()) return;
+    const put = (reviews: NameReview[]) => {
+      const copy = [...reviews];
+      copy.splice(Math.min(restore.index, copy.length), 0, restore.review);
+      return copy;
+    };
+    if (restore.list === 'roster') this.rosterReviews.update(put);
+    else this.waitlistReviews.update(put);
+    if (restore.open) this.openReviews.add(restore.review);
+    this.clearRemoved();
+  }
+
+  protected removedText(name: string): string {
+    return $localize`:@@entry.removedRow:นำ ${name}:name: ออกแล้ว`;
+  }
+
+  private clearRemoved(): void {
+    this.removedRestore = null;
+    this.removedRow.set(null);
   }
 
   async confirmRoster(): Promise<void> {

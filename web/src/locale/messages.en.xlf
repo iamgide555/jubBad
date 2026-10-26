@@ -5821,6 +5821,22 @@
         <source>มีรายชื่อใหม่กว่าใน LINE (โดย <x id="name" equiv-text="name"/> · <x id="time" equiv-text="time"/>)</source>
         <target>There is a newer list in LINE (by <x id="name" equiv-text="name"/> · <x id="time" equiv-text="time"/>)</target>
       </trans-unit>
+      <trans-unit id="entry.renameLabel" datatype="html">
+        <source>ค้นหาชื่อผู้เล่น หรือพิมพ์ชื่อใหม่</source>
+        <target>Search a player or type a new name</target>
+      </trans-unit>
+      <trans-unit id="entry.renameCancel" datatype="html">
+        <source>ยกเลิก</source>
+        <target>Cancel</target>
+      </trans-unit>
+      <trans-unit id="entry.rename" datatype="html">
+        <source>แก้ชื่อ</source>
+        <target>Rename</target>
+      </trans-unit>
+      <trans-unit id="entry.removedRow" datatype="html">
+        <source>นำ <x id="name" equiv-text="name"/> ออกแล้ว</source>
+        <target>Removed <x id="name" equiv-text="name"/></target>
+      </trans-unit>
     </body>
   </file>
 </xliff>

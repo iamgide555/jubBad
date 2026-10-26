@@ -415,3 +415,24 @@ app-level-picker {
 .line-newer button {
   min-height: var(--tap);
 }
+
+/* Rename and remove on a parsed row: the search field takes the row's full width, under the number. */
+.removed-slot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+.removed-slot:empty {
+  display: none;
+}
+
+.removed-slot button {
+  min-height: var(--tap);
+}
+
+.review-row app-player-search-field {
+  flex: 1 1 100%;
+  min-width: 0;
+}

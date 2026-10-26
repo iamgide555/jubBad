@@ -1,0 +1,61 @@
+.player-search {
+  position: relative;
+  flex: 1 1 100%;
+  min-width: 0;
+}
+
+.player-search input {
+  width: 100%;
+}
+
+/* Floats over the rows below rather than pushing them down, like a native autocomplete list. */
+.manual-suggestions {
+  position: absolute;
+  z-index: 5;
+  left: 0;
+  right: 0;
+  margin: 0.3rem 0 0;
+  padding: var(--space-0);
+  list-style: none;
+  background: var(--surface);
+  border: 1.5px solid var(--line);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-md);
+  max-height: 14rem;
+  overflow-y: auto;
+}
+
+/* Options are not focusable: focus stays on the input (aria-activedescendant), and "active" is a class. */
+.manual-option {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  min-height: var(--tap);
+  padding: 0.5rem var(--space-1);
+  border-radius: var(--radius);
+  cursor: pointer;
+}
+
+.manual-option-name {
+  flex: 1;
+  font-weight: 600;
+}
+
+@media (hover: hover) {
+  .manual-option:hover {
+    background: var(--court-hover);
+  }
+}
+
+.manual-option.active {
+  background: var(--court-soft);
+}
+
+.manual-option-add {
+  color: var(--court-ink);
+  font-weight: 700;
+}
+
+.manual-note {
+  margin-top: var(--space-1);
+}

@@ -222,7 +222,34 @@
          so there is exactly one template to reason about instead of three
          near-duplicates. -->
     <ng-template #reviewRow let-review="review">
+      @if (renaming() === review) {
+        <!-- Rename: search an existing player or type a new name. Nothing is saved
+             until ยืนยันรายชื่อ; ยกเลิก, Escape or leaving the field keeps the row as it was. -->
+        <app-player-search-field
+          idPrefix="rename"
+          i18n-label="@@entry.renameLabel"
+          label="ค้นหาชื่อผู้เล่น หรือพิมพ์ชื่อใหม่"
+          i18n-placeholder="@@entry.manualAddPlaceholder"
+          placeholder="ค้นหาชื่อผู้เล่น หรือพิมพ์ชื่อใหม่"
+          [players]="playerList()"
+          [claimedIds]="renameClaimedIds()"
+          [drafts]="renameDrafts()"
+          [initialText]="displayName(review)"
+          [disabled]="isSubmitting()"
+          (pickExisting)="renameToExisting(review, $event)"
+          (pickNew)="renameToNew(review, $event)"
+          (cancel)="cancelRename()"
+        />
+        <button type="button" class="ghost link-action" data-cancel-rename (click)="cancelRename()" i18n="@@entry.renameCancel">ยกเลิก</button>
+      } @else {
       <span class="review-name">{{ displayName(review) }}</span>
+      @if (!isManualReview(review)) {
+        <button type="button" class="ghost link-action" data-rename-row [disabled]="isSubmitting()" (click)="startRename(review)" i18n="@@entry.rename">แก้ชื่อ</button>
+        <button type="button" class="ghost link-action" data-remove-row [disabled]="isSubmitting()" (click)="removeReview(review)">
+          <app-icon name="minus" [size]="14" />
+          <ng-container i18n="@@entry.manualRemove">นำออก</ng-container>
+        </button>
+      }
       @if (isManualReview(review)) {
         <!-- Carried finding from Task 1's review: a manually added row must
              never fall into the imported-name yes/no "เปลี่ยนคำตอบ" toggle
@@ -321,7 +348,15 @@
           <span class="review-tag new" i18n="@@entry.newPlayer">คนใหม่</span>
         }
       }
+      }
     </ng-template>
+
+    <div class="removed-slot" role="status">
+      @if (removedRow(); as removed) {
+        <span>{{ removedText(removed.name) }}</span>
+        <button type="button" class="ghost" data-undo-remove (click)="undoRemoveReview()" i18n="@@entry.undoClear">เลิกทำ</button>
+      }
+    </div>
 
     <h3 i18n="@@entry.roster">รายชื่อ</h3>
     <ol class="review-list">

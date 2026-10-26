@@ -1,0 +1,64 @@
+<div class="player-search">
+  <input
+    #field
+    [id]="idPrefix() + '-add-input'"
+    type="text"
+    role="combobox"
+    aria-autocomplete="list"
+    autocomplete="off"
+    [attr.aria-label]="label()"
+    [attr.aria-controls]="idPrefix() + '-suggestions'"
+    [attr.aria-expanded]="showSuggestions()"
+    [attr.aria-activedescendant]="activeOptionId()"
+    [ngModel]="query()"
+    (ngModelChange)="onQueryChange($event)"
+    (keydown)="onKeydown($event)"
+    (focus)="onFocus()"
+    (blur)="onBlur()"
+    [disabled]="disabled()"
+    [placeholder]="placeholder()"
+  />
+
+  @if (showSuggestions()) {
+    <ul class="manual-suggestions" [id]="idPrefix() + '-suggestions'" role="listbox" i18n-aria-label="@@entry.manualSuggestionsLabel" aria-label="ผลการค้นหา">
+      @for (candidate of candidates(); track candidate.player.id; let i = $index) {
+        <li
+          role="option"
+          class="manual-option"
+          [id]="idPrefix() + '-option-' + i"
+          [class.active]="activeIndex() === i"
+          [attr.aria-selected]="activeIndex() === i"
+          (mousedown)="$event.preventDefault()"
+          (click)="selectCandidate(candidate)"
+        >
+          <span class="manual-option-name">{{ candidate.player.name }}</span>
+          @if (candidate.rank === 'fuzzy') {
+            <span class="review-tag fuzzy" i18n="@@entry.manualFuzzyHint">คล้ายกัน</span>
+          }
+        </li>
+      }
+      @if (showAddNew()) {
+        <li
+          role="option"
+          class="manual-option manual-option-add"
+          [id]="idPrefix() + '-option-' + candidates().length"
+          [class.active]="activeIndex() === candidates().length"
+          [attr.aria-selected]="activeIndex() === candidates().length"
+          (mousedown)="$event.preventDefault()"
+          (click)="confirmAddNew()"
+        >
+          <app-icon name="plus" [size]="14" />
+          <span i18n="@@entry.manualAddAsNew">เพิ่มเป็นคนใหม่: {{ query().trim() }}</span>
+        </li>
+      }
+    </ul>
+  }
+
+  @if (alreadySelectedName(); as name) {
+    <p class="muted manual-note" i18n="@@entry.manualAlreadySelected">{{ name }} ถูกเลือกไว้แล้ว</p>
+  }
+
+  @if (error()) {
+    <p class="error" role="alert">{{ error() }}</p>
+  }
+</div>

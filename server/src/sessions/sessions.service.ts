@@ -5,6 +5,7 @@ import { randomUUID } from 'node:crypto';
 import {
   BadRequestException,
   ConflictException,
+  ForbiddenException,
   Injectable,
   InternalServerErrorException,
   NotFoundException,
@@ -93,7 +94,7 @@ import type { CorrectResultDto } from './dto/correct-result.dto.js';
 import type { SetShuttleDetailsDto } from './dto/set-shuttle-details.dto.js';
 import type { SwapPlayerDto } from './dto/swap-player.dto.js';
 import { PlansService } from '../plans/plans.service.js';
-import { planAtLeast } from '../plans/plan.js';
+import { GROUP_LIMIT, planAtLeast } from '../plans/plan.js';
 
 export interface SessionMatch {
   matchNumber: number;
@@ -493,6 +494,11 @@ export class SessionsService {
     // Resolved before the transaction (its body is SQLite-serialized). A missing group reads as club;
     // the 404 below still decides.
     const paid = planAtLeast(await this.plans.planForGroup(dto.groupCode), 'host');
+    // A group past the owner's current cap is paused: it keeps its data and any session already
+    // running, but cannot start a new one. Judged by the owner's plan, so an admin is refused too.
+    if (await this.plans.isGroupPaused(dto.groupCode)) {
+      throw new ForbiddenException({ code: 'GROUP_PAUSED', limit: GROUP_LIMIT[await this.plans.planForGroup(dto.groupCode)] });
+    }
     try {
       return await this.prisma.$transaction(async (tx) => {
         const group = await tx.group.findUnique({

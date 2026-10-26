@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { INestApplication, ValidationPipe } from '@nestjs/common';
+import { ForbiddenException, INestApplication, ValidationPipe } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import request from 'supertest';
 import { GroupsModule } from '../groups/groups.module.js';
@@ -210,6 +210,69 @@ describe('plan gates on paid session controls', () => {
         expect(row.crossSessionHistory).toBe(true);
       } finally {
         await f.cleanup();
+      }
+    });
+  });
+
+  describe('paused groups', () => {
+    const create = (code: string, caller: { id: string; role: string }) =>
+      sessions.createSession(
+        {
+          groupCode: code,
+          date: null,
+          venue: null,
+          courtCount: 1,
+          rawImportText: 'x',
+          idempotencyKey: randomUUID(),
+          rosterReviews: [],
+          waitlistReviews: [],
+        } as never,
+        caller
+      );
+    const daysAgo = (n: number) => new Date(Date.now() - n * 24 * 3600 * 1000);
+
+    /** Free owner, two groups: `usable` has the newest session, `paused` an older one. */
+    async function twoGroups() {
+      const usable = await fixture({ mode: 'variety' });
+      const paused = await fixture({ mode: 'variety' });
+      await prisma.session.update({ where: { code: paused.sessionCode }, data: { createdAt: daysAgo(20) } });
+      await prisma.session.update({ where: { code: usable.sessionCode }, data: { endedAt: new Date() } });
+      return { usable, paused, cleanup: async () => { await paused.cleanup(); await usable.cleanup(); } };
+    }
+
+    it('refuses a new session in a group past the free cap, and allows the newest group', async () => {
+      const g = await twoGroups();
+      try {
+        const err = await create(g.paused.code, { id: freeId, role: 'host' }).catch((e) => e);
+        expect(err).toBeInstanceOf(ForbiddenException);
+        expect(err.getResponse()).toEqual({ code: 'GROUP_PAUSED', limit: 1 });
+        await expect(create(g.usable.code, { id: freeId, role: 'host' })).resolves.toHaveProperty('code');
+      } finally {
+        await g.cleanup();
+      }
+    });
+
+    it('refuses an admin creating in a free host paused group (gated as the owner)', async () => {
+      const admin = await prisma.user.create({
+        data: { email: `sg-admin-${randomUUID()}@example.test`, passwordHash: 'x', role: 'admin' },
+      });
+      const g = await twoGroups();
+      try {
+        const err = await create(g.paused.code, { id: admin.id, role: 'admin' }).catch((e) => e);
+        expect(err).toBeInstanceOf(ForbiddenException);
+        expect(err.getResponse()).toEqual({ code: 'GROUP_PAUSED', limit: 1 });
+      } finally {
+        await g.cleanup();
+        await prisma.user.delete({ where: { id: admin.id } });
+      }
+    });
+
+    it('lets a session already running in a paused group keep proposing', async () => {
+      const g = await twoGroups();
+      try {
+        await request(server).post(`/sessions/${g.paused.sessionCode}/courts/1/propose`).send({}).expect(201);
+      } finally {
+        await g.cleanup();
       }
     });
   });

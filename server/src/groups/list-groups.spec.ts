@@ -126,4 +126,24 @@ describe('GroupsService.listGroups', () => {
       expect(Object.keys(rows[0])).not.toContain('ownerEmail');
     });
   });
+
+  it('marks the group past the owner plan cap as paused, and no other', async () => {
+    const owner = await prisma.user.create({
+      data: { email: `lg-${randomUUID()}@example.test`, passwordHash: 'x', role: 'host', plan: 'free' },
+    });
+    try {
+      const older = await makeGroup('Older', [{ createdAt: new Date('2026-09-01') }]);
+      const newer = await makeGroup('Newer', [{ createdAt: new Date('2026-10-01') }]);
+      const unowned = await makeGroup('Unowned', [{ createdAt: new Date('2026-08-01') }]);
+      await prisma.group.updateMany({ where: { code: { in: [older, newer] } }, data: { ownerId: owner.id } });
+      const rows = await service.listGroups(ADMIN_CALLER);
+      const paused = (code: string) => rows.find((g) => g.code === code)?.paused;
+      expect(paused(older)).toBe(true);
+      expect(paused(newer)).toBe(false);
+      expect(paused(unowned)).toBe(false);
+    } finally {
+      await prisma.group.updateMany({ where: { ownerId: owner.id }, data: { ownerId: null } });
+      await prisma.user.delete({ where: { id: owner.id } });
+    }
+  });
 });

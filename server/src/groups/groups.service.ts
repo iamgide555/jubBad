@@ -72,6 +72,12 @@ export class GroupsService {
       },
     });
 
+    // One cap lookup per distinct owner, however many groups the list holds.
+    const pausedByOwner = new Map<string, Set<string>>();
+    for (const ownerId of new Set(groups.map((g) => g.ownerId).filter((id): id is string => id !== null))) {
+      pausedByOwner.set(ownerId, await this.plans.pausedGroupCodes(ownerId));
+    }
+
     return groups
       .map((group) => {
         const last = group.sessions[0] ?? null;
@@ -82,6 +88,7 @@ export class GroupsService {
           playerCount: group._count.players,
           lastSessionCode: last?.code ?? null,
           lastSessionAt: last?.createdAt.toISOString() ?? null,
+          paused: group.ownerId ? (pausedByOwner.get(group.ownerId)?.has(group.code) ?? false) : false,
           // Admin only: a host's own response carries no owner fields at all,
           // so another host's email can never ride along on this endpoint.
           ...(caller.role === 'admin'

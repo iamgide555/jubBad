@@ -200,6 +200,18 @@ describe('Admin plan control', () => {
     });
   });
 
+  describe('actions stay reachable on a narrow table', () => {
+    it('view and edit rows keep their buttons in a sticky cell, so an iPad never has to scroll sideways to reach them', async () => {
+      await setup([user({})]);
+      const cell = () => row('u1').closest('tr')!.querySelector('td.actions-cell') as HTMLElement;
+      expect(cell().querySelector('.admin-actions [data-edit]')).not.toBeNull();
+      expect(getComputedStyle(cell()).position).toBe('sticky');
+      await edit('u1');
+      expect(cell().querySelector('.admin-actions [data-edit-save]')).not.toBeNull();
+      expect(getComputedStyle(cell()).position).toBe('sticky');
+    });
+  });
+
   describe('+1 month', () => {
     it('addMonth: from the later of the stored date and today, one month on, clamped to month end', () => {
       expect(addMonth('2026-10-10', '2026-10-26')).toBe('2026-11-26');

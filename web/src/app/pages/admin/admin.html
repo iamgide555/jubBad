@@ -129,10 +129,10 @@
                   }
                 </td>
                 <ng-container *ngTemplateOutlet="planCell; context: { $implicit: user, editing: true }" />
-                <td class="admin-actions">
+                <td class="actions-cell"><div class="admin-actions">
                   <button type="button" data-edit-save [disabled]="editBusy()" (click)="saveEdit(user)" i18n="@@admin.save">บันทึก</button>
                   <button type="button" class="ghost" (click)="cancelEdit()" i18n="@@admin.cancel">ยกเลิก</button>
-                </td>
+                </div></td>
               } @else {
                 <td>{{ user.email }}</td>
                 <td>
@@ -158,7 +158,7 @@
                   }
                 </td>
                 <ng-container *ngTemplateOutlet="planCell; context: { $implicit: user, editing: false }" />
-                <td class="admin-actions">
+                <td class="actions-cell"><div class="admin-actions">
                   <button type="button" class="ghost" data-edit (click)="startEdit(user)" i18n="@@admin.edit">แก้ไข</button>
                   <button type="button" class="ghost" (click)="toggleDisabled(user)">
                     @if (user.disabled) {
@@ -171,7 +171,7 @@
                     ตั้งรหัสผ่านใหม่
                   </button>
                   <button type="button" class="danger" (click)="startDelete(user)" i18n="@@admin.delete">ลบ</button>
-                </td>
+                </div></td>
               }
             </tr>
 

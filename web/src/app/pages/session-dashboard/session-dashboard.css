@@ -324,7 +324,7 @@
 
 .mode-lock {
   justify-content: flex-end;
-  max-width: 16rem;
+  max-width: 24rem;
   margin-left: auto;
   margin-top: var(--space-0);
 }

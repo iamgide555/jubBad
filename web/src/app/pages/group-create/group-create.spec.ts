@@ -166,6 +166,8 @@ describe('GroupCreate', () => {
     fixture.detectChanges();
     expect(el().querySelector('form.create-form')).toBeNull();
     expect(el().querySelector('app-plan-lock')?.textContent).toContain('สร้างได้ 1 ก๊วน');
+    // No form to introduce, so no "name your group first" line either.
+    expect(el().textContent).not.toContain('ตั้งชื่อก๊วนไว้ก่อน');
   });
 
   it('opened at the cap on a paid plan: the limit is said plainly, with no upgrade pitch and no form', async () => {

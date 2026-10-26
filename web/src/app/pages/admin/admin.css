@@ -238,7 +238,21 @@
 /* Plan: what the host is really on, then the three controls that change it.
    The controls wrap on a phone rather than forcing the table wider. */
 .plan-cell {
-  min-width: 14rem;
+  min-width: 12rem;
+}
+
+/* An iPad in portrait is 768-820px: the user table is a little wider than that, and the
+   buttons sit in its last column. Keep them pinned to the right edge while the rest scrolls,
+   and let long emails break instead of holding the first column open. */
+.actions-cell {
+  position: sticky;
+  right: 0;
+  background: var(--ground);
+  box-shadow: -10px 0 10px -10px rgba(0, 0, 0, 0.35);
+}
+
+.admin-table td:first-child {
+  overflow-wrap: anywhere;
 }
 
 .plan-current {
@@ -291,6 +305,23 @@
 
 .edit-role {
   min-width: 11rem;
+}
+
+/* Below an iPad landscape the edit row has less room than its controls would like: let the
+   email input, role select and plan cell run narrower (their contents scroll or wrap) so the
+   plan controls are not tucked under the pinned buttons. */
+@media (max-width: 64rem) {
+  .edit-email {
+    min-width: 10rem;
+  }
+
+  .edit-role {
+    min-width: 8.5rem;
+  }
+
+  .plan-cell {
+    min-width: 10.5rem;
+  }
 }
 
 /* Same top edge as the controls beside it: the cells are top-aligned, and a

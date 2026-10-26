@@ -65,6 +65,11 @@ Configured in group settings, shown only once the group is linked.
     (`quota`, `quota/consumption`). Before a scheduled post, skip it and tell the host in
     settings if it would exceed the remaining quota, rather than running up the owner's
     bill silently.
+  - **Shared with the summary card:** the end-of-session summary card
+    (`2026-10-27-line-bot-summary-card-design.md`) is also a group push, so it uses the same
+    monthly quota: about 86 more messages a month for a 20-member group playing weekly, which
+    roughly doubles the per-group figure above once both are on. The quota guard should count
+    both.
   - **Free fallback considered:** replies are free, so a `/ใหม่` command that makes the bot
     reply with the template costs no quota, but someone must type it each week, so it only
     half-solves the chore.

@@ -247,7 +247,7 @@ describe('GroupSettingsDetail', () => {
       await openAdvancedAs('free', false, false);
       expect(box('shuttleTools').disabled).toBe(true);
       expect(box('crossSessionHistory').disabled).toBe(true);
-      expect(lockHints()).toBe(2);
+      expect(lockHints()).toBe(1);
     });
 
     it('free: a switch that is already on stays enabled so it can be turned off, and still shows the plan hint', async () => {
@@ -255,7 +255,7 @@ describe('GroupSettingsDetail', () => {
       expect(box('shuttleTools').disabled).toBe(false);
       expect(box('crossSessionHistory').disabled).toBe(false);
       // Still marked as not on the plan, so an inactive-looking ON switch is explained.
-      expect(lockHints()).toBe(2);
+      expect(lockHints()).toBe(1);
       box('shuttleTools').checked = false;
       box('shuttleTools').dispatchEvent(new Event('change'));
       const req = httpMock.expectOne({ url: `${B}/groups/group1/shuttle-tools`, method: 'POST' });
@@ -264,28 +264,39 @@ describe('GroupSettingsDetail', () => {
       await settle();
       // Once off, the lock applies again.
       expect(box('shuttleTools').disabled).toBe(true);
-      expect(lockHints()).toBe(2);
+      expect(lockHints()).toBe(1);
     });
 
-    const lockOf = (name: string) => box(name).closest('.switch-row')!.querySelector('app-plan-lock')?.textContent ?? '';
+    const hintOf = (name: string) =>
+      box(name).closest('.switch-row')!.querySelector('.inactive-hint')?.textContent?.trim() ?? '';
 
-    it('free: an ON switch says it is on but new rounds will not use it; an OFF one keeps the plain hint', async () => {
+    it('free: an ON switch is drawn inactive and says new rounds will not use it; an OFF one says nothing of its own', async () => {
       await openAdvancedAs('free', true, false);
-      expect(lockOf('shuttleTools')).toContain('เปิดอยู่ แต่รอบใหม่จะไม่ใช้ในแพ็ก⁠เกจนี้');
-      expect(lockOf('shuttleTools')).toContain('ดูแพ็ก⁠เกจ');
-      expect(lockOf('crossSessionHistory')).toContain('ใช้ได้ในแพ็ก⁠เกจโฮสต์');
-      expect(lockOf('crossSessionHistory')).not.toContain('เปิดอยู่');
+      expect(box('shuttleTools').classList.contains('inactive')).toBe(true);
+      expect(box('shuttleTools').checked).toBe(true);
+      expect(box('shuttleTools').disabled).toBe(false);
+      expect(hintOf('shuttleTools')).toBe('เปิดอยู่ แต่รอบใหม่จะไม่ใช้ในแพ็ก⁠เกจนี้');
+      expect(box('crossSessionHistory').classList.contains('inactive')).toBe(false);
+      expect(hintOf('crossSessionHistory')).toBe('');
     });
 
-    it('free: turning an ON switch off brings back the plain hint', async () => {
+    it('free: one plan lock under both switches, not one per switch', async () => {
+      await openAdvancedAs('free', true, true);
+      expect(lockHints()).toBe(1);
+      expect(el().querySelector('.switch-row app-plan-lock')).toBeNull();
+      expect(el().querySelector('app-plan-lock')?.textContent).toContain('ใช้ได้ในแพ็ก⁠เกจโฮสต์');
+      expect(el().querySelector('app-plan-lock')?.textContent).toContain('ดูแพ็ก⁠เกจ');
+    });
+
+    it('free: turning an ON switch off drops the inactive look and its hint', async () => {
       await openAdvancedAs('free', false, true);
-      expect(lockOf('crossSessionHistory')).toContain('เปิดอยู่ แต่รอบใหม่จะไม่ใช้ในแพ็ก⁠เกจนี้');
+      expect(box('crossSessionHistory').classList.contains('inactive')).toBe(true);
       box('crossSessionHistory').checked = false;
       box('crossSessionHistory').dispatchEvent(new Event('change'));
       httpMock.expectOne({ url: `${B}/groups/group1/cross-session-history`, method: 'POST' }).flush({ enabled: false });
       await settle();
-      expect(lockOf('crossSessionHistory')).not.toContain('เปิดอยู่');
-      expect(lockOf('crossSessionHistory')).toContain('ใช้ได้ในแพ็ก⁠เกจโฮสต์');
+      expect(box('crossSessionHistory').classList.contains('inactive')).toBe(false);
+      expect(hintOf('crossSessionHistory')).toBe('');
     });
 
     it('host: nothing is locked', async () => {

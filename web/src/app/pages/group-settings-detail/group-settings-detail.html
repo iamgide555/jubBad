@@ -38,6 +38,7 @@
               <input
                 type="checkbox"
                 name="shuttleTools"
+                [class.inactive]="switchInactive('shuttleTools')"
                 [checked]="shuttleTools() === true"
                 [disabled]="shuttleTools() === null || advancedSaving() || switchLocked('shuttleTools')"
                 (change)="setAdvanced('shuttleTools', $any($event.target))"
@@ -45,8 +46,8 @@
               <span class="switch-text">
                 <span class="switch-title" i18n="@@entry.shuttleTools">จดลูกแบดเป็นหมายเลข</span>
                 <span class="muted" i18n="@@entry.shuttleToolsHint">ตอนยืนยันแมตช์จะให้เลือกลูกแบด และบิลจะนับตามลูกที่ใช้จริง</span>
-                @if (!paid()) {
-                  <app-plan-lock [hint]="switchLockHint('shuttleTools')" />
+                @if (switchInactive('shuttleTools')) {
+                  <span class="inactive-hint">{{ onButInactiveHint }}</span>
                 }
               </span>
             </label>
@@ -54,6 +55,7 @@
               <input
                 type="checkbox"
                 name="crossSessionHistory"
+                [class.inactive]="switchInactive('crossSessionHistory')"
                 [checked]="crossSessionHistory() === true"
                 [disabled]="crossSessionHistory() === null || advancedSaving() || switchLocked('crossSessionHistory')"
                 (change)="setAdvanced('crossSessionHistory', $any($event.target))"
@@ -61,12 +63,15 @@
               <span class="switch-text">
                 <span class="switch-title" i18n="@@group.crossSessionHistory">นับประวัติคู่ข้ามรอบ</span>
                 <span class="muted" i18n="@@group.crossSessionHistoryHint">ปิด: เลี่ยงคู่ซ้ำเฉพาะคืนนี้ · เปิด: นับทุกรอบที่ผ่านมา</span>
-                @if (!paid()) {
-                  <app-plan-lock [hint]="switchLockHint('crossSessionHistory')" />
+                @if (switchInactive('crossSessionHistory')) {
+                  <span class="inactive-hint">{{ onButInactiveHint }}</span>
                 }
               </span>
             </label>
           </div>
+          @if (!paid()) {
+            <app-plan-lock class="advanced-lock" />
+          }
           @if (advancedError()) {
             <p class="error" role="alert">{{ advancedError() }}</p>
           }

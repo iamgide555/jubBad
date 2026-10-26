@@ -91,16 +91,15 @@ export class GroupSettingsDetail {
   }
 
   /**
-   * The plan-lock's first line beside a switch on the free plan. An ON switch stays ON (so it can
-   * be turned off), but sessions snapshot it off at creation — say so instead of the plain hint.
-   * Null keeps the plain hint.
+   * A switch that is ON on the free plan stays ON (so it can be turned off), but sessions
+   * snapshot it off at creation. It is drawn muted, with its own line saying so.
    */
-  protected switchLockHint(which: 'shuttleTools' | 'crossSessionHistory'): string | null {
+  protected switchInactive(which: 'shuttleTools' | 'crossSessionHistory'): boolean {
     const value = which === 'shuttleTools' ? this.shuttleTools() : this.crossSessionHistory();
-    return value === true ? this.onButInactiveHint : null;
+    return !this.paid() && value === true;
   }
 
-  private readonly onButInactiveHint = onButInactiveLockHint();
+  protected readonly onButInactiveHint = onButInactiveLockHint();
 
   async load(): Promise<void> {
     this.status.set('loading');

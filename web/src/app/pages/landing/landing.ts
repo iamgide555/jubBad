@@ -5,6 +5,10 @@ import { FormsModule } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
 import { AuthService } from '../../core/auth.service';
+import { groupCountLabel, groupLimitMessage, type MyPlan } from '../../core/plan';
+import { PlanService } from '../../core/plan.service';
+import { UpgradeSheetService } from '../../core/upgrade-sheet.service';
+import { PlanLock } from '../../shared/plan-lock/plan-lock';
 import { SceneHost } from '../../core/three/scene-host';
 import { environment } from '../../../environments/environment';
 
@@ -15,6 +19,8 @@ export interface GroupSummary {
   playerCount: number;
   lastSessionCode: string | null;
   lastSessionAt: string | null;
+  /** Past the owner's plan cap: kept and readable, but it cannot start a new round. */
+  paused?: boolean;
   /** Admin responses only. A host's response has neither field. */
   mine?: boolean;
   ownerEmail?: string | null;
@@ -33,7 +39,7 @@ export interface OwnerGroups {
  */
 @Component({
   selector: 'app-landing',
-  imports: [FormsModule, NgTemplateOutlet, RouterLink, SceneHost],
+  imports: [FormsModule, NgTemplateOutlet, RouterLink, SceneHost, PlanLock],
   templateUrl: './landing.html',
   styleUrl: './landing.css',
 })
@@ -42,6 +48,24 @@ export class Landing {
   private readonly router = inject(Router);
   private readonly auth = inject(AuthService);
   private readonly base = environment.apiBaseUrl;
+  private readonly planService = inject(PlanService);
+  protected readonly upgradeSheet = inject(UpgradeSheetService);
+
+  /** The signed-in user's plan, group count and cap. Unknown (loading, failed) never blocks creating. */
+  private readonly mine = signal<MyPlan | null>(null);
+  /** At the cap: the create control says so up front instead of failing after a name is typed. */
+  protected readonly atCap = computed(() => {
+    const m = this.mine();
+    return m !== null && m.groupLimit !== null && m.groupCount >= m.groupLimit;
+  });
+  protected readonly capLabel = computed(() => {
+    const m = this.mine();
+    return m && m.groupLimit !== null ? groupCountLabel(m.groupCount, m.groupLimit) : '';
+  });
+  protected readonly capHint = computed(() => {
+    const m = this.mine();
+    return m && m.groupLimit !== null ? groupLimitMessage(m.groupLimit) : null;
+  });
 
   readonly groups = signal<GroupSummary[]>([]);
   readonly loaded = signal(false);
@@ -84,6 +108,15 @@ export class Landing {
 
   constructor() {
     void this.load();
+    void this.loadMine();
+  }
+
+  private async loadMine(): Promise<void> {
+    try {
+      this.mine.set(await firstValueFrom(this.planService.mine()));
+    } catch {
+      // Unknown plan: the ordinary create button; the server still refuses past the cap.
+    }
   }
 
   private async load(): Promise<void> {

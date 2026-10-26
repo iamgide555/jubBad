@@ -2,8 +2,10 @@ import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { provideRouter, Router } from '@angular/router';
-import { Landing } from './landing';
+import { Landing, type GroupSummary } from './landing';
 import { environment } from '../../../environments/environment';
+import { stubPlanService } from '../../core/plan.testing';
+import { UpgradeSheetService } from '../../core/upgrade-sheet.service';
 
 const B = environment.apiBaseUrl;
 
@@ -30,11 +32,13 @@ describe('Landing', () => {
   let fixture: ComponentFixture<Landing>;
   let component: Landing;
   let httpMock: HttpTestingController;
+  let plan: ReturnType<typeof stubPlanService>;
 
   beforeEach(async () => {
+    plan = stubPlanService();
     await TestBed.configureTestingModule({
       imports: [Landing],
-      providers: [provideRouter([]), provideHttpClient(), provideHttpClientTesting()],
+      providers: [provideRouter([]), provideHttpClient(), provideHttpClientTesting(), plan.provider],
     }).compileComponents();
 
     fixture = TestBed.createComponent(Landing);
@@ -48,7 +52,7 @@ describe('Landing', () => {
    * The component loads in its constructor, so the response has to be flushed
    * and its promise allowed to settle before the template reflects it.
    */
-  async function loadWith(groups = GROUPS) {
+  async function loadWith(groups: GroupSummary[] = GROUPS) {
     fixture.detectChanges();
     httpMock.expectOne(`${B}/groups`).flush(groups);
     await fixture.whenStable();
@@ -257,6 +261,60 @@ describe('Landing', () => {
     it('shows no "other users" row to a host, whose response has no mine flag', async () => {
       await loadWith();
       expect(fixture.nativeElement.querySelector('.others-toggle')).toBeFalsy();
+    });
+  });
+
+  describe('the group cap and paused groups', () => {
+    const root = () => fixture.nativeElement as HTMLElement;
+    const capped = () => root().querySelector<HTMLButtonElement>('[data-new-group-capped]');
+
+    it('at the cap: the create control shows the count and the limit, and opens the upgrade sheet instead of navigating', async () => {
+      await loadWith();
+      plan.answerMine({ plan: 'free', groupCount: 1, groupLimit: 1 });
+      await fixture.whenStable();
+      fixture.detectChanges();
+      expect(capped()?.textContent).toContain('ก๊วน 1/1');
+      expect(root().querySelector('app-plan-lock')?.textContent).toContain('สร้างได้ 1 ก๊วน');
+      const nav = vi.spyOn(TestBed.inject(Router), 'navigateByUrl').mockResolvedValue(true);
+      const open = vi.spyOn(TestBed.inject(UpgradeSheetService), 'open').mockImplementation(() => undefined);
+      capped()!.click();
+      expect(open).toHaveBeenCalledTimes(1);
+      expect(nav).not.toHaveBeenCalled();
+    });
+
+    it('below the cap, for an admin, and while the plan is unknown: the ordinary create button', async () => {
+      await loadWith();
+      expect(capped()).toBeNull();
+      plan.answerMine({ groupCount: 0, groupLimit: 1 });
+      await fixture.whenStable();
+      fixture.detectChanges();
+      expect(capped()).toBeNull();
+      expect(root().querySelector('.new-group')).not.toBeNull();
+    });
+
+    it('an admin (no limit) is never capped', async () => {
+      await loadWith();
+      plan.answerMine({ plan: 'club', groupCount: 40, groupLimit: null });
+      await fixture.whenStable();
+      fixture.detectChanges();
+      expect(capped()).toBeNull();
+    });
+
+    it('a failed plan read blocks nothing', async () => {
+      await loadWith();
+      plan.failMine();
+      await fixture.whenStable();
+      fixture.detectChanges();
+      expect(capped()).toBeNull();
+    });
+
+    it('a paused group wears a พักไว้ badge and has no เริ่มรอบ link', async () => {
+      await loadWith([{ ...GROUPS[0], paused: true }, GROUPS[1]]);
+      const rows = root().querySelectorAll('.group-row');
+      expect(rows[0].querySelector('.paused-badge')?.textContent?.trim()).toBe('พักไว้');
+      expect(rows[0].querySelector('[data-start-link]')).toBeNull();
+      expect(rows[1].querySelector('.paused-badge')).toBeNull();
+      expect(rows[1].querySelector('[data-start-link]')).not.toBeNull();
     });
   });
 });

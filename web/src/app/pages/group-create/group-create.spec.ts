@@ -6,6 +6,7 @@ import { GroupCreate } from './group-create';
 import { routes } from '../../app.routes';
 import { AuthService } from '../../core/auth.service';
 import { environment } from '../../../environments/environment';
+import { stubPlanService } from '../../core/plan.testing';
 
 const B = environment.apiBaseUrl;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
@@ -19,12 +20,15 @@ describe('GroupCreate', () => {
   let fixture: ComponentFixture<GroupCreate>;
   let component: GroupCreate;
   let httpMock: HttpTestingController;
+  let plan: ReturnType<typeof stubPlanService>;
   let navigate: ReturnType<typeof vi.spyOn>;
 
   beforeEach(async () => {
+    plan = stubPlanService();
     await TestBed.configureTestingModule({
       imports: [GroupCreate],
       providers: [
+        plan.provider,
         provideHttpClient(),
         provideHttpClientTesting(),
         provideRouter(routes),
@@ -147,11 +151,31 @@ describe('GroupCreate', () => {
       .flush({ code: 'GROUP_LIMIT', limit: 1 }, { status: 403, statusText: 'Forbidden' });
     await done;
     fixture.detectChanges();
-    const alert = el().querySelector('[role="alert"]')?.textContent ?? '';
-    expect(alert).toContain('สร้างได้ 1 ก๊วน');
-    expect(alert).not.toContain('สร้างก๊วนไม่สำเร็จ');
+    // A plan limit is information, not the host's mistake: a calm notice, never the error alert.
+    expect(el().querySelector('[role="alert"]')).toBeNull();
+    const notice = el().querySelector('.notice')?.textContent ?? '';
+    expect(notice).toContain('สร้างได้ 1 ก๊วน');
+    expect(notice).not.toContain('สร้างก๊วนไม่สำเร็จ');
     expect(navigate).not.toHaveBeenCalled();
     expect(component.creating()).toBe(false);
+  });
+
+  it('opened directly at the cap: the plan lock replaces the form', async () => {
+    plan.answerMine({ plan: 'free', groupCount: 1, groupLimit: 1 });
+    await fixture.whenStable();
+    fixture.detectChanges();
+    expect(el().querySelector('form.create-form')).toBeNull();
+    expect(el().querySelector('app-plan-lock')?.textContent).toContain('สร้างได้ 1 ก๊วน');
+  });
+
+  it('below the cap, or with the plan unknown or failed: the form is there', async () => {
+    fixture.detectChanges();
+    expect(el().querySelector('form.create-form')).not.toBeNull();
+    plan.answerMine({ groupCount: 0, groupLimit: 1 });
+    await fixture.whenStable();
+    fixture.detectChanges();
+    expect(el().querySelector('form.create-form')).not.toBeNull();
+    expect(el().querySelector('app-plan-lock')).toBeNull();
   });
 
   it('switches to a fresh code after a 404, so it never retries a dead code', async () => {

@@ -1,9 +1,11 @@
 import { HttpErrorResponse } from '@angular/common/http';
-import { Component, ElementRef, inject, signal, viewChild } from '@angular/core';
+import { Component, ElementRef, computed, inject, signal, viewChild } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
-import { planErrorMessage } from '../../core/plan';
+import { groupLimitMessage, planErrorMessage, type MyPlan } from '../../core/plan';
+import { PlanService } from '../../core/plan.service';
+import { PlanLock } from '../../shared/plan-lock/plan-lock';
 import { RosterService } from '../../core/roster.service';
 import { findOwnDuplicate, sameGroupName, type OwnGroupRow } from '../../core/group-name';
 import { PressDirective } from '../../core/motion/press.directive';
@@ -16,17 +18,26 @@ import { Icon } from '../../shared/icon/icon';
  */
 @Component({
   selector: 'app-group-create',
-  imports: [FormsModule, RouterLink, PressDirective, Icon],
+  imports: [FormsModule, RouterLink, PressDirective, Icon, PlanLock],
   templateUrl: './group-create.html',
   styleUrl: './group-create.css',
 })
 export class GroupCreate {
   private readonly roster = inject(RosterService);
   private readonly router = inject(Router);
+  private readonly planService = inject(PlanService);
+  /** The signed-in user's plan and cap; unknown (loading, failed) shows the form. */
+  private readonly mine = signal<MyPlan | null>(null);
+  protected readonly capHint = computed(() => {
+    const m = this.mine();
+    return m && m.groupLimit !== null && m.groupCount >= m.groupLimit ? groupLimitMessage(m.groupLimit) : null;
+  });
   private readonly nameInput = viewChild<ElementRef<HTMLInputElement>>('nameInput');
 
   readonly name = signal('');
   readonly error = signal<string | null>(null);
+  /** The error is a plan limit: information, shown as a calm notice rather than an alert. */
+  readonly errorIsPlan = signal(false);
   readonly creating = signal(false);
 
   /**
@@ -46,11 +57,13 @@ export class GroupCreate {
 
   constructor() {
     this.roster.listGroups().subscribe({ next: (groups) => this.ownGroups.set(groups), error: () => undefined });
+    this.planService.mine().subscribe({ next: (m) => this.mine.set(m), error: () => undefined });
   }
 
   onNameChange(value: string): void {
     this.name.set(value);
     this.error.set(null);
+    this.errorIsPlan.set(false);
     this.duplicateOf.set(null);
   }
 
@@ -77,7 +90,9 @@ export class GroupCreate {
       await this.router.navigateByUrl(`/g/${group.code}`, { replaceUrl: true });
     } catch (err) {
       if (err instanceof HttpErrorResponse && err.status === 404) this.code = crypto.randomUUID();
-      this.error.set(planErrorMessage(err) ?? $localize`:@@group.createFailed:สร้างก๊วนไม่สำเร็จ กรุณาลองอีกครั้ง`);
+      const planMessage = planErrorMessage(err);
+      this.errorIsPlan.set(planMessage !== null);
+      this.error.set(planMessage ?? $localize`:@@group.createFailed:สร้างก๊วนไม่สำเร็จ กรุณาลองอีกครั้ง`);
     } finally {
       this.creating.set(false);
     }

@@ -72,11 +72,20 @@ export function planErrorMessage(err: unknown): string | null {
   const body = err.error as { code?: unknown; limit?: unknown } | null;
   if (body?.code === 'PLAN_REQUIRED') return planRequiredMessage();
   if (body?.code === 'GROUP_LIMIT' && typeof body.limit === 'number') {
-    const limit = body.limit;
-    return $localize`:@@plan.groupLimit:แพ็ก⁠เกจของคุณสร้างได้ ${limit}:limit: ก๊วน`;
+    return groupLimitMessage(body.limit);
   }
   if (body?.code === 'GROUP_PAUSED' && typeof body.limit === 'number') return groupPausedMessage(body.limit);
   return null;
+}
+
+/** Why a host at their cap cannot make another group. */
+export function groupLimitMessage(limit: number): string {
+  return $localize`:@@plan.groupLimit:แพ็ก⁠เกจของคุณสร้างได้ ${limit}:limit: ก๊วน`;
+}
+
+/** "ก๊วน 2/1": how many groups the host has against their plan's cap. */
+export function groupCountLabel(count: number, limit: number): string {
+  return $localize`:@@landing.groupCount:ก๊วน ${count}:count:/${limit}:limit:`;
 }
 
 /** Groups one owner may run at once, per plan. Mirrors GROUP_LIMIT on the server. */

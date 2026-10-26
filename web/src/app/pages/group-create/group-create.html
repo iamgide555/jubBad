@@ -3,6 +3,9 @@
   <h1 class="create-title" i18n="@@group.createTitle">สร้างก๊วนใหม่</h1>
   <p class="muted" i18n="@@group.createLede">ตั้งชื่อก๊วนไว้ก่อน รายชื่อผู้เล่นค่อยเพิ่มตอนเริ่มรอบ</p>
 
+  @if (capHint(); as hint) {
+    <app-plan-lock class="cap-lock" [hint]="hint" />
+  } @else {
   <form class="create-form" (ngSubmit)="submit()" novalidate>
     <label for="group-name" i18n="@@entry.groupName">ชื่อก๊วน</label>
     <input
@@ -18,7 +21,9 @@
       i18n-placeholder="@@entry.groupNamePlaceholder"
       placeholder="เช่น ก๊วนอังคาร"
     />
-    @if (error()) {
+    @if (error() && errorIsPlan()) {
+      <p id="group-name-error" class="notice" role="status">{{ error() }}</p>
+    } @else if (error()) {
       <p id="group-name-error" class="error" role="alert">{{ error() }}</p>
     }
     @if (duplicateOf(); as dup) {
@@ -37,4 +42,5 @@
       }
     </button>
   </form>
+  }
 </div>

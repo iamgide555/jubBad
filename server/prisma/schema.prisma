@@ -43,7 +43,7 @@ model Group {
   /// docs/archive/specs/2026-10-02-group-dashboard-design.md.
   shareToken          String? @unique
   /// The one LINE group this JubBad group is tied to by `/link <code>`
-  /// (docs/superpowers/specs/2026-10-26-line-bot-roster-design.md). Unique both
+  /// (docs/archive/specs/2026-10-26-line-bot-roster-design.md). Unique both
   /// ways: a LINE group maps to at most one JubBad group. Null = not linked.
   lineGroupId         String? @unique
   lineGroupName       String?

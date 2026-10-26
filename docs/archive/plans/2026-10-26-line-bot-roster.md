@@ -16,7 +16,7 @@
 
 **Status (2026-10-26):** Done and deployed (head `4123065`, with plan gating). Real-LINE check passed on a test group on the live URL: link, roster pre-fill, unlink. Not testable: message edit (needs LINE Premium); the code assumes LINE's event type `messageEdited`. Rulings made during the build are in `docs/overview.md`'s LINE bot section.
 
-**Spec:** `docs/superpowers/specs/2026-10-26-line-bot-roster-design.md`. This plan covers spec sections 1 (Linking), 2 (Capture) and 3 (Start). Section 4 (Phase 2, weekly auto-post) is **out of scope**: the spec makes the LINE push-quota check a precondition for it. It gets its own plan once that is answered.
+**Spec:** `docs/archive/specs/2026-10-26-line-bot-roster-design.md`. This plan covers spec sections 1 (Linking), 2 (Capture) and 3 (Start). Section 4 (Phase 2, weekly auto-post) is **out of scope**: the spec makes the LINE push-quota check a precondition for it. It gets its own plan once that is answered.
 
 ## Decisions this plan makes (spec marked these "left to the builder" or "my call")
 

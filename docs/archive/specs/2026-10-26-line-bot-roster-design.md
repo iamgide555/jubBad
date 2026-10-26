@@ -1,6 +1,6 @@
 # LINE bot roster capture and weekly auto-post — design
 
-Status: **phase 1 built, deployed and checked on a real LINE group (2026-10-26); message edit untested (needs LINE Premium). Phase 2 (weekly auto-post) pending the push-quota check.** Written from a brainstorming
+Status: **phase 1 built, deployed and checked on a real LINE group (2026-10-26); message edit untested (needs LINE Premium). Phase 2 (weekly auto-post) moved to its own spec, `2026-10-26-line-bot-weekly-post-design.md`; this doc is the finished phase 1 record.** Written from a brainstorming
 conversation. Items marked **(my call)** were decided by the writer, not the owner.
 
 ## Intent and why
@@ -25,7 +25,7 @@ it automatically. Phase 2: the bot also posts the weekly template itself.
 3. Linking is explicit, per group, 1:1 (one JubBad group ↔ one LINE group), and does not
    expose any group list to anyone.
 4. Every unlinked or failed case falls back to today's manual paste with no regression.
-5. Phase 2: the bot posts the weekly template on a schedule so nobody has to.
+5. Phase 2 (own spec, not built): the bot posts the weekly template on a schedule so nobody has to.
 
 ## Non-goals
 
@@ -104,10 +104,7 @@ it automatically. Phase 2: the bot also posts the weekly template itself.
   timestamp, LINE message ID (for idempotency), the JubBad group it belongs to.
 - **History kept per group: last ~20 or 30 days, whichever is fewer rows, then purged**
   **(my call, owner only said "store who posted so we can track")**.
-- Phase 2 template posts: do not assume LINE's webhook returns the bot's own messages
-  (the docs don't say). The bot stores its own post itself when it sends it, using the
-  message ID from the push response, flagged as bot-posted. The unique message ID makes
-  it harmless if the webhook also delivers it.
+- Phase 2 template posts (bot's own messages) are covered in the weekly-post spec.
 - Messages arriving while the plan is lapsed, or while the group is unlinked, are dropped.
 
 ### 3. Start
@@ -126,52 +123,12 @@ it automatically. Phase 2: the bot also posts the weekly template itself.
 
 ### 4. Phase 2 — weekly auto-post
 
-Configured in group settings, shown only once the group is linked.
-
-- **Template text** (free text, host-authored) with `{date}` and `{time}` placeholders.
-  Everything else is the same each week.
-- **Play day** (weekday) and **play time**. The date is the next play day (the last play
-  date + 7 days). The host edits the time in settings whenever the slot changes; the bot
-  uses whatever is saved when it posts.
-- **Post moment:** **(my call)** a post-time setting, default the morning after the
-  previous game night, editable, so sign-ups are open all week.
-- **On/off switch** for auto-post.
-- **Skip rule (owner decided):** before posting, check the stored roster messages. If any
-  human roster message arrived **after the last game night ended**, skip: that list is
-  already next week's. The cutoff is the group's last `Session.endedAt`. **(my call)** If
-  no session was run that week, fall back to the play time plus a few hours. Sign-ups on
-  the play day itself before the game belong to tonight and must not count, so the cutoff
-  is never midnight.
-- Never post a second template for the same date. Stop posting when the plan lapses or
-  the group is unlinked.
-- **Push quota (checked 2026-10-26):** LINE push messages count against the Official
-  Account plan's monthly quota; replies are free. A group push counts once per member
-  (LINE's own pricing docs: a push to a 5-person chat counts as 5). Thailand plans, per
-  third-party sources and **not confirmed against LINE's own pricing page**, ex-VAT:
-  Free ฿0 / 300 messages, Basic ฿1,280 / 15,000 (extra ฿0.10), Pro ฿1,780 / 35,000 (extra
-  ฿0.06). One source hints at a pricing change in November 2026; unconfirmed. Re-check the
-  official page before relying on these.
-  - **Cost per group:** one weekly post is about 4.3 posts a month, so about 86 messages
-    for a 20-member group (20 is an assumption, scales linearly with members). The free
-    300 covers about 3 such groups. Basic covers about 170 groups, roughly ฿7.5 per group
-    per month.
-  - **Owner decision (2026-10-26):** the free 300 is enough for now, since only the owner
-    knows the feature exists. Build phase 2 when it is wanted, not speculatively. Revisit
-    the plan and the paid-tier pricing before hosts beyond the owner get it.
-  - **Build with a quota guard:** the API has endpoints for this month's limit and usage
-    (`quota`, `quota/consumption`). Before a scheduled post, skip it and tell the host in
-    settings if it would exceed the remaining quota, rather than running up the owner's
-    bill silently.
-  - **Free fallback considered:** replies are free, so a `/ใหม่` command that makes the bot
-    reply with the template costs no quota, but someone must type it each week, so it only
-    half-solves the chore.
-- **Open question for phase 2:** does any ก๊วน run two nights a week from one LINE group?
-  The design assumes one play day per LINE group; a second night would break "newest
-  roster" and the skip rule.
+Split out into its own live doc: `docs/superpowers/specs/2026-10-26-line-bot-weekly-post-design.md`.
+Not built. The LINE push-quota check is answered there.
 
 ## Data (shape, not final)
 
-- Group gains: linked LINE group ID (unique), linked-at, auto-post settings (phase 2).
+- Group gains: linked LINE group ID (unique), linked-at.
 - A table of captured roster messages: group, text, sender ID and name, LINE timestamp,
   LINE message ID (unique), bot-posted flag.
 - A table of pending link codes: group, code (or hash), expiry, used-at.

@@ -4,6 +4,8 @@ import { HttpErrorResponse, httpResource } from '@angular/common/http';
 import { Router, RouterLink } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
 import { environment } from '../../../environments/environment';
+import { LineService } from '../../core/line.service';
+import type { LineSummaryState } from '../../core/line.model';
 import { LiveSessionService } from '../../core/live-session.service';
 import { isPaid, modesLockHint, planErrorMessage, type Plan } from '../../core/plan';
 import { PlanService } from '../../core/plan.service';
@@ -568,6 +570,14 @@ export class SessionDashboard implements OnDestroy {
    *  the host's confirm attempt hit — rendered inside the end-session dialog. */
   protected readonly endSessionError = signal<string | null>(null);
   protected readonly endSessionBusy = signal(false);
+  /** Whether the LINE summary card can go out, read when the end dialog opens; null while unknown or unreadable. */
+  protected readonly lineSummary = signal<LineSummaryState | null>(null);
+  protected readonly sendLineSummary = signal(false);
+  protected readonly showLineSummary = computed(() => {
+    const state = this.lineSummary();
+    return state !== null && state.available && !state.sent;
+  });
+  private readonly lineService = inject(LineService);
   private readonly endDialog = viewChild<ShuttleDetailsDialog>('endDialog');
   readonly clipboardFallback = signal<string | null>(null);
 
@@ -843,7 +853,20 @@ export class SessionDashboard implements OnDestroy {
    */
   protected openEndSession(): void {
     this.endSessionError.set(null);
+    this.lineSummary.set(null);
     this.endDialog()?.open();
+    // Never holds up ending: until it answers (or if it fails) there is simply no checkbox.
+    this.lineService.summaryState(this.session()!.code).subscribe({
+      next: (state) => {
+        this.lineSummary.set(state);
+        this.sendLineSummary.set(state.defaultOn);
+      },
+      error: () => this.lineSummary.set(null),
+    });
+  }
+
+  protected toggleLineSummary(input: HTMLInputElement): void {
+    this.sendLineSummary.set(input.checked);
   }
 
   /**
@@ -867,13 +890,16 @@ export class SessionDashboard implements OnDestroy {
           return;
         }
       }
-      const result = await this.liveSession.endSession();
+      const result = await this.liveSession.endSession(this.showLineSummary() && this.sendLineSummary());
       if (!result.ok) {
         this.endSessionError.set(result.error ?? $localize`:@@err.endSession:จบรอบไม่สำเร็จ`);
         return;
       }
       this.endDialog()?.close();
-      this.router.navigateByUrl(`/s/${this.session()!.code}/summary`);
+      const summaryUrl = `/s/${this.session()!.code}/summary`;
+      // The outcome rides along so the summary page can say what happened to the card.
+      if (result.lineSummary) this.router.navigateByUrl(summaryUrl, { state: { lineSummary: result.lineSummary } });
+      else this.router.navigateByUrl(summaryUrl);
     } finally {
       this.endSessionBusy.set(false);
     }

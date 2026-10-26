@@ -493,7 +493,23 @@
         [saving]="endSessionBusy()"
         [error]="endSessionError()"
         (confirm)="confirmEndSession($event)"
-      />
+      >
+        @if (showLineSummary()) {
+          <label class="switch-row">
+            <input
+              type="checkbox"
+              name="sendLineSummary"
+              data-send-line-summary
+              [checked]="sendLineSummary()"
+              [disabled]="endSessionBusy()"
+              (change)="toggleLineSummary($any($event.target))"
+            />
+            <span class="switch-text">
+              <span class="switch-title" i18n="@@dashboard.sendLineSummary">ส่งสรุปเข้ากลุ่ม LINE</span>
+            </span>
+          </label>
+        }
+      </app-shuttle-details-dialog>
     }
 
     <app-add-rule-dialog

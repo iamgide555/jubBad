@@ -6,9 +6,10 @@ import { GroupDashboardService } from './group-dashboard.service.js';
 import { GroupShareService } from './group-share.service.js';
 import { GroupsService } from './groups.service.js';
 import { PlansModule } from '../plans/plans.module.js';
+import { LineModule } from '../line/line.module.js';
 
 @Module({
-  imports: [PlansModule],
+  imports: [PlansModule, LineModule],
   controllers: [GroupsController, DashboardsController],
   providers: [GroupsService, GroupLevelsService, GroupShareService, GroupDashboardService],
   // Exported for the admin module, which reuses buildDeleteGroupOps to

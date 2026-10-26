@@ -7,6 +7,7 @@ import { parseLineRosterMessage } from '../../../engines/parser.ts';
 import type { RuleKind } from '../../../engines/pair-rules.ts';
 import { FREE_ARCHIVE_DAYS, planAtLeast } from '../plans/plan.js';
 import { PlansService } from '../plans/plans.service.js';
+import { LineLinkService } from '../line/line-link.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { parseGroupLadder } from './group-levels.js';
 import { levelWrite, loadPlayerLevels, loadRatingAnchors } from '../player-levels.js';
@@ -41,7 +42,8 @@ export class GroupsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly groupLevels: GroupLevelsService,
-    private readonly plans: PlansService
+    private readonly plans: PlansService,
+    private readonly line: LineLinkService
   ) {}
 
   /**
@@ -750,8 +752,16 @@ export class GroupsService {
   async deleteGroup(code: string) {
     const ops = await this.buildDeleteGroupOps(code);
     if (!ops) throw new NotFoundException();
+    const linked = await this.prisma.group.findUnique({ where: { code }, select: { lineGroupId: true } });
     await this.prisma.$transaction(ops);
+    // After the delete, so a failed delete never costs a host their bot.
+    if (linked?.lineGroupId) await this.line.leaveQuietly(linked.lineGroupId);
     return { code, deleted: true };
+  }
+
+  /** Asks the bot to leave a LINE group whose JubBad group has just been deleted by another path. */
+  async leaveLineGroup(lineGroupId: string): Promise<void> {
+    await this.line.leaveQuietly(lineGroupId);
   }
 
   /**

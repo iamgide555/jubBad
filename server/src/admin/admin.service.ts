@@ -175,10 +175,13 @@ export class AdminService {
     }
 
     const ops: Prisma.PrismaPromise<unknown>[] = [];
+    const lineGroupsToLeave: string[] = [];
 
     for (const code of ownedCodes) {
       const entry = disposition[code];
       if (entry.action === 'delete') {
+        const linked = await this.prisma.group.findUnique({ where: { code }, select: { lineGroupId: true } });
+        if (linked?.lineGroupId) lineGroupsToLeave.push(linked.lineGroupId);
         const deleteOps = await this.groupsService.buildDeleteGroupOps(code);
         if (!deleteOps) throw new NotFoundException(); // race: group vanished mid-request
         ops.push(...deleteOps);
@@ -198,6 +201,7 @@ export class AdminService {
 
     ops.push(this.prisma.user.delete({ where: { id } }));
     await this.prisma.$transaction(ops);
+    for (const lineGroupId of lineGroupsToLeave) await this.groupsService.leaveLineGroup(lineGroupId);
     return { deleted: true };
   }
 

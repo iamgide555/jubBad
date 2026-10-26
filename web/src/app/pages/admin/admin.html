@@ -130,7 +130,7 @@
                 </td>
                 <ng-container *ngTemplateOutlet="planCell; context: { $implicit: user, editing: true }" />
                 <td class="admin-actions">
-                  <button type="button" [disabled]="editBusy()" (click)="saveEdit(user)" i18n="@@admin.save">บันทึก</button>
+                  <button type="button" data-edit-save [disabled]="editBusy()" (click)="saveEdit(user)" i18n="@@admin.save">บันทึก</button>
                   <button type="button" class="ghost" (click)="cancelEdit()" i18n="@@admin.cancel">ยกเลิก</button>
                 </td>
               } @else {
@@ -330,11 +330,14 @@
       <div class="plan-current">
         <strong data-plan-label>{{ planLabel(user.effectivePlan) }}</strong>
         @if (isLapsed(user)) {
-          <span class="plan-lapsed" data-plan-lapsed i18n="@@admin.planLapsed">หมดอายุ — ใช้แบบฟรีอยู่</span>
+          <span class="plan-lapsed" data-plan-lapsed>{{ planEndedText(user) }}</span>
+        }
+        @if (overCap(user)) {
+          <span class="plan-overcap" data-over-cap>{{ overCapText(user) }}</span>
         }
       </div>
       <!-- View mode only: the edit row's date field already holds it. -->
-      @if (!editing && user.planRenewsAt) {
+      @if (!editing && user.planRenewsAt && user.effectivePlan !== 'free') {
         <p class="muted plan-until" data-plan-until>{{ planUntil(user.planRenewsAt) }}</p>
       }
       <!-- The package is changed from the edit row only. -->
@@ -357,13 +360,11 @@
             (ngModelChange)="setRenewDraft(user, $event)"
             name="renew-{{ user.id }}"
           />
-          <button type="button" data-plan-save [disabled]="planBusyId() === user.id" (click)="savePlan(user)" i18n="@@admin.planSave">
-            บันทึกแพ็ก⁠เกจ
-          </button>
-          @if (planSavedId() === user.id) {
-            <span class="muted plan-saved" data-plan-saved role="status" i18n="@@admin.planSaved">บันทึกแล้ว</span>
-          }
+          <button type="button" class="add-month" data-plan-add-month (click)="addPlanMonth(user)" i18n="@@admin.planAddMonth">+1 เดือน</button>
         </div>
+      }
+      @if (planSavedId() === user.id) {
+        <span class="muted plan-saved" data-plan-saved role="status" i18n="@@admin.planSaved">บันทึกแล้ว</span>
       }
       @if (planErrorId() === user.id) {
         <p class="error" role="alert" i18n="@@admin.planFailed">บันทึกแพ็ก⁠เกจไม่สำเร็จ</p>

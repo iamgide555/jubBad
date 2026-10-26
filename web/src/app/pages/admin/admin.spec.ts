@@ -2,7 +2,7 @@ import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
-import { Admin } from './admin';
+import { Admin, addMonth } from './admin';
 import { AuthService } from '../../core/auth.service';
 import { environment } from '../../../environments/environment';
 
@@ -18,6 +18,7 @@ const user = (over: Record<string, unknown>) => ({
   plan: 'club',
   planRenewsAt: null,
   effectivePlan: 'club',
+  groupLimit: 10,
   ...over,
 });
 
@@ -50,6 +51,19 @@ describe('Admin plan control', () => {
 
   const el = () => fixture.nativeElement as HTMLElement;
   const row = (id: string) => el().querySelector(`[data-plan-row="${id}"]`)!;
+  /** The one save button: the user update goes first, then the plan when it changed. */
+  const saveEditRow = async (id: string) => {
+    (row(id).closest('tr')!.querySelector('[data-edit-save]') as HTMLButtonElement).click();
+    httpMock.expectOne({ url: `${B}/admin/users/${id}`, method: 'PUT' }).flush({ id });
+    await fixture.whenStable();
+  };
+  const pickPlan = async (id: string, plan: string) => {
+    const select = row(id).querySelector('select') as HTMLSelectElement;
+    select.value = plan;
+    select.dispatchEvent(new Event('change'));
+    await fixture.whenStable();
+    fixture.detectChanges();
+  };
   const edit = async (id: string) => {
     (row(id).closest('tr')!.querySelector('[data-edit]') as HTMLButtonElement).click();
     await fixture.whenStable();
@@ -90,8 +104,10 @@ describe('Admin plan control', () => {
     ]);
     expect(row('u1').querySelector('[data-plan-label]')!.textContent).toContain('ฟรี');
     expect(row('u1').querySelector('[data-plan-lapsed]')!.textContent).toContain(
-      'หมดอายุ — ใช้แบบฟรีอยู่'
+      'หมดเมื่อ 31/01/2026 — ใช้แบบฟรีอยู่'
     );
+    // The date is in the lapsed line, not repeated as a "ถึง" line under it.
+    expect(row('u1').querySelector('[data-plan-until]')).toBeNull();
   });
 
   it('shows an admin account as having everything, with no plan to choose or save', async () => {
@@ -110,15 +126,13 @@ describe('Admin plan control', () => {
     await edit('u1');
     const select = row('u1').querySelector('select') as HTMLSelectElement;
     expect([...select.options].map((o) => o.value)).toEqual(['free', 'host', 'club']);
-    select.value = 'free';
-    select.dispatchEvent(new Event('change'));
-    await fixture.whenStable();
+    await pickPlan('u1', 'free');
 
-    (row('u1').querySelector('[data-plan-save]') as HTMLButtonElement).click();
+    await saveEditRow('u1');
     const req = httpMock.expectOne(`${B}/admin/users/u1/plan`);
     expect(req.request.method).toBe('PUT');
     expect(req.request.body).toEqual({ plan: 'free', renewsAt: null });
-    req.flush({ id: 'u1', plan: 'free', planRenewsAt: null, effectivePlan: 'free' });
+    req.flush({ id: 'u1', plan: 'free', planRenewsAt: null, effectivePlan: 'free', groupLimit: 1 });
     await fixture.whenStable();
     fixture.detectChanges();
     expect(row('u1').querySelector('[data-plan-label]')!.textContent).toContain('ฟรี');
@@ -134,7 +148,7 @@ describe('Admin plan control', () => {
     date.value = '2026-02-28';
     date.dispatchEvent(new Event('input'));
     await fixture.whenStable();
-    (row('u1').querySelector('[data-plan-save]') as HTMLButtonElement).click();
+    await saveEditRow('u1');
     const req = httpMock.expectOne(`${B}/admin/users/u1/plan`);
     expect(req.request.body).toEqual({ plan: 'club', renewsAt: '2026-02-28' });
     req.flush({
@@ -142,6 +156,97 @@ describe('Admin plan control', () => {
       plan: 'club',
       planRenewsAt: '2026-02-28T16:59:59.999Z',
       effectivePlan: 'club',
+      groupLimit: 10,
+    });
+  });
+
+  describe('one save button for the whole edit row', () => {
+    it('has a single save button, and no separate plan save', async () => {
+      await setup([user({})]);
+      await edit('u1');
+      expect(row('u1').querySelector('[data-plan-save]')).toBeNull();
+      expect(row('u1').closest('tr')!.querySelectorAll('[data-edit-save]').length).toBe(1);
+    });
+
+    it('saves the user, then the plan, when the plan changed', async () => {
+      await setup([user({})]);
+      await edit('u1');
+      await pickPlan('u1', 'host');
+      await saveEditRow('u1');
+      const req = httpMock.expectOne(`${B}/admin/users/u1/plan`);
+      expect(req.request.body).toEqual({ plan: 'host', renewsAt: null });
+      req.flush({ id: 'u1', plan: 'host', planRenewsAt: null, effectivePlan: 'host', groupLimit: 3 });
+    });
+
+    it('saves only the user, never the plan, when the plan was not touched', async () => {
+      await setup([user({})]);
+      await edit('u1');
+      await saveEditRow('u1');
+      httpMock.expectNone(`${B}/admin/users/u1/plan`);
+    });
+
+    it('does not save the plan when the user update fails, and says so', async () => {
+      await setup([user({})]);
+      await edit('u1');
+      await pickPlan('u1', 'host');
+      (row('u1').closest('tr')!.querySelector('[data-edit-save]') as HTMLButtonElement).click();
+      httpMock
+        .expectOne({ url: `${B}/admin/users/u1`, method: 'PUT' })
+        .flush({ message: 'no' }, { status: 409, statusText: 'Conflict' });
+      await fixture.whenStable();
+      fixture.detectChanges();
+      httpMock.expectNone(`${B}/admin/users/u1/plan`);
+      expect(el().querySelector('[role="alert"]')).not.toBeNull();
+    });
+  });
+
+  describe('+1 month', () => {
+    it('addMonth: from the later of the stored date and today, one month on, clamped to month end', () => {
+      expect(addMonth('2026-10-10', '2026-10-26')).toBe('2026-11-26');
+      expect(addMonth('2026-11-30', '2026-10-26')).toBe('2026-12-30');
+      expect(addMonth('2027-01-31', '2026-10-26')).toBe('2027-02-28');
+      expect(addMonth('2028-01-31', '2026-10-26')).toBe('2028-02-29');
+      expect(addMonth('', '2026-10-26')).toBe('2026-11-26');
+    });
+
+    it('the button fills the date field from the stored renewal date', async () => {
+      await setup([user({ plan: 'host', effectivePlan: 'host', planRenewsAt: '2099-01-15T16:59:59.999Z' })]);
+      await edit('u1');
+      (row('u1').querySelector('[data-plan-add-month]') as HTMLButtonElement).click();
+      await fixture.whenStable();
+      fixture.detectChanges();
+      expect((row('u1').querySelector('input[type="date"]') as HTMLInputElement).value).toBe('2099-02-15');
+    });
+  });
+
+  describe('plan cell wording', () => {
+    it('flags a free user who owns more groups than the plan allows', async () => {
+      await setup([
+        user({
+          plan: 'free',
+          effectivePlan: 'free',
+          groupLimit: 1,
+          ownedGroups: [
+            { code: 'a', name: 'A' },
+            { code: 'b', name: 'B' },
+          ],
+        }),
+      ]);
+      expect(row('u1').querySelector('[data-over-cap]')!.textContent).toContain('เกินโควตา 2/1');
+    });
+
+    it('does not flag a user at or under the cap, or an admin', async () => {
+      await setup([
+        user({ id: 'u1', plan: 'free', effectivePlan: 'free', groupLimit: 1, ownedGroups: [{ code: 'a', name: 'A' }] }),
+        user({ id: 'u2', role: 'admin', groupLimit: null, ownedGroups: Array.from({ length: 12 }, (_, i) => ({ code: `g${i}`, name: null })) }),
+      ]);
+      expect(row('u1').querySelector('[data-over-cap]')).toBeNull();
+      expect(row('u2').querySelector('[data-over-cap]')).toBeNull();
+    });
+
+    it('a free user with a stored renewal date shows no "ถึง" line', async () => {
+      await setup([user({ plan: 'free', effectivePlan: 'free', planRenewsAt: '2030-12-31T16:59:59.999Z' })]);
+      expect(row('u1').querySelector('[data-plan-until]')).toBeNull();
     });
   });
 
@@ -174,10 +279,13 @@ describe('Admin plan control', () => {
   describe('saved confirmation', () => {
     const saved = () => row('u1').querySelector('[data-plan-saved]');
     async function saveOk() {
-      (row('u1').querySelector('[data-plan-save]') as HTMLButtonElement).click();
+      await pickPlan('u1', 'host');
+      await saveEditRow('u1');
       httpMock
         .expectOne(`${B}/admin/users/u1/plan`)
-        .flush({ id: 'u1', plan: 'host', planRenewsAt: null, effectivePlan: 'host' });
+        .flush({ id: 'u1', plan: 'host', planRenewsAt: null, effectivePlan: 'host', groupLimit: 3 });
+      // The row closes in a continuation after the plan answers: let it run before rendering.
+      await new Promise((r) => setTimeout(r));
       await fixture.whenStable();
       fixture.detectChanges();
     }
@@ -194,29 +302,28 @@ describe('Admin plan control', () => {
       await setup([user({})]);
       await edit('u1');
       await saveOk();
-      const select = row('u1').querySelector('select') as HTMLSelectElement;
-      select.value = 'free';
-      select.dispatchEvent(new Event('change'));
-      await fixture.whenStable();
-      fixture.detectChanges();
+      await edit('u1');
+      await pickPlan('u1', 'free');
       expect(saved()).toBeNull();
     });
 
-    it('clears on cancel', async () => {
+    it('clears when the row is opened again and cancelled', async () => {
       await setup([user({})]);
       await edit('u1');
       await saveOk();
+      expect(saved()).not.toBeNull();
+      await edit('u1');
       (row('u1').closest('tr')!.querySelector('.ghost:not([data-edit])') as HTMLButtonElement).click();
       await fixture.whenStable();
       fixture.detectChanges();
-      await edit('u1');
       expect(saved()).toBeNull();
     });
 
     it('does not show after a failed save', async () => {
       await setup([user({})]);
       await edit('u1');
-      (row('u1').querySelector('[data-plan-save]') as HTMLButtonElement).click();
+      await pickPlan('u1', 'host');
+      await saveEditRow('u1');
       httpMock.expectOne(`${B}/admin/users/u1/plan`).flush({ message: 'no' }, { status: 400, statusText: 'Bad Request' });
       await fixture.whenStable();
       fixture.detectChanges();
@@ -227,7 +334,8 @@ describe('Admin plan control', () => {
   it('keeps the row as it was when the save fails and says so', async () => {
     await setup([user({})]);
     await edit('u1');
-    (row('u1').querySelector('[data-plan-save]') as HTMLButtonElement).click();
+    await pickPlan('u1', 'free');
+    await saveEditRow('u1');
     httpMock
       .expectOne(`${B}/admin/users/u1/plan`)
       .flush({ message: 'no' }, { status: 400, statusText: 'Bad Request' });

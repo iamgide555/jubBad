@@ -1254,81 +1254,88 @@
           <context context-type="linenumber">328,330</context>
         </context-group>
       </trans-unit>
-      <trans-unit id="admin.planLapsed" datatype="html">
-        <source>หมดอายุ — ใช้แบบฟรีอยู่</source>
+      <trans-unit id="admin.planAddMonth" datatype="html">
+        <source>+1 เดือน</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/admin/admin.html</context>
-          <context context-type="linenumber">333,336</context>
-        </context-group>
-      </trans-unit>
-      <trans-unit id="admin.planSave" datatype="html">
-        <source> บันทึกแพ็ก⁠เกจ </source>
-        <context-group purpose="location">
-          <context context-type="sourcefile">src/app/pages/admin/admin.html</context>
-          <context context-type="linenumber">361,362</context>
+          <context context-type="linenumber">363,366</context>
         </context-group>
       </trans-unit>
       <trans-unit id="admin.planSaved" datatype="html">
         <source>บันทึกแล้ว</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/admin/admin.html</context>
-          <context context-type="linenumber">364,366</context>
+          <context context-type="linenumber">367,369</context>
         </context-group>
       </trans-unit>
       <trans-unit id="admin.planFailed" datatype="html">
         <source>บันทึกแพ็ก⁠เกจไม่สำเร็จ</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/admin/admin.html</context>
-          <context context-type="linenumber">369,373</context>
+          <context context-type="linenumber">370,374</context>
         </context-group>
       </trans-unit>
       <trans-unit id="admin.createFailed" datatype="html">
         <source>สร้างผู้ใช้ไม่สำเร็จ — อีเมลนี้อาจถูกใช้แล้ว</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/admin/admin.ts</context>
-          <context context-type="linenumber">101</context>
+          <context context-type="linenumber">113</context>
         </context-group>
       </trans-unit>
       <trans-unit id="admin.editFailed" datatype="html">
         <source>บันทึกไม่สำเร็จ — อีเมลนี้อาจถูกใช้แล้ว</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/admin/admin.ts</context>
-          <context context-type="linenumber">143</context>
+          <context context-type="linenumber">158</context>
         </context-group>
       </trans-unit>
       <trans-unit id="admin.planSelectAria" datatype="html">
         <source>แพ็ก⁠เกจ</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/admin/admin.ts</context>
-          <context context-type="linenumber">163</context>
+          <context context-type="linenumber">178</context>
         </context-group>
       </trans-unit>
       <trans-unit id="admin.planRenewAria" datatype="html">
         <source>วันต่ออายุ (เว้นว่างถ้าไม่หมดอายุ)</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/admin/admin.ts</context>
-          <context context-type="linenumber">164</context>
+          <context context-type="linenumber">179</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="admin.overCap" datatype="html">
+        <source>เกินโควตา <x id="n" equiv-text="n"/>/<x id="limit" equiv-text="limit"/></source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/admin/admin.ts</context>
+          <context context-type="linenumber">219</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="admin.planEnded" datatype="html">
+        <source>หมดเมื่อ <x id="date" equiv-text="date"/> — ใช้แบบฟรีอยู่</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/admin/admin.ts</context>
+          <context context-type="linenumber">225</context>
         </context-group>
       </trans-unit>
       <trans-unit id="admin.resetFailed" datatype="html">
         <source>สร้างลิงก์ไม่สำเร็จ</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/admin/admin.ts</context>
-          <context context-type="linenumber">243</context>
+          <context context-type="linenumber">290</context>
         </context-group>
       </trans-unit>
       <trans-unit id="admin.deleteFailed" datatype="html">
         <source>ลบไม่สำเร็จ — ต้องระบุการจัดการให้ครบทุกก๊วน</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/admin/admin.ts</context>
-          <context context-type="linenumber">323</context>
+          <context context-type="linenumber">370</context>
         </context-group>
       </trans-unit>
       <trans-unit id="admin.reassignFailed" datatype="html">
         <source>ย้ายเจ้าของไม่สำเร็จ</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/admin/admin.ts</context>
-          <context context-type="linenumber">353</context>
+          <context context-type="linenumber">400</context>
         </context-group>
       </trans-unit>
       <trans-unit id="group.backToList" datatype="html">

@@ -1955,20 +1955,6 @@
           <context context-type="linenumber">327</context>
         </context-group>
       </trans-unit>
-      <trans-unit id="admin.planLapsed" datatype="html">
-        <source>หมดอายุ — ใช้แบบฟรีอยู่</source><target>Lapsed: on Free</target>
-        <context-group purpose="location">
-          <context context-type="sourcefile">src/app/pages/admin/admin.html</context>
-          <context context-type="linenumber">328,331</context>
-        </context-group>
-      </trans-unit>
-      <trans-unit id="admin.planSave" datatype="html">
-        <source> บันทึกแพ็ก⁠เกจ </source><target>Save plan</target>
-        <context-group purpose="location">
-          <context context-type="sourcefile">src/app/pages/admin/admin.html</context>
-          <context context-type="linenumber">350,352</context>
-        </context-group>
-      </trans-unit>
       <trans-unit id="admin.planFailed" datatype="html">
         <source>บันทึกแพ็ก⁠เกจไม่สำเร็จ</source><target>Could not save the plan</target>
         <context-group purpose="location">
@@ -5659,6 +5645,27 @@
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/landing/landing.html</context>
           <context context-type="linenumber">81,83</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="admin.planAddMonth" datatype="html">
+        <source>+1 เดือน</source><target>+1 month</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/admin/admin.html</context>
+          <context context-type="linenumber">363,366</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="admin.planEnded" datatype="html">
+        <source>หมดเมื่อ <x id="date" equiv-text="date"/> — ใช้แบบฟรีอยู่</source><target>Ended <x id="date" equiv-text="date"/>, on free</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/admin/admin.ts</context>
+          <context context-type="linenumber">225</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="admin.overCap" datatype="html">
+        <source>เกินโควตา <x id="n" equiv-text="n"/>/<x id="limit" equiv-text="limit"/></source><target>Over cap <x id="n" equiv-text="n"/>/<x id="limit" equiv-text="limit"/></target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/admin/admin.ts</context>
+          <context context-type="linenumber">219</context>
         </context-group>
       </trans-unit>
     </body>

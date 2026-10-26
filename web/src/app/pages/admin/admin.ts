@@ -11,8 +11,20 @@ import {
   type ResetRequest,
 } from '../../core/admin.service';
 import { AuthService, type Role } from '../../core/auth.service';
-import { PLANS, bangkokDate, planLabel, planUntil, type Plan } from '../../core/plan';
+import { PLANS, bangkokDate, bangkokDisplayDate, planLabel, planUntil, type Plan } from '../../core/plan';
 import { absoluteUrl, copyToClipboard } from '../../core/share-link';
+
+/**
+ * One calendar month on from the later of the stored renewal date and today, both
+ * `YYYY-MM-DD`: renewing early adds a month to the paid-up date, renewing late adds one
+ * to today. A day past the month's end clamps to its last day (31 Jan becomes 28 Feb).
+ */
+export function addMonth(ymd: string, today: string): string {
+  const base = ymd > today ? ymd : today;
+  const [y, m, d] = base.split('-').map(Number);
+  const lastDay = new Date(Date.UTC(y, m + 1, 0)).getUTCDate();
+  return new Date(Date.UTC(y, m, Math.min(d, lastDay))).toISOString().slice(0, 10);
+}
 
 @Component({
   selector: 'app-admin',
@@ -138,6 +150,9 @@ export class Admin {
         })
       );
       this.users.update((list) => list.map((u) => (u.id === user.id ? { ...u, ...updated } : u)));
+      // The plan saves only when it was touched, after the user, so a refused user update
+      // never leaves a half-saved row. A failed plan save keeps the row open with its drafts.
+      if (this.planDirty(user) && !(await this.savePlan(user))) return;
       this.editingId.set(null);
     } catch {
       this.editError.set($localize`:@@admin.editFailed:บันทึกไม่สำเร็จ — อีเมลนี้อาจถูกใช้แล้ว`);
@@ -181,6 +196,35 @@ export class Admin {
     return this.renewDraft()[user.id] ?? bangkokDate(user.planRenewsAt);
   }
 
+  /** The plan or renewal date was changed in the edit row (an admin account has neither to change). */
+  planDirty(user: AdminUser): boolean {
+    if (user.role === 'admin') return false;
+    return this.planOf(user) !== user.plan || this.renewOf(user) !== bangkokDate(user.planRenewsAt);
+  }
+
+  /** "+1 เดือน": the renewal field moves a month on; nothing is saved until the one save button. */
+  addPlanMonth(user: AdminUser): void {
+    const today = new Date(Date.now() + 7 * 60 * 60 * 1000).toISOString().slice(0, 10);
+    this.setRenewDraft(user, addMonth(this.renewOf(user), today));
+  }
+
+  /** More groups than the plan in force allows (an admin has no cap). */
+  overCap(user: AdminUser): boolean {
+    return user.role !== 'admin' && user.groupLimit !== null && user.ownedGroups.length > user.groupLimit;
+  }
+
+  overCapText(user: AdminUser): string {
+    const n = user.ownedGroups.length;
+    const limit = user.groupLimit;
+    return $localize`:@@admin.overCap:เกินโควตา ${n}:n:/${limit}:limit:`;
+  }
+
+  /** "Ended 10/10/2026, on free": the date a lapsed paid plan ran out. */
+  planEndedText(user: AdminUser): string {
+    const date = bangkokDisplayDate(user.planRenewsAt);
+    return $localize`:@@admin.planEnded:หมดเมื่อ ${date}:date: — ใช้แบบฟรีอยู่`;
+  }
+
   /** An admin account is club whatever its column says, so it never reads as lapsed. */
   isLapsed(user: AdminUser): boolean {
     return user.role !== 'admin' && user.plan !== user.effectivePlan;
@@ -203,8 +247,9 @@ export class Admin {
     this.renewDraft.update((m) => ({ ...m, [user.id]: date }));
   }
 
-  async savePlan(user: AdminUser): Promise<void> {
-    if (this.planBusyId()) return;
+  /** Saves the plan; true on success. A failure is shown on the row and keeps its drafts. */
+  async savePlan(user: AdminUser): Promise<boolean> {
+    if (this.planBusyId()) return false;
     this.planBusyId.set(user.id);
     this.planErrorId.set(null);
     this.planSavedId.set(null);
@@ -217,8 +262,10 @@ export class Admin {
       this.planDraft.update(({ [user.id]: _p, ...rest }) => rest);
       this.renewDraft.update(({ [user.id]: _r, ...rest }) => rest);
       this.planSavedId.set(user.id);
+      return true;
     } catch {
       this.planErrorId.set(user.id);
+      return false;
     } finally {
       this.planBusyId.set(null);
     }

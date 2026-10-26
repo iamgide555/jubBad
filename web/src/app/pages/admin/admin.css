@@ -299,3 +299,10 @@
   display: block;
   padding-block: 0.7rem;
 }
+
+.plan-overcap {
+  margin-left: var(--space-1);
+  color: var(--warn);
+  font-size: var(--text-xs);
+  font-weight: 600;
+}

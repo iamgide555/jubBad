@@ -16,6 +16,8 @@ export interface AdminUser {
   planRenewsAt: string | null;
   /** What the server actually applies: `free` once a paid plan has lapsed. */
   effectivePlan: Plan;
+  /** Groups the plan in force allows; null for an admin, who has no cap. */
+  groupLimit: number | null;
 }
 
 export interface AdminGroup {
@@ -67,7 +69,7 @@ export class AdminService {
 
   /** `renewsAt` is `YYYY-MM-DD`; an explicit `null` clears it (omitting it is a 400). */
   setPlan(id: string, plan: Plan, renewsAt: string | null) {
-    return this.http.put<Pick<AdminUser, 'id' | 'plan' | 'planRenewsAt' | 'effectivePlan'>>(
+    return this.http.put<Pick<AdminUser, 'id' | 'plan' | 'planRenewsAt' | 'effectivePlan' | 'groupLimit'>>(
       `${this.base}/admin/users/${id}/plan`,
       { plan, renewsAt }
     );

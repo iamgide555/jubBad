@@ -100,12 +100,15 @@ export function groupPausedMessage(limit: number): string {
 
 /** Shown on group home and roster entry after a paid plan ran out. */
 export function planLapsedNotice(date: string): string {
-  return $localize`:@@plan.notice.lapsed:แพ็ก⁠เกจโฮสต์หมดเมื่อ ${date}:date: — รอบใหม่ใช้แบบฟรี`;
+  return $localize`:@@plan.notice.lapsed:แพ็ก⁠เกจหมดเมื่อ ${date}:date: — รอบใหม่ใช้แบบฟรี`;
 }
 
+/** How long after a lapse the notice keeps showing; after that the locks speak for themselves. */
+export const LAPSE_NOTICE_DAYS = 30;
+
 /** Shown within 5 days of a paid plan's renewal date. */
-export function planExpiringNotice(date: string): string {
-  return $localize`:@@plan.notice.expiring:แพ็ก⁠เกจโฮสต์หมด ${date}:date:`;
+export function planExpiringNotice(name: string, date: string): string {
+  return $localize`:@@plan.notice.expiring:แพ็ก⁠เกจ${name}:plan:หมด ${date}:date:`;
 }
 
 export function renewLabel(): string {

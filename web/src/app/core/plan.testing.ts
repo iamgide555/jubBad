@@ -12,8 +12,10 @@ export function stubPlanService() {
   const reply = new ReplaySubject<GroupPlan>(1);
   const mineReply = new ReplaySubject<MyPlan>(1);
   const calls: string[] = [];
+  const mineCalls: number[] = [];
   return {
     calls,
+    mineCalls,
     provider: {
       provide: PlanService,
       useValue: {
@@ -21,7 +23,10 @@ export function stubPlanService() {
           calls.push(groupCode);
           return reply;
         },
-        mine: () => mineReply,
+        mine: () => {
+          mineCalls.push(1);
+          return mineReply;
+        },
       },
     },
     answer: (plan: Plan, renewsAt: string | null = null, extra: Partial<GroupPlan> = {}) =>

@@ -1267,11 +1267,17 @@ these two cases only). Data is still never deleted.
   renames, deletes and cleans up, and a session already running in it carries on
   (propose, confirm, finish); it just cannot start a new session:
   `POST /sessions` answers 403 `GROUP_PAUSED` (with `limit`), also for an admin
-  (gated as the owner). An admin owner and an ownerless group are never paused.
+  (gated as the owner); a non-owner host gets the usual 404 first, never the 403,
+  so the response cannot reveal another host's plan. An admin owner and an ownerless group are never paused.
   `GET /groups` rows carry `paused`.
 - *Rules stop steering in a session created on free.* `loadEnabledRules` returns
-  nothing when `effectivePlan(owner, session.createdAt)` is free, the same
-  creation-time instant the shuttle-tools and bill snapshots use. The rules stay
+  nothing when `effectivePlan(owner, session.createdAt)` is free. This is the same
+  creation-time *instant* the bill prefill uses, but it is evaluated against the
+  owner's *current* plan row, not a stored snapshot (shuttle tools and cross-session
+  history are snapshotted on the session). A plain lapse therefore never changes a
+  running session, but an admin editing the owner's plan or renewal date to an earlier
+  one mid-night does turn that session's rules off, and a renewal turns them on for
+  sessions created during the lapse. Accepted 2026-10-26 to avoid a migration. The rules stay
   stored and listed (an upgrade brings them back for later sessions); a session
   created while the plan was paid keeps its rules for the whole night, even if the
   plan lapses mid-night. `GET /sessions/:code/rules` reports `rulesActive`.
@@ -1306,13 +1312,14 @@ the mode being given up. A failed or unloaded plan hides and disables nothing.
 
 **Notices.** Group home and the roster-entry page show one calm line above the
 content: *paused* (a group past the cap, which also replaces the roster form),
-*lapsed* ("Host plan ended <date>; new rounds use the free plan"), or *ending soon*
-(within 5 days of the renewal date), in that order of precedence. They are **not**
+*lapsed* ("Plan ended <date>; new rounds use the free plan", shown for 30 days after the
+lapse so a host who chose not to renew is not nagged forever), or *ending soon* (within
+5 days of the renewal date, naming the plan), in that order of precedence. They are **not**
 on the live dashboard: courtside is the wrong place for a line the host cannot act
 on. The landing page shows "ก๊วน n/limit" and a locked create button at the cap
 instead of failing after a name is typed, and a พักไว้ badge on a paused group.
 
-**Zero-width joiner.** Every "แพ็ก⁠เกจ" in the web copy carries U+2060 between "แพ็ก"
+**Word joiner.** Every "แพ็ก⁠เกจ" in the web copy carries U+2060 between "แพ็ก"
 and "เกจ" so a Thai line never breaks inside the word.
 
 ## Current state

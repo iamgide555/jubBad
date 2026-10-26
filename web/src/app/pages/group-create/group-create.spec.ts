@@ -168,6 +168,15 @@ describe('GroupCreate', () => {
     expect(el().querySelector('app-plan-lock')?.textContent).toContain('สร้างได้ 1 ก๊วน');
   });
 
+  it('opened at the cap on a paid plan: the limit is said plainly, with no upgrade pitch and no form', async () => {
+    plan.answerMine({ plan: 'host', groupCount: 3, groupLimit: 3 });
+    await fixture.whenStable();
+    fixture.detectChanges();
+    expect(el().querySelector('form.create-form')).toBeNull();
+    expect(el().querySelector('app-plan-lock')).toBeNull();
+    expect(el().querySelector('.notice')?.textContent).toContain('สร้างได้ 3 ก๊วน');
+  });
+
   it('below the cap, or with the plan unknown or failed: the form is there', async () => {
     fixture.detectChanges();
     expect(el().querySelector('form.create-form')).not.toBeNull();

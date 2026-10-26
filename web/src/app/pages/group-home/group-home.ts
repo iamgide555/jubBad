@@ -148,7 +148,8 @@ export class GroupHome {
   }
 
   closeOnEscape(): void {
-    if (!this.settingsOpen()) return;
+    // The upgrade sheet is modal: its own Escape closes it, and must not also fold the settings away.
+    if (this.upgradeSheet.isOpen() || !this.settingsOpen()) return;
     this.setSettings(false);
     this.host.nativeElement.querySelector<HTMLElement>('[data-settings-trigger]')?.focus();
   }

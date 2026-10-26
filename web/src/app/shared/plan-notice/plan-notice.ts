@@ -4,7 +4,9 @@ import {
   expiresSoon,
   groupLimitFor,
   groupPausedMessage,
+  LAPSE_NOTICE_DAYS,
   planExpiringNotice,
+  planLabel,
   planLapsedNotice,
   renewLabel,
   seePlanLabel,
@@ -31,9 +33,11 @@ export class PlanNotice {
     const p = this.plan();
     if (!p) return null;
     if (p.paused) return { kind: 'paused', text: groupPausedMessage(groupLimitFor(p.plan)), action: seePlanLabel() };
-    if (p.lapsedAt) return { kind: 'lapsed', text: planLapsedNotice(bangkokDisplayDate(p.lapsedAt)), action: renewLabel() };
+    if (p.lapsedAt && new Date().getTime() - new Date(p.lapsedAt).getTime() <= LAPSE_NOTICE_DAYS * 24 * 60 * 60 * 1000) {
+      return { kind: 'lapsed', text: planLapsedNotice(bangkokDisplayDate(p.lapsedAt)), action: renewLabel() };
+    }
     if (expiresSoon(p, new Date())) {
-      return { kind: 'expiring', text: planExpiringNotice(bangkokDisplayDate(p.renewsAt)), action: renewLabel() };
+      return { kind: 'expiring', text: planExpiringNotice(planLabel(p.plan), bangkokDisplayDate(p.renewsAt)), action: renewLabel() };
     }
     return null;
   });

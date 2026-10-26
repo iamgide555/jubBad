@@ -58,6 +58,8 @@ export class Landing {
     const m = this.mine();
     return m !== null && m.groupLimit !== null && m.groupCount >= m.groupLimit;
   });
+  /** At the cap on a plan that is already Host or above: nothing to upgrade to here, so no pitch. */
+  protected readonly capIsPaid = computed(() => this.mine()?.plan !== 'free');
   protected readonly capLabel = computed(() => {
     const m = this.mine();
     return m && m.groupLimit !== null ? groupCountLabel(m.groupCount, m.groupLimit) : '';
@@ -172,6 +174,9 @@ export class Landing {
       await firstValueFrom(this.http.delete(`${this.base}/groups/${code}`));
       this.groups.update((groups) => groups.filter((g) => g.code !== code));
       this.cancelRemove();
+      // Deleting can release a paused group and changes the count against the cap: re-read both.
+      void this.load();
+      void this.loadMine();
     } catch {
       this.removeError.set($localize`:@@home.removeFailed:ลบก๊วนไม่สำเร็จ`);
     }

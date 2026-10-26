@@ -28,6 +28,8 @@ export class GroupCreate {
   private readonly planService = inject(PlanService);
   /** The signed-in user's plan and cap; unknown (loading, failed) shows the form. */
   private readonly mine = signal<MyPlan | null>(null);
+  /** At the cap on a plan that is already Host or above: said plainly, with no upgrade pitch. */
+  protected readonly capIsPaid = computed(() => this.mine()?.plan !== 'free');
   protected readonly capHint = computed(() => {
     const m = this.mine();
     return m && m.groupLimit !== null && m.groupCount >= m.groupLimit ? groupLimitMessage(m.groupLimit) : null;

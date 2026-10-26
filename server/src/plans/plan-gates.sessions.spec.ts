@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { ForbiddenException, INestApplication, ValidationPipe } from '@nestjs/common';
+import { ForbiddenException, INestApplication, NotFoundException, ValidationPipe } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import request from 'supertest';
 import { GroupsModule } from '../groups/groups.module.js';
@@ -267,10 +267,24 @@ describe('plan gates on paid session controls', () => {
       }
     });
 
-    it('lets a session already running in a paused group keep proposing', async () => {
+    it('answers a non-owner 404, never the paused 403 that would reveal the owner plan', async () => {
       const g = await twoGroups();
       try {
-        await request(server).post(`/sessions/${g.paused.sessionCode}/courts/1/propose`).send({}).expect(201);
+        const err = await create(g.paused.code, { id: hostId, role: 'host' }).catch((e) => e);
+        expect(err).toBeInstanceOf(NotFoundException);
+      } finally {
+        await g.cleanup();
+      }
+    });
+
+    it('lets a session already running in a paused group keep proposing, and seats four players', async () => {
+      const g = await twoGroups();
+      try {
+        const res = await request(server).post(`/sessions/${g.paused.sessionCode}/courts/1/propose`).send({}).expect(201);
+        expect(res.body.ok).toBe(true);
+        const pairings = await prisma.pairing.findMany({ where: { session: { code: g.paused.sessionCode } } });
+        expect(pairings).toHaveLength(1);
+        expect([...JSON.parse(pairings[0].teamA), ...JSON.parse(pairings[0].teamB)]).toHaveLength(4);
       } finally {
         await g.cleanup();
       }
@@ -295,7 +309,13 @@ describe('plan gates on paid session controls', () => {
     it('does not apply the rule, and says so, when the session was created on free', async () => {
       const f = await ruled(freeId);
       try {
-        expect((await propose(f.sessionCode)).body).not.toMatchObject({ reason: 'pair-rules-blocked' });
+        const res = await propose(f.sessionCode);
+        // The rule would block the only possible match; on free it steers nothing, so all four are seated.
+        expect(res.body.ok).toBe(true);
+        const pairings = await prisma.pairing.findMany({ where: { session: { code: f.sessionCode } } });
+        expect(pairings).toHaveLength(1);
+        const seated = [...JSON.parse(pairings[0].teamA), ...JSON.parse(pairings[0].teamB)];
+        expect(seated).toEqual(expect.arrayContaining([f.players[0].id, f.players[1].id]));
         const rules = (await request(server).get(`/sessions/${f.sessionCode}/rules`).expect(200)).body;
         expect(rules.rulesActive).toBe(false);
         expect(rules.rules).toHaveLength(1);

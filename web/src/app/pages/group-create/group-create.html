@@ -4,7 +4,11 @@
   <p class="muted" i18n="@@group.createLede">ตั้งชื่อก๊วนไว้ก่อน รายชื่อผู้เล่นค่อยเพิ่มตอนเริ่มรอบ</p>
 
   @if (capHint(); as hint) {
-    <app-plan-lock class="cap-lock" [hint]="hint" />
+    @if (capIsPaid()) {
+      <p class="notice cap-lock">{{ hint }}</p>
+    } @else {
+      <app-plan-lock class="cap-lock" [hint]="hint" />
+    }
   } @else {
   <form class="create-form" (ngSubmit)="submit()" novalidate>
     <label for="group-name" i18n="@@entry.groupName">ชื่อก๊วน</label>

@@ -15,6 +15,7 @@ import { UpgradeSheetService } from '../../core/upgrade-sheet.service';
 
 const B = environment.apiBaseUrl;
 const tick = () => new Promise<void>((r) => setTimeout(r));
+const daysAgoIso = (n: number) => new Date(Date.now() - n * 24 * 3600 * 1000).toISOString();
 const localIso = (d: Date) =>
   `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 const daysAgo = (n: number) => {
@@ -353,7 +354,7 @@ describe('GroupHome', () => {
 
     it('a lapsed plan shows the notice under the title, and the start link stays', async () => {
       await open();
-      plan.answer('free', '2026-10-10T16:59:59.999Z', { lapsedAt: '2026-10-10T16:59:59.999Z' });
+      plan.answer('free', daysAgoIso(5), { lapsedAt: daysAgoIso(5) });
       await settle();
       expect(notice()?.getAttribute('data-plan-notice')).toBe('lapsed');
       expect(start()).not.toBeNull();
@@ -658,6 +659,23 @@ describe('GroupHome', () => {
     await settle();
     expect(list().hidden).toBe(true);
     expect(document.activeElement).toBe(trigger());
+  });
+
+  it('Escape while the upgrade sheet is open leaves the settings list alone', async () => {
+    await open();
+    trigger().click();
+    await harness.fixture.whenStable();
+    flushValues();
+    await settle();
+    const sheet = TestBed.inject(UpgradeSheetService);
+    sheet.isOpen.set(true);
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
+    await settle();
+    expect(list().hidden).toBe(false);
+    sheet.isOpen.set(false);
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
+    await settle();
+    expect(list().hidden).toBe(true);
   });
 
   it('?settings=<section> reopens settings, focuses that row, then drops the parameter', async () => {

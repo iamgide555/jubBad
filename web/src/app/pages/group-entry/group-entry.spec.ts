@@ -227,7 +227,8 @@ describe('GroupEntry', () => {
     });
 
     it('a lapsed plan puts the notice above the form and the form still works', async () => {
-      plan.answer('free', '2026-10-10T16:59:59.999Z', { lapsedAt: '2026-10-10T16:59:59.999Z' });
+      const lapsed = new Date(Date.now() - 5 * 24 * 3600 * 1000).toISOString();
+      plan.answer('free', lapsed, { lapsedAt: lapsed });
       await fixture.whenStable();
       fixture.detectChanges();
       expect(notice()?.getAttribute('data-plan-notice')).toBe('lapsed');

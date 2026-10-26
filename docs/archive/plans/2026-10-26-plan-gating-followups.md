@@ -1,6 +1,6 @@
 # Plan Gating Follow-ups Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [x]`) syntax for tracking.
 
 **Goal:** Fix the gaps found by the 2026-10-26 critique of `feat/plan-gating` (22/40): give every lock an upgrade path, tell a host before and after their plan lapses, make paid effects actually stop on lapse, and clean up the confusing and noisy lock states.
 
@@ -62,13 +62,13 @@
   - `GET /plans/me` returns `describeCaller` for the signed-in user. Not `@Public`; there is no group in the route, so there is no ownership check.
   - `GET /groups/:code/plan` returns the extended `describeGroup`.
 
-- [ ] **Step 1: Write failing pure tests in `plan.spec.ts`**
+- [x] **Step 1: Write failing pure tests in `plan.spec.ts`**
   - `rankForCap`: the newest session wins; a group with no session ranks below any group with one; ties fall to the newer `createdAt`, then the code.
   - `lapsedAt`: `host` with a renewal date in the past returns that date; `free` with a past date returns `null`; an admin returns `null`; `planRenewsAt = null` returns `null`.
   - `upgradeContactUrl`: `'https://line.me/R/ti/p/@jubbad'` comes back as is; `undefined`, `''`, `'http://x'`, `'javascript:alert(1)'` and `'line.me/x'` return `null`.
-- [ ] **Step 2: Run** `cd server && npx vitest run src/plans/plan.spec.ts`. Expected: FAIL (not exported).
-- [ ] **Step 3: Implement the three pure functions in `plan.ts`.**
-- [ ] **Step 4: Write failing service tests in `plans.service.spec.ts`**
+- [x] **Step 2: Run** `cd server && npx vitest run src/plans/plan.spec.ts`. Expected: FAIL (not exported).
+- [x] **Step 3: Implement the three pure functions in `plan.ts`.**
+- [x] **Step 4: Write failing service tests in `plans.service.spec.ts`**
   - A free owner with 2 groups, sessions on 01/10 (A) and 05/10 (B): `pausedGroupCodes` is `{A}`.
   - After group B is deleted: `{}`. This is Review Focus 2.
   - A free owner with 2 groups and no sessions: only the older group is paused. This is Review Focus 3.
@@ -76,10 +76,10 @@
   - `describeGroup` on a lapsed host's group returns `lapsedAt` equal to the stored date, and `archiveHidden` counts only sessions older than 30 days.
   - `describeCaller` for a free user with 2 groups returns `groupCount: 2, groupLimit: 1`. For an admin, `groupLimit` is `null`.
   - `upgradeUrl` comes from `process.env.UPGRADE_CONTACT_URL`. Set and restore it in the test.
-- [ ] **Step 5: Implement the service methods.** Read `UPGRADE_CONTACT_URL` at call time, not at import, so tests can set it.
-- [ ] **Step 6: Add `PlansController` with `@Get('me')` under `@Controller('plans')`, and extend `getPlan`.** Add a controller spec: an unauthenticated call returns 401, and a signed-in free user gets the `describeCaller` shape.
-- [ ] **Step 7: Run** `cd server && npx vitest run src/plans`. Expected: PASS.
-- [ ] **Step 8: Commit** with message `feat(server): paused groups, lapse facts and caller plan`
+- [x] **Step 5: Implement the service methods.** Read `UPGRADE_CONTACT_URL` at call time, not at import, so tests can set it.
+- [x] **Step 6: Add `PlansController` with `@Get('me')` under `@Controller('plans')`, and extend `getPlan`.** Add a controller spec: an unauthenticated call returns 401, and a signed-in free user gets the `describeCaller` shape.
+- [x] **Step 7: Run** `cd server && npx vitest run src/plans`. Expected: PASS.
+- [x] **Step 8: Commit** with message `feat(server): paused groups, lapse facts and caller plan`
 
 ### Task 2: Server: a paused group cannot start a session; group list shows paused
 
@@ -92,15 +92,15 @@
 - Consumes: `PlansService.isGroupPaused`, `PlansService.pausedGroupCodes` (Task 1).
 - Produces: `POST /sessions` on a paused group returns 403 `{ code: 'GROUP_PAUSED', limit }`. Each `listGroups` row gains `paused: boolean`. Admin callers get it for every group, judged by each group's owner.
 
-- [ ] **Step 1: Write failing tests**
+- [x] **Step 1: Write failing tests**
   - A free owner's older-ranked group: `createSession` throws `ForbiddenException` whose body has code `GROUP_PAUSED`, `limit: 1`. Their newest group creates normally.
   - The same refusal when the caller is an admin creating in that host's paused group. This is Review Focus 5.
   - A session already open in the paused group still proposes and confirms a court. This is Review Focus 1.
   - `listGroups` for the free owner marks only the older group `paused: true`.
-- [ ] **Step 2: Run** `cd server && npx vitest run src/plans/plan-gates.sessions.spec.ts src/groups/list-groups.spec.ts`. Expected: FAIL.
-- [ ] **Step 3: Implement.** Check `isGroupPaused(dto.groupCode)` before the transaction, next to the existing `paid` lookup, and throw `ForbiddenException({ code: 'GROUP_PAUSED', limit })`. In `listGroups`, resolve `pausedGroupCodes` once per distinct owner.
-- [ ] **Step 4: Run the same command.** Expected: PASS.
-- [ ] **Step 5: Commit** with message `feat(server): pause groups past the plan cap`
+- [x] **Step 2: Run** `cd server && npx vitest run src/plans/plan-gates.sessions.spec.ts src/groups/list-groups.spec.ts`. Expected: FAIL.
+- [x] **Step 3: Implement.** Check `isGroupPaused(dto.groupCode)` before the transaction, next to the existing `paid` lookup, and throw `ForbiddenException({ code: 'GROUP_PAUSED', limit })`. In `listGroups`, resolve `pausedGroupCodes` once per distinct owner.
+- [x] **Step 4: Run the same command.** Expected: PASS.
+- [x] **Step 5: Commit** with message `feat(server): pause groups past the plan cap`
 
 ### Task 3: Server: pair rules do nothing in a session created on free
 
@@ -114,13 +114,13 @@
 - Produces: the `getSessionRules` response gains `rulesActive: boolean`.
 - `loadEnabledRules` takes `{ code: string; groupId: string; disabledRuleIds: string | null }` and returns `[]` when `planAtSessionCreation` is free. Every caller passes the full session row, so callers do not change.
 
-- [ ] **Step 1: Write failing tests**
+- [x] **Step 1: Write failing tests**
   - A lapsed host's group has a `never-teammates` rule between P1 and P2. In a session created after the lapse, proposing on a 4-player roster can pair P1 with P2 (seed the engine so the rule-free result pairs them), and `getSessionRules` returns `rulesActive: false` with the rule still listed.
   - The same group in a session created before the lapse date (set `createdAt` explicitly) still honours the rule, and returns `rulesActive: true`. This is Review Focus 1.
-- [ ] **Step 2: Run** `cd server && npx vitest run src/plans/plan-gates.sessions.spec.ts`. Expected: FAIL.
-- [ ] **Step 3: Implement `planAtSessionCreation`, the early return in `loadEnabledRules`, and `rulesActive`.**
-- [ ] **Step 4: Run** `cd server && npx vitest run`. Expected: PASS, with no other spec regressing.
-- [ ] **Step 5: Commit** with message `feat(server): rules stop in sessions created on free`
+- [x] **Step 2: Run** `cd server && npx vitest run src/plans/plan-gates.sessions.spec.ts`. Expected: FAIL.
+- [x] **Step 3: Implement `planAtSessionCreation`, the early return in `loadEnabledRules`, and `rulesActive`.**
+- [x] **Step 4: Run** `cd server && npx vitest run`. Expected: PASS, with no other spec regressing.
+- [x] **Step 5: Commit** with message `feat(server): rules stop in sessions created on free`
 
 ### Task 4: Server and web: admin user list carries the cap
 
@@ -131,11 +131,11 @@
 **Interfaces:**
 - Produces: each admin user row gains `groupLimit: number | null` (`GROUP_LIMIT[effectivePlan]`, null for admins). Task 12 uses it.
 
-- [ ] **Step 1: Write a failing test.** A free user owning 2 groups returns `groupLimit: 1`; an admin returns `null`.
-- [ ] **Step 2: Run** `cd server && npx vitest run src/admin`. Expected: FAIL.
-- [ ] **Step 3: Implement it in both the list and the plan-update responses.**
-- [ ] **Step 4: Run the same command.** Expected: PASS.
-- [ ] **Step 5: Commit** with message `feat(server): admin rows carry the group cap`
+- [x] **Step 1: Write a failing test.** A free user owning 2 groups returns `groupLimit: 1`; an admin returns `null`.
+- [x] **Step 2: Run** `cd server && npx vitest run src/admin`. Expected: FAIL.
+- [x] **Step 3: Implement it in both the list and the plan-update responses.**
+- [x] **Step 4: Run the same command.** Expected: PASS.
+- [x] **Step 5: Commit** with message `feat(server): admin rows carry the group cap`
 
 ### Task 5: Web: plan model, upgrade sheet, one-line lock
 
@@ -177,16 +177,16 @@ Copy (Thai source, English target):
 
 Every other existing plan string that contains แพ็กเกจ gets the U+2060 too.
 
-- [ ] **Step 1: Write failing tests**
+- [x] **Step 1: Write failing tests**
   - `plan.spec.ts`: `expiresSoon` is true at 4 days 23h left; false at 5 days 1h; false when `renewsAt` is in the past; false on `free`.
   - `planErrorMessage` on a 403 `GROUP_PAUSED` with `limit: 1` returns the `plan.groupPaused` text.
   - `modesLockHint()` contains `'แพ็ก⁠เกจ'`.
   - `upgrade-sheet.spec.ts`: with `contactUrl` set, an `<a>` with that `href`, `target="_blank"` and `rel="noopener"`; with `null` (Review Focus 4), no `<a>` and the `upgrade.contactText` line instead; Escape and the close button both close it.
   - `plan-lock.spec.ts`: clicking "ดูแพ็กเกจ" calls `open()`, and no `.lock-sub` element remains.
-- [ ] **Step 2: Run** `cd web && npm test`. Expected: the new specs FAIL.
-- [ ] **Step 3: Implement.** The sheet uses the existing `<dialog class="sheet-dialog">` pattern from `add-rule-dialog`, with `showModal()` on open. Plain list, one primary button, close as ghost.
-- [ ] **Step 4: Extract i18n and add the English targets.** Then run `cd web && npm test && npm run build`. Expected: PASS, and the build reports no missing translations.
-- [ ] **Step 5: Commit** with message `feat(web): upgrade sheet and one-line plan lock`
+- [x] **Step 2: Run** `cd web && npm test`. Expected: the new specs FAIL.
+- [x] **Step 3: Implement.** The sheet uses the existing `<dialog class="sheet-dialog">` pattern from `add-rule-dialog`, with `showModal()` on open. Plain list, one primary button, close as ghost.
+- [x] **Step 4: Extract i18n and add the English targets.** Then run `cd web && npm test && npm run build`. Expected: PASS, and the build reports no missing translations.
+- [x] **Step 5: Commit** with message `feat(web): upgrade sheet and one-line plan lock`
 
 ### Task 6: Web: group home and roster entry (lapse notice, paused group, honest rows)
 
@@ -210,7 +210,7 @@ Copy:
 
 `{date}` is `bangkokDisplayDate`.
 
-- [ ] **Step 1: Write failing tests**
+- [x] **Step 1: Write failing tests**
   - `plan-notice.spec.ts`: lapsed shows the lapsed line; renewing in 3 days shows the expiring line; paused shows `plan.groupPaused`; a plan with 10 days left shows nothing; the button calls `open()`.
   - `group-home.spec.ts`:
     - On a paused group the start link is gone and the notice shows.
@@ -218,12 +218,12 @@ Copy:
     - The archive note shows only when `archiveHidden > 0`.
     - On free, with shuttle tools stored ON, the advanced row badge reads `group.row.inactiveBadge` without the `.on` class.
   - `group-entry.spec.ts`: on a paused group the paste form is replaced by the notice. On a lapsed plan the notice shows above the form, and the form still works.
-- [ ] **Step 2: Run** `cd web && npm test`. Expected: the new specs FAIL.
-- [ ] **Step 3: Implement.**
+- [x] **Step 2: Run** `cd web && npm test`. Expected: the new specs FAIL.
+- [x] **Step 3: Implement.**
   - Group home puts the notice directly under the title. `planLine` stays as is.
   - Roster entry loads `PlanService.forGroup` like group home does. A failed load shows no notice and blocks nothing (the existing fail-open rule).
-- [ ] **Step 4: Run** `cd web && npm test`. Expected: PASS.
-- [ ] **Step 5: Commit** with message `feat(web): lapse notice and paused groups on group home and roster entry`
+- [x] **Step 4: Run** `cd web && npm test`. Expected: PASS.
+- [x] **Step 5: Commit** with message `feat(web): lapse notice and paused groups on group home and roster entry`
 
 ### Task 7: Web: advanced settings show a stored-but-inactive switch as off-looking
 
@@ -233,11 +233,11 @@ Copy:
 **Interfaces:**
 - Consumes: the existing `onButInactiveLockHint()` and `isPaid`. Nothing new is exported.
 
-- [ ] **Step 1: Write a failing test.** On free, with shuttle tools ON, the checkbox has class `inactive` and stays checked and enabled (it can still be turned off). The hint line reads `plan.lock.onInactive` and is followed by a single plan-lock, so the upgrade line appears once on the page and not once per switch.
-- [ ] **Step 2: Run** `cd web && npm test`. Expected: FAIL.
-- [ ] **Step 3: Implement.** `.inactive` swaps the accent fill for `--ink-faint` on the check, in light and dark. Show one `<app-plan-lock>` under both switches instead of one per switch.
-- [ ] **Step 4: Run** `cd web && npm test`. Expected: PASS.
-- [ ] **Step 5: Commit** with message `fix(web): inactive paid switch no longer looks on`
+- [x] **Step 1: Write a failing test.** On free, with shuttle tools ON, the checkbox has class `inactive` and stays checked and enabled (it can still be turned off). The hint line reads `plan.lock.onInactive` and is followed by a single plan-lock, so the upgrade line appears once on the page and not once per switch.
+- [x] **Step 2: Run** `cd web && npm test`. Expected: FAIL.
+- [x] **Step 3: Implement.** `.inactive` swaps the accent fill for `--ink-faint` on the check, in light and dark. Show one `<app-plan-lock>` under both switches instead of one per switch.
+- [x] **Step 4: Run** `cd web && npm test`. Expected: PASS.
+- [x] **Step 5: Commit** with message `fix(web): inactive paid switch no longer looks on`
 
 ### Task 8: Web: dashboard mode area and tonight's rules
 
@@ -257,25 +257,25 @@ Copy:
 
 `{mode}` is the label of the mode being switched away from (สูสี / ตามระดับ).
 
-- [ ] **Step 1: Write failing tests**
+- [x] **Step 1: Write failing tests**
   - DOM order under the toggle: `.mode-hint` comes directly after `.scope-toggle`, then `app-plan-lock`, then `[data-mode-confirm]`.
   - Starting from `balanced`, requesting `variety` shows confirm text containing "สูสี".
   - With `rulesActive: false`, the rules disclosure shows `dashboard.rulesInactive` and its per-rule switches are disabled.
-- [ ] **Step 2: Run** `cd web && npm test`. Expected: FAIL.
-- [ ] **Step 3: Implement.** Reorder the template. Mode lock and hint use `text-align: start` and the same muted size as `.mode-hint`. No other layout change.
-- [ ] **Step 4: Run** `cd web && npm test`. Expected: PASS.
-- [ ] **Step 5: Commit** with message `fix(web): mode lock below its hint; name the mode; show inactive rules`
+- [x] **Step 2: Run** `cd web && npm test`. Expected: FAIL.
+- [x] **Step 3: Implement.** Reorder the template. Mode lock and hint use `text-align: start` and the same muted size as `.mode-hint`. No other layout change.
+- [x] **Step 4: Run** `cd web && npm test`. Expected: PASS.
+- [x] **Step 5: Commit** with message `fix(web): mode lock below its hint; name the mode; show inactive rules`
 
 ### Task 9: Web: bill, one lock per group of extras
 
 **Files:**
 - Modify: `web/src/app/shared/bill-settings/bill-settings.{html,css}`, `web/src/app/pages/session-bill/session-bill.{html,spec.ts}`
 
-- [ ] **Step 1: Write a failing test.** On free, the bill renders exactly one `app-plan-lock` for host fee and walk-in fee together, and one for the ไม่มา chips. The fields stay disabled.
-- [ ] **Step 2: Run** `cd web && npm test`. Expected: FAIL.
-- [ ] **Step 3: Implement.** Move the lock below the last extra field of each group.
-- [ ] **Step 4: Run** `cd web && npm test`. Expected: PASS.
-- [ ] **Step 5: Commit** with message `fix(web): one plan lock per bill group`
+- [x] **Step 1: Write a failing test.** On free, the bill renders exactly one `app-plan-lock` for host fee and walk-in fee together, and one for the ไม่มา chips. The fields stay disabled.
+- [x] **Step 2: Run** `cd web && npm test`. Expected: FAIL.
+- [x] **Step 3: Implement.** Move the lock below the last extra field of each group.
+- [x] **Step 4: Run** `cd web && npm test`. Expected: PASS.
+- [x] **Step 5: Commit** with message `fix(web): one plan lock per bill group`
 
 ### Task 10: Web: landing and group creation show the cap up front
 
@@ -293,14 +293,14 @@ Copy:
 | `landing.groupCount` | ก๊วน {n}/{limit} | Groups {n}/{limit} |
 | `landing.paused` | พักไว้ | Paused |
 
-- [ ] **Step 1: Write failing tests**
+- [x] **Step 1: Write failing tests**
   - Landing with `groupCount: 2, groupLimit: 1`: the create control is a button showing `landing.groupCount` plus a plan-lock with `plan.groupLimit`, and tapping it opens the sheet instead of navigating. At `groupCount: 0, groupLimit: 1` the create link works as today. When `mine()` fails, it behaves as today (fail open).
   - A paused row shows the `landing.paused` badge and no "เริ่มรอบ" link.
   - `group-create` opened directly at the cap shows the plan-lock instead of the form. A late `GROUP_LIMIT` refusal renders in the `.notice` class, not `.error`.
-- [ ] **Step 2: Run** `cd web && npm test`. Expected: FAIL.
-- [ ] **Step 3: Implement.**
-- [ ] **Step 4: Run** `cd web && npm test`. Expected: PASS.
-- [ ] **Step 5: Commit** with message `feat(web): show the group cap before the host types a name`
+- [x] **Step 2: Run** `cd web && npm test`. Expected: FAIL.
+- [x] **Step 3: Implement.**
+- [x] **Step 4: Run** `cd web && npm test`. Expected: PASS.
+- [x] **Step 5: Commit** with message `feat(web): show the group cap before the host types a name`
 
 ### Task 11: Web: minor fixes (levels link, disabled look, levels copy, profile copy)
 
@@ -310,15 +310,15 @@ Copy:
 - Modify: `web/src/app/pages/group-levels/group-levels.{html,spec.ts}`
 - Modify: `web/src/app/pages/player-profile/player-profile.html`, locale files
 
-- [ ] **Step 1: Write failing tests**
+- [x] **Step 1: Write failing tests**
   - The players page hides the "ตั้งชื่อระดับของก๊วน →" link when `!paid()` and `ladder()?.mode === 'standard'`, and keeps it on free with a custom ladder (so it can still be cleaned up).
   - The levels page on free hides the Elo intro paragraph and the seed numbers (but keeps level names and counts); on paid both show.
-- [ ] **Step 2: Run** `cd web && npm test`. Expected: FAIL.
-- [ ] **Step 3: Implement.**
+- [x] **Step 2: Run** `cd web && npm test`. Expected: FAIL.
+- [x] **Step 3: Implement.**
   - In `styles.css`: `select:disabled, button.chip:disabled { opacity: .55; cursor: not-allowed; }`, checked in light and dark so a disabled control reads as disabled.
   - Change the source of `profile.planLockedHint` to "ยังไม่เปิดหน้าสถิติของก๊วนนี้", with English "Stats aren't available for this group".
-- [ ] **Step 4: Run** `cd web && npm test`. Expected: PASS.
-- [ ] **Step 5: Commit** with message `fix(web): plan gating minor fixes`
+- [x] **Step 4: Run** `cd web && npm test`. Expected: PASS.
+- [x] **Step 5: Commit** with message `fix(web): plan gating minor fixes`
 
 ### Task 12: Web: admin plan editing
 
@@ -337,16 +337,16 @@ Copy:
 | `admin.planEnded` | หมดเมื่อ {date} — ใช้แบบฟรีอยู่ | Ended {date}, on free |
 | `admin.overCap` | เกินโควตา {n}/{limit} | Over cap {n}/{limit} |
 
-- [ ] **Step 1: Write failing tests**
+- [x] **Step 1: Write failing tests**
   - `addMonth('2026-10-10', '2026-10-26')` returns `'2026-11-26'`. `addMonth('2026-11-30', '2026-10-26')` returns `'2026-12-30'`. `addMonth('2027-01-31', '2026-10-26')` returns `'2027-02-28'`. `addMonth('', '2026-10-26')` returns `'2026-11-26'`.
   - The edit row has one save button. Saving with a changed plan calls both the user update and `setPlan`; saving with an unchanged plan calls only the user update. `บันทึกแพ็กเกจ` is gone.
   - A free user owning 2 groups shows `admin.overCap`.
   - A free user with a renewal date shows no "ถึง" text.
   - A lapsed user shows `admin.planEnded` with the date.
-- [ ] **Step 2: Run** `cd web && npm test`. Expected: FAIL.
-- [ ] **Step 3: Implement.** The `+1 เดือน` button sits next to the date input and writes into `renewDraft`.
-- [ ] **Step 4: Run** `cd web && npm test`. Expected: PASS.
-- [ ] **Step 5: Commit** with message `feat(web): admin renews by a month and saves once`
+- [x] **Step 2: Run** `cd web && npm test`. Expected: FAIL.
+- [x] **Step 3: Implement.** The `+1 เดือน` button sits next to the date input and writes into `renewDraft`.
+- [x] **Step 4: Run** `cd web && npm test`. Expected: PASS.
+- [x] **Step 5: Commit** with message `feat(web): admin renews by a month and saves once`
 
 ### Task 13: Docs and full verification
 
@@ -355,21 +355,21 @@ Copy:
 - Modify: `docs/2026-10-06-pricing-tiers.md` ("Rules that must hold")
 - Move: this plan to `docs/archive/plans/` once every box is checked
 
-- [ ] **Step 1: Update `docs/overview.md` → Plans.**
+- [x] **Step 1: Update `docs/overview.md` → Plans.**
   - Add "Paused groups" with the ranking rule and `GROUP_PAUSED`.
   - Add "Rules stop in sessions created on free".
   - Add `GET /plans/me`, `UPGRADE_CONTACT_URL`, the lapse and expiring notice (group home and roster entry only, and why not the dashboard), and `archiveHidden`.
   - Keep "deleting a rule" in the never-gated list (deleting stays free). Reword "Gating only ever blocks turning a paid thing on" to name the two lapse exceptions: paused groups and inactive rules.
   - Rewrite "What a free host sees (web)" to describe the upgrade sheet and the one-line locks.
-- [ ] **Step 2: Update the pricing doc.** Add the two lapse rules under "Rules that must hold", and note that the `/d/` link stays live.
-- [ ] **Step 3: Run** `npm test` from the repo root. Expected: engines, server and web all pass. Then `cd server && npm run lint`. Expected: clean.
-- [ ] **Step 4: Browser walk** on an isolated scratch DB and own ports (memory `reference-e2e-browser-setup`), at 390px:
+- [x] **Step 2: Update the pricing doc.** Add the two lapse rules under "Rules that must hold", and note that the `/d/` link stays live.
+- [x] **Step 3: Run** `npm test` from the repo root. Expected: engines, server and web all pass. Then `cd server && npm run lint`. Expected: clean.
+- [x] **Step 4: Browser walk** on an isolated scratch DB and own ports (memory `reference-e2e-browser-setup`), at 390px:
   - Free user with 2 groups: landing cap, paused badge, the paused group's home, the sheet with and without `UPGRADE_CONTACT_URL`.
   - Lapsed host: group home notice, roster entry notice, a new session's rules shown as inactive.
   - Host renewing in 2 days: expiring notice.
   - Dashboard mode area at 390px with no Thai mid-word break.
   - Admin: +1 month, single save, over-cap flag.
-- [ ] **Step 5: Archive this plan** to `docs/archive/plans/`, then commit with message `docs: plan gating follow-ups`
+- [x] **Step 5: Archive this plan** to `docs/archive/plans/`, then commit with message `docs: plan gating follow-ups`
 
 ## Out of scope
 

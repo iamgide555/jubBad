@@ -498,6 +498,10 @@ export class SessionsService {
     // Resolved before the transaction (its body is SQLite-serialized). A missing group reads as club;
     // the 404 below still decides.
     const paid = planAtLeast(await this.plans.planForGroup(dto.groupCode), 'host');
+    // Ownership is decided first, with the same 404 the transaction gives a non-owner, so the paused 403
+    // below can never tell another host that this group's owner is on the free plan.
+    const owned = await this.prisma.group.findUnique({ where: { code: dto.groupCode }, select: { ownerId: true } });
+    if (owned && owned.ownerId !== caller.id && caller.role !== 'admin') throw new NotFoundException();
     // A group past the owner's current cap is paused: it keeps its data and any session already
     // running, but cannot start a new one. Judged by the owner's plan, so an admin is refused too.
     if (await this.plans.isGroupPaused(dto.groupCode)) {

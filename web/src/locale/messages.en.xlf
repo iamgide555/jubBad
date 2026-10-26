@@ -5581,17 +5581,17 @@
         </context-group>
       </trans-unit>
       <trans-unit id="plan.notice.lapsed" datatype="html">
-        <source>แพ็ก⁠เกจโฮสต์หมดเมื่อ <x id="date" equiv-text="date"/> — รอบใหม่ใช้แบบฟรี</source><target>Host plan ended <x id="date" equiv-text="date"/>; new rounds use the free plan</target>
+        <source>แพ็ก⁠เกจหมดเมื่อ <x id="date" equiv-text="date"/> — รอบใหม่ใช้แบบฟรี</source><target>Plan ended <x id="date" equiv-text="date"/>; new rounds use the free plan</target>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/core/plan.ts</context>
-          <context context-type="linenumber">94</context>
+          <context context-type="linenumber">103</context>
         </context-group>
       </trans-unit>
       <trans-unit id="plan.notice.expiring" datatype="html">
-        <source>แพ็ก⁠เกจโฮสต์หมด <x id="date" equiv-text="date"/></source><target>Host plan ends <x id="date" equiv-text="date"/></target>
+        <source>แพ็ก⁠เกจ<x id="plan" equiv-text="name"/>หมด <x id="date" equiv-text="date"/></source><target><x id="plan" equiv-text="plan"/> plan ends <x id="date" equiv-text="date"/></target>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/core/plan.ts</context>
-          <context context-type="linenumber">99</context>
+          <context context-type="linenumber">111</context>
         </context-group>
       </trans-unit>
       <trans-unit id="plan.notice.renew" datatype="html">

@@ -5,6 +5,7 @@ import { PlanNotice } from './plan-notice';
 
 const DAY = 24 * 3600 * 1000;
 const inDays = (n: number) => new Date(Date.now() + n * DAY).toISOString();
+const daysAgoIso = (n: number) => new Date(Date.now() - n * DAY).toISOString();
 const base: GroupPlan = { plan: 'free', renewsAt: null, lapsedAt: null, paused: false, archiveHidden: 0 };
 
 describe('PlanNotice', () => {
@@ -34,22 +35,35 @@ describe('PlanNotice', () => {
     expect(line()).toBeNull();
   });
 
-  it('says the plan is ending, with the Bangkok date, when 3 days remain', () => {
-    const renewsAt = inDays(3);
-    render({ ...base, plan: 'host', renewsAt });
+  it('says the plan is ending, naming the plan, when 3 days remain', () => {
+    render({ ...base, plan: 'host', renewsAt: inDays(3) });
     expect(line()?.textContent).toContain('แพ็ก⁠เกจโฮสต์หมด');
     expect(line()?.getAttribute('data-plan-notice')).toBe('expiring');
   });
 
-  it('says new rounds use the free plan after a lapse', () => {
-    render({ ...base, renewsAt: '2026-10-10T16:59:59.999Z', lapsedAt: '2026-10-10T16:59:59.999Z' });
+  it('names the club plan for a club owner, never "Host"', () => {
+    render({ ...base, plan: 'club', renewsAt: inDays(3) });
+    expect(line()?.textContent).toContain('ก๊วนใหญ่');
+    expect(line()?.textContent).not.toContain('โฮสต์');
+  });
+
+  it('says new rounds use the free plan after a lapse, without naming a plan it cannot know', () => {
+    const lapsedAt = daysAgoIso(5);
+    render({ ...base, renewsAt: lapsedAt, lapsedAt });
     expect(line()?.getAttribute('data-plan-notice')).toBe('lapsed');
-    expect(line()?.textContent).toContain('แพ็ก⁠เกจโฮสต์หมดเมื่อ 10/10/2026');
+    expect(line()?.textContent).toContain('แพ็ก⁠เกจหมดเมื่อ');
     expect(line()?.textContent).toContain('รอบใหม่ใช้แบบฟรี');
   });
 
+  it('stops saying so 30 days after the lapse, so a host who chose not to renew is not nagged forever', () => {
+    render({ ...base, renewsAt: daysAgoIso(29), lapsedAt: daysAgoIso(29) });
+    expect(line()).not.toBeNull();
+    render({ ...base, renewsAt: daysAgoIso(31), lapsedAt: daysAgoIso(31) });
+    expect(line()).toBeNull();
+  });
+
   it('a paused group says so, naming the cap, and takes precedence over a lapse', () => {
-    render({ ...base, paused: true, lapsedAt: '2026-10-10T16:59:59.999Z' });
+    render({ ...base, paused: true, lapsedAt: daysAgoIso(5) });
     expect(line()?.getAttribute('data-plan-notice')).toBe('paused');
     expect(line()?.textContent).toContain('ก๊วนนี้พักไว้');
     expect(line()?.textContent).toContain('1 ก๊วน');

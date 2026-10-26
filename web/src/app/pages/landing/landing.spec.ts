@@ -124,6 +124,30 @@ describe('Landing', () => {
     fixture.detectChanges();
 
     expect(fixture.nativeElement.textContent).not.toContain('วันอังคาร');
+    // The server released a paused group the moment this one went: re-read, never guess.
+    httpMock.expectOne({ url: `${B}/groups`, method: 'GET' }).flush([GROUPS[1]]);
+  });
+
+  it('after a delete, the paused badge and the cap count are re-read, not left stale', async () => {
+    await loadWith([GROUPS[0], { ...GROUPS[1], paused: true }]);
+    plan.answerMine({ plan: 'free', groupCount: 2, groupLimit: 1 });
+    await fixture.whenStable();
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('.paused-badge')).not.toBeNull();
+    expect(plan.mineCalls).toHaveLength(1);
+
+    component.startRemove(GROUPS[0]);
+    component.removeConfirmText.set('วันอังคาร');
+    const done = component.confirmRemove();
+    httpMock.expectOne({ url: `${B}/groups/aaa`, method: 'DELETE' }).flush({ deleted: true });
+    await done;
+    httpMock.expectOne({ url: `${B}/groups`, method: 'GET' }).flush([{ ...GROUPS[1], paused: false }]);
+    plan.answerMine({ plan: 'free', groupCount: 1, groupLimit: 1 });
+    await fixture.whenStable();
+    fixture.detectChanges();
+    expect(plan.mineCalls).toHaveLength(2);
+    expect(fixture.nativeElement.querySelector('.paused-badge')).toBeNull();
+    expect(fixture.nativeElement.querySelector('[data-start-link]')).not.toBeNull();
   });
 
   it('puts เริ่มรอบ on every own group row, a link straight to the roster screen', async () => {
@@ -282,6 +306,16 @@ describe('Landing', () => {
       capped()!.click();
       expect(open).toHaveBeenCalledTimes(1);
       expect(nav).not.toHaveBeenCalled();
+    });
+
+    it('at the cap on a paid plan: the button is disabled with the limit said plainly, and no upgrade pitch', async () => {
+      await loadWith();
+      plan.answerMine({ plan: 'host', groupCount: 3, groupLimit: 3 });
+      await fixture.whenStable();
+      fixture.detectChanges();
+      expect(capped()?.disabled).toBe(true);
+      expect(root().querySelector('app-plan-lock')).toBeNull();
+      expect(root().querySelector('[data-cap-note]')?.textContent).toContain('สร้างได้ 3 ก๊วน');
     });
 
     it('below the cap, for an admin, and while the plan is unknown: the ordinary create button', async () => {

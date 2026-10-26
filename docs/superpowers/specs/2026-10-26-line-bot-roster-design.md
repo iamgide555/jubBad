@@ -144,11 +144,27 @@ Configured in group settings, shown only once the group is linked.
   is never midnight.
 - Never post a second template for the same date. Stop posting when the plan lapses or
   the group is unlinked.
-- **Open item before building phase 2:** LINE push messages count against the Official
-  Account plan's monthly quota, replies do not. Verify how a scheduled push to a group is
-  counted (LINE's docs say once per member for a group push; replies are free) and what
-  the shared bot's plan allows, including the Thailand free quota, before promising this
-  to many hosts; the bill lands on the owner.
+- **Push quota (checked 2026-10-26):** LINE push messages count against the Official
+  Account plan's monthly quota; replies are free. A group push counts once per member
+  (LINE's own pricing docs: a push to a 5-person chat counts as 5). Thailand plans, per
+  third-party sources and **not confirmed against LINE's own pricing page**, ex-VAT:
+  Free ฿0 / 300 messages, Basic ฿1,280 / 15,000 (extra ฿0.10), Pro ฿1,780 / 35,000 (extra
+  ฿0.06). One source hints at a pricing change in November 2026; unconfirmed. Re-check the
+  official page before relying on these.
+  - **Cost per group:** one weekly post is about 4.3 posts a month, so about 86 messages
+    for a 20-member group (20 is an assumption, scales linearly with members). The free
+    300 covers about 3 such groups. Basic covers about 170 groups, roughly ฿7.5 per group
+    per month.
+  - **Owner decision (2026-10-26):** the free 300 is enough for now, since only the owner
+    knows the feature exists. Build phase 2 when it is wanted, not speculatively. Revisit
+    the plan and the paid-tier pricing before hosts beyond the owner get it.
+  - **Build with a quota guard:** the API has endpoints for this month's limit and usage
+    (`quota`, `quota/consumption`). Before a scheduled post, skip it and tell the host in
+    settings if it would exceed the remaining quota, rather than running up the owner's
+    bill silently.
+  - **Free fallback considered:** replies are free, so a `/ใหม่` command that makes the bot
+    reply with the template costs no quota, but someone must type it each week, so it only
+    half-solves the chore.
 - **Open question for phase 2:** does any ก๊วน run two nights a week from one LINE group?
   The design assumes one play day per LINE group; a second night would break "newest
   roster" and the skip rule.

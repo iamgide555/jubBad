@@ -1,0 +1,6 @@
+@if (notice(); as n) {
+  <p class="plan-notice" role="status" [attr.data-plan-notice]="n.kind">
+    <span class="notice-text">{{ n.text }}</span>
+    <button type="button" class="notice-action" (click)="open()">{{ n.action }}</button>
+  </p>
+}

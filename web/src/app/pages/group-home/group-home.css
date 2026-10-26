@@ -231,20 +231,20 @@
 }
 
 /* A row whose page holds nothing a free host can do: the same row, greyed, with
-   no hover, no chevron and the plan badge where the status badge sits. */
-.row.locked {
-  cursor: default;
+   no chevron and the plan badge where the status badge sits. It is a button that
+   opens the upgrade sheet, so it keeps the pointer and the hover tint. */
+button.row {
+  width: 100%;
+  border: 0;
+  background: none;
+  font: inherit;
+  text-align: start;
+  cursor: pointer;
 }
 
 .row.locked .row-title,
 .row.locked .row-desc {
   color: var(--ink-faint);
-}
-
-@media (hover: hover) {
-  .row.locked:hover {
-    background: transparent;
-  }
 }
 
 .row-chevron {

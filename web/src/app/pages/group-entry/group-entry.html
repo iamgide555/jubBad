@@ -18,6 +18,9 @@
     }
   </h1>
 
+  <app-plan-notice [plan]="plan()" />
+
+  @if (!paused()) {
   @if (sessionGateStatus() === 'loading') {
     <p role="status" i18n="@@entry.checkingSessions">กำลังตรวจสอบรอบก่อนหน้า...</p>
   } @else if (sessionGateStatus() === 'error') {
@@ -438,6 +441,7 @@
     <p class="clear-roster">
       <button #clearButton type="button" class="ghost" data-discard [disabled]="isSubmitting()" (click)="discardDraft()" i18n="@@entry.clearRoster">ล้างรายชื่อ</button>
     </p>
+  }
   }
   }
   }

@@ -32,6 +32,8 @@
         </button>
       </div>
 
+      <app-plan-notice [plan]="plan()" />
+
       @if (latest(); as last) {
         @if (last.state === 'ended') {
           <a class="resume" data-resume data-state="ended" [routerLink]="['/s', last.code]">
@@ -103,7 +105,7 @@
           </li>
           <li>
             @if (locked('levels')) {
-              <a class="row locked" data-section="levels" role="link" aria-disabled="true" aria-labelledby="title-levels" aria-describedby="desc-levels lock-levels">
+              <button type="button" class="row locked" data-section="levels" (click)="upgradeSheet.open()" aria-labelledby="title-levels" aria-describedby="desc-levels lock-levels">
                 <span class="row-text">
                   <span class="row-title">
                     <span id="title-levels" i18n="@@group.row.levels">ระดับผู้เล่นของก๊วน</span>
@@ -112,7 +114,7 @@
                   <span class="row-desc" id="desc-levels" i18n="@@group.row.levelsDesc">ใช้ระดับมาตรฐาน หรือตั้งระดับของก๊วนเอง</span>
                   <span class="sr-only" id="lock-levels" i18n="@@group.row.planHint">ใช้ได้ในแพ็ก⁠เกจโฮสต์</span>
                 </span>
-              </a>
+              </button>
             } @else {
               <a class="row" data-section="levels" appPress [routerLink]="rowLink('levels')" aria-labelledby="title-levels" aria-describedby="desc-levels val-levels">
                 <span class="row-text">
@@ -128,7 +130,7 @@
           </li>
           <li>
             @if (locked('share')) {
-              <a class="row locked" data-section="share" role="link" aria-disabled="true" aria-labelledby="title-share" aria-describedby="desc-share lock-share">
+              <button type="button" class="row locked" data-section="share" (click)="upgradeSheet.open()" aria-labelledby="title-share" aria-describedby="desc-share lock-share">
                 <span class="row-text">
                   <span class="row-title">
                     <span id="title-share" i18n="@@group.row.share">แชร์หน้าสรุปก๊วน</span>
@@ -137,7 +139,7 @@
                   <span class="row-desc" id="desc-share" i18n="@@group.row.shareDesc">ลิงก์สำหรับปักไว้ใน LINE</span>
                   <span class="sr-only" id="lock-share" i18n="@@group.row.planHint">ใช้ได้ในแพ็ก⁠เกจโฮสต์</span>
                 </span>
-              </a>
+              </button>
             } @else {
               <a class="row" data-section="share" appPress [routerLink]="rowLink('share')" aria-labelledby="title-share" aria-describedby="desc-share val-share">
                 <span class="row-text">
@@ -153,7 +155,7 @@
           </li>
           <li>
             @if (locked('advanced')) {
-              <a class="row locked" data-section="advanced" role="link" aria-disabled="true" aria-labelledby="title-advanced" aria-describedby="desc-advanced lock-advanced">
+              <button type="button" class="row locked" data-section="advanced" (click)="upgradeSheet.open()" aria-labelledby="title-advanced" aria-describedby="desc-advanced lock-advanced">
                 <span class="row-text">
                   <span class="row-title">
                     <span id="title-advanced" i18n="@@group.row.advanced">ตั้งค่าขั้นสูง</span>
@@ -162,7 +164,7 @@
                   <span class="row-desc" id="desc-advanced" i18n="@@group.row.advancedDesc">จดลูกแบดเป็นหมายเลข · ประวัติคู่ข้ามรอบ</span>
                   <span class="sr-only" id="lock-advanced" i18n="@@group.row.planHint">ใช้ได้ในแพ็ก⁠เกจโฮสต์</span>
                 </span>
-              </a>
+              </button>
             } @else {
               <a class="row" data-section="advanced" appPress [routerLink]="rowLink('advanced')" aria-labelledby="title-advanced" aria-describedby="desc-advanced val-advanced">
                 <span class="row-text">
@@ -193,6 +195,7 @@
         }
       </div>
 
+      @if (!paused()) {
       <div class="session-area">
         <a class="start" [class.ghost-start]="latest()?.state === 'live'" data-start appPress [routerLink]="['/g', groupCode, 'start']">
           @if (latest()) {
@@ -204,11 +207,12 @@
         </a>
         <p class="muted start-sub" i18n="@@group.startSub">วางรายชื่อจาก LINE หรือเพิ่มรายชื่อเอง</p>
       </div>
+      }
 
-      @if (sessions().length > 0 || !paid()) {
+      @if (sessions().length > 0 || archiveHidden() > 0) {
         <section class="past">
           <h2 class="label" i18n="@@group.pastSessions">รอบที่ผ่านมา</h2>
-          @if (!paid()) {
+          @if (archiveHidden() > 0) {
             <p class="muted archive-note" data-archive-note i18n="@@group.archiveNoteHome">แสดงเฉพาะรอบใน 30 วันล่าสุด ดูย้อนหลังทั้งหมดได้ในแพ็ก⁠เกจโฮสต์</p>
           }
           <ul class="session-list">

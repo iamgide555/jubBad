@@ -11,6 +11,7 @@ import { environment } from '../../../environments/environment';
 import type { GroupSession } from '../../core/group-session.model';
 import { formatSessionDate } from '../../core/session-date';
 import { stubPlanService } from '../../core/plan.testing';
+import { UpgradeSheetService } from '../../core/upgrade-sheet.service';
 
 const B = environment.apiBaseUrl;
 const tick = () => new Promise<void>((r) => setTimeout(r));
@@ -145,22 +146,30 @@ describe('GroupHome', () => {
 
     it('free: says only the last 30 days are shown', async () => {
       await open('/g/group1', { lastSessionCode: 's1', sessions: [SESSION] });
-      plan.answer('free');
+      plan.answer('free', null, { archiveHidden: 3 });
       await settle();
       expect(plan.calls).toEqual(['group1']);
       expect(note()?.textContent).toContain('แสดงเฉพาะรอบใน 30 วันล่าสุด');
     });
 
-    it('free: still says so when no session falls inside the window', async () => {
+    it('free: still says so when no session falls inside the window but some are hidden', async () => {
       await open();
-      plan.answer('free');
+      plan.answer('free', null, { archiveHidden: 5 });
       await settle();
       expect(note()?.textContent).toContain('แสดงเฉพาะรอบใน 30 วันล่าสุด');
     });
 
+    it('free: no note, and no empty past-rounds heading, when nothing is hidden', async () => {
+      await open();
+      plan.answer('free', null, { archiveHidden: 0 });
+      await settle();
+      expect(note()).toBeNull();
+      expect(el().textContent).not.toContain('รอบที่ผ่านมา');
+    });
+
     it('free: the note points to the Host plan for the full history', async () => {
       await open('/g/group1', { lastSessionCode: 's1', sessions: [SESSION] });
-      plan.answer('free');
+      plan.answer('free', null, { archiveHidden: 3 });
       await settle();
       expect(note()?.textContent?.trim()).toBe('แสดงเฉพาะรอบใน 30 วันล่าสุด ดูย้อนหลังทั้งหมดได้ในแพ็ก⁠เกจโฮสต์');
     });
@@ -238,10 +247,11 @@ describe('GroupHome', () => {
 
     const expectDisabled = (s: string) => {
       const r = row(s);
-      expect(r.getAttribute('aria-disabled')).toBe('true');
+      // Locked, but a real button: it opens the upgrade sheet, so it is not announced as disabled.
+      expect(r.tagName).toBe('BUTTON');
+      expect(r.hasAttribute('aria-disabled')).toBe(false);
       expect(r.hasAttribute('href')).toBe(false);
-      expect(r.hasAttribute('tabindex')).toBe(false);
-      expect(r.hasAttribute('data-press')).toBe(false);
+      expect(r.classList.contains('locked')).toBe(true);
       expect(r.querySelector('.row-chevron')).toBeNull();
       // The status badge is replaced by the plan badge.
       const badges = [...r.querySelectorAll('.value')].map((b) => b.textContent?.trim());
@@ -267,11 +277,13 @@ describe('GroupHome', () => {
       for (const s of ['players', 'manage']) expectLink(s);
     });
 
-    it('a disabled row does not navigate when tapped', async () => {
+    it('a locked row opens the upgrade sheet and does not navigate when tapped', async () => {
       await openSettings('free');
       const nav = vi.spyOn(TestBed.inject(Router), 'navigateByUrl').mockResolvedValue(true);
+      const sheet = vi.spyOn(TestBed.inject(UpgradeSheetService), 'open').mockImplementation(() => undefined);
       for (const s of ['levels', 'share', 'advanced']) row(s).click();
       expect(nav).not.toHaveBeenCalled();
+      expect(sheet).toHaveBeenCalledTimes(3);
     });
 
     it('free with a share token: share stays a link so the host can stop sharing', async () => {
@@ -283,7 +295,17 @@ describe('GroupHome', () => {
     it('free with one advanced switch on: advanced stays a link so the host can turn it off', async () => {
       await openSettings('free', { history: true });
       expectLink('advanced');
-      expect(row('advanced').querySelector('.value')?.textContent?.trim()).toBe('เปิด 1 จาก 2');
+      // Stored on, but new rounds snapshot it off on free: said so, and not drawn as active.
+      const badge = row('advanced').querySelector('.value')!;
+      expect(badge.textContent?.trim()).toBe('ปิดในแพ็ก⁠เกจฟรี');
+      expect(badge.classList.contains('on')).toBe(false);
+    });
+
+    it('host with one advanced switch on: still reads เปิด 1 จาก 2, drawn as on', async () => {
+      await openSettings('host', { history: true });
+      const badge = row('advanced').querySelector('.value')!;
+      expect(badge.textContent?.trim()).toBe('เปิด 1 จาก 2');
+      expect(badge.classList.contains('on')).toBe(true);
     });
 
     it('free with the shuttle switch on: advanced stays a link', async () => {
@@ -317,6 +339,34 @@ describe('GroupHome', () => {
         for (const s of ['players', 'levels', 'share', 'advanced', 'manage']) expectLink(s);
       });
     }
+  });
+
+  describe('plan notice and a paused group', () => {
+    const notice = () => el().querySelector('[data-plan-notice]');
+    const start = () => el().querySelector('[data-start]');
+
+    it('shows nothing and keeps the start link while the plan is unknown', async () => {
+      await open();
+      expect(notice()).toBeNull();
+      expect(start()).not.toBeNull();
+    });
+
+    it('a lapsed plan shows the notice under the title, and the start link stays', async () => {
+      await open();
+      plan.answer('free', '2026-10-10T16:59:59.999Z', { lapsedAt: '2026-10-10T16:59:59.999Z' });
+      await settle();
+      expect(notice()?.getAttribute('data-plan-notice')).toBe('lapsed');
+      expect(start()).not.toBeNull();
+    });
+
+    it('a paused group shows the notice and no start link or start hint', async () => {
+      await open();
+      plan.answer('free', null, { paused: true });
+      await settle();
+      expect(notice()?.getAttribute('data-plan-notice')).toBe('paused');
+      expect(start()).toBeNull();
+      expect(el().querySelector('.start-sub')).toBeNull();
+    });
   });
 
   describe('the resume link knows live from open from ended', () => {

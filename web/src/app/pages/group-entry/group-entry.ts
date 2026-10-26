@@ -20,7 +20,9 @@ import {
 } from '../../core/roster-review';
 import { RosterService, type ParseRosterResponse } from '../../core/roster.service';
 import { RosterDraftService, type RosterDraft } from '../../core/roster-draft.service';
-import { planErrorMessage } from '../../core/plan';
+import { planErrorMessage, type GroupPlan } from '../../core/plan';
+import { PlanService } from '../../core/plan.service';
+import { PlanNotice } from '../../shared/plan-notice/plan-notice';
 import { resolvePlayerNames } from '../../core/player-names';
 import { PressDirective } from '../../core/motion/press.directive';
 import { RevealDirective } from '../../core/motion/reveal.directive';
@@ -46,7 +48,7 @@ const UNDO_MS = 8000;
 
 @Component({
   selector: 'app-group-entry',
-  imports: [FormsModule, RouterLink, NgTemplateOutlet, PressDirective, RevealDirective, Icon, LevelPicker, VenueSearch],
+  imports: [FormsModule, RouterLink, NgTemplateOutlet, PressDirective, RevealDirective, Icon, LevelPicker, VenueSearch, PlanNotice],
   templateUrl: './group-entry.html',
   styleUrl: './group-entry.css',
 })
@@ -88,6 +90,13 @@ export class GroupEntry {
 
   readonly groupStatus = signal<'loading' | 'ready' | 'not-found' | 'error'>('loading');
   private readonly drafts = inject(RosterDraftService);
+  private readonly planService = inject(PlanService);
+  /**
+   * The group owner's plan. Unknown (loading, or the read failed) says nothing and blocks nothing;
+   * a paused group (past the owner's cap) replaces the form with the notice.
+   */
+  protected readonly plan = signal<GroupPlan | null>(null);
+  protected readonly paused = computed(() => this.plan()?.paused === true);
   private readonly cdr = inject(ChangeDetectorRef);
   private readonly document = inject(DOCUMENT);
   /** Where focus goes when the control the host just used disappears (clear, undo, edit-paste). */
@@ -239,11 +248,21 @@ export class GroupEntry {
       this.restoredDraft = true;
     }
     void this.loadGroup();
+    void this.loadPlan();
     inject(DestroyRef).onDestroy(() => {
       this.destroyed = true;
       this.clearUndo();
       this.persistDraft();
     });
+  }
+
+  private async loadPlan(): Promise<void> {
+    try {
+      const plan = await firstValueFrom(this.planService.forGroup(this.groupCode));
+      if (!this.destroyed) this.plan.set(plan);
+    } catch {
+      // Unknown plan: no notice, nothing blocked.
+    }
   }
 
   async loadGroup(): Promise<void> {

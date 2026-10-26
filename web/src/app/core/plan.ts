@@ -75,11 +75,36 @@ export function planErrorMessage(err: unknown): string | null {
     const limit = body.limit;
     return $localize`:@@plan.groupLimit:แพ็ก⁠เกจของคุณสร้างได้ ${limit}:limit: ก๊วน`;
   }
-  if (body?.code === 'GROUP_PAUSED' && typeof body.limit === 'number') {
-    const limit = body.limit;
-    return $localize`:@@plan.groupPaused:ก๊วนนี้พักไว้ — แพ็ก⁠เกจของคุณเปิดรอบได้ ${limit}:limit: ก๊วน (ก๊วนที่เล่นล่าสุด)`;
-  }
+  if (body?.code === 'GROUP_PAUSED' && typeof body.limit === 'number') return groupPausedMessage(body.limit);
   return null;
+}
+
+/** Groups one owner may run at once, per plan. Mirrors GROUP_LIMIT on the server. */
+export function groupLimitFor(plan: Plan): number {
+  return { free: 1, host: 3, club: 10 }[plan];
+}
+
+/** Why a group past the owner's cap cannot start a round. */
+export function groupPausedMessage(limit: number): string {
+  return $localize`:@@plan.groupPaused:ก๊วนนี้พักไว้ — แพ็ก⁠เกจของคุณเปิดรอบได้ ${limit}:limit: ก๊วน (ก๊วนที่เล่นล่าสุด)`;
+}
+
+/** Shown on group home and roster entry after a paid plan ran out. */
+export function planLapsedNotice(date: string): string {
+  return $localize`:@@plan.notice.lapsed:แพ็ก⁠เกจโฮสต์หมดเมื่อ ${date}:date: — รอบใหม่ใช้แบบฟรี`;
+}
+
+/** Shown within 5 days of a paid plan's renewal date. */
+export function planExpiringNotice(date: string): string {
+  return $localize`:@@plan.notice.expiring:แพ็ก⁠เกจโฮสต์หมด ${date}:date:`;
+}
+
+export function renewLabel(): string {
+  return $localize`:@@plan.notice.renew:ต่ออายุ`;
+}
+
+export function seePlanLabel(): string {
+  return $localize`:@@plan.lock.more:ดูแพ็ก⁠เกจ`;
 }
 
 /** The first line of the plan-lock under a session's mode toggle. */

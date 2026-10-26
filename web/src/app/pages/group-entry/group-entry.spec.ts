@@ -8,6 +8,7 @@ import { AuthService } from '../../core/auth.service';
 import { RosterDraftService, type RosterDraft } from '../../core/roster-draft.service';
 import { standardLadderFixture } from '../../core/group-levels.testing';
 import { environment } from '../../../environments/environment';
+import { stubPlanService } from '../../core/plan.testing';
 
 const B = environment.apiBaseUrl;
 
@@ -32,11 +33,14 @@ describe('GroupEntry', () => {
   let component: GroupEntry;
   let fixture: ComponentFixture<GroupEntry>;
   let httpMock: HttpTestingController;
+  let plan: ReturnType<typeof stubPlanService>;
 
   beforeEach(async () => {
+    plan = stubPlanService();
     await TestBed.configureTestingModule({
       imports: [GroupEntry],
       providers: [
+        plan.provider,
         provideHttpClient(),
         provideHttpClientTesting(),
         provideRouter(routes),
@@ -208,6 +212,44 @@ describe('GroupEntry', () => {
 
   it('should create', () => {
     expect(component).toBeTruthy();
+  });
+
+  describe('plan notice and a paused group', () => {
+    const root = () => fixture.nativeElement as HTMLElement;
+    const notice = () => root().querySelector('[data-plan-notice]');
+    const pasteBox = () => root().querySelector('textarea');
+
+    it('shows the paste form and no notice while the plan is unknown', () => {
+      fixture.detectChanges();
+      expect(plan.calls).toEqual(['group1']);
+      expect(notice()).toBeNull();
+      expect(pasteBox()).not.toBeNull();
+    });
+
+    it('a lapsed plan puts the notice above the form and the form still works', async () => {
+      plan.answer('free', '2026-10-10T16:59:59.999Z', { lapsedAt: '2026-10-10T16:59:59.999Z' });
+      await fixture.whenStable();
+      fixture.detectChanges();
+      expect(notice()?.getAttribute('data-plan-notice')).toBe('lapsed');
+      expect(pasteBox()).not.toBeNull();
+      expect(notice()!.compareDocumentPosition(pasteBox()!) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    });
+
+    it('a paused group shows the notice instead of the paste form', async () => {
+      plan.answer('free', null, { paused: true });
+      await fixture.whenStable();
+      fixture.detectChanges();
+      expect(notice()?.getAttribute('data-plan-notice')).toBe('paused');
+      expect(pasteBox()).toBeNull();
+    });
+
+    it('a failed plan read blocks nothing', async () => {
+      plan.fail();
+      await fixture.whenStable();
+      fixture.detectChanges();
+      expect(notice()).toBeNull();
+      expect(pasteBox()).not.toBeNull();
+    });
   });
 
 
@@ -791,6 +833,7 @@ describe('GroupEntry manual roster add UI (Task 2)', () => {
     await TestBed.configureTestingModule({
       imports: [GroupEntry],
       providers: [
+        stubPlanService().provider,
         provideHttpClient(),
         provideHttpClientTesting(),
         provideRouter(routes),
@@ -976,6 +1019,7 @@ describe('GroupEntry manual roster add — behavior (Task 3)', () => {
     await TestBed.configureTestingModule({
       imports: [GroupEntry],
       providers: [
+        stubPlanService().provider,
         provideHttpClient(),
         provideHttpClientTesting(),
         provideRouter(routes),
@@ -1294,6 +1338,7 @@ describe('GroupEntry roster review and group ladders (host feedback F)', () => {
     await TestBed.configureTestingModule({
       imports: [GroupEntry],
       providers: [
+        stubPlanService().provider,
         provideHttpClient(),
         provideHttpClientTesting(),
         provideRouter(routes),
@@ -1404,6 +1449,7 @@ describe('GroupEntry review step: clear with undo, edit the paste (UX review)', 
     await TestBed.configureTestingModule({
       imports: [GroupEntry],
       providers: [
+        stubPlanService().provider,
         provideHttpClient(),
         provideHttpClientTesting(),
         provideRouter(routes),
@@ -1895,6 +1941,7 @@ describe('GroupEntry weekly paste path: autofocus and paste from the clipboard (
     await TestBed.configureTestingModule({
       imports: [GroupEntry],
       providers: [
+        stubPlanService().provider,
         provideHttpClient(),
         provideHttpClientTesting(),
         provideRouter(routes),

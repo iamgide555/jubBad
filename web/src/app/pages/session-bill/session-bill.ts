@@ -42,6 +42,16 @@ export class SessionBill {
   protected readonly chargeLocked = computed(() => this.settled().some((r) => r.model === 'perShuttle'));
   protected readonly names = computed(() => new Map((this.bill()?.players ?? []).map((p) => [p.playerId, p.name])));
   protected readonly walkIn = computed(() => new Map((this.bill()?.players ?? []).map((p) => [p.playerId, p.walkIn])));
+  /**
+   * One lock for the whole ไม่มา group on the free plan: shown when a ไม่มา chip is on screen
+   * (a row that played nothing, or someone not yet added), never repeated per person.
+   */
+  protected readonly absentLockShown = computed(() => {
+    const b = this.bill();
+    if (this.paid() || !b || b.config.model !== 'fair') return false;
+    return this.addable().length > 0 || this.billed().some((r) => r.absent || r.games === 0);
+  });
+
   protected readonly billed = computed(() => {
     const rows = new Map((this.bill()?.result.rows ?? []).filter((r) => r.status === 'billed').map((r) => [r.playerId, r]));
     return (this.bill()?.players ?? []).filter((p) => rows.has(p.playerId)).map((p) => rows.get(p.playerId)!);

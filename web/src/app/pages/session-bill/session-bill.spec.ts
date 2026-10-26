@@ -595,11 +595,19 @@ describe('SessionBill', () => {
       return b;
     };
 
-    it('free: host fee and walk-in fee inputs are disabled, each with the lock hint', async () => {
+    it('free: host fee and walk-in fee inputs are disabled, under one shared lock', async () => {
       await loadWithPlan('free', feeFree());
       expect(input('hostFee').disabled).toBe(true);
       expect(input('walkInFee').disabled).toBe(true);
-      expect(el().querySelectorAll('.setting-row app-plan-lock').length).toBe(2);
+      expect(el().querySelectorAll('app-bill-settings app-plan-lock').length).toBe(1);
+      expect(el().querySelector('.setting-row app-plan-lock')).toBeNull();
+    });
+
+    it('free: the fees lock stays while only one of the two is locked', async () => {
+      await loadWithPlan('free');
+      expect(input('walkInFee').disabled).toBe(false);
+      expect(input('hostFee').disabled).toBe(true);
+      expect(el().querySelectorAll('app-bill-settings app-plan-lock').length).toBe(1);
     });
 
     it('free: a saved non-zero walk-in fee stays editable so the host can clear it', async () => {
@@ -627,7 +635,9 @@ describe('SessionBill', () => {
       b.config.addedIds = [];
       await loadWithPlan('free', b);
       expect((el().querySelector('[data-absent="z"]') as HTMLButtonElement).disabled).toBe(true);
-      expect(el().querySelector('.row-detail app-plan-lock')).toBeTruthy();
+      // One lock for the whole ไม่มา group, never one per person row.
+      expect(el().querySelector('.row-detail app-plan-lock')).toBeNull();
+      expect(el().querySelectorAll('app-plan-lock.absent-lock').length).toBe(1);
     });
 
     it('free: ไม่มา on someone already marked can still be undone', async () => {
@@ -641,7 +651,8 @@ describe('SessionBill', () => {
       await loadWithPlan('free');
       expect((el().querySelector('[data-absent-add="z"]') as HTMLButtonElement).disabled).toBe(true);
       expect((el().querySelector('[data-add="z"]') as HTMLButtonElement).disabled).toBe(false);
-      expect(el().querySelector('.add-section app-plan-lock')).toBeTruthy();
+      expect(el().querySelectorAll('app-plan-lock.absent-lock').length).toBe(1);
+      expect(el().querySelector('.add-section app-plan-lock')).toBeNull();
     });
 
     for (const reply of ['host', 'club', 'error', 'pending'] as const) {

@@ -195,9 +195,6 @@
                 <button type="button" class="chip" [attr.data-absent]="r.playerId" [class.selected]="r.absent"
                   [attr.aria-pressed]="r.absent" [disabled]="absentLocked(r.playerId)"
                   (click)="toggleAbsent(r.playerId)" i18n="@@bill.absentChip">ไม่มา</button>
-                @if (absentLocked(r.playerId)) {
-                  <app-plan-lock />
-                }
               }
               <label class="money-field override">
                 <input type="text" inputmode="decimal" i18n-placeholder="@@bill.overridePlaceholder" placeholder="แก้ยอด"
@@ -254,10 +251,10 @@
             }
           }
         </div>
-        @if (!paid() && b.config.model === 'fair') {
-          <app-plan-lock />
-        }
       </details>
+    }
+    @if (absentLockShown()) {
+      <app-plan-lock class="absent-lock" />
     }
 
     <div class="bill-footer">

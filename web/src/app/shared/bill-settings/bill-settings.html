@@ -128,9 +128,6 @@
   <div class="setting-row">
     <div class="setting-label-group">
       <span class="setting-label" i18n="@@bill.hostFee">ค่าจัดก๊วนต่อคน (บาท)</span>
-      @if (hostFeeLocked()) {
-        <app-plan-lock />
-      }
     </div>
     <label class="money-field">
       <input type="text" inputmode="decimal" data-rate="hostFee" [disabled]="hostFeeLocked()" [value]="moneyText(c.hostFeeSatang)" (change)="onMoney('hostFeeSatang', $any($event.target).value)" />
@@ -142,15 +139,15 @@
       <span class="setting-label">
         <ng-container i18n="@@bill.walkInFee">ค่า walk-in ต่อคน (บาท, หารคืนทุกคน)</ng-container>
       </span>
-      @if (walkInFeeLocked()) {
-        <app-plan-lock />
-      }
     </div>
     <label class="money-field">
       <input type="text" inputmode="decimal" data-rate="walkInFee" [disabled]="walkInFeeLocked()" [value]="moneyText(c.walkInFeeSatang)" (change)="onMoney('walkInFeeSatang', $any($event.target).value)" />
       <span class="money-suffix">฿</span>
     </label>
   </div>
+  @if (hostFeeLocked() || walkInFeeLocked()) {
+    <app-plan-lock class="fees-lock" />
+  }
   <div class="setting-row">
     <span class="setting-label" i18n="@@bill.rounding">ปัดขึ้น</span>
     <div class="scope-toggle setting-toggle rounding-toggle">

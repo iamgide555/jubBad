@@ -286,6 +286,7 @@ describe('admin module', () => {
         plan: 'free',
         planRenewsAt: null,
         effectivePlan: 'free',
+        groupLimit: 1,
       });
     });
 
@@ -334,7 +335,16 @@ describe('admin module', () => {
         plan: 'host',
         planRenewsAt: '2020-01-01T16:59:59.999Z',
         effectivePlan: 'free',
+        groupLimit: 1,
       });
+    });
+
+    it('lists the group cap of the plan in force, and null for an admin', async () => {
+      await put(hostId, { plan: 'host', renewsAt: null }).expect(200);
+      const res = await request(server).get('/admin/users').set('Cookie', adminCookie).expect(200);
+      const rows = res.body as { id: string; role: string; groupLimit: number | null }[];
+      expect(rows.find((u) => u.id === hostId)?.groupLimit).toBe(3);
+      expect(rows.find((u) => u.role === 'admin')?.groupLimit).toBeNull();
     });
   });
 });

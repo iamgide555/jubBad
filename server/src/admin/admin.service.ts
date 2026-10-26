@@ -6,7 +6,7 @@ import { PasswordResetService } from '../auth/password-reset.service.js';
 import { UsersService } from '../users/users.service.js';
 import type { CreateUserDto } from './dto/create-user.dto.js';
 import type { SetPlanDto } from './dto/set-plan.dto.js';
-import { effectivePlan } from '../plans/plan.js';
+import { effectivePlan, GROUP_LIMIT } from '../plans/plan.js';
 import type { UpdateUserDto } from './dto/update-user.dto.js';
 import type { GroupDisposition } from './dto/delete-user.dto.js';
 
@@ -39,6 +39,8 @@ export class AdminService {
       plan: u.plan,
       planRenewsAt: u.planRenewsAt?.toISOString() ?? null,
       effectivePlan: effectivePlan(u, now),
+      // The cap of the plan in force; null for an admin, who has none.
+      groupLimit: u.role === 'admin' ? null : GROUP_LIMIT[effectivePlan(u, now)],
       ownedGroups: u.groups.map((g) => ({ code: g.code, name: g.name })),
     }));
   }
@@ -101,6 +103,7 @@ export class AdminService {
       plan: updated.plan,
       planRenewsAt: updated.planRenewsAt?.toISOString() ?? null,
       effectivePlan: effectivePlan(updated, new Date()),
+      groupLimit: updated.role === 'admin' ? null : GROUP_LIMIT[effectivePlan(updated, new Date())],
     };
   }
 

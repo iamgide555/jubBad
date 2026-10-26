@@ -413,4 +413,182 @@ describe('GroupSettingsDetail', () => {
     expect(el().textContent).toContain('ไม่พบก๊วนนี้');
     expect(el().querySelector('.danger-zone')).toBeNull();
   });
+
+  describe('line', () => {
+    const STATUS = {
+      configured: true,
+      botAddUrl: 'https://lin.ee/jubbad',
+      linked: false,
+      lineGroupName: null,
+      linkedAt: null,
+      leftAt: null,
+    };
+    const q = (selector: string) => el().querySelector<HTMLElement>(selector);
+
+    afterEach(() => vi.useRealTimers());
+
+    async function openLine(status: Record<string, unknown> = {}, answer: 'free' | 'host' | null = 'host') {
+      const page = await harness.navigateByUrl('/g/group1/settings/line', GroupSettingsDetail);
+      httpMock.expectOne(`${B}/groups/group1`).flush(GROUP);
+      await settle();
+      httpMock.expectOne(`${B}/groups/group1/line`).flush({ ...STATUS, ...status });
+      if (answer) plan.answer(answer);
+      await settle();
+      return page;
+    }
+
+    // Under fake timers whenStable() never resolves, so these tests flush by hand.
+    async function fakeSettle() {
+      await vi.advanceTimersByTimeAsync(0);
+      harness.detectChanges();
+    }
+
+    async function makeCode(expiresInMs = 10 * 60_000, fake = false) {
+      q('[data-make-code]')!.click();
+      httpMock
+        .expectOne({ url: `${B}/groups/group1/line/code`, method: 'POST' })
+        .flush({ code: 'K7P2QX', expiresAt: new Date(Date.now() + expiresInMs).toISOString() });
+      await (fake ? fakeSettle() : settle());
+    }
+
+    it('says the bot is not set up when the server has no LINE channel, and offers nothing to do', async () => {
+      await openLine({ configured: false });
+      expect(q('[data-not-configured]')?.textContent).toContain('ยังไม่ได้ตั้งค่าบอท LINE ของระบบ');
+      expect(q('[data-make-code]')).toBeNull();
+      expect(q('[data-add-bot]')).toBeNull();
+    });
+
+    it('not linked on a paid plan: an add-the-bot link, the one-bot hint and a create-code button', async () => {
+      await openLine();
+      const add = q('[data-add-bot]') as HTMLAnchorElement;
+      expect(add.getAttribute('href')).toBe('https://lin.ee/jubbad');
+      expect(add.textContent).toContain('เพิ่มบอทเข้ากลุ่ม LINE');
+      expect(el().textContent).toContain('กลุ่ม LINE หนึ่งกลุ่มมีบอทได้ตัวเดียว');
+      expect(q('[data-make-code]')?.textContent).toContain('สร้างรหัสเชื่อม');
+      expect(q('[data-code]')).toBeNull();
+    });
+
+    it('creating a code shows it large, with the /link instruction and the time left', async () => {
+      await openLine();
+      await makeCode();
+      expect(q('[data-code]')?.textContent?.trim()).toBe('K7P2QX');
+      expect(el().textContent).toContain('/link K7P2QX');
+      expect(el().textContent).toContain('หมดอายุใน 10 นาที');
+    });
+
+    it('polls the status every 5 seconds and shows the linked state once the LINE group links', async () => {
+      await openLine();
+      vi.useFakeTimers();
+      await makeCode(10 * 60_000, true);
+      await vi.advanceTimersByTimeAsync(5000);
+      httpMock.expectOne(`${B}/groups/group1/line`).flush(STATUS);
+      await vi.advanceTimersByTimeAsync(5000);
+      httpMock.expectOne(`${B}/groups/group1/line`).flush({
+        ...STATUS,
+        linked: true,
+        lineGroupName: 'ก๊วนพฤหัส LINE',
+        linkedAt: '2026-10-26T12:00:00.000Z',
+      });
+      await fakeSettle();
+      expect(q('[data-linked]')?.textContent).toContain('เชื่อมกับ ก๊วนพฤหัส LINE แล้ว');
+      expect(q('[data-code]')).toBeNull();
+      await vi.advanceTimersByTimeAsync(20000);
+      httpMock.expectNone(`${B}/groups/group1/line`);
+    });
+
+    it('stops polling and drops the code once it has expired', async () => {
+      await openLine();
+      vi.useFakeTimers();
+      await makeCode(6000, true);
+      await vi.advanceTimersByTimeAsync(5000);
+      httpMock.expectOne(`${B}/groups/group1/line`).flush(STATUS);
+      await vi.advanceTimersByTimeAsync(5000);
+      await fakeSettle();
+      expect(q('[data-code]')).toBeNull();
+      expect(q('[data-make-code]')).not.toBeNull();
+      await vi.advanceTimersByTimeAsync(20000);
+      httpMock.expectNone(`${B}/groups/group1/line`);
+    });
+
+    it('linked: shows the LINE group name and unlinks only after an inline confirm', async () => {
+      await openLine({ linked: true, lineGroupName: 'ก๊วนพฤหัส LINE', linkedAt: '2026-10-26T12:00:00.000Z' });
+      expect(q('[data-linked]')?.textContent).toContain('ก๊วนพฤหัส LINE');
+      expect(q('[data-make-code]')).toBeNull();
+      q('[data-unlink]')!.click();
+      await settle();
+      expect(el().textContent).toContain('บอทจะออกจากกลุ่ม LINE');
+      httpMock.expectNone({ url: `${B}/groups/group1/line`, method: 'DELETE' });
+      q('[data-confirm-unlink]')!.click();
+      httpMock.expectOne({ url: `${B}/groups/group1/line`, method: 'DELETE' }).flush({ unlinked: true });
+      await settle();
+      expect(q('[data-linked]')).toBeNull();
+      expect(q('[data-make-code]')).not.toBeNull();
+    });
+
+    it('cancelling the unlink confirm sends nothing', async () => {
+      await openLine({ linked: true, lineGroupName: 'x' });
+      q('[data-unlink]')!.click();
+      await settle();
+      q('[data-cancel-unlink]')!.click();
+      await settle();
+      expect(q('[data-confirm-unlink]')).toBeNull();
+      expect(q('[data-linked]')).not.toBeNull();
+    });
+
+    it('tells the host the bot was removed from the LINE group and lets them link again', async () => {
+      await openLine({ leftAt: '2026-10-20T08:00:00.000Z' });
+      expect(q('[data-left-notice]')?.textContent).toContain('บอทถูกนำออกจากกลุ่ม LINE');
+      expect(q('[data-make-code]')).not.toBeNull();
+    });
+
+    it('free and not linked: the plan lock and no code button', async () => {
+      await openLine({}, 'free');
+      expect(el().textContent).toContain('การเชื่อมกลุ่ม LINE ใช้ได้ในแพ็ก⁠เกจโฮสต์');
+      expect(q('[data-make-code]')).toBeNull();
+      expect(q('[data-unlink]')).toBeNull();
+    });
+
+    it('free but still linked: a paused notice, an upgrade button and Unlink only', async () => {
+      await openLine({ linked: true, lineGroupName: 'ก๊วนพฤหัส LINE' }, 'free');
+      expect(q('[data-paused]')?.textContent).toContain('บอทหยุดจำรายชื่อชั่วคราว');
+      expect(q('[data-paused] .lock-more, [data-paused] button')).not.toBeNull();
+      expect(q('[data-make-code]')).toBeNull();
+      expect(q('[data-unlink]')).not.toBeNull();
+      expect(q('[data-linked]')).toBeNull();
+    });
+
+    it('a PLAN_REQUIRED refusal on creating a code shows the plan message', async () => {
+      await openLine();
+      q('[data-make-code]')!.click();
+      httpMock
+        .expectOne({ url: `${B}/groups/group1/line/code`, method: 'POST' })
+        .flush({ code: 'PLAN_REQUIRED', requiredPlan: 'host' }, { status: 403, statusText: 'Forbidden' });
+      await settle();
+      expect(q('[data-error]')?.textContent).toContain('ฟีเจอร์นี้ใช้ได้ในแพ็ก⁠เกจโฮสต์');
+    });
+
+    it('a 503 on creating a code shows that the bot is not set up', async () => {
+      await openLine();
+      q('[data-make-code]')!.click();
+      httpMock
+        .expectOne({ url: `${B}/groups/group1/line/code`, method: 'POST' })
+        .flush({ code: 'LINE_NOT_CONFIGURED' }, { status: 503, statusText: 'Service Unavailable' });
+      await settle();
+      expect(q('[data-not-configured]')?.textContent).toContain('ยังไม่ได้ตั้งค่าบอท LINE ของระบบ');
+    });
+
+    it('a failed status read says so and offers a retry, never an empty page', async () => {
+      const page = await harness.navigateByUrl('/g/group1/settings/line', GroupSettingsDetail);
+      httpMock.expectOne(`${B}/groups/group1`).flush(GROUP);
+      await settle();
+      httpMock.expectOne(`${B}/groups/group1/line`).flush('x', { status: 500, statusText: 'x' });
+      await settle();
+      expect(page.status()).toBe('ready');
+      expect(q('[data-line-load-failed]')).not.toBeNull();
+      q('[data-line-load-failed] button')!.click();
+      httpMock.expectOne(`${B}/groups/group1/line`).flush(STATUS);
+      await settle();
+      expect(q('[data-make-code]')).not.toBeNull();
+    });
+  });
 });

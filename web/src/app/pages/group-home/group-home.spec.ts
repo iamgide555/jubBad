@@ -90,7 +90,7 @@ describe('GroupHome', () => {
     return page;
   }
 
-  function flushValues(over: { players?: number; custom?: boolean; shared?: boolean; shuttle?: boolean; history?: boolean } = {}) {
+  function flushValues(over: { players?: number; custom?: boolean; shared?: boolean; shuttle?: boolean; history?: boolean; lineLinked?: boolean } = {}) {
     httpMock.expectOne(`${B}/groups/group1/players`).flush(
       Array.from({ length: over.players ?? 0 }, (_, i) => ({ id: `p${i}`, name: `p${i}`, aliases: [] }))
     );
@@ -105,6 +105,14 @@ describe('GroupHome', () => {
     httpMock.expectOne(`${B}/groups/group1/share`).flush({ token: over.shared ? 'tok' : null });
     httpMock.expectOne(`${B}/groups/group1/shuttle-tools`).flush({ enabled: over.shuttle ?? false });
     httpMock.expectOne(`${B}/groups/group1/cross-session-history`).flush({ enabled: over.history ?? false });
+    httpMock.expectOne(`${B}/groups/group1/line`).flush({
+      configured: true,
+      botAddUrl: 'https://lin.ee/jubbad',
+      linked: over.lineLinked ?? false,
+      lineGroupName: over.lineLinked ? 'ก๊วนไลน์' : null,
+      linkedAt: over.lineLinked ? '2026-10-20T10:00:00.000Z' : null,
+      leftAt: null,
+    });
   }
 
   it('shows the saved name with a labelled settings button beside it, closed, and makes no settings request yet', async () => {
@@ -329,17 +337,50 @@ describe('GroupHome', () => {
       httpMock.expectOne(`${B}/groups/group1/share`).flush('x', { status: 500, statusText: 'x' });
       httpMock.expectOne(`${B}/groups/group1/shuttle-tools`).flush({ enabled: false });
       httpMock.expectOne(`${B}/groups/group1/cross-session-history`).flush('x', { status: 500, statusText: 'x' });
+      httpMock.expectOne(`${B}/groups/group1/line`).flush('x', { status: 500, statusText: 'x' });
       await settle();
       await tick();
-      for (const s of ['players', 'levels', 'share', 'advanced', 'manage']) expectLink(s);
+      for (const s of ['players', 'levels', 'share', 'line', 'advanced', 'manage']) expectLink(s);
     });
 
     for (const answer of ['host', 'club', 'fail', null] as const) {
       it(`${answer ?? 'unknown'} plan: every row is an ordinary link, even with nothing set up`, async () => {
         await openSettings(answer);
-        for (const s of ['players', 'levels', 'share', 'advanced', 'manage']) expectLink(s);
+        for (const s of ['players', 'levels', 'share', 'line', 'advanced', 'manage']) expectLink(s);
       });
     }
+
+    it('free and not linked: the LINE group row is locked like the other paid rows', async () => {
+      await openSettings('free');
+      expectDisabled('line');
+    });
+
+    it('free but still linked: the row stays a link marked paused, so the host can reach Unlink', async () => {
+      await openSettings('free', { lineLinked: true });
+      expectLink('line');
+      expect(row('line').querySelector('.value')?.textContent?.trim()).toBe('หยุดชั่วคราว');
+      expect(row('line').querySelector('.value')?.classList.contains('on')).toBe(false);
+    });
+
+    it('host and not linked: the row reads ยังไม่เชื่อม and is not drawn as on', async () => {
+      await openSettings('host');
+      expect(row('line').querySelector('.value')?.textContent?.trim()).toBe('ยังไม่เชื่อม');
+      expect(row('line').querySelector('.value')?.classList.contains('on')).toBe(false);
+    });
+  });
+
+  describe('a linked LINE group on a paid plan', () => {
+    it('the LINE group row reads เชื่อมแล้ว and is drawn as on', async () => {
+      await open();
+      plan.answer('host');
+      trigger().click();
+      await harness.fixture.whenStable();
+      flushValues({ lineLinked: true });
+      await settle();
+      const badge = list().querySelector<HTMLElement>('[data-section="line"] .value')!;
+      expect(badge.textContent?.trim()).toBe('เชื่อมแล้ว');
+      expect(badge.classList.contains('on')).toBe(true);
+    });
   });
 
   describe('plan notice and a paused group', () => {
@@ -548,7 +589,7 @@ describe('GroupHome', () => {
     expect(nav.mock.calls[0][0].toString()).toBe('/g/group1/start');
   });
 
-  it('opening settings reveals five rows in order, with management last', async () => {
+  it('opening settings reveals six rows in order, with management last', async () => {
     await open();
     trigger().click();
     await harness.fixture.whenStable();
@@ -557,23 +598,24 @@ describe('GroupHome', () => {
     expect(trigger().getAttribute('aria-expanded')).toBe('true');
     expect(list().hidden).toBe(false);
     const rows = [...list().querySelectorAll<HTMLAnchorElement>('a[data-section]')];
-    expect(rows.map((r) => r.dataset['section'])).toEqual(['players', 'levels', 'share', 'advanced', 'manage']);
+    expect(rows.map((r) => r.dataset['section'])).toEqual(['players', 'levels', 'share', 'line', 'advanced', 'manage']);
     expect(rows.map((r) => r.getAttribute('href'))).toEqual([
       '/g/group1/players',
       '/g/group1/levels',
       '/g/group1/settings/share',
+      '/g/group1/settings/line',
       '/g/group1/settings/advanced',
       '/g/group1/settings/manage',
     ]);
-    expect(rows[4].textContent).toContain('ชื่อก๊วน / ดาวน์โหลดข้อมูล / ลบก๊วน');
-    const titles = ['จัดการผู้เล่น', 'ระดับผู้เล่นของก๊วน', 'แชร์หน้าสรุปก๊วน', 'ตั้งค่าขั้นสูง', 'จัดการก๊วน'];
+    expect(rows[5].textContent).toContain('ชื่อก๊วน / ดาวน์โหลดข้อมูล / ลบก๊วน');
+    const titles = ['จัดการผู้เล่น', 'ระดับผู้เล่นของก๊วน', 'แชร์หน้าสรุปก๊วน', 'กลุ่ม LINE', 'ตั้งค่าขั้นสูง', 'จัดการก๊วน'];
     rows.forEach((r, i) => {
       const id = r.getAttribute('aria-labelledby')!;
       expect(document.getElementById(id)?.textContent?.trim()).toBe(titles[i]);
     });
   });
 
-  it('the settings wrapper holds two lists: four routine rows, then management alone', async () => {
+  it('the settings wrapper holds two lists: five routine rows, then management alone', async () => {
     await open();
     trigger().click();
     await harness.fixture.whenStable();
@@ -587,6 +629,7 @@ describe('GroupHome', () => {
       'players',
       'levels',
       'share',
+      'line',
       'advanced',
     ]);
     expect([...lists[1].querySelectorAll<HTMLElement>('a[data-section]')].map((r) => r.dataset['section'])).toEqual([
@@ -622,6 +665,7 @@ describe('GroupHome', () => {
     httpMock.expectOne(`${B}/groups/group1/share`).flush('x', { status: 500, statusText: 'x' });
     httpMock.expectOne(`${B}/groups/group1/shuttle-tools`).flush({ enabled: false });
     httpMock.expectOne(`${B}/groups/group1/cross-session-history`).flush('x', { status: 500, statusText: 'x' });
+    httpMock.expectOne(`${B}/groups/group1/line`).flush('x', { status: 500, statusText: 'x' });
     await settle();
     await tick();
     expect(list().querySelectorAll('.value').length).toBe(0);

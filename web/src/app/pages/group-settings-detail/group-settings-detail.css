@@ -128,3 +128,49 @@
 .advanced-lock {
   margin-top: var(--space-1);
 }
+
+.line-code {
+  margin: var(--space-1) 0;
+  padding: var(--space-2);
+  border-radius: var(--radius);
+  background: var(--ground-sunk);
+  font-family: ui-monospace, 'SFMono-Regular', Menlo, Consolas, monospace;
+  font-size: var(--text-2xl);
+  font-weight: 700;
+  letter-spacing: 0.2em;
+  text-align: center;
+}
+
+.line-command {
+  margin: 0 0 var(--space-1);
+  font-family: ui-monospace, 'SFMono-Regular', Menlo, Consolas, monospace;
+  overflow-wrap: anywhere;
+}
+
+.line-add {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--tap);
+  font-weight: 600;
+}
+
+.line-linked {
+  font-size: var(--text-lg);
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.line-paused {
+  margin-bottom: var(--space-2);
+}
+
+.line-confirm {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+}
+
+.line-confirm p {
+  flex-basis: 100%;
+  margin: 0;
+}

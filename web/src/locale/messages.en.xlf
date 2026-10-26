@@ -5685,6 +5685,118 @@
           <context context-type="linenumber">126</context>
         </context-group>
       </trans-unit>
+      <trans-unit id="group.row.line" datatype="html">
+        <source>กลุ่ม LINE</source>
+        <target>LINE group</target>
+      </trans-unit>
+      <trans-unit id="group.row.lineDesc" datatype="html">
+        <source>บอทจำรายชื่อล่าสุดให้ ไม่ต้องคัดลอกเอง</source>
+        <target>The bot keeps the latest roster for you</target>
+      </trans-unit>
+      <trans-unit id="group.value.lineNotLinked" datatype="html">
+        <source>ยังไม่เชื่อม</source>
+        <target>Not linked</target>
+      </trans-unit>
+      <trans-unit id="group.value.lineLinked" datatype="html">
+        <source>เชื่อมแล้ว</source>
+        <target>Linked</target>
+      </trans-unit>
+      <trans-unit id="group.value.linePaused" datatype="html">
+        <source>หยุดชั่วคราว</source>
+        <target>Paused</target>
+      </trans-unit>
+      <trans-unit id="line.title" datatype="html">
+        <source>กลุ่ม LINE</source>
+        <target>LINE group</target>
+      </trans-unit>
+      <trans-unit id="line.loadFailed" datatype="html">
+        <source>โหลดสถานะกลุ่ม LINE ไม่สำเร็จ</source>
+        <target>Could not load the LINE group status</target>
+      </trans-unit>
+      <trans-unit id="line.notConfigured" datatype="html">
+        <source>ยังไม่ได้ตั้งค่าบอท LINE ของระบบ</source>
+        <target>The LINE bot is not set up yet</target>
+      </trans-unit>
+      <trans-unit id="line.linkedHint" datatype="html">
+        <source>เมื่อมีคนส่งรายชื่อในกลุ่ม LINE บอทจะจำฉบับล่าสุดไว้ให้ตอนกดเริ่มรอบ</source>
+        <target>When someone posts a roster in the LINE group, the bot keeps the latest one for you when you tap start</target>
+      </trans-unit>
+      <trans-unit id="line.hint" datatype="html">
+        <source>เพิ่มบอทเข้ากลุ่ม LINE ของก๊วน แล้วพิมพ์รหัสในกลุ่มเพื่อเชื่อม บอทจะจำเฉพาะข้อความรายชื่อ</source>
+        <target>Add the bot to your group's LINE chat, then type a code in the chat to link it. The bot keeps roster messages only</target>
+      </trans-unit>
+      <trans-unit id="line.addBot" datatype="html">
+        <source>เพิ่มบอทเข้ากลุ่ม LINE</source>
+        <target>Add the bot to your LINE group</target>
+      </trans-unit>
+      <trans-unit id="line.addBotHint" datatype="html">
+        <source>กลุ่ม LINE หนึ่งกลุ่มมีบอทได้ตัวเดียว ถ้ามีบอทอื่นอยู่แล้วต้องเอาออกก่อน</source>
+        <target>A LINE group can hold only one bot. If another bot is already there, remove it first</target>
+      </trans-unit>
+      <trans-unit id="line.typeCode" datatype="html">
+        <source>พิมพ์ข้อความนี้ในกลุ่ม LINE:</source>
+        <target>Type this in the LINE group:</target>
+      </trans-unit>
+      <trans-unit id="line.copy" datatype="html">
+        <source>คัดลอกข้อความ</source>
+        <target>Copy message</target>
+      </trans-unit>
+      <trans-unit id="line.copyFailed" datatype="html">
+        <source>คัดลอกไม่สำเร็จ พิมพ์เองได้เลย</source>
+        <target>Could not copy. You can type it yourself</target>
+      </trans-unit>
+      <trans-unit id="line.makeCode" datatype="html">
+        <source>สร้างรหัสเชื่อม</source>
+        <target>Create a link code</target>
+      </trans-unit>
+      <trans-unit id="line.unlink" datatype="html">
+        <source>ยกเลิกการเชื่อม</source>
+        <target>Unlink</target>
+      </trans-unit>
+      <trans-unit id="line.unlinkConfirm" datatype="html">
+        <source>ยกเลิกแล้วบอทจะออกจากกลุ่ม LINE และลบรายชื่อที่จำไว้ ถ้าจะเชื่อมใหม่ต้องเชิญบอทอีกครั้ง</source>
+        <target>The bot leaves the LINE group and forgets the stored rosters. To link again you must invite it again</target>
+      </trans-unit>
+      <trans-unit id="line.confirmUnlink" datatype="html">
+        <source>ยืนยันยกเลิกการเชื่อม</source>
+        <target>Yes, unlink</target>
+      </trans-unit>
+      <trans-unit id="line.cancelUnlink" datatype="html">
+        <source>ไม่ยกเลิก</source>
+        <target>Keep it linked</target>
+      </trans-unit>
+      <trans-unit id="line.unnamedGroup" datatype="html">
+        <source>กลุ่ม LINE</source>
+        <target>LINE group</target>
+      </trans-unit>
+      <trans-unit id="line.linkedTo" datatype="html">
+        <source>เชื่อมกับ <x id="name" equiv-text="name"/> แล้ว</source>
+        <target>Linked to <x id="name" equiv-text="name"/></target>
+      </trans-unit>
+      <trans-unit id="line.leftNotice" datatype="html">
+        <source>บอทถูกนำออกจากกลุ่ม LINE เมื่อ <x id="date" equiv-text="date"/> เชื่อมใหม่ได้ด้านล่าง</source>
+        <target>The bot was removed from the LINE group on <x id="date" equiv-text="date"/>. You can link again below</target>
+      </trans-unit>
+      <trans-unit id="plan.lock.line" datatype="html">
+        <source>การเชื่อมกลุ่ม LINE ใช้ได้ในแพ็ก⁠เกจโฮสต์</source>
+        <target>Linking a LINE group is on the Host plan</target>
+      </trans-unit>
+      <trans-unit id="line.pausedNotice" datatype="html">
+        <source>แพ็ก⁠เกจหมดอายุ บอทหยุดจำรายชื่อชั่วคราว ต่ออายุแล้วจะกลับมาทำงานเอง</source>
+        <target>Your plan lapsed, so the bot has paused. It resumes by itself when you renew</target>
+      </trans-unit>
+      <trans-unit id="line.expiresIn" datatype="html">
+        <source>หมดอายุใน <x id="minutes" equiv-text="minutes"/> นาที</source>
+        <target>Expires in <x id="minutes" equiv-text="minutes"/> min</target>
+      </trans-unit>
+      <trans-unit id="line.codeFailed" datatype="html">
+        <source>สร้างรหัสไม่สำเร็จ ลองอีกครั้ง</source>
+        <target>Could not create the code. Try again</target>
+      </trans-unit>
+      <trans-unit id="line.unlinkFailed" datatype="html">
+        <source>ยกเลิกการเชื่อมไม่สำเร็จ ลองอีกครั้ง</source>
+        <target>Could not unlink. Try again</target>
+      </trans-unit>
     </body>
   </file>
 </xliff>

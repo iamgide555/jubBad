@@ -1,9 +1,9 @@
 /** The group settings list, in its fixed order (spec: Settings contents). */
-export const SETTINGS_SECTIONS = ['players', 'levels', 'share', 'advanced', 'manage'] as const;
+export const SETTINGS_SECTIONS = ['players', 'levels', 'share', 'line', 'advanced', 'manage'] as const;
 export type SettingsSection = (typeof SETTINGS_SECTIONS)[number];
 
 /** The sections that live at /g/:groupCode/settings/:section; players and levels keep their own routes. */
-export const DETAIL_SECTIONS = ['share', 'advanced', 'manage'] as const;
+export const DETAIL_SECTIONS = ['share', 'line', 'advanced', 'manage'] as const;
 export type DetailSection = (typeof DETAIL_SECTIONS)[number];
 
 export function isSettingsSection(value: string | null): value is SettingsSection {

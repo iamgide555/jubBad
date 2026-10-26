@@ -1,15 +1,22 @@
 import { HttpErrorResponse } from '@angular/common/http';
-import { Component, computed, inject, signal } from '@angular/core';
+import { NgTemplateOutlet } from '@angular/common';
+import { Component, DestroyRef, LOCALE_ID, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
 import { isPaid, onButInactiveLockHint, planErrorMessage, type Plan } from '../../core/plan';
+import { LineService } from '../../core/line.service';
+import type { LineLinkCode, LineStatus } from '../../core/line.model';
 import { PlanService } from '../../core/plan.service';
 import { RosterService } from '../../core/roster.service';
 import { findOwnDuplicate, sameGroupName, type OwnGroupRow } from '../../core/group-name';
 import { isDetailSection, settingsReturn, type DetailSection } from '../../core/settings-sections';
+import { copyToClipboard } from '../../core/share-link';
 import { PlanLock } from '../../shared/plan-lock/plan-lock';
 import { ShareDashboardPanel } from '../../shared/share-dashboard-panel/share-dashboard-panel';
+
+/** How often the page asks whether the LINE group has linked, while a code is waiting. */
+export const LINE_POLL_MS = 5000;
 
 /**
  * One group setting at a time: sharing, advanced switches, or managing the
@@ -20,7 +27,7 @@ import { ShareDashboardPanel } from '../../shared/share-dashboard-panel/share-da
  */
 @Component({
   selector: 'app-group-settings-detail',
-  imports: [FormsModule, RouterLink, ShareDashboardPanel, PlanLock],
+  imports: [FormsModule, RouterLink, NgTemplateOutlet, ShareDashboardPanel, PlanLock],
   templateUrl: './group-settings-detail.html',
   styleUrl: './group-settings-detail.css',
 })
@@ -29,6 +36,8 @@ export class GroupSettingsDetail {
   private readonly router = inject(Router);
   private readonly roster = inject(RosterService);
   private readonly planService = inject(PlanService);
+  private readonly lineService = inject(LineService);
+  private readonly locale = inject(LOCALE_ID);
 
   protected readonly groupCode = this.route.snapshot.paramMap.get('groupCode')!;
   private readonly rawSection = this.route.snapshot.paramMap.get('section');
@@ -45,6 +54,27 @@ export class GroupSettingsDetail {
   readonly advancedSaving = signal(false);
   readonly advancedError = signal<string | null>(null);
   readonly advancedSaved = signal(false);
+
+  // line
+  readonly lineStatus = signal<LineStatus | null>(null);
+  readonly lineLoadFailed = signal(false);
+  /** The code waiting to be typed into the LINE group, until it links, expires or is replaced. */
+  readonly linePending = signal<LineLinkCode | null>(null);
+  private readonly lineNow = signal(Date.now());
+  readonly lineBusy = signal(false);
+  readonly lineError = signal<string | null>(null);
+  readonly lineConfirmingUnlink = signal(false);
+  readonly lineCopied = signal<'yes' | 'failed' | null>(null);
+  /** A 503 on creating a code: the server lost its LINE channel since the status was read. */
+  private readonly lineUnconfigured = signal(false);
+  protected readonly lineNotConfigured = computed(
+    () => this.lineUnconfigured() || this.lineStatus()?.configured === false
+  );
+  protected readonly lineMinutesLeft = computed(() => {
+    const p = this.linePending();
+    return p ? Math.max(1, Math.ceil((new Date(p.expiresAt).getTime() - this.lineNow()) / 60000)) : 0;
+  });
+  private linePoll: ReturnType<typeof setInterval> | undefined;
 
   // manage
   readonly renameDraft = signal('');
@@ -69,6 +99,7 @@ export class GroupSettingsDetail {
   protected readonly paid = computed(() => isPaid(this.plan()));
 
   constructor() {
+    inject(DestroyRef).onDestroy(() => this.stopLinePoll());
     void this.load();
     void this.loadPlan();
   }
@@ -109,11 +140,111 @@ export class GroupSettingsDetail {
       this.renameDraft.set(group.name ?? '');
       this.status.set('ready');
       if (this.section === 'advanced') this.loadAdvanced();
+      if (this.section === 'line') this.loadLine();
       if (this.section === 'manage') {
         this.roster.listGroups().subscribe({ next: (g) => this.ownGroups.set(g), error: () => undefined });
       }
     } catch (err) {
       this.status.set(err instanceof HttpErrorResponse && err.status === 404 ? 'not-found' : 'error');
+    }
+  }
+
+  loadLine(): void {
+    this.lineLoadFailed.set(false);
+    this.lineService.status(this.groupCode).subscribe({
+      next: (s) => this.lineStatus.set(s),
+      error: () => this.lineLoadFailed.set(true),
+    });
+  }
+
+  protected linkedText(): string {
+    const name = this.lineStatus()?.lineGroupName || $localize`:@@line.unnamedGroup:กลุ่ม LINE`;
+    return $localize`:@@line.linkedTo:เชื่อมกับ ${name}:name: แล้ว`;
+  }
+
+  protected leftNotice(): string {
+    const at = this.lineStatus()?.leftAt;
+    const date = at ? new Date(at).toLocaleDateString(this.locale, { day: 'numeric', month: 'short' }) : '';
+    return $localize`:@@line.leftNotice:บอทถูกนำออกจากกลุ่ม LINE เมื่อ ${date}:date: เชื่อมใหม่ได้ด้านล่าง`;
+  }
+
+  protected readonly lineLockHint = $localize`:@@plan.lock.line:การเชื่อมกลุ่ม LINE ใช้ได้ในแพ็ก⁠เกจโฮสต์`;
+  protected readonly linePausedHint = $localize`:@@line.pausedNotice:แพ็ก⁠เกจหมดอายุ บอทหยุดจำรายชื่อชั่วคราว ต่ออายุแล้วจะกลับมาทำงานเอง`;
+
+  protected expiresInText(): string {
+    const minutes = this.lineMinutesLeft();
+    return $localize`:@@line.expiresIn:หมดอายุใน ${minutes}:minutes: นาที`;
+  }
+
+  async createLineCode(): Promise<void> {
+    if (this.lineBusy()) return;
+    this.lineBusy.set(true);
+    this.lineError.set(null);
+    this.lineCopied.set(null);
+    try {
+      const made = await firstValueFrom(this.lineService.createCode(this.groupCode));
+      this.lineNow.set(Date.now());
+      this.linePending.set(made);
+      this.startLinePoll();
+    } catch (err) {
+      if (err instanceof HttpErrorResponse && err.status === 503) this.lineUnconfigured.set(true);
+      else if (err instanceof HttpErrorResponse && err.status === 409) this.loadLine();
+      else this.lineError.set(planErrorMessage(err) ?? $localize`:@@line.codeFailed:สร้างรหัสไม่สำเร็จ ลองอีกครั้ง`);
+    } finally {
+      this.lineBusy.set(false);
+    }
+  }
+
+  async copyLineCommand(): Promise<void> {
+    const pending = this.linePending();
+    if (!pending) return;
+    this.lineCopied.set((await copyToClipboard(`/link ${pending.code}`)) ? 'yes' : 'failed');
+  }
+
+  /** Asks every few seconds whether the LINE group linked; gives up when the code runs out. */
+  private startLinePoll(): void {
+    this.stopLinePoll();
+    this.linePoll = setInterval(() => void this.pollLine(), LINE_POLL_MS);
+  }
+
+  private stopLinePoll(): void {
+    if (this.linePoll !== undefined) clearInterval(this.linePoll);
+    this.linePoll = undefined;
+  }
+
+  private async pollLine(): Promise<void> {
+    const pending = this.linePending();
+    this.lineNow.set(Date.now());
+    if (!pending || Date.now() >= new Date(pending.expiresAt).getTime()) {
+      this.linePending.set(null);
+      this.stopLinePoll();
+      return;
+    }
+    try {
+      const status = await firstValueFrom(this.lineService.status(this.groupCode));
+      if (status.linked) {
+        this.lineStatus.set(status);
+        this.linePending.set(null);
+        this.stopLinePoll();
+      }
+    } catch {
+      // A missed poll is harmless: the next tick asks again.
+    }
+  }
+
+  async unlinkLine(): Promise<void> {
+    if (this.lineBusy()) return;
+    this.lineBusy.set(true);
+    this.lineError.set(null);
+    try {
+      await firstValueFrom(this.lineService.unlink(this.groupCode));
+      this.lineConfirmingUnlink.set(false);
+      const was = this.lineStatus();
+      if (was) this.lineStatus.set({ ...was, linked: false, lineGroupName: null, linkedAt: null, leftAt: null });
+    } catch {
+      this.lineError.set($localize`:@@line.unlinkFailed:ยกเลิกการเชื่อมไม่สำเร็จ ลองอีกครั้ง`);
+    } finally {
+      this.lineBusy.set(false);
     }
   }
 

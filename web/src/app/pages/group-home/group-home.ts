@@ -8,6 +8,7 @@ import { isPaid, planLabel, planUntil, type GroupPlan } from '../../core/plan';
 import { UpgradeSheetService } from '../../core/upgrade-sheet.service';
 import { PlanNotice } from '../../shared/plan-notice/plan-notice';
 import { PlanService } from '../../core/plan.service';
+import { LineService } from '../../core/line.service';
 import { RosterService } from '../../core/roster.service';
 import { formatSessionDate, sessionState, type SessionState } from '../../core/session-date';
 import { isSettingsSection, type SettingsSection } from '../../core/settings-sections';
@@ -18,6 +19,7 @@ interface RowValues {
   players?: number;
   levels?: { mode: 'standard' | 'custom'; count: number };
   shared?: boolean;
+  line?: { linked: boolean };
   advanced?: { shuttleTools: boolean; crossSessionHistory: boolean };
 }
 
@@ -45,6 +47,7 @@ export class GroupHome {
   private readonly router = inject(Router);
   private readonly roster = inject(RosterService);
   private readonly planService = inject(PlanService);
+  private readonly lineService = inject(LineService);
   private readonly cdr = inject(ChangeDetectorRef);
   private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
   private readonly locale = inject(LOCALE_ID);
@@ -179,6 +182,17 @@ export class GroupHome {
     return s ? $localize`:@@group.value.shared:แชร์อยู่` : $localize`:@@group.value.notShared:ยังไม่แชร์`;
   }
 
+  /**
+   * Linked reads "paused" on a plan that is not paid: the link and its Unlink stay, but the bot
+   * has stopped keeping rosters (the server drops them), so "linked" alone would overpromise.
+   */
+  lineValue(): string | null {
+    const l = this.values().line;
+    if (!l) return null;
+    if (!l.linked) return $localize`:@@group.value.lineNotLinked:ยังไม่เชื่อม`;
+    return this.paid() ? $localize`:@@group.value.lineLinked:เชื่อมแล้ว` : $localize`:@@group.value.linePaused:หยุดชั่วคราว`;
+  }
+
   advancedValue(): string | null {
     const a = this.values().advanced;
     if (!a) return null;
@@ -195,6 +209,7 @@ export class GroupHome {
     const v = this.values();
     if (section === 'levels') return v.levels?.mode === 'custom';
     if (section === 'share') return v.shared === true;
+    if (section === 'line') return this.paid() && v.line?.linked === true;
     if (section === 'advanced') {
       return this.paid() && !!v.advanced && (v.advanced.shuttleTools || v.advanced.crossSessionHistory);
     }
@@ -212,6 +227,8 @@ export class GroupHome {
     const v = this.values();
     if (section === 'levels') return v.levels?.mode === 'standard';
     if (section === 'share') return v.shared === false;
+    // Locked only when there is nothing to take down: a linked group keeps its row so Unlink stays reachable.
+    if (section === 'line') return v.line?.linked === false;
     if (section === 'advanced') return !!v.advanced && !v.advanced.shuttleTools && !v.advanced.crossSessionHistory;
     return false;
   }
@@ -262,6 +279,7 @@ export class GroupHome {
       .getGroupLevels(code)
       .subscribe({ next: (l) => set({ levels: { mode: l.mode, count: l.levels.length } }), error: ignore });
     this.roster.getShare(code).subscribe({ next: (s) => set({ shared: s.token !== null }), error: ignore });
+    this.lineService.status(code).subscribe({ next: (s) => set({ line: { linked: s.linked } }), error: ignore });
     Promise.all([firstValueFrom(this.roster.getShuttleTools(code)), firstValueFrom(this.roster.getCrossSessionHistory(code))])
       .then(([shuttle, history]) =>
         set({ advanced: { shuttleTools: shuttle.enabled, crossSessionHistory: history.enabled } })

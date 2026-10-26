@@ -154,6 +154,31 @@
             }
           </li>
           <li>
+            @if (locked('line')) {
+              <button type="button" class="row locked" data-section="line" (click)="upgradeSheet.open()" aria-labelledby="title-line" aria-describedby="desc-line lock-line">
+                <span class="row-text">
+                  <span class="row-title">
+                    <span id="title-line" i18n="@@group.row.line">กลุ่ม LINE</span>
+                    <span class="value" aria-hidden="true" i18n="@@group.row.planBadge">แพ็ก⁠เกจโฮสต์</span>
+                  </span>
+                  <span class="row-desc" id="desc-line" i18n="@@group.row.lineDesc">บอทจำรายชื่อล่าสุดให้ ไม่ต้องคัดลอกเอง</span>
+                  <span class="sr-only" id="lock-line" i18n="@@group.row.planHint">ใช้ได้ในแพ็ก⁠เกจโฮสต์</span>
+                </span>
+              </button>
+            } @else {
+              <a class="row" data-section="line" appPress [routerLink]="rowLink('line')" aria-labelledby="title-line" aria-describedby="desc-line val-line">
+                <span class="row-text">
+                  <span class="row-title">
+                    <span id="title-line" i18n="@@group.row.line">กลุ่ม LINE</span>
+                    @if (lineValue(); as v) { <span class="value" id="val-line" [class.on]="isOn('line')">{{ v }}</span> }
+                  </span>
+                  <span class="row-desc" id="desc-line" i18n="@@group.row.lineDesc">บอทจำรายชื่อล่าสุดให้ ไม่ต้องคัดลอกเอง</span>
+                </span>
+                <app-icon class="row-chevron" name="chevron" [size]="18" />
+              </a>
+            }
+          </li>
+          <li>
             @if (locked('advanced')) {
               <button type="button" class="row locked" data-section="advanced" (click)="upgradeSheet.open()" aria-labelledby="title-advanced" aria-describedby="desc-advanced lock-advanced">
                 <span class="row-text">

@@ -86,6 +86,11 @@ Annual: pay 10, get 12.
   items (D and E); it is already off by default.
 - **Gating is derived at read time,** not stored per feature, matching the
   recompute-never-store rule used for ratings, wait times and bills.
+- **Two things do stop on a lapse** (decided 2026-10-26): a group past the plan's
+  cap is paused (cannot start a session; ranked by newest session, re-read every
+  time), and pair rules stop steering in sessions created on free. A session
+  already running keeps everything, and the group dashboard `/d/` link and the
+  recap stay live.
 
 ## Open risks
 

@@ -550,7 +550,7 @@ export class SessionDashboard implements OnDestroy {
     const mode = this.mode() === 'level'
       ? $localize`:@@dashboard.modeNameLevel:ตามระดับ`
       : $localize`:@@dashboard.modeNameBalanced:สูสี`;
-    return $localize`:@@dashboard.modeOneWay:เปลี่ยนแล้วจะกลับมาใช้${mode}:mode:ไม่ได้ในแพ็ก⁠เกจนี้`;
+    return $localize`:@@dashboard.modeOneWayNamed:เปลี่ยนแล้วจะกลับมาใช้${mode}:mode:ไม่ได้ในแพ็ก⁠เกจนี้`;
   });
   /** Custom session only: true when at least one court is set to ระดับ, so
    *  the shared waiting list (which stays games-then-wait in a custom

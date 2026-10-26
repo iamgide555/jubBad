@@ -1208,9 +1208,10 @@ keeps today's behaviour until an admin deliberately sets a lower plan.
 **Refusals are 403 with a code:** `PLAN_REQUIRED` (with `requiredPlan`) when a
 paid thing is switched on from too low a plan, and `GROUP_LIMIT` (with `limit`)
 when creating a group past the plan's cap (free 1, host 3, club 10; admins have
-none). Gating only ever blocks turning a paid thing on, never turning it off and
-never a running session's state, and public routes are never gated, with one
-named exception: `GET /groups/:code/players/:playerId/stats` is `@Public()` and
+none). Gating blocks turning a paid thing on, never turning it off and never a
+running session's state, and public routes are never gated. There are exactly two
+lapse exceptions, below: a group past the cap is paused, and pair rules stop in a
+session created on free. One public route is gated by ruling: `GET /groups/:code/players/:playerId/stats` is `@Public()` and
 plan-gated by ruling, because it exposes ratings (it answers 403 `PLAN_REQUIRED`
 and the profile page shows a calm "stats aren't available" message, not a
 host-facing upgrade prompt). `GET /groups/:code/plan` reports the owner's effective plan, so an admin opening
@@ -1255,17 +1256,64 @@ count and price; `GET /sessions/:code`, display, summary and an issued
 `/d/:token`; and anything in a session already running (a lapsed host keeps
 proposing and confirming in สูสี).
 
-**What a free host sees (web).** Planning surfaces show paid options locked
-(greyed with a "needs the Host plan" note): the session mode toggle, the bill
-extras, the level-ladder entry buttons, and the roster page's add-rule. The
-group settings list greys a row (badge "แพ็กเกจโฮสต์", not a link) only when its
-page would have nothing a free host can do: share with no link yet, advanced
-with both switches off, levels on the standard ladder. A row that holds paid
-data stays a link so it can be cleaned up. The busy live court screen hides
-paid-only controls instead of locking them (per-court mode and target, add-rule,
-the lineup-queue buttons), each staying visible while something paid is already
-in use (a court on a paid mode or a non-auto target, a non-empty queue). A
-failed or unloaded plan hides and disables nothing.
+**Lapse: two things that stop** (decided 2026-10-26, reversing "never trap" for
+these two cases only). Data is still never deleted.
+
+- *A group past the cap is paused.* An owner's groups are ranked by newest
+  session, then newest group, then code (`rankForCap`); the first
+  `GROUP_LIMIT[effectivePlan]` stay usable and the rest are **paused**. The rank
+  is re-read on every call (nothing is stored), so deleting a group or renewing
+  the plan unpauses the next one at once. A paused group still opens, exports,
+  renames, deletes and cleans up, and a session already running in it carries on
+  (propose, confirm, finish); it just cannot start a new session:
+  `POST /sessions` answers 403 `GROUP_PAUSED` (with `limit`), also for an admin
+  (gated as the owner). An admin owner and an ownerless group are never paused.
+  `GET /groups` rows carry `paused`.
+- *Rules stop steering in a session created on free.* `loadEnabledRules` returns
+  nothing when `effectivePlan(owner, session.createdAt)` is free, the same
+  creation-time instant the shuttle-tools and bill snapshots use. The rules stay
+  stored and listed (an upgrade brings them back for later sessions); a session
+  created while the plan was paid keeps its rules for the whole night, even if the
+  plan lapses mid-night. `GET /sessions/:code/rules` reports `rulesActive`.
+- *The shared `/d/` dashboard link stays live;* only new shares are blocked.
+
+**Plan facts the web reads.** `GET /groups/:code/plan` returns `{ plan, renewsAt,
+lapsedAt, paused, archiveHidden }`: `lapsedAt` is the renewal date of a paid plan
+that has run out (null otherwise), `archiveHidden` the number of sessions the free
+30-day window hides. `GET /plans/me` returns the signed-in user's own `{ plan,
+renewsAt, lapsedAt, groupCount, groupLimit, upgradeUrl }` (`groupLimit` is null for
+an admin); it names no group, so `OwnershipGuard` allowlists that one path.
+`upgradeUrl` is `UPGRADE_CONTACT_URL` when it is a well-formed `https://` URL and
+null otherwise; the web then shows the contact as text only. Admin user rows carry
+`groupLimit` too.
+
+**What a free host sees (web).** Every lock is one line plus a "ดูแพ็ก⁠เกจ" button
+that opens one shared **upgrade sheet** (what Host adds, and the contact link or
+text). Planning surfaces show paid options locked (greyed with a "needs the Host
+plan" note): the session mode toggle, the bill extras (one lock per group of
+extras, not per field or per person), the level-ladder entry buttons, and the
+roster page's add-rule. The group settings list greys a row (badge
+"แพ็ก⁠เกจโฮสต์") only when its page would have nothing a free host can do: share with no link
+yet, advanced with both switches off, levels on the standard ladder; a locked row is a
+button that opens the upgrade sheet, and a row that holds paid data stays a link so
+it can be cleaned up. A switch that is stored ON but snapshots off on free is drawn
+muted with a line saying so (and the group-home badge reads "ปิดในแพ็ก⁠เกจฟรี"). The
+busy live court screen hides paid-only controls instead of locking them (per-court
+mode and target, add-rule, the lineup-queue buttons), each staying visible while
+something paid is already in use (a court on a paid mode or a non-auto target, a
+non-empty queue). A one-way switch away from สูสี/ตามระดับ confirms inline and names
+the mode being given up. A failed or unloaded plan hides and disables nothing.
+
+**Notices.** Group home and the roster-entry page show one calm line above the
+content: *paused* (a group past the cap, which also replaces the roster form),
+*lapsed* ("Host plan ended <date>; new rounds use the free plan"), or *ending soon*
+(within 5 days of the renewal date), in that order of precedence. They are **not**
+on the live dashboard: courtside is the wrong place for a line the host cannot act
+on. The landing page shows "ก๊วน n/limit" and a locked create button at the cap
+instead of failing after a name is typed, and a พักไว้ badge on a paused group.
+
+**Zero-width joiner.** Every "แพ็ก⁠เกจ" in the web copy carries U+2060 between "แพ็ก"
+and "เกจ" so a Thai line never breaks inside the word.
 
 ## Current state
 

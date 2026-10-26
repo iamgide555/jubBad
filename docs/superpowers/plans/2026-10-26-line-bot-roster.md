@@ -302,7 +302,7 @@
 - Create: `web/src/app/core/line.model.ts`, `web/src/app/core/line.service.ts` (+ spec)
 - Modify:
   - `web/src/app/core/settings-sections.ts`. Add `'line'` after `'share'` in both `SETTINGS_SECTIONS` and `DETAIL_SECTIONS`.
-  - `web/src/app/pages/group-home/group-home.{ts,html,spec.ts}`. A new row. On free it is locked (the existing locked-row pattern, which opens the upgrade sheet) unless the group is linked.
+  - `web/src/app/pages/group-home/group-home.{ts,html,spec.ts}`. A new row. Not linked on free or lapsed: locked (existing locked-row pattern, opens the upgrade sheet). Linked on free or lapsed: the row shows `group.value.linePaused` and links to the detail page, which offers only the paused notice, an upgrade button and Unlink (owner decision 2026-10-26: locked, paused, Unlink only; the link resumes by itself on renewal).
   - `web/src/app/pages/group-settings-detail/group-settings-detail.{ts,html,css,spec.ts}`. A new `@case ('line')`.
   - The locale files.
 
@@ -324,7 +324,8 @@ Detail page states:
 | Not linked | Step 1: a button-link to `botAddUrl`, "เพิ่มบอทเข้ากลุ่ม LINE", with the `line.addBotHint` line under it. Step 2: a button "สร้างรหัสเชื่อม". With a code: the code in large monospace, a copy button, the instruction to type `/link CODE` in the group, and time left. Polls `status` every 5 s until linked or expired, then stops. |
 | Linked | The LINE group name (or "กลุ่ม LINE"), the linked date, and **ยกเลิกการเชื่อม** with an inline confirm. |
 | `leftAt` set | A notice line above the not-linked state. |
-| Free | The plan lock with a hint, and no code button. An already-linked group still shows the unlink action. |
+| Free or lapsed, not linked | The plan lock with a hint, and no code button. |
+| Free or lapsed, linked | `line.pausedNotice` and an upgrade button, plus **ยกเลิกการเชื่อม** with the inline confirm. No latest-roster details. Renewal resumes the link by itself; messages posted while paused are not recovered. |
 
 Copy:
 
@@ -334,6 +335,8 @@ Copy:
 | `group.row.lineDesc` | บอทจำรายชื่อล่าสุดให้ ไม่ต้องคัดลอกเอง | The bot keeps the latest roster for you |
 | `group.value.lineLinked` | เชื่อมแล้ว | Linked |
 | `group.value.lineNotLinked` | ยังไม่เชื่อม | Not linked |
+| `group.value.linePaused` | หยุดชั่วคราว | Paused |
+| `line.pausedNotice` | แพ็ก⁠เกจหมดอายุ บอทหยุดจำรายชื่อชั่วคราว ต่ออายุแล้วจะกลับมาทำงานเอง | Your plan lapsed, so the bot has paused. It resumes by itself when you renew |
 | `line.title` | กลุ่ม LINE | LINE group |
 | `line.addBot` | เพิ่มบอทเข้ากลุ่ม LINE | Add the bot to your LINE group |
 | `line.addBotHint` | กลุ่ม LINE หนึ่งกลุ่มมีบอทได้ตัวเดียว ถ้ามีบอทอื่นอยู่แล้วต้องเอาออกก่อน | A LINE group can hold only one bot. If another bot is already there, remove it first |
@@ -351,7 +354,7 @@ Copy:
   - `LineService` URLs and methods.
   - Group home:
     - The row shows `เชื่อมแล้ว` with the group name, or `ยังไม่เชื่อม`.
-    - It is a locked button on free when not linked, and a link on free when linked.
+    - On free or lapsed it is a locked button when not linked, and a link showing `เชื่อมแล้ว` replaced by `group.value.linePaused` when linked.
   - Detail page:
     - Each state in the table renders its pieces.
     - `สร้างรหัสเชื่อม` posts and shows the code and instruction.

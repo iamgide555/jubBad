@@ -60,13 +60,30 @@
     }
   }
 
-  <button type="button" class="new-group" (click)="startNewGroup()" i18n="@@home.startNewGroup">สร้างก๊วนใหม่</button>
+  @if (atCap()) {
+    <div class="new-group-capped">
+      <button type="button" class="new-group ghost" data-new-group-capped [disabled]="capIsPaid()" (click)="upgradeSheet.open()">
+        <ng-container i18n="@@home.startNewGroup">สร้างก๊วนใหม่</ng-container>
+        <span class="cap-count">{{ capLabel() }}</span>
+      </button>
+      @if (capIsPaid()) {
+        <p class="muted cap-note" data-cap-note>{{ capHint() }}</p>
+      } @else {
+        <app-plan-lock [hint]="capHint()" />
+      }
+    </div>
+  } @else {
+    <button type="button" class="new-group" (click)="startNewGroup()" i18n="@@home.startNewGroup">สร้างก๊วนใหม่</button>
+  }
 </div>
 
 <ng-template #groupRow let-group let-removable="removable">
   <li class="group-row">
     <div class="group-main">
       <a class="group-name" [routerLink]="['/g', group.code]">{{ group.name || group.code }}</a>
+      @if (group.paused) {
+        <span class="paused-badge" i18n="@@landing.paused">พักไว้</span>
+      }
       <p class="group-meta muted">
         {{ group.playerCount }}<ng-container i18n="@@home.playersSuffix"> คน</ng-container>
         ·
@@ -75,7 +92,7 @@
     </div>
 
     <div class="group-actions">
-      @if (removable) {
+      @if (removable && !group.paused) {
         <!-- The weekly job: paste this week's LINE message. One tap from the list
              instead of list, group, เริ่มรอบใหม่, then paste. Own groups only. -->
         <a class="ghost-link" data-start-link [routerLink]="['/g', group.code, 'start']" i18n="@@home.startSession">เริ่มรอบ</a>

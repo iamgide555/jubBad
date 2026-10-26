@@ -67,6 +67,21 @@ describe('AdminService', () => {
     req.flush({});
   });
 
+  it('sets a plan, sending an explicit null to clear the renewal date', () => {
+    service.setPlan('u1', 'free', null).subscribe();
+    const req = httpMock.expectOne(`${B}/admin/users/u1/plan`);
+    expect(req.request.method).toBe('PUT');
+    expect(req.request.body).toEqual({ plan: 'free', renewsAt: null });
+    req.flush({});
+  });
+
+  it('sets a plan with a renewal date', () => {
+    service.setPlan('u1', 'host', '2026-12-31').subscribe();
+    const req = httpMock.expectOne(`${B}/admin/users/u1/plan`);
+    expect(req.request.body).toEqual({ plan: 'host', renewsAt: '2026-12-31' });
+    req.flush({});
+  });
+
   it('handles a reset request', () => {
     service.handleResetRequest('req-1').subscribe();
     const req = httpMock.expectOne(`${B}/admin/reset-requests/req-1/handle`);

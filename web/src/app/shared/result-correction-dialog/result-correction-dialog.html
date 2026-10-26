@@ -2,39 +2,43 @@
   @if (isOpen()) {
     <div class="form-card">
       <h2 i18n="@@resultFix.title">แก้ผลการแข่ง — {{ rowLabel() }}</h2>
-      <p class="muted" i18n="@@resultFix.hint">เลือกทีมที่ชนะจริง คะแนนไม่บังคับ</p>
 
-      <fieldset class="winner-picker" [disabled]="saving()">
-        <legend i18n="@@resultFix.legend">ทีมที่ชนะ</legend>
-        <button type="button" class="winner-choice" data-winner="A" [attr.aria-pressed]="winner() === 'A'" (click)="winner.set('A')">
-          {{ teamAName() }}
-        </button>
-        <button type="button" class="winner-choice" data-winner="B" [attr.aria-pressed]="winner() === 'B'" (click)="winner.set('B')">
-          {{ teamBName() }}
-        </button>
-        <button type="button" class="winner-choice none" data-winner="none" [attr.aria-pressed]="winner() === null" (click)="winner.set(null)" i18n="@@resultFix.noResult">
-          ไม่มีผล
-        </button>
-      </fieldset>
+      <!-- Same shape as a live court: one team per side, the score under it, the
+           winner button under that — so which side a button sits on says whose
+           team it is. Tapping a winner saves; there is no separate Save step. -->
+      <div class="fix-teams">
+        <ul class="fix-team">
+          @for (name of teamA(); track $index) { <li>{{ name }}</li> }
+        </ul>
+        <span class="fix-vs" aria-hidden="true">vs</span>
+        <ul class="fix-team">
+          @for (name of teamB(); track $index) { <li>{{ name }}</li> }
+        </ul>
+      </div>
 
-      <div class="score-row">
-        <label>
-          <span class="muted" i18n="@@resultFix.scoreA">คะแนนทีมแรก</span>
-          <input type="number" inputmode="numeric" min="0" name="scoreA" [value]="scoreA()" [disabled]="saving()" (input)="scoreA.set($any($event.target).value)" />
-        </label>
-        <label>
-          <span class="muted" i18n="@@resultFix.scoreB">คะแนนทีมสอง</span>
-          <input type="number" inputmode="numeric" min="0" name="scoreB" [value]="scoreB()" [disabled]="saving()" (input)="scoreB.set($any($event.target).value)" />
-        </label>
+      <div class="result-grid">
+        <label class="sr-only" for="fixScoreA" i18n="@@resultFix.scoreA">คะแนนทีมแรก</label>
+        <input id="fixScoreA" class="score-a" type="number" inputmode="numeric" min="0" name="scoreA" placeholder="0" [value]="scoreA()" [disabled]="saving()" (input)="scoreA.set($any($event.target).value)" />
+        <span class="score-sep" aria-hidden="true">–</span>
+        <label class="sr-only" for="fixScoreB" i18n="@@resultFix.scoreB">คะแนนทีมสอง</label>
+        <input id="fixScoreB" class="score-b" type="number" inputmode="numeric" min="0" name="scoreB" placeholder="0" [value]="scoreB()" [disabled]="saving()" (input)="scoreB.set($any($event.target).value)" />
+        <button type="button" class="win win-a" data-winner="A" [class.recorded]="initial().winner === 'A'" [disabled]="saving()" [attr.aria-label]="wonLabel(teamA())" (click)="choose('A')" i18n="@@court.won">ชนะ</button>
+        <button type="button" class="win win-b" data-winner="B" [class.recorded]="initial().winner === 'B'" [disabled]="saving()" [attr.aria-label]="wonLabel(teamB())" (click)="choose('B')" i18n="@@court.won">ชนะ</button>
       </div>
 
       @if (localError() ?? error(); as message) {
         <p class="error" role="alert">{{ message }}</p>
       }
 
+      <!-- "No result" is a real answer (an abandoned game) but not a normal step,
+           so it sits behind the same quiet disclosure the live court uses. -->
+      <details class="fix-escape" #escape>
+        <summary i18n="@@court.otherOptions">ตัวเลือกอื่น</summary>
+        <button type="button" class="ghost" data-winner="none" [disabled]="saving()" (click)="escape.open = false; choose(null)" i18n="@@resultFix.noResult">ไม่มีผล</button>
+      </details>
+
       <div class="dialog-actions">
         <button type="button" class="ghost" [disabled]="saving()" (click)="close()" i18n="@@resultFix.cancel">ยกเลิก</button>
-        <button type="button" data-save-result [disabled]="saving()" (click)="submit()" i18n="@@resultFix.save">บันทึก</button>
       </div>
     </div>
   }

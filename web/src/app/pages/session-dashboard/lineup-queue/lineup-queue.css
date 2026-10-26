@@ -153,6 +153,15 @@
   cursor: pointer;
 }
 
+/* Component styles outrank the global button:disabled, so a locked seat (free plan) restates it:
+   a name still reads, but the seat no longer looks tappable. */
+.lq-seat:disabled {
+  color: var(--ink-soft);
+  background: transparent;
+  border-color: var(--line);
+  cursor: not-allowed;
+}
+
 .lq-seat-name {
   overflow: hidden;
   text-overflow: ellipsis;
@@ -262,6 +271,10 @@
   color: var(--ink-soft);
 }
 
+.lq-lock {
+  margin: var(--space-1) 0;
+}
+
 .lq-error {
   margin: var(--space-1) 0;
   font-size: var(--text-sm);
@@ -319,6 +332,13 @@
   color: var(--on-fill);
   background: var(--court);
   border: none;
+}
+
+/* Restates the global button:disabled, which .lq-add's own colours outrank (free plan lock). */
+.lq-add:disabled {
+  color: var(--ink-faint);
+  background: var(--line);
+  cursor: not-allowed;
 }
 
 /* A text button, not a red slab; it asks twice before deleting everything. */

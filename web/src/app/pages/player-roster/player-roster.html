@@ -13,7 +13,7 @@
     }
   </p>
   <h1 i18n="@@playerRoster.title">ผู้เล่นในก๊วน</h1>
-  @if (editingId() === null && !isEmpty()) {
+  @if (editingId() === null && !isEmpty() && (paid() || ladder()?.mode === 'custom')) {
     <p><a [routerLink]="['/g', groupCode, 'levels']" data-levels-link i18n="@@playerRoster.groupLevels">ตั้งชื่อระดับของก๊วน →</a></p>
   }
 
@@ -47,6 +47,7 @@
                   i18n-aria-label="@@playerRoster.ruleKindLabel"
                   aria-label="ประเภทกฎ"
                   [ngModel]="rule.kind"
+                  [disabled]="!paid()"
                   (ngModelChange)="setRuleKind(rule, $event)"
                 >
                   @for (k of ruleKinds; track k.kind) {
@@ -58,7 +59,10 @@
             }
           </ul>
         }
-        <button type="button" class="ghost" data-add-rule (click)="openAddRuleDialog()" i18n="@@playerRoster.addRule">+ เพิ่มกฎการจับคู่</button>
+        <button type="button" class="ghost" data-add-rule [disabled]="!paid()" (click)="openAddRuleDialog()" i18n="@@playerRoster.addRule">+ เพิ่มกฎการจับคู่</button>
+        @if (!paid()) {
+          <app-plan-lock />
+        }
       </details>
 
       <app-add-rule-dialog
@@ -97,26 +101,28 @@
         <tr>
           <th scope="col" i18n="@@playerRoster.colRank">ลำดับ</th>
           <th scope="col" i18n="@@playerRoster.colName">ชื่อ</th>
-          <th scope="col" [attr.aria-sort]="sortKey() === 'level' ? 'descending' : 'none'">
-            <button type="button" class="ghost sort-head" [class.active]="sortKey() === 'level'" (click)="setSortKey('level')">
+          <th scope="col" [attr.aria-sort]="activeSort() === 'level' ? 'descending' : 'none'">
+            <button type="button" class="ghost sort-head" [class.active]="activeSort() === 'level'" (click)="setSortKey('level')">
               <ng-container i18n="@@playerRoster.colLevel">ระดับ</ng-container>
             </button>
           </th>
-          <th scope="col" [attr.aria-sort]="sortKey() === 'rating' ? 'descending' : 'none'">
-            <button type="button" class="ghost sort-head" [class.active]="sortKey() === 'rating'" (click)="setSortKey('rating')">
-              <ng-container i18n="@@playerRoster.colRatingDoubles">เรตติ้งคู่</ng-container>
-            </button>
-          </th>
-          <th scope="col" [attr.aria-sort]="sortKey() === 'singlesRating' ? 'descending' : 'none'">
-            <button type="button" class="ghost sort-head" [class.active]="sortKey() === 'singlesRating'" (click)="setSortKey('singlesRating')">
-              <ng-container i18n="@@playerRoster.colRatingSingles">เรตติ้งเดี่ยว</ng-container>
-            </button>
-          </th>
-          <th scope="col" [attr.aria-sort]="sortKey() === 'winRate' ? 'descending' : 'none'">
-            <button type="button" class="ghost sort-head" [class.active]="sortKey() === 'winRate'" (click)="setSortKey('winRate')">
-              <ng-container i18n="@@playerRoster.colWinRate">อัตราชนะ</ng-container>
-            </button>
-          </th>
+          @if (paid()) {
+            <th scope="col" [attr.aria-sort]="sortKey() === 'rating' ? 'descending' : 'none'">
+              <button type="button" class="ghost sort-head" [class.active]="sortKey() === 'rating'" (click)="setSortKey('rating')">
+                <ng-container i18n="@@playerRoster.colRatingDoubles">เรตติ้งคู่</ng-container>
+              </button>
+            </th>
+            <th scope="col" [attr.aria-sort]="sortKey() === 'singlesRating' ? 'descending' : 'none'">
+              <button type="button" class="ghost sort-head" [class.active]="sortKey() === 'singlesRating'" (click)="setSortKey('singlesRating')">
+                <ng-container i18n="@@playerRoster.colRatingSingles">เรตติ้งเดี่ยว</ng-container>
+              </button>
+            </th>
+            <th scope="col" [attr.aria-sort]="sortKey() === 'winRate' ? 'descending' : 'none'">
+              <button type="button" class="ghost sort-head" [class.active]="sortKey() === 'winRate'" (click)="setSortKey('winRate')">
+                <ng-container i18n="@@playerRoster.colWinRate">อัตราชนะ</ng-container>
+              </button>
+            </th>
+          }
           <th scope="col"><span class="sr-only" i18n="@@playerRoster.colActions">การกระทำ</span></th>
         </tr>
       </thead>
@@ -124,7 +130,7 @@
         @for (player of sortedPlayers(); track player.id; let i = $index) {
           <tr>
             @if (editingId() === player.id) {
-              <td colspan="7">
+              <td [attr.colspan]="paid() ? 7 : 4">
                 <div class="edit-form">
                   <label>
                     <ng-container i18n="@@playerRoster.colName">ชื่อ</ng-container>
@@ -177,24 +183,28 @@
                   (levelChange)="setLevel(player, $event)"
                 />
               </td>
-              <td class="tabular">{{ player.rating }}</td>
-              <td class="tabular">{{ player.singlesRating ?? '—' }}</td>
-              <td class="tabular">
-                @if (player.winRate === null) {
-                  —
-                } @else {
-                  {{ player.winRate * 100 | number: '1.0-0' }}%
-                }
-              </td>
+              @if (paid()) {
+                <td class="tabular">{{ player.rating ?? '—' }}</td>
+                <td class="tabular">{{ player.singlesRating ?? '—' }}</td>
+                <td class="tabular">
+                  @if (player.winRate === null) {
+                    —
+                  } @else {
+                    {{ player.winRate * 100 | number: '1.0-0' }}%
+                  }
+                </td>
+              }
               <td>
                 <button type="button" class="ghost" [disabled]="editingId() !== null" (click)="startEdit(player)" i18n="@@playerRoster.edit">แก้ไข</button>
-                <button type="button" class="ghost" data-share-player [attr.aria-label]="shareLabel(player.name)" (click)="sharePlayer(player.id)">
-                  @if (sharedPlayerId() === player.id) {
-                    <ng-container i18n="@@summary.shareCopied">คัดลอกแล้ว</ng-container>
-                  } @else {
-                    <ng-container i18n="@@summary.shareLink">ลิงก์</ng-container>
-                  }
-                </button>
+                @if (paid()) {
+                  <button type="button" class="ghost" data-share-player [attr.aria-label]="shareLabel(player.name)" (click)="sharePlayer(player.id)">
+                    @if (sharedPlayerId() === player.id) {
+                      <ng-container i18n="@@summary.shareCopied">คัดลอกแล้ว</ng-container>
+                    } @else {
+                      <ng-container i18n="@@summary.shareLink">ลิงก์</ng-container>
+                    }
+                  </button>
+                }
               </td>
             }
           </tr>

@@ -3,6 +3,7 @@ import { AdminService } from './admin.service.js';
 import type { AuthenticatedRequest } from '../auth/auth.guard.js';
 import { CreateUserDto } from './dto/create-user.dto.js';
 import { UpdateUserDto } from './dto/update-user.dto.js';
+import { SetPlanDto } from './dto/set-plan.dto.js';
 import { SetDisabledDto } from './dto/set-disabled.dto.js';
 import { DeleteUserDto } from './dto/delete-user.dto.js';
 import { ReassignOwnerDto } from './dto/reassign-owner.dto.js';
@@ -31,6 +32,11 @@ export class AdminController {
   @Put('users/:id')
   updateUser(@Param('id') id: string, @Body() dto: UpdateUserDto) {
     return this.adminService.updateUser(id, dto);
+  }
+
+  @Put('users/:id/plan')
+  setPlan(@Param('id') id: string, @Body() dto: SetPlanDto) {
+    return this.adminService.setPlan(id, dto);
   }
 
   @Post('users/:id/disabled')

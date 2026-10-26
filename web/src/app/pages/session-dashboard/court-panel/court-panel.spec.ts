@@ -1762,3 +1762,157 @@ describe('CourtPanel with too few players', () => {
   });
 });
 
+
+// --- Plan lock: a free group's paid per-court controls ---------------------
+
+describe('CourtPanel plan lock', () => {
+  beforeEach(async () => {
+    clockNow = signal(Date.now());
+    await TestBed.configureTestingModule({
+      imports: [CourtPanel],
+      providers: [
+        provideHttpClient(),
+        provideHttpClientTesting(),
+        LiveSessionService,
+        { provide: ClockService, useValue: { now: clockNow } },
+        { provide: ActivatedRoute, useValue: { snapshot: { paramMap: convertToParamMap({ sessionCode: 'sess1' }) } } },
+      ],
+    }).compileComponents();
+  });
+
+  afterEach(() => {
+    TestBed.inject(HttpTestingController).verify();
+  });
+
+  async function panel(paid: boolean | undefined, session: Session) {
+    const { fixture } = await createPanel(session);
+    if (paid !== undefined) fixture.componentRef.setInput('paid', paid);
+    fixture.detectChanges();
+    return fixture;
+  }
+  const modeBtns = (f: ComponentFixture<CourtPanel>) =>
+    [...(f.nativeElement as HTMLElement).querySelectorAll<HTMLButtonElement>('.court-mode-toggle button')];
+  const targetBtns = (f: ComponentFixture<CourtPanel>) =>
+    [...(f.nativeElement as HTMLElement).querySelectorAll<HTMLButtonElement>('.court-target-toggle button')];
+  const disabledLabels = (btns: HTMLButtonElement[]) => btns.filter((b) => b.disabled).map((b) => b.textContent?.trim());
+  const customCourt = (mode: 'variety' | 'balanced' | 'level' | 'custom', target?: 'auto' | 'low' | 'high') =>
+    baseSession({ mode: 'custom', courts: [{ status: 'idle', format: 'doubles', mode, ...(target ? { target } : {}) }] });
+
+  it('free: a court on เลือกเอง shows no per-court mode toggle and no lock note', async () => {
+    const f = await panel(false, customCourt('custom'));
+    expect(modeBtns(f)).toEqual([]);
+    expect((f.nativeElement as HTMLElement).querySelector('.court-mode-toggle')).toBeNull();
+    expect((f.nativeElement as HTMLElement).querySelector('app-plan-lock')).toBeNull();
+    // The rest of the head row is untouched.
+    expect((f.nativeElement as HTMLElement).querySelectorAll('.format-toggle button').length).toBe(2);
+    expect((f.nativeElement as HTMLElement).querySelector('.court-panel-head .status-label')).toBeTruthy();
+  });
+
+  it('free: a court already on a paid mode keeps its toggle with the lock note', async () => {
+    const f = await panel(false, customCourt('variety'));
+    expect(modeBtns(f).length).toBe(4);
+    expect(disabledLabels(modeBtns(f))).toEqual(['สูสี', 'ระดับ']);
+    expect((f.nativeElement as HTMLElement).querySelector('app-plan-lock')?.textContent).toContain('การตั้งโหมดแยกคอร์ทใช้ได้ในแพ็ก⁠เกจโฮสต์');
+  });
+
+  it('free: a court already on a paid mode keeps it and เลือกเอง enabled so the host can switch back', async () => {
+    const f = await panel(false, customCourt('level'));
+    expect(disabledLabels(modeBtns(f))).toEqual(['สลับคู่', 'สูสี']);
+  });
+
+  it('free: a ระดับ court on อัตโนมัติ shows no target control and no target lock note', async () => {
+    const f = await panel(false, customCourt('level', 'auto'));
+    expect(targetBtns(f)).toEqual([]);
+    expect((f.nativeElement as HTMLElement).querySelector('.court-target-toggle')).toBeNull();
+    const locks = [...(f.nativeElement as HTMLElement).querySelectorAll('app-plan-lock')].map((l) => l.textContent ?? '');
+    expect(locks.some((l) => l.includes('การเล็งมือล่าง/มือบน'))).toBe(false);
+  });
+
+  it('free: a ระดับ court with no stored target counts as อัตโนมัติ: no target control', async () => {
+    const f = await panel(false, customCourt('level'));
+    expect(targetBtns(f)).toEqual([]);
+  });
+
+  it('free: a court already aimed at มือบน keeps it and อัตโนมัติ enabled', async () => {
+    const f = await panel(false, customCourt('level', 'high'));
+    expect(disabledLabels(targetBtns(f))).toEqual(['มือล่าง']);
+  });
+
+  it('free: the mode lock and the target lock say what each one needs', async () => {
+    const f = await panel(false, customCourt('level', 'high'));
+    const locks = [...(f.nativeElement as HTMLElement).querySelectorAll('app-plan-lock')].map((l) => l.textContent ?? '');
+    expect(locks).toHaveLength(2);
+    expect(locks[0]).toContain('การตั้งโหมดแยกคอร์ทใช้ได้ในแพ็ก⁠เกจโฮสต์');
+    expect(locks[1]).toContain('การเล็งมือล่าง/มือบนใช้ได้ในแพ็ก⁠เกจโฮสต์');
+    for (const l of locks) expect(l).toContain('ดูแพ็ก⁠เกจ');
+  });
+
+  describe('one-way switch of a court to เลือกเอง', () => {
+    const el = (f: ComponentFixture<CourtPanel>) => f.nativeElement as HTMLElement;
+    const confirmBox = (f: ComponentFixture<CourtPanel>) => el(f).querySelector('[data-court-mode-confirm]');
+    const customBtn = (f: ComponentFixture<CourtPanel>) => modeBtns(f).find((b) => b.textContent?.trim() === 'เลือกเอง')!;
+    const modePosts = () => TestBed.inject(HttpTestingController).match(`${B}/sessions/sess1/courts/1/mode`);
+
+    it('free, court on ระดับ: pressing เลือกเอง asks first and sends nothing; cancel keeps the mode', async () => {
+      const f = await panel(false, customCourt('level'));
+      customBtn(f).click();
+      f.detectChanges();
+      expect(modePosts()).toEqual([]);
+      expect(confirmBox(f)?.textContent).toContain('เปลี่ยนแล้วจะกลับมาใช้โหมดนี้ไม่ได้ในแพ็ก⁠เกจนี้');
+      (confirmBox(f)!.querySelector('[data-court-mode-confirm-cancel]') as HTMLButtonElement).click();
+      f.detectChanges();
+      expect(confirmBox(f)).toBeNull();
+      expect(modePosts()).toEqual([]);
+    });
+
+    it('free, court on สูสี: confirming switches the court to เลือกเอง', async () => {
+      const f = await panel(false, customCourt('balanced'));
+      customBtn(f).click();
+      f.detectChanges();
+      (confirmBox(f)!.querySelector('[data-court-mode-confirm-ok]') as HTMLButtonElement).click();
+      const httpMock = TestBed.inject(HttpTestingController);
+      const req = httpMock.expectOne(`${B}/sessions/sess1/courts/1/mode`);
+      expect(req.request.body).toEqual({ mode: 'custom' });
+      req.flush({ code: 'sess1', courtNumber: 1, mode: 'custom' });
+      await new Promise((r) => setTimeout(r, 0));
+      TestBed.tick();
+      httpMock.expectOne(`${B}/sessions/sess1`).flush(customCourt('custom'));
+      await f.whenStable();
+      f.detectChanges();
+      expect(confirmBox(f)).toBeNull();
+    });
+
+    for (const [label, paid] of [['paid', true], ['no plan input (default)', undefined]] as const) {
+      it(`${label}: switching a ระดับ court to เลือกเอง is immediate`, async () => {
+        const f = await panel(paid, customCourt('level'));
+        customBtn(f).click();
+        const httpMock = TestBed.inject(HttpTestingController);
+        httpMock.expectOne(`${B}/sessions/sess1/courts/1/mode`).flush({ code: 'sess1', courtNumber: 1, mode: 'custom' });
+        await new Promise((r) => setTimeout(r, 0));
+        TestBed.tick();
+        httpMock.expectOne(`${B}/sessions/sess1`).flush(customCourt('custom'));
+        await f.whenStable();
+        expect(confirmBox(f)).toBeNull();
+      });
+    }
+  });
+
+  for (const [label, paid] of [['paid', true], ['no plan input (default)', undefined]] as const) {
+    it(`${label}: nothing is disabled and no lock hint shows`, async () => {
+      const f = await panel(paid, customCourt('level', 'auto'));
+      expect(modeBtns(f).some((b) => b.disabled)).toBe(false);
+      expect(targetBtns(f).some((b) => b.disabled)).toBe(false);
+      expect((f.nativeElement as HTMLElement).querySelector('app-plan-lock')).toBeNull();
+    });
+
+    it(`${label}: a court on เลือกเอง keeps all four per-court modes`, async () => {
+      const f = await panel(paid, customCourt('custom'));
+      expect(modeBtns(f).length).toBe(4);
+    });
+
+    it(`${label}: a ระดับ court on อัตโนมัติ keeps its target control`, async () => {
+      const f = await panel(paid, customCourt('level', 'auto'));
+      expect(targetBtns(f).length).toBe(3);
+    });
+  }
+});

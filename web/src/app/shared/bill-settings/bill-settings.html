@@ -126,21 +126,28 @@
 
 <ng-template #general>
   <div class="setting-row">
-    <span class="setting-label" i18n="@@bill.hostFee">ค่าจัดก๊วนต่อคน (บาท)</span>
+    <div class="setting-label-group">
+      <span class="setting-label" i18n="@@bill.hostFee">ค่าจัดก๊วนต่อคน (บาท)</span>
+    </div>
     <label class="money-field">
-      <input type="text" inputmode="decimal" data-rate="hostFee" [value]="moneyText(c.hostFeeSatang)" (change)="onMoney('hostFeeSatang', $any($event.target).value)" />
+      <input type="text" inputmode="decimal" data-rate="hostFee" [disabled]="hostFeeLocked()" [value]="moneyText(c.hostFeeSatang)" (change)="onMoney('hostFeeSatang', $any($event.target).value)" />
       <span class="money-suffix">฿</span>
     </label>
   </div>
   <div class="setting-row">
-    <span class="setting-label">
-      <ng-container i18n="@@bill.walkInFee">ค่า walk-in ต่อคน (บาท, หารคืนทุกคน)</ng-container>
-    </span>
+    <div class="setting-label-group">
+      <span class="setting-label">
+        <ng-container i18n="@@bill.walkInFee">ค่า walk-in ต่อคน (บาท, หารคืนทุกคน)</ng-container>
+      </span>
+    </div>
     <label class="money-field">
-      <input type="text" inputmode="decimal" data-rate="walkInFee" [value]="moneyText(c.walkInFeeSatang)" (change)="onMoney('walkInFeeSatang', $any($event.target).value)" />
+      <input type="text" inputmode="decimal" data-rate="walkInFee" [disabled]="walkInFeeLocked()" [value]="moneyText(c.walkInFeeSatang)" (change)="onMoney('walkInFeeSatang', $any($event.target).value)" />
       <span class="money-suffix">฿</span>
     </label>
   </div>
+  @if (hostFeeLocked() || walkInFeeLocked()) {
+    <app-plan-lock class="fees-lock" [hint]="feesLockHint" />
+  }
   <div class="setting-row">
     <span class="setting-label" i18n="@@bill.rounding">ปัดขึ้น</span>
     <div class="scope-toggle setting-toggle rounding-toggle">

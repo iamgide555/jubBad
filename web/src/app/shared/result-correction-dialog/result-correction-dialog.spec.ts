@@ -19,9 +19,12 @@ describe('ResultCorrectionDialog', () => {
   let fixture: ComponentFixture<ResultCorrectionDialog>;
   let saved: ResultCorrection[];
   const root = () => fixture.nativeElement as HTMLElement;
-  const choice = (w: string) => root().querySelector(`[data-winner="${w}"]`) as HTMLButtonElement;
+  const winnerBtn = (w: string) => root().querySelector(`[data-winner="${w}"]`) as HTMLButtonElement;
   const input = (name: string) => root().querySelector(`input[name="${name}"]`) as HTMLInputElement;
-  const save = () => root().querySelector('[data-save-result]') as HTMLButtonElement;
+  const type = (name: string, value: string) => {
+    input(name).value = value;
+    input(name).dispatchEvent(new Event('input'));
+  };
 
   beforeEach(async () => {
     await TestBed.configureTestingModule({ imports: [ResultCorrectionDialog] }).compileComponents();
@@ -40,45 +43,72 @@ describe('ResultCorrectionDialog', () => {
     fixture.detectChanges();
   }
 
-  it('opens on the recorded result and names both sides', async () => {
+  it('shows one team per side with the recorded score and marks the recorded winner', async () => {
     await open();
-    expect(choice('A').getAttribute('aria-pressed')).toBe('true');
-    expect(choice('A').textContent).toContain('นก + เจ');
-    expect(choice('B').textContent).toContain('ต้น + แมน');
+    const teams = [...root().querySelectorAll('.fix-team')].map((t) => [...t.querySelectorAll('li')].map((li) => li.textContent));
+    expect(teams).toEqual([['นก', 'เจ'], ['ต้น', 'แมน']]);
     expect(input('scoreA').value).toBe('21');
+    expect(input('scoreB').value).toBe('15');
+    expect(winnerBtn('A').classList.contains('recorded')).toBe(true);
+    expect(winnerBtn('B').classList.contains('recorded')).toBe(false);
   });
 
-  it('emits the flipped winner with a matching score', async () => {
-    await open();
-    choice('B').click();
-    input('scoreA').value = '18';
-    input('scoreA').dispatchEvent(new Event('input'));
-    input('scoreB').value = '21';
-    input('scoreB').dispatchEvent(new Event('input'));
+  it('shows the recorded score even when the parent hands over the game in the same tick as open()', async () => {
+    fixture.componentRef.setInput('initial', { winner: null, scoreA: null, scoreB: null });
     fixture.detectChanges();
-    save().click();
+    fixture.componentInstance.open(); // reads the previous game's (blank) result
+    fixture.componentRef.setInput('initial', { winner: 'B', scoreA: 14, scoreB: 21 });
+    fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.detectChanges();
+    expect(input('scoreA').value).toBe('14');
+    expect(input('scoreB').value).toBe('21');
+    expect(winnerBtn('B').classList.contains('recorded')).toBe(true);
+  });
+
+  it('has no separate save step: only the scores, the two winner buttons, and the quiet escapes', async () => {
+    await open();
+    expect(root().querySelector('[data-save-result]')).toBeNull();
+    expect(root().querySelectorAll('input').length).toBe(2);
+    expect(winnerBtn('A').getAttribute('aria-label')).toContain('นก & เจ');
+  });
+
+  it('saves the flipped winner with a matching score when its team button is tapped', async () => {
+    await open();
+    type('scoreA', '18');
+    type('scoreB', '21');
+    winnerBtn('B').click();
     expect(saved).toEqual([{ winner: 'B', scoreA: 18, scoreB: 21 }]);
   });
 
-  it('refuses a score that disagrees with the winner, without emitting', async () => {
+  it('refuses a winner that disagrees with the scores on the page, without emitting', async () => {
     await open();
-    choice('B').click(); // scores still 21-15 for A
-    fixture.detectChanges();
-    save().click();
+    winnerBtn('B').click(); // scores still 21-15 for A
     fixture.detectChanges();
     expect(saved).toEqual([]);
     expect(root().querySelector('[role="alert"]')!.textContent).toContain('ไม่ตรง');
   });
 
-  it('allows "no result" with the scores cleared', async () => {
+  it('saves just the winner when the scores are left empty', async () => {
     await open();
-    choice('none').click();
-    input('scoreA').value = '';
-    input('scoreA').dispatchEvent(new Event('input'));
-    input('scoreB').value = '';
-    input('scoreB').dispatchEvent(new Event('input'));
+    type('scoreA', '');
+    type('scoreB', '');
+    winnerBtn('B').click();
+    expect(saved).toEqual([{ winner: 'B', scoreA: null, scoreB: null }]);
+  });
+
+  it('asks for both scores or neither', async () => {
+    await open();
+    type('scoreB', '');
+    winnerBtn('A').click();
     fixture.detectChanges();
-    save().click();
+    expect(saved).toEqual([]);
+    expect(root().querySelector('[role="alert"]')!.textContent).toContain('ครบทั้งสองทีม');
+  });
+
+  it('records "no result" and clears the scores without making the host empty the boxes first', async () => {
+    await open();
+    winnerBtn('none').click();
     expect(saved).toEqual([{ winner: null, scoreA: null, scoreB: null }]);
   });
 });

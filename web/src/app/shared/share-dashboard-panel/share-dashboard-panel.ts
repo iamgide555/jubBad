@@ -3,6 +3,8 @@ import { HttpClient } from '@angular/common/http';
 import { firstValueFrom, type Observable } from 'rxjs';
 import { environment } from '../../../environments/environment';
 import { absoluteUrl, copyToClipboard } from '../../core/share-link';
+import { planErrorMessage } from '../../core/plan';
+import { PlanLock } from '../plan-lock/plan-lock';
 
 interface ShareState {
   token: string | null;
@@ -18,11 +20,17 @@ interface ShareState {
  */
 @Component({
   selector: 'app-share-dashboard-panel',
+  imports: [PlanLock],
   templateUrl: './share-dashboard-panel.html',
   styleUrl: './share-dashboard-panel.css',
 })
 export class ShareDashboardPanel implements OnInit {
   readonly groupCode = input.required<string>();
+  /**
+   * Whether the group's plan includes sharing. Only creating a link is paid: copying and
+   * stopping an existing one stay open, so a lapsed host can always take a link down.
+   */
+  readonly paid = input(true);
 
   private readonly http = inject(HttpClient);
 
@@ -80,8 +88,8 @@ export class ShareDashboardPanel implements OnInit {
       const state = await firstValueFrom(call());
       this.token.set(state.token);
       this.confirmingStop.set(false);
-    } catch {
-      this.error.set(failure);
+    } catch (err) {
+      this.error.set(planErrorMessage(err) ?? failure);
     } finally {
       this.busy.set(false);
     }

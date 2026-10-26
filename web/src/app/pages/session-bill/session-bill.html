@@ -38,6 +38,7 @@
         [session]="b.session"
         [saving]="saving()"
         [chargeLocked]="chargeLocked()"
+        [paid]="paid()"
         [countPlaceholder]="countPlaceholder()"
         (configChange)="save($event)"
         (shuttlePriceChange)="saveShuttleDetails({ shuttlePriceSatang: $event })"
@@ -192,7 +193,8 @@
                 (click)="toggleWalkIn(r.playerId)" i18n="@@bill.walkInChip">walk-in</button>
               @if (b.config.model === 'fair' && (r.absent || r.games === 0)) {
                 <button type="button" class="chip" [attr.data-absent]="r.playerId" [class.selected]="r.absent"
-                  [attr.aria-pressed]="r.absent" (click)="toggleAbsent(r.playerId)" i18n="@@bill.absentChip">ไม่มา</button>
+                  [attr.aria-pressed]="r.absent" [disabled]="absentLocked(r.playerId)"
+                  (click)="toggleAbsent(r.playerId)" i18n="@@bill.absentChip">ไม่มา</button>
               }
               <label class="money-field override">
                 <input type="text" inputmode="decimal" i18n-placeholder="@@bill.overridePlaceholder" placeholder="แก้ยอด"
@@ -245,11 +247,14 @@
           @for (p of addable(); track p.playerId) {
             <button type="button" class="chip" [attr.data-add]="p.playerId" (click)="add(p.playerId)">+ {{ p.name }}</button>
             @if (b.config.model === 'fair') {
-              <button type="button" class="chip" [attr.data-absent-add]="p.playerId" (click)="toggleAbsent(p.playerId)" i18n="@@bill.absentAdd">{{ p.name }} ไม่มา</button>
+              <button type="button" class="chip" [attr.data-absent-add]="p.playerId" [disabled]="absentLocked(p.playerId)" (click)="toggleAbsent(p.playerId)" i18n="@@bill.absentAdd">{{ p.name }} ไม่มา</button>
             }
           }
         </div>
       </details>
+    }
+    @if (absentLockShown()) {
+      <app-plan-lock class="absent-lock" [hint]="absentLockHint" />
     }
 
     <div class="bill-footer">

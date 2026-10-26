@@ -573,6 +573,20 @@
           <context context-type="linenumber">51,54</context>
         </context-group>
       </trans-unit>
+      <trans-unit id="profile.planLocked" datatype="html">
+        <source>ยังไม่เปิดดูข้อมูลผู้เล่นคนนี้</source><target>This player's stats aren't available</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/player-profile/player-profile.html</context>
+          <context context-type="linenumber">106</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="profile.planLockedHint" datatype="html">
+        <source>สถิติของก๊วนนี้ยังไม่เปิดให้ดู</source><target>Stats aren't available for this group</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/player-profile/player-profile.html</context>
+          <context context-type="linenumber">112,114</context>
+        </context-group>
+      </trans-unit>
       <trans-unit id="summary.back" datatype="html">
         <source>← กลับ</source><target>← Back</target>
         <context-group purpose="location">
@@ -1738,6 +1752,13 @@
           <context context-type="linenumber">76</context>
         </context-group>
       </trans-unit>
+      <trans-unit id="admin.colPlan" datatype="html">
+        <source>แพ็ก⁠เกจ</source><target>Plan</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/admin/admin.html</context>
+          <context context-type="linenumber">103,105</context>
+        </context-group>
+      </trans-unit>
       <trans-unit id="admin.save" datatype="html">
         <source>บันทึก</source><target>Save</target>
         <context-group purpose="location">
@@ -1927,6 +1948,27 @@
           <context context-type="linenumber">238</context>
         </context-group>
       </trans-unit>
+      <trans-unit id="admin.planAdminAll" datatype="html">
+        <source>ผู้ดูแลระบบ เข้าถึงได้ทุกอย่าง</source><target>Admin: everything open</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/admin/admin.html</context>
+          <context context-type="linenumber">327</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="admin.planFailed" datatype="html">
+        <source>บันทึกแพ็ก⁠เกจไม่สำเร็จ</source><target>Could not save the plan</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/admin/admin.html</context>
+          <context context-type="linenumber">354,357</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="admin.planSaved" datatype="html">
+        <source>บันทึกแล้ว</source><target>Saved</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/admin/admin.html</context>
+          <context context-type="linenumber">364</context>
+        </context-group>
+      </trans-unit>
       <trans-unit id="admin.reassignFailed" datatype="html">
         <source>ย้ายเจ้าของไม่สำเร็จ</source><target>Could not reassign the owner</target>
         <context-group purpose="location">
@@ -1946,6 +1988,20 @@
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/admin/admin.ts</context>
           <context context-type="linenumber">121</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="admin.planSelectAria" datatype="html">
+        <source>แพ็ก⁠เกจ</source><target>Plan</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/admin/admin.ts</context>
+          <context context-type="linenumber">159</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="admin.planRenewAria" datatype="html">
+        <source>วันต่ออายุ (เว้นว่างถ้าไม่หมดอายุ)</source><target>Renewal date (leave empty if it never expires)</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/admin/admin.ts</context>
+          <context context-type="linenumber">160</context>
         </context-group>
       </trans-unit>
       <trans-unit id="admin.passwordLabel" datatype="html">
@@ -2072,6 +2128,24 @@
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/session-dashboard/session-dashboard.html</context>
           <context context-type="linenumber">75,77</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="dashboard.modeOneWay" datatype="html">
+        <source>เปลี่ยนแล้วจะกลับมาใช้โหมดนี้ไม่ได้ในแพ็ก⁠เกจนี้</source><target>If you switch, you can't come back to this mode on this plan.</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/session-dashboard/court-panel/court-panel.html</context>
+          <context context-type="linenumber">49,50</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="dashboard.modeOneWayConfirm" datatype="html">
+        <source>เปลี่ยนโหมด</source><target>Switch mode</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/session-dashboard/session-dashboard.html</context>
+          <context context-type="linenumber">293</context>
+        </context-group>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/session-dashboard/court-panel/court-panel.html</context>
+          <context context-type="linenumber">51</context>
         </context-group>
       </trans-unit>
       <trans-unit id="court.emptySeat" datatype="html">
@@ -2660,6 +2734,83 @@
       <trans-unit id="playerRoster.ruleSaveFailed" datatype="html">
         <source>บันทึกกฎไม่สำเร็จ</source>
         <target>Could not save the rule</target>
+      </trans-unit>
+      <trans-unit id="plan.free" datatype="html">
+        <source>ฟรี</source><target>Free</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/core/plan.ts</context>
+          <context context-type="linenumber">10</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="plan.host" datatype="html">
+        <source>โฮสต์</source><target>Host</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/core/plan.ts</context>
+          <context context-type="linenumber">12</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="plan.club" datatype="html">
+        <source>ก๊วนใหญ่</source><target>Club</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/core/plan.ts</context>
+          <context context-type="linenumber">14</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="plan.required" datatype="html">
+        <source>ฟีเจอร์นี้ใช้ได้ในแพ็ก⁠เกจโฮสต์</source><target>This feature needs the Host plan</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/core/plan.ts</context>
+          <context context-type="linenumber">66</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="plan.groupLimit" datatype="html">
+        <source>แพ็ก⁠เกจของคุณสร้างได้ <x id="limit" equiv-text="limit"/> ก๊วน</source><target>Your plan allows <x id="limit" equiv-text="limit"/> groups</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/core/plan.ts</context>
+          <context context-type="linenumber">76</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="plan.lock.hint" datatype="html">
+        <source>ใช้ได้ในแพ็ก⁠เกจโฮสต์</source><target>Available on the Host plan</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/shared/plan-lock/plan-lock.html</context>
+          <context context-type="linenumber">1</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="plan.lock.modes" datatype="html">
+        <source>โหมดสูสีและตามระดับใช้ได้ในแพ็ก⁠เกจโฮสต์</source><target>Balanced and Level modes need the Host plan</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/core/plan.ts</context>
+          <context context-type="linenumber">56</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="plan.lock.courtModes" datatype="html">
+        <source>การตั้งโหมดแยกคอร์ทใช้ได้ในแพ็ก⁠เกจโฮสต์</source><target>Per-court modes need the Host plan</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/core/plan.ts</context>
+          <context context-type="linenumber">61</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="plan.lock.target" datatype="html">
+        <source>การเล็งมือล่าง/มือบนใช้ได้ในแพ็ก⁠เกจโฮสต์</source><target>Targeting the lower/upper half needs the Host plan</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/core/plan.ts</context>
+          <context context-type="linenumber">66</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="plan.lock.onInactive" datatype="html">
+        <source>เปิดอยู่ แต่รอบใหม่จะไม่ใช้ในแพ็ก⁠เกจนี้</source><target>On, but new rounds won't use it on this plan</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/core/plan.ts</context>
+          <context context-type="linenumber">74</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="plan.until" datatype="html">
+        <source>ถึง <x id="date" equiv-text="date"/></source><target>until <x id="date" equiv-text="date"/></target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/core/plan.ts</context>
+          <context context-type="linenumber">97</context>
+        </context-group>
       </trans-unit>
       <trans-unit id="err.code.pairRuleViolation" datatype="html">
         <source>เปลี่ยนไม่ได้ เพราะขัดกับกฎการจับคู่</source>
@@ -4013,16 +4164,8 @@
         <source>แก้ผลการแข่ง — <x id="INTERPOLATION" equiv-text="{{ rowLabel() }}"/></source>
         <target>Fix result — <x id="INTERPOLATION" equiv-text="{{ rowLabel() }}"/></target>
       </trans-unit>
-      <trans-unit id="resultFix.hint" datatype="html">
-        <source>เลือกทีมที่ชนะจริง คะแนนไม่บังคับ</source>
-        <target>Pick the team that really won. Scores are optional.</target>
-      </trans-unit>
-      <trans-unit id="resultFix.legend" datatype="html">
-        <source>ทีมที่ชนะ</source>
-        <target>Winning team</target>
-      </trans-unit>
       <trans-unit id="resultFix.noResult" datatype="html">
-        <source> ไม่มีผล </source>
+        <source>ไม่มีผล</source>
         <target>No result</target>
       </trans-unit>
       <trans-unit id="resultFix.scoreA" datatype="html">
@@ -4037,10 +4180,6 @@
         <source>ยกเลิก</source>
         <target>Cancel</target>
       </trans-unit>
-      <trans-unit id="resultFix.save" datatype="html">
-        <source>บันทึก</source>
-        <target>Save</target>
-      </trans-unit>
       <trans-unit id="resultFix.badScore" datatype="html">
         <source>คะแนนต้องเป็นจำนวนเต็มตั้งแต่ 0</source>
         <target>Scores must be whole numbers, 0 or more</target>
@@ -4048,10 +4187,6 @@
       <trans-unit id="resultFix.incompleteScore" datatype="html">
         <source>ใส่คะแนนให้ครบทั้งสองทีม หรือเว้นว่างทั้งคู่</source>
         <target>Enter both scores, or leave both empty</target>
-      </trans-unit>
-      <trans-unit id="resultFix.winnerNeeded" datatype="html">
-        <source>เลือกทีมที่ชนะเมื่อมีคะแนน</source>
-        <target>Pick the winning team when entering scores</target>
       </trans-unit>
       <trans-unit id="resultFix.mismatch" datatype="html">
         <source>คะแนนไม่ตรงกับทีมที่ชนะ</source>
@@ -4300,6 +4435,41 @@
       <trans-unit id="group.pastSessions" datatype="html">
         <source>รอบที่ผ่านมา</source>
         <target>Past sessions</target>
+      </trans-unit>
+      <trans-unit id="group.archiveNote" datatype="html">
+        <source>แสดงเฉพาะรอบใน 30 วันล่าสุด</source><target>Showing the last 30 days only</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/group-home/group-home.html</context>
+          <context context-type="linenumber">170</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="group.archiveNoteHome" datatype="html">
+        <source>แสดงเฉพาะรอบใน 30 วันล่าสุด ดูย้อนหลังทั้งหมดได้ในแพ็ก⁠เกจโฮสต์</source><target>Showing the last 30 days only. See everything on the Host plan.</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/group-home/group-home.html</context>
+          <context context-type="linenumber">173</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="group.planLine" datatype="html">
+        <source>แพ็ก⁠เกจ: <x id="plan" equiv-text="name"/></source><target>Plan: <x id="plan" equiv-text="name"/></target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/group-home/group-home.ts</context>
+          <context context-type="linenumber">103</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="group.row.planBadge" datatype="html">
+        <source>แพ็ก⁠เกจโฮสต์</source><target>Host plan</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/group-home/group-home.html</context>
+          <context context-type="linenumber">110</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="group.row.planHint" datatype="html">
+        <source>ใช้ได้ในแพ็ก⁠เกจโฮสต์</source><target>Needs the Host plan</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/group-home/group-home.html</context>
+          <context context-type="linenumber">113</context>
+        </context-group>
       </trans-unit>
       <trans-unit id="entry.clearRoster" datatype="html">
         <source>ล้างรายชื่อ</source>
@@ -5331,6 +5501,188 @@
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/group-entry/group-entry.ts</context>
           <context context-type="linenumber">349</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="plan.groupPaused" datatype="html">
+        <source>ก๊วนนี้พักไว้ — แพ็ก⁠เกจของคุณเปิดรอบได้ <x id="limit" equiv-text="limit"/> ก๊วน (ก๊วนที่เล่นล่าสุด)</source><target>This group is paused: your plan runs <x id="limit" equiv-text="limit"/> group(s), the most recently played</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/core/plan.ts</context>
+          <context context-type="linenumber">80</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="plan.lock.more" datatype="html">
+        <source>ดูแพ็ก⁠เกจ</source><target>See plan</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/shared/plan-lock/plan-lock.html</context>
+          <context context-type="linenumber">6,7</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="upgrade.title" datatype="html">
+        <source>แพ็ก⁠เกจโฮสต์</source><target>Host plan</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/shared/upgrade-sheet/upgrade-sheet.html</context>
+          <context context-type="linenumber">4,5</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="upgrade.b1" datatype="html">
+        <source>สูสีและตามระดับ จัดคู่ตามฝีมือ</source><target>Balanced and level modes</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/shared/upgrade-sheet/upgrade-sheet.html</context>
+          <context context-type="linenumber">6,7</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="upgrade.b2" datatype="html">
+        <source>กฎจับคู่ คิวล่วงหน้า และโหมดแยกคอร์ท</source><target>Pair rules, lineup queue, per-court modes</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/shared/upgrade-sheet/upgrade-sheet.html</context>
+          <context context-type="linenumber">7,8</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="upgrade.b3" datatype="html">
+        <source>ค่าโฮสต์ ค่า walk-in และไม่มา ในบิล</source><target>Host fee, walk-in fee and no-shows in the bill</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/shared/upgrade-sheet/upgrade-sheet.html</context>
+          <context context-type="linenumber">8,9</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="upgrade.b4" datatype="html">
+        <source>ดูย้อนหลังทั้งหมด เรตติ้ง และหน้าสรุปก๊วน</source><target>Full history, ratings and the group dashboard</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/shared/upgrade-sheet/upgrade-sheet.html</context>
+          <context context-type="linenumber">9,10</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="upgrade.b5" datatype="html">
+        <source>สร้างได้ 3 ก๊วน</source><target>Up to 3 groups</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/shared/upgrade-sheet/upgrade-sheet.html</context>
+          <context context-type="linenumber">10,12</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="upgrade.contact" datatype="html">
+        <source>ติดต่อทาง LINE</source><target>Contact on LINE</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/shared/upgrade-sheet/upgrade-sheet.html</context>
+          <context context-type="linenumber">13,15</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="upgrade.contactText" datatype="html">
+        <source>ติดต่อทีม JubBad เพื่ออัปเกรด</source><target>Contact the JubBad team to upgrade</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/shared/upgrade-sheet/upgrade-sheet.html</context>
+          <context context-type="linenumber">15,17</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="upgrade.close" datatype="html">
+        <source>ปิด</source><target>Close</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/shared/upgrade-sheet/upgrade-sheet.html</context>
+          <context context-type="linenumber">17,20</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="plan.notice.lapsed" datatype="html">
+        <source>แพ็ก⁠เกจหมดเมื่อ <x id="date" equiv-text="date"/> — รอบใหม่ใช้แบบฟรี</source><target>Plan ended <x id="date" equiv-text="date"/>; new rounds use the free plan</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/core/plan.ts</context>
+          <context context-type="linenumber">103</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="plan.notice.expiring" datatype="html">
+        <source>แพ็ก⁠เกจ<x id="plan" equiv-text="name"/>หมด <x id="date" equiv-text="date"/></source><target><x id="plan" equiv-text="plan"/> plan ends <x id="date" equiv-text="date"/></target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/core/plan.ts</context>
+          <context context-type="linenumber">111</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="plan.notice.renew" datatype="html">
+        <source>ต่ออายุ</source><target>Renew</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/core/plan.ts</context>
+          <context context-type="linenumber">103</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="group.row.inactiveBadge" datatype="html">
+        <source>ปิดในแพ็ก⁠เกจฟรี</source><target>Off on the free plan</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/group-home/group-home.ts</context>
+          <context context-type="linenumber">187</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="dashboard.modeNameLevel" datatype="html">
+        <source>ตามระดับ</source><target>Level</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/session-dashboard/session-dashboard.ts</context>
+          <context context-type="linenumber">551</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="dashboard.modeNameBalanced" datatype="html">
+        <source>สูสี</source><target>Balanced</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/session-dashboard/session-dashboard.ts</context>
+          <context context-type="linenumber">552</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="dashboard.rulesInactive" datatype="html">
+        <source>กฎไม่ใช้ในรอบนี้ — รอบนี้เริ่มในแพ็ก⁠เกจฟรี</source><target>Rules are off this round: it started on the free plan</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/session-dashboard/session-dashboard.html</context>
+          <context context-type="linenumber">163,165</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="landing.groupCount" datatype="html">
+        <source>ก๊วน <x id="count" equiv-text="count"/>/<x id="limit" equiv-text="limit"/></source><target>Groups <x id="count" equiv-text="count"/>/<x id="limit" equiv-text="limit"/></target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/core/plan.ts</context>
+          <context context-type="linenumber">88</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="landing.paused" datatype="html">
+        <source>พักไว้</source><target>Paused</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/landing/landing.html</context>
+          <context context-type="linenumber">81,83</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="admin.planAddMonth" datatype="html">
+        <source>+1 เดือน</source><target>+1 month</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/admin/admin.html</context>
+          <context context-type="linenumber">363,366</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="admin.planEnded" datatype="html">
+        <source>หมดเมื่อ <x id="date" equiv-text="date"/> — ใช้แบบฟรีอยู่</source><target>Ended <x id="date" equiv-text="date"/>, on free</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/admin/admin.ts</context>
+          <context context-type="linenumber">225</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="admin.overCap" datatype="html">
+        <source>เกินโควตา <x id="n" equiv-text="n"/>/<x id="limit" equiv-text="limit"/></source><target>Over cap <x id="n" equiv-text="n"/>/<x id="limit" equiv-text="limit"/></target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/admin/admin.ts</context>
+          <context context-type="linenumber">219</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="dashboard.modeOneWayNamed" datatype="html">
+        <source>เปลี่ยนแล้วจะกลับมาใช้<x id="mode" equiv-text="mode"/>ไม่ได้ในแพ็ก⁠เกจนี้</source><target>After switching you can't return to <x id="mode" equiv-text="mode"/> on this plan</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/session-dashboard/session-dashboard.ts</context>
+          <context context-type="linenumber">553</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="plan.lock.fees" datatype="html">
+        <source>ค่าจัดก๊วนและค่า walk-in ใช้ได้ในแพ็ก⁠เกจโฮสต์</source><target>Host fee and walk-in fee are on the Host plan</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/core/plan.ts</context>
+          <context context-type="linenumber">121</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="plan.lock.absent" datatype="html">
+        <source>การทำเครื่องหมายไม่มาใช้ได้ในแพ็ก⁠เกจโฮสต์</source><target>Marking no-shows is on the Host plan</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/core/plan.ts</context>
+          <context context-type="linenumber">126</context>
         </context-group>
       </trans-unit>
     </body>

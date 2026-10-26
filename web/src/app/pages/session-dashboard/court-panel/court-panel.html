@@ -24,15 +24,15 @@
         i18n="@@court.formatSingles"
       >เดี่ยว</button>
     </div>
-    @if (isCustom()) {
+    @if (isCustom() && showModeToggle()) {
       <div class="scope-toggle court-mode-toggle" role="group" [attr.aria-label]="modeGroupLabel">
         @for (m of courtModes; track m) {
           <button
             type="button"
             [class.active]="c.mode === m"
-            [disabled]="busy() || ended()"
+            [disabled]="busy() || ended() || modeLocked(m)"
             [attr.aria-pressed]="c.mode === m"
-            (click)="setCourtMode(m)"
+            (click)="requestCourtMode(m)"
           >{{
             m === 'variety' ? modeLabelVariety
               : m === 'balanced' ? modeLabelBalanced
@@ -41,19 +41,34 @@
           }}</button>
         }
       </div>
+      @if (!paid()) {
+        <app-plan-lock [hint]="courtModesLockHint" />
+      }
+      @if (confirmingCustom()) {
+        <div class="court-mode-confirm" data-court-mode-confirm role="group" [attr.aria-label]="modeGroupLabel">
+          <p class="court-mode-confirm-text" i18n="@@dashboard.modeOneWay">เปลี่ยนแล้วจะกลับมาใช้โหมดนี้ไม่ได้ในแพ็ก⁠เกจนี้</p>
+          <div class="court-mode-confirm-actions">
+            <button type="button" data-court-mode-confirm-ok [disabled]="busy() || ended()" (click)="confirmCourtCustom()" i18n="@@dashboard.modeOneWayConfirm">เปลี่ยนโหมด</button>
+            <button type="button" class="ghost" data-court-mode-confirm-cancel (click)="cancelCourtCustom()" i18n="@@court.cancelPick">ยกเลิก</button>
+          </div>
+        </div>
+      }
     }
-    @if (c.mode === 'level') {
+    @if (c.mode === 'level' && showTargetToggle()) {
       <div class="scope-toggle court-target-toggle" role="group" [attr.aria-label]="targetGroupLabel" [attr.title]="targetHint">
         @for (t of courtTargets; track t) {
           <button
             type="button"
             [class.active]="(c.target ?? 'auto') === t"
-            [disabled]="busy() || ended()"
+            [disabled]="busy() || ended() || targetLocked(t)"
             [attr.aria-pressed]="(c.target ?? 'auto') === t"
             (click)="setCourtTarget(t)"
           >{{ t === 'low' ? targetLabelLow : t === 'high' ? targetLabelHigh : targetLabelAuto }}</button>
         }
       </div>
+      @if (!paid()) {
+        <app-plan-lock [hint]="targetLockHint" />
+      }
     }
     @if (timerLabel(); as label) {
       <span class="court-timer tabular" [class.overrun]="overrun()" [attr.aria-label]="timerAriaLabel()">{{

@@ -1183,6 +1183,145 @@ written).
 The session list shows the newest 30. An ended session nobody played is left
 out; a live one is always shown and links to the public venue display.
 
+### Plans
+
+Paid features are gated by the **group owner's** plan, set by hand by an admin
+(`PUT /admin/users/:id/plan`); there is no payment provider. Tiers and what each
+unlocks: `docs/2026-10-06-pricing-tiers.md`. Pure rules live in
+`server/src/plans/plan.ts`; `PlansService` resolves a group's or session's plan
+from its owner at read time.
+
+**Fields on `User`:** `plan` (`free` | `host` | `club`) and `planRenewsAt`
+(nullable). An admin enters the renewal date as `YYYY-MM-DD`, stored as the end
+of that day in Bangkok (`23:59:59.999+07:00`), so a plan paid through the 19th
+works all of the 19th. An impossible date such as 2026-02-31 is a 400.
+
+**`effectivePlan` is derived, never stored per feature.** A plan lapses to free
+once `now > planRenewsAt`; `planRenewsAt = null` never lapses. An owner with
+role `admin` is club whatever the column says, an ownerless group is club
+(production never has one, and existing fixtures rely on it), and an unknown
+plan string reads as free. `User.disabled` is never touched by plan code.
+
+**The column defaults to `club`, so the deploy is dormant.** Every existing user
+keeps today's behaviour until an admin deliberately sets a lower plan.
+
+**Refusals are 403 with a code:** `PLAN_REQUIRED` (with `requiredPlan`) when a
+paid thing is switched on from too low a plan, and `GROUP_LIMIT` (with `limit`)
+when creating a group past the plan's cap (free 1, host 3, club 10; admins have
+none). Gating blocks turning a paid thing on, never turning it off and never a
+running session's state, and public routes are never gated. There are exactly two
+lapse exceptions, below: a group past the cap is paused, and pair rules stop in a
+session created on free. One public route is gated by ruling: `GET /groups/:code/players/:playerId/stats` is `@Public()` and
+plan-gated by ruling, because it exposes ratings (it answers 403 `PLAN_REQUIRED`
+and the profile page shows a calm "stats aren't available" message, not a
+host-facing upgrade prompt). `GET /groups/:code/plan` reports the owner's effective plan, so an admin opening
+a free host's group is gated as that host.
+
+**What a free plan cannot switch on (403 `PLAN_REQUIRED`):**
+
+| Area | Gated (turning it on / writing it) |
+| --- | --- |
+| Group routes | level ladder `PUT /groups/:code/levels` (the per-player level edit stays free); share `POST`; shuttle tools and cross-session history turn-on; rules `POST`/`PUT`; player stats (the one public route that is gated) |
+| Session controls | session mode `balanced` / `level`; per-court mode other than `custom`; court target other than `auto`; lineup queue add/replace |
+| Session snapshots | `shuttleToolsEnabled` and cross-session history are snapshotted **off** for a free owner at session creation |
+| Bill extras | `POST bill-config` that sets a non-zero `hostFeeSatang` / `walkInFeeSatang` different from the stored value, or adds an id to `absentIds` (ไม่มา) not already stored; zeros, the stored value re-sent, and fewer ไม่มา marks pass |
+
+**Shaping instead of refusing (free):** ratings come back `null`, including the
+session dashboard's per-player `ratingDelta` (`getPlayerPanel`, resolved from the
+owner at read time); the archive list (`listSessions`) and the owner export
+(`GET /groups/:code/export`, never refused) are limited to the last 30 days
+(`FREE_ARCHIVE_DAYS`). The export windows *sessions* by `createdAt`, and each
+session carries its own matches, checkouts and shuttles, so those are windowed
+with it; players, aliases, rules and the level ladder are always exported in full,
+and a paid owner's export is unchanged. Elo
+always replays the full history; the 30-day filter never reaches
+`finishedMatches()` or any `computeRatingTracks` input. A bill prefilled from an
+earlier session (`configSource` `previous` or `default`) has the host fee,
+walk-in fee and ไม่มา stripped (`withoutPaidExtras`, applied in
+`loadBillSnapshot`, so the echoed config, the bill and checkout quotes agree).
+The plan is judged **at session creation** (`effectivePlan(owner, session.createdAt)`),
+so a host plan that lapses mid-night does not change a running session's
+prefilled bill;
+a `saved` config is running state and is never altered on read. The default
+config's walk-in fee (2000) therefore reads as 0 on a free session.
+
+**Group limit:** free 1, host 3, club 10, checked on group creation; admins none.
+
+**Deliberately never gated:** switching to `variety` or `custom`, a court to
+`custom`, a target back to `auto`; turning shuttle tools or cross-session
+history off; deleting a rule, stopping sharing, clearing or deleting lineups;
+level tags and the player-level edit; rename, aliases and contact edits; fair /
+per-game / buffet models, rounding, remove or add person, and the plain shuttle
+count and price; `GET /sessions/:code`, display, summary and an issued
+`/d/:token`; and anything in a session already running (a lapsed host keeps
+proposing and confirming in สูสี).
+
+**Lapse: two things that stop** (decided 2026-10-26, reversing "never trap" for
+these two cases only). Data is still never deleted.
+
+- *A group past the cap is paused.* An owner's groups are ranked by newest
+  session, then newest group, then code (`rankForCap`); the first
+  `GROUP_LIMIT[effectivePlan]` stay usable and the rest are **paused**. The rank
+  is re-read on every call (nothing is stored), so deleting a group or renewing
+  the plan unpauses the next one at once. A paused group still opens, exports,
+  renames, deletes and cleans up, and a session already running in it carries on
+  (propose, confirm, finish); it just cannot start a new session:
+  `POST /sessions` answers 403 `GROUP_PAUSED` (with `limit`), also for an admin
+  (gated as the owner); a non-owner host gets the usual 404 first, never the 403,
+  so the response cannot reveal another host's plan. An admin owner and an ownerless group are never paused.
+  `GET /groups` rows carry `paused`.
+- *Rules stop steering in a session created on free.* `loadEnabledRules` returns
+  nothing when `effectivePlan(owner, session.createdAt)` is free. This is the same
+  creation-time *instant* the bill prefill uses, but it is evaluated against the
+  owner's *current* plan row, not a stored snapshot (shuttle tools and cross-session
+  history are snapshotted on the session). A plain lapse therefore never changes a
+  running session, but an admin editing the owner's plan or renewal date to an earlier
+  one mid-night does turn that session's rules off, and a renewal turns them on for
+  sessions created during the lapse. Accepted 2026-10-26 to avoid a migration. The rules stay
+  stored and listed (an upgrade brings them back for later sessions); a session
+  created while the plan was paid keeps its rules for the whole night, even if the
+  plan lapses mid-night. `GET /sessions/:code/rules` reports `rulesActive`.
+- *The shared `/d/` dashboard link stays live;* only new shares are blocked.
+
+**Plan facts the web reads.** `GET /groups/:code/plan` returns `{ plan, renewsAt,
+lapsedAt, paused, archiveHidden }`: `lapsedAt` is the renewal date of a paid plan
+that has run out (null otherwise), `archiveHidden` the number of sessions the free
+30-day window hides. `GET /plans/me` returns the signed-in user's own `{ plan,
+renewsAt, lapsedAt, groupCount, groupLimit, upgradeUrl }` (`groupLimit` is null for
+an admin); it names no group, so `OwnershipGuard` allowlists that one path.
+`upgradeUrl` is `UPGRADE_CONTACT_URL` when it is a well-formed `https://` URL and
+null otherwise; the web then shows the contact as text only. Admin user rows carry
+`groupLimit` too.
+
+**What a free host sees (web).** Every lock is one line plus a "ดูแพ็ก⁠เกจ" button
+that opens one shared **upgrade sheet** (what Host adds, and the contact link or
+text). Planning surfaces show paid options locked (greyed with a "needs the Host
+plan" note): the session mode toggle, the bill extras (one lock per group of
+extras, not per field or per person), the level-ladder entry buttons, and the
+roster page's add-rule. The group settings list greys a row (badge
+"แพ็ก⁠เกจโฮสต์") only when its page would have nothing a free host can do: share with no link
+yet, advanced with both switches off, levels on the standard ladder; a locked row is a
+button that opens the upgrade sheet, and a row that holds paid data stays a link so
+it can be cleaned up. A switch that is stored ON but snapshots off on free is drawn
+muted with a line saying so (and the group-home badge reads "ปิดในแพ็ก⁠เกจฟรี"). The
+busy live court screen hides paid-only controls instead of locking them (per-court
+mode and target, add-rule, the lineup-queue buttons), each staying visible while
+something paid is already in use (a court on a paid mode or a non-auto target, a
+non-empty queue). A one-way switch away from สูสี/ตามระดับ confirms inline and names
+the mode being given up. A failed or unloaded plan hides and disables nothing.
+
+**Notices.** Group home and the roster-entry page show one calm line above the
+content: *paused* (a group past the cap, which also replaces the roster form),
+*lapsed* ("Plan ended <date>; new rounds use the free plan", shown for 30 days after the
+lapse so a host who chose not to renew is not nagged forever), or *ending soon* (within
+5 days of the renewal date, naming the plan), in that order of precedence. They are **not**
+on the live dashboard: courtside is the wrong place for a line the host cannot act
+on. The landing page shows "ก๊วน n/limit" and a locked create button at the cap
+instead of failing after a name is typed, and a พักไว้ badge on a paused group.
+
+**Word joiner.** Every "แพ็ก⁠เกจ" in the web copy carries U+2060 between "แพ็ก"
+and "เกจ" so a Thai line never breaks inside the word.
+
 ## Current state
 
 Everything described above is built: the three engines, the API, the Angular

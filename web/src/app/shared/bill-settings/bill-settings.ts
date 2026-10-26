@@ -1,5 +1,7 @@
 import { NgTemplateOutlet } from '@angular/common';
 import { Component, computed, input, output } from '@angular/core';
+import { PlanLock } from '../plan-lock/plan-lock';
+import { feesLockHint } from '../../core/plan';
 import type { BillConfig, BillModel, RoundingStep } from '../../core/bill.model';
 import {
   formatShuttleCountInput,
@@ -27,10 +29,11 @@ const NULLABLE: ReadonlySet<MoneyField> = new Set(['courtFeeSatang', 'capSatang'
  */
 @Component({
   selector: 'app-bill-settings',
-  imports: [NgTemplateOutlet],
+  imports: [NgTemplateOutlet, PlanLock],
   templateUrl: './bill-settings.html',
 })
 export class BillSettings {
+  protected readonly feesLockHint = feesLockHint();
   readonly config = input.required<BillConfig>();
   readonly session = input.required<{ shuttleCount: number | null; shuttlePriceSatang: number | null }>();
   readonly variant = input<'bill' | 'checkout'>('bill');
@@ -40,6 +43,11 @@ export class BillSettings {
   /** A shuttle receipt freezes the basis it was quoted under, so the basis cannot change while one is active. */
   readonly chargeLocked = input(false);
   readonly countPlaceholder = input('—');
+  /**
+   * Whether the group's plan includes the host and walk-in fees. Defaults to true:
+   * an unknown plan never locks a host out, and the server still refuses.
+   */
+  readonly paid = input(true);
 
   readonly configChange = output<Partial<BillConfig>>();
   readonly shuttlePriceChange = output<number | null>();
@@ -65,6 +73,14 @@ export class BillSettings {
     const p = this.session().shuttlePriceSatang;
     return p === null ? '—' : formatShuttlePriceInput(p);
   });
+
+  /**
+   * On the free plan the server refuses a save that carries a non-zero fee, so
+   * a fee is locked while it is 0. One already above 0 (set while the plan was
+   * paid) stays editable, so the host can clear it and is never stuck with it.
+   */
+  protected readonly hostFeeLocked = computed(() => !this.paid() && this.config().hostFeeSatang === 0);
+  protected readonly walkInFeeLocked = computed(() => !this.paid() && this.config().walkInFeeSatang === 0);
 
   protected onMoney(field: MoneyField, text: string): void {
     const parsed = parseShuttlePriceInput(text);

@@ -783,14 +783,14 @@ describe('SessionSummary', () => {
           fixture.detectChanges();
           await fixture.whenStable();
           fixture.detectChanges();
-          (el().querySelector('[data-winner="B"]') as HTMLButtonElement).click();
           for (const name of ['scoreA', 'scoreB']) {
             const input = el().querySelector(`input[name="${name}"]`) as HTMLInputElement;
             input.value = name === 'scoreA' ? '10' : '21';
             input.dispatchEvent(new Event('input'));
           }
           fixture.detectChanges();
-          (el().querySelector('[data-save-result]') as HTMLButtonElement).click();
+          // Tapping the winner is the save.
+          (el().querySelector('[data-winner="B"]') as HTMLButtonElement).click();
           const req = httpMock.expectOne(`${B}/sessions/sess1/pairings/m64/result/correct`);
           expect(req.request.body).toEqual({ winner: 'B', scoreA: 10, scoreB: 21, expectedRevision: 3 });
           req.flush({});

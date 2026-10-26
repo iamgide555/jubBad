@@ -5,6 +5,7 @@ import { randomUUID } from 'node:crypto';
 import {
   BadRequestException,
   ConflictException,
+  ForbiddenException,
   Injectable,
   InternalServerErrorException,
   NotFoundException,
@@ -92,6 +93,8 @@ import type { SetSeatDto } from './dto/set-seat.dto.js';
 import type { CorrectResultDto } from './dto/correct-result.dto.js';
 import type { SetShuttleDetailsDto } from './dto/set-shuttle-details.dto.js';
 import type { SwapPlayerDto } from './dto/swap-player.dto.js';
+import { PlansService } from '../plans/plans.service.js';
+import { GROUP_LIMIT, planAtLeast } from '../plans/plan.js';
 
 export interface SessionMatch {
   matchNumber: number;
@@ -144,7 +147,8 @@ export class SessionsService {
     private readonly prisma: PrismaService,
     private readonly lock: SessionLock,
     private readonly groupLevels: GroupLevelsService,
-    private readonly venues: VenuesService
+    private readonly venues: VenuesService,
+    private readonly plans: PlansService
   ) {}
 
   private badRequest(code: string): BadRequestException {
@@ -229,8 +233,12 @@ export class SessionsService {
    * The group's rules minus this session's switched-off ones, read fresh on
    * every call so a group edit applies to the next operation. An unknown
    * kind is corrupt data, not a rule to quietly skip.
+   *
+   * Rules are a paid feature: in a session created on the free plan they steer
+   * nothing (they stay stored, and listed, so an upgrade brings them back).
    */
-  private async loadEnabledRules(session: { groupId: string; disabledRuleIds: string | null }): Promise<PairRule[]> {
+  private async loadEnabledRules(session: { code: string; groupId: string; disabledRuleIds: string | null }): Promise<PairRule[]> {
+    if (!planAtLeast(await this.plans.planAtSessionCreation(session.code), 'host')) return [];
     const disabled = this.parseDisabledOrThrow(session.disabledRuleIds);
     const rows = await this.prisma.playerRule.findMany({
       where: { groupId: session.groupId },
@@ -487,6 +495,18 @@ export class SessionsService {
     dto: CreateSessionDto,
     caller: { id: string; role: string }
   ): Promise<{ code: string }> {
+    // Resolved before the transaction (its body is SQLite-serialized). A missing group reads as club;
+    // the 404 below still decides.
+    const paid = planAtLeast(await this.plans.planForGroup(dto.groupCode), 'host');
+    // Ownership is decided first, with the same 404 the transaction gives a non-owner, so the paused 403
+    // below can never tell another host that this group's owner is on the free plan.
+    const owned = await this.prisma.group.findUnique({ where: { code: dto.groupCode }, select: { ownerId: true } });
+    if (owned && owned.ownerId !== caller.id && caller.role !== 'admin') throw new NotFoundException();
+    // A group past the owner's current cap is paused: it keeps its data and any session already
+    // running, but cannot start a new one. Judged by the owner's plan, so an admin is refused too.
+    if (await this.plans.isGroupPaused(dto.groupCode)) {
+      throw new ForbiddenException({ code: 'GROUP_PAUSED', limit: GROUP_LIMIT[await this.plans.planForGroup(dto.groupCode)] });
+    }
     try {
       return await this.prisma.$transaction(async (tx) => {
         const group = await tx.group.findUnique({
@@ -614,8 +634,9 @@ export class SessionsService {
             courtCount: dto.courtCount,
             rawImportText: dto.rawImportText,
             // Snapshots: a later change to the group switches never reaches this session.
-            shuttleToolsEnabled: group.shuttleToolsEnabled,
-            crossSessionHistory: group.crossSessionHistory,
+            // Both are paid, so a lapsed owner's switches snapshot off.
+            shuttleToolsEnabled: group.shuttleToolsEnabled && paid,
+            crossSessionHistory: group.crossSessionHistory && paid,
           },
         });
         await tx.sessionCreation.create({
@@ -2819,6 +2840,7 @@ export class SessionsService {
     });
     const ids = new Set(rules.map((r) => r.id));
     return {
+      rulesActive: planAtLeast(await this.plans.planAtSessionCreation(code), 'host'),
       rules: rules.map((r) => ({
         id: r.id,
         groupId: r.groupId,
@@ -3784,7 +3806,9 @@ export class SessionsService {
    * /won/lost, and their rating as a difference from the level's seed
    * (`ratingDelta`) — the host reads "P +50", not a bare 1350 that means
    * nothing without the seed in their head. `ratingDelta` is null with no
-   * level (no seed to diff against), 0 the moment a level is freshly set
+   * level (no seed to diff against) and, on a free owner's session, always
+   * (ratings are a paid view; the plan is read from the owner at read time and
+   * the web already renders a null delta as nothing). It is 0 the moment a level is freshly set
    * with no games yet on top of it (see engines/elo.ts's RatingAnchor and
    * `loadRatings` below for the reset-on-set rule this reflects).
    */
@@ -3802,6 +3826,7 @@ export class SessionsService {
     ]);
 
     const nameById = new Map(players.map((p) => [p.id, p.name]));
+    const showRatings = planAtLeast(await this.plans.planForSession(code), 'host');
 
     const played = new Map<string, number>();
     const won = new Map<string, number>();
@@ -3832,7 +3857,7 @@ export class SessionsService {
         won: won.get(r.playerId) ?? 0,
         lost: lost.get(r.playerId) ?? 0,
         ratingDelta:
-          level === null || !anchor
+          !showRatings || level === null || !anchor
             ? null
             : Math.round((ratings.doubles.get(r.playerId) ?? anchor.rating) - anchor.rating),
       };

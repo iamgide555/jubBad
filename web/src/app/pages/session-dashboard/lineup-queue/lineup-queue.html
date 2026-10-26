@@ -16,6 +16,7 @@
               type="button"
               class="lq-seat"
               appPress
+              [disabled]="!editing && !paid()"
               [class.is-empty]="seat === null"
               [class.is-picking]="editing && isPicking($any(team), s)"
               [class.is-waiting]="entry && blockedReason(entry, seat) !== null"
@@ -99,6 +100,10 @@
       <p class="lq-empty" i18n="@@lineup.explainer">จัดคนไว้ล่วงหน้า พอคอร์ทว่างระบบจะใช้แมตช์นี้ก่อน</p>
     }
 
+    @if (!paid()) {
+      <app-plan-lock class="lq-lock" />
+    }
+
     @if (error()) {
       <p class="lq-error" role="alert">{{ error() }}</p>
     }
@@ -119,7 +124,7 @@
       <button type="button" class="lq-cancel" appPress (click)="cancelDraft()" i18n="@@lineup.cancelDraft">ยกเลิก</button>
       <button type="button" class="lq-save" appPress [disabled]="!canSave()" (click)="save()" i18n="@@lineup.save">บันทึก</button>
     } @else {
-      <button type="button" class="lq-add" appPress (click)="startNew()">
+      <button type="button" class="lq-add" appPress [disabled]="!paid()" (click)="startNew()">
         <app-icon name="plus" [size]="16" />
         <ng-container i18n="@@lineup.add">จัดแมตช์ล่วงหน้า</ng-container>
       </button>

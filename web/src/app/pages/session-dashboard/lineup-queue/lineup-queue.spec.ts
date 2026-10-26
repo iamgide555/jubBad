@@ -217,4 +217,47 @@ describe('LineupQueue', () => {
     expect(req.request.method).toBe('DELETE');
     req.flush({ ok: true });
   });
+
+  describe('plan lock', () => {
+    const queued = () => session({
+      lineupQueue: [
+        { id: 'q1', position: 0, teamA: ['p3', null], teamB: [null, null], blocked: [] },
+        { id: 'q2', position: 1, teamA: ['p4', null], teamB: [null, null], blocked: [] },
+      ],
+    });
+    const btn = (selector: string) => el().querySelector(selector) as HTMLButtonElement;
+
+    it('free: adding and replacing are disabled with the lock hint, moving/deleting/clearing stay open', async () => {
+      await load(queued());
+      fixture.componentRef.setInput('paid', false);
+      fixture.detectChanges();
+      expect(btn('.lq-add').disabled).toBe(true);
+      expect(el().querySelector('app-plan-lock')).toBeTruthy();
+      for (const seat of Array.from(el().querySelectorAll<HTMLButtonElement>('.lq-entry .lq-seat'))) {
+        expect(seat.disabled).toBe(true);
+      }
+      expect(btn('.lq-tool.is-delete').disabled).toBe(false);
+      expect(btn('.lq-clear').disabled).toBe(false);
+      expect(el().querySelector<HTMLButtonElement>('.lq-tool[aria-label="เลื่อนลง"]')?.disabled).toBe(false);
+    });
+
+    it('free: tapping the disabled add button opens no draft', async () => {
+      await load(session());
+      fixture.componentRef.setInput('paid', false);
+      fixture.detectChanges();
+      btn('.lq-add').click();
+      fixture.detectChanges();
+      expect(el().querySelector('.is-editing')).toBeNull();
+    });
+
+    it('paid, or no plan input: add and replace are enabled and no hint shows', async () => {
+      await load(queued());
+      expect(btn('.lq-add').disabled).toBe(false);
+      expect(el().querySelector('.lq-entry .lq-seat:not(:disabled)')).toBeTruthy();
+      expect(el().querySelector('app-plan-lock')).toBeNull();
+      fixture.componentRef.setInput('paid', true);
+      fixture.detectChanges();
+      expect(btn('.lq-add').disabled).toBe(false);
+    });
+  });
 });

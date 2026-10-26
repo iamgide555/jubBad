@@ -10,9 +10,11 @@
   @if (loadFailed()) {
     <p class="error" role="alert" i18n="@@levels.loadFailed">โหลดข้อมูลระดับไม่สำเร็จ</p>
   } @else if (data(); as d) {
+    @if (paid() || isCustom()) {
     <p class="hint" data-seed-caveat i18n="@@levels.seedCaveat">
       ค่า Elo เริ่มต้นใช้กับการกำหนดระดับครั้งต่อไปเท่านั้น คนที่มีระดับอยู่แล้วคงค่าเดิมของเขา และผลการแข่งที่ผ่านมาไม่เปลี่ยน
     </p>
+    }
 
     @if (error(); as e) {
       <p class="error" role="alert">{{ e }}</p>
@@ -29,15 +31,20 @@
           @for (l of d.levels; track l.id) {
             <li class="level-row readonly">
               <span class="level-name">{{ l.name }}</span>
-              <span class="level-elo">{{ l.startingElo }}</span>
+              @if (paid()) {
+                <span class="level-elo">{{ l.startingElo }}</span>
+              }
               <span class="level-count muted">{{ countOf(l.id) }} <ng-container i18n="@@levels.people">คน</ng-container></span>
             </li>
           }
         </ol>
         <div class="toolbar">
-          <button type="button" data-customize-standard (click)="startFromStandard()" i18n="@@levels.fromStandard">เริ่มจากระดับมาตรฐานแล้วแก้</button>
-          <button type="button" class="ghost" data-customize (click)="startCustomizing()" i18n="@@levels.customize">เริ่มใหม่ทั้งหมด</button>
+          <button type="button" data-customize-standard [disabled]="!paid()" (click)="startFromStandard()" i18n="@@levels.fromStandard">เริ่มจากระดับมาตรฐานแล้วแก้</button>
+          <button type="button" class="ghost" data-customize [disabled]="!paid()" (click)="startCustomizing()" i18n="@@levels.customize">เริ่มใหม่ทั้งหมด</button>
         </div>
+        @if (!paid()) {
+          <app-plan-lock />
+        }
       </section>
     } @else if (draft(); as rows) {
       <section class="form-card" data-editor>
@@ -57,6 +64,7 @@
                 class="level-name-input"
                 maxlength="40"
                 [value]="row.name"
+                [disabled]="editLocked()"
                 (input)="setName(row.key, $event)"
                 i18n-aria-label="@@levels.nameLabel"
                 aria-label="ชื่อระดับ"
@@ -68,6 +76,7 @@
                 inputmode="numeric"
                 class="level-elo-input"
                 [value]="row.elo"
+                [disabled]="editLocked()"
                 (input)="setElo(row.key, $event)"
                 i18n-aria-label="@@levels.eloLabel"
                 aria-label="ค่า Elo เริ่มต้น"
@@ -76,13 +85,13 @@
                 <span class="level-count muted">{{ countOf(row.id) }} <ng-container i18n="@@levels.people">คน</ng-container></span>
               }
               <span class="row-actions">
-                <button type="button" class="ghost icon-btn" [disabled]="i === 0" (click)="move(row.key, -1)" i18n-aria-label="@@levels.up" aria-label="เลื่อนขึ้น">↑</button>
-                <button type="button" class="ghost icon-btn" [disabled]="i === rows.length - 1" (click)="move(row.key, 1)" i18n-aria-label="@@levels.down" aria-label="เลื่อนลง">↓</button>
+                <button type="button" class="ghost icon-btn" [disabled]="editLocked() || i === 0" (click)="move(row.key, -1)" i18n-aria-label="@@levels.up" aria-label="เลื่อนขึ้น">↑</button>
+                <button type="button" class="ghost icon-btn" [disabled]="editLocked() || i === rows.length - 1" (click)="move(row.key, 1)" i18n-aria-label="@@levels.down" aria-label="เลื่อนลง">↓</button>
                 <button
                   type="button"
                   class="ghost icon-btn"
                   [attr.data-remove]="i"
-                  [disabled]="!canRemove(row)"
+                  [disabled]="editLocked() || !canRemove(row)"
                   [attr.title]="removeBlockedReason(row)"
                   (click)="removeRow(row.key)"
                   i18n-aria-label="@@levels.remove"
@@ -97,8 +106,8 @@
         </ol>
 
         <div class="toolbar">
-          <button type="button" class="ghost" data-add-level [disabled]="rows.length >= 16" (click)="addRow()" i18n="@@levels.add">+ เพิ่มระดับ</button>
-          <button type="button" class="ghost" data-suggest (click)="suggestSeeds()">
+          <button type="button" class="ghost" data-add-level [disabled]="editLocked() || rows.length >= 16" (click)="addRow()" i18n="@@levels.add">+ เพิ่มระดับ</button>
+          <button type="button" class="ghost" data-suggest [disabled]="editLocked()" (click)="suggestSeeds()">
             @if (suggestArmed()) {
               <ng-container i18n="@@levels.suggestConfirm">กดอีกครั้งเพื่อเปลี่ยนค่า Elo ทุกระดับ</ng-container>
             } @else {
@@ -115,13 +124,19 @@
           @if (dirty()) {
             <button type="button" class="ghost" [disabled]="saving()" (click)="cancelDraft()" i18n="@@levels.cancel">ยกเลิกการแก้</button>
           }
-          <button type="button" data-save [disabled]="!!problem() || !dirty() || saving()" (click)="requestSave()" i18n="@@levels.save">บันทึกระดับ</button>
+          <button type="button" data-save [disabled]="!paid() || !!problem() || !dirty() || saving()" (click)="requestSave()" i18n="@@levels.save">บันทึกระดับ</button>
         </div>
+        @if (!paid()) {
+          <app-plan-lock class="levels-lock" />
+        }
       </section>
 
       @if (isCustom()) {
         <section class="form-card">
-          <button type="button" class="ghost" data-reset [disabled]="saving()" (click)="requestReset()" i18n="@@levels.reset">กลับไปใช้ระดับมาตรฐาน</button>
+          <button type="button" class="ghost" data-reset [disabled]="!paid() || saving()" (click)="requestReset()" i18n="@@levels.reset">กลับไปใช้ระดับมาตรฐาน</button>
+          @if (!paid()) {
+            <app-plan-lock />
+          }
         </section>
       }
     }

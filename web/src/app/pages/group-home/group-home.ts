@@ -4,6 +4,10 @@ import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
 import type { Group } from '../../core/group.model';
 import type { GroupSession } from '../../core/group-session.model';
+import { isPaid, planLabel, planUntil, type GroupPlan } from '../../core/plan';
+import { UpgradeSheetService } from '../../core/upgrade-sheet.service';
+import { PlanNotice } from '../../shared/plan-notice/plan-notice';
+import { PlanService } from '../../core/plan.service';
 import { RosterService } from '../../core/roster.service';
 import { formatSessionDate, sessionState, type SessionState } from '../../core/session-date';
 import { isSettingsSection, type SettingsSection } from '../../core/settings-sections';
@@ -31,7 +35,7 @@ interface RowValues {
  */
 @Component({
   selector: 'app-group-home',
-  imports: [RouterLink, PressDirective, Icon],
+  imports: [RouterLink, PressDirective, Icon, PlanNotice],
   templateUrl: './group-home.html',
   styleUrl: './group-home.css',
   host: { '(document:keydown.escape)': 'closeOnEscape()' },
@@ -40,6 +44,7 @@ export class GroupHome {
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
   private readonly roster = inject(RosterService);
+  private readonly planService = inject(PlanService);
   private readonly cdr = inject(ChangeDetectorRef);
   private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
   private readonly locale = inject(LOCALE_ID);
@@ -81,9 +86,44 @@ export class GroupHome {
     }))
   );
 
+  /**
+   * The group owner's plan, read to explain the archive window and to tell the host which plan
+   * they are on. A failed or still-pending read is `null`, which `isPaid` treats as paid: no
+   * note, no plan line, nothing hidden.
+   */
+  protected readonly plan = signal<GroupPlan | null>(null);
+  protected readonly upgradeSheet = inject(UpgradeSheetService);
+  /** A paused group keeps its data and any running session but cannot start a new one. */
+  protected readonly paused = computed(() => this.plan()?.paused === true);
+  /** The archive note shows only when the 30-day window actually hides something. */
+  protected readonly archiveHidden = computed(() => this.plan()?.archiveHidden ?? 0);
+  protected readonly paid = computed(() => isPaid(this.plan()?.plan ?? null));
+
+  /**
+   * "แพ็ก⁠เกจ: โฮสต์ · ถึง 19/11/2026" in the settings disclosure. The date shows only on a paid
+   * effective plan: `renewsAt` is the raw stored date, so on free it may be a lapsed one.
+   */
+  protected readonly planLine = computed(() => {
+    const p = this.plan();
+    if (!p) return null;
+    const name = planLabel(p.plan);
+    const line = $localize`:@@group.planLine:แพ็ก⁠เกจ: ${name}:plan:`;
+    return p.plan !== 'free' && p.renewsAt ? `${line} · ${planUntil(p.renewsAt)}` : line;
+  });
+
   constructor() {
     inject(DestroyRef).onDestroy(() => (this.destroyed = true));
     void this.load();
+    void this.loadPlan();
+  }
+
+  private async loadPlan(): Promise<void> {
+    try {
+      const plan = await firstValueFrom(this.planService.forGroup(this.groupCode));
+      if (!this.destroyed) this.plan.set(plan);
+    } catch {
+      // Unknown plan: no note; the list simply shows what the server returned.
+    }
   }
 
   async load(): Promise<void> {
@@ -108,7 +148,8 @@ export class GroupHome {
   }
 
   closeOnEscape(): void {
-    if (!this.settingsOpen()) return;
+    // The upgrade sheet is modal: its own Escape closes it, and must not also fold the settings away.
+    if (this.upgradeSheet.isOpen() || !this.settingsOpen()) return;
     this.setSettings(false);
     this.host.nativeElement.querySelector<HTMLElement>('[data-settings-trigger]')?.focus();
   }
@@ -143,6 +184,8 @@ export class GroupHome {
     if (!a) return null;
     const on = Number(a.shuttleTools) + Number(a.crossSessionHistory);
     if (on === 0) return $localize`:@@group.value.allOff:ปิดทั้งหมด`;
+    // Stored on, but a free owner's new rounds snapshot both off: say so rather than "on".
+    if (!this.paid()) return $localize`:@@group.row.inactiveBadge:ปิดในแพ็ก⁠เกจฟรี`;
     if (on === 2) return $localize`:@@group.value.allOn:เปิดทั้งหมด`;
     return $localize`:@@group.value.oneOn:เปิด 1 จาก 2`;
   }
@@ -152,7 +195,24 @@ export class GroupHome {
     const v = this.values();
     if (section === 'levels') return v.levels?.mode === 'custom';
     if (section === 'share') return v.shared === true;
-    if (section === 'advanced') return !!v.advanced && (v.advanced.shuttleTools || v.advanced.crossSessionHistory);
+    if (section === 'advanced') {
+      return this.paid() && !!v.advanced && (v.advanced.shuttleTools || v.advanced.crossSessionHistory);
+    }
+    return false;
+  }
+
+  /**
+   * A row is locked only on a known free plan, and only when its page holds nothing a free
+   * host can do: no share link to stop, no switch to turn off, no custom ladder to look at. A
+   * fact still loading, or failed, leaves the row a link — never trap a host out of cleaning up.
+   * Players and manage are never disabled.
+   */
+  locked(section: SettingsSection): boolean {
+    if (this.paid()) return false;
+    const v = this.values();
+    if (section === 'levels') return v.levels?.mode === 'standard';
+    if (section === 'share') return v.shared === false;
+    if (section === 'advanced') return !!v.advanced && !v.advanced.shuttleTools && !v.advanced.crossSessionHistory;
     return false;
   }
 

@@ -100,6 +100,7 @@
             <th i18n="@@admin.colRole">บทบาท</th>
             <th i18n="@@admin.colStatus">สถานะ</th>
             <th i18n="@@admin.colGroups">ก๊วนที่เป็นเจ้าของ</th>
+            <th i18n="@@admin.colPlan">แพ็ก⁠เกจ</th>
             <th></th>
           </tr>
         </thead>
@@ -109,6 +110,7 @@
               @if (editingId() === user.id) {
                 <td>
                   <input
+                    class="edit-email"
                     type="email"
                     [ngModel]="editEmail()"
                     (ngModelChange)="editEmail.set($event)"
@@ -116,7 +118,7 @@
                   />
                 </td>
                 <td>
-                  <select [ngModel]="editRole()" (ngModelChange)="editRole.set($event)" name="editRole-{{ user.id }}">
+                  <select class="edit-role" [ngModel]="editRole()" (ngModelChange)="editRole.set($event)" name="editRole-{{ user.id }}">
                     <option value="host" i18n="@@admin.roleHost">ผู้ดูแลก๊วน</option>
                     <option value="admin" i18n="@@admin.roleAdmin">ผู้ดูแลระบบ</option>
                   </select>
@@ -126,10 +128,11 @@
                     <p class="error" role="alert">{{ editError() }}</p>
                   }
                 </td>
-                <td class="admin-actions">
-                  <button type="button" [disabled]="editBusy()" (click)="saveEdit(user)" i18n="@@admin.save">บันทึก</button>
+                <ng-container *ngTemplateOutlet="planCell; context: { $implicit: user, editing: true }" />
+                <td class="actions-cell"><div class="admin-actions">
+                  <button type="button" data-edit-save [disabled]="editBusy()" (click)="saveEdit(user)" i18n="@@admin.save">บันทึก</button>
                   <button type="button" class="ghost" (click)="cancelEdit()" i18n="@@admin.cancel">ยกเลิก</button>
-                </td>
+                </div></td>
               } @else {
                 <td>{{ user.email }}</td>
                 <td>
@@ -154,8 +157,9 @@
                     {{ user.ownedGroups.map((g) => g.name || g.code).join(', ') }}
                   }
                 </td>
-                <td class="admin-actions">
-                  <button type="button" class="ghost" (click)="startEdit(user)" i18n="@@admin.edit">แก้ไข</button>
+                <ng-container *ngTemplateOutlet="planCell; context: { $implicit: user, editing: false }" />
+                <td class="actions-cell"><div class="admin-actions">
+                  <button type="button" class="ghost" data-edit (click)="startEdit(user)" i18n="@@admin.edit">แก้ไข</button>
                   <button type="button" class="ghost" (click)="toggleDisabled(user)">
                     @if (user.disabled) {
                       <ng-container i18n="@@admin.enable">เปิดใช้งาน</ng-container>
@@ -167,13 +171,13 @@
                     ตั้งรหัสผ่านใหม่
                   </button>
                   <button type="button" class="danger" (click)="startDelete(user)" i18n="@@admin.delete">ลบ</button>
-                </td>
+                </div></td>
               }
             </tr>
 
             @if (resettingId() === user.id) {
               <tr class="detail-row">
-                <td colspan="5">
+                <td colspan="6">
                   @if (resetError()) {
                     <p class="error" role="alert">{{ resetError() }}</p>
                   } @else if (resetLink()) {
@@ -193,7 +197,7 @@
 
             @if (deletingUser()?.id === user.id) {
               <tr class="detail-row">
-                <td colspan="5">
+                <td colspan="6">
                   <div class="danger-zone delete-user-panel">
                     <p class="delete-user-target">
                       <ng-container i18n="@@admin.deleteConfirmWho">กำลังจะลบ</ng-container>
@@ -316,3 +320,55 @@
     </section>
   }
 </div>
+
+<ng-template #planCell let-user let-editing="editing">
+  <td class="plan-cell" [attr.data-plan-row]="user.id">
+    @if (user.role === 'admin') {
+      <!-- An admin is always treated as the top tier, so there is nothing to choose or save. -->
+      <strong class="plan-admin" data-plan-admin i18n="@@admin.planAdminAll">ผู้ดูแลระบบ เข้าถึงได้ทุกอย่าง</strong>
+    } @else {
+      <div class="plan-current">
+        <strong data-plan-label>{{ planLabel(user.effectivePlan) }}</strong>
+        @if (isLapsed(user)) {
+          <span class="plan-lapsed" data-plan-lapsed>{{ planEndedText(user) }}</span>
+        }
+        @if (overCap(user)) {
+          <span class="plan-overcap" data-over-cap>{{ overCapText(user) }}</span>
+        }
+      </div>
+      <!-- View mode only: the edit row's date field already holds it. -->
+      @if (!editing && user.planRenewsAt && user.effectivePlan !== 'free') {
+        <p class="muted plan-until" data-plan-until>{{ planUntil(user.planRenewsAt) }}</p>
+      }
+      <!-- The package is changed from the edit row only. -->
+      @if (editing) {
+        <div class="plan-controls">
+          <select
+            [attr.aria-label]="planAria"
+            [ngModel]="planOf(user)"
+            (ngModelChange)="setPlanDraft(user, $event)"
+            name="plan-{{ user.id }}"
+          >
+            @for (p of plans; track p) {
+              <option [value]="p">{{ planLabel(p) }}</option>
+            }
+          </select>
+          <input
+            type="date"
+            [attr.aria-label]="renewAria"
+            [ngModel]="renewOf(user)"
+            (ngModelChange)="setRenewDraft(user, $event)"
+            name="renew-{{ user.id }}"
+          />
+          <button type="button" class="add-month" data-plan-add-month (click)="addPlanMonth(user)" i18n="@@admin.planAddMonth">+1 เดือน</button>
+        </div>
+      }
+      @if (planSavedId() === user.id) {
+        <span class="muted plan-saved" data-plan-saved role="status" i18n="@@admin.planSaved">บันทึกแล้ว</span>
+      }
+      @if (planErrorId() === user.id) {
+        <p class="error" role="alert" i18n="@@admin.planFailed">บันทึกแพ็ก⁠เกจไม่สำเร็จ</p>
+      }
+    }
+  </td>
+</ng-template>

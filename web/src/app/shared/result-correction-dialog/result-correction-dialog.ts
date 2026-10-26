@@ -1,4 +1,4 @@
-import { Component, ElementRef, computed, input, output, signal, viewChild } from '@angular/core';
+import { Component, ElementRef, effect, input, output, signal, untracked, viewChild } from '@angular/core';
 
 export interface ResultCorrection {
   winner: 'A' | 'B' | null;
@@ -33,20 +33,30 @@ export class ResultCorrectionDialog {
   private readonly dialogEl = viewChild.required<ElementRef<HTMLDialogElement>>('dialog');
 
   protected readonly isOpen = signal(false);
-  protected readonly winner = signal<'A' | 'B' | null>(null);
   protected readonly scoreA = signal('');
   protected readonly scoreB = signal('');
   protected readonly localError = signal<string | null>(null);
 
-  protected readonly teamAName = computed(() => this.teamA().join(' + '));
-  protected readonly teamBName = computed(() => this.teamB().join(' + '));
+  constructor() {
+    // The parent picks the game and calls open() in the same tick, before this
+    // component's inputs have been refreshed, so open() alone reads the previous
+    // game's score (blank on the first open). Syncing whenever the input changes
+    // is what puts the right numbers in the boxes.
+    effect(() => {
+      const init = this.initial();
+      untracked(() => this.applyInitial(init));
+    });
+  }
 
-  open(): void {
-    const init = this.initial();
-    this.winner.set(init.winner);
+  private applyInitial(init: ResultCorrection): void {
     this.scoreA.set(init.scoreA === null ? '' : String(init.scoreA));
     this.scoreB.set(init.scoreB === null ? '' : String(init.scoreB));
     this.localError.set(null);
+  }
+
+  open(): void {
+    // Also resets edits left over from a cancelled attempt at the same game.
+    this.applyInitial(this.initial());
     this.isOpen.set(true);
     this.dialogEl().nativeElement.showModal();
   }
@@ -64,8 +74,24 @@ export class ResultCorrectionDialog {
     if (this.saving()) event.preventDefault();
   }
 
-  protected submit(): void {
+  /** In TS because the team names are dynamic inside the sentence; same id and wording as the live court's winner button. */
+  protected wonLabel(names: readonly string[]): string {
+    const team = names.join(' & ');
+    return $localize`:@@court.wonBy:${team}:team: ชนะ`;
+  }
+
+  /**
+   * Tapping a winner is the save: the winner plus whatever scores are filled in.
+   * `null` is "no result" (an abandoned game): it has no score by definition, so
+   * it clears both rather than making the host empty the boxes first.
+   */
+  protected choose(winner: 'A' | 'B' | null): void {
     if (this.saving()) return;
+    if (winner === null) {
+      this.localError.set(null);
+      this.save.emit({ winner: null, scoreA: null, scoreB: null });
+      return;
+    }
     const parse = (raw: string): number | null | 'bad' => {
       const t = raw.trim();
       if (t === '') return null;
@@ -74,7 +100,6 @@ export class ResultCorrectionDialog {
     };
     const a = parse(this.scoreA());
     const b = parse(this.scoreB());
-    const winner = this.winner();
     if (a === 'bad' || b === 'bad') {
       this.localError.set($localize`:@@resultFix.badScore:คะแนนต้องเป็นจำนวนเต็มตั้งแต่ 0`);
       return;
@@ -83,15 +108,9 @@ export class ResultCorrectionDialog {
       this.localError.set($localize`:@@resultFix.incompleteScore:ใส่คะแนนให้ครบทั้งสองทีม หรือเว้นว่างทั้งคู่`);
       return;
     }
-    if (a !== null && b !== null) {
-      if (winner === null) {
-        this.localError.set($localize`:@@resultFix.winnerNeeded:เลือกทีมที่ชนะเมื่อมีคะแนน`);
-        return;
-      }
-      if ((winner === 'A' && a <= b) || (winner === 'B' && b <= a)) {
-        this.localError.set($localize`:@@resultFix.mismatch:คะแนนไม่ตรงกับทีมที่ชนะ`);
-        return;
-      }
+    if (a !== null && b !== null && ((winner === 'A' && a <= b) || (winner === 'B' && b <= a))) {
+      this.localError.set($localize`:@@resultFix.mismatch:คะแนนไม่ตรงกับทีมที่ชนะ`);
+      return;
     }
     this.localError.set(null);
     this.save.emit({ winner, scoreA: a, scoreB: b });

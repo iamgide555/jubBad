@@ -594,6 +594,18 @@ describe('LiveSessionService', () => {
       });
     });
 
+    it('maps a 403 PLAN_REQUIRED refusal to the plan copy', async () => {
+      await flushSession(baseSession());
+      const promise = service.confirmMatch('pair1');
+      httpMock
+        .expectOne(`${B}/sessions/sess1/pairings/pair1/confirm`)
+        .flush({ code: 'PLAN_REQUIRED', requiredPlan: 'host' }, { status: 403, statusText: 'Forbidden' });
+      expect(await promise).toEqual({
+        ok: false,
+        error: 'ฟีเจอร์นี้ใช้ได้ในแพ็ก⁠เกจโฮสต์',
+      });
+    });
+
     it('maps the search-limit 503 apart from not-enough-players', async () => {
       await flushSession(baseSession());
       const promise = service.proposeMatch(1);
@@ -716,6 +728,18 @@ describe('LiveSessionService', () => {
       req.flush({ enabled: true, identities: [], games: [], heldShuttleIds: [], lastShuttleByCourt: [] });
       expect((await promise).enabled).toBe(true);
     });
+
+    it('saveBillConfig turns a PLAN_REQUIRED refusal into the upgrade message', async () => {
+      await flushSession(baseSession());
+      const promise = service.saveBillConfig({ hostFeeSatang: 500 });
+      httpMock.expectOne(`${B}/sessions/sess1/bill`).flush({ config: { hostFeeSatang: 0 } });
+      await new Promise((r) => setTimeout(r, 0));
+      httpMock
+        .expectOne(`${B}/sessions/sess1/bill-config`)
+        .flush({ code: 'PLAN_REQUIRED', requiredPlan: 'host' }, { status: 403, statusText: 'Forbidden' });
+      const result = await promise;
+      expect(result).toMatchObject({ ok: false });
+      expect((result as { error?: string }).error).toContain('ฟีเจอร์นี้ใช้ได้ในแพ็ก⁠เกจโฮสต์');
+    });
   });
 });
-

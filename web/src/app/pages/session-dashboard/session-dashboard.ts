@@ -5,6 +5,8 @@ import { Router, RouterLink } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
 import { environment } from '../../../environments/environment';
 import { LiveSessionService } from '../../core/live-session.service';
+import { isPaid, modesLockHint, planErrorMessage, type Plan } from '../../core/plan';
+import { PlanService } from '../../core/plan.service';
 import { RosterService } from '../../core/roster.service';
 import { absoluteUrl, copyToClipboard } from '../../core/share-link';
 import { resolvePlayerNames } from '../../core/player-names';
@@ -15,6 +17,7 @@ import { Odometer } from '../../core/motion/odometer';
 import { PressDirective } from '../../core/motion/press.directive';
 import { RevealDirective } from '../../core/motion/reveal.directive';
 import { Icon } from '../../shared/icon/icon';
+import { PlanLock } from '../../shared/plan-lock/plan-lock';
 import { LineupQueue } from './lineup-queue/lineup-queue';
 import { CourtPanel } from './court-panel/court-panel';
 import { EarlyCheckoutDialog, type CheckoutPlayer, type SettledPlayer } from './early-checkout-dialog/early-checkout-dialog';
@@ -67,6 +70,7 @@ function readRosterOpen(): boolean {
     AddRuleDialog,
     EarlyCheckoutDialog,
     LevelPicker,
+    PlanLock,
   ],
   providers: [LiveSessionService],
   templateUrl: './session-dashboard.html',
@@ -359,6 +363,13 @@ export class SessionDashboard implements OnDestroy {
 
   private readonly lineupQueue = viewChild<LineupQueue>('lineupQueue');
 
+  /**
+   * On the free plan adding to the lineup queue is locked, so the live screen hides both
+   * launchers while the queue is empty. A queue that already holds entries keeps them, so it can
+   * still be reordered and cleared. Paid and unknown plans always show them.
+   */
+  protected readonly showLineupLaunch = computed(() => this.paid() || this.liveSession.lineupQueue().length > 0);
+
   protected openLineups(): void {
     this.lineupQueue()?.open();
   }
@@ -465,6 +476,82 @@ export class SessionDashboard implements OnDestroy {
 
   readonly ended = computed(() => this.session()?.endedAt != null);
   readonly mode = computed(() => this.session()?.mode ?? 'variety');
+
+  private readonly planService = inject(PlanService);
+
+  /**
+   * The group owner's plan, read once the session names its group. A failed or
+   * still-pending read is `null`, which `isPaid` treats as paid: a hiccup must
+   * never lock a host out courtside (the server still refuses what the plan
+   * does not allow).
+   */
+  private readonly plan = signal<Plan | null>(null);
+  private readonly groupCode = computed(() => this.session()?.groupCode);
+
+  protected readonly paid = computed(() => isPaid(this.plan()));
+
+  private async loadPlan(groupCode: string): Promise<void> {
+    try {
+      this.plan.set((await firstValueFrom(this.planService.forGroup(groupCode))).plan);
+    } catch {
+      // Unknown plan: leave everything enabled; the server still refuses what the plan does not allow.
+    }
+  }
+
+  /**
+   * On the free plan สูสี and ตามระดับ cannot be switched ON. The session's
+   * current mode stays enabled, so a lapsed host's running session is never
+   * trapped, and สลับคู่ / เลือกเอง are always open.
+   */
+  protected modeLocked(mode: 'variety' | 'balanced' | 'level' | 'custom'): boolean {
+    return !this.paid() && (mode === 'balanced' || mode === 'level') && this.mode() !== mode;
+  }
+
+  protected readonly modesLockHint = modesLockHint();
+
+  /**
+   * A free host on สูสี / ตามระดับ (a lapsed host's running session) who switches to สลับคู่ or
+   * เลือกเอง cannot switch back — so that one press asks first, inline. Paid and unknown plans
+   * switch immediately, as before.
+   */
+  protected readonly pendingModeSwitch = signal<'variety' | 'custom' | null>(null);
+
+  private isOneWaySwitch(mode: 'variety' | 'balanced' | 'level' | 'custom'): mode is 'variety' | 'custom' {
+    const current = this.mode();
+    return (
+      !this.paid() &&
+      (current === 'balanced' || current === 'level') &&
+      (mode === 'variety' || mode === 'custom')
+    );
+  }
+
+  /** The mode toggle's press: asks first when the switch is one-way on this plan. */
+  async requestMode(mode: 'variety' | 'balanced' | 'level' | 'custom'): Promise<void> {
+    if (this.isOneWaySwitch(mode)) {
+      this.pendingModeSwitch.set(mode);
+      return;
+    }
+    this.pendingModeSwitch.set(null);
+    await this.setMode(mode);
+  }
+
+  async confirmModeSwitch(): Promise<void> {
+    const mode = this.pendingModeSwitch();
+    this.pendingModeSwitch.set(null);
+    if (mode) await this.setMode(mode);
+  }
+
+  cancelModeSwitch(): void {
+    this.pendingModeSwitch.set(null);
+  }
+
+  /** "You can't come back to สูสี": names the mode being given up, never "this mode". */
+  protected readonly modeOneWayText = computed(() => {
+    const mode = this.mode() === 'level'
+      ? $localize`:@@dashboard.modeNameLevel:ตามระดับ`
+      : $localize`:@@dashboard.modeNameBalanced:สูสี`;
+    return $localize`:@@dashboard.modeOneWayNamed:เปลี่ยนแล้วจะกลับมาใช้${mode}:mode:ไม่ได้ในแพ็ก⁠เกจนี้`;
+  });
   /** Custom session only: true when at least one court is set to ระดับ, so
    *  the shared waiting list (which stays games-then-wait in a custom
    *  session — see waiting-time.ts) can warn that a level court may pick
@@ -495,6 +582,11 @@ export class SessionDashboard implements OnDestroy {
     effect(() => {
       if (this.liveSession.shuttleTools()) void this.loadCheckouts();
     });
+    // Once the first session read names the group, read its plan (once: the code is a string, so polls do not retrigger).
+    effect(() => {
+      const code = this.groupCode();
+      if (code) void this.loadPlan(code);
+    });
     // Once the first session read names the group, read its ladder.
     effect(() => {
       if (this.session()?.groupCode) void this.loadLadder();
@@ -520,6 +612,9 @@ export class SessionDashboard implements OnDestroy {
       enabled: !off.has(r.id),
     }));
   });
+
+  /** False in a session created on free: rules are listed but do nothing there. */
+  protected readonly rulesActive = computed(() => this.liveSession.sessionRules()?.rulesActive !== false);
 
   protected readonly rulesError = signal<string | null>(null);
 
@@ -561,7 +656,7 @@ export class SessionDashboard implements OnDestroy {
       await firstValueFrom(this.roster.createRule(groupCode, rule));
     } catch (err) {
       this.addRuleSaving.set(false);
-      this.addRuleError.set(ruleErrorMessage(err));
+      this.addRuleError.set(planErrorMessage(err) ?? ruleErrorMessage(err));
       return;
     }
     await this.liveSession.loadSessionRules();

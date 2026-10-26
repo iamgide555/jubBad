@@ -70,6 +70,14 @@ model User {
   /// what makes revocation per-user instead of all-or-nothing — without it a
   /// disabled user's phone would keep working for the cookie's full 30 days.
   tokenVersion Int      @default(0)
+  /// 'free' | 'host' | 'club'. The default 'club' is what makes the plan-gating
+  /// deploy dormant: every existing user keeps every feature and no group cap
+  /// until an admin sets a lower plan. New users are set by an admin too. See
+  /// server/src/plans/plan.ts and docs/2026-10-06-pricing-tiers.md.
+  plan         String   @default("club")
+  /// A paid plan lapses to free once now > planRenewsAt. Null means it never
+  /// lapses.
+  planRenewsAt DateTime?
   createdAt    DateTime @default(now())
   groups       Group[]
   resets       PasswordReset[]

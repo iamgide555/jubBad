@@ -275,7 +275,7 @@
                           }
                         </span>
                         @if (m.resultCorrected) {
-                          <span class="muted stat-games" i18n="@@summary.resultCorrected">แก้ไขแล้ว</span>
+                          <span class="muted stat-games result-corrected" i18n="@@summary.resultCorrected">แก้ไขแล้ว</span>
                         }
                         @if (canCorrectResult()) {
                           <button type="button" class="ghost fix-result" data-edit-result (click)="openResultCorrection(m)" i18n="@@summary.fixResult">แก้ผล</button>

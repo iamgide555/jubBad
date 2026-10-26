@@ -163,6 +163,10 @@
   margin-top: var(--space-2);
 }
 
+.plan-line {
+  margin: var(--space-2) var(--space-1) 0;
+}
+
 @keyframes settings-in {
   from {
     opacity: 0;
@@ -224,6 +228,23 @@
 .row-desc {
   color: var(--ink-soft);
   font-size: var(--text-sm);
+}
+
+/* A row whose page holds nothing a free host can do: the same row, greyed, with
+   no chevron and the plan badge where the status badge sits. It is a button that
+   opens the upgrade sheet, so it keeps the pointer and the hover tint. */
+button.row {
+  width: 100%;
+  border: 0;
+  background: none;
+  font: inherit;
+  text-align: start;
+  cursor: pointer;
+}
+
+.row.locked .row-title,
+.row.locked .row-desc {
+  color: var(--ink-faint);
 }
 
 .row-chevron {
@@ -305,6 +326,11 @@
 
 .past {
   margin-top: var(--space-4);
+}
+
+.archive-note {
+  margin: 0 0 var(--space-1);
+  font-size: var(--text-sm);
 }
 
 @media (prefers-reduced-motion: reduce) {

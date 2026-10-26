@@ -1,0 +1,35 @@
+:host {
+  display: block;
+}
+
+/* Quiet by design: a status line, not an alarm. The action is the only coloured part. */
+.plan-notice {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0 var(--space-1);
+  margin: var(--space-2) 0;
+  padding: var(--space-1) var(--space-2);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--ground-sunk);
+  color: var(--ink);
+  font-size: var(--text-sm);
+}
+
+.notice-text {
+  flex: 1 1 14rem;
+  min-width: 0;
+}
+
+.notice-action {
+  min-height: var(--tap);
+  padding: 0 var(--space-1);
+  border: 0;
+  background: none;
+  color: var(--court-ink);
+  font: inherit;
+  font-weight: 600;
+  text-decoration: underline;
+  cursor: pointer;
+}

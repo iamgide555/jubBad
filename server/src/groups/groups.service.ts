@@ -5,6 +5,8 @@ import { matchRoster } from '../../../engines/fuzzy-match.ts';
 import { GroupLevelsService } from './group-levels.service.js';
 import { parseLineRosterMessage } from '../../../engines/parser.ts';
 import type { RuleKind } from '../../../engines/pair-rules.ts';
+import { FREE_ARCHIVE_DAYS, planAtLeast } from '../plans/plan.js';
+import { PlansService } from '../plans/plans.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { parseGroupLadder } from './group-levels.js';
 import { levelWrite, loadPlayerLevels, loadRatingAnchors } from '../player-levels.js';
@@ -38,7 +40,8 @@ export class GroupsService {
 
   constructor(
     private readonly prisma: PrismaService,
-    private readonly groupLevels: GroupLevelsService
+    private readonly groupLevels: GroupLevelsService,
+    private readonly plans: PlansService
   ) {}
 
   /**
@@ -69,6 +72,12 @@ export class GroupsService {
       },
     });
 
+    // One cap lookup per distinct owner, however many groups the list holds.
+    const pausedByOwner = new Map<string, Set<string>>();
+    for (const ownerId of new Set(groups.map((g) => g.ownerId).filter((id): id is string => id !== null))) {
+      pausedByOwner.set(ownerId, await this.plans.pausedGroupCodes(ownerId));
+    }
+
     return groups
       .map((group) => {
         const last = group.sessions[0] ?? null;
@@ -79,6 +88,7 @@ export class GroupsService {
           playerCount: group._count.players,
           lastSessionCode: last?.code ?? null,
           lastSessionAt: last?.createdAt.toISOString() ?? null,
+          paused: group.ownerId ? (pausedByOwner.get(group.ownerId)?.has(group.code) ?? false) : false,
           // Admin only: a host's own response carries no owner fields at all,
           // so another host's email can never ride along on this endpoint.
           ...(caller.role === 'admin'
@@ -117,6 +127,11 @@ export class GroupsService {
    * case the row that won is read back and judged the same way.
    */
   async create(dto: CreateGroupDto, caller: Caller) {
+    // Only a code with no group yet counts toward the plan's limit, so a retry
+    // on an existing own code is never refused and a taken code keeps its 404.
+    if (!(await this.prisma.group.findUnique({ where: { code: dto.code }, select: { code: true } }))) {
+      await this.plans.assertCanCreateGroup(caller);
+    }
     let group: { code: string; name: string | null; ownerId: string | null } | null;
     try {
       group = await this.prisma.group.upsert({
@@ -183,6 +198,10 @@ export class GroupsService {
     if (!group) throw new NotFoundException();
 
     const players = await this.prisma.player.findMany({ where: { groupId: code } });
+    // Ratings and win rate are a paid view. The free plan gets nulls, but the
+    // replay below always runs over the full history, so an upgrade shows
+    // ratings that include every past session.
+    const showRatings = planAtLeast(await this.plans.planForGroup(code), 'host');
     const matches = await this.finishedMatches(code);
     const decisiveMatches = matches.filter(
       (m): m is typeof m & { winner: 'A' | 'B' } => m.winner !== null
@@ -218,9 +237,11 @@ export class GroupsService {
         email: p.email,
         phone: p.phone,
         level: levels.get(p.id) ?? null,
-        rating: Math.round(ratings.doubles.get(p.id) ?? anchors.get(p.id)?.rating ?? STARTING_RATING),
-        singlesRating: ratings.singles.has(p.id) ? Math.round(ratings.singles.get(p.id)!) : null,
-        winRate: !row || row.decisive === 0 ? null : row.won / row.decisive,
+        rating: !showRatings
+          ? null
+          : Math.round(ratings.doubles.get(p.id) ?? anchors.get(p.id)?.rating ?? STARTING_RATING),
+        singlesRating: showRatings && ratings.singles.has(p.id) ? Math.round(ratings.singles.get(p.id)!) : null,
+        winRate: !showRatings || !row || row.decisive === 0 ? null : row.won / row.decisive,
       };
     });
   }
@@ -293,12 +314,20 @@ export class GroupsService {
     return { id: updated.id, level: updated.level };
   }
 
-  async listSessions(code: string) {
+  /**
+   * The free plan's archive is the last FREE_ARCHIVE_DAYS days. This list is the
+   * only place that window applies: older sessions stay readable by their public
+   * summary link and still count toward ratings (see finishedMatches).
+   */
+  async listSessions(code: string, now: Date = new Date()) {
     const group = await this.prisma.group.findUnique({ where: { code } });
     if (!group) throw new NotFoundException();
 
+    const archiveStart = planAtLeast(await this.plans.planForGroup(code, now), 'host')
+      ? undefined
+      : new Date(now.getTime() - FREE_ARCHIVE_DAYS * 24 * 60 * 60 * 1000);
     const sessions = await this.prisma.session.findMany({
-      where: { groupId: code },
+      where: { groupId: code, ...(archiveStart ? { createdAt: { gte: archiveStart } } : {}) },
       orderBy: { createdAt: 'desc' },
       include: {
         _count: {
@@ -590,16 +619,27 @@ export class GroupsService {
     if (clash) throw new ConflictException({ code: 'PAIR_RULE_MUST_PAIR_TAKEN', ruleId: clash.id });
   }
 
-  async exportGroup(code: string) {
+  /**
+   * The owner's data export. On the free plan it is limited, like the archive
+   * list, to sessions from the last FREE_ARCHIVE_DAYS days (by createdAt); each
+   * session carries its own matches, checkouts and shuttles, so those are
+   * windowed with it. Players, aliases, rules and the level ladder are not
+   * windowed. A paid owner gets everything.
+   */
+  async exportGroup(code: string, now: Date = new Date()) {
     const group = await this.prisma.group.findUnique({ where: { code } });
     if (!group) throw new NotFoundException();
+
+    const archiveStart = planAtLeast(await this.plans.planForGroup(code, now), 'host')
+      ? undefined
+      : new Date(now.getTime() - FREE_ARCHIVE_DAYS * 24 * 60 * 60 * 1000);
 
     const ladder = parseGroupLadder(group.levelLadder);
     const [players, rules, sessions] = await Promise.all([
       this.prisma.player.findMany({ where: { groupId: code } }),
       this.prisma.playerRule.findMany({ where: { groupId: code }, orderBy: [{ createdAt: 'asc' }, { id: 'asc' }] }),
       this.prisma.session.findMany({
-        where: { groupId: code },
+        where: { groupId: code, ...(archiveStart ? { createdAt: { gte: archiveStart } } : {}) },
         orderBy: { createdAt: 'asc' },
         include: {
           roster: true,
@@ -762,6 +802,11 @@ export class GroupsService {
    * letting them import a roster into someone else's new group.
    */
   async parse(code: string, dto: ParseRosterDto, caller: Caller) {
+    // Same rule as create: the limit applies only when this call would make a
+    // new group, and runs before the upsert so the claim logic below is untouched.
+    if (!(await this.prisma.group.findUnique({ where: { code }, select: { code: true } }))) {
+      await this.plans.assertCanCreateGroup(caller);
+    }
     const group = await this.prisma.group.upsert({
       where: { code },
       create: { code, name: dto.groupName, ownerId: caller.id },

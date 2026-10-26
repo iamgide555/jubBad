@@ -108,3 +108,23 @@
   font-size: var(--text-sm);
   font-weight: 600;
 }
+
+.export-note {
+  margin-top: var(--space-1);
+}
+
+/* ON, but a free owner's new rounds snapshot it off: still checked and still clickable (so it
+   can be turned off), drawn muted so it does not claim to be doing anything. */
+.switch-row input.inactive {
+  accent-color: var(--ink-faint);
+  opacity: 0.7;
+}
+
+.inactive-hint {
+  color: var(--ink-soft);
+  font-size: var(--text-sm);
+}
+
+.advanced-lock {
+  margin-top: var(--space-1);
+}

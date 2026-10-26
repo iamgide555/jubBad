@@ -1,4 +1,4 @@
-import { provideHttpClient } from '@angular/common/http';
+import { HttpErrorResponse, provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { ActivatedRoute, convertToParamMap, provideRouter, Router } from '@angular/router';
@@ -9,6 +9,9 @@ import { ClockService } from '../../core/clock.service';
 import { environment } from '../../../environments/environment';
 import type { Session } from '../../core/session.model';
 import { standardLadderFixture } from '../../core/group-levels.testing';
+import { planRequiredMessage, type GroupPlan } from '../../core/plan';
+import { PlanService } from '../../core/plan.service';
+import { Subject } from 'rxjs';
 
 const B = environment.apiBaseUrl;
 
@@ -61,13 +64,29 @@ function baseSession(overrides: Partial<Session> = {}): Session {
 describe('SessionDashboard', () => {
   let fixture: ComponentFixture<SessionDashboard>;
   let httpMock: HttpTestingController;
+  // The plan read is stubbed (an open HTTP request would keep fixture.whenStable() waiting in
+  // every spec that is not about plans). It never answers unless a test pushes a reply, and an
+  // unanswered plan means "unknown", which locks nothing.
+  let planReply: Subject<GroupPlan>;
+  let planCalls: string[];
 
   beforeEach(async () => {
     // The roster starts collapsed in the app; most specs here drive its chips, so they start expanded.
     localStorage.setItem('jubbad.dashboard.rosterOpen', '1');
+    planReply = new Subject<GroupPlan>();
+    planCalls = [];
     await TestBed.configureTestingModule({
       imports: [SessionDashboard],
       providers: [
+        {
+          provide: PlanService,
+          useValue: {
+            forGroup: (groupCode: string) => {
+              planCalls.push(groupCode);
+              return planReply;
+            },
+          },
+        },
         provideHttpClient(),
         provideHttpClientTesting(),
         provideRouter(routes),
@@ -1642,8 +1661,10 @@ describe('SessionDashboard', () => {
     };
     const text = () => (fixture.nativeElement as HTMLElement).textContent ?? '';
 
-    async function flushRules(disabledRuleIds: string[] = [], rules = [rule]) {
-      for (const r of httpMock.match(`${B}/sessions/sess1/rules`)) r.flush({ rules, disabledRuleIds });
+    async function flushRules(disabledRuleIds: string[] = [], rules = [rule], rulesActive?: boolean) {
+      for (const r of httpMock.match(`${B}/sessions/sess1/rules`)) {
+        r.flush(rulesActive === undefined ? { rules, disabledRuleIds } : { rules, disabledRuleIds, rulesActive });
+      }
       await fixture.whenStable();
       fixture.detectChanges();
     }
@@ -1675,6 +1696,21 @@ describe('SessionDashboard', () => {
       expect(ruleToggle().checked).toBe(true);
       // The group's own rule list is never written from the dashboard.
       expect(httpMock.match((r) => r.url.includes('/groups/group1/rules'))).toEqual([]);
+    });
+
+    it('says the rules are off, and freezes their switches, in a session created on the free plan', async () => {
+      await settled();
+      await flushRules([], [rule], false);
+      expect(text()).toContain('กฎไม่ใช้ในรอบนี้ — รอบนี้เริ่มในแพ็ก⁠เกจฟรี');
+      expect(text()).toContain('ตั้ม · เบส');
+      expect(ruleToggle().disabled).toBe(true);
+    });
+
+    it('shows no inactive note and enabled switches when the rules are active or the flag is absent', async () => {
+      await settled();
+      await flushRules([], [rule], true);
+      expect(text()).not.toContain('กฎไม่ใช้ในรอบนี้');
+      expect(ruleToggle().disabled).toBe(false);
     });
 
     it('picks up a rule added in another tab when the window regains focus', async () => {
@@ -1771,6 +1807,22 @@ describe('SessionDashboard', () => {
         // Nothing was created, so the rules are not re-read.
         expect(httpMock.match(`${B}/sessions/sess1/rules`)).toEqual([]);
       });
+
+      it('shows the plan message, not the generic failure, when the server answers 403 PLAN_REQUIRED', async () => {
+        await settled();
+        await flushRules([], []);
+        await openAndFill();
+
+        (dialog().querySelector('[data-submit-rule]') as HTMLButtonElement).click();
+        httpMock
+          .expectOne(`${B}/groups/group1/rules`)
+          .flush({ code: 'PLAN_REQUIRED', requiredPlan: 'host' }, { status: 403, statusText: 'Forbidden' });
+        await new Promise((r) => setTimeout(r, 0));
+        fixture.detectChanges();
+
+        expect(dialog().hasAttribute('open')).toBe(true);
+        expect(dialog().textContent).toContain(planRequiredMessage());
+      });
     });
 
     async function fill(response: object) {
@@ -1800,5 +1852,241 @@ describe('SessionDashboard', () => {
       expect(text()).not.toContain('ผู้เล่นไม่พอ');
     });
   });
-});
 
+  describe('plan lock', () => {
+    type PlanReply = 'free' | 'host' | 'club' | 'error' | 'pending';
+
+    async function loadWithPlan(session: Session, reply: PlanReply) {
+      fixture = TestBed.createComponent(SessionDashboard);
+      fixture.detectChanges();
+      httpMock.expectOne(`${B}/sessions/sess1`).flush(session);
+      await new Promise((r) => setTimeout(r, 0));
+      TestBed.tick();
+      httpMock.expectOne(`${B}/groups/group1/players`).flush([]);
+      httpMock.expectOne(`${B}/sessions/sess1/stats?scope=session`).flush([]);
+      if (reply === 'error') planReply.error(new HttpErrorResponse({ status: 500 }));
+      else if (reply !== 'pending') planReply.next({ plan: reply, renewsAt: null, lapsedAt: null, paused: false, archiveHidden: 0 });
+      await fixture.whenStable();
+      fixture.detectChanges();
+    }
+    const el = () => fixture.nativeElement as HTMLElement;
+    const modeBtn = (m: string) => el().querySelector(`.mode-toggle [data-mode="${m}"]`) as HTMLButtonElement;
+    const lockedModes = () => ['variety', 'balanced', 'level', 'custom'].filter((m) => modeBtn(m).disabled);
+
+    it('reads the plan once, from the session\'s group', async () => {
+      await loadWithPlan(baseSession({ groupCode: 'group1' }), 'free');
+      expect(planCalls).toEqual(['group1']);
+    });
+
+    it('free: สูสี and ตามระดับ are disabled with the lock hint; สลับคู่ and เลือกเอง are not', async () => {
+      await loadWithPlan(baseSession(), 'free');
+      expect(lockedModes()).toEqual(['balanced', 'level']);
+      expect(el().querySelector('.mode-toggle app-plan-lock')).toBeTruthy();
+    });
+
+    it('free: a session already on สูสี keeps สลับคู่ and เลือกเอง enabled, and สูสี itself', async () => {
+      await loadWithPlan(baseSession({ mode: 'balanced' }), 'free');
+      expect(lockedModes()).toEqual(['level']);
+    });
+
+    it('free: a session already on ตามระดับ can still switch away', async () => {
+      await loadWithPlan(baseSession({ mode: 'level' }), 'free');
+      expect(lockedModes()).toEqual(['balanced']);
+    });
+
+    for (const reply of ['host', 'club', 'error', 'pending'] as const) {
+      it(`${reply}: nothing is locked and no lock hint shows`, async () => {
+        await loadWithPlan(baseSession({ mode: 'custom', courts: [{ status: 'idle', format: 'doubles', mode: 'level' }] }), reply);
+        expect(lockedModes()).toEqual([]);
+        expect(el().querySelector('.court-mode-toggle button:disabled')).toBeNull();
+        expect(el().querySelector('.court-target-toggle button:disabled')).toBeNull();
+        expect(el().querySelector('app-lineup-queue .lq-add:disabled')).toBeNull();
+        expect(el().querySelector('app-plan-lock')).toBeNull();
+      });
+    }
+
+    const addRule = () => el().querySelector('[data-add-rule]') as HTMLButtonElement;
+    const addRuleLock = () => el().querySelector('.roster-actions app-plan-lock');
+
+    it('free: the add-rule button and its lock note are hidden on the live screen', async () => {
+      await loadWithPlan(baseSession(), 'free');
+      expect(addRule()).toBeNull();
+      expect(addRuleLock()).toBeNull();
+      // The rest of the row stays.
+      expect(el().querySelector('.roster-actions [data-add-walk-in]')).toBeTruthy();
+      expect(el().querySelector('.roster-actions [data-player-panel-toggle]')).toBeTruthy();
+    });
+
+    it("free: tonight's rules list and each rule's toggle stay as they are", async () => {
+      await loadWithPlan(baseSession(), 'free');
+      const rule = { id: 'r1', groupId: 'g1', playerAId: 'p1', playerBId: 'p2', kind: 'never-teammates' as const, createdAt: '2026-09-30T00:00:00.000Z' };
+      for (const r of httpMock.match(`${B}/sessions/sess1/rules`)) r.flush({ rules: [rule], disabledRuleIds: [] });
+      await fixture.whenStable();
+      fixture.detectChanges();
+      expect(el().querySelector('.session-rules summary')?.textContent).toContain('กฎการจับคู่คืนนี้ (1)');
+      const toggle = el().querySelector('.session-rules input[type="checkbox"]') as HTMLInputElement;
+      expect(toggle.disabled).toBe(false);
+      expect(toggle.checked).toBe(true);
+    });
+
+    for (const reply of ['host', 'error'] as const) {
+      it(`${reply}: the add-rule button is enabled with no lock hint`, async () => {
+        await loadWithPlan(baseSession(), reply);
+        expect(addRule().disabled).toBe(false);
+        expect(addRuleLock()).toBeNull();
+      });
+    }
+
+    describe('lineup queue launchers', () => {
+      const launchers = () => el().querySelectorAll('[data-lineup-open]');
+      const queued = [{ id: 'q1', position: 0, teamA: ['p1', null], teamB: ['p2', null], blocked: [] }];
+
+      it('free with nothing queued: both launchers are hidden and the rail slot is gone', async () => {
+        await loadWithPlan(baseSession(), 'free');
+        expect(launchers().length).toBe(0);
+        expect(el().querySelector('.wq-lineup')).toBeNull();
+        expect(el().querySelector('.lineup-launch')).toBeNull();
+      });
+
+      it('free with a lineup already queued: both launchers stay so the queue can be managed', async () => {
+        await loadWithPlan(baseSession({ lineupQueue: queued }), 'free');
+        expect(launchers().length).toBe(2);
+        expect(el().querySelector('.wq-lineup [data-lineup-open]')).toBeTruthy();
+        expect(el().querySelector('.court-toolbar [data-lineup-open]')).toBeTruthy();
+      });
+
+      for (const reply of ['host', 'club', 'error', 'pending'] as const) {
+        it(`${reply}: both launchers show even with nothing queued`, async () => {
+          await loadWithPlan(baseSession(), reply);
+          expect(launchers().length).toBe(2);
+          expect(el().querySelector('.wq-lineup')).toBeTruthy();
+        });
+      }
+    });
+
+    for (const reply of ['host', 'club', 'error', 'pending'] as const) {
+      it(`${reply}: a เลือกเอง court on เลือกเอง keeps its per-court mode toggle`, async () => {
+        await loadWithPlan(baseSession({ mode: 'custom', courts: [{ status: 'idle', format: 'doubles', mode: 'custom' }] }), reply);
+        expect(el().querySelectorAll('.court-mode-toggle button').length).toBe(4);
+      });
+    }
+
+    it('free: the mode lock says which modes need the Host plan', async () => {
+      await loadWithPlan(baseSession(), 'free');
+      const lock = el().querySelector('.mode-toggle app-plan-lock')?.textContent ?? '';
+      expect(lock).toContain('โหมดสูสีและตามระดับใช้ได้ในแพ็ก⁠เกจโฮสต์');
+      expect(lock).toContain('ดูแพ็ก⁠เกจ');
+    });
+
+    describe('one-way switch away from a paid mode', () => {
+      const confirmBox = () => el().querySelector('.mode-toggle [data-mode-confirm]');
+      const modePosts = () => httpMock.match(`${B}/sessions/sess1/mode`);
+      async function drainAfterSwitch(mode: Session['mode']) {
+        for (let round = 0; round < 5; round++) {
+          await new Promise((r) => setTimeout(r, 0));
+          TestBed.tick();
+          const pending = [
+            ...httpMock.match(`${B}/sessions/sess1`),
+            ...httpMock.match(`${B}/groups/group1/players`),
+            ...httpMock.match(`${B}/sessions/sess1/stats?scope=session`),
+          ];
+          if (pending.length === 0) break;
+          for (const r of pending) {
+            if (r.request.url.endsWith('/sessions/sess1')) r.flush(baseSession({ mode }));
+            else r.flush([]);
+          }
+        }
+        fixture.detectChanges();
+      }
+
+      it('free on สูสี: pressing สลับคู่ asks first and sends nothing', async () => {
+        await loadWithPlan(baseSession({ mode: 'balanced' }), 'free');
+        modeBtn('variety').click();
+        fixture.detectChanges();
+        expect(modePosts()).toEqual([]);
+        expect(confirmBox()?.textContent).toContain('เปลี่ยนแล้วจะกลับมาใช้สูสีไม่ได้ในแพ็ก⁠เกจนี้');
+      });
+
+      it('free on ตามระดับ: the confirm names ตามระดับ, not "this mode"', async () => {
+        await loadWithPlan(baseSession({ mode: 'level' }), 'free');
+        modeBtn('custom').click();
+        fixture.detectChanges();
+        expect(confirmBox()?.textContent).toContain('เปลี่ยนแล้วจะกลับมาใช้ตามระดับไม่ได้ในแพ็ก⁠เกจนี้');
+        expect(confirmBox()?.textContent).not.toContain('โหมดนี้');
+      });
+
+      it('free on สูสี: the mode description sits right under the toggle, then the lock, then the confirm', async () => {
+        await loadWithPlan(baseSession({ mode: 'balanced' }), 'free');
+        modeBtn('variety').click();
+        fixture.detectChanges();
+        const kids = [...el().querySelector('.mode-toggle')!.children].map((c) =>
+          c.classList.contains('scope-toggle')
+            ? 'toggle'
+            : c.classList.contains('mode-hint')
+              ? 'hint'
+              : c.tagName === 'APP-PLAN-LOCK'
+                ? 'lock'
+                : c.hasAttribute('data-mode-confirm')
+                  ? 'confirm'
+                  : 'other'
+        );
+        const order = kids.filter((k) => k !== 'other');
+        expect(order.slice(0, 2)).toEqual(['toggle', 'hint']);
+        expect(order.indexOf('lock')).toBeGreaterThan(order.lastIndexOf('hint'));
+        expect(order.indexOf('confirm')).toBeGreaterThan(order.indexOf('lock'));
+      });
+
+      it('free on สูสี: cancel closes the confirm and keeps the mode', async () => {
+        await loadWithPlan(baseSession({ mode: 'balanced' }), 'free');
+        modeBtn('variety').click();
+        fixture.detectChanges();
+        (confirmBox()!.querySelector('[data-mode-confirm-cancel]') as HTMLButtonElement).click();
+        fixture.detectChanges();
+        expect(confirmBox()).toBeNull();
+        expect(modePosts()).toEqual([]);
+        expect(modeBtn('balanced').classList).toContain('active');
+      });
+
+      it('free on ตามระดับ: confirming performs the switch to เลือกเอง', async () => {
+        await loadWithPlan(baseSession({ mode: 'level' }), 'free');
+        modeBtn('custom').click();
+        fixture.detectChanges();
+        expect(modePosts()).toEqual([]);
+        (confirmBox()!.querySelector('[data-mode-confirm-ok]') as HTMLButtonElement).click();
+        const req = httpMock.expectOne(`${B}/sessions/sess1/mode`);
+        expect(req.request.body).toEqual({ mode: 'custom' });
+        req.flush({ code: 'sess1', mode: 'custom' });
+        await drainAfterSwitch('custom');
+        expect(confirmBox()).toBeNull();
+      });
+
+      it('free on สลับคู่: switching to เลือกเอง is immediate (nothing paid is given up)', async () => {
+        await loadWithPlan(baseSession({ mode: 'variety' }), 'free');
+        modeBtn('custom').click();
+        const req = httpMock.expectOne(`${B}/sessions/sess1/mode`);
+        req.flush({ code: 'sess1', mode: 'custom' });
+        await drainAfterSwitch('custom');
+        expect(confirmBox()).toBeNull();
+      });
+
+      for (const reply of ['host', 'error', 'pending'] as const) {
+        it(`${reply}: switching away from สูสี is immediate`, async () => {
+          await loadWithPlan(baseSession({ mode: 'balanced' }), reply);
+          modeBtn('variety').click();
+          const req = httpMock.expectOne(`${B}/sessions/sess1/mode`);
+          expect(req.request.body).toEqual({ mode: 'variety' });
+          req.flush({ code: 'sess1', mode: 'variety' });
+          await drainAfterSwitch('variety');
+          expect(confirmBox()).toBeNull();
+        });
+      }
+    });
+
+    it('free: the court panels and the lineup queue are told the plan', async () => {
+      await loadWithPlan(baseSession({ mode: 'custom', courts: [{ status: 'idle', format: 'doubles', mode: 'level' }] }), 'free');
+      const courtModes = [...el().querySelectorAll<HTMLButtonElement>('.court-mode-toggle button')];
+      expect(courtModes.filter((b) => b.disabled).map((b) => b.textContent?.trim())).toEqual(['สลับคู่', 'สูสี']);
+      expect((el().querySelector('app-lineup-queue .lq-add') as HTMLButtonElement).disabled).toBe(true);
+    });
+  });
+});

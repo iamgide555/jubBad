@@ -8,6 +8,7 @@ import { AuthService } from '../../core/auth.service';
 import { RosterDraftService, type RosterDraft } from '../../core/roster-draft.service';
 import { standardLadderFixture } from '../../core/group-levels.testing';
 import { environment } from '../../../environments/environment';
+import { stubPlanService } from '../../core/plan.testing';
 
 const B = environment.apiBaseUrl;
 
@@ -32,11 +33,14 @@ describe('GroupEntry', () => {
   let component: GroupEntry;
   let fixture: ComponentFixture<GroupEntry>;
   let httpMock: HttpTestingController;
+  let plan: ReturnType<typeof stubPlanService>;
 
   beforeEach(async () => {
+    plan = stubPlanService();
     await TestBed.configureTestingModule({
       imports: [GroupEntry],
       providers: [
+        plan.provider,
         provideHttpClient(),
         provideHttpClientTesting(),
         provideRouter(routes),
@@ -210,6 +214,45 @@ describe('GroupEntry', () => {
     expect(component).toBeTruthy();
   });
 
+  describe('plan notice and a paused group', () => {
+    const root = () => fixture.nativeElement as HTMLElement;
+    const notice = () => root().querySelector('[data-plan-notice]');
+    const pasteBox = () => root().querySelector('textarea');
+
+    it('shows the paste form and no notice while the plan is unknown', () => {
+      fixture.detectChanges();
+      expect(plan.calls).toEqual(['group1']);
+      expect(notice()).toBeNull();
+      expect(pasteBox()).not.toBeNull();
+    });
+
+    it('a lapsed plan puts the notice above the form and the form still works', async () => {
+      const lapsed = new Date(Date.now() - 5 * 24 * 3600 * 1000).toISOString();
+      plan.answer('free', lapsed, { lapsedAt: lapsed });
+      await fixture.whenStable();
+      fixture.detectChanges();
+      expect(notice()?.getAttribute('data-plan-notice')).toBe('lapsed');
+      expect(pasteBox()).not.toBeNull();
+      expect(notice()!.compareDocumentPosition(pasteBox()!) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    });
+
+    it('a paused group shows the notice instead of the paste form', async () => {
+      plan.answer('free', null, { paused: true });
+      await fixture.whenStable();
+      fixture.detectChanges();
+      expect(notice()?.getAttribute('data-plan-notice')).toBe('paused');
+      expect(pasteBox()).toBeNull();
+    });
+
+    it('a failed plan read blocks nothing', async () => {
+      plan.fail();
+      await fixture.whenStable();
+      fixture.detectChanges();
+      expect(notice()).toBeNull();
+      expect(pasteBox()).not.toBeNull();
+    });
+  });
+
 
   it('starts in the paste state', () => {
     expect(component.state()).toBe('paste');
@@ -247,6 +290,20 @@ describe('GroupEntry', () => {
 
     expect(component.state()).toBe('paste');
     expect(component.pasteError()).toContain('ไม่พบรายชื่อผู้เล่น');
+  });
+
+  it('says the plan allows no more groups when parsing is refused with GROUP_LIMIT', async () => {
+    component.groupName.set('Group A');
+    component.rawText.set('1. Alice');
+    const refused = component.parse();
+    httpMock
+      .expectOne(`${B}/groups/group1/parse`)
+      .flush({ code: 'GROUP_LIMIT', limit: 1 }, { status: 403, statusText: 'Forbidden' });
+    await refused;
+    expect(component.state()).toBe('paste');
+    expect(component.rawText()).toBe('1. Alice');
+    expect(component.pasteError()).toContain('สร้างได้ 1 ก๊วน');
+    expect(component.pasteError()).not.toContain('อ่านรายชื่อไม่สำเร็จ');
   });
 
   it('keeps pasted input and allows a retry when parsing fails', async () => {
@@ -777,6 +834,7 @@ describe('GroupEntry manual roster add UI (Task 2)', () => {
     await TestBed.configureTestingModule({
       imports: [GroupEntry],
       providers: [
+        stubPlanService().provider,
         provideHttpClient(),
         provideHttpClientTesting(),
         provideRouter(routes),
@@ -962,6 +1020,7 @@ describe('GroupEntry manual roster add — behavior (Task 3)', () => {
     await TestBed.configureTestingModule({
       imports: [GroupEntry],
       providers: [
+        stubPlanService().provider,
         provideHttpClient(),
         provideHttpClientTesting(),
         provideRouter(routes),
@@ -1280,6 +1339,7 @@ describe('GroupEntry roster review and group ladders (host feedback F)', () => {
     await TestBed.configureTestingModule({
       imports: [GroupEntry],
       providers: [
+        stubPlanService().provider,
         provideHttpClient(),
         provideHttpClientTesting(),
         provideRouter(routes),
@@ -1390,6 +1450,7 @@ describe('GroupEntry review step: clear with undo, edit the paste (UX review)', 
     await TestBed.configureTestingModule({
       imports: [GroupEntry],
       providers: [
+        stubPlanService().provider,
         provideHttpClient(),
         provideHttpClientTesting(),
         provideRouter(routes),
@@ -1881,6 +1942,7 @@ describe('GroupEntry weekly paste path: autofocus and paste from the clipboard (
     await TestBed.configureTestingModule({
       imports: [GroupEntry],
       providers: [
+        stubPlanService().provider,
         provideHttpClient(),
         provideHttpClientTesting(),
         provideRouter(routes),

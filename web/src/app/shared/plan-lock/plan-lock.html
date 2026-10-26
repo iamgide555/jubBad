@@ -1,0 +1,6 @@
+@if (hint(); as text) {
+  <span class="lock-hint">{{ text }}</span>
+} @else {
+  <span class="lock-hint" i18n="@@plan.lock.hint">ใช้ได้ในแพ็ก⁠เกจโฮสต์</span>
+}
+<button type="button" class="lock-more" (click)="sheet.open()" i18n="@@plan.lock.more">ดูแพ็ก⁠เกจ</button>

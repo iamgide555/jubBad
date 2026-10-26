@@ -7,6 +7,7 @@ import { GroupSettingsDetail } from './group-settings-detail';
 import { routes } from '../../app.routes';
 import { AuthService } from '../../core/auth.service';
 import { environment } from '../../../environments/environment';
+import { stubPlanService } from '../../core/plan.testing';
 
 const B = environment.apiBaseUrl;
 const GROUP = { code: 'group1', name: 'ก๊วนอังคาร', lastSessionCode: null };
@@ -14,10 +15,13 @@ const GROUP = { code: 'group1', name: 'ก๊วนอังคาร', lastSess
 describe('GroupSettingsDetail', () => {
   let httpMock: HttpTestingController;
   let harness: RouterTestingHarness;
+  let plan: ReturnType<typeof stubPlanService>;
 
   beforeEach(async () => {
+    plan = stubPlanService();
     TestBed.configureTestingModule({
       providers: [
+        plan.provider,
         provideHttpClient(),
         provideHttpClientTesting(),
         provideRouter(routes),
@@ -218,6 +222,163 @@ describe('GroupSettingsDetail', () => {
       httpMock.expectOne({ url: `${B}/groups/group1`, method: 'DELETE' }).flush({ code: 'group1', deleted: true });
       await done;
       expect(navigate).toHaveBeenCalledWith('/');
+    });
+  });
+
+  describe('plan', () => {
+    const lockHints = () => el().querySelectorAll('app-plan-lock').length;
+    const exportBtn = () => [...el().querySelectorAll<HTMLButtonElement>('button')].find((b) => b.textContent!.includes('ดาวน์โหลดข้อมูล (JSON)'))!;
+
+    async function openAdvancedAs(p: 'free' | 'host' | null, shuttle: boolean, history: boolean) {
+      await open('advanced');
+      httpMock.expectOne(`${B}/groups/group1/shuttle-tools`).flush({ enabled: shuttle });
+      httpMock.expectOne(`${B}/groups/group1/cross-session-history`).flush({ enabled: history });
+      if (p) plan.answer(p);
+      await settle();
+    }
+    const box = (name: string) => el().querySelector<HTMLInputElement>(`input[name="${name}"]`)!;
+
+    it('reads the plan of the group it is showing', async () => {
+      await openAdvancedAs('free', false, false);
+      expect(plan.calls).toEqual(['group1']);
+    });
+
+    it('free: both advanced switches are disabled while off, each with a plan hint, and stay visible', async () => {
+      await openAdvancedAs('free', false, false);
+      expect(box('shuttleTools').disabled).toBe(true);
+      expect(box('crossSessionHistory').disabled).toBe(true);
+      expect(lockHints()).toBe(1);
+    });
+
+    it('free: a switch that is already on stays enabled so it can be turned off, and still shows the plan hint', async () => {
+      await openAdvancedAs('free', true, true);
+      expect(box('shuttleTools').disabled).toBe(false);
+      expect(box('crossSessionHistory').disabled).toBe(false);
+      // Still marked as not on the plan, so an inactive-looking ON switch is explained.
+      expect(lockHints()).toBe(1);
+      box('shuttleTools').checked = false;
+      box('shuttleTools').dispatchEvent(new Event('change'));
+      const req = httpMock.expectOne({ url: `${B}/groups/group1/shuttle-tools`, method: 'POST' });
+      expect(req.request.body).toEqual({ enabled: false });
+      req.flush({ enabled: false });
+      await settle();
+      // Once off, the lock applies again.
+      expect(box('shuttleTools').disabled).toBe(true);
+      expect(lockHints()).toBe(1);
+    });
+
+    const hintOf = (name: string) =>
+      box(name).closest('.switch-row')!.querySelector('.inactive-hint')?.textContent?.trim() ?? '';
+
+    it('free: an ON switch is drawn inactive and says new rounds will not use it; an OFF one says nothing of its own', async () => {
+      await openAdvancedAs('free', true, false);
+      expect(box('shuttleTools').classList.contains('inactive')).toBe(true);
+      expect(box('shuttleTools').checked).toBe(true);
+      expect(box('shuttleTools').disabled).toBe(false);
+      expect(hintOf('shuttleTools')).toBe('เปิดอยู่ แต่รอบใหม่จะไม่ใช้ในแพ็ก⁠เกจนี้');
+      expect(box('crossSessionHistory').classList.contains('inactive')).toBe(false);
+      expect(hintOf('crossSessionHistory')).toBe('');
+    });
+
+    it('free: one plan lock under both switches, not one per switch', async () => {
+      await openAdvancedAs('free', true, true);
+      expect(lockHints()).toBe(1);
+      expect(el().querySelector('.switch-row app-plan-lock')).toBeNull();
+      expect(el().querySelector('app-plan-lock')?.textContent).toContain('ใช้ได้ในแพ็ก⁠เกจโฮสต์');
+      expect(el().querySelector('app-plan-lock')?.textContent).toContain('ดูแพ็ก⁠เกจ');
+    });
+
+    it('free: turning an ON switch off drops the inactive look and its hint', async () => {
+      await openAdvancedAs('free', false, true);
+      expect(box('crossSessionHistory').classList.contains('inactive')).toBe(true);
+      box('crossSessionHistory').checked = false;
+      box('crossSessionHistory').dispatchEvent(new Event('change'));
+      httpMock.expectOne({ url: `${B}/groups/group1/cross-session-history`, method: 'POST' }).flush({ enabled: false });
+      await settle();
+      expect(box('crossSessionHistory').classList.contains('inactive')).toBe(false);
+      expect(hintOf('crossSessionHistory')).toBe('');
+    });
+
+    it('host: nothing is locked', async () => {
+      await openAdvancedAs('host', false, false);
+      expect(box('shuttleTools').disabled).toBe(false);
+      expect(box('crossSessionHistory').disabled).toBe(false);
+      expect(lockHints()).toBe(0);
+    });
+
+    it('an unknown plan (never answered) locks nothing', async () => {
+      await openAdvancedAs(null, false, false);
+      expect(box('shuttleTools').disabled).toBe(false);
+      expect(lockHints()).toBe(0);
+    });
+
+    it('a failed plan read locks nothing', async () => {
+      await open('advanced');
+      httpMock.expectOne(`${B}/groups/group1/shuttle-tools`).flush({ enabled: false });
+      httpMock.expectOne(`${B}/groups/group1/cross-session-history`).flush({ enabled: false });
+      plan.fail();
+      await settle();
+      expect(box('shuttleTools').disabled).toBe(false);
+      expect(lockHints()).toBe(0);
+    });
+
+    it('says the plan refused when the server still answers PLAN_REQUIRED', async () => {
+      await openAdvancedAs('host', false, false);
+      box('shuttleTools').checked = true;
+      box('shuttleTools').dispatchEvent(new Event('change'));
+      httpMock
+        .expectOne({ url: `${B}/groups/group1/shuttle-tools`, method: 'POST' })
+        .flush({ code: 'PLAN_REQUIRED', requiredPlan: 'host' }, { status: 403, statusText: 'Forbidden' });
+      await settle();
+      expect(el().querySelector('[role="alert"]')?.textContent).toContain('แพ็ก⁠เกจโฮสต์');
+    });
+
+    it('free: share with no token shows the plan hint instead of the enable button', async () => {
+      await open('share');
+      httpMock.expectOne(`${B}/groups/group1/share`).flush({ token: null });
+      plan.answer('free');
+      await settle();
+      expect(el().querySelector('[data-share]')).toBeNull();
+      expect(el().querySelector('app-share-dashboard-panel app-plan-lock')).toBeTruthy();
+    });
+
+    it('free: an existing share link keeps its stop-sharing control', async () => {
+      await open('share');
+      httpMock.expectOne(`${B}/groups/group1/share`).flush({ token: 'tok' });
+      plan.answer('free');
+      await settle();
+      expect(el().querySelector('[data-stop]')).toBeTruthy();
+      expect(el().querySelector('[data-copy]')).toBeTruthy();
+      expect(lockHints()).toBe(0);
+    });
+
+    it('host: share with no token offers the enable button and no hint', async () => {
+      await open('share');
+      httpMock.expectOne(`${B}/groups/group1/share`).flush({ token: null });
+      plan.answer('host');
+      await settle();
+      expect(el().querySelector('[data-share]')).toBeTruthy();
+      expect(lockHints()).toBe(0);
+    });
+
+    it('free: the export button is enabled with a 30-day note and no plan lock, and rename and delete stay', async () => {
+      await open('manage');
+      plan.answer('free');
+      await settle();
+      expect(exportBtn().disabled).toBe(false);
+      expect(el().querySelector('.detail-section app-plan-lock')).toBeNull();
+      expect(el().querySelector('[data-export-note]')?.textContent).toContain('30 วัน');
+      expect(el().querySelector<HTMLButtonElement>('.rename-row button')!.disabled).toBe(false);
+      expect(el().querySelector('.danger-zone')).toBeTruthy();
+    });
+
+    it('host: the export button is enabled and there is no hint', async () => {
+      await open('manage');
+      plan.answer('host');
+      await settle();
+      expect(exportBtn().disabled).toBe(false);
+      expect(lockHints()).toBe(0);
+      expect(el().querySelector('[data-export-note]')).toBeNull();
     });
   });
 

@@ -32,7 +32,7 @@
     }
 
     <ng-template #lineupLaunch let-where="where">
-      @if (!ended()) {
+      @if (!ended() && showLineupLaunch()) {
         <div class="lineup-launch" [class.in-rail]="where === 'rail'" [class.in-toolbar]="where === 'toolbar'">
           <button type="button" class="lineup-launch-btn" appPress data-lineup-open (click)="openLineups()">
             <span i18n="@@lineup.title">คิวล่วงหน้า</span>
@@ -113,8 +113,14 @@
           + เพิ่มคน
         </button>
       }
-      @if (!ended()) {
-        <button type="button" class="ghost" data-add-rule (click)="openAddRuleDialog()" i18n="@@dashboard.addRule">
+      @if (!ended() && paid()) {
+        <button
+          type="button"
+          class="ghost"
+          data-add-rule
+          (click)="openAddRuleDialog()"
+          i18n="@@dashboard.addRule"
+        >
           + เพิ่มกฎการจับคู่
         </button>
       }
@@ -144,7 +150,7 @@
                 <input
                   type="checkbox"
                   [checked]="rule.enabled"
-                  [disabled]="ended()"
+                  [disabled]="ended() || !rulesActive()"
                   (change)="toggleSessionRule(rule.id, !rule.enabled)"
                 />
                 <span>{{ rule.players }} — <strong>{{ rule.kind }}</strong>
@@ -153,6 +159,9 @@
             </li>
           }
         </ul>
+        @if (!rulesActive()) {
+          <p class="muted" data-rules-inactive i18n="@@dashboard.rulesInactive">กฎไม่ใช้ในรอบนี้ — รอบนี้เริ่มในแพ็ก⁠เกจฟรี</p>
+        }
         <p class="muted" i18n="@@dashboard.sessionRulesHint">ปิดกฎเฉพาะคืนนี้ — แก้หรือลบกฎถาวรที่หน้าผู้เล่นในก๊วน</p>
         @if (rulesError()) {
           <p class="error" role="alert">{{ rulesError() }}</p>
@@ -234,32 +243,40 @@
           <div class="scope-toggle">
             <button
               type="button"
+              data-mode="variety"
               [class.active]="mode() === 'variety'"
-              (click)="setMode('variety')"
+              [disabled]="modeLocked('variety')"
+              (click)="requestMode('variety')"
               i18n="@@dashboard.modeVariety"
             >
               สลับคู่
             </button>
             <button
               type="button"
+              data-mode="balanced"
               [class.active]="mode() === 'balanced'"
-              (click)="setMode('balanced')"
+              [disabled]="modeLocked('balanced')"
+              (click)="requestMode('balanced')"
               i18n="@@dashboard.modeBalanced"
             >
               สูสี
             </button>
             <button
               type="button"
+              data-mode="level"
               [class.active]="mode() === 'level'"
-              (click)="setMode('level')"
+              [disabled]="modeLocked('level')"
+              (click)="requestMode('level')"
               i18n="@@dashboard.modeLevel"
             >
               ตามระดับ
             </button>
             <button
               type="button"
+              data-mode="custom"
               [class.active]="mode() === 'custom'"
-              (click)="setMode('custom')"
+              [disabled]="modeLocked('custom')"
+              (click)="requestMode('custom')"
               i18n="@@dashboard.modeCustom"
             >
               เลือกเอง
@@ -285,6 +302,18 @@
             @default {
               <p class="mode-hint" i18n="@@dashboard.modeVarietyHint">เน้นไม่ให้ซ้ำคู่เดิม</p>
             }
+          }
+          @if (!paid()) {
+            <app-plan-lock class="mode-lock" [hint]="modesLockHint" />
+          }
+          @if (pendingModeSwitch()) {
+            <div class="mode-confirm" data-mode-confirm role="group" aria-labelledby="mode-confirm-text">
+              <p id="mode-confirm-text" class="mode-confirm-text">{{ modeOneWayText() }}</p>
+              <div class="mode-confirm-actions">
+                <button type="button" data-mode-confirm-ok (click)="confirmModeSwitch()" i18n="@@dashboard.modeOneWayConfirm">เปลี่ยนโหมด</button>
+                <button type="button" class="ghost" data-mode-confirm-cancel (click)="cancelModeSwitch()" i18n="@@court.cancelPick">ยกเลิก</button>
+              </div>
+            </div>
           }
         </div>
 
@@ -317,7 +346,7 @@
     }
 
     @if (!ended()) {
-      <app-lineup-queue #lineupQueue [players]="players()" [waiting]="waiting()" />
+      <app-lineup-queue #lineupQueue [players]="players()" [waiting]="waiting()" [paid]="paid()" />
     }
 
     <div class="courts-list">
@@ -327,6 +356,7 @@
           [courtNumber]="courtNumber"
           [players]="players()"
           [gamesPlayed]="gamesPlayed()"
+          [paid]="paid()"
         />
       }
     </div>
@@ -348,9 +378,11 @@
 
       <div #benchAnchor class="bench-anchor" aria-hidden="true"></div>
       <div class="waiting-queue" [class.is-stuck]="benchStuck()" appFlipList>
-        <div class="wq-lineup">
-          <ng-container *ngTemplateOutlet="lineupLaunch; context: { where: 'rail' }" />
-        </div>
+        @if (showLineupLaunch()) {
+          <div class="wq-lineup">
+            <ng-container *ngTemplateOutlet="lineupLaunch; context: { where: 'rail' }" />
+          </div>
+        }
         <div class="wq-head">
           <h4 class="label" i18n="@@dashboard.waiting">รอคิว</h4>
           <span class="wq-count tabular">{{ waiting().length }}</span>
@@ -477,6 +509,7 @@
         #checkoutDialog
         [players]="checkoutPlayers()"
         [settled]="settledPlayers()"
+        [paid]="paid()"
         (changed)="onCheckoutChanged()"
       />
     }

@@ -1,5 +1,6 @@
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
+import { Location } from '@angular/common';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { ActivatedRoute, convertToParamMap, provideRouter } from '@angular/router';
 import { PlayerProfile } from './player-profile';
@@ -156,6 +157,82 @@ describe('PlayerProfile', () => {
 
   it('shows a not-found message when the player is unknown', async () => {
     await load(null);
+    expect((fixture.nativeElement as HTMLElement).textContent).toContain('ไม่พบผู้เล่น');
+  });
+
+  it('shows a calm plan message, not "player not found", when the group\'s plan does not include profiles', async () => {
+    fixture.detectChanges();
+    httpMock
+      .expectOne(`${B}/groups/group1/players/p1/stats`)
+      .flush({ code: 'PLAN_REQUIRED', requiredPlan: 'host' }, { status: 403, statusText: 'Forbidden' });
+    await new Promise((r) => setTimeout(r, 0));
+    TestBed.tick();
+    fixture.detectChanges();
+    const el = fixture.nativeElement as HTMLElement;
+    expect(el.querySelector('[data-plan-locked]')).toBeTruthy();
+    // Players open this from a shared link: no host-facing upgrade prompt.
+    expect(el.querySelector('app-plan-lock')).toBeNull();
+    expect(el.textContent).not.toContain('ไม่พบผู้เล่น');
+    expect(el.querySelector('.profile-hero')).toBeNull();
+  });
+
+  describe('plan-locked page', () => {
+    async function loadLocked() {
+      fixture.detectChanges();
+      // A test that swaps in a fresh fixture leaves the first one's read open too; answer both.
+      for (const req of httpMock.match(`${B}/groups/group1/players/p1/stats`)) {
+        req.flush({ code: 'PLAN_REQUIRED', requiredPlan: 'host' }, { status: 403, statusText: 'Forbidden' });
+      }
+      await new Promise((r) => setTimeout(r, 0));
+      TestBed.tick();
+      await fixture.whenStable();
+      fixture.detectChanges();
+      return fixture.nativeElement as HTMLElement;
+    }
+    afterEach(() => vi.restoreAllMocks());
+
+    it('explains, in neutral words for players, that the host has not opened these stats', async () => {
+      const el = await loadLocked();
+      const line = el.querySelector('[data-plan-locked] .muted');
+      expect(line?.textContent).toContain('สถิติของก๊วนนี้ยังไม่เปิดให้ดู');
+      expect(line?.textContent).not.toContain('ผู้ดูแล');
+      expect(el.querySelector('app-plan-lock')).toBeNull();
+    });
+
+    it('a visitor who arrived from another page gets a ← กลับ link that goes back in history', async () => {
+      vi.spyOn(History.prototype, 'length', 'get').mockReturnValue(2);
+      const back = vi.spyOn(TestBed.inject(Location), 'back').mockImplementation(() => undefined);
+      fixture = TestBed.createComponent(PlayerProfile);
+      const el = await loadLocked();
+      const link = el.querySelector<HTMLAnchorElement>('[data-plan-locked] a.back')!;
+      expect(link.textContent!.trim()).toBe('← กลับ');
+      link.click();
+      expect(back).toHaveBeenCalled();
+    });
+
+    it('a visitor who opened the link directly has nowhere to go back to, so no link shows', async () => {
+      vi.spyOn(History.prototype, 'length', 'get').mockReturnValue(1);
+      fixture = TestBed.createComponent(PlayerProfile);
+      const el = await loadLocked();
+      expect(el.querySelector('[data-plan-locked] a.back')).toBeNull();
+    });
+
+    it('a signed-in host gets the same ← กลับ link to the group as the normal profile', async () => {
+      (TestBed.inject(AuthService) as unknown as { check: () => Promise<boolean> }).check = () => Promise.resolve(true);
+      fixture = TestBed.createComponent(PlayerProfile);
+      const el = await loadLocked();
+      const link = el.querySelector<HTMLAnchorElement>('[data-plan-locked] a.back')!;
+      expect(link.textContent!.trim()).toBe('← กลับ');
+      expect(link.getAttribute('href')).toBe('/g/group1');
+    });
+  });
+
+  it('still says not found for a 403 that is not a plan refusal', async () => {
+    fixture.detectChanges();
+    httpMock.expectOne(`${B}/groups/group1/players/p1/stats`).flush('x', { status: 403, statusText: 'Forbidden' });
+    await new Promise((r) => setTimeout(r, 0));
+    TestBed.tick();
+    fixture.detectChanges();
     expect((fixture.nativeElement as HTMLElement).textContent).toContain('ไม่พบผู้เล่น');
   });
 

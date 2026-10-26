@@ -186,6 +186,16 @@ describe('EarlyCheckoutDialog', () => {
     expect(live.previewCheckout).toHaveBeenCalledTimes(3);
   });
 
+  it('on the free plan the rates form locks the host and walk-in fees; paid leaves them open', async () => {
+    await openAndPick();
+    expect(rate('hostFee').disabled).toBe(false);
+    fixture.componentRef.setInput('paid', false);
+    await flush();
+    expect(rate('hostFee').disabled).toBe(true);
+    expect(rate('walkInFee').disabled).toBe(true);
+    expect(el().querySelector('[data-rates] app-plan-lock')).toBeTruthy();
+  });
+
   it('refuses an invalid rate without calling the server', async () => {
     await openAndPick();
     type('[data-rate="perGameRate"]', '80.505');

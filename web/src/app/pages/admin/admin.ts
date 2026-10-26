@@ -1,4 +1,4 @@
-import { DatePipe } from '@angular/common';
+import { DatePipe, NgTemplateOutlet } from '@angular/common';
 import { Component, ElementRef, ViewChild, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
@@ -11,11 +11,24 @@ import {
   type ResetRequest,
 } from '../../core/admin.service';
 import { AuthService, type Role } from '../../core/auth.service';
+import { PLANS, bangkokDate, bangkokDisplayDate, planLabel, planUntil, type Plan } from '../../core/plan';
 import { absoluteUrl, copyToClipboard } from '../../core/share-link';
+
+/**
+ * One calendar month on from the later of the stored renewal date and today, both
+ * `YYYY-MM-DD`: renewing early adds a month to the paid-up date, renewing late adds one
+ * to today. A day past the month's end clamps to its last day (31 Jan becomes 28 Feb).
+ */
+export function addMonth(ymd: string, today: string): string {
+  const base = ymd > today ? ymd : today;
+  const [y, m, d] = base.split('-').map(Number);
+  const lastDay = new Date(Date.UTC(y, m + 1, 0)).getUTCDate();
+  return new Date(Date.UTC(y, m, Math.min(d, lastDay))).toISOString().slice(0, 10);
+}
 
 @Component({
   selector: 'app-admin',
-  imports: [FormsModule, DatePipe],
+  imports: [FormsModule, DatePipe, NgTemplateOutlet],
   templateUrl: './admin.html',
   styleUrl: './admin.css',
 })
@@ -112,6 +125,7 @@ export class Admin {
   readonly editError = signal<string | null>(null);
 
   startEdit(user: AdminUser): void {
+    this.clearPlanDraft(user.id);
     this.editingId.set(user.id);
     this.editEmail.set(user.email);
     this.editRole.set(user.role);
@@ -119,7 +133,10 @@ export class Admin {
   }
 
   cancelEdit(): void {
+    const id = this.editingId();
     this.editingId.set(null);
+    // Drop unsaved plan drafts so reopening the row starts from what is stored.
+    if (id) this.clearPlanDraft(id);
   }
 
   async saveEdit(user: AdminUser): Promise<void> {
@@ -133,6 +150,9 @@ export class Admin {
         })
       );
       this.users.update((list) => list.map((u) => (u.id === user.id ? { ...u, ...updated } : u)));
+      // The plan saves only when it was touched, after the user, so a refused user update
+      // never leaves a half-saved row. A failed plan save keeps the row open with its drafts.
+      if (this.planDirty(user) && !(await this.savePlan(user))) return;
       this.editingId.set(null);
     } catch {
       this.editError.set($localize`:@@admin.editFailed:บันทึกไม่สำเร็จ — อีเมลนี้อาจถูกใช้แล้ว`);
@@ -150,6 +170,104 @@ export class Admin {
     } catch {
       // Left as-is on failure; the table simply keeps showing the last known
       // state rather than guessing at a new one.
+    }
+  }
+
+  // ---- plan ----
+
+  readonly planAria = $localize`:@@admin.planSelectAria:แพ็ก⁠เกจ`;
+  readonly renewAria = $localize`:@@admin.planRenewAria:วันต่ออายุ (เว้นว่างถ้าไม่หมดอายุ)`;
+  readonly plans = PLANS;
+  readonly planLabel = planLabel;
+  /** Unsaved choices, keyed by user id; a row with no entry shows what is stored. */
+  readonly planDraft = signal<Record<string, Plan | undefined>>({});
+  readonly renewDraft = signal<Record<string, string | undefined>>({});
+  readonly planBusyId = signal<string | null>(null);
+  readonly planErrorId = signal<string | null>(null);
+  /** The row whose plan just saved; cleared as soon as that row changes again or closes. */
+  readonly planSavedId = signal<string | null>(null);
+  readonly planUntil = planUntil;
+
+  planOf(user: AdminUser): Plan {
+    return this.planDraft()[user.id] ?? user.plan;
+  }
+
+  renewOf(user: AdminUser): string {
+    return this.renewDraft()[user.id] ?? bangkokDate(user.planRenewsAt);
+  }
+
+  /** The plan or renewal date was changed in the edit row (an admin account has neither to change). */
+  planDirty(user: AdminUser): boolean {
+    if (user.role === 'admin') return false;
+    return this.planOf(user) !== user.plan || this.renewOf(user) !== bangkokDate(user.planRenewsAt);
+  }
+
+  /** "+1 เดือน": the renewal field moves a month on; nothing is saved until the one save button. */
+  addPlanMonth(user: AdminUser): void {
+    const today = new Date(Date.now() + 7 * 60 * 60 * 1000).toISOString().slice(0, 10);
+    this.setRenewDraft(user, addMonth(this.renewOf(user), today));
+  }
+
+  /** More groups than the plan in force allows (an admin has no cap). */
+  overCap(user: AdminUser): boolean {
+    return user.role !== 'admin' && user.groupLimit !== null && user.ownedGroups.length > user.groupLimit;
+  }
+
+  overCapText(user: AdminUser): string {
+    const n = user.ownedGroups.length;
+    const limit = user.groupLimit;
+    return $localize`:@@admin.overCap:เกินโควตา ${n}:n:/${limit}:limit:`;
+  }
+
+  /** "Ended 10/10/2026, on free": the date a lapsed paid plan ran out. */
+  planEndedText(user: AdminUser): string {
+    const date = bangkokDisplayDate(user.planRenewsAt);
+    return $localize`:@@admin.planEnded:หมดเมื่อ ${date}:date: — ใช้แบบฟรีอยู่`;
+  }
+
+  /** An admin account is club whatever its column says, so it never reads as lapsed. */
+  isLapsed(user: AdminUser): boolean {
+    return user.role !== 'admin' && user.plan !== user.effectivePlan;
+  }
+
+  private clearPlanDraft(id: string): void {
+    this.planDraft.update(({ [id]: _p, ...rest }) => rest);
+    this.renewDraft.update(({ [id]: _r, ...rest }) => rest);
+    this.planErrorId.set(null);
+    this.planSavedId.set(null);
+  }
+
+  setPlanDraft(user: AdminUser, plan: Plan): void {
+    this.planSavedId.set(null);
+    this.planDraft.update((m) => ({ ...m, [user.id]: plan }));
+  }
+
+  setRenewDraft(user: AdminUser, date: string): void {
+    this.planSavedId.set(null);
+    this.renewDraft.update((m) => ({ ...m, [user.id]: date }));
+  }
+
+  /** Saves the plan; true on success. A failure is shown on the row and keeps its drafts. */
+  async savePlan(user: AdminUser): Promise<boolean> {
+    if (this.planBusyId()) return false;
+    this.planBusyId.set(user.id);
+    this.planErrorId.set(null);
+    this.planSavedId.set(null);
+    try {
+      const updated = await firstValueFrom(
+        this.adminService.setPlan(user.id, this.planOf(user), this.renewOf(user) || null)
+      );
+      this.users.update((list) => list.map((u) => (u.id === user.id ? { ...u, ...updated } : u)));
+      // The row now reflects the server; drop the drafts so it reads from it.
+      this.planDraft.update(({ [user.id]: _p, ...rest }) => rest);
+      this.renewDraft.update(({ [user.id]: _r, ...rest }) => rest);
+      this.planSavedId.set(user.id);
+      return true;
+    } catch {
+      this.planErrorId.set(user.id);
+      return false;
+    } finally {
+      this.planBusyId.set(null);
     }
   }
 
@@ -294,3 +412,4 @@ export class Admin {
     }
   }
 }
+

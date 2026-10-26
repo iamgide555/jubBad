@@ -70,6 +70,23 @@
   font-size: var(--text-sm);
 }
 
+/* Inline, not a native dialog: a free court leaving a paid mode is told it is one-way.
+   Takes its own line in the wrapping head. */
+.court-mode-confirm {
+  flex: 1 0 100%;
+}
+
+.court-mode-confirm-text {
+  margin: 0 0 var(--space-1);
+  font-size: var(--text-sm);
+}
+
+.court-mode-confirm-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-1);
+}
+
 /* The court number is what the host looks for first when three panels are on
    screen at once — real display-face weight and size, the biggest single
    number on the whole dashboard. */

@@ -74,6 +74,7 @@ describe('admin module', () => {
     { method: 'post', path: '/admin/users' },
     { method: 'put', path: '/admin/users/some-id' },
     { method: 'post', path: '/admin/users/some-id/disabled' },
+    { method: 'put', path: '/admin/users/some-id/plan' },
     { method: 'delete', path: '/admin/users/some-id' },
     { method: 'post', path: '/admin/users/some-id/reset' },
     { method: 'get', path: '/admin/groups' },
@@ -272,5 +273,78 @@ describe('admin module', () => {
     expect((afterHandling.body as { id: string }[]).map((r) => r.id)).not.toContain(row!.id);
 
     await prisma.passwordResetRequest.deleteMany({ where: { email } });
+  });
+
+  describe('PUT /admin/users/:id/plan', () => {
+    const put = (id: string, body: object) =>
+      request(server).put(`/admin/users/${id}/plan`).set('Cookie', adminCookie).send(body);
+
+    it('sets free with no renewal date and reports the effective plan', async () => {
+      const res = await put(hostId, { plan: 'free', renewsAt: null }).expect(200);
+      expect(res.body).toEqual({
+        id: hostId,
+        plan: 'free',
+        planRenewsAt: null,
+        effectivePlan: 'free',
+        groupLimit: 1,
+      });
+    });
+
+    it('stores a renewal date as the end of that day in Bangkok', async () => {
+      const res = await put(hostId, { plan: 'host', renewsAt: '2026-11-19' }).expect(200);
+      expect((res.body as { planRenewsAt: string }).planRenewsAt).toBe('2026-11-19T16:59:59.999Z');
+      const row = await prisma.user.findUniqueOrThrow({ where: { id: hostId } });
+      expect(row.planRenewsAt?.toISOString()).toBe('2026-11-19T16:59:59.999Z');
+    });
+
+    it('clears the renewal date when renewsAt is null', async () => {
+      await put(hostId, { plan: 'host', renewsAt: '2026-11-19' }).expect(200);
+      const res = await put(hostId, { plan: 'club', renewsAt: null }).expect(200);
+      expect((res.body as { planRenewsAt: null }).planRenewsAt).toBeNull();
+    });
+
+    it('refuses an unknown plan with 400', async () => {
+      await put(hostId, { plan: 'gold', renewsAt: null }).expect(400);
+    });
+
+    it('refuses a malformed or impossible renewal date with 400', async () => {
+      await put(hostId, { plan: 'host', renewsAt: '19/11/2026' }).expect(400);
+      await put(hostId, { plan: 'host', renewsAt: '2026-02-31' }).expect(400);
+      await put(hostId, { plan: 'host' }).expect(400);
+    });
+
+    it('answers 404 for an unknown user', async () => {
+      await put(randomUUID(), { plan: 'host', renewsAt: null }).expect(404);
+    });
+
+    it('refuses a plain host with 404', async () => {
+      await request(server)
+        .put(`/admin/users/${hostId}/plan`)
+        .set('Cookie', hostCookie)
+        .send({ plan: 'club', renewsAt: null })
+        .expect(404);
+    });
+
+    it('lists a lapsed paid plan as plan host, effectivePlan free', async () => {
+      await put(hostId, { plan: 'host', renewsAt: '2020-01-01' }).expect(200);
+      const res = await request(server).get('/admin/users').set('Cookie', adminCookie).expect(200);
+      const row = (res.body as { id: string; plan: string; planRenewsAt: string; effectivePlan: string }[]).find(
+        (u) => u.id === hostId
+      );
+      expect(row).toMatchObject({
+        plan: 'host',
+        planRenewsAt: '2020-01-01T16:59:59.999Z',
+        effectivePlan: 'free',
+        groupLimit: 1,
+      });
+    });
+
+    it('lists the group cap of the plan in force, and null for an admin', async () => {
+      await put(hostId, { plan: 'host', renewsAt: null }).expect(200);
+      const res = await request(server).get('/admin/users').set('Cookie', adminCookie).expect(200);
+      const rows = res.body as { id: string; role: string; groupLimit: number | null }[];
+      expect(rows.find((u) => u.id === hostId)?.groupLimit).toBe(3);
+      expect(rows.find((u) => u.role === 'admin')?.groupLimit).toBeNull();
+    });
   });
 });

@@ -45,3 +45,14 @@
   justify-content: center;
   gap: var(--space-1);
 }
+
+/* A plan limit is information, not the host's mistake: ink, not error red. */
+.notice {
+  margin: var(--space-1) 0 0;
+  color: var(--ink);
+  font-size: var(--text-sm);
+}
+
+.cap-lock {
+  margin-top: var(--space-2);
+}

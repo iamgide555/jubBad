@@ -1,7 +1,8 @@
-import { Body, Controller, Delete, Get, Param, Post, Put, Req } from '@nestjs/common';
+import { Body, Controller, Delete, Get, NotFoundException, Param, Post, Put, Req } from '@nestjs/common';
 import { GroupsService } from './groups.service.js';
 import { GroupLevelsService } from './group-levels.service.js';
 import { GroupShareService } from './group-share.service.js';
+import { PlansService } from '../plans/plans.service.js';
 import { SaveGroupLevelsDto } from './dto/save-group-levels.dto.js';
 import { Public } from '../auth/public.decorator.js';
 import type { AuthenticatedRequest } from '../auth/auth.guard.js';
@@ -18,7 +19,8 @@ export class GroupsController {
   constructor(
     private readonly groupsService: GroupsService,
     private readonly groupLevels: GroupLevelsService,
-    private readonly groupShare: GroupShareService
+    private readonly groupShare: GroupShareService,
+    private readonly plans: PlansService
   ) {}
 
   /** Owner-only (no @Public): the ladder and its seeds are host-only. */
@@ -27,8 +29,10 @@ export class GroupsController {
     return this.groupLevels.get(code);
   }
 
+  /** Paid gates below: a free group is refused with PLAN_REQUIRED before any lookup. */
   @Put(':code/levels')
-  saveLevels(@Param('code') code: string, @Body() dto: SaveGroupLevelsDto) {
+  async saveLevels(@Param('code') code: string, @Body() dto: SaveGroupLevelsDto) {
+    await this.plans.requireGroupPlan(code, 'host');
     return this.groupLevels.save(code, dto);
   }
 
@@ -43,7 +47,8 @@ export class GroupsController {
 
   /** Idempotent: sharing twice returns the same token, never rotates it. */
   @Post(':code/share')
-  enableShare(@Param('code') code: string) {
+  async enableShare(@Param('code') code: string) {
+    await this.plans.requireGroupPlan(code, 'host');
     return this.groupShare.enable(code);
   }
 
@@ -90,6 +95,17 @@ export class GroupsController {
   }
 
   /**
+   * The group owner's effective plan, never the caller's: an admin opening a
+   * free host's group sees (and is gated by) the owner's plan.
+   */
+  @Get(':code/plan')
+  async getPlan(@Param('code') code: string) {
+    const info = await this.plans.describeGroup(code);
+    if (!info) throw new NotFoundException();
+    return info;
+  }
+
+  /**
    * Advanced host tools switch (numbered shuttles, early checkout). Owner-only
    * like every non-@Public group route — the OwnershipGuard 404s a mismatch.
    * Read here rather than off the public group GET so it is never exposed.
@@ -100,7 +116,9 @@ export class GroupsController {
   }
 
   @Post(':code/shuttle-tools')
-  setShuttleTools(@Param('code') code: string, @Body() dto: SetShuttleToolsDto) {
+  async setShuttleTools(@Param('code') code: string, @Body() dto: SetShuttleToolsDto) {
+    // Only turning it on is paid; a lapsed host can always switch it off.
+    if (dto.enabled === true) await this.plans.requireGroupPlan(code, 'host');
     return this.groupsService.setShuttleTools(code, dto.enabled);
   }
 
@@ -111,7 +129,8 @@ export class GroupsController {
   }
 
   @Post(':code/cross-session-history')
-  setCrossSessionHistory(@Param('code') code: string, @Body() dto: SetShuttleToolsDto) {
+  async setCrossSessionHistory(@Param('code') code: string, @Body() dto: SetShuttleToolsDto) {
+    if (dto.enabled === true) await this.plans.requireGroupPlan(code, 'host');
     return this.groupsService.setCrossSessionHistory(code, dto.enabled);
   }
 
@@ -166,12 +185,14 @@ export class GroupsController {
   }
 
   @Post(':code/rules')
-  createRule(@Param('code') code: string, @Body() dto: SetPlayerRuleDto) {
+  async createRule(@Param('code') code: string, @Body() dto: SetPlayerRuleDto) {
+    await this.plans.requireGroupPlan(code, 'host');
     return this.groupsService.createRule(code, dto);
   }
 
   @Put(':code/rules/:ruleId')
-  setRuleKind(@Param('code') code: string, @Param('ruleId') ruleId: string, @Body() dto: SetPlayerRuleKindDto) {
+  async setRuleKind(@Param('code') code: string, @Param('ruleId') ruleId: string, @Body() dto: SetPlayerRuleKindDto) {
+    await this.plans.requireGroupPlan(code, 'host');
     return this.groupsService.setRuleKind(code, ruleId, dto.kind);
   }
 
@@ -180,19 +201,28 @@ export class GroupsController {
     return this.groupsService.deleteRule(code, ruleId);
   }
 
-  /** Public: a player's own stat card, read-only. */
+  /**
+   * Public, read-only player stat card, and the one public route that is
+   * plan-gated: it exposes ratings, which a free plan does not show. It is gated
+   * by ruling (see docs/overview.md, Plans), so a free group's profile link
+   * answers 403 PLAN_REQUIRED and the profile page shows a calm "stats aren't
+   * available" message rather than the host-oriented upgrade prompt.
+   */
   @Public()
   @Get(':code/players/:playerId/stats')
-  playerStats(@Param('code') code: string, @Param('playerId') playerId: string) {
+  async playerStats(@Param('code') code: string, @Param('playerId') playerId: string) {
+    await this.plans.requireGroupPlan(code, 'host');
     return this.groupsService.playerStats(code, playerId);
   }
 
   /**
-   * Gated. Every player, session and match in one response — a GET, which makes
-   * it easy to overlook when thinking of auth as protecting writes.
+   * Owner-only. Every player, session and match in one response — a GET, which
+   * makes it easy to overlook when thinking of auth as protecting writes. Not
+   * plan-gated: a free owner gets the last 30 days of sessions (and their
+   * matches), a paid owner everything; see GroupsService.exportGroup.
    */
   @Get(':code/export')
-  export(@Param('code') code: string) {
+  async export(@Param('code') code: string) {
     return this.groupsService.exportGroup(code);
   }
 

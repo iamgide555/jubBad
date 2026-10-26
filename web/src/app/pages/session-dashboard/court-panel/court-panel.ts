@@ -10,6 +10,8 @@ import { resolvePlayerNames } from '../../../core/player-names';
 import { SwapSelectionService, type SwapPick } from '../../../core/swap-selection.service';
 import type { CourtFormat, CourtMode, CourtState, CourtTarget, Seat } from '../../../core/live-session.model';
 import type { Player } from '../../../../../../engines/fuzzy-match.ts';
+import { PlanLock } from '../../../shared/plan-lock/plan-lock';
+import { courtModesLockHint, targetLockHint } from '../../../core/plan';
 import { Icon } from '../../../shared/icon/icon';
 import { labelForCourt } from '../../../core/court-label';
 import { CourtLabelEditor } from '../court-label-editor/court-label-editor';
@@ -31,7 +33,7 @@ interface SeatView {
 
 @Component({
   selector: 'app-court-panel',
-  imports: [FormsModule, PressDirective, Icon, CourtLabelEditor, ShuttlePickerDialog],
+  imports: [FormsModule, PressDirective, Icon, CourtLabelEditor, ShuttlePickerDialog, PlanLock],
   templateUrl: './court-panel.html',
   styleUrl: './court-panel.css',
 })
@@ -43,6 +45,11 @@ export class CourtPanel {
    *  dash, since a court is exactly where "how many games has this person
    *  had" needs to read at a glance. */
   readonly gamesPlayed = input<Record<string, number>>({});
+  /**
+   * Whether the group's plan includes the paid per-court controls. Defaults to
+   * true: an unknown plan never locks a host out, and the server still refuses.
+   */
+  readonly paid = input(true);
 
   readonly scoreA = signal<number | null>(null);
   readonly scoreB = signal<number | null>(null);
@@ -189,6 +196,28 @@ export class CourtPanel {
   protected readonly targetLabelLow = $localize`:@@court.targetLow:มือล่าง`;
   protected readonly targetLabelHigh = $localize`:@@court.targetHigh:มือบน`;
 
+  /**
+   * On the free plan only `custom` is a per-court mode the server accepts. The
+   * court's current mode stays enabled so a lapsed host's court is never stuck.
+   */
+  protected modeLocked(mode: CourtMode): boolean {
+    return !this.paid() && mode !== 'custom' && this.court().mode !== mode;
+  }
+
+  /** Only `auto` is free; the court's current target stays enabled for the same reason. */
+  protected targetLocked(target: CourtTarget): boolean {
+    return !this.paid() && target !== 'auto' && (this.court().target ?? 'auto') !== target;
+  }
+
+  /**
+   * On the free plan the live screen hides a per-court control (and its lock note) that has
+   * nothing a free host can do: a court on เลือกเอง has no mode to pick, a court on อัตโนมัติ no
+   * target to set. A court already on a paid mode or target keeps its control so the host can
+   * switch it off — a running state is never trapped. Paid and unknown plans show both.
+   */
+  protected readonly showModeToggle = computed(() => this.paid() || this.court().mode !== 'custom');
+  protected readonly showTargetToggle = computed(() => this.paid() || (this.court().target ?? 'auto') !== 'auto');
+
   protected async setCourtTarget(target: CourtTarget): Promise<void> {
     if (this.busy() || this.ended() || (this.court().target ?? 'auto') === target) return;
     this.busy.set(true);
@@ -199,6 +228,35 @@ export class CourtPanel {
     } finally {
       this.busy.set(false);
     }
+  }
+
+  protected readonly courtModesLockHint = courtModesLockHint();
+  protected readonly targetLockHint = targetLockHint();
+
+  /**
+   * On the free plan a court on a paid mode (a lapsed host's court) that is switched to เลือกเอง
+   * cannot be switched back, so that press asks first, inline. Paid and unknown plans switch
+   * immediately.
+   */
+  protected readonly confirmingCustom = signal(false);
+
+  protected requestCourtMode(mode: CourtMode): void {
+    if (!this.paid() && mode === 'custom' && this.court().mode !== 'custom') {
+      if (this.busy() || this.ended()) return;
+      this.confirmingCustom.set(true);
+      return;
+    }
+    this.confirmingCustom.set(false);
+    void this.setCourtMode(mode);
+  }
+
+  protected confirmCourtCustom(): void {
+    this.confirmingCustom.set(false);
+    void this.setCourtMode('custom');
+  }
+
+  protected cancelCourtCustom(): void {
+    this.confirmingCustom.set(false);
   }
 
   protected async setCourtMode(mode: CourtMode): Promise<void> {

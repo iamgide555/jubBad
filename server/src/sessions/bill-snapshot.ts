@@ -8,7 +8,8 @@
 import { NotFoundException } from '@nestjs/common';
 import type { Prisma } from '@prisma/client';
 import { DEFAULT_BILL_CONFIG, type BillConfig, type BillMatch } from '../../../engines/bill.ts';
-import { parseBillConfig, sanitizeForRoster, withoutPerPerson } from './bill-config.js';
+import { effectivePlan } from '../plans/plan.js';
+import { parseBillConfig, sanitizeForRoster, withoutPaidExtras, withoutPerPerson } from './bill-config.js';
 import { teamPlayers } from './pairing-teams.js';
 
 export type BillSnapshot = Awaited<ReturnType<typeof loadBillSnapshot>>;
@@ -16,7 +17,10 @@ export type BillSnapshot = Awaited<ReturnType<typeof loadBillSnapshot>>;
 export async function loadBillSnapshot(tx: Prisma.TransactionClient, code: string) {
   const session = await tx.session.findUnique({
     where: { code },
-    include: { roster: { include: { player: { select: { name: true } } } } },
+    include: {
+      roster: { include: { player: { select: { name: true } } } },
+      group: { select: { owner: { select: { role: true, plan: true, planRenewsAt: true } } } },
+    },
   });
   if (!session) throw new NotFoundException({ code: 'SESSION_NOT_FOUND' });
   // Prefill from the newest earlier config this session may use: an ordinary
@@ -51,6 +55,12 @@ export async function loadBillSnapshot(tx: Prisma.TransactionClient, code: strin
   if (config === null) {
     const prev = parseBillConfig(previous?.billConfig ?? null);
     config = prev ? withoutPerPerson(prev) : DEFAULT_BILL_CONFIG;
+    // Prefill from an earlier (possibly paid) session must not carry the paid extras into a free one. Applied
+    // here, where the effective config is decided, so the bill and checkout quotes agree with the echoed config.
+    // A saved config is running state and is never altered. The plan is the one at session creation, so a host
+    // plan that lapses mid-night does not change a running session's prefilled bill (as with the shuttle-tools
+    // and cross-session-history snapshots).
+    if (effectivePlan(session.group.owner, session.createdAt) === 'free') config = withoutPaidExtras(config);
     configSource = prev ? 'previous' : 'default';
   }
   config = sanitizeForRoster(config, session.roster.map((r) => r.playerId));

@@ -234,3 +234,113 @@
    wrapper in the template (shared with player-roster/session-summary) —
    this used to force `.admin-table { display: block; white-space: nowrap }`
    here, which broke the table's own column alignment instead of fixing it. */
+
+/* Plan: what the host is really on, then the three controls that change it.
+   The controls wrap on a phone rather than forcing the table wider. */
+.plan-cell {
+  min-width: 12rem;
+}
+
+/* An iPad in portrait is 768-820px: the user table is a little wider than that, and the
+   buttons sit in its last column. Keep them pinned to the right edge while the rest scrolls,
+   and let long emails break instead of holding the first column open. */
+.actions-cell {
+  position: sticky;
+  right: 0;
+  background: var(--ground);
+  box-shadow: -10px 0 10px -10px rgba(0, 0, 0, 0.35);
+}
+
+.admin-table td:first-child {
+  overflow-wrap: anywhere;
+}
+
+.plan-current {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--space-1);
+  margin-bottom: var(--space-1);
+}
+
+/* A lapsed plan is a fact the admin acts on (renew or leave), so it gets the
+   same accent as the owner flag instead of reading as muted text. */
+.plan-lapsed {
+  color: var(--accent-ink);
+  font-size: var(--text-sm);
+  font-weight: 600;
+}
+
+.plan-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+}
+
+.plan-controls select,
+.plan-controls input {
+  flex: 1 1 8rem;
+  width: auto;
+}
+
+.plan-controls button {
+  white-space: nowrap;
+}
+
+.plan-until {
+  margin: 0 0 var(--space-1);
+}
+
+.plan-saved {
+  align-self: center;
+}
+
+/* The edit row swaps text for controls. Without a floor the auto table layout
+   squeezes the email and role columns to whatever the plan controls leave over,
+   and the role select shows two letters of "ผู้ดูแล…". The table already
+   scrolls sideways on a phone (.table-scroll). */
+.edit-email {
+  min-width: 15rem;
+}
+
+.edit-role {
+  min-width: 11rem;
+}
+
+/* Below an iPad landscape the edit row has less room than its controls would like: let the
+   email input, role select and plan cell run narrower (their contents scroll or wrap) so the
+   plan controls are not tucked under the pinned buttons. */
+@media (max-width: 64rem) {
+  .edit-email {
+    min-width: 10rem;
+  }
+
+  .edit-role {
+    min-width: 8.5rem;
+  }
+
+  .plan-cell {
+    min-width: 10.5rem;
+  }
+}
+
+/* Same top edge as the controls beside it: the cells are top-aligned, and a
+   bare line of text would sit above a 44px-tall input's text. */
+.plan-admin {
+  display: block;
+  padding-block: 0.7rem;
+}
+
+.plan-controls .add-month {
+  background: transparent;
+  border: 1.5px solid var(--line);
+  box-shadow: none;
+  color: var(--ink);
+}
+
+.plan-overcap {
+  margin-left: var(--space-1);
+  color: var(--warn);
+  font-size: var(--text-xs);
+  font-weight: 600;
+}

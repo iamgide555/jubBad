@@ -2,6 +2,7 @@ import { HttpClient } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { environment } from '../../environments/environment';
 import type { Role } from './auth.service';
+import type { Plan } from './plan';
 
 export interface AdminUser {
   id: string;
@@ -10,6 +11,13 @@ export interface AdminUser {
   disabled: boolean;
   createdAt: string;
   ownedGroups: { code: string; name: string | null }[];
+  plan: Plan;
+  /** ISO instant (end of the renewal day, Bangkok); null never lapses. */
+  planRenewsAt: string | null;
+  /** What the server actually applies: `free` once a paid plan has lapsed. */
+  effectivePlan: Plan;
+  /** Groups the plan in force allows; null for an admin, who has no cap. */
+  groupLimit: number | null;
 }
 
 export interface AdminGroup {
@@ -57,6 +65,14 @@ export class AdminService {
 
   setDisabled(id: string, disabled: boolean) {
     return this.http.post<AdminUser>(`${this.base}/admin/users/${id}/disabled`, { disabled });
+  }
+
+  /** `renewsAt` is `YYYY-MM-DD`; an explicit `null` clears it (omitting it is a 400). */
+  setPlan(id: string, plan: Plan, renewsAt: string | null) {
+    return this.http.put<Pick<AdminUser, 'id' | 'plan' | 'planRenewsAt' | 'effectivePlan' | 'groupLimit'>>(
+      `${this.base}/admin/users/${id}/plan`,
+      { plan, renewsAt }
+    );
   }
 
   deleteUser(id: string, groups: Record<string, GroupDisposition>) {

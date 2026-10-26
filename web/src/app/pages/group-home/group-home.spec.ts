@@ -10,9 +10,12 @@ import { AuthService } from '../../core/auth.service';
 import { environment } from '../../../environments/environment';
 import type { GroupSession } from '../../core/group-session.model';
 import { formatSessionDate } from '../../core/session-date';
+import { stubPlanService } from '../../core/plan.testing';
+import { UpgradeSheetService } from '../../core/upgrade-sheet.service';
 
 const B = environment.apiBaseUrl;
 const tick = () => new Promise<void>((r) => setTimeout(r));
+const daysAgoIso = (n: number) => new Date(Date.now() - n * 24 * 3600 * 1000).toISOString();
 const localIso = (d: Date) =>
   `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 const daysAgo = (n: number) => {
@@ -44,10 +47,13 @@ const OPEN: GroupSession = {
 describe('GroupHome', () => {
   let httpMock: HttpTestingController;
   let harness: RouterTestingHarness;
+  let plan: ReturnType<typeof stubPlanService>;
 
   beforeEach(async () => {
+    plan = stubPlanService();
     TestBed.configureTestingModule({
       providers: [
+        plan.provider,
         provideHttpClient(),
         provideHttpClientTesting(),
         provideRouter(routes),
@@ -134,6 +140,234 @@ describe('GroupHome', () => {
     expect(row.textContent).toContain('แมตช์');
     // An ended session carries no state tag at all.
     expect(row.querySelector('.tag')).toBeNull();
+  });
+
+  describe('archive window note', () => {
+    const note = () => el().querySelector('[data-archive-note]');
+
+    it('free: says only the last 30 days are shown', async () => {
+      await open('/g/group1', { lastSessionCode: 's1', sessions: [SESSION] });
+      plan.answer('free', null, { archiveHidden: 3 });
+      await settle();
+      expect(plan.calls).toEqual(['group1']);
+      expect(note()?.textContent).toContain('แสดงเฉพาะรอบใน 30 วันล่าสุด');
+    });
+
+    it('free: still says so when no session falls inside the window but some are hidden', async () => {
+      await open();
+      plan.answer('free', null, { archiveHidden: 5 });
+      await settle();
+      expect(note()?.textContent).toContain('แสดงเฉพาะรอบใน 30 วันล่าสุด');
+    });
+
+    it('free: no note, and no empty past-rounds heading, when nothing is hidden', async () => {
+      await open();
+      plan.answer('free', null, { archiveHidden: 0 });
+      await settle();
+      expect(note()).toBeNull();
+      expect(el().textContent).not.toContain('รอบที่ผ่านมา');
+    });
+
+    it('free: the note points to the Host plan for the full history', async () => {
+      await open('/g/group1', { lastSessionCode: 's1', sessions: [SESSION] });
+      plan.answer('free', null, { archiveHidden: 3 });
+      await settle();
+      expect(note()?.textContent?.trim()).toBe('แสดงเฉพาะรอบใน 30 วันล่าสุด ดูย้อนหลังทั้งหมดได้ในแพ็ก⁠เกจโฮสต์');
+    });
+
+    it('host: no note', async () => {
+      await open('/g/group1', { lastSessionCode: 's1', sessions: [SESSION] });
+      plan.answer('host');
+      await settle();
+      expect(note()).toBeNull();
+    });
+
+    it('an unknown plan (never answered) shows no note', async () => {
+      await open('/g/group1', { lastSessionCode: 's1', sessions: [SESSION] });
+      expect(note()).toBeNull();
+    });
+
+    it('a failed plan read shows no note', async () => {
+      await open('/g/group1', { lastSessionCode: 's1', sessions: [SESSION] });
+      plan.fail();
+      await settle();
+      expect(note()).toBeNull();
+    });
+  });
+
+  describe('plan line in the settings disclosure', () => {
+    const line = () => list().querySelector('[data-plan-line]');
+
+    it('free: names the plan and never shows a date, even with one stored', async () => {
+      await open();
+      plan.answer('free', '2026-11-19T16:59:59.999Z');
+      await settle();
+      expect(line()?.textContent?.trim()).toBe('แพ็ก⁠เกจ: ฟรี');
+    });
+
+    it('host with a renewal date: names the plan and the Bangkok date it runs until', async () => {
+      await open();
+      plan.answer('host', '2026-11-19T16:59:59.999Z');
+      await settle();
+      expect(line()?.textContent?.trim()).toBe('แพ็ก⁠เกจ: โฮสต์ · ถึง 19/11/2026');
+    });
+
+    it('club with no renewal date: just the plan', async () => {
+      await open();
+      plan.answer('club');
+      await settle();
+      expect(line()?.textContent?.trim()).toBe('แพ็ก⁠เกจ: ก๊วนใหญ่');
+    });
+
+    it('an unknown plan (never answered) shows nothing', async () => {
+      await open();
+      expect(line()).toBeNull();
+    });
+
+    it('a failed plan read shows nothing', async () => {
+      await open();
+      plan.fail();
+      await settle();
+      expect(line()).toBeNull();
+    });
+  });
+
+  describe('rows that lead nowhere on a free plan are disabled', () => {
+    const row = (s: string) => list().querySelector<HTMLElement>(`[data-section="${s}"]`)!;
+    const byId = (id: string) => document.getElementById(id);
+
+    async function openSettings(answer: 'free' | 'host' | 'club' | 'fail' | null, values: Parameters<typeof flushValues>[0] = {}) {
+      await open();
+      if (answer === 'fail') plan.fail();
+      else if (answer) plan.answer(answer);
+      trigger().click();
+      await harness.fixture.whenStable();
+      flushValues(values);
+      await settle();
+    }
+
+    const expectDisabled = (s: string) => {
+      const r = row(s);
+      // Locked, but a real button: it opens the upgrade sheet, so it is not announced as disabled.
+      expect(r.tagName).toBe('BUTTON');
+      expect(r.hasAttribute('aria-disabled')).toBe(false);
+      expect(r.hasAttribute('href')).toBe(false);
+      expect(r.classList.contains('locked')).toBe(true);
+      expect(r.querySelector('.row-chevron')).toBeNull();
+      // The status badge is replaced by the plan badge.
+      const badges = [...r.querySelectorAll('.value')].map((b) => b.textContent?.trim());
+      expect(badges).toEqual(['แพ็ก⁠เกจโฮสต์']);
+      // A screen reader hears why: the description and the plan hint, by id.
+      const described = r.getAttribute('aria-describedby')!.split(/\s+/).map((id) => byId(id)?.textContent?.trim());
+      expect(described).toContain('ใช้ได้ในแพ็ก⁠เกจโฮสต์');
+      expect(byId(r.getAttribute('aria-labelledby')!)?.textContent?.trim()).toBeTruthy();
+    };
+
+    const expectLink = (s: string) => {
+      const r = row(s);
+      expect(r.tagName).toBe('A');
+      expect(r.hasAttribute('aria-disabled')).toBe(false);
+      expect(r.getAttribute('href')).toBeTruthy();
+      expect(r.querySelector('.row-chevron')).not.toBeNull();
+      expect(r.textContent).not.toContain('แพ็ก⁠เกจโฮสต์');
+    };
+
+    it('free with nothing set up: levels, share and advanced are disabled; players and manage stay links', async () => {
+      await openSettings('free');
+      for (const s of ['levels', 'share', 'advanced']) expectDisabled(s);
+      for (const s of ['players', 'manage']) expectLink(s);
+    });
+
+    it('a locked row opens the upgrade sheet and does not navigate when tapped', async () => {
+      await openSettings('free');
+      const nav = vi.spyOn(TestBed.inject(Router), 'navigateByUrl').mockResolvedValue(true);
+      const sheet = vi.spyOn(TestBed.inject(UpgradeSheetService), 'open').mockImplementation(() => undefined);
+      for (const s of ['levels', 'share', 'advanced']) row(s).click();
+      expect(nav).not.toHaveBeenCalled();
+      expect(sheet).toHaveBeenCalledTimes(3);
+    });
+
+    it('free with a share token: share stays a link so the host can stop sharing', async () => {
+      await openSettings('free', { shared: true });
+      expectLink('share');
+      expect(row('share').querySelector('.value')?.textContent?.trim()).toBe('แชร์อยู่');
+    });
+
+    it('free with one advanced switch on: advanced stays a link so the host can turn it off', async () => {
+      await openSettings('free', { history: true });
+      expectLink('advanced');
+      // Stored on, but new rounds snapshot it off on free: said so, and not drawn as active.
+      const badge = row('advanced').querySelector('.value')!;
+      expect(badge.textContent?.trim()).toBe('ปิดในแพ็ก⁠เกจฟรี');
+      expect(badge.classList.contains('on')).toBe(false);
+    });
+
+    it('host with one advanced switch on: still reads เปิด 1 จาก 2, drawn as on', async () => {
+      await openSettings('host', { history: true });
+      const badge = row('advanced').querySelector('.value')!;
+      expect(badge.textContent?.trim()).toBe('เปิด 1 จาก 2');
+      expect(badge.classList.contains('on')).toBe(true);
+    });
+
+    it('free with the shuttle switch on: advanced stays a link', async () => {
+      await openSettings('free', { shuttle: true });
+      expectLink('advanced');
+    });
+
+    it('free with a custom ladder: levels stays a link so the host can still see it', async () => {
+      await openSettings('free', { custom: true });
+      expectLink('levels');
+    });
+
+    it('free but a fact is still unknown (fetch failed): that row stays a link', async () => {
+      await open();
+      plan.answer('free');
+      trigger().click();
+      await harness.fixture.whenStable();
+      httpMock.expectOne(`${B}/groups/group1/players`).flush([]);
+      httpMock.expectOne(`${B}/groups/group1/levels`).flush('x', { status: 500, statusText: 'x' });
+      httpMock.expectOne(`${B}/groups/group1/share`).flush('x', { status: 500, statusText: 'x' });
+      httpMock.expectOne(`${B}/groups/group1/shuttle-tools`).flush({ enabled: false });
+      httpMock.expectOne(`${B}/groups/group1/cross-session-history`).flush('x', { status: 500, statusText: 'x' });
+      await settle();
+      await tick();
+      for (const s of ['players', 'levels', 'share', 'advanced', 'manage']) expectLink(s);
+    });
+
+    for (const answer of ['host', 'club', 'fail', null] as const) {
+      it(`${answer ?? 'unknown'} plan: every row is an ordinary link, even with nothing set up`, async () => {
+        await openSettings(answer);
+        for (const s of ['players', 'levels', 'share', 'advanced', 'manage']) expectLink(s);
+      });
+    }
+  });
+
+  describe('plan notice and a paused group', () => {
+    const notice = () => el().querySelector('[data-plan-notice]');
+    const start = () => el().querySelector('[data-start]');
+
+    it('shows nothing and keeps the start link while the plan is unknown', async () => {
+      await open();
+      expect(notice()).toBeNull();
+      expect(start()).not.toBeNull();
+    });
+
+    it('a lapsed plan shows the notice under the title, and the start link stays', async () => {
+      await open();
+      plan.answer('free', daysAgoIso(5), { lapsedAt: daysAgoIso(5) });
+      await settle();
+      expect(notice()?.getAttribute('data-plan-notice')).toBe('lapsed');
+      expect(start()).not.toBeNull();
+    });
+
+    it('a paused group shows the notice and no start link or start hint', async () => {
+      await open();
+      plan.answer('free', null, { paused: true });
+      await settle();
+      expect(notice()?.getAttribute('data-plan-notice')).toBe('paused');
+      expect(start()).toBeNull();
+      expect(el().querySelector('.start-sub')).toBeNull();
+    });
   });
 
   describe('the resume link knows live from open from ended', () => {
@@ -425,6 +659,23 @@ describe('GroupHome', () => {
     await settle();
     expect(list().hidden).toBe(true);
     expect(document.activeElement).toBe(trigger());
+  });
+
+  it('Escape while the upgrade sheet is open leaves the settings list alone', async () => {
+    await open();
+    trigger().click();
+    await harness.fixture.whenStable();
+    flushValues();
+    await settle();
+    const sheet = TestBed.inject(UpgradeSheetService);
+    sheet.isOpen.set(true);
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
+    await settle();
+    expect(list().hidden).toBe(false);
+    sheet.isOpen.set(false);
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
+    await settle();
+    expect(list().hidden).toBe(true);
   });
 
   it('?settings=<section> reopens settings, focuses that row, then drops the parameter', async () => {

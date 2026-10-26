@@ -176,6 +176,7 @@ describe('auth boundary', () => {
 
     await request(server).get('/groups').set('Cookie', cookie).expect(200);
     await request(server).get('/venues/search?q=kip').set('Cookie', cookie).expect(200);
+    await request(server).get('/plans/me').set('Cookie', cookie).expect(200);
     await request(server)
       .get(`/groups/${ctx.groupCode}/sessions`)
       .set('Cookie', cookie)
@@ -333,6 +334,8 @@ describe('auth boundary', () => {
         // The shared venue list belongs to no group, so any logged-in host may
         // search it (OwnershipGuard passes this one path); admitted below.
         if (concrete === '/venues/search') continue;
+        // The caller's own plan: addresses no group, so OwnershipGuard passes it.
+        if (concrete === '/plans/me') continue;
 
         const res = await request(server)
           [method as 'get'](concrete)

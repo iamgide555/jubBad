@@ -269,6 +269,32 @@ describe('LINE link codes, status and unlink', () => {
     });
   });
 
+  describe('purgeExpiredCodes', () => {
+    it('removes codes expired or used more than a day ago and keeps live ones', async () => {
+      const code = await makeGroup(hostId);
+      const now = new Date('2026-10-26T12:00:00Z');
+      const day = 24 * 60 * MINUTE;
+      const make = (offsetExpires: number, usedOffset: number | null) =>
+        prisma.lineLinkCode.create({
+          data: {
+            groupId: code,
+            codeHash: randomUUID(),
+            expiresAt: new Date(now.getTime() + offsetExpires),
+            usedAt: usedOffset === null ? null : new Date(now.getTime() + usedOffset),
+          },
+        });
+      const live = await make(5 * MINUTE, null);
+      const expiredOld = await make(-2 * day, null);
+      const usedOld = await make(-2 * day + 5 * MINUTE, -2 * day);
+      const usedRecent = await make(5 * MINUTE, -MINUTE);
+      await link.purgeExpiredCodes(now);
+      const left = (await prisma.lineLinkCode.findMany({ where: { groupId: code } })).map((r) => r.id);
+      expect(new Set(left)).toEqual(new Set([live.id, usedRecent.id]));
+      expect(left).not.toContain(expiredOld.id);
+      expect(left).not.toContain(usedOld.id);
+    });
+  });
+
   describe('owner routes', () => {
     it('GET /groups/:code/line returns the status', async () => {
       const code = await makeGroup(hostId);

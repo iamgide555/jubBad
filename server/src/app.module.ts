@@ -9,6 +9,7 @@ import { SessionsModule } from './sessions/sessions.module.js';
 import { AutoConfirmModule } from './sessions/auto-confirm.js';
 import { VenuesModule } from './venues/venues.module.js';
 import { LineModule } from './line/line.module.js';
+import { LinePurgeModule } from './line/line-purge.js';
 
 /**
  * AuthModule registers two global APP_GUARDs (AuthGuard, then OwnershipGuard),
@@ -27,6 +28,7 @@ import { LineModule } from './line/line.module.js';
     AdminModule,
     VenuesModule,
     LineModule,
+    LinePurgeModule,
   ],
   controllers: [AppController],
   providers: [AppService],

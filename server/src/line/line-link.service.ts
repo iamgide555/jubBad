@@ -155,6 +155,14 @@ export class LineLinkService {
     ]);
   }
 
+  /** Housekeeping: codes that expired or were used more than a day ago. */
+  async purgeExpiredCodes(now: Date = new Date()): Promise<void> {
+    const cutoff = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+    await this.prisma.lineLinkCode.deleteMany({
+      where: { OR: [{ expiresAt: { lt: cutoff } }, { usedAt: { lt: cutoff } }] },
+    });
+  }
+
   /** For callers that delete a group themselves: the group is gone, so only the bot is left to remove. */
   async leaveQuietly(lineGroupId: string): Promise<void> {
     try {

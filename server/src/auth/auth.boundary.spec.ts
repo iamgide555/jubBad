@@ -1,4 +1,4 @@
-import { randomUUID } from 'node:crypto';
+import { createHmac, randomUUID } from 'node:crypto';
 import { INestApplication, ValidationPipe } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import request from 'supertest';
@@ -90,7 +90,8 @@ describe('auth boundary', () => {
       .useValue({ onModuleInit: async () => {} })
       .compile();
 
-    app = moduleRef.createNestApplication();
+    // rawBody: true as in main.ts: the LINE webhook verifies a signature over the exact bytes.
+    app = moduleRef.createNestApplication({ rawBody: true });
     app.use(cookieParser(SECRET));
     app.useGlobalPipes(new ValidationPipe({ whitelist: true, transform: true }));
     await app.init();
@@ -144,6 +145,10 @@ describe('auth boundary', () => {
       // Auth's own routes must stay reachable — you cannot log in with a
       // cookie you do not have yet.
       if (path.startsWith('/auth')) continue;
+      // LINE's webhook is @Public by design: it has no JubBad session and authenticates
+      // itself with an HMAC signature over the raw body. It is pinned by its own
+      // describe below (503 unconfigured, 401 unsigned), not by this cookie walk.
+      if (path === '/line/webhook') continue;
 
       // ':code' means a group code under /groups and a session code under
       // /sessions. Substituting the wrong one yields a 404 from a public route,
@@ -165,6 +170,39 @@ describe('auth boundary', () => {
     // Named in the message: a bare array diff tells you the boundary broke but
     // not where, which is the one thing you need to fix it.
     expect(leaked, `routes answered an anonymous caller: ${leaked.join(' | ')}`).toEqual([]);
+  });
+
+  describe("LINE's webhook, public but signed", () => {
+    const savedEnv = { ...process.env };
+    const body = JSON.stringify({ events: [] });
+    const sign = (secret: string) => createHmac('sha256', secret).update(body).digest('base64');
+    const post = (signature?: string) => {
+      const req = request(server).post('/line/webhook').set('Content-Type', 'application/json');
+      return (signature ? req.set('x-line-signature', signature) : req).send(body);
+    };
+
+    afterEach(() => {
+      process.env = { ...savedEnv };
+    });
+
+    it('answers a signed call with no JubBad cookie', async () => {
+      process.env.LINE_CHANNEL_SECRET = 'line-secret';
+      process.env.LINE_CHANNEL_ACCESS_TOKEN = 'line-token';
+      await post(sign('line-secret')).expect(200);
+    });
+
+    it('refuses an unsigned or wrongly signed call', async () => {
+      process.env.LINE_CHANNEL_SECRET = 'line-secret';
+      process.env.LINE_CHANNEL_ACCESS_TOKEN = 'line-token';
+      await post().expect(401);
+      await post(sign('someone-elses-secret')).expect(401);
+    });
+
+    it('answers 503 when the channel is not configured', async () => {
+      delete process.env.LINE_CHANNEL_SECRET;
+      delete process.env.LINE_CHANNEL_ACCESS_TOKEN;
+      await post(sign('line-secret')).expect(503);
+    });
   });
 
   it('admits the same routes once the caller holds the cookie', async () => {
@@ -313,6 +351,8 @@ describe('auth boundary', () => {
       const leaked: string[] = [];
       for (const { method, path } of declared) {
         if (path.startsWith('/auth')) continue;
+        // @Public, no :code, authenticated by LINE signature: nothing to own.
+        if (path === '/line/webhook') continue;
 
         const code = path.startsWith('/sessions') ? ctx.sessionCode : ctx.groupCode;
         const concrete = path

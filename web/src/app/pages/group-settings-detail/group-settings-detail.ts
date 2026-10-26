@@ -232,6 +232,23 @@ export class GroupSettingsDetail {
     }
   }
 
+  /** Saves the summary-card default. The box only moves when the server confirms. */
+  setSummaryDefault(input: HTMLInputElement): void {
+    const was = this.lineStatus();
+    if (!was) return;
+    const on = input.checked;
+    input.checked = was.summaryDefault;
+    this.lineError.set(null);
+    this.lineService.setSummaryDefault(this.groupCode, on).subscribe({
+      next: (r) => {
+        this.lineStatus.set({ ...was, summaryDefault: r.summaryDefault });
+        input.checked = r.summaryDefault;
+      },
+      error: (err) =>
+        this.lineError.set(planErrorMessage(err) ?? $localize`:@@line.summaryDefaultFailed:บันทึกไม่สำเร็จ ลองอีกครั้ง`),
+    });
+  }
+
   async unlinkLine(): Promise<void> {
     if (this.lineBusy()) return;
     this.lineBusy.set(true);

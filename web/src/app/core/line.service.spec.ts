@@ -26,6 +26,7 @@ describe('LineService', () => {
       lineGroupName: null,
       linkedAt: null,
       leftAt: null,
+      summaryDefault: true,
     };
     let got: unknown;
     service.status('g 1').subscribe((s) => (got = s));
@@ -60,5 +61,33 @@ describe('LineService', () => {
     expect(req.request.method).toBe('GET');
     req.flush({ roster: null });
     expect(got).toEqual({ roster: null });
+  });
+
+  it('reads the summary card state of a session', () => {
+    let got: unknown;
+    service.summaryState('S 1').subscribe((s) => (got = s));
+    const req = httpMock.expectOne(`${B}/sessions/S%201/line-summary`);
+    expect(req.request.method).toBe('GET');
+    req.flush({ available: true, sent: false, defaultOn: true });
+    expect(got).toEqual({ available: true, sent: false, defaultOn: true });
+  });
+
+  it('sends the summary card with a POST', () => {
+    let got: unknown;
+    service.sendSummary('S1').subscribe((r) => (got = r));
+    const req = httpMock.expectOne(`${B}/sessions/S1/line-summary`);
+    expect(req.request.method).toBe('POST');
+    req.flush({ outcome: 'sent' });
+    expect(got).toEqual({ outcome: 'sent' });
+  });
+
+  it('saves the summary default with a PATCH', () => {
+    let got: unknown;
+    service.setSummaryDefault('g1', false).subscribe((r) => (got = r));
+    const req = httpMock.expectOne(`${B}/groups/g1/line`);
+    expect(req.request.method).toBe('PATCH');
+    expect(req.request.body).toEqual({ summaryDefault: false });
+    req.flush({ summaryDefault: false });
+    expect(got).toEqual({ summaryDefault: false });
   });
 });

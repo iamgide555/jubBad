@@ -45,6 +45,19 @@
             } @else if (line.linked) {
               <p class="line-linked" data-linked>{{ linkedText() }}</p>
               <p class="muted" i18n="@@line.linkedHint">เมื่อมีคนส่งรายชื่อในกลุ่ม LINE บอทจะจำฉบับล่าสุดไว้ให้ตอนกดเริ่มรอบ</p>
+              <label class="switch-row">
+                <input
+                  type="checkbox"
+                  name="lineSummaryDefault"
+                  data-summary-default
+                  [checked]="line.summaryDefault"
+                  (change)="setSummaryDefault($any($event.target))"
+                />
+                <span class="switch-text">
+                  <span class="switch-title" i18n="@@line.summaryDefault">ส่งสรุปเข้ากลุ่ม LINE เมื่อจบรอบ</span>
+                  <span class="muted" i18n="@@line.summaryDefaultHint">ค่าเริ่มต้นของช่องติ๊กตอนกดจบรอบ เปลี่ยนได้ทุกครั้ง</span>
+                </span>
+              </label>
               <ng-container [ngTemplateOutlet]="unlinkBlock" />
             } @else {
               @if (line.leftAt) {

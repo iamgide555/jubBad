@@ -32,7 +32,8 @@ export function groupChoiceMessage(text: string, choices: { label: string; data:
     quickReply: {
       items: choices.map(({ label, data }) => {
         const shown = clip(label, QUICK_REPLY_LABEL_MAX);
-        return { type: 'action', action: { type: 'postback', label: shown, data, displayText: shown } };
+        // No displayText: LINE might echo it as a message event, and the bot's own reply already names the group.
+        return { type: 'action', action: { type: 'postback', label: shown, data } };
       })
     }
   };

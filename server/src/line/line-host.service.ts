@@ -135,7 +135,10 @@ export class LineHostService {
     return { userId };
   }
 
-  /** Always allowed, on any plan: clears the link and forgets everything stored for it. */
+  /**
+   * Always allowed, on any plan: clears the link, the host's unused codes and any pending roster. Rosters already
+   * filed for the host's groups are left and age out by the normal purge.
+   */
   async unlink(userId: string): Promise<void> {
     await this.prisma.$transaction([
       this.prisma.user.updateMany({

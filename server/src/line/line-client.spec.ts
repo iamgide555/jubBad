@@ -173,8 +173,8 @@ describe('LineClient', () => {
         text: 'เลือกก๊วน',
         quickReply: {
           items: [
-            { type: 'action', action: { type: 'postback', label: 'ก๊วน A', data: 'pick:1', displayText: 'ก๊วน A' } },
-            { type: 'action', action: { type: 'postback', label: 'ก๊วน B', data: 'pick:2', displayText: 'ก๊วน B' } }
+            { type: 'action', action: { type: 'postback', label: 'ก๊วน A', data: 'pick:1' } },
+            { type: 'action', action: { type: 'postback', label: 'ก๊วน B', data: 'pick:2' } }
           ]
         }
       });
@@ -184,11 +184,11 @@ describe('LineClient', () => {
       const label = 'ก'.repeat(30);
       const data = 'd'.repeat(120);
       const msg = groupChoiceMessage('t', [{ label, data }]) as {
-        quickReply: { items: { action: { label: string; data: string; displayText: string } }[] };
+        quickReply: { items: { action: { label: string; data: string; displayText?: string } }[] };
       };
       const action = msg.quickReply.items[0].action;
       expect(action.label).toBe('ก'.repeat(20));
-      expect(action.displayText).toBe('ก'.repeat(20));
+      expect(action.displayText).toBeUndefined();
       expect(action.data).toBe(data);
     });
 

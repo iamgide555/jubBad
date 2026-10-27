@@ -21,6 +21,8 @@ export interface LineStatus {
   leftAt: string | null;
   /** Whether the end-of-session "send the summary card" checkbox starts ticked. */
   summaryDefault: boolean;
+  /** Whether this server can send the card at all: needs `PUBLIC_APP_URL` for the button link. */
+  summaryAvailable: boolean;
 }
 
 /** Thrown inside the redeem transaction to roll it back; never leaves this file. */
@@ -55,6 +57,7 @@ export class LineLinkService {
       linkedAt: group?.lineLinkedAt?.toISOString() ?? null,
       leftAt: group?.lineLeftAt?.toISOString() ?? null,
       summaryDefault: group?.lineSummaryDefault ?? true,
+      summaryAvailable: config.publicAppUrl !== null,
     };
   }
 

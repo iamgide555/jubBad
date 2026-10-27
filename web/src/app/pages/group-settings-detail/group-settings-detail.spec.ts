@@ -423,6 +423,7 @@ describe('GroupSettingsDetail', () => {
       linkedAt: null,
       leftAt: null,
       summaryDefault: true,
+      summaryAvailable: true,
     };
     const q = (selector: string) => el().querySelector<HTMLElement>(selector);
 
@@ -539,6 +540,12 @@ describe('GroupSettingsDetail', () => {
         req.flush({ summaryDefault: false });
         await settle();
         expect(box()?.checked).toBe(false);
+      });
+
+      it('is absent when the server cannot send a card (no public app url)', async () => {
+        await openLine({ ...LINKED, summaryAvailable: false });
+        expect(q('[data-linked]')).not.toBeNull();
+        expect(box()).toBeNull();
       });
 
       it('shows unchecked when the saved default is off', async () => {

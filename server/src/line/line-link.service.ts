@@ -1,16 +1,11 @@
 import { ConflictException, Injectable, NotFoundException, ServiceUnavailableException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
-import { createHash, randomInt } from 'node:crypto';
 import { planAtLeast } from '../plans/plan.js';
 import { PlansService } from '../plans/plans.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { LineClient } from './line-client.js';
+import { CODE_TTL_MS, hashCode, newCode, normalizeCode } from './line-code.js';
 import { lineConfig } from './line-config.js';
-
-/** No 0/O/1/I: a code is read off a phone and typed into a chat. */
-const CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-const CODE_LENGTH = 6;
-const CODE_TTL_MS = 10 * 60 * 1000;
 
 export interface LineStatus {
   configured: boolean;
@@ -27,16 +22,6 @@ export interface LineStatus {
 
 /** Thrown inside the redeem transaction to roll it back; never leaves this file. */
 class RedeemRefused extends Error {}
-
-function hashCode(code: string): string {
-  return createHash('sha256').update(code).digest('hex');
-}
-
-/** `/link ab12cd ` -> `AB12CD`; null when it is not shaped like a code. */
-function normalizeCode(raw: string): string | null {
-  const code = raw.trim().toUpperCase();
-  return /^[A-Z0-9]{6}$/.test(code) ? code : null;
-}
 
 @Injectable()
 export class LineLinkService {
@@ -80,7 +65,7 @@ export class LineLinkService {
     if (!group) throw new NotFoundException();
     if (group.lineGroupId !== null) throw new ConflictException({ code: 'LINE_ALREADY_LINKED' });
 
-    const code = Array.from({ length: CODE_LENGTH }, () => CODE_ALPHABET[randomInt(CODE_ALPHABET.length)]).join('');
+    const code = newCode();
     const expiresAt = new Date(now.getTime() + CODE_TTL_MS);
     await this.prisma.$transaction([
       this.prisma.lineLinkCode.deleteMany({ where: { groupId: groupCode, usedAt: null } }),

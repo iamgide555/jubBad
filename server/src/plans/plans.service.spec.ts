@@ -96,6 +96,28 @@ describe('PlansService', () => {
     await expect(plans.requireGroupPlan(code, 'club')).rejects.toBeInstanceOf(ForbiddenException);
   });
 
+  it('planForUser reads the user own plan, and a missing user resolves to club', async () => {
+    const free = await makeUser({ plan: 'free' });
+    const host = await makeUser({ plan: 'host', planRenewsAt: new Date(Date.now() + 24 * 3600 * 1000) });
+    const lapsed = await makeUser({ plan: 'host', planRenewsAt: new Date(Date.now() - 24 * 3600 * 1000) });
+    const admin = await makeUser({ role: 'admin', plan: 'free' });
+    expect(await plans.planForUser(free.id)).toBe('free');
+    expect(await plans.planForUser(host.id)).toBe('host');
+    expect(await plans.planForUser(lapsed.id)).toBe('free');
+    expect(await plans.planForUser(admin.id)).toBe('club');
+    expect(await plans.planForUser(randomUUID())).toBe('club');
+  });
+
+  it('requireUserPlan refuses a free user with PLAN_REQUIRED and passes a high enough plan', async () => {
+    const free = await makeUser({ plan: 'free' });
+    const host = await makeUser({ plan: 'host' });
+    const err = await plans.requireUserPlan(free.id, 'host').catch((e) => e);
+    expect(err).toBeInstanceOf(ForbiddenException);
+    expect(err.getResponse()).toEqual({ code: 'PLAN_REQUIRED', requiredPlan: 'host' });
+    await expect(plans.requireUserPlan(host.id, 'host')).resolves.toBeUndefined();
+    await expect(plans.requireUserPlan(host.id, 'club')).rejects.toBeInstanceOf(ForbiddenException);
+  });
+
   it('requireSessionPlan resolves through the session group', async () => {
     const free = await makeUser({ plan: 'free' });
     const club = await makeUser({ plan: 'club' });

@@ -133,10 +133,7 @@
 
       @if (isCustom()) {
         <section class="form-card">
-          <button type="button" class="ghost" data-reset [disabled]="!paid() || saving()" (click)="requestReset()" i18n="@@levels.reset">กลับไปใช้ระดับมาตรฐาน</button>
-          @if (!paid()) {
-            <app-plan-lock />
-          }
+          <button type="button" class="ghost" data-reset [disabled]="saving()" (click)="requestReset()" i18n="@@levels.reset">กลับไปใช้ระดับมาตรฐาน</button>
         </section>
       }
     }

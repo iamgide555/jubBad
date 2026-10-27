@@ -83,10 +83,11 @@ export class GroupLevels implements CanComponentDeactivate {
   /**
    * The group owner's plan. A failed or still-pending read is `null`, which `isPaid` treats as
    * paid: a hiccup must never lock a host out (the server still refuses what the plan does not
-   * allow). On the free plan the ladder cannot be written at all (PUT is refused whatever the
-   * action), so save and reset are locked, and so is every way into editing (the standard
-   * state's two start buttons, and a lapsed host's custom ladder's fields): an edit that can
-   * never be saved is a trap. Reading the ladder stays open.
+   * allow). On the free plan the ladder cannot be customized or edited (PUT is refused for those
+   * actions), so save is locked, and so is every way into editing (the standard state's two
+   * start buttons, and a lapsed host's custom ladder's fields): an edit that can never be saved
+   * is a trap. Going back to the standard ladder (reset) turns a paid thing off, so it stays
+   * open, and a lapsed host is never stuck on a custom ladder. Reading the ladder stays open.
    */
   private readonly plan = signal<Plan | null>(null);
   protected readonly paid = computed(() => isPaid(this.plan()));

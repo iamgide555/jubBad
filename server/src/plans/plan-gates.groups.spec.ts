@@ -6,6 +6,7 @@ import { PrismaModule } from '../prisma/prisma.module.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { GroupsModule } from '../groups/groups.module.js';
 import { SessionsModule } from '../sessions/sessions.module.js';
+import { serializeGroupLadder } from '../groups/group-levels.js';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -125,7 +126,8 @@ describe('plan gates on paid group routes', () => {
 
   // Ids are deliberately nonexistent: a gated call must be refused before any lookup 404s.
   const gated: Array<[string, Verb, (code: string) => string, unknown?]> = [
-    ['PUT levels', 'put', (c) => `/groups/${c}/levels`, { action: 'reset', expectedRevision: 0 }],
+    ['PUT levels (customize)', 'put', (c) => `/groups/${c}/levels`, { action: 'customize', expectedRevision: 0, levels: [] }],
+    ['PUT levels (edit)', 'put', (c) => `/groups/${c}/levels`, { action: 'edit', expectedRevision: 0, levels: [] }],
     ['POST share', 'post', (c) => `/groups/${c}/share`],
     ['POST shuttle-tools on', 'post', (c) => `/groups/${c}/shuttle-tools`, { enabled: true }],
     ['POST cross-session-history on', 'post', (c) => `/groups/${c}/cross-session-history`, { enabled: true }],
@@ -150,6 +152,29 @@ describe('plan gates on paid group routes', () => {
     requestUserId = hostId;
     const res = await request(server)[verb](path(hostCode)).send(body as object);
     expect(res.status).not.toBe(403);
+  });
+
+  it('lets a lapsed group reset a custom ladder back to the standard one (turning a paid thing off)', async () => {
+    const lapsedCode = `gate-l-${randomUUID()}`;
+    await prisma.group.create({
+      data: {
+        code: lapsedCode,
+        name: 'Lapsed group',
+        ownerId: freeId,
+        levelLadder: serializeGroupLadder([{ id: randomUUID(), name: 'N', startingElo: 1200 }]),
+        levelLadderRevision: 3,
+      },
+    });
+    try {
+      requestUserId = freeId;
+      const res = await request(server)
+        .put(`/groups/${lapsedCode}/levels`)
+        .send({ action: 'reset', expectedRevision: 3 })
+        .expect(200);
+      expect(res.body.mode).toBe('standard');
+    } finally {
+      await prisma.group.delete({ where: { code: lapsedCode } });
+    }
   });
 
   it('lets a free group turn paid things off and use the free calls', async () => {

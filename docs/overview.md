@@ -1228,7 +1228,7 @@ a free host's group is gated as that host.
 
 | Area | Gated (turning it on / writing it) |
 | --- | --- |
-| Group routes | level ladder `PUT /groups/:code/levels` (the per-player level edit stays free); share `POST`; shuttle tools and cross-session history turn-on; rules `POST`/`PUT`; player stats (the one public route that is gated) |
+| Group routes | level ladder `PUT /groups/:code/levels` for `customize` and `edit` (`reset` back to the standard ladder and the per-player level edit stay free); share `POST`; shuttle tools and cross-session history turn-on; rules `POST`/`PUT`; player stats (the one public route that is gated) |
 | Session controls | session mode `balanced` / `level`; per-court mode other than `custom`; court target other than `auto`; lineup queue add/replace |
 | Session snapshots | `shuttleToolsEnabled` and cross-session history are snapshotted **off** for a free owner at session creation |
 | Bill extras | `POST bill-config` that sets a non-zero `hostFeeSatang` / `walkInFeeSatang` different from the stored value, or adds an id to `absentIds` (ไม่มา) not already stored; zeros, the stored value re-sent, and fewer ไม่มา marks pass |
@@ -1256,7 +1256,7 @@ config's walk-in fee (2000) therefore reads as 0 on a free session.
 
 **Deliberately never gated:** switching to `variety` or `custom`, a court to
 `custom`, a target back to `auto`; turning shuttle tools or cross-session
-history off; deleting a rule, stopping sharing, clearing or deleting lineups;
+history off; deleting a rule, stopping sharing, clearing or deleting lineups; resetting a custom level ladder to the standard one (a lapsed host is never stuck on a custom ladder);
 level tags and the player-level edit; rename, aliases and contact edits; fair /
 per-game / buffet models, rounding, remove or add person, and the plain shuttle
 count and price; `GET /sessions/:code`, display, summary and an issued
@@ -1266,8 +1266,10 @@ proposing and confirming in สูสี).
 **Lapse: two things that stop** (decided 2026-10-26, reversing "never trap" for
 these two cases only). Data is still never deleted.
 
-- *A group past the cap is paused.* An owner's groups are ranked by newest
-  session, then newest group, then code (`rankForCap`); the first
+- *A group past the cap is paused.* An owner's groups are ranked by night in
+  progress (a group with an unended session comes first, so a night being played
+  is not paused just because another group started a session more recently),
+  then newest session, then newest group, then code (`rankForCap`); the first
   `GROUP_LIMIT[effectivePlan]` stay usable and the rest are **paused**. The rank
   is re-read on every call (nothing is stored), so deleting a group or renewing
   the plan unpauses the next one at once. A paused group still opens, exports,

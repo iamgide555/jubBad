@@ -231,12 +231,17 @@ describe('plan gates on paid session controls', () => {
       );
     const daysAgo = (n: number) => new Date(Date.now() - n * 24 * 3600 * 1000);
 
-    /** Free owner, two groups: `usable` has the newest session, `paused` an older one. */
-    async function twoGroups() {
+    /** Free owner, two groups with finished nights: `usable` has the newest session, `paused` an older one. */
+    async function twoGroups(options: { bothRunning?: boolean } = {}) {
       const usable = await fixture({ mode: 'variety' });
       const paused = await fixture({ mode: 'variety' });
-      await prisma.session.update({ where: { code: paused.sessionCode }, data: { createdAt: daysAgo(20) } });
-      await prisma.session.update({ where: { code: usable.sessionCode }, data: { endedAt: new Date() } });
+      // A group with a night in progress is never paused, so `paused` only loses its place
+      // when both nights are still running and its session is the older one.
+      await prisma.session.update({
+        where: { code: paused.sessionCode },
+        data: options.bothRunning ? { createdAt: daysAgo(20) } : { createdAt: daysAgo(20), endedAt: daysAgo(20) },
+      });
+      if (!options.bothRunning) await prisma.session.update({ where: { code: usable.sessionCode }, data: { endedAt: new Date() } });
       return { usable, paused, cleanup: async () => { await paused.cleanup(); await usable.cleanup(); } };
     }
 
@@ -278,7 +283,7 @@ describe('plan gates on paid session controls', () => {
     });
 
     it('lets a session already running in a paused group keep proposing, and seats four players', async () => {
-      const g = await twoGroups();
+      const g = await twoGroups({ bothRunning: true });
       try {
         const res = await request(server).post(`/sessions/${g.paused.sessionCode}/courts/1/propose`).send({}).expect(201);
         expect(res.body.ok).toBe(true);

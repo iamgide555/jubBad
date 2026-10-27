@@ -29,10 +29,14 @@ export class GroupsController {
     return this.groupLevels.get(code);
   }
 
-  /** Paid gates below: a free group is refused with PLAN_REQUIRED before any lookup. */
+  /**
+   * Paid gates below: a free group is refused with PLAN_REQUIRED before any lookup.
+   * Going back to the standard ladder (`reset`) is turning a paid thing off, so a lapsed host
+   * is never trapped in a custom ladder; customize and edit are the paid writes.
+   */
   @Put(':code/levels')
   async saveLevels(@Param('code') code: string, @Body() dto: SaveGroupLevelsDto) {
-    await this.plans.requireGroupPlan(code, 'host');
+    if (dto.action !== 'reset') await this.plans.requireGroupPlan(code, 'host');
     return this.groupLevels.save(code, dto);
   }
 

@@ -48,6 +48,10 @@ describe('rankForCap', () => {
     expect(
       rankForCap([g('new', '2026-10-20', null), g('old', '2026-01-01', '2026-02-01')]),
     ).toEqual(['old', 'new']));
+  it('ranks a group with a night in progress above one with a newer session', () =>
+    expect(
+      rankForCap([g('newer', '2026-02-01', '2026-10-05'), { ...g('running', '2026-01-01', '2026-10-01'), live: true }]),
+    ).toEqual(['running', 'newer']));
   it('breaks a tie by newer createdAt, then by code', () => {
     expect(rankForCap([g('a', '2026-01-01', null), g('b', '2026-02-01', null)])).toEqual(['b', 'a']);
     expect(rankForCap([g('b', '2026-01-01', null), g('a', '2026-01-01', null)])).toEqual(['a', 'b']);

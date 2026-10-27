@@ -367,12 +367,12 @@ describe('GroupLevels', () => {
       expect(q<HTMLButtonElement>('[data-add-level]').disabled).toBe(false);
     });
 
-    it('free: resetting a custom ladder is a write the plan refuses too, so it is locked', async () => {
+    it('free: a lapsed host can still go back to the standard ladder (turning a paid thing off), with no plan hint beside it', async () => {
       await load(custom());
       plan.answer('free');
       await settle();
-      expect(q<HTMLButtonElement>('[data-reset]').disabled).toBe(true);
-      expect(locks()).toBeGreaterThan(0);
+      expect(q<HTMLButtonElement>('[data-reset]').disabled).toBe(false);
+      expect(q('[data-reset]').closest('section')!.querySelector('app-plan-lock')).toBeNull();
     });
 
     it('free on the standard ladder: no Elo intro and no seed numbers, but names and counts stay', async () => {

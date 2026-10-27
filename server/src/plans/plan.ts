@@ -38,14 +38,18 @@ export function planAtLeast(plan: Plan, required: PaidPlan): boolean {
 }
 
 /**
- * Codes of an owner's groups, most-usable first: newest session, then newest
- * group, then code (so the order is total). The first GROUP_LIMIT[plan] stay
- * usable; the rest are paused. Re-read every time, never stored, so deleting
- * a group unpauses the next one at once.
+ * Codes of an owner's groups, most-usable first: a group with a night in
+ * progress (`live`), then newest session, then newest group, then code (so the
+ * order is total). The first GROUP_LIMIT[plan] stay usable; the rest are
+ * paused. Re-read every time, never stored, so deleting a group unpauses the
+ * next one at once.
  */
-export function rankForCap(groups: { code: string; createdAt: Date; lastSessionAt: Date | null }[]): string[] {
+export function rankForCap(
+  groups: { code: string; createdAt: Date; lastSessionAt: Date | null; live?: boolean }[]
+): string[] {
   return [...groups]
     .sort((a, b) => {
+      if (Boolean(a.live) !== Boolean(b.live)) return a.live ? -1 : 1;
       const sessions = (b.lastSessionAt?.getTime() ?? -Infinity) - (a.lastSessionAt?.getTime() ?? -Infinity);
       if (sessions !== 0 && !Number.isNaN(sessions)) return sessions;
       const created = b.createdAt.getTime() - a.createdAt.getTime();

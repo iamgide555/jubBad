@@ -144,6 +144,16 @@ describe('PlansService', () => {
   }
   const daysAgo = (n: number) => new Date(Date.now() - n * 24 * 3600 * 1000);
 
+  it('pausedGroupCodes never pauses a group with a night in progress, even when another group has a newer session', async () => {
+    const owner = await makeUser({ plan: 'free' });
+    const running = await makeGroup(owner.id);
+    const other = await makeGroup(owner.id);
+    await sessionIn(running, daysAgo(2)); // still open: endedAt is null
+    const finished = await sessionIn(other, daysAgo(1));
+    await prisma.session.update({ where: { code: finished }, data: { endedAt: daysAgo(1) } });
+    expect([...(await plans.pausedGroupCodes(owner.id))]).toEqual([other]);
+  });
+
   it('pausedGroupCodes pauses the older-ranked group of a free owner', async () => {
     const owner = await makeUser({ plan: 'free' });
     const a = await makeGroup(owner.id);

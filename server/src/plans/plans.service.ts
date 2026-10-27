@@ -90,8 +90,8 @@ export class PlansService {
   }
 
   /**
-   * Groups past the cap of the owner's current plan, ranked by newest session
-   * then newest group (see rankForCap). Read fresh each time: nothing is stored,
+   * Groups past the cap of the owner's current plan, ranked by night in progress,
+   * then newest session, then newest group (see rankForCap). Read fresh each time: nothing is stored,
    * so a delete or a renewal changes the answer immediately. An admin owner or
    * an unknown owner pauses nothing.
    */
@@ -100,10 +100,20 @@ export class PlansService {
     if (!owner || owner.role === 'admin') return new Set();
     const groups = await this.prisma.group.findMany({
       where: { ownerId },
-      select: { code: true, createdAt: true, sessions: { orderBy: { createdAt: 'desc' }, take: 1, select: { createdAt: true } } },
+      select: {
+        code: true,
+        createdAt: true,
+        sessions: { orderBy: { createdAt: 'desc' }, take: 1, select: { createdAt: true } },
+        _count: { select: { sessions: { where: { endedAt: null } } } },
+      },
     });
     const ranked = rankForCap(
-      groups.map((g) => ({ code: g.code, createdAt: g.createdAt, lastSessionAt: g.sessions[0]?.createdAt ?? null }))
+      groups.map((g) => ({
+        code: g.code,
+        createdAt: g.createdAt,
+        lastSessionAt: g.sessions[0]?.createdAt ?? null,
+        live: g._count.sessions > 0,
+      }))
     );
     return new Set(ranked.slice(GROUP_LIMIT[effectivePlan(owner, now)]));
   }

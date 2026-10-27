@@ -215,6 +215,7 @@ describe('auth boundary', () => {
     await request(server).get('/groups').set('Cookie', cookie).expect(200);
     await request(server).get('/venues/search?q=kip').set('Cookie', cookie).expect(200);
     await request(server).get('/plans/me').set('Cookie', cookie).expect(200);
+    await request(server).get('/line/host').set('Cookie', cookie).expect(200);
     await request(server)
       .get(`/groups/${ctx.groupCode}/sessions`)
       .set('Cookie', cookie)
@@ -376,6 +377,9 @@ describe('auth boundary', () => {
         if (concrete === '/venues/search') continue;
         // The caller's own plan: addresses no group, so OwnershipGuard passes it.
         if (concrete === '/plans/me') continue;
+        // The caller's own LINE link (GET/DELETE /line/host, POST /line/host/code): names no group,
+        // the service reads only the signed-in user's row; admitted below.
+        if (concrete === '/line/host' || concrete === '/line/host/code') continue;
 
         const res = await request(server)
           [method as 'get'](concrete)

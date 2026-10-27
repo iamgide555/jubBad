@@ -7,6 +7,7 @@ import {
 } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { vi } from 'vitest';
+import request from 'supertest';
 import { PrismaModule } from '../prisma/prisma.module.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { LineClient } from './line-client.js';
@@ -412,3 +413,103 @@ describe('LINE host link codes, status and unlink', () => {
     });
   });
 });
+
+describe('LINE host link routes', () => {
+  const saved = { ...process.env };
+  let app: INestApplication;
+  let prisma: PrismaService;
+  let server: ReturnType<INestApplication['getHttpServer']>;
+  const fakeClient = { reply: vi.fn(), groupName: vi.fn(), memberName: vi.fn(), leave: vi.fn() };
+  const userIds: string[] = [];
+  let requestUser: { id: string; role: string } | undefined;
+
+  async function makeUser(plan: string): Promise<string> {
+    const user = await prisma.user.create({
+      data: { email: `line-hostdm-http-${randomUUID()}@example.test`, passwordHash: 'x', role: 'host', plan }
+    });
+    userIds.push(user.id);
+    return user.id;
+  }
+
+  beforeAll(async () => {
+    const moduleRef = await Test.createTestingModule({ imports: [PrismaModule, LineModule] })
+      .overrideProvider(LineClient)
+      .useValue(fakeClient)
+      .compile();
+    app = moduleRef.createNestApplication();
+    prisma = app.get(PrismaService);
+    // Stand-in for AuthGuard: no user means the request is refused with 401, as the real guard does.
+    app.use((req: { user?: unknown }, res: { status(n: number): { end(): void } }, next: () => void) => {
+      if (!requestUser) return res.status(401).end();
+      req.user = requestUser;
+      next();
+    });
+    await app.init();
+    server = app.getHttpServer();
+    await new Promise<void>((resolve) => server.listen(0, resolve));
+  });
+
+  afterAll(async () => {
+    await prisma.user.deleteMany({ where: { id: { in: userIds } } });
+    await app.close();
+  });
+
+  beforeEach(() => {
+    process.env.LINE_CHANNEL_SECRET = 'secret';
+    process.env.LINE_CHANNEL_ACCESS_TOKEN = 'token';
+    process.env.LINE_BOT_ADD_URL = 'https://lin.ee/jubbad';
+  });
+
+  afterEach(() => {
+    requestUser = undefined;
+    process.env = { ...saved };
+  });
+
+  it('refuses an anonymous caller on all three routes', async () => {
+    await request(server).get('/line/host').expect(401);
+    await request(server).post('/line/host/code').expect(401);
+    await request(server).delete('/line/host').expect(401);
+  });
+
+  it('GET /line/host returns the status of the signed-in user', async () => {
+    const userId = await makeUser('host');
+    requestUser = { id: userId, role: 'host' };
+    const res = await request(server).get('/line/host').expect(200);
+    expect(res.body).toEqual({
+      configured: true,
+      botAddUrl: 'https://lin.ee/jubbad',
+      linked: false,
+      linkedAt: null
+    });
+  });
+
+  it('POST /line/host/code makes a code for the signed-in user and stores only its hash', async () => {
+    const userId = await makeUser('host');
+    requestUser = { id: userId, role: 'host' };
+    const res = await request(server).post('/line/host/code').expect(201);
+    expect(res.body.code).toMatch(new RegExp(`^[${CODE_ALPHABET}]{6}$`));
+    const stored = await prisma.lineUserLinkCode.findMany({ where: { userId } });
+    expect(stored).toHaveLength(1);
+    expect(stored[0].codeHash).toBe(createHash('sha256').update(res.body.code).digest('hex'));
+  });
+
+  it('POST /line/host/code is 403 for a free user', async () => {
+    const userId = await makeUser('free');
+    requestUser = { id: userId, role: 'host' };
+    await request(server).post('/line/host/code').expect(403);
+    expect(await prisma.lineUserLinkCode.count({ where: { userId } })).toBe(0);
+  });
+
+  it('DELETE /line/host unlinks, even for a free user', async () => {
+    const userId = await makeUser('free');
+    await prisma.user.update({ where: { id: userId }, data: { lineUserId: lineIdFor(), lineLinkedAt: new Date() } });
+    requestUser = { id: userId, role: 'host' };
+    const res = await request(server).delete('/line/host').expect(200);
+    expect(res.body).toEqual({ unlinked: true });
+    const user = await prisma.user.findUniqueOrThrow({ where: { id: userId } });
+    expect(user.lineUserId).toBeNull();
+    expect(user.lineLinkedAt).toBeNull();
+  });
+});
+
+const lineIdFor = () => `U${randomUUID().replace(/-/g, '')}`;

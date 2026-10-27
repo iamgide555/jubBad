@@ -10,9 +10,20 @@ export type LinePushOutcome = 'ok' | 'quota' | 'failed';
 
 const QUICK_REPLY_LABEL_MAX = 20;
 
+/** At most `max` UTF-16 units, cut between code points so an emoji is never left as half a surrogate pair. */
+function clip(label: string, max: number): string {
+  let shown = '';
+  for (const point of label) {
+    if (shown.length + point.length > max) break;
+    shown += point;
+  }
+  return shown;
+}
+
 /**
- * One text message with a Quick Reply postback button per choice. LINE rejects a label over 20 characters,
- * so it is cut; `data` is passed through as is (the caller keeps it within LINE's 300 characters).
+ * One text message with a Quick Reply postback button per choice. LINE rejects a label over 20 characters
+ * (counted in UTF-16 units, so an emoji is two), so it is cut; `data` is passed through as is (the caller
+ * keeps it within LINE's 300 characters).
  */
 export function groupChoiceMessage(text: string, choices: { label: string; data: string }[]): unknown {
   return {
@@ -20,7 +31,7 @@ export function groupChoiceMessage(text: string, choices: { label: string; data:
     text,
     quickReply: {
       items: choices.map(({ label, data }) => {
-        const shown = Array.from(label).slice(0, QUICK_REPLY_LABEL_MAX).join('');
+        const shown = clip(label, QUICK_REPLY_LABEL_MAX);
         return { type: 'action', action: { type: 'postback', label: shown, data, displayText: shown } };
       })
     }

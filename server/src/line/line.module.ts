@@ -3,6 +3,7 @@ import { PlansModule } from '../plans/plans.module.js';
 import { LineClient } from './line-client.js';
 import { LineController } from './line.controller.js';
 import { LineHostController } from './line-host.controller.js';
+import { LineHostRosterService } from './line-host-roster.service.js';
 import { LineHostService } from './line-host.service.js';
 import { LineLinkService } from './line-link.service.js';
 import { LineRosterService } from './line-roster.service.js';
@@ -16,7 +17,15 @@ import { LineWebhookService } from './line-webhook.service.js';
 @Module({
   imports: [PlansModule],
   controllers: [LineController, LineHostController, LineSummaryController, LineWebhookController],
-  providers: [LineClient, LineHostService, LineLinkService, LineRosterService, LineSummaryService, LineWebhookService],
+  providers: [
+    LineClient,
+    LineHostRosterService,
+    LineHostService,
+    LineLinkService,
+    LineRosterService,
+    LineSummaryService,
+    LineWebhookService
+  ],
   exports: [LineClient, LineHostService, LineLinkService, LineRosterService, LineSummaryService],
 })
 export class LineModule {}

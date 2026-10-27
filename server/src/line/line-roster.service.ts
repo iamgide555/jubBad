@@ -57,7 +57,7 @@ export class LineRosterService {
       if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') return 'ignored';
       throw error;
     }
-    await this.purgeGroup(groupCode, new Date());
+    await this.purgeFor(groupCode);
     return 'stored';
   }
 
@@ -119,7 +119,8 @@ export class LineRosterService {
     return (await this.prisma.lineRosterMessage.deleteMany({ where: { id: { in: doomed } } })).count;
   }
 
-  private async purgeGroup(groupCode: string, now: Date): Promise<void> {
+  /** One group's sweep (20 newest, 30 days), run after each store; a DM-captured row ages out the same way. */
+  async purgeFor(groupCode: string, now: Date = new Date()): Promise<void> {
     const rows = await this.prisma.lineRosterMessage.findMany({
       where: { groupId: groupCode },
       select: { id: true, postedAt: true },

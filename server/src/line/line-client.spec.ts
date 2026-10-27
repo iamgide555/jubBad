@@ -191,5 +191,15 @@ describe('LineClient', () => {
       expect(action.displayText).toBe('ก'.repeat(20));
       expect(action.data).toBe(data);
     });
+
+    it('groupChoiceMessage caps a label at 20 UTF-16 units and never splits an emoji', () => {
+      const labelOf = (label: string) =>
+        (groupChoiceMessage('t', [{ label, data: 'd' }]) as { quickReply: { items: { action: { label: string } }[] } })
+          .quickReply.items[0].action.label;
+      // 19 Thai letters + one emoji is 21 UTF-16 units: the emoji goes whole, not half of it.
+      expect(labelOf(`${'ก'.repeat(19)}🏸`)).toBe('ก'.repeat(19));
+      expect(labelOf('🏸'.repeat(15))).toBe('🏸'.repeat(10));
+      expect(labelOf(`${'ก'.repeat(18)}🏸x`)).toBe(`${'ก'.repeat(18)}🏸`);
+    });
   });
 });

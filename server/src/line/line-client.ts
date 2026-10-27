@@ -8,6 +8,25 @@ const NAME_TTL_MS = 24 * 60 * 60 * 1000;
 /** How a push ended: sent, refused because this month's message quota is used up, or anything else. */
 export type LinePushOutcome = 'ok' | 'quota' | 'failed';
 
+const QUICK_REPLY_LABEL_MAX = 20;
+
+/**
+ * One text message with a Quick Reply postback button per choice. LINE rejects a label over 20 characters,
+ * so it is cut; `data` is passed through as is (the caller keeps it within LINE's 300 characters).
+ */
+export function groupChoiceMessage(text: string, choices: { label: string; data: string }[]): unknown {
+  return {
+    type: 'text',
+    text,
+    quickReply: {
+      items: choices.map(({ label, data }) => {
+        const shown = Array.from(label).slice(0, QUICK_REPLY_LABEL_MAX).join('');
+        return { type: 'action', action: { type: 'postback', label: shown, data, displayText: shown } };
+      })
+    }
+  };
+}
+
 /**
  * Thin LINE Messaging API client over global fetch. Every call has a short
  * timeout and none of them throw: a LINE outage or a missing token must never
@@ -18,7 +37,12 @@ export class LineClient {
   private readonly names = new Map<string, { name: string; expiresAt: number }>();
 
   async reply(replyToken: string, text: string): Promise<void> {
-    await this.call('POST', '/message/reply', { replyToken, messages: [{ type: 'text', text }] });
+    await this.replyMessages(replyToken, [{ type: 'text', text }]);
+  }
+
+  /** Replies are free (a push spends quota); `messages` may carry Quick Reply buttons, see groupChoiceMessage. */
+  async replyMessages(replyToken: string, messages: unknown[]): Promise<void> {
+    await this.call('POST', '/message/reply', { replyToken, messages });
   }
 
   /**

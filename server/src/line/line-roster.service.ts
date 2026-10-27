@@ -20,6 +20,8 @@ export interface LatestRoster {
   senderName: string | null;
   postedAt: string;
   stale: boolean;
+  /** True when the newest roster came from the host's direct message to the bot, not a LINE group. */
+  direct: boolean;
 }
 
 /**
@@ -81,11 +83,15 @@ export class LineRosterService {
   /**
    * What start pre-fills: the newest captured roster, with whether it is older than
    * the group's last finished session. Null (so start shows the manual paste) when
-   * the group is unlinked, nothing was captured, or the owner is not paid now.
+   * the group has neither a LINE group nor an owner with a host link, nothing was
+   * captured, or the owner is not paid now.
    */
   async latest(groupCode: string, now: Date = new Date()): Promise<LatestRoster | null> {
-    const group = await this.prisma.group.findUnique({ where: { code: groupCode }, select: { lineGroupId: true } });
-    if (!group?.lineGroupId) return null;
+    const group = await this.prisma.group.findUnique({
+      where: { code: groupCode },
+      select: { lineGroupId: true, owner: { select: { lineUserId: true } } },
+    });
+    if (!group?.lineGroupId && !group?.owner?.lineUserId) return null;
     if (!planAtLeast(await this.plans.planForGroup(groupCode, now), 'host')) return null;
     const newest = await this.prisma.lineRosterMessage.findFirst({
       where: { groupId: groupCode },
@@ -102,6 +108,7 @@ export class LineRosterService {
       senderName: newest.senderName,
       postedAt: newest.postedAt.toISOString(),
       stale: rosterStaleness(newest.postedAt, lastEnded?.endedAt ?? null, now) === 'stale',
+      direct: newest.direct,
     };
   }
 

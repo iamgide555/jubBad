@@ -242,6 +242,7 @@ describe('LineRosterService capture, edit, unsend and purge', () => {
         senderName: 'Nok',
         postedAt: new Date(now.getTime() - HOUR).toISOString(),
         stale: false,
+        direct: false,
       });
     });
 
@@ -279,6 +280,80 @@ describe('LineRosterService capture, edit, unsend and purge', () => {
       const { code } = await linkedGroup(freeId);
       await addMessage(code, new Date(now.getTime() - HOUR));
       expect(await roster.latest(code, now)).toBeNull();
+    });
+  });
+
+  describe('latest for a host DM link', () => {
+    const now = new Date('2026-10-26T12:00:00Z');
+    const dmText = `${ROSTER}\n4. ทาง DM`;
+
+    async function dmOwner(plan: 'host' | 'free', linked = true) {
+      return (
+        await prisma.user.create({
+          data: {
+            email: `lr-dm-${randomUUID()}@example.test`,
+            passwordHash: 'x',
+            role: 'host',
+            plan,
+            lineUserId: linked ? `U${randomUUID().replace(/-/g, '')}` : null,
+          },
+        })
+      ).id;
+    }
+    async function groupOf(ownerId: string, lineGroupId: string | null = null) {
+      const code = `lr-${randomUUID().slice(0, 10)}`;
+      await prisma.group.create({ data: { code, name: code, ownerId, lineGroupId, lineLinkedAt: lineGroupId ? new Date() : null } });
+      return code;
+    }
+    async function addMessage(groupId: string, postedAt: Date, direct: boolean, text = ROSTER) {
+      return prisma.lineRosterMessage.create({
+        data: { groupId, text, postedAt, direct, lineMessageId: messageId(), senderName: 'Nok', senderUserId: 'U1' },
+      });
+    }
+
+    it('returns a stored DM roster for a group with no LINE group when the owner has a host link', async () => {
+      const code = await groupOf(await dmOwner('host'));
+      const postedAt = new Date(now.getTime() - HOUR);
+      await addMessage(code, postedAt, true, dmText);
+      expect(await roster.latest(code, now)).toEqual({
+        text: dmText,
+        senderName: 'Nok',
+        postedAt: postedAt.toISOString(),
+        stale: false,
+        direct: true,
+      });
+    });
+
+    it('is null for the same group when the owner has no host link', async () => {
+      const code = await groupOf(await dmOwner('host', false));
+      await addMessage(code, new Date(now.getTime() - HOUR), true);
+      expect(await roster.latest(code, now)).toBeNull();
+    });
+
+    it('is null when the linked owner has lapsed to the free plan', async () => {
+      const code = await groupOf(await dmOwner('free'));
+      await addMessage(code, new Date(now.getTime() - HOUR), true);
+      expect(await roster.latest(code, now)).toBeNull();
+    });
+
+    it('with both links, returns the newest across a group-captured and a DM-captured row', async () => {
+      const code = await groupOf(await dmOwner('host'), lineId());
+      await addMessage(code, new Date(now.getTime() - 3 * HOUR), false, ROSTER);
+      await addMessage(code, new Date(now.getTime() - HOUR), true, dmText);
+      expect(await roster.latest(code, now)).toMatchObject({ text: dmText, direct: true });
+      await addMessage(code, new Date(now.getTime() - 30 * 60 * 1000), false, `${ROSTER}\n4. กลุ่ม`);
+      expect(await roster.latest(code, now)).toMatchObject({ text: `${ROSTER}\n4. กลุ่ม`, direct: false });
+    });
+
+    it('stale still follows the group last finished session', async () => {
+      const code = await groupOf(await dmOwner('host'));
+      await prisma.session.create({
+        data: { code: `ls-${randomUUID().slice(0, 12)}`, groupId: code, rawImportText: '', endedAt: new Date(now.getTime() - 2 * HOUR) },
+      });
+      await addMessage(code, new Date(now.getTime() - 5 * HOUR), true);
+      expect((await roster.latest(code, now))?.stale).toBe(true);
+      await addMessage(code, new Date(now.getTime() - HOUR), true);
+      expect((await roster.latest(code, now))?.stale).toBe(false);
     });
   });
 

@@ -1389,6 +1389,12 @@ expired code gets one generic Thai reply (it never says which); a sender who has
   it counts once per member against the shared monthly quota (about 86 messages a month for a
   20-member group playing weekly; the weekly post will share the same quota). Needs
   `PUBLIC_APP_URL`; unset means no card.
+- **One bot per group (confirmed 2026-10-27):** LINE keeps only one bot in a group chat; a second
+  one invited leaves at once and the first stays. A group that already has a bot (most real ก๊วน
+  have ขุนทอง for payments) cannot use roster capture or the summary card, and the host keeps
+  pasting the roster. Owner decisions: no extra hint in the UI, no share-button workaround (it is
+  the same copy-paste at the end of the night), and replacing ขุนทอง would mean cloning its
+  features first, so the bot stays an opt-in extra for groups without another bot.
 - **Unverified until a real LINE group is used:** the exact type string of LINE's edit event
   (`messageEdited` per the docs summary) and that Cloudflare lets LINE's webhook through.
 

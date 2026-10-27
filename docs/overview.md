@@ -1368,7 +1368,7 @@ expired code gets one generic Thai reply (it never says which); a sender who has
   cleared and the settings page says so.
 - **Fallback:** every failure (no bot configured, LINE down, nothing captured, lapsed plan) leaves
   the plain empty paste box, exactly as before.
-- **Summary card** (`docs/superpowers/specs/2026-10-27-line-bot-summary-card-design.md`): ending a
+- **Summary card** (`docs/archive/specs/2026-10-27-line-bot-summary-card-design.md`): ending a
   session on a linked, paid group can post a Flex card to the LINE group with the night's totals
   (group, date, venue, players, games) and one "ดูสรุป" button to the public summary page, so
   members who never saw the old Announce can find it. A checkbox in the จบรอบ dialog decides per

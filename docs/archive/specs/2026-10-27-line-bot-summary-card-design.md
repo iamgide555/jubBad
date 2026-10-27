@@ -1,6 +1,6 @@
 # LINE bot session summary card — design
 
-Status: **approved 2026-10-27; built on `feat/line-summary-card`, real-LINE check pending.** Builds on LINE bot phase 1
+Status: **approved 2026-10-27; built, real-LINE check passed 2026-10-27, deployed.** Builds on LINE bot phase 1
 (`docs/archive/specs/2026-10-26-line-bot-roster-design.md`). Separate from the weekly auto-post
 (`docs/superpowers/specs/2026-10-26-line-bot-weekly-post-design.md`), and smaller: no scheduler.
 Items marked **(my call)** were decided by the writer, not the owner.

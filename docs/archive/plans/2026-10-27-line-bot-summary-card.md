@@ -1,6 +1,6 @@
 # LINE Bot Session Summary Card Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [x]`) syntax for tracking.
 
 **Goal:** When the host ends a session on a linked, paid group, the LINE bot can post a Flex
 Message card with the night's totals and a button to the public summary page; a card that did
@@ -15,7 +15,7 @@ dialog, a default switch in LINE settings, and an owner-only send button on the 
 **Tech Stack:** NestJS + Prisma 7 + SQLite (vitest, `fileParallelism: false`), Angular 22
 zoneless standalone + signals (`ng test` on vitest), LINE Messaging API push + Flex Message.
 
-**Spec:** `docs/superpowers/specs/2026-10-27-line-bot-summary-card-design.md` (builds on
+**Spec:** `docs/archive/specs/2026-10-27-line-bot-summary-card-design.md` (builds on
 `docs/archive/specs/2026-10-26-line-bot-roster-design.md`).
 
 ## Global Constraints
@@ -67,7 +67,7 @@ zoneless standalone + signals (`ng test` on vitest), LINE Messaging API push + F
   matches `/monthly limit/i` → `quota`. Everything else, including a timeout, a network error or
   a missing token → `failed`.
 
-- [ ] **Step 1: Write failing tests.**
+- [x] **Step 1: Write failing tests.**
   - `line-config.spec.ts`: `publicAppUrl` is `'https://jubbad.wongnok.dev'` for
     `PUBLIC_APP_URL=https://jubbad.wongnok.dev/`; `null` for `http://x`, `''` and unset.
   - `line-client.spec.ts`, using the existing fetch-stub pattern:
@@ -79,18 +79,18 @@ zoneless standalone + signals (`ng test` on vitest), LINE Messaging API push + F
     - No token → `'failed'` with fetch not called.
   - `line-schema.spec.ts`: a new group has `lineSummaryDefault === true`; a new session has
     `lineSummarySentAt === null`.
-- [ ] **Step 2: Run** `cd server && npx vitest run src/line/line-config.spec.ts src/line/line-client.spec.ts src/line/line-schema.spec.ts`.
+- [x] **Step 2: Run** `cd server && npx vitest run src/line/line-config.spec.ts src/line/line-client.spec.ts src/line/line-schema.spec.ts`.
   Expected: the new cases FAIL.
-- [ ] **Step 3: Implement.**
+- [x] **Step 3: Implement.**
   - Add both columns and write the migration SQL: two `ALTER TABLE … ADD COLUMN`, the boolean
     `NOT NULL DEFAULT true`.
   - Run `npx prisma generate`.
   - Split `call()` so that one private helper returns `{ status: number; body } | null` and
     `call()` keeps its current contract on top of it. `push` reads the status.
   - Add `PUBLIC_APP_URL=` with a one-line comment to `.env.example`.
-- [ ] **Step 4: Run** the same command plus `npx prisma migrate deploy` against the test DB
+- [x] **Step 4: Run** the same command plus `npx prisma migrate deploy` against the test DB
   as the suite already does. Expected: PASS.
-- [ ] **Step 5: Commit** `feat(server): LINE push client, public app URL, summary card columns`.
+- [x] **Step 5: Commit** `feat(server): LINE push client, public app URL, summary card columns`.
 
 ### Task 2: Pure card builder
 
@@ -116,7 +116,7 @@ Card layout: a `bubble` with:
 The builder picks colours from `DESIGN.md`'s primary. `altText` is
 `สรุปก๊วน ${name} ${cardDate}`, cut to 400 characters.
 
-- [ ] **Step 1: Write failing tests**:
+- [x] **Step 1: Write failing tests**:
   - `full input`: walk `contents` and assert it contains texts `'สรุปก๊วน'`, `'ก๊วนพฤหัส'`,
     `'26 ต.ค.'`, `'Bad@Mama'`, `'18 คน'`, `'42 เกม'`. The footer button uri equals `url` and
     its label is `'ดูสรุป'`. `altText === 'สรุปก๊วน ก๊วนพฤหัส 26 ต.ค.'`.
@@ -127,12 +127,12 @@ The builder picks colours from `DESIGN.md`'s primary. `altText` is
   - `altText cap`: a 500-character group name gives `altText.length <= 400`.
   - `cardDate`: `cardDate(null, new Date('2026-10-26T15:30:00Z'))` contains `'27'` and
     `'ต.ค.'` (Bangkok is already the next day). `cardDate('  ', d)` falls back the same way.
-- [ ] **Step 2: Run** `npx vitest run src/line/line-summary-card.spec.ts`. Expected: FAIL (module missing).
-- [ ] **Step 3: Implement** both functions.
-- [ ] **Step 4: Run** the same command. Expected: PASS. Then paste
+- [x] **Step 2: Run** `npx vitest run src/line/line-summary-card.spec.ts`. Expected: FAIL (module missing).
+- [x] **Step 3: Implement** both functions.
+- [x] **Step 4: Run** the same command. Expected: PASS. Then paste
   `JSON.stringify(summaryCard(sample).contents)` into LINE's Flex Message Simulator. Check it
   renders, and note in the ledger that the check was done.
-- [ ] **Step 5: Commit** `feat(server): LINE summary card builder`.
+- [x] **Step 5: Commit** `feat(server): LINE summary card builder`.
 
 ### Task 3: `LineSummaryService` and the owner routes
 
@@ -163,7 +163,7 @@ The builder picks colours from `DESIGN.md`'s primary. `altText` is
   - `GET /sessions/:code/line-summary` → `LineSummaryState`.
   - `POST /sessions/:code/line-summary` → `{ outcome: LineSummaryOutcome }`.
 
-- [ ] **Step 1: Write failing tests** in `line-summary.spec.ts`. Use a real test DB with a
+- [x] **Step 1: Write failing tests** in `line-summary.spec.ts`. Use a real test DB with a
   group, an owner on plan `host`, a linked `lineGroupId`, an ended session with 2 finished
   pairings over 4 distinct players, and `LineClient` replaced by a stub that records calls:
   - `state` → `{ available: true, sent: false, defaultOn: true }`.
@@ -183,16 +183,16 @@ The builder picks colours from `DESIGN.md`'s primary. `altText` is
     - `PUBLIC_APP_URL` is unset;
     - there are zero finished games;
     - the session is not ended.
-- [ ] **Step 2: Add to `auth.boundary.spec.ts`:** another user's cookie gets 404 on both
+- [x] **Step 2: Add to `auth.boundary.spec.ts`:** another user's cookie gets 404 on both
   `GET` and `POST /sessions/:code/line-summary`. With no cookie, both get 401 (or whatever
   this spec already expects for owner routes).
-- [ ] **Step 3: Run** `npx vitest run src/line/line-summary.spec.ts src/auth/auth.boundary.spec.ts`. Expected: FAIL.
-- [ ] **Step 4: Implement** the service, the controller and the module wiring. The module
+- [x] **Step 3: Run** `npx vitest run src/line/line-summary.spec.ts src/auth/auth.boundary.spec.ts`. Expected: FAIL.
+- [x] **Step 4: Implement** the service, the controller and the module wiring. The module
   comment stays true, because LineModule still must not import GroupsModule or SessionsModule.
-- [ ] **Step 5: Run** the same command. Expected: PASS. Then run the full `npm test` in
+- [x] **Step 5: Run** the same command. Expected: PASS. Then run the full `npm test` in
   `server/`: specs that build `LineModule` may need nothing new; any that break get the
   same fix as phase 1 (import `LineModule`).
-- [ ] **Step 6: Commit** `feat(server): send the LINE summary card once per session`.
+- [x] **Step 6: Commit** `feat(server): send the LINE summary card once per session`.
 
 ### Task 4: End session sends the card; the default setting on the server
 
@@ -214,7 +214,7 @@ The builder picks colours from `DESIGN.md`'s primary. `altText` is
   `{ summaryDefault }`. It requires the host plan (`plans.requireGroupPlan(code, 'host')`, the
   same error as `createCode`) and a linked group (409 `LINE_NOT_LINKED` otherwise).
 
-- [ ] **Step 1: Write failing tests:**
+- [x] **Step 1: Write failing tests:**
   - `end-session-line.spec.ts` (same fixture shape as Task 3, with a stubbed `LineClient`):
     - End with `{ sendLineSummary: true }` → 201, body `lineSummary: 'sent'`, the session is
       ended, one push.
@@ -226,12 +226,12 @@ The builder picks colours from `DESIGN.md`'s primary. `altText` is
     - `status().summaryDefault` is `true` by default.
     - `setSummaryDefault(code, false)` persists.
     - It throws the plan error on `free` and `LINE_NOT_LINKED` when unlinked.
-- [ ] **Step 2: Run** `npx vitest run src/sessions/end-session-line.spec.ts src/line/line-link.spec.ts`. Expected: FAIL.
-- [ ] **Step 3: Implement.** Existing end-session specs post no body. Keep them passing,
+- [x] **Step 2: Run** `npx vitest run src/sessions/end-session-line.spec.ts src/line/line-link.spec.ts`. Expected: FAIL.
+- [x] **Step 3: Implement.** Existing end-session specs post no body. Keep them passing,
   because the DTO is fully optional.
-- [ ] **Step 4: Run** those two files, then the full `npm test` and `npm run lint` in `server/`.
+- [x] **Step 4: Run** those two files, then the full `npm test` and `npm run lint` in `server/`.
   Expected: PASS and clean.
-- [ ] **Step 5: Commit** `feat(server): end session can post the LINE summary card; default setting`.
+- [x] **Step 5: Commit** `feat(server): end session can post the LINE summary card; default setting`.
 
 ### Task 5: Web — models, service, settings switch
 
@@ -256,17 +256,17 @@ It uses the existing `switch-row` markup:
 On change it calls `setSummaryDefault`. On failure it reverts the switch and shows the error
 in the existing `lineError()` line.
 
-- [ ] **Step 1: Write failing tests:**
+- [x] **Step 1: Write failing tests:**
   - Service URLs: `GET`/`POST /api/sessions/S1/line-summary` and `PATCH /api/groups/G1/line`
     with `{ summaryDefault: false }`.
   - Settings: the switch is checked when `summaryDefault: true`. Toggling sends `PATCH false`.
     A failed PATCH leaves it checked and shows the error. The switch is absent when paused
     (linked, free) and when unlinked.
-- [ ] **Step 2: Run** the web tests for those two specs, the same way phase 1 ran single web
+- [x] **Step 2: Run** the web tests for those two specs, the same way phase 1 ran single web
   specs. Expected: FAIL.
-- [ ] **Step 3: Implement.**
-- [ ] **Step 4: Run** the same specs. Expected: PASS.
-- [ ] **Step 5: Commit** `feat(web): LINE summary default switch in group settings`.
+- [x] **Step 3: Implement.**
+- [x] **Step 4: Run** the same specs. Expected: PASS.
+- [x] **Step 5: Commit** `feat(web): LINE summary default switch in group settings`.
 
 ### Task 6: Web — end dialog checkbox
 
@@ -295,7 +295,7 @@ Dashboard:
   `endSessionBusy()`.
 - `confirmEndSession` passes `this.lineSummary()?.available === true && this.sendLineSummary()`.
 
-- [ ] **Step 1: Write failing tests:**
+- [x] **Step 1: Write failing tests:**
   - The dialog renders projected content.
   - The dashboard:
     - The checkbox is absent when the state is `available: false`, when the load fails, and
@@ -304,12 +304,12 @@ Dashboard:
       and unchecked when `defaultOn: false`.
     - Confirming with it checked calls `endSession(true)`; unchecking it calls `endSession(false)`.
     - Navigation carries `state.lineSummary` when the result has one.
-- [ ] **Step 2: Run** those specs. Expected: FAIL.
-- [ ] **Step 3: Implement.** Existing dashboard specs that open the end dialog need a
+- [x] **Step 2: Run** those specs. Expected: FAIL.
+- [x] **Step 3: Implement.** Existing dashboard specs that open the end dialog need a
   `LineService` stub (`summaryState` → `available: false`), the same fix as phase 1's
   `noLineBot`.
-- [ ] **Step 4: Run** those specs. Expected: PASS.
-- [ ] **Step 5: Commit** `feat(web): end dialog can send the LINE summary card`.
+- [x] **Step 4: Run** those specs. Expected: PASS.
+- [x] **Step 5: Commit** `feat(web): end dialog can send the LINE summary card`.
 
 ### Task 7: Web — summary page send-once button and outcome line
 
@@ -334,17 +334,17 @@ Behaviour:
   `already-sent` the state becomes `sent: true`, so the button disappears.
 - With no outcome and `sent: true`, the page shows the `@@summary.lineSent` line and no button.
 
-- [ ] **Step 1: Write failing tests:**
+- [x] **Step 1: Write failing tests:**
   - A non-owner makes no `line-summary` request and sees no button.
   - An owner with `available: true, sent: false` sees the button. Pressing it with the
     service returning `sent` shows the sent line and removes the button.
   - `quota` keeps the button and shows the quota line.
   - Navigation state `{ lineSummary: 'failed' }` shows the failed line on load.
   - `sent: true` shows the sent line and no button.
-- [ ] **Step 2: Run** the spec. Expected: FAIL.
-- [ ] **Step 3: Implement.**
-- [ ] **Step 4: Run** the spec. Expected: PASS.
-- [ ] **Step 5: Commit** `feat(web): send the LINE summary card from the summary page`.
+- [x] **Step 2: Run** the spec. Expected: FAIL.
+- [x] **Step 3: Implement.**
+- [x] **Step 4: Run** the spec. Expected: PASS.
+- [x] **Step 5: Commit** `feat(web): send the LINE summary card from the summary page`.
 
 ### Task 8: Locale, docs, full verification
 
@@ -365,10 +365,10 @@ English targets:
 | ส่ง…ไม่สำเร็จ ลองอีกครั้งได้ | Couldn't send the summary to LINE; you can try again |
 | ส่งสรุปไม่ได้ กลุ่มยังไม่ได้เชื่อม… | Can't send: the group isn't linked to LINE or the plan has lapsed |
 
-- [ ] **Step 1: Extract** the i18n ids the way phase 1 did, and add the English targets above.
-- [ ] **Step 2: Edit the docs** listed.
-- [ ] **Step 3: Run** the root `npm test` (engines, server, web), `cd server && npm run lint`, and `cd web && npm run build`. Expected: all pass, lint clean, build OK with no missing-translation warnings for the new ids.
-- [ ] **Step 4: Commit** `docs: LINE summary card (overview, deploy, quota note); i18n`.
+- [x] **Step 1: Extract** the i18n ids the way phase 1 did, and add the English targets above.
+- [x] **Step 2: Edit the docs** listed.
+- [x] **Step 3: Run** the root `npm test` (engines, server, web), `cd server && npm run lint`, and `cd web && npm run build`. Expected: all pass, lint clean, build OK with no missing-translation warnings for the new ids.
+- [x] **Step 4: Commit** `docs: LINE summary card (overview, deploy, quota note); i18n`.
 
 ## After the plan
 

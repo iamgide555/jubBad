@@ -147,6 +147,13 @@ export class LineHostService {
     ]);
   }
 
+  /** The host blocked the bot: a held roster can no longer be chosen. The link itself stays. */
+  async dropPending(lineUserId: string): Promise<void> {
+    await this.prisma.linePendingRoster.deleteMany({
+      where: { user: { lineUserId } },
+    });
+  }
+
   async userForLineUser(lineUserId: string): Promise<{ id: string } | null> {
     return this.prisma.user.findUnique({
       where: { lineUserId },

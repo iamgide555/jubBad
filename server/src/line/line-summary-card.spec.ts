@@ -103,3 +103,28 @@ describe('cardDate', () => {
     }
   });
 });
+
+describe('summaryCard with very long text', () => {
+  const longName = 'ก'.repeat(500);
+  const longVenue = 'ส'.repeat(500);
+  const longDate = 'ว'.repeat(500);
+
+  it('cuts a long group name, venue and date with an ellipsis so the card stays small', () => {
+    const card = summaryCard({ ...base, groupName: longName, venue: longVenue, date: longDate });
+    for (const t of texts(card)) expect(Array.from(t).length).toBeLessThanOrEqual(60);
+    expect(texts(card).some((t) => t.endsWith('…'))).toBe(true);
+    expect(JSON.stringify(card).length).toBeLessThan(3000);
+  });
+
+  it('leaves text at the limit untouched', () => {
+    const name = 'ก'.repeat(60);
+    expect(texts(summaryCard({ ...base, groupName: name }))).toContain(name);
+  });
+
+  it('keeps the alt text within 400 characters and never splits an emoji', () => {
+    const emoji = '🏸'.repeat(500);
+    const { altText } = summaryCard({ ...base, groupName: emoji, date: emoji });
+    expect(Array.from(altText).length).toBeLessThanOrEqual(400);
+    expect(altText).not.toMatch(/[\ud800-\udbff](?![\udc00-\udfff])|(?<![\ud800-\udbff])[\udc00-\udfff]/);
+  });
+});

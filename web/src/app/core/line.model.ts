@@ -8,6 +8,8 @@ export interface LineStatus {
   leftAt: string | null;
   /** Whether the end-of-session "send the summary card" checkbox starts ticked. */
   summaryDefault: boolean;
+  /** False when the server has no public app url, so no card can be sent and the switch would do nothing. */
+  summaryAvailable: boolean;
 }
 
 /** Mirrors server/src/line/line-summary.service.ts. */

@@ -210,7 +210,15 @@ describe('LINE link codes, status and unlink', () => {
         linkedAt: null,
         leftAt: null,
         summaryDefault: true,
+        summaryAvailable: false,
       });
+    });
+
+    it('reports whether the summary card can be sent, which needs the public app url', async () => {
+      const code = await makeGroup(hostId);
+      expect((await link.status(code)).summaryAvailable).toBe(false);
+      process.env.PUBLIC_APP_URL = 'https://jubbad.test';
+      expect((await link.status(code)).summaryAvailable).toBe(true);
     });
 
     it('reports leftAt after the bot is removed, and a re-link clears it', async () => {

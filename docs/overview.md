@@ -1383,7 +1383,9 @@ expired code gets one generic Thai reply (it never says which); a sender who has
   carries an `X-Line-Retry-Key` derived from the session code, so a timeout whose answer was lost can
   be retried without a duplicate (LINE answers 409, read as sent). The owner's summary page offers
   "ส่งสรุปเข้ากลุ่ม LINE" for an ended session until a card has gone out. The card writes the stored
-  yyyy-mm-dd date as a Thai date. A card is a push, so
+  yyyy-mm-dd date as a Thai date, and clips the group name, venue and date to 60 characters
+  (host-typed text must not push the card past LINE's size limit). The group settings switch for the
+  default shows only when `PUBLIC_APP_URL` is set (`summaryAvailable` in the LINE status). A card is a push, so
   it counts once per member against the shared monthly quota (about 86 messages a month for a
   20-member group playing weekly; the weekly post will share the same quota). Needs
   `PUBLIC_APP_URL`; unset means no card.

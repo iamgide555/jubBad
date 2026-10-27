@@ -17,6 +17,8 @@ export interface SummaryCard {
 
 const GROUP_FALLBACK = 'ก๊วน';
 const ALT_TEXT_MAX = 400;
+/** Group name, venue and date are host-typed; clipped so one long entry cannot push the card past LINE's size limit. */
+const TEXT_MAX = 60;
 // DESIGN.md: court (green) for the header and button, ink for text.
 const COURT = '#1f6b3d';
 const INK = '#16130f';
@@ -26,6 +28,12 @@ const INK_SOFT = '#6b6459';
 function present(value: string | null): string | null {
   const trimmed = value?.trim();
   return trimmed ? trimmed : null;
+}
+
+/** Clips to `max` characters (code points, so an emoji is never cut in half), ending in an ellipsis when cut. */
+function clip(text: string, max: number): string {
+  const chars = Array.from(text);
+  return chars.length <= max ? text : `${chars.slice(0, max - 1).join('')}…`;
 }
 
 const THAI_DATE = new Intl.DateTimeFormat('th-TH', {
@@ -63,9 +71,10 @@ function row(label: string, value: string) {
 }
 
 export function summaryCard(input: SummaryCardInput): SummaryCard {
-  const name = present(input.groupName) ?? GROUP_FALLBACK;
-  const date = cardDate(input.date, input.endedAt);
-  const venue = present(input.venue);
+  const name = clip(present(input.groupName) ?? GROUP_FALLBACK, TEXT_MAX);
+  const date = clip(cardDate(input.date, input.endedAt), TEXT_MAX);
+  const venueText = present(input.venue);
+  const venue = venueText === null ? null : clip(venueText, TEXT_MAX);
 
   const rows = [row('วันที่', date)];
   if (venue) rows.push(row('สนาม', venue));
@@ -73,7 +82,7 @@ export function summaryCard(input: SummaryCardInput): SummaryCard {
 
   return {
     type: 'flex',
-    altText: `สรุปก๊วน ${name} ${date}`.slice(0, ALT_TEXT_MAX),
+    altText: clip(`สรุปก๊วน ${name} ${date}`, ALT_TEXT_MAX),
     contents: {
       type: 'bubble',
       header: {

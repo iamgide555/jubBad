@@ -63,6 +63,34 @@ describe('LineService', () => {
     expect(got).toEqual({ roster: null });
   });
 
+  it("reads the signed-in host's own LINE link", () => {
+    const status = { configured: true, botAddUrl: 'https://lin.ee/x', linked: false, linkedAt: null };
+    let got: unknown;
+    service.hostStatus().subscribe((s) => (got = s));
+    const req = httpMock.expectOne(`${B}/line/host`);
+    expect(req.request.method).toBe('GET');
+    req.flush(status);
+    expect(got).toEqual(status);
+  });
+
+  it('creates a host link code with a POST', () => {
+    let got: unknown;
+    service.hostCreateCode().subscribe((c) => (got = c));
+    const req = httpMock.expectOne(`${B}/line/host/code`);
+    expect(req.request.method).toBe('POST');
+    req.flush({ code: 'K7P2QX', expiresAt: '2026-10-28T10:10:00.000Z' });
+    expect(got).toEqual({ code: 'K7P2QX', expiresAt: '2026-10-28T10:10:00.000Z' });
+  });
+
+  it("unlinks the host's own LINE with a DELETE", () => {
+    let got: unknown;
+    service.hostUnlink().subscribe((r) => (got = r));
+    const req = httpMock.expectOne(`${B}/line/host`);
+    expect(req.request.method).toBe('DELETE');
+    req.flush({ unlinked: true });
+    expect(got).toEqual({ unlinked: true });
+  });
+
   it('reads the summary card state of a session', () => {
     let got: unknown;
     service.summaryState('S 1').subscribe((s) => (got = s));

@@ -1,0 +1,62 @@
+<div class="host-panel">
+  @if (loadFailed()) {
+    <p class="error" role="alert" data-host-load-failed>
+      <ng-container i18n="@@line.host.loadFailed">โหลดสถานะบัญชี LINE ไม่สำเร็จ</ng-container>
+      <button type="button" class="ghost" (click)="load()" i18n="@@entry.retry">ลองอีกครั้ง</button>
+    </p>
+  } @else if (status(); as host) {
+    @if (notConfigured()) {
+      <p class="muted" data-host-not-configured i18n="@@line.notConfigured">ยังไม่ได้ตั้งค่าบอท LINE ของระบบ</p>
+    } @else if (host.linked && !paid()) {
+      <div data-host-paused>
+        <app-plan-lock [hint]="pausedHint" />
+      </div>
+      <ng-container [ngTemplateOutlet]="unlinkBlock" />
+    } @else if (host.linked) {
+      <p class="host-linked" data-host-linked i18n="@@line.host.linked">ผูกบัญชี LINE ของคุณแล้ว</p>
+      <p class="muted" i18n="@@line.host.linkedHint">ส่งรายชื่อมาที่แชตกับบอท แล้วกดเลือกก๊วน บอทจะจำไว้ให้ตอนกดเริ่มรอบ</p>
+      <ng-container [ngTemplateOutlet]="unlinkBlock" />
+    } @else {
+      <p class="muted" i18n="@@line.host.hint">ไม่ต้องเพิ่มบอทเข้ากลุ่ม LINE ส่งรายชื่อให้บอททางแชตส่วนตัวได้เลย ผูกครั้งเดียวใช้ได้กับทุกก๊วนของคุณ</p>
+      @if (locked()) {
+        <div data-host-lock>
+          <app-plan-lock [hint]="lockHint" />
+        </div>
+      } @else {
+        @if (host.botAddUrl) {
+          <p>
+            <a class="host-add" data-host-add-bot [href]="host.botAddUrl" target="_blank" rel="noopener" i18n="@@line.host.addBot">เพิ่มบอทเป็นเพื่อนใน LINE</a>
+          </p>
+        }
+        @if (pending(); as code) {
+          <p class="muted" i18n="@@line.host.typeCode">ส่งข้อความนี้ในแชตกับบอท:</p>
+          <p class="host-code" data-host-code>{{ code.code }}</p>
+          <p class="host-command">/link {{ code.code }}</p>
+          <p class="muted">{{ expiresInText() }}</p>
+          <button type="button" class="ghost" data-host-copy (click)="copyCommand()" i18n="@@line.copy">คัดลอกข้อความ</button>
+          @if (copied() === 'yes') {
+            <p class="muted" role="status" data-host-copied i18n="@@share.copied">คัดลอกแล้ว</p>
+          } @else if (copied() === 'failed') {
+            <p class="muted" role="status" data-host-copy-failed i18n="@@line.copyFailed">คัดลอกไม่สำเร็จ พิมพ์เองได้เลย</p>
+          }
+        } @else {
+          <button type="button" data-host-make-code [disabled]="busy()" (click)="createCode()" i18n="@@line.host.makeCode">สร้างรหัสผูกบัญชี</button>
+        }
+      }
+    }
+    @if (error()) {
+      <p class="error" data-host-error role="alert">{{ error() }}</p>
+    }
+  }
+  <ng-template #unlinkBlock>
+    @if (!confirmingUnlink()) {
+      <button type="button" class="ghost" data-host-unlink [disabled]="busy()" (click)="confirmingUnlink.set(true)" i18n="@@line.host.unlink">ยกเลิกการผูกบัญชี</button>
+    } @else {
+      <div class="host-confirm">
+        <p i18n="@@line.host.unlinkConfirm">ยกเลิกแล้วบอทจะไม่รับรายชื่อจากแชตส่วนตัวของคุณอีก ถ้าจะผูกใหม่ต้องสร้างรหัสใหม่</p>
+        <button type="button" class="danger" data-host-confirm-unlink [disabled]="busy()" (click)="unlink()" i18n="@@line.host.confirmUnlink">ยืนยันยกเลิกการผูกบัญชี</button>
+        <button type="button" class="ghost" data-host-cancel-unlink (click)="confirmingUnlink.set(false)" i18n="@@line.cancelUnlink">ไม่ยกเลิก</button>
+      </div>
+    }
+  </ng-template>
+</div>

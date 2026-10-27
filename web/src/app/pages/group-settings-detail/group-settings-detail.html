@@ -106,6 +106,10 @@
               </div>
             }
           </ng-template>
+          <section class="detail-section" data-host-section>
+            <h2 i18n="@@line.host.title">ผูกบัญชี LINE ของฉัน</h2>
+            <app-line-host-link-panel [paid]="paid()" />
+          </section>
         }
         @case ('advanced') {
           <h1 class="detail-title" i18n="@@group.row.advanced">ตั้งค่าขั้นสูง</h1>

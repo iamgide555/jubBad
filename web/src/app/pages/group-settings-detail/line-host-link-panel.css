@@ -1,0 +1,49 @@
+.host-panel {
+  display: grid;
+  gap: var(--space-1);
+  justify-items: start;
+}
+
+.host-panel > p {
+  margin: 0;
+}
+
+.host-code {
+  justify-self: stretch;
+  padding: var(--space-2);
+  border-radius: var(--radius);
+  background: var(--ground-sunk);
+  font-family: ui-monospace, 'SFMono-Regular', Menlo, Consolas, monospace;
+  font-size: var(--text-2xl);
+  font-weight: 700;
+  letter-spacing: 0.2em;
+  text-align: center;
+}
+
+.host-command {
+  font-family: ui-monospace, 'SFMono-Regular', Menlo, Consolas, monospace;
+  overflow-wrap: anywhere;
+}
+
+.host-add {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--tap);
+  font-weight: 600;
+}
+
+.host-linked {
+  font-size: var(--text-lg);
+  font-weight: 600;
+}
+
+.host-confirm {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+}
+
+.host-confirm p {
+  flex-basis: 100%;
+  margin: 0;
+}

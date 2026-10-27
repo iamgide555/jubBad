@@ -425,6 +425,7 @@ describe('GroupSettingsDetail', () => {
       summaryDefault: true,
       summaryAvailable: true,
     };
+    const HOST = { configured: true, botAddUrl: 'https://lin.ee/jubbad', linked: false, linkedAt: null };
     const q = (selector: string) => el().querySelector<HTMLElement>(selector);
 
     afterEach(() => vi.useRealTimers());
@@ -434,6 +435,8 @@ describe('GroupSettingsDetail', () => {
       httpMock.expectOne(`${B}/groups/group1`).flush(GROUP);
       await settle();
       httpMock.expectOne(`${B}/groups/group1/line`).flush({ ...STATUS, ...status });
+      // The "link my LINE" panel below reads the host's own link on its own.
+      httpMock.expectOne(`${B}/line/host`).flush(HOST);
       if (answer) plan.answer(answer);
       await settle();
       return page;
@@ -627,11 +630,20 @@ describe('GroupSettingsDetail', () => {
       expect(q('[data-not-configured]')?.textContent).toContain('ยังไม่ได้ตั้งค่าบอท LINE ของระบบ');
     });
 
+    it('shows the "link my LINE" panel under the group link, with its own code button', async () => {
+      await openLine({ linked: true, lineGroupName: 'ก๊วนพฤหัส LINE' });
+      const section = q('[data-host-section]')!;
+      expect(section.querySelector('h2')?.textContent).toContain('ผูกบัญชี LINE ของฉัน');
+      expect(section.querySelector('app-line-host-link-panel [data-host-make-code]')).not.toBeNull();
+      expect(q('[data-make-code]')).toBeNull();
+    });
+
     it('a failed status read says so and offers a retry, never an empty page', async () => {
       const page = await harness.navigateByUrl('/g/group1/settings/line', GroupSettingsDetail);
       httpMock.expectOne(`${B}/groups/group1`).flush(GROUP);
       await settle();
       httpMock.expectOne(`${B}/groups/group1/line`).flush('x', { status: 500, statusText: 'x' });
+      httpMock.expectOne(`${B}/line/host`).flush(HOST);
       await settle();
       expect(page.status()).toBe('ready');
       expect(q('[data-line-load-failed]')).not.toBeNull();

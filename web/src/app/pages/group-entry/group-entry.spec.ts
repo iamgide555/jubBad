@@ -2574,6 +2574,7 @@ describe('GroupEntry LINE roster pre-fill', () => {
     senderName: 'Nok',
     postedAt: new Date(Date.now() - 5 * 60_000).toISOString(),
     stale: false,
+    direct: false,
     ...over,
   });
   const el = () => fixture.nativeElement as HTMLElement;
@@ -2654,6 +2655,14 @@ describe('GroupEntry LINE roster pre-fill', () => {
     await create();
     await answerLine({ roster: roster({ senderName: null }) });
     expect(q('[data-line-from]')?.textContent).toContain('ไม่ทราบชื่อ');
+  });
+
+  it('says the roster came by direct message when the host sent it to the bot', async () => {
+    await create();
+    await answerLine({ roster: roster({ senderName: null, direct: true }) });
+    const from = q('[data-line-from]')!.textContent!;
+    expect(from).toContain('ส่งทางข้อความส่วนตัว');
+    expect(from).not.toContain('ไม่ทราบชื่อ');
   });
 
   it('never parses by itself: the host still taps อ่านรายชื่อ', async () => {

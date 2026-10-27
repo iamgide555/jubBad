@@ -24,6 +24,14 @@ export interface LineSummaryState {
   defaultOn: boolean;
 }
 
+/** Mirrors server/src/line/line-host.service.ts LineHostStatus: the signed-in host's own LINE link. */
+export interface LineHostStatus {
+  configured: boolean;
+  botAddUrl: string | null;
+  linked: boolean;
+  linkedAt: string | null;
+}
+
 export interface LineLinkCode {
   code: string;
   expiresAt: string;
@@ -35,6 +43,8 @@ export interface LatestRoster {
   senderName: string | null;
   postedAt: string;
   stale: boolean;
+  /** True when the host sent it to the bot by direct message, not from a LINE group. */
+  direct: boolean;
 }
 
 const BANGKOK = 'Asia/Bangkok';

@@ -2,7 +2,7 @@ import { HttpClient } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import type { Observable } from 'rxjs';
 import { environment } from '../../environments/environment';
-import type { LatestRoster, LineLinkCode, LineStatus, LineSummaryOutcome, LineSummaryState } from './line.model';
+import type { LatestRoster, LineHostStatus, LineLinkCode, LineStatus, LineSummaryOutcome, LineSummaryState } from './line.model';
 
 /** Owner-only routes for linking a group to its LINE group and reading the roster the bot kept. */
 @Injectable({ providedIn: 'root' })
@@ -33,6 +33,23 @@ export class LineService {
   /** Owner-only. Paid and linked groups only; the server answers 403 / 409 otherwise. */
   setSummaryDefault(groupCode: string, on: boolean): Observable<{ summaryDefault: boolean }> {
     return this.http.patch<{ summaryDefault: boolean }>(this.base(groupCode), { summaryDefault: on });
+  }
+
+  private readonly hostBase = `${environment.apiBaseUrl}/line/host`;
+
+  /** The signed-in host's own LINE link (their chat with the bot), whichever group page asks. */
+  hostStatus(): Observable<LineHostStatus> {
+    return this.http.get<LineHostStatus>(this.hostBase);
+  }
+
+  /** Host plan only: 403 on a free plan, 409 when already linked, 503 when the bot is not set up. */
+  hostCreateCode(): Observable<LineLinkCode> {
+    return this.http.post<LineLinkCode>(`${this.hostBase}/code`, {});
+  }
+
+  /** Always allowed, on any plan. */
+  hostUnlink(): Observable<{ unlinked: true }> {
+    return this.http.delete<{ unlinked: true }>(this.hostBase);
   }
 
   private summaryUrl(sessionCode: string): string {

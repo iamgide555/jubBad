@@ -261,7 +261,9 @@ it is, the feature reports "not configured" and everything else works as before.
 4. Turn on **Allow bot to join group chats**. A LINE group can hold only one Official Account, so a
    ก๊วน that already has another bot must remove it first.
 5. Put `LINE_CHANNEL_SECRET`, `LINE_CHANNEL_ACCESS_TOKEN` and `LINE_BOT_ADD_URL` (the bot's https
-   add-friend link) in `server/.env` on the PC.
+   add-friend link) in `server/.env` on the PC. Also set `PUBLIC_APP_URL` there to the site's public
+   https address with no trailing slash (e.g. `https://jubbad.wongnok.dev`): the end-of-session
+   summary card's button links to `<PUBLIC_APP_URL>/s/<code>/summary`, and without it no card is sent.
 6. Run `npm run db:backup`, then deploy (this release has a migration; see "When the release
    contains a migration").
 7. Press **Verify** next to the webhook URL in the console. If it fails, check that Cloudflare
@@ -270,7 +272,8 @@ it is, the feature reports "not configured" and everything else works as before.
 8. Real-LINE check on a test group: link it, post a roster, open start and confirm the pre-fill;
    edit the roster message and confirm start shows the edit (note the event type LINE sends for an
    edit; the code assumes `messageEdited`); unsend one and confirm it disappears; unlink and
-   confirm the bot leaves the LINE group.
+   confirm the bot leaves the LINE group. Then end a session with "ส่งสรุปเข้ากลุ่ม LINE" ticked and
+   check the card and its button in the group, and that the summary page then shows it as sent.
 
 ## Rollback
 ```bash

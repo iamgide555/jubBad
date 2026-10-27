@@ -422,6 +422,7 @@ describe('GroupSettingsDetail', () => {
       lineGroupName: null,
       linkedAt: null,
       leftAt: null,
+      summaryDefault: true,
     };
     const q = (selector: string) => el().querySelector<HTMLElement>(selector);
 
@@ -523,6 +524,48 @@ describe('GroupSettingsDetail', () => {
       await settle();
       expect(q('[data-linked]')).toBeNull();
       expect(q('[data-make-code]')).not.toBeNull();
+    });
+
+    describe('summary card default switch', () => {
+      const LINKED = { linked: true, lineGroupName: 'ก๊วนพฤหัส LINE' };
+      const box = () => q('[data-summary-default]') as HTMLInputElement | null;
+
+      it('shows checked from the saved default and saves a change with a PATCH', async () => {
+        await openLine(LINKED);
+        expect(box()?.checked).toBe(true);
+        box()!.click();
+        const req = httpMock.expectOne({ url: `${B}/groups/group1/line`, method: 'PATCH' });
+        expect(req.request.body).toEqual({ summaryDefault: false });
+        req.flush({ summaryDefault: false });
+        await settle();
+        expect(box()?.checked).toBe(false);
+      });
+
+      it('shows unchecked when the saved default is off', async () => {
+        await openLine({ ...LINKED, summaryDefault: false });
+        expect(box()?.checked).toBe(false);
+      });
+
+      it('snaps back and shows the error when the save fails', async () => {
+        await openLine(LINKED);
+        box()!.click();
+        httpMock
+          .expectOne({ url: `${B}/groups/group1/line`, method: 'PATCH' })
+          .flush({ code: 'X' }, { status: 500, statusText: 'x' });
+        await settle();
+        expect(box()?.checked).toBe(true);
+        expect(q('[data-error]')).not.toBeNull();
+      });
+
+      it('is absent when the group is paused or not linked', async () => {
+        await openLine(LINKED, 'free');
+        expect(box()).toBeNull();
+      });
+
+      it('is absent when the group is not linked', async () => {
+        await openLine();
+        expect(box()).toBeNull();
+      });
     });
 
     it('cancelling the unlink confirm sends nothing', async () => {

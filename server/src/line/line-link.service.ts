@@ -19,6 +19,8 @@ export interface LineStatus {
   lineGroupName: string | null;
   linkedAt: string | null;
   leftAt: string | null;
+  /** Whether the end-of-session "send the summary card" checkbox starts ticked. */
+  summaryDefault: boolean;
 }
 
 /** Thrown inside the redeem transaction to roll it back; never leaves this file. */
@@ -52,7 +54,18 @@ export class LineLinkService {
       lineGroupName: group?.lineGroupId != null ? group.lineGroupName : null,
       linkedAt: group?.lineLinkedAt?.toISOString() ?? null,
       leftAt: group?.lineLeftAt?.toISOString() ?? null,
+      summaryDefault: group?.lineSummaryDefault ?? true,
     };
+  }
+
+  /** Owner route: paid plan and a linked group only, like the rest of the bot. */
+  async setSummaryDefault(groupCode: string, on: boolean): Promise<boolean> {
+    await this.plans.requireGroupPlan(groupCode, 'host');
+    const group = await this.prisma.group.findUnique({ where: { code: groupCode } });
+    if (!group) throw new NotFoundException();
+    if (group.lineGroupId === null) throw new ConflictException({ code: 'LINE_NOT_LINKED' });
+    await this.prisma.group.update({ where: { code: groupCode }, data: { lineSummaryDefault: on } });
+    return on;
   }
 
   /** Owner route. Only the hash is stored; a new code voids the group's earlier unused ones. */

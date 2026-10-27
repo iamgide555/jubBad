@@ -11,7 +11,9 @@ import type { Session } from '../../core/session.model';
 import { standardLadderFixture } from '../../core/group-levels.testing';
 import { planRequiredMessage, type GroupPlan } from '../../core/plan';
 import { PlanService } from '../../core/plan.service';
-import { Subject } from 'rxjs';
+import { LineService } from '../../core/line.service';
+import type { LineSummaryState } from '../../core/line.model';
+import { Observable, Subject, of, throwError } from 'rxjs';
 
 const B = environment.apiBaseUrl;
 
@@ -69,12 +71,15 @@ describe('SessionDashboard', () => {
   // unanswered plan means "unknown", which locks nothing.
   let planReply: Subject<GroupPlan>;
   let planCalls: string[];
+  // The LINE summary-card state the end dialog asks for: no card by default, so most specs see no checkbox.
+  let summaryState: () => Observable<LineSummaryState>;
 
   beforeEach(async () => {
     // The roster starts collapsed in the app; most specs here drive its chips, so they start expanded.
     localStorage.setItem('jubbad.dashboard.rosterOpen', '1');
     planReply = new Subject<GroupPlan>();
     planCalls = [];
+    summaryState = () => of({ available: false, sent: false, defaultOn: true });
     await TestBed.configureTestingModule({
       imports: [SessionDashboard],
       providers: [
@@ -87,6 +92,7 @@ describe('SessionDashboard', () => {
             },
           },
         },
+        { provide: LineService, useValue: { summaryState: () => summaryState() } },
         provideHttpClient(),
         provideHttpClientTesting(),
         provideRouter(routes),
@@ -845,6 +851,77 @@ describe('SessionDashboard', () => {
     }
 
     expect(navigateSpy).toHaveBeenCalledWith('/s/sess1/summary');
+  });
+
+  describe('LINE summary card checkbox', () => {
+    const box = () =>
+      (fixture.nativeElement as HTMLElement).querySelector(
+        'dialog.shuttle-dialog input[data-send-line-summary]'
+      ) as HTMLInputElement | null;
+
+    it('is absent when no card can be sent', async () => {
+      await settled();
+      await openEndDialog();
+      expect(box()).toBeNull();
+    });
+
+    it('is absent when the state cannot be read, and ending still works', async () => {
+      summaryState = () => throwError(() => new HttpErrorResponse({ status: 500 }));
+      await settled();
+      await openEndDialog();
+      expect(box()).toBeNull();
+      dialogButtonWith('จบรอบ').click();
+      expect(httpMock.expectOne(`${B}/sessions/sess1/end`).request.body).toEqual({});
+    });
+
+    it('is absent when a card already went out', async () => {
+      summaryState = () => of({ available: true, sent: true, defaultOn: true });
+      await settled();
+      await openEndDialog();
+      expect(box()).toBeNull();
+    });
+
+    it('starts ticked from the saved default and unticked when the default is off', async () => {
+      summaryState = () => of({ available: true, sent: false, defaultOn: true });
+      await settled();
+      await openEndDialog();
+      expect(box()?.checked).toBe(true);
+    });
+
+    it('starts unticked when the saved default is off', async () => {
+      summaryState = () => of({ available: true, sent: false, defaultOn: false });
+      await settled();
+      await openEndDialog();
+      expect(box()).not.toBeNull();
+      expect(box()?.checked).toBe(false);
+    });
+
+    it('asks the server to send the card when left ticked, and carries the outcome to the summary page', async () => {
+      const router = TestBed.inject(Router);
+      const navigateSpy = vi.spyOn(router, 'navigateByUrl').mockResolvedValue(true);
+      summaryState = () => of({ available: true, sent: false, defaultOn: true });
+      await settled();
+      await openEndDialog();
+
+      dialogButtonWith('จบรอบ').click();
+      const req = httpMock.expectOne(`${B}/sessions/sess1/end`);
+      expect(req.request.body).toEqual({ sendLineSummary: true });
+      req.flush({ code: 'sess1', endedAt: '2026-09-08T20:00:00.000Z', lineSummary: 'sent' });
+      await drainReload(baseSession({ endedAt: '2026-09-08T20:00:00.000Z' }));
+
+      expect(navigateSpy).toHaveBeenCalledWith('/s/sess1/summary', { state: { lineSummary: 'sent' } });
+    });
+
+    it('does not ask for the card when the host unticks it', async () => {
+      summaryState = () => of({ available: true, sent: false, defaultOn: true });
+      await settled();
+      await openEndDialog();
+      box()!.click();
+      fixture.detectChanges();
+
+      dialogButtonWith('จบรอบ').click();
+      expect(httpMock.expectOne(`${B}/sessions/sess1/end`).request.body).toEqual({});
+    });
   });
 
   it('confirming with a typed shuttle count saves it before ending, then navigates', async () => {

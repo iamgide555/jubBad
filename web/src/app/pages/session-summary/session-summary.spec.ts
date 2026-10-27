@@ -7,6 +7,7 @@ import { AuthService } from '../../core/auth.service';
 import { environment } from '../../../environments/environment';
 import type { SessionSummary as Summary } from '../../core/session-summary.model';
 import type { ShuttleInventory } from '../../core/shuttle.model';
+import type { LineSummaryState } from '../../core/line.model';
 
 const B = environment.apiBaseUrl;
 
@@ -107,7 +108,19 @@ describe('SessionSummary', () => {
     fixture = TestBed.createComponent(SessionSummary);
   }
 
-  afterEach(() => httpMock.verify());
+  // What the owner-only LINE summary read answers; a card cannot be sent unless a spec says otherwise.
+  let lineState: LineSummaryState = { available: false, sent: false, defaultOn: true };
+  const answerLineSummary = () => {
+    for (const r of httpMock.match(`${B}/sessions/sess1/line-summary`)) r.flush(lineState);
+  };
+
+  afterEach(() => {
+    // Specs about the shuttle log flush their own requests by hand; the card state is not their subject.
+    answerLineSummary();
+    httpMock.verify();
+    lineState = { available: false, sent: false, defaultOn: true };
+    history.replaceState(null, '');
+  });
 
   /** A host's ownership read on an ordinary session: disabled, empty, but 200 — proof of ownership. */
   const ORDINARY: ShuttleInventory = { enabled: false, identities: [], games: [], heldShuttleIds: [], lastShuttleByCourt: [] };
@@ -136,6 +149,9 @@ describe('SessionSummary', () => {
       if (inventory === 'denied') r.flush('Not Found', { status: 404, statusText: 'Not Found' });
       else r.flush({ games: results });
     }
+    await new Promise((r) => setTimeout(r, 0));
+    TestBed.tick();
+    answerLineSummary();
     await new Promise((r) => setTimeout(r, 0));
     TestBed.tick();
     fixture.detectChanges();
@@ -874,6 +890,114 @@ describe('SessionSummary', () => {
         expect(el().querySelector('.shuttle-edit')).not.toBeNull();
         expect(el().querySelector('.shuttle-log')).toBeNull();
         expect(editRow(0)).toBeUndefined();
+      });
+    });
+  });
+
+  describe('LINE summary card', () => {
+    const q = (selector: string) => (fixture.nativeElement as HTMLElement).querySelector<HTMLElement>(selector);
+    const settle = async () => {
+      await new Promise((r) => setTimeout(r, 0));
+      TestBed.tick();
+      fixture.detectChanges();
+    };
+
+    it('a non-owner makes no card request and sees no button', async () => {
+      await configure(true);
+      await load(summary(), 'denied');
+      httpMock.expectNone(`${B}/sessions/sess1/line-summary`);
+      expect(q('[data-send-line-summary]')).toBeNull();
+    });
+
+    it('an anonymous viewer makes no card request and sees no button', async () => {
+      await configure(false);
+      await load(summary());
+      httpMock.expectNone(`${B}/sessions/sess1/line-summary`);
+      expect(q('[data-send-line-summary]')).toBeNull();
+    });
+
+    describe('as the owner', () => {
+      beforeEach(() => configure(true));
+
+      it('offers the button when a card can go out and none has, and removes it after a send', async () => {
+        lineState = { available: true, sent: false, defaultOn: true };
+        await load(summary());
+        expect(q('[data-send-line-summary]')).not.toBeNull();
+
+        q('[data-send-line-summary]')!.click();
+        const req = httpMock.expectOne({ url: `${B}/sessions/sess1/line-summary`, method: 'POST' });
+        req.flush({ outcome: 'sent' });
+        await settle();
+
+        expect(q('[data-send-line-summary]')).toBeNull();
+        expect(q('[data-line-summary-outcome]')?.textContent).toContain('ส่งสรุปเข้ากลุ่ม LINE แล้ว');
+      });
+
+      it('keeps the button and says the quota is used up', async () => {
+        lineState = { available: true, sent: false, defaultOn: true };
+        await load(summary());
+        q('[data-send-line-summary]')!.click();
+        httpMock.expectOne({ url: `${B}/sessions/sess1/line-summary`, method: 'POST' }).flush({ outcome: 'quota' });
+        await settle();
+        expect(q('[data-send-line-summary]')).not.toBeNull();
+        expect(q('[data-line-summary-outcome]')?.textContent).toContain('โควตา');
+      });
+
+      it('keeps the button and says it failed when the request itself fails', async () => {
+        lineState = { available: true, sent: false, defaultOn: true };
+        await load(summary());
+        q('[data-send-line-summary]')!.click();
+        httpMock
+          .expectOne({ url: `${B}/sessions/sess1/line-summary`, method: 'POST' })
+          .flush('x', { status: 500, statusText: 'x' });
+        await settle();
+        expect(q('[data-send-line-summary]')).not.toBeNull();
+        expect(q('[data-line-summary-outcome]')?.textContent).toContain('ไม่สำเร็จ');
+      });
+
+      it('says the card was sent, with no button, once it has gone out', async () => {
+        lineState = { available: true, sent: true, defaultOn: true };
+        await load(summary());
+        expect(q('[data-send-line-summary]')).toBeNull();
+        expect(q('[data-line-summary-outcome]')?.textContent).toContain('ส่งสรุปเข้ากลุ่ม LINE แล้ว');
+      });
+
+      it('offers no button on a session that has not ended, even though a card could be sent later', async () => {
+        lineState = { available: true, sent: false, defaultOn: true };
+        await load(summary({ session: { ...summary().session, endedAt: null } }));
+        expect(q('[data-send-line-summary]')).toBeNull();
+      });
+
+      it('says a send is already in progress and keeps the button', async () => {
+        lineState = { available: true, sent: false, defaultOn: true };
+        await load(summary());
+        q('[data-send-line-summary]')!.click();
+        httpMock.expectOne({ url: `${B}/sessions/sess1/line-summary`, method: 'POST' }).flush({ outcome: 'busy' });
+        await settle();
+        expect(q('[data-send-line-summary]')).not.toBeNull();
+        expect(q('[data-line-summary-outcome]')?.textContent).toContain('กำลังส่ง');
+      });
+
+      it('shows nothing about LINE when no card can go out', async () => {
+        await load(summary());
+        expect(q('[data-send-line-summary]')).toBeNull();
+        expect(q('[data-line-summary-outcome]')).toBeNull();
+      });
+
+    });
+
+    describe('right after ending the session', () => {
+      beforeEach(() => {
+        // The dashboard navigates here with the card's outcome in the history state.
+        history.replaceState({ lineSummary: 'failed' }, '');
+        return configure(true);
+      });
+
+      it('shows what happened to the card and still offers to send it', async () => {
+        lineState = { available: true, sent: false, defaultOn: true };
+        await load(summary());
+        expect(q('[data-line-summary-outcome]')?.textContent).toContain('ไม่สำเร็จ');
+        expect(q('[data-send-line-summary]')).not.toBeNull();
       });
     });
   });

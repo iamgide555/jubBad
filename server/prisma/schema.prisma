@@ -50,6 +50,8 @@ model Group {
   lineLinkedAt        DateTime?
   /// Set when the bot was removed from the LINE group; cleared by a re-link.
   lineLeftAt          DateTime?
+  /// Default for the end-of-session "send the summary card" checkbox.
+  lineSummaryDefault  Boolean @default(true)
   lineLinkCodes       LineLinkCode[]
   lineRosterMessages  LineRosterMessage[]
 }
@@ -259,6 +261,10 @@ model Session {
   /// normalized match, else a new Venue). Null for sessions with no venue and
   /// for history that was never linked; `venue` stays the display text. Declared
   /// last so the column is a plain ADD COLUMN, not a table rebuild.
+  /// A send in flight: set before the push, cleared if it fails, and ignored once older than 30s (the process may have died).
+  lineSummaryClaimedAt DateTime?
+  /// When LINE accepted the summary card. Only set after a successful push.
+  lineSummarySentAt   DateTime?
   venueId             String?
   venueRef            Venue?          @relation(fields: [venueId], references: [id], onDelete: SetNull)
   group         Group           @relation(fields: [groupId], references: [code])

@@ -6,6 +6,20 @@ export interface LineStatus {
   lineGroupName: string | null;
   linkedAt: string | null;
   leftAt: string | null;
+  /** Whether the end-of-session "send the summary card" checkbox starts ticked. */
+  summaryDefault: boolean;
+}
+
+/** Mirrors server/src/line/line-summary.service.ts. */
+export type LineSummaryOutcome = 'sent' | 'already-sent' | 'busy' | 'quota' | 'failed' | 'unavailable';
+
+export interface LineSummaryState {
+  /** A card could be posted for this session (it may still be open). */
+  available: boolean;
+  /** A card has already gone out; there is never a second one. */
+  sent: boolean;
+  /** The group's saved default for the end-of-session checkbox. */
+  defaultOn: boolean;
 }
 
 export interface LineLinkCode {

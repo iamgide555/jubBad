@@ -10,7 +10,8 @@ describe('lineConfig', () => {
     delete process.env.LINE_CHANNEL_SECRET;
     delete process.env.LINE_CHANNEL_ACCESS_TOKEN;
     delete process.env.LINE_BOT_ADD_URL;
-    expect(lineConfig()).toEqual({ secret: null, token: null, botAddUrl: null });
+    delete process.env.PUBLIC_APP_URL;
+    expect(lineConfig()).toEqual({ secret: null, token: null, botAddUrl: null, publicAppUrl: null });
     process.env.LINE_CHANNEL_SECRET = 's';
     process.env.LINE_CHANNEL_ACCESS_TOKEN = 't';
     expect(lineConfig()).toMatchObject({ secret: 's', token: 't' });
@@ -25,5 +26,18 @@ describe('lineConfig', () => {
     expect(lineConfig().botAddUrl).toBeNull();
     process.env.LINE_BOT_ADD_URL = '   ';
     expect(lineConfig().botAddUrl).toBeNull();
+  });
+
+  it('keeps an https public app url without a trailing slash and drops anything else', () => {
+    process.env.PUBLIC_APP_URL = 'https://jubbad.wongnok.dev/';
+    expect(lineConfig().publicAppUrl).toBe('https://jubbad.wongnok.dev');
+    process.env.PUBLIC_APP_URL = 'https://jubbad.wongnok.dev';
+    expect(lineConfig().publicAppUrl).toBe('https://jubbad.wongnok.dev');
+    process.env.PUBLIC_APP_URL = 'http://jubbad.wongnok.dev';
+    expect(lineConfig().publicAppUrl).toBeNull();
+    process.env.PUBLIC_APP_URL = '';
+    expect(lineConfig().publicAppUrl).toBeNull();
+    delete process.env.PUBLIC_APP_URL;
+    expect(lineConfig().publicAppUrl).toBeNull();
   });
 });

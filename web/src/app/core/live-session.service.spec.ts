@@ -224,6 +224,22 @@ describe('LiveSessionService', () => {
     expect(await promise).toEqual({ ok: true });
   });
 
+  it('endSession asks for the LINE summary card only when told to, and returns the outcome', async () => {
+    await flushSession(baseSession());
+
+    const promise = service.endSession(true);
+    const req = httpMock.expectOne(`${environment.apiBaseUrl}/sessions/sess1/end`);
+    expect(req.request.body).toEqual({ sendLineSummary: true });
+    req.flush({ code: 'sess1', endedAt: '2026-09-08T20:00:00.000Z', lineSummary: 'quota' });
+    await new Promise((r) => setTimeout(r, 0));
+    TestBed.tick();
+    httpMock.expectOne(`${environment.apiBaseUrl}/sessions/sess1`).flush(
+      baseSession({ endedAt: '2026-09-08T20:00:00.000Z' })
+    );
+
+    expect(await promise).toEqual({ ok: true, lineSummary: 'quota' });
+  });
+
   it('setCourtLabel posts one court label and reloads on success', async () => {
     await flushSession(baseSession());
 

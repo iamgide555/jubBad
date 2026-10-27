@@ -19,6 +19,8 @@ import { ResultCorrectionDialog, type ResultCorrection } from '../../shared/resu
 import { ShuttleCorrectionDialog } from '../../shared/shuttle-correction-dialog/shuttle-correction-dialog';
 import type { PlayerSessionStat, SessionMatch, SessionSummary as Summary, ShuttleLogRow } from '../../core/session-summary.model';
 import type { ShuttleInventory } from '../../core/shuttle.model';
+import { LineService } from '../../core/line.service';
+import type { LineSummaryOutcome, LineSummaryState } from '../../core/line.model';
 
 type SortKey = 'played' | 'won' | 'lost' | 'doublesRate' | 'singlesRate' | 'time';
 
@@ -164,6 +166,67 @@ export class SessionSummary {
       );
     } catch {
       this.inventory.set(null);
+    }
+  }
+
+  // ---- owner-only LINE summary card ----
+  private readonly lineService = inject(LineService);
+  protected readonly lineState = signal<LineSummaryState | null>(null);
+  /** What happened to the card: carried here from ending the session, or from the last button press. */
+  protected readonly lineOutcome = signal<LineSummaryOutcome | null>(
+    (history.state as { lineSummary?: LineSummaryOutcome } | null)?.lineSummary ?? null
+  );
+  protected readonly lineSending = signal(false);
+
+  protected readonly canSendLineSummary = computed(() => {
+    const state = this.lineState();
+    // The card is about a finished night: the page is also reachable mid-session from the dashboard.
+    return this.owner() && state !== null && state.available && !state.sent && this.summary()?.session.endedAt != null;
+  });
+
+  /** The line under the title about the card, or null when there is nothing to say. */
+  protected readonly lineSummaryMessage = computed((): string | null => {
+    const state = this.lineState();
+    if (!this.owner() || state === null) return null;
+    const outcome = this.lineOutcome();
+    if (state.sent || outcome === 'sent' || outcome === 'already-sent') {
+      return $localize`:@@summary.lineSent:ส่งสรุปเข้ากลุ่ม LINE แล้ว`;
+    }
+    switch (outcome) {
+      case 'busy':
+        return $localize`:@@summary.lineBusy:กำลังส่งสรุปอยู่ รอสักครู่แล้วลองใหม่`;
+      case 'quota':
+        return $localize`:@@summary.lineQuota:โควตาข้อความ LINE เดือนนี้หมดแล้ว ส่งสรุปไม่ได้`;
+      case 'failed':
+        return $localize`:@@summary.lineFailed:ส่งสรุปเข้ากลุ่ม LINE ไม่สำเร็จ ลองอีกครั้งได้`;
+      case 'unavailable':
+        return $localize`:@@summary.lineUnavailable:ส่งสรุปไม่ได้ กลุ่มยังไม่ได้เชื่อม LINE หรือแพ็กเกจหมดอายุ`;
+      default:
+        return null;
+    }
+  });
+
+  private async loadLineSummary(): Promise<void> {
+    try {
+      this.lineState.set(await firstValueFrom(this.lineService.summaryState(this.sessionCode)));
+    } catch {
+      this.lineState.set(null);
+    }
+  }
+
+  protected async sendLineSummary(): Promise<void> {
+    if (this.lineSending()) return;
+    this.lineSending.set(true);
+    try {
+      const { outcome } = await firstValueFrom(this.lineService.sendSummary(this.sessionCode));
+      this.lineOutcome.set(outcome);
+      if (outcome === 'sent' || outcome === 'already-sent') {
+        this.lineState.update((s) => (s ? { ...s, sent: true } : s));
+      }
+    } catch {
+      this.lineOutcome.set('failed');
+    } finally {
+      this.lineSending.set(false);
     }
   }
 
@@ -371,7 +434,7 @@ export class SessionSummary {
     void auth.check().then((authed) => {
       this.isHost.set(authed);
       // Ownership is proven by the inventory read, not by being logged in.
-      if (authed) void this.loadInventory();
+      if (authed) void this.loadInventory().then(() => (this.owner() ? this.loadLineSummary() : undefined));
     });
 
     this.sessionCode = route.snapshot.paramMap.get('sessionCode')!;

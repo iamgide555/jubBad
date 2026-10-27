@@ -33,6 +33,7 @@
           />
         </label>
       </div>
+      <ng-content />
       @if (localError() || error()) {
         <p class="error" role="alert">{{ localError() ?? error() }}</p>
       }

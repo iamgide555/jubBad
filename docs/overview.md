@@ -1368,6 +1368,23 @@ expired code gets one generic Thai reply (it never says which); a sender who has
   cleared and the settings page says so.
 - **Fallback:** every failure (no bot configured, LINE down, nothing captured, lapsed plan) leaves
   the plain empty paste box, exactly as before.
+- **Summary card** (`docs/archive/specs/2026-10-27-line-bot-summary-card-design.md`): ending a
+  session on a linked, paid group can post a Flex card to the LINE group with the night's totals
+  (group, date, venue, players, games) and one "ดูสรุป" button to the public summary page, so
+  members who never saw the old Announce can find it. A checkbox in the จบรอบ dialog decides per
+  night; its starting state is the group's LINE setting (default on). The end is settled first and
+  never fails because of LINE: the push runs after the session lock is released (the response waits
+  at most the 3 second LINE timeout for it), and any failure is only reported (`lineSummary` in the
+  response, shown on the summary page). One card per session: a send claims
+  `Session.lineSummaryClaimedAt` (a claim older than 30s counts as abandoned), `lineSummarySentAt`
+  is set only after LINE accepted the push, and a failed push gives the claim back. Every push
+  carries an `X-Line-Retry-Key` derived from the session code, so a timeout whose answer was lost can
+  be retried without a duplicate (LINE answers 409, read as sent). The owner's summary page offers
+  "ส่งสรุปเข้ากลุ่ม LINE" for an ended session until a card has gone out. The card writes the stored
+  yyyy-mm-dd date as a Thai date. A card is a push, so
+  it counts once per member against the shared monthly quota (about 86 messages a month for a
+  20-member group playing weekly; the weekly post will share the same quota). Needs
+  `PUBLIC_APP_URL`; unset means no card.
 - **Unverified until a real LINE group is used:** the exact type string of LINE's edit event
   (`messageEdited` per the docs summary) and that Cloudflare lets LINE's webhook through.
 

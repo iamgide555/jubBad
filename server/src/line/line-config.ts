@@ -2,6 +2,8 @@ export interface LineConfig {
   secret: string | null;
   token: string | null;
   botAddUrl: string | null;
+  /** Where the public site lives; the summary card's button needs it. No trailing slash. */
+  publicAppUrl: string | null;
 }
 
 function nonEmpty(value: string | undefined): string | null {
@@ -25,5 +27,6 @@ export function lineConfig(): LineConfig {
     secret: nonEmpty(process.env.LINE_CHANNEL_SECRET),
     token: nonEmpty(process.env.LINE_CHANNEL_ACCESS_TOKEN),
     botAddUrl: httpsUrl(nonEmpty(process.env.LINE_BOT_ADD_URL)),
+    publicAppUrl: httpsUrl(nonEmpty(process.env.PUBLIC_APP_URL))?.replace(/\/+$/, '') ?? null,
   };
 }

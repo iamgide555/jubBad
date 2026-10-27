@@ -40,4 +40,16 @@ describe('LINE tables and group deletion', () => {
     await expect(prisma.group.create({ data: { code: b, lineGroupId } })).rejects.toThrow();
     await groups.deleteGroup(a);
   });
+
+  it('a new group defaults the summary card on and a new session has not sent one', async () => {
+    const code = `LINE${randomUUID().slice(0, 8)}`;
+    await prisma.group.create({ data: { code, name: 'summary defaults' } });
+    const group = await prisma.group.findUniqueOrThrow({ where: { code } });
+    expect(group.lineSummaryDefault).toBe(true);
+    const session = await prisma.session.create({
+      data: { code: `S${randomUUID().slice(0, 8)}`, groupId: code, rawImportText: '' },
+    });
+    expect(session.lineSummarySentAt).toBeNull();
+    await groups.deleteGroup(code);
+  });
 });

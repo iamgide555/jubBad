@@ -5837,6 +5837,86 @@
         <source>นำ <x id="name" equiv-text="name"/> ออกแล้ว</source>
         <target>Removed <x id="name" equiv-text="name"/></target>
       </trans-unit>
+      <trans-unit id="line.summaryDefault" datatype="html">
+        <source>ส่งสรุปเข้ากลุ่ม LINE เมื่อจบรอบ</source>
+        <target>Send summary to LINE when ending</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/group-settings-detail/group-settings-detail.html</context>
+          <context context-type="linenumber">57,58</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="line.summaryDefaultHint" datatype="html">
+        <source>ค่าเริ่มต้นของช่องติ๊กตอนกดจบรอบ เปลี่ยนได้ทุกครั้ง</source>
+        <target>Default for the checkbox when you end a session; you can change it each time</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/group-settings-detail/group-settings-detail.html</context>
+          <context context-type="linenumber">58,60</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="line.summaryDefaultFailed" datatype="html">
+        <source>บันทึกไม่สำเร็จ ลองอีกครั้ง</source>
+        <target>Couldn't save. Try again</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/group-settings-detail/group-settings-detail.ts</context>
+          <context context-type="linenumber">248</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="dashboard.sendLineSummary" datatype="html">
+        <source>ส่งสรุปเข้ากลุ่ม LINE</source>
+        <target>Send summary to LINE group</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/session-dashboard/session-dashboard.html</context>
+          <context context-type="linenumber">508,510</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="summary.sendLine" datatype="html">
+        <source>ส่งสรุปเข้ากลุ่ม LINE</source>
+        <target>Send summary to LINE group</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/session-summary/session-summary.html</context>
+          <context context-type="linenumber">20,24</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="summary.lineSent" datatype="html">
+        <source>ส่งสรุปเข้ากลุ่ม LINE แล้ว</source>
+        <target>Summary sent to LINE group</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/session-summary/session-summary.ts</context>
+          <context context-type="linenumber">192</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="summary.lineQuota" datatype="html">
+        <source>โควตาข้อความ LINE เดือนนี้หมดแล้ว ส่งสรุปไม่ได้</source>
+        <target>LINE's message quota for this month is used up; summary not sent</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/session-summary/session-summary.ts</context>
+          <context context-type="linenumber">196</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="summary.lineFailed" datatype="html">
+        <source>ส่งสรุปเข้ากลุ่ม LINE ไม่สำเร็จ ลองอีกครั้งได้</source>
+        <target>Couldn't send the summary to LINE; you can try again</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/session-summary/session-summary.ts</context>
+          <context context-type="linenumber">198</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="summary.lineUnavailable" datatype="html">
+        <source>ส่งสรุปไม่ได้ กลุ่มยังไม่ได้เชื่อม LINE หรือแพ็กเกจหมดอายุ</source>
+        <target>Can't send: the group isn't linked to LINE or the plan has lapsed</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/session-summary/session-summary.ts</context>
+          <context context-type="linenumber">200</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="summary.lineBusy" datatype="html">
+        <source>กำลังส่งสรุปอยู่ รอสักครู่แล้วลองใหม่</source>
+        <target>A summary is already being sent; wait a moment and try again</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/session-summary/session-summary.ts</context>
+          <context context-type="linenumber">197</context>
+        </context-group>
+      </trans-unit>
     </body>
   </file>
 </xliff>

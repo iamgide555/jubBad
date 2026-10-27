@@ -4,6 +4,7 @@ import { ActivatedRoute } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
 import { environment } from '../../environments/environment';
 import type { CourtFormat, CourtMode, CourtState, CourtTarget, LineupEntry, Seat } from './live-session.model';
+import type { LineSummaryOutcome } from './line.model';
 import type { Session } from './session.model';
 import { levelsErrorMessage } from './group-levels.model';
 import type { Level } from '../../../../engines/levels.ts';
@@ -65,6 +66,8 @@ export interface ActionResult {
   /** The pair rules behind a `pair-rules-blocked` reason or a
    *  PAIR_RULE_VIOLATION error. */
   ruleIds?: string[];
+  /** Ending only: what happened to the LINE summary card, when it was asked for. */
+  lineSummary?: LineSummaryOutcome;
   /** Fill-all only, even on success: courts the rules kept empty, and
    *  courts the rule search gave up on. Present only when non-empty. */
   blocked?: BlockedCourt[];
@@ -79,6 +82,7 @@ interface MutationResponse {
   ruleIds?: string[];
   blocked?: BlockedCourt[];
   inconclusive?: number[];
+  lineSummary?: LineSummaryOutcome;
 }
 
 /** Keeps "nothing was blocked" out of the result so callers test presence. */
@@ -294,7 +298,11 @@ export class LiveSessionService {
         };
       }
       this.mutationVersion.update((version) => version + 1);
-      return { ok: true, ...(response ? fillDetails(response) : {}) };
+      return {
+        ok: true,
+        ...(response ? fillDetails(response) : {}),
+        ...(response?.lineSummary ? { lineSummary: response.lineSummary } : {}),
+      };
     } catch (err) {
       if (refreshOnError) this.sessionResource.reload();
       const code =
@@ -618,8 +626,9 @@ export class LiveSessionService {
     );
   }
 
-  endSession(): Promise<ActionResult> {
-    return this.post('end', {}, $localize`:@@err.endSession:จบรอบไม่สำเร็จ`);
+  /** `sendLineSummary` asks the server to post the night's summary card once the session has ended. */
+  endSession(sendLineSummary = false): Promise<ActionResult> {
+    return this.post('end', sendLineSummary ? { sendLineSummary: true } : {}, $localize`:@@err.endSession:จบรอบไม่สำเร็จ`);
   }
 
   /**

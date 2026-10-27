@@ -92,4 +92,53 @@ describe('LineClient', () => {
     await vi.advanceTimersByTimeAsync(3100);
     expect(await pending).toBeNull();
   });
+
+  describe('push', () => {
+    const message = { type: 'flex', altText: 'x', contents: {} };
+
+    it('posts to the push endpoint with the group id and messages and reads a 200 as ok', async () => {
+      fetchMock.mockResolvedValue(jsonResponse(200, {}));
+      expect(await client.push('Cgroup', [message])).toBe('ok');
+      const [url, init] = fetchMock.mock.calls[0];
+      expect(url).toBe('https://api.line.me/v2/bot/message/push');
+      expect(init.method).toBe('POST');
+      expect(JSON.parse(init.body)).toEqual({ to: 'Cgroup', messages: [message] });
+    });
+
+    it('reads a 429 monthly limit as quota', async () => {
+      fetchMock.mockResolvedValue(jsonResponse(429, { message: 'You have reached your monthly limit.' }));
+      expect(await client.push('Cgroup', [message])).toBe('quota');
+    });
+
+    it('reads any other 429 as failed', async () => {
+      fetchMock.mockResolvedValue(jsonResponse(429, { message: 'Too many requests' }));
+      expect(await client.push('Cgroup', [message])).toBe('failed');
+    });
+
+    it('reads a 500 and a network error as failed', async () => {
+      fetchMock.mockResolvedValueOnce(jsonResponse(500, { message: 'boom' }));
+      expect(await client.push('Cgroup', [message])).toBe('failed');
+      fetchMock.mockRejectedValueOnce(new Error('network down'));
+      expect(await client.push('Cgroup', [message])).toBe('failed');
+    });
+
+    it('sends the retry key header when given one, and none otherwise', async () => {
+      fetchMock.mockResolvedValue(jsonResponse(200, {}));
+      await client.push('Cgroup', [message], '5b7e1c0a-0000-4000-8000-000000000001');
+      expect(fetchMock.mock.calls[0][1].headers['X-Line-Retry-Key']).toBe('5b7e1c0a-0000-4000-8000-000000000001');
+      await client.push('Cgroup', [message]);
+      expect(fetchMock.mock.calls[1][1].headers['X-Line-Retry-Key']).toBeUndefined();
+    });
+
+    it('reads a 409 (this retry key was already accepted) as ok', async () => {
+      fetchMock.mockResolvedValue(jsonResponse(409, { message: 'The retry key is already accepted' }));
+      expect(await client.push('Cgroup', [message], '5b7e1c0a-0000-4000-8000-000000000001')).toBe('ok');
+    });
+
+    it('is failed without calling LINE when the access token is unset', async () => {
+      delete process.env.LINE_CHANNEL_ACCESS_TOKEN;
+      expect(await client.push('Cgroup', [message])).toBe('failed');
+      expect(fetchMock).not.toHaveBeenCalled();
+    });
+  });
 });

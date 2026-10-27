@@ -1,6 +1,6 @@
 # LINE host link: roster capture by direct message — design
 
-Status: **design, not built (2026-10-28).** Written from a brainstorming conversation.
+Status: **built on branch `feat/line-host-dm` (2026-10-28), all automated tests passing; the real-LINE check by the owner is still pending, so not deployed.** Checks still to do on a real phone: link by DM from the settings code; forward a roster from a group that has another bot; one-group auto-store; two-group Quick Reply tap; a stranger's DM; unlink. Written from a brainstorming conversation.
 Items marked **(my call)** were decided by the writer, not the owner.
 
 ## Intent and why

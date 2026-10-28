@@ -266,7 +266,9 @@ it is, the feature reports "not configured" and everything else works as before.
    summary card's button links to `<PUBLIC_APP_URL>/s/<code>/summary`, and without it no card is sent.
    Optionally set `LINE_LIFF_ID` to the id of a LIFF app (LINE Developers console, LINE Login channel)
    so the card DM'd to a host carries a "ส่งเข้ากลุ่ม" button that opens
-   `https://liff.line.me/<LINE_LIFF_ID>/<code>`; without it that button is left off.
+   `https://liff.line.me/<LINE_LIFF_ID>/<code>`; without it the host target (the DM card) is off.
+   The LIFF app's endpoint URL must be `<PUBLIC_APP_URL>/line-share`. Full steps, including
+   publishing the LINE Login channel: `docs/line-liff-setup.md`.
 6. Run `npm run db:backup`, then deploy (this release has a migration; see "When the release
    contains a migration").
 7. Press **Verify** next to the webhook URL in the console. If it fails, check that Cloudflare

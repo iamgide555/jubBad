@@ -1,14 +1,18 @@
 import { createHash } from 'node:crypto';
 import { Injectable } from '@nestjs/common';
+import type { Prisma } from '@prisma/client';
 import { PlansService } from '../plans/plans.service.js';
 import { planAtLeast } from '../plans/plan.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { LineClient } from './line-client.js';
 import { lineConfig } from './line-config.js';
-import { summaryCard } from './line-summary-card.js';
+import { liffShareUrl, summaryCard } from './line-summary-card.js';
 
 /** `busy`: another send for this session is in flight right now. */
 export type LineSummaryOutcome = 'sent' | 'already-sent' | 'busy' | 'quota' | 'failed' | 'unavailable';
+
+/** Where the card goes: the linked LINE group, or (no bot in the group) the owner's own LINE chat with the bot. */
+export type LineSummaryTarget = 'group' | 'host';
 
 export interface LineSummaryState {
   /** The card could be posted for this session (the session may still be open). */
@@ -17,7 +21,14 @@ export interface LineSummaryState {
   sent: boolean;
   /** The group's setting for whether the end-of-session checkbox starts ticked. */
   defaultOn: boolean;
+  /** Who the card would go to; null when it cannot go anywhere. */
+  target: LineSummaryTarget | null;
+  /** The LIFF link behind the host card's "send to group" button; set only for the `host` target when available. */
+  shareUrl: string | null;
 }
+
+/** The session with its group and the group's owner, which is all `resolve` needs. */
+type SessionForSummary = Prisma.SessionGetPayload<{ include: { group: { include: { owner: true } } } }>;
 
 const FINISHED_GAME = { confirmedAt: { not: null }, endedAt: { not: null } } as const;
 /** A claim older than this is treated as abandoned (the process may have died mid-send). */
@@ -32,7 +43,10 @@ function retryKeyFor(sessionCode: string): string {
   return `${h.slice(0, 8)}-${h.slice(8, 12)}-5${h.slice(13, 16)}-a${h.slice(17, 20)}-${h.slice(20, 32)}`;
 }
 
-/** The night's totals card for a linked LINE group, posted at most once per session. */
+/**
+ * The night's totals card, posted at most once per session: into the linked LINE group, or, when no bot is in
+ * the group, DMed to the host with a button that shares it on.
+ */
 @Injectable()
 export class LineSummaryService {
   constructor(
@@ -42,22 +56,16 @@ export class LineSummaryService {
   ) {}
 
   async state(sessionCode: string, now: Date = new Date()): Promise<LineSummaryState> {
-    const session = await this.prisma.session.findUnique({
-      where: { code: sessionCode },
-      include: { group: true },
-    });
-    if (!session) return { available: false, sent: false, defaultOn: true };
-    const sent = session.lineSummarySentAt !== null;
-    const defaultOn = session.group.lineSummaryDefault;
-
-    const config = lineConfig();
-    if (!config.secret || !config.token || !config.publicAppUrl) return { available: false, sent, defaultOn };
-    if (session.group.lineGroupId === null) return { available: false, sent, defaultOn };
-    if (!planAtLeast(await this.plans.planForGroup(session.groupId, now), 'host')) {
-      return { available: false, sent, defaultOn };
-    }
-    const games = await this.prisma.pairing.count({ where: { sessionId: sessionCode, ...FINISHED_GAME } });
-    return { available: games > 0, sent, defaultOn };
+    const session = await this.load(sessionCode);
+    if (!session) return { available: false, sent: false, defaultOn: true, target: null, shareUrl: null };
+    const resolved = await this.resolve(session, now);
+    return {
+      available: resolved !== null,
+      sent: session.lineSummarySentAt !== null,
+      defaultOn: session.group.lineSummaryDefault,
+      target: resolved?.target ?? null,
+      shareUrl: resolved?.shareUrl ?? null,
+    };
   }
 
   /**
@@ -67,15 +75,11 @@ export class LineSummaryService {
    * (a crash mid-send) goes stale and can be taken again, which the retry key makes safe.
    */
   async send(sessionCode: string, now: Date = new Date()): Promise<LineSummaryOutcome> {
-    const session = await this.prisma.session.findUnique({
-      where: { code: sessionCode },
-      include: { group: true },
-    });
+    const session = await this.load(sessionCode);
     const baseUrl = lineConfig().publicAppUrl;
     if (!session || session.endedAt === null || baseUrl === null) return 'unavailable';
-    if (!(await this.state(sessionCode, now)).available) return 'unavailable';
-    const lineGroupId = session.group.lineGroupId;
-    if (lineGroupId === null) return 'unavailable';
+    const resolved = await this.resolve(session, now);
+    if (resolved === null) return 'unavailable';
     if (session.lineSummarySentAt !== null) return 'already-sent';
 
     const claimed = await this.prisma.session.updateMany({
@@ -111,8 +115,9 @@ export class LineSummaryService {
         players: players.size,
         games: pairings.length,
         url: `${baseUrl}/s/${sessionCode}/summary`,
+        ...(resolved.shareUrl ? { shareUrl: resolved.shareUrl } : {}),
       });
-      const outcome = await this.line.push(lineGroupId, [card], retryKeyFor(sessionCode));
+      const outcome = await this.line.push(resolved.to, [card], retryKeyFor(sessionCode));
       if (outcome === 'ok') {
         await this.prisma.session.update({ where: { code: sessionCode }, data: { lineSummarySentAt: now } });
         return 'sent';
@@ -123,6 +128,42 @@ export class LineSummaryService {
       await this.release(sessionCode, now).catch(() => undefined);
       return 'failed';
     }
+  }
+
+  private load(sessionCode: string): Promise<SessionForSummary | null> {
+    return this.prisma.session.findUnique({
+      where: { code: sessionCode },
+      include: { group: { include: { owner: true } } },
+    });
+  }
+
+  /**
+   * Where the card goes, or null when it cannot go anywhere. A group linked to a LINE group posts there, whether
+   * or not its host DM switch is on. Otherwise the host target needs the DM switch, an owner who linked their own
+   * LINE account, and the LIFF app behind the share button. Both need the bot configured, a paid plan (read now,
+   * so a lapsed plan stops it) and a finished game. The session may still be open: only `send` requires it ended.
+   */
+  private async resolve(
+    session: SessionForSummary,
+    now: Date
+  ): Promise<{ target: LineSummaryTarget; to: string; shareUrl: string | null } | null> {
+    const config = lineConfig();
+    if (!config.secret || !config.token || !config.publicAppUrl) return null;
+
+    const { group } = session;
+    const hostLineUserId = group.owner?.lineUserId ?? null;
+    let resolved: { target: LineSummaryTarget; to: string; shareUrl: string | null };
+    if (group.lineGroupId !== null) {
+      resolved = { target: 'group', to: group.lineGroupId, shareUrl: null };
+    } else if (group.lineDmEnabled && hostLineUserId !== null && config.liffId !== null) {
+      resolved = { target: 'host', to: hostLineUserId, shareUrl: liffShareUrl(config.liffId, session.code) };
+    } else {
+      return null;
+    }
+
+    if (!planAtLeast(await this.plans.planForGroup(session.groupId, now), 'host')) return null;
+    const games = await this.prisma.pairing.count({ where: { sessionId: session.code, ...FINISHED_GAME } });
+    return games > 0 ? resolved : null;
   }
 
   /** Give the claim back, but only if it is still ours. */

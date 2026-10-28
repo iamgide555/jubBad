@@ -4,7 +4,7 @@ import { vi } from 'vitest';
 import { PrismaModule } from '../prisma/prisma.module.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { LineClient } from './line-client.js';
-import { LineSummaryService } from './line-summary.service.js';
+import { LineSummaryService, retryKeyFor } from './line-summary.service.js';
 import { LineModule } from './line.module.js';
 
 describe('LineSummaryService', () => {
@@ -203,6 +203,35 @@ describe('LineSummaryService', () => {
     expect(keys[2]).not.toBe(keys[0]);
   });
 
+  describe('retry key', () => {
+    const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
+
+    it('keeps the group key exactly as it was before the host target existed', () => {
+      // Pinned from the original algorithm (sha1 of `jubbad-line-summary:<code>`): a retry across a deploy must still dedupe.
+      expect(retryKeyFor('group', 'abc12345')).toBe('998d5d06-092a-5ebb-af39-2b5d50e20966');
+      expect(retryKeyFor('group', 's-pin-1')).toBe('93f94c4e-6b0d-57d6-a293-118c6e0d706b');
+    });
+
+    it('gives the host target its own key, so a group push LINE accepted cannot make a host DM look sent', () => {
+      const group = retryKeyFor('group', 'abc12345');
+      const host = retryKeyFor('host', 'abc12345');
+      expect(host).not.toBe(group);
+      expect(host).toMatch(UUID);
+      expect(group).toMatch(UUID);
+      expect(retryKeyFor('host', 'abc12345')).toBe(host);
+    });
+
+    it('is sent with the push for each target', async () => {
+      const grouped = await setup();
+      const owner = await makeOwner('host');
+      const hosted = await setup({ ownerId: owner.id, linked: false, dm: true });
+      await summary.send(grouped.sessionCode);
+      await summary.send(hosted.sessionCode);
+      expect(fakeClient.push.mock.calls[0][2]).toBe(retryKeyFor('group', grouped.sessionCode));
+      expect(fakeClient.push.mock.calls[1][2]).toBe(retryKeyFor('host', hosted.sessionCode));
+    });
+  });
+
   it('is not marked sent while a card is only claimed, and a fresh claim reads as busy', async () => {
     const { sessionCode } = await setup();
     await prisma.session.update({ where: { code: sessionCode }, data: { lineSummaryClaimedAt: new Date() } });
@@ -235,6 +264,46 @@ describe('LineSummaryService', () => {
     const { sessionCode } = await setup({ date: null });
     await summary.send(sessionCode);
     expect(fakeClient.push.mock.calls[0][1][0].altText).toContain('ต.ค.');
+  });
+
+  describe('before the LIFF app is set up (LINE_LIFF_ID unset, the state at first deploy)', () => {
+    beforeEach(() => {
+      delete process.env.LINE_LIFF_ID;
+    });
+
+    it('still offers a bot-linked group its card, with no share link', async () => {
+      const { sessionCode } = await setup();
+      expect(await summary.state(sessionCode)).toEqual({
+        available: true,
+        sent: false,
+        defaultOn: true,
+        target: 'group',
+        shareUrl: null,
+      });
+    });
+
+    it('still pushes a bot-linked group its card to the LINE group, with the one "ดูสรุป" button', async () => {
+      const { groupCode, sessionCode } = await setup();
+      expect(await summary.send(sessionCode)).toBe('sent');
+      expect(fakeClient.push).toHaveBeenCalledTimes(1);
+      const group = await prisma.group.findUniqueOrThrow({ where: { code: groupCode } });
+      const [to, messages] = fakeClient.push.mock.calls[0];
+      expect(to).toBe(group.lineGroupId);
+      expect(messages[0].contents.footer.contents).toHaveLength(1);
+      expect(await summary.state(sessionCode)).toMatchObject({ available: true, sent: true, target: 'group' });
+    });
+
+    it('has no target for an unlinked group with the DM switch on, since the share button needs the LIFF app', async () => {
+      const owner = await makeOwner('host');
+      const { sessionCode } = await setup({ ownerId: owner.id, linked: false, dm: true });
+      expect(await summary.state(sessionCode)).toEqual({
+        available: false,
+        sent: false,
+        defaultOn: true,
+        target: null,
+        shareUrl: null,
+      });
+    });
   });
 
   describe('the host target (no bot in the group, the owner linked their own LINE)', () => {
@@ -371,6 +440,17 @@ describe('LineSummaryService', () => {
       await prisma.group.update({ where: { code: groupCode }, data: { lineGroupId: `C${randomUUID().replace(/-/g, '')}` } });
       expect(await summary.send(sessionCode)).toBe('already-sent');
       expect(fakeClient.push).toHaveBeenCalledTimes(1);
+    });
+
+    it('does not DM the host after a group send when the group is unlinked afterwards', async () => {
+      const owner = await makeOwner('host');
+      const { sessionCode, groupCode } = await setup({ ownerId: owner.id, linked: true, dm: true });
+      expect(await summary.send(sessionCode)).toBe('sent');
+      await prisma.group.update({ where: { code: groupCode }, data: { lineGroupId: null } });
+      // Now the host target (switch on, owner linked, LIFF set): a second card must still not go out.
+      expect(await summary.send(sessionCode)).toBe('already-sent');
+      expect(fakeClient.push).toHaveBeenCalledTimes(1);
+      expect(await summary.state(sessionCode)).toMatchObject({ sent: true, target: 'host' });
     });
   });
 

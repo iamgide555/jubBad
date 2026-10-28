@@ -119,6 +119,9 @@ describe('LINE host link codes, status and unlink', () => {
     process.env.LINE_CHANNEL_SECRET = 'secret';
     process.env.LINE_CHANNEL_ACCESS_TOKEN = 'token';
     process.env.LINE_BOT_ADD_URL = 'https://lin.ee/jubbad';
+    // server/.env is loaded by vitest.config.ts (dotenv/config); a real one must not leak into these specs.
+    delete process.env.PUBLIC_APP_URL;
+    delete process.env.LINE_LIFF_ID;
   });
 
   afterEach(() => {
@@ -753,6 +756,9 @@ describe('LINE host link routes', () => {
     process.env.LINE_CHANNEL_SECRET = 'secret';
     process.env.LINE_CHANNEL_ACCESS_TOKEN = 'token';
     process.env.LINE_BOT_ADD_URL = 'https://lin.ee/jubbad';
+    // server/.env is loaded by vitest.config.ts (dotenv/config); a real one must not leak into these specs.
+    delete process.env.PUBLIC_APP_URL;
+    delete process.env.LINE_LIFF_ID;
   });
 
   afterEach(() => {

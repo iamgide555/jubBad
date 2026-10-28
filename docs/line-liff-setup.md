@@ -96,12 +96,17 @@ with at least one finished game and leave the "ส่งการ์ดสรุ
 - [ ] A host who is **not** an admin or tester of the LINE Login channel can open the LIFF app.
       This is the published-channel check from section 3: if that host is refused, the channel is
       still Developing.
-- [ ] Behaviour unchanged elsewhere: with the group's DM switch off, no DM card is sent; with the
-      group linked to a LINE group (bot in the chat), the card still posts into that group and no
-      DM is sent; in both cases the host settings switch is not shown for a bot-linked or paused
-      (plan lapsed) group.
-- [ ] Only one DM per session: ending the session and pressing the owner's resend on the summary
-      page after a delivered DM does not send a second card.
+- [ ] DM switch off on an unlinked group: ending a session sends no DM card. (The host settings
+      switch is still shown here, so it can be turned back on.)
+- [ ] Group linked to a LINE group (bot in the chat): the card still posts into that group and no
+      DM is sent. The host settings switch is hidden for a bot-linked group.
+- [ ] Paused group (plan lapsed): no card of either kind is sent. The host settings switch is
+      hidden for a paused group.
+- [ ] Only one DM per session: once the DM is delivered the summary page offers no resend, so a
+      second card cannot be sent from there; the "ส่งการ์ดเข้ากลุ่ม LINE" link remains.
+
+The LIFF page is served from the Thai (root) build only, so its English strings are never shown to
+LINE users: nginx serves English under `/en/`, and the LIFF endpoint is `<PUBLIC_APP_URL>/line-share`.
 
 Also check the card's layout once in LINE's Flex Message Simulator if it looks off on a device.
 

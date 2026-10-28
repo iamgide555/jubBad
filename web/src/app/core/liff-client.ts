@@ -1,6 +1,9 @@
 import { Injectable } from '@angular/core';
 import type { Liff } from '@line/liff';
 
+/** What the SDK's share picker accepts; the card arrives from our own API as plain JSON, so it is cast to this. */
+type ShareMessages = Parameters<Liff['shareTargetPicker']>[0];
+
 /**
  * A thin seam over the LIFF SDK so the share page can be tested without it.
  *
@@ -34,7 +37,7 @@ export class LiffClient {
 
   /** `'sent'` only when LINE reports success; closing the picker is `'cancelled'`. */
   async share(messages: unknown[]): Promise<'sent' | 'cancelled'> {
-    const result = await this.sdk().shareTargetPicker(messages as never);
+    const result = await this.sdk().shareTargetPicker(messages as ShareMessages);
     return result?.status === 'success' ? 'sent' : 'cancelled';
   }
 

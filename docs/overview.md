@@ -1470,13 +1470,14 @@ expired code gets one generic Thai reply (it never says which); a sender who has
     console toggle.
 - **One bot per group (confirmed 2026-10-27):** LINE keeps only one bot in a group chat; a second
   one invited leaves at once and the first stays. A group that already has a bot (most real ก๊วน
-  have ขุนทอง for payments) cannot use roster capture or the summary card, and the host keeps
-  pasting the roster. Owner decisions: no extra hint in the UI, no share-button workaround (it is
-  the same copy-paste at the end of the night), and replacing ขุนทอง would mean cloning its
-  features first, so the bot stays an opt-in extra for groups without another bot. **Answered 2026-10-28 by the
-  host DM path above:** a group with another bot keeps that bot and gets roster capture through the
-  host's DM with this one, so the "cannot use roster capture" limit now applies to the group
-  listener only; the summary card reaches such a group through the host share card above.
+  have ขุนทอง for payments) cannot have this bot in the chat, so the group listener (roster capture
+  and the card posted into the chat) does not apply to it. Owner decisions on 2026-10-27: no extra
+  hint in the UI, and replacing ขุนทอง would mean cloning its features first, so the bot stays an
+  opt-in extra for groups without another bot. **Superseded 2026-10-28 by the host DM path above:**
+  such a group keeps its bot and gets roster capture through the host's DM with this one, and the
+  summary card reaches the chat through the host share card (the host presses the share button and
+  LINE sends it from their own account), replacing the earlier "no share-button workaround"
+  decision.
 - **Host DM path status:** built and checked on a real phone 2026-10-28. The first phone test led to the
   per-group switch and the two-card page above.
 - **Unverified until a real LINE group is used:** the exact type string of LINE's edit event

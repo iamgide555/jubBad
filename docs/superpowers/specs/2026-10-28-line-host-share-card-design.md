@@ -85,8 +85,10 @@ state endpoint reports the target so the web can word the checkbox.
 
 Reuse the existing claim, `lineSummarySentAt`, retry key and 30-second stale-claim rules unchanged
 **(my call: a session has one target, so one "delivered" marker is enough; no migration)**. The
-retry key is derived from the session code, so it cannot collide with the group push for the same
-session because a session has only one target at a time.
+retry key is derived from the session code and the target: the group key is the one used before the
+host target existed, the host key hashes `jubbad-line-summary:host:<code>`, so the two are separate keys
+by construction. (A group push LINE accepted but whose answer was lost therefore cannot make a later
+host DM read as "sent" through a 409.)
 
 If the group's target changes after a send (linked or unlinked later), the old marker still reads
 "sent" and no second card goes out.

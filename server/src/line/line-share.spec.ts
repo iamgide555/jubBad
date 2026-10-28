@@ -122,7 +122,7 @@ describe('LineSummaryService.shareCard and GET /sessions/:code/line-share-card',
   }
 
   it('serves the card, the LIFF id and a preview for an ended host-target session', async () => {
-    const { sessionCode, owner } = await setup();
+    const { sessionCode, groupCode, owner } = await setup();
     const payload = await summary.shareCard(sessionCode);
 
     expect(Object.keys(payload)).toEqual(['liffId', 'card', 'preview']);
@@ -143,6 +143,8 @@ describe('LineSummaryService.shareCard and GET /sessions/:code/line-share-card',
     expect(json).not.toContain(owner.email);
     expect(json).not.toContain(owner.id);
     expect(json).not.toContain('liff.line.me');
+    // The group code is private on public routes.
+    expect(json).not.toContain(groupCode);
   });
 
   it('is the card the host was DMed, minus the share button', async () => {
@@ -211,6 +213,18 @@ describe('LineSummaryService.shareCard and GET /sessions/:code/line-share-card',
       await expectNotFound(sessionCode);
     });
 
+    it('the feature is off: an anonymous caller costs no database lookup', async () => {
+      const { sessionCode } = await setup();
+      delete process.env.LINE_LIFF_ID;
+      const lookup = vi.spyOn(prisma.session, 'findUnique');
+      try {
+        await expectNotFound(sessionCode);
+        expect(lookup).not.toHaveBeenCalled();
+      } finally {
+        lookup.mockRestore();
+      }
+    });
+
     it('the public app url is not configured', async () => {
       const { sessionCode } = await setup();
       delete process.env.PUBLIC_APP_URL;
@@ -220,7 +234,7 @@ describe('LineSummaryService.shareCard and GET /sessions/:code/line-share-card',
 
   describe('over HTTP', () => {
     it('answers an anonymous caller (no cookie) with the payload', async () => {
-      const { sessionCode, owner } = await setup();
+      const { sessionCode, groupCode, owner } = await setup();
       const res = await request(server).get(`/sessions/${sessionCode}/line-share-card`).expect(200);
       expect(Object.keys(res.body)).toEqual(['liffId', 'card', 'preview']);
       expect(res.body.liffId).toBe(LIFF_ID);
@@ -228,6 +242,7 @@ describe('LineSummaryService.shareCard and GET /sessions/:code/line-share-card',
       expect(res.text).not.toContain('lineUserId');
       expect(res.text).not.toContain(owner.email);
       expect(res.text).not.toContain(owner.id);
+      expect(res.text).not.toContain(groupCode);
     });
 
     it('is the only public thing here: the host-only sibling route still refuses a caller with no cookie', async () => {

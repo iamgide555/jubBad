@@ -78,6 +78,9 @@ describe('LINE link codes, status and unlink', () => {
     process.env.LINE_CHANNEL_SECRET = 'secret';
     process.env.LINE_CHANNEL_ACCESS_TOKEN = 'token';
     process.env.LINE_BOT_ADD_URL = 'https://lin.ee/jubbad';
+    // vitest.config.ts loads server/.env; a real one must not leak into the summaryAvailable expectations.
+    delete process.env.PUBLIC_APP_URL;
+    delete process.env.LINE_LIFF_ID;
     requestUserId = hostId;
     fakeClient.reply.mockReset();
     fakeClient.leave.mockReset().mockResolvedValue(undefined);

@@ -42,11 +42,15 @@ const FINISHED_GAME = { confirmedAt: { not: null }, endedAt: { not: null } } as 
 const STALE_CLAIM_MS = 30_000;
 
 /**
- * A UUID that is the same on every attempt for one session. LINE drops a repeat of a push with the same
- * retry key (and answers 409), so retrying after a timeout we could not read the answer to cannot post twice.
+ * A UUID that is the same on every attempt for one session and target. LINE drops a repeat of a push with the
+ * same retry key (and answers 409), so retrying after a timeout we could not read the answer to cannot post
+ * twice. The two targets hash different inputs, so they are separate keys by construction: a group push LINE
+ * accepted but whose answer we lost can never make a later host DM read as already sent via a 409. The group
+ * input is the one used before the host target existed and must not change.
  */
-function retryKeyFor(sessionCode: string): string {
-  const h = createHash('sha1').update(`jubbad-line-summary:${sessionCode}`).digest('hex');
+export function retryKeyFor(target: LineSummaryTarget, sessionCode: string): string {
+  const input = target === 'host' ? `jubbad-line-summary:host:${sessionCode}` : `jubbad-line-summary:${sessionCode}`;
+  const h = createHash('sha1').update(input).digest('hex');
   return `${h.slice(0, 8)}-${h.slice(8, 12)}-5${h.slice(13, 16)}-a${h.slice(17, 20)}-${h.slice(20, 32)}`;
 }
 
@@ -107,7 +111,7 @@ export class LineSummaryService {
 
     try {
       const { card } = await this.buildCard(session, session.endedAt, baseUrl, resolved.shareUrl);
-      const outcome = await this.line.push(resolved.to, [card], retryKeyFor(sessionCode));
+      const outcome = await this.line.push(resolved.to, [card], retryKeyFor(resolved.target, sessionCode));
       if (outcome === 'ok') {
         await this.prisma.session.update({ where: { code: sessionCode }, data: { lineSummarySentAt: now } });
         return 'sent';
@@ -127,9 +131,11 @@ export class LineSummaryService {
    * DMed without its share button, built by the same code so the two cannot drift.
    */
   async shareCard(sessionCode: string, now: Date = new Date()): Promise<LineShareCard> {
-    const session = await this.load(sessionCode);
+    // Config first: with the feature off, an anonymous caller must not cost a database lookup.
     const { publicAppUrl: baseUrl, liffId } = lineConfig();
-    if (!session || session.endedAt === null || baseUrl === null || liffId === null) throw new NotFoundException();
+    if (baseUrl === null || liffId === null) throw new NotFoundException();
+    const session = await this.load(sessionCode);
+    if (!session || session.endedAt === null) throw new NotFoundException();
     const resolved = await this.resolve(session, now);
     if (resolved?.target !== 'host') throw new NotFoundException();
     const { card, preview } = await this.buildCard(session, session.endedAt, baseUrl);

@@ -7,6 +7,8 @@ export interface SummaryCardInput {
   players: number;
   games: number;
   url: string;
+  /** The LIFF link behind the host's "send to group" button; leave out for the card posted in a group. */
+  shareUrl?: string;
 }
 
 export interface SummaryCard {
@@ -70,6 +72,11 @@ function row(label: string, value: string) {
   };
 }
 
+/** The LIFF app's address for one session; the code is URL-encoded because LIFF carries it as a path segment. */
+export function liffShareUrl(liffId: string, sessionCode: string): string {
+  return `https://liff.line.me/${liffId}/${encodeURIComponent(sessionCode)}`;
+}
+
 export function summaryCard(input: SummaryCardInput): SummaryCard {
   const name = clip(present(input.groupName) ?? GROUP_FALLBACK, TEXT_MAX);
   const date = clip(cardDate(input.date, input.endedAt), TEXT_MAX);
@@ -99,6 +106,7 @@ export function summaryCard(input: SummaryCardInput): SummaryCard {
       footer: {
         type: 'box',
         layout: 'vertical',
+        ...(input.shareUrl ? { spacing: 'sm' } : {}),
         contents: [
           {
             type: 'button',
@@ -106,6 +114,15 @@ export function summaryCard(input: SummaryCardInput): SummaryCard {
             color: COURT,
             action: { type: 'uri', label: 'ดูสรุป', uri: input.url },
           },
+          ...(input.shareUrl
+            ? [
+                {
+                  type: 'button',
+                  style: 'secondary',
+                  action: { type: 'uri', label: 'ส่งเข้ากลุ่ม', uri: input.shareUrl },
+                },
+              ]
+            : []),
         ],
       },
     },

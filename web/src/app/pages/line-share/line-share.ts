@@ -1,12 +1,25 @@
 import { HttpErrorResponse } from '@angular/common/http';
 import { Component, inject, signal } from '@angular/core';
-import { ActivatedRoute } from '@angular/router';
+import { ActivatedRoute, type ActivatedRouteSnapshot } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
 import { LiffClient } from '../../core/liff-client';
 import type { LineShareCard } from '../../core/line.model';
 import { LineService } from '../../core/line.service';
 
 type Phase = 'loading' | 'missing' | 'error' | 'login' | 'unavailable' | 'ready' | 'done';
+
+/**
+ * The code is in the path (`/line-share/abc123`) once LIFF has redirected, but
+ * LIFF first opens the endpoint as `/line-share?liff.state=%2Fabc123` and only
+ * `liff.init()` on that page sends it on, so read both. Angular already decodes
+ * the query value; one leading slash is the path LIFF appended.
+ */
+function sessionCodeFrom(snapshot: ActivatedRouteSnapshot): string {
+  const fromPath = snapshot.paramMap.get('sessionCode');
+  if (fromPath) return fromPath;
+  const state = snapshot.queryParamMap.get('liff.state') ?? '';
+  return state.startsWith('/') ? state.slice(1) : state;
+}
 
 /**
  * The page behind the "ส่งเข้ากลุ่ม" button on the summary card the bot DMs the
@@ -21,7 +34,7 @@ type Phase = 'loading' | 'missing' | 'error' | 'login' | 'unavailable' | 'ready'
 export class LineShare {
   private readonly line = inject(LineService);
   private readonly liff = inject(LiffClient);
-  private readonly sessionCode = inject(ActivatedRoute).snapshot.paramMap.get('sessionCode') ?? '';
+  private readonly sessionCode = sessionCodeFrom(inject(ActivatedRoute).snapshot);
 
   protected readonly phase = signal<Phase>('loading');
   protected readonly data = signal<LineShareCard | null>(null);
@@ -34,6 +47,10 @@ export class LineShare {
 
   /** Card first (a missing summary never needs LIFF), then LIFF, then log in if needed. */
   private async load(): Promise<void> {
+    if (!this.sessionCode) {
+      this.phase.set('missing');
+      return;
+    }
     let data: LineShareCard;
     try {
       data = await firstValueFrom(this.line.shareCard(this.sessionCode));

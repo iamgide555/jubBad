@@ -31,6 +31,8 @@ describe('LineShare', () => {
     fixture.detectChanges();
   };
 
+  let route: { params: Record<string, string>; query: Record<string, string> };
+
   async function open(card: LineShareCard | HttpErrorResponse = CARD) {
     shareCard.mockReturnValue(card instanceof HttpErrorResponse ? throwError(() => card) : of(card));
     fixture = TestBed.createComponent(LineShare);
@@ -39,6 +41,7 @@ describe('LineShare', () => {
   }
 
   beforeEach(() => {
+    route = { params: { sessionCode: 'sess 1' }, query: {} };
     shareCard = vi.fn();
     liff = {
       init: vi.fn().mockResolvedValue(undefined),
@@ -51,7 +54,14 @@ describe('LineShare', () => {
       providers: [
         { provide: LineService, useValue: { shareCard } },
         { provide: LiffClient, useValue: liff },
-        { provide: ActivatedRoute, useValue: { snapshot: { paramMap: convertToParamMap({ sessionCode: 'sess 1' }) } } },
+        {
+          provide: ActivatedRoute,
+          useValue: {
+            get snapshot() {
+              return { paramMap: convertToParamMap(route.params), queryParamMap: convertToParamMap(route.query) };
+            },
+          },
+        },
       ],
     });
   });
@@ -59,6 +69,44 @@ describe('LineShare', () => {
   it('asks the server for the card of the session in the route', async () => {
     await open();
     expect(shareCard).toHaveBeenCalledWith('sess 1');
+  });
+
+  it("takes the session code from LIFF's liff.state when the path has none", async () => {
+    // Angular hands over query values already decoded: ?liff.state=%2Fabc123 arrives as '/abc123'.
+    route = { params: {}, query: { 'liff.state': '/abc123' } };
+    await open();
+    expect(shareCard).toHaveBeenCalledWith('abc123');
+    expect(liff.init).toHaveBeenCalledTimes(1);
+  });
+
+  it('prefers the path code over liff.state', async () => {
+    route = { params: { sessionCode: 'fromPath' }, query: { 'liff.state': '/other' } };
+    await open();
+    expect(shareCard).toHaveBeenCalledWith('fromPath');
+  });
+
+  it('says the summary is missing, and never touches the server or LIFF, when there is no code at all', async () => {
+    route = { params: {}, query: {} };
+    await open();
+    expect(q('[data-share-missing]')?.textContent).toContain('ไม่พบสรุปนี้');
+    expect(shareCard).not.toHaveBeenCalled();
+    expect(liff.init).not.toHaveBeenCalled();
+  });
+
+  it('treats an empty liff.state (just a slash) as no code', async () => {
+    route = { params: {}, query: { 'liff.state': '/' } };
+    await open();
+    expect(q('[data-share-missing]')).not.toBeNull();
+    expect(shareCard).not.toHaveBeenCalled();
+    expect(liff.init).not.toHaveBeenCalled();
+  });
+
+  it('uses the spec labels for the pick and send-again buttons', async () => {
+    await open();
+    expect(q('[data-share-pick]')?.textContent?.trim()).toBe('เลือกกลุ่มแล้วส่ง');
+    q('[data-share-pick]')!.click();
+    await flush();
+    expect(q('[data-share-again]')?.textContent?.trim()).toBe('ส่งที่อื่นอีก');
   });
 
   it('says the summary is missing on a 404, and never touches LIFF', async () => {

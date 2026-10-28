@@ -1255,16 +1255,16 @@
         <target>Sent</target>
       </trans-unit>
       <trans-unit id="share.line.again" datatype="html">
-        <source>ส่งอีกครั้ง</source>
-        <target>Send again</target>
+        <source>ส่งที่อื่นอีก</source>
+        <target>Send to another chat</target>
       </trans-unit>
       <trans-unit id="share.line.hint" datatype="html">
         <source>เลือกกลุ่มหรือแชตใน LINE สรุปจะถูกส่งในชื่อของคุณ</source>
         <target>Pick a group or chat in LINE. The summary is sent under your name</target>
       </trans-unit>
       <trans-unit id="share.line.pick" datatype="html">
-        <source>เลือกแชตที่จะส่ง</source>
-        <target>Choose where to send</target>
+        <source>เลือกกลุ่มแล้วส่ง</source>
+        <target>Choose a chat and send</target>
       </trans-unit>
       <trans-unit id="share.line.sendFailed" datatype="html">
         <source>ส่งไม่สำเร็จ ลองอีกครั้ง</source>

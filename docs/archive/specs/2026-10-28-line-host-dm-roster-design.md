@@ -1,6 +1,6 @@
 # LINE host link: roster capture by direct message — design
 
-Status: **built on branch `feat/line-host-dm` (2026-10-28), all automated tests passing; the real-LINE check by the owner is still pending, so not deployed.** Checks still to do on a real phone: link by DM from the settings code; forward a roster from a group that has another bot; one-group auto-store; two-group Quick Reply tap; a stranger's DM; unlink. Written from a brainstorming conversation.
+Status: **done (2026-10-28).** Built and checked on a real phone by the owner (link by DM, roster forward, one-group store, two-group Quick Reply, unlink), then merged to main. The first phone test changed the design: see the revision section below, which overrides the per-account wording further down.
 Items marked **(my call)** were decided by the writer, not the owner.
 
 ## Revision after the first real-phone test (2026-10-28, owner)

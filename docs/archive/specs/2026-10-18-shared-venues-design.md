@@ -1,6 +1,6 @@
 # Shared venue list with search — design
 
-Status: approved by owner 2026-10-18; built on branch `feat/shared-venues` (not yet merged or deployed; the real backfill has not been run).
+Status: **done.** Approved by owner 2026-10-18, merged and deployed 2026-10-18 (3d6ee49); the owner backfill was run the same day.
 
 ## Intent and why
 

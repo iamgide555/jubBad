@@ -1,5 +1,8 @@
 # LINE host link (roster by DM) Implementation Plan
 
+> **Archived 2026-10-28.** Executed the same day with subagent-driven development (each task reviewed, then a whole-branch review); checkboxes are not ticked retroactively. The owner's first real-phone test replaced the per-account model in Tasks 2-9 with a per-group switch (`Group.lineDmEnabled`, group-scoped routes, two-card settings page); the spec's revision section is the final word, and the OwnershipGuard change in Task 4 was reverted.
+
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** A host links their own LINE account by DM and sends rosters to the bot in a 1:1 chat, so groups that already have another bot (LINE allows one per group) still get roster pre-fill.

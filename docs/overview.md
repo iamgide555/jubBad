@@ -1334,7 +1334,7 @@ and "เกจ" so a Thai line never breaks inside the word.
 ### LINE bot (phase 1, plus host DM)
 
 Design: `docs/archive/specs/2026-10-26-line-bot-roster-design.md` (host DM path:
-`docs/superpowers/specs/2026-10-28-line-host-dm-roster-design.md`); build plan:
+`docs/archive/specs/2026-10-28-line-host-dm-roster-design.md`); build plan:
 `docs/archive/plans/2026-10-26-line-bot-roster.md` (finished and deployed 2026-10-26). Phase 2, the
 weekly auto-post of the template, is not built and has its own spec,
 `docs/superpowers/specs/2026-10-26-line-bot-weekly-post-design.md`: LINE counts a group push once
@@ -1438,9 +1438,8 @@ expired code gets one generic Thai reply (it never says which); a sender who has
   host DM path above:** a group with another bot keeps that bot and gets roster capture through the
   host's DM with this one, so the "cannot use roster capture" limit now applies to the group
   listener and the summary card only.
-- **Host DM path status:** built on branch `feat/line-host-dm` with automated tests passing, but not deployed.
-  The first real-phone test (2026-10-28) worked and led to the per-group switch and the two-card page; the
-  remaining checks are listed in the spec's status line.
+- **Host DM path status:** built and checked on a real phone 2026-10-28. The first phone test led to the
+  per-group switch and the two-card page above.
 - **Unverified until a real LINE group is used:** the exact type string of LINE's edit event
   (`messageEdited` per the docs summary) and that Cloudflare lets LINE's webhook through.
 

@@ -1,5 +1,8 @@
 # Shared Venues Implementation Plan
 
+> **Archived 2026-10-28.** Shipped: merged and deployed 2026-10-18 (3d6ee49), owner backfill run. This plan was not tracked with checkboxes, so none are ticked retroactively.
+
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Turn the free-text venue field into a search box over a shared, cross-host venue list, and link the owner's past sessions to it with a one-off script.

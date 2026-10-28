@@ -1,5 +1,8 @@
 # Plan Gating Implementation Plan
 
+> **Archived 2026-10-28.** Shipped: merged and deployed 2026-10-26 with the plan-gating follow-ups (`docs/archive/plans/2026-10-26-plan-gating-followups.md`); dormant while every user is on the club plan. This plan was not tracked with checkboxes, so none are ticked retroactively.
+
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Gate paid features by the group owner's plan (free / host / club), with the plan set by an admin only. There is no billing integration, so payment stays manual PromptPay.

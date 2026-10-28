@@ -1218,6 +1218,58 @@
           <context context-type="linenumber">53</context>
         </context-group>
       </trans-unit>
+      <trans-unit id="share.line.title" datatype="html">
+        <source>ส่งสรุปเข้ากลุ่ม LINE</source>
+        <target>Send the summary to a LINE group</target>
+      </trans-unit>
+      <trans-unit id="share.line.loading" datatype="html">
+        <source>กำลังโหลด…</source>
+        <target>Loading…</target>
+      </trans-unit>
+      <trans-unit id="share.line.missing" datatype="html">
+        <source>ไม่พบสรุปนี้</source>
+        <target>Summary not found</target>
+      </trans-unit>
+      <trans-unit id="share.line.error" datatype="html">
+        <source>เปิดหน้านี้ไม่สำเร็จ ลองกดปุ่มส่งเข้ากลุ่มใน LINE อีกครั้ง</source>
+        <target>Could not open this page. Tap the send-to-group button in LINE again</target>
+      </trans-unit>
+      <trans-unit id="share.line.login" datatype="html">
+        <source>กำลังไปหน้าเข้าสู่ระบบ LINE</source>
+        <target>Taking you to LINE login</target>
+      </trans-unit>
+      <trans-unit id="share.line.unavailable" datatype="html">
+        <source>ส่งจากหน้านี้ไม่ได้ เปิดลิงก์นี้ในแอป LINE บนโทรศัพท์</source>
+        <target>This cannot be sent from here. Open the link in the LINE app on your phone</target>
+      </trans-unit>
+      <trans-unit id="share.line.players" datatype="html">
+        <source><x id="INTERPOLATION" equiv-text="{{ d.preview.players }}"/> คน</source>
+        <target><x id="INTERPOLATION" equiv-text="{{ d.preview.players }}"/> players</target>
+      </trans-unit>
+      <trans-unit id="share.line.games" datatype="html">
+        <source><x id="INTERPOLATION" equiv-text="{{ d.preview.games }}"/> เกม</source>
+        <target><x id="INTERPOLATION" equiv-text="{{ d.preview.games }}"/> games</target>
+      </trans-unit>
+      <trans-unit id="share.line.done" datatype="html">
+        <source>ส่งแล้ว</source>
+        <target>Sent</target>
+      </trans-unit>
+      <trans-unit id="share.line.again" datatype="html">
+        <source>ส่งที่อื่นอีก</source>
+        <target>Send to another chat</target>
+      </trans-unit>
+      <trans-unit id="share.line.hint" datatype="html">
+        <source>เลือกกลุ่มหรือแชตใน LINE สรุปจะถูกส่งในชื่อของคุณ</source>
+        <target>Pick a group or chat in LINE. The summary is sent under your name</target>
+      </trans-unit>
+      <trans-unit id="share.line.pick" datatype="html">
+        <source>เลือกกลุ่มแล้วส่ง</source>
+        <target>Choose a chat and send</target>
+      </trans-unit>
+      <trans-unit id="share.line.sendFailed" datatype="html">
+        <source>ส่งไม่สำเร็จ ลองอีกครั้ง</source>
+        <target>Could not send. Try again</target>
+      </trans-unit>
       <trans-unit id="login.title" datatype="html">
         <source>JubBad</source><target>JubBad</target>
         <context-group purpose="location">
@@ -5083,6 +5135,14 @@
           <context context-type="linenumber">24</context>
         </context-group>
       </trans-unit>
+      <trans-unit id="summary.shareToGroup" datatype="html">
+        <source>ส่งการ์ดเข้ากลุ่ม LINE</source>
+        <target>Share card to a LINE group</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/session-summary/session-summary.html</context>
+          <context context-type="linenumber">29,33</context>
+        </context-group>
+      </trans-unit>
       <trans-unit id="summary.shuttleLabel" datatype="html">
         <source>ลูกแบด</source><target>Shuttles</target>
         <context-group purpose="location">
@@ -5805,6 +5865,22 @@
         <source>โหลดสถานะแชตส่วนตัวไม่สำเร็จ</source>
         <target>Could not load the chat setup</target>
       </trans-unit>
+      <trans-unit id="line.host.summaryDefault" datatype="html">
+        <source>ส่งการ์ดสรุปให้ฉันทาง LINE เมื่อจบรอบ</source>
+        <target>DM me the summary card when ending</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/group-settings-detail/line-host-link-panel.html</context>
+          <context context-type="linenumber">55,56</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="line.host.summaryDefaultHint" datatype="html">
+        <source>ค่าเริ่มต้นของช่องติ๊กตอนกดจบรอบ เปลี่ยนได้ทุกครั้ง</source>
+        <target>Default for the checkbox when you end a session; you can change it each time</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/group-settings-detail/line-host-link-panel.html</context>
+          <context context-type="linenumber">56,58</context>
+        </context-group>
+      </trans-unit>
       <trans-unit id="line.host.linked" datatype="html">
         <source>ผูกบัญชี LINE ของคุณแล้ว ใช้ร่วมกันทุกก๊วน</source>
         <target>Your LINE account is linked, shared by all your groups</target>
@@ -5960,6 +6036,18 @@
           <context context-type="sourcefile">src/app/pages/group-settings-detail/group-settings-detail.ts</context>
           <context context-type="linenumber">248</context>
         </context-group>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/group-settings-detail/line-host-link-panel.ts</context>
+          <context context-type="linenumber">191</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="dashboard.sendLineSummaryHost" datatype="html">
+        <source>ส่งการ์ดสรุปให้ฉันทาง LINE</source>
+        <target>DM me the summary card</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/session-dashboard/session-dashboard.html</context>
+          <context context-type="linenumber">508,510</context>
+        </context-group>
       </trans-unit>
       <trans-unit id="dashboard.sendLineSummary" datatype="html">
         <source>ส่งสรุปเข้ากลุ่ม LINE</source>
@@ -5969,12 +6057,28 @@
           <context context-type="linenumber">508,510</context>
         </context-group>
       </trans-unit>
+      <trans-unit id="summary.sendLineHost" datatype="html">
+        <source>ส่งการ์ดให้ฉันทาง LINE</source>
+        <target>DM me the summary card</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/session-summary/session-summary.html</context>
+          <context context-type="linenumber">21,23</context>
+        </context-group>
+      </trans-unit>
       <trans-unit id="summary.sendLine" datatype="html">
         <source>ส่งสรุปเข้ากลุ่ม LINE</source>
         <target>Send summary to LINE group</target>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/session-summary/session-summary.html</context>
           <context context-type="linenumber">20,24</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="summary.lineHostSent" datatype="html">
+        <source>ส่งการ์ดให้คุณทาง LINE แล้ว</source>
+        <target>Card sent to you on LINE</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/session-summary/session-summary.ts</context>
+          <context context-type="linenumber">206</context>
         </context-group>
       </trans-unit>
       <trans-unit id="summary.lineSent" datatype="html">
@@ -5993,12 +6097,28 @@
           <context context-type="linenumber">196</context>
         </context-group>
       </trans-unit>
+      <trans-unit id="summary.lineHostFailed" datatype="html">
+        <source>ส่งการ์ดให้คุณไม่สำเร็จ เพิ่มบอทเป็นเพื่อนอีกครั้งแล้วลองใหม่</source>
+        <target>Couldn't send you the card. Add the bot as a friend again and retry</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/session-summary/session-summary.ts</context>
+          <context context-type="linenumber">216</context>
+        </context-group>
+      </trans-unit>
       <trans-unit id="summary.lineFailed" datatype="html">
         <source>ส่งสรุปเข้ากลุ่ม LINE ไม่สำเร็จ ลองอีกครั้งได้</source>
         <target>Couldn't send the summary to LINE; you can try again</target>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/session-summary/session-summary.ts</context>
           <context context-type="linenumber">198</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="summary.lineHostUnavailable" datatype="html">
+        <source>ส่งการ์ดไม่ได้ ยังไม่ได้ผูกบัญชี LINE ของคุณ หรือแพ็กเกจหมดอายุ</source>
+        <target>Can't send the card. Your LINE account isn't linked, or the plan has expired</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/session-summary/session-summary.ts</context>
+          <context context-type="linenumber">220</context>
         </context-group>
       </trans-unit>
       <trans-unit id="summary.lineUnavailable" datatype="html">

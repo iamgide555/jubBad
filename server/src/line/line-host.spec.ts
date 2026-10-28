@@ -119,6 +119,9 @@ describe('LINE host link codes, status and unlink', () => {
     process.env.LINE_CHANNEL_SECRET = 'secret';
     process.env.LINE_CHANNEL_ACCESS_TOKEN = 'token';
     process.env.LINE_BOT_ADD_URL = 'https://lin.ee/jubbad';
+    // server/.env is loaded by vitest.config.ts (dotenv/config); a real one must not leak into these specs.
+    delete process.env.PUBLIC_APP_URL;
+    delete process.env.LINE_LIFF_ID;
   });
 
   afterEach(() => {
@@ -133,6 +136,8 @@ describe('LINE host link codes, status and unlink', () => {
         botAddUrl: 'https://lin.ee/jubbad',
         accountLinked: false,
         enabled: false,
+        summaryDefault: true,
+        summaryAvailable: false,
       });
       const made = await host.createCode(code);
       await host.redeem(lineId(), made.code);
@@ -161,6 +166,40 @@ describe('LINE host link codes, status and unlink', () => {
         accountLinked: false,
         enabled: false,
       });
+    });
+
+    it("reports the group's summary default", async () => {
+      const userId = await makeUser();
+      const code = await makeGroup(userId, { lineSummaryDefault: false });
+      expect((await host.status(code)).summaryDefault).toBe(false);
+      await prisma.group.update({
+        where: { code },
+        data: { lineSummaryDefault: true },
+      });
+      expect((await host.status(code)).summaryDefault).toBe(true);
+    });
+
+    it('offers the summary card only with both the public app url and the LIFF id', async () => {
+      const { code } = await makeOwner();
+      expect((await host.status(code)).summaryAvailable).toBe(false);
+      process.env.PUBLIC_APP_URL = 'https://jubbad.test';
+      expect((await host.status(code)).summaryAvailable).toBe(false);
+      process.env.LINE_LIFF_ID = '1234567890-AbCdEfGh';
+      expect((await host.status(code)).summaryAvailable).toBe(true);
+      delete process.env.PUBLIC_APP_URL;
+      expect((await host.status(code)).summaryAvailable).toBe(false);
+    });
+
+    it('hides the host switch for a bot-linked group even with both settings present', async () => {
+      process.env.PUBLIC_APP_URL = 'https://jubbad.test';
+      process.env.LINE_LIFF_ID = '1234567890-AbCdEfGh';
+      const { code } = await makeOwner();
+      expect((await host.status(code)).summaryAvailable).toBe(true);
+      await prisma.group.update({
+        where: { code },
+        data: { lineGroupId: `C${randomUUID().replace(/-/g, '')}` },
+      });
+      expect((await host.status(code)).summaryAvailable).toBe(false);
     });
 
     it('is not configured without the secret and token', async () => {
@@ -717,6 +756,9 @@ describe('LINE host link routes', () => {
     process.env.LINE_CHANNEL_SECRET = 'secret';
     process.env.LINE_CHANNEL_ACCESS_TOKEN = 'token';
     process.env.LINE_BOT_ADD_URL = 'https://lin.ee/jubbad';
+    // server/.env is loaded by vitest.config.ts (dotenv/config); a real one must not leak into these specs.
+    delete process.env.PUBLIC_APP_URL;
+    delete process.env.LINE_LIFF_ID;
   });
 
   afterEach(() => {
@@ -740,7 +782,9 @@ describe('LINE host link routes', () => {
       configured: true,
       botAddUrl: 'https://lin.ee/jubbad',
       accountLinked: false,
-      enabled: false
+      enabled: false,
+      summaryDefault: true,
+      summaryAvailable: false
     });
   });
 

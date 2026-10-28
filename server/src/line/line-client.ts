@@ -58,14 +58,14 @@ export class LineClient {
   }
 
   /**
-   * Counts against the monthly quota once per group member; never throws. `retryKey` (a UUID) makes LINE
+   * `to` is a group id or a user id. Counts against the monthly quota once per recipient; never throws. `retryKey` (a UUID) makes LINE
    * drop a repeat of the same push, so a timeout we could not read the answer to is safe to retry.
    */
-  async push(lineGroupId: string, messages: unknown[], retryKey?: string): Promise<LinePushOutcome> {
+  async push(to: string, messages: unknown[], retryKey?: string): Promise<LinePushOutcome> {
     const result = await this.send(
       'POST',
       '/message/push',
-      { to: lineGroupId, messages },
+      { to, messages },
       retryKey ? { 'X-Line-Retry-Key': retryKey } : undefined
     );
     if (result === null) return 'failed';

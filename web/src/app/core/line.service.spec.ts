@@ -128,4 +128,18 @@ describe('LineService', () => {
     req.flush({ summaryDefault: false });
     expect(got).toEqual({ summaryDefault: false });
   });
+
+  it('reads the share card of a session, with the code URL-encoded', () => {
+    const body = {
+      liffId: '1-a',
+      card: { type: 'flex', altText: 'x', contents: {} },
+      preview: { name: 'n', date: '2026-10-28', venue: null, players: 4, games: 2 },
+    };
+    let got: unknown;
+    service.shareCard('S 1').subscribe((r) => (got = r));
+    const req = httpMock.expectOne(`${B}/sessions/S%201/line-share-card`);
+    expect(req.request.method).toBe('GET');
+    req.flush(body);
+    expect(got).toEqual(body);
+  });
 });

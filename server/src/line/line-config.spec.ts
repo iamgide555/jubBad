@@ -11,7 +11,8 @@ describe('lineConfig', () => {
     delete process.env.LINE_CHANNEL_ACCESS_TOKEN;
     delete process.env.LINE_BOT_ADD_URL;
     delete process.env.PUBLIC_APP_URL;
-    expect(lineConfig()).toEqual({ secret: null, token: null, botAddUrl: null, publicAppUrl: null });
+    delete process.env.LINE_LIFF_ID;
+    expect(lineConfig()).toEqual({ secret: null, token: null, botAddUrl: null, publicAppUrl: null, liffId: null });
     process.env.LINE_CHANNEL_SECRET = 's';
     process.env.LINE_CHANNEL_ACCESS_TOKEN = 't';
     expect(lineConfig()).toMatchObject({ secret: 's', token: 't' });
@@ -39,5 +40,14 @@ describe('lineConfig', () => {
     expect(lineConfig().publicAppUrl).toBeNull();
     delete process.env.PUBLIC_APP_URL;
     expect(lineConfig().publicAppUrl).toBeNull();
+  });
+
+  it('reads the LIFF id trimmed, and nulls it when unset or blank', () => {
+    delete process.env.LINE_LIFF_ID;
+    expect(lineConfig().liffId).toBeNull();
+    process.env.LINE_LIFF_ID = '   ';
+    expect(lineConfig().liffId).toBeNull();
+    process.env.LINE_LIFF_ID = '  1234567890-AbCdEfGh ';
+    expect(lineConfig().liffId).toBe('1234567890-AbCdEfGh');
   });
 });

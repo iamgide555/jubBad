@@ -78,6 +78,9 @@ describe('LINE link codes, status and unlink', () => {
     process.env.LINE_CHANNEL_SECRET = 'secret';
     process.env.LINE_CHANNEL_ACCESS_TOKEN = 'token';
     process.env.LINE_BOT_ADD_URL = 'https://lin.ee/jubbad';
+    // vitest.config.ts loads server/.env; a real one must not leak into the summaryAvailable expectations.
+    delete process.env.PUBLIC_APP_URL;
+    delete process.env.LINE_LIFF_ID;
     requestUserId = hostId;
     fakeClient.reply.mockReset();
     fakeClient.leave.mockReset().mockResolvedValue(undefined);
@@ -255,6 +258,51 @@ describe('LINE link codes, status and unlink', () => {
       const code = await makeGroup(hostId);
       await expect(link.setSummaryDefault(code, false)).rejects.toMatchObject({
         response: { code: 'LINE_NOT_LINKED' },
+      });
+    });
+
+    describe('for a group with no bot but the host DM switched on', () => {
+      async function dmOwner(plan: string, lineUserId: string | null) {
+        const user = await prisma.user.create({
+          data: {
+            email: `line-dm-${randomUUID()}@example.test`,
+            passwordHash: 'x',
+            role: 'host',
+            plan,
+            lineUserId,
+          },
+        });
+        return user.id;
+      }
+
+      it('is saved when the owner has a linked LINE account', async () => {
+        const owner = await dmOwner('host', lineId());
+        const code = await makeGroup(owner, { lineDmEnabled: true });
+        expect(await link.setSummaryDefault(code, false)).toBe(false);
+        const saved = await prisma.group.findUniqueOrThrow({ where: { code } });
+        expect(saved.lineSummaryDefault).toBe(false);
+      });
+
+      it('is refused when the owner has no linked LINE account', async () => {
+        const owner = await dmOwner('host', null);
+        const code = await makeGroup(owner, { lineDmEnabled: true });
+        await expect(link.setSummaryDefault(code, false)).rejects.toMatchObject({
+          response: { code: 'LINE_NOT_LINKED' },
+        });
+      });
+
+      it('is refused when the DM switch is off', async () => {
+        const owner = await dmOwner('host', lineId());
+        const code = await makeGroup(owner, { lineDmEnabled: false });
+        await expect(link.setSummaryDefault(code, false)).rejects.toMatchObject({
+          response: { code: 'LINE_NOT_LINKED' },
+        });
+      });
+
+      it('is still refused on a free plan', async () => {
+        const owner = await dmOwner('free', lineId());
+        const code = await makeGroup(owner, { lineDmEnabled: true });
+        await expect(link.setSummaryDefault(code, false)).rejects.toMatchObject({ status: 403 });
       });
     });
 

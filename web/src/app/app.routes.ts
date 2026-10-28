@@ -114,6 +114,21 @@ export const routes: Routes = [
       import('./pages/session-summary/session-summary').then((m) => m.SessionSummary),
   },
   {
+    // Unguarded: LINE opens this in its own browser on the host's phone (via
+    // liff.line.me), where there is no JubBad login. LINE login decides who
+    // may share, and the card is the one the public summary link already
+    // shows; its data endpoint is @Public() on the server to match.
+    path: 'line-share/:sessionCode',
+    loadComponent: () => import('./pages/line-share/line-share').then((m) => m.LineShare),
+  },
+  {
+    // Unguarded, like the route above. LIFF opens its endpoint first as
+    // /line-share?liff.state=%2F<sessionCode>; the page reads the code from
+    // that query, and liff.init() then redirects to the path form.
+    path: 'line-share',
+    loadComponent: () => import('./pages/line-share/line-share').then((m) => m.LineShare),
+  },
+  {
     // Before 's/:sessionCode' so the deeper path wins. Guarded: money is
     // host-only (the server routes are owner-only too).
     path: 's/:sessionCode/bill',

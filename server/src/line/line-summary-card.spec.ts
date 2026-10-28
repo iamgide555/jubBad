@@ -1,4 +1,4 @@
-import { cardDate, summaryCard, type SummaryCardInput } from './line-summary-card.js';
+import { cardDate, liffShareUrl, summaryCard, type SummaryCardInput } from './line-summary-card.js';
 
 const base: SummaryCardInput = {
   groupName: 'ก๊วนพฤหัส',
@@ -126,5 +126,111 @@ describe('summaryCard with very long text', () => {
     const { altText } = summaryCard({ ...base, groupName: emoji, date: emoji });
     expect(Array.from(altText).length).toBeLessThanOrEqual(400);
     expect(altText).not.toMatch(/[\ud800-\udbff](?![\udc00-\udfff])|(?<![\ud800-\udbff])[\udc00-\udfff]/);
+  });
+});
+
+describe('liffShareUrl', () => {
+  it('opens the LIFF app at the session code, URL-encoded', () => {
+    expect(liffShareUrl('1234-abc', 'ab c/d')).toBe('https://liff.line.me/1234-abc/ab%20c%2Fd');
+  });
+});
+
+describe('summaryCard with a share url', () => {
+  const shareUrl = 'https://liff.line.me/x/y';
+  const footerButtons = (card: ReturnType<typeof summaryCard>) =>
+    (card.contents.footer as { contents: Record<string, unknown>[] }).contents;
+
+  it('is unchanged when there is no share url', () => {
+    expect(summaryCard(base)).toEqual({
+      type: 'flex',
+      altText: 'สรุปก๊วน ก๊วนพฤหัส 26 ต.ค.',
+      contents: {
+        type: 'bubble',
+        header: {
+          type: 'box',
+          layout: 'vertical',
+          backgroundColor: '#1f6b3d',
+          paddingAll: 'lg',
+          contents: [
+            { type: 'text', text: 'สรุปก๊วน', size: 'xs', color: '#e8f3ec' },
+            { type: 'text', text: 'ก๊วนพฤหัส', size: 'lg', weight: 'bold', color: '#ffffff', wrap: true },
+          ],
+        },
+        body: {
+          type: 'box',
+          layout: 'vertical',
+          spacing: 'md',
+          contents: [
+            {
+              type: 'box',
+              layout: 'baseline',
+              spacing: 'sm',
+              contents: [
+                { type: 'text', text: 'วันที่', size: 'sm', color: '#6b6459', flex: 2 },
+                { type: 'text', text: '26 ต.ค.', size: 'sm', color: '#16130f', flex: 5, wrap: true },
+              ],
+            },
+            {
+              type: 'box',
+              layout: 'baseline',
+              spacing: 'sm',
+              contents: [
+                { type: 'text', text: 'สนาม', size: 'sm', color: '#6b6459', flex: 2 },
+                { type: 'text', text: 'Bad@Mama', size: 'sm', color: '#16130f', flex: 5, wrap: true },
+              ],
+            },
+            {
+              type: 'box',
+              layout: 'baseline',
+              spacing: 'sm',
+              contents: [
+                { type: 'text', text: 'ผู้เล่น', size: 'sm', color: '#6b6459', flex: 2 },
+                { type: 'text', text: '18 คน', size: 'sm', color: '#16130f', flex: 5, wrap: true },
+              ],
+            },
+            {
+              type: 'box',
+              layout: 'baseline',
+              spacing: 'sm',
+              contents: [
+                { type: 'text', text: 'เกม', size: 'sm', color: '#6b6459', flex: 2 },
+                { type: 'text', text: '42 เกม', size: 'sm', color: '#16130f', flex: 5, wrap: true },
+              ],
+            },
+          ],
+        },
+        footer: {
+          type: 'box',
+          layout: 'vertical',
+          contents: [
+            {
+              type: 'button',
+              style: 'primary',
+              color: '#1f6b3d',
+              action: { type: 'uri', label: 'ดูสรุป', uri: base.url },
+            },
+          ],
+        },
+      },
+    });
+  });
+
+  it('adds a secondary send-to-group button after the summary button', () => {
+    const card = summaryCard({ ...base, shareUrl });
+    const [view, share] = footerButtons(card);
+    expect(footerButtons(card)).toHaveLength(2);
+    expect(view).toEqual(footerButtons(summaryCard(base))[0]);
+    expect(share).toEqual({
+      type: 'button',
+      style: 'secondary',
+      action: { type: 'uri', label: 'ส่งเข้ากลุ่ม', uri: shareUrl },
+    });
+    expect(card.altText).toBe(summaryCard(base).altText);
+  });
+
+  it('still clips a very long group name and venue', () => {
+    const card = summaryCard({ ...base, shareUrl, groupName: 'ก'.repeat(200), venue: 'ส'.repeat(200) });
+    for (const t of texts(card)) expect(Array.from(t).length).toBeLessThanOrEqual(60);
+    expect(texts(card).filter((t) => t.endsWith('…'))).toHaveLength(2);
   });
 });

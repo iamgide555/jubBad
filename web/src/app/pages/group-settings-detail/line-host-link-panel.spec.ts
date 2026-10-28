@@ -5,7 +5,7 @@ import { LineHostLinkPanel } from './line-host-link-panel';
 import { environment } from '../../../environments/environment';
 
 const URL = `${environment.apiBaseUrl}/groups/group1/line/host`;
-const STATUS = { configured: true, botAddUrl: 'https://lin.ee/jubbad', accountLinked: false, enabled: false };
+const STATUS = { configured: true, botAddUrl: 'https://lin.ee/jubbad', accountLinked: false, enabled: false, summaryDefault: false, summaryAvailable: true };
 const LINKED = { accountLinked: true, enabled: false };
 const ON = { accountLinked: true, enabled: true };
 
@@ -156,6 +156,74 @@ describe('LineHostLinkPanel', () => {
     expect(box()?.checked).toBe(true);
     expect(state()).toBe('เปิดอยู่');
     expect(q('[data-host-error]')).toBeNull();
+  });
+
+  describe('summary card default', () => {
+    const SUMMARY = `${environment.apiBaseUrl}/groups/group1/line`;
+    const sw = () => q('[data-host-summary-default]') as HTMLInputElement | null;
+
+    it('is shown when the account is linked, this group is on and a card can go out', async () => {
+      await open({ ...ON, summaryDefault: true });
+      expect(sw()?.checked).toBe(true);
+      expect(q('[data-host-summary-default]')?.closest('label')?.textContent).toContain(
+        'ส่งการ์ดสรุปให้ฉันทาง LINE เมื่อจบรอบ'
+      );
+    });
+
+    it('is hidden when this group is off, the account is not linked, or no card can go out', async () => {
+      await open(LINKED);
+      expect(sw()).toBeNull();
+      TestBed.resetTestingModule();
+      await open();
+      expect(sw()).toBeNull();
+      TestBed.resetTestingModule();
+      await open({ ...ON, summaryAvailable: false });
+      expect(sw()).toBeNull();
+    });
+
+    it('is hidden when the server says no switch is wanted, e.g. a bot-linked group, though linked and on', async () => {
+      await open({ ...ON, summaryAvailable: false });
+      expect(sw()).toBeNull();
+      expect(q('[data-host-enabled]')).not.toBeNull();
+    });
+
+    it('is hidden on a paused group (plan lapsed) while the paused notice shows', async () => {
+      await open(ON, false);
+      expect(q('[data-host-paused]')).not.toBeNull();
+      expect(sw()).toBeNull();
+    });
+
+    it('saves with a PATCH and the box follows the server', async () => {
+      await open(ON);
+      sw()!.click();
+      const req = httpMock.expectOne({ url: SUMMARY, method: 'PATCH' });
+      expect(req.request.body).toEqual({ summaryDefault: true });
+      expect(sw()?.checked).toBe(false); // does not move until the server confirms
+      req.flush({ summaryDefault: true });
+      await tick();
+      expect(sw()?.checked).toBe(true);
+      expect(q('[data-host-error]')).toBeNull();
+    });
+
+    it('a failed save leaves the box where it was and shows an error', async () => {
+      await open({ ...ON, summaryDefault: true });
+      sw()!.click();
+      httpMock.expectOne({ url: SUMMARY, method: 'PATCH' }).flush('x', { status: 500, statusText: 'x' });
+      await tick();
+      expect(sw()?.checked).toBe(true);
+      expect(q('[data-host-error]')).not.toBeNull();
+    });
+
+    it('a plan refusal shows the plan message and reverts the box', async () => {
+      await open(ON);
+      sw()!.click();
+      httpMock
+        .expectOne({ url: SUMMARY, method: 'PATCH' })
+        .flush({ code: 'PLAN_REQUIRED' }, { status: 403, statusText: 'Forbidden' });
+      await tick();
+      expect(sw()?.checked).toBe(false);
+      expect(q('[data-host-error]')?.textContent).toContain('โฮสต์');
+    });
   });
 
   it('a failed save leaves the box unchecked and shows an error', async () => {

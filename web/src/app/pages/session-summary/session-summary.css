@@ -382,3 +382,11 @@ button.shuttle-cell:hover {
 .time-cell { white-space: normal; }
 .duration-qualifier { display: block; font-size: var(--text-sm); overflow-wrap: anywhere; }
 .time-average { display: block; }
+
+/* The host-target share link: a text link with a full-height tap area, like the settings page add-bot link. */
+.share-to-group {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--tap);
+  font-weight: 600;
+}

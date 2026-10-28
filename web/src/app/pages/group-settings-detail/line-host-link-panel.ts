@@ -4,6 +4,7 @@ import { Component, DestroyRef, OnInit, computed, inject, input, signal } from '
 import { firstValueFrom } from 'rxjs';
 import { LineService } from '../../core/line.service';
 import type { LineHostStatus, LineLinkCode } from '../../core/line.model';
+import { planErrorMessage } from '../../core/plan';
 import { copyToClipboard } from '../../core/share-link';
 import { PlanLock } from '../../shared/plan-lock/plan-lock';
 
@@ -169,6 +170,25 @@ export class LineHostLinkPanel implements OnInit {
       if (err instanceof HttpErrorResponse && err.status === 403) this.refused.set(true);
       else if (err instanceof HttpErrorResponse && err.status === 409) this.load();
       else this.error.set($localize`:@@line.host.enableFailed:บันทึกไม่สำเร็จ ลองอีกครั้ง`);
+    } finally {
+      this.busy.set(false);
+    }
+  }
+
+  /** Saves the summary-card default. The box only moves when the server confirms. */
+  protected async setSummaryDefault(input: HTMLInputElement): Promise<void> {
+    const was = this.status();
+    if (!was || this.busy()) return;
+    const on = input.checked;
+    input.checked = was.summaryDefault;
+    this.busy.set(true);
+    this.error.set(null);
+    try {
+      const saved = await firstValueFrom(this.lineService.setSummaryDefault(this.groupCode(), on));
+      this.status.set({ ...was, summaryDefault: saved.summaryDefault });
+      input.checked = saved.summaryDefault;
+    } catch (err) {
+      this.error.set(planErrorMessage(err) ?? $localize`:@@line.summaryDefaultFailed:บันทึกไม่สำเร็จ ลองอีกครั้ง`);
     } finally {
       this.busy.set(false);
     }

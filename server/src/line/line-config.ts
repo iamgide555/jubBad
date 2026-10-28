@@ -4,6 +4,8 @@ export interface LineConfig {
   botAddUrl: string | null;
   /** Where the public site lives; the summary card's button needs it. No trailing slash. */
   publicAppUrl: string | null;
+  /** The LIFF app's id; the host's "send to group" button opens it. Without it the button is left off. */
+  liffId: string | null;
 }
 
 function nonEmpty(value: string | undefined): string | null {
@@ -28,5 +30,6 @@ export function lineConfig(): LineConfig {
     token: nonEmpty(process.env.LINE_CHANNEL_ACCESS_TOKEN),
     botAddUrl: httpsUrl(nonEmpty(process.env.LINE_BOT_ADD_URL)),
     publicAppUrl: httpsUrl(nonEmpty(process.env.PUBLIC_APP_URL))?.replace(/\/+$/, '') ?? null,
+    liffId: nonEmpty(process.env.LINE_LIFF_ID),
   };
 }

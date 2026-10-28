@@ -60,10 +60,10 @@ firsthand host feedback (items A–G, all done) is recorded in `docs/archive/202
 
 | Decision | Why |
 |---|---|
-| No bot in the LINE group chat, ever | A posting bot notifies people who aren't even playing that day — spammy. **Narrowed 2026-10-26 (LINE bot, phase 1).** A roster-only bot now exists, and the only thing it ever posts is a one-line reply to `/link`. A scheduled weekly template post is phase 2: not built, and gated on the push-quota check in the LINE bot design. **Extended 2026-10-28 (host DM).** LINE allows one Official Account per group chat, so a group that already has a bot (most real ก๊วน have ขุนทอง) can never also have this one. The way in for those groups is a direct message with the bot instead of a bot in the chat: the host links their own LINE account once, then DMs or forwards the roster to the bot. A DM is a one-to-one chat, so nothing is posted to or read from any group. The bot's DM replies are free reply messages, never pushes. The summary card stays group-only on purpose: it is a push into the chat, and a host-only group has no LINE group to push to (the owner judged a forwarded card not worth building, since the web app's share button already gives the same copy-paste) |
+| No bot in the LINE group chat, ever | A posting bot notifies people who aren't even playing that day — spammy. **Narrowed 2026-10-26 (LINE bot, phase 1).** A roster-only bot now exists, and the only thing it ever posts is a one-line reply to `/link`. A scheduled weekly template post is phase 2: not built, and gated on the push-quota check in the LINE bot design. **Extended 2026-10-28 (host DM).** LINE allows one Official Account per group chat, so a group that already has a bot (most real ก๊วน have ขุนทอง) can never also have this one. The way in for those groups is a direct message with the bot instead of a bot in the chat: the host links their own LINE account once, then DMs or forwards the roster to the bot. A DM is a one-to-one chat, so nothing is posted to or read from any group. The bot's DM replies are free reply messages, never pushes. **Extended 2026-10-28 (host share card).** The summary card is no longer group-only. A group with no bot in its LINE group can still get the card: the bot DMs it to the linked host with a "ส่งเข้ากลุ่ม" button, and the host posts it into the group from their own account (LIFF share picker), so nothing is ever posted by the bot into a chat it is not in. This reverses the earlier "no push to the host DM" decision for this one card (one push per night, approved by the owner 2026-10-28); the DM replies to roster messages stay free reply messages. See "Summary card" under "LINE bot" below |
 | No passive "listener" bot | Even listen-only, it technically sees the *entire* conversation; the host's consent doesn't cover the other ~15-20 people in the chat. Bigger trust risk than the convenience is worth for a casual friend group. **Reversed in part 2026-10-26, by the owner's decision, with the retention risk designed out.** For a group a host has linked (opt-in, paid, a host-only code typed into the chat), LINE delivers every message to the server, but anything that is not a roster is dropped before it reaches the database; only roster messages are stored (text, sender id and display name, time), at most the newest 20 and nothing older than 30 days, and the `/link` reply tells the chat exactly that. The owner judged the members fine with it. See "LINE bot" below. **Extended 2026-10-28 (host DM).** The DM path needs no consent from anyone else, because it listens to nobody: the only text it ever sees is what the linked host themselves sends to the bot one-to-one, and the same roster-only filter applies (a DM that is not roster-shaped is answered and dropped, never stored). It exists because LINE allows one Official Account per group, so groups that already have another bot cannot use the group listener at all |
 | Import is paste-based | The app's data footprint = exactly what the host explicitly hands over. No infra (no webhook server, no persistent message store) — **that part no longer holds for a linked group (2026-10-26): a signed LINE webhook and a roster-message table exist. The principle still does: start only pre-fills a box the host still reads and parses, and every failure falls back to a plain manual paste.** **A host with nothing to paste (ad-hoc night, no LINE message) can still start a session via "เพิ่มรายชื่อเอง" on the roster screen (2026-09-24) — it lands on the same confirm step empty and reuses the existing manual add field; the principle is unchanged, since a manual roster is still exactly what the host typed in, not something the app fetched or inferred.** **The host DM path (2026-10-28) keeps the same principle: the roster is what the host themselves sent to the bot, it only pre-fills the same box, and a pending roster waiting for a group choice is held at most 10 minutes** |
-| No LIFF / LINE Login / LINE platform integration | Paste-based import plus manual share means zero technical touchpoint with LINE's platform is needed. Pure UX polish, addable later |
+| No LIFF / LINE Login / LINE platform integration | Paste-based import plus manual share means zero technical touchpoint with LINE's platform is needed. Pure UX polish, addable later. **Reversed in part 2026-10-28 (host share card), and only in part.** One LIFF app exists, used as a *share channel* and nothing else: its one page calls `liff.shareTargetPicker` so LINE sends the summary card from the host's own account. LIFF is not an identity provider here and nothing logs the host in to JubBad; a LINE Login appears only when the page is opened outside the LINE app (an iPad), and only to let LINE's picker run. No JubBad login is required on the host's phone. The reason it exists: LINE does not let a bot's Flex card be forwarded (the owner tried it 2026-10-28), so a forward was not an option. Setup: `docs/line-liff-setup.md` |
 | Per-user accounts for hosts, not player accounts | Administrative screens and writes require signing in as a real user (email + password, session cookie signed server-side). Each user owns the groups they create; an admin role sees and manages every user and group. There are still no individual *player* accounts or profiles — this is identity for whoever runs a session, not for who plays in one. Superseded the earlier one-shared-token design (backlog B12, done 2026-09-12); see the per-user-login design doc for the schema and guard design. |
 | Trigger-word LINE bot (reconsidered, still rejected) | The idea: a bot watches the group for a keyword ("Play") then auto-extracts the roster, skipping the manual paste. Rejected on inspection — the LINE Messaging API has no message-history endpoint (confirmed in LINE's docs), so a bot can only look *forward* from when it joins. In real use the roster is posted days before "Play" is typed, so the bot would have to continuously store *all* group messages in a rolling buffer to look backward — that is full passive listening plus retention, the exact risk rejected above, not a lighter trigger-gated version. It also reopens "no infra" and "no posting bot" at once. Revisit only if paste friction proves to be a real dealbreaker; the lower-risk fix for the typing/copying pain is a tap-to-register roster link. **Superseded 2026-10-26:** the owner runs sessions from an iPad that is not logged into their personal LINE, so copying the roster meant logging in and out every week. The design that shipped is not trigger-word: it stores roster-shaped messages only, as they arrive, which is the only look-back LINE allows |
 | No cost-splitting / PromptPay QR in-app | KhunThong (ขุนทอง), KBank/KBTG's LINE bot, already does this well — bill split (equal or not), PromptPay QR, and payment verification by e-slip scan, which the planned v1 didn't even have. The host invites KhunThong separately; no integration needed. **Partly reopened 2026-09-21, and narrowed 2026-09-22, not reversed.** The session now records its shuttle count and price, and every Thai competitor leads with a per-person bill. The owner decided the app will *calculate* each player's share and copy it out as text for LINE, under one of three charging models (fair pay, per game, buffet), with an optional host-fee line. The QR, payment tracking and slip checking stay with KhunThong. Built 2026-09-24 (roadmap C3); see "Bill (C3)" below and `docs/archive/specs/2026-09-22-roadmap-c-series-design.md`. |
@@ -80,7 +80,9 @@ firsthand host feedback (items A–G, all done) is recorded in `docs/archive/202
   the moat. Since the Thai competitors above exist, it no longer is; it stays
   out of scope because focus is still worth more than breadth.
 - A LINE bot that posts, or that reads or keeps ordinary chat. A roster-only bot exists since 2026-10-26 (see "LINE bot" below); it drops every message that is not a roster before storing anything. A host's DM with the bot (2026-10-28) follows the same rule.
-- LIFF / LINE Login as an identity provider. Note that plain user accounts left
+- LIFF / LINE Login as an identity provider. (LIFF is used since 2026-10-28 only as a
+  share channel for the summary card, with no login of its own; see "LINE bot"
+  below.) Note that plain user accounts left
   this list on 2026-09-08 and are now built (backlog B12): per-user login,
   each host owning the groups they create. What stays out of scope is
   *player* accounts — players never log in. The accounts that exist are for
@@ -1403,7 +1405,7 @@ expired code gets one generic Thai reply (it never says which); a sender who has
   the link and the switches. Switching a group off is always allowed and deletes the rosters that
   group captured by DM; unlinking the account (the button on the DM card, always allowed) switches
   every group off, deletes those rosters and clears the pending roster. Every reply is a free
-  reply message, never a push, and the webhook never logs message text or codes. Bot replies are
+  reply message, never a push (the one exception is the end-of-night summary card, below), and the webhook never logs message text or codes. Bot replies are
   Thai only.
 - **Fallback:** every failure (no bot configured, LINE down, nothing captured, lapsed plan) leaves
   the plain empty paste box, exactly as before.
@@ -1422,22 +1424,60 @@ expired code gets one generic Thai reply (it never says which); a sender who has
   "ส่งสรุปเข้ากลุ่ม LINE" for an ended session until a card has gone out. The card writes the stored
   yyyy-mm-dd date as a Thai date, and clips the group name, venue and date to 60 characters
   (host-typed text must not push the card past LINE's size limit). The group settings switch for the
-  default shows only when `PUBLIC_APP_URL` is set (`summaryAvailable` in the LINE status). A card is a push, so
-  it counts once per member against the shared monthly quota (about 86 messages a month for a
-  20-member group playing weekly; the weekly post will share the same quota). Needs
-  `PUBLIC_APP_URL`; unset means no card. **Group link only:** the card, its state and every push stay
-  keyed to the group's LINE group id, so a group reached only by the host DM path never gets one
-  (the card is a push into a chat that group does not have, and the owner judged a forwarded card
-  not worth building, though that a card could not be forwarded was only assumed, never confirmed).
+  default shows only when `PUBLIC_APP_URL` is set (`summaryAvailable` in the LINE status). A card
+  posted into a group is a push, so it counts once per member against the shared monthly quota
+  (about 86 messages a month for a 20-member group playing weekly; the weekly post will share the
+  same quota). Needs `PUBLIC_APP_URL`; unset means no card.
+- **Summary card to the host's DM (host share card, 2026-10-28)**
+  (`docs/superpowers/specs/2026-10-28-line-host-share-card-design.md`; setup in
+  `docs/line-liff-setup.md`). The card used to be group-link only. A session now has one *target*,
+  worked out at request time (no schema change): **`group`** when the group is linked to a LINE
+  group (`lineGroupId`), the bot posts into it as above; **`host`** when it is not group-linked,
+  `lineDmEnabled` is on and the owner has linked their own LINE account (`lineUserId`), the bot DMs
+  the owner the card; otherwise none (no checkbox, no push). **Group wins when both apply**: one
+  card, one place. Both need a paid (Host and up) owner plan, read at send time, and a finished
+  game. The host target also needs `LINE_LIFF_ID` (and `PUBLIC_APP_URL`); without it the host
+  target is off and groups that are group-linked behave exactly as before.
+  - **One push to the host's DM per night.** This reverses "no push to the host DM" from the
+    host DM design, for this one card only (owner decision 2026-10-28). A one-to-one push counts
+    once against the monthly quota, not once per group member. Exactly-once reuses the same claim,
+    `lineSummarySentAt`, retry key and 30-second stale-claim rules; a session has only one target,
+    so one marker is enough. If the group's target changes after a send, the old marker still reads
+    "sent" and no second card goes out. A host who blocked or unfriended the bot reads as `failed`.
+  - **The DM card** is the ordinary card plus a second button, "ส่งเข้ากลุ่ม", linking to
+    `https://liff.line.me/<LINE_LIFF_ID>/<sessionCode>`; "ดูสรุป" stays first. Without the share
+    link the card is byte-identical to the group version.
+  - **Why LIFF and not a forward.** LINE does not allow a bot's Flex card to be forwarded; the owner
+    tried it 2026-10-28. So the button opens a LIFF app whose page (`/line-share/:sessionCode`, also
+    reached as `/line-share?liff.state=%2F<code>` on LIFF's first redirect) fetches the card and
+    calls `liff.shareTargetPicker`, so the card goes out from the host's own account into any group,
+    including one that already has another bot. LIFF is only a share channel here: not an identity
+    provider, and no JubBad login is needed on the host's phone (outside the LINE app LINE asks for
+    its own login so the picker can run). The LIFF SDK loads only on that page.
+  - **Public share-card endpoint.** `GET /api/sessions/:code/line-share-card` is public (the page
+    runs without a JubBad login) and returns the card without the share button plus the LIFF id.
+    It 404s unless the session is ended, has a finished game and is on the `host` target, and it
+    exposes only what the public summary page already shows (group name, date, venue, players,
+    games); a spec asserts no owner-only field is added.
+  - **Owner's summary page** shows "ส่งการ์ดเข้ากลุ่ม LINE" (a link straight to the LIFF URL,
+    repeatable, shown even after the DM went out) for the `host` target.
+  - **Settings switch.** The default switch (`lineSummaryDefault`) also shows on the host-DM card
+    with host wording ("ส่งการ์ดสรุปให้ฉันทาง LINE เมื่อจบรอบ"). It is hidden for a paused (plan
+    lapsed) group and for a bot-linked group, where the group card applies instead
+    (`summaryAvailable` there needs `PUBLIC_APP_URL`, `LINE_LIFF_ID` and no linked LINE group).
+  - **Left unverified until the owner's real-LINE check:** that a Developing LINE Login channel
+    refuses non-admin hosts (publish the channel; see the runbook), and Share Target Picker's
+    console toggle.
 - **One bot per group (confirmed 2026-10-27):** LINE keeps only one bot in a group chat; a second
   one invited leaves at once and the first stays. A group that already has a bot (most real ก๊วน
-  have ขุนทอง for payments) cannot use roster capture or the summary card, and the host keeps
-  pasting the roster. Owner decisions: no extra hint in the UI, no share-button workaround (it is
-  the same copy-paste at the end of the night), and replacing ขุนทอง would mean cloning its
-  features first, so the bot stays an opt-in extra for groups without another bot. **Answered 2026-10-28 by the
-  host DM path above:** a group with another bot keeps that bot and gets roster capture through the
-  host's DM with this one, so the "cannot use roster capture" limit now applies to the group
-  listener and the summary card only.
+  have ขุนทอง for payments) cannot have this bot in the chat, so the group listener (roster capture
+  and the card posted into the chat) does not apply to it. Owner decisions on 2026-10-27: no extra
+  hint in the UI, and replacing ขุนทอง would mean cloning its features first, so the bot stays an
+  opt-in extra for groups without another bot. **Superseded 2026-10-28 by the host DM path above:**
+  such a group keeps its bot and gets roster capture through the host's DM with this one, and the
+  summary card reaches the chat through the host share card (the host presses the share button and
+  LINE sends it from their own account), replacing the earlier "no share-button workaround"
+  decision.
 - **Host DM path status:** built and checked on a real phone 2026-10-28. The first phone test led to the
   per-group switch and the two-card page above.
 - **Unverified until a real LINE group is used:** the exact type string of LINE's edit event

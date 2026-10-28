@@ -109,7 +109,7 @@ describe('SessionSummary', () => {
   }
 
   // What the owner-only LINE summary read answers; a card cannot be sent unless a spec says otherwise.
-  let lineState: LineSummaryState = { available: false, sent: false, defaultOn: true };
+  let lineState: LineSummaryState = { available: false, sent: false, defaultOn: true, target: 'group', shareUrl: null };
   const answerLineSummary = () => {
     for (const r of httpMock.match(`${B}/sessions/sess1/line-summary`)) r.flush(lineState);
   };
@@ -118,7 +118,7 @@ describe('SessionSummary', () => {
     // Specs about the shuttle log flush their own requests by hand; the card state is not their subject.
     answerLineSummary();
     httpMock.verify();
-    lineState = { available: false, sent: false, defaultOn: true };
+    lineState = { available: false, sent: false, defaultOn: true, target: 'group', shareUrl: null };
     history.replaceState(null, '');
   });
 
@@ -920,7 +920,7 @@ describe('SessionSummary', () => {
       beforeEach(() => configure(true));
 
       it('offers the button when a card can go out and none has, and removes it after a send', async () => {
-        lineState = { available: true, sent: false, defaultOn: true };
+        lineState = { available: true, sent: false, defaultOn: true, target: 'group', shareUrl: null };
         await load(summary());
         expect(q('[data-send-line-summary]')).not.toBeNull();
 
@@ -934,7 +934,7 @@ describe('SessionSummary', () => {
       });
 
       it('keeps the button and says the quota is used up', async () => {
-        lineState = { available: true, sent: false, defaultOn: true };
+        lineState = { available: true, sent: false, defaultOn: true, target: 'group', shareUrl: null };
         await load(summary());
         q('[data-send-line-summary]')!.click();
         httpMock.expectOne({ url: `${B}/sessions/sess1/line-summary`, method: 'POST' }).flush({ outcome: 'quota' });
@@ -944,7 +944,7 @@ describe('SessionSummary', () => {
       });
 
       it('keeps the button and says it failed when the request itself fails', async () => {
-        lineState = { available: true, sent: false, defaultOn: true };
+        lineState = { available: true, sent: false, defaultOn: true, target: 'group', shareUrl: null };
         await load(summary());
         q('[data-send-line-summary]')!.click();
         httpMock
@@ -956,20 +956,20 @@ describe('SessionSummary', () => {
       });
 
       it('says the card was sent, with no button, once it has gone out', async () => {
-        lineState = { available: true, sent: true, defaultOn: true };
+        lineState = { available: true, sent: true, defaultOn: true, target: 'group', shareUrl: null };
         await load(summary());
         expect(q('[data-send-line-summary]')).toBeNull();
         expect(q('[data-line-summary-outcome]')?.textContent).toContain('ส่งสรุปเข้ากลุ่ม LINE แล้ว');
       });
 
       it('offers no button on a session that has not ended, even though a card could be sent later', async () => {
-        lineState = { available: true, sent: false, defaultOn: true };
+        lineState = { available: true, sent: false, defaultOn: true, target: 'group', shareUrl: null };
         await load(summary({ session: { ...summary().session, endedAt: null } }));
         expect(q('[data-send-line-summary]')).toBeNull();
       });
 
       it('says a send is already in progress and keeps the button', async () => {
-        lineState = { available: true, sent: false, defaultOn: true };
+        lineState = { available: true, sent: false, defaultOn: true, target: 'group', shareUrl: null };
         await load(summary());
         q('[data-send-line-summary]')!.click();
         httpMock.expectOne({ url: `${B}/sessions/sess1/line-summary`, method: 'POST' }).flush({ outcome: 'busy' });
@@ -986,6 +986,84 @@ describe('SessionSummary', () => {
 
     });
 
+    describe('host target (the bot DMs the card to the host)', () => {
+      const SHARE = 'https://liff.line.me/1/sess1';
+      const hostState = (over: Partial<LineSummaryState> = {}): LineSummaryState => ({
+        available: true,
+        sent: false,
+        defaultOn: true,
+        target: 'host',
+        shareUrl: SHARE,
+        ...over,
+      });
+      const share = () => q('a[data-share-to-group]') as HTMLAnchorElement | null;
+      beforeEach(() => configure(true));
+
+      it('links to the LIFF page on an ended session, before the card has gone out', async () => {
+        lineState = hostState();
+        await load(summary());
+        expect(share()?.textContent).toContain('ส่งการ์ดเข้ากลุ่ม LINE');
+        expect(share()?.getAttribute('href')).toBe(SHARE);
+        expect(q('[data-send-line-summary]')).not.toBeNull();
+      });
+
+      it('keeps the link after the card was sent, and drops the resend button', async () => {
+        lineState = hostState({ sent: true });
+        await load(summary());
+        expect(share()?.getAttribute('href')).toBe(SHARE);
+        expect(q('[data-send-line-summary]')).toBeNull();
+        expect(q('[data-line-summary-outcome]')?.textContent).toContain('ส่งการ์ดให้คุณทาง LINE แล้ว');
+      });
+
+      it('has no link while the session is still open', async () => {
+        lineState = hostState();
+        await load(summary({ session: { ...summary().session, endedAt: null } }));
+        expect(share()).toBeNull();
+      });
+
+      it('has no link for group target, sent or not', async () => {
+        lineState = { available: true, sent: true, defaultOn: true, target: 'group', shareUrl: null };
+        await load(summary());
+        expect(share()).toBeNull();
+      });
+
+      it('says the card could not be delivered, in host words', async () => {
+        lineState = hostState();
+        await load(summary());
+        q('[data-send-line-summary]')!.click();
+        httpMock.expectOne({ url: `${B}/sessions/sess1/line-summary`, method: 'POST' }).flush({ outcome: 'failed' });
+        await settle();
+        expect(q('[data-line-summary-outcome]')?.textContent).toContain(
+          'ส่งการ์ดให้คุณไม่สำเร็จ เพิ่มบอทเป็นเพื่อนอีกครั้งแล้วลองใหม่'
+        );
+        expect(q('[data-send-line-summary]')).not.toBeNull();
+      });
+
+      it('reports a card that went out with host words after pressing the button', async () => {
+        lineState = hostState();
+        await load(summary());
+        q('[data-send-line-summary]')!.click();
+        httpMock.expectOne({ url: `${B}/sessions/sess1/line-summary`, method: 'POST' }).flush({ outcome: 'sent' });
+        await settle();
+        expect(q('[data-line-summary-outcome]')?.textContent).toContain('ส่งการ์ดให้คุณทาง LINE แล้ว');
+        expect(share()?.getAttribute('href')).toBe(SHARE);
+      });
+
+      it('group target messages stay in group words', async () => {
+        lineState = { available: true, sent: true, defaultOn: true, target: 'group', shareUrl: null };
+        await load(summary());
+        expect(q('[data-line-summary-outcome]')?.textContent).toContain('ส่งสรุปเข้ากลุ่ม LINE แล้ว');
+      });
+    });
+
+    describe('host target for a non-owner', () => {
+      it('shows no link', async () => {
+        await configure(true);
+        await load(summary(), 'denied');
+        expect(q('a[data-share-to-group]')).toBeNull();
+      });
+    });
+
     describe('right after ending the session', () => {
       beforeEach(() => {
         // The dashboard navigates here with the card's outcome in the history state.
@@ -994,7 +1072,7 @@ describe('SessionSummary', () => {
       });
 
       it('shows what happened to the card and still offers to send it', async () => {
-        lineState = { available: true, sent: false, defaultOn: true };
+        lineState = { available: true, sent: false, defaultOn: true, target: 'group', shareUrl: null };
         await load(summary());
         expect(q('[data-line-summary-outcome]')?.textContent).toContain('ไม่สำเร็จ');
         expect(q('[data-send-line-summary]')).not.toBeNull();

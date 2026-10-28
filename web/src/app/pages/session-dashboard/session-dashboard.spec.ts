@@ -79,7 +79,7 @@ describe('SessionDashboard', () => {
     localStorage.setItem('jubbad.dashboard.rosterOpen', '1');
     planReply = new Subject<GroupPlan>();
     planCalls = [];
-    summaryState = () => of({ available: false, sent: false, defaultOn: true });
+    summaryState = () => of({ available: false, sent: false, defaultOn: true, target: 'group', shareUrl: null });
     await TestBed.configureTestingModule({
       imports: [SessionDashboard],
       providers: [
@@ -875,21 +875,21 @@ describe('SessionDashboard', () => {
     });
 
     it('is absent when a card already went out', async () => {
-      summaryState = () => of({ available: true, sent: true, defaultOn: true });
+      summaryState = () => of({ available: true, sent: true, defaultOn: true, target: 'group', shareUrl: null });
       await settled();
       await openEndDialog();
       expect(box()).toBeNull();
     });
 
     it('starts ticked from the saved default and unticked when the default is off', async () => {
-      summaryState = () => of({ available: true, sent: false, defaultOn: true });
+      summaryState = () => of({ available: true, sent: false, defaultOn: true, target: 'group', shareUrl: null });
       await settled();
       await openEndDialog();
       expect(box()?.checked).toBe(true);
     });
 
     it('starts unticked when the saved default is off', async () => {
-      summaryState = () => of({ available: true, sent: false, defaultOn: false });
+      summaryState = () => of({ available: true, sent: false, defaultOn: false, target: 'group', shareUrl: null });
       await settled();
       await openEndDialog();
       expect(box()).not.toBeNull();
@@ -899,7 +899,7 @@ describe('SessionDashboard', () => {
     it('asks the server to send the card when left ticked, and carries the outcome to the summary page', async () => {
       const router = TestBed.inject(Router);
       const navigateSpy = vi.spyOn(router, 'navigateByUrl').mockResolvedValue(true);
-      summaryState = () => of({ available: true, sent: false, defaultOn: true });
+      summaryState = () => of({ available: true, sent: false, defaultOn: true, target: 'group', shareUrl: null });
       await settled();
       await openEndDialog();
 
@@ -912,8 +912,44 @@ describe('SessionDashboard', () => {
       expect(navigateSpy).toHaveBeenCalledWith('/s/sess1/summary', { state: { lineSummary: 'sent' } });
     });
 
+    it('group target keeps the group wording', async () => {
+      summaryState = () => of({ available: true, sent: false, defaultOn: true, target: 'group', shareUrl: null });
+      await settled();
+      await openEndDialog();
+      expect(box()?.closest('label')?.textContent).toContain('ส่งสรุปเข้ากลุ่ม LINE');
+    });
+
+    it('host target says the card comes to the host, ticked from the saved default', async () => {
+      summaryState = () =>
+        of({ available: true, sent: false, defaultOn: true, target: 'host', shareUrl: 'https://liff.line.me/1/sess1' });
+      await settled();
+      await openEndDialog();
+      expect(box()?.closest('label')?.textContent).toContain('ส่งการ์ดสรุปให้ฉันทาง LINE');
+      expect(box()?.closest('label')?.textContent).not.toContain('กลุ่ม');
+      expect(box()?.checked).toBe(true);
+    });
+
+    it('host target starts unticked when the default is off, and ending without the tick sends no card', async () => {
+      summaryState = () =>
+        of({ available: true, sent: false, defaultOn: false, target: 'host', shareUrl: 'https://liff.line.me/1/sess1' });
+      await settled();
+      await openEndDialog();
+      expect(box()?.checked).toBe(false);
+      dialogButtonWith('จบรอบ').click();
+      expect(httpMock.expectOne(`${B}/sessions/sess1/end`).request.body).toEqual({});
+    });
+
+    it('host target still asks the server to send when left ticked', async () => {
+      summaryState = () =>
+        of({ available: true, sent: false, defaultOn: true, target: 'host', shareUrl: 'https://liff.line.me/1/sess1' });
+      await settled();
+      await openEndDialog();
+      dialogButtonWith('จบรอบ').click();
+      expect(httpMock.expectOne(`${B}/sessions/sess1/end`).request.body).toEqual({ sendLineSummary: true });
+    });
+
     it('does not ask for the card when the host unticks it', async () => {
-      summaryState = () => of({ available: true, sent: false, defaultOn: true });
+      summaryState = () => of({ available: true, sent: false, defaultOn: true, target: 'group', shareUrl: null });
       await settled();
       await openEndDialog();
       box()!.click();

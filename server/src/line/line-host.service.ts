@@ -24,6 +24,13 @@ export interface LineHostStatus {
   accountLinked: boolean;
   /** Rosters that account DMs to the bot may be filed under this group. */
   enabled: boolean;
+  /** The group's default for the "send the summary card" checkbox at the end of a round. */
+  summaryDefault: boolean;
+  /**
+   * The server can build the card and the LIFF button can open it. False for a bot-linked group:
+   * its card is posted by the bot into the group, which has its own switch.
+   */
+  summaryAvailable: boolean;
 }
 
 /** Thrown inside the redeem transaction to roll it back; never leaves this file. */
@@ -45,12 +52,20 @@ export class LineHostService {
   /** The group and its owner's LINE account; the owner is whose account every call below acts on. */
   private async ownerOf(
     groupCode: string,
-  ): Promise<{ ownerId: string; accountLinked: boolean; enabled: boolean }> {
+  ): Promise<{
+    ownerId: string;
+    accountLinked: boolean;
+    enabled: boolean;
+    summaryDefault: boolean;
+    botLinked: boolean;
+  }> {
     const group = await this.prisma.group.findUnique({
       where: { code: groupCode },
       select: {
         ownerId: true,
         lineDmEnabled: true,
+        lineSummaryDefault: true,
+        lineGroupId: true,
         owner: { select: { lineUserId: true } },
       },
     });
@@ -59,17 +74,23 @@ export class LineHostService {
       ownerId: group.ownerId,
       accountLinked: group.owner?.lineUserId != null,
       enabled: group.lineDmEnabled,
+      summaryDefault: group.lineSummaryDefault,
+      botLinked: group.lineGroupId !== null,
     };
   }
 
   async status(groupCode: string): Promise<LineHostStatus> {
     const config = lineConfig();
-    const { accountLinked, enabled } = await this.ownerOf(groupCode);
+    const { accountLinked, enabled, summaryDefault, botLinked } =
+      await this.ownerOf(groupCode);
     return {
       configured: config.secret !== null && config.token !== null,
       botAddUrl: config.botAddUrl,
       accountLinked,
       enabled: accountLinked && enabled,
+      summaryDefault,
+      summaryAvailable:
+        config.publicAppUrl !== null && config.liffId !== null && !botLinked,
     };
   }
 

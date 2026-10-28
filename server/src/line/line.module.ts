@@ -7,6 +7,7 @@ import { LineHostRosterService } from './line-host-roster.service.js';
 import { LineHostService } from './line-host.service.js';
 import { LineLinkService } from './line-link.service.js';
 import { LineRosterService } from './line-roster.service.js';
+import { LineShareController } from './line-share.controller.js';
 import { LineSummaryController } from './line-summary.controller.js';
 import { LineSummaryService } from './line-summary.service.js';
 import { LineWebhookController } from './line-webhook.controller.js';
@@ -16,7 +17,7 @@ import { LineWebhookService } from './line-webhook.service.js';
 // asks the bot to leave), so the dependency runs one way.
 @Module({
   imports: [PlansModule],
-  controllers: [LineController, LineHostController, LineSummaryController, LineWebhookController],
+  controllers: [LineController, LineHostController, LineShareController, LineSummaryController, LineWebhookController],
   providers: [
     LineClient,
     LineHostRosterService,

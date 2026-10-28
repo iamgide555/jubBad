@@ -46,12 +46,20 @@ export class LineLinkService {
     };
   }
 
-  /** Owner route: paid plan and a linked group only, like the rest of the bot. */
+  /**
+   * Owner route: paid plan and a linked group only, like the rest of the bot. A group with
+   * no bot still counts when the host DM is on and the owner's LINE account is linked: the
+   * card goes to the host instead.
+   */
   async setSummaryDefault(groupCode: string, on: boolean): Promise<boolean> {
     await this.plans.requireGroupPlan(groupCode, 'host');
-    const group = await this.prisma.group.findUnique({ where: { code: groupCode } });
+    const group = await this.prisma.group.findUnique({
+      where: { code: groupCode },
+      include: { owner: { select: { lineUserId: true } } },
+    });
     if (!group) throw new NotFoundException();
-    if (group.lineGroupId === null) throw new ConflictException({ code: 'LINE_NOT_LINKED' });
+    const dmLinked = group.lineDmEnabled && group.owner?.lineUserId != null;
+    if (group.lineGroupId === null && !dmLinked) throw new ConflictException({ code: 'LINE_NOT_LINKED' });
     await this.prisma.group.update({ where: { code: groupCode }, data: { lineSummaryDefault: on } });
     return on;
   }

@@ -2,7 +2,7 @@ import { HttpClient } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import type { Observable } from 'rxjs';
 import { environment } from '../../environments/environment';
-import type { LatestRoster, LineHostStatus, LineLinkCode, LineStatus, LineSummaryOutcome, LineSummaryState } from './line.model';
+import type { LatestRoster, LineHostStatus, LineLinkCode, LineShareCard, LineStatus, LineSummaryOutcome, LineSummaryState } from './line.model';
 
 /** Owner-only routes for linking a group to its LINE group and reading the roster the bot kept. */
 @Injectable({ providedIn: 'root' })
@@ -71,5 +71,12 @@ export class LineService {
   /** Always 200 with an outcome, so the page can say what happened. */
   sendSummary(sessionCode: string): Observable<{ outcome: LineSummaryOutcome }> {
     return this.http.post<{ outcome: LineSummaryOutcome }>(this.summaryUrl(sessionCode), {});
+  }
+
+  /** Public: the card the LIFF page hands to LINE's share picker. 404 when it is not available. */
+  shareCard(sessionCode: string): Observable<LineShareCard> {
+    return this.http.get<LineShareCard>(
+      `${environment.apiBaseUrl}/sessions/${encodeURIComponent(sessionCode)}/line-share-card`,
+    );
   }
 }

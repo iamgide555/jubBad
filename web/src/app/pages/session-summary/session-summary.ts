@@ -184,13 +184,27 @@ export class SessionSummary {
     return this.owner() && state !== null && state.available && !state.sent && this.summary()?.session.endedAt != null;
   });
 
+  /**
+   * The owner's DM-linked group: the bot sends the card to the host, who shares it to a LINE
+   * chat through the LIFF page. The link stays after the card went out, since the host may
+   * share it to more than one chat.
+   */
+  protected readonly shareUrl = computed(() => {
+    const state = this.lineState();
+    if (!this.owner() || state === null || !state.available || state.target !== 'host') return null;
+    return this.summary()?.session.endedAt != null ? state.shareUrl : null;
+  });
+
   /** The line under the title about the card, or null when there is nothing to say. */
   protected readonly lineSummaryMessage = computed((): string | null => {
     const state = this.lineState();
     if (!this.owner() || state === null) return null;
     const outcome = this.lineOutcome();
+    const host = state.target === 'host';
     if (state.sent || outcome === 'sent' || outcome === 'already-sent') {
-      return $localize`:@@summary.lineSent:ส่งสรุปเข้ากลุ่ม LINE แล้ว`;
+      return host
+        ? $localize`:@@summary.lineHostSent:ส่งการ์ดให้คุณทาง LINE แล้ว`
+        : $localize`:@@summary.lineSent:ส่งสรุปเข้ากลุ่ม LINE แล้ว`;
     }
     switch (outcome) {
       case 'busy':
@@ -198,9 +212,13 @@ export class SessionSummary {
       case 'quota':
         return $localize`:@@summary.lineQuota:โควตาข้อความ LINE เดือนนี้หมดแล้ว ส่งสรุปไม่ได้`;
       case 'failed':
-        return $localize`:@@summary.lineFailed:ส่งสรุปเข้ากลุ่ม LINE ไม่สำเร็จ ลองอีกครั้งได้`;
+        return host
+          ? $localize`:@@summary.lineHostFailed:ส่งการ์ดให้คุณไม่สำเร็จ เพิ่มบอทเป็นเพื่อนอีกครั้งแล้วลองใหม่`
+          : $localize`:@@summary.lineFailed:ส่งสรุปเข้ากลุ่ม LINE ไม่สำเร็จ ลองอีกครั้งได้`;
       case 'unavailable':
-        return $localize`:@@summary.lineUnavailable:ส่งสรุปไม่ได้ กลุ่มยังไม่ได้เชื่อม LINE หรือแพ็กเกจหมดอายุ`;
+        return host
+          ? $localize`:@@summary.lineHostUnavailable:ส่งการ์ดไม่ได้ ยังไม่ได้ผูกบัญชี LINE ของคุณ หรือแพ็กเกจหมดอายุ`
+          : $localize`:@@summary.lineUnavailable:ส่งสรุปไม่ได้ กลุ่มยังไม่ได้เชื่อม LINE หรือแพ็กเกจหมดอายุ`;
       default:
         return null;
     }

@@ -52,6 +52,10 @@ model Group {
   lineLeftAt          DateTime?
   /// Default for the end-of-session "send the summary card" checkbox.
   lineSummaryDefault  Boolean @default(true)
+  /// Whether rosters the owner DMs to the bot (their linked LINE account) may be filed
+  /// under this group. Per group, so a host with several groups picks which ones the bot
+  /// offers; independent of lineGroupId. Cleared for every group when the account unlinks.
+  lineDmEnabled       Boolean @default(false)
   lineLinkCodes       LineLinkCode[]
   lineRosterMessages  LineRosterMessage[]
 }
@@ -141,6 +145,8 @@ model LineUserLinkCode {
   userId    String
   user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   codeHash  String    @unique
+  /// The group whose page asked for this code; redeeming it turns the group's DM capture on.
+  groupCode String?
   expiresAt DateTime
   usedAt    DateTime?
   createdAt DateTime  @default(now())

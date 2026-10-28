@@ -1,24 +1,51 @@
-<div class="host-panel">
-  @if (loadFailed()) {
-    <p class="error" role="alert" data-host-load-failed>
-      <ng-container i18n="@@line.host.loadFailed">โหลดสถานะบัญชี LINE ไม่สำเร็จ</ng-container>
-      <button type="button" class="ghost" (click)="load()" i18n="@@entry.retry">ลองอีกครั้ง</button>
-    </p>
-  } @else if (status(); as host) {
-    @if (notConfigured()) {
-      <p class="muted" data-host-not-configured i18n="@@line.notConfigured">ยังไม่ได้ตั้งค่าบอท LINE ของระบบ</p>
-    } @else if (host.linked && !paid()) {
-      <div data-host-paused>
-        <app-plan-lock [hint]="pausedHint" />
-      </div>
-      <ng-container [ngTemplateOutlet]="unlinkBlock" />
-    } @else if (host.linked) {
-      <p class="host-linked" data-host-linked i18n="@@line.host.linked">ผูกบัญชี LINE ของคุณแล้ว</p>
-      <p class="muted" i18n="@@line.host.linkedHint">ส่งรายชื่อมาที่แชตกับบอท แล้วกดเลือกก๊วน บอทจะจำไว้ให้ตอนกดเริ่มรอบ</p>
-      <ng-container [ngTemplateOutlet]="unlinkBlock" />
-    } @else {
-      <p class="muted" i18n="@@line.host.hint">ไม่ต้องเพิ่มบอทเข้ากลุ่ม LINE ส่งรายชื่อให้บอททางแชตส่วนตัวได้เลย ผูกครั้งเดียวใช้ได้กับทุกก๊วนของคุณ</p>
-      @if (locked()) {
+<section class="line-card" data-host-section>
+  <header class="line-card-head">
+    <h2 i18n="@@line.host.title">แชตส่วนตัวกับบอท</h2>
+    @if (chip(); as state) {
+      <span class="line-state" [class.on]="state === 'on'" data-host-state>{{ chipText() }}</span>
+    }
+  </header>
+  <div class="host-panel">
+    @if (loadFailed()) {
+      <p class="error" role="alert" data-host-load-failed>
+        <ng-container i18n="@@line.host.loadFailed">โหลดสถานะแชตส่วนตัวไม่สำเร็จ</ng-container>
+        <button type="button" class="ghost" (click)="load()" i18n="@@entry.retry">ลองอีกครั้ง</button>
+      </p>
+    } @else if (status(); as host) {
+      <p class="muted" i18n="@@line.host.hint">ส่งหรือฟอร์เวิร์ดรายชื่อให้บอทในแชตส่วนตัว ใช้ได้แม้กลุ่ม LINE ของก๊วนมีบอทอื่นอยู่แล้ว</p>
+      @if (notConfigured()) {
+        <p class="muted" data-host-not-configured i18n="@@line.notConfigured">ยังไม่ได้ตั้งค่าบอท LINE ของระบบ</p>
+      } @else if (host.accountLinked) {
+        @if (host.enabled && !paid()) {
+          <div data-host-paused>
+            <app-plan-lock [hint]="pausedHint" />
+          </div>
+        }
+        @if (host.enabled || !locked()) {
+          <label class="switch-row">
+            <input
+              type="checkbox"
+              name="lineDmEnabled"
+              data-host-enabled
+              [checked]="host.enabled"
+              [disabled]="busy()"
+              (change)="setEnabled($any($event.target))"
+            />
+            <span class="switch-text">
+              <span class="switch-title" i18n="@@line.host.enabled">รับรายชื่อของก๊วนนี้ทางแชตส่วนตัว</span>
+              <span class="muted" i18n="@@line.host.enabledHint">ถ้าเปิดไว้หลายก๊วน บอทจะถามว่ารายชื่อเป็นของก๊วนไหน</span>
+            </span>
+          </label>
+        } @else {
+          <div data-host-lock>
+            <app-plan-lock [hint]="lockHint" />
+          </div>
+        }
+        <div class="host-account">
+          <p class="muted" data-host-linked i18n="@@line.host.linked">ผูกบัญชี LINE ของคุณแล้ว ใช้ร่วมกันทุกก๊วน</p>
+          <ng-container [ngTemplateOutlet]="unlinkBlock" />
+        </div>
+      } @else if (locked()) {
         <div data-host-lock>
           <app-plan-lock [hint]="lockHint" />
         </div>
@@ -43,20 +70,20 @@
           <button type="button" data-host-make-code [disabled]="busy()" (click)="createCode()" i18n="@@line.host.makeCode">สร้างรหัสผูกบัญชี</button>
         }
       }
+      @if (error()) {
+        <p class="error" data-host-error role="alert">{{ error() }}</p>
+      }
     }
-    @if (error()) {
-      <p class="error" data-host-error role="alert">{{ error() }}</p>
-    }
-  }
-  <ng-template #unlinkBlock>
-    @if (!confirmingUnlink()) {
-      <button type="button" class="ghost" data-host-unlink [disabled]="busy()" (click)="confirmingUnlink.set(true)" i18n="@@line.host.unlink">ยกเลิกการผูกบัญชี</button>
-    } @else {
-      <div class="host-confirm">
-        <p i18n="@@line.host.unlinkConfirm">ยกเลิกแล้วบอทจะไม่รับรายชื่อจากแชตส่วนตัวของคุณอีก ถ้าจะผูกใหม่ต้องสร้างรหัสใหม่</p>
-        <button type="button" class="danger" data-host-confirm-unlink [disabled]="busy()" (click)="unlink()" i18n="@@line.host.confirmUnlink">ยืนยันยกเลิกการผูกบัญชี</button>
-        <button type="button" class="ghost" data-host-cancel-unlink (click)="confirmingUnlink.set(false)" i18n="@@line.cancelUnlink">ไม่ยกเลิก</button>
-      </div>
-    }
-  </ng-template>
-</div>
+    <ng-template #unlinkBlock>
+      @if (!confirmingUnlink()) {
+        <button type="button" class="ghost" data-host-unlink [disabled]="busy()" (click)="confirmingUnlink.set(true)" i18n="@@line.host.unlink">ยกเลิกการผูกบัญชี</button>
+      } @else {
+        <div class="host-confirm">
+          <p i18n="@@line.host.unlinkConfirm">ยกเลิกแล้วทุกก๊วนของคุณจะไม่รับรายชื่อจากแชตส่วนตัวอีก และรายชื่อที่จำไว้จากแชตส่วนตัวจะถูกลบ ถ้าจะผูกใหม่ต้องสร้างรหัสใหม่</p>
+          <button type="button" class="danger" data-host-confirm-unlink [disabled]="busy()" (click)="unlink()" i18n="@@line.host.confirmUnlink">ยืนยันยกเลิกการผูกบัญชี</button>
+          <button type="button" class="ghost" data-host-cancel-unlink (click)="confirmingUnlink.set(false)" i18n="@@line.cancelUnlink">ไม่ยกเลิก</button>
+        </div>
+      }
+    </ng-template>
+  </div>
+</section>

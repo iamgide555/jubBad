@@ -13,7 +13,7 @@ import { LineModule } from './line.module.js';
 
 const SECRET = 'test-secret';
 const ROSTER = 'ก๊วนพฤหัส 8/10/26\n19.00-21.00\n1. ตั้ม\n2. มด\n3. นก';
-const FAIL_TEXT = 'รหัสไม่ถูกต้องหรือหมดอายุ ตรวจรหัสได้ที่ JubBad > ตั้งค่ากลุ่ม > กลุ่ม LINE';
+const FAIL_TEXT = 'รหัสไม่ถูกต้องหรือหมดอายุ ตรวจรหัสได้ที่ JubBad > ตั้งค่ากลุ่ม > LINE';
 
 describe('POST /line/webhook', () => {
   const saved = { ...process.env };
@@ -320,9 +320,10 @@ describe('POST /line/webhook', () => {
       ).id;
     }
 
-    async function ownedGroup(ownerId: string) {
+    /** A group the host owns; DM capture is on unless said otherwise, since only those groups are offered. */
+    async function ownedGroup(ownerId: string, lineDmEnabled = true) {
       const code = `wh-${randomUUID().slice(0, 10)}`;
-      await prisma.group.create({ data: { code, name: `ก๊วน ${code}`, ownerId } });
+      await prisma.group.create({ data: { code, name: `ก๊วน ${code}`, ownerId, lineDmEnabled } });
       return code;
     }
 
@@ -335,7 +336,7 @@ describe('POST /line/webhook', () => {
 
     it('links the LINE account on a valid host code and replies once', async () => {
       const userId = await makeUser();
-      const { code } = await host.createCode(userId);
+      const { code } = await host.createCode(await ownedGroup(userId, false));
       const line = lineUser();
       await post([dm(line, `/link ${code}`)]).expect(200);
       expect((await prisma.user.findUniqueOrThrow({ where: { id: userId } })).lineUserId).toBe(line);
@@ -343,6 +344,33 @@ describe('POST /line/webhook', () => {
       const text = fakeClient.reply.mock.calls[0][1] as string;
       expect(text).not.toBe(FAIL_TEXT);
       expect(text).toContain('เฉพาะข้อความรายชื่อ');
+    });
+
+    it('names the group the code was made for in the reply, and switches only that group on', async () => {
+      const userId = await makeUser();
+      const first = await ownedGroup(userId, false);
+      const second = await ownedGroup(userId, false);
+      const { code } = await host.createCode(first);
+      await post([dm(lineUser(), `/link ${code}`)]).expect(200);
+      expect(fakeClient.reply).toHaveBeenCalledTimes(1);
+      const text = fakeClient.reply.mock.calls[0][1] as string;
+      expect(text).toContain(`«ก๊วน ${first}»`);
+      expect(text).not.toContain(second);
+      expect((await prisma.group.findUniqueOrThrow({ where: { code: first } })).lineDmEnabled).toBe(true);
+      expect((await prisma.group.findUniqueOrThrow({ where: { code: second } })).lineDmEnabled).toBe(false);
+    });
+
+    it('replies without a group name when the group moved away before the code was used', async () => {
+      const userId = await makeUser();
+      const first = await ownedGroup(userId, false);
+      const { code } = await host.createCode(first);
+      await prisma.group.update({ where: { code: first }, data: { ownerId: await makeUser() } });
+      await post([dm(lineUser(), `/link ${code}`)]).expect(200);
+      expect(fakeClient.reply).toHaveBeenCalledTimes(1);
+      const text = fakeClient.reply.mock.calls[0][1] as string;
+      expect(text).not.toBe(FAIL_TEXT);
+      expect(text).not.toContain('«');
+      expect((await prisma.user.findUniqueOrThrow({ where: { id: userId } })).lineUserId).not.toBeNull();
     });
 
     it('replies the generic failure on a wrong code and links nothing', async () => {
@@ -357,7 +385,7 @@ describe('POST /line/webhook', () => {
       const line = lineUser();
       await makeUser(line);
       const otherId = await makeUser();
-      const { code } = await host.createCode(otherId);
+      const { code } = await host.createCode(await ownedGroup(otherId));
       await post([dm(line, `/link ${code}`)]).expect(200);
       expect(fakeClient.reply.mock.calls.map((c) => c[1])).toEqual([FAIL_TEXT]);
       expect((await prisma.user.findUniqueOrThrow({ where: { id: otherId } })).lineUserId).toBeNull();
@@ -369,7 +397,7 @@ describe('POST /line/webhook', () => {
       expect(fakeClient.reply).toHaveBeenCalledTimes(MAX_ATTEMPTS);
       fakeClient.reply.mockClear();
       const userId = await makeUser();
-      const { code } = await host.createCode(userId);
+      const { code } = await host.createCode(await ownedGroup(userId));
       await post([dm(line, `/link ${code}`)]).expect(200);
       expect(fakeClient.reply).not.toHaveBeenCalled();
       expect((await prisma.user.findUniqueOrThrow({ where: { id: userId } })).lineUserId).toBeNull();

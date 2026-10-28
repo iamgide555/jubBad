@@ -64,10 +64,6 @@ export class OwnershipGuard implements CanActivate {
     // reads only the signed-in user's row.
     if (path === '/plans/me') return true;
 
-    // The caller's own LINE link (/line/host, /line/host/code): names no group, and the service
-    // reads or writes only the signed-in user's row.
-    if (path === '/line/host' || path === '/line/host/code') return true;
-
     // Express types params as `string | string[]` (a repeated segment could
     // in principle produce an array); every route here declares :code once,
     // so anything but a single string is not a shape this guard recognises.

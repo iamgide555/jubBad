@@ -3,6 +3,26 @@
 Status: **built on branch `feat/line-host-dm` (2026-10-28), all automated tests passing; the real-LINE check by the owner is still pending, so not deployed.** Checks still to do on a real phone: link by DM from the settings code; forward a roster from a group that has another bot; one-group auto-store; two-group Quick Reply tap; a stranger's DM; unlink. Written from a brainstorming conversation.
 Items marked **(my call)** were decided by the writer, not the owner.
 
+## Revision after the first real-phone test (2026-10-28, owner)
+
+The owner linked their LINE with only "ทดสอบ A" and was still asked "which group" because the
+link was per account and offered every group they own. Two changes, which **override the
+per-account wording below wherever they differ**:
+
+1. **Per-group opt-in.** `Group.lineDmEnabled` (default off). The bot offers only the groups
+   switched on, and asks only when two or more are on; one is stored with no question; none gets
+   a reply saying where to switch one on. The account link stays per user. The link code
+   remembers the group whose page asked for it (`LineUserLinkCode.groupCode`), so linking also
+   switches that group on. `latest()` passes for a linked owner only when the group's switch is
+   on. Switching off deletes that group's DM-captured rows; unlinking the account switches every
+   group off and deletes them. The routes are now group-scoped (`/groups/:code/line/host`, `.../code`,
+   PUT enable, DELETE unlink), so the OwnershipGuard exemption described below was **reverted** and
+   the guard is unchanged from main.
+2. **One LINE page, two cards.** The settings section is titled "LINE" with a "กลุ่ม LINE" card and
+   a "แชตส่วนตัวกับบอท" card, each with an on/off tag, instead of the group block with a separate
+   "ผูกบัญชี LINE ของฉัน" section under it. The group-settings row for LINE reads "connected" when
+   either way is on.
+
 ## Intent and why
 
 The roster bot (`2026-10-26-line-bot-roster-design.md`, deployed) lives in the host's LINE

@@ -43,9 +43,12 @@ describe('LineHostRosterService receive and choose', () => {
     return { userId: user.id, line };
   }
 
-  async function group(ownerId: string, name: string | null = null, createdAt?: Date) {
+  /** A group the host owns; DM capture is on unless said otherwise, since only those groups are offered. */
+  async function group(ownerId: string, name: string | null = null, createdAt?: Date, lineDmEnabled = true) {
     const code = `lhr-${randomUUID().slice(0, 10)}`;
-    await prisma.group.create({ data: { code, name: name ?? code, ownerId, ...(createdAt ? { createdAt } : {}) } });
+    await prisma.group.create({
+      data: { code, name: name ?? code, ownerId, lineDmEnabled, ...(createdAt ? { createdAt } : {}) }
+    });
     return code;
   }
 
@@ -86,7 +89,7 @@ describe('LineHostRosterService receive and choose', () => {
       const id = messageId();
       const reply = await dm(lineUserId(), { lineMessageId: id });
       expect(reply.kind).toBe('text');
-      expect(text(reply)).toContain('JubBad > ตั้งค่ากลุ่ม > กลุ่ม LINE');
+      expect(text(reply)).toContain('JubBad > ตั้งค่ากลุ่ม > LINE');
       expect(await prisma.lineRosterMessage.count({ where: { lineMessageId: id } })).toBe(0);
     });
 
@@ -105,6 +108,60 @@ describe('LineHostRosterService receive and choose', () => {
       const reply = await dm(line);
       expect(text(reply)).toContain('ยังไม่มีก๊วน');
       expect(await prisma.linePendingRoster.count({ where: { userId } })).toBe(0);
+    });
+
+    it('says why when the host owns groups but none has DM capture on, and stores or holds nothing', async () => {
+      const { userId, line } = await host();
+      const a = await group(userId, 'ก๊วน A', undefined, false);
+      const b = await group(userId, 'ก๊วน B', undefined, false);
+      const id = messageId();
+      const reply = await dm(line, { lineMessageId: id });
+      expect(reply.kind).toBe('text');
+      expect(text(reply)).toContain('ยังไม่มีก๊วนที่เปิดรับรายชื่อ');
+      expect(text(reply)).toContain('JubBad > ตั้งค่ากลุ่ม > LINE');
+      expect(await rowsFor(a)).toHaveLength(0);
+      expect(await rowsFor(b)).toHaveLength(0);
+      expect(await prisma.lineRosterMessage.count({ where: { lineMessageId: id } })).toBe(0);
+      expect(await prisma.linePendingRoster.count({ where: { userId } })).toBe(0);
+    });
+
+    it('stores straight into the only enabled group of two, with no question', async () => {
+      const { userId, line } = await host();
+      const a = await group(userId, 'ก๊วน A');
+      const b = await group(userId, 'ก๊วน B', undefined, false);
+      const id = messageId();
+      const reply = await dm(line, { lineMessageId: id });
+      expect(reply.kind).toBe('text');
+      expect(text(reply)).toContain('ก๊วน A');
+      expect(await rowsFor(a)).toHaveLength(1);
+      expect(await rowsFor(b)).toHaveLength(0);
+      expect((await prisma.lineRosterMessage.findUniqueOrThrow({ where: { lineMessageId: id } })).direct).toBe(true);
+      expect(await prisma.linePendingRoster.count({ where: { userId } })).toBe(0);
+    });
+
+    it('asks only about the enabled groups when two of three have DM capture on', async () => {
+      const { userId, line } = await host();
+      const a = await group(userId, 'ก๊วน A', new Date(Date.now() - 3 * DAY));
+      await group(userId, 'ก๊วน off', new Date(Date.now() - 2 * DAY), false);
+      const b = await group(userId, 'ก๊วน B', new Date(Date.now() - DAY));
+      const picks = choices(await dm(line));
+      expect(picks.map((p) => p.groupCode)).toEqual([b, a]);
+    });
+
+    it('never offers or stores into an enabled group that belongs to another owner', async () => {
+      const mine = await host();
+      const theirs = await host();
+      const mineCode = await group(mine.userId, 'ก๊วนฉัน');
+      const theirCode = await group(theirs.userId, 'ก๊วนเขา');
+      const reply = await dm(mine.line);
+      expect(text(reply)).toContain('ก๊วนฉัน');
+      expect(await rowsFor(mineCode)).toHaveLength(1);
+      expect(await rowsFor(theirCode)).toHaveLength(0);
+      // a host whose only enabled-looking group is someone else's has none of their own
+      const lone = await host();
+      const reply2 = await dm(lone.line);
+      expect(text(reply2)).toContain('ยังไม่มีก๊วน');
+      expect(await rowsFor(theirCode)).toHaveLength(0);
     });
 
     it('says why when the host is not on a paid plan, and stores nothing', async () => {
@@ -233,7 +290,7 @@ describe('LineHostRosterService receive and choose', () => {
       expect(long.length).toBe(25);
       const longCode = await group(userId, long, new Date(Date.now() - DAY));
       const emptyCode = `lhr-${randomUUID().slice(0, 10)}`;
-      await prisma.group.create({ data: { code: emptyCode, name: '', ownerId: userId } });
+      await prisma.group.create({ data: { code: emptyCode, name: '', ownerId: userId, lineDmEnabled: true } });
       const picks = choices(await dm(line));
       const byCode = new Map(picks.map((p) => [p.groupCode, p]));
       expect(byCode.get(longCode)!.label).toBe(long.slice(0, 20));
@@ -356,6 +413,21 @@ describe('LineHostRosterService receive and choose', () => {
       expect(reply.text).toContain('ส่งรายชื่อมาใหม่');
       expect(await prisma.lineRosterMessage.count({ where: { lineMessageId: p.lineMessageId } })).toBe(0);
       expect(await prisma.linePendingRoster.count({ where: { userId: p.userId } })).toBe(1);
+    });
+
+    it('refuses a group switched off after the question, and stores nothing', async () => {
+      const p = await pendingFor();
+      await prisma.group.update({ where: { code: p.b }, data: { lineDmEnabled: false } });
+      const reply = await service.choose({ lineUserId: p.line, data: p.pick(p.b).data });
+      expect(reply.kind).toBe('text');
+      expect(reply.text).toContain('ส่งรายชื่อมาใหม่');
+      await nothingMoved(p);
+      // the refusal leaves the pending roster in place, like a deleted group does
+      expect(await prisma.linePendingRoster.count({ where: { userId: p.userId } })).toBe(1);
+      // the other group is still on and can still be tapped
+      const ok = await service.choose({ lineUserId: p.line, data: p.pick(p.a).data });
+      expect(ok.text).toContain('ก๊วน A');
+      expect(await rowsFor(p.a)).toHaveLength(1);
     });
 
     it('refuses a group transferred to another owner after the question', async () => {

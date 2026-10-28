@@ -5686,8 +5686,8 @@
         </context-group>
       </trans-unit>
       <trans-unit id="group.row.line" datatype="html">
-        <source>กลุ่ม LINE</source>
-        <target>LINE group</target>
+        <source>LINE</source>
+        <target>LINE</target>
       </trans-unit>
       <trans-unit id="group.row.lineDesc" datatype="html">
         <source>บอทจำรายชื่อล่าสุดให้ ไม่ต้องคัดลอกเอง</source>
@@ -5706,8 +5706,8 @@
         <target>Paused</target>
       </trans-unit>
       <trans-unit id="line.title" datatype="html">
-        <source>กลุ่ม LINE</source>
-        <target>LINE group</target>
+        <source>LINE</source>
+        <target>LINE</target>
       </trans-unit>
       <trans-unit id="line.loadFailed" datatype="html">
         <source>โหลดสถานะกลุ่ม LINE ไม่สำเร็จ</source>
@@ -5730,8 +5730,8 @@
         <target>Add the bot to your LINE group</target>
       </trans-unit>
       <trans-unit id="line.addBotHint" datatype="html">
-        <source>กลุ่ม LINE หนึ่งกลุ่มมีบอทได้ตัวเดียว ถ้ามีบอทอื่นอยู่แล้วต้องเอาออกก่อน</source>
-        <target>A LINE group can hold only one bot. If another bot is already there, remove it first</target>
+        <source>กลุ่ม LINE หนึ่งกลุ่มมีบอทได้ตัวเดียว ถ้ามีบอทอื่นอยู่แล้ว ใช้แชตส่วนตัวกับบอทด้านล่างแทนได้</source>
+        <target>Only one bot fits in a LINE group. If another bot is already there, use the chat with the bot below instead.</target>
       </trans-unit>
       <trans-unit id="line.typeCode" datatype="html">
         <source>พิมพ์ข้อความนี้ในกลุ่ม LINE:</source>
@@ -5798,24 +5798,20 @@
         <target>Could not unlink. Try again</target>
       </trans-unit>
       <trans-unit id="line.host.title" datatype="html">
-        <source>ผูกบัญชี LINE ของฉัน</source>
-        <target>Link my LINE account</target>
+        <source>แชตส่วนตัวกับบอท</source>
+        <target>Chat with the bot</target>
       </trans-unit>
       <trans-unit id="line.host.loadFailed" datatype="html">
-        <source>โหลดสถานะบัญชี LINE ไม่สำเร็จ</source>
-        <target>Could not load your LINE account status</target>
+        <source>โหลดสถานะแชตส่วนตัวไม่สำเร็จ</source>
+        <target>Could not load the chat setup</target>
       </trans-unit>
       <trans-unit id="line.host.linked" datatype="html">
-        <source>ผูกบัญชี LINE ของคุณแล้ว</source>
-        <target>Your LINE account is linked</target>
-      </trans-unit>
-      <trans-unit id="line.host.linkedHint" datatype="html">
-        <source>ส่งรายชื่อมาที่แชตกับบอท แล้วกดเลือกก๊วน บอทจะจำไว้ให้ตอนกดเริ่มรอบ</source>
-        <target>Send a roster to your chat with the bot, then pick the group. The bot keeps it for you when you tap start</target>
+        <source>ผูกบัญชี LINE ของคุณแล้ว ใช้ร่วมกันทุกก๊วน</source>
+        <target>Your LINE account is linked, shared by all your groups</target>
       </trans-unit>
       <trans-unit id="line.host.hint" datatype="html">
-        <source>ไม่ต้องเพิ่มบอทเข้ากลุ่ม LINE ส่งรายชื่อให้บอททางแชตส่วนตัวได้เลย ผูกครั้งเดียวใช้ได้กับทุกก๊วนของคุณ</source>
-        <target>No need to add the bot to a LINE group: send rosters to the bot in a private chat. Link once and it works for all your groups</target>
+        <source>ส่งหรือฟอร์เวิร์ดรายชื่อให้บอทในแชตส่วนตัว ใช้ได้แม้กลุ่ม LINE ของก๊วนมีบอทอื่นอยู่แล้ว</source>
+        <target>Send or forward the roster to the bot in a private chat. Works even when your LINE group already has another bot.</target>
       </trans-unit>
       <trans-unit id="line.host.addBot" datatype="html">
         <source>เพิ่มบอทเป็นเพื่อนใน LINE</source>
@@ -5834,16 +5830,16 @@
         <target>Unlink my LINE account</target>
       </trans-unit>
       <trans-unit id="line.host.unlinkConfirm" datatype="html">
-        <source>ยกเลิกแล้วบอทจะไม่รับรายชื่อจากแชตส่วนตัวของคุณอีก ถ้าจะผูกใหม่ต้องสร้างรหัสใหม่</source>
-        <target>The bot will stop taking rosters from your private chat. To link again you need a new code</target>
+        <source>ยกเลิกแล้วทุกก๊วนของคุณจะไม่รับรายชื่อจากแชตส่วนตัวอีก และรายชื่อที่จำไว้จากแชตส่วนตัวจะถูกลบ ถ้าจะผูกใหม่ต้องสร้างรหัสใหม่</source>
+        <target>After this none of your groups receive rosters from the private chat, and the rosters kept from it are deleted. To link again you will need a new code.</target>
       </trans-unit>
       <trans-unit id="line.host.confirmUnlink" datatype="html">
         <source>ยืนยันยกเลิกการผูกบัญชี</source>
         <target>Confirm unlink</target>
       </trans-unit>
       <trans-unit id="line.host.lock" datatype="html">
-        <source>การผูกบัญชี LINE ใช้ได้ในแพ็ก⁠เกจโฮสต์</source>
-        <target>Linking your LINE account is on the Host plan</target>
+        <source>การรับรายชื่อทางแชตส่วนตัวใช้ได้ในแพ็ก⁠เกจโฮสต์</source>
+        <target>Receiving rosters by private chat is available on the Host plan</target>
       </trans-unit>
       <trans-unit id="line.host.paused" datatype="html">
         <source>แพ็ก⁠เกจหมดอายุ บอทหยุดรับรายชื่อจากแชตส่วนตัวชั่วคราว ต่ออายุแล้วจะกลับมาทำงานเอง</source>
@@ -5852,6 +5848,50 @@
       <trans-unit id="line.host.unlinkFailed" datatype="html">
         <source>ยกเลิกการผูกบัญชีไม่สำเร็จ ลองอีกครั้ง</source>
         <target>Could not unlink your LINE account. Try again</target>
+      </trans-unit>
+      <trans-unit id="line.intro" datatype="html">
+        <source>เลือกวิธีให้บอทรับรายชื่อของก๊วนนี้ ใช้ได้ทั้งสองแบบพร้อมกัน</source>
+        <target>Choose how the bot gets this group's roster. You can use both at once.</target>
+      </trans-unit>
+      <trans-unit id="line.group.title" datatype="html">
+        <source>กลุ่ม LINE</source>
+        <target>LINE group</target>
+      </trans-unit>
+      <trans-unit id="line.group.stateOff" datatype="html">
+        <source>ยังไม่เชื่อม</source>
+        <target>Not linked</target>
+      </trans-unit>
+      <trans-unit id="line.group.stateOn" datatype="html">
+        <source>เชื่อมแล้ว</source>
+        <target>Linked</target>
+      </trans-unit>
+      <trans-unit id="line.group.statePaused" datatype="html">
+        <source>หยุดชั่วคราว</source>
+        <target>Paused</target>
+      </trans-unit>
+      <trans-unit id="line.host.stateOn" datatype="html">
+        <source>เปิดอยู่</source>
+        <target>On</target>
+      </trans-unit>
+      <trans-unit id="line.host.stateOff" datatype="html">
+        <source>ยังไม่เปิด</source>
+        <target>Off</target>
+      </trans-unit>
+      <trans-unit id="line.host.statePaused" datatype="html">
+        <source>หยุดชั่วคราว</source>
+        <target>Paused</target>
+      </trans-unit>
+      <trans-unit id="line.host.enabled" datatype="html">
+        <source>รับรายชื่อของก๊วนนี้ทางแชตส่วนตัว</source>
+        <target>Take this group's roster from the private chat</target>
+      </trans-unit>
+      <trans-unit id="line.host.enabledHint" datatype="html">
+        <source>ถ้าเปิดไว้หลายก๊วน บอทจะถามว่ารายชื่อเป็นของก๊วนไหน</source>
+        <target>If several groups are on, the bot asks which group a roster is for</target>
+      </trans-unit>
+      <trans-unit id="line.host.enableFailed" datatype="html">
+        <source>บันทึกไม่สำเร็จ ลองอีกครั้ง</source>
+        <target>Could not save. Try again.</target>
       </trans-unit>
       <trans-unit id="entry.lineReplaced" datatype="html">
         <source>เปลี่ยนเป็นรายชื่อล่าสุดจาก LINE แล้ว</source>

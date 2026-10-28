@@ -279,7 +279,17 @@ export class GroupHome {
       .getGroupLevels(code)
       .subscribe({ next: (l) => set({ levels: { mode: l.mode, count: l.levels.length } }), error: ignore });
     this.roster.getShare(code).subscribe({ next: (s) => set({ shared: s.token !== null }), error: ignore });
-    this.lineService.status(code).subscribe({ next: (s) => set({ line: { linked: s.linked } }), error: ignore });
+    // The row reads "connected" when either way is on: the LINE group, or DM capture for this group.
+    this.lineService.status(code).subscribe({
+      next: (s) => {
+        set({ line: { linked: s.linked } });
+        this.lineService.hostStatus(code).subscribe({
+          next: (h) => set({ line: { linked: s.linked || h.enabled } }),
+          error: ignore,
+        });
+      },
+      error: ignore,
+    });
     Promise.all([firstValueFrom(this.roster.getShuttleTools(code)), firstValueFrom(this.roster.getCrossSessionHistory(code))])
       .then(([shuttle, history]) =>
         set({ advanced: { shuttleTools: shuttle.enabled, crossSessionHistory: history.enabled } })

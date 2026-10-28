@@ -2517,7 +2517,7 @@
         </context-group>
       </trans-unit>
       <trans-unit id="group.row.line" datatype="html">
-        <source>กลุ่ม LINE</source>
+        <source>LINE</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/group-home/group-home.html</context>
           <context context-type="linenumber">161,162</context>
@@ -3021,7 +3021,7 @@
         </context-group>
       </trans-unit>
       <trans-unit id="line.title" datatype="html">
-        <source>กลุ่ม LINE</source>
+        <source>LINE</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/group-settings-detail/group-settings-detail.html</context>
           <context context-type="linenumber">31,32</context>
@@ -3077,7 +3077,7 @@
         </context-group>
       </trans-unit>
       <trans-unit id="line.addBotHint" datatype="html">
-        <source>กลุ่ม LINE หนึ่งกลุ่มมีบอทได้ตัวเดียว ถ้ามีบอทอื่นอยู่แล้วต้องเอาออกก่อน</source>
+        <source>กลุ่ม LINE หนึ่งกลุ่มมีบอทได้ตัวเดียว ถ้ามีบอทอื่นอยู่แล้ว ใช้แชตส่วนตัวกับบอทด้านล่างแทนได้</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/group-settings-detail/group-settings-detail.html</context>
           <context context-type="linenumber">75,76</context>
@@ -3347,35 +3347,28 @@
         </context-group>
       </trans-unit>
       <trans-unit id="line.host.title" datatype="html">
-        <source>ผูกบัญชี LINE ของฉัน</source>
+        <source>แชตส่วนตัวกับบอท</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/group-settings-detail/group-settings-detail.html</context>
           <context context-type="linenumber">110,111</context>
         </context-group>
       </trans-unit>
       <trans-unit id="line.host.loadFailed" datatype="html">
-        <source>โหลดสถานะบัญชี LINE ไม่สำเร็จ</source>
+        <source>โหลดสถานะแชตส่วนตัวไม่สำเร็จ</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/group-settings-detail/line-host-link-panel.html</context>
           <context context-type="linenumber">4,5</context>
         </context-group>
       </trans-unit>
       <trans-unit id="line.host.linked" datatype="html">
-        <source>ผูกบัญชี LINE ของคุณแล้ว</source>
+        <source>ผูกบัญชี LINE ของคุณแล้ว ใช้ร่วมกันทุกก๊วน</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/group-settings-detail/line-host-link-panel.html</context>
           <context context-type="linenumber">16,17</context>
         </context-group>
       </trans-unit>
-      <trans-unit id="line.host.linkedHint" datatype="html">
-        <source>ส่งรายชื่อมาที่แชตกับบอท แล้วกดเลือกก๊วน บอทจะจำไว้ให้ตอนกดเริ่มรอบ</source>
-        <context-group purpose="location">
-          <context context-type="sourcefile">src/app/pages/group-settings-detail/line-host-link-panel.html</context>
-          <context context-type="linenumber">17,18</context>
-        </context-group>
-      </trans-unit>
       <trans-unit id="line.host.hint" datatype="html">
-        <source>ไม่ต้องเพิ่มบอทเข้ากลุ่ม LINE ส่งรายชื่อให้บอททางแชตส่วนตัวได้เลย ผูกครั้งเดียวใช้ได้กับทุกก๊วนของคุณ</source>
+        <source>ส่งหรือฟอร์เวิร์ดรายชื่อให้บอทในแชตส่วนตัว ใช้ได้แม้กลุ่ม LINE ของก๊วนมีบอทอื่นอยู่แล้ว</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/group-settings-detail/line-host-link-panel.html</context>
           <context context-type="linenumber">20,22</context>
@@ -3410,7 +3403,7 @@
         </context-group>
       </trans-unit>
       <trans-unit id="line.host.unlinkConfirm" datatype="html">
-        <source>ยกเลิกแล้วบอทจะไม่รับรายชื่อจากแชตส่วนตัวของคุณอีก ถ้าจะผูกใหม่ต้องสร้างรหัสใหม่</source>
+        <source>ยกเลิกแล้วทุกก๊วนของคุณจะไม่รับรายชื่อจากแชตส่วนตัวอีก และรายชื่อที่จำไว้จากแชตส่วนตัวจะถูกลบ ถ้าจะผูกใหม่ต้องสร้างรหัสใหม่</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/group-settings-detail/line-host-link-panel.html</context>
           <context context-type="linenumber">56,57</context>
@@ -3424,7 +3417,7 @@
         </context-group>
       </trans-unit>
       <trans-unit id="line.host.lock" datatype="html">
-        <source>การผูกบัญชี LINE ใช้ได้ในแพ็ก⁠เกจโฮสต์</source>
+        <source>การรับรายชื่อทางแชตส่วนตัวใช้ได้ในแพ็ก⁠เกจโฮสต์</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/group-settings-detail/line-host-link-panel.ts</context>
           <context context-type="linenumber">56</context>
@@ -3443,6 +3436,39 @@
           <context context-type="sourcefile">src/app/pages/group-settings-detail/line-host-link-panel.ts</context>
           <context context-type="linenumber">147</context>
         </context-group>
+      </trans-unit>
+      <trans-unit id="line.intro" datatype="html">
+        <source>เลือกวิธีให้บอทรับรายชื่อของก๊วนนี้ ใช้ได้ทั้งสองแบบพร้อมกัน</source>
+      </trans-unit>
+      <trans-unit id="line.group.title" datatype="html">
+        <source>กลุ่ม LINE</source>
+      </trans-unit>
+      <trans-unit id="line.group.stateOff" datatype="html">
+        <source>ยังไม่เชื่อม</source>
+      </trans-unit>
+      <trans-unit id="line.group.stateOn" datatype="html">
+        <source>เชื่อมแล้ว</source>
+      </trans-unit>
+      <trans-unit id="line.group.statePaused" datatype="html">
+        <source>หยุดชั่วคราว</source>
+      </trans-unit>
+      <trans-unit id="line.host.stateOn" datatype="html">
+        <source>เปิดอยู่</source>
+      </trans-unit>
+      <trans-unit id="line.host.stateOff" datatype="html">
+        <source>ยังไม่เปิด</source>
+      </trans-unit>
+      <trans-unit id="line.host.statePaused" datatype="html">
+        <source>หยุดชั่วคราว</source>
+      </trans-unit>
+      <trans-unit id="line.host.enabled" datatype="html">
+        <source>รับรายชื่อของก๊วนนี้ทางแชตส่วนตัว</source>
+      </trans-unit>
+      <trans-unit id="line.host.enabledHint" datatype="html">
+        <source>ถ้าเปิดไว้หลายก๊วน บอทจะถามว่ารายชื่อเป็นของก๊วนไหน</source>
+      </trans-unit>
+      <trans-unit id="line.host.enableFailed" datatype="html">
+        <source>บันทึกไม่สำเร็จ ลองอีกครั้ง</source>
       </trans-unit>
       <trans-unit id="entry.advancedSaveFailed" datatype="html">
         <source>บันทึกไม่สำเร็จ ลองอีกครั้ง</source>

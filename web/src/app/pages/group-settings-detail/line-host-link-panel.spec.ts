@@ -4,8 +4,10 @@ import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { LineHostLinkPanel } from './line-host-link-panel';
 import { environment } from '../../../environments/environment';
 
-const URL = `${environment.apiBaseUrl}/line/host`;
-const STATUS = { configured: true, botAddUrl: 'https://lin.ee/jubbad', linked: false, linkedAt: null };
+const URL = `${environment.apiBaseUrl}/groups/group1/line/host`;
+const STATUS = { configured: true, botAddUrl: 'https://lin.ee/jubbad', accountLinked: false, enabled: false };
+const LINKED = { accountLinked: true, enabled: false };
+const ON = { accountLinked: true, enabled: true };
 
 describe('LineHostLinkPanel', () => {
   let fixture: ComponentFixture<LineHostLinkPanel>;
@@ -22,6 +24,8 @@ describe('LineHostLinkPanel', () => {
   };
   const el = () => fixture.nativeElement as HTMLElement;
   const q = (selector: string) => el().querySelector<HTMLElement>(selector);
+  const box = () => q('[data-host-enabled]') as HTMLInputElement | null;
+  const state = () => q('[data-host-state]')?.textContent?.trim();
 
   async function open(initial: Record<string, unknown> | 'failed' = {}, paid = true) {
     await TestBed.configureTestingModule({
@@ -29,6 +33,7 @@ describe('LineHostLinkPanel', () => {
     }).compileComponents();
     httpMock = TestBed.inject(HttpTestingController);
     fixture = TestBed.createComponent(LineHostLinkPanel);
+    fixture.componentRef.setInput('groupCode', 'group1');
     fixture.componentRef.setInput('paid', paid);
     fixture.detectChanges();
     const req = httpMock.expectOne(URL);
@@ -51,13 +56,19 @@ describe('LineHostLinkPanel', () => {
     httpMock.verify();
   });
 
-  it('not linked: an add-the-bot-as-friend link and a create-code button', async () => {
+  it('reads the status of this group from the group route', async () => {
+    await open();
+    expect(q('[data-host-section] h2')?.textContent).toContain('แชตส่วนตัวกับบอท');
+  });
+
+  it('account not linked: an add-the-bot-as-friend link and a create-code button', async () => {
     await open();
     const add = q('[data-host-add-bot]') as HTMLAnchorElement;
     expect(add.getAttribute('href')).toBe('https://lin.ee/jubbad');
     expect(add.textContent).toContain('เพิ่มบอทเป็นเพื่อนใน LINE');
     expect(q('[data-host-make-code]')).not.toBeNull();
     expect(q('[data-host-code]')).toBeNull();
+    expect(box()).toBeNull();
   });
 
   it('creating a code shows it large, with the /link instruction, the time left and a copy button', async () => {
@@ -100,9 +111,11 @@ describe('LineHostLinkPanel', () => {
     await vi.advanceTimersByTimeAsync(5000);
     httpMock.expectOne(URL).flush(STATUS);
     await vi.advanceTimersByTimeAsync(5000);
-    httpMock.expectOne(URL).flush({ ...STATUS, linked: true, linkedAt: '2026-10-28T12:00:00.000Z' });
+    httpMock.expectOne(URL).flush({ ...STATUS, accountLinked: true, enabled: true });
     await fakeTick();
     expect(q('[data-host-linked]')?.textContent).toContain('ผูกบัญชี LINE ของคุณแล้ว');
+    expect(box()?.checked).toBe(true);
+    expect(state()).toBe('เปิดอยู่');
     expect(q('[data-host-code]')).toBeNull();
     await vi.advanceTimersByTimeAsync(20000);
     httpMock.expectNone(URL);
@@ -122,8 +135,121 @@ describe('LineHostLinkPanel', () => {
     httpMock.expectNone(URL);
   });
 
-  it('linked: says so and unlinks only after an inline confirm', async () => {
-    await open({ linked: true, linkedAt: '2026-10-28T12:00:00.000Z' });
+  it('account linked but this group off: the switch is unchecked and the account note is shown', async () => {
+    await open(LINKED);
+    expect(box()?.checked).toBe(false);
+    expect(q('[data-host-linked]')).not.toBeNull();
+    expect(q('[data-host-make-code]')).toBeNull();
+    expect(q('[data-host-add-bot]')).toBeNull();
+    expect(q('[data-host-paused]')).toBeNull();
+    expect(state()).toBe('ยังไม่เปิด');
+  });
+
+  it('turning the switch on saves with a PUT and the box and tag follow the server', async () => {
+    await open(LINKED);
+    box()!.click();
+    const req = httpMock.expectOne({ url: URL, method: 'PUT' });
+    expect(req.request.body).toEqual({ enabled: true });
+    expect(box()?.checked).toBe(false); // does not move until the server confirms
+    req.flush({ enabled: true });
+    await tick();
+    expect(box()?.checked).toBe(true);
+    expect(state()).toBe('เปิดอยู่');
+    expect(q('[data-host-error]')).toBeNull();
+  });
+
+  it('a failed save leaves the box unchecked and shows an error', async () => {
+    await open(LINKED);
+    box()!.click();
+    httpMock.expectOne({ url: URL, method: 'PUT' }).flush('x', { status: 500, statusText: 'x' });
+    await tick();
+    expect(box()?.checked).toBe(false);
+    expect(q('[data-host-error]')).not.toBeNull();
+    expect(state()).toBe('ยังไม่เปิด');
+  });
+
+  it('a 403 on saving the switch swaps it for the plan lock', async () => {
+    await open(LINKED);
+    box()!.click();
+    httpMock
+      .expectOne({ url: URL, method: 'PUT' })
+      .flush({ code: 'PLAN_REQUIRED', requiredPlan: 'host' }, { status: 403, statusText: 'Forbidden' });
+    await tick();
+    expect(q('[data-host-lock]')).not.toBeNull();
+    expect(box()).toBeNull();
+    expect(q('[data-host-unlink]')).not.toBeNull();
+  });
+
+  it('a 409 on saving the switch re-reads the status', async () => {
+    await open(LINKED);
+    box()!.click();
+    httpMock
+      .expectOne({ url: URL, method: 'PUT' })
+      .flush({ code: 'LINE_NOT_LINKED' }, { status: 409, statusText: 'Conflict' });
+    await tick();
+    httpMock.expectOne(URL).flush(STATUS);
+    await tick();
+    expect(box()).toBeNull();
+    expect(q('[data-host-make-code]')).not.toBeNull();
+  });
+
+  it('turning the switch off saves enabled false and the tag goes back to ยังไม่เปิด', async () => {
+    await open(ON);
+    expect(box()?.checked).toBe(true);
+    box()!.click();
+    const req = httpMock.expectOne({ url: URL, method: 'PUT' });
+    expect(req.request.body).toEqual({ enabled: false });
+    req.flush({ enabled: false });
+    await tick();
+    expect(box()?.checked).toBe(false);
+    expect(state()).toBe('ยังไม่เปิด');
+  });
+
+  it('free plan, account linked and this group on: a paused notice, and the switch can still be turned off', async () => {
+    await open(ON, false);
+    expect(q('[data-host-paused]')?.textContent).toContain('หยุดรับรายชื่อ');
+    expect(q('[data-host-lock]')).toBeNull();
+    expect(box()?.checked).toBe(true);
+    expect(state()).toBe('หยุดชั่วคราว');
+    box()!.click();
+    const req = httpMock.expectOne({ url: URL, method: 'PUT' });
+    expect(req.request.body).toEqual({ enabled: false });
+    req.flush({ enabled: false });
+    await tick();
+    expect(box()).toBeNull(); // off on the free plan: the plan lock takes the switch's place
+    expect(q('[data-host-paused]')).toBeNull();
+    expect(q('[data-host-lock]')).not.toBeNull();
+    expect(state()).toBe('ยังไม่เปิด');
+  });
+
+  it('free plan, account linked and this group off: the plan lock stands in for the switch', async () => {
+    await open(LINKED, false);
+    expect(q('[data-host-lock]')).not.toBeNull();
+    expect(q('[data-host-paused]')).toBeNull();
+    expect(box()).toBeNull();
+    expect(q('[data-host-unlink]')).not.toBeNull();
+    expect(state()).toBe('ยังไม่เปิด');
+  });
+
+  it('the tag reads เปิดอยู่ only when linked, on and paid', async () => {
+    await open(ON);
+    expect(state()).toBe('เปิดอยู่');
+    expect(q('[data-host-state]')?.classList.contains('on')).toBe(true);
+  });
+
+  it('the tag reads ยังไม่เปิด and is not drawn as on when the account is not linked', async () => {
+    await open();
+    expect(state()).toBe('ยังไม่เปิด');
+    expect(q('[data-host-state]')?.classList.contains('on')).toBe(false);
+  });
+
+  it('the paused tag is not drawn as on', async () => {
+    await open(ON, false);
+    expect(q('[data-host-state]')?.classList.contains('on')).toBe(false);
+  });
+
+  it('account linked: unlinks only after an inline confirm, then goes back to the not-linked state', async () => {
+    await open(ON);
     expect(q('[data-host-linked]')).not.toBeNull();
     expect(q('[data-host-make-code]')).toBeNull();
     q('[data-host-unlink]')!.click();
@@ -134,11 +260,13 @@ describe('LineHostLinkPanel', () => {
     httpMock.expectOne({ url: URL, method: 'DELETE' }).flush({ unlinked: true });
     await tick();
     expect(q('[data-host-linked]')).toBeNull();
+    expect(box()).toBeNull();
     expect(q('[data-host-make-code]')).not.toBeNull();
+    expect(state()).toBe('ยังไม่เปิด');
   });
 
   it('cancelling the unlink confirm sends nothing', async () => {
-    await open({ linked: true });
+    await open(ON);
     q('[data-host-unlink]')!.click();
     await tick();
     q('[data-host-cancel-unlink]')!.click();
@@ -147,11 +275,50 @@ describe('LineHostLinkPanel', () => {
     expect(q('[data-host-linked]')).not.toBeNull();
   });
 
+  it('a failed unlink keeps the linked state and shows an error', async () => {
+    await open(ON);
+    q('[data-host-unlink]')!.click();
+    await tick();
+    q('[data-host-confirm-unlink]')!.click();
+    httpMock.expectOne({ url: URL, method: 'DELETE' }).flush('x', { status: 500, statusText: 'x' });
+    await tick();
+    expect(q('[data-host-error]')).not.toBeNull();
+    expect(q('[data-host-linked]')).not.toBeNull();
+  });
+
+  it('unlink stays available on the free plan', async () => {
+    await open(ON, false);
+    expect(q('[data-host-unlink]')).not.toBeNull();
+    q('[data-host-unlink]')!.click();
+    await tick();
+    q('[data-host-confirm-unlink]')!.click();
+    httpMock.expectOne({ url: URL, method: 'DELETE' }).flush({ unlinked: true });
+    await tick();
+    expect(q('[data-host-linked]')).toBeNull();
+    expect(q('[data-host-lock]')).not.toBeNull();
+  });
+
   it('says the bot is not set up when the server has no LINE channel, and offers nothing to do', async () => {
     await open({ configured: false, botAddUrl: null });
     expect(q('[data-host-not-configured]')?.textContent).toContain('ยังไม่ได้ตั้งค่าบอท LINE ของระบบ');
     expect(q('[data-host-make-code]')).toBeNull();
     expect(q('[data-host-add-bot]')).toBeNull();
+    expect(q('[data-host-state]')).toBeNull();
+  });
+
+  it('shows no tag before the status has loaded', async () => {
+    await TestBed.configureTestingModule({
+      providers: [provideHttpClient(), provideHttpClientTesting()],
+    }).compileComponents();
+    httpMock = TestBed.inject(HttpTestingController);
+    fixture = TestBed.createComponent(LineHostLinkPanel);
+    fixture.componentRef.setInput('groupCode', 'group1');
+    fixture.detectChanges();
+    expect(q('[data-host-state]')).toBeNull();
+    expect(q('[data-host-section] h2')).not.toBeNull();
+    httpMock.expectOne(URL).flush(STATUS);
+    await tick();
+    expect(q('[data-host-state]')).not.toBeNull();
   });
 
   it('a 503 on creating a code shows that the bot is not set up', async () => {
@@ -169,6 +336,7 @@ describe('LineHostLinkPanel', () => {
     await open('failed');
     expect(q('[data-host-load-failed]')).not.toBeNull();
     expect(q('[data-host-make-code]')).toBeNull();
+    expect(q('[data-host-state]')).toBeNull();
     q('[data-host-load-failed] button')!.click();
     httpMock.expectOne(URL).flush(STATUS);
     await tick();
@@ -183,23 +351,16 @@ describe('LineHostLinkPanel', () => {
       .expectOne({ url: `${URL}/code`, method: 'POST' })
       .flush({ code: 'PLAN_REQUIRED', requiredPlan: 'host' }, { status: 403, statusText: 'Forbidden' });
     await tick();
-    expect(q('[data-host-lock]')?.textContent).toContain('การผูกบัญชี LINE ใช้ได้ในแพ็ก⁠เกจโฮสต์');
+    expect(q('[data-host-lock]')?.textContent).toContain('การรับรายชื่อทางแชตส่วนตัวใช้ได้ในแพ็ก⁠เกจโฮสต์');
     expect(q('[data-host-lock] .lock-more')).not.toBeNull();
     expect(q('[data-host-make-code]')).toBeNull();
   });
 
-  it('free and not linked: the plan lock and no code button', async () => {
+  it('free and account not linked: the plan lock and no code button', async () => {
     await open({}, false);
     expect(q('[data-host-lock]')).not.toBeNull();
     expect(q('[data-host-make-code]')).toBeNull();
-  });
-
-  it('free but still linked: a paused notice and Unlink only', async () => {
-    await open({ linked: true }, false);
-    expect(q('[data-host-paused]')?.textContent).toContain('หยุดรับรายชื่อ');
-    expect(q('[data-host-unlink]')).not.toBeNull();
-    expect(q('[data-host-make-code]')).toBeNull();
-    expect(q('[data-host-linked]')).toBeNull();
+    expect(state()).toBe('ยังไม่เปิด');
   });
 
   it('a 409 on creating a code (already linked elsewhere) re-reads the status', async () => {
@@ -209,9 +370,10 @@ describe('LineHostLinkPanel', () => {
       .expectOne({ url: `${URL}/code`, method: 'POST' })
       .flush({ code: 'LINE_ALREADY_LINKED' }, { status: 409, statusText: 'Conflict' });
     await tick();
-    httpMock.expectOne(URL).flush({ ...STATUS, linked: true });
+    httpMock.expectOne(URL).flush({ ...STATUS, ...LINKED });
     await tick();
     expect(q('[data-host-linked]')).not.toBeNull();
+    expect(box()).not.toBeNull();
   });
 
   it('shows an error and keeps the button when creating a code fails', async () => {

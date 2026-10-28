@@ -108,16 +108,6 @@ describe('PlansService', () => {
     expect(await plans.planForUser(randomUUID())).toBe('club');
   });
 
-  it('requireUserPlan refuses a free user with PLAN_REQUIRED and passes a high enough plan', async () => {
-    const free = await makeUser({ plan: 'free' });
-    const host = await makeUser({ plan: 'host' });
-    const err = await plans.requireUserPlan(free.id, 'host').catch((e) => e);
-    expect(err).toBeInstanceOf(ForbiddenException);
-    expect(err.getResponse()).toEqual({ code: 'PLAN_REQUIRED', requiredPlan: 'host' });
-    await expect(plans.requireUserPlan(host.id, 'host')).resolves.toBeUndefined();
-    await expect(plans.requireUserPlan(host.id, 'club')).rejects.toBeInstanceOf(ForbiddenException);
-  });
-
   it('requireSessionPlan resolves through the session group', async () => {
     const free = await makeUser({ plan: 'free' });
     const club = await makeUser({ plan: 'club' });

@@ -125,15 +125,6 @@ describe('OwnershipGuard', () => {
     ).rejects.toBeInstanceOf(NotFoundException);
   });
 
-  it('lets any host through on /line/host and /line/host/code — the caller own LINE link, not a group', async () => {
-    const g = guard(false, []);
-    await expect(g.canActivate(contextFor(OTHER_HOST, '/line/host', {}))).resolves.toBe(true);
-    await expect(g.canActivate(contextFor(OTHER_HOST, '/line/host/code', {}))).resolves.toBe(true);
-    await expect(
-      g.canActivate(contextFor(OTHER_HOST, '/line/host/other', {}))
-    ).rejects.toBeInstanceOf(NotFoundException);
-  });
-
   describe('/groups/:code', () => {
     it('admits the owner', async () => {
       const g = guard(false, [{ code: 'g1', ownerId: OWNER.id }]);

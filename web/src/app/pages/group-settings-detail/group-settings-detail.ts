@@ -158,6 +158,14 @@ export class GroupSettingsDetail {
     });
   }
 
+  /** The group card's header tag; null until the status is read, or when the system has no bot. */
+  protected groupChipText(): string | null {
+    const line = this.lineStatus();
+    if (!line || this.lineNotConfigured()) return null;
+    if (!line.linked) return $localize`:@@line.group.stateOff:ยังไม่เชื่อม`;
+    return this.paid() ? $localize`:@@line.group.stateOn:เชื่อมแล้ว` : $localize`:@@line.group.statePaused:หยุดชั่วคราว`;
+  }
+
   protected linkedText(): string {
     const name = this.lineStatus()?.lineGroupName || $localize`:@@line.unnamedGroup:กลุ่ม LINE`;
     return $localize`:@@line.linkedTo:เชื่อมกับ ${name}:name: แล้ว`;

@@ -21,19 +21,20 @@ export interface HostRosterInput {
   postedAt: Date;
 }
 
-/** LINE allows 13 Quick Reply buttons. A host with more groups is offered the 13 newest; none exists today. */
+/** LINE allows 13 Quick Reply buttons. A host with more groups switched on is offered the 13 newest; none exists today. */
 const MAX_CHOICES = 13;
 /** Postback data: `pr:<pending id>:<group code>`. The roster itself never rides in it (300 character cap). */
 const CHOICE_DATA = /^pr:([^:]+):(.+)$/;
 
 // Spoken into the host's own LINE chat, so Thai only, like the group bot's replies.
 const LINK_FIRST_TEXT =
-  'บัญชี LINE นี้ยังไม่ได้ผูกกับ JubBad ขอรหัสได้ที่ JubBad > ตั้งค่ากลุ่ม > กลุ่ม LINE ' +
+  'บัญชี LINE นี้ยังไม่ได้ผูกกับ JubBad ขอรหัสได้ที่ JubBad > ตั้งค่ากลุ่ม > LINE ' +
   'แล้วส่ง /link ตามด้วยรหัสมาที่แชตนี้';
 const NOT_ROSTER_TEXT =
   'ข้อความนี้ไม่เหมือนรายชื่อก๊วน (ต้องมีวันที่ สถานที่ หรือเวลา และรายชื่อเรียงเลขอย่างน้อย 3 คน) ' +
   'บอทไม่เก็บข้อความอื่น';
-const NO_GROUP_TEXT = 'บัญชีนี้ยังไม่มีก๊วนใน JubBad สร้างก๊วนก่อน แล้วส่งรายชื่อมาใหม่';
+const NO_GROUP_TEXT =
+  'ยังไม่มีก๊วนที่เปิดรับรายชื่อทางแชตนี้ เปิดได้ที่ JubBad > ตั้งค่ากลุ่ม > LINE แล้วส่งรายชื่อมาใหม่';
 const PLAN_TEXT = 'การรับรายชื่อทาง LINE ใช้ได้กับแพ็กเกจ Host ขึ้นไป บอทจึงไม่ได้เก็บรายชื่อนี้';
 const ASK_TEXT = 'รายชื่อนี้ของก๊วนไหน แตะเลือกด้านล่างภายใน 10 นาที';
 /** One line for every refused tap: it never says whether the roster expired, was replaced, or the group changed. */
@@ -73,8 +74,9 @@ export class LineHostRosterService {
       return text(storedText(groupLabel(already.group)));
     }
 
+    // Only the groups the host switched DM capture on for; with one, no question is asked.
     const groups = await this.prisma.group.findMany({
-      where: { ownerId: user.id },
+      where: { ownerId: user.id, lineDmEnabled: true },
       orderBy: [{ createdAt: 'desc' }, { code: 'asc' }],
       take: MAX_CHOICES,
       select: { code: true, name: true }
@@ -97,7 +99,7 @@ export class LineHostRosterService {
   /**
    * A tapped group button. Refused, with nothing stored, unless the pending roster
    * is still there and unexpired, belongs to the LINE user who tapped, and the
-   * group is still owned by that host and on a paid plan now.
+   * group is still owned by that host, still has DM capture on, and is on a paid plan now.
    */
   async choose(input: { lineUserId: string; data: string; now?: Date }): Promise<{ kind: 'text'; text: string }> {
     const now = input.now ?? new Date();
@@ -113,9 +115,9 @@ export class LineHostRosterService {
 
     const group = await this.prisma.group.findUnique({
       where: { code: groupCode },
-      select: { code: true, name: true, ownerId: true }
+      select: { code: true, name: true, ownerId: true, lineDmEnabled: true }
     });
-    if (!group || group.ownerId !== pending.userId) return text(SEND_AGAIN_TEXT);
+    if (!group || group.ownerId !== pending.userId || !group.lineDmEnabled) return text(SEND_AGAIN_TEXT);
     if (!planAtLeast(await this.plans.planForGroup(group.code, now), 'host')) return text(SEND_AGAIN_TEXT);
 
     if (!(await this.move(pending, group.code, input.lineUserId))) return text(SEND_AGAIN_TEXT);

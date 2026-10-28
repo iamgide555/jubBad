@@ -596,6 +596,44 @@ label > textarea {
     box-shadow var(--duration-fast) ease, transform var(--duration-fast) var(--ease-spring);
 }
 
+/* One way of handing the bot the roster, on the LINE settings page: the LINE group, or a chat
+   with the bot. Two of these stack, each with a header tag saying whether it is on. */
+.line-card {
+  margin-top: var(--space-3);
+  padding: var(--space-2) var(--space-3) var(--space-3);
+  background: var(--surface);
+  border: 1.5px solid var(--line);
+  border-radius: var(--radius);
+}
+
+.line-card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  margin-bottom: var(--space-1);
+}
+
+.line-card-head h2 {
+  margin: 0;
+  font-size: var(--text-xl);
+}
+
+.line-state {
+  flex: none;
+  padding: 0.2rem 0.7rem;
+  border-radius: var(--radius-pill);
+  background: var(--ground-sunk);
+  color: var(--ink-soft);
+  font-size: var(--text-xs);
+  font-weight: 700;
+}
+
+.line-state.on {
+  background: var(--court-soft);
+  color: var(--court-ink);
+}
+
 /* Segmented control: mode toggle, per-court format, stats scope. Two rounded
    pills sharing one track, the active one filled with court-green. */
 .scope-toggle {

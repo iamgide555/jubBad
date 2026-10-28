@@ -90,7 +90,7 @@ describe('GroupHome', () => {
     return page;
   }
 
-  function flushValues(over: { players?: number; custom?: boolean; shared?: boolean; shuttle?: boolean; history?: boolean; lineLinked?: boolean } = {}) {
+  function flushValues(over: { players?: number; custom?: boolean; shared?: boolean; shuttle?: boolean; history?: boolean; lineLinked?: boolean; dmEnabled?: boolean | 'failed' } = {}) {
     httpMock.expectOne(`${B}/groups/group1/players`).flush(
       Array.from({ length: over.players ?? 0 }, (_, i) => ({ id: `p${i}`, name: `p${i}`, aliases: [] }))
     );
@@ -113,6 +113,16 @@ describe('GroupHome', () => {
       linkedAt: over.lineLinked ? '2026-10-20T10:00:00.000Z' : null,
       leftAt: null,
     });
+    // The LINE row also asks whether this group takes rosters by direct message.
+    const dm = httpMock.expectOne(`${B}/groups/group1/line/host`);
+    if (over.dmEnabled === 'failed') dm.flush('x', { status: 500, statusText: 'x' });
+    else
+      dm.flush({
+        configured: true,
+        botAddUrl: 'https://lin.ee/jubbad',
+        accountLinked: over.dmEnabled ?? false,
+        enabled: over.dmEnabled ?? false,
+      });
   }
 
   it('shows the saved name with a labelled settings button beside it, closed, and makes no settings request yet', async () => {
@@ -383,6 +393,41 @@ describe('GroupHome', () => {
     });
   });
 
+  describe('the LINE row also counts the chat with the bot', () => {
+    async function openLineRow(values: Parameters<typeof flushValues>[0]) {
+      await open();
+      plan.answer('host');
+      trigger().click();
+      await harness.fixture.whenStable();
+      flushValues(values);
+      await settle();
+      return list().querySelector<HTMLElement>('[data-section="line"] .value')!;
+    }
+
+    it('reads เชื่อมแล้ว and is drawn as on when only the chat switch is on for this group', async () => {
+      const badge = await openLineRow({ dmEnabled: true });
+      expect(badge.textContent?.trim()).toBe('เชื่อมแล้ว');
+      expect(badge.classList.contains('on')).toBe(true);
+    });
+
+    it('still reads ยังไม่เชื่อม when neither the LINE group nor the chat switch is on', async () => {
+      const badge = await openLineRow({});
+      expect(badge.textContent?.trim()).toBe('ยังไม่เชื่อม');
+      expect(badge.classList.contains('on')).toBe(false);
+    });
+
+    it('a failing chat status read keeps the LINE group answer', async () => {
+      const badge = await openLineRow({ lineLinked: true, dmEnabled: 'failed' });
+      expect(badge.textContent?.trim()).toBe('เชื่อมแล้ว');
+      expect(badge.classList.contains('on')).toBe(true);
+    });
+
+    it('a failing chat status read on an unlinked group leaves it unlinked', async () => {
+      const badge = await openLineRow({ dmEnabled: 'failed' });
+      expect(badge.textContent?.trim()).toBe('ยังไม่เชื่อม');
+    });
+  });
+
   describe('plan notice and a paused group', () => {
     const notice = () => el().querySelector('[data-plan-notice]');
     const start = () => el().querySelector('[data-start]');
@@ -608,7 +653,7 @@ describe('GroupHome', () => {
       '/g/group1/settings/manage',
     ]);
     expect(rows[5].textContent).toContain('ชื่อก๊วน / ดาวน์โหลดข้อมูล / ลบก๊วน');
-    const titles = ['จัดการผู้เล่น', 'ระดับผู้เล่นของก๊วน', 'แชร์หน้าสรุปก๊วน', 'กลุ่ม LINE', 'ตั้งค่าขั้นสูง', 'จัดการก๊วน'];
+    const titles = ['จัดการผู้เล่น', 'ระดับผู้เล่นของก๊วน', 'แชร์หน้าสรุปก๊วน', 'LINE', 'ตั้งค่าขั้นสูง', 'จัดการก๊วน'];
     rows.forEach((r, i) => {
       const id = r.getAttribute('aria-labelledby')!;
       expect(document.getElementById(id)?.textContent?.trim()).toBe(titles[i]);

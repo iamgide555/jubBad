@@ -300,9 +300,11 @@ describe('LineRosterService capture, edit, unsend and purge', () => {
         })
       ).id;
     }
-    async function groupOf(ownerId: string, lineGroupId: string | null = null) {
+    async function groupOf(ownerId: string, lineGroupId: string | null = null, lineDmEnabled = true) {
       const code = `lr-${randomUUID().slice(0, 10)}`;
-      await prisma.group.create({ data: { code, name: code, ownerId, lineGroupId, lineLinkedAt: lineGroupId ? new Date() : null } });
+      await prisma.group.create({
+        data: { code, name: code, ownerId, lineGroupId, lineLinkedAt: lineGroupId ? new Date() : null, lineDmEnabled },
+      });
       return code;
     }
     async function addMessage(groupId: string, postedAt: Date, direct: boolean, text = ROSTER) {
@@ -311,7 +313,7 @@ describe('LineRosterService capture, edit, unsend and purge', () => {
       });
     }
 
-    it('returns a stored DM roster for a group with no LINE group when the owner has a host link', async () => {
+    it('returns a stored DM roster for a group with no LINE group when DM capture is on and the owner has a host link', async () => {
       const code = await groupOf(await dmOwner('host'));
       const postedAt = new Date(now.getTime() - HOUR);
       await addMessage(code, postedAt, true, dmText);
@@ -328,6 +330,24 @@ describe('LineRosterService capture, edit, unsend and purge', () => {
       const code = await groupOf(await dmOwner('host', false));
       await addMessage(code, new Date(now.getTime() - HOUR), true);
       expect(await roster.latest(code, now)).toBeNull();
+    });
+
+    it('is null for a linked owner when the group has DM capture off, even with a stored DM row', async () => {
+      const code = await groupOf(await dmOwner('host'), null, false);
+      await addMessage(code, new Date(now.getTime() - HOUR), true);
+      expect(await roster.latest(code, now)).toBeNull();
+    });
+
+    it('is null when DM capture is on but the owner account is no longer linked', async () => {
+      const code = await groupOf(await dmOwner('host', false), null, true);
+      await addMessage(code, new Date(now.getTime() - HOUR), true);
+      expect(await roster.latest(code, now)).toBeNull();
+    });
+
+    it('still serves a LINE group row when DM capture is off', async () => {
+      const code = await groupOf(await dmOwner('host'), lineId(), false);
+      await addMessage(code, new Date(now.getTime() - HOUR), false);
+      expect(await roster.latest(code, now)).toMatchObject({ text: ROSTER, direct: false });
     });
 
     it('is null when the linked owner has lapsed to the free plan', async () => {

@@ -22,13 +22,14 @@ const LINK_COMMAND = /^\/link\s+([A-Za-z0-9]{6})$/i;
 const linkedText = (name: string | null) =>
   `เชื่อมกลุ่มนี้กับก๊วน «${name ?? 'ของคุณ'}» ใน JubBad แล้ว บอทจะจำเฉพาะข้อความรายชื่อ พร้อมชื่อคนที่ส่งและเวลา ไม่เก็บแชตอื่น`;
 /** One generic line: it never says whether the code was wrong, expired, or the group already linked. */
-export const LINK_FAILED_TEXT = 'รหัสไม่ถูกต้องหรือหมดอายุ ตรวจรหัสได้ที่ JubBad > ตั้งค่ากลุ่ม > กลุ่ม LINE';
+export const LINK_FAILED_TEXT = 'รหัสไม่ถูกต้องหรือหมดอายุ ตรวจรหัสได้ที่ JubBad > ตั้งค่ากลุ่ม > LINE';
 /** Spoken into the host's own chat with the bot. States exactly what the bot keeps. */
-const HOST_LINKED_TEXT =
-  'ผูกบัญชี LINE นี้กับ JubBad แล้ว ส่งรายชื่อก๊วนมาที่แชตนี้ได้เลย บอทจะจำเฉพาะข้อความรายชื่อ ไม่เก็บแชตอื่น';
+const hostLinkedText = (groupName: string | null) =>
+  `ผูกบัญชี LINE นี้กับ JubBad${groupName ? ` และเปิดรับรายชื่อของก๊วน «${groupName}»` : ''}แล้ว ` +
+  'ส่งรายชื่อก๊วนมาที่แชตนี้ได้เลย บอทจะจำเฉพาะข้อความรายชื่อ ไม่เก็บแชตอื่น';
 const FOLLOW_TEXT =
   'ขอบคุณที่เพิ่มเพื่อน ส่งรายชื่อก๊วนมาที่แชตนี้ให้ JubBad ได้ ' +
-  'ขอรหัสได้ที่ JubBad > ตั้งค่ากลุ่ม > กลุ่ม LINE แล้วส่ง /link ตามด้วยรหัสมาที่แชตนี้';
+  'ขอรหัสได้ที่ JubBad > ตั้งค่ากลุ่ม > LINE แล้วส่ง /link ตามด้วยรหัสมาที่แชตนี้';
 
 /**
  * Handles verified LINE webhook events one at a time. Never logs message text
@@ -151,7 +152,7 @@ export class LineWebhookService {
     const linked = await this.host.redeem(lineUserId, code);
     if (linked) this.throttle.recordSuccess(key);
     else this.throttle.recordFailure(key);
-    if (replyToken) await this.client.reply(replyToken, linked ? HOST_LINKED_TEXT : LINK_FAILED_TEXT);
+    if (replyToken) await this.client.reply(replyToken, linked ? hostLinkedText(linked.groupName) : LINK_FAILED_TEXT);
   }
 
   private async send(replyToken: string | undefined, reply: HostReply): Promise<void> {

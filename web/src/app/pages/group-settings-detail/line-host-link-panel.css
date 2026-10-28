@@ -32,9 +32,46 @@
   font-weight: 600;
 }
 
-.host-linked {
-  font-size: var(--text-lg);
+.switch-row {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+  min-height: var(--tap);
+  cursor: pointer;
+  color: var(--ink);
+  font-size: var(--text-base);
+  font-weight: 400;
+  margin: 0;
+}
+
+.switch-row input {
+  width: 1.5rem;
+  min-height: 1.5rem;
+  flex: none;
+  margin-top: var(--space-0);
+  accent-color: var(--court);
+}
+
+.switch-text {
+  display: flex;
+  flex-direction: column;
+}
+
+.switch-title {
   font-weight: 600;
+}
+
+.host-account {
+  display: grid;
+  gap: var(--space-1);
+  justify-items: start;
+  justify-self: stretch;
+  padding-top: var(--space-2);
+  border-top: 1px solid var(--line);
+}
+
+.host-account p {
+  margin: 0;
 }
 
 .host-confirm {

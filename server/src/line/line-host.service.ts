@@ -1,6 +1,7 @@
 import {
   ConflictException,
   Injectable,
+  NotFoundException,
   ServiceUnavailableException,
 } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
@@ -19,8 +20,10 @@ import { lineConfig } from './line-config.js';
 export interface LineHostStatus {
   configured: boolean;
   botAddUrl: string | null;
-  linked: boolean;
-  linkedAt: string | null;
+  /** The group's owner has linked their LINE account (one account for all their groups). */
+  accountLinked: boolean;
+  /** Rosters that account DMs to the bot may be filed under this group. */
+  enabled: boolean;
 }
 
 /** Thrown inside the redeem transaction to roll it back; never leaves this file. */
@@ -29,7 +32,8 @@ class RedeemRefused extends Error {}
 /**
  * Links a host's own LINE account (one-to-one chat with the bot) to their JubBad
  * user, so a roster DMed to the bot can be captured. Same code flow as
- * LineLinkService, but the binding lands on the user, not on a group.
+ * LineLinkService, but the binding lands on the user, and each group opts in
+ * separately: the bot offers only the groups that have it switched on.
  */
 @Injectable()
 export class LineHostService {
@@ -38,34 +42,52 @@ export class LineHostService {
     private readonly plans: PlansService,
   ) {}
 
-  async status(userId: string): Promise<LineHostStatus> {
-    const config = lineConfig();
-    const user = await this.prisma.user.findUnique({
-      where: { id: userId },
-      select: { lineUserId: true, lineLinkedAt: true },
+  /** The group and its owner's LINE account; the owner is whose account every call below acts on. */
+  private async ownerOf(
+    groupCode: string,
+  ): Promise<{ ownerId: string; accountLinked: boolean; enabled: boolean }> {
+    const group = await this.prisma.group.findUnique({
+      where: { code: groupCode },
+      select: {
+        ownerId: true,
+        lineDmEnabled: true,
+        owner: { select: { lineUserId: true } },
+      },
     });
+    if (!group?.ownerId) throw new NotFoundException();
     return {
-      configured: config.secret !== null && config.token !== null,
-      botAddUrl: config.botAddUrl,
-      linked: user?.lineUserId != null,
-      linkedAt: user?.lineLinkedAt?.toISOString() ?? null,
+      ownerId: group.ownerId,
+      accountLinked: group.owner?.lineUserId != null,
+      enabled: group.lineDmEnabled,
     };
   }
 
-  /** Only the hash is stored; a new code voids the user's earlier unused ones. */
+  async status(groupCode: string): Promise<LineHostStatus> {
+    const config = lineConfig();
+    const { accountLinked, enabled } = await this.ownerOf(groupCode);
+    return {
+      configured: config.secret !== null && config.token !== null,
+      botAddUrl: config.botAddUrl,
+      accountLinked,
+      enabled: accountLinked && enabled,
+    };
+  }
+
+  /**
+   * Only the hash is stored; a new code voids the owner's earlier unused ones. The code
+   * remembers the group it was asked for, so linking also switches that group on. An owner
+   * whose account is already linked switches groups on with setEnabled instead.
+   */
   async createCode(
-    userId: string,
+    groupCode: string,
     now: Date = new Date(),
   ): Promise<{ code: string; expiresAt: string }> {
     const config = lineConfig();
     if (!config.secret || !config.token)
       throw new ServiceUnavailableException({ code: 'LINE_NOT_CONFIGURED' });
-    await this.plans.requireUserPlan(userId, 'host');
-    const user = await this.prisma.user.findUnique({
-      where: { id: userId },
-      select: { lineUserId: true },
-    });
-    if (user?.lineUserId != null)
+    await this.plans.requireGroupPlan(groupCode, 'host');
+    const { ownerId: userId, accountLinked } = await this.ownerOf(groupCode);
+    if (accountLinked)
       throw new ConflictException({ code: 'LINE_ALREADY_LINKED' });
 
     const code = newCode();
@@ -75,10 +97,39 @@ export class LineHostService {
         where: { userId, usedAt: null },
       }),
       this.prisma.lineUserLinkCode.create({
-        data: { userId, codeHash: hashCode(code), expiresAt },
+        data: { userId, groupCode, codeHash: hashCode(code), expiresAt },
       }),
     ]);
     return { code, expiresAt: expiresAt.toISOString() };
+  }
+
+  /**
+   * Switch DM capture on or off for one group. On needs a linked account and the host plan;
+   * off is always allowed, and drops the rosters this group captured by DM.
+   */
+  async setEnabled(groupCode: string, on: boolean): Promise<boolean> {
+    if (on) {
+      await this.plans.requireGroupPlan(groupCode, 'host');
+      const { accountLinked } = await this.ownerOf(groupCode);
+      if (!accountLinked)
+        throw new ConflictException({ code: 'LINE_NOT_LINKED' });
+      await this.prisma.group.update({
+        where: { code: groupCode },
+        data: { lineDmEnabled: true },
+      });
+      return true;
+    }
+    await this.ownerOf(groupCode);
+    await this.prisma.$transaction([
+      this.prisma.group.update({
+        where: { code: groupCode },
+        data: { lineDmEnabled: false },
+      }),
+      this.prisma.lineRosterMessage.deleteMany({
+        where: { groupId: groupCode, direct: true },
+      }),
+    ]);
+    return false;
   }
 
   /**
@@ -91,7 +142,7 @@ export class LineHostService {
     lineUserId: string,
     rawCode: string,
     now: Date = new Date(),
-  ): Promise<{ userId: string } | null> {
+  ): Promise<{ userId: string; groupName: string | null } | null> {
     const code = normalizeCode(rawCode);
     if (code === null) return null;
     const codeHash = hashCode(code);
@@ -109,6 +160,7 @@ export class LineHostService {
     if (!planAtLeast(await this.plans.planForUser(userId, now), 'host'))
       return null;
 
+    let groupName: string | null = null;
     try {
       await this.prisma.$transaction(async (tx) => {
         const claimed = await tx.lineUserLinkCode.updateMany({
@@ -121,6 +173,20 @@ export class LineHostService {
           data: { lineUserId, lineLinkedAt: now },
         });
         if (linked.count !== 1) throw new RedeemRefused();
+        // Switch on the group whose page asked for the code, if the user still owns it.
+        if (pending.groupCode !== null) {
+          const enabled = await tx.group.updateMany({
+            where: { code: pending.groupCode, ownerId: userId },
+            data: { lineDmEnabled: true },
+          });
+          if (enabled.count === 1) {
+            const group = await tx.group.findUnique({
+              where: { code: pending.groupCode },
+              select: { name: true, code: true },
+            });
+            groupName = group?.name?.trim() || group?.code || null;
+          }
+        }
       });
     } catch (error) {
       // RedeemRefused: lost the race or the user is already linked. P2002: this LINE user is linked to someone else.
@@ -132,12 +198,12 @@ export class LineHostService {
         return null;
       throw error;
     }
-    return { userId };
+    return { userId, groupName };
   }
 
   /**
-   * Always allowed, on any plan: clears the link, the host's unused codes and any pending roster. Rosters already
-   * filed for the host's groups are left and age out by the normal purge.
+   * Always allowed, on any plan: clears the account link for all of the host's groups, their
+   * unused codes, any pending roster, and the rosters their groups captured by DM.
    */
   async unlink(userId: string): Promise<void> {
     await this.prisma.$transaction([
@@ -145,9 +211,21 @@ export class LineHostService {
         where: { id: userId },
         data: { lineUserId: null, lineLinkedAt: null },
       }),
+      this.prisma.group.updateMany({
+        where: { ownerId: userId },
+        data: { lineDmEnabled: false },
+      }),
+      this.prisma.lineRosterMessage.deleteMany({
+        where: { direct: true, group: { ownerId: userId } },
+      }),
       this.prisma.lineUserLinkCode.deleteMany({ where: { userId } }),
       this.prisma.linePendingRoster.deleteMany({ where: { userId } }),
     ]);
+  }
+
+  /** Unlink the account of whoever owns this group (the group page is where the host asks). */
+  async unlinkOwnerOf(groupCode: string): Promise<void> {
+    await this.unlink((await this.ownerOf(groupCode)).ownerId);
   }
 
   /** The host blocked the bot: a held roster can no longer be chosen. The link itself stays. */

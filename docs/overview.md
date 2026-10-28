@@ -1370,32 +1370,41 @@ expired code gets one generic Thai reply (it never says which); a sender who has
   stored for it, so re-linking means inviting the bot again. Bot removed from the chat: the link is
   cleared and the settings page says so.
 - **Host DM path (2026-10-28):** the way in for a group that already has another bot (LINE allows
-  one Official Account per group chat; see "One bot per group" below). The host links their own
-  LINE account to their JubBad user, not to a group: the LINE settings section makes a one-time code
-  (6 characters, 10 minutes, single use, SHA-256 hash only, one live code per user so a new one
-  voids the old; kept in its own table, separate from the group code), the host adds the bot as a
-  friend and DMs `/link <code>`. A wrong, expired or group-flow code, or a LINE account or user
-  that is already linked, all get the same generic failure reply, throttled by LINE user id like
-  the group flow. The link is per user, so linking from any group's section links the account.
-  Then the host DMs or forwards a roster to the bot: only roster-shaped text (`isRosterMessage`) is
-  ever stored; anything else gets a reply saying it does not look like a roster and is dropped,
-  and a stranger who has not linked gets a "link first" reply and nothing is kept. **A host with
-  one group** has the roster stored for it at once, with a reply naming the group. **A host with
-  two or more groups** is asked which one with Quick Reply buttons, every time (owner decision: no
-  "remember my last group", ask only when there is more than one group). The roster waits as one
+  one Official Account per group chat; see "One bot per group" below). The LINE settings page
+  (`/g/:code/settings/line`) shows two cards, "กลุ่ม LINE" (the bot in the group) and "แชตส่วนตัวกับ
+  บอท" (this one), each with an on/off tag; they work independently and together. The host links
+  their own LINE account to their JubBad **user** once: the DM card makes a one-time code (6
+  characters, 10 minutes, single use, SHA-256 hash only, one live code per user so a new one voids
+  the old; kept in its own table, separate from the group code), the host adds the bot as a friend
+  and DMs `/link <code>`. A wrong, expired or group-flow code, or a LINE account or user that is
+  already linked, all get the same generic failure reply, throttled by LINE user id like the group
+  flow. **Each group opts in separately** (`Group.lineDmEnabled`, a switch on that group's card;
+  owner decision 2026-10-28 after the first real-phone test, when an account-wide link offered a
+  group the host never chose): the code remembers the group whose page asked for it, so linking
+  also switches that group on, and every later group is switched on by hand. Only a linked account
+  can be switched on. The routes are group-scoped (`/groups/:code/line/host`), so ownership is the
+  existing `OwnershipGuard` and the guard needed no change. Then the host DMs or forwards a roster
+  to the bot: only roster-shaped text (`isRosterMessage`) is ever stored; anything else gets a
+  reply saying it does not look like a roster and is dropped, and a stranger who has not linked
+  gets a "link first" reply and nothing is kept. **With one group switched on** the roster is
+  stored for it at once, with a reply naming the group, however many groups the host owns. **With
+  two or more switched on** the host is asked which one with Quick Reply buttons, every time
+  (owner decision: no "remember my last group", ask only when more than one group could take it).
+  With none switched on the bot says where to switch one on. The roster waits as one
   `LinePendingRoster` per host (a newer DM replaces it) for 10 minutes; the postback carries only
   the pending id and group code, never the roster text. A tap is refused with one generic "send it
   again" reply, storing nothing, when it comes from a different LINE user, after expiry, after a
-  newer DM replaced it, or when the group was deleted, transferred or lapsed meanwhile. A chosen
-  roster becomes an ordinary `LineRosterMessage` (sender name null) and start pre-fills from it
-  exactly as for a group capture, with the sender line saying it came by direct message; the
-  per-group limits (newest 20, 30 days) are unchanged. Plan: Host and up. Creating a code and
-  redeeming it need a paid plan on the user (code creation calls `PlansService.requireUserPlan(userId, 'host')`
-  and redeem re-checks), while capture is judged on the chosen group's owner plan at read time: a lapse
-  stops capture and keeps the link, and unlinking
-  is always allowed and clears the pending roster (already captured rows age out). Every reply is
-  a free reply message, never a push, and the webhook never logs message text or codes. Bot
-  replies are Thai only.
+  newer DM replaced it, or when the group was deleted, transferred, switched off or lapsed
+  meanwhile. A chosen roster becomes an ordinary `LineRosterMessage` (sender name null, `direct`)
+  and start pre-fills from it exactly as for a group capture, with the sender line saying it came
+  by direct message; the per-group limits (newest 20, 30 days) are unchanged. Plan: Host and up.
+  Creating a code and switching a group on need the group owner's paid plan, and redeem re-checks;
+  capture is judged on the chosen group's owner plan at read time: a lapse stops capture and keeps
+  the link and the switches. Switching a group off is always allowed and deletes the rosters that
+  group captured by DM; unlinking the account (the button on the DM card, always allowed) switches
+  every group off, deletes those rosters and clears the pending roster. Every reply is a free
+  reply message, never a push, and the webhook never logs message text or codes. Bot replies are
+  Thai only.
 - **Fallback:** every failure (no bot configured, LINE down, nothing captured, lapsed plan) leaves
   the plain empty paste box, exactly as before.
 - **Summary card** (`docs/archive/specs/2026-10-27-line-bot-summary-card-design.md`): ending a
@@ -1429,8 +1438,9 @@ expired code gets one generic Thai reply (it never says which); a sender who has
   host DM path above:** a group with another bot keeps that bot and gets roster capture through the
   host's DM with this one, so the "cannot use roster capture" limit now applies to the group
   listener and the summary card only.
-- **Host DM path status:** built on branch `feat/line-host-dm` with automated tests passing, but not deployed and
-  not yet checked on a real LINE account (the checks are listed in the spec's status line).
+- **Host DM path status:** built on branch `feat/line-host-dm` with automated tests passing, but not deployed.
+  The first real-phone test (2026-10-28) worked and led to the per-group switch and the two-card page; the
+  remaining checks are listed in the spec's status line.
 - **Unverified until a real LINE group is used:** the exact type string of LINE's edit event
   (`messageEdited` per the docs summary) and that Cloudflare lets LINE's webhook through.
 

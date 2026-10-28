@@ -83,15 +83,16 @@ export class LineRosterService {
   /**
    * What start pre-fills: the newest captured roster, with whether it is older than
    * the group's last finished session. Null (so start shows the manual paste) when
-   * the group has neither a LINE group nor an owner with a host link, nothing was
+   * the group has neither a LINE group nor DM capture on for a linked owner, nothing was
    * captured, or the owner is not paid now.
    */
   async latest(groupCode: string, now: Date = new Date()): Promise<LatestRoster | null> {
     const group = await this.prisma.group.findUnique({
       where: { code: groupCode },
-      select: { lineGroupId: true, owner: { select: { lineUserId: true } } },
+      select: { lineGroupId: true, lineDmEnabled: true, owner: { select: { lineUserId: true } } },
     });
-    if (!group?.lineGroupId && !group?.owner?.lineUserId) return null;
+    const viaDm = group?.lineDmEnabled === true && group.owner?.lineUserId != null;
+    if (!group?.lineGroupId && !viaDm) return null;
     if (!planAtLeast(await this.plans.planForGroup(groupCode, now), 'host')) return null;
     const newest = await this.prisma.lineRosterMessage.findFirst({
       where: { groupId: groupCode },

@@ -147,10 +147,6 @@ export class PlansService {
     this.assertAtLeast(await this.planForGroup(groupCode), required);
   }
 
-  async requireUserPlan(userId: string, required: PaidPlan): Promise<void> {
-    this.assertAtLeast(await this.planForUser(userId), required);
-  }
-
   async requireSessionPlan(sessionCode: string, required: PaidPlan): Promise<void> {
     this.assertAtLeast(await this.planForSession(sessionCode), required);
   }

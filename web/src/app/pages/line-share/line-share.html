@@ -1,0 +1,49 @@
+<main class="page share">
+  <h1 i18n="@@share.line.title">ส่งสรุปเข้ากลุ่ม LINE</h1>
+
+  @switch (phase()) {
+    @case ('loading') {
+      <p class="muted" role="status" data-share-loading i18n="@@share.line.loading">กำลังโหลด…</p>
+    }
+    @case ('missing') {
+      <p class="muted" role="status" data-share-missing i18n="@@share.line.missing">ไม่พบสรุปนี้</p>
+    }
+    @case ('error') {
+      <p class="error" role="alert" data-share-error i18n="@@share.line.error">เปิดหน้านี้ไม่สำเร็จ ลองกดปุ่มส่งเข้ากลุ่มใน LINE อีกครั้ง</p>
+    }
+    @case ('login') {
+      <p class="muted" role="status" data-share-login i18n="@@share.line.login">กำลังไปหน้าเข้าสู่ระบบ LINE</p>
+    }
+    @case ('unavailable') {
+      <p class="error" role="alert" data-share-unavailable i18n="@@share.line.unavailable">ส่งจากหน้านี้ไม่ได้ เปิดลิงก์นี้ในแอป LINE บนโทรศัพท์</p>
+    }
+    @default {
+      @if (data(); as d) {
+        <section class="preview" data-share-preview>
+          <p class="preview-name">{{ d.preview.name }}</p>
+          <p class="muted">
+            {{ d.preview.date }}
+            @if (d.preview.venue) {
+              <span data-share-venue>· {{ d.preview.venue }}</span>
+            }
+          </p>
+          <p class="preview-counts">
+            <span i18n="@@share.line.players">{{ d.preview.players }} คน</span>
+            <span i18n="@@share.line.games">{{ d.preview.games }} เกม</span>
+          </p>
+        </section>
+
+        @if (phase() === 'done') {
+          <p class="done" role="status" data-share-done i18n="@@share.line.done">ส่งแล้ว</p>
+          <button type="button" class="ghost" data-share-again (click)="again()" i18n="@@share.line.again">ส่งอีกครั้ง</button>
+        } @else {
+          <p class="muted" i18n="@@share.line.hint">เลือกกลุ่มหรือแชตใน LINE สรุปจะถูกส่งในชื่อของคุณ</p>
+          <button type="button" data-share-pick [disabled]="opening()" (click)="pick()" i18n="@@share.line.pick">เลือกแชตที่จะส่ง</button>
+          @if (sendFailed()) {
+            <p class="error" role="alert" data-share-send-failed i18n="@@share.line.sendFailed">ส่งไม่สำเร็จ ลองอีกครั้ง</p>
+          }
+        }
+      }
+    }
+  }
+</main>

@@ -1,0 +1,44 @@
+/* One screen, one action, used one-handed inside LINE's browser: the pick
+   button is full width and sits under the preview, within thumb reach. */
+.share {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.preview {
+  padding: var(--space-2) var(--space-3);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-xs);
+}
+
+.preview p {
+  margin: 0;
+}
+
+.preview-name {
+  font-weight: 700;
+  font-size: var(--text-lg, 1.125rem);
+}
+
+.preview-counts {
+  display: flex;
+  gap: var(--space-3);
+  margin-top: var(--space-1);
+  font-variant-numeric: tabular-nums;
+}
+
+button[data-share-pick],
+button[data-share-again] {
+  width: 100%;
+  min-height: var(--tap);
+}
+
+.done {
+  margin: 0;
+  color: var(--court-ink);
+  font-weight: 700;
+  font-size: var(--text-lg, 1.125rem);
+}

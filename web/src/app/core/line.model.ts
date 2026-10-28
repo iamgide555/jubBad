@@ -34,6 +34,13 @@ export interface LineHostStatus {
   enabled: boolean;
 }
 
+/** Mirrors server/src/line/line-summary.service.ts shareCard: what the LIFF page needs to share a session's summary card. */
+export interface LineShareCard {
+  liffId: string;
+  card: { type: 'flex'; altText: string; contents: Record<string, unknown> };
+  preview: { name: string; date: string; venue: string | null; players: number; games: number };
+}
+
 export interface LineLinkCode {
   code: string;
   expiresAt: string;

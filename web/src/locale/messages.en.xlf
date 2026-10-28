@@ -1218,6 +1218,58 @@
           <context context-type="linenumber">53</context>
         </context-group>
       </trans-unit>
+      <trans-unit id="share.line.title" datatype="html">
+        <source>ส่งสรุปเข้ากลุ่ม LINE</source>
+        <target>Send the summary to a LINE group</target>
+      </trans-unit>
+      <trans-unit id="share.line.loading" datatype="html">
+        <source>กำลังโหลด…</source>
+        <target>Loading…</target>
+      </trans-unit>
+      <trans-unit id="share.line.missing" datatype="html">
+        <source>ไม่พบสรุปนี้</source>
+        <target>Summary not found</target>
+      </trans-unit>
+      <trans-unit id="share.line.error" datatype="html">
+        <source>เปิดหน้านี้ไม่สำเร็จ ลองกดปุ่มส่งเข้ากลุ่มใน LINE อีกครั้ง</source>
+        <target>Could not open this page. Tap the send-to-group button in LINE again</target>
+      </trans-unit>
+      <trans-unit id="share.line.login" datatype="html">
+        <source>กำลังไปหน้าเข้าสู่ระบบ LINE</source>
+        <target>Taking you to LINE login</target>
+      </trans-unit>
+      <trans-unit id="share.line.unavailable" datatype="html">
+        <source>ส่งจากหน้านี้ไม่ได้ เปิดลิงก์นี้ในแอป LINE บนโทรศัพท์</source>
+        <target>This cannot be sent from here. Open the link in the LINE app on your phone</target>
+      </trans-unit>
+      <trans-unit id="share.line.players" datatype="html">
+        <source><x id="INTERPOLATION" equiv-text="{{ d.preview.players }}"/> คน</source>
+        <target><x id="INTERPOLATION" equiv-text="{{ d.preview.players }}"/> players</target>
+      </trans-unit>
+      <trans-unit id="share.line.games" datatype="html">
+        <source><x id="INTERPOLATION" equiv-text="{{ d.preview.games }}"/> เกม</source>
+        <target><x id="INTERPOLATION" equiv-text="{{ d.preview.games }}"/> games</target>
+      </trans-unit>
+      <trans-unit id="share.line.done" datatype="html">
+        <source>ส่งแล้ว</source>
+        <target>Sent</target>
+      </trans-unit>
+      <trans-unit id="share.line.again" datatype="html">
+        <source>ส่งอีกครั้ง</source>
+        <target>Send again</target>
+      </trans-unit>
+      <trans-unit id="share.line.hint" datatype="html">
+        <source>เลือกกลุ่มหรือแชตใน LINE สรุปจะถูกส่งในชื่อของคุณ</source>
+        <target>Pick a group or chat in LINE. The summary is sent under your name</target>
+      </trans-unit>
+      <trans-unit id="share.line.pick" datatype="html">
+        <source>เลือกแชตที่จะส่ง</source>
+        <target>Choose where to send</target>
+      </trans-unit>
+      <trans-unit id="share.line.sendFailed" datatype="html">
+        <source>ส่งไม่สำเร็จ ลองอีกครั้ง</source>
+        <target>Could not send. Try again</target>
+      </trans-unit>
       <trans-unit id="login.title" datatype="html">
         <source>JubBad</source><target>JubBad</target>
         <context-group purpose="location">

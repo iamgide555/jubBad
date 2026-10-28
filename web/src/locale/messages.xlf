@@ -3646,6 +3646,97 @@
           <context context-type="linenumber">181</context>
         </context-group>
       </trans-unit>
+      <trans-unit id="share.line.title" datatype="html">
+        <source>ส่งสรุปเข้ากลุ่ม LINE</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/line-share/line-share.html</context>
+          <context context-type="linenumber">2,5</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="share.line.loading" datatype="html">
+        <source>กำลังโหลด…</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/line-share/line-share.html</context>
+          <context context-type="linenumber">6,8</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="share.line.missing" datatype="html">
+        <source>ไม่พบสรุปนี้</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/line-share/line-share.html</context>
+          <context context-type="linenumber">9,12</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="share.line.error" datatype="html">
+        <source>เปิดหน้านี้ไม่สำเร็จ ลองกดปุ่มส่งเข้ากลุ่มใน LINE อีกครั้ง</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/line-share/line-share.html</context>
+          <context context-type="linenumber">12,14</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="share.line.login" datatype="html">
+        <source>กำลังไปหน้าเข้าสู่ระบบ LINE</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/line-share/line-share.html</context>
+          <context context-type="linenumber">15,17</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="share.line.unavailable" datatype="html">
+        <source>ส่งจากหน้านี้ไม่ได้ เปิดลิงก์นี้ในแอป LINE บนโทรศัพท์</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/line-share/line-share.html</context>
+          <context context-type="linenumber">18,21</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="share.line.players" datatype="html">
+        <source><x id="INTERPOLATION" equiv-text="{{ d.preview.players }}"/> คน</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/line-share/line-share.html</context>
+          <context context-type="linenumber">31,32</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="share.line.games" datatype="html">
+        <source><x id="INTERPOLATION" equiv-text="{{ d.preview.games }}"/> เกม</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/line-share/line-share.html</context>
+          <context context-type="linenumber">32,33</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="share.line.done" datatype="html">
+        <source>ส่งแล้ว</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/line-share/line-share.html</context>
+          <context context-type="linenumber">37,38</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="share.line.again" datatype="html">
+        <source>ส่งอีกครั้ง</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/line-share/line-share.html</context>
+          <context context-type="linenumber">38,40</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="share.line.hint" datatype="html">
+        <source>เลือกกลุ่มหรือแชตใน LINE สรุปจะถูกส่งในชื่อของคุณ</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/line-share/line-share.html</context>
+          <context context-type="linenumber">40,41</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="share.line.pick" datatype="html">
+        <source>เลือกแชตที่จะส่ง</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/line-share/line-share.html</context>
+          <context context-type="linenumber">41,42</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="share.line.sendFailed" datatype="html">
+        <source>ส่งไม่สำเร็จ ลองอีกครั้ง</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/line-share/line-share.html</context>
+          <context context-type="linenumber">43,47</context>
+        </context-group>
+      </trans-unit>
       <trans-unit id="login.title" datatype="html">
         <source>JubBad</source>
         <context-group purpose="location">

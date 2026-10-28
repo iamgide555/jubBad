@@ -149,6 +149,9 @@ describe('auth boundary', () => {
       // itself with an HMAC signature over the raw body. It is pinned by its own
       // describe below (503 unconfigured, 401 unsigned), not by this cookie walk.
       if (path === '/line/webhook') continue;
+      // The LIFF share-card route is @Public and answers an unavailable session with a 404, not a 200, so it
+      // cannot sit in PUBLIC_ROUTES. line-share.spec.ts pins that it answers a caller with no cookie.
+      if (path === '/sessions/:code/line-share-card') continue;
 
       // ':code' means a group code under /groups and a session code under
       // /sessions. Substituting the wrong one yields a 404 from a public route,
@@ -353,6 +356,8 @@ describe('auth boundary', () => {
         if (path.startsWith('/auth')) continue;
         // @Public, no :code, authenticated by LINE signature: nothing to own.
         if (path === '/line/webhook') continue;
+        // @Public: it serves a session only when the host chose the DM route, and 404s otherwise (line-share.spec.ts).
+        if (path === '/sessions/:code/line-share-card') continue;
 
         const code = path.startsWith('/sessions') ? ctx.sessionCode : ctx.groupCode;
         const concrete = path

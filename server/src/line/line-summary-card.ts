@@ -77,11 +77,18 @@ export function liffShareUrl(liffId: string, sessionCode: string): string {
   return `https://liff.line.me/${liffId}/${encodeURIComponent(sessionCode)}`;
 }
 
-export function summaryCard(input: SummaryCardInput): SummaryCard {
-  const name = clip(present(input.groupName) ?? GROUP_FALLBACK, TEXT_MAX);
-  const date = clip(cardDate(input.date, input.endedAt), TEXT_MAX);
+/** The host-typed texts exactly as the card shows them (fallback, Thai date, clipped), so a preview can match the card. */
+export function cardTexts(input: Pick<SummaryCardInput, 'groupName' | 'date' | 'endedAt' | 'venue'>) {
   const venueText = present(input.venue);
-  const venue = venueText === null ? null : clip(venueText, TEXT_MAX);
+  return {
+    name: clip(present(input.groupName) ?? GROUP_FALLBACK, TEXT_MAX),
+    date: clip(cardDate(input.date, input.endedAt), TEXT_MAX),
+    venue: venueText === null ? null : clip(venueText, TEXT_MAX),
+  };
+}
+
+export function summaryCard(input: SummaryCardInput): SummaryCard {
+  const { name, date, venue } = cardTexts(input);
 
   const rows = [row('วันที่', date)];
   if (venue) rows.push(row('สนาม', venue));

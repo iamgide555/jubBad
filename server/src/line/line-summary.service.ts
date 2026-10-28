@@ -1,12 +1,12 @@
 import { createHash } from 'node:crypto';
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import type { Prisma } from '@prisma/client';
 import { PlansService } from '../plans/plans.service.js';
 import { planAtLeast } from '../plans/plan.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { LineClient } from './line-client.js';
 import { lineConfig } from './line-config.js';
-import { liffShareUrl, summaryCard } from './line-summary-card.js';
+import { cardTexts, liffShareUrl, summaryCard, type SummaryCard } from './line-summary-card.js';
 
 /** `busy`: another send for this session is in flight right now. */
 export type LineSummaryOutcome = 'sent' | 'already-sent' | 'busy' | 'quota' | 'failed' | 'unavailable';
@@ -25,6 +25,13 @@ export interface LineSummaryState {
   target: LineSummaryTarget | null;
   /** The LIFF link behind the host card's "send to group" button; set only for the `host` target when available. */
   shareUrl: string | null;
+}
+
+/** What the LIFF page needs to share the card on: the app's LIFF id, the card, and the text that previews it. */
+export interface LineShareCard {
+  liffId: string;
+  card: SummaryCard;
+  preview: { name: string; date: string; venue: string | null; players: number; games: number };
 }
 
 /** The session with its group and the group's owner, which is all `resolve` needs. */
@@ -99,24 +106,7 @@ export class LineSummaryService {
     }
 
     try {
-      const pairings = await this.prisma.pairing.findMany({
-        where: { sessionId: sessionCode, ...FINISHED_GAME },
-        select: { teamA: true, teamB: true },
-      });
-      const players = new Set<string>();
-      for (const p of pairings) {
-        for (const id of [...(JSON.parse(p.teamA) as string[]), ...(JSON.parse(p.teamB) as string[])]) players.add(id);
-      }
-      const card = summaryCard({
-        groupName: session.group.name,
-        date: session.date,
-        endedAt: session.endedAt,
-        venue: session.venue,
-        players: players.size,
-        games: pairings.length,
-        url: `${baseUrl}/s/${sessionCode}/summary`,
-        ...(resolved.shareUrl ? { shareUrl: resolved.shareUrl } : {}),
-      });
+      const { card } = await this.buildCard(session, session.endedAt, baseUrl, resolved.shareUrl);
       const outcome = await this.line.push(resolved.to, [card], retryKeyFor(sessionCode));
       if (outcome === 'ok') {
         await this.prisma.session.update({ where: { code: sessionCode }, data: { lineSummarySentAt: now } });
@@ -128,6 +118,53 @@ export class LineSummaryService {
       await this.release(sessionCode, now).catch(() => undefined);
       return 'failed';
     }
+  }
+
+  /**
+   * What the LIFF page shares into a LINE chat. Public: the route carries no login, so it serves only a session
+   * of the `host` target that is ended and has a finished game (anything else is a 404, which also hides whether
+   * the session exists), and only what the public summary page already shows. The card is the one the host was
+   * DMed without its share button, built by the same code so the two cannot drift.
+   */
+  async shareCard(sessionCode: string, now: Date = new Date()): Promise<LineShareCard> {
+    const session = await this.load(sessionCode);
+    const { publicAppUrl: baseUrl, liffId } = lineConfig();
+    if (!session || session.endedAt === null || baseUrl === null || liffId === null) throw new NotFoundException();
+    const resolved = await this.resolve(session, now);
+    if (resolved?.target !== 'host') throw new NotFoundException();
+    const { card, preview } = await this.buildCard(session, session.endedAt, baseUrl);
+    return { liffId, card, preview };
+  }
+
+  /** The night's totals and the card for them; `shareUrl` adds the host copy's "send to group" button. */
+  private async buildCard(
+    session: SessionForSummary,
+    endedAt: Date,
+    baseUrl: string,
+    shareUrl?: string | null
+  ): Promise<{ card: SummaryCard; preview: LineShareCard['preview'] }> {
+    const pairings = await this.prisma.pairing.findMany({
+      where: { sessionId: session.code, ...FINISHED_GAME },
+      select: { teamA: true, teamB: true },
+    });
+    const players = new Set<string>();
+    for (const p of pairings) {
+      for (const id of [...(JSON.parse(p.teamA) as string[]), ...(JSON.parse(p.teamB) as string[])]) players.add(id);
+    }
+    const input = {
+      groupName: session.group.name,
+      date: session.date,
+      endedAt,
+      venue: session.venue,
+      players: players.size,
+      games: pairings.length,
+      url: `${baseUrl}/s/${session.code}/summary`,
+      ...(shareUrl ? { shareUrl } : {}),
+    };
+    return {
+      card: summaryCard(input),
+      preview: { ...cardTexts(input), players: input.players, games: input.games },
+    };
   }
 
   private load(sessionCode: string): Promise<SessionForSummary | null> {

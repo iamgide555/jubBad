@@ -26,7 +26,10 @@ export interface LineHostStatus {
   enabled: boolean;
   /** The group's default for the "send the summary card" checkbox at the end of a round. */
   summaryDefault: boolean;
-  /** The server can build the card and the LIFF button can open it. */
+  /**
+   * The server can build the card and the LIFF button can open it. False for a bot-linked group:
+   * its card is posted by the bot into the group, which has its own switch.
+   */
   summaryAvailable: boolean;
 }
 
@@ -54,6 +57,7 @@ export class LineHostService {
     accountLinked: boolean;
     enabled: boolean;
     summaryDefault: boolean;
+    botLinked: boolean;
   }> {
     const group = await this.prisma.group.findUnique({
       where: { code: groupCode },
@@ -61,6 +65,7 @@ export class LineHostService {
         ownerId: true,
         lineDmEnabled: true,
         lineSummaryDefault: true,
+        lineGroupId: true,
         owner: { select: { lineUserId: true } },
       },
     });
@@ -70,12 +75,13 @@ export class LineHostService {
       accountLinked: group.owner?.lineUserId != null,
       enabled: group.lineDmEnabled,
       summaryDefault: group.lineSummaryDefault,
+      botLinked: group.lineGroupId !== null,
     };
   }
 
   async status(groupCode: string): Promise<LineHostStatus> {
     const config = lineConfig();
-    const { accountLinked, enabled, summaryDefault } =
+    const { accountLinked, enabled, summaryDefault, botLinked } =
       await this.ownerOf(groupCode);
     return {
       configured: config.secret !== null && config.token !== null,
@@ -83,7 +89,8 @@ export class LineHostService {
       accountLinked,
       enabled: accountLinked && enabled,
       summaryDefault,
-      summaryAvailable: config.publicAppUrl !== null && config.liffId !== null,
+      summaryAvailable:
+        config.publicAppUrl !== null && config.liffId !== null && !botLinked,
     };
   }
 

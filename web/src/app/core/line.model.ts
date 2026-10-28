@@ -41,7 +41,10 @@ export interface LineHostStatus {
   enabled: boolean;
   /** Whether the end-of-session "send the summary card" checkbox starts ticked (the group's one default). */
   summaryDefault: boolean;
-  /** False when the server cannot send a card for this group (no public app url), so the switch would do nothing. */
+  /**
+   * False when the server cannot send a card (no public app url or LIFF id), and for a bot-linked
+   * group: its card is posted by the bot into the group, which has its own switch.
+   */
   summaryAvailable: boolean;
 }
 

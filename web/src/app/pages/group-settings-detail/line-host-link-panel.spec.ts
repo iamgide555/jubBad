@@ -181,6 +181,18 @@ describe('LineHostLinkPanel', () => {
       expect(sw()).toBeNull();
     });
 
+    it('is hidden when the server says no switch is wanted, e.g. a bot-linked group, though linked and on', async () => {
+      await open({ ...ON, summaryAvailable: false });
+      expect(sw()).toBeNull();
+      expect(q('[data-host-enabled]')).not.toBeNull();
+    });
+
+    it('is hidden on a paused group (plan lapsed) while the paused notice shows', async () => {
+      await open(ON, false);
+      expect(q('[data-host-paused]')).not.toBeNull();
+      expect(sw()).toBeNull();
+    });
+
     it('saves with a PATCH and the box follows the server', async () => {
       await open(ON);
       sw()!.click();

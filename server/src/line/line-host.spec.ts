@@ -187,6 +187,18 @@ describe('LINE host link codes, status and unlink', () => {
       expect((await host.status(code)).summaryAvailable).toBe(false);
     });
 
+    it('hides the host switch for a bot-linked group even with both settings present', async () => {
+      process.env.PUBLIC_APP_URL = 'https://jubbad.test';
+      process.env.LINE_LIFF_ID = '1234567890-AbCdEfGh';
+      const { code } = await makeOwner();
+      expect((await host.status(code)).summaryAvailable).toBe(true);
+      await prisma.group.update({
+        where: { code },
+        data: { lineGroupId: `C${randomUUID().replace(/-/g, '')}` },
+      });
+      expect((await host.status(code)).summaryAvailable).toBe(false);
+    });
+
     it('is not configured without the secret and token', async () => {
       delete process.env.LINE_CHANNEL_SECRET;
       const { code } = await makeOwner();

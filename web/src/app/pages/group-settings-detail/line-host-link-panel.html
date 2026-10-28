@@ -41,7 +41,7 @@
             <app-plan-lock [hint]="lockHint" />
           </div>
         }
-        @if (host.enabled && host.summaryAvailable) {
+        @if (host.enabled && host.summaryAvailable && paid()) {
           <label class="switch-row">
             <input
               type="checkbox"

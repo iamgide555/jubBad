@@ -1,5 +1,5 @@
 import { vi } from 'vitest';
-import { LineClient } from './line-client.js';
+import { LineClient, groupChoiceMessage } from './line-client.js';
 
 function jsonResponse(status: number, body: unknown): Response {
   return new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json' } });
@@ -139,6 +139,67 @@ describe('LineClient', () => {
       delete process.env.LINE_CHANNEL_ACCESS_TOKEN;
       expect(await client.push('Cgroup', [message])).toBe('failed');
       expect(fetchMock).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('replyMessages and groupChoiceMessage', () => {
+    it('replyMessages posts the reply token and the given messages array', async () => {
+      fetchMock.mockResolvedValue(jsonResponse(200, {}));
+      const messages = [{ type: 'text', text: 'a' }, groupChoiceMessage('เลือก', [{ label: 'ก๊วน', data: 'x' }])];
+      await client.replyMessages('rt-2', messages);
+      const [url, init] = fetchMock.mock.calls[0];
+      expect(url).toBe('https://api.line.me/v2/bot/message/reply');
+      expect(init.method).toBe('POST');
+      expect(JSON.parse(init.body)).toEqual({ replyToken: 'rt-2', messages });
+    });
+
+    it('replyMessages is a no-op without a token and never throws on a network error', async () => {
+      fetchMock.mockRejectedValueOnce(new Error('network down'));
+      await expect(client.replyMessages('rt-2', [])).resolves.toBeUndefined();
+      delete process.env.LINE_CHANNEL_ACCESS_TOKEN;
+      fetchMock.mockClear();
+      await client.replyMessages('rt-2', []);
+      expect(fetchMock).not.toHaveBeenCalled();
+    });
+
+    it('groupChoiceMessage builds a text message with one postback quick reply per choice', () => {
+      expect(
+        groupChoiceMessage('เลือกก๊วน', [
+          { label: 'ก๊วน A', data: 'pick:1' },
+          { label: 'ก๊วน B', data: 'pick:2' }
+        ])
+      ).toEqual({
+        type: 'text',
+        text: 'เลือกก๊วน',
+        quickReply: {
+          items: [
+            { type: 'action', action: { type: 'postback', label: 'ก๊วน A', data: 'pick:1' } },
+            { type: 'action', action: { type: 'postback', label: 'ก๊วน B', data: 'pick:2' } }
+          ]
+        }
+      });
+    });
+
+    it('groupChoiceMessage truncates a 30-character label to 20 and leaves data untouched', () => {
+      const label = 'ก'.repeat(30);
+      const data = 'd'.repeat(120);
+      const msg = groupChoiceMessage('t', [{ label, data }]) as {
+        quickReply: { items: { action: { label: string; data: string; displayText?: string } }[] };
+      };
+      const action = msg.quickReply.items[0].action;
+      expect(action.label).toBe('ก'.repeat(20));
+      expect(action.displayText).toBeUndefined();
+      expect(action.data).toBe(data);
+    });
+
+    it('groupChoiceMessage caps a label at 20 UTF-16 units and never splits an emoji', () => {
+      const labelOf = (label: string) =>
+        (groupChoiceMessage('t', [{ label, data: 'd' }]) as { quickReply: { items: { action: { label: string } }[] } })
+          .quickReply.items[0].action.label;
+      // 19 Thai letters + one emoji is 21 UTF-16 units: the emoji goes whole, not half of it.
+      expect(labelOf(`${'ก'.repeat(19)}🏸`)).toBe('ก'.repeat(19));
+      expect(labelOf('🏸'.repeat(15))).toBe('🏸'.repeat(10));
+      expect(labelOf(`${'ก'.repeat(18)}🏸x`)).toBe(`${'ก'.repeat(18)}🏸`);
     });
   });
 });

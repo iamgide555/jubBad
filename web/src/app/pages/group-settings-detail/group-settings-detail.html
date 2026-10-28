@@ -28,7 +28,15 @@
           <app-share-dashboard-panel [groupCode]="groupCode" [paid]="paid()" />
         }
         @case ('line') {
-          <h1 class="detail-title" i18n="@@line.title">กลุ่ม LINE</h1>
+          <h1 class="detail-title" i18n="@@line.title">LINE</h1>
+          <p class="muted" i18n="@@line.intro">เลือกวิธีให้บอทรับรายชื่อของก๊วนนี้ ใช้ได้ทั้งสองแบบพร้อมกัน</p>
+          <section class="line-card" data-group-section>
+          <header class="line-card-head">
+            <h2 i18n="@@line.group.title">กลุ่ม LINE</h2>
+            @if (groupChipText(); as chip) {
+              <span class="line-state" [class.on]="lineStatus()?.linked && paid()" data-group-state>{{ chip }}</span>
+            }
+          </header>
           @if (lineLoadFailed()) {
             <p class="error" role="alert" data-line-load-failed>
               <ng-container i18n="@@line.loadFailed">โหลดสถานะกลุ่ม LINE ไม่สำเร็จ</ng-container>
@@ -74,7 +82,7 @@
                     <a class="line-add" data-add-bot [href]="line.botAddUrl" target="_blank" rel="noopener" i18n="@@line.addBot">เพิ่มบอทเข้ากลุ่ม LINE</a>
                   </p>
                 }
-                <p class="muted" i18n="@@line.addBotHint">กลุ่ม LINE หนึ่งกลุ่มมีบอทได้ตัวเดียว ถ้ามีบอทอื่นอยู่แล้วต้องเอาออกก่อน</p>
+                <p class="muted" i18n="@@line.addBotHint">กลุ่ม LINE หนึ่งกลุ่มมีบอทได้ตัวเดียว ถ้ามีบอทอื่นอยู่แล้ว ใช้แชตส่วนตัวกับบอทด้านล่างแทนได้</p>
                 @if (linePending(); as pending) {
                   <p class="muted" i18n="@@line.typeCode">พิมพ์ข้อความนี้ในกลุ่ม LINE:</p>
                   <p class="line-code" data-code>{{ pending.code }}</p>
@@ -106,6 +114,8 @@
               </div>
             }
           </ng-template>
+          </section>
+          <app-line-host-link-panel [groupCode]="groupCode" [paid]="paid()" />
         }
         @case ('advanced') {
           <h1 class="detail-title" i18n="@@group.row.advanced">ตั้งค่าขั้นสูง</h1>

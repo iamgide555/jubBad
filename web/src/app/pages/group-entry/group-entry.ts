@@ -336,14 +336,20 @@ export class GroupEntry {
     }
   }
 
+  /** Who the banner names: a DM to the bot has no group sender, so it says how it came instead. */
+  private lineSender(roster: LatestRoster): string {
+    if (roster.direct) return $localize`:@@entry.lineDirect:ส่งทางข้อความส่วนตัว`;
+    return roster.senderName ?? $localize`:@@entry.lineUnknown:ไม่ทราบชื่อ`;
+  }
+
   protected lineFromText(roster: LatestRoster): string {
-    const name = roster.senderName ?? $localize`:@@entry.lineUnknown:ไม่ทราบชื่อ`;
+    const name = this.lineSender(roster);
     const time = formatPostedAt(roster.postedAt, new Date(), this.locale);
     return $localize`:@@entry.lineFrom:รายชื่อล่าสุดจาก LINE โดย ${name}:name: · ${time}:time:`;
   }
 
   protected lineNewerText(roster: LatestRoster): string {
-    const name = roster.senderName ?? $localize`:@@entry.lineUnknown:ไม่ทราบชื่อ`;
+    const name = this.lineSender(roster);
     const time = formatPostedAt(roster.postedAt, new Date(), this.locale);
     return $localize`:@@entry.lineNewer:มีรายชื่อใหม่กว่าใน LINE (โดย ${name}:name: · ${time}:time:)`;
   }

@@ -24,6 +24,16 @@ export interface LineSummaryState {
   defaultOn: boolean;
 }
 
+/** Mirrors server/src/line/line-host.service.ts LineHostStatus: a group's side of the host's own LINE link. */
+export interface LineHostStatus {
+  configured: boolean;
+  botAddUrl: string | null;
+  /** The owner's LINE account is linked (one account for all their groups). */
+  accountLinked: boolean;
+  /** Rosters that account DMs to the bot may be filed under this group. */
+  enabled: boolean;
+}
+
 export interface LineLinkCode {
   code: string;
   expiresAt: string;
@@ -35,6 +45,8 @@ export interface LatestRoster {
   senderName: string | null;
   postedAt: string;
   stale: boolean;
+  /** True when the host sent it to the bot by direct message, not from a LINE group. */
+  direct: boolean;
 }
 
 const BANGKOK = 'Asia/Bangkok';

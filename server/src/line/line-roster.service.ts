@@ -20,6 +20,8 @@ export interface LatestRoster {
   senderName: string | null;
   postedAt: string;
   stale: boolean;
+  /** True when the newest roster came from the host's direct message to the bot, not a LINE group. */
+  direct: boolean;
 }
 
 /**
@@ -57,7 +59,7 @@ export class LineRosterService {
       if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') return 'ignored';
       throw error;
     }
-    await this.purgeGroup(groupCode, new Date());
+    await this.purgeFor(groupCode);
     return 'stored';
   }
 
@@ -81,11 +83,16 @@ export class LineRosterService {
   /**
    * What start pre-fills: the newest captured roster, with whether it is older than
    * the group's last finished session. Null (so start shows the manual paste) when
-   * the group is unlinked, nothing was captured, or the owner is not paid now.
+   * the group has neither a LINE group nor DM capture on for a linked owner, nothing was
+   * captured, or the owner is not paid now.
    */
   async latest(groupCode: string, now: Date = new Date()): Promise<LatestRoster | null> {
-    const group = await this.prisma.group.findUnique({ where: { code: groupCode }, select: { lineGroupId: true } });
-    if (!group?.lineGroupId) return null;
+    const group = await this.prisma.group.findUnique({
+      where: { code: groupCode },
+      select: { lineGroupId: true, lineDmEnabled: true, owner: { select: { lineUserId: true } } },
+    });
+    const viaDm = group?.lineDmEnabled === true && group.owner?.lineUserId != null;
+    if (!group?.lineGroupId && !viaDm) return null;
     if (!planAtLeast(await this.plans.planForGroup(groupCode, now), 'host')) return null;
     const newest = await this.prisma.lineRosterMessage.findFirst({
       where: { groupId: groupCode },
@@ -102,6 +109,7 @@ export class LineRosterService {
       senderName: newest.senderName,
       postedAt: newest.postedAt.toISOString(),
       stale: rosterStaleness(newest.postedAt, lastEnded?.endedAt ?? null, now) === 'stale',
+      direct: newest.direct,
     };
   }
 
@@ -119,7 +127,8 @@ export class LineRosterService {
     return (await this.prisma.lineRosterMessage.deleteMany({ where: { id: { in: doomed } } })).count;
   }
 
-  private async purgeGroup(groupCode: string, now: Date): Promise<void> {
+  /** One group's sweep (20 newest, 30 days), run after each store; a DM-captured row ages out the same way. */
+  async purgeFor(groupCode: string, now: Date = new Date()): Promise<void> {
     const rows = await this.prisma.lineRosterMessage.findMany({
       where: { groupId: groupCode },
       select: { id: true, postedAt: true },

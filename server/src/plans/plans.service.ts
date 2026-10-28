@@ -28,6 +28,12 @@ export class PlansService {
     return effectivePlan(await this.ownerOfGroup(groupCode), now);
   }
 
+  /** A user's own plan, e.g. a host acting through LINE rather than through a group. A missing user resolves to club, like a missing group. */
+  async planForUser(userId: string, now: Date = new Date()): Promise<Plan> {
+    const user = await this.prisma.user.findUnique({ where: { id: userId }, select: OWNER_SELECT });
+    return effectivePlan(user, now);
+  }
+
   async planForSession(sessionCode: string, now: Date = new Date()): Promise<Plan> {
     const session = await this.prisma.session.findUnique({
       where: { code: sessionCode },

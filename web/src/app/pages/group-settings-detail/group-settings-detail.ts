@@ -14,6 +14,7 @@ import { isDetailSection, settingsReturn, type DetailSection } from '../../core/
 import { copyToClipboard } from '../../core/share-link';
 import { PlanLock } from '../../shared/plan-lock/plan-lock';
 import { ShareDashboardPanel } from '../../shared/share-dashboard-panel/share-dashboard-panel';
+import { LineHostLinkPanel } from './line-host-link-panel';
 
 /** How often the page asks whether the LINE group has linked, while a code is waiting. */
 export const LINE_POLL_MS = 5000;
@@ -27,7 +28,7 @@ export const LINE_POLL_MS = 5000;
  */
 @Component({
   selector: 'app-group-settings-detail',
-  imports: [FormsModule, RouterLink, NgTemplateOutlet, ShareDashboardPanel, PlanLock],
+  imports: [FormsModule, RouterLink, NgTemplateOutlet, ShareDashboardPanel, PlanLock, LineHostLinkPanel],
   templateUrl: './group-settings-detail.html',
   styleUrl: './group-settings-detail.css',
 })
@@ -155,6 +156,14 @@ export class GroupSettingsDetail {
       next: (s) => this.lineStatus.set(s),
       error: () => this.lineLoadFailed.set(true),
     });
+  }
+
+  /** The group card's header tag; null until the status is read, or when the system has no bot. */
+  protected groupChipText(): string | null {
+    const line = this.lineStatus();
+    if (!line || this.lineNotConfigured()) return null;
+    if (!line.linked) return $localize`:@@line.group.stateOff:ยังไม่เชื่อม`;
+    return this.paid() ? $localize`:@@line.group.stateOn:เชื่อมแล้ว` : $localize`:@@line.group.statePaused:หยุดชั่วคราว`;
   }
 
   protected linkedText(): string {

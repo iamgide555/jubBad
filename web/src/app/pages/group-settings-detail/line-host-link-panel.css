@@ -1,0 +1,86 @@
+.host-panel {
+  display: grid;
+  gap: var(--space-1);
+  justify-items: start;
+}
+
+.host-panel > p {
+  margin: 0;
+}
+
+.host-code {
+  justify-self: stretch;
+  padding: var(--space-2);
+  border-radius: var(--radius);
+  background: var(--ground-sunk);
+  font-family: ui-monospace, 'SFMono-Regular', Menlo, Consolas, monospace;
+  font-size: var(--text-2xl);
+  font-weight: 700;
+  letter-spacing: 0.2em;
+  text-align: center;
+}
+
+.host-command {
+  font-family: ui-monospace, 'SFMono-Regular', Menlo, Consolas, monospace;
+  overflow-wrap: anywhere;
+}
+
+.host-add {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--tap);
+  font-weight: 600;
+}
+
+.switch-row {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+  min-height: var(--tap);
+  cursor: pointer;
+  color: var(--ink);
+  font-size: var(--text-base);
+  font-weight: 400;
+  margin: 0;
+}
+
+.switch-row input {
+  width: 1.5rem;
+  min-height: 1.5rem;
+  flex: none;
+  margin-top: var(--space-0);
+  accent-color: var(--court);
+}
+
+.switch-text {
+  display: flex;
+  flex-direction: column;
+}
+
+.switch-title {
+  font-weight: 600;
+}
+
+.host-account {
+  display: grid;
+  gap: var(--space-1);
+  justify-items: start;
+  justify-self: stretch;
+  padding-top: var(--space-2);
+  border-top: 1px solid var(--line);
+}
+
+.host-account p {
+  margin: 0;
+}
+
+.host-confirm {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+}
+
+.host-confirm p {
+  flex-basis: 100%;
+  margin: 0;
+}

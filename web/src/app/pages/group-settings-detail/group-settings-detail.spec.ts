@@ -425,6 +425,7 @@ describe('GroupSettingsDetail', () => {
       summaryDefault: true,
       summaryAvailable: true,
     };
+    const HOST = { configured: true, botAddUrl: 'https://lin.ee/jubbad', accountLinked: false, enabled: false };
     const q = (selector: string) => el().querySelector<HTMLElement>(selector);
 
     afterEach(() => vi.useRealTimers());
@@ -434,6 +435,8 @@ describe('GroupSettingsDetail', () => {
       httpMock.expectOne(`${B}/groups/group1`).flush(GROUP);
       await settle();
       httpMock.expectOne(`${B}/groups/group1/line`).flush({ ...STATUS, ...status });
+      // The chat-with-the-bot card below reads its own status for this group.
+      httpMock.expectOne(`${B}/groups/group1/line/host`).flush(HOST);
       if (answer) plan.answer(answer);
       await settle();
       return page;
@@ -627,11 +630,54 @@ describe('GroupSettingsDetail', () => {
       expect(q('[data-not-configured]')?.textContent).toContain('ยังไม่ได้ตั้งค่าบอท LINE ของระบบ');
     });
 
+    it('shows both cards under one LINE title: the LINE group, then the chat with the bot', async () => {
+      await openLine({ linked: true, lineGroupName: 'ก๊วนพฤหัส LINE' });
+      expect([...el().querySelectorAll('h1')].map((h) => h.textContent?.trim())).toEqual(['LINE']);
+      const group = q('[data-group-section]')!;
+      const host = q('[data-host-section]')!;
+      expect(group.querySelector('h2')?.textContent).toContain('กลุ่ม LINE');
+      expect(host.querySelector('h2')?.textContent).toContain('แชตส่วนตัวกับบอท');
+      expect(el().textContent).not.toContain('ผูกบัญชี LINE ของฉัน');
+      expect(group.compareDocumentPosition(host) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+      expect(group.contains(host)).toBe(false);
+      expect(q('app-line-host-link-panel [data-host-make-code]')).not.toBeNull();
+      expect(q('[data-make-code]')).toBeNull();
+    });
+
+    describe('the LINE group card tag', () => {
+      const tag = () => q('[data-group-state]');
+
+      it('reads ยังไม่เชื่อม when the group is not linked', async () => {
+        await openLine();
+        expect(tag()?.textContent?.trim()).toBe('ยังไม่เชื่อม');
+        expect(tag()?.classList.contains('on')).toBe(false);
+      });
+
+      it('reads เชื่อมแล้ว and is drawn as on when linked on a paid plan', async () => {
+        await openLine({ linked: true, lineGroupName: 'ก๊วนพฤหัส LINE' });
+        expect(tag()?.textContent?.trim()).toBe('เชื่อมแล้ว');
+        expect(tag()?.classList.contains('on')).toBe(true);
+      });
+
+      it('reads หยุดชั่วคราว and is not drawn as on when linked on the free plan', async () => {
+        await openLine({ linked: true, lineGroupName: 'ก๊วนพฤหัส LINE' }, 'free');
+        expect(tag()?.textContent?.trim()).toBe('หยุดชั่วคราว');
+        expect(tag()?.classList.contains('on')).toBe(false);
+      });
+
+      it('is hidden when the system has no LINE bot', async () => {
+        await openLine({ configured: false });
+        expect(tag()).toBeNull();
+        expect(q('[data-group-section] h2')).not.toBeNull();
+      });
+    });
+
     it('a failed status read says so and offers a retry, never an empty page', async () => {
       const page = await harness.navigateByUrl('/g/group1/settings/line', GroupSettingsDetail);
       httpMock.expectOne(`${B}/groups/group1`).flush(GROUP);
       await settle();
       httpMock.expectOne(`${B}/groups/group1/line`).flush('x', { status: 500, statusText: 'x' });
+      httpMock.expectOne(`${B}/groups/group1/line/host`).flush(HOST);
       await settle();
       expect(page.status()).toBe('ready');
       expect(q('[data-line-load-failed]')).not.toBeNull();

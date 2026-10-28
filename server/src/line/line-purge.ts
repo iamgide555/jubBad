@@ -1,4 +1,5 @@
 import { Injectable, Module, OnApplicationBootstrap, OnModuleDestroy } from '@nestjs/common';
+import { LineHostService } from './line-host.service.js';
 import { LineLinkService } from './line-link.service.js';
 import { LineRosterService } from './line-roster.service.js';
 import { LineModule } from './line.module.js';
@@ -19,7 +20,8 @@ export class LinePurgeScheduler implements OnApplicationBootstrap, OnModuleDestr
 
   constructor(
     private readonly roster: LineRosterService,
-    private readonly link: LineLinkService
+    private readonly link: LineLinkService,
+    private readonly host: LineHostService
   ) {}
 
   onApplicationBootstrap(): void {
@@ -37,6 +39,7 @@ export class LinePurgeScheduler implements OnApplicationBootstrap, OnModuleDestr
     try {
       await this.roster.purge();
       await this.link.purgeExpiredCodes();
+      await this.host.purgeExpired();
     } catch (error) {
       console.error('[line-purge] sweep failed', error);
     } finally {

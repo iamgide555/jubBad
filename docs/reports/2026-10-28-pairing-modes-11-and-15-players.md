@@ -57,12 +57,54 @@ each one picks who plays and how it partners them over a 14-round night. A follo
   court finishes at the same instant, so waits tie exactly and the band decides; real waits differ by seconds, so
   the gap may be smaller in practice.
 
+## Follow-up: rosters where 0 or 4 players sit out
+
+The earlier simulation (G9/G12 in `docs/2026-09-25-engine-evidence-gaps.md`) found that 8 players on 2 courts,
+12 on 2 and 16 on 3 rotate through a few fixed quartets when courts finish one at a time, because only the
+finishing court's four players and the four who sat can be re-mixed. The same method as above, with every court
+re-planned together each round (what `propose` does when all courts are idle), 14 rounds, evenly spread ratings,
+seed 7:
+
+| | สลับคู่ | สูสี | ระดับ |
+|---|---|---|---|
+| **12 players, 2 courts** | | | |
+| Average team gap | 198 | 2 | 170 |
+| First round with a repeat partner | 14 | 7 | 12 |
+| Courts with a repeat partner | 1 of 28 | 10 of 28 | 3 of 28 |
+| Most repeated partner pair | 2 | 2 | 2 |
+| Partner pairs that happened | 55 of 66 | 45 of 66 | 53 of 66 |
+| Most repeated opponent pair | 3 | 5 | 4 |
+| **16 players, 3 courts** | | | |
+| Average team gap | 175 | 4 | 92 |
+| First round with a repeat partner | none | 8 | 5 |
+| Courts with a repeat partner | 0 of 42 | 6 of 42 | 11 of 42 |
+| Most repeated partner pair | 1 | 2 | 2 |
+| Partner pairs that happened | 84 of 120 | 78 of 120 | 64 of 120 |
+| Most repeated opponent pair | 2 | 4 | 7 |
+| **8 players, 2 courts** | | | |
+| Average team gap | 193 | 0 | 193 |
+| First round with a repeat partner | 8 | 5 | 8 |
+| Courts with a repeat partner | 14 of 28 | 20 of 28 | 14 of 28 |
+| Most repeated partner pair | 2 | 4 | 2 |
+| Partner pairs that happened | 28 of 28 | 16 of 28 | 28 of 28 |
+| Most repeated opponent pair | 5 | 8 | 5 |
+
+- **Waiting until all courts are idle removes the lock-in at 12 and 16 players.** The worst pair partners twice
+  or less in every mode, against 9.0 and 6.9 times in สูสี (3.9 and 3.0 in สลับคู่) at 30 matches when courts
+  finish one at a time. The cost is that the first court to finish waits for the other.
+- **8 players in สูสี is still limited.** Nobody sits out and balance dominates, so only 16 of 28 partner pairs
+  happen and one pair repeats 4 times. สลับคู่ and ระดับ meet all 28 pairs, and their repeats are arithmetic (56
+  partnerships over 28 pairs).
+- One seed per cell, like the rest of this report.
+
 ## Caveats
 
 - One seeded run per roster. Repeat counts move with the seed, so read the tables for how the modes behave, not
   for exact figures. The 200-run simulation in `docs/2026-09-25-engine-evidence-gaps.md` (G9) is the statistical
   version.
-- All courts finish together each round, which makes waits tie exactly. Production courts rotate independently.
+- All courts finish together each round, which makes waits tie exactly. Production courts rotate independently,
+  so a host who proposes the moment one court frees gets the one-court-at-a-time behaviour, not this one (see the
+  follow-up above).
 - Ratings are fixed and evenly spread. Real groups have clusters, and ratings change as results come in.
 
 ## Detail: 11 players, 2 courts (3 sit out each round)

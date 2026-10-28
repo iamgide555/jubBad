@@ -17,7 +17,16 @@
     }
     @if (canSendLineSummary()) {
       <p>
-        <button type="button" class="ghost" data-send-line-summary [disabled]="lineSending()" (click)="sendLineSummary()" i18n="@@summary.sendLine">ส่งสรุปเข้ากลุ่ม LINE</button>
+        @if (lineState()?.target === 'host') {
+          <button type="button" class="ghost" data-send-line-summary [disabled]="lineSending()" (click)="sendLineSummary()" i18n="@@summary.sendLineHost">ส่งการ์ดให้ฉันทาง LINE</button>
+        } @else {
+          <button type="button" class="ghost" data-send-line-summary [disabled]="lineSending()" (click)="sendLineSummary()" i18n="@@summary.sendLine">ส่งสรุปเข้ากลุ่ม LINE</button>
+        }
+      </p>
+    }
+    @if (shareUrl(); as url) {
+      <p>
+        <a class="share-to-group" data-share-to-group [href]="url" i18n="@@summary.shareToGroup">ส่งการ์ดเข้ากลุ่ม LINE</a>
       </p>
     }
 

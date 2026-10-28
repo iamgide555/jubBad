@@ -41,6 +41,22 @@
             <app-plan-lock [hint]="lockHint" />
           </div>
         }
+        @if (host.enabled && host.summaryAvailable) {
+          <label class="switch-row">
+            <input
+              type="checkbox"
+              name="lineHostSummaryDefault"
+              data-host-summary-default
+              [checked]="host.summaryDefault"
+              [disabled]="busy()"
+              (change)="setSummaryDefault($any($event.target))"
+            />
+            <span class="switch-text">
+              <span class="switch-title" i18n="@@line.host.summaryDefault">ส่งการ์ดสรุปให้ฉันทาง LINE เมื่อจบรอบ</span>
+              <span class="muted" i18n="@@line.host.summaryDefaultHint">ค่าเริ่มต้นของช่องติ๊กตอนกดจบรอบ เปลี่ยนได้ทุกครั้ง</span>
+            </span>
+          </label>
+        }
         <div class="host-account">
           <p class="muted" data-host-linked i18n="@@line.host.linked">ผูกบัญชี LINE ของคุณแล้ว ใช้ร่วมกันทุกก๊วน</p>
           <ng-container [ngTemplateOutlet]="unlinkBlock" />

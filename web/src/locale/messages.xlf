@@ -3338,6 +3338,10 @@
           <context context-type="sourcefile">src/app/pages/group-settings-detail/group-settings-detail.ts</context>
           <context context-type="linenumber">248</context>
         </context-group>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/group-settings-detail/line-host-link-panel.ts</context>
+          <context context-type="linenumber">191</context>
+        </context-group>
       </trans-unit>
       <trans-unit id="line.unlinkFailed" datatype="html">
         <source>ยกเลิกการเชื่อมไม่สำเร็จ ลองอีกครั้ง</source>
@@ -3358,6 +3362,20 @@
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/group-settings-detail/line-host-link-panel.html</context>
           <context context-type="linenumber">4,5</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="line.host.summaryDefault" datatype="html">
+        <source>ส่งการ์ดสรุปให้ฉันทาง LINE เมื่อจบรอบ</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/group-settings-detail/line-host-link-panel.html</context>
+          <context context-type="linenumber">55,56</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="line.host.summaryDefaultHint" datatype="html">
+        <source>ค่าเริ่มต้นของช่องติ๊กตอนกดจบรอบ เปลี่ยนได้ทุกครั้ง</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/group-settings-detail/line-host-link-panel.html</context>
+          <context context-type="linenumber">56,58</context>
         </context-group>
       </trans-unit>
       <trans-unit id="line.host.linked" datatype="html">
@@ -6418,6 +6436,13 @@
           <context context-type="linenumber">489,490</context>
         </context-group>
       </trans-unit>
+      <trans-unit id="dashboard.sendLineSummaryHost" datatype="html">
+        <source>ส่งการ์ดสรุปให้ฉันทาง LINE</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/session-dashboard/session-dashboard.html</context>
+          <context context-type="linenumber">508,510</context>
+        </context-group>
+      </trans-unit>
       <trans-unit id="dashboard.sendLineSummary" datatype="html">
         <source>ส่งสรุปเข้ากลุ่ม LINE</source>
         <context-group purpose="location">
@@ -6621,11 +6646,25 @@
           <context context-type="linenumber">9,11</context>
         </context-group>
       </trans-unit>
+      <trans-unit id="summary.sendLineHost" datatype="html">
+        <source>ส่งการ์ดให้ฉันทาง LINE</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/session-summary/session-summary.html</context>
+          <context context-type="linenumber">21,23</context>
+        </context-group>
+      </trans-unit>
       <trans-unit id="summary.sendLine" datatype="html">
         <source>ส่งสรุปเข้ากลุ่ม LINE</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/session-summary/session-summary.html</context>
           <context context-type="linenumber">20,24</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="summary.shareToGroup" datatype="html">
+        <source>ส่งการ์ดเข้ากลุ่ม LINE</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/session-summary/session-summary.html</context>
+          <context context-type="linenumber">29,33</context>
         </context-group>
       </trans-unit>
       <trans-unit id="summary.shuttleLabel" datatype="html">
@@ -6953,6 +6992,13 @@
           <context context-type="linenumber">322,323</context>
         </context-group>
       </trans-unit>
+      <trans-unit id="summary.lineHostSent" datatype="html">
+        <source>ส่งการ์ดให้คุณทาง LINE แล้ว</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/session-summary/session-summary.ts</context>
+          <context context-type="linenumber">206</context>
+        </context-group>
+      </trans-unit>
       <trans-unit id="summary.lineSent" datatype="html">
         <source>ส่งสรุปเข้ากลุ่ม LINE แล้ว</source>
         <context-group purpose="location">
@@ -6974,11 +7020,25 @@
           <context context-type="linenumber">199</context>
         </context-group>
       </trans-unit>
+      <trans-unit id="summary.lineHostFailed" datatype="html">
+        <source>ส่งการ์ดให้คุณไม่สำเร็จ เพิ่มบอทเป็นเพื่อนอีกครั้งแล้วลองใหม่</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/session-summary/session-summary.ts</context>
+          <context context-type="linenumber">216</context>
+        </context-group>
+      </trans-unit>
       <trans-unit id="summary.lineFailed" datatype="html">
         <source>ส่งสรุปเข้ากลุ่ม LINE ไม่สำเร็จ ลองอีกครั้งได้</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/session-summary/session-summary.ts</context>
           <context context-type="linenumber">201</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="summary.lineHostUnavailable" datatype="html">
+        <source>ส่งการ์ดไม่ได้ ยังไม่ได้ผูกบัญชี LINE ของคุณ หรือแพ็กเกจหมดอายุ</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/session-summary/session-summary.ts</context>
+          <context context-type="linenumber">220</context>
         </context-group>
       </trans-unit>
       <trans-unit id="summary.lineUnavailable" datatype="html">

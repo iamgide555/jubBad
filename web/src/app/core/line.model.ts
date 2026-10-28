@@ -22,6 +22,13 @@ export interface LineSummaryState {
   sent: boolean;
   /** The group's saved default for the end-of-session checkbox. */
   defaultOn: boolean;
+  /**
+   * Where the card goes: `group` when the bot is in the LINE group, `host` when the owner linked
+   * their own LINE by DM and the bot hands them the card to share, null when neither is set up.
+   */
+  target: 'group' | 'host' | null;
+  /** The LIFF link that shares the card to a chat; only for `host`, and only while a card can go out. */
+  shareUrl: string | null;
 }
 
 /** Mirrors server/src/line/line-host.service.ts LineHostStatus: a group's side of the host's own LINE link. */
@@ -32,6 +39,10 @@ export interface LineHostStatus {
   accountLinked: boolean;
   /** Rosters that account DMs to the bot may be filed under this group. */
   enabled: boolean;
+  /** Whether the end-of-session "send the summary card" checkbox starts ticked (the group's one default). */
+  summaryDefault: boolean;
+  /** False when the server cannot send a card for this group (no public app url), so the switch would do nothing. */
+  summaryAvailable: boolean;
 }
 
 /** Mirrors server/src/line/line-summary.service.ts shareCard: what the LIFF page needs to share a session's summary card. */

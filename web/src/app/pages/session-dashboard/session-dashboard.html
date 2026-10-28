@@ -504,7 +504,11 @@
               [disabled]="endSessionBusy()"
               (change)="toggleLineSummary($any($event.target))"
             />
-            <span i18n="@@dashboard.sendLineSummary">ส่งสรุปเข้ากลุ่ม LINE</span>
+            @if (lineSummary()?.target === 'host') {
+              <span i18n="@@dashboard.sendLineSummaryHost">ส่งการ์ดสรุปให้ฉันทาง LINE</span>
+            } @else {
+              <span i18n="@@dashboard.sendLineSummary">ส่งสรุปเข้ากลุ่ม LINE</span>
+            }
           </label>
         }
       </app-shuttle-details-dialog>

@@ -134,6 +134,7 @@ describe('SessionSummary', () => {
     confirmed: false,
     stale: false,
     lastSentAt: null,
+    lastDmAt: null,
     shareUrl: null,
     ...over,
   });

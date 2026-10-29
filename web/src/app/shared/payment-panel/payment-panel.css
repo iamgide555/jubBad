@@ -153,6 +153,13 @@
   text-decoration: none;
 }
 
+/* Next to the DM button the link is the quieter way out: outlined, not filled. */
+.share-link.secondary {
+  background: transparent;
+  color: var(--ink);
+  border: 1.5px solid var(--line);
+}
+
 .share-hint {
   flex-basis: 100%;
   font-size: var(--text-sm);

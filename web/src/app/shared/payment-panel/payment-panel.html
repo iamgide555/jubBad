@@ -118,7 +118,19 @@
             }
           }
           @if (shareUrl(); as url) {
-            <a class="share-link" data-share-link [href]="url" target="_blank" rel="noopener" i18n="@@pay.card.openInLine">เปิดใน LINE เพื่อส่ง</a>
+            @if (confirmingDmResend()) {
+              <div class="resend" data-dm-resend-prompt role="group">
+                <p i18n="@@pay.card.dmResendAsk">ส่งการ์ดให้ฉันซ้ำอีกรอบใช่ไหม</p>
+                <button type="button" data-dm-resend-yes [disabled]="busy() || readFailed()" (click)="sendDm()" i18n="@@pay.card.resendYes">ใช่ ส่งเลย</button>
+                <button type="button" class="ghost" data-dm-resend-cancel (click)="confirmingDmResend.set(false)" i18n="@@pay.card.cancel">ยกเลิก</button>
+              </div>
+            } @else {
+              <button type="button" data-dm-send [disabled]="busy() || readFailed()" (click)="sendDmClicked()">
+                @if (p.lastDmAt) { <ng-container i18n="@@pay.card.sendAgain">ส่งอีกครั้ง</ng-container> }
+                @else { <ng-container i18n="@@pay.card.dmSend">ส่งการ์ดให้ฉันทาง LINE</ng-container> }
+              </button>
+            }
+            <a class="share-link secondary" data-share-link [href]="url" target="_blank" rel="noopener" i18n="@@pay.card.openInLine">เปิดใน LINE เพื่อส่ง</a>
             <p class="muted share-hint" i18n="@@pay.card.openInLineHint">กดแล้วเลือกกลุ่มในแอป LINE</p>
           }
         </div>
@@ -130,6 +142,11 @@
         } @else if (lastSentLabel(); as last) {
           @if (p.target === 'group') {
             <p class="muted" data-last-sent>{{ last }}</p>
+          }
+        }
+        @if (p.target === 'host' && lastDmLabel(); as last) {
+          @if (outcome() === null || outcome() === 'sent') {
+            <p class="muted" data-last-dm>{{ last }}</p>
           }
         }
       }

@@ -4,6 +4,7 @@ import {
   liffPayUrl,
   PAYMENT_NUMBER_TEXT,
   paymentCardMessages,
+  paymentDmMessages,
   type PaymentCardInput,
 } from './payment-card.js';
 
@@ -287,5 +288,45 @@ describe('liffPayUrl', () => {
     expect(liffPayUrl('1-a', 'abc 1', 'T_k-9')).toBe(
       'https://liff.line.me/1-a/pay/abc%201/T_k-9',
     );
+  });
+});
+
+describe('paymentDmMessages', () => {
+  const SHARE = 'https://liff.line.me/1-a/pay/abc12345/T_k-9';
+  const footer = (messages: unknown[]) =>
+    ((messages[0] as Node)['contents'] as { footer: { contents: Node[] } }).footer.contents;
+
+  it('is one Flex bubble, with no second text message', () => {
+    const messages = paymentDmMessages(INPUT, SHARE) as Node[];
+    expect(messages).toHaveLength(1);
+    expect(messages[0]).toMatchObject({ type: 'flex', contents: { type: 'bubble' } });
+  });
+
+  it('is the payment bubble plus a secondary "ส่งเข้ากลุ่ม" button below the copy button', () => {
+    const messages = paymentDmMessages(INPUT, SHARE);
+    const buttons = footer(messages);
+    expect(buttons).toHaveLength(2);
+    expect(buttons[0]).toMatchObject({ style: 'primary', action: { type: 'clipboard', label: 'คัดลอกเลขบัญชี' } });
+    expect(buttons[1]).toEqual({
+      type: 'button',
+      style: 'secondary',
+      action: { type: 'uri', label: 'ส่งเข้ากลุ่ม', uri: SHARE },
+    });
+    const [group] = paymentCardMessages(INPUT, 'group') as Node[];
+    const dmBubble = { ...((messages[0] as Node)['contents'] as Node) };
+    const groupBubble = { ...((group as Node)['contents'] as Node) };
+    delete dmBubble['footer'];
+    delete groupBubble['footer'];
+    expect(dmBubble).toEqual(groupBubble);
+  });
+
+  it('stays under 30,000 bytes for 40 rows of 60-character Thai names', () => {
+    const rows = Array.from({ length: 40 }, () => ({ name: 'ก'.repeat(60), amountSatang: 123456, absent: true }));
+    const json = JSON.stringify(paymentDmMessages({ ...INPUT, rows }, SHARE));
+    expect(Buffer.byteLength(json, 'utf8')).toBeLessThan(30_000);
+  });
+
+  it('throws on zero rows, like the other card', () => {
+    expect(() => paymentDmMessages({ ...INPUT, rows: [] }, SHARE)).toThrow(RangeError);
   });
 });

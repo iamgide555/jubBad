@@ -4,7 +4,7 @@ import { LineClient } from '../line/line-client.js';
 import { lineConfig } from '../line/line-config.js';
 import { cardTexts, clip, TEXT_MAX } from '../line/line-summary-card.js';
 import { LineSummaryService, type LineSummaryTarget } from '../line/line-summary.service.js';
-import { liffPayUrl, paymentCardMessages, type PaymentCardInput } from '../line/payment-card.js';
+import { liffPayUrl, paymentCardMessages, paymentDmMessages, type PaymentCardInput } from '../line/payment-card.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import type { BillWarning } from '../../../engines/bill.ts';
 import { BillService } from './bill.service.js';
@@ -48,6 +48,8 @@ export interface PaymentPanel {
   /** Confirmed, but the card's content has changed since: the host must confirm again before it goes out. */
   stale: boolean;
   lastSentAt: string | null;
+  /** When the bot last DMed the card to the host (`host` target), null if never. */
+  lastDmAt: string | null;
   /** The host-share link (`host` target only), set only while the confirmed card is current. */
   shareUrl: string | null;
 }
@@ -96,6 +98,15 @@ export function paymentRetryKey(sessionCode: string, sendId: string): string {
 }
 
 /**
+ * The host-DM counterpart of paymentRetryKey, over its own input (`:dm:`), so a DM and a group send of the same
+ * sendId can never share a key either.
+ */
+export function paymentDmRetryKey(sessionCode: string, sendId: string): string {
+  const h = createHash('sha1').update(`jubbad-line-payment:dm:${sessionCode}:${sendId}`).digest('hex');
+  return `${h.slice(0, 8)}-${h.slice(8, 12)}-5${h.slice(13, 16)}-a${h.slice(17, 20)}-${h.slice(20, 32)}`;
+}
+
+/**
  * sha256 over the card's whole content in a fixed key order; player ids too, so two same-named rows cannot swap
  * amounts unseen. A null account hashes as null (the panel before any account exists); for a real account the
  * canonical form is unchanged, so hashes stored by earlier confirms still compare.
@@ -123,10 +134,10 @@ function sameToken(given: string, stored: string): boolean {
   return timingSafeEqual(digest(given), digest(stored));
 }
 
-function sentRecently(lastSentAt: string | null, now: Date): boolean {
-  if (lastSentAt === null) return false;
+function sentRecently(lastAt: string | null, now: Date): boolean {
+  if (lastAt === null) return false;
   // A malformed timestamp is NaN and fails both comparisons: never busy.
-  const age = now.getTime() - Date.parse(lastSentAt);
+  const age = now.getTime() - Date.parse(lastAt);
   return age >= 0 && age < BUSY_MS;
 }
 
@@ -175,6 +186,7 @@ export class PaymentCardService {
         confirmedAt: now.toISOString(),
         confirmedHash: contentHash(cardInput(account), panel.rows),
         lastSentAt: state.lastSentAt,
+        lastDmAt: state.lastDmAt,
       };
       await this.prisma.session.update({ where: { code }, data: { paymentCard: serializePaymentState(confirmed) } });
       return (await this.view(code, now)).panel;
@@ -212,6 +224,45 @@ export class PaymentCardService {
         // LINE already has the card, so the answer is still `sent`; only the panel's "ส่งแล้ว" time is lost.
         // Nothing from the error is logged: it can carry the stored state (account and token).
         this.logger.warn('payment card sent, but its send time could not be saved');
+      }
+      return 'sent';
+    });
+  }
+
+  /**
+   * The bot DMs the confirmed card to the host's own LINE chat (`host` target), with a "ส่งเข้ากลุ่ม" button that
+   * opens the share link. Opt-in per tap, never automatic: one push to the host's DM per press. Mirrors `send`:
+   * the same lock, one view, the same gate order and outcomes. `to` comes from the server-side link, never from
+   * the request.
+   */
+  sendToHost(code: string, sendId: string, now: Date = new Date()): Promise<PaymentSendOutcome> {
+    return this.lock.run(code, async () => {
+      const { panel, nothingDue, state, to, cardInput } = await this.view(code, now);
+      if (panel.target !== 'host' || to === null || !panel.ended) return 'unavailable';
+      if (!panel.confirmed || panel.account === null) return 'not-confirmed';
+      if (panel.stale || !panel.ready) return 'stale';
+      if (nothingDue) return 'unavailable';
+      // Set only for a confirmed, current, ready card with the LIFF id and public URL; without it the card has
+      // no "ส่งเข้ากลุ่ม" target to carry.
+      const shareUrl = panel.shareUrl;
+      if (shareUrl === null) return 'unavailable';
+      if (sentRecently(state.lastDmAt, now)) return 'busy';
+
+      let outcome: Awaited<ReturnType<LineClient['push']>>;
+      try {
+        const messages = paymentDmMessages(cardInput(panel.account), shareUrl);
+        outcome = await this.line.push(to, messages, paymentDmRetryKey(code, sendId));
+      } catch {
+        return 'failed';
+      }
+      if (outcome !== 'ok') return outcome;
+      const sent: PaymentCardState = { ...state, lastDmAt: now.toISOString() };
+      try {
+        await this.prisma.session.update({ where: { code }, data: { paymentCard: serializePaymentState(sent) } });
+      } catch {
+        // LINE already has the card, so the answer is still `sent`; only the panel's "ส่งแล้ว" time is lost.
+        // Nothing from the error is logged: it can carry the stored state (account and token).
+        this.logger.warn('payment card DM sent, but its send time could not be saved');
       }
       return 'sent';
     });
@@ -334,6 +385,7 @@ export class PaymentCardService {
         confirmed,
         stale,
         lastSentAt: state.lastSentAt,
+        lastDmAt: state.lastDmAt,
         shareUrl,
       },
       nothingDue,

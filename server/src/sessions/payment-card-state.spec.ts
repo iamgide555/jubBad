@@ -35,8 +35,15 @@ describe('parsePaymentState', () => {
       confirmedAt: '2026-10-29T10:00:00.000Z',
       confirmedHash: 'deadbeef',
       lastSentAt: '2026-10-29T10:05:00.000Z',
+      lastDmAt: '2026-10-29T10:06:00.000Z',
     };
     expect(parsePaymentState(serializePaymentState(state))).toEqual(state);
+  });
+
+  it('reads a state stored before lastDmAt existed, and a bad lastDmAt, as null', () => {
+    expect(parsePaymentState('{"token":"abc","lastSentAt":"2026-10-29T10:05:00.000Z"}').lastDmAt).toBeNull();
+    expect(parsePaymentState('{"token":"abc","lastDmAt":7}').lastDmAt).toBeNull();
+    expect(parsePaymentState('{"lastDmAt":"2026-10-29T10:06:00.000Z"}').lastDmAt).toBe('2026-10-29T10:06:00.000Z');
   });
 
   it('round-trips the empty state', () => {

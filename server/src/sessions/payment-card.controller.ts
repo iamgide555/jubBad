@@ -10,7 +10,7 @@ import {
 } from './payment-card.service.js';
 
 /**
- * The panel, confirm and bot send are owner routes (no @Public): OwnershipGuard covers /sessions/:code/... and
+ * The panel, confirm, bot send and host DM are owner routes (no @Public): OwnershipGuard covers /sessions/:code/... and
  * refuses a non-owner with 404, and money never reaches the display or a co-host. The share read is the one
  * public route, gated by the confirm's token instead of a login (see PaymentCardService.shareCard).
  */
@@ -34,6 +34,16 @@ export class PaymentCardController {
   @HttpCode(200)
   async send(@Param('code') code: string, @Body() dto: SendPaymentCardDto): Promise<{ outcome: PaymentSendOutcome }> {
     return { outcome: await this.payments.send(code, dto.sendId) };
+  }
+
+  /** The bot DMs the card to the host's own chat (`host` target); one push per tap, never automatic. */
+  @Post(':code/payment-card/dm')
+  @HttpCode(200)
+  async sendToHost(
+    @Param('code') code: string,
+    @Body() dto: SendPaymentCardDto
+  ): Promise<{ outcome: PaymentSendOutcome }> {
+    return { outcome: await this.payments.sendToHost(code, dto.sendId) };
   }
 
   @Public()

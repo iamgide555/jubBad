@@ -31,13 +31,16 @@ On the new LINE Login channel, open the **LIFF** tab and add an app:
 - **Endpoint URL:** `https://jubbad.wongnok.dev/line-share` (this is `<PUBLIC_APP_URL>/line-share`,
   with no trailing slash and no session code; LIFF appends the code itself).
 - **Scope:** leave the default; the page reads nothing from the host's profile.
-- **Share Target Picker:** enable it **if the console offers the option** on this LIFF app. This is
-  the call that lets the host choose a group. UNVERIFIED which console version shows the toggle;
-  confirm during setup, and if there is no toggle, the check in section 4 (picker opens) is what
-  proves it works.
 
 Save. The console shows a **LIFF ID** (looks like `1234567890-AbCdEfGh`) and a LIFF URL
 (`https://liff.line.me/<LIFF ID>`). Copy the LIFF ID.
+
+**Then enable the share target picker (do not skip).** It is a setting of the LINE Login channel,
+not of the LIFF app. On the channel's **LIFF** tab, click **shareTargetPicker**, read the Agreement
+Regarding Use of Information, tick **I have read and agree**, and click **Enable**. Until this is
+done, `liff.isApiAvailable('shareTargetPicker')` is false and the page says it cannot share from
+here (verified on the real LIFF app 2026-10-29: enabling it made the picker work on a phone, in
+the LINE app).
 
 ## 3. Publish the LINE Login channel (do not skip)
 
@@ -118,8 +121,9 @@ Also check the card's layout once in LINE's Flex Message Simulator if it looks o
   the session has a finished game.
 - **The button opens an error or "no permission":** the LIFF endpoint URL does not match
   `<PUBLIC_APP_URL>/line-share`, or the channel is still Developing and the viewer is not a tester.
-- **The page says it cannot share:** the viewer is in a plain browser, not the LINE app, or Share
-  Target Picker is not enabled for the LIFF app. Open the button from the LINE app.
+- **The page says it cannot share:** the share target picker is not enabled on the LINE Login
+  channel (LIFF tab, **shareTargetPicker**, section 2), or the viewer's LINE app is too old, or the
+  viewer is in a plain browser. Open the button from an up-to-date LINE app.
 - **The page says the summary was not found (404):** the session is not ended, has no finished game,
   or the group is not on the host target any more. The page works only for the host target.
 - A host who blocked or unfriended the bot cannot be DMed; the end-of-session dialog reports the

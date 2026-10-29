@@ -1465,9 +1465,11 @@ expired code gets one generic Thai reply (it never says which); a sender who has
     with host wording ("ส่งการ์ดสรุปให้ฉันทาง LINE เมื่อจบรอบ"). It is hidden for a paused (plan
     lapsed) group and for a bot-linked group, where the group card applies instead
     (`summaryAvailable` there needs `PUBLIC_APP_URL`, `LINE_LIFF_ID` and no linked LINE group).
-  - **Left unverified until the owner's real-LINE check:** that a Developing LINE Login channel
-    refuses non-admin hosts (publish the channel; see the runbook), and Share Target Picker's
-    console toggle.
+  - **Verified 2026-10-29 (owner, real LINE):** the share target picker is a channel-level setting
+    on the LINE Login channel's LIFF tab (agree to the terms, then Enable); until it is on, the page
+    says it cannot share. With it on, the phone in-app flow works.
+  - **Still unverified:** that a Developing LINE Login channel refuses non-admin hosts (publish the
+    channel; see the runbook), and the iPad / external-browser login.
 - **One bot per group (confirmed 2026-10-27):** LINE keeps only one bot in a group chat; a second
   one invited leaves at once and the first stays. A group that already has a bot (most real ก๊วน
   have ขุนทอง for payments) cannot have this bot in the chat, so the group listener (roster capture

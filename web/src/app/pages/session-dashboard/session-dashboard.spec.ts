@@ -1022,14 +1022,16 @@ describe('SessionDashboard', () => {
       expect(tick()).not.toBeNull();
     });
 
-    it('says the tick only opens the check, with the helper line under it', async () => {
+    it('says in its own label that the tick opens the bill for review, with no helper line', async () => {
       summaryState = () => of(lineAvailable());
       await settled();
       await openEndDialog();
       await answerAccount(ACCOUNT);
       const label = tick()!.closest('label')!;
-      expect(label.textContent).toContain('ส่งใบเก็บเงินด้วย');
-      expect(tick()!.closest('.send-payment-card')!.textContent).toContain('จะเปิดให้ตรวจยอดก่อนส่ง');
+      expect(label.textContent?.trim()).toBe('เปิดใบเก็บเงินให้ตรวจหลังจบรอบ');
+      // The label says it all: nothing sends on its own, so no second line has to explain that.
+      expect(tick()!.closest('.send-payment-card')!.textContent?.trim()).toBe('เปิดใบเก็บเงินให้ตรวจหลังจบรอบ');
+      expect(tick()!.getAttribute('aria-describedby')).toBeNull();
     });
 
     it('reads the group account when the dialog opens, and never the payment card', async () => {

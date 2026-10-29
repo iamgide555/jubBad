@@ -40,8 +40,9 @@
   font-weight: 600;
 }
 
+/* --ink-soft, not --ink-faint: the alias is real text to read ("KBank"), and faint ink is too light for it. */
 .bank-alias {
-  color: var(--ink-faint);
+  color: var(--ink-soft);
   font-size: var(--text-sm);
 }
 

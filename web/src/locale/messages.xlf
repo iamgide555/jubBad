@@ -8110,6 +8110,81 @@
       <trans-unit id="pay.card.dmQuota" datatype="html">
         <source>โควต้าข้อความ LINE ของเดือนนี้หมดแล้ว ส่งการ์ดให้คุณไม่ได้ ใช้ "เปิดใน LINE เพื่อส่ง" แทน</source>
       </trans-unit>
+      <trans-unit id="pay.card.missingCount" datatype="html">
+        <source>ยังขาดอีก <x id="INTERPOLATION" equiv-text="{{ missing().length }}"/> อย่างก่อนส่ง</source>
+      </trans-unit>
+      <trans-unit id="pay.card.previewLabel" datatype="html">
+        <source>ตัวอย่างการ์ดในแชต LINE</source>
+      </trans-unit>
+      <trans-unit id="pay.card.previewKind" datatype="html">
+        <source>ยอดค่าเล่น</source>
+      </trans-unit>
+      <trans-unit id="pay.card.payTo" datatype="html">
+        <source>โอนให้ <x id="INTERPOLATION" equiv-text="{{ a.name }}"/></source>
+      </trans-unit>
+      <trans-unit id="pay.card.editAccount" datatype="html">
+        <source>แก้บัญชีคืนนี้</source>
+      </trans-unit>
+      <trans-unit id="pay.card.accountFields" datatype="html">
+        <source>บัญชีรับเงินคืนนี้</source>
+      </trans-unit>
+      <trans-unit id="pay.card.collectorHintSelf" datatype="html">
+        <source>คนที่รับเงินไม่ต้องโอนให้ตัวเอง</source>
+      </trans-unit>
+      <trans-unit id="pay.card.collectorHintZero" datatype="html">
+        <source>ตั้งยอดของเขาเป็น 0 ได้ในหน้าคิดเงิน ใช้ ไม่คิดเงิน</source>
+      </trans-unit>
+      <trans-unit id="pay.card.otherWays" datatype="html">
+        <source>ส่งวิธีอื่น</source>
+      </trans-unit>
+      <trans-unit id="pay.card.confirmedReady" datatype="html">
+        <source>ยืนยันยอดแล้ว · ส่งได้เลย</source>
+      </trans-unit>
+      <trans-unit id="pay.card.staleAgain" datatype="html">
+        <source>ยอดเปลี่ยน ยืนยันใหม่อีกครั้ง</source>
+      </trans-unit>
+      <trans-unit id="pay.card.editedAgain" datatype="html">
+        <source>แก้บัญชีแล้ว ยืนยันใหม่อีกครั้ง</source>
+      </trans-unit>
+      <trans-unit id="pay.card.fillMissing" datatype="html">
+        <source>ไปใส่ค่าที่ขาด</source>
+      </trans-unit>
+      <trans-unit id="pay.card.reconfirm" datatype="html">
+        <source>ยืนยันใหม่</source>
+      </trans-unit>
+      <trans-unit id="pay.card.confirmAccount" datatype="html">
+        <source>ยืนยันยอดและบัญชี</source>
+      </trans-unit>
+      <trans-unit id="pay.card.dmSendAgain" datatype="html">
+        <source>ส่งให้ฉันอีกครั้ง</source>
+      </trans-unit>
+      <trans-unit id="pay.card.dmSendToMe" datatype="html">
+        <source>ส่งใบเก็บเงินให้ฉันทาง LINE</source>
+      </trans-unit>
+      <trans-unit id="pay.card.dmSentPlain" datatype="html">
+        <source>ส่งให้คุณใน LINE แล้ว · ยังต้องกด "ส่งเข้ากลุ่ม" ในแชต</source>
+      </trans-unit>
+      <trans-unit id="pay.card.dmSentAt" datatype="html">
+        <source>ส่งให้คุณใน LINE แล้ว <x id="time" equiv-text="time"/> · ยังต้องกด "ส่งเข้ากลุ่ม" ในแชต</source>
+      </trans-unit>
+      <trans-unit id="pay.card.dmQuotaOther" datatype="html">
+        <source>โควต้าข้อความ LINE ของเดือนนี้หมดแล้ว ส่งการ์ดให้คุณไม่ได้ ใช้ "เปิดใน LINE เพื่อส่ง" ใน "ส่งวิธีอื่น" แทน</source>
+      </trans-unit>
+      <trans-unit id="dashboard.reviewPaymentCard" datatype="html">
+        <source>เปิดใบเก็บเงินให้ตรวจหลังจบรอบ</source>
+      </trans-unit>
+      <trans-unit id="pay.account.required" datatype="html">
+        <source>กรอกช่องนี้</source>
+      </trans-unit>
+      <trans-unit id="pay.account.removeAsk" datatype="html">
+        <source>ลบบัญชีรับเงินของกลุ่มนี้ใช่ไหม</source>
+      </trans-unit>
+      <trans-unit id="pay.account.removeConfirm" datatype="html">
+        <source>ใช่ ลบบัญชี</source>
+      </trans-unit>
+      <trans-unit id="pay.account.remove" datatype="html">
+        <source>ลบบัญชีนี้</source>
+      </trans-unit>
     </body>
   </file>
 </xliff>

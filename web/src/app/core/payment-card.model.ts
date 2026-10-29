@@ -18,7 +18,11 @@ export interface PaymentCardPanel {
   warnings: string[];
   /** The subset of `warnings` that only informs the host; the rest are the blocking ones. */
   notices: string[];
-  /** People still due, in the bill's order. */
+  /** The card's header texts exactly as the card prints them (group-name fallback, Thai date, clipped). */
+  groupName: string;
+  date: string;
+  venue: string | null;
+  /** People still due, sorted by name (the card's order too). */
   rows: { playerId: string; name: string; amountSatang: number; absent: boolean }[];
   settledCount: number;
   totalSatang: number;

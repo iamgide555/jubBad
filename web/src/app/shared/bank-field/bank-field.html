@@ -9,6 +9,8 @@
     [attr.aria-controls]="inputId() + '-list'"
     [attr.aria-expanded]="expanded()"
     [attr.aria-activedescendant]="activeOptionId()"
+    [attr.aria-invalid]="invalid() ? 'true' : null"
+    [attr.aria-describedby]="describedBy()"
     [value]="query()"
     (input)="onInput($any($event.target).value)"
     (keydown)="onKeydown($event)"

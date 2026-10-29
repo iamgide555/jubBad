@@ -147,9 +147,9 @@ describe('paymentCardMessages', () => {
     expect(json).not.toMatch(/margin/i);
   });
 
-  it('sets the alt text from the group name and the Thai date', () => {
+  it('sets the alt text from the group name, the Thai date and the total, for the chat list preview', () => {
     const [card] = paymentCardMessages(INPUT, 'group') as Node[];
-    expect(card['altText']).toBe('ยอดค่าเล่น ตีชิล 29 ต.ค. 2569');
+    expect(card['altText']).toBe('ยอดค่าเล่น ตีชิล 29 ต.ค. 2569 · รวม ฿1,525.50');
   });
 
   it('falls back to ก๊วน for a group with no name', () => {
@@ -159,7 +159,7 @@ describe('paymentCardMessages', () => {
     ) as Node[];
     const header = (card['contents'] as { header: Node })['header'];
     expect(texts(header)).toEqual(['ยอดค่าเล่น', 'ก๊วน']);
-    expect(card['altText']).toBe('ยอดค่าเล่น ก๊วน 29 ต.ค. 2569');
+    expect(card['altText']).toBe('ยอดค่าเล่น ก๊วน 29 ต.ค. 2569 · รวม ฿1,525.50');
   });
 
   it('falls back to the end date in Bangkok time when the session has no date', () => {
@@ -171,7 +171,7 @@ describe('paymentCardMessages', () => {
     };
     expect(texts(bubble(input))).toContain('31 ต.ค. 2569');
     const [card] = paymentCardMessages(input, 'group') as Node[];
-    expect(card['altText']).toBe('ยอดค่าเล่น ตีชิล 31 ต.ค. 2569');
+    expect(card['altText']).toBe('ยอดค่าเล่น ตีชิล 31 ต.ค. 2569 · รวม ฿1,525.50');
   });
 
   it('writes a blank or whitespace-only name as "-", never an empty text LINE would reject', () => {
@@ -232,7 +232,7 @@ describe('paymentCardMessages', () => {
       '123-4-56789-0',
     ]);
     const [message] = paymentCardMessages(input, 'group') as Node[];
-    expect(message['altText']).toBe(`ยอดค่าเล่น ${clipped} ${clipped}`);
+    expect(message['altText']).toBe(`ยอดค่าเล่น ${clipped} ${clipped} · รวม ฿1`);
     // A lone surrogate would make this round-trip lossy.
     const json = JSON.stringify(paymentCardMessages(input, 'group'));
     expect(JSON.parse(json)).toEqual(paymentCardMessages(input, 'group'));
@@ -302,16 +302,27 @@ describe('paymentDmMessages', () => {
     expect(messages[0]).toMatchObject({ type: 'flex', contents: { type: 'bubble' } });
   });
 
-  it('is the payment bubble plus a secondary "ส่งเข้ากลุ่ม" button below the copy button', () => {
+  it('leads with a primary "ส่งเข้ากลุ่ม" button under a muted not-in-the-group line, the copy button secondary below', () => {
     const messages = paymentDmMessages(INPUT, SHARE);
-    const buttons = footer(messages);
-    expect(buttons).toHaveLength(2);
-    expect(buttons[0]).toMatchObject({ style: 'primary', action: { type: 'clipboard', label: 'คัดลอกเลขบัญชี' } });
-    expect(buttons[1]).toEqual({
+    const parts = footer(messages);
+    expect(parts).toHaveLength(3);
+    // The host is reading their own DM: say plainly that the group has not seen this card yet.
+    expect(parts[0]).toMatchObject({ type: 'text', text: 'การ์ดนี้ยังไม่อยู่ในกลุ่ม', size: 'xs', color: '#6b6459' });
+    expect(parts[1]).toEqual({
       type: 'button',
-      style: 'secondary',
+      style: 'primary',
+      color: '#1f6b3d',
       action: { type: 'uri', label: 'ส่งเข้ากลุ่ม', uri: SHARE },
     });
+    expect(parts[2]).toEqual({
+      type: 'button',
+      style: 'secondary',
+      action: { type: 'clipboard', label: 'คัดลอกเลขบัญชี', clipboardText: '1234567890' },
+    });
+    // The group card keeps the copy button as its one, primary, action.
+    const groupFooter = footer(paymentCardMessages(INPUT, 'group'));
+    expect(groupFooter).toHaveLength(1);
+    expect(groupFooter[0]).toMatchObject({ style: 'primary', action: { type: 'clipboard' } });
     const [group] = paymentCardMessages(INPUT, 'group') as Node[];
     const dmBubble = { ...((messages[0] as Node)['contents'] as Node) };
     const groupBubble = { ...((group as Node)['contents'] as Node) };
@@ -324,6 +335,11 @@ describe('paymentDmMessages', () => {
     const rows = Array.from({ length: 40 }, () => ({ name: 'ก'.repeat(60), amountSatang: 123456, absent: true }));
     const json = JSON.stringify(paymentDmMessages({ ...INPUT, rows }, SHARE));
     expect(Buffer.byteLength(json, 'utf8')).toBeLessThan(30_000);
+  });
+
+  it('carries the same alt text as the group card, total included', () => {
+    const [dmCard] = paymentDmMessages(INPUT, SHARE) as Node[];
+    expect(dmCard?.['altText']).toBe('ยอดค่าเล่น ตีชิล 29 ต.ค. 2569 · รวม ฿1,525.50');
   });
 
   it('throws on zero rows, like the other card', () => {

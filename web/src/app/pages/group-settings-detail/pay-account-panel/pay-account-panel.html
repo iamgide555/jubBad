@@ -9,7 +9,8 @@
       <p class="muted" i18n="@@pay.account.hint">บัญชีนี้จะขึ้นในการ์ดเก็บเงินตอนจบรอบ คืนไหนจะใช้บัญชีอื่นก็แก้ก่อนส่งได้</p>
       <div class="pay-field">
         <label for="pay-bank" i18n="@@pay.account.bank">ธนาคาร</label>
-        <app-bank-field inputId="pay-bank" [value]="bank()" (valueChange)="edit('bank', $event)" />
+        <app-bank-field inputId="pay-bank" [value]="bank()" [invalid]="!!fieldErrors().bank" [describedBy]="fieldErrors().bank ? 'pay-bank-error' : null" (valueChange)="edit('bank', $event)" />
+        @if (fieldErrors().bank) { <p class="error" id="pay-bank-error">{{ fieldErrors().bank }}</p> }
       </div>
       <div class="pay-field">
         <label for="pay-number" i18n="@@pay.account.number">เลขบัญชี</label>
@@ -20,8 +21,11 @@
           inputmode="numeric"
           autocomplete="off"
           [value]="number()"
+          [attr.aria-invalid]="fieldErrors().number ? 'true' : null"
+          [attr.aria-describedby]="fieldErrors().number ? 'pay-number-error' : null"
           (input)="edit('number', $any($event.target).value)"
         />
+        @if (fieldErrors().number) { <p class="error" id="pay-number-error">{{ fieldErrors().number }}</p> }
       </div>
       <div class="pay-field">
         <label for="pay-name" i18n="@@pay.account.name">ชื่อบัญชี</label>
@@ -32,8 +36,11 @@
           autocomplete="off"
           maxlength="80"
           [value]="name()"
+          [attr.aria-invalid]="fieldErrors().name ? 'true' : null"
+          [attr.aria-describedby]="fieldErrors().name ? 'pay-name-error' : null"
           (input)="edit('name', $any($event.target).value)"
         />
+        @if (fieldErrors().name) { <p class="error" id="pay-name-error">{{ fieldErrors().name }}</p> }
       </div>
       @if (error()) {
         <p class="error" role="alert" data-pay-error>{{ error() }}</p>
@@ -45,10 +52,18 @@
       }
       <div class="pay-actions">
         <button type="submit" data-pay-save [disabled]="busy()" i18n="@@pay.account.save">บันทึก</button>
-        @if (canClear()) {
-          <button type="button" class="ghost" data-pay-clear [disabled]="busy()" (click)="clear()" i18n="@@pay.account.clear">ล้าง</button>
-        }
       </div>
+      @if (canClear()) {
+        <div class="pay-remove">
+          @if (confirmingClear()) {
+            <p i18n="@@pay.account.removeAsk">ลบบัญชีรับเงินของกลุ่มนี้ใช่ไหม</p>
+            <button type="button" class="ghost" data-pay-clear-confirm [disabled]="busy()" (click)="clear()" i18n="@@pay.account.removeConfirm">ใช่ ลบบัญชี</button>
+            <button type="button" class="ghost" data-pay-clear-cancel [disabled]="busy()" (click)="confirmingClear.set(false)" i18n="@@pay.card.cancel">ยกเลิก</button>
+          } @else {
+            <button type="button" class="ghost" data-pay-clear [disabled]="busy()" (click)="confirmingClear.set(true)" i18n="@@pay.account.remove">ลบบัญชีนี้</button>
+          }
+        </div>
+      }
     </form>
   }
 </section>

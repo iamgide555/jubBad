@@ -876,11 +876,3 @@ app-lineup-queue {
   flex: none;
   accent-color: var(--court);
 }
-
-/* The payment tick reuses the row above; its helper line sits under the label, clear of the checkbox column. */
-.send-payment-hint {
-  margin: 0;
-  padding-left: calc(1.5rem + var(--space-2));
-  color: var(--ink-soft);
-  font-size: var(--text-sm);
-}

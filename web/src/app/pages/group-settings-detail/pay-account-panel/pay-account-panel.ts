@@ -33,6 +33,8 @@ export class PayAccountPanel implements OnInit {
   protected readonly busy = signal(false);
   protected readonly error = signal<string | null>(null);
   protected readonly notice = signal<'saved' | 'cleared' | null>(null);
+  protected readonly confirmingClear = signal(false);
+  protected readonly fieldErrors = signal<Partial<Record<'bank' | 'number' | 'name', string>>>({});
   /** Something is on screen or saved to take away. */
   protected readonly canClear = computed(
     () => this.bank().trim() !== '' || this.number().trim() !== '' || this.name().trim() !== ''
@@ -56,16 +58,21 @@ export class PayAccountPanel implements OnInit {
     this[field].set(value);
     this.error.set(null);
     this.notice.set(null);
+    this.fieldErrors.update((errors) => ({ ...errors, [field]: undefined }));
+    this.confirmingClear.set(false);
   }
 
   protected async save(event: Event): Promise<void> {
     event.preventDefault();
     if (this.busy()) return;
+    this.fieldErrors.set({});
     const bank = this.bank().trim();
     const number = this.number().trim();
     const name = this.name().trim();
     if (bank === '' && number === '' && name === '') return this.send(null);
     if (bank === '' || number === '' || name === '') {
+      const required = $localize`:@@pay.account.required:กรอกช่องนี้`;
+      this.fieldErrors.set({ bank: bank ? undefined : required, number: number ? undefined : required, name: name ? undefined : required });
       this.error.set($localize`:@@pay.account.incomplete:กรอกให้ครบทั้งสามช่อง หรือกดล้างถ้าไม่ต้องการตั้งบัญชี`);
       return;
     }
@@ -73,12 +80,14 @@ export class PayAccountPanel implements OnInit {
       this.error.set(
         $localize`:@@pay.account.badNumber:เลขบัญชีต้องเป็นตัวเลขอย่างน้อย 6 หลัก เว้นวรรคหรือใส่ขีดได้ ยาวไม่เกิน 20 ตัวอักษร`
       );
+      this.fieldErrors.set({ number: this.error()! });
       return;
     }
     return this.send({ bank, number, name });
   }
 
   protected clear(): Promise<void> {
+    if (this.busy() || !this.confirmingClear()) return Promise.resolve();
     return this.send(null);
   }
 
@@ -89,6 +98,8 @@ export class PayAccountPanel implements OnInit {
     try {
       const saved = await firstValueFrom(this.payAccounts.set(this.groupCode(), account));
       this.fill(saved);
+      this.confirmingClear.set(false);
+      this.fieldErrors.set({});
       this.notice.set(saved ? 'saved' : 'cleared');
     } catch (err) {
       const invalid = err instanceof HttpErrorResponse && (err.error as { code?: unknown } | null)?.code === 'PAY_ACCOUNT_INVALID';

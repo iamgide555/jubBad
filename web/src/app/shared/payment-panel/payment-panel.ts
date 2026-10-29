@@ -1,5 +1,17 @@
 import { HttpErrorResponse } from '@angular/common/http';
-import { Component, computed, effect, inject, input, output, signal, untracked } from '@angular/core';
+import {
+  ChangeDetectorRef,
+  Component,
+  DestroyRef,
+  ElementRef,
+  computed,
+  effect,
+  inject,
+  input,
+  output,
+  signal,
+  untracked,
+} from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
 import { formatBaht } from '../../core/bill-text';
@@ -7,6 +19,7 @@ import type { PayAccount } from '../../core/pay-account.service';
 import type { PaymentCardPanel, PaymentSendOutcome } from '../../core/payment-card.model';
 import { PaymentCardService, PaymentDraftService } from '../../core/payment-card.service';
 import { BankField } from '../bank-field/bank-field';
+import { Icon } from '../icon/icon';
 
 type Field = keyof PayAccount;
 
@@ -20,6 +33,16 @@ const sameAccount = (a: PayAccount, b: PayAccount) => a.bank === b.bank && a.num
 
 const errorCode = (err: unknown): unknown =>
   err instanceof HttpErrorResponse ? (err.error as { code?: unknown } | null)?.code : undefined;
+
+/** "20:15" in local time, or null for a timestamp that does not parse. */
+function clock(iso: string): string | null {
+  const at = new Date(iso);
+  if (Number.isNaN(at.getTime())) return null;
+  return `${String(at.getHours()).padStart(2, '0')}:${String(at.getMinutes()).padStart(2, '0')}`;
+}
+
+/** The one primary action of the state on screen: Send for the target once confirmed, else Confirm. */
+const PRIMARY = '[data-send], [data-dm-send], [data-confirm]';
 
 /**
  * The payment card's confirm step: who owes what, the receiving account for tonight, and the Confirm and
@@ -41,7 +64,15 @@ const errorCode = (err: unknown): unknown =>
  * `contentHash` of the read on screen, so the server refuses (PAYMENT_CHANGED) amounts the host has not seen.
  *
  * Amounts are shown only while `ready`: with an input missing they are provisional, so only what is missing
- * is shown. A night where nobody owes (no rows, or every row at 0) reads as nothing to collect.
+ * is shown (a to-do list, not an error). A night where nobody owes (no rows, or every row at 0) reads as
+ * nothing to collect. The amounts render as a small copy of the LINE card itself (header, rows sorted by name,
+ * total, account), with the card's own texts and ฿ format, so the host sees what the group will see.
+ *
+ * One primary action per state: fill in what is missing (sheet only), Confirm (which also locks the account),
+ * or Send for the target once confirmed and current. The account fields stay folded into the preview while they
+ * are the group default or the confirmed account; "แก้บัญชีคืนนี้" opens them. In the sheet the actions sit in a
+ * sticky bottom bar. Focus never drops out of a dialog: busy buttons are `aria-disabled` (a guard refuses the
+ * tap) rather than `disabled`, and when a state change removes the focused button focus moves to the next one.
  *
  * Send keeps the `sendId` of an attempt with no definite answer (a `failed` outcome, or no answer at all)
  * and reuses it on the next tap, so a card LINE took while the answer was lost is not posted twice; any
@@ -53,7 +84,7 @@ const errorCode = (err: unknown): unknown =>
  */
 @Component({
   selector: 'app-payment-panel',
-  imports: [BankField, RouterLink],
+  imports: [BankField, Icon, RouterLink],
   templateUrl: './payment-panel.html',
   styleUrl: './payment-panel.css',
 })
@@ -69,6 +100,9 @@ export class PaymentPanel {
 
   private readonly cards = inject(PaymentCardService);
   private readonly drafts = inject(PaymentDraftService);
+  private readonly cdr = inject(ChangeDetectorRef);
+  private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
+  private destroyed = false;
 
   protected readonly data = signal<PaymentCardPanel | null>(null);
   /** The latest read failed, so what is on screen may be out of date. */
@@ -87,7 +121,11 @@ export class PaymentPanel {
   protected readonly confirmingResend = signal(false);
   protected readonly confirmingDmResend = signal(false);
   /** Which delivery `outcome` is the answer to, so a failure or a success reads in the right words. */
-  private readonly outcomeFor = signal<Delivery>('group');
+  protected readonly outcomeFor = signal<Delivery>('group');
+  /** The host opened the account fields ("แก้บัญชีคืนนี้") or typed in them: keep them open. */
+  protected readonly editingAccount = signal(false);
+  /** A confirm just succeeded on this screen: say so until the host moves on. */
+  protected readonly justConfirmed = signal(false);
 
   /** Session code the fields were last filled for, so they are filled once and a re-read never overwrites typing. */
   private filledFor: string | null = null;
@@ -127,6 +165,25 @@ export class PaymentPanel {
     const p = this.data();
     return !!p && (p.rows.length === 0 || p.totalSatang === 0);
   });
+  /** Not confirmed yet, or the confirmed card no longer stands: Confirm is the action on screen. */
+  protected readonly needsConfirm = computed(() => {
+    const p = this.data();
+    return !!p && (!p.confirmed || p.stale || this.editedSinceConfirm());
+  });
+  /** A confirmed card that moved or whose account was edited: Confirm again. */
+  protected readonly reconfirm = computed(() => !!this.data()?.confirmed && this.needsConfirm());
+  /**
+   * The fields hold a complete account the host has not touched (the group default, or the one confirmed for
+   * tonight), so they fold into the preview. A draft that differs, or no account at all, keeps them open.
+   */
+  protected readonly accountFolded = computed(() => {
+    const p = this.data();
+    if (!p || this.editingAccount() || !this.complete()) return false;
+    const typed = this.typed();
+    return (!!p.groupAccount && sameAccount(typed, p.groupAccount)) || (!!p.account && sameAccount(typed, p.account));
+  });
+  /** The account block the card would print: the fields, once all three are filled in. */
+  protected readonly previewAccount = computed(() => (this.complete() ? this.typed() : null));
   /** Confirmed, current, and matching the fields: the one state in which a send is allowed. */
   private readonly sendable = computed(() => {
     const p = this.data();
@@ -146,13 +203,35 @@ export class PaymentPanel {
   );
   protected readonly noticeTexts = computed(() => (this.data()?.notices ?? []).map((n) => this.noticeText(n)));
   protected readonly lastSentLabel = computed(() => this.sentLabel(this.data()?.lastSentAt));
-  protected readonly lastDmLabel = computed(() => this.sentLabel(this.data()?.lastDmAt));
+  /**
+   * The DM's own status, never the group's "ส่งแล้ว": the card is in the host's chat, not the group yet. Only
+   * while that card is the current one (a stale or edited card needs a new confirm and a new DM).
+   */
+  protected readonly dmStatus = computed(() => {
+    const iso = this.data()?.lastDmAt;
+    if (!iso || this.shareUrl() === null) return null;
+    const time = clock(iso);
+    return time === null
+      ? $localize`:@@pay.card.dmSentPlain:ส่งให้คุณใน LINE แล้ว · ยังต้องกด "ส่งเข้ากลุ่ม" ในแชต`
+      : $localize`:@@pay.card.dmSentAt:ส่งให้คุณใน LINE แล้ว ${time}:time: · ยังต้องกด "ส่งเข้ากลุ่ม" ในแชต`;
+  });
+  /** The DM ran out of LINE quota: the other way to send is the way now, so it opens by itself. */
+  protected readonly dmQuota = computed(() => this.outcome() === 'quota' && this.outcomeFor() === 'dm');
+  /** Something to tap in the action row: the link to the bill (sheet, not ready), Confirm, or a Send. */
+  protected readonly hasActions = computed(() => {
+    const p = this.data();
+    if (!p) return false;
+    if (!p.ready) return this.compact();
+    return this.actionable() && (this.needsConfirm() || this.canSendToGroup() || this.shareUrl() !== null);
+  });
 
+  /** Baht sign first, as the LINE card prints it. */
   protected readonly amountText = (satang: number): string =>
-    satang === 0 ? $localize`:@@pay.card.nothingToPay:ไม่ต้องโอน` : `${formatBaht(satang)}฿`;
+    satang === 0 ? $localize`:@@pay.card.nothingToPay:ไม่ต้องโอน` : `฿${formatBaht(satang)}`;
   protected readonly baht = formatBaht;
 
   constructor() {
+    inject(DestroyRef).onDestroy(() => (this.destroyed = true));
     effect(() => {
       this.sessionCode();
       this.refreshKey();
@@ -181,17 +260,29 @@ export class PaymentPanel {
   protected edit(field: Field, value: string): void {
     this[field].set(value);
     this.drafts.set(this.sessionCode(), { bank: this.bank(), number: this.number(), name: this.name() });
+    // Typing never folds the fields away under the host's thumb, even when they end up equal to the default.
+    this.editingAccount.set(true);
+    this.justConfirmed.set(false);
     this.error.set(null);
     this.outcome.set(null);
     this.confirmingResend.set(false);
     this.confirmingDmResend.set(false);
   }
 
+  /** "แก้บัญชีคืนนี้": unfold the three fields; focus lands on their group, not on the bank list. */
+  protected editAccount(): void {
+    this.editingAccount.set(true);
+    this.justConfirmed.set(false);
+    this.refocus('[data-account-fields]');
+  }
+
   protected useGroupAccount(): void {
     this.fill(this.data()?.groupAccount ?? null);
     this.drafts.clear(this.sessionCode());
+    this.editingAccount.set(false);
     this.error.set(null);
     this.outcome.set(null);
+    this.refocus('[data-edit-account], [data-account-fields]');
   }
 
   protected async confirm(): Promise<void> {
@@ -206,6 +297,7 @@ export class PaymentPanel {
       return;
     }
     this.busy.set(true);
+    this.justConfirmed.set(false);
     const seq = ++this.seq;
     try {
       const panel = await firstValueFrom(this.cards.confirm(this.sessionCode(), this.typed(), seen.contentHash));
@@ -221,6 +313,12 @@ export class PaymentPanel {
         // the re-read lands, so a second Confirm cannot freeze amounts the host has not seen yet.
         await this.load();
       }
+      // The account is locked in the card now: fold it back into the preview, say so, and hand focus (and the
+      // screen) to the Send that replaced the Confirm button.
+      this.editingAccount.set(false);
+      this.justConfirmed.set(true);
+      this.busy.set(false);
+      this.refocus(PRIMARY, true);
     } catch (err) {
       const code = errorCode(err);
       this.error.set(this.confirmError(code));
@@ -230,19 +328,31 @@ export class PaymentPanel {
       }
     } finally {
       this.busy.set(false);
+      // An error re-read can remove Confirm too: keep focus inside the sheet in its new state.
+      this.refocus(PRIMARY);
     }
   }
 
   protected sendClicked(): void {
     if (this.busy() || this.readFailed()) return;
-    if (this.data()?.lastSentAt) this.confirmingResend.set(true);
-    else void this.send();
+    if (this.data()?.lastSentAt) {
+      this.confirmingResend.set(true);
+      this.refocus('[data-resend-yes]');
+    } else void this.send();
   }
 
   protected sendDmClicked(): void {
     if (this.busy() || this.readFailed()) return;
-    if (this.data()?.lastDmAt) this.confirmingDmResend.set(true);
-    else void this.sendDm();
+    if (this.data()?.lastDmAt) {
+      this.confirmingDmResend.set(true);
+      this.refocus('[data-dm-resend-yes]');
+    } else void this.sendDm();
+  }
+
+  protected cancelResend(kind: Delivery): void {
+    if (kind === 'dm') this.confirmingDmResend.set(false);
+    else this.confirmingResend.set(false);
+    this.refocus(kind === 'dm' ? '[data-dm-send]' : '[data-send]');
   }
 
   protected send(): Promise<void> {
@@ -260,7 +370,11 @@ export class PaymentPanel {
     this.error.set(null);
     this.outcome.set(null);
     this.outcomeFor.set(kind);
+    this.justConfirmed.set(false);
     this.busy.set(true);
+    // Closing a resend prompt removes its focused Yes button. Keep focus on the busy Send immediately,
+    // including while LINE and the subsequent panel read are still pending.
+    this.refocus(PRIMARY);
     ++this.seq;
     const contentHash = this.data()?.contentHash ?? null;
     // An attempt with no definite answer may have reached LINE: retry it under the same id, unless the card changed.
@@ -296,6 +410,8 @@ export class PaymentPanel {
       await this.load();
     } finally {
       this.busy.set(false);
+      // A re-read can replace Send with Confirm, or remove all actions when the card is unavailable.
+      this.refocus(PRIMARY);
     }
   }
 
@@ -303,12 +419,11 @@ export class PaymentPanel {
     const dm = this.outcomeFor() === 'dm';
     switch (outcome) {
       case 'sent':
-        return dm
-          ? $localize`:@@pay.card.dmSent:ส่งการ์ดให้คุณใน LINE แล้ว เปิด LINE แล้วกด "ส่งเข้ากลุ่ม"`
-          : $localize`:@@pay.card.outcomeSent:ส่งแล้ว`;
+        // A DM's success is told by `dmStatus` (with its time and what is still left to do), never as "ส่งแล้ว".
+        return dm ? (this.dmStatus() ?? '') : $localize`:@@pay.card.outcomeSent:ส่งแล้ว`;
       case 'quota':
         return dm
-          ? $localize`:@@pay.card.dmQuota:โควต้าข้อความ LINE ของเดือนนี้หมดแล้ว ส่งการ์ดให้คุณไม่ได้ ใช้ "เปิดใน LINE เพื่อส่ง" แทน`
+          ? $localize`:@@pay.card.dmQuotaOther:โควต้าข้อความ LINE ของเดือนนี้หมดแล้ว ส่งการ์ดให้คุณไม่ได้ ใช้ "เปิดใน LINE เพื่อส่ง" ใน "ส่งวิธีอื่น" แทน`
           : $localize`:@@pay.card.outcomeQuota:โควต้าข้อความ LINE ของเดือนนี้หมดแล้ว ส่งเข้ากลุ่มไม่ได้`;
       case 'failed':
         return dm
@@ -350,13 +465,30 @@ export class PaymentPanel {
     }
   }
 
-  /** "ส่งแล้ว 20:15", or the bare word for a timestamp that does not parse; null when never sent. */
+  /** "ส่งแล้ว 20:15" (the group post), or the bare word for a timestamp that does not parse; null when never sent. */
   private sentLabel(iso: string | null | undefined): string | null {
     if (!iso) return null;
-    const at = new Date(iso);
-    if (Number.isNaN(at.getTime())) return $localize`:@@pay.card.sentPlain:ส่งแล้ว`;
-    const time = `${String(at.getHours()).padStart(2, '0')}:${String(at.getMinutes()).padStart(2, '0')}`;
+    const time = clock(iso);
+    if (time === null) return $localize`:@@pay.card.sentPlain:ส่งแล้ว`;
     return $localize`:@@pay.card.sentAt:ส่งแล้ว ${time}:time:`;
+  }
+
+  /**
+   * Renders the state change now, then, if it removed the button that held focus (focus fell to the body),
+   * focuses `selector`'s first match so a keyboard or screen-reader user stays in the panel (and the dialog).
+   * With `reveal`, the target is also scrolled into view, focused or not. Synchronous detectChanges, as
+   * GroupEntry.focusAfterRender does; no afterNextRender (see core/motion/reveal.directive.ts).
+   */
+  private refocus(selector: string, reveal = false): void {
+    if (this.destroyed) return;
+    this.cdr.detectChanges();
+    const target = this.host.nativeElement.querySelector<HTMLElement>(selector) ?? this.host.nativeElement;
+    const active = document.activeElement;
+    if (active === null || active === document.body || !active.isConnected) {
+      if (target === this.host.nativeElement) target.setAttribute('tabindex', '-1');
+      target.focus({ preventScroll: true });
+    }
+    if (reveal) target.scrollIntoView?.({ block: 'nearest' });
   }
 
   private incompleteText(): string {

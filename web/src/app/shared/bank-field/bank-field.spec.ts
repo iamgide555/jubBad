@@ -165,4 +165,14 @@ describe('BankField', () => {
   it('caps the free text at 40 characters', () => {
     expect(input().getAttribute('maxlength')).toBe('40');
   });
+
+  it("carries the caller's validation to the input: aria-invalid and the error text's id", () => {
+    expect(input().hasAttribute('aria-invalid')).toBe(false);
+    expect(input().hasAttribute('aria-describedby')).toBe(false);
+    fixture.componentRef.setInput('invalid', true);
+    fixture.componentRef.setInput('describedBy', 'bank-error');
+    fixture.detectChanges();
+    expect(input().getAttribute('aria-invalid')).toBe('true');
+    expect(input().getAttribute('aria-describedby')).toBe('bank-error');
+  });
 });

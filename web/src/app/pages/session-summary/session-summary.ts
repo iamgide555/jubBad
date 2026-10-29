@@ -440,9 +440,10 @@ export class SessionSummary {
   protected readonly paymentSheetOpen = signal(false);
 
   /**
-   * Nudges the host to send the card: nothing was confirmed yet, the amounts moved since, or (group target
-   * only) the bot has not posted a confirmed card. A host-target send happens in LINE's picker and cannot be
-   * observed, so a fresh confirm there is as far as this page can know.
+   * Nudges the host to send the card: nothing was confirmed yet, the amounts moved since, the bot has not
+   * posted a confirmed card (group target), or the bot has not DMed the confirmed card to the host (host
+   * target). A host-target send into the group happens in LINE's picker and cannot be observed, so the DM is
+   * as far as this page can know; a confirm alone is not, or the nudge would vanish before anything left.
    */
   protected readonly showPaymentBanner = computed(() => {
     const p = this.paymentPanel();
@@ -451,7 +452,7 @@ export class SessionSummary {
     // Only on a ready bill: a missing input reads as 0, so a not-ready night can total 0 and still needs the sheet.
     if (p.ready && (p.rows.length === 0 || p.totalSatang === 0)) return false;
     if (!p.confirmed || p.stale) return true;
-    return p.target === 'group' && p.lastSentAt === null;
+    return p.target === 'group' ? p.lastSentAt === null : p.lastDmAt === null;
   });
 
   protected async loadPaymentPanel(): Promise<void> {

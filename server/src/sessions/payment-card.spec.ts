@@ -236,7 +236,7 @@ describe('payment card: owner panel, confirm and bot send', () => {
   }
 
   describe('panel', () => {
-    it('lists the people still due in the bill order, with the bill amounts, and totals them', async () => {
+    it('lists the people still due sorted by name, with the bill amounts, and totals them', async () => {
       const { code, ids } = await setup();
       const panel = await panelOf(code);
       const bill = await bills.getBill(code);
@@ -248,9 +248,12 @@ describe('payment card: owner panel, confirm and bot send', () => {
           name: p.name,
           amountSatang: billed.get(p.playerId)!.amountSatang,
           absent: billed.get(p.playerId)!.absent,
-        }));
+        }))
+        .sort((a, b) => a.name.localeCompare(b.name, 'th'));
 
       expect(panel.rows).toEqual(expected);
+      // Thai collation, not the bill's roster order (สมชาย, มาلี, ต้อม, นิด, แดง): members scan for their own name.
+      expect(panel.rows.map((r) => r.name)).toEqual(['แดง', 'ต้อม', 'นิด', 'มาลี', 'สมชาย']);
       expect(panel.rows).toHaveLength(5);
       // ไม่คิดเงิน is not a row; ไม่มา is, marked absent, with a court share.
       expect(panel.rows.map((r) => r.playerId)).not.toContain(ids[5]);
@@ -275,6 +278,23 @@ describe('payment card: owner panel, confirm and bot send', () => {
         lastDmAt: null,
         shareUrl: null,
       });
+    });
+
+    it('carries the card header texts (group name, Thai date, venue) exactly as the card prints them', async () => {
+      const { code } = await setup();
+      expect(await panelOf(code)).toMatchObject({ groupName: 'ตีชิล', date: '29 ต.ค. 2569', venue: 'Bad@Mama' });
+      await prisma.session.update({ where: { code }, data: { venue: '   ', date: null } });
+      // No venue reads as null; no date falls back to the day the session ended, in Bangkok time.
+      expect(await panelOf(code)).toMatchObject({ venue: null, date: '29 ต.ค. 2569' });
+    });
+
+    it('breaks a tie between two same-named people by player id, so the order never moves between reads', async () => {
+      const { code, ids } = await setup();
+      await prisma.player.update({ where: { id: ids[0] }, data: { name: 'มาลี' } });
+      const panel = await panelOf(code);
+      const twins = panel.rows.filter((r) => r.name === 'มาลี').map((r) => r.playerId);
+      expect(twins).toEqual([ids[0], ids[1]].sort());
+      expect((await panelOf(code)).contentHash).toBe(panel.contentHash);
     });
 
     it('counts settled early checkouts apart from the rows', async () => {
@@ -762,9 +782,11 @@ describe('payment card: owner panel, confirm and bot send', () => {
       );
       const footer = (messages[0] as { contents: { footer: { contents: { style: string; action: object }[] } } })
         .contents.footer.contents;
+      // The forward button leads the DM card's footer (after its muted not-in-the-group line).
       expect(footer[1]).toEqual({
         type: 'button',
-        style: 'secondary',
+        style: 'primary',
+        color: '#1f6b3d',
         action: { type: 'uri', label: 'ส่งเข้ากลุ่ม', uri: panel.shareUrl },
       });
       const after = await panelOf(code);

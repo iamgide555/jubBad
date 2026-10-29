@@ -15,6 +15,9 @@ function panel(over: Partial<PaymentCardPanel> = {}): PaymentCardPanel {
     ended: true,
     ready: false,
     contentHash: 'hash-1',
+    groupName: 'ตีชิล',
+    date: '29 ต.ค. 2569',
+    venue: null,
     warnings: ['shuttle-price'],
     notices: [],
     rows: [{ playerId: 'a', name: 'Amp', amountSatang: 9000, absent: false }],
@@ -99,17 +102,13 @@ describe('PaymentSheet', () => {
     expect(el().querySelector('[data-payment-panel].compact')).not.toBeNull();
   });
 
-  it('has its own visible close button, which only asks to close', async () => {
+  it('is the payment bottom sheet, on top of the shared sheet shell', async () => {
     await open();
-    const button = el().querySelector('button.close') as HTMLButtonElement;
-    expect(button.textContent?.trim()).toBe('ปิด');
-    button.click();
-    expect(closed).toHaveBeenCalledTimes(1);
-    http.expectNone(`${URL}/confirm`);
-    http.expectNone(`${URL}/send`);
+    expect(dialog().classList.contains('payment-sheet')).toBe(true);
+    expect(dialog().classList.contains('sheet-dialog')).toBe(true);
   });
 
-  it('also has a labelled close button at the top, in a sticky header, which only asks to close', async () => {
+  it('has one labelled close button, at the top in a sticky header, which only asks to close', async () => {
     await open();
     const header = el().querySelector('.sheet-header') as HTMLElement;
     expect(header).not.toBeNull();
@@ -117,13 +116,29 @@ describe('PaymentSheet', () => {
     const top = header.querySelector('button.close-top') as HTMLButtonElement;
     expect(top.textContent?.trim()).toBe('ปิด');
     expect(top.getAttribute('type')).toBe('button');
+    // No full-width close at the bottom competing with the primary action.
+    expect(el().querySelector('button.close')).toBeNull();
+    const closes = [...el().querySelectorAll('button')].filter((b) => b.textContent?.trim() === 'ปิด');
+    expect(closes).toEqual([top]);
     top.click();
     expect(closed).toHaveBeenCalledTimes(1);
-    // Both buttons close; the bottom one is still there.
-    (el().querySelector('button.close') as HTMLButtonElement).click();
-    expect(closed).toHaveBeenCalledTimes(2);
     http.expectNone(`${URL}/confirm`);
     http.expectNone(`${URL}/send`);
+  });
+
+  it('closes on a tap on the backdrop, but not on a tap inside the sheet', async () => {
+    await open();
+    (el().querySelector('.sheet-card h2') as HTMLElement).click();
+    expect(closed).not.toHaveBeenCalled();
+    dialog().click();
+    expect(closed).toHaveBeenCalledTimes(1);
+  });
+
+  it("puts the panel's actions in its sticky bottom bar", async () => {
+    await open(panel({ ready: true, warnings: [] }));
+    const bar = el().querySelector('[data-actions]') as HTMLElement;
+    expect(bar.classList.contains('bar')).toBe(true);
+    expect(bar.querySelector('[data-confirm]')).not.toBeNull();
   });
 
   it('shows no amounts while the bill is not ready', async () => {

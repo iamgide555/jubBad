@@ -1,7 +1,7 @@
 import { HttpErrorResponse } from '@angular/common/http';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { ActivatedRoute, convertToParamMap } from '@angular/router';
-import { of, throwError } from 'rxjs';
+import { of, Subject, throwError } from 'rxjs';
 import { LiffClient } from '../../core/liff-client';
 import type { LineShareCard, PaymentShareCard } from '../../core/line.model';
 import { LineService } from '../../core/line.service';
@@ -293,6 +293,48 @@ describe('LineShare', () => {
       await openPay(new HttpErrorResponse({ status: 500 }));
       expect(q('[data-share-error]')).not.toBeNull();
       expect(q('[data-share-missing]')).toBeNull();
+    });
+
+    it('keeps the payment preview after LIFF init fails and retries with a fresh card', async () => {
+      liff.init.mockRejectedValueOnce(new Error('liff down'));
+      await openPay();
+      expect(q('[data-share-error]')).not.toBeNull();
+      expect(q('[data-share-preview]')?.textContent).toContain('รวม ฿1,440');
+      expect(q('[data-share-pick]')).toBeNull();
+      expect(q('[data-share-retry]')?.textContent?.trim()).toBe('ลองอีกครั้ง');
+
+      const updated = { ...PAY, preview: { ...PAY.preview, totalSatang: 150000 } };
+      paymentShareCard.mockReturnValue(of(updated));
+      q('[data-share-retry]')!.click();
+      await flush();
+
+      expect(paymentShareCard).toHaveBeenCalledTimes(2);
+      expect(liff.init).toHaveBeenCalledTimes(2);
+      expect(q('[data-share-error]')).toBeNull();
+      expect(q('[data-share-preview]')?.textContent).toContain('รวม ฿1,500');
+      expect(q('[data-share-pick]')).not.toBeNull();
+    });
+
+    it('guards repeated retry taps and removes obsolete preview when the fresh fetch fails', async () => {
+      liff.init.mockRejectedValueOnce(new Error('liff down'));
+      await openPay();
+      const pending = new Subject<PaymentShareCard>();
+      paymentShareCard.mockReturnValue(pending);
+      const retry = q('[data-share-retry]');
+      expect(retry).not.toBeNull();
+      retry!.click();
+      retry!.click();
+      fixture.detectChanges();
+      expect(paymentShareCard).toHaveBeenCalledTimes(2);
+      expect(q('[data-share-preview]')).toBeNull();
+
+      pending.error(new HttpErrorResponse({ status: 500 }));
+      await flush();
+      expect(q('[data-share-error]')).not.toBeNull();
+      expect(q('[data-share-preview]')).toBeNull();
+      expect(q('[data-share-pick]')).toBeNull();
+      expect(q('[data-share-retry]')).not.toBeNull();
+      expect(liff.init).toHaveBeenCalledTimes(1);
     });
 
     it('titles the page for the payment card', async () => {

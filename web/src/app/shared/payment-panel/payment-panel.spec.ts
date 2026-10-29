@@ -16,6 +16,9 @@ function panel(over: Partial<PaymentCardPanel> = {}): PaymentCardPanel {
     ended: true,
     ready: true,
     contentHash: 'hash-1',
+    groupName: 'ตีชิล',
+    date: '29 ต.ค. 2569',
+    venue: 'Bad@Mama',
     warnings: [],
     notices: [],
     rows: [
@@ -81,6 +84,17 @@ describe('PaymentCardPanel', () => {
     await settle();
   }
 
+  /** "แก้บัญชีคืนนี้": the fields fold into the preview while they hold the group or confirmed account. */
+  async function expandAccount() {
+    await click('[data-edit-account]');
+  }
+
+  /** Busy or out of date: refused by a guard and marked aria-disabled, never natively disabled (focus stays). */
+  const off = (selector: string) => {
+    const button = q<HTMLButtonElement>(selector);
+    return button === null || button.getAttribute('aria-disabled') === 'true';
+  };
+
   async function confirm(response: PaymentCardPanel) {
     await click('[data-confirm]');
     const req = http.expectOne(`${URL}/confirm`);
@@ -111,8 +125,8 @@ describe('PaymentCardPanel', () => {
     await open(panel({ settledCount: 2 }));
     const rows = [...el().querySelectorAll('[data-row]')];
     expect(rows.map((r) => r.querySelector('.row-name')?.textContent?.trim())).toEqual(['Amp', 'Dee']);
-    expect(rows.map((r) => r.querySelector('.row-amount')?.textContent?.trim())).toEqual(['90฿', '110฿']);
-    expect(q('[data-total]')?.textContent).toContain('200฿');
+    expect(rows.map((r) => r.querySelector('.row-amount')?.textContent?.trim())).toEqual(['฿90', '฿110']);
+    expect(q('[data-total]')?.textContent).toContain('฿200');
     expect(q('[data-settled]')?.textContent).toContain('2');
   });
 
@@ -155,6 +169,12 @@ describe('PaymentCardPanel', () => {
 
   it('prefills the account from the group default when none was confirmed tonight', async () => {
     await open(panel({ account: null }));
+    // Folded into the preview as the card prints it, until the host asks to change it.
+    expect(q('[data-field="bank"] input')).toBeNull();
+    expect(q('[data-account-name]')?.textContent).toContain('โอนให้ Host Name');
+    expect(q('[data-account]')?.textContent).toContain('กสิกร');
+    expect(q('[data-account-number]')?.textContent?.trim()).toBe('123-4-56789-0');
+    await expandAccount();
     expect(q<HTMLInputElement>('[data-field="bank"] input')!.value).toBe('กสิกร');
     expect(q<HTMLInputElement>('input[data-field="number"]')!.value).toBe('123-4-56789-0');
     expect(q<HTMLInputElement>('input[data-field="name"]')!.value).toBe('Host Name');
@@ -162,12 +182,17 @@ describe('PaymentCardPanel', () => {
 
   it('prefers the confirmed account for tonight over the group default', async () => {
     await open(panel({ account: { bank: 'ไทยพาณิชย์', number: '999-9-99999-9', name: 'Tonight' }, confirmed: true }));
+    expect(q('[data-account-name]')?.textContent).toContain('โอนให้ Tonight');
+    // Tonight's account is not the group's, so putting the group's back is offered beside the edit action.
+    expect(q('[data-use-group]')).toBeTruthy();
+    await expandAccount();
     expect(q<HTMLInputElement>('[data-field="bank"] input')!.value).toBe('ไทยพาณิชย์');
     expect(q<HTMLInputElement>('input[data-field="name"]')!.value).toBe('Tonight');
   });
 
   it('numeric account field asks for the numeric keypad', async () => {
     await open();
+    await expandAccount();
     expect(q('input[data-field="number"]')?.getAttribute('inputmode')).toBe('numeric');
   });
 
@@ -185,6 +210,7 @@ describe('PaymentCardPanel', () => {
 
   it('posts the three fields on confirm, with the content hash of the amounts on screen', async () => {
     await open();
+    await expandAccount();
     await type('input[data-field="number"]', ' 111-1-11111-1 ');
     const body = await confirm(panel({ confirmed: true }));
     expect(body).toEqual({ bank: 'กสิกร', number: '111-1-11111-1', name: 'Host Name', expectedHash: 'hash-1' });
@@ -258,17 +284,21 @@ describe('PaymentCardPanel', () => {
     http.expectOne(URL).flush(panel({ confirmed: true }));
   });
 
-  it('stale hides the send action and asks to confirm again', async () => {
+  it('stale hides the send action and asks to confirm again, with Confirm as the one primary', async () => {
     await open(panel({ confirmed: true, stale: true }));
-    expect(q('[data-stale]')?.textContent).toContain('ยอดเปลี่ยน, ยืนยันใหม่');
+    expect(q('[data-stale]')?.textContent).toContain('ยอดเปลี่ยน ยืนยันใหม่อีกครั้ง');
     expect(q('[data-send]')).toBeNull();
     expect(q('[data-share-link]')).toBeNull();
     expect(q<HTMLButtonElement>('[data-confirm]')!.disabled).toBe(false);
+    expect(off('[data-confirm]')).toBe(false);
+    expect(q('[data-confirm]')?.textContent?.trim()).toBe('ยืนยันใหม่');
+    expect(q('[data-confirm]')?.classList.contains('ghost')).toBe(false);
   });
 
   it('hides send when the account is edited after confirming, until confirmed again', async () => {
     await open(panel({ confirmed: true }));
     expect(q('[data-send]')).toBeTruthy();
+    await expandAccount();
     await type('input[data-field="name"]', 'Someone Else');
     expect(q('[data-send]')).toBeNull();
     expect(q('[data-edited]')).toBeTruthy();
@@ -346,7 +376,7 @@ describe('PaymentCardPanel', () => {
     await open(panel({ ended: false }));
     expect(q('[data-open-note]')).toBeTruthy();
     expect(el().querySelectorAll('[data-row]')).toHaveLength(2);
-    expect(q('[data-total]')?.textContent).toContain('200฿');
+    expect(q('[data-total]')?.textContent).toContain('฿200');
     expect(q('[data-confirm]')).toBeNull();
     expect(q('[data-send]')).toBeNull();
     expect(q('[data-field="bank"] input')).toBeNull();
@@ -376,7 +406,7 @@ describe('PaymentCardPanel', () => {
         http.expectOne(`${URL}/send`).flush({ outcome });
         await settle();
         // Busy until the re-read lands.
-        expect(q<HTMLButtonElement>('[data-send]')?.disabled ?? true).toBe(true);
+        expect(off('[data-send]')).toBe(true);
         http.expectOne(URL).flush(panel({ confirmed: outcome !== 'not-confirmed', stale: outcome === 'stale' }));
         await settle();
         expect(q('[data-outcome]')?.textContent).toContain(message);
@@ -474,14 +504,21 @@ describe('PaymentCardPanel', () => {
       return req.request.body as { sendId: string };
     }
 
-    it('offers a primary DM button for a sendable card, keeping the link and its hint as the secondary action', async () => {
+    it('offers a primary DM button for a sendable card, with the link and its hint folded under "ส่งวิธีอื่น"', async () => {
       await open(host());
-      expect(q('[data-dm-send]')?.textContent).toContain('ส่งการ์ดให้ฉันทาง LINE');
-      expect(q<HTMLButtonElement>('[data-dm-send]')!.disabled).toBe(false);
-      expect(q<HTMLAnchorElement>('a[data-share-link]')!.getAttribute('href')).toBe(SHARE);
-      expect(text()).toContain('เปิดใน LINE เพื่อส่ง');
-      expect(text()).toContain('กดแล้วเลือกกลุ่มในแอป LINE');
+      // Worded as a DM to the host, so it never reads like the summary page's "send to the group".
+      expect(q('[data-dm-send]')?.textContent?.trim()).toBe('ส่งใบเก็บเงินให้ฉันทาง LINE');
+      expect(off('[data-dm-send]')).toBe(false);
+      const other = q<HTMLDetailsElement>('details[data-other-ways]')!;
+      expect(other.open).toBe(false);
+      expect(other.querySelector('summary')?.textContent?.trim()).toBe('ส่งวิธีอื่น');
+      expect(other.querySelector<HTMLAnchorElement>('a[data-share-link]')!.getAttribute('href')).toBe(SHARE);
+      expect(other.textContent).toContain('เปิดใน LINE เพื่อส่ง');
+      expect(other.textContent).toContain('กดแล้วเลือกกลุ่มในแอป LINE');
+      // The link is not in the action row: the DM button is the one primary there.
+      expect(q('[data-actions] [data-share-link]')).toBeNull();
       expect(q('[data-send]')).toBeNull();
+      expect(q('[data-confirm]')).toBeNull();
     });
 
     it('does not offer it for the group target', async () => {
@@ -503,6 +540,7 @@ describe('PaymentCardPanel', () => {
     it('does not offer it once the account is edited after the confirm', async () => {
       await open(host());
       expect(q('[data-dm-send]')).toBeTruthy();
+      await expandAccount();
       await type('input[data-field="name"]', 'Someone Else');
       expect(q('[data-dm-send]')).toBeNull();
       expect(q('[data-share-link]')).toBeNull();
@@ -531,12 +569,16 @@ describe('PaymentCardPanel', () => {
       const body = await dm('sent', host({ lastDmAt: at }));
       expect(body.sendId).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/);
       const live = q('[aria-live="polite"]')!;
-      expect(live.textContent).toContain('ส่งการ์ดให้คุณใน LINE แล้ว เปิด LINE แล้วกด "ส่งเข้ากลุ่ม"');
       const time = new Date(at);
       const hhmm = `${String(time.getHours()).padStart(2, '0')}:${String(time.getMinutes()).padStart(2, '0')}`;
-      expect(q('[data-last-dm]')?.textContent).toContain(`ส่งแล้ว ${hhmm}`);
+      // The DM's own words, in the live region: in the host's chat, and the group step still to do.
+      expect(live.querySelector('[data-last-dm]')?.textContent?.trim()).toBe(
+        `ส่งให้คุณใน LINE แล้ว ${hhmm} · ยังต้องกด "ส่งเข้ากลุ่ม" ในแชต`
+      );
+      // Never the group's "ส่งแล้ว" (sent): nothing reached the group yet.
+      expect(text()).not.toContain('ส่งแล้ว');
       expect(sent).toHaveLength(0);
-      expect(q('[data-dm-send]')?.textContent).toContain('ส่งอีกครั้ง');
+      expect(q('[data-dm-send]')?.textContent?.trim()).toBe('ส่งให้ฉันอีกครั้ง');
       expect(q('[data-last-sent]')).toBeNull();
     });
 
@@ -546,18 +588,18 @@ describe('PaymentCardPanel', () => {
       http.expectOne(`${URL}/dm`).flush({ outcome: 'sent' });
       await settle();
       const reread = http.expectOne(URL);
-      expect(q<HTMLButtonElement>('[data-dm-send]')?.disabled).toBe(true);
+      expect(off('[data-dm-send]')).toBe(true);
       // Before the re-read lands: only the optimistic lastDmAt can make the button read "again".
-      expect(q('[data-dm-send]')?.textContent).toContain('ส่งอีกครั้ง');
-      expect(q('[data-dm-send]')?.textContent).not.toContain('ส่งการ์ดให้ฉันทาง LINE');
+      expect(q('[data-dm-send]')?.textContent?.trim()).toBe('ส่งให้ฉันอีกครั้ง');
+      expect(q('[data-last-dm]')?.textContent).toContain('ส่งให้คุณใน LINE แล้ว');
       reread.flush(host({ lastDmAt: '2026-10-29T13:05:00.000Z' }));
       await settle();
-      expect(q('[data-dm-send]')?.textContent).toContain('ส่งอีกครั้ง');
+      expect(q('[data-dm-send]')?.textContent?.trim()).toBe('ส่งให้ฉันอีกครั้ง');
     });
 
     it('a second tap after a sent card goes through the inline two-step, with a new UUID', async () => {
       await open(host({ lastDmAt: '2026-10-29T13:05:00.000Z' }));
-      expect(q('[data-dm-send]')?.textContent).toContain('ส่งอีกครั้ง');
+      expect(q('[data-dm-send]')?.textContent?.trim()).toBe('ส่งให้ฉันอีกครั้ง');
 
       await click('[data-dm-send]');
       http.expectNone(`${URL}/dm`);
@@ -602,15 +644,24 @@ describe('PaymentCardPanel', () => {
     });
 
     it('a kept sendId does not survive a re-confirm, which rotates the share link the DM card carries', async () => {
+      const TOK2 = 'https://liff.line.me/1/pay/sess1/tok2';
+      /** A current card offers no Confirm, so a re-confirm follows an account edit, as it would on screen. */
+      const reconfirmAs = async (name: string) => {
+        if (q('[data-edit-account]')) await expandAccount();
+        await type('input[data-field="name"]', name);
+        const account = { ...GROUP_ACCOUNT, name };
+        await confirm(host({ account, shareUrl: TOK2 }));
+        return account;
+      };
       await open(host());
       const first = await dm('failed');
       // Same amounts. The second re-confirm brings the very same link, so only the confirm itself can reset it.
-      await confirm(host({ shareUrl: 'https://liff.line.me/1/pay/sess1/tok2' }));
-      const second = await dm('failed', host({ shareUrl: 'https://liff.line.me/1/pay/sess1/tok2' }));
+      let account = await reconfirmAs('Tonight One');
+      const second = await dm('failed', host({ account, shareUrl: TOK2 }));
       expect(second.sendId).not.toBe(first.sendId);
 
-      await confirm(host({ shareUrl: 'https://liff.line.me/1/pay/sess1/tok2' }));
-      const third = await dm('failed', host({ shareUrl: 'https://liff.line.me/1/pay/sess1/tok2' }));
+      account = await reconfirmAs('Tonight Two');
+      const third = await dm('failed', host({ account, shareUrl: TOK2 }));
       expect(third.sendId).not.toBe(second.sendId);
     });
 
@@ -640,7 +691,7 @@ describe('PaymentCardPanel', () => {
 
     const cases: [PaymentSendOutcome, string][] = [
       ['failed', 'ส่งไม่สำเร็จ ลองอีกครั้ง ถ้ายังไม่ได้ อาจเพราะบล็อกหรือลบบอทไปแล้ว ให้เพิ่มบอทเป็นเพื่อนอีกครั้ง'],
-      ['quota', 'ส่งการ์ดให้คุณไม่ได้ ใช้ "เปิดใน LINE เพื่อส่ง" แทน'],
+      ['quota', 'ส่งการ์ดให้คุณไม่ได้ ใช้ "เปิดใน LINE เพื่อส่ง" ใน "ส่งวิธีอื่น" แทน'],
       ['unavailable', 'ตอนนี้ส่งเข้าไลน์ไม่ได้'],
       ['busy', 'เพิ่งส่งการ์ดให้คุณไปแล้ว ดูในแชต LINE'],
       ['stale', 'ยอดเปลี่ยนไปแล้ว'],
@@ -653,11 +704,13 @@ describe('PaymentCardPanel', () => {
         http.expectOne(`${URL}/dm`).flush({ outcome });
         await settle();
         // Busy until the re-read lands.
-        expect(q<HTMLButtonElement>('[data-dm-send]')?.disabled ?? true).toBe(true);
+        expect(off('[data-dm-send]')).toBe(true);
         http.expectOne(URL).flush(host({ stale: outcome === 'stale', confirmed: outcome !== 'not-confirmed' }));
         await settle();
         expect(q('[data-outcome]')?.textContent).toContain(message);
-        expect(text()).not.toContain('ส่งการ์ดให้คุณใน LINE แล้ว');
+        expect(text()).not.toContain('ส่งให้คุณใน LINE แล้ว');
+        // Out of quota, the other way to send is the way now: it opens by itself.
+        if (outcome === 'quota') expect(q<HTMLDetailsElement>('details[data-other-ways]')?.open).toBe(true);
         if (outcome === 'busy' || outcome === 'quota') expect(text()).not.toContain('ส่งเข้ากลุ่มไม่ได้');
         if (outcome === 'busy') expect(text()).not.toContain('เพิ่งส่งเข้ากลุ่มไปแล้ว');
       });
@@ -669,7 +722,10 @@ describe('PaymentCardPanel', () => {
       fixture.detectChanges();
       http.expectOne(URL).flush({}, { status: 500, statusText: 'Server Error' });
       await settle();
-      expect(q<HTMLButtonElement>('[data-dm-send]')!.disabled).toBe(true);
+      expect(off('[data-dm-send]')).toBe(true);
+      // A tap is refused by the guard, not just greyed out.
+      await click('[data-dm-send]');
+      http.expectNone(`${URL}/dm`);
     });
 
     it('the host link never claims a send', async () => {
@@ -700,13 +756,13 @@ describe('PaymentCardPanel', () => {
       http.expectOne(`${URL}/confirm`).flush({ code: 'PAYMENT_CHANGED' }, { status: 409, statusText: 'Conflict' });
       await settle();
       // Still busy: the re-read decides what the host confirms next.
-      expect(q<HTMLButtonElement>('[data-confirm]')!.disabled).toBe(true);
+      expect(off('[data-confirm]')).toBe(true);
       const moved = panel({ contentHash: 'hash-2', totalSatang: 30000, rows: [{ playerId: 'a', name: 'Amp', amountSatang: 30000, absent: false }] });
       http.expectOne(URL).flush(moved);
       await settle();
       expect(q('[data-error]')?.textContent).toContain('ยอดเปลี่ยน ตรวจยอดอีกครั้ง');
-      expect(q('[data-total]')?.textContent).toContain('300฿');
-      expect(q<HTMLButtonElement>('[data-confirm]')!.disabled).toBe(false);
+      expect(q('[data-total]')?.textContent).toContain('฿300');
+      expect(off('[data-confirm]')).toBe(false);
 
       const body = await confirm(panel({ ...moved, confirmed: true }));
       expect(body.expectedHash).toBe('hash-2');
@@ -714,6 +770,7 @@ describe('PaymentCardPanel', () => {
 
     it('nothing due (409) says nothing wrong, and the re-read shows that nobody owes', async () => {
       await open();
+      q<HTMLButtonElement>('[data-confirm]')!.focus();
       await click('[data-confirm]');
       http.expectOne(`${URL}/confirm`).flush({ code: 'PAYMENT_NOTHING_DUE' }, { status: 409, statusText: 'Conflict' });
       await settle();
@@ -724,16 +781,19 @@ describe('PaymentCardPanel', () => {
       expect(q('[data-empty]')?.textContent).toContain('ไม่มีใครต้องจ่าย');
       expect(q('[data-error]')).toBeNull();
       expect(text()).not.toContain('ยังมียอดที่ไม่ครบ');
+      expect(document.activeElement).toBe(fixture.nativeElement);
     });
 
     it('not ready (409) re-reads the panel', async () => {
       await open();
+      q<HTMLButtonElement>('[data-confirm]')!.focus();
       await click('[data-confirm]');
       http.expectOne(`${URL}/confirm`).flush({ code: 'PAYMENT_NOT_READY' }, { status: 409, statusText: 'Conflict' });
       await settle();
       http.expectOne(URL).flush(panel({ ready: false, warnings: ['MISSING_COURT_FEE'] }));
       await settle();
       expect(q('[data-missing]')?.textContent).toContain('ยังไม่ได้ใส่ค่าสนาม');
+      expect(document.activeElement).toBe(fixture.nativeElement);
     });
 
     it('no account (409) asks to fill in the account', async () => {
@@ -773,16 +833,25 @@ describe('PaymentCardPanel', () => {
   it('offers the group account back only when the fields differ from it, and restores it', async () => {
     await open();
     expect(q('[data-use-group]')).toBeNull();
+    await expandAccount();
+    expect(q('[data-use-group]')).toBeNull();
     await type('input[data-field="name"]', 'Someone Else');
     expect(q('[data-use-group]')).toBeTruthy();
     await click('[data-use-group]');
-    expect(q<HTMLInputElement>('input[data-field="name"]')!.value).toBe('Host Name');
+    // Back to the group's account, folded into the preview again.
+    expect(q('[data-account-name]')?.textContent).toContain('โอนให้ Host Name');
+    expect(q('input[data-field="name"]')).toBeNull();
     expect(q('[data-use-group]')).toBeNull();
+    await expandAccount();
+    expect(q<HTMLInputElement>('input[data-field="name"]')!.value).toBe('Host Name');
   });
 
-  it('shows the hint about the collector under the account fields', async () => {
+  it('shows the collector hint, as two short sentences, only before the confirm', async () => {
     await open();
-    expect(q('[data-hint]')?.textContent).toContain('คนรับเงินไม่ต้องโอนให้ตัวเอง');
+    const hint = [...el().querySelectorAll('[data-hint] p')].map((p) => p.textContent?.trim());
+    expect(hint).toEqual(['คนที่รับเงินไม่ต้องโอนให้ตัวเอง', 'ตั้งยอดของเขาเป็น 0 ได้ในหน้าคิดเงิน ใช้ ไม่คิดเงิน']);
+    await confirm(panel({ confirmed: true }));
+    expect(q('[data-hint]')).toBeNull();
   });
 
   it('shows a retry when the panel cannot be read', async () => {
@@ -801,12 +870,13 @@ describe('PaymentCardPanel', () => {
 
   it('re-reads the panel when the refresh key changes, keeping what the host typed', async () => {
     await open(panel(), { refreshKey: 1 });
+    await expandAccount();
     await type('input[data-field="name"]', 'Typed');
     fixture.componentRef.setInput('refreshKey', 2);
     fixture.detectChanges();
     http.expectOne(URL).flush(panel({ totalSatang: 30000, rows: [{ playerId: 'a', name: 'Amp', amountSatang: 30000, absent: false }] }));
     await settle();
-    expect(q('[data-total]')?.textContent).toContain('300฿');
+    expect(q('[data-total]')?.textContent).toContain('฿300');
     expect(q<HTMLInputElement>('input[data-field="name"]')!.value).toBe('Typed');
   });
 
@@ -825,9 +895,10 @@ describe('PaymentCardPanel', () => {
   });
 
   it('gives two mounted panels their own input ids', async () => {
-    await open();
+    // No account anywhere, so the fields are open on both.
+    await open(panel({ account: null, groupAccount: null }));
     const first = fixture;
-    await open();
+    await open(panel({ account: null, groupAccount: null }));
     const ids = [first, fixture].flatMap((f) =>
       ['[data-field="bank"] input', 'input[data-field="number"]', 'input[data-field="name"]'].map(
         (sel) => (f.nativeElement as HTMLElement).querySelector(sel)!.id
@@ -894,10 +965,10 @@ describe('PaymentCardPanel', () => {
       confirmReq.flush(panel({ confirmed: true }));
       await settle();
       // The discarded answer's re-read is in flight: no second Confirm may freeze amounts not yet on screen.
-      expect(q<HTMLButtonElement>('[data-confirm]')!.disabled).toBe(true);
+      expect(off('[data-confirm]')).toBe(true);
       http.expectOne(URL).flush(fresh);
       await settle();
-      expect(q('[data-total]')?.textContent).toContain('300฿');
+      expect(q('[data-total]')?.textContent).toContain('฿300');
       expect(q('[data-stale]')).toBeTruthy();
       expect(q('[data-send]')).toBeNull();
     });
@@ -909,15 +980,17 @@ describe('PaymentCardPanel', () => {
       http.expectOne(URL).flush({}, { status: 500, statusText: 'Server Error' });
       await settle();
       expect(q('[data-load-failed]')).toBeTruthy();
-      expect(q<HTMLButtonElement>('[data-confirm]')!.disabled).toBe(true);
-      expect(q<HTMLButtonElement>('[data-send]')!.disabled).toBe(true);
+      // Confirmed and current: Send is the one action, and it is off.
+      expect(q('[data-confirm]')).toBeNull();
+      expect(off('[data-send]')).toBe(true);
+      await click('[data-send]');
+      http.expectNone(`${URL}/send`);
 
       await click('[data-load-failed] button');
       http.expectOne(URL).flush(panel({ confirmed: true }));
       await settle();
       expect(q('[data-load-failed]')).toBeNull();
-      expect(q<HTMLButtonElement>('[data-confirm]')!.disabled).toBe(false);
-      expect(q<HTMLButtonElement>('[data-send]')!.disabled).toBe(false);
+      expect(off('[data-send]')).toBe(false);
     });
 
     it('a failed refresh shows no retry for a group without a payment card', async () => {
@@ -958,7 +1031,7 @@ describe('PaymentCardPanel', () => {
       http.expectOne(URL).flush({}, { status: 500, statusText: 'Server Error' });
       await settle();
       // The read failed, so sending is off until Retry works; the sent mark stays.
-      expect(q<HTMLButtonElement>('[data-send]')!.disabled).toBe(true);
+      expect(off('[data-send]')).toBe(true);
       await click('[data-load-failed] button');
       http.expectOne(URL).flush(panel({ confirmed: true, lastSentAt: '2026-10-29T13:05:00.000Z' }));
       await settle();
@@ -971,6 +1044,7 @@ describe('PaymentCardPanel', () => {
     it('survives the panel being destroyed and recreated, without touching browser storage', async () => {
       const local = vi.spyOn(Storage.prototype, 'setItem');
       await open();
+      await expandAccount();
       await type('input[data-field="name"]', 'Half Typed');
       expect(local).not.toHaveBeenCalled();
       local.mockRestore();
@@ -982,16 +1056,21 @@ describe('PaymentCardPanel', () => {
 
     it('is cleared by a successful confirm', async () => {
       await open();
+      await expandAccount();
       await type('input[data-field="name"]', 'Half Typed');
       await confirm(panel({ confirmed: true, account: { ...GROUP_ACCOUNT, name: 'Half Typed' } }));
       expect(TestBed.inject(PaymentDraftService).get('sess1')).toBeNull();
       fixture.destroy();
       await open(panel({ confirmed: true, account: { ...GROUP_ACCOUNT, name: 'Half Typed' } }));
+      // Tonight's confirmed account, folded into the preview.
+      expect(q('[data-account-name]')?.textContent).toContain('โอนให้ Half Typed');
+      await expandAccount();
       expect(q<HTMLInputElement>('input[data-field="name"]')!.value).toBe('Half Typed');
     });
 
     it('is dropped by using the group account', async () => {
       await open();
+      await expandAccount();
       await type('input[data-field="name"]', 'Half Typed');
       await click('[data-use-group]');
       expect(TestBed.inject(PaymentDraftService).get('sess1')).toBeNull();
@@ -999,11 +1078,260 @@ describe('PaymentCardPanel', () => {
 
     it('is kept when a confirm fails', async () => {
       await open();
+      await expandAccount();
       await type('input[data-field="name"]', 'Half Typed');
       await click('[data-confirm]');
       http.expectOne(`${URL}/confirm`).flush({}, { status: 500, statusText: 'Server Error' });
       await settle();
       expect(TestBed.inject(PaymentDraftService).get('sess1')).toEqual({ ...GROUP_ACCOUNT, name: 'Half Typed' });
+    });
+  });
+  describe('the card preview', () => {
+    it('reads as the card the group receives: header, date and venue, rows, total and the account', async () => {
+      await open(panel({ settledCount: 1 }));
+      const preview = q('[data-preview]')!;
+      expect(preview.tagName).toBe('FIGURE');
+      expect(preview.querySelector('.preview-head')?.textContent).toContain('ยอดค่าเล่น');
+      expect(q('[data-preview-group]')?.textContent?.trim()).toBe('ตีชิล');
+      expect(q('[data-preview-meta]')?.textContent?.replace(/\s+/g, ' ').trim()).toBe('29 ต.ค. 2569 · Bad@Mama');
+      expect(q('[data-total] span')?.textContent?.trim()).toBe('รวม');
+      expect(q('[data-total] .total-amount')?.textContent?.trim()).toBe('฿200');
+      expect(q('[data-settled]')?.textContent).toContain('จ่ายแล้ว 1 คน');
+      const account = q('[data-account]')!;
+      expect(preview.contains(account)).toBe(true);
+      expect(q('[data-account-name]')?.textContent?.trim()).toBe('โอนให้ Host Name');
+      expect(account.textContent).toContain('กสิกร');
+      expect(q('[data-account-number]')?.textContent?.trim()).toBe('123-4-56789-0');
+    });
+
+    it('keeps the rows in the order the server sends (sorted by name there), absent marked, zero as ไม่ต้องโอน', async () => {
+      await open(
+        panel({
+          rows: [
+            { playerId: 'z', name: 'Bee', amountSatang: 20800, absent: true },
+            { playerId: 'a', name: 'Cat', amountSatang: 0, absent: false },
+          ],
+          totalSatang: 20800,
+        })
+      );
+      const rows = [...el().querySelectorAll('[data-row]')].map((r) => [
+        r.querySelector('.row-name')?.textContent?.trim(),
+        r.querySelector('.row-absent')?.textContent?.trim() ?? null,
+        r.querySelector('.row-amount')?.textContent?.trim(),
+      ]);
+      expect(rows).toEqual([
+        ['Bee', '(ไม่มา)', '฿208'],
+        ['Cat', null, 'ไม่ต้องโอน'],
+      ]);
+    });
+
+    it('leaves the venue out when the card has none', async () => {
+      await open(panel({ venue: null }));
+      expect(q('[data-preview-meta]')?.textContent?.trim()).toBe('29 ต.ค. 2569');
+    });
+
+    it('folds the account fields into the preview, and "แก้บัญชีคืนนี้" opens them with focus on their group', async () => {
+      await open();
+      expect(q('[data-account-fields]')).toBeNull();
+      const edit = q<HTMLButtonElement>('[data-edit-account]')!;
+      expect(edit.textContent?.trim()).toBe('แก้บัญชีคืนนี้');
+      edit.focus();
+      await click('[data-edit-account]');
+      const fields = q('[data-account-fields]')!;
+      expect(fields).toBeTruthy();
+      expect(document.activeElement).toBe(fields);
+      expect(q('[data-edit-account]')).toBeNull();
+    });
+
+    it('keeps the fields open while a draft differs from the group account', async () => {
+      TestBed.inject(PaymentDraftService).set('sess1', { ...GROUP_ACCOUNT, name: 'Draft Name' });
+      await open();
+      expect(q<HTMLInputElement>('input[data-field="name"]')!.value).toBe('Draft Name');
+      expect(q('[data-edit-account]')).toBeNull();
+    });
+
+    it('never folds the fields away while the host types, even back to the group account', async () => {
+      await open();
+      await expandAccount();
+      await type('input[data-field="name"]', 'Someone');
+      await type('input[data-field="name"]', 'Host Name');
+      expect(q('input[data-field="name"]')).toBeTruthy();
+    });
+  });
+
+  describe('one primary action per state', () => {
+    const buttons = () => [...el().querySelectorAll<HTMLElement>('[data-actions] button, [data-actions] a')];
+
+    it('before the confirm: Confirm alone, worded for amounts and account', async () => {
+      await open();
+      expect(buttons()).toHaveLength(1);
+      expect(buttons()[0].matches('[data-confirm]')).toBe(true);
+      expect(buttons()[0].textContent?.trim()).toBe('ยืนยันยอดและบัญชี');
+      expect(buttons()[0].classList.contains('ghost')).toBe(false);
+    });
+
+    it('confirmed and current: the group send alone, with no Confirm button', async () => {
+      await open(panel({ confirmed: true }));
+      expect(buttons()).toHaveLength(1);
+      expect(buttons()[0].matches('[data-send]')).toBe(true);
+      expect(q('[data-confirm]')).toBeNull();
+    });
+
+    it('confirmed and current for the host target: the DM alone in the action row', async () => {
+      await open(panel({ target: 'host', confirmed: true, shareUrl: 'https://liff.line.me/1/pay/sess1/tok' }));
+      expect(buttons()).toHaveLength(1);
+      expect(buttons()[0].matches('[data-dm-send]')).toBe(true);
+    });
+
+    it('edited after the confirm: Confirm again, alone', async () => {
+      await open(panel({ confirmed: true }));
+      await expandAccount();
+      await type('input[data-field="name"]', 'Someone Else');
+      expect(buttons()).toHaveLength(1);
+      expect(buttons()[0].textContent?.trim()).toBe('ยืนยันใหม่');
+    });
+
+    it('not ready in the sheet: a button-styled link to fill in what is missing', async () => {
+      await open(panel({ ready: false, warnings: ['MISSING_COURT_FEE'] }), { compact: true });
+      expect(buttons()).toHaveLength(1);
+      const link = buttons()[0] as HTMLAnchorElement;
+      expect(link.matches('a.button-link[data-settings-link]')).toBe(true);
+      expect(link.textContent?.trim()).toBe('ไปใส่ค่าที่ขาด');
+    });
+
+    it('sits in a sticky bottom bar in the sheet only', async () => {
+      await open(panel(), { compact: true });
+      expect(q('[data-actions]')?.classList.contains('bar')).toBe(true);
+      fixture.destroy();
+      await open(panel());
+      expect(q('[data-actions]')?.classList.contains('bar')).toBe(false);
+    });
+
+    it('has no action row when there is nothing to do', async () => {
+      await open(panel({ ended: false }));
+      expect(q('[data-actions]')).toBeNull();
+      fixture.destroy();
+      await open(panel({ ready: false, warnings: ['MISSING_COURT_FEE'] }));
+      expect(q('[data-actions]')).toBeNull();
+    });
+  });
+
+  it('names how many inputs are still missing, as a to-do', async () => {
+    await open(panel({ ready: false, warnings: ['MISSING_COURT_FEE', 'MISSING_SHUTTLE_PRICE'] }));
+    expect(q('[data-missing] .missing-title')?.textContent?.trim()).toBe('ยังขาดอีก 2 อย่างก่อนส่ง');
+    expect(el().querySelectorAll('[data-missing] li')).toHaveLength(2);
+  });
+
+  describe('confirmed state and focus', () => {
+    let scroll: ReturnType<typeof vi.fn>;
+    beforeEach(() => {
+      scroll = vi.fn();
+      Object.defineProperty(Element.prototype, 'scrollIntoView', { value: scroll, configurable: true, writable: true });
+    });
+    afterEach(() => {
+      delete (Element.prototype as { scrollIntoView?: unknown }).scrollIntoView;
+    });
+
+    it('says the card is confirmed and ready to send, in the live region', async () => {
+      await open();
+      await confirm(panel({ confirmed: true }));
+      const live = q('[aria-live="polite"]')!;
+      expect(live.querySelector('[data-confirmed]')?.textContent?.trim()).toBe('ยืนยันยอดแล้ว · ส่งได้เลย');
+      expect(live.querySelector('[data-confirmed] app-icon')).toBeTruthy();
+    });
+
+    it('keeps focus on the Confirm button while it is busy: aria-disabled, never disabled', async () => {
+      await open();
+      const button = q<HTMLButtonElement>('[data-confirm]')!;
+      button.focus();
+      await click('[data-confirm]');
+      const req = http.expectOne(`${URL}/confirm`);
+      expect(button.disabled).toBe(false);
+      expect(button.getAttribute('aria-disabled')).toBe('true');
+      expect(document.activeElement).toBe(button);
+      // A second tap while busy is refused by the guard.
+      await click('[data-confirm]');
+      http.expectNone(`${URL}/confirm`);
+      req.flush(panel({ confirmed: true }));
+      await settle();
+    });
+
+    it('hands focus to the Send that replaced Confirm, and brings it into view', async () => {
+      await open();
+      q<HTMLButtonElement>('[data-confirm]')!.focus();
+      await confirm(panel({ confirmed: true }));
+      const send = q('[data-send]')!;
+      expect(document.activeElement).toBe(send);
+      expect(scroll).toHaveBeenCalledWith({ block: 'nearest' });
+      expect(scroll.mock.contexts).toContain(send);
+    });
+
+    it('for the host target, hands focus to the DM button', async () => {
+      await open(panel({ target: 'host' }));
+      q<HTMLButtonElement>('[data-confirm]')!.focus();
+      await confirm(panel({ target: 'host', confirmed: true, shareUrl: 'https://liff.line.me/1/pay/sess1/tok' }));
+      expect(document.activeElement).toBe(q('[data-dm-send]'));
+    });
+
+    it('moves focus into the resend prompt and back to Send when it is cancelled', async () => {
+      await open(panel({ confirmed: true, lastSentAt: '2026-10-29T13:05:00.000Z' }));
+      q<HTMLButtonElement>('[data-send]')!.focus();
+      await click('[data-send]');
+      expect(document.activeElement).toBe(q('[data-resend-yes]'));
+      await click('[data-resend-cancel]');
+      expect(document.activeElement).toBe(q('[data-send]'));
+    });
+
+    for (const target of ['group', 'host'] as const) {
+      it(`keeps focus inside the panel while a ${target} resend is pending`, async () => {
+        const dm = target === 'host';
+        await open(panel({
+          target,
+          confirmed: true,
+          shareUrl: dm ? 'https://liff.line.me/1/pay/sess1/tok' : null,
+          ...(dm ? { lastDmAt: '2026-10-29T13:05:00.000Z' } : { lastSentAt: '2026-10-29T13:05:00.000Z' }),
+        }));
+        const selector = dm ? '[data-dm-send]' : '[data-send]';
+        q<HTMLButtonElement>(selector)!.focus();
+        await click(selector);
+        await click(dm ? '[data-dm-resend-yes]' : '[data-resend-yes]');
+        const focused = document.activeElement;
+        const replacement = q(selector);
+        const request = http.expectOne(`${URL}/${dm ? 'dm' : 'send'}`);
+        request.flush({ outcome: 'sent' });
+        await settle();
+        http.expectOne(URL).flush(panel({ target, confirmed: true }));
+        await settle();
+        expect(focused).toBe(replacement);
+      });
+    }
+
+    for (const outcome of ['stale', 'not-confirmed'] as const) {
+      it(`moves focus to Confirm when sending finds the card ${outcome}`, async () => {
+        await open(panel({ confirmed: true }));
+        q<HTMLButtonElement>('[data-send]')!.focus();
+        await send(outcome, panel({ confirmed: outcome === 'stale', stale: outcome === 'stale' }));
+        expect(document.activeElement).toBe(q('[data-confirm]'));
+      });
+    }
+
+    it('keeps focus on the panel when a send re-read removes every action', async () => {
+      await open(panel({ confirmed: true }));
+      q<HTMLButtonElement>('[data-send]')!.focus();
+      await send('unavailable', panel({ target: null }));
+      expect(document.activeElement).toBe(fixture.nativeElement);
+    });
+
+    it('puts focus back on Send after a resend goes out', async () => {
+      await open(panel({ confirmed: true, lastSentAt: '2026-10-29T13:05:00.000Z' }));
+      q<HTMLButtonElement>('[data-send]')!.focus();
+      await click('[data-send]');
+      await click('[data-resend-yes]');
+      http.expectOne(`${URL}/send`).flush({ outcome: 'sent' });
+      await settle();
+      http.expectOne(URL).flush(panel({ confirmed: true, lastSentAt: '2026-10-29T13:06:00.000Z' }));
+      await settle();
+      expect(document.activeElement).toBe(q('[data-send]'));
     });
   });
 });

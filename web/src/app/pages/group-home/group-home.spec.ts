@@ -350,13 +350,13 @@ describe('GroupHome', () => {
       httpMock.expectOne(`${B}/groups/group1/line`).flush('x', { status: 500, statusText: 'x' });
       await settle();
       await tick();
-      for (const s of ['players', 'levels', 'share', 'line', 'advanced', 'manage']) expectLink(s);
+      for (const s of ['players', 'levels', 'share', 'line', 'payment', 'advanced', 'manage']) expectLink(s);
     });
 
     for (const answer of ['host', 'club', 'fail', null] as const) {
       it(`${answer ?? 'unknown'} plan: every row is an ordinary link, even with nothing set up`, async () => {
         await openSettings(answer);
-        for (const s of ['players', 'levels', 'share', 'line', 'advanced', 'manage']) expectLink(s);
+        for (const s of ['players', 'levels', 'share', 'line', 'payment', 'advanced', 'manage']) expectLink(s);
       });
     }
 
@@ -634,7 +634,7 @@ describe('GroupHome', () => {
     expect(nav.mock.calls[0][0].toString()).toBe('/g/group1/start');
   });
 
-  it('opening settings reveals six rows in order, with management last', async () => {
+  it('opening settings reveals seven rows in order, with management last', async () => {
     await open();
     trigger().click();
     await harness.fixture.whenStable();
@@ -643,24 +643,25 @@ describe('GroupHome', () => {
     expect(trigger().getAttribute('aria-expanded')).toBe('true');
     expect(list().hidden).toBe(false);
     const rows = [...list().querySelectorAll<HTMLAnchorElement>('a[data-section]')];
-    expect(rows.map((r) => r.dataset['section'])).toEqual(['players', 'levels', 'share', 'line', 'advanced', 'manage']);
+    expect(rows.map((r) => r.dataset['section'])).toEqual(['players', 'levels', 'share', 'line', 'payment', 'advanced', 'manage']);
     expect(rows.map((r) => r.getAttribute('href'))).toEqual([
       '/g/group1/players',
       '/g/group1/levels',
       '/g/group1/settings/share',
       '/g/group1/settings/line',
+      '/g/group1/settings/payment',
       '/g/group1/settings/advanced',
       '/g/group1/settings/manage',
     ]);
-    expect(rows[5].textContent).toContain('ชื่อก๊วน / ดาวน์โหลดข้อมูล / ลบก๊วน');
-    const titles = ['จัดการผู้เล่น', 'ระดับผู้เล่นของก๊วน', 'แชร์หน้าสรุปก๊วน', 'LINE', 'ตั้งค่าขั้นสูง', 'จัดการก๊วน'];
+    expect(rows[6].textContent).toContain('ชื่อก๊วน / ดาวน์โหลดข้อมูล / ลบก๊วน');
+    const titles = ['จัดการผู้เล่น', 'ระดับผู้เล่นของก๊วน', 'แชร์หน้าสรุปก๊วน', 'LINE', 'บัญชีรับเงิน', 'ตั้งค่าขั้นสูง', 'จัดการก๊วน'];
     rows.forEach((r, i) => {
       const id = r.getAttribute('aria-labelledby')!;
       expect(document.getElementById(id)?.textContent?.trim()).toBe(titles[i]);
     });
   });
 
-  it('the settings wrapper holds two lists: five routine rows, then management alone', async () => {
+  it('the settings wrapper holds two lists: six routine rows, then management alone', async () => {
     await open();
     trigger().click();
     await harness.fixture.whenStable();
@@ -675,6 +676,7 @@ describe('GroupHome', () => {
       'levels',
       'share',
       'line',
+      'payment',
       'advanced',
     ]);
     expect([...lists[1].querySelectorAll<HTMLElement>('a[data-section]')].map((r) => r.dataset['section'])).toEqual([

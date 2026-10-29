@@ -117,6 +117,10 @@
           </section>
           <app-line-host-link-panel [groupCode]="groupCode" [paid]="paid()" />
         }
+        @case ('payment') {
+          <h1 class="detail-title" i18n="@@group.row.payment">บัญชีรับเงิน</h1>
+          <app-pay-account-panel [groupCode]="groupCode" />
+        }
         @case ('advanced') {
           <h1 class="detail-title" i18n="@@group.row.advanced">ตั้งค่าขั้นสูง</h1>
           <p class="muted" i18n="@@group.advancedHint">มีผลกับรอบที่สร้างต่อจากนี้ รอบที่เปิดอยู่แล้วไม่เปลี่ยน</p>

@@ -1,0 +1,54 @@
+<section class="pay-account" data-pay-account>
+  @if (loadFailed()) {
+    <p class="error" role="alert" data-pay-load-failed>
+      <ng-container i18n="@@pay.account.loadFailed">โหลดบัญชีรับเงินไม่สำเร็จ</ng-container>
+      <button type="button" class="ghost" (click)="load()" i18n="@@entry.retry">ลองอีกครั้ง</button>
+    </p>
+  } @else if (loaded()) {
+    <form class="pay-form" novalidate (submit)="save($event)">
+      <p class="muted" i18n="@@pay.account.hint">บัญชีนี้จะขึ้นในการ์ดเก็บเงินตอนจบรอบ คืนไหนจะใช้บัญชีอื่นก็แก้ก่อนส่งได้</p>
+      <div class="pay-field">
+        <label for="pay-bank" i18n="@@pay.account.bank">ธนาคาร</label>
+        <app-bank-field inputId="pay-bank" [value]="bank()" (valueChange)="edit('bank', $event)" />
+      </div>
+      <div class="pay-field">
+        <label for="pay-number" i18n="@@pay.account.number">เลขบัญชี</label>
+        <input
+          id="pay-number"
+          name="payNumber"
+          type="text"
+          inputmode="numeric"
+          autocomplete="off"
+          [value]="number()"
+          (input)="edit('number', $any($event.target).value)"
+        />
+      </div>
+      <div class="pay-field">
+        <label for="pay-name" i18n="@@pay.account.name">ชื่อบัญชี</label>
+        <input
+          id="pay-name"
+          name="payName"
+          type="text"
+          autocomplete="off"
+          maxlength="80"
+          [value]="name()"
+          (input)="edit('name', $any($event.target).value)"
+        />
+      </div>
+      @if (error()) {
+        <p class="error" role="alert" data-pay-error>{{ error() }}</p>
+      }
+      @if (notice() === 'saved') {
+        <p class="muted" role="status" data-pay-saved i18n="@@pay.account.saved">บันทึกแล้ว</p>
+      } @else if (notice() === 'cleared') {
+        <p class="muted" role="status" data-pay-saved i18n="@@pay.account.cleared">ล้างบัญชีแล้ว</p>
+      }
+      <div class="pay-actions">
+        <button type="submit" data-pay-save [disabled]="busy()" i18n="@@pay.account.save">บันทึก</button>
+        @if (canClear()) {
+          <button type="button" class="ghost" data-pay-clear [disabled]="busy()" (click)="clear()" i18n="@@pay.account.clear">ล้าง</button>
+        }
+      </div>
+    </form>
+  }
+</section>

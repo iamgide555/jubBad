@@ -7873,6 +7873,54 @@
           <context context-type="linenumber">3</context>
         </context-group>
       </trans-unit>
+      <trans-unit id="group.row.payment" datatype="html">
+        <source>บัญชีรับเงิน</source>
+      </trans-unit>
+      <trans-unit id="group.row.paymentDesc" datatype="html">
+        <source>บัญชีธนาคารที่ขึ้นในการ์ดเก็บเงิน</source>
+      </trans-unit>
+      <trans-unit id="pay.account.hint" datatype="html">
+        <source>บัญชีนี้จะขึ้นในการ์ดเก็บเงินตอนจบรอบ คืนไหนจะใช้บัญชีอื่นก็แก้ก่อนส่งได้</source>
+      </trans-unit>
+      <trans-unit id="pay.account.bank" datatype="html">
+        <source>ธนาคาร</source>
+      </trans-unit>
+      <trans-unit id="pay.account.bankList" datatype="html">
+        <source>รายชื่อธนาคาร</source>
+      </trans-unit>
+      <trans-unit id="pay.account.number" datatype="html">
+        <source>เลขบัญชี</source>
+      </trans-unit>
+      <trans-unit id="pay.account.name" datatype="html">
+        <source>ชื่อบัญชี</source>
+      </trans-unit>
+      <trans-unit id="pay.account.save" datatype="html">
+        <source>บันทึก</source>
+      </trans-unit>
+      <trans-unit id="pay.account.clear" datatype="html">
+        <source>ล้าง</source>
+      </trans-unit>
+      <trans-unit id="pay.account.saved" datatype="html">
+        <source>บันทึกแล้ว</source>
+      </trans-unit>
+      <trans-unit id="pay.account.cleared" datatype="html">
+        <source>ล้างบัญชีแล้ว</source>
+      </trans-unit>
+      <trans-unit id="pay.account.loadFailed" datatype="html">
+        <source>โหลดบัญชีรับเงินไม่สำเร็จ</source>
+      </trans-unit>
+      <trans-unit id="pay.account.incomplete" datatype="html">
+        <source>กรอกให้ครบทั้งสามช่อง หรือกดล้างถ้าไม่ต้องการตั้งบัญชี</source>
+      </trans-unit>
+      <trans-unit id="pay.account.badNumber" datatype="html">
+        <source>เลขบัญชีต้องเป็นตัวเลขอย่างน้อย 6 หลัก เว้นวรรคหรือใส่ขีดได้ ยาวไม่เกิน 20 ตัวอักษร</source>
+      </trans-unit>
+      <trans-unit id="pay.account.invalid" datatype="html">
+        <source>ตรวจบัญชีรับเงินอีกครั้ง ต้องกรอกครบทั้งสามช่อง และเลขบัญชีเป็นตัวเลข 6 หลักขึ้นไป</source>
+      </trans-unit>
+      <trans-unit id="pay.account.saveFailed" datatype="html">
+        <source>บันทึกไม่สำเร็จ ลองอีกครั้ง</source>
+      </trans-unit>
     </body>
   </file>
 </xliff>

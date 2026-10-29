@@ -179,6 +179,15 @@
             }
           </li>
           <li>
+            <a class="row" data-section="payment" appPress [routerLink]="rowLink('payment')" aria-labelledby="title-payment" aria-describedby="desc-payment">
+              <span class="row-text">
+                <span class="row-title"><span id="title-payment" i18n="@@group.row.payment">บัญชีรับเงิน</span></span>
+                <span class="row-desc" id="desc-payment" i18n="@@group.row.paymentDesc">บัญชีธนาคารที่ขึ้นในการ์ดเก็บเงิน</span>
+              </span>
+              <app-icon class="row-chevron" name="chevron" [size]="18" />
+            </a>
+          </li>
+          <li>
             @if (locked('advanced')) {
               <button type="button" class="row locked" data-section="advanced" (click)="upgradeSheet.open()" aria-labelledby="title-advanced" aria-describedby="desc-advanced lock-advanced">
                 <span class="row-text">

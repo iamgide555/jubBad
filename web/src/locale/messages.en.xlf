@@ -6137,6 +6137,70 @@
           <context context-type="linenumber">197</context>
         </context-group>
       </trans-unit>
+      <trans-unit id="group.row.payment" datatype="html">
+        <source>บัญชีรับเงิน</source>
+        <target>Payment account</target>
+      </trans-unit>
+      <trans-unit id="group.row.paymentDesc" datatype="html">
+        <source>บัญชีธนาคารที่ขึ้นในการ์ดเก็บเงิน</source>
+        <target>The bank account shown on the payment card</target>
+      </trans-unit>
+      <trans-unit id="pay.account.hint" datatype="html">
+        <source>บัญชีนี้จะขึ้นในการ์ดเก็บเงินตอนจบรอบ คืนไหนจะใช้บัญชีอื่นก็แก้ก่อนส่งได้</source>
+        <target>This account appears on the payment card at the end of a session. You can change it for one night before sending</target>
+      </trans-unit>
+      <trans-unit id="pay.account.bank" datatype="html">
+        <source>ธนาคาร</source>
+        <target>Bank</target>
+      </trans-unit>
+      <trans-unit id="pay.account.bankList" datatype="html">
+        <source>รายชื่อธนาคาร</source>
+        <target>Banks</target>
+      </trans-unit>
+      <trans-unit id="pay.account.number" datatype="html">
+        <source>เลขบัญชี</source>
+        <target>Account number</target>
+      </trans-unit>
+      <trans-unit id="pay.account.name" datatype="html">
+        <source>ชื่อบัญชี</source>
+        <target>Account name</target>
+      </trans-unit>
+      <trans-unit id="pay.account.save" datatype="html">
+        <source>บันทึก</source>
+        <target>Save</target>
+      </trans-unit>
+      <trans-unit id="pay.account.clear" datatype="html">
+        <source>ล้าง</source>
+        <target>Clear</target>
+      </trans-unit>
+      <trans-unit id="pay.account.saved" datatype="html">
+        <source>บันทึกแล้ว</source>
+        <target>Saved</target>
+      </trans-unit>
+      <trans-unit id="pay.account.cleared" datatype="html">
+        <source>ล้างบัญชีแล้ว</source>
+        <target>Account cleared</target>
+      </trans-unit>
+      <trans-unit id="pay.account.loadFailed" datatype="html">
+        <source>โหลดบัญชีรับเงินไม่สำเร็จ</source>
+        <target>Could not load the payment account</target>
+      </trans-unit>
+      <trans-unit id="pay.account.incomplete" datatype="html">
+        <source>กรอกให้ครบทั้งสามช่อง หรือกดล้างถ้าไม่ต้องการตั้งบัญชี</source>
+        <target>Fill in all three fields, or tap Clear if you don't want an account set</target>
+      </trans-unit>
+      <trans-unit id="pay.account.badNumber" datatype="html">
+        <source>เลขบัญชีต้องเป็นตัวเลขอย่างน้อย 6 หลัก เว้นวรรคหรือใส่ขีดได้ ยาวไม่เกิน 20 ตัวอักษร</source>
+        <target>The account number needs at least 6 digits. Spaces and dashes are fine, 20 characters at most</target>
+      </trans-unit>
+      <trans-unit id="pay.account.invalid" datatype="html">
+        <source>ตรวจบัญชีรับเงินอีกครั้ง ต้องกรอกครบทั้งสามช่อง และเลขบัญชีเป็นตัวเลข 6 หลักขึ้นไป</source>
+        <target>Check the account again: all three fields are needed, and the number needs at least 6 digits</target>
+      </trans-unit>
+      <trans-unit id="pay.account.saveFailed" datatype="html">
+        <source>บันทึกไม่สำเร็จ ลองอีกครั้ง</source>
+        <target>Could not save. Try again</target>
+      </trans-unit>
     </body>
   </file>
 </xliff>

@@ -1,0 +1,39 @@
+<div class="bank-field">
+  <input
+    [id]="inputId()"
+    type="text"
+    role="combobox"
+    aria-autocomplete="list"
+    autocomplete="off"
+    maxlength="40"
+    [attr.aria-controls]="inputId() + '-list'"
+    [attr.aria-expanded]="expanded()"
+    [attr.aria-activedescendant]="activeOptionId()"
+    [value]="query()"
+    (input)="onInput($any($event.target).value)"
+    (keydown)="onKeydown($event)"
+    (focus)="onFocus()"
+    (blur)="onBlur()"
+  />
+
+  @if (expanded()) {
+    <ul class="bank-list" [id]="inputId() + '-list'" role="listbox" i18n-aria-label="@@pay.account.bankList" aria-label="รายชื่อธนาคาร">
+      @for (bank of matches(); track bank.name; let i = $index) {
+        <li
+          role="option"
+          class="bank-option"
+          [id]="optionId(i)"
+          [class.active]="activeIndex() === i"
+          [attr.aria-selected]="activeIndex() === i"
+          (mousedown)="$event.preventDefault()"
+          (click)="select(bank)"
+        >
+          <span class="bank-name">{{ bank.name }}</span>
+          @if (bank.alias !== bank.name) {
+            <span class="bank-alias" aria-hidden="true">{{ bank.alias }}</span>
+          }
+        </li>
+      }
+    </ul>
+  }
+</div>

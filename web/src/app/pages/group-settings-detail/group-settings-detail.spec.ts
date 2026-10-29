@@ -389,6 +389,23 @@ describe('GroupSettingsDetail', () => {
     expect(el().textContent).toContain('ไม่พบหน้านี้');
   });
 
+  describe('payment', () => {
+    it('is a known section: titled บัญชีรับเงิน, reading the saved account, on a free plan with no LINE link', async () => {
+      plan.answer('free');
+      await open('payment');
+      httpMock.expectOne({ url: `${B}/groups/group1/pay-account`, method: 'GET' }).flush({
+        account: { bank: 'กสิกร', number: '1234567890', name: 'สมชาย' },
+      });
+      await settle();
+      expect(el().textContent).not.toContain('ไม่พบหน้านี้');
+      expect(el().querySelector('h1')?.textContent).toContain('บัญชีรับเงิน');
+      expect(el().querySelector<HTMLInputElement>('#pay-bank')?.value).toBe('กสิกร');
+      expect(el().querySelector('[data-pay-save]')).not.toBeNull();
+      expect(el().querySelector('app-plan-lock')).toBeNull();
+      expect(el().querySelector('a.back')?.getAttribute('href')).toBe('/g/group1?settings=payment');
+    });
+  });
+
   it('offers a retry when the group fails to load for a reason other than not-found', async () => {
     const page = await harness.navigateByUrl('/g/group1/settings/manage', GroupSettingsDetail);
     httpMock.expectOne(`${B}/groups/group1`).flush('x', { status: 500, statusText: 'x' });

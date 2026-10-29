@@ -18,12 +18,13 @@ const MIN_DIGITS = 6;
 
 /** Either all three fields are present or none: a partial account is invalid. */
 export function validatePayAccount(input: {
-  bank?: string;
-  number?: string;
-  name?: string;
+  bank?: string | null;
+  number?: string | null;
+  name?: string | null;
 }): { ok: true; value: PayAccount | null } | { ok: false } {
-  // Callers can hand over unvalidated JSON: a non-string field is invalid, never a throw.
-  if ([input.bank, input.number, input.name].some((v) => v !== undefined && typeof v !== 'string')) {
+  // Callers can hand over unvalidated JSON: null reads as blank (a JSON client clears with nulls),
+  // any other non-string field is invalid, never a throw.
+  if ([input.bank, input.number, input.name].some((v) => v != null && typeof v !== 'string')) {
     return { ok: false };
   }
   const bank = (input.bank ?? '').trim();

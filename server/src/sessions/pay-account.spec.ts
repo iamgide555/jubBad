@@ -34,6 +34,14 @@ describe('validatePayAccount', () => {
     expect(validatePayAccount({ ...rest, number: '12-34 56' }).ok).toBe(true);
   });
 
+  it('reads null like a blank field: all null clears, null beside a filled field is partial', () => {
+    const bad = (input: unknown) => validatePayAccount(input as Parameters<typeof validatePayAccount>[0]);
+    expect(bad({ bank: null, number: null, name: null })).toEqual({ ok: true, value: null });
+    expect(bad({ bank: null })).toEqual({ ok: true, value: null });
+    expect(bad({ bank: 'กสิกร', number: null, name: null })).toEqual({ ok: false });
+    expect(bad({ bank: 'กสิกร', number: '12345678', name: null })).toEqual({ ok: false });
+  });
+
   it('treats a non-string field as invalid instead of throwing', () => {
     const bad = (input: unknown) => validatePayAccount(input as Parameters<typeof validatePayAccount>[0]);
     expect(bad({ bank: 5 })).toEqual({ ok: false });

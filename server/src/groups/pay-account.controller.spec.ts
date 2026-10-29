@@ -115,15 +115,54 @@ describe('group pay-account routes', () => {
     expect((await get().expect(200)).body).toEqual({ account: ACCOUNT });
   });
 
-  it('refuses non-string fields with a 400', async () => {
-    await put({ bank: 5, number: '123456', name: 'x' }).expect(400);
+  it('refuses non-string fields with a generic 400 and keeps the old account', async () => {
+    await put(ACCOUNT).expect(200);
+    const res = await put({ bank: 5, number: '123456', name: 'x' }).expect(400);
+    expect(res.body.code).toBeUndefined();
+    expect((await get().expect(200)).body).toEqual({ account: ACCOUNT });
   });
 
-  it('is available without a LINE link or a paid plan (no plan gate)', async () => {
-    const g = await prisma.group.findUniqueOrThrow({ where: { code } });
-    expect(g.lineGroupId).toBeNull();
+  it('refuses a string over the DTO cap with a 400 and keeps the old account', async () => {
     await put(ACCOUNT).expect(200);
-    await put({}).expect(200);
+    await put({ ...ACCOUNT, name: 'ส'.repeat(201) }).expect(400);
+    await put({ ...ACCOUNT, number: '1'.repeat(201) }).expect(400);
+    expect((await get().expect(200)).body).toEqual({ account: ACCOUNT });
+  });
+
+  it('reads null like a blank field: all null clears, null beside a filled field is partial', async () => {
+    await put(ACCOUNT).expect(200);
+    const partial = await put({ bank: 'กสิกร', number: null, name: null }).expect(400);
+    expect(partial.body.code).toBe('PAY_ACCOUNT_INVALID');
+    expect((await get().expect(200)).body).toEqual({ account: ACCOUNT });
+    expect((await put({ bank: null, number: null, name: null }).expect(200)).body).toEqual({ account: null });
+    expect((await get().expect(200)).body).toEqual({ account: null });
+  });
+
+  describe('no plan gate: a free or lapsed owner can still set, read and clear', () => {
+    const asPlan = async (data: { plan: string; planRenewsAt: Date | null }) => {
+      await prisma.user.update({ where: { id: ownerId }, data });
+    };
+    const walk = async () => {
+      expect((await put(ACCOUNT).expect(200)).body).toEqual({ account: ACCOUNT });
+      expect((await get().expect(200)).body).toEqual({ account: ACCOUNT });
+      expect((await put({}).expect(200)).body).toEqual({ account: null });
+      expect((await get().expect(200)).body).toEqual({ account: null });
+    };
+    // The default owner plan is club, which would pass any gate; these two are the owners a gate would refuse.
+    afterEach(async () => {
+      await asPlan({ plan: 'club', planRenewsAt: null });
+    });
+
+    it('free owner with no LINE link', async () => {
+      await asPlan({ plan: 'free', planRenewsAt: null });
+      expect((await prisma.group.findUniqueOrThrow({ where: { code } })).lineGroupId).toBeNull();
+      await walk();
+    });
+
+    it('lapsed paid owner (renewal date in the past)', async () => {
+      await asPlan({ plan: 'host', planRenewsAt: new Date(Date.now() - 24 * 60 * 60 * 1000) });
+      await walk();
+    });
   });
 
   it('answers 404 to a different host on both verbs and does not change the account', async () => {

@@ -14,8 +14,8 @@ import { levelWrite, loadPlayerLevels, loadRatingAnchors } from '../player-level
 import { parseCourtFormats } from '../sessions/court-formats.js';
 import { parseSeatTeams, parseTeams } from '../sessions/pairing-teams.js';
 import { SessionLock } from '../sessions/session-lock.js';
-import type { CreateGroupDto } from './dto/create-group.dto.js';
 import { parsePayAccount, serializePayAccount, validatePayAccount } from '../sessions/pay-account.js';
+import type { CreateGroupDto } from './dto/create-group.dto.js';
 import type { UpdateGroupDto } from './dto/update-group.dto.js';
 import type { ParseRosterDto } from './dto/parse-roster.dto.js';
 import type { UpdatePlayerDto } from './dto/update-player.dto.js';

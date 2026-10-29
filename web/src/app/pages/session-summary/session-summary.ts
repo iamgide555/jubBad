@@ -447,6 +447,8 @@ export class SessionSummary {
   protected readonly showPaymentBanner = computed(() => {
     const p = this.paymentPanel();
     if (!this.owner() || p === null || !p.ended || p.target === null) return false;
+    // Nothing to collect (the panel's rule: no rows, or every row at 0): no card can ever go out, so no nudge.
+    if (p.rows.length === 0 || p.totalSatang === 0) return false;
     if (!p.confirmed || p.stale) return true;
     return p.target === 'group' && p.lastSentAt === null;
   });

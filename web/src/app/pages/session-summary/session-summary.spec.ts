@@ -1220,6 +1220,29 @@ describe('SessionSummary', () => {
         expect(banner()).toBeNull();
       });
 
+      it('hides on an ended night with nobody left to collect from', async () => {
+        paymentPanel = panelFor({ target: 'group', confirmed: false, rows: [], totalSatang: 0 });
+        await load(summary());
+        expect(banner()).toBeNull();
+      });
+
+      it('hides on an ended night where everyone listed owes 0', async () => {
+        paymentPanel = panelFor({
+          target: 'group',
+          confirmed: false,
+          rows: [{ playerId: 'a', name: 'Amp', amountSatang: 0, absent: false }],
+          totalSatang: 0,
+        });
+        await load(summary());
+        expect(banner()).toBeNull();
+      });
+
+      it('still shows while the bill is not ready, so the sheet can say what is missing', async () => {
+        paymentPanel = panelFor({ target: 'group', confirmed: false, ready: false, warnings: ['MISSING_COURT_FEE'] });
+        await load(summary());
+        expect(banner()).not.toBeNull();
+      });
+
       it('hides when the group has no LINE target', async () => {
         paymentPanel = panelFor({ target: null, confirmed: false });
         await load(summary());

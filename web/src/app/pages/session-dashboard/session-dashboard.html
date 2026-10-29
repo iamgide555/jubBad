@@ -518,14 +518,12 @@
                 type="checkbox"
                 name="sendPaymentCard"
                 data-send-payment-card
-                aria-describedby="send-payment-hint"
                 [checked]="sendPaymentCard()"
                 [disabled]="endSessionBusy()"
                 (change)="togglePaymentCard($any($event.target))"
               />
-              <span i18n="@@dashboard.sendPaymentCard">ส่งใบเก็บเงินด้วย</span>
+              <span i18n="@@dashboard.reviewPaymentCard">เปิดใบเก็บเงินให้ตรวจหลังจบรอบ</span>
             </label>
-            <p class="send-payment-hint" id="send-payment-hint" i18n="@@dashboard.sendPaymentCardHint">จะเปิดให้ตรวจยอดก่อนส่ง</p>
           </div>
         }
       </app-shuttle-details-dialog>

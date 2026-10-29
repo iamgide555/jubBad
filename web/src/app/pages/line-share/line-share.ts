@@ -65,13 +65,29 @@ export class LineShare {
   protected readonly loaded = computed(() => this.summary() !== null || this.payment() !== null);
   protected readonly opening = signal(false);
   protected readonly sendFailed = signal(false);
+  private loading = false;
 
   constructor() {
     void this.load();
   }
 
+  /** Re-read before retrying LIFF: an old payment link may have been revoked since the error. */
+  protected async load(): Promise<void> {
+    if (this.loading) return;
+    this.loading = true;
+    this.phase.set('loading');
+    this.summary.set(null);
+    this.payment.set(null);
+    this.sendFailed.set(false);
+    try {
+      await this.loadCard();
+    } finally {
+      this.loading = false;
+    }
+  }
+
   /** Card first (a missing summary never needs LIFF), then LIFF, then log in if needed. */
-  private async load(): Promise<void> {
+  private async loadCard(): Promise<void> {
     const { kind, code, token } = this.target;
     if (!code || (kind === 'pay' && !token)) {
       this.phase.set('missing');

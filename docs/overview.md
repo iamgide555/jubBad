@@ -1520,17 +1520,17 @@ expired code gets one generic Thai reply (it never says which); a sender who has
     reload. The panel is absent, with no hint, when the session has no LINE target. Where it
     appears:
     - **End of session.** Next to the summary tick the จบรอบ dialog has a second tick,
-      "ส่งใบเก็บเงินด้วย", shown whenever the group has a LINE target and checked by default when the
+      "เปิดใบเก็บเงินให้ตรวจหลังจบรอบ", shown whenever the group has a LINE target and checked by default when the
       group has a saved account. Its label promises a check step, not a send. After the end succeeds
       the app lands on the summary page as before and opens the panel as a sheet; nothing goes out
       until the host presses a send button in it. The end itself never waits on this: the tick's
       account read is fired after the target is known and never holds up ending, and a bill that
       is not ready only changes what the sheet says. The sheet has a close button at the top (in a
-      sticky header) and at the bottom; closing sends nothing and loses nothing.
+      sticky header); its primary action stays in a sticky bottom bar. Closing sends nothing and loses nothing.
     - **Summary-page banner.** For the owner of an ended session with a target, "ส่งใบเก็บเงินเข้ากลุ่ม"
       opens the same sheet. It shows when the card has never been confirmed, or was confirmed and the
-      bill has changed since, or (`group` target only, where a send is observable) was confirmed but
-      the bot has not posted it yet. It also shows while the bill is not ready, so the sheet can name
+      bill has changed since, or was confirmed but the bot has not posted it yet (`group` target) or
+      DMed it to the host yet (`host` target, `lastDmAt` is null). It also shows while the bill is not ready, so the sheet can name
       what is missing. It does not show when there is nothing to collect (no one is due, or every
       listed amount is 0). Saving a correction on the summary page reads the panel again, so the
       banner follows the amounts.
@@ -1573,14 +1573,15 @@ expired code gets one generic Thai reply (it never says which); a sender who has
     `/line-share/pay/:code/:token` (also reached through the `?liff.state=` first redirect, and a
     bare `/pay` still falls through to the summary flow). It runs the same share picker as the
     summary card, so it works in a group that already has another bot. The server cannot see a
-    share-picker send, so the link has no "sent" state and no resend prompt, and the banner
-    treats a fresh confirm as done. The panel also offers "ส่งการ์ดให้ฉันทาง LINE": a per-tap request
+    share-picker send, so the link has no "sent" state and no resend prompt. The banner remains until
+    the bot DMs the card to the host. The primary action is "ส่งใบเก็บเงินให้ฉันทาง LINE": a per-tap request
     (`POST /sessions/:code/payment-card/dm`, same body and outcomes as the group send) that has the bot
-    DM the card to the owner's linked LINE chat, with a secondary "ส่งเข้ากลุ่ม" button that opens the
+    DM the card to the owner's linked LINE chat, with a primary "ส่งเข้ากลุ่ม" button that opens the
     same share link (for a host running the session from an iPad or computer, where the link would open
     in that device's browser instead of LINE). It is never automatic and spends one bot push per press;
     its own time (`lastDmAt`), 5-second busy guard and retry key are separate from the group send, and
-    it does not change the banner. The link needs `LINE_LIFF_ID` and `PUBLIC_APP_URL` (no new
+    a successful DM hides the banner while the card stays current. The direct link lives under "ส่งวิธีอื่น".
+    The link needs `LINE_LIFF_ID` and `PUBLIC_APP_URL` (no new
     variable); without them no link is shown. The page never renders the token.
   - **Copy button and the plain-text number.** `PAYMENT_NUMBER_TEXT = { group: false, host: false }`
     in `server/src/line/payment-card.ts`: **neither path sends a second text message; the card is one

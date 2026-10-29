@@ -17,3 +17,12 @@
   flex-wrap: wrap;
   gap: var(--space-1);
 }
+
+.pay-remove {
+  border-top: 1px solid var(--line);
+  padding-top: var(--space-2);
+}
+
+.pay-remove p, .pay-field .error {
+  margin: 0.35rem 0;
+}

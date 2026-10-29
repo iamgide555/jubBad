@@ -6453,6 +6453,106 @@
         <source>โควต้าข้อความ LINE ของเดือนนี้หมดแล้ว ส่งการ์ดให้คุณไม่ได้ ใช้ "เปิดใน LINE เพื่อส่ง" แทน</source>
         <target>This month's LINE message quota is used up, so the card can't be sent to you. Use "Open in LINE to send" instead.</target>
       </trans-unit>
+      <trans-unit id="pay.card.missingCount" datatype="html">
+        <source>ยังขาดอีก <x id="INTERPOLATION" equiv-text="{{ missing().length }}"/> อย่างก่อนส่ง</source>
+        <target><x id="INTERPOLATION" equiv-text="{{ missing().length }}"/> items left before sending</target>
+      </trans-unit>
+      <trans-unit id="pay.card.previewLabel" datatype="html">
+        <source>ตัวอย่างการ์ดในแชต LINE</source>
+        <target>Preview of the LINE card</target>
+      </trans-unit>
+      <trans-unit id="pay.card.previewKind" datatype="html">
+        <source>ยอดค่าเล่น</source>
+        <target>Session bill</target>
+      </trans-unit>
+      <trans-unit id="pay.card.payTo" datatype="html">
+        <source>โอนให้ <x id="INTERPOLATION" equiv-text="{{ a.name }}"/></source>
+        <target>Transfer to <x id="INTERPOLATION" equiv-text="{{ a.name }}"/></target>
+      </trans-unit>
+      <trans-unit id="pay.card.editAccount" datatype="html">
+        <source>แก้บัญชีคืนนี้</source>
+        <target>Edit tonight’s account</target>
+      </trans-unit>
+      <trans-unit id="pay.card.accountFields" datatype="html">
+        <source>บัญชีรับเงินคืนนี้</source>
+        <target>Tonight’s receiving account</target>
+      </trans-unit>
+      <trans-unit id="pay.card.collectorHintSelf" datatype="html">
+        <source>คนที่รับเงินไม่ต้องโอนให้ตัวเอง</source>
+        <target>The collector does not need to transfer to themselves.</target>
+      </trans-unit>
+      <trans-unit id="pay.card.collectorHintZero" datatype="html">
+        <source>ตั้งยอดของเขาเป็น 0 ได้ในหน้าคิดเงิน ใช้ ไม่คิดเงิน</source>
+        <target>Set their amount to 0 on the bill using No charge.</target>
+      </trans-unit>
+      <trans-unit id="pay.card.otherWays" datatype="html">
+        <source>ส่งวิธีอื่น</source>
+        <target>Other ways to send</target>
+      </trans-unit>
+      <trans-unit id="pay.card.confirmedReady" datatype="html">
+        <source>ยืนยันยอดแล้ว · ส่งได้เลย</source>
+        <target>Amounts confirmed · Ready to send</target>
+      </trans-unit>
+      <trans-unit id="pay.card.staleAgain" datatype="html">
+        <source>ยอดเปลี่ยน ยืนยันใหม่อีกครั้ง</source>
+        <target>Amounts changed. Confirm again.</target>
+      </trans-unit>
+      <trans-unit id="pay.card.editedAgain" datatype="html">
+        <source>แก้บัญชีแล้ว ยืนยันใหม่อีกครั้ง</source>
+        <target>Account changed. Confirm again.</target>
+      </trans-unit>
+      <trans-unit id="pay.card.fillMissing" datatype="html">
+        <source>ไปใส่ค่าที่ขาด</source>
+        <target>Fill in missing details</target>
+      </trans-unit>
+      <trans-unit id="pay.card.reconfirm" datatype="html">
+        <source>ยืนยันใหม่</source>
+        <target>Confirm again</target>
+      </trans-unit>
+      <trans-unit id="pay.card.confirmAccount" datatype="html">
+        <source>ยืนยันยอดและบัญชี</source>
+        <target>Confirm amounts and account</target>
+      </trans-unit>
+      <trans-unit id="pay.card.dmSendAgain" datatype="html">
+        <source>ส่งให้ฉันอีกครั้ง</source>
+        <target>Send to me again</target>
+      </trans-unit>
+      <trans-unit id="pay.card.dmSendToMe" datatype="html">
+        <source>ส่งใบเก็บเงินให้ฉันทาง LINE</source>
+        <target>Send the bill to me on LINE</target>
+      </trans-unit>
+      <trans-unit id="pay.card.dmSentPlain" datatype="html">
+        <source>ส่งให้คุณใน LINE แล้ว · ยังต้องกด "ส่งเข้ากลุ่ม" ในแชต</source>
+        <target>Sent to you on LINE · Still tap "ส่งเข้ากลุ่ม" (Send to group) in the chat</target>
+      </trans-unit>
+      <trans-unit id="pay.card.dmSentAt" datatype="html">
+        <source>ส่งให้คุณใน LINE แล้ว <x id="time" equiv-text="time"/> · ยังต้องกด "ส่งเข้ากลุ่ม" ในแชต</source>
+        <target>Sent to you on LINE at <x id="time" equiv-text="time"/> · Still tap "ส่งเข้ากลุ่ม" (Send to group) in the chat</target>
+      </trans-unit>
+      <trans-unit id="pay.card.dmQuotaOther" datatype="html">
+        <source>โควต้าข้อความ LINE ของเดือนนี้หมดแล้ว ส่งการ์ดให้คุณไม่ได้ ใช้ "เปิดใน LINE เพื่อส่ง" ใน "ส่งวิธีอื่น" แทน</source>
+        <target>This month’s LINE message quota is used up. Use "Open in LINE to send" under "Other ways to send".</target>
+      </trans-unit>
+      <trans-unit id="dashboard.reviewPaymentCard" datatype="html">
+        <source>เปิดใบเก็บเงินให้ตรวจหลังจบรอบ</source>
+        <target>Open the bill for review after ending the session</target>
+      </trans-unit>
+      <trans-unit id="pay.account.required" datatype="html">
+        <source>กรอกช่องนี้</source>
+        <target>Fill in this field</target>
+      </trans-unit>
+      <trans-unit id="pay.account.removeAsk" datatype="html">
+        <source>ลบบัญชีรับเงินของกลุ่มนี้ใช่ไหม</source>
+        <target>Remove this group’s receiving account?</target>
+      </trans-unit>
+      <trans-unit id="pay.account.removeConfirm" datatype="html">
+        <source>ใช่ ลบบัญชี</source>
+        <target>Yes, remove account</target>
+      </trans-unit>
+      <trans-unit id="pay.account.remove" datatype="html">
+        <source>ลบบัญชีนี้</source>
+        <target>Remove this account</target>
+      </trans-unit>
     </body>
   </file>
 </xliff>

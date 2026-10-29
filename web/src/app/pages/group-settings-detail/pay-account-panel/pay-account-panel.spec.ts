@@ -80,6 +80,11 @@ describe('PayAccountPanel', () => {
     q('[data-pay-save]')!.click();
     await tick();
     expect(error()).toContain('กรอกให้ครบทั้งสามช่อง');
+    expect(bank().hasAttribute('aria-invalid')).toBe(false);
+    for (const field of [number(), name()]) {
+      expect(field.getAttribute('aria-invalid')).toBe('true');
+      expect(q(`#${field.getAttribute('aria-describedby')}`)?.textContent).toBeTruthy();
+    }
     httpMock.expectNone(URL);
   });
 
@@ -91,6 +96,8 @@ describe('PayAccountPanel', () => {
     q('[data-pay-save]')!.click();
     await tick();
     expect(error()).toContain('เลขบัญชี');
+    expect(number().getAttribute('aria-invalid')).toBe('true');
+    expect(q(`#${number().getAttribute('aria-describedby')}`)?.textContent).toContain('เลขบัญชี');
     httpMock.expectNone(URL);
   });
 
@@ -150,9 +157,19 @@ describe('PayAccountPanel', () => {
     await tick();
   });
 
-  it('ล้าง sends all-blank fields and empties the form', async () => {
+  it('requires inline confirmation before removing the account', async () => {
     await open({ account: ACCOUNT });
     q('[data-pay-clear]')!.click();
+    await tick();
+    httpMock.expectNone(URL);
+    expect(q('[data-pay-clear-confirm]')).not.toBeNull();
+    q('[data-pay-clear-cancel]')!.click();
+    await tick();
+    expect(bank().value).toBe(ACCOUNT.bank);
+    expect(q('[data-pay-clear-confirm]')).toBeNull();
+    q('[data-pay-clear]')!.click();
+    await tick();
+    q('[data-pay-clear-confirm]')!.click();
     const req = httpMock.expectOne({ url: URL, method: 'PUT' });
     expect(req.request.body).toEqual({ bank: '', number: '', name: '' });
     req.flush({ account: null });

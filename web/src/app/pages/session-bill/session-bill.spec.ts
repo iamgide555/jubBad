@@ -42,6 +42,7 @@ function response(): BillResponse {
 function paymentPanel(over: Partial<PaymentCardPanel> = {}): PaymentCardPanel {
   return {
     target: 'group', ended: true, ready: true, contentHash: 'hash-1', warnings: [], notices: [],
+    groupName: 'ตีชิล', date: '29 ต.ค. 2569', venue: null,
     rows: [{ playerId: 'a', name: 'Amp', amountSatang: 9000, absent: false }],
     settledCount: 0, totalSatang: 9000, groupAccount: null, account: null,
     confirmed: false, stale: false, lastSentAt: null, lastDmAt: null, shareUrl: null, ...over,
@@ -101,7 +102,7 @@ describe('SessionBill', () => {
     http.expectOne(`${B}/sessions/sess1/payment-card`).flush(paymentPanel({ totalSatang: 12000 }));
     await new Promise((r) => setTimeout(r, 0));
     fixture.detectChanges();
-    expect(fixture.nativeElement.querySelector('[data-total]').textContent).toContain('120฿');
+    expect(fixture.nativeElement.querySelector('[data-total]').textContent).toContain('฿120');
   });
 
   it('shows no payment panel when the group has no LINE target', async () => {

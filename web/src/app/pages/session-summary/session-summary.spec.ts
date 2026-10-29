@@ -124,6 +124,9 @@ describe('SessionSummary', () => {
     ended: true,
     ready: true,
     contentHash: 'hash-1',
+    groupName: 'ตีชิล',
+    date: '29 ต.ค. 2569',
+    venue: null,
     warnings: [],
     notices: [],
     rows: [{ playerId: 'a', name: 'Amp', amountSatang: 9000, absent: false }],
@@ -1209,10 +1212,33 @@ describe('SessionSummary', () => {
         expect(banner()).not.toBeNull();
       });
 
-      it('hides for a fresh confirmed host-target card, since a picker send cannot be seen', async () => {
-        paymentPanel = panelFor({ target: 'host', confirmed: true, lastSentAt: null, shareUrl: 'https://liff.line.me/1/sess1' });
+      it('still shows for a fresh confirmed host-target card until the bot has DMed it to the host', async () => {
+        paymentPanel = panelFor({ target: 'host', confirmed: true, lastSentAt: null, lastDmAt: null, shareUrl: 'https://liff.line.me/1/sess1' });
+        await load(summary());
+        expect(banner()?.textContent).toContain('ส่งใบเก็บเงินเข้ากลุ่ม');
+      });
+
+      it('hides for a confirmed host-target card once it was DMed to the host (a picker send cannot be seen)', async () => {
+        paymentPanel = panelFor({
+          target: 'host',
+          confirmed: true,
+          lastDmAt: '2026-10-29T13:00:00.000Z',
+          shareUrl: 'https://liff.line.me/1/sess1',
+        });
         await load(summary());
         expect(banner()).toBeNull();
+      });
+
+      it('shows again for a DMed host-target card whose amounts moved on', async () => {
+        paymentPanel = panelFor({ target: 'host', confirmed: true, stale: true, lastDmAt: '2026-10-29T13:00:00.000Z' });
+        await load(summary());
+        expect(banner()).not.toBeNull();
+      });
+
+      it('a group target is settled by the group post, never by a DM time', async () => {
+        paymentPanel = panelFor({ target: 'group', confirmed: true, lastSentAt: null, lastDmAt: '2026-10-29T13:00:00.000Z' });
+        await load(summary());
+        expect(banner()).not.toBeNull();
       });
 
       it('hides for a confirmed group card that was posted', async () => {
@@ -1302,7 +1328,7 @@ describe('SessionSummary', () => {
         answerPaymentCard();
         await settle();
 
-        (q('app-payment-sheet button.close') as HTMLButtonElement).click();
+        (q('app-payment-sheet button.close-top') as HTMLButtonElement).click();
         await settle();
         expect(sheetDialog()?.open).toBe(false);
         expect(httpMock.match(`${B}/sessions/sess1/payment-card`).length).toBe(1);
@@ -1320,6 +1346,28 @@ describe('SessionSummary', () => {
         answerPaymentCard();
         await settle();
         fixture.debugElement.query(By.directive(PaymentSheet)).componentInstance.sent.emit();
+        await settle();
+        answerPaymentCard();
+        await settle();
+        expect(banner()).toBeNull();
+      });
+
+      it('host target: keeps the banner after a fresh confirm, and drops it once closing re-reads a DMed card', async () => {
+        paymentPanel = panelFor({ target: 'host', confirmed: true, shareUrl: 'https://liff.line.me/1/pay/sess1/tok' });
+        await load(summary());
+        expect(banner()).not.toBeNull();
+
+        banner()!.click();
+        await settle();
+        answerPaymentCard();
+        await settle();
+        paymentPanel = panelFor({
+          target: 'host',
+          confirmed: true,
+          shareUrl: 'https://liff.line.me/1/pay/sess1/tok',
+          lastDmAt: '2026-10-29T13:00:00.000Z',
+        });
+        (q('app-payment-sheet button.close-top') as HTMLButtonElement).click();
         await settle();
         answerPaymentCard();
         await settle();

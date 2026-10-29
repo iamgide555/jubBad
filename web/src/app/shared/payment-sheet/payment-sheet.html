@@ -1,4 +1,10 @@
-<dialog #dialog class="payment-sheet sheet-dialog" (close)="onDialogClose()" aria-labelledby="payment-sheet-title">
+<dialog
+  #dialog
+  class="payment-sheet sheet-dialog"
+  (close)="onDialogClose()"
+  (click)="onDialogClick($event)"
+  aria-labelledby="payment-sheet-title"
+>
   @if (open()) {
     <div class="sheet-card">
       <!-- Sticky, so a long list never scrolls the way out off screen. -->
@@ -6,6 +12,7 @@
         <h2 id="payment-sheet-title" i18n="@@pay.sheet.title">ใบเก็บเงิน</h2>
         <button type="button" class="close-top ghost" (click)="closed.emit()" i18n="@@pay.sheet.close">ปิด</button>
       </div>
+      <!-- The panel's actions are its own sticky bottom bar; Close lives only in the header (and Escape, and the backdrop). -->
       <app-payment-panel
         [sessionCode]="sessionCode()"
         [compact]="true"
@@ -13,7 +20,6 @@
         (closed)="closed.emit()"
         (sent)="sent.emit()"
       />
-      <button type="button" class="close ghost" (click)="closed.emit()" i18n="@@pay.sheet.close">ปิด</button>
     </div>
   }
 </dialog>

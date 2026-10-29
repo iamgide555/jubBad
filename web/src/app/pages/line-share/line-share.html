@@ -5,6 +5,31 @@
     <h1 i18n="@@share.line.title">ส่งสรุปเข้ากลุ่ม LINE</h1>
   }
 
+  @if (phase() === 'ready' || phase() === 'done' || phase() === 'error') {
+    @if (summary(); as d) {
+      <section class="preview" data-share-preview>
+        <p class="preview-name">{{ d.preview.name }}</p>
+        <p class="muted">
+          {{ d.preview.date }}
+          @if (d.preview.venue) {
+            <span data-share-venue>· {{ d.preview.venue }}</span>
+          }
+        </p>
+        <p class="preview-counts">
+          <span i18n="@@share.line.players">{{ d.preview.players }} คน</span>
+          <span i18n="@@share.line.games">{{ d.preview.games }} เกม</span>
+        </p>
+      </section>
+    } @else if (payment(); as p) {
+      <section class="preview" data-share-preview>
+        <p class="preview-name">{{ p.preview.name }}</p>
+        <p class="muted">{{ p.preview.date }}</p>
+        <p class="preview-counts" i18n="@@share.pay.preview">ใบเก็บเงิน · {{ p.preview.count }} คน · รวม ฿{{ baht(p.preview.totalSatang) }}</p>
+        <p class="muted" i18n="@@share.pay.payee">โอนให้ {{ p.preview.accountName }} ({{ p.preview.bank }})</p>
+      </section>
+    }
+  }
+
   @switch (phase()) {
     @case ('loading') {
       <p class="muted" role="status" data-share-loading i18n="@@share.line.loading">กำลังโหลด…</p>
@@ -18,6 +43,7 @@
     }
     @case ('error') {
       <p class="error" role="alert" data-share-error i18n="@@share.line.error">เปิดหน้านี้ไม่สำเร็จ ลองกดปุ่มส่งเข้ากลุ่มใน LINE อีกครั้ง</p>
+      <button type="button" data-share-retry (click)="load()" i18n="@@entry.retry">ลองอีกครั้ง</button>
     }
     @case ('login') {
       <p class="muted" role="status" data-share-login i18n="@@share.line.login">กำลังไปหน้าเข้าสู่ระบบ LINE</p>
@@ -26,29 +52,6 @@
       <p class="error" role="alert" data-share-unavailable i18n="@@share.line.unavailable">ส่งจากหน้านี้ไม่ได้ เปิดลิงก์นี้ในแอป LINE บนโทรศัพท์</p>
     }
     @default {
-      @if (summary(); as d) {
-        <section class="preview" data-share-preview>
-          <p class="preview-name">{{ d.preview.name }}</p>
-          <p class="muted">
-            {{ d.preview.date }}
-            @if (d.preview.venue) {
-              <span data-share-venue>· {{ d.preview.venue }}</span>
-            }
-          </p>
-          <p class="preview-counts">
-            <span i18n="@@share.line.players">{{ d.preview.players }} คน</span>
-            <span i18n="@@share.line.games">{{ d.preview.games }} เกม</span>
-          </p>
-        </section>
-      } @else if (payment(); as p) {
-        <section class="preview" data-share-preview>
-          <p class="preview-name">{{ p.preview.name }}</p>
-          <p class="muted">{{ p.preview.date }}</p>
-          <p class="preview-counts" i18n="@@share.pay.preview">ใบเก็บเงิน · {{ p.preview.count }} คน · รวม ฿{{ baht(p.preview.totalSatang) }}</p>
-          <p class="muted" i18n="@@share.pay.payee">โอนให้ {{ p.preview.accountName }} ({{ p.preview.bank }})</p>
-        </section>
-      }
-
       @if (loaded()) {
         @if (phase() === 'done') {
           <p class="done" role="status" data-share-done i18n="@@share.line.done">ส่งแล้ว</p>

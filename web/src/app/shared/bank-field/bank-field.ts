@@ -19,6 +19,10 @@ import { searchBanks, type ThaiBank } from '../../core/thai-banks';
 export class BankField {
   readonly value = input('');
   readonly inputId = input.required<string>();
+  /** The caller's validation found this field wrong: marks the input aria-invalid. */
+  readonly invalid = input(false);
+  /** The id of the caller's error text for this field, read out with the input. */
+  readonly describedBy = input<string | null>(null);
   readonly valueChange = output<string>();
 
   protected readonly query = linkedSignal(() => this.value());

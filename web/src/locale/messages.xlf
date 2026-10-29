@@ -8059,6 +8059,21 @@
       <trans-unit id="pay.card.incomplete" datatype="html">
         <source>กรอกให้ครบทั้งสามช่อง</source>
       </trans-unit>
+      <trans-unit id="dashboard.sendPaymentCard" datatype="html">
+        <source>ส่งใบเก็บเงินด้วย</source>
+      </trans-unit>
+      <trans-unit id="dashboard.sendPaymentCardHint" datatype="html">
+        <source>จะเปิดให้ตรวจยอดก่อนส่ง</source>
+      </trans-unit>
+      <trans-unit id="pay.sheet.title" datatype="html">
+        <source>ใบเก็บเงิน</source>
+      </trans-unit>
+      <trans-unit id="pay.sheet.close" datatype="html">
+        <source>ปิด</source>
+      </trans-unit>
+      <trans-unit id="summary.paymentBanner" datatype="html">
+        <source>ส่งใบเก็บเงินเข้ากลุ่ม</source>
+      </trans-unit>
     </body>
   </file>
 </xliff>

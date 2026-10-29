@@ -1,0 +1,15 @@
+<dialog #dialog class="payment-sheet sheet-dialog" (close)="onDialogClose()" aria-labelledby="payment-sheet-title">
+  @if (open()) {
+    <div class="sheet-card">
+      <h2 id="payment-sheet-title" i18n="@@pay.sheet.title">ใบเก็บเงิน</h2>
+      <app-payment-panel
+        [sessionCode]="sessionCode()"
+        [compact]="true"
+        [refreshKey]="refreshKey()"
+        (closed)="closed.emit()"
+        (sent)="sent.emit()"
+      />
+      <button type="button" class="close ghost" (click)="closed.emit()" i18n="@@pay.sheet.close">ปิด</button>
+    </div>
+  }
+</dialog>

@@ -6385,6 +6385,26 @@
         <source>กรอกให้ครบทั้งสามช่อง</source>
         <target>Fill in all three fields</target>
       </trans-unit>
+      <trans-unit id="dashboard.sendPaymentCard" datatype="html">
+        <source>ส่งใบเก็บเงินด้วย</source>
+        <target>Also send the payment card</target>
+      </trans-unit>
+      <trans-unit id="dashboard.sendPaymentCardHint" datatype="html">
+        <source>จะเปิดให้ตรวจยอดก่อนส่ง</source>
+        <target>You will check the amounts before it goes out</target>
+      </trans-unit>
+      <trans-unit id="pay.sheet.title" datatype="html">
+        <source>ใบเก็บเงิน</source>
+        <target>Payment card</target>
+      </trans-unit>
+      <trans-unit id="pay.sheet.close" datatype="html">
+        <source>ปิด</source>
+        <target>Close</target>
+      </trans-unit>
+      <trans-unit id="summary.paymentBanner" datatype="html">
+        <source>ส่งใบเก็บเงินเข้ากลุ่ม</source>
+        <target>Send the payment card to the group</target>
+      </trans-unit>
     </body>
   </file>
 </xliff>

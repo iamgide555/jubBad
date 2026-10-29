@@ -21,12 +21,15 @@ import type { PlayerSessionStat, SessionMatch, SessionSummary as Summary, Shuttl
 import type { ShuttleInventory } from '../../core/shuttle.model';
 import { LineService } from '../../core/line.service';
 import type { LineSummaryOutcome, LineSummaryState } from '../../core/line.model';
+import type { PaymentCardPanel } from '../../core/payment-card.model';
+import { PaymentCardService } from '../../core/payment-card.service';
+import { PaymentSheet } from '../../shared/payment-sheet/payment-sheet';
 
 type SortKey = 'played' | 'won' | 'lost' | 'doublesRate' | 'singlesRate' | 'time';
 
 @Component({
   selector: 'app-session-summary',
-  imports: [NgTemplateOutlet, RouterLink, SceneHost, ShuttleDetailsDialog, ShuttleCorrectionDialog, ResultCorrectionDialog],
+  imports: [NgTemplateOutlet, RouterLink, SceneHost, ShuttleDetailsDialog, ShuttleCorrectionDialog, ResultCorrectionDialog, PaymentSheet],
   templateUrl: './session-summary.html',
   styleUrl: './session-summary.css',
 })
@@ -224,6 +227,12 @@ export class SessionSummary {
     }
   });
 
+  /** The owner's two LINE reads run side by side; neither waits on the other. */
+  private loadOwnerCards(): void {
+    void this.loadLineSummary();
+    void this.loadPaymentPanel().then(() => this.openSheetFromNavigation());
+  }
+
   private async loadLineSummary(): Promise<void> {
     try {
       this.lineState.set(await firstValueFrom(this.lineService.summaryState(this.sessionCode)));
@@ -420,6 +429,56 @@ export class SessionSummary {
     }
   }
 
+  // ---- owner-only payment card ----
+  private readonly paymentCards = inject(PaymentCardService);
+  /** Where the payment card stands, or null while unread or unreadable; the banner needs a successful read. */
+  protected readonly paymentPanel = signal<PaymentCardPanel | null>(null);
+  protected readonly paymentSheetOpen = signal(false);
+
+  /**
+   * Nudges the host to send the card: nothing was confirmed yet, the amounts moved since, or (group target
+   * only) the bot has not posted a confirmed card. A host-target send happens in LINE's picker and cannot be
+   * observed, so a fresh confirm there is as far as this page can know.
+   */
+  protected readonly showPaymentBanner = computed(() => {
+    const p = this.paymentPanel();
+    if (!this.owner() || p === null || !p.ended || p.target === null) return false;
+    if (!p.confirmed || p.stale) return true;
+    return p.target === 'group' && p.lastSentAt === null;
+  });
+
+  protected async loadPaymentPanel(): Promise<void> {
+    try {
+      this.paymentPanel.set(await firstValueFrom(this.paymentCards.panel(this.sessionCode)));
+    } catch {
+      this.paymentPanel.set(null);
+    }
+  }
+
+  /**
+   * Right after ending with the payment tick on, the dashboard asks for the sheet through the history state.
+   * It opens once, then the flag is dropped (other keys stay) so a refresh does not open it again.
+   */
+  private openSheetFromNavigation(): void {
+    const state = history.state as { paymentSheet?: boolean } | null;
+    if (!state?.paymentSheet) return;
+    const rest = { ...state };
+    delete rest.paymentSheet;
+    history.replaceState(rest, '');
+    const p = this.paymentPanel();
+    if (p?.ended && p.target !== null) this.paymentSheetOpen.set(true);
+  }
+
+  protected openPaymentSheet(): void {
+    this.paymentSheetOpen.set(true);
+  }
+
+  /** Closing sends nothing; the page reads the card again so the banner matches what the sheet left behind. */
+  protected closePaymentSheet(): void {
+    this.paymentSheetOpen.set(false);
+    void this.loadPaymentPanel();
+  }
+
   /** The row whose profile link was just copied, so only that row confirms. */
   protected readonly sharedPlayerId = signal<string | null>(null);
   protected readonly shareFailed = signal(false);
@@ -452,7 +511,7 @@ export class SessionSummary {
     void auth.check().then((authed) => {
       this.isHost.set(authed);
       // Ownership is proven by the inventory read, not by being logged in.
-      if (authed) void this.loadInventory().then(() => (this.owner() ? this.loadLineSummary() : undefined));
+      if (authed) void this.loadInventory().then(() => (this.owner() ? this.loadOwnerCards() : undefined));
     });
 
     this.sessionCode = route.snapshot.paramMap.get('sessionCode')!;

@@ -1,0 +1,142 @@
+import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { provideHttpClient } from '@angular/common/http';
+import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
+import { provideRouter } from '@angular/router';
+import { PaymentSheet } from './payment-sheet';
+import { environment } from '../../../environments/environment';
+import type { PaymentCardPanel } from '../../core/payment-card.model';
+
+const URL = `${environment.apiBaseUrl}/sessions/sess1/payment-card`;
+const ACCOUNT = { bank: 'กสิกร', number: '123-4-56789-0', name: 'Host Name' };
+
+function panel(over: Partial<PaymentCardPanel> = {}): PaymentCardPanel {
+  return {
+    target: 'group',
+    ended: true,
+    ready: false,
+    warnings: ['shuttle-price'],
+    notices: [],
+    rows: [{ playerId: 'a', name: 'Amp', amountSatang: 9000, absent: false }],
+    settledCount: 0,
+    totalSatang: 9000,
+    groupAccount: ACCOUNT,
+    account: ACCOUNT,
+    confirmed: false,
+    stale: false,
+    lastSentAt: null,
+    shareUrl: null,
+    ...over,
+  };
+}
+
+// jsdom 28's HTMLDialogElement has no showModal()/close(); same shim as the other dialog specs.
+beforeAll(() => {
+  if (!HTMLDialogElement.prototype.showModal) {
+    HTMLDialogElement.prototype.showModal = function (this: HTMLDialogElement) {
+      this.setAttribute('open', '');
+    };
+  }
+  if (!HTMLDialogElement.prototype.close) {
+    HTMLDialogElement.prototype.close = function (this: HTMLDialogElement) {
+      this.removeAttribute('open');
+      this.dispatchEvent(new Event('close'));
+    };
+  }
+});
+
+describe('PaymentSheet', () => {
+  let fixture: ComponentFixture<PaymentSheet>;
+  let http: HttpTestingController;
+  const closed = vi.fn<() => void>();
+  const sent = vi.fn<() => void>();
+
+  const el = () => fixture.nativeElement as HTMLElement;
+  const dialog = () => el().querySelector('dialog') as HTMLDialogElement;
+
+  beforeEach(async () => {
+    await TestBed.configureTestingModule({
+      imports: [PaymentSheet],
+      providers: [provideHttpClient(), provideHttpClientTesting(), provideRouter([{ path: '**', children: [] }])],
+    }).compileComponents();
+    http = TestBed.inject(HttpTestingController);
+    fixture = TestBed.createComponent(PaymentSheet);
+    closed.mockClear();
+    sent.mockClear();
+    fixture.componentInstance.closed.subscribe(closed);
+    fixture.componentInstance.sent.subscribe(sent);
+    fixture.componentRef.setInput('sessionCode', 'sess1');
+    fixture.componentRef.setInput('open', false);
+    fixture.detectChanges();
+  });
+  afterEach(() => http.verify());
+
+  async function settle() {
+    fixture.detectChanges();
+    await fixture.whenStable();
+    await new Promise((r) => setTimeout(r, 0));
+    fixture.detectChanges();
+  }
+
+  async function open(body: PaymentCardPanel = panel()) {
+    fixture.componentRef.setInput('open', true);
+    fixture.detectChanges();
+    http.expectOne(URL).flush(body);
+    await settle();
+  }
+
+  it('is a closed dialog that reads nothing until it is opened', () => {
+    expect(dialog().open).toBe(false);
+    http.expectNone(URL);
+    expect(el().querySelector('app-payment-panel')).toBeNull();
+  });
+
+  it('opens as a modal dialog holding the compact payment panel', async () => {
+    await open();
+    expect(dialog().open).toBe(true);
+    expect(el().querySelector('h2')?.textContent).toContain('ใบเก็บเงิน');
+    expect(el().querySelector('[data-payment-panel].compact')).not.toBeNull();
+  });
+
+  it('has its own visible close button, which only asks to close', async () => {
+    await open();
+    const button = el().querySelector('button.close') as HTMLButtonElement;
+    expect(button.textContent?.trim()).toBe('ปิด');
+    button.click();
+    expect(closed).toHaveBeenCalledTimes(1);
+    http.expectNone(`${URL}/confirm`);
+    http.expectNone(`${URL}/send`);
+  });
+
+  it('closes when the panel says the host followed its link to the bill', async () => {
+    await open();
+    (el().querySelector('[data-settings-link]') as HTMLAnchorElement).click();
+    expect(closed).toHaveBeenCalledTimes(1);
+  });
+
+  it('closes on Escape, which the browser reports as a native close', async () => {
+    await open();
+    dialog().dispatchEvent(new Event('close'));
+    expect(closed).toHaveBeenCalledTimes(1);
+  });
+
+  it('closes the native dialog when the parent turns open off, without a second closed event', async () => {
+    await open();
+    fixture.componentRef.setInput('open', false);
+    await settle();
+    expect(dialog().open).toBe(false);
+    expect(closed).not.toHaveBeenCalled();
+  });
+
+  it('tells the parent when the card went into the group', async () => {
+    await open(panel({ ready: true, warnings: [], confirmed: true, stale: false }));
+    (el().querySelector('[data-send]') as HTMLButtonElement).click();
+    await settle();
+    const req = http.expectOne(`${URL}/send`);
+    req.flush({ outcome: 'sent' });
+    await settle();
+    http.expectOne(URL).flush(panel({ ready: true, warnings: [], confirmed: true, lastSentAt: '2026-10-29T13:00:00.000Z' }));
+    await settle();
+    expect(sent).toHaveBeenCalledTimes(1);
+    expect(closed).not.toHaveBeenCalled();
+  });
+});

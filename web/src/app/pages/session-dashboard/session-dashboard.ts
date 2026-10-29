@@ -7,6 +7,7 @@ import { environment } from '../../../environments/environment';
 import { LineService } from '../../core/line.service';
 import type { LineSummaryState } from '../../core/line.model';
 import { LiveSessionService } from '../../core/live-session.service';
+import { PayAccountService } from '../../core/pay-account.service';
 import { isPaid, modesLockHint, planErrorMessage, type Plan } from '../../core/plan';
 import { PlanService } from '../../core/plan.service';
 import { RosterService } from '../../core/roster.service';
@@ -577,7 +578,20 @@ export class SessionDashboard implements OnDestroy {
     const state = this.lineSummary();
     return state !== null && state.available && !state.sent;
   });
+  /**
+   * The second tick: after ending, open the payment card's check sheet. It shows whenever the group has a
+   * LINE target, whether or not the summary card is still to go. Its default comes from the group's saved
+   * account (checked iff there is one); that read never holds up ending, so until it answers (or if it
+   * fails) the tick is simply off. A host's own tap is never overridden by a late answer.
+   */
+  protected readonly sendPaymentCard = signal(false);
+  private paymentTickTouched = false;
+  protected readonly showPaymentTick = computed(() => {
+    const state = this.lineSummary();
+    return state !== null && state.target !== null;
+  });
   private readonly lineService = inject(LineService);
+  private readonly payAccounts = inject(PayAccountService);
   private readonly endDialog = viewChild<ShuttleDetailsDialog>('endDialog');
   readonly clipboardFallback = signal<string | null>(null);
 
@@ -854,6 +868,8 @@ export class SessionDashboard implements OnDestroy {
   protected openEndSession(): void {
     this.endSessionError.set(null);
     this.lineSummary.set(null);
+    this.sendPaymentCard.set(false);
+    this.paymentTickTouched = false;
     this.endDialog()?.open();
     // Never holds up ending: until it answers (or if it fails) there is simply no checkbox.
     this.lineService.summaryState(this.session()!.code).subscribe({
@@ -863,6 +879,18 @@ export class SessionDashboard implements OnDestroy {
       },
       error: () => this.lineSummary.set(null),
     });
+    // Beside the summary read, not the payment card itself: that read runs the whole bill and is wasted here.
+    this.payAccounts.get(this.session()!.groupCode).subscribe({
+      next: (account) => {
+        if (!this.paymentTickTouched) this.sendPaymentCard.set(account !== null);
+      },
+      error: () => undefined,
+    });
+  }
+
+  protected togglePaymentCard(input: HTMLInputElement): void {
+    this.paymentTickTouched = true;
+    this.sendPaymentCard.set(input.checked);
   }
 
   protected toggleLineSummary(input: HTMLInputElement): void {
@@ -897,8 +925,13 @@ export class SessionDashboard implements OnDestroy {
       }
       this.endDialog()?.close();
       const summaryUrl = `/s/${this.session()!.code}/summary`;
-      // The outcome rides along so the summary page can say what happened to the card.
-      if (result.lineSummary) this.router.navigateByUrl(summaryUrl, { state: { lineSummary: result.lineSummary } });
+      // The outcome rides along so the summary page can say what happened to the card, and the sheet flag
+      // so it opens the payment check once; neither key is present when it does not apply.
+      const state = {
+        ...(result.lineSummary ? { lineSummary: result.lineSummary } : {}),
+        ...(this.showPaymentTick() && this.sendPaymentCard() ? { paymentSheet: true } : {}),
+      };
+      if (Object.keys(state).length > 0) this.router.navigateByUrl(summaryUrl, { state });
       else this.router.navigateByUrl(summaryUrl);
     } finally {
       this.endSessionBusy.set(false);

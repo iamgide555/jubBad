@@ -105,6 +105,7 @@ export class PaymentPanel {
   private destroyed = false;
 
   protected readonly data = signal<PaymentCardPanel | null>(null);
+  protected readonly loading = signal(true);
   /** The latest read failed, so what is on screen may be out of date. */
   protected readonly readFailed = signal(false);
   protected readonly ids = {
@@ -116,6 +117,15 @@ export class PaymentPanel {
   protected readonly number = signal('');
   protected readonly name = signal('');
   protected readonly busy = signal(false);
+  private readonly operation = signal<'confirm' | Delivery>('confirm');
+  protected readonly progress = computed(() => {
+    if (!this.busy()) return null;
+    if (this.operation() === 'confirm') return $localize`:@@pay.card.confirming:กำลังยืนยันยอดและบัญชี…`;
+    return this.operation() === 'dm'
+      ? $localize`:@@pay.card.sendingDm:กำลังส่งใบเก็บเงินให้คุณทาง LINE…`
+      : $localize`:@@pay.card.sendingGroup:กำลังส่งใบเก็บเงินเข้ากลุ่ม LINE…`;
+  });
+  protected readonly fieldErrors = signal<Partial<Record<Field, string>>>({});
   protected readonly error = signal<string | null>(null);
   protected readonly outcome = signal<PaymentSendOutcome | null>(null);
   protected readonly confirmingResend = signal(false);
@@ -242,6 +252,7 @@ export class PaymentPanel {
   protected async load(): Promise<void> {
     const code = this.sessionCode();
     const seq = ++this.seq;
+    this.loading.set(true);
     try {
       const panel = await firstValueFrom(this.cards.panel(code));
       // A later read, Confirm or Send started after this one: its answer is the newer truth.
@@ -254,6 +265,8 @@ export class PaymentPanel {
       }
     } catch {
       if (seq === this.seq) this.readFailed.set(true);
+    } finally {
+      if (seq === this.seq) this.loading.set(false);
     }
   }
 
@@ -264,6 +277,7 @@ export class PaymentPanel {
     this.editingAccount.set(true);
     this.justConfirmed.set(false);
     this.error.set(null);
+    this.fieldErrors.update((errors) => ({ ...errors, [field]: undefined }));
     this.outcome.set(null);
     this.confirmingResend.set(false);
     this.confirmingDmResend.set(false);
@@ -281,6 +295,7 @@ export class PaymentPanel {
     this.drafts.clear(this.sessionCode());
     this.editingAccount.set(false);
     this.error.set(null);
+    this.fieldErrors.set({});
     this.outcome.set(null);
     this.refocus('[data-edit-account], [data-account-fields]');
   }
@@ -292,10 +307,16 @@ export class PaymentPanel {
     this.outcome.set(null);
     this.confirmingResend.set(false);
     this.confirmingDmResend.set(false);
-    if (!this.complete()) {
-      this.error.set(this.incompleteText());
+    const errors = this.accountErrors();
+    this.fieldErrors.set(errors);
+    if (Object.keys(errors).length > 0) {
+      this.error.set(this.complete() ? Object.values(errors)[0]! : this.incompleteText());
+      this.cdr.detectChanges();
+      this.host.nativeElement.querySelector<HTMLInputElement>('input[aria-invalid="true"]')?.focus();
       return;
     }
+    this.operation.set('confirm');
+    this.loading.set(false);
     this.busy.set(true);
     this.justConfirmed.set(false);
     const seq = ++this.seq;
@@ -370,6 +391,8 @@ export class PaymentPanel {
     this.error.set(null);
     this.outcome.set(null);
     this.outcomeFor.set(kind);
+    this.operation.set(kind);
+    this.loading.set(false);
     this.justConfirmed.set(false);
     this.busy.set(true);
     // Closing a resend prompt removes its focused Yes button. Keep focus on the busy Send immediately,
@@ -493,6 +516,22 @@ export class PaymentPanel {
 
   private incompleteText(): string {
     return $localize`:@@pay.card.incomplete:กรอกให้ครบทั้งสามช่อง`;
+  }
+
+  /** Same limits as the group settings and server; validation never discards tonight's draft. */
+  private accountErrors(): Partial<Record<Field, string>> {
+    const account = this.typed();
+    const errors: Partial<Record<Field, string>> = {};
+    const required = $localize`:@@pay.account.required:กรอกช่องนี้`;
+    if (!account.bank) errors.bank = required;
+    else if (account.bank.length > 40) errors.bank = $localize`:@@pay.card.bankTooLong:ชื่อธนาคารยาวได้ไม่เกิน 40 ตัวอักษร`;
+    if (!account.number) errors.number = required;
+    else if (!/^[0-9 -]{6,20}$/.test(account.number) || account.number.replace(/[^0-9]/g, '').length < 6) {
+      errors.number = $localize`:@@pay.account.badNumber:เลขบัญชีต้องเป็นตัวเลขอย่างน้อย 6 หลัก เว้นวรรคหรือใส่ขีดได้ ยาวไม่เกิน 20 ตัวอักษร`;
+    }
+    if (!account.name) errors.name = required;
+    else if (account.name.length > 80) errors.name = $localize`:@@pay.card.nameTooLong:ชื่อบัญชียาวได้ไม่เกิน 80 ตัวอักษร`;
+    return errors;
   }
 
   private missingText(code: string): string {

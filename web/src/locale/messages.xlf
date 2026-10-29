@@ -8185,6 +8185,33 @@
       <trans-unit id="pay.account.remove" datatype="html">
         <source>ลบบัญชีนี้</source>
       </trans-unit>
+      <trans-unit id="pay.card.reviewSummary" datatype="html">
+        <source>ยอดและบัญชีที่ต้องตรวจ</source>
+      </trans-unit>
+      <trans-unit id="pay.card.loading" datatype="html">
+        <source>กำลังโหลดใบเก็บเงิน…</source>
+      </trans-unit>
+      <trans-unit id="pay.card.confirming" datatype="html">
+        <source>กำลังยืนยันยอดและบัญชี…</source>
+      </trans-unit>
+      <trans-unit id="pay.card.sendingDm" datatype="html">
+        <source>กำลังส่งใบเก็บเงินให้คุณทาง LINE…</source>
+      </trans-unit>
+      <trans-unit id="pay.card.sendingGroup" datatype="html">
+        <source>กำลังส่งใบเก็บเงินเข้ากลุ่ม LINE…</source>
+      </trans-unit>
+      <trans-unit id="pay.card.numberHint" datatype="html">
+        <source>ตัวเลขอย่างน้อย 6 หลัก เว้นวรรคหรือใส่ขีดได้ รวมไม่เกิน 20 ตัวอักษร</source>
+      </trans-unit>
+      <trans-unit id="pay.card.bankTooLong" datatype="html">
+        <source>ชื่อธนาคารยาวได้ไม่เกิน 40 ตัวอักษร</source>
+      </trans-unit>
+      <trans-unit id="pay.card.nameTooLong" datatype="html">
+        <source>ชื่อบัญชียาวได้ไม่เกิน 80 ตัวอักษร</source>
+      </trans-unit>
+      <trans-unit id="summary.openPaymentCard" datatype="html">
+        <source>เปิดใบเก็บเงิน</source>
+      </trans-unit>
     </body>
   </file>
 </xliff>

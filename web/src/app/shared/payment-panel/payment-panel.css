@@ -29,6 +29,68 @@
   font-size: var(--text-xl);
 }
 
+/* The host can verify the night, total and receiver before scanning every player. */
+.review-summary {
+  display: grid;
+  gap: var(--space-2);
+  max-width: 24rem;
+  padding-block: var(--space-1) var(--space-2);
+}
+
+.review-context {
+  display: grid;
+  gap: var(--space-0);
+  overflow-wrap: anywhere;
+}
+
+.review-context span {
+  color: var(--ink-soft);
+  font-size: var(--text-sm);
+}
+
+.review-total {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+
+.review-total strong {
+  font-family: var(--font-display);
+  font-size: var(--text-xl);
+  font-variant-numeric: tabular-nums;
+}
+
+.review-payee {
+  display: grid;
+  gap: var(--space-0);
+  overflow-wrap: anywhere;
+}
+
+.review-payee .muted {
+  font-size: var(--text-sm);
+}
+
+.review-number {
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.field-hint,
+.field-error,
+.progress {
+  font-size: var(--text-sm);
+}
+
+.field-hint,
+.field-error {
+  padding-top: var(--space-0);
+}
+
+.progress {
+  color: var(--court-ink);
+}
+
 /* ---- The card preview: a small copy of the LINE bubble, not a form ---- */
 
 .preview {
@@ -313,10 +375,11 @@
 
 /* Busy or out of date: refused by a guard, but still focusable so focus never falls out of the sheet. */
 .payment-panel button[aria-disabled='true'] {
-  background: var(--line);
-  color: var(--ink-faint);
+  background: var(--ground-sunk);
+  color: var(--ink-soft);
   box-shadow: none;
   cursor: not-allowed;
+  opacity: 1;
   transform: none;
 }
 
@@ -340,12 +403,21 @@
 .other-ways summary {
   display: flex;
   align-items: center;
+  gap: var(--space-1);
   width: fit-content;
   min-height: var(--tap);
   color: var(--court-ink);
   font-size: var(--text-sm);
   font-weight: 600;
   cursor: pointer;
+}
+
+.other-ways summary app-icon {
+  transform: rotate(-90deg);
+}
+
+.other-ways[open] summary app-icon {
+  transform: rotate(0deg);
 }
 
 .other-ways-body {

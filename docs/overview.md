@@ -1527,7 +1527,7 @@ expired code gets one generic Thai reply (it never says which); a sender who has
       account read is fired after the target is known and never holds up ending, and a bill that
       is not ready only changes what the sheet says. The sheet has a close button at the top (in a
       sticky header); its primary action stays in a sticky bottom bar. Closing sends nothing and loses nothing.
-    - **Summary-page banner.** For the owner of an ended session with a target, "ส่งใบเก็บเงินเข้ากลุ่ม"
+    - **Summary-page banner.** For the owner of an ended session with a target, "เปิดใบเก็บเงิน"
       opens the same sheet. It shows when the card has never been confirmed, or was confirmed and the
       bill has changed since, or was confirmed but the bot has not posted it yet (`group` target) or
       DMed it to the host yet (`host` target, `lastDmAt` is null). It also shows while the bill is not ready, so the sheet can name

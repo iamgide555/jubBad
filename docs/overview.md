@@ -1485,7 +1485,7 @@ expired code gets one generic Thai reply (it never says which); a sender who has
     channel; see the runbook), and the iPad / external-browser login.
 - **Payment card, ใบเก็บเงิน (2026-10-29)**
   (`docs/superpowers/specs/2026-10-29-line-payment-card-design.md`; checks in
-  `docs/line-liff-setup.md`). Deployed 2026-10-29 at `d69476d` (one migration, `20261029000000_line_payment_card`); the real-LINE checks in the runbook are still open.
+  `docs/line-liff-setup.md`). Deployed 2026-10-29 at `d69476d` (one migration, `20261029000000_line_payment_card`), with the host DM button following the same day at `3e58485` (no migration); the real-LINE checks in the runbook are still open.
   A second LINE card with one row per person still due (name, amount in whole baht at the bill's
   rounding step), the total, "จ่ายแล้ว N คน" when anyone settled early, the account to pay into
   ("โอนให้ <ชื่อบัญชี>", bank, number, printed large) and a "คัดลอกเลขบัญชี" button. Thai only, like the

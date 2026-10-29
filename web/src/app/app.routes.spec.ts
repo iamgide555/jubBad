@@ -18,6 +18,7 @@ import { ResetPassword } from './pages/reset-password/reset-password';
 import { Admin } from './pages/admin/admin';
 import { GroupDashboard } from './pages/group-dashboard/group-dashboard';
 import { SessionBill } from './pages/session-bill/session-bill';
+import { LineShare } from './pages/line-share/line-share';
 
 /**
  * A stubbed AuthService rather than the real one: these tests are about which
@@ -186,6 +187,15 @@ describe('app routes', () => {
       expect(await harness.navigateByUrl('/s/xyz789/display', SessionDisplay)).toBeInstanceOf(
         SessionDisplay
       );
+    });
+
+    it('opens the LIFF payment share page, not the summary one, without signing in', async () => {
+      const harness = await RouterTestingHarness.create();
+      const page = await harness.navigateByUrl('/line-share/pay/abc/TOK', LineShare);
+      expect(page).toBeInstanceOf(LineShare);
+      const snapshot = TestBed.inject(Router).routerState.snapshot.root.firstChild!;
+      expect(snapshot.paramMap.get('sessionCode')).toBe('abc');
+      expect(snapshot.paramMap.get('token')).toBe('TOK');
     });
 
     it('shows the group dashboard without signing in', async () => {

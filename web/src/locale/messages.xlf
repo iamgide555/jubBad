@@ -8074,6 +8074,21 @@
       <trans-unit id="summary.paymentBanner" datatype="html">
         <source>ส่งใบเก็บเงินเข้ากลุ่ม</source>
       </trans-unit>
+      <trans-unit id="share.pay.title" datatype="html">
+        <source>ส่งใบเก็บเงินเข้ากลุ่ม LINE</source>
+      </trans-unit>
+      <trans-unit id="share.pay.missing" datatype="html">
+        <source>ไม่พบใบเก็บเงินนี้ ลองกดปุ่มจากหน้าเก็บเงินอีกครั้ง</source>
+      </trans-unit>
+      <trans-unit id="share.pay.preview" datatype="html">
+        <source>ใบเก็บเงิน · <x id="INTERPOLATION" equiv-text="{{ p.preview.count }}"/> คน · รวม ฿<x id="INTERPOLATION_1" equiv-text="{{ baht(p.preview.totalSatang) }}"/></source>
+      </trans-unit>
+      <trans-unit id="share.pay.payee" datatype="html">
+        <source>โอนให้ <x id="INTERPOLATION" equiv-text="{{ p.preview.accountName }}"/> (<x id="INTERPOLATION_1" equiv-text="{{ p.preview.bank }}"/>)</source>
+      </trans-unit>
+      <trans-unit id="share.pay.hint" datatype="html">
+        <source>เลือกกลุ่มหรือแชตใน LINE ใบเก็บเงินจะถูกส่งในชื่อของคุณ</source>
+      </trans-unit>
     </body>
   </file>
 </xliff>

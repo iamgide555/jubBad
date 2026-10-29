@@ -6405,6 +6405,26 @@
         <source>ส่งใบเก็บเงินเข้ากลุ่ม</source>
         <target>Send the payment card to the group</target>
       </trans-unit>
+      <trans-unit id="share.pay.title" datatype="html">
+        <source>ส่งใบเก็บเงินเข้ากลุ่ม LINE</source>
+        <target>Send the payment card to a LINE group</target>
+      </trans-unit>
+      <trans-unit id="share.pay.missing" datatype="html">
+        <source>ไม่พบใบเก็บเงินนี้ ลองกดปุ่มจากหน้าเก็บเงินอีกครั้ง</source>
+        <target>This payment card was not found. Try the button on the bill screen again</target>
+      </trans-unit>
+      <trans-unit id="share.pay.preview" datatype="html">
+        <source>ใบเก็บเงิน · <x id="INTERPOLATION" equiv-text="{{ p.preview.count }}"/> คน · รวม ฿<x id="INTERPOLATION_1" equiv-text="{{ baht(p.preview.totalSatang) }}"/></source>
+        <target>Payment card · <x id="INTERPOLATION" equiv-text="{{ p.preview.count }}"/> players · total ฿<x id="INTERPOLATION_1" equiv-text="{{ baht(p.preview.totalSatang) }}"/></target>
+      </trans-unit>
+      <trans-unit id="share.pay.payee" datatype="html">
+        <source>โอนให้ <x id="INTERPOLATION" equiv-text="{{ p.preview.accountName }}"/> (<x id="INTERPOLATION_1" equiv-text="{{ p.preview.bank }}"/>)</source>
+        <target>Pay to <x id="INTERPOLATION" equiv-text="{{ p.preview.accountName }}"/> (<x id="INTERPOLATION_1" equiv-text="{{ p.preview.bank }}"/>)</target>
+      </trans-unit>
+      <trans-unit id="share.pay.hint" datatype="html">
+        <source>เลือกกลุ่มหรือแชตใน LINE ใบเก็บเงินจะถูกส่งในชื่อของคุณ</source>
+        <target>Pick a group or chat in LINE. The payment card is sent as you</target>
+      </trans-unit>
     </body>
   </file>
 </xliff>

@@ -3,7 +3,7 @@ import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { ActivatedRoute, convertToParamMap } from '@angular/router';
 import { of, throwError } from 'rxjs';
 import { LiffClient } from '../../core/liff-client';
-import type { LineShareCard } from '../../core/line.model';
+import type { LineShareCard, PaymentShareCard } from '../../core/line.model';
 import { LineService } from '../../core/line.service';
 import { LineShare } from './line-share';
 
@@ -13,9 +13,16 @@ const CARD: LineShareCard = {
   preview: { name: 'ตีชิล', date: '2026-10-28', venue: 'Bad@Mama', players: 12, games: 9 },
 };
 
+const PAY: PaymentShareCard = {
+  liffId: '1234567890-AbCdEfGh',
+  messages: [{ type: 'flex', altText: 'ใบเก็บเงิน', contents: { type: 'bubble' } }],
+  preview: { name: 'ตีชิล', date: '2026-10-28', count: 12, totalSatang: 144000, bank: 'KBank', accountName: 'สมชาย ใจดี' },
+};
+
 describe('LineShare', () => {
   let fixture: ComponentFixture<LineShare>;
   let shareCard: ReturnType<typeof vi.fn>;
+  let paymentShareCard: ReturnType<typeof vi.fn>;
   let liff: {
     init: ReturnType<typeof vi.fn>;
     isLoggedIn: ReturnType<typeof vi.fn>;
@@ -40,9 +47,17 @@ describe('LineShare', () => {
     await flush();
   }
 
+  async function openPay(card: PaymentShareCard | HttpErrorResponse = PAY) {
+    paymentShareCard.mockReturnValue(card instanceof HttpErrorResponse ? throwError(() => card) : of(card));
+    fixture = TestBed.createComponent(LineShare);
+    fixture.detectChanges();
+    await flush();
+  }
+
   beforeEach(() => {
     route = { params: { sessionCode: 'sess 1' }, query: {} };
     shareCard = vi.fn();
+    paymentShareCard = vi.fn();
     liff = {
       init: vi.fn().mockResolvedValue(undefined),
       isLoggedIn: vi.fn().mockReturnValue(true),
@@ -52,7 +67,7 @@ describe('LineShare', () => {
     };
     TestBed.configureTestingModule({
       providers: [
-        { provide: LineService, useValue: { shareCard } },
+        { provide: LineService, useValue: { shareCard, paymentShareCard } },
         { provide: LiffClient, useValue: liff },
         {
           provide: ActivatedRoute,
@@ -220,5 +235,109 @@ describe('LineShare', () => {
     expect(q('[data-share-error]')).not.toBeNull();
     expect(q('[data-share-missing]')).toBeNull();
     expect(liff.init).not.toHaveBeenCalled();
+  });
+
+  describe('payment card', () => {
+    beforeEach(() => {
+      route = { params: { sessionCode: 'abc', token: 'TOK' }, query: {} };
+    });
+
+    it('asks the pay endpoint, with the token, and not the summary endpoint', async () => {
+      await openPay();
+      expect(paymentShareCard).toHaveBeenCalledWith('abc', 'TOK');
+      expect(shareCard).not.toHaveBeenCalled();
+      expect(liff.init).toHaveBeenCalledWith('1234567890-AbCdEfGh');
+    });
+
+    it("takes the code and token from LIFF's liff.state when the path has none", async () => {
+      route = { params: {}, query: { 'liff.state': '/pay/abc/TOK' } };
+      await openPay();
+      expect(paymentShareCard).toHaveBeenCalledWith('abc', 'TOK');
+      expect(shareCard).not.toHaveBeenCalled();
+    });
+
+    it('still reads a summary liff.state as the summary card', async () => {
+      route = { params: {}, query: { 'liff.state': '/abc' } };
+      await open();
+      expect(shareCard).toHaveBeenCalledWith('abc');
+      expect(paymentShareCard).not.toHaveBeenCalled();
+    });
+
+    it.each(['/pay/abc', '/pay/abc/', '/pay//TOK', '/pay/', '/pay'])(
+      'says the card is missing, with no request, when liff.state %s lacks a code or token',
+      async (state) => {
+        route = { params: {}, query: { 'liff.state': state } };
+        await openPay();
+        expect(q('[data-share-missing]')).not.toBeNull();
+        expect(paymentShareCard).not.toHaveBeenCalled();
+        expect(shareCard).not.toHaveBeenCalled();
+        expect(liff.init).not.toHaveBeenCalled();
+      },
+    );
+
+    it('says the card is missing on a 404, in words that point back to the bill screen, and never touches LIFF', async () => {
+      await openPay(new HttpErrorResponse({ status: 404 }));
+      expect(q('[data-share-missing]')?.textContent).toContain('ไม่พบใบเก็บเงินนี้ ลองกดปุ่มจากหน้าเก็บเงินอีกครั้ง');
+      expect(liff.init).not.toHaveBeenCalled();
+      expect(q('[data-share-pick]')).toBeNull();
+    });
+
+    it('shows an error when the card cannot be fetched for a reason other than 404', async () => {
+      await openPay(new HttpErrorResponse({ status: 500 }));
+      expect(q('[data-share-error]')).not.toBeNull();
+      expect(q('[data-share-missing]')).toBeNull();
+    });
+
+    it('titles the page for the payment card', async () => {
+      await openPay();
+      expect(q('h1')?.textContent?.trim()).toBe('ส่งใบเก็บเงินเข้ากลุ่ม LINE');
+    });
+
+    it('previews the count, the total and who is paid before the host picks a group', async () => {
+      await openPay();
+      const preview = q('[data-share-preview]')?.textContent ?? '';
+      expect(preview).toContain('ใบเก็บเงิน · 12 คน · รวม ฿1,440');
+      expect(preview).toContain('โอนให้ สมชาย ใจดี (KBank)');
+      expect(preview).toContain('ตีชิล');
+      expect(preview).toContain('2026-10-28');
+      expect(el().textContent).toContain('เลือกกลุ่มหรือแชตใน LINE ใบเก็บเงินจะถูกส่งในชื่อของคุณ');
+      expect(q('[data-share-pick]')?.textContent?.trim()).toBe('เลือกกลุ่มแล้วส่ง');
+    });
+
+    it('never renders the token', async () => {
+      await openPay();
+      q('[data-share-pick]')!.click();
+      await flush();
+      expect(el().innerHTML).not.toContain('TOK');
+    });
+
+    it('shares the one message the server returned, straight from the tap', async () => {
+      await openPay();
+      q('[data-share-pick]')!.click();
+      expect(liff.share).toHaveBeenCalledTimes(1);
+      expect(liff.share).toHaveBeenCalledWith(PAY.messages);
+      await flush();
+      expect(q('[data-share-done]')?.textContent).toContain('ส่งแล้ว');
+    });
+
+    it('shares every message when the server returns two (card plus account number text)', async () => {
+      const messages = [PAY.messages[0], { type: 'text', text: '123-4-56789-0' }];
+      await openPay({ ...PAY, messages });
+      q('[data-share-pick]')!.click();
+      expect(liff.share).toHaveBeenCalledWith(messages);
+      expect((liff.share.mock.calls[0][0] as unknown[]).length).toBe(2);
+    });
+
+    it('lets the host send again after it was sent', async () => {
+      await openPay();
+      q('[data-share-pick]')!.click();
+      await flush();
+      expect(q('[data-share-done]')).not.toBeNull();
+      expect(q('[data-share-again]')?.textContent?.trim()).toBe('ส่งที่อื่นอีก');
+      q('[data-share-again]')!.click();
+      await flush();
+      expect(q('[data-share-done]')).toBeNull();
+      expect(q('[data-share-pick]')).not.toBeNull();
+    });
   });
 });

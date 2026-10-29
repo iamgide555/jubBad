@@ -1,4 +1,4 @@
-import { Component, computed, inject, signal } from '@angular/core';
+import { Component, computed, effect, inject, signal, untracked } from '@angular/core';
 import { HttpClient, HttpErrorResponse } from '@angular/common/http';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
@@ -12,18 +12,20 @@ import { copyToClipboard } from '../../core/share-link';
 import { formatShuttleCountInput, formatShuttlePriceInput, parseShuttleCountInput, parseShuttlePriceInput } from '../../core/shuttle-money';
 import { BillSettings } from '../../shared/bill-settings/bill-settings';
 import { Icon } from '../../shared/icon/icon';
-import { PaymentPanel } from '../../shared/payment-panel/payment-panel';
+import { PaymentCardService } from '../../core/payment-card.service';
+import { PaymentSheet } from '../../shared/payment-sheet/payment-sheet';
 import { PlanLock } from '../../shared/plan-lock/plan-lock';
 
 @Component({
   selector: 'app-session-bill',
-  imports: [RouterLink, Icon, BillSettings, PaymentPanel, PlanLock],
+  imports: [RouterLink, Icon, BillSettings, PaymentSheet, PlanLock],
   templateUrl: './session-bill.html',
   styleUrl: './session-bill.css',
 })
 export class SessionBill {
   private readonly http = inject(HttpClient);
   private readonly planService = inject(PlanService);
+  private readonly paymentCards = inject(PaymentCardService);
   protected readonly sessionCode = inject(ActivatedRoute).snapshot.paramMap.get('sessionCode')!;
   private readonly base = `${environment.apiBaseUrl}/sessions/${this.sessionCode}`;
 
@@ -33,6 +35,9 @@ export class SessionBill {
   protected readonly error = signal<string | null>(null);
   protected readonly copied = signal(false);
   protected readonly clipboardFallback = signal<string | null>(null);
+  protected readonly paymentAvailable = signal(false);
+  protected readonly paymentSheetOpen = signal(false);
+  private paymentReadSeq = 0;
 
   /** The group owner's plan. `null` (not loaded, or the read failed) counts as paid, so a hiccup never locks the host out. */
   private readonly plan = signal<Plan | null>(null);
@@ -87,6 +92,21 @@ export class SessionBill {
   constructor() {
     void this.load();
     void this.loadPlan();
+    effect(() => {
+      if (this.bill()) untracked(() => void this.loadPaymentAvailability());
+    });
+  }
+
+  /** Keep the entry hidden for an unlinked group; the shared sheet reads fresh amounts when opened. */
+  private async loadPaymentAvailability(): Promise<void> {
+    const seq = ++this.paymentReadSeq;
+    try {
+      const panel = await firstValueFrom(this.paymentCards.panel(this.sessionCode));
+      if (seq === this.paymentReadSeq) this.paymentAvailable.set(panel.target !== null);
+    } catch {
+      // A failed availability read must not strand the host: the sheet provides the normal retry.
+      if (seq === this.paymentReadSeq) this.paymentAvailable.set(true);
+    }
   }
 
   /** The bill response does not name its group, so the public session read supplies the group code. */

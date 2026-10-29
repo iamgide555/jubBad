@@ -2,7 +2,7 @@ import { Component, computed, input, linkedSignal, output, signal } from '@angul
 import { searchBanks, type ThaiBank } from '../../core/thai-banks';
 
 /**
- * A bank name field: the full list opens on focus (twelve big tap rows beat typing on a phone)
+ * A bank name field: the full list opens on focus or a tap (twelve big tap rows beat typing on a phone)
  * and narrows as the host types. Choosing a row fills the Thai name; anything else typed is kept
  * as free text, so a wallet or a small bank is never blocked. The value is always plain text, never
  * a code. The caller owns the label: it points at `inputId`.
@@ -39,6 +39,16 @@ export class BankField {
   }
 
   protected onFocus(): void {
+    this.filtering.set(false);
+    this.open.set(true);
+  }
+
+  /**
+   * Focus does not fire again while the input stays focused, so after a pick or Escape a tap is the only
+   * way back to the list on a phone (no arrow keys). A list that is already open is left as the host narrowed it.
+   */
+  protected onClick(): void {
+    if (this.open()) return;
     this.filtering.set(false);
     this.open.set(true);
   }

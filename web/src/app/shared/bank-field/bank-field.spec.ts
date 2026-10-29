@@ -124,6 +124,30 @@ describe('BankField', () => {
     expect(options()).toHaveLength(12);
   });
 
+  it('tapping the focused field reopens the full list after a pick or Escape', () => {
+    focus();
+    options()[3].click();
+    fixture.detectChanges();
+    expect(options()).toHaveLength(0);
+    input().click();
+    fixture.detectChanges();
+    expect(options()).toHaveLength(12);
+
+    key('Escape');
+    expect(options()).toHaveLength(0);
+    input().click();
+    fixture.detectChanges();
+    expect(options()).toHaveLength(12);
+  });
+
+  it('tapping the field while the narrowed list is open keeps it narrowed', async () => {
+    focus();
+    await type('kbank');
+    input().click();
+    fixture.detectChanges();
+    expect(names()).toEqual(['กสิกร']);
+  });
+
   it('ignores Enter while a Thai IME composition is committing', () => {
     focus();
     key('ArrowDown');

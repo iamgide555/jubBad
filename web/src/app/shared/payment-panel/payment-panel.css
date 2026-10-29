@@ -1,0 +1,158 @@
+.payment-panel {
+  display: grid;
+  gap: var(--space-2);
+  padding: var(--space-2);
+  margin: var(--space-2) 0;
+  background: var(--surface);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-xs);
+}
+
+.payment-panel.compact {
+  margin: 0;
+  padding: 0;
+  background: none;
+  box-shadow: none;
+}
+
+.payment-panel p {
+  margin: 0;
+}
+
+.panel-title {
+  margin: 0;
+  font-size: var(--text-lg);
+}
+
+.rows {
+  display: grid;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-2);
+  min-height: var(--tap);
+  padding: var(--space-1) 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.row-who {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.row-absent {
+  margin-inline-start: 0.4em;
+  color: var(--ink-soft);
+  font-size: var(--text-sm);
+}
+
+.row-amount {
+  flex: none;
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+}
+
+.total {
+  font-family: var(--font-display);
+  font-size: var(--text-lg);
+  font-weight: 700;
+  text-align: end;
+}
+
+.notice,
+.warn {
+  color: var(--ink-soft);
+  font-size: var(--text-sm);
+}
+
+.warn {
+  color: var(--warn);
+  font-weight: 600;
+}
+
+.missing {
+  display: grid;
+  gap: var(--space-1);
+  padding: var(--space-2);
+  background: var(--warn-wash);
+  border-radius: var(--radius-lg);
+}
+
+.missing-title {
+  font-weight: 700;
+}
+
+.missing ul {
+  margin: 0;
+  padding-inline-start: 1.25rem;
+}
+
+.settings-link {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--tap);
+  color: var(--court-ink);
+  font-weight: 600;
+  text-decoration: underline;
+}
+
+.account {
+  display: grid;
+  gap: var(--space-2);
+  max-width: 28rem;
+}
+
+.field label {
+  display: block;
+  margin-bottom: 0.35rem;
+}
+
+.hint {
+  font-size: var(--text-sm);
+}
+
+.account .ghost {
+  justify-self: start;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+.resend {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+.resend p {
+  flex-basis: 100%;
+}
+
+.share-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: var(--tap);
+  padding: 0.65rem 1.1rem;
+  background: var(--court);
+  color: var(--on-fill);
+  border-radius: var(--radius);
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.share-hint {
+  flex-basis: 100%;
+  font-size: var(--text-sm);
+}

@@ -5,6 +5,7 @@ import { ActivatedRoute, convertToParamMap, provideRouter } from '@angular/route
 import { SessionBill } from './session-bill';
 import { environment } from '../../../environments/environment';
 import type { BillResponse } from '../../core/bill.model';
+import type { PaymentPanel } from '../../core/payment-card.model';
 
 const B = environment.apiBaseUrl;
 
@@ -38,6 +39,15 @@ function response(): BillResponse {
   };
 }
 
+function paymentPanel(over: Partial<PaymentPanel> = {}): PaymentPanel {
+  return {
+    target: 'group', ended: true, ready: true, warnings: [], notices: [],
+    rows: [{ playerId: 'a', name: 'Amp', amountSatang: 9000, absent: false }],
+    settledCount: 0, totalSatang: 9000, groupAccount: null, account: null,
+    confirmed: false, stale: false, lastSentAt: null, shareUrl: null, ...over,
+  };
+}
+
 describe('SessionBill', () => {
   let fixture: ComponentFixture<SessionBill>;
   let http: HttpTestingController;
@@ -62,6 +72,10 @@ describe('SessionBill', () => {
     for (const req of http.match((r) => r.url === `${B}/groups/group1/plan`)) {
       req.flush({ plan: 'club', renewsAt: null });
     }
+    // The embedded payment panel reads itself whenever the bill is replaced; it has its own spec.
+    for (const req of http.match((r) => r.url === `${B}/sessions/sess1/payment-card`)) {
+      req.flush({}, { status: 500, statusText: 'Server Error' });
+    }
     http.verify();
   });
 
@@ -71,6 +85,32 @@ describe('SessionBill', () => {
     await new Promise((r) => setTimeout(r, 0));
     fixture.detectChanges();
   }
+
+  it('embeds the payment panel below the bill and re-reads it after a settings save', async () => {
+    await load();
+    http.expectOne(`${B}/sessions/sess1/payment-card`).flush(paymentPanel());
+    await new Promise((r) => setTimeout(r, 0));
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('app-payment-panel [data-payment-panel]')).toBeTruthy();
+    expect(fixture.nativeElement.querySelector('[data-settings-link]')).toBeNull();
+
+    (fixture.nativeElement.querySelector('[data-model="buffet"]') as HTMLButtonElement).click();
+    http.expectOne(`${B}/sessions/sess1/bill-config`).flush(response());
+    await new Promise((r) => setTimeout(r, 0));
+    fixture.detectChanges();
+    http.expectOne(`${B}/sessions/sess1/payment-card`).flush(paymentPanel({ totalSatang: 12000 }));
+    await new Promise((r) => setTimeout(r, 0));
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('[data-total]').textContent).toContain('120฿');
+  });
+
+  it('shows no payment panel when the group has no LINE target', async () => {
+    await load();
+    http.expectOne(`${B}/sessions/sess1/payment-card`).flush(paymentPanel({ target: null }));
+    await new Promise((r) => setTimeout(r, 0));
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('[data-payment-panel]')).toBeNull();
+  });
 
   it('goes back to the live session while the night is on', async () => {
     await load();

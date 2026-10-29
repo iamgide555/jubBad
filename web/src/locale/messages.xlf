@@ -7921,6 +7921,138 @@
       <trans-unit id="pay.account.saveFailed" datatype="html">
         <source>บันทึกไม่สำเร็จ ลองอีกครั้ง</source>
       </trans-unit>
+      <trans-unit id="pay.card.title" datatype="html">
+        <source>ใบเก็บเงิน</source>
+      </trans-unit>
+      <trans-unit id="pay.card.absent" datatype="html">
+        <source>(ไม่มา)</source>
+      </trans-unit>
+      <trans-unit id="pay.card.total" datatype="html">
+        <source>รวม</source>
+      </trans-unit>
+      <trans-unit id="pay.card.settled" datatype="html">
+        <source>จ่ายแล้ว <x id="INTERPOLATION" equiv-text="{{ p.settledCount }}"/> คน</source>
+      </trans-unit>
+      <trans-unit id="pay.card.empty" datatype="html">
+        <source>ไม่มีใครต้องจ่าย</source>
+      </trans-unit>
+      <trans-unit id="pay.card.nothingToPay" datatype="html">
+        <source>ไม่ต้องโอน</source>
+      </trans-unit>
+      <trans-unit id="pay.card.openNote" datatype="html">
+        <source>ส่งใบเก็บเงินได้หลังจบรอบ ตอนนี้เป็นยอดตัวอย่าง</source>
+      </trans-unit>
+      <trans-unit id="pay.card.missingTitle" datatype="html">
+        <source>ยังส่งใบเก็บเงินไม่ได้ ใส่ข้อมูลที่ขาดก่อน</source>
+      </trans-unit>
+      <trans-unit id="pay.card.missingCourtFee" datatype="html">
+        <source>ยังไม่ได้ใส่ค่าสนาม</source>
+      </trans-unit>
+      <trans-unit id="pay.card.missingShuttleCount" datatype="html">
+        <source>ยังไม่ได้ใส่จำนวนลูก</source>
+      </trans-unit>
+      <trans-unit id="pay.card.missingShuttlePrice" datatype="html">
+        <source>ยังไม่ได้ใส่ราคาลูก</source>
+      </trans-unit>
+      <trans-unit id="pay.card.unknownShuttleUse" datatype="html">
+        <source>มีเกมที่ไม่ได้บันทึกลูก</source>
+      </trans-unit>
+      <trans-unit id="pay.card.missingOther" datatype="html">
+        <source>ยังมีข้อมูลที่ขาดในหน้าคิดเงิน</source>
+      </trans-unit>
+      <trans-unit id="pay.card.toSettings" datatype="html">
+        <source>ไปหน้าตั้งค่าคิดเงิน</source>
+      </trans-unit>
+      <trans-unit id="pay.card.noticeExcess" datatype="html">
+        <source>ยอดที่เช็คเอาต์ไปแล้วเกินต้นทุน ต้องคืนเงินเองนอกแอป</source>
+      </trans-unit>
+      <trans-unit id="pay.card.noticeUncovered" datatype="html">
+        <source>มีส่วนที่ขาดซึ่งไม่มีใครเหลือจ่าย ดูรายละเอียดในหน้าคิดเงิน</source>
+      </trans-unit>
+      <trans-unit id="pay.card.noticeSurcharge" datatype="html">
+        <source>ค่า walk-in บางส่วนไม่มีใครรับคืนได้ ดูรายละเอียดในหน้าคิดเงิน</source>
+      </trans-unit>
+      <trans-unit id="pay.card.noticeOther" datatype="html">
+        <source>ดูรายละเอียดในหน้าคิดเงิน</source>
+      </trans-unit>
+      <trans-unit id="pay.card.collectorHint" datatype="html">
+        <source>คนรับเงินไม่ต้องโอนให้ตัวเอง ใช้ ไม่คิดเงิน หรือแก้ยอดในหน้าคิดเงิน</source>
+      </trans-unit>
+      <trans-unit id="pay.card.useGroup" datatype="html">
+        <source>ใช้บัญชีของกลุ่ม</source>
+      </trans-unit>
+      <trans-unit id="pay.card.noAccount" datatype="html">
+        <source>ตั้งบัญชีรับเงินในหน้าตั้งค่ากลุ่ม</source>
+      </trans-unit>
+      <trans-unit id="pay.card.stale" datatype="html">
+        <source>ยอดเปลี่ยน, ยืนยันใหม่</source>
+      </trans-unit>
+      <trans-unit id="pay.card.edited" datatype="html">
+        <source>แก้บัญชีแล้ว, ยืนยันใหม่</source>
+      </trans-unit>
+      <trans-unit id="pay.card.confirm" datatype="html">
+        <source>ยืนยันยอด</source>
+      </trans-unit>
+      <trans-unit id="pay.card.send" datatype="html">
+        <source>ส่งเข้ากลุ่ม</source>
+      </trans-unit>
+      <trans-unit id="pay.card.sendAgain" datatype="html">
+        <source>ส่งอีกครั้ง</source>
+      </trans-unit>
+      <trans-unit id="pay.card.resendAsk" datatype="html">
+        <source>ส่งการ์ดเข้ากลุ่มซ้ำอีกรอบใช่ไหม</source>
+      </trans-unit>
+      <trans-unit id="pay.card.resendYes" datatype="html">
+        <source>ใช่ ส่งเลย</source>
+      </trans-unit>
+      <trans-unit id="pay.card.cancel" datatype="html">
+        <source>ยกเลิก</source>
+      </trans-unit>
+      <trans-unit id="pay.card.openInLine" datatype="html">
+        <source>เปิดใน LINE เพื่อส่ง</source>
+      </trans-unit>
+      <trans-unit id="pay.card.openInLineHint" datatype="html">
+        <source>กดแล้วเลือกกลุ่มในแอป LINE</source>
+      </trans-unit>
+      <trans-unit id="pay.card.loadFailed" datatype="html">
+        <source>โหลดใบเก็บเงินไม่สำเร็จ</source>
+      </trans-unit>
+      <trans-unit id="pay.card.sentPlain" datatype="html">
+        <source>ส่งแล้ว</source>
+      </trans-unit>
+      <trans-unit id="pay.card.sentAt" datatype="html">
+        <source>ส่งแล้ว <x id="time" equiv-text="time"/></source>
+      </trans-unit>
+      <trans-unit id="pay.card.outcomeSent" datatype="html">
+        <source>ส่งแล้ว</source>
+      </trans-unit>
+      <trans-unit id="pay.card.outcomeQuota" datatype="html">
+        <source>โควต้าข้อความ LINE ของเดือนนี้หมดแล้ว ส่งเข้ากลุ่มไม่ได้</source>
+      </trans-unit>
+      <trans-unit id="pay.card.outcomeFailed" datatype="html">
+        <source>ส่งไม่สำเร็จ ลองอีกครั้ง</source>
+      </trans-unit>
+      <trans-unit id="pay.card.outcomeUnavailable" datatype="html">
+        <source>ตอนนี้ส่งเข้าไลน์ไม่ได้ ตรวจการเชื่อมต่อ LINE ของก๊วน</source>
+      </trans-unit>
+      <trans-unit id="pay.card.outcomeBusy" datatype="html">
+        <source>เพิ่งส่งไปเมื่อครู่ รอสักครู่แล้วลองใหม่</source>
+      </trans-unit>
+      <trans-unit id="pay.card.outcomeStale" datatype="html">
+        <source>ยอดเปลี่ยนไปแล้ว กดยืนยันยอดอีกครั้ง</source>
+      </trans-unit>
+      <trans-unit id="pay.card.outcomeNotConfirmed" datatype="html">
+        <source>ยังไม่ได้ยืนยันยอด กดยืนยันยอดก่อน</source>
+      </trans-unit>
+      <trans-unit id="pay.card.confirmNotReady" datatype="html">
+        <source>ยืนยันยอดไม่ได้ ยังมียอดที่ไม่ครบ</source>
+      </trans-unit>
+      <trans-unit id="pay.card.confirmUnavailable" datatype="html">
+        <source>ใบเก็บเงินใช้ไม่ได้ในตอนนี้ ตรวจการเชื่อมต่อ LINE ของก๊วน</source>
+      </trans-unit>
+      <trans-unit id="pay.card.confirmFailed" datatype="html">
+        <source>ยืนยันไม่สำเร็จ ลองอีกครั้ง</source>
+      </trans-unit>
     </body>
   </file>
 </xliff>

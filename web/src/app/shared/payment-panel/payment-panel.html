@@ -1,0 +1,132 @@
+@if (data(); as p) {
+  @if (p.target) {
+    <section class="payment-panel" [class.compact]="compact()" data-payment-panel>
+      @if (!compact()) {
+        <h2 class="panel-title" i18n="@@pay.card.title">ใบเก็บเงิน</h2>
+      }
+
+      @if (p.rows.length > 0) {
+        <ul class="rows" data-rows>
+          @for (row of p.rows; track row.playerId) {
+            <li class="row" data-row>
+              <span class="row-who">
+                <span class="row-name">{{ row.name }}</span>
+                @if (row.absent) {
+                  <span class="row-absent" i18n="@@pay.card.absent">(ไม่มา)</span>
+                }
+              </span>
+              <span class="row-amount">{{ amountText(row.amountSatang) }}</span>
+            </li>
+          }
+        </ul>
+        <p class="total" data-total><span i18n="@@pay.card.total">รวม</span> {{ baht(p.totalSatang) }}฿</p>
+        @if (p.settledCount > 0) {
+          <p class="muted" data-settled i18n="@@pay.card.settled">จ่ายแล้ว {{ p.settledCount }} คน</p>
+        }
+      } @else if (p.ready) {
+        <p class="muted" data-empty i18n="@@pay.card.empty">ไม่มีใครต้องจ่าย</p>
+      }
+
+      @for (notice of noticeTexts(); track notice) {
+        <p class="notice" data-notice>{{ notice }}</p>
+      }
+
+      @if (!p.ended) {
+        <p class="muted" data-open-note i18n="@@pay.card.openNote">ส่งใบเก็บเงินได้หลังจบรอบ ตอนนี้เป็นยอดตัวอย่าง</p>
+      } @else if (!p.ready) {
+        <div class="missing" data-missing role="status">
+          <p class="missing-title" i18n="@@pay.card.missingTitle">ยังส่งใบเก็บเงินไม่ได้ ใส่ข้อมูลที่ขาดก่อน</p>
+          <ul>
+            @for (item of missing(); track item) {
+              <li>{{ item }}</li>
+            }
+          </ul>
+          @if (compact()) {
+            <a class="settings-link" data-settings-link [routerLink]="['/s', sessionCode(), 'bill']" (click)="closed.emit()" i18n="@@pay.card.toSettings">ไปหน้าตั้งค่าคิดเงิน</a>
+          }
+        </div>
+      } @else if (actionable()) {
+        <div class="account">
+          <div class="field">
+            <label for="pc-bank" i18n="@@pay.account.bank">ธนาคาร</label>
+            <app-bank-field inputId="pc-bank" [value]="bank()" (valueChange)="edit('bank', $event)" />
+          </div>
+          <div class="field">
+            <label for="pc-number" i18n="@@pay.account.number">เลขบัญชี</label>
+            <input
+              id="pc-number"
+              type="text"
+              inputmode="numeric"
+              autocomplete="off"
+              [value]="number()"
+              (input)="edit('number', $any($event.target).value)"
+            />
+          </div>
+          <div class="field">
+            <label for="pc-name" i18n="@@pay.account.name">ชื่อบัญชี</label>
+            <input
+              id="pc-name"
+              type="text"
+              autocomplete="off"
+              maxlength="80"
+              [value]="name()"
+              (input)="edit('name', $any($event.target).value)"
+            />
+          </div>
+          <p class="muted hint" data-hint i18n="@@pay.card.collectorHint">คนรับเงินไม่ต้องโอนให้ตัวเอง ใช้ ไม่คิดเงิน หรือแก้ยอดในหน้าคิดเงิน</p>
+          @if (differsFromGroup()) {
+            <button type="button" class="ghost" data-use-group (click)="useGroupAccount()" i18n="@@pay.card.useGroup">ใช้บัญชีของกลุ่ม</button>
+          }
+        </div>
+
+        @if (!hasAnyField()) {
+          <p class="muted" data-no-account i18n="@@pay.card.noAccount">ตั้งบัญชีรับเงินในหน้าตั้งค่ากลุ่ม</p>
+        }
+        @if (p.stale) {
+          <p class="warn" data-stale role="status" i18n="@@pay.card.stale">ยอดเปลี่ยน, ยืนยันใหม่</p>
+        } @else if (editedSinceConfirm()) {
+          <p class="warn" data-edited role="status" i18n="@@pay.card.edited">แก้บัญชีแล้ว, ยืนยันใหม่</p>
+        }
+        @if (error()) {
+          <p class="error" data-error role="alert">{{ error() }}</p>
+        }
+
+        <div class="actions">
+          <button type="button" data-confirm [class.ghost]="p.confirmed && !p.stale && !editedSinceConfirm()" [disabled]="busy() || !hasAnyField()" (click)="confirm()" i18n="@@pay.card.confirm">ยืนยันยอด</button>
+
+          @if (canSendToGroup()) {
+            @if (confirmingResend()) {
+              <div class="resend" data-resend-prompt role="group">
+                <p i18n="@@pay.card.resendAsk">ส่งการ์ดเข้ากลุ่มซ้ำอีกรอบใช่ไหม</p>
+                <button type="button" data-resend-yes [disabled]="busy()" (click)="send()" i18n="@@pay.card.resendYes">ใช่ ส่งเลย</button>
+                <button type="button" class="ghost" data-resend-cancel (click)="confirmingResend.set(false)" i18n="@@pay.card.cancel">ยกเลิก</button>
+              </div>
+            } @else {
+              <button type="button" data-send [disabled]="busy()" (click)="sendClicked()">
+                @if (p.lastSentAt) { <ng-container i18n="@@pay.card.sendAgain">ส่งอีกครั้ง</ng-container> }
+                @else { <ng-container i18n="@@pay.card.send">ส่งเข้ากลุ่ม</ng-container> }
+              </button>
+            }
+          }
+          @if (shareUrl(); as url) {
+            <a class="share-link" data-share-link [href]="url" target="_blank" rel="noopener" i18n="@@pay.card.openInLine">เปิดใน LINE เพื่อส่ง</a>
+            <p class="muted share-hint" i18n="@@pay.card.openInLineHint">กดแล้วเลือกกลุ่มในแอป LINE</p>
+          }
+        </div>
+
+        @if (outcome(); as o) {
+          <p [class]="o === 'sent' ? 'muted' : 'error'" data-outcome [attr.role]="o === 'sent' ? 'status' : 'alert'">{{ outcomeText(o) }}</p>
+        } @else if (lastSentLabel(); as last) {
+          @if (p.target === 'group') {
+            <p class="muted" data-last-sent>{{ last }}</p>
+          }
+        }
+      }
+    </section>
+  }
+} @else if (loadFailed()) {
+  <p class="error" role="alert" data-load-failed>
+    <ng-container i18n="@@pay.card.loadFailed">โหลดใบเก็บเงินไม่สำเร็จ</ng-container>
+    <button type="button" class="ghost" (click)="load()" i18n="@@entry.retry">ลองอีกครั้ง</button>
+  </p>
+}

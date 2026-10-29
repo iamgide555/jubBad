@@ -280,6 +280,8 @@
     @if (clipboardFallback(); as t) {
       <textarea class="clipboard-fallback" readonly [value]="t" i18n-aria-label="@@share.fallbackLabel" aria-label="ข้อความสำหรับคัดลอก"></textarea>
     }
+    <!-- Re-reads itself whenever the bill is replaced (every settings save), so its amounts never lag the rows above. -->
+    <app-payment-panel [sessionCode]="sessionCode" [refreshKey]="bill()" />
   } @else if (!loadFailed()) {
     <p class="muted" i18n="@@bill.loading">กำลังโหลด…</p>
   }

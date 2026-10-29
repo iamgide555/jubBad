@@ -12,12 +12,12 @@ import { copyToClipboard } from '../../core/share-link';
 import { formatShuttleCountInput, formatShuttlePriceInput, parseShuttleCountInput, parseShuttlePriceInput } from '../../core/shuttle-money';
 import { BillSettings } from '../../shared/bill-settings/bill-settings';
 import { Icon } from '../../shared/icon/icon';
-import { PaymentPanelComponent } from '../../shared/payment-panel/payment-panel';
+import { PaymentPanel } from '../../shared/payment-panel/payment-panel';
 import { PlanLock } from '../../shared/plan-lock/plan-lock';
 
 @Component({
   selector: 'app-session-bill',
-  imports: [RouterLink, Icon, BillSettings, PaymentPanelComponent, PlanLock],
+  imports: [RouterLink, Icon, BillSettings, PaymentPanel, PlanLock],
   templateUrl: './session-bill.html',
   styleUrl: './session-bill.css',
 })

@@ -5,7 +5,7 @@ import { ActivatedRoute, convertToParamMap, provideRouter } from '@angular/route
 import { SessionBill } from './session-bill';
 import { environment } from '../../../environments/environment';
 import type { BillResponse } from '../../core/bill.model';
-import type { PaymentPanel } from '../../core/payment-card.model';
+import type { PaymentCardPanel } from '../../core/payment-card.model';
 
 const B = environment.apiBaseUrl;
 
@@ -39,7 +39,7 @@ function response(): BillResponse {
   };
 }
 
-function paymentPanel(over: Partial<PaymentPanel> = {}): PaymentPanel {
+function paymentPanel(over: Partial<PaymentCardPanel> = {}): PaymentCardPanel {
   return {
     target: 'group', ended: true, ready: true, warnings: [], notices: [],
     rows: [{ playerId: 'a', name: 'Amp', amountSatang: 9000, absent: false }],

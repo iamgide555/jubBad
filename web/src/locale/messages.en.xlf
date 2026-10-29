@@ -6223,7 +6223,7 @@
       </trans-unit>
       <trans-unit id="pay.card.nothingToPay" datatype="html">
         <source>ไม่ต้องโอน</source>
-        <target>Nothing to pay</target>
+        <target>No transfer needed</target>
       </trans-unit>
       <trans-unit id="pay.card.openNote" datatype="html">
         <source>ส่งใบเก็บเงินได้หลังจบรอบ ตอนนี้เป็นยอดตัวอย่าง</source>
@@ -6259,7 +6259,7 @@
       </trans-unit>
       <trans-unit id="pay.card.noticeExcess" datatype="html">
         <source>ยอดที่เช็คเอาต์ไปแล้วเกินต้นทุน ต้องคืนเงินเองนอกแอป</source>
-        <target>Early checkouts paid more than the cost. Refund the difference outside the app</target>
+        <target>Players who checked out early have paid more than the total cost. Refund the difference outside the app</target>
       </trans-unit>
       <trans-unit id="pay.card.noticeUncovered" datatype="html">
         <source>มีส่วนที่ขาดซึ่งไม่มีใครเหลือจ่าย ดูรายละเอียดในหน้าคิดเงิน</source>
@@ -6376,6 +6376,14 @@
       <trans-unit id="pay.card.confirmFailed" datatype="html">
         <source>ยืนยันไม่สำเร็จ ลองอีกครั้ง</source>
         <target>Could not confirm. Try again</target>
+      </trans-unit>
+      <trans-unit id="pay.card.toRows" datatype="html">
+        <source>ไปแก้ยอดในหน้าคิดเงิน</source>
+        <target>Go to the bill screen to edit amounts</target>
+      </trans-unit>
+      <trans-unit id="pay.card.incomplete" datatype="html">
+        <source>กรอกให้ครบทั้งสามช่อง</source>
+        <target>Fill in all three fields</target>
       </trans-unit>
     </body>
   </file>

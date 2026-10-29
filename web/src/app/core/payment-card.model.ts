@@ -7,7 +7,7 @@ export type PaymentTarget = 'group' | 'host';
 export type PaymentSendOutcome = 'sent' | 'quota' | 'failed' | 'unavailable' | 'not-confirmed' | 'stale' | 'busy';
 
 /** The bill screen's payment panel: exactly what the card would say, and where it stands. Mirrors the server. */
-export interface PaymentPanel {
+export interface PaymentCardPanel {
   target: PaymentTarget | null;
   ended: boolean;
   /** False while a blocking warning is in `warnings`; notices never block. */

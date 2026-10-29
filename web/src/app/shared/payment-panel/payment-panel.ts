@@ -4,11 +4,14 @@ import { RouterLink } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
 import { formatBaht } from '../../core/bill-text';
 import type { PayAccount } from '../../core/pay-account.service';
-import type { PaymentPanel, PaymentSendOutcome } from '../../core/payment-card.model';
+import type { PaymentCardPanel, PaymentSendOutcome } from '../../core/payment-card.model';
 import { PaymentCardService, PaymentDraftService } from '../../core/payment-card.service';
 import { BankField } from '../bank-field/bank-field';
 
 type Field = keyof PayAccount;
+
+/** Gives each mounted panel its own input ids, so a sheet and the bill screen can coexist. */
+let panelCount = 0;
 
 const sameAccount = (a: PayAccount, b: PayAccount) => a.bank === b.bank && a.number === b.number && a.name === b.name;
 
@@ -24,6 +27,11 @@ const sameAccount = (a: PayAccount, b: PayAccount) => a.bank === b.bank && a.num
  *
  * `refreshKey` is any value; whenever it changes the panel reads itself again (the bill screen passes the
  * bill, which is replaced after every settings save). What the host has typed survives the re-read.
+ *
+ * Reads, Confirm and Send share one sequence number: whatever started last owns the screen, so an older
+ * answer can never overwrite a newer one. A Confirm that was overtaken by a newer read throws its own answer
+ * away and re-reads, because only a fresh read can say which amounts are current. After a failed read the
+ * amounts on screen may be old, so Confirm and Send stay off until a read succeeds.
  */
 @Component({
   selector: 'app-payment-panel',
@@ -31,7 +39,7 @@ const sameAccount = (a: PayAccount, b: PayAccount) => a.bank === b.bank && a.num
   templateUrl: './payment-panel.html',
   styleUrl: './payment-panel.css',
 })
-export class PaymentPanelComponent {
+export class PaymentPanel {
   readonly sessionCode = input.required<string>();
   /** The bottom-sheet layout: no heading of its own, and a link out to the bill settings when something is missing. */
   readonly compact = input(false);
@@ -44,8 +52,14 @@ export class PaymentPanelComponent {
   private readonly cards = inject(PaymentCardService);
   private readonly drafts = inject(PaymentDraftService);
 
-  protected readonly data = signal<PaymentPanel | null>(null);
-  protected readonly loadFailed = signal(false);
+  protected readonly data = signal<PaymentCardPanel | null>(null);
+  /** The latest read failed, so what is on screen may be out of date. */
+  protected readonly readFailed = signal(false);
+  protected readonly ids = {
+    bank: `pc${++panelCount}-bank`,
+    number: `pc${panelCount}-number`,
+    name: `pc${panelCount}-name`,
+  };
   protected readonly bank = signal('');
   protected readonly number = signal('');
   protected readonly name = signal('');
@@ -56,7 +70,7 @@ export class PaymentPanelComponent {
 
   /** Session code the fields were last filled for, so they are filled once and a re-read never overwrites typing. */
   private filledFor: string | null = null;
-  private loadSeq = 0;
+  private seq = 0;
 
   /** Trimmed, exactly what Confirm would send. */
   private readonly typed = computed<PayAccount>(() => ({
@@ -87,6 +101,8 @@ export class PaymentPanelComponent {
     const p = this.data();
     return !!p && p.ready && p.ended && p.rows.length > 0 && p.confirmed && !p.stale && !this.editedSinceConfirm();
   });
+  /** Retry is offered whenever a read failed, except for a group that has no payment card at all. */
+  protected readonly showRetry = computed(() => this.readFailed() && this.data()?.target !== null);
   protected readonly canSendToGroup = computed(() => this.sendable() && this.data()?.target === 'group');
   protected readonly shareUrl = computed(() => (this.sendable() && this.data()?.target === 'host' ? this.data()!.shareUrl : null));
   /** Amounts are defined, the night is over and someone owes: the account fields and actions apply. */
@@ -121,20 +137,19 @@ export class PaymentPanelComponent {
 
   protected async load(): Promise<void> {
     const code = this.sessionCode();
-    const seq = ++this.loadSeq;
+    const seq = ++this.seq;
     try {
       const panel = await firstValueFrom(this.cards.panel(code));
-      // A later read already answered, or the host moved on: this one is out of date.
-      if (seq !== this.loadSeq) return;
+      // A later read, Confirm or Send started after this one: its answer is the newer truth.
+      if (seq !== this.seq) return;
       this.data.set(panel);
-      this.loadFailed.set(false);
+      this.readFailed.set(false);
       if (this.filledFor !== code) {
         this.filledFor = code;
         this.fill(this.drafts.get(code) ?? panel.account ?? panel.groupAccount);
       }
     } catch {
-      // A failed refresh keeps what is on screen; the server checks again at Confirm and Send anyway.
-      if (seq === this.loadSeq && !this.data()) this.loadFailed.set(true);
+      if (seq === this.seq) this.readFailed.set(true);
     }
   }
 
@@ -154,20 +169,27 @@ export class PaymentPanelComponent {
   }
 
   protected async confirm(): Promise<void> {
-    if (this.busy() || !this.hasAnyField()) return;
+    if (this.busy() || this.readFailed() || !this.hasAnyField()) return;
     this.error.set(null);
     this.outcome.set(null);
     this.confirmingResend.set(false);
     if (!this.complete()) {
-      this.error.set($localize`:@@pay.account.incomplete:กรอกให้ครบทั้งสามช่อง หรือกดล้างถ้าไม่ต้องการตั้งบัญชี`);
+      this.error.set(this.incompleteText());
       return;
     }
     this.busy.set(true);
+    const seq = ++this.seq;
     try {
       const panel = await firstValueFrom(this.cards.confirm(this.sessionCode(), this.typed()));
-      this.data.set(panel);
       this.drafts.clear(this.sessionCode());
-      if (panel.account) this.fill(panel.account);
+      if (seq === this.seq) {
+        this.data.set(panel);
+        this.readFailed.set(false);
+        if (panel.account) this.fill(panel.account);
+      } else {
+        // A read started while this was in flight, so the answer may predate the amounts it shows.
+        void this.load();
+      }
     } catch (err) {
       this.error.set(this.confirmError(err));
     } finally {
@@ -176,29 +198,37 @@ export class PaymentPanelComponent {
   }
 
   protected sendClicked(): void {
-    if (this.busy()) return;
+    if (this.busy() || this.readFailed()) return;
     if (this.data()?.lastSentAt) this.confirmingResend.set(true);
     else void this.send();
   }
 
   protected async send(): Promise<void> {
-    if (this.busy()) return;
+    if (this.busy() || this.readFailed()) return;
     this.confirmingResend.set(false);
     this.error.set(null);
     this.outcome.set(null);
     this.busy.set(true);
-    let outcome: PaymentSendOutcome;
+    ++this.seq;
     try {
-      outcome = await firstValueFrom(this.cards.send(this.sessionCode(), crypto.randomUUID()));
-    } catch {
-      outcome = 'failed';
+      let outcome: PaymentSendOutcome;
+      try {
+        outcome = await firstValueFrom(this.cards.send(this.sessionCode(), crypto.randomUUID()));
+      } catch {
+        outcome = 'failed';
+      }
+      this.outcome.set(outcome);
+      if (outcome === 'sent') {
+        // Marked sent at once, so the button already reads "send again" (and asks first) while the re-read runs.
+        this.data.update((p) => (p ? { ...p, lastSentAt: new Date().toISOString() } : p));
+        this.sent.emit();
+      }
+      // The card moved on under the host, or the send time changed: show the server's current state.
+      // Busy until it lands, so a quick second tap cannot slip past the resend prompt.
+      if (outcome === 'sent' || outcome === 'stale' || outcome === 'not-confirmed') await this.load();
     } finally {
       this.busy.set(false);
     }
-    this.outcome.set(outcome);
-    if (outcome === 'sent') this.sent.emit();
-    // The card moved on under the host, or the send time changed: show the server's current state.
-    if (outcome === 'sent' || outcome === 'stale' || outcome === 'not-confirmed') void this.load();
   }
 
   protected outcomeText(outcome: PaymentSendOutcome): string {
@@ -230,12 +260,16 @@ export class PaymentPanelComponent {
         void this.load();
         return $localize`:@@pay.card.confirmNotReady:ยืนยันยอดไม่ได้ ยังมียอดที่ไม่ครบ`;
       case 'PAYMENT_NO_ACCOUNT':
-        return $localize`:@@pay.account.incomplete:กรอกให้ครบทั้งสามช่อง หรือกดล้างถ้าไม่ต้องการตั้งบัญชี`;
+        return this.incompleteText();
       case 'PAYMENT_UNAVAILABLE':
         return $localize`:@@pay.card.confirmUnavailable:ใบเก็บเงินใช้ไม่ได้ในตอนนี้ ตรวจการเชื่อมต่อ LINE ของก๊วน`;
       default:
         return $localize`:@@pay.card.confirmFailed:ยืนยันไม่สำเร็จ ลองอีกครั้ง`;
     }
+  }
+
+  private incompleteText(): string {
+    return $localize`:@@pay.card.incomplete:กรอกให้ครบทั้งสามช่อง`;
   }
 
   private missingText(code: string): string {

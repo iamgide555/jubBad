@@ -1,3 +1,9 @@
+@if (showRetry()) {
+  <p class="error" role="alert" data-load-failed>
+    <ng-container i18n="@@pay.card.loadFailed">โหลดใบเก็บเงินไม่สำเร็จ</ng-container>
+    <button type="button" class="ghost" (click)="load()" i18n="@@entry.retry">ลองอีกครั้ง</button>
+  </p>
+}
 @if (data(); as p) {
   @if (p.target) {
     <section class="payment-panel" [class.compact]="compact()" data-payment-panel>
@@ -34,7 +40,7 @@
       @if (!p.ended) {
         <p class="muted" data-open-note i18n="@@pay.card.openNote">ส่งใบเก็บเงินได้หลังจบรอบ ตอนนี้เป็นยอดตัวอย่าง</p>
       } @else if (!p.ready) {
-        <div class="missing" data-missing role="status">
+        <div class="missing" data-missing>
           <p class="missing-title" i18n="@@pay.card.missingTitle">ยังส่งใบเก็บเงินไม่ได้ ใส่ข้อมูลที่ขาดก่อน</p>
           <ul>
             @for (item of missing(); track item) {
@@ -48,13 +54,14 @@
       } @else if (actionable()) {
         <div class="account">
           <div class="field">
-            <label for="pc-bank" i18n="@@pay.account.bank">ธนาคาร</label>
-            <app-bank-field inputId="pc-bank" [value]="bank()" (valueChange)="edit('bank', $event)" />
+            <label [for]="ids.bank" i18n="@@pay.account.bank">ธนาคาร</label>
+            <app-bank-field data-field="bank" [inputId]="ids.bank" [value]="bank()" (valueChange)="edit('bank', $event)" />
           </div>
           <div class="field">
-            <label for="pc-number" i18n="@@pay.account.number">เลขบัญชี</label>
+            <label [for]="ids.number" i18n="@@pay.account.number">เลขบัญชี</label>
             <input
-              id="pc-number"
+              data-field="number"
+              [id]="ids.number"
               type="text"
               inputmode="numeric"
               autocomplete="off"
@@ -63,9 +70,10 @@
             />
           </div>
           <div class="field">
-            <label for="pc-name" i18n="@@pay.account.name">ชื่อบัญชี</label>
+            <label [for]="ids.name" i18n="@@pay.account.name">ชื่อบัญชี</label>
             <input
-              id="pc-name"
+              data-field="name"
+              [id]="ids.name"
               type="text"
               autocomplete="off"
               maxlength="80"
@@ -74,6 +82,9 @@
             />
           </div>
           <p class="muted hint" data-hint i18n="@@pay.card.collectorHint">คนรับเงินไม่ต้องโอนให้ตัวเอง ใช้ ไม่คิดเงิน หรือแก้ยอดในหน้าคิดเงิน</p>
+          @if (compact()) {
+            <a class="settings-link" data-rows-link [routerLink]="['/s', sessionCode(), 'bill']" (click)="closed.emit()" i18n="@@pay.card.toRows">ไปแก้ยอดในหน้าคิดเงิน</a>
+          }
           @if (differsFromGroup()) {
             <button type="button" class="ghost" data-use-group (click)="useGroupAccount()" i18n="@@pay.card.useGroup">ใช้บัญชีของกลุ่ม</button>
           }
@@ -82,27 +93,22 @@
         @if (!hasAnyField()) {
           <p class="muted" data-no-account i18n="@@pay.card.noAccount">ตั้งบัญชีรับเงินในหน้าตั้งค่ากลุ่ม</p>
         }
-        @if (p.stale) {
-          <p class="warn" data-stale role="status" i18n="@@pay.card.stale">ยอดเปลี่ยน, ยืนยันใหม่</p>
-        } @else if (editedSinceConfirm()) {
-          <p class="warn" data-edited role="status" i18n="@@pay.card.edited">แก้บัญชีแล้ว, ยืนยันใหม่</p>
-        }
         @if (error()) {
           <p class="error" data-error role="alert">{{ error() }}</p>
         }
 
         <div class="actions">
-          <button type="button" data-confirm [class.ghost]="p.confirmed && !p.stale && !editedSinceConfirm()" [disabled]="busy() || !hasAnyField()" (click)="confirm()" i18n="@@pay.card.confirm">ยืนยันยอด</button>
+          <button type="button" data-confirm [class.ghost]="p.confirmed && !p.stale && !editedSinceConfirm()" [disabled]="busy() || readFailed() || !hasAnyField()" (click)="confirm()" i18n="@@pay.card.confirm">ยืนยันยอด</button>
 
           @if (canSendToGroup()) {
             @if (confirmingResend()) {
               <div class="resend" data-resend-prompt role="group">
                 <p i18n="@@pay.card.resendAsk">ส่งการ์ดเข้ากลุ่มซ้ำอีกรอบใช่ไหม</p>
-                <button type="button" data-resend-yes [disabled]="busy()" (click)="send()" i18n="@@pay.card.resendYes">ใช่ ส่งเลย</button>
+                <button type="button" data-resend-yes [disabled]="busy() || readFailed()" (click)="send()" i18n="@@pay.card.resendYes">ใช่ ส่งเลย</button>
                 <button type="button" class="ghost" data-resend-cancel (click)="confirmingResend.set(false)" i18n="@@pay.card.cancel">ยกเลิก</button>
               </div>
             } @else {
-              <button type="button" data-send [disabled]="busy()" (click)="sendClicked()">
+              <button type="button" data-send [disabled]="busy() || readFailed()" (click)="sendClicked()">
                 @if (p.lastSentAt) { <ng-container i18n="@@pay.card.sendAgain">ส่งอีกครั้ง</ng-container> }
                 @else { <ng-container i18n="@@pay.card.send">ส่งเข้ากลุ่ม</ng-container> }
               </button>
@@ -115,18 +121,29 @@
         </div>
 
         @if (outcome(); as o) {
-          <p [class]="o === 'sent' ? 'muted' : 'error'" data-outcome [attr.role]="o === 'sent' ? 'status' : 'alert'">{{ outcomeText(o) }}</p>
+          @if (o !== 'sent') {
+            <p class="error" data-outcome role="alert">{{ outcomeText(o) }}</p>
+          }
         } @else if (lastSentLabel(); as last) {
           @if (p.target === 'group') {
             <p class="muted" data-last-sent>{{ last }}</p>
           }
         }
       }
+
+      <!-- Always in the DOM so assistive tech announces changes to its content, not a newly inserted element. -->
+      <div class="live" aria-live="polite" role="status">
+        @if (outcome() === 'sent') {
+          <p class="muted" data-outcome>{{ outcomeText('sent') }}</p>
+        }
+        @if (actionable()) {
+          @if (p.stale) {
+            <p class="warn" data-stale i18n="@@pay.card.stale">ยอดเปลี่ยน, ยืนยันใหม่</p>
+          } @else if (editedSinceConfirm()) {
+            <p class="warn" data-edited i18n="@@pay.card.edited">แก้บัญชีแล้ว, ยืนยันใหม่</p>
+          }
+        }
+      </div>
     </section>
   }
-} @else if (loadFailed()) {
-  <p class="error" role="alert" data-load-failed>
-    <ng-container i18n="@@pay.card.loadFailed">โหลดใบเก็บเงินไม่สำเร็จ</ng-container>
-    <button type="button" class="ghost" (click)="load()" i18n="@@entry.retry">ลองอีกครั้ง</button>
-  </p>
 }

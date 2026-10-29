@@ -3,7 +3,7 @@ import { Injectable, inject, signal } from '@angular/core';
 import { map, type Observable } from 'rxjs';
 import { environment } from '../../environments/environment';
 import type { PayAccount } from './pay-account.service';
-import type { PaymentPanel, PaymentSendOutcome } from './payment-card.model';
+import type { PaymentCardPanel, PaymentSendOutcome } from './payment-card.model';
 
 /** Owner-only reads and actions behind the payment panel. */
 @Injectable({ providedIn: 'root' })
@@ -14,13 +14,13 @@ export class PaymentCardService {
     return `${environment.apiBaseUrl}/sessions/${encodeURIComponent(sessionCode)}/payment-card${action}`;
   }
 
-  panel(sessionCode: string): Observable<PaymentPanel> {
-    return this.http.get<PaymentPanel>(this.url(sessionCode));
+  panel(sessionCode: string): Observable<PaymentCardPanel> {
+    return this.http.get<PaymentCardPanel>(this.url(sessionCode));
   }
 
   /** Stores tonight's account, freezes the amounts and mints a fresh share link. A partial account is a 400. */
-  confirm(sessionCode: string, account: PayAccount): Observable<PaymentPanel> {
-    return this.http.post<PaymentPanel>(this.url(sessionCode, '/confirm'), account);
+  confirm(sessionCode: string, account: PayAccount): Observable<PaymentCardPanel> {
+    return this.http.post<PaymentCardPanel>(this.url(sessionCode, '/confirm'), account);
   }
 
   /** One `sendId` per tap: a retry of that tap is dropped by LINE, a deliberate resend gets a new one. */

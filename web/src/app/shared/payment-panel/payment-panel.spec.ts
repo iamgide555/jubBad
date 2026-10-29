@@ -2,15 +2,15 @@ import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { provideRouter } from '@angular/router';
-import { PaymentPanelComponent } from './payment-panel';
+import { PaymentPanel } from './payment-panel';
 import { environment } from '../../../environments/environment';
-import type { PaymentPanel, PaymentSendOutcome } from '../../core/payment-card.model';
+import type { PaymentCardPanel, PaymentSendOutcome } from '../../core/payment-card.model';
 import { PaymentDraftService } from '../../core/payment-card.service';
 
 const URL = `${environment.apiBaseUrl}/sessions/sess1/payment-card`;
 const GROUP_ACCOUNT = { bank: 'กสิกร', number: '123-4-56789-0', name: 'Host Name' };
 
-function panel(over: Partial<PaymentPanel> = {}): PaymentPanel {
+function panel(over: Partial<PaymentCardPanel> = {}): PaymentCardPanel {
   return {
     target: 'group',
     ended: true,
@@ -33,13 +33,13 @@ function panel(over: Partial<PaymentPanel> = {}): PaymentPanel {
   };
 }
 
-describe('PaymentPanel', () => {
-  let fixture: ComponentFixture<PaymentPanelComponent>;
+describe('PaymentCardPanel', () => {
+  let fixture: ComponentFixture<PaymentPanel>;
   let http: HttpTestingController;
 
   beforeEach(async () => {
     await TestBed.configureTestingModule({
-      imports: [PaymentPanelComponent],
+      imports: [PaymentPanel],
       providers: [provideHttpClient(), provideHttpClientTesting(), provideRouter([{ path: '**', children: [] }])],
     }).compileComponents();
     http = TestBed.inject(HttpTestingController);
@@ -53,11 +53,13 @@ describe('PaymentPanel', () => {
   async function settle() {
     fixture.detectChanges();
     await fixture.whenStable();
+    // Responses resolve through several promise hops (a send awaits the re-read it triggers).
+    await new Promise((r) => setTimeout(r, 0));
     fixture.detectChanges();
   }
 
-  async function open(body: PaymentPanel = panel(), inputs: Record<string, unknown> = {}) {
-    fixture = TestBed.createComponent(PaymentPanelComponent);
+  async function open(body: PaymentCardPanel = panel(), inputs: Record<string, unknown> = {}) {
+    fixture = TestBed.createComponent(PaymentPanel);
     fixture.componentRef.setInput('sessionCode', 'sess1');
     for (const [k, v] of Object.entries(inputs)) fixture.componentRef.setInput(k, v);
     fixture.detectChanges();
@@ -77,7 +79,7 @@ describe('PaymentPanel', () => {
     await settle();
   }
 
-  async function confirm(response: PaymentPanel) {
+  async function confirm(response: PaymentCardPanel) {
     await click('[data-confirm]');
     const req = http.expectOne(`${URL}/confirm`);
     expect(req.request.method).toBe('POST');
@@ -86,7 +88,7 @@ describe('PaymentPanel', () => {
     return req.request.body;
   }
 
-  async function send(outcome: PaymentSendOutcome, reloaded?: PaymentPanel) {
+  async function send(outcome: PaymentSendOutcome, reloaded?: PaymentCardPanel) {
     await click('[data-send]');
     const req = http.expectOne(`${URL}/send`);
     req.flush({ outcome });
@@ -138,20 +140,20 @@ describe('PaymentPanel', () => {
 
   it('prefills the account from the group default when none was confirmed tonight', async () => {
     await open(panel({ account: null }));
-    expect(q<HTMLInputElement>('#pc-bank')!.value).toBe('กสิกร');
-    expect(q<HTMLInputElement>('#pc-number')!.value).toBe('123-4-56789-0');
-    expect(q<HTMLInputElement>('#pc-name')!.value).toBe('Host Name');
+    expect(q<HTMLInputElement>('[data-field="bank"] input')!.value).toBe('กสิกร');
+    expect(q<HTMLInputElement>('input[data-field="number"]')!.value).toBe('123-4-56789-0');
+    expect(q<HTMLInputElement>('input[data-field="name"]')!.value).toBe('Host Name');
   });
 
   it('prefers the confirmed account for tonight over the group default', async () => {
     await open(panel({ account: { bank: 'ไทยพาณิชย์', number: '999-9-99999-9', name: 'Tonight' }, confirmed: true }));
-    expect(q<HTMLInputElement>('#pc-bank')!.value).toBe('ไทยพาณิชย์');
-    expect(q<HTMLInputElement>('#pc-name')!.value).toBe('Tonight');
+    expect(q<HTMLInputElement>('[data-field="bank"] input')!.value).toBe('ไทยพาณิชย์');
+    expect(q<HTMLInputElement>('input[data-field="name"]')!.value).toBe('Tonight');
   });
 
   it('numeric account field asks for the numeric keypad', async () => {
     await open();
-    expect(q('#pc-number')?.getAttribute('inputmode')).toBe('numeric');
+    expect(q('input[data-field="number"]')?.getAttribute('inputmode')).toBe('numeric');
   });
 
   it('disables confirm and points to group settings when there is no account anywhere', async () => {
@@ -159,16 +161,16 @@ describe('PaymentPanel', () => {
     expect(q<HTMLButtonElement>('[data-confirm]')!.disabled).toBe(true);
     expect(q('[data-no-account]')?.textContent).toContain('ตั้งบัญชีรับเงินในหน้าตั้งค่ากลุ่ม');
 
-    await type('#pc-bank', 'กสิกร');
-    await type('#pc-number', '123-4-56789-0');
-    await type('#pc-name', 'Host');
+    await type('[data-field="bank"] input', 'กสิกร');
+    await type('input[data-field="number"]', '123-4-56789-0');
+    await type('input[data-field="name"]', 'Host');
     expect(q<HTMLButtonElement>('[data-confirm]')!.disabled).toBe(false);
     expect(q('[data-no-account]')).toBeNull();
   });
 
   it('posts the three fields on confirm', async () => {
     await open();
-    await type('#pc-number', ' 111-1-11111-1 ');
+    await type('input[data-field="number"]', ' 111-1-11111-1 ');
     const body = await confirm(panel({ confirmed: true }));
     expect(body).toEqual({ bank: 'กสิกร', number: '111-1-11111-1', name: 'Host Name' });
   });
@@ -252,7 +254,7 @@ describe('PaymentPanel', () => {
   it('hides send when the account is edited after confirming, until confirmed again', async () => {
     await open(panel({ confirmed: true }));
     expect(q('[data-send]')).toBeTruthy();
-    await type('#pc-name', 'Someone Else');
+    await type('input[data-field="name"]', 'Someone Else');
     expect(q('[data-send]')).toBeNull();
     expect(q('[data-edited]')).toBeTruthy();
   });
@@ -305,7 +307,7 @@ describe('PaymentPanel', () => {
     expect(el().querySelectorAll('[data-row]')).toHaveLength(2);
     expect(q('[data-confirm]')).toBeNull();
     expect(q('[data-send]')).toBeNull();
-    expect(q('#pc-bank')).toBeNull();
+    expect(q('[data-field="bank"] input')).toBeNull();
   });
 
   it('shows informational notices without blocking confirm', async () => {
@@ -369,6 +371,23 @@ describe('PaymentPanel', () => {
       expect(q('[data-missing]')?.textContent).toContain('ยังไม่ได้ใส่ค่าสนาม');
     });
 
+    it('no account (409) asks to fill in the account', async () => {
+      await open();
+      await click('[data-confirm]');
+      http.expectOne(`${URL}/confirm`).flush({ code: 'PAYMENT_NO_ACCOUNT' }, { status: 409, statusText: 'Conflict' });
+      await settle();
+      expect(q('[data-error]')?.textContent).toContain('กรอกให้ครบทั้งสามช่อง');
+      expect(q('[data-error]')?.textContent).not.toContain('ล้าง');
+    });
+
+    it('unavailable (409) says the card cannot be used right now', async () => {
+      await open();
+      await click('[data-confirm]');
+      http.expectOne(`${URL}/confirm`).flush({ code: 'PAYMENT_UNAVAILABLE' }, { status: 409, statusText: 'Conflict' });
+      await settle();
+      expect(q('[data-error]')?.textContent).toContain('ใบเก็บเงินใช้ไม่ได้ในตอนนี้');
+    });
+
     it('an unreachable server says it could not confirm', async () => {
       await open();
       await click('[data-confirm]');
@@ -379,7 +398,7 @@ describe('PaymentPanel', () => {
 
     it('a partial account is caught before it is sent', async () => {
       await open(panel({ account: null, groupAccount: null }));
-      await type('#pc-bank', 'กสิกร');
+      await type('[data-field="bank"] input', 'กสิกร');
       await click('[data-confirm]');
       http.expectNone(`${URL}/confirm`);
       expect(q('[data-error]')?.textContent).toContain('กรอกให้ครบทั้งสามช่อง');
@@ -389,10 +408,10 @@ describe('PaymentPanel', () => {
   it('offers the group account back only when the fields differ from it, and restores it', async () => {
     await open();
     expect(q('[data-use-group]')).toBeNull();
-    await type('#pc-name', 'Someone Else');
+    await type('input[data-field="name"]', 'Someone Else');
     expect(q('[data-use-group]')).toBeTruthy();
     await click('[data-use-group]');
-    expect(q<HTMLInputElement>('#pc-name')!.value).toBe('Host Name');
+    expect(q<HTMLInputElement>('input[data-field="name"]')!.value).toBe('Host Name');
     expect(q('[data-use-group]')).toBeNull();
   });
 
@@ -402,7 +421,7 @@ describe('PaymentPanel', () => {
   });
 
   it('shows a retry when the panel cannot be read', async () => {
-    fixture = TestBed.createComponent(PaymentPanelComponent);
+    fixture = TestBed.createComponent(PaymentPanel);
     fixture.componentRef.setInput('sessionCode', 'sess1');
     fixture.detectChanges();
     http.expectOne(URL).flush({}, { status: 500, statusText: 'Server Error' });
@@ -417,45 +436,203 @@ describe('PaymentPanel', () => {
 
   it('re-reads the panel when the refresh key changes, keeping what the host typed', async () => {
     await open(panel(), { refreshKey: 1 });
-    await type('#pc-name', 'Typed');
+    await type('input[data-field="name"]', 'Typed');
     fixture.componentRef.setInput('refreshKey', 2);
     fixture.detectChanges();
     http.expectOne(URL).flush(panel({ totalSatang: 30000, rows: [{ playerId: 'a', name: 'Amp', amountSatang: 30000, absent: false }] }));
     await settle();
     expect(q('[data-total]')?.textContent).toContain('300฿');
-    expect(q<HTMLInputElement>('#pc-name')!.value).toBe('Typed');
+    expect(q<HTMLInputElement>('input[data-field="name"]')!.value).toBe('Typed');
+  });
+
+  it('links the collector hint to the bill screen in the sheet only', async () => {
+    await open(panel(), { compact: true });
+    const closed: number[] = [];
+    fixture.componentInstance.closed.subscribe(() => closed.push(1));
+    const link = q<HTMLAnchorElement>('a[data-rows-link]')!;
+    expect(link.getAttribute('href')).toBe('/s/sess1/bill');
+    link.click();
+    expect(closed).toHaveLength(1);
+    fixture.destroy();
+
+    await open(panel());
+    expect(q('[data-rows-link]')).toBeNull();
+  });
+
+  it('gives two mounted panels their own input ids', async () => {
+    await open();
+    const first = fixture;
+    await open();
+    const ids = [first, fixture].flatMap((f) =>
+      ['[data-field="bank"] input', 'input[data-field="number"]', 'input[data-field="name"]'].map(
+        (sel) => (f.nativeElement as HTMLElement).querySelector(sel)!.id
+      )
+    );
+    expect(new Set(ids).size).toBe(6);
+    for (const f of [first, fixture]) {
+      for (const label of (f.nativeElement as HTMLElement).querySelectorAll('label')) {
+        expect((f.nativeElement as HTMLElement).querySelector(`#${label.getAttribute('for')}`)).toBeTruthy();
+      }
+    }
+  });
+
+  it('keeps a persistent live region for status messages', async () => {
+    await open(panel({ confirmed: true }));
+    const live = q('[aria-live="polite"]')!;
+    expect(live.textContent?.trim()).toBe('');
+    await send('sent', panel({ confirmed: true, lastSentAt: '2026-10-29T13:05:00.000Z' }));
+    expect(q('[aria-live="polite"]')).toBe(live);
+    expect(live.textContent).toContain('ส่งแล้ว');
+  });
+
+  describe('sequencing', () => {
+    it('an older read that answers after a confirm cannot undo it', async () => {
+      await open(panel(), { refreshKey: 1 });
+      fixture.componentRef.setInput('refreshKey', 2);
+      fixture.detectChanges();
+      const older = http.expectOne(URL);
+      await click('[data-confirm]');
+      const confirmReq = http.expectOne(`${URL}/confirm`);
+      confirmReq.flush(panel({ confirmed: true }));
+      await settle();
+      older.flush(panel());
+      await settle();
+      expect(q('[data-send]')).toBeTruthy();
+    });
+
+    it('an older read answering before the confirm also cannot undo it', async () => {
+      await open(panel(), { refreshKey: 1 });
+      fixture.componentRef.setInput('refreshKey', 2);
+      fixture.detectChanges();
+      const older = http.expectOne(URL);
+      await click('[data-confirm]');
+      const confirmReq = http.expectOne(`${URL}/confirm`);
+      older.flush(panel());
+      await settle();
+      confirmReq.flush(panel({ confirmed: true }));
+      await settle();
+      expect(q('[data-send]')).toBeTruthy();
+    });
+
+    it('a confirm overtaken by a newer read is discarded and the panel re-reads', async () => {
+      await open(panel(), { refreshKey: 1 });
+      await click('[data-confirm]');
+      const confirmReq = http.expectOne(`${URL}/confirm`);
+      // The bill changes while the confirm is in flight; the newer read lands first, already stale.
+      fixture.componentRef.setInput('refreshKey', 2);
+      fixture.detectChanges();
+      const newer = http.expectOne(URL);
+      const fresh = panel({ confirmed: true, stale: true, totalSatang: 30000, rows: [{ playerId: 'a', name: 'Amp', amountSatang: 30000, absent: false }] });
+      newer.flush(fresh);
+      await settle();
+      // The confirm response still describes the old amounts as current.
+      confirmReq.flush(panel({ confirmed: true }));
+      await settle();
+      http.expectOne(URL).flush(fresh);
+      await settle();
+      expect(q('[data-total]')?.textContent).toContain('300฿');
+      expect(q('[data-stale]')).toBeTruthy();
+      expect(q('[data-send]')).toBeNull();
+    });
+
+    it('after a failed refresh Confirm and Send stay off until a read succeeds', async () => {
+      await open(panel({ confirmed: true }), { refreshKey: 1 });
+      fixture.componentRef.setInput('refreshKey', 2);
+      fixture.detectChanges();
+      http.expectOne(URL).flush({}, { status: 500, statusText: 'Server Error' });
+      await settle();
+      expect(q('[data-load-failed]')).toBeTruthy();
+      expect(q<HTMLButtonElement>('[data-confirm]')!.disabled).toBe(true);
+      expect(q<HTMLButtonElement>('[data-send]')!.disabled).toBe(true);
+
+      await click('[data-load-failed] button');
+      http.expectOne(URL).flush(panel({ confirmed: true }));
+      await settle();
+      expect(q('[data-load-failed]')).toBeNull();
+      expect(q<HTMLButtonElement>('[data-confirm]')!.disabled).toBe(false);
+      expect(q<HTMLButtonElement>('[data-send]')!.disabled).toBe(false);
+    });
+
+    it('a failed refresh shows no retry for a group without a payment card', async () => {
+      await open(panel({ target: null }), { refreshKey: 1 });
+      fixture.componentRef.setInput('refreshKey', 2);
+      fixture.detectChanges();
+      http.expectOne(URL).flush({}, { status: 500, statusText: 'Server Error' });
+      await settle();
+      expect(q('[data-load-failed]')).toBeNull();
+    });
+
+    it('a second tap right after a send still goes through the resend prompt', async () => {
+      await open(panel({ confirmed: true }));
+      await click('[data-send]');
+      const req = http.expectOne(`${URL}/send`);
+      req.flush({ outcome: 'sent' });
+      await settle();
+      // The re-read is still in flight: already "send again", and not tappable yet.
+      const button = q<HTMLButtonElement>('[data-send]')!;
+      expect(button.textContent).toContain('ส่งอีกครั้ง');
+      button.click();
+      await settle();
+      http.expectNone(`${URL}/send`);
+      expect(q('[data-resend-prompt]')).toBeNull();
+
+      http.expectOne(URL).flush(panel({ confirmed: true, lastSentAt: '2026-10-29T13:05:00.000Z' }));
+      await settle();
+      await click('[data-send]');
+      http.expectNone(`${URL}/send`);
+      expect(q('[data-resend-prompt]')).toBeTruthy();
+    });
+
+    it('still asks first when the re-read after a send fails', async () => {
+      await open(panel({ confirmed: true }));
+      await click('[data-send]');
+      http.expectOne(`${URL}/send`).flush({ outcome: 'sent' });
+      await settle();
+      http.expectOne(URL).flush({}, { status: 500, statusText: 'Server Error' });
+      await settle();
+      // The read failed, so sending is off until Retry works; the sent mark stays.
+      expect(q<HTMLButtonElement>('[data-send]')!.disabled).toBe(true);
+      await click('[data-load-failed] button');
+      http.expectOne(URL).flush(panel({ confirmed: true, lastSentAt: '2026-10-29T13:05:00.000Z' }));
+      await settle();
+      await click('[data-send]');
+      expect(q('[data-resend-prompt]')).toBeTruthy();
+    });
   });
 
   describe('draft', () => {
-    it('survives the panel being destroyed and recreated, and is not storage', async () => {
+    it('survives the panel being destroyed and recreated, without touching browser storage', async () => {
+      const local = vi.spyOn(Storage.prototype, 'setItem');
       await open();
-      await type('#pc-name', 'Half Typed');
+      await type('input[data-field="name"]', 'Half Typed');
+      expect(local).not.toHaveBeenCalled();
+      local.mockRestore();
       fixture.destroy();
       await open(panel());
-      expect(q<HTMLInputElement>('#pc-name')!.value).toBe('Half Typed');
+      expect(q<HTMLInputElement>('input[data-field="name"]')!.value).toBe('Half Typed');
       expect(TestBed.inject(PaymentDraftService).get('sess1')).toEqual({ ...GROUP_ACCOUNT, name: 'Half Typed' });
     });
 
     it('is cleared by a successful confirm', async () => {
       await open();
-      await type('#pc-name', 'Half Typed');
+      await type('input[data-field="name"]', 'Half Typed');
       await confirm(panel({ confirmed: true, account: { ...GROUP_ACCOUNT, name: 'Half Typed' } }));
       expect(TestBed.inject(PaymentDraftService).get('sess1')).toBeNull();
       fixture.destroy();
       await open(panel({ confirmed: true, account: { ...GROUP_ACCOUNT, name: 'Half Typed' } }));
-      expect(q<HTMLInputElement>('#pc-name')!.value).toBe('Half Typed');
+      expect(q<HTMLInputElement>('input[data-field="name"]')!.value).toBe('Half Typed');
     });
 
     it('is dropped by using the group account', async () => {
       await open();
-      await type('#pc-name', 'Half Typed');
+      await type('input[data-field="name"]', 'Half Typed');
       await click('[data-use-group]');
       expect(TestBed.inject(PaymentDraftService).get('sess1')).toBeNull();
     });
 
     it('is kept when a confirm fails', async () => {
       await open();
-      await type('#pc-name', 'Half Typed');
+      await type('input[data-field="name"]', 'Half Typed');
       await click('[data-confirm]');
       http.expectOne(`${URL}/confirm`).flush({}, { status: 500, statusText: 'Server Error' });
       await settle();

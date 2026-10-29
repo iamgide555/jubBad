@@ -8053,6 +8053,12 @@
       <trans-unit id="pay.card.confirmFailed" datatype="html">
         <source>ยืนยันไม่สำเร็จ ลองอีกครั้ง</source>
       </trans-unit>
+      <trans-unit id="pay.card.toRows" datatype="html">
+        <source>ไปแก้ยอดในหน้าคิดเงิน</source>
+      </trans-unit>
+      <trans-unit id="pay.card.incomplete" datatype="html">
+        <source>กรอกให้ครบทั้งสามช่อง</source>
+      </trans-unit>
     </body>
   </file>
 </xliff>

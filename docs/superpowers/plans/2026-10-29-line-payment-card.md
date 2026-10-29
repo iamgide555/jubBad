@@ -239,6 +239,6 @@ Panel behaviour (spec "Bill screen: the send panel"): hidden entirely (renders n
   - [ ] Skip the tick, close the sheet: the banner still offers the panel; the bill screen shows the same panel.
   - [ ] No account set: confirm is disabled with the pointer to settings. Free/lapsed plan or unlinked group: no panel, no tick.
   - [ ] The public summary page, display and group dashboard show no amount or account.
-- [ ] **Step 3: Run the whole suite:** `npm test` at the repo root (engines, server, web), `npm run lint` in `server/`, `npx ng build` in `web/`. Report any failure with its output; do not claim green without it.
-- [ ] **Step 4: Commit** `docs: LINE payment card in overview and the LIFF runbook`.
+- [x] **Step 3: Run the whole suite:** `npm test` at the repo root (engines, server, web), `npm run lint` in `server/`, `npx ng build` in `web/`. Report any failure with its output; do not claim green without it.
+- [x] **Step 4: Commit** `docs: LINE payment card in overview and the LIFF runbook`.
 - [ ] **Step 5: Hand back to the owner for the merge and deploy decision** (finishing-a-development-branch). The deploy has one migration: take `npm run db:backup` first, check for other undeployed migrations before rebuilding (not after), and follow `dockerDeploy.md`; confirm before running anything on the home server. After the real-LINE checklist passes, archive this plan and the spec into `docs/archive/plans/` and `docs/archive/specs/`, and also archive the host share card spec and plan, whose checklist this feature's runbook now continues.

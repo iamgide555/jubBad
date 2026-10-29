@@ -9,6 +9,18 @@ import type { PaymentCardPanel } from '../../core/payment-card.model';
 
 const B = environment.apiBaseUrl;
 
+beforeAll(() => {
+  if (!HTMLDialogElement.prototype.showModal) {
+    HTMLDialogElement.prototype.showModal = function () { this.setAttribute('open', ''); };
+  }
+  if (!HTMLDialogElement.prototype.close) {
+    HTMLDialogElement.prototype.close = function () {
+      this.removeAttribute('open');
+      this.dispatchEvent(new Event('close'));
+    };
+  }
+});
+
 function response(): BillResponse {
   return {
     session: { code: 'sess1', date: null, venue: null, endedAt: null, shuttleCount: 0, shuttlePriceSatang: 0, shuttleToolsEnabled: false },
@@ -73,7 +85,7 @@ describe('SessionBill', () => {
     for (const req of http.match((r) => r.url === `${B}/groups/group1/plan`)) {
       req.flush({ plan: 'club', renewsAt: null });
     }
-    // The embedded payment panel reads itself whenever the bill is replaced; it has its own spec.
+    // Availability is re-read whenever the bill changes; the modal panel has its own spec.
     for (const req of http.match((r) => r.url === `${B}/sessions/sess1/payment-card`)) {
       req.flush({}, { status: 500, statusText: 'Server Error' });
     }
@@ -87,13 +99,26 @@ describe('SessionBill', () => {
     fixture.detectChanges();
   }
 
-  it('embeds the payment panel below the bill and re-reads it after a settings save', async () => {
+  it('opens the shared payment modal from above bill settings, with fresh amounts after a save', async () => {
     await load();
     http.expectOne(`${B}/sessions/sess1/payment-card`).flush(paymentPanel());
     await new Promise((r) => setTimeout(r, 0));
     fixture.detectChanges();
-    expect(fixture.nativeElement.querySelector('app-payment-panel [data-payment-panel]')).toBeTruthy();
-    expect(fixture.nativeElement.querySelector('[data-settings-link]')).toBeNull();
+    const el = fixture.nativeElement as HTMLElement;
+    const opener = el.querySelector<HTMLButtonElement>('[data-open-payment]')!;
+    expect(opener?.textContent).toContain('เปิดใบเก็บเงิน');
+    expect(opener.compareDocumentPosition(el.querySelector('.scope-toggle')!) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(el.querySelector('app-payment-panel')).toBeNull();
+    opener.click();
+    fixture.detectChanges();
+    http.expectOne(`${B}/sessions/sess1/payment-card`).flush(paymentPanel());
+    await new Promise((r) => setTimeout(r, 0));
+    fixture.detectChanges();
+    expect(el.querySelector('app-payment-sheet dialog[open] [data-payment-panel]')).toBeTruthy();
+    el.querySelector<HTMLButtonElement>('.close-top')!.click();
+    fixture.detectChanges();
+    expect(el.querySelector('dialog[open]')).toBeNull();
+    expect(el.querySelector('app-payment-panel')).toBeNull();
 
     (fixture.nativeElement.querySelector('[data-model="buffet"]') as HTMLButtonElement).click();
     http.expectOne(`${B}/sessions/sess1/bill-config`).flush(response());
@@ -102,7 +127,12 @@ describe('SessionBill', () => {
     http.expectOne(`${B}/sessions/sess1/payment-card`).flush(paymentPanel({ totalSatang: 12000 }));
     await new Promise((r) => setTimeout(r, 0));
     fixture.detectChanges();
-    expect(fixture.nativeElement.querySelector('[data-total]').textContent).toContain('฿120');
+    opener.click();
+    fixture.detectChanges();
+    http.expectOne(`${B}/sessions/sess1/payment-card`).flush(paymentPanel({ totalSatang: 12000 }));
+    await new Promise((r) => setTimeout(r, 0));
+    fixture.detectChanges();
+    expect(el.querySelector('[data-total]')!.textContent).toContain('฿120');
   });
 
   it('shows no payment panel when the group has no LINE target', async () => {
@@ -111,6 +141,22 @@ describe('SessionBill', () => {
     await new Promise((r) => setTimeout(r, 0));
     fixture.detectChanges();
     expect(fixture.nativeElement.querySelector('[data-payment-panel]')).toBeNull();
+    expect(fixture.nativeElement.querySelector('[data-open-payment]')).toBeNull();
+  });
+
+  it('keeps the payment modal reachable when availability fails so its retry can recover', async () => {
+    await load();
+    http.expectOne(`${B}/sessions/sess1/payment-card`).flush({}, { status: 500, statusText: 'Server Error' });
+    await new Promise((r) => setTimeout(r, 0));
+    fixture.detectChanges();
+    const opener = fixture.nativeElement.querySelector('[data-open-payment]') as HTMLButtonElement;
+    expect(opener).not.toBeNull();
+    opener.click();
+    fixture.detectChanges();
+    http.expectOne(`${B}/sessions/sess1/payment-card`).flush({}, { status: 500, statusText: 'Server Error' });
+    await new Promise((r) => setTimeout(r, 0));
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('dialog[open] [data-load-failed] button')).not.toBeNull();
   });
 
   it('goes back to the live session while the night is on', async () => {

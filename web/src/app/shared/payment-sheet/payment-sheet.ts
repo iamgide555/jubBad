@@ -2,7 +2,7 @@ import { Component, ElementRef, effect, input, output, viewChild } from '@angula
 import { PaymentPanel } from '../payment-panel/payment-panel';
 
 /**
- * The payment card's confirm step as a bottom sheet, for right after จบรอบ and for the summary page's banner.
+ * The payment card's shared bottom sheet, opened from the bill page, summary banner, or right after จบรอบ.
  * The parent owns `open` and flips it off on `closed`; the panel inside is mounted only while the sheet is
  * open, so each open reads the card afresh and a closed sheet costs no request. Closing sends nothing.
  */

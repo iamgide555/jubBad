@@ -1511,9 +1511,9 @@ expired code gets one generic Thai reply (it never says which); a sender who has
     fields are given or none (a partial entry is 400 `PAY_ACCOUNT_INVALID`; all blank clears it).
     The copied text is the number with spaces and dashes removed. The collector's own share is not
     netted automatically: use ไม่คิดเงิน or an override on the bill.
-  - **One confirm panel, two homes.** The panel shows exactly what the card will say (rows, total,
+  - **One shared payment sheet.** The panel shows exactly what the card will say (rows, total,
     the account fields prefilled from the group default) and is the only confirm step. It is one
-    component, embedded on the bill screen (`/s/:code/bill`) and opened as a bottom sheet on the
+    component, opened in the same bottom sheet from the bill screen (`/s/:code/bill`) and the
     session summary page. The three account fields can be overwritten for tonight; the override is
     stored on the session only at confirm (`Session.paymentCard`), and an unconfirmed edit is kept
     in the web app's memory for as long as it stays open (no browser storage) and is lost on a
@@ -1534,8 +1534,9 @@ expired code gets one generic Thai reply (it never says which); a sender who has
       what is missing. It does not show when there is nothing to collect (no one is due, or every
       listed amount is 0). Saving a correction on the summary page reads the panel again, so the
       banner follows the amounts.
-    - **Bill screen**, any time, the same panel inline (a not-yet-ended session shows a read-only
-      preview marked as sample amounts).
+    - **Bill screen.** "เปิดใบเก็บเงิน" beside the page heading opens the shared sheet without
+      scrolling through settings and roster. Every opening reads current amounts; closing keeps the
+      in-memory account draft. A not-yet-ended session shows a read-only preview marked as sample amounts.
   - **Sending needs** an ended session, a ready bill, at least one person due, a non-zero total and
     an account. "Ready" is narrower than the bill's own copy-text gate: a warning that leaves every
     amount well defined (`EXCESS_CREDIT`, `UNCOVERED_COST`, `UNRETURNED_SURCHARGE`) is shown as a

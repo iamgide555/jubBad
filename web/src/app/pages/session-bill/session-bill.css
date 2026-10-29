@@ -2,6 +2,26 @@
   padding-bottom: calc(var(--space-5) + 5rem);
 }
 
+.bill-heading {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-1) var(--space-2);
+  margin-bottom: var(--space-2);
+}
+
+.bill-heading h1 {
+  margin: 0;
+}
+
+.payment-trigger {
+  background: none;
+  color: var(--court-ink);
+  border: 1px solid var(--court);
+  box-shadow: none;
+}
+
 .back {
   display: inline-block;
   margin-bottom: var(--space-2);

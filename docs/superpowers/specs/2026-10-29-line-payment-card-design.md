@@ -129,7 +129,11 @@ tick that sends, and the jump breaks the end-confirm-send flow.
 - Not ready (court fee, shuttle count or price missing, undefined amounts): the sheet says
   exactly which input is missing and offers a button to the bill settings. It never offers Send
   for an undefined amount, and the sheet never blocks or delays the end itself.
-- Closing the sheet sends nothing and loses nothing; tonight's account override is kept.
+- Closing the sheet sends nothing and loses nothing: an unconfirmed account edit is kept in the
+  web app's memory (a root service keyed by session code, no browser storage) for as long as the
+  app stays open, and is lost on a reload; a confirmed override is stored on the session **(my
+  call: the server saves an override only at confirm, and a save-without-confirm route is not
+  worth it for a rare per-night edit)**.
 - **Banner fallback.** On the owner's session summary page, for an ended session with the
   `group` or `host` target and a payment card not yet confirmed, confirmed and edited since, or (bot
   target only, where a send is observable) confirmed but not yet posted, a

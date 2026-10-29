@@ -189,10 +189,12 @@ export class PaymentCardService {
   send(code: string, sendId: string, now: Date = new Date()): Promise<PaymentSendOutcome> {
     return this.lock.run(code, async () => {
       const { panel, nothingDue, state, to, cardInput } = await this.view(code, now);
-      if (panel.target !== 'group' || to === null || !panel.ended || nothingDue) return 'unavailable';
+      if (panel.target !== 'group' || to === null || !panel.ended) return 'unavailable';
       if (!panel.confirmed || panel.account === null) return 'not-confirmed';
-      // An amount undefined since the confirm: the card on file no longer stands, as with a bill edit.
+      // An amount undefined since the confirm: the card on file no longer stands, as with a bill edit. Before
+      // the nothing-due check, because a missing input reads as 0 and can make the provisional total 0.
       if (panel.stale || !panel.ready) return 'stale';
+      if (nothingDue) return 'unavailable';
       if (sentRecently(state.lastSentAt, now)) return 'busy';
 
       let outcome: Awaited<ReturnType<LineClient['push']>>;

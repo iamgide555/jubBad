@@ -282,16 +282,20 @@ export class PaymentPanel {
     }
   }
 
-  /** The caller re-reads the panel for the codes that mean the card moved (changed, not ready, nothing due). */
-  private confirmError(code: unknown): string {
+  /**
+   * The caller re-reads the panel for the codes that mean the card moved (changed, not ready, nothing due).
+   * Null means no error text: for nothing due the re-read itself says it, with the empty state.
+   */
+  private confirmError(code: unknown): string | null {
     switch (code) {
       case 'PAY_ACCOUNT_INVALID':
         return $localize`:@@pay.account.invalid:ตรวจบัญชีรับเงินอีกครั้ง ต้องกรอกครบทั้งสามช่อง และเลขบัญชีเป็นตัวเลข 6 หลักขึ้นไป`;
       case 'PAYMENT_CHANGED':
         return $localize`:@@pay.card.confirmChanged:ยอดเปลี่ยน ตรวจยอดอีกครั้ง`;
       case 'PAYMENT_NOT_READY':
-      case 'PAYMENT_NOTHING_DUE':
         return $localize`:@@pay.card.confirmNotReady:ยืนยันยอดไม่ได้ ยังมียอดที่ไม่ครบ`;
+      case 'PAYMENT_NOTHING_DUE':
+        return null;
       case 'PAYMENT_NO_ACCOUNT':
         return this.incompleteText();
       case 'PAYMENT_UNAVAILABLE':

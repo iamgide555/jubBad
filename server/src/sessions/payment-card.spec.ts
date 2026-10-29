@@ -660,6 +660,20 @@ describe('payment card: owner panel, confirm and bot send', () => {
       expect(fakeClient.push).not.toHaveBeenCalled();
     });
 
+    it('answers stale, not unavailable, on a not-ready night whose provisional total is 0', async () => {
+      const { code, ids } = await setup();
+      // No court fee and no shuttle price: the engine reads both as 0, so every provisional amount is 0.
+      await prisma.session.update({ where: { code }, data: { shuttlePriceSatang: null } });
+      await billConfig(code, { courtFeeSatang: null, absentIds: [ids[4]], removedIds: [ids[5]] });
+      const panel = await payments.panel(code);
+      expect(panel).toMatchObject({ ready: false, totalSatang: 0 });
+      expect(panel.rows.length).toBeGreaterThan(0);
+      expect((await confirm(code).expect(409)).body.code).toBe('PAYMENT_NOT_READY');
+      await storeConfirmed(code);
+      expect((await send(code).expect(200)).body).toEqual({ outcome: 'stale' });
+      expect(fakeClient.push).not.toHaveBeenCalled();
+    });
+
     it('refuses before a confirm', async () => {
       const { code } = await setup();
       expect((await send(code).expect(200)).body).toEqual({ outcome: 'not-confirmed' });

@@ -483,14 +483,18 @@ describe('PaymentCardPanel', () => {
       expect(body.expectedHash).toBe('hash-2');
     });
 
-    it('nothing due (409) re-reads the panel', async () => {
+    it('nothing due (409) says nothing wrong, and the re-read shows that nobody owes', async () => {
       await open();
       await click('[data-confirm]');
       http.expectOne(`${URL}/confirm`).flush({ code: 'PAYMENT_NOTHING_DUE' }, { status: 409, statusText: 'Conflict' });
       await settle();
+      // No error text, not even while the re-read is in flight.
+      expect(q('[data-error]')).toBeNull();
       http.expectOne(URL).flush(panel({ rows: [], totalSatang: 0 }));
       await settle();
-      expect(q('[data-empty]')).toBeTruthy();
+      expect(q('[data-empty]')?.textContent).toContain('ไม่มีใครต้องจ่าย');
+      expect(q('[data-error]')).toBeNull();
+      expect(text()).not.toContain('ยังมียอดที่ไม่ครบ');
     });
 
     it('not ready (409) re-reads the panel', async () => {

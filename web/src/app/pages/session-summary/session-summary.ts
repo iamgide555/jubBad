@@ -448,7 +448,8 @@ export class SessionSummary {
     const p = this.paymentPanel();
     if (!this.owner() || p === null || !p.ended || p.target === null) return false;
     // Nothing to collect (the panel's rule: no rows, or every row at 0): no card can ever go out, so no nudge.
-    if (p.rows.length === 0 || p.totalSatang === 0) return false;
+    // Only on a ready bill: a missing input reads as 0, so a not-ready night can total 0 and still needs the sheet.
+    if (p.ready && (p.rows.length === 0 || p.totalSatang === 0)) return false;
     if (!p.confirmed || p.stale) return true;
     return p.target === 'group' && p.lastSentAt === null;
   });

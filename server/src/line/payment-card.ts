@@ -28,12 +28,14 @@ export interface PaymentCardInput {
 
 /**
  * Whether the card is followed by a second plain-text message holding the digits-only account number.
- * True is the safe fallback while the clipboard button is unconfirmed on a given path: the number can
- * always be long-pressed and copied from a text message. A later change flips the flags.
+ * Off on both paths (owner decision 2026-10-29, after the device spike showed the clipboard button
+ * copies on LINE mobile): the number is printed in the card body and the button copies it. LINE
+ * Desktop does not run the button, so a desktop reader can only select the printed number. Flip a flag
+ * to true to send the text message again.
  */
 export const PAYMENT_NUMBER_TEXT: { group: boolean; host: boolean } = {
-  group: true,
-  host: true,
+  group: false,
+  host: false,
 };
 
 /** Satang as the web bill shows it: whole baht without decimals, otherwise two. Mirrors web bill-text.ts. */

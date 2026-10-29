@@ -1582,15 +1582,16 @@ expired code gets one generic Thai reply (it never says which); a sender who has
     its own time (`lastDmAt`), 5-second busy guard and retry key are separate from the group send, and
     it does not change the banner. The link needs `LINE_LIFF_ID` and `PUBLIC_APP_URL` (no new
     variable); without them no link is shown. The page never renders the token.
-  - **Copy button and the plain-text number.** `PAYMENT_NUMBER_TEXT = { group: true, host: true }`
-    in `server/src/line/payment-card.ts`: **both paths send a second plain-text message holding only
-    the digits of the account number** after the card. Why: the owner's real-LINE spike on
-    2026-10-29 sent a test Flex card with a `clipboard` button through the share picker. It renders,
-    and on LINE mobile the button copies the number; on **LINE Desktop it does nothing**. A text
-    message can be selected and copied on every client, so it stays on both paths, and the number
-    is also printed in the card body. The cost is one extra message per send (on the bot path one
-    more against the push quota). Flip a flag to `false` and redeploy to drop the text message for
-    that path.
+  - **Copy button and the plain-text number.** `PAYMENT_NUMBER_TEXT = { group: false, host: false }`
+    in `server/src/line/payment-card.ts`: **neither path sends a second text message; the card is one
+    message.** The number is printed in the card body and the `clipboard` button copies the
+    digits-only number. History: the owner's real-LINE spike on 2026-10-29 sent a test Flex card with
+    a `clipboard` button through the share picker. It renders, and on LINE mobile the button copies
+    the number; on **LINE Desktop it does nothing**. The text message (which can be selected on every
+    client) was shipped first as a safe fallback and dropped the same day at the owner's request, since
+    the button works; a desktop reader can only select the printed number. Set a flag to `true` and
+    redeploy to bring the text message back for that path (on the bot path it costs one more message
+    against the push quota). The bot-sent card's button is unverified on a device (runbook).
   - **Security model.** The bill stays owner-only. The only new public read is `GET
     /api/sessions/:code/payment-share-card?token=` for the LIFF page: a bearer link like the group
     dashboard's `/d/:token`, not a session code. The token is 128 random bits (base64url) held in

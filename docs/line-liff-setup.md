@@ -138,11 +138,11 @@ then end it.
       fields come back.
 - [ ] Host-share group: end a session with the new "ส่งใบเก็บเงินด้วย" tick on. The summary page opens
       with the payment sheet over it. Confirm. "เปิดใน LINE เพื่อส่ง" opens the page inside LINE; pick
-      a group and send. The card shows every person's amount, the total and the account, and a
-      plain-text message with only the account number follows it.
+      a group and send. The card shows every person's amount, the total and the account number; it
+      is the only message sent (no separate number message).
 - [ ] Tap the card's copy button on a phone: the number is copied (paste it somewhere to check). On
-      LINE Desktop the button does nothing by design (spike 2026-10-29); the plain-text message
-      right after the card is how a desktop reader copies the number.
+      LINE Desktop the button does nothing (spike 2026-10-29); a desktop reader can only select the
+      number printed in the card.
 - [ ] Same on a group that already has another bot (for example ขุนทอง).
 - [ ] Host-share group, DM button: confirm, then tap "ส่งการ์ดให้ฉันทาง LINE" (try it from a computer
       or iPad). The card arrives from the bot in the owner's own LINE chat with both the copy button
@@ -150,12 +150,11 @@ then end it.
       panel says "ส่งการ์ดให้คุณใน LINE แล้ว ..." with the time, and a second tap asks first. Block
       the bot (or remove the friend) and tap again: the panel reports the failure and says to add the
       bot as a friend again.
-- [ ] Bot-linked group: confirm, then "ส่งเข้ากลุ่ม" posts the card into the LINE group, with the
-      number message after it. The copy button renders and works in the bot-sent card. If the button
-      fails there nothing else is needed, since the text message follows; if the extra message matters
-      for the push quota, set `PAYMENT_NUMBER_TEXT.group` to `false` in
-      `server/src/line/payment-card.ts` and redeploy. Note whether the group's quota went down by one
-      message or by one per member (unverified until now).
+- [ ] Bot-linked group: confirm, then "ส่งเข้ากลุ่ม" posts the card into the LINE group as ONE message
+      (no separate number message). The copy button renders and works in the bot-sent card on a phone.
+      If the button fails in a bot-sent card, set `PAYMENT_NUMBER_TEXT.group` to `true` in
+      `server/src/line/payment-card.ts` and redeploy so the number follows as text. Note whether the
+      group's quota went down by one message or by one per member (unverified until now).
 - [ ] Bot-linked group: the panel then says "ส่งแล้ว <time>" and the button reads "ส่งอีกครั้ง"; tapping
       it asks first ("ส่งการ์ดเข้ากลุ่มซ้ำอีกรอบใช่ไหม"), and "ใช่ ส่งเลย" posts a second card.
 - [ ] Edit the bill after confirming so an amount changes: the panel says "ยอดเปลี่ยน, ยืนยันใหม่" and
@@ -198,5 +197,6 @@ then end it.
   `LINE_LIFF_ID` and `PUBLIC_APP_URL` are set.
 - **The panel shows no confirm or send, only a list of what is missing:** the bill is not ready (court
   fee, shuttle count or price). Fix it on the bill screen; the card never shows a provisional amount.
-- **The card's copy button does nothing:** expected on LINE Desktop. On a phone, copy the number from
-  the plain-text message that follows the card.
+- **The card's copy button does nothing:** expected on LINE Desktop (the number is printed in the card
+  to select by hand). On a phone it should copy; if it does not, set `PAYMENT_NUMBER_TEXT` to `true`
+  for that path in `server/src/line/payment-card.ts` and redeploy so the number follows as text.

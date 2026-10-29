@@ -14,6 +14,7 @@ const MAX_BANK = 40;
 const MAX_NAME = 80;
 /** Digits, spaces and dashes, 6-20 characters: how people actually type an account number. */
 const NUMBER_PATTERN = /^[0-9 -]{6,20}$/;
+const MIN_DIGITS = 6;
 
 /** Either all three fields are present or none: a partial account is invalid. */
 export function validatePayAccount(input: {
@@ -21,12 +22,18 @@ export function validatePayAccount(input: {
   number?: string;
   name?: string;
 }): { ok: true; value: PayAccount | null } | { ok: false } {
+  // Callers can hand over unvalidated JSON: a non-string field is invalid, never a throw.
+  if ([input.bank, input.number, input.name].some((v) => v !== undefined && typeof v !== 'string')) {
+    return { ok: false };
+  }
   const bank = (input.bank ?? '').trim();
   const number = (input.number ?? '').trim();
   const name = (input.name ?? '').trim();
   if (bank === '' && number === '' && name === '') return { ok: true, value: null };
   if (bank === '' || number === '' || name === '') return { ok: false };
   if (bank.length > MAX_BANK || name.length > MAX_NAME || !NUMBER_PATTERN.test(number)) return { ok: false };
+  // Spaces and dashes alone can satisfy the pattern; the copyable number must still be a real one.
+  if (copyableNumber(number).length < MIN_DIGITS) return { ok: false };
   return { ok: true, value: { bank, number, name } };
 }
 

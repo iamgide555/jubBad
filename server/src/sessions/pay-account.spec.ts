@@ -27,6 +27,20 @@ describe('validatePayAccount', () => {
     expect(validatePayAccount({ ...rest, number: '1'.repeat(6) }).ok).toBe(true);
   });
 
+  it('requires at least 6 digits, so a dashes-only or spaces-only number is invalid', () => {
+    const rest = { bank: 'กสิกร', name: 'สมชาย' };
+    expect(validatePayAccount({ ...rest, number: '------' })).toEqual({ ok: false });
+    expect(validatePayAccount({ ...rest, number: '12-34 5' })).toEqual({ ok: false });
+    expect(validatePayAccount({ ...rest, number: '12-34 56' }).ok).toBe(true);
+  });
+
+  it('treats a non-string field as invalid instead of throwing', () => {
+    const bad = (input: unknown) => validatePayAccount(input as Parameters<typeof validatePayAccount>[0]);
+    expect(bad({ bank: 5 })).toEqual({ ok: false });
+    expect(bad({ bank: 'กสิกร', number: 12345678, name: 'สมชาย' })).toEqual({ ok: false });
+    expect(bad({ bank: 'กสิกร', number: '12345678', name: { x: 1 } })).toEqual({ ok: false });
+  });
+
   it('rejects a bank over 40 or a name over 80 characters', () => {
     const number = '12345678';
     expect(validatePayAccount({ bank: 'ก'.repeat(41), number, name: 'สมชาย' })).toEqual({ ok: false });
@@ -51,6 +65,7 @@ describe('parsePayAccount / serializePayAccount', () => {
     expect(parsePayAccount('{"bank":"กสิกร","number":"12345678"}')).toBeNull();
     expect(parsePayAccount(JSON.stringify({ bank: 'ก'.repeat(41), number: '12345678', name: 'a' }))).toBeNull();
     expect(parsePayAccount(JSON.stringify({ bank: 'k', number: '12', name: 'a' }))).toBeNull();
+    expect(parsePayAccount(JSON.stringify({ bank: 'k', number: '------', name: 'a' }))).toBeNull();
   });
 
   it('round-trips a valid account and serializes null as null', () => {

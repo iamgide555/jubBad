@@ -14,6 +14,15 @@ describe('parsePaymentState', () => {
     expect(parsePaymentState('{"token":5}')).toEqual(EMPTY_PAYMENT_STATE);
   });
 
+  it('freezes the empty state so a caller cannot corrupt later empty reads', () => {
+    expect(Object.isFrozen(EMPTY_PAYMENT_STATE)).toBe(true);
+    expect(parsePaymentState('garbage')).toBe(EMPTY_PAYMENT_STATE);
+    expect(() => {
+      (EMPTY_PAYMENT_STATE as { token: string | null }).token = 'x';
+    }).toThrow(TypeError);
+    expect(parsePaymentState(null).token).toBeNull();
+  });
+
   it('drops a bad account but keeps the other fields', () => {
     const raw = JSON.stringify({ account: { bank: 1 }, token: 'abc', confirmedAt: null, confirmedHash: null, lastSentAt: null });
     expect(parsePaymentState(raw)).toEqual({ ...EMPTY_PAYMENT_STATE, token: 'abc' });

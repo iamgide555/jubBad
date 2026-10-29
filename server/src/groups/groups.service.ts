@@ -15,10 +15,12 @@ import { parseCourtFormats } from '../sessions/court-formats.js';
 import { parseSeatTeams, parseTeams } from '../sessions/pairing-teams.js';
 import { SessionLock } from '../sessions/session-lock.js';
 import type { CreateGroupDto } from './dto/create-group.dto.js';
+import { parsePayAccount, serializePayAccount, validatePayAccount } from '../sessions/pay-account.js';
 import type { UpdateGroupDto } from './dto/update-group.dto.js';
 import type { ParseRosterDto } from './dto/parse-roster.dto.js';
 import type { UpdatePlayerDto } from './dto/update-player.dto.js';
 import type { SetPlayerRuleDto } from './dto/set-player-rule.dto.js';
+import type { SetPayAccountDto } from './dto/set-pay-account.dto.js';
 
 type PairCount = { played: number; won: number; decisive: number };
 type Caller = { id: string; role: string };
@@ -172,6 +174,23 @@ export class GroupsService {
     if (!group) throw new NotFoundException();
     await this.prisma.group.update({ where: { code }, data: { shuttleToolsEnabled: enabled } });
     return { enabled };
+  }
+
+  /** Owner-only: the account number must never ride a public group read. */
+  async getPayAccount(code: string) {
+    const group = await this.prisma.group.findUnique({ where: { code }, select: { payAccount: true } });
+    if (!group) throw new NotFoundException();
+    return { account: parsePayAccount(group.payAccount) };
+  }
+
+  /** Blank fields clear it. Only future payment cards snapshot this; a card already opened keeps its own. */
+  async setPayAccount(code: string, dto: SetPayAccountDto) {
+    const result = validatePayAccount(dto);
+    if (!result.ok) throw new BadRequestException({ code: 'PAY_ACCOUNT_INVALID' });
+    const group = await this.prisma.group.findUnique({ where: { code }, select: { code: true } });
+    if (!group) throw new NotFoundException();
+    await this.prisma.group.update({ where: { code }, data: { payAccount: serializePayAccount(result.value) } });
+    return { account: result.value };
   }
 
   async getCrossSessionHistory(code: string) {

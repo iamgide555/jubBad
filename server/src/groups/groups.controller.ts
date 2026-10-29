@@ -12,6 +12,7 @@ import { ParseRosterDto } from './dto/parse-roster.dto.js';
 import { UpdatePlayerDto } from './dto/update-player.dto.js';
 import { SetPlayerLevelDto } from './dto/set-player-level.dto.js';
 import { SetPlayerRuleDto, SetPlayerRuleKindDto } from './dto/set-player-rule.dto.js';
+import { SetPayAccountDto } from './dto/set-pay-account.dto.js';
 import { SetShuttleToolsDto } from './dto/set-shuttle-tools.dto.js';
 
 @Controller('groups')
@@ -124,6 +125,21 @@ export class GroupsController {
     // Only turning it on is paid; a lapsed host can always switch it off.
     if (dto.enabled === true) await this.plans.requireGroupPlan(code, 'host');
     return this.groupsService.setShuttleTools(code, dto.enabled);
+  }
+
+  /**
+   * Owner-only (no @Public) and deliberately not plan-gated: a lapsed host with no LINE link can
+   * still read and clear it. Never on the public group GET: it is a bank account number.
+   */
+  @Get(':code/pay-account')
+  getPayAccount(@Param('code') code: string) {
+    return this.groupsService.getPayAccount(code);
+  }
+
+  /** Blank fields clear it; a partial account is a 400 PAY_ACCOUNT_INVALID. */
+  @Put(':code/pay-account')
+  setPayAccount(@Param('code') code: string, @Body() dto: SetPayAccountDto) {
+    return this.groupsService.setPayAccount(code, dto);
   }
 
   /** Whether pairing history spans earlier sessions; snapshotted per session. */

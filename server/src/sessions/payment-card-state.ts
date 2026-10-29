@@ -7,7 +7,7 @@
  * already confirmed.
  */
 import { randomBytes } from 'node:crypto';
-import { payAccountFromUnknown, type PayAccount } from './pay-account';
+import { payAccountFromUnknown, type PayAccount } from './pay-account.js';
 
 export interface PaymentCardState {
   account: PayAccount | null;
@@ -21,13 +21,14 @@ export interface PaymentCardState {
   lastSentAt: string | null;
 }
 
-export const EMPTY_PAYMENT_STATE: PaymentCardState = {
+/** Frozen: parsePaymentState hands this same object to every caller, so one must not be able to corrupt it. */
+export const EMPTY_PAYMENT_STATE: PaymentCardState = Object.freeze({
   account: null,
   token: null,
   confirmedAt: null,
   confirmedHash: null,
   lastSentAt: null,
-};
+});
 
 const str = (v: unknown): string | null => (typeof v === 'string' && v !== '' ? v : null);
 

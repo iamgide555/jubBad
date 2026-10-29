@@ -9,12 +9,18 @@ import { SESSION_SECRET } from '../auth/auth.module.js';
 import { AuthBootstrapService } from '../auth/bootstrap.service.js';
 import { LineClient } from '../line/line-client.js';
 import { retryKeyFor } from '../line/line-summary.service.js';
-import { paymentCardMessages } from '../line/payment-card.js';
+import { paymentCardMessages, paymentDmMessages } from '../line/payment-card.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { UsersService } from '../users/users.service.js';
 import { BillService } from './bill.service.js';
 import { newShareToken, parsePaymentState, serializePaymentState } from './payment-card-state.js';
-import { isReady, PaymentCardService, paymentRetryKey, type PaymentPanel } from './payment-card.service.js';
+import {
+  isReady,
+  PaymentCardService,
+  paymentDmRetryKey,
+  paymentRetryKey,
+  type PaymentPanel,
+} from './payment-card.service.js';
 
 const SECRET = 'payment-card-test-secret';
 const PASSWORD = 'a genuinely correct password';
@@ -139,6 +145,7 @@ describe('payment card: owner panel, confirm and bot send', () => {
           confirmedAt: new Date().toISOString(),
           confirmedHash: panel.contentHash,
           lastSentAt: null,
+          lastDmAt: null,
         }),
       },
     });
@@ -158,6 +165,8 @@ describe('payment card: owner panel, confirm and bot send', () => {
   };
   const send = (code: string, sendId: string = randomUUID(), cookie = ownerCookie) =>
     request(server).post(`/sessions/${code}/payment-card/send`).set('Cookie', cookie).send({ sendId });
+  const dm = (code: string, sendId: string = randomUUID(), cookie = ownerCookie) =>
+    request(server).post(`/sessions/${code}/payment-card/dm`).set('Cookie', cookie).send({ sendId });
   const billConfig = (code: string, over: object = {}) =>
     request(server)
       .post(`/sessions/${code}/bill-config`)
@@ -263,6 +272,7 @@ describe('payment card: owner panel, confirm and bot send', () => {
         confirmed: false,
         stale: false,
         lastSentAt: null,
+        lastDmAt: null,
         shareUrl: null,
       });
     });
@@ -712,6 +722,183 @@ describe('payment card: owner panel, confirm and bot send', () => {
       await post({ sendId: 'not-a-uuid' }).expect(400);
       await post({}).expect(400);
       await post({ sendId: 42 }).expect(400);
+      expect(fakeClient.push).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('sendToHost', () => {
+    const confirmedHost = async () => {
+      const made = await setup({ target: 'host' });
+      const panel = (await confirm(made.code).expect(200)).body as PaymentPanel;
+      return { ...made, panel };
+    };
+
+    it('pushes once to the owner with one Flex card whose "ส่งเข้ากลุ่ม" button opens the share link, and records the time', async () => {
+      const { code, panel } = await confirmedHost();
+      expect(panel.shareUrl).not.toBeNull();
+      const sendId = randomUUID();
+      expect((await dm(code, sendId).expect(200)).body).toEqual({ outcome: 'sent' });
+
+      expect(fakeClient.push).toHaveBeenCalledTimes(1);
+      const [to, messages, retryKey] = fakeClient.push.mock.calls[0];
+      expect(to).toBe(`U${ownerId.replace(/-/g, '')}`);
+      expect(retryKey).toBe(paymentDmRetryKey(code, sendId));
+      expect(messages).toHaveLength(1);
+      expect(messages[0]).toMatchObject({ type: 'flex' });
+      expect(messages).toEqual(
+        paymentDmMessages(
+          {
+            groupName: 'ตีชิล',
+            date: '2026-10-29',
+            endedAt: new Date('2026-10-29T15:00:00Z'),
+            venue: 'Bad@Mama',
+            rows: panel.rows.map(({ name, amountSatang, absent }) => ({ name, amountSatang, absent })),
+            settledCount: 0,
+            totalSatang: panel.totalSatang,
+            account: ACCOUNT,
+          },
+          panel.shareUrl!
+        )
+      );
+      const footer = (messages[0] as { contents: { footer: { contents: { style: string; action: object }[] } } })
+        .contents.footer.contents;
+      expect(footer[1]).toEqual({
+        type: 'button',
+        style: 'secondary',
+        action: { type: 'uri', label: 'ส่งเข้ากลุ่ม', uri: panel.shareUrl },
+      });
+      const after = await panelOf(code);
+      expect(after.lastDmAt).not.toBeNull();
+      expect(Date.now() - Date.parse(after.lastDmAt!)).toBeLessThan(60_000);
+      expect(after.lastSentAt).toBeNull();
+    });
+
+    it('is unavailable for the group target and pushes nothing', async () => {
+      const { code } = await setup();
+      await confirm(code).expect(200);
+      expect((await dm(code).expect(200)).body).toEqual({ outcome: 'unavailable' });
+      expect(fakeClient.push).not.toHaveBeenCalled();
+    });
+
+    it('refuses before a confirm', async () => {
+      const { code } = await setup({ target: 'host' });
+      expect((await dm(code).expect(200)).body).toEqual({ outcome: 'not-confirmed' });
+      expect(fakeClient.push).not.toHaveBeenCalled();
+    });
+
+    it('is stale after a bill edit since the confirm', async () => {
+      const { code, ids } = await confirmedHost();
+      await billConfig(code, { courtFeeSatang: 70000, absentIds: [ids[4]], removedIds: [ids[5]] });
+      expect((await dm(code).expect(200)).body).toEqual({ outcome: 'stale' });
+      expect(fakeClient.push).not.toHaveBeenCalled();
+    });
+
+    it('is stale, not unavailable, while an amount is undefined on a confirmed card', async () => {
+      const { code, ids } = await setup({ target: 'host' });
+      await billConfig(code, { courtFeeSatang: null, absentIds: [ids[4]], removedIds: [ids[5]] });
+      await storeConfirmed(code);
+      expect((await dm(code).expect(200)).body).toEqual({ outcome: 'stale' });
+      expect(fakeClient.push).not.toHaveBeenCalled();
+    });
+
+    it('is unavailable when every listed amount is 0', async () => {
+      const { code, ids } = await setup({ target: 'host' });
+      await zeroEveryone(code, ids);
+      await storeConfirmed(code);
+      expect((await dm(code).expect(200)).body).toEqual({ outcome: 'unavailable' });
+      expect(fakeClient.push).not.toHaveBeenCalled();
+    });
+
+    it('is unavailable when the owner unlinks their LINE account or the plan lapses', async () => {
+      const { code } = await confirmedHost();
+      await prisma.user.update({ where: { id: ownerId }, data: { lineUserId: null } });
+      expect((await dm(code).expect(200)).body).toEqual({ outcome: 'unavailable' });
+      await prisma.user.update({
+        where: { id: ownerId },
+        data: { lineUserId: `U${ownerId.replace(/-/g, '')}`, planRenewsAt: new Date(Date.now() - 86_400_000) },
+      });
+      expect((await dm(code).expect(200)).body).toEqual({ outcome: 'unavailable' });
+      expect(fakeClient.push).not.toHaveBeenCalled();
+    });
+
+    it('is unavailable when the share link is not offered (no LIFF id), even on a current confirmed card', async () => {
+      const { code } = await confirmedHost();
+      delete process.env.LINE_LIFF_ID;
+      expect((await panelOf(code)).shareUrl).toBeNull();
+      expect((await dm(code).expect(200)).body).toEqual({ outcome: 'unavailable' });
+      expect(fakeClient.push).not.toHaveBeenCalled();
+    });
+
+    it('is busy within 5 seconds and a deliberate resend after goes out', async () => {
+      const { code } = await confirmedHost();
+      const t0 = new Date();
+      const at = (ms: number) => new Date(t0.getTime() + ms);
+      expect(await payments.sendToHost(code, randomUUID(), t0)).toBe('sent');
+      expect(await payments.sendToHost(code, randomUUID(), at(4_999))).toBe('busy');
+      expect(fakeClient.push).toHaveBeenCalledTimes(1);
+      expect(await payments.sendToHost(code, randomUUID(), at(5_000))).toBe('sent');
+      expect(fakeClient.push).toHaveBeenCalledTimes(2);
+    });
+
+    it('passes quota and failed through and leaves the DM time unset', async () => {
+      const { code } = await confirmedHost();
+      fakeClient.push.mockResolvedValueOnce('quota');
+      expect((await dm(code).expect(200)).body).toEqual({ outcome: 'quota' });
+      fakeClient.push.mockResolvedValueOnce('failed');
+      expect((await dm(code).expect(200)).body).toEqual({ outcome: 'failed' });
+      fakeClient.push.mockRejectedValueOnce(new Error('boom'));
+      expect((await dm(code).expect(200)).body).toEqual({ outcome: 'failed' });
+      expect((await panelOf(code)).lastDmAt).toBeNull();
+      expect(fakeClient.push).toHaveBeenCalledTimes(3);
+    });
+
+    it('still answers sent when LINE took the card but saving the DM time failed', async () => {
+      const { code } = await confirmedHost();
+      const update = vi.spyOn(prisma.session, 'update').mockRejectedValueOnce(new Error('database is locked'));
+      try {
+        expect((await dm(code).expect(200)).body).toEqual({ outcome: 'sent' });
+      } finally {
+        update.mockRestore();
+      }
+      expect(fakeClient.push).toHaveBeenCalledTimes(1);
+      expect((await panelOf(code)).lastDmAt).toBeNull();
+    });
+
+    it('keeps the group send time and the DM time apart', async () => {
+      const { code } = await confirmedHost();
+      await dm(code).expect(200);
+      const state = parsePaymentState((await prisma.session.findUniqueOrThrow({ where: { code } })).paymentCard);
+      expect(state.lastDmAt).not.toBeNull();
+      expect(state.lastSentAt).toBeNull();
+    });
+
+    it('keeps the DM time across a re-confirm', async () => {
+      const { code } = await confirmedHost();
+      await dm(code).expect(200);
+      await confirm(code).expect(200);
+      expect((await panelOf(code)).lastDmAt).not.toBeNull();
+    });
+
+    it('pins the DM retry key construction and keeps it apart from the group key', () => {
+      const key = paymentDmRetryKey('abc12345', '00000000-0000-4000-8000-000000000001');
+      expect(key).toBe('69bbb6df-12c9-5351-a44f-efebb649a19c');
+      expect(key).not.toBe(paymentRetryKey('abc12345', '00000000-0000-4000-8000-000000000001'));
+    });
+
+    it('needs a UUID sendId from the body, through the global pipe', async () => {
+      const { code } = await confirmedHost();
+      const post = (body: object) =>
+        request(server).post(`/sessions/${code}/payment-card/dm`).set('Cookie', ownerCookie).send(body);
+      await post({ sendId: 'not-a-uuid' }).expect(400);
+      await post({}).expect(400);
+      await post({ sendId: 42 }).expect(400);
+      expect(fakeClient.push).not.toHaveBeenCalled();
+    });
+
+    it('answers 404 to another host and 401 to no login', async () => {
+      const { code } = await confirmedHost();
+      await dm(code, randomUUID(), otherCookie).expect(404);
+      await request(server).post(`/sessions/${code}/payment-card/dm`).send({ sendId: randomUUID() }).expect(401);
       expect(fakeClient.push).not.toHaveBeenCalled();
     });
   });

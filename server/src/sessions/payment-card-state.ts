@@ -19,6 +19,8 @@ export interface PaymentCardState {
   confirmedHash: string | null;
   /** ISO timestamp of the last send to the LINE group, null if never sent. */
   lastSentAt: string | null;
+  /** ISO timestamp of the last DM of the card to the host (`host` target), null if never; not part of the content hash. */
+  lastDmAt: string | null;
 }
 
 /** Frozen: parsePaymentState hands this same object to every caller, so one must not be able to corrupt it. */
@@ -28,6 +30,7 @@ export const EMPTY_PAYMENT_STATE: PaymentCardState = Object.freeze({
   confirmedAt: null,
   confirmedHash: null,
   lastSentAt: null,
+  lastDmAt: null,
 });
 
 const str = (v: unknown): string | null => (typeof v === 'string' && v !== '' ? v : null);
@@ -48,6 +51,7 @@ export function parsePaymentState(raw: string | null): PaymentCardState {
     confirmedAt: str(o['confirmedAt']),
     confirmedHash: str(o['confirmedHash']),
     lastSentAt: str(o['lastSentAt']),
+    lastDmAt: str(o['lastDmAt']),
   };
 }
 

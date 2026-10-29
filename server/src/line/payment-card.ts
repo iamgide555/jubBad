@@ -97,7 +97,8 @@ function personRow(person: PaymentCardInput['rows'][number]) {
   return amountRow(person.absent ? `${name} (ไม่มา)` : name, amount);
 }
 
-function paymentCard(input: PaymentCardInput) {
+/** `extraButtons` follow the copy button in the footer (the DM card's "ส่งเข้ากลุ่ม"). */
+function paymentCard(input: PaymentCardInput, extraButtons: unknown[] = []) {
   const { name, date, venue } = cardTexts(input);
   const account = {
     bank: clip(input.account.bank, TEXT_MAX),
@@ -198,10 +199,19 @@ function paymentCard(input: PaymentCardInput) {
               clipboardText: copyableNumber(input.account.number),
             },
           },
+          ...extraButtons,
         ],
       },
     },
   };
+}
+
+function assertHasRows(input: PaymentCardInput): void {
+  if (input.rows.length === 0) {
+    throw new RangeError(
+      'A payment card needs at least one person to collect from',
+    );
+  }
 }
 
 /**
@@ -212,14 +222,31 @@ export function paymentCardMessages(
   input: PaymentCardInput,
   target: 'group' | 'host',
 ): unknown[] {
-  if (input.rows.length === 0) {
-    throw new RangeError(
-      'A payment card needs at least one person to collect from',
-    );
-  }
+  assertHasRows(input);
   const messages: unknown[] = [paymentCard(input)];
   if (PAYMENT_NUMBER_TEXT[target]) {
     messages.push({ type: 'text', text: copyableNumber(input.account.number) });
   }
   return messages;
+}
+
+/**
+ * The card the bot DMs to the host: one bubble, the payment card plus a secondary "ส่งเข้ากลุ่ม" button (the
+ * summary card's) that opens the share page, where the host's LINE picks the chat. No text message after it:
+ * the host reads it on their own phone, the number is printed in the card and the clipboard button stays.
+ */
+export function paymentDmMessages(
+  input: PaymentCardInput,
+  shareUrl: string,
+): unknown[] {
+  assertHasRows(input);
+  return [
+    paymentCard(input, [
+      {
+        type: 'button',
+        style: 'secondary',
+        action: { type: 'uri', label: 'ส่งเข้ากลุ่ม', uri: shareUrl },
+      },
+    ]),
+  ];
 }

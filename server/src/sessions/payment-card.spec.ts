@@ -13,8 +13,8 @@ import { paymentCardMessages } from '../line/payment-card.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { UsersService } from '../users/users.service.js';
 import { BillService } from './bill.service.js';
-import { parsePaymentState } from './payment-card-state.js';
-import { PaymentCardService, paymentRetryKey, type PaymentPanel } from './payment-card.service.js';
+import { newShareToken, parsePaymentState, serializePaymentState } from './payment-card-state.js';
+import { isReady, PaymentCardService, paymentRetryKey, type PaymentPanel } from './payment-card.service.js';
 
 const SECRET = 'payment-card-test-secret';
 const PASSWORD = 'a genuinely correct password';
@@ -110,8 +110,52 @@ describe('payment card: owner panel, confirm and bot send', () => {
 
   const panelOf = async (code: string, cookie = ownerCookie): Promise<PaymentPanel> =>
     (await request(server).get(`/sessions/${code}/payment-card`).set('Cookie', cookie).expect(200)).body;
-  const confirm = (code: string, body: object = {}, cookie = ownerCookie) =>
-    request(server).post(`/sessions/${code}/payment-card/confirm`).set('Cookie', cookie).send(body);
+  /**
+   * Confirms as the panel would: with the content hash of a fresh read, unless the body brings its own.
+   * Returns `{ expect }` so call sites read like a supertest chain.
+   */
+  const confirm = (code: string, body: object = {}, cookie = ownerCookie) => ({
+    expect: async (status: number) => {
+      const expectedHash = 'expectedHash' in body ? undefined : (await payments.panel(code)).contentHash;
+      return request(server)
+        .post(`/sessions/${code}/payment-card/confirm`)
+        .set('Cookie', cookie)
+        .send({ expectedHash, ...body })
+        .expect(status);
+    },
+  });
+  /**
+   * Stores a confirm of exactly what the panel shows now, past the confirm route's own refusals, so a send
+   * or share gate can be tested on a card that is confirmed and current (not stale).
+   */
+  const storeConfirmed = async (code: string) => {
+    const panel = await payments.panel(code);
+    await prisma.session.update({
+      where: { code },
+      data: {
+        paymentCard: serializePaymentState({
+          account: panel.account,
+          token: newShareToken(),
+          confirmedAt: new Date().toISOString(),
+          confirmedHash: panel.contentHash,
+          lastSentAt: null,
+        }),
+      },
+    });
+    expect(await payments.panel(code)).toMatchObject({ confirmed: true, stale: false });
+  };
+  /** Every row still due overridden to 0 baht: rows remain, nothing is owed. */
+  const zeroEveryone = async (code: string, ids: string[]) => {
+    const due = ids.slice(0, 5);
+    await billConfig(code, {
+      absentIds: [ids[4]],
+      removedIds: [ids[5]],
+      overrides: due.map((playerId) => ({ playerId, amountSatang: 0 })),
+    });
+    const panel = await payments.panel(code);
+    expect(panel.rows).toHaveLength(5);
+    expect(panel.totalSatang).toBe(0);
+  };
   const send = (code: string, sendId: string = randomUUID(), cookie = ownerCookie) =>
     request(server).post(`/sessions/${code}/payment-card/send`).set('Cookie', cookie).send({ sendId });
   const billConfig = (code: string, over: object = {}) =>
@@ -256,6 +300,10 @@ describe('payment card: owner panel, confirm and bot send', () => {
           snapshot: '{}', idempotencyKey: randomUUID(),
         },
       });
+      // The credit covers everyone, so one person is set to owe by hand: a night of all-zero rows has nothing due.
+      await billConfig(code, {
+        absentIds: [ids[4]], removedIds: [ids[5]], overrides: [{ playerId: ids[0], amountSatang: 5000 }],
+      });
       const bill = await bills.getBill(code);
       expect(bill.result.warnings).toEqual(['EXCESS_CREDIT']);
       expect(bill.readyToCopy).toBe(false);
@@ -297,11 +345,89 @@ describe('payment card: owner panel, confirm and bot send', () => {
       const panel = await panelOf(code);
       expect(panel.rows).toEqual([]);
       expect(panel.totalSatang).toBe(0);
-      expect((await confirm(code).expect(409)).body.code).toBe('PAYMENT_NOT_READY');
+      expect((await confirm(code).expect(409)).body.code).toBe('PAYMENT_NOTHING_DUE');
+    });
+
+    it('treats a night where every listed amount is 0 as nothing to collect: rows show, confirm refuses', async () => {
+      const { code, ids } = await setup();
+      await zeroEveryone(code, ids);
+      const panel = await panelOf(code);
+      expect(panel).toMatchObject({ ready: true, totalSatang: 0 });
+      expect(panel.rows.every((r) => r.amountSatang === 0)).toBe(true);
+      expect((await confirm(code).expect(409)).body.code).toBe('PAYMENT_NOTHING_DUE');
+      expect((await prisma.session.findUniqueOrThrow({ where: { code } })).paymentCard).toBeNull();
+    });
+
+    it('carries a content hash that moves with an amount and with the account', async () => {
+      const { code, ids, groupCode } = await setup();
+      const first = await panelOf(code);
+      expect(first.contentHash).toMatch(/^[0-9a-f]{64}$/);
+      // Read twice, unchanged: the same hash.
+      expect((await panelOf(code)).contentHash).toBe(first.contentHash);
+
+      const amount = first.rows.find((r) => r.playerId === ids[0])!.amountSatang;
+      await billConfig(code, {
+        absentIds: [ids[4]], removedIds: [ids[5]], overrides: [{ playerId: ids[0], amountSatang: amount + 100 }],
+      });
+      const second = await panelOf(code);
+      expect(second.contentHash).not.toBe(first.contentHash);
+
+      await prisma.group.update({ where: { code: groupCode }, data: { payAccount: JSON.stringify(TONIGHT) } });
+      const third = await panelOf(code);
+      expect(third.account).toEqual(TONIGHT);
+      expect(third.contentHash).not.toBe(second.contentHash);
+
+      // Confirmed and current: the panel's hash is the one stored with the confirm.
+      await confirm(code).expect(200);
+      const stored = parsePaymentState((await prisma.session.findUniqueOrThrow({ where: { code } })).paymentCard);
+      expect((await panelOf(code)).contentHash).toBe(stored.confirmedHash);
     });
   });
 
   describe('confirm', () => {
+    it('confirms when the expected hash matches the amounts the panel shows', async () => {
+      const { code } = await setup();
+      const seen = await panelOf(code);
+      const res = await confirm(code, { expectedHash: seen.contentHash }).expect(200);
+      expect(res.body).toMatchObject({ confirmed: true, stale: false, contentHash: seen.contentHash });
+    });
+
+    it('refuses with PAYMENT_CHANGED and stores nothing when the bill moved between the read and the confirm', async () => {
+      const { code, ids } = await setup();
+      const seen = await panelOf(code);
+      const amount = seen.rows.find((r) => r.playerId === ids[1])!.amountSatang;
+      await billConfig(code, {
+        absentIds: [ids[4]], removedIds: [ids[5]], overrides: [{ playerId: ids[1], amountSatang: amount + 500 }],
+      });
+      const res = await confirm(code, { expectedHash: seen.contentHash }).expect(409);
+      expect(res.body.code).toBe('PAYMENT_CHANGED');
+      expect((await prisma.session.findUniqueOrThrow({ where: { code } })).paymentCard).toBeNull();
+      expect((await panelOf(code)).confirmed).toBe(false);
+    });
+
+    it('leaves an earlier confirm untouched when a re-confirm is refused as changed', async () => {
+      const { code, ids } = await setup();
+      await confirm(code).expect(200);
+      const before = (await prisma.session.findUniqueOrThrow({ where: { code } })).paymentCard;
+      const seen = await panelOf(code);
+      await billConfig(code, { courtFeeSatang: 70000, absentIds: [ids[4]], removedIds: [ids[5]] });
+      const res = await confirm(code, { ...TONIGHT, expectedHash: seen.contentHash }).expect(409);
+      expect(res.body.code).toBe('PAYMENT_CHANGED');
+      expect((await prisma.session.findUniqueOrThrow({ where: { code } })).paymentCard).toBe(before);
+      expect(await panelOf(code)).toMatchObject({ confirmed: true, stale: true, account: ACCOUNT });
+    });
+
+    it('needs an expectedHash string from the body, through the global pipe', async () => {
+      const { code } = await setup();
+      const post = (body: object) =>
+        request(server).post(`/sessions/${code}/payment-card/confirm`).set('Cookie', ownerCookie).send(body);
+      await post({}).expect(400);
+      await post({ expectedHash: '' }).expect(400);
+      await post({ expectedHash: 42 }).expect(400);
+      await post({ expectedHash: 'a'.repeat(200) }).expect(400);
+      expect((await prisma.session.findUniqueOrThrow({ where: { code } })).paymentCard).toBeNull();
+    });
+
     it('refuses with PAYMENT_NO_ACCOUNT when no account is set anywhere', async () => {
       const { code } = await setup({ account: false });
       const panel = await panelOf(code);
@@ -395,6 +521,27 @@ describe('payment card: owner panel, confirm and bot send', () => {
       await prisma.player.update({ where: { id: ids[0] }, data: { name: 'สมชาย ใหม่' } });
       expect((await panelOf(code)).stale).toBe(true);
     });
+
+    it('is stale after the group is renamed', async () => {
+      const { code, groupCode } = await setup();
+      await confirm(code).expect(200);
+      await prisma.group.update({ where: { code: groupCode }, data: { name: 'ตีชิล ใหม่' } });
+      expect((await panelOf(code)).stale).toBe(true);
+    });
+
+    it('is stale after the session date changes', async () => {
+      const { code } = await setup();
+      await confirm(code).expect(200);
+      await prisma.session.update({ where: { code }, data: { date: '2026-10-30' } });
+      expect((await panelOf(code)).stale).toBe(true);
+    });
+
+    it('is stale after the venue changes', async () => {
+      const { code } = await setup();
+      await confirm(code).expect(200);
+      await prisma.session.update({ where: { code }, data: { venue: 'สนามใหม่' } });
+      expect((await panelOf(code)).stale).toBe(true);
+    });
   });
 
   describe('send', () => {
@@ -483,6 +630,36 @@ describe('payment card: owner panel, confirm and bot send', () => {
       expect(fakeClient.push).toHaveBeenCalledTimes(1);
     });
 
+    it('still answers sent when LINE took the card but saving the send time failed', async () => {
+      const { code } = await setup();
+      await confirm(code).expect(200);
+      const update = vi.spyOn(prisma.session, 'update').mockRejectedValueOnce(new Error('database is locked'));
+      try {
+        expect((await send(code).expect(200)).body).toEqual({ outcome: 'sent' });
+      } finally {
+        update.mockRestore();
+      }
+      expect(fakeClient.push).toHaveBeenCalledTimes(1);
+      expect((await panelOf(code)).lastSentAt).toBeNull();
+    });
+
+    it('is unavailable when every listed amount is 0, even on a confirmed and current card', async () => {
+      const { code, ids } = await setup();
+      await zeroEveryone(code, ids);
+      await storeConfirmed(code);
+      expect((await send(code).expect(200)).body).toEqual({ outcome: 'unavailable' });
+      expect(fakeClient.push).not.toHaveBeenCalled();
+    });
+
+    it('sends nothing while an amount is undefined, even on a confirmed and current card', async () => {
+      const { code, ids } = await setup();
+      await billConfig(code, { courtFeeSatang: null, absentIds: [ids[4]], removedIds: [ids[5]] });
+      await storeConfirmed(code);
+      expect((await panelOf(code)).ready).toBe(false);
+      expect((await send(code).expect(200)).body).toEqual({ outcome: 'stale' });
+      expect(fakeClient.push).not.toHaveBeenCalled();
+    });
+
     it('refuses before a confirm', async () => {
       const { code } = await setup();
       expect((await send(code).expect(200)).body).toEqual({ outcome: 'not-confirmed' });
@@ -556,5 +733,24 @@ describe('payment card: owner panel, confirm and bot send', () => {
         expect((await panelOf(code)).ended).toBe(true);
       });
     }
+  });
+});
+
+describe('isReady', () => {
+  it('is ready with no warnings or only informational ones', () => {
+    expect(isReady([])).toBe(true);
+    expect(isReady(['EXCESS_CREDIT'])).toBe(true);
+    expect(isReady(['EXCESS_CREDIT', 'UNCOVERED_COST', 'UNRETURNED_SURCHARGE'])).toBe(true);
+  });
+
+  it('blocks on a missing input, alone or next to a notice', () => {
+    expect(isReady(['MISSING_COURT_FEE'])).toBe(false);
+    expect(isReady(['EXCESS_CREDIT', 'MISSING_SHUTTLE_PRICE'])).toBe(false);
+    expect(isReady(['UNKNOWN_SHUTTLE_USE'])).toBe(false);
+  });
+
+  it('blocks on a warning code it does not know', () => {
+    expect(isReady(['SOME_FUTURE_WARNING'])).toBe(false);
+    expect(isReady(['EXCESS_CREDIT', 'SOME_FUTURE_WARNING'])).toBe(false);
   });
 });

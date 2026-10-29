@@ -1,4 +1,4 @@
-import { IsOptional, IsString, MaxLength } from 'class-validator';
+import { IsNotEmpty, IsOptional, IsString, MaxLength } from 'class-validator';
 
 /**
  * Tonight's account, as the host confirms it. All blank (or no body) confirms the account already in effect:
@@ -21,4 +21,13 @@ export class ConfirmPaymentCardDto {
   @IsString()
   @MaxLength(200)
   name?: string;
+
+  /**
+   * The panel's `contentHash` from the read the host is looking at (64 hex characters). Required: a confirm
+   * freezes only the amounts the host saw, and a card that has moved since answers 409 PAYMENT_CHANGED.
+   */
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(128)
+  expectedHash!: string;
 }

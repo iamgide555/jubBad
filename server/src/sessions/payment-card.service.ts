@@ -1,5 +1,5 @@
 import { createHash, timingSafeEqual } from 'node:crypto';
-import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ConflictException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { LineClient } from '../line/line-client.js';
 import { lineConfig } from '../line/line-config.js';
 import { cardTexts, clip, TEXT_MAX } from '../line/line-summary-card.js';
@@ -28,6 +28,11 @@ export interface PaymentPanel {
   ended: boolean;
   /** False while a blocking warning (an amount still undefined) is in `warnings`; notices never block. */
   ready: boolean;
+  /**
+   * sha256 over everything the card would print with the account shown here (the stale rule's hash). Not a
+   * secret: confirm sends it back as `expectedHash`, so it freezes only the amounts the host actually saw.
+   */
+  contentHash: string;
   /** Every bill warning, blocking or not. */
   warnings: string[];
   /** The subset of `warnings` that only informs the host; the rest are the blocking ones. */
@@ -57,6 +62,8 @@ export interface PaymentShareCard {
 /** One read of everything the panel and both send paths need, so all three see the same rows. */
 interface PaymentView {
   panel: PaymentPanel;
+  /** Nobody is listed, or everyone listed owes 0: there is nothing to collect, so no card. */
+  nothingDue: boolean;
   state: PaymentCardState;
   /** The LINE id the bot would push to; null when there is no destination. */
   to: string | null;
@@ -68,7 +75,12 @@ interface PaymentView {
  * Listed as the exceptions rather than listing the blocking ones, so a warning the engine adds later blocks
  * until someone decides otherwise. This differs on purpose from the bill's `readyToCopy`, which blocks on any warning.
  */
-const NOTICES: ReadonlySet<BillWarning> = new Set<BillWarning>(['EXCESS_CREDIT', 'UNCOVERED_COST', 'UNRETURNED_SURCHARGE']);
+const NOTICES: ReadonlySet<string> = new Set<BillWarning>(['EXCESS_CREDIT', 'UNCOVERED_COST', 'UNRETURNED_SURCHARGE']);
+
+/** Every amount is defined: no warning outside the informational NOTICES. A code not listed there blocks. */
+export function isReady(warnings: readonly string[]): boolean {
+  return warnings.every((w) => NOTICES.has(w));
+}
 
 /** Long enough to swallow a double tap from two tabs, short enough that a deliberate resend is never blocked. */
 const BUSY_MS = 5_000;
@@ -83,8 +95,15 @@ export function paymentRetryKey(sessionCode: string, sendId: string): string {
   return `${h.slice(0, 8)}-${h.slice(8, 12)}-5${h.slice(13, 16)}-a${h.slice(17, 20)}-${h.slice(20, 32)}`;
 }
 
-/** sha256 over the card's whole content in a fixed key order; player ids too, so two same-named rows cannot swap amounts unseen. */
-function contentHash(input: PaymentCardInput, rows: PaymentPanel['rows']): string {
+/**
+ * sha256 over the card's whole content in a fixed key order; player ids too, so two same-named rows cannot swap
+ * amounts unseen. A null account hashes as null (the panel before any account exists); for a real account the
+ * canonical form is unchanged, so hashes stored by earlier confirms still compare.
+ */
+function contentHash(
+  input: Omit<PaymentCardInput, 'account'> & { account: PayAccount | null },
+  rows: PaymentPanel['rows']
+): string {
   const canonical = JSON.stringify({
     groupName: input.groupName,
     date: input.date,
@@ -93,7 +112,7 @@ function contentHash(input: PaymentCardInput, rows: PaymentPanel['rows']): strin
     rows: rows.map((r) => [r.playerId, r.name, r.amountSatang, r.absent]),
     settledCount: input.settledCount,
     totalSatang: input.totalSatang,
-    account: [input.account.bank, input.account.number, input.account.name],
+    account: input.account && [input.account.bank, input.account.number, input.account.name],
   });
   return createHash('sha256').update(canonical).digest('hex');
 }
@@ -118,6 +137,8 @@ function sentRecently(lastSentAt: string | null, now: Date): boolean {
  */
 @Injectable()
 export class PaymentCardService {
+  private readonly logger = new Logger(PaymentCardService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly bills: BillService,
@@ -132,17 +153,20 @@ export class PaymentCardService {
 
   /**
    * Under the session lock, so a bill edit cannot land between the read the hash is taken from and the write.
-   * Every confirm makes a new share token: an older link stops working, and the last of two racing confirms wins.
+   * Bound to what the host saw: `expectedHash` is the panel's `contentHash` from the read on their screen, and a
+   * card that has moved since (another tab edited the bill) is refused with PAYMENT_CHANGED before anything is
+   * stored. Every confirm makes a new share token: an older link stops working, and the last of two racing
+   * confirms wins.
    */
   confirm(code: string, dto: ConfirmPaymentCardDto, now: Date = new Date()): Promise<PaymentPanel> {
     return this.lock.run(code, async () => {
       const checked = validatePayAccount(dto);
       if (!checked.ok) throw new BadRequestException({ code: 'PAY_ACCOUNT_INVALID' });
-      const { panel, state, cardInput } = await this.view(code, now);
+      const { panel, nothingDue, state, cardInput } = await this.view(code, now);
       if (panel.target === null) throw new ConflictException({ code: 'PAYMENT_UNAVAILABLE' });
-      if (!panel.ended || !panel.ready || panel.rows.length === 0) {
-        throw new ConflictException({ code: 'PAYMENT_NOT_READY' });
-      }
+      if (!panel.ended || !panel.ready) throw new ConflictException({ code: 'PAYMENT_NOT_READY' });
+      if (nothingDue) throw new ConflictException({ code: 'PAYMENT_NOTHING_DUE' });
+      if (dto.expectedHash !== panel.contentHash) throw new ConflictException({ code: 'PAYMENT_CHANGED' });
       const account = checked.value ?? panel.account;
       if (account === null) throw new ConflictException({ code: 'PAYMENT_NO_ACCOUNT' });
       const confirmed: PaymentCardState = {
@@ -164,10 +188,11 @@ export class PaymentCardService {
    */
   send(code: string, sendId: string, now: Date = new Date()): Promise<PaymentSendOutcome> {
     return this.lock.run(code, async () => {
-      const { panel, state, to, cardInput } = await this.view(code, now);
-      if (panel.target !== 'group' || to === null || !panel.ended) return 'unavailable';
+      const { panel, nothingDue, state, to, cardInput } = await this.view(code, now);
+      if (panel.target !== 'group' || to === null || !panel.ended || nothingDue) return 'unavailable';
       if (!panel.confirmed || panel.account === null) return 'not-confirmed';
-      if (panel.stale) return 'stale';
+      // An amount undefined since the confirm: the card on file no longer stands, as with a bill edit.
+      if (panel.stale || !panel.ready) return 'stale';
       if (sentRecently(state.lastSentAt, now)) return 'busy';
 
       let outcome: Awaited<ReturnType<LineClient['push']>>;
@@ -179,7 +204,13 @@ export class PaymentCardService {
       }
       if (outcome !== 'ok') return outcome;
       const sent: PaymentCardState = { ...state, lastSentAt: now.toISOString() };
-      await this.prisma.session.update({ where: { code }, data: { paymentCard: serializePaymentState(sent) } });
+      try {
+        await this.prisma.session.update({ where: { code }, data: { paymentCard: serializePaymentState(sent) } });
+      } catch {
+        // LINE already has the card, so the answer is still `sent`; only the panel's "ส่งแล้ว" time is lost.
+        // Nothing from the error is logged: it can carry the stored state (account and token).
+        this.logger.warn('payment card sent, but its send time could not be saved');
+      }
       return 'sent';
     });
   }
@@ -202,9 +233,9 @@ export class PaymentCardService {
     const stored = parsePaymentState(session.paymentCard).token;
     if (stored === null || !sameToken(token, stored)) throw new NotFoundException();
 
-    const { panel, cardInput } = await this.view(code, now);
-    // The same gate as the link the host was shown: no link, no card.
-    if (panel.shareUrl === null || panel.account === null) throw new NotFoundException();
+    const { panel, nothingDue, cardInput } = await this.view(code, now);
+    // The same gate as the link the host was shown (no link, no card), with the send path's checks spelled out.
+    if (panel.shareUrl === null || panel.account === null || !panel.ready || nothingDue) throw new NotFoundException();
     const input = cardInput(panel.account);
     const { name, date } = cardTexts(input);
     return {
@@ -249,31 +280,34 @@ export class PaymentCardService {
     const state = parsePaymentState(session.paymentCard);
     const groupAccount = parsePayAccount(session.group.payAccount);
     const account = state.account ?? groupAccount;
-    const cardInput = (payTo: PayAccount): PaymentCardInput => ({
+    const base: Omit<PaymentCardInput, 'account'> = {
       groupName: session.group.name,
       date: session.date,
-      // Only an ended session is ever confirmed or sent; an open one's hash is never compared.
+      // Only an ended session is ever confirmed or sent; an open one's hash moves with `now` and never matches.
       endedAt: session.endedAt ?? now,
       venue: session.venue,
       rows: rows.map(({ name, amountSatang, absent }) => ({ name, amountSatang, absent })),
       settledCount,
       totalSatang,
-      account: payTo,
-    });
+    };
+    const cardInput = (payTo: PayAccount): PaymentCardInput => ({ ...base, account: payTo });
+    const hash = contentHash({ ...base, account }, rows);
 
     // A state missing any part of a confirm (malformed or half-written) reads as never confirmed.
     const confirmed =
       state.account !== null && state.token !== null && state.confirmedAt !== null && state.confirmedHash !== null;
-    const stale =
-      confirmed &&
-      (account === null || rows.length === 0 || contentHash(cardInput(account), rows) !== state.confirmedHash);
+    const stale = confirmed && (account === null || rows.length === 0 || hash !== state.confirmedHash);
     const ended = session.endedAt !== null;
     const { warnings } = bill.result;
     const notices = warnings.filter((w) => NOTICES.has(w));
+    const ready = isReady(warnings);
+    const nothingDue = rows.length === 0 || totalSatang === 0;
     const { liffId, publicAppUrl } = lineConfig();
     const shareUrl =
       destination?.target === 'host' &&
       ended &&
+      ready &&
+      !nothingDue &&
       confirmed &&
       !stale &&
       state.token !== null &&
@@ -286,7 +320,8 @@ export class PaymentCardService {
       panel: {
         target: destination?.target ?? null,
         ended,
-        ready: notices.length === warnings.length,
+        ready,
+        contentHash: hash,
         warnings,
         notices,
         rows,
@@ -299,6 +334,7 @@ export class PaymentCardService {
         lastSentAt: state.lastSentAt,
         shareUrl,
       },
+      nothingDue,
       state,
       to: destination?.to ?? null,
       cardInput,

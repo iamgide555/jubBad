@@ -238,7 +238,7 @@ describe('paymentCardMessages', () => {
     expect(json).not.toMatch(/[\uD800-\uDBFF](?![\uDC00-\uDFFF])/);
   });
 
-  it('stays under 50,000 bytes for 40 rows of 60-character Thai names', () => {
+  it('stays under 30,000 bytes for 40 rows of 60-character Thai names', () => {
     const name = 'ก'.repeat(60);
     const rows = Array.from({ length: 40 }, () => ({
       name,
@@ -248,7 +248,8 @@ describe('paymentCardMessages', () => {
     const json = JSON.stringify(
       paymentCardMessages({ ...INPUT, rows }, 'group'),
     );
-    expect(Buffer.byteLength(json, 'utf8')).toBeLessThan(50_000);
+    // LINE's Messaging API reference caps one Flex bubble at 30 KB (50 KB is the carousel limit).
+    expect(Buffer.byteLength(json, 'utf8')).toBeLessThan(30_000);
   });
 
   it('follows the card with the digits-only number as plain text when the constant says so', () => {

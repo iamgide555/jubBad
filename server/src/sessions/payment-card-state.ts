@@ -2,9 +2,9 @@
  * The only place Session.paymentCard is parsed or written. Tolerant on read:
  * a malformed column reads as the empty state and a bad field reads as null,
  * so a stored value can never break the payment card (same stance as
- * bill-config.ts). The account here is a snapshot taken when the host opens
- * the card, so a later change to the group's account does not alter a card
- * already confirmed.
+ * bill-config.ts). The account here is a snapshot taken when the host
+ * confirms the card, so a later change to the group's account does not alter
+ * a card already confirmed.
  */
 import { randomBytes } from 'node:crypto';
 import { payAccountFromUnknown, type PayAccount } from './pay-account.js';

@@ -11,7 +11,7 @@ import { LineClient } from '../line/line-client.js';
 import { liffPayUrl, paymentCardMessages } from '../line/payment-card.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { UsersService } from '../users/users.service.js';
-import { parsePaymentState } from './payment-card-state.js';
+import { newShareToken, parsePaymentState, serializePaymentState } from './payment-card-state.js';
 import { PaymentCardService, type PaymentPanel } from './payment-card.service.js';
 
 const SECRET = 'payment-share-test-secret';
@@ -89,8 +89,34 @@ describe('GET /sessions/:code/payment-share-card (public, token-gated)', () => {
     process.env = { ...saved };
   });
 
-  const confirm = (code: string) =>
-    request(server).post(`/sessions/${code}/payment-card/confirm`).set('Cookie', ownerCookie).send({}).expect(200);
+  /** Confirms as the panel would, with the content hash of a fresh read. */
+  const confirm = async (code: string) => {
+    const { contentHash } = await payments.panel(code);
+    return request(server)
+      .post(`/sessions/${code}/payment-card/confirm`)
+      .set('Cookie', ownerCookie)
+      .send({ expectedHash: contentHash })
+      .expect(200);
+  };
+  /** Stores a confirm of exactly what the panel shows now, past the confirm route's own refusals. */
+  const storeConfirmed = async (code: string) => {
+    const panel = await payments.panel(code);
+    const token = newShareToken();
+    await prisma.session.update({
+      where: { code },
+      data: {
+        paymentCard: serializePaymentState({
+          account: panel.account,
+          token,
+          confirmedAt: new Date().toISOString(),
+          confirmedHash: panel.contentHash,
+          lastSentAt: null,
+        }),
+      },
+    });
+    expect(await payments.panel(code)).toMatchObject({ confirmed: true, stale: false, shareUrl: null });
+    return token;
+  };
   const tokenOf = async (code: string) =>
     parsePaymentState((await prisma.session.findUniqueOrThrow({ where: { code } })).paymentCard).token!;
   const share = (code: string, query = '') => request(server).get(`/sessions/${code}/payment-share-card${query}`);
@@ -253,6 +279,33 @@ describe('GET /sessions/:code/payment-share-card (public, token-gated)', () => {
       await confirm(code);
       const token = await tokenOf(code);
       await fairBill(code, 80000);
+      await expectSame404(code, `?token=${token}`);
+    });
+
+    it('a confirmed, current card on which every listed amount is 0', async () => {
+      const { code, ids } = await setup();
+      await request(server)
+        .post(`/sessions/${code}/bill-config`)
+        .set('Cookie', ownerCookie)
+        .send({
+          model: 'fair', courtFeeSatang: 61700, courtSplit: 'equal', shuttleSplit: 'byGames',
+          perGameRateSatang: 0, entryFeeSatang: 0, capSatang: null, buffetPriceSatang: 0,
+          buffetShuttlesIncluded: true, startingFeeSatang: 0, hostFeeSatang: 0, walkInFeeSatang: 0, roundingBaht: 1,
+          addedIds: [], removedIds: [], overrides: ids.map((playerId) => ({ playerId, amountSatang: 0 })),
+        })
+        .expect(201);
+      const panel = await payments.panel(code);
+      expect(panel.rows.length).toBeGreaterThan(0);
+      expect(panel.totalSatang).toBe(0);
+      const token = await storeConfirmed(code);
+      await expectSame404(code, `?token=${token}`);
+    });
+
+    it('a confirmed, current card while an amount is undefined', async () => {
+      const { code } = await setup();
+      await prisma.session.update({ where: { code }, data: { shuttlePriceSatang: null } });
+      expect((await payments.panel(code)).ready).toBe(false);
+      const token = await storeConfirmed(code);
       await expectSame404(code, `?token=${token}`);
     });
 

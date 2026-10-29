@@ -1,0 +1,19 @@
+.pay-form {
+  display: grid;
+  gap: var(--space-2);
+  max-width: 28rem;
+}
+
+.pay-form > p {
+  margin: 0;
+}
+
+.pay-field label {
+  margin-bottom: 0.35rem;
+}
+
+.pay-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+}

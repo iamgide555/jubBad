@@ -1,0 +1,19 @@
+<dialog #dialog class="payment-sheet sheet-dialog" (close)="onDialogClose()" aria-labelledby="payment-sheet-title">
+  @if (open()) {
+    <div class="sheet-card">
+      <!-- Sticky, so a long list never scrolls the way out off screen. -->
+      <div class="sheet-header">
+        <h2 id="payment-sheet-title" i18n="@@pay.sheet.title">ใบเก็บเงิน</h2>
+        <button type="button" class="close-top ghost" (click)="closed.emit()" i18n="@@pay.sheet.close">ปิด</button>
+      </div>
+      <app-payment-panel
+        [sessionCode]="sessionCode()"
+        [compact]="true"
+        [refreshKey]="refreshKey()"
+        (closed)="closed.emit()"
+        (sent)="sent.emit()"
+      />
+      <button type="button" class="close ghost" (click)="closed.emit()" i18n="@@pay.sheet.close">ปิด</button>
+    </div>
+  }
+</dialog>

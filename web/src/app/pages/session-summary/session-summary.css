@@ -390,3 +390,10 @@ button.shuttle-cell:hover {
   min-height: var(--tap);
   font-weight: 600;
 }
+
+/* The nudge to send the payment card: a full-width, thumb-sized action above the stats, not a text link. */
+.payment-banner {
+  width: 100%;
+  min-height: var(--tap);
+  margin-bottom: var(--space-2);
+}

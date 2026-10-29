@@ -114,6 +114,14 @@ export const routes: Routes = [
       import('./pages/session-summary/session-summary').then((m) => m.SessionSummary),
   },
   {
+    // Unguarded, same page: the host-share link of the payment card; the
+    // token in the path is the only thing that lets it be read. Its place in
+    // this list does not matter: it has four segments, so it can never match
+    // the two-segment 'line-share/:sessionCode' below, nor that one it.
+    path: 'line-share/pay/:sessionCode/:token',
+    loadComponent: () => import('./pages/line-share/line-share').then((m) => m.LineShare),
+  },
+  {
     // Unguarded: LINE opens this in its own browser on the host's phone (via
     // liff.line.me), where there is no JubBad login. LINE login decides who
     // may share, and the card is the one the public summary link already

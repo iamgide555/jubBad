@@ -8,6 +8,9 @@ import { environment } from '../../../environments/environment';
 import type { SessionSummary as Summary } from '../../core/session-summary.model';
 import type { ShuttleInventory } from '../../core/shuttle.model';
 import type { LineSummaryState } from '../../core/line.model';
+import type { PaymentCardPanel } from '../../core/payment-card.model';
+import { PaymentSheet } from '../../shared/payment-sheet/payment-sheet';
+import { By } from '@angular/platform-browser';
 
 const B = environment.apiBaseUrl;
 
@@ -114,11 +117,43 @@ describe('SessionSummary', () => {
     for (const r of httpMock.match(`${B}/sessions/sess1/line-summary`)) r.flush(lineState);
   };
 
+  // What the owner-only payment-card read answers; no LINE target unless a spec says otherwise, so no banner.
+  const ACCOUNT = { bank: 'กสิกร', number: '123-4-56789-0', name: 'Host Name' };
+  const panelFor = (over: Partial<PaymentCardPanel> = {}): PaymentCardPanel => ({
+    target: null,
+    ended: true,
+    ready: true,
+    contentHash: 'hash-1',
+    warnings: [],
+    notices: [],
+    rows: [{ playerId: 'a', name: 'Amp', amountSatang: 9000, absent: false }],
+    settledCount: 0,
+    totalSatang: 9000,
+    groupAccount: ACCOUNT,
+    account: ACCOUNT,
+    confirmed: false,
+    stale: false,
+    lastSentAt: null,
+    shareUrl: null,
+    ...over,
+  });
+  let paymentPanel: PaymentCardPanel = panelFor();
+  let paymentReadFails = false;
+  const answerPaymentCard = () => {
+    for (const r of httpMock.match(`${B}/sessions/sess1/payment-card`)) {
+      if (paymentReadFails) r.flush('x', { status: 500, statusText: 'x' });
+      else r.flush(paymentPanel);
+    }
+  };
+
   afterEach(() => {
     // Specs about the shuttle log flush their own requests by hand; the card state is not their subject.
     answerLineSummary();
+    answerPaymentCard();
     httpMock.verify();
     lineState = { available: false, sent: false, defaultOn: true, target: 'group', shareUrl: null };
+    paymentPanel = panelFor();
+    paymentReadFails = false;
     history.replaceState(null, '');
   });
 
@@ -152,6 +187,7 @@ describe('SessionSummary', () => {
     await new Promise((r) => setTimeout(r, 0));
     TestBed.tick();
     answerLineSummary();
+    answerPaymentCard();
     await new Promise((r) => setTimeout(r, 0));
     TestBed.tick();
     fixture.detectChanges();
@@ -818,6 +854,36 @@ describe('SessionSummary', () => {
           await new Promise((r) => setTimeout(r, 0));
           TestBed.tick();
         });
+
+        it('re-reads the payment card after the correction, so the banner says the amounts moved', async () => {
+          paymentPanel = panelFor({ target: 'group', confirmed: true, lastSentAt: '2026-10-29T13:00:00.000Z' });
+          await openFirstMatch();
+          expect(el().querySelector('[data-payment-banner]')).toBeNull();
+          (el().querySelector('[data-edit-result]') as HTMLButtonElement).click();
+          fixture.detectChanges();
+          await fixture.whenStable();
+          fixture.detectChanges();
+          for (const name of ['scoreA', 'scoreB']) {
+            const input = el().querySelector(`input[name="${name}"]`) as HTMLInputElement;
+            input.value = name === 'scoreA' ? '10' : '21';
+            input.dispatchEvent(new Event('input'));
+          }
+          fixture.detectChanges();
+          (el().querySelector('[data-winner="B"]') as HTMLButtonElement).click();
+          httpMock.expectOne(`${B}/sessions/sess1/pairings/m64/result/correct`).flush({});
+          await new Promise((r) => setTimeout(r, 0));
+          TestBed.tick();
+          httpMock.expectOne(`${B}/sessions/sess1/summary`).flush(summary());
+          httpMock.expectOne(`${B}/sessions/sess1/shuttles`).flush(ORDINARY);
+          for (const r of httpMock.match(`${B}/sessions/sess1/results`)) r.flush({ games: [] });
+          const reads = httpMock.match(`${B}/sessions/sess1/payment-card`);
+          expect(reads).toHaveLength(1);
+          reads[0].flush(panelFor({ target: 'group', confirmed: true, stale: true, lastSentAt: '2026-10-29T13:00:00.000Z' }));
+          await new Promise((r) => setTimeout(r, 0));
+          TestBed.tick();
+          fixture.detectChanges();
+          expect(el().querySelector('[data-payment-banner]')).not.toBeNull();
+        });
       });
 
       it('gets a correction button on every finished game, even after the session ended', async () => {
@@ -861,6 +927,32 @@ describe('SessionSummary', () => {
         expect(dialog().hasAttribute('open')).toBe(false);
         expect(logRows()[1].textContent).toContain('#2');
         expect(el().querySelector('.shuttle-log-section > summary')!.textContent).toContain('2 ลูก');
+      });
+
+      it('re-reads the payment card after a shuttle correction, so the banner says the amounts moved', async () => {
+        paymentPanel = panelFor({ target: 'group', confirmed: true, lastSentAt: '2026-10-29T13:00:00.000Z' });
+        await load(twoGames(), inventory());
+        expect(el().querySelector('[data-payment-banner]')).toBeNull();
+        editRow(1)!.click();
+        fixture.detectChanges();
+        await Promise.resolve();
+        fixture.detectChanges();
+        (dialog().querySelector('[data-shuttle-chip="s2"]') as HTMLButtonElement).click();
+        fixture.detectChanges();
+        (dialog().querySelector('[data-save-correction]') as HTMLButtonElement).click();
+        httpMock.expectOne(`${B}/sessions/sess1/pairings/g2/shuttles/correct`).flush({});
+        await new Promise((r) => setTimeout(r, 0));
+        TestBed.tick();
+        httpMock.expectOne(`${B}/sessions/sess1/summary`).flush(twoGames());
+        httpMock.expectOne(`${B}/sessions/sess1/shuttles`).flush(inventory());
+        for (const r of httpMock.match(`${B}/sessions/sess1/results`)) r.flush({ games: [] });
+        const reads = httpMock.match(`${B}/sessions/sess1/payment-card`);
+        expect(reads).toHaveLength(1);
+        reads[0].flush(panelFor({ target: 'group', confirmed: true, stale: true, lastSentAt: '2026-10-29T13:00:00.000Z' }));
+        await new Promise((r) => setTimeout(r, 0));
+        TestBed.tick();
+        fixture.detectChanges();
+        expect(el().querySelector('[data-payment-banner]')).not.toBeNull();
       });
 
       it('shows a stale correction as a localized error, keeps the dialog, and re-reads the truth', async () => {
@@ -1076,6 +1168,234 @@ describe('SessionSummary', () => {
         await load(summary());
         expect(q('[data-line-summary-outcome]')?.textContent).toContain('ไม่สำเร็จ');
         expect(q('[data-send-line-summary]')).not.toBeNull();
+      });
+    });
+  });
+  describe('payment card banner and sheet', () => {
+    const q = (selector: string) => (fixture.nativeElement as HTMLElement).querySelector<HTMLElement>(selector);
+    const banner = () => q('[data-payment-banner]');
+    const sheetDialog = () => q('app-payment-sheet dialog') as HTMLDialogElement | null;
+    const settle = async () => {
+      await new Promise((r) => setTimeout(r, 0));
+      TestBed.tick();
+      fixture.detectChanges();
+    };
+
+    describe('as the owner', () => {
+      beforeEach(() => configure(true));
+
+      it('shows for a card nobody confirmed yet', async () => {
+        paymentPanel = panelFor({ target: 'group', confirmed: false });
+        await load(summary());
+        expect(banner()?.textContent).toContain('ส่งใบเก็บเงินเข้ากลุ่ม');
+      });
+
+      it('shows for a confirmed card whose amounts moved on', async () => {
+        paymentPanel = panelFor({ target: 'group', confirmed: true, stale: true, lastSentAt: '2026-10-29T13:00:00.000Z' });
+        await load(summary());
+        expect(banner()).not.toBeNull();
+      });
+
+      it('shows for a confirmed group card the bot has not posted yet', async () => {
+        paymentPanel = panelFor({ target: 'group', confirmed: true, lastSentAt: null });
+        await load(summary());
+        expect(banner()).not.toBeNull();
+      });
+
+      it('shows for an unconfirmed host-target card', async () => {
+        paymentPanel = panelFor({ target: 'host', confirmed: false });
+        await load(summary());
+        expect(banner()).not.toBeNull();
+      });
+
+      it('hides for a fresh confirmed host-target card, since a picker send cannot be seen', async () => {
+        paymentPanel = panelFor({ target: 'host', confirmed: true, lastSentAt: null, shareUrl: 'https://liff.line.me/1/sess1' });
+        await load(summary());
+        expect(banner()).toBeNull();
+      });
+
+      it('hides for a confirmed group card that was posted', async () => {
+        paymentPanel = panelFor({ target: 'group', confirmed: true, lastSentAt: '2026-10-29T13:00:00.000Z' });
+        await load(summary());
+        expect(banner()).toBeNull();
+      });
+
+      it('hides on an ended night with nobody left to collect from', async () => {
+        paymentPanel = panelFor({ target: 'group', confirmed: false, rows: [], totalSatang: 0 });
+        await load(summary());
+        expect(banner()).toBeNull();
+      });
+
+      it('hides on an ended night where everyone listed owes 0', async () => {
+        paymentPanel = panelFor({
+          target: 'group',
+          confirmed: false,
+          rows: [{ playerId: 'a', name: 'Amp', amountSatang: 0, absent: false }],
+          totalSatang: 0,
+        });
+        await load(summary());
+        expect(banner()).toBeNull();
+      });
+
+      it('still shows on a not-ready night whose provisional total is 0 (missing inputs read as 0)', async () => {
+        paymentPanel = panelFor({
+          target: 'group',
+          confirmed: false,
+          ready: false,
+          warnings: ['MISSING_COURT_FEE', 'MISSING_SHUTTLE_PRICE'],
+          rows: [{ playerId: 'a', name: 'Amp', amountSatang: 0, absent: false }],
+          totalSatang: 0,
+        });
+        await load(summary());
+        expect(banner()).not.toBeNull();
+      });
+
+      it('still shows on a not-ready night with no rows yet', async () => {
+        paymentPanel = panelFor({ target: 'group', confirmed: false, ready: false, warnings: ['MISSING_COURT_FEE'], rows: [], totalSatang: 0 });
+        await load(summary());
+        expect(banner()).not.toBeNull();
+      });
+
+      it('still shows while the bill is not ready, so the sheet can say what is missing', async () => {
+        paymentPanel = panelFor({ target: 'group', confirmed: false, ready: false, warnings: ['MISSING_COURT_FEE'] });
+        await load(summary());
+        expect(banner()).not.toBeNull();
+      });
+
+      it('hides when the group has no LINE target', async () => {
+        paymentPanel = panelFor({ target: null, confirmed: false });
+        await load(summary());
+        expect(banner()).toBeNull();
+      });
+
+      it('hides while the session is still open', async () => {
+        paymentPanel = panelFor({ target: 'group', ended: false });
+        await load(summary({ session: { ...summary().session, endedAt: null } }));
+        expect(banner()).toBeNull();
+      });
+
+      it('hides when the payment read fails', async () => {
+        paymentPanel = panelFor({ target: 'group', confirmed: false });
+        paymentReadFails = true;
+        await load(summary());
+        expect(banner()).toBeNull();
+      });
+
+      it('opens the sheet when tapped, and the sheet reads the card', async () => {
+        paymentPanel = panelFor({ target: 'group', confirmed: false });
+        await load(summary());
+        expect(sheetDialog()?.open).toBe(false);
+        banner()!.click();
+        await settle();
+        expect(sheetDialog()?.open).toBe(true);
+        answerPaymentCard();
+        await settle();
+        expect(q('app-payment-sheet [data-payment-panel]')).not.toBeNull();
+      });
+
+      it('closing the sheet keeps the banner while the card is unconfirmed, and reads the card again', async () => {
+        paymentPanel = panelFor({ target: 'group', confirmed: false });
+        await load(summary());
+        banner()!.click();
+        await settle();
+        answerPaymentCard();
+        await settle();
+
+        (q('app-payment-sheet button.close') as HTMLButtonElement).click();
+        await settle();
+        expect(sheetDialog()?.open).toBe(false);
+        expect(httpMock.match(`${B}/sessions/sess1/payment-card`).length).toBe(1);
+        expect(banner()).not.toBeNull();
+      });
+
+      it('drops the banner once a re-read shows the card posted', async () => {
+        paymentPanel = panelFor({ target: 'group', confirmed: false });
+        await load(summary());
+        expect(banner()).not.toBeNull();
+
+        paymentPanel = panelFor({ target: 'group', confirmed: true, lastSentAt: '2026-10-29T13:00:00.000Z' });
+        banner()!.click();
+        await settle();
+        answerPaymentCard();
+        await settle();
+        fixture.debugElement.query(By.directive(PaymentSheet)).componentInstance.sent.emit();
+        await settle();
+        answerPaymentCard();
+        await settle();
+        expect(banner()).toBeNull();
+      });
+
+      it('does not open the sheet on its own without the navigation flag', async () => {
+        paymentPanel = panelFor({ target: 'group', confirmed: false });
+        await load(summary());
+        expect(sheetDialog()?.open).toBe(false);
+      });
+    });
+
+    describe('right after ending with the tick on', () => {
+      beforeEach(() => {
+        history.replaceState({ lineSummary: 'sent', paymentSheet: true }, '');
+        return configure(true);
+      });
+
+      it('opens the sheet once and drops only the flag from the history state', async () => {
+        paymentPanel = panelFor({ target: 'group', confirmed: false });
+        const replace = vi.spyOn(history, 'replaceState');
+        await load(summary());
+        answerPaymentCard();
+        await settle();
+
+        expect(sheetDialog()?.open).toBe(true);
+        expect(replace).toHaveBeenCalledTimes(1);
+        expect(history.state).toEqual({ lineSummary: 'sent' });
+        replace.mockRestore();
+      });
+
+      it('opens the sheet even when the page could not read the card, and still drops only the flag', async () => {
+        paymentPanel = panelFor({ target: 'group', confirmed: false });
+        paymentReadFails = true;
+        await load(summary());
+        await settle();
+        expect(sheetDialog()?.open).toBe(true);
+        expect(history.state).toEqual({ lineSummary: 'sent' });
+        // The panel inside reads for itself and, failing too, offers its own retry.
+        answerPaymentCard();
+        await settle();
+        expect(q('app-payment-sheet [data-load-failed]')).not.toBeNull();
+      });
+
+      it('does not open for a card with no LINE target', async () => {
+        paymentPanel = panelFor({ target: null });
+        await load(summary());
+        expect(sheetDialog()?.open).toBe(false);
+        expect(history.state).toEqual({ lineSummary: 'sent' });
+      });
+
+      it('does not open while the session is still open, but still drops the flag', async () => {
+        paymentPanel = panelFor({ target: 'group', ended: false });
+        await load(summary({ session: { ...summary().session, endedAt: null } }));
+        expect(sheetDialog()?.open).toBe(false);
+        expect(history.state).toEqual({ lineSummary: 'sent' });
+      });
+    });
+
+    describe('for someone who is not the owner', () => {
+      it('a non-owner host reads no payment card and sees no banner or sheet', async () => {
+        paymentPanel = panelFor({ target: 'group', confirmed: false });
+        await configure(true);
+        await load(summary(), 'denied');
+        httpMock.expectNone(`${B}/sessions/sess1/payment-card`);
+        expect(banner()).toBeNull();
+        expect(q('app-payment-sheet')).toBeNull();
+      });
+
+      it('an anonymous viewer reads no payment card and sees no banner or sheet', async () => {
+        paymentPanel = panelFor({ target: 'group', confirmed: false });
+        await configure(false);
+        await load(summary());
+        httpMock.expectNone(`${B}/sessions/sess1/payment-card`);
+        expect(banner()).toBeNull();
+        expect(q('app-payment-sheet')).toBeNull();
       });
     });
   });

@@ -1,0 +1,56 @@
+.bank-field {
+  position: relative;
+  min-width: 0;
+}
+
+.bank-field input {
+  width: 100%;
+}
+
+/* Floats over the fields below rather than pushing them down, like a native autocomplete list. */
+.bank-list {
+  position: absolute;
+  z-index: 5;
+  left: 0;
+  right: 0;
+  margin: 0.3rem 0 0;
+  padding: var(--space-0);
+  list-style: none;
+  background: var(--surface);
+  border: 1.5px solid var(--line);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-md);
+  max-height: 18rem;
+  overflow-y: auto;
+}
+
+/* Options are not focusable: focus stays on the input (aria-activedescendant), and "active" is a class. */
+.bank-option {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-1);
+  min-height: var(--tap);
+  padding: 0.5rem var(--space-1);
+  border-radius: var(--radius);
+  cursor: pointer;
+}
+
+.bank-name {
+  font-weight: 600;
+}
+
+.bank-alias {
+  color: var(--ink-faint);
+  font-size: var(--text-sm);
+}
+
+@media (hover: hover) {
+  .bank-option:hover {
+    background: var(--court-hover);
+  }
+}
+
+.bank-option.active {
+  background: var(--court-soft);
+}

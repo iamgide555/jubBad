@@ -142,4 +142,20 @@ describe('LineService', () => {
     req.flush(body);
     expect(got).toEqual(body);
   });
+
+  it('reads the payment share card with the token as an encoded query parameter', () => {
+    const body = {
+      liffId: '1-a',
+      messages: [{ type: 'flex' }],
+      preview: { name: 'n', date: '2026-10-28', count: 4, totalSatang: 80000, bank: 'KBank', accountName: 'A' },
+    };
+    let got: unknown;
+    service.paymentShareCard('S 1', 'a+b/c').subscribe((r) => (got = r));
+    const req = httpMock.expectOne((r) => r.url === `${B}/sessions/S%201/payment-share-card`);
+    expect(req.request.method).toBe('GET');
+    expect(req.request.params.get('token')).toBe('a+b/c');
+    expect(req.request.urlWithParams).toContain('token=a%2Bb/c');
+    req.flush(body);
+    expect(got).toEqual(body);
+  });
 });

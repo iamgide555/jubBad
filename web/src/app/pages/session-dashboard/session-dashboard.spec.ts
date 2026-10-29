@@ -128,6 +128,10 @@ describe('SessionDashboard', () => {
     for (const req of httpMock.match((r) => r.url.endsWith('/sessions/sess1/rules'))) {
       req.flush({ rules: [], disabledRuleIds: [] });
     }
+    // Opening the end dialog reads the group's pay account for the payment tick's default; most specs are not about it.
+    for (const req of httpMock.match((r) => r.url.endsWith('/groups/group1/pay-account'))) {
+      req.flush({ account: null });
+    }
     httpMock.verify();
   });
 
@@ -957,6 +961,226 @@ describe('SessionDashboard', () => {
 
       dialogButtonWith('จบรอบ').click();
       expect(httpMock.expectOne(`${B}/sessions/sess1/end`).request.body).toEqual({});
+    });
+  });
+
+  describe('payment card tick', () => {
+    const PAY_URL = `${B}/groups/group1/pay-account`;
+    const ACCOUNT = { bank: 'กสิกร', number: '123-4-56789-0', name: 'Host Name' };
+    const lineAvailable = (over: Partial<LineSummaryState> = {}): LineSummaryState => ({
+      available: true,
+      sent: false,
+      defaultOn: true,
+      target: 'group',
+      shareUrl: null,
+      ...over,
+    });
+    const tick = () =>
+      (fixture.nativeElement as HTMLElement).querySelector(
+        'dialog.shuttle-dialog input[data-send-payment-card]'
+      ) as HTMLInputElement | null;
+    const summaryTick = () =>
+      (fixture.nativeElement as HTMLElement).querySelector(
+        'dialog.shuttle-dialog input[data-send-line-summary]'
+      ) as HTMLInputElement | null;
+    const answerAccount = async (account: typeof ACCOUNT | null) => {
+      httpMock.expectOne(PAY_URL).flush({ account });
+      await new Promise((r) => setTimeout(r, 0));
+      fixture.detectChanges();
+    };
+    const finishEnding = async (body: Record<string, unknown>) => {
+      const req = httpMock.expectOne(`${B}/sessions/sess1/end`);
+      expect(req.request.body).toEqual(body);
+      req.flush({ code: 'sess1', endedAt: '2026-09-08T20:00:00.000Z' });
+      await drainReload(baseSession({ endedAt: '2026-09-08T20:00:00.000Z' }));
+    };
+
+    it('is hidden when the group has no LINE target, which makes no pay-account request', async () => {
+      summaryState = () => of(lineAvailable({ available: false, target: null }));
+      await settled();
+      await openEndDialog();
+      httpMock.expectNone(PAY_URL);
+      expect(tick()).toBeNull();
+    });
+
+    it('is hidden when the summary state cannot be read, with no pay-account request, and ending still works', async () => {
+      summaryState = () => throwError(() => new HttpErrorResponse({ status: 500 }));
+      await settled();
+      await openEndDialog();
+      httpMock.expectNone(PAY_URL);
+      expect(tick()).toBeNull();
+      dialogButtonWith('จบรอบ').click();
+      expect(httpMock.expectOne(`${B}/sessions/sess1/end`).request.body).toEqual({});
+    });
+
+    it('is shown even when the summary card already went out', async () => {
+      summaryState = () => of(lineAvailable({ sent: true }));
+      await settled();
+      await openEndDialog();
+      await answerAccount(ACCOUNT);
+      expect(summaryTick()).toBeNull();
+      expect(tick()).not.toBeNull();
+    });
+
+    it('says the tick only opens the check, with the helper line under it', async () => {
+      summaryState = () => of(lineAvailable());
+      await settled();
+      await openEndDialog();
+      await answerAccount(ACCOUNT);
+      const label = tick()!.closest('label')!;
+      expect(label.textContent).toContain('ส่งใบเก็บเงินด้วย');
+      expect(tick()!.closest('.send-payment-card')!.textContent).toContain('จะเปิดให้ตรวจยอดก่อนส่ง');
+    });
+
+    it('reads the group account when the dialog opens, and never the payment card', async () => {
+      summaryState = () => of(lineAvailable());
+      await settled();
+      await openEndDialog();
+      httpMock.expectNone(`${B}/sessions/sess1/payment-card`);
+      expect(httpMock.expectOne(PAY_URL).request.method).toBe('GET');
+    });
+
+    it('starts ticked when the group has an account', async () => {
+      summaryState = () => of(lineAvailable());
+      await settled();
+      await openEndDialog();
+      await answerAccount(ACCOUNT);
+      expect(tick()?.checked).toBe(true);
+    });
+
+    it('starts unticked when the group has no account', async () => {
+      summaryState = () => of(lineAvailable());
+      await settled();
+      await openEndDialog();
+      await answerAccount(null);
+      expect(tick()?.checked).toBe(false);
+    });
+
+    it('starts unticked when the account read fails', async () => {
+      summaryState = () => of(lineAvailable());
+      await settled();
+      await openEndDialog();
+      httpMock.expectOne(PAY_URL).flush('x', { status: 500, statusText: 'x' });
+      await new Promise((r) => setTimeout(r, 0));
+      fixture.detectChanges();
+      expect(tick()?.checked).toBe(false);
+    });
+
+    it('stays unticked and never blocks ending while the account read has not answered', async () => {
+      const router = TestBed.inject(Router);
+      const navigateSpy = vi.spyOn(router, 'navigateByUrl').mockResolvedValue(true);
+      summaryState = () => of(lineAvailable({ defaultOn: false }));
+      await settled();
+      await openEndDialog();
+      expect(tick()?.checked).toBe(false);
+
+      dialogButtonWith('จบรอบ').click();
+      await finishEnding({});
+      expect(navigateSpy).toHaveBeenCalledWith('/s/sess1/summary');
+      // The read was never answered: afterEach drains it.
+    });
+
+    it('does not override the host who ticked before the account read answered', async () => {
+      summaryState = () => of(lineAvailable());
+      await settled();
+      await openEndDialog();
+      tick()!.click();
+      fixture.detectChanges();
+      expect(tick()?.checked).toBe(true);
+      await answerAccount(null);
+      expect(tick()?.checked).toBe(true);
+    });
+
+    it('reopening the dialog starts from the account again, not from the last choice', async () => {
+      summaryState = () => of(lineAvailable());
+      await settled();
+      await openEndDialog();
+      await answerAccount(ACCOUNT);
+      tick()!.click();
+      fixture.detectChanges();
+      expect(tick()?.checked).toBe(false);
+      await openEndDialog();
+      await answerAccount(ACCOUNT);
+      expect(tick()?.checked).toBe(true);
+    });
+
+    it('ticked: ends exactly as before and navigates with the sheet flag', async () => {
+      const router = TestBed.inject(Router);
+      const navigateSpy = vi.spyOn(router, 'navigateByUrl').mockResolvedValue(true);
+      summaryState = () => of(lineAvailable({ defaultOn: false }));
+      await settled();
+      await openEndDialog();
+      await answerAccount(ACCOUNT);
+
+      dialogButtonWith('จบรอบ').click();
+      await finishEnding({});
+      expect(navigateSpy).toHaveBeenCalledWith('/s/sess1/summary', { state: { paymentSheet: true } });
+    });
+
+    it('unticked: the state has no sheet flag at all', async () => {
+      const router = TestBed.inject(Router);
+      const navigateSpy = vi.spyOn(router, 'navigateByUrl').mockResolvedValue(true);
+      summaryState = () => of(lineAvailable({ defaultOn: false }));
+      await settled();
+      await openEndDialog();
+      await answerAccount(null);
+
+      dialogButtonWith('จบรอบ').click();
+      await finishEnding({});
+      expect(navigateSpy).toHaveBeenCalledWith('/s/sess1/summary');
+    });
+
+    it('the two ticks are independent: the summary tick alone decides the end call', async () => {
+      const router = TestBed.inject(Router);
+      const navigateSpy = vi.spyOn(router, 'navigateByUrl').mockResolvedValue(true);
+      summaryState = () => of(lineAvailable());
+      await settled();
+      await openEndDialog();
+      await answerAccount(ACCOUNT);
+      expect(summaryTick()?.checked).toBe(true);
+      expect(tick()?.checked).toBe(true);
+
+      dialogButtonWith('จบรอบ').click();
+      const req = httpMock.expectOne(`${B}/sessions/sess1/end`);
+      expect(req.request.body).toEqual({ sendLineSummary: true });
+      req.flush({ code: 'sess1', endedAt: '2026-09-08T20:00:00.000Z', lineSummary: 'sent' });
+      await drainReload(baseSession({ endedAt: '2026-09-08T20:00:00.000Z' }));
+      expect(navigateSpy).toHaveBeenCalledWith('/s/sess1/summary', { state: { lineSummary: 'sent', paymentSheet: true } });
+    });
+
+    it('unticking the payment tick leaves the summary tick sending', async () => {
+      const router = TestBed.inject(Router);
+      const navigateSpy = vi.spyOn(router, 'navigateByUrl').mockResolvedValue(true);
+      summaryState = () => of(lineAvailable());
+      await settled();
+      await openEndDialog();
+      await answerAccount(ACCOUNT);
+      tick()!.click();
+      fixture.detectChanges();
+
+      dialogButtonWith('จบรอบ').click();
+      const req = httpMock.expectOne(`${B}/sessions/sess1/end`);
+      expect(req.request.body).toEqual({ sendLineSummary: true });
+      req.flush({ code: 'sess1', endedAt: '2026-09-08T20:00:00.000Z', lineSummary: 'sent' });
+      await drainReload(baseSession({ endedAt: '2026-09-08T20:00:00.000Z' }));
+      expect(navigateSpy).toHaveBeenCalledWith('/s/sess1/summary', { state: { lineSummary: 'sent' } });
+    });
+
+    it('a failed end navigates nowhere', async () => {
+      const router = TestBed.inject(Router);
+      const navigateSpy = vi.spyOn(router, 'navigateByUrl').mockResolvedValue(true);
+      summaryState = () => of(lineAvailable());
+      await settled();
+      await openEndDialog();
+      await answerAccount(ACCOUNT);
+
+      dialogButtonWith('จบรอบ').click();
+      httpMock
+        .expectOne(`${B}/sessions/sess1/end`)
+        .flush({ code: 'SESSION_HAS_UNFINISHED_PAIRINGS' }, { status: 409, statusText: 'Conflict' });
+      await new Promise((r) => setTimeout(r, 0));
+      fixture.detectChanges();
+      expect(navigateSpy).not.toHaveBeenCalled();
     });
   });
 

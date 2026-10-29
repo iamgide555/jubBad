@@ -10,6 +10,11 @@ button opens a small page inside LINE (a LIFF app); the host picks a group and L
 from the host's own account. Until this setup is done and `LINE_LIFF_ID` is set, that DM is simply
 not sent and nothing else changes; groups with the bot in the LINE group keep working as before.
 
+The same LIFF app also carries the payment card (ใบเก็บเงิน, design:
+`docs/superpowers/specs/2026-10-29-line-payment-card-design.md`): a host-share group opens
+`https://liff.line.me/<LINE_LIFF_ID>/pay/<code>/<token>` to send it. It needs no new LIFF app, no new
+endpoint and no new environment variable; its checks are in "Payment card checks" below.
+
 You need: the LINE Developers console login that owns the bot's Messaging API channel, and SSH to
 the home server.
 
@@ -113,6 +118,58 @@ LINE users: nginx serves English under `/en/`, and the LIFF endpoint is `<PUBLIC
 
 Also check the card's layout once in LINE's Flex Message Simulator if it looks off on a device.
 
+## Payment card checks
+
+Run these after the payment card is deployed (branch `worktree-feat-line-payment-card`). Use a test
+group with a Host-plan owner, and the host's LINE linked by DM for the host-share checks. Make a
+session with at least a few finished games and a ready bill (court fee, shuttle count and price set),
+then end it.
+
+**Deploy notes.**
+- One new migration, `20261029000000_line_payment_card` (two nullable columns, `Group.payAccount` and
+  `Session.paymentCard`, no backfill). Take `npm run db:backup` first, and check for other
+  undeployed migrations **before** rebuilding, not after.
+- No new environment variables. The host-share link uses the existing `LINE_LIFF_ID` and
+  `PUBLIC_APP_URL`. The web image carries the new `/line-share/pay/:code/:token` page, so deploy the
+  web service as well as the API. Follow `dockerDeploy.md`.
+
+- [ ] Group settings, "บัญชีรับเงิน": the bank list opens on focus and is searchable ("kbank" and "กส"
+      both find กสิกร); a bank typed by hand that is not in the list also saves; save, reload, the
+      fields come back.
+- [ ] Host-share group: end a session with the new "ส่งใบเก็บเงินด้วย" tick on. The summary page opens
+      with the payment sheet over it. Confirm. "เปิดใน LINE เพื่อส่ง" opens the page inside LINE; pick
+      a group and send. The card shows every person's amount, the total and the account, and a
+      plain-text message with only the account number follows it.
+- [ ] Tap the card's copy button on a phone: the number is copied (paste it somewhere to check). On
+      LINE Desktop the button does nothing by design (spike 2026-10-29); the plain-text message
+      right after the card is how a desktop reader copies the number.
+- [ ] Same on a group that already has another bot (for example ขุนทอง).
+- [ ] Bot-linked group: confirm, then "ส่งเข้ากลุ่ม" posts the card into the LINE group, with the
+      number message after it. The copy button renders and works in the bot-sent card. If the button
+      fails there nothing else is needed, since the text message follows; if the extra message matters
+      for the push quota, set `PAYMENT_NUMBER_TEXT.group` to `false` in
+      `server/src/line/payment-card.ts` and redeploy. Note whether the group's quota went down by one
+      message or by one per member (unverified until now).
+- [ ] Bot-linked group: the panel then says "ส่งแล้ว <time>" and the button reads "ส่งอีกครั้ง"; tapping
+      it asks first ("ส่งการ์ดเข้ากลุ่มซ้ำอีกรอบใช่ไหม"), and "ใช่ ส่งเลย" posts a second card.
+- [ ] Edit the bill after confirming so an amount changes: the panel says "ยอดเปลี่ยน, ยืนยันใหม่" and
+      send and the LIFF link are gone until you confirm again. After the re-confirm, the **old** LIFF
+      link shows the "not found" page.
+- [ ] Open the bill in two tabs, change an amount in one, then press Confirm in the other without
+      reloading: confirm is refused with the changed-amounts message ("ยอดเปลี่ยน ตรวจยอดอีกครั้ง"),
+      the panel shows the new amounts, and nothing was stored until you confirm again.
+- [ ] Skip the tick, or close the sheet: the summary page still shows the "ส่งใบเก็บเงินเข้ากลุ่ม"
+      banner and it opens the panel; the bill screen shows the same panel inline.
+- [ ] No account set anywhere: confirm is disabled and the panel points to group settings.
+- [ ] A group with no LINE link, or whose owner's plan has lapsed: no panel on the bill screen and no
+      tick in the จบรอบ dialog.
+- [ ] A night with nothing to collect (everyone removed, or every amount 0): the panel says
+      "ไม่มีใครต้องจ่าย", offers no confirm or send, and the summary page shows no banner.
+- [ ] On a phone, the sheet's close buttons both work: "ปิด" at the top stays visible while a long
+      list scrolls (the sticky header is untested in CI), and "ปิด" at the bottom closes it.
+- [ ] The public summary page, the display (`/s/<code>/display`) and the group dashboard
+      (`/d/<token>`) show no amount and no account number.
+
 ## 6. If something is wrong
 
 - **No DM card at all:** the host target is off. Check `LINE_LIFF_ID` and `PUBLIC_APP_URL` are in
@@ -128,3 +185,12 @@ Also check the card's layout once in LINE's Flex Message Simulator if it looks o
   or the group is not on the host target any more. The page works only for the host target.
 - A host who blocked or unfriended the bot cannot be DMed; the end-of-session dialog reports the
   failure and suggests adding the bot as a friend again.
+- **The host-share payment link says not found:** the card changed since the host confirmed it, or the
+  link is an old one (every confirm makes a new link). Confirm again in the panel and use the new
+  "เปิดใน LINE เพื่อส่ง" button. Also check the session is ended, the group is still on the host
+  target (not linked to a LINE group, the DM switch on, the plan not lapsed), and that
+  `LINE_LIFF_ID` and `PUBLIC_APP_URL` are set.
+- **The panel shows no confirm or send, only a list of what is missing:** the bill is not ready (court
+  fee, shuttle count or price). Fix it on the bill screen; the card never shows a provisional amount.
+- **The card's copy button does nothing:** expected on LINE Desktop. On a phone, copy the number from
+  the plain-text message that follows the card.

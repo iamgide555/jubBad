@@ -15,6 +15,7 @@ import { copyToClipboard } from '../../core/share-link';
 import { PlanLock } from '../../shared/plan-lock/plan-lock';
 import { ShareDashboardPanel } from '../../shared/share-dashboard-panel/share-dashboard-panel';
 import { LineHostLinkPanel } from './line-host-link-panel';
+import { PayAccountPanel } from './pay-account-panel/pay-account-panel';
 
 /** How often the page asks whether the LINE group has linked, while a code is waiting. */
 export const LINE_POLL_MS = 5000;
@@ -28,7 +29,7 @@ export const LINE_POLL_MS = 5000;
  */
 @Component({
   selector: 'app-group-settings-detail',
-  imports: [FormsModule, RouterLink, NgTemplateOutlet, ShareDashboardPanel, PlanLock, LineHostLinkPanel],
+  imports: [FormsModule, RouterLink, NgTemplateOutlet, ShareDashboardPanel, PlanLock, LineHostLinkPanel, PayAccountPanel],
   templateUrl: './group-settings-detail.html',
   styleUrl: './group-settings-detail.css',
 })

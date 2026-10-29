@@ -56,6 +56,10 @@ model Group {
   /// under this group. Per group, so a host with several groups picks which ones the bot
   /// offers; independent of lineGroupId. Cleared for every group when the account unlinks.
   lineDmEnabled       Boolean @default(false)
+  /// The group's bank account for the LINE payment card, as JSON { bank, number,
+  /// name }, or null = none saved. Parsed and written only in
+  /// server/src/sessions/pay-account.ts. Host-only, never public.
+  payAccount          String?
   lineLinkCodes       LineLinkCode[]
   lineRosterMessages  LineRosterMessage[]
 }
@@ -293,6 +297,10 @@ model Session {
   /// that is recomputed on every read. Parsed and written only in
   /// server/src/sessions/bill-config.ts. Null = never saved.
   billConfig          String?
+  /// Per-session LINE payment card state as JSON (account snapshot, share token,
+  /// confirmed-at/hash, last-sent-at). Parsed and written only in
+  /// server/src/sessions/payment-card-state.ts. Null = never opened.
+  paymentCard         String?
   /// JSON-encoded string[] of this group's PlayerRule ids switched off for
   /// this session only. Null or "[]" = none disabled; a malformed non-null
   /// value is invalid session state, never "ignore the rules". Parsed only

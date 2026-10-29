@@ -29,6 +29,17 @@
         <a class="share-to-group" data-share-to-group [href]="url" i18n="@@summary.shareToGroup">ส่งการ์ดเข้ากลุ่ม LINE</a>
       </p>
     }
+    @if (showPaymentBanner()) {
+      <button type="button" class="payment-banner" data-payment-banner (click)="openPaymentSheet()" i18n="@@summary.paymentBanner">ส่งใบเก็บเงินเข้ากลุ่ม</button>
+    }
+    @if (owner()) {
+      <app-payment-sheet
+        [open]="paymentSheetOpen()"
+        [sessionCode]="sessionCode"
+        (closed)="closePaymentSheet()"
+        (sent)="loadPaymentPanel()"
+      />
+    }
 
     @if (s.session.shuttleCount !== null || s.session.shuttlePriceSatang !== null) {
       <p class="muted shuttle-summary">

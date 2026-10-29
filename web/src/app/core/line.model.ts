@@ -55,6 +55,14 @@ export interface LineShareCard {
   preview: { name: string; date: string; venue: string | null; players: number; games: number };
 }
 
+/** Mirrors the server's payment-share-card response: what the LIFF page needs to share a session's payment card. */
+export interface PaymentShareCard {
+  liffId: string;
+  /** The card, plus a text message with the account number when the server adds one; all of them are shared. */
+  messages: unknown[];
+  preview: { name: string; date: string; count: number; totalSatang: number; bank: string; accountName: string };
+}
+
 export interface LineLinkCode {
   code: string;
   expiresAt: string;

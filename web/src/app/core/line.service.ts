@@ -1,8 +1,8 @@
-import { HttpClient } from '@angular/common/http';
+import { HttpClient, HttpParams } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import type { Observable } from 'rxjs';
 import { environment } from '../../environments/environment';
-import type { LatestRoster, LineHostStatus, LineLinkCode, LineShareCard, LineStatus, LineSummaryOutcome, LineSummaryState } from './line.model';
+import type { LatestRoster, LineHostStatus, LineLinkCode, LineShareCard, LineStatus, LineSummaryOutcome, LineSummaryState, PaymentShareCard } from './line.model';
 
 /** Owner-only routes for linking a group to its LINE group and reading the roster the bot kept. */
 @Injectable({ providedIn: 'root' })
@@ -77,6 +77,14 @@ export class LineService {
   shareCard(sessionCode: string): Observable<LineShareCard> {
     return this.http.get<LineShareCard>(
       `${environment.apiBaseUrl}/sessions/${encodeURIComponent(sessionCode)}/line-share-card`,
+    );
+  }
+
+  /** Public, but only with the card's token: the payment card the LIFF page hands to LINE's share picker. Any failure is a 404. */
+  paymentShareCard(sessionCode: string, token: string): Observable<PaymentShareCard> {
+    return this.http.get<PaymentShareCard>(
+      `${environment.apiBaseUrl}/sessions/${encodeURIComponent(sessionCode)}/payment-share-card`,
+      { params: new HttpParams().set('token', token) },
     );
   }
 }

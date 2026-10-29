@@ -146,11 +146,55 @@ describe('paymentCardMessages', () => {
     expect(json).not.toMatch(/margin/i);
   });
 
-  it('sets the alt text from the group name and date, clipped to 400', () => {
+  it('sets the alt text from the group name and the Thai date', () => {
     const [card] = paymentCardMessages(INPUT, 'group') as Node[];
-    expect(card['altText']).toMatch(/^ยอดค่าเล่น ตีชิล /);
-    expect(Array.from(card['altText'] as string).length).toBeLessThanOrEqual(
-      400,
+    expect(card['altText']).toBe('ยอดค่าเล่น ตีชิล 29 ต.ค. 2569');
+  });
+
+  it('falls back to ก๊วน for a group with no name', () => {
+    const [card] = paymentCardMessages(
+      { ...INPUT, groupName: null },
+      'group',
+    ) as Node[];
+    const header = (card['contents'] as { header: Node })['header'];
+    expect(texts(header)).toEqual(['ยอดค่าเล่น', 'ก๊วน']);
+    expect(card['altText']).toBe('ยอดค่าเล่น ก๊วน 29 ต.ค. 2569');
+  });
+
+  it('falls back to the end date in Bangkok time when the session has no date', () => {
+    // 18:00 UTC on the 30th is already the 31st in Bangkok.
+    const input = {
+      ...INPUT,
+      date: null,
+      endedAt: new Date('2026-10-30T18:00:00Z'),
+    };
+    expect(texts(bubble(input))).toContain('31 ต.ค. 2569');
+    const [card] = paymentCardMessages(input, 'group') as Node[];
+    expect(card['altText']).toBe('ยอดค่าเล่น ตีชิล 31 ต.ค. 2569');
+  });
+
+  it('writes a blank or whitespace-only name as "-", never an empty text LINE would reject', () => {
+    const rows = personRows({
+      ...INPUT,
+      rows: [
+        { name: '', amountSatang: 100, absent: false },
+        { name: '   ', amountSatang: 200, absent: true },
+      ],
+    });
+    expect(rows.map((r) => r.name)).toEqual(['-', '- (ไม่มา)']);
+    for (const t of texts(
+      paymentCardMessages(
+        { ...INPUT, rows: [{ name: ' ', amountSatang: 100, absent: false }] },
+        'host',
+      ),
+    )) {
+      expect(t.trim()).not.toBe('');
+    }
+  });
+
+  it('refuses to build a card with nobody to collect from', () => {
+    expect(() => paymentCardMessages({ ...INPUT, rows: [] }, 'group')).toThrow(
+      RangeError,
     );
   });
 
@@ -167,10 +211,27 @@ describe('paymentCardMessages', () => {
       account: { bank: long, number: '123-4-56789-0', name: long },
     };
     const clipped = `${'😀'.repeat(59)}…`;
-    const all = texts(bubble(input));
-    expect(all.filter((t) => t === clipped).length).toBeGreaterThanOrEqual(4);
-    expect(all).toContain(`โอนให้ ${clipped}`);
-    for (const t of all) expect(Array.from(t).length).toBeLessThanOrEqual(70);
+    const card = bubble(input) as {
+      header: Node;
+      body: Node;
+    };
+    // Header: label, group name. Body, in order: date, venue, the person, total, then the account block.
+    expect(texts(card.header)).toEqual(['ยอดค่าเล่น', clipped]);
+    expect(texts(card.body)).toEqual([
+      'วันที่',
+      clipped,
+      'สนาม',
+      clipped,
+      clipped,
+      '฿1',
+      'รวม',
+      '฿1',
+      `โอนให้ ${clipped}`,
+      clipped,
+      '123-4-56789-0',
+    ]);
+    const [message] = paymentCardMessages(input, 'group') as Node[];
+    expect(message['altText']).toBe(`ยอดค่าเล่น ${clipped} ${clipped}`);
     // A lone surrogate would make this round-trip lossy.
     const json = JSON.stringify(paymentCardMessages(input, 'group'));
     expect(JSON.parse(json)).toEqual(paymentCardMessages(input, 'group'));

@@ -18,13 +18,16 @@ export interface SummaryCard {
 }
 
 const GROUP_FALLBACK = 'ก๊วน';
-const ALT_TEXT_MAX = 400;
+export const ALT_TEXT_MAX = 400;
 /** Group name, venue and date are host-typed; clipped so one long entry cannot push the card past LINE's size limit. */
-const TEXT_MAX = 60;
+export const TEXT_MAX = 60;
 // DESIGN.md: court (green) for the header and button, ink for text.
 export const COURT = '#1f6b3d';
 export const INK = '#16130f';
 export const INK_SOFT = '#6b6459';
+/** The small label and the title on the green header. */
+export const HEADER_LABEL = '#e8f3ec';
+export const HEADER_TITLE = '#ffffff';
 
 /** Blank and whitespace-only read as missing: LINE rejects an empty text component. */
 export function present(value: string | null): string | null {
@@ -60,7 +63,8 @@ export function cardDate(date: string | null, endedAt: Date): string {
   return text;
 }
 
-function row(label: string, value: string) {
+/** A label on the left and its value on the right, as the date and venue rows read. */
+export function row(label: string, value: string) {
   return {
     type: 'box',
     layout: 'baseline',
@@ -105,8 +109,8 @@ export function summaryCard(input: SummaryCardInput): SummaryCard {
         backgroundColor: COURT,
         paddingAll: 'lg',
         contents: [
-          { type: 'text', text: 'สรุปก๊วน', size: 'xs', color: '#e8f3ec' },
-          { type: 'text', text: name, size: 'lg', weight: 'bold', color: '#ffffff', wrap: true },
+          { type: 'text', text: 'สรุปก๊วน', size: 'xs', color: HEADER_LABEL },
+          { type: 'text', text: name, size: 'lg', weight: 'bold', color: HEADER_TITLE, wrap: true },
         ],
       },
       body: { type: 'box', layout: 'vertical', spacing: 'md', contents: rows },

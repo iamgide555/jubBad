@@ -1,5 +1,17 @@
 import { copyableNumber, type PayAccount } from '../sessions/pay-account.js';
-import { cardTexts, clip, COURT, INK, INK_SOFT } from './line-summary-card.js';
+import {
+  ALT_TEXT_MAX,
+  cardTexts,
+  clip,
+  COURT,
+  HEADER_LABEL,
+  HEADER_TITLE,
+  INK,
+  INK_SOFT,
+  present,
+  row,
+  TEXT_MAX,
+} from './line-summary-card.js';
 
 export interface PaymentCardInput {
   groupName: string | null;
@@ -24,10 +36,6 @@ export const PAYMENT_NUMBER_TEXT: { group: boolean; host: boolean } = {
   host: true,
 };
 
-const ALT_TEXT_MAX = 400;
-/** Every host-typed text is clipped so one long entry cannot push the card past LINE's size limit. */
-const TEXT_MAX = 60;
-
 /** Satang as the web bill shows it: whole baht without decimals, otherwise two. Mirrors web bill-text.ts. */
 export function formatBaht(satang: number): string {
   const sign = satang < 0 ? '-' : '';
@@ -47,25 +55,6 @@ export function liffPayUrl(
   token: string,
 ): string {
   return `https://liff.line.me/${liffId}/pay/${encodeURIComponent(sessionCode)}/${encodeURIComponent(token)}`;
-}
-
-function infoRow(label: string, value: string) {
-  return {
-    type: 'box',
-    layout: 'baseline',
-    spacing: 'sm',
-    contents: [
-      { type: 'text', text: label, size: 'sm', color: INK_SOFT, flex: 2 },
-      {
-        type: 'text',
-        text: value,
-        size: 'sm',
-        color: INK,
-        flex: 5,
-        wrap: true,
-      },
-    ],
-  };
 }
 
 /** Name on the left, amount right-aligned; the name wraps and the amount never does. */
@@ -99,7 +88,8 @@ function amountRow(name: string, amount: string, bold = false) {
 }
 
 function personRow(person: PaymentCardInput['rows'][number]) {
-  const name = clip(person.name, TEXT_MAX);
+  // A blank name would be an empty text component, which makes LINE reject the whole message.
+  const name = clip(present(person.name) ?? '-', TEXT_MAX);
   const amount =
     person.amountSatang === 0
       ? 'ไม่ต้องโอน'
@@ -115,8 +105,8 @@ function paymentCard(input: PaymentCardInput) {
     name: clip(input.account.name, TEXT_MAX),
   };
 
-  const meta = [infoRow('วันที่', date)];
-  if (venue) meta.push(infoRow('สนาม', venue));
+  const meta = [row('วันที่', date)];
+  if (venue) meta.push(row('สนาม', venue));
 
   const body: unknown[] = [
     { type: 'box', layout: 'vertical', spacing: 'sm', contents: meta },
@@ -182,13 +172,13 @@ function paymentCard(input: PaymentCardInput) {
         backgroundColor: COURT,
         paddingAll: 'lg',
         contents: [
-          { type: 'text', text: 'ยอดค่าเล่น', size: 'xs', color: '#e8f3ec' },
+          { type: 'text', text: 'ยอดค่าเล่น', size: 'xs', color: HEADER_LABEL },
           {
             type: 'text',
             text: name,
             size: 'lg',
             weight: 'bold',
-            color: '#ffffff',
+            color: HEADER_TITLE,
             wrap: true,
           },
         ],
@@ -214,11 +204,19 @@ function paymentCard(input: PaymentCardInput) {
   };
 }
 
-/** The payment card, plus the plain-text account number after it where PAYMENT_NUMBER_TEXT asks for one. */
+/**
+ * The payment card, plus the plain-text account number after it where PAYMENT_NUMBER_TEXT asks for one.
+ * Throws on zero rows: a card asking nobody for money is a caller bug, never something to send.
+ */
 export function paymentCardMessages(
   input: PaymentCardInput,
   target: 'group' | 'host',
 ): unknown[] {
+  if (input.rows.length === 0) {
+    throw new RangeError(
+      'A payment card needs at least one person to collect from',
+    );
+  }
   const messages: unknown[] = [paymentCard(input)];
   if (PAYMENT_NUMBER_TEXT[target]) {
     messages.push({ type: 'text', text: copyableNumber(input.account.number) });

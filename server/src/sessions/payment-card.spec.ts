@@ -243,11 +243,37 @@ describe('payment card: owner panel, confirm and bot send', () => {
       expect(panel.totalSatang).toBe(bill.result.totals.stillDueSatang);
     });
 
+    it('is ready with only an informational warning (excess credit): it shows, and the card confirms and sends', async () => {
+      const { code, ids } = await setup();
+      await prisma.session.update({ where: { code }, data: { shuttleToolsEnabled: true } });
+      // An early-checkout receipt larger than the whole night's cost (court 600 + shuttles 240 baht).
+      await prisma.sessionCheckout.create({
+        data: {
+          sessionId: code, playerId: ids[3], model: 'buffet', amountSatang: 100000,
+          breakdown: JSON.stringify({
+            baseSatang: 100000, shuttleSatang: 0, hostFeeSatang: 0, walkInFeeSatang: 0, discountSatang: 0,
+          }),
+          snapshot: '{}', idempotencyKey: randomUUID(),
+        },
+      });
+      const bill = await bills.getBill(code);
+      expect(bill.result.warnings).toEqual(['EXCESS_CREDIT']);
+      expect(bill.readyToCopy).toBe(false);
+
+      const panel = await panelOf(code);
+      expect(panel).toMatchObject({ ready: true, warnings: ['EXCESS_CREDIT'], notices: ['EXCESS_CREDIT'] });
+      expect(panel.rows.length).toBeGreaterThan(0);
+      expect((await confirm(code).expect(200)).body).toMatchObject({ confirmed: true, stale: false });
+      expect((await send(code).expect(200)).body).toEqual({ outcome: 'sent' });
+      expect(fakeClient.push).toHaveBeenCalledTimes(1);
+    });
+
     it('is not ready while the court fee is missing, and confirm refuses with PAYMENT_NOT_READY', async () => {
       const { code } = await setup({ ready: false });
       const panel = await panelOf(code);
       expect(panel.ready).toBe(false);
       expect(panel.warnings).toContain('MISSING_COURT_FEE');
+      expect(panel.notices).toEqual([]);
       expect((await confirm(code).expect(409)).body.code).toBe('PAYMENT_NOT_READY');
     });
 

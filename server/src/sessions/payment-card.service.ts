@@ -6,6 +6,7 @@ import { cardTexts, clip, TEXT_MAX } from '../line/line-summary-card.js';
 import { LineSummaryService, type LineSummaryTarget } from '../line/line-summary.service.js';
 import { liffPayUrl, paymentCardMessages, type PaymentCardInput } from '../line/payment-card.js';
 import { PrismaService } from '../prisma/prisma.service.js';
+import type { BillWarning } from '../../../engines/bill.ts';
 import { BillService } from './bill.service.js';
 import type { ConfirmPaymentCardDto } from './dto/confirm-payment-card.dto.js';
 import { parsePayAccount, validatePayAccount, type PayAccount } from './pay-account.js';
@@ -25,9 +26,12 @@ export interface PaymentPanel {
   /** Where the card goes, by the summary card's rule; null hides the panel. */
   target: LineSummaryTarget | null;
   ended: boolean;
-  /** The bill's own copy gate (`readyToCopy`): false while an amount is undefined. */
+  /** False while a blocking warning (an amount still undefined) is in `warnings`; notices never block. */
   ready: boolean;
+  /** Every bill warning, blocking or not. */
   warnings: string[];
+  /** The subset of `warnings` that only informs the host; the rest are the blocking ones. */
+  notices: string[];
   /** People still due, in the bill's order. */
   rows: { playerId: string; name: string; amountSatang: number; absent: boolean }[];
   settledCount: number;
@@ -58,6 +62,13 @@ interface PaymentView {
   to: string | null;
   cardInput: (account: PayAccount) => PaymentCardInput;
 }
+
+/**
+ * Warnings that only inform the host: the amounts are well defined on such a night, so the card may still go out.
+ * Listed as the exceptions rather than listing the blocking ones, so a warning the engine adds later blocks
+ * until someone decides otherwise. This differs on purpose from the bill's `readyToCopy`, which blocks on any warning.
+ */
+const NOTICES: ReadonlySet<BillWarning> = new Set<BillWarning>(['EXCESS_CREDIT', 'UNCOVERED_COST', 'UNRETURNED_SURCHARGE']);
 
 /** Long enough to swallow a double tap from two tabs, short enough that a deliberate resend is never blocked. */
 const BUSY_MS = 5_000;
@@ -257,6 +268,8 @@ export class PaymentCardService {
       confirmed &&
       (account === null || rows.length === 0 || contentHash(cardInput(account), rows) !== state.confirmedHash);
     const ended = session.endedAt !== null;
+    const { warnings } = bill.result;
+    const notices = warnings.filter((w) => NOTICES.has(w));
     const { liffId, publicAppUrl } = lineConfig();
     const shareUrl =
       destination?.target === 'host' &&
@@ -273,8 +286,9 @@ export class PaymentCardService {
       panel: {
         target: destination?.target ?? null,
         ended,
-        ready: bill.readyToCopy,
-        warnings: bill.result.warnings,
+        ready: notices.length === warnings.length,
+        warnings,
+        notices,
         rows,
         settledCount,
         totalSatang,

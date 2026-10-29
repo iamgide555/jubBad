@@ -1191,7 +1191,7 @@ describe('SessionSummary', () => {
       it('shows for a card nobody confirmed yet', async () => {
         paymentPanel = panelFor({ target: 'group', confirmed: false });
         await load(summary());
-        expect(banner()?.textContent).toContain('ส่งใบเก็บเงินเข้ากลุ่ม');
+        expect(banner()?.textContent).toContain('เปิดใบเก็บเงิน');
       });
 
       it('shows for a confirmed card whose amounts moved on', async () => {
@@ -1215,7 +1215,7 @@ describe('SessionSummary', () => {
       it('still shows for a fresh confirmed host-target card until the bot has DMed it to the host', async () => {
         paymentPanel = panelFor({ target: 'host', confirmed: true, lastSentAt: null, lastDmAt: null, shareUrl: 'https://liff.line.me/1/sess1' });
         await load(summary());
-        expect(banner()?.textContent).toContain('ส่งใบเก็บเงินเข้ากลุ่ม');
+        expect(banner()?.textContent).toContain('เปิดใบเก็บเงิน');
       });
 
       it('hides for a confirmed host-target card once it was DMed to the host (a picker send cannot be seen)', async () => {

@@ -6553,6 +6553,42 @@
         <source>ลบบัญชีนี้</source>
         <target>Remove this account</target>
       </trans-unit>
+      <trans-unit id="pay.card.reviewSummary" datatype="html">
+        <source>ยอดและบัญชีที่ต้องตรวจ</source>
+        <target>Amounts and receiving account to review</target>
+      </trans-unit>
+      <trans-unit id="pay.card.loading" datatype="html">
+        <source>กำลังโหลดใบเก็บเงิน…</source>
+        <target>Loading payment card…</target>
+      </trans-unit>
+      <trans-unit id="pay.card.confirming" datatype="html">
+        <source>กำลังยืนยันยอดและบัญชี…</source>
+        <target>Confirming amounts and account…</target>
+      </trans-unit>
+      <trans-unit id="pay.card.sendingDm" datatype="html">
+        <source>กำลังส่งใบเก็บเงินให้คุณทาง LINE…</source>
+        <target>Sending the bill to you on LINE…</target>
+      </trans-unit>
+      <trans-unit id="pay.card.sendingGroup" datatype="html">
+        <source>กำลังส่งใบเก็บเงินเข้ากลุ่ม LINE…</source>
+        <target>Sending the bill to the LINE group…</target>
+      </trans-unit>
+      <trans-unit id="pay.card.numberHint" datatype="html">
+        <source>ตัวเลขอย่างน้อย 6 หลัก เว้นวรรคหรือใส่ขีดได้ รวมไม่เกิน 20 ตัวอักษร</source>
+        <target>At least 6 digits; spaces and dashes allowed. Up to 20 characters in total.</target>
+      </trans-unit>
+      <trans-unit id="pay.card.bankTooLong" datatype="html">
+        <source>ชื่อธนาคารยาวได้ไม่เกิน 40 ตัวอักษร</source>
+        <target>Bank name must be 40 characters or fewer</target>
+      </trans-unit>
+      <trans-unit id="pay.card.nameTooLong" datatype="html">
+        <source>ชื่อบัญชียาวได้ไม่เกิน 80 ตัวอักษร</source>
+        <target>Account name must be 80 characters or fewer</target>
+      </trans-unit>
+      <trans-unit id="summary.openPaymentCard" datatype="html">
+        <source>เปิดใบเก็บเงิน</source>
+        <target>Open payment card</target>
+      </trans-unit>
     </body>
   </file>
 </xliff>

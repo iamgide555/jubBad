@@ -121,6 +121,87 @@ describe('PaymentCardPanel', () => {
     expect(el().children).toHaveLength(0);
   });
 
+  it('shows a loading status until the first read resolves', async () => {
+    fixture = TestBed.createComponent(PaymentPanel);
+    fixture.componentRef.setInput('sessionCode', 'sess1');
+    fixture.detectChanges();
+    const req = http.expectOne(URL);
+    expect(q('[data-loading]')?.textContent).toContain('กำลังโหลดใบเก็บเงิน');
+    req.flush(panel());
+    await settle();
+    expect(q('[data-loading]')).toBeNull();
+  });
+
+  it('puts session, total and receiving account before the full roster', async () => {
+    await open();
+    const summary = q('[data-review-summary]')!;
+    expect(summary?.textContent).toContain('ตีชิล');
+    expect(summary?.textContent).toContain('29 ต.ค. 2569');
+    expect(summary?.textContent).toContain('฿200');
+    expect(summary?.textContent).toContain('Host Name');
+    expect(summary?.textContent).toContain('123-4-56789-0');
+    expect(summary.compareDocumentPosition(q('[data-rows]')!) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    await expandAccount();
+    await type('input[data-field="name"]', 'Tonight');
+    expect(summary.textContent).toContain('Tonight');
+    expect(q('[data-preview] [data-row]')).not.toBeNull();
+  });
+
+  it('announces confirmation progress and keeps the focused button', async () => {
+    await open();
+    const button = q('[data-confirm]')!;
+    button.focus();
+    await click('[data-confirm]');
+    const req = http.expectOne(`${URL}/confirm`);
+    expect(button.textContent).toContain('กำลังยืนยัน');
+    expect(q('[aria-live="polite"] [data-progress]')?.textContent).toContain('กำลังยืนยัน');
+    expect(document.activeElement).toBe(button);
+    req.flush(panel({ confirmed: true }));
+    await settle();
+    expect(q('[data-progress]')).toBeNull();
+  });
+
+  it('announces delivery progress until the outcome and re-read finish', async () => {
+    await open(panel({ confirmed: true }));
+    await click('[data-send]');
+    const req = http.expectOne(`${URL}/send`);
+    expect(q('[data-send]')?.textContent).toContain('กำลังส่ง');
+    expect(q('[data-progress]')?.textContent).toContain('กำลังส่ง');
+    req.flush({ outcome: 'sent' });
+    await settle();
+    expect(q('[data-progress]')).not.toBeNull();
+    http.expectOne(URL).flush(panel({ confirmed: true, lastSentAt: '2026-10-29T13:05:00.000Z' }));
+    await settle();
+    expect(q('[data-progress]')).toBeNull();
+  });
+
+  it('links missing account errors to fields and focuses the first invalid input', async () => {
+    await open(panel({ account: null, groupAccount: null }));
+    await type('input[data-field="number"]', '123456');
+    await click('[data-confirm]');
+    http.expectNone(`${URL}/confirm`);
+    const bank = q<HTMLInputElement>('[data-field="bank"] input')!;
+    expect(bank.getAttribute('aria-invalid')).toBe('true');
+    expect(q(`#${bank.getAttribute('aria-describedby')}`)?.textContent).toContain('กรอกช่องนี้');
+    expect(document.activeElement).toBe(bank);
+    await type('[data-field="bank"] input', 'กสิกร');
+    expect(bank.hasAttribute('aria-invalid')).toBe(false);
+  });
+
+  it('rejects an invalid number locally, retaining input and focusing its error', async () => {
+    await open();
+    await expandAccount();
+    await type('input[data-field="number"]', '12abc');
+    await click('[data-confirm]');
+    http.expectNone(`${URL}/confirm`);
+    const number = q<HTMLInputElement>('input[data-field="number"]')!;
+    expect(number.value).toBe('12abc');
+    expect(number.getAttribute('aria-invalid')).toBe('true');
+    expect(document.activeElement).toBe(number);
+    const described = number.getAttribute('aria-describedby')!.split(' ');
+    expect(described.map(id => q(`#${id}`)?.textContent).join(' ')).toContain('6');
+  });
+
   it('lists who owes what, with the total, name left and amount right', async () => {
     await open(panel({ settledCount: 2 }));
     const rows = [...el().querySelectorAll('[data-row]')];
@@ -589,8 +670,8 @@ describe('PaymentCardPanel', () => {
       await settle();
       const reread = http.expectOne(URL);
       expect(off('[data-dm-send]')).toBe(true);
-      // Before the re-read lands: only the optimistic lastDmAt can make the button read "again".
-      expect(q('[data-dm-send]')?.textContent?.trim()).toBe('ส่งให้ฉันอีกครั้ง');
+      // Keep progress until the re-read lands, alongside the optimistic DM timestamp.
+      expect(q('[data-dm-send]')?.textContent).toContain('กำลังส่ง');
       expect(q('[data-last-dm]')?.textContent).toContain('ส่งให้คุณใน LINE แล้ว');
       reread.flush(host({ lastDmAt: '2026-10-29T13:05:00.000Z' }));
       await settle();
@@ -1008,9 +1089,9 @@ describe('PaymentCardPanel', () => {
       const req = http.expectOne(`${URL}/send`);
       req.flush({ outcome: 'sent' });
       await settle();
-      // The re-read is still in flight: already "send again", and not tappable yet.
+      // The re-read is still in flight: explicit progress, and not tappable yet.
       const button = q<HTMLButtonElement>('[data-send]')!;
-      expect(button.textContent).toContain('ส่งอีกครั้ง');
+      expect(button.textContent).toContain('กำลังส่ง');
       button.click();
       await settle();
       http.expectNone(`${URL}/send`);

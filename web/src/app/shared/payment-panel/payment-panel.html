@@ -1,3 +1,6 @@
+@if (loading() && !data()) {
+  <p class="muted" role="status" data-loading i18n="@@pay.card.loading">กำลังโหลดใบเก็บเงิน…</p>
+}
 @if (showRetry()) {
   <p class="error" role="alert" data-load-failed>
     <ng-container i18n="@@pay.card.loadFailed">โหลดใบเก็บเงินไม่สำเร็จ</ng-container>
@@ -24,6 +27,19 @@
       } @else if (nothingDue()) {
         <p class="muted" data-empty i18n="@@pay.card.empty">ไม่มีใครต้องจ่าย</p>
       } @else {
+        @if (actionable()) {
+          <section class="review-summary" data-review-summary i18n-aria-label="@@pay.card.reviewSummary" aria-label="ยอดและบัญชีที่ต้องตรวจ">
+            <p class="review-context"><strong>{{ p.groupName }}</strong><span>{{ p.date }}@if (p.venue) { · {{ p.venue }} }</span></p>
+            <p class="review-total"><span i18n="@@pay.card.total">รวม</span><strong>฿{{ baht(p.totalSatang) }}</strong></p>
+            @if (previewAccount(); as a) {
+              <div class="review-payee">
+                <p i18n="@@pay.card.payTo">โอนให้ {{ a.name }}</p>
+                <p class="muted">{{ a.bank }}</p>
+                <p class="review-number">{{ a.number }}</p>
+              </div>
+            }
+          </section>
+        }
         <!-- A small copy of the LINE card the group receives: its texts, its order, its ฿ format. -->
         <figure class="preview" data-preview i18n-aria-label="@@pay.card.previewLabel" aria-label="ตัวอย่างการ์ดในแชต LINE">
           <div class="preview-head">
@@ -84,7 +100,8 @@
           <div class="account" data-account-fields role="group" tabindex="-1" i18n-aria-label="@@pay.card.accountFields" aria-label="บัญชีรับเงินคืนนี้">
             <div class="field">
               <label [for]="ids.bank" i18n="@@pay.account.bank">ธนาคาร</label>
-              <app-bank-field data-field="bank" [inputId]="ids.bank" [value]="bank()" (valueChange)="edit('bank', $event)" />
+              <app-bank-field data-field="bank" [inputId]="ids.bank" [value]="bank()" [invalid]="!!fieldErrors().bank" [describedBy]="fieldErrors().bank ? ids.bank + '-error' : null" (valueChange)="edit('bank', $event)" />
+              @if (fieldErrors().bank) { <p class="error field-error" [id]="ids.bank + '-error'">{{ fieldErrors().bank }}</p> }
             </div>
             <div class="field">
               <label [for]="ids.number" i18n="@@pay.account.number">เลขบัญชี</label>
@@ -94,9 +111,14 @@
                 type="text"
                 inputmode="numeric"
                 autocomplete="off"
+                maxlength="20"
+                [attr.aria-invalid]="fieldErrors().number ? 'true' : null"
+                [attr.aria-describedby]="ids.number + '-hint' + (fieldErrors().number ? ' ' + ids.number + '-error' : '')"
                 [value]="number()"
                 (input)="edit('number', $any($event.target).value)"
               />
+              <p class="muted field-hint" [id]="ids.number + '-hint'" i18n="@@pay.card.numberHint">ตัวเลขอย่างน้อย 6 หลัก เว้นวรรคหรือใส่ขีดได้ รวมไม่เกิน 20 ตัวอักษร</p>
+              @if (fieldErrors().number) { <p class="error field-error" [id]="ids.number + '-error'">{{ fieldErrors().number }}</p> }
             </div>
             <div class="field">
               <label [for]="ids.name" i18n="@@pay.account.name">ชื่อบัญชี</label>
@@ -106,9 +128,12 @@
                 type="text"
                 autocomplete="off"
                 maxlength="80"
+                [attr.aria-invalid]="fieldErrors().name ? 'true' : null"
+                [attr.aria-describedby]="fieldErrors().name ? ids.name + '-error' : null"
                 [value]="name()"
                 (input)="edit('name', $any($event.target).value)"
               />
+              @if (fieldErrors().name) { <p class="error field-error" [id]="ids.name + '-error'">{{ fieldErrors().name }}</p> }
             </div>
             @if (differsFromGroup()) {
               <button type="button" class="ghost" data-use-group (click)="useGroupAccount()" i18n="@@pay.card.useGroup">ใช้บัญชีของกลุ่ม</button>
@@ -144,7 +169,7 @@
 
         @if (shareUrl(); as url) {
           <details class="other-ways" data-other-ways [open]="dmQuota()">
-            <summary i18n="@@pay.card.otherWays">ส่งวิธีอื่น</summary>
+            <summary><span i18n="@@pay.card.otherWays">ส่งวิธีอื่น</span><app-icon name="chevron" [size]="18" /></summary>
             <div class="other-ways-body">
               <a class="share-link" data-share-link [href]="url" target="_blank" rel="noopener" i18n="@@pay.card.openInLine">เปิดใน LINE เพื่อส่ง</a>
               <p class="muted share-hint" i18n="@@pay.card.openInLineHint">กดแล้วเลือกกลุ่มในแอป LINE</p>
@@ -155,6 +180,9 @@
 
       <!-- Always in the DOM so assistive tech announces changes to its content, not a newly inserted element. -->
       <div class="live" aria-live="polite" role="status">
+        @if (progress(); as status) {
+          <p class="progress" data-progress>{{ status }}</p>
+        }
         @if (actionable()) {
           @if (justConfirmed() && (canSendToGroup() || shareUrl())) {
             <p class="status-ok" data-confirmed>
@@ -190,7 +218,8 @@
               [attr.aria-disabled]="busy() || readFailed() ? 'true' : null"
               (click)="confirm()"
             >
-              @if (reconfirm()) { <ng-container i18n="@@pay.card.reconfirm">ยืนยันใหม่</ng-container> }
+              @if (busy()) { <ng-container i18n="@@pay.card.confirming">กำลังยืนยันยอดและบัญชี…</ng-container> }
+              @else if (reconfirm()) { <ng-container i18n="@@pay.card.reconfirm">ยืนยันใหม่</ng-container> }
               @else { <ng-container i18n="@@pay.card.confirmAccount">ยืนยันยอดและบัญชี</ng-container> }
             </button>
           } @else if (canSendToGroup()) {
@@ -202,7 +231,8 @@
               </div>
             } @else {
               <button type="button" data-send [attr.aria-disabled]="busy() || readFailed() ? 'true' : null" (click)="sendClicked()">
-                @if (p.lastSentAt) { <ng-container i18n="@@pay.card.sendAgain">ส่งอีกครั้ง</ng-container> }
+                @if (busy()) { <ng-container i18n="@@pay.card.sendingGroup">กำลังส่งใบเก็บเงินเข้ากลุ่ม LINE…</ng-container> }
+                @else if (p.lastSentAt) { <ng-container i18n="@@pay.card.sendAgain">ส่งอีกครั้ง</ng-container> }
                 @else { <ng-container i18n="@@pay.card.send">ส่งเข้ากลุ่ม</ng-container> }
               </button>
             }
@@ -215,7 +245,8 @@
               </div>
             } @else {
               <button type="button" data-dm-send [attr.aria-disabled]="busy() || readFailed() ? 'true' : null" (click)="sendDmClicked()">
-                @if (p.lastDmAt) { <ng-container i18n="@@pay.card.dmSendAgain">ส่งให้ฉันอีกครั้ง</ng-container> }
+                @if (busy()) { <ng-container i18n="@@pay.card.sendingDm">กำลังส่งใบเก็บเงินให้คุณทาง LINE…</ng-container> }
+                @else if (p.lastDmAt) { <ng-container i18n="@@pay.card.dmSendAgain">ส่งให้ฉันอีกครั้ง</ng-container> }
                 @else { <ng-container i18n="@@pay.card.dmSendToMe">ส่งใบเก็บเงินให้ฉันทาง LINE</ng-container> }
               </button>
             }

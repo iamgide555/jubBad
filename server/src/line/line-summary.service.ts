@@ -80,6 +80,20 @@ export class LineSummaryService {
   }
 
   /**
+   * Where a LINE card for this session would go, by exactly the summary card's rules (config, link, plan,
+   * finished game), or null. The payment card reads it so the two can never disagree about who gets a card.
+   */
+  async destination(
+    sessionCode: string,
+    now: Date = new Date()
+  ): Promise<{ target: LineSummaryTarget; to: string } | null> {
+    const session = await this.load(sessionCode);
+    if (!session) return null;
+    const resolved = await this.resolve(session, now);
+    return resolved === null ? null : { target: resolved.target, to: resolved.to };
+  }
+
+  /**
    * Post the card. The claim comes first (set only while nobody holds a fresh one and nothing was sent), so two
    * sends racing, or the end dialog racing the summary page's button, cannot both push. "Sent" is recorded only
    * after LINE accepted the push; a failed push gives the claim back, and a claim that was never given back

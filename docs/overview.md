@@ -66,7 +66,7 @@ firsthand host feedback (items A–G, all done) is recorded in `docs/archive/202
 | No LIFF / LINE Login / LINE platform integration | Paste-based import plus manual share means zero technical touchpoint with LINE's platform is needed. Pure UX polish, addable later. **Reversed in part 2026-10-28 (host share card), and only in part.** One LIFF app exists, used as a *share channel* and nothing else: its one page calls `liff.shareTargetPicker` so LINE sends the summary card from the host's own account. LIFF is not an identity provider here and nothing logs the host in to JubBad; a LINE Login appears only when the page is opened outside the LINE app (an iPad), and only to let LINE's picker run. No JubBad login is required on the host's phone. The reason it exists: LINE does not let a bot's Flex card be forwarded (the owner tried it 2026-10-28), so a forward was not an option. Setup: `docs/line-liff-setup.md` |
 | Per-user accounts for hosts, not player accounts | Administrative screens and writes require signing in as a real user (email + password, session cookie signed server-side). Each user owns the groups they create; an admin role sees and manages every user and group. There are still no individual *player* accounts or profiles — this is identity for whoever runs a session, not for who plays in one. Superseded the earlier one-shared-token design (backlog B12, done 2026-09-12); see the per-user-login design doc for the schema and guard design. |
 | Trigger-word LINE bot (reconsidered, still rejected) | The idea: a bot watches the group for a keyword ("Play") then auto-extracts the roster, skipping the manual paste. Rejected on inspection — the LINE Messaging API has no message-history endpoint (confirmed in LINE's docs), so a bot can only look *forward* from when it joins. In real use the roster is posted days before "Play" is typed, so the bot would have to continuously store *all* group messages in a rolling buffer to look backward — that is full passive listening plus retention, the exact risk rejected above, not a lighter trigger-gated version. It also reopens "no infra" and "no posting bot" at once. Revisit only if paste friction proves to be a real dealbreaker; the lower-risk fix for the typing/copying pain is a tap-to-register roster link. **Superseded 2026-10-26:** the owner runs sessions from an iPad that is not logged into their personal LINE, so copying the roster meant logging in and out every week. The design that shipped is not trigger-word: it stores roster-shaped messages only, as they arrive, which is the only look-back LINE allows |
-| No cost-splitting / PromptPay QR in-app | KhunThong (ขุนทอง), KBank/KBTG's LINE bot, already does this well — bill split (equal or not), PromptPay QR, and payment verification by e-slip scan, which the planned v1 didn't even have. The host invites KhunThong separately; no integration needed. **Partly reopened 2026-09-21, and narrowed 2026-09-22, not reversed.** The session now records its shuttle count and price, and every Thai competitor leads with a per-person bill. The owner decided the app will *calculate* each player's share and copy it out as text for LINE, under one of three charging models (fair pay, per game, buffet), with an optional host-fee line. The QR, payment tracking and slip checking stay with KhunThong. Built 2026-09-24 (roadmap C3); see "Bill (C3)" below and `docs/archive/specs/2026-09-22-roadmap-c-series-design.md`. |
+| No cost-splitting / PromptPay QR in-app | KhunThong (ขุนทอง), KBank/KBTG's LINE bot, already does this well — bill split (equal or not), PromptPay QR, and payment verification by e-slip scan, which the planned v1 didn't even have. The host invites KhunThong separately; no integration needed. **Partly reopened 2026-09-21, and narrowed 2026-09-22, not reversed.** The session now records its shuttle count and price, and every Thai competitor leads with a per-person bill. The owner decided the app will *calculate* each player's share and copy it out as text for LINE, under one of three charging models (fair pay, per game, buffet), with an optional host-fee line. The QR, payment tracking and slip checking stay with KhunThong. Built 2026-09-24 (roadmap C3); see "Bill (C3)" below and `docs/archive/specs/2026-09-22-roadmap-c-series-design.md`. The LINE payment card (2026-10-29, see the LINE section) shows an account and each person's amount, but still tracks no payments and checks no slips; those stay with KhunThong. |
 | Score logging: final score only, no live scoreboard | Point-by-point, serve indicators and timers are scope creep nobody asked for. A final score per court is low-friction and still bootstraps the match history that future skill/Elo balancing would need |
 | Per-group host role (resolved 2026-09-08 decision, built 2026-09-12) | Was: one shared admin token distinguished no one from anyone else — equal power for every holder, including deleting a group, with all-or-nothing revocation. Closed by backlog B12: `Group.ownerId` names one owner per group, `OwnershipGuard` refuses any other host with a 404 (never a 403 — that would confirm the code exists), and disabling one user bumps only their `tokenVersion`, signing out just that person's devices. An admin role bypasses ownership and manages every user and group from `/admin`. Built on a branch and merged into `main` on 2026-09-12 (`559ea5a`). |
 | No data-retention/deletion policy (**accepted risk**) | Names persist indefinitely under a group's link code. A host can now export the group as JSON or delete it outright, which covers the practical need without a policy |
@@ -960,6 +960,19 @@ unlike almost every other session mutation — stay reachable after the
 session has ended, since a host normally sits down to bill only once the
 night is actually over.
 
+**The payment card (2026-10-29) is the second way out of the bill.** Besides the
+copied text, an ended session on a LINE-linked group can confirm the same
+per-person amounts plus an account in a panel and send them to the LINE group as
+a card (see "Payment card" in the LINE section). The two outputs gate
+differently, on purpose: the copy-text button still blocks on **any** bill
+warning, while the payment panel blocks only on the warnings that leave an amount
+undefined and lets the three informational ones through (`EXCESS_CREDIT`,
+`UNCOVERED_COST`, `UNRETURNED_SURCHARGE`). On an excess-credit night the panel
+can therefore send while copy-text stays disabled; that disagreement is known and
+accepted. The collector's own share is not netted automatically: when the person
+who receives the money is also a player, mark them ไม่คิดเงิน or override their
+amount on the bill.
+
 ### Correcting a finished result
 
 The host can fix a finished game's winner or score from the session summary,
@@ -1470,6 +1483,131 @@ expired code gets one generic Thai reply (it never says which); a sender who has
     says it cannot share. With it on, the phone in-app flow works.
   - **Still unverified:** that a Developing LINE Login channel refuses non-admin hosts (publish the
     channel; see the runbook), and the iPad / external-browser login.
+- **Payment card, ใบเก็บเงิน (2026-10-29)**
+  (`docs/superpowers/specs/2026-10-29-line-payment-card-design.md`; checks in
+  `docs/line-liff-setup.md`). Built on branch `worktree-feat-line-payment-card`, not yet deployed.
+  A second LINE card with one row per person still due (name, amount in whole baht at the bill's
+  rounding step), the total, "จ่ายแล้ว N คน" when anyone settled early, the account to pay into
+  ("โอนให้ <ชื่อบัญชี>", bank, number, printed large) and a "คัดลอกเลขบัญชี" button. Thai only, like the
+  copied bill text. It reaches the group by the same two target paths as the summary card
+  (`group`: the bot posts; `host`: the host's own account through the LIFF share picker), under the
+  same rule (LINE linked, Host plan or higher, not paused). The bill itself is unchanged and stays
+  owner-only.
+  - **Why a separate card.** The summary card is a recap that never changes once it is out and keeps
+    its exactly-once send; a payment request changes whenever the bill is corrected (ไม่มา, early
+    checkout, a fixed shuttle count), so it must be resendable. The summary card also mirrors the
+    **public** summary page, and amounts plus a bank account must not be public. The summary card,
+    its retry key and `lineSummarySentAt` are untouched, so both targets of the summary behave
+    exactly as before.
+  - **Account.** `Group.payAccount` is the group's default (bank, number, account name), edited in
+    group settings under "บัญชีรับเงิน" (`/g/:code/settings/payment`, `GET`/`PUT
+    /groups/:code/pay-account`). The panel works without a LINE link or a paid plan, so a lapsed
+    host can still clear it. The bank field is a searchable list of 12 (กรุงไทย, กรุงเทพ, กสิกร,
+    ธนชาต, ไทยพาณิชย์, ซีไอเอ็มบี, ยูโอบี, กรุงศรี, ออมสิน, แลนด์แอนด์เฮ้าส์, ทิสโก้, PromptPay; typing
+    "kbank" or "กส" both find กสิกร) and also accepts any typed bank, so a wallet or a credit union is
+    never blocked. What is stored is the display name as plain text, never a code, so editing the
+    list in the web app cannot change a saved account. Limits: bank 40 characters, account name 80,
+    number 6-20 characters of digits, spaces and dashes with at least 6 digits. Either all three
+    fields are given or none (a partial entry is 400 `PAY_ACCOUNT_INVALID`; all blank clears it).
+    The copied text is the number with spaces and dashes removed. The collector's own share is not
+    netted automatically: use ไม่คิดเงิน or an override on the bill.
+  - **One confirm panel, two homes.** The panel shows exactly what the card will say (rows, total,
+    the account fields prefilled from the group default) and is the only confirm step. It is one
+    component, embedded on the bill screen (`/s/:code/bill`) and opened as a bottom sheet on the
+    session summary page. The three account fields can be overwritten for tonight; the override is
+    stored on the session only at confirm (`Session.paymentCard`), and an unconfirmed edit is kept
+    in the web app's memory for as long as it stays open (no browser storage) and is lost on a
+    reload. The panel is absent, with no hint, when the session has no LINE target. Where it
+    appears:
+    - **End of session.** Next to the summary tick the จบรอบ dialog has a second tick,
+      "ส่งใบเก็บเงินด้วย", shown whenever the group has a LINE target and checked by default when the
+      group has a saved account. Its label promises a check step, not a send. After the end succeeds
+      the app lands on the summary page as before and opens the panel as a sheet; nothing goes out
+      until the host presses a send button in it. The end itself never waits on this: the tick's
+      account read is fired after the target is known and never holds up ending, and a bill that
+      is not ready only changes what the sheet says. The sheet has a close button at the top (in a
+      sticky header) and at the bottom; closing sends nothing and loses nothing.
+    - **Summary-page banner.** For the owner of an ended session with a target, "ส่งใบเก็บเงินเข้ากลุ่ม"
+      opens the same sheet. It shows when the card has never been confirmed, or was confirmed and the
+      bill has changed since, or (`group` target only, where a send is observable) was confirmed but
+      the bot has not posted it yet. It also shows while the bill is not ready, so the sheet can name
+      what is missing. It does not show when there is nothing to collect (no one is due, or every
+      listed amount is 0). Saving a correction on the summary page reads the panel again, so the
+      banner follows the amounts.
+    - **Bill screen**, any time, the same panel inline (a not-yet-ended session shows a read-only
+      preview marked as sample amounts).
+  - **Sending needs** an ended session, a ready bill, at least one person due, a non-zero total and
+    an account. "Ready" is narrower than the bill's own copy-text gate: a warning that leaves every
+    amount well defined (`EXCESS_CREDIT`, `UNCOVERED_COST`, `UNRETURNED_SURCHARGE`) is shown as a
+    notice but does not block, while a missing court fee, shuttle count or price (anything else,
+    including a warning code the engine adds later) blocks, and while it blocks the panel shows only
+    what is missing, never a provisional amount. A card with nobody to collect from shows
+    "ไม่มีใครต้องจ่าย" and offers nothing.
+  - **Confirm is bound to what the host saw.** The panel read carries a `contentHash` (sha256 over
+    everything the card would print: group name, date, venue, each row's player id, name, amount and
+    ไม่มา flag, settled count, total, account). Confirm sends it back as `expectedHash`; if the bill
+    moved since that read (another tab, a correction) the server refuses with 409 `PAYMENT_CHANGED`
+    and stores nothing, and the panel says the amounts changed and reads them again. Without this a
+    host could confirm amounts they never saw. The same hash, stored at confirm as `confirmedHash`,
+    is the **stale** rule: editing the bill, renaming the group or changing the date or venue after
+    a confirm makes the card stale, the panel says "ยอดเปลี่ยน, ยืนยันใหม่", and send and the share
+    link are refused until the host confirms again. An edit to the account fields in the panel
+    asks to confirm again too. Other refusals are 409 `PAYMENT_UNAVAILABLE` (no target),
+    `PAYMENT_NOT_READY`, `PAYMENT_NOTHING_DUE` and `PAYMENT_NO_ACCOUNT`.
+  - **Send, `group` target.** The panel's send button has the bot post the confirmed card into the
+    linked LINE group (`POST /sessions/:code/payment-card/send`, always 200 with an `outcome`:
+    `sent`, `quota`, `failed`, `unavailable`, `not-confirmed`, `stale`, `busy`). Unlike the summary
+    card there is **no exactly-once**: a deliberate second send must go out. Each tap carries a
+    client `sendId` and the LINE retry key derives from the session code and that id (a different
+    input from both summary keys), so a network retry of one tap is dropped by LINE while a new tap
+    posts again. The panel keeps the same `sendId` for an attempt with no definite answer (a failed
+    or lost response) so its retry cannot double-post, and re-reads after every outcome. After a
+    send the panel shows "ส่งแล้ว <เวลา>" and the button reads "ส่งอีกครั้ง", which asks to confirm
+    first. A 5-second busy guard on the stored send time swallows a double tap from a second tab
+    (the push runs under the session lock). Only an accepted push writes the send time; if LINE took
+    the card but saving the time failed, the answer is still `sent`. Everything is re-read at send
+    time, so a lapsed plan, an unlinked group or a bill edited since the confirm sends nothing.
+  - **Send, `host` target.** Once confirmed and current, the panel shows "เปิดใน LINE เพื่อส่ง", a
+    link to `https://liff.line.me/<LINE_LIFF_ID>/pay/<code>/<token>`; the LIFF app endpoint is the
+    existing `<PUBLIC_APP_URL>/line-share`, and LIFF appends the path, so the page is
+    `/line-share/pay/:code/:token` (also reached through the `?liff.state=` first redirect, and a
+    bare `/pay` still falls through to the summary flow). It runs the same share picker as the
+    summary card, so it works in a group that already has another bot. The server cannot see a
+    share-picker send, so this target has no "sent" state and no resend prompt, and the banner
+    treats a fresh confirm as done. The link needs `LINE_LIFF_ID` and `PUBLIC_APP_URL` (no new
+    variable); without them no link is shown. The page never renders the token.
+  - **Copy button and the plain-text number.** `PAYMENT_NUMBER_TEXT = { group: true, host: true }`
+    in `server/src/line/payment-card.ts`: **both paths send a second plain-text message holding only
+    the digits of the account number** after the card. Why: the owner's real-LINE spike on
+    2026-10-29 sent a test Flex card with a `clipboard` button through the share picker. It renders,
+    and on LINE mobile the button copies the number; on **LINE Desktop it does nothing**. A text
+    message can be selected and copied on every client, so it stays on both paths, and the number
+    is also printed in the card body. The cost is one extra message per send (on the bot path one
+    more against the push quota). Flip a flag to `false` and redeploy to drop the text message for
+    that path.
+  - **Security model.** The bill stays owner-only. The only new public read is `GET
+    /api/sessions/:code/payment-share-card?token=` for the LIFF page: a bearer link like the group
+    dashboard's `/d/:token`, not a session code. The token is 128 random bits (base64url) held in
+    `Session.paymentCard`, **rotated on every confirm** (an older link dies, and of two racing
+    confirms the last wins), compared in constant time, and every failure is the same 404 (no
+    session, not ended, never confirmed, wrong or stale token, a changed card, target not `host`,
+    nothing due, an amount undefined, feature not configured), so nothing says which. It returns the
+    card, the LIFF id and a small preview, nothing else (no group code, owner or token). It skips the
+    auth-boundary walk by exact path, like `line-share-card`. `Group.payAccount` and
+    `Session.paymentCard` are JSON strings parsed in one tolerant helper each (anything malformed,
+    partial or over-limit reads as absent, so a bad value can never break a bill read or ending a
+    session), and neither appears in the group read, the export, the public summary, the display
+    feed or the group dashboard (a spec asserts it). Owner routes, no `@Public`: `GET
+    /sessions/:code/payment-card`, `POST .../confirm`, `POST .../send`. Schema: migration
+    `20261029000000_line_payment_card`, two nullable columns, no backfill.
+  - **Verified vs not.** Verified on a real phone 2026-10-29 by the spike: a Flex `clipboard` button
+    in a picker-sent card renders and copies on LINE mobile, does nothing on LINE Desktop. **Still
+    unverified:** that the same button renders and copies in a card the *bot* pushes into a group,
+    and whether a group push counts once or once per member against the monthly quota (the summary
+    card already pushes to groups; this adds a push, and with the text message two messages, per
+    send). Both are checks in the runbook. The sticky sheet header is untested in CI (jsdom has no
+    layout). The ซีไอเอ็มบี spelling is the writer's reading of the owner's "ซีไอเอ็บบี", still to be
+    confirmed.
 - **One bot per group (confirmed 2026-10-27):** LINE keeps only one bot in a group chat; a second
   one invited leaves at once and the first stays. A group that already has a bot (most real ก๊วน
   have ขุนทอง for payments) cannot have this bot in the chat, so the group listener (roster capture
@@ -1494,7 +1632,7 @@ undo, resting players, wait timers, one-tap fill, all four pairing modes
 archive, the public session summary, player pages, the host-only player roster
 page (contact details, plus rank by rating or win rate), manual add on the
 roster review screen (and rename or remove of any parsed name), adding a walk-in to a running session, shuttle count
-and price, the per-person bill (C3), export and delete, per-user host login
+and price, the per-person bill (C3) with a LINE payment card, export and delete, per-user host login
 with an admin console, and a PWA manifest (no service worker, so no offline
 use).
 

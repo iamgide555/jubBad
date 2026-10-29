@@ -19,7 +19,7 @@ export interface PaymentCardInput {
   date: string | null;
   endedAt: Date;
   venue: string | null;
-  /** One entry per person, in the bill's own order (the same order as the copied text). */
+  /** One entry per person, in the order the card prints them (the service sorts them by name). */
   rows: { name: string; amountSatang: number; absent: boolean }[];
   settledCount: number;
   totalSatang: number;
@@ -99,8 +99,25 @@ function personRow(person: PaymentCardInput['rows'][number]) {
   return amountRow(person.absent ? `${name} (ไม่มา)` : name, amount);
 }
 
-/** `extraButtons` follow the copy button in the footer (the DM card's "ส่งเข้ากลุ่ม"). */
-function paymentCard(input: PaymentCardInput, extraButtons: unknown[] = []) {
+const copyButton = (input: PaymentCardInput, style: 'primary' | 'secondary') => ({
+  type: 'button',
+  style,
+  ...(style === 'primary' ? { color: COURT } : {}),
+  action: {
+    type: 'clipboard',
+    label: 'คัดลอกเลขบัญชี',
+    clipboardText: copyableNumber(input.account.number),
+  },
+});
+
+/**
+ * The bubble with `footer` as its footer contents; by default the group card's one primary copy button.
+ * Only the footer differs between the group card and the DM card.
+ */
+function paymentCard(
+  input: PaymentCardInput,
+  footer: unknown[] = [copyButton(input, 'primary')],
+) {
   const { name, date, venue } = cardTexts(input);
   const account = {
     bank: clip(input.account.bank, TEXT_MAX),
@@ -166,7 +183,11 @@ function paymentCard(input: PaymentCardInput, extraButtons: unknown[] = []) {
 
   return {
     type: 'flex',
-    altText: clip(`ยอดค่าเล่น ${name} ${date}`, ALT_TEXT_MAX),
+    // The chat list shows only the alt text: the total there tells members what the card is before they open it.
+    altText: clip(
+      `ยอดค่าเล่น ${name} ${date} · รวม ฿${formatBaht(input.totalSatang)}`,
+      ALT_TEXT_MAX,
+    ),
     contents: {
       type: 'bubble',
       header: {
@@ -190,19 +211,8 @@ function paymentCard(input: PaymentCardInput, extraButtons: unknown[] = []) {
       footer: {
         type: 'box',
         layout: 'vertical',
-        contents: [
-          {
-            type: 'button',
-            style: 'primary',
-            color: COURT,
-            action: {
-              type: 'clipboard',
-              label: 'คัดลอกเลขบัญชี',
-              clipboardText: copyableNumber(input.account.number),
-            },
-          },
-          ...extraButtons,
-        ],
+        ...(footer.length > 1 ? { spacing: 'sm' } : {}),
+        contents: footer,
       },
     },
   };
@@ -233,9 +243,10 @@ export function paymentCardMessages(
 }
 
 /**
- * The card the bot DMs to the host: one bubble, the payment card plus a secondary "ส่งเข้ากลุ่ม" button (the
- * summary card's) that opens the share page, where the host's LINE picks the chat. No text message after it:
- * the host reads it on their own phone, the number is printed in the card and the clipboard button stays.
+ * The card the bot DMs to the host: one bubble, the payment card with a footer of its own. Forwarding is the
+ * one thing the host does with it, so "ส่งเข้ากลุ่ม" (opens the share page, where the host's LINE picks the chat)
+ * is the primary button, first, under a muted line saying the group has not seen the card yet; the copy button
+ * stays, secondary, below it. No text message after it: the number is printed in the card.
  */
 export function paymentDmMessages(
   input: PaymentCardInput,
@@ -245,10 +256,19 @@ export function paymentDmMessages(
   return [
     paymentCard(input, [
       {
+        type: 'text',
+        text: 'การ์ดนี้ยังไม่อยู่ในกลุ่ม',
+        size: 'xs',
+        color: INK_SOFT,
+        wrap: true,
+      },
+      {
         type: 'button',
-        style: 'secondary',
+        style: 'primary',
+        color: COURT,
         action: { type: 'uri', label: 'ส่งเข้ากลุ่ม', uri: shareUrl },
       },
+      copyButton(input, 'secondary'),
     ]),
   ];
 }

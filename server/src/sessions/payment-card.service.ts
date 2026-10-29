@@ -37,7 +37,14 @@ export interface PaymentPanel {
   warnings: string[];
   /** The subset of `warnings` that only informs the host; the rest are the blocking ones. */
   notices: string[];
-  /** People still due, in the bill's order. */
+  /**
+   * The card's header texts exactly as the card prints them (`cardTexts`: group-name fallback, Thai date,
+   * clipped), so the panel's preview reads the same as the card the group receives.
+   */
+  groupName: string;
+  date: string;
+  venue: string | null;
+  /** People still due, sorted by name (Thai collation, then player id): the card's order too. */
   rows: { playerId: string; name: string; amountSatang: number; absent: boolean }[];
   settledCount: number;
   totalSatang: number;
@@ -321,12 +328,18 @@ export class PaymentCardService {
     const bill = await this.bills.getBill(code);
     const destination = await this.summary.destination(code, now);
 
-    // The bill's own order, as the copied text lists people: still due only (removed and settled are not rows).
+    // Still due only (removed and settled are not rows), sorted by name so a member finds their own line at a
+    // glance; the player id breaks a tie between same-named people, so the order (and the hash) never moves.
     const billed = new Map(bill.result.rows.filter((r) => r.status === 'billed').map((r) => [r.playerId, r]));
-    const rows = bill.players.flatMap((p) => {
-      const row = billed.get(p.playerId);
-      return row ? [{ playerId: p.playerId, name: p.name, amountSatang: row.amountSatang, absent: row.absent }] : [];
-    });
+    const rows = bill.players
+      .flatMap((p) => {
+        const row = billed.get(p.playerId);
+        return row ? [{ playerId: p.playerId, name: p.name, amountSatang: row.amountSatang, absent: row.absent }] : [];
+      })
+      .sort(
+        (a, b) =>
+          a.name.localeCompare(b.name, 'th') || (a.playerId < b.playerId ? -1 : a.playerId > b.playerId ? 1 : 0)
+      );
     const totalSatang = rows.reduce((sum, r) => sum + r.amountSatang, 0);
     const settledCount = bill.settled.length;
 
@@ -355,6 +368,7 @@ export class PaymentCardService {
     const notices = warnings.filter((w) => NOTICES.has(w));
     const ready = isReady(warnings);
     const nothingDue = rows.length === 0 || totalSatang === 0;
+    const header = cardTexts(base);
     const { liffId, publicAppUrl } = lineConfig();
     const shareUrl =
       destination?.target === 'host' &&
@@ -375,6 +389,9 @@ export class PaymentCardService {
         ended,
         ready,
         contentHash: hash,
+        groupName: header.name,
+        date: header.date,
+        venue: header.venue,
         warnings,
         notices,
         rows,

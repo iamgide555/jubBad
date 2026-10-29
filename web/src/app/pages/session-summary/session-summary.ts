@@ -332,6 +332,8 @@ export class SessionSummary {
       this.correctionSaving.set(false);
       this.summaryResource.reload();
       void this.loadInventory();
+      // Shuttles feed the bill: the banner must see a confirmed card go stale.
+      void this.loadPaymentPanel();
     }
   }
 
@@ -383,6 +385,8 @@ export class SessionSummary {
       this.resultSaving.set(false);
       this.summaryResource.reload();
       void this.loadInventory();
+      // Games feed the bill: the banner must see a confirmed card go stale.
+      void this.loadPaymentPanel();
     }
   }
 
@@ -457,7 +461,9 @@ export class SessionSummary {
 
   /**
    * Right after ending with the payment tick on, the dashboard asks for the sheet through the history state.
-   * It opens once, then the flag is dropped (other keys stay) so a refresh does not open it again.
+   * It opens once, then the flag is dropped (other keys stay) so a refresh does not open it again. When this
+   * page's own read failed it opens anyway: the host asked for it, and the panel inside reads for itself and
+   * offers a retry.
    */
   private openSheetFromNavigation(): void {
     const state = history.state as { paymentSheet?: boolean } | null;
@@ -466,7 +472,7 @@ export class SessionSummary {
     delete rest.paymentSheet;
     history.replaceState(rest, '');
     const p = this.paymentPanel();
-    if (p?.ended && p.target !== null) this.paymentSheetOpen.set(true);
+    if (p === null || (p.ended && p.target !== null)) this.paymentSheetOpen.set(true);
   }
 
   protected openPaymentSheet(): void {

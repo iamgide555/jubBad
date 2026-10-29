@@ -123,6 +123,7 @@ describe('SessionSummary', () => {
     target: null,
     ended: true,
     ready: true,
+    contentHash: 'hash-1',
     warnings: [],
     notices: [],
     rows: [{ playerId: 'a', name: 'Amp', amountSatang: 9000, absent: false }],
@@ -853,6 +854,36 @@ describe('SessionSummary', () => {
           await new Promise((r) => setTimeout(r, 0));
           TestBed.tick();
         });
+
+        it('re-reads the payment card after the correction, so the banner says the amounts moved', async () => {
+          paymentPanel = panelFor({ target: 'group', confirmed: true, lastSentAt: '2026-10-29T13:00:00.000Z' });
+          await openFirstMatch();
+          expect(el().querySelector('[data-payment-banner]')).toBeNull();
+          (el().querySelector('[data-edit-result]') as HTMLButtonElement).click();
+          fixture.detectChanges();
+          await fixture.whenStable();
+          fixture.detectChanges();
+          for (const name of ['scoreA', 'scoreB']) {
+            const input = el().querySelector(`input[name="${name}"]`) as HTMLInputElement;
+            input.value = name === 'scoreA' ? '10' : '21';
+            input.dispatchEvent(new Event('input'));
+          }
+          fixture.detectChanges();
+          (el().querySelector('[data-winner="B"]') as HTMLButtonElement).click();
+          httpMock.expectOne(`${B}/sessions/sess1/pairings/m64/result/correct`).flush({});
+          await new Promise((r) => setTimeout(r, 0));
+          TestBed.tick();
+          httpMock.expectOne(`${B}/sessions/sess1/summary`).flush(summary());
+          httpMock.expectOne(`${B}/sessions/sess1/shuttles`).flush(ORDINARY);
+          for (const r of httpMock.match(`${B}/sessions/sess1/results`)) r.flush({ games: [] });
+          const reads = httpMock.match(`${B}/sessions/sess1/payment-card`);
+          expect(reads).toHaveLength(1);
+          reads[0].flush(panelFor({ target: 'group', confirmed: true, stale: true, lastSentAt: '2026-10-29T13:00:00.000Z' }));
+          await new Promise((r) => setTimeout(r, 0));
+          TestBed.tick();
+          fixture.detectChanges();
+          expect(el().querySelector('[data-payment-banner]')).not.toBeNull();
+        });
       });
 
       it('gets a correction button on every finished game, even after the session ended', async () => {
@@ -896,6 +927,32 @@ describe('SessionSummary', () => {
         expect(dialog().hasAttribute('open')).toBe(false);
         expect(logRows()[1].textContent).toContain('#2');
         expect(el().querySelector('.shuttle-log-section > summary')!.textContent).toContain('2 ลูก');
+      });
+
+      it('re-reads the payment card after a shuttle correction, so the banner says the amounts moved', async () => {
+        paymentPanel = panelFor({ target: 'group', confirmed: true, lastSentAt: '2026-10-29T13:00:00.000Z' });
+        await load(twoGames(), inventory());
+        expect(el().querySelector('[data-payment-banner]')).toBeNull();
+        editRow(1)!.click();
+        fixture.detectChanges();
+        await Promise.resolve();
+        fixture.detectChanges();
+        (dialog().querySelector('[data-shuttle-chip="s2"]') as HTMLButtonElement).click();
+        fixture.detectChanges();
+        (dialog().querySelector('[data-save-correction]') as HTMLButtonElement).click();
+        httpMock.expectOne(`${B}/sessions/sess1/pairings/g2/shuttles/correct`).flush({});
+        await new Promise((r) => setTimeout(r, 0));
+        TestBed.tick();
+        httpMock.expectOne(`${B}/sessions/sess1/summary`).flush(twoGames());
+        httpMock.expectOne(`${B}/sessions/sess1/shuttles`).flush(inventory());
+        for (const r of httpMock.match(`${B}/sessions/sess1/results`)) r.flush({ games: [] });
+        const reads = httpMock.match(`${B}/sessions/sess1/payment-card`);
+        expect(reads).toHaveLength(1);
+        reads[0].flush(panelFor({ target: 'group', confirmed: true, stale: true, lastSentAt: '2026-10-29T13:00:00.000Z' }));
+        await new Promise((r) => setTimeout(r, 0));
+        TestBed.tick();
+        fixture.detectChanges();
+        expect(el().querySelector('[data-payment-banner]')).not.toBeNull();
       });
 
       it('shows a stale correction as a localized error, keeps the dialog, and re-reads the truth', async () => {
@@ -1250,6 +1307,19 @@ describe('SessionSummary', () => {
         expect(replace).toHaveBeenCalledTimes(1);
         expect(history.state).toEqual({ lineSummary: 'sent' });
         replace.mockRestore();
+      });
+
+      it('opens the sheet even when the page could not read the card, and still drops only the flag', async () => {
+        paymentPanel = panelFor({ target: 'group', confirmed: false });
+        paymentReadFails = true;
+        await load(summary());
+        await settle();
+        expect(sheetDialog()?.open).toBe(true);
+        expect(history.state).toEqual({ lineSummary: 'sent' });
+        // The panel inside reads for itself and, failing too, offers its own retry.
+        answerPaymentCard();
+        await settle();
+        expect(q('app-payment-sheet [data-load-failed]')).not.toBeNull();
       });
 
       it('does not open for a card with no LINE target', async () => {

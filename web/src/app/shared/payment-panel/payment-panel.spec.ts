@@ -15,6 +15,7 @@ function panel(over: Partial<PaymentCardPanel> = {}): PaymentCardPanel {
     target: 'group',
     ended: true,
     ready: true,
+    contentHash: 'hash-1',
     warnings: [],
     notices: [],
     rows: [
@@ -88,15 +89,14 @@ describe('PaymentCardPanel', () => {
     return req.request.body;
   }
 
-  async function send(outcome: PaymentSendOutcome, reloaded?: PaymentCardPanel) {
+  /** Every send outcome re-reads the panel; `reloaded` is what that read answers. */
+  async function send(outcome: PaymentSendOutcome, reloaded: PaymentCardPanel = panel({ confirmed: true })) {
     await click('[data-send]');
     const req = http.expectOne(`${URL}/send`);
     req.flush({ outcome });
     await settle();
-    if (reloaded) {
-      http.expectOne(URL).flush(reloaded);
-      await settle();
-    }
+    http.expectOne(URL).flush(reloaded);
+    await settle();
     return req.request.body as { sendId: string };
   }
 
@@ -138,6 +138,20 @@ describe('PaymentCardPanel', () => {
     expect(q('[data-send]')).toBeNull();
   });
 
+  it('treats people listed at 0 baht each as nobody owing: the empty state, no confirm or send', async () => {
+    const zero = [
+      { playerId: 'a', name: 'Amp', amountSatang: 0, absent: false },
+      { playerId: 'd', name: 'Dee', amountSatang: 0, absent: false },
+    ];
+    await open(panel({ rows: zero, totalSatang: 0, confirmed: true }));
+    expect(q('[data-empty]')?.textContent).toContain('ไม่มีใครต้องจ่าย');
+    expect(el().querySelectorAll('[data-row]')).toHaveLength(0);
+    expect(q('[data-total]')).toBeNull();
+    expect(q('[data-confirm]')).toBeNull();
+    expect(q('[data-send]')).toBeNull();
+    expect(q('[data-share-link]')).toBeNull();
+  });
+
   it('prefills the account from the group default when none was confirmed tonight', async () => {
     await open(panel({ account: null }));
     expect(q<HTMLInputElement>('[data-field="bank"] input')!.value).toBe('กสิกร');
@@ -168,11 +182,11 @@ describe('PaymentCardPanel', () => {
     expect(q('[data-no-account]')).toBeNull();
   });
 
-  it('posts the three fields on confirm', async () => {
+  it('posts the three fields on confirm, with the content hash of the amounts on screen', async () => {
     await open();
     await type('input[data-field="number"]', ' 111-1-11111-1 ');
     const body = await confirm(panel({ confirmed: true }));
-    expect(body).toEqual({ bank: 'กสิกร', number: '111-1-11111-1', name: 'Host Name' });
+    expect(body).toEqual({ bank: 'กสิกร', number: '111-1-11111-1', name: 'Host Name', expectedHash: 'hash-1' });
   });
 
   it('shows the group send button only once confirmed', async () => {
@@ -283,6 +297,32 @@ describe('PaymentCardPanel', () => {
       expect(t).toContain('ยังไม่ได้ใส่ราคาลูก');
     });
 
+    // The amounts are provisional while an input is missing, so none of them is shown anywhere.
+    for (const [where, inputs] of [
+      ['on the bill screen', {}],
+      ['in the sheet', { compact: true }],
+    ] as const) {
+      it(`shows no rows and no total ${where}, only what is missing`, async () => {
+        await open(panel({ ready: false, warnings: ['MISSING_COURT_FEE'], settledCount: 1 }), inputs);
+        expect(q('[data-missing]')?.textContent).toContain('ยังไม่ได้ใส่ค่าสนาม');
+        expect(q('[data-rows]')).toBeNull();
+        expect(el().querySelectorAll('[data-row]')).toHaveLength(0);
+        expect(q('[data-total]')).toBeNull();
+        expect(q('[data-settled]')).toBeNull();
+        expect(text()).not.toContain('90฿');
+        expect(text()).not.toContain('200');
+      });
+    }
+
+    it('shows no rows and no total for an open session either, only what is missing', async () => {
+      await open(panel({ ended: false, ready: false, warnings: ['MISSING_SHUTTLE_PRICE'] }));
+      expect(q('[data-missing]')?.textContent).toContain('ยังไม่ได้ใส่ราคาลูก');
+      expect(q('[data-rows]')).toBeNull();
+      expect(q('[data-total]')).toBeNull();
+      expect(q('[data-open-note]')).toBeNull();
+      expect(q('[data-confirm]')).toBeNull();
+    });
+
     it('links to the bill settings only in the compact sheet, and closing follows the link', async () => {
       await open(panel({ ready: false, warnings: ['MISSING_COURT_FEE'] }), { compact: true });
       const closed: number[] = [];
@@ -305,6 +345,7 @@ describe('PaymentCardPanel', () => {
     await open(panel({ ended: false }));
     expect(q('[data-open-note]')).toBeTruthy();
     expect(el().querySelectorAll('[data-row]')).toHaveLength(2);
+    expect(q('[data-total]')?.textContent).toContain('200฿');
     expect(q('[data-confirm]')).toBeNull();
     expect(q('[data-send]')).toBeNull();
     expect(q('[data-field="bank"] input')).toBeNull();
@@ -321,34 +362,97 @@ describe('PaymentCardPanel', () => {
       ['quota', 'โควต้า'],
       ['failed', 'ส่งไม่สำเร็จ'],
       ['unavailable', 'ตอนนี้ส่งเข้าไลน์ไม่ได้'],
-      ['busy', 'เพิ่งส่งไป'],
+      ['busy', 'เพิ่งส่งเข้ากลุ่มไปแล้ว'],
       ['stale', 'ยอดเปลี่ยนไปแล้ว'],
       ['not-confirmed', 'ยังไม่ได้ยืนยันยอด'],
     ];
     for (const [outcome, message] of cases) {
-      it(`${outcome} shows its message and does not claim a send`, async () => {
+      it(`${outcome} shows its message, re-reads the panel and does not claim a send`, async () => {
         await open(panel({ confirmed: true }));
         const sent: number[] = [];
         fixture.componentInstance.sent.subscribe(() => sent.push(1));
         await click('[data-send]');
         http.expectOne(`${URL}/send`).flush({ outcome });
         await settle();
-        if (outcome === 'stale' || outcome === 'not-confirmed') {
-          http.expectOne(URL).flush(panel({ confirmed: outcome === 'stale', stale: outcome === 'stale' }));
-          await settle();
-        }
+        // Busy until the re-read lands.
+        expect(q<HTMLButtonElement>('[data-send]')?.disabled ?? true).toBe(true);
+        http.expectOne(URL).flush(panel({ confirmed: outcome !== 'not-confirmed', stale: outcome === 'stale' }));
+        await settle();
         expect(q('[data-outcome]')?.textContent).toContain(message);
         expect(q('[data-outcome]')?.textContent).not.toBe('ส่งแล้ว');
         expect(sent).toHaveLength(0);
       });
     }
 
-    it('a network error on send reads as a failed send', async () => {
+    it('busy re-reads the panel, so the send time it brings arms the resend prompt', async () => {
+      await open(panel({ confirmed: true }));
+      expect(q('[data-send]')?.textContent).toContain('ส่งเข้ากลุ่ม');
+      await send('busy', panel({ confirmed: true, lastSentAt: '2026-10-29T13:05:00.000Z' }));
+      expect(q('[data-outcome]')?.textContent).toContain('เพิ่งส่งเข้ากลุ่มไปแล้ว');
+      expect(q('[data-send]')?.textContent).toContain('ส่งอีกครั้ง');
+      await click('[data-send]');
+      http.expectNone(`${URL}/send`);
+      expect(q('[data-resend-prompt]')).toBeTruthy();
+    });
+
+    it('a network error on send reads as a failed send, and re-reads the panel', async () => {
       await open(panel({ confirmed: true }));
       await click('[data-send]');
       http.expectOne(`${URL}/send`).flush({}, { status: 500, statusText: 'Server Error' });
       await settle();
+      http.expectOne(URL).flush(panel({ confirmed: true }));
+      await settle();
       expect(q('[data-outcome]')?.textContent).toContain('ส่งไม่สำเร็จ');
+    });
+  });
+
+  describe('retry key across taps', () => {
+    it('a failed send is retried with the same sendId, so LINE drops a repeat of a card it already took', async () => {
+      await open(panel({ confirmed: true }));
+      const first = await send('failed');
+      const second = await send('sent', panel({ confirmed: true, lastSentAt: '2026-10-29T13:05:00.000Z' }));
+      expect(second.sendId).toBe(first.sendId);
+    });
+
+    it('a send whose answer was lost (network error) is retried with the same sendId', async () => {
+      await open(panel({ confirmed: true }));
+      await click('[data-send]');
+      const lost = http.expectOne(`${URL}/send`);
+      lost.error(new ProgressEvent('error'));
+      await settle();
+      http.expectOne(URL).flush(panel({ confirmed: true }));
+      await settle();
+      const retry = await send('sent', panel({ confirmed: true, lastSentAt: '2026-10-29T13:05:00.000Z' }));
+      expect(retry.sendId).toBe(lost.request.body.sendId);
+    });
+
+    it('a deliberate resend after a sent card gets a new sendId', async () => {
+      await open(panel({ confirmed: true }));
+      const first = await send('sent', panel({ confirmed: true, lastSentAt: '2026-10-29T13:05:00.000Z' }));
+      await click('[data-send]');
+      await click('[data-resend-yes]');
+      const again = http.expectOne(`${URL}/send`);
+      expect(again.request.body.sendId).not.toBe(first.sendId);
+      again.flush({ outcome: 'sent' });
+      await settle();
+      http.expectOne(URL).flush(panel({ confirmed: true, lastSentAt: '2026-10-29T13:06:00.000Z' }));
+      await settle();
+    });
+
+    for (const outcome of ['busy', 'quota', 'unavailable', 'stale', 'not-confirmed'] as const) {
+      it(`a definitive ${outcome} answer makes the next tap a new sendId`, async () => {
+        await open(panel({ confirmed: true }));
+        const first = await send(outcome);
+        const next = await send('sent', panel({ confirmed: true, lastSentAt: '2026-10-29T13:05:00.000Z' }));
+        expect(next.sendId).not.toBe(first.sendId);
+      });
+    }
+
+    it('a failed send is not reused once the card content changed', async () => {
+      await open(panel({ confirmed: true }));
+      const first = await send('failed', panel({ confirmed: true, contentHash: 'hash-2' }));
+      const next = await send('sent', panel({ confirmed: true, contentHash: 'hash-2', lastSentAt: '2026-10-29T13:05:00.000Z' }));
+      expect(next.sendId).not.toBe(first.sendId);
     });
   });
 
@@ -359,6 +463,34 @@ describe('PaymentCardPanel', () => {
       http.expectOne(`${URL}/confirm`).flush({ code: 'PAY_ACCOUNT_INVALID' }, { status: 400, statusText: 'Bad Request' });
       await settle();
       expect(q('[data-error]')?.textContent).toContain('ตรวจบัญชีรับเงินอีกครั้ง');
+    });
+
+    it('changed (409) re-reads the panel before Confirm is usable again, then confirms the new amounts', async () => {
+      await open();
+      await click('[data-confirm]');
+      http.expectOne(`${URL}/confirm`).flush({ code: 'PAYMENT_CHANGED' }, { status: 409, statusText: 'Conflict' });
+      await settle();
+      // Still busy: the re-read decides what the host confirms next.
+      expect(q<HTMLButtonElement>('[data-confirm]')!.disabled).toBe(true);
+      const moved = panel({ contentHash: 'hash-2', totalSatang: 30000, rows: [{ playerId: 'a', name: 'Amp', amountSatang: 30000, absent: false }] });
+      http.expectOne(URL).flush(moved);
+      await settle();
+      expect(q('[data-error]')?.textContent).toContain('ยอดเปลี่ยน ตรวจยอดอีกครั้ง');
+      expect(q('[data-total]')?.textContent).toContain('300฿');
+      expect(q<HTMLButtonElement>('[data-confirm]')!.disabled).toBe(false);
+
+      const body = await confirm(panel({ ...moved, confirmed: true }));
+      expect(body.expectedHash).toBe('hash-2');
+    });
+
+    it('nothing due (409) re-reads the panel', async () => {
+      await open();
+      await click('[data-confirm]');
+      http.expectOne(`${URL}/confirm`).flush({ code: 'PAYMENT_NOTHING_DUE' }, { status: 409, statusText: 'Conflict' });
+      await settle();
+      http.expectOne(URL).flush(panel({ rows: [], totalSatang: 0 }));
+      await settle();
+      expect(q('[data-empty]')).toBeTruthy();
     });
 
     it('not ready (409) re-reads the panel', async () => {
@@ -528,6 +660,8 @@ describe('PaymentCardPanel', () => {
       // The confirm response still describes the old amounts as current.
       confirmReq.flush(panel({ confirmed: true }));
       await settle();
+      // The discarded answer's re-read is in flight: no second Confirm may freeze amounts not yet on screen.
+      expect(q<HTMLButtonElement>('[data-confirm]')!.disabled).toBe(true);
       http.expectOne(URL).flush(fresh);
       await settle();
       expect(q('[data-total]')?.textContent).toContain('300฿');

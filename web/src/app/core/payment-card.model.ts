@@ -12,6 +12,8 @@ export interface PaymentCardPanel {
   ended: boolean;
   /** False while a blocking warning is in `warnings`; notices never block. */
   ready: boolean;
+  /** The server's hash of what the card would print as read here; confirm sends it back as `expectedHash`. */
+  contentHash: string;
   /** Every bill warning, blocking or not. */
   warnings: string[];
   /** The subset of `warnings` that only informs the host; the rest are the blocking ones. */

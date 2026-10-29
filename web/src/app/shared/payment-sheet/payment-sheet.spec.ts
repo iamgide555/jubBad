@@ -14,6 +14,7 @@ function panel(over: Partial<PaymentCardPanel> = {}): PaymentCardPanel {
     target: 'group',
     ended: true,
     ready: false,
+    contentHash: 'hash-1',
     warnings: ['shuttle-price'],
     notices: [],
     rows: [{ playerId: 'a', name: 'Amp', amountSatang: 9000, absent: false }],
@@ -105,6 +106,30 @@ describe('PaymentSheet', () => {
     expect(closed).toHaveBeenCalledTimes(1);
     http.expectNone(`${URL}/confirm`);
     http.expectNone(`${URL}/send`);
+  });
+
+  it('also has a labelled close button at the top, in a sticky header, which only asks to close', async () => {
+    await open();
+    const header = el().querySelector('.sheet-header') as HTMLElement;
+    expect(header).not.toBeNull();
+    expect(header.querySelector('h2')?.textContent).toContain('ใบเก็บเงิน');
+    const top = header.querySelector('button.close-top') as HTMLButtonElement;
+    expect(top.textContent?.trim()).toBe('ปิด');
+    expect(top.getAttribute('type')).toBe('button');
+    top.click();
+    expect(closed).toHaveBeenCalledTimes(1);
+    // Both buttons close; the bottom one is still there.
+    (el().querySelector('button.close') as HTMLButtonElement).click();
+    expect(closed).toHaveBeenCalledTimes(2);
+    http.expectNone(`${URL}/confirm`);
+    http.expectNone(`${URL}/send`);
+  });
+
+  it('shows no amounts while the bill is not ready', async () => {
+    await open();
+    expect(el().querySelector('[data-missing]')).not.toBeNull();
+    expect(el().querySelector('[data-row]')).toBeNull();
+    expect(el().querySelector('[data-total]')).toBeNull();
   });
 
   it('closes when the panel says the host followed its link to the bill', async () => {

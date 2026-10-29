@@ -8035,9 +8035,6 @@
       <trans-unit id="pay.card.outcomeUnavailable" datatype="html">
         <source>ตอนนี้ส่งเข้าไลน์ไม่ได้ ตรวจการเชื่อมต่อ LINE ของก๊วน</source>
       </trans-unit>
-      <trans-unit id="pay.card.outcomeBusy" datatype="html">
-        <source>เพิ่งส่งไปเมื่อครู่ รอสักครู่แล้วลองใหม่</source>
-      </trans-unit>
       <trans-unit id="pay.card.outcomeStale" datatype="html">
         <source>ยอดเปลี่ยนไปแล้ว กดยืนยันยอดอีกครั้ง</source>
       </trans-unit>
@@ -8088,6 +8085,12 @@
       </trans-unit>
       <trans-unit id="share.pay.hint" datatype="html">
         <source>เลือกกลุ่มหรือแชตใน LINE ใบเก็บเงินจะถูกส่งในชื่อของคุณ</source>
+      </trans-unit>
+      <trans-unit id="pay.card.outcomeBusyPosted" datatype="html">
+        <source>เพิ่งส่งเข้ากลุ่มไปแล้ว</source>
+      </trans-unit>
+      <trans-unit id="pay.card.confirmChanged" datatype="html">
+        <source>ยอดเปลี่ยน ตรวจยอดอีกครั้ง</source>
       </trans-unit>
     </body>
   </file>

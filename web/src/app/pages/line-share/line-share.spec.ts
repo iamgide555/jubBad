@@ -263,7 +263,7 @@ describe('LineShare', () => {
       expect(paymentShareCard).not.toHaveBeenCalled();
     });
 
-    it.each(['/pay/abc', '/pay/abc/', '/pay//TOK', '/pay/', '/pay'])(
+    it.each(['/pay/abc', '/pay/abc/', '/pay//TOK', '/pay/'])(
       'says the card is missing, with no request, when liff.state %s lacks a code or token',
       async (state) => {
         route = { params: {}, query: { 'liff.state': state } };
@@ -274,6 +274,13 @@ describe('LineShare', () => {
         expect(liff.init).not.toHaveBeenCalled();
       },
     );
+
+    it('reads a bare /pay liff.state as a summary code, not a broken pay link', async () => {
+      route = { params: {}, query: { 'liff.state': '/pay' } };
+      await open();
+      expect(shareCard).toHaveBeenCalledWith('pay');
+      expect(paymentShareCard).not.toHaveBeenCalled();
+    });
 
     it('says the card is missing on a 404, in words that point back to the bill screen, and never touches LIFF', async () => {
       await openPay(new HttpErrorResponse({ status: 404 }));
@@ -304,11 +311,56 @@ describe('LineShare', () => {
       expect(q('[data-share-pick]')?.textContent?.trim()).toBe('เลือกกลุ่มแล้วส่ง');
     });
 
-    it('never renders the token', async () => {
-      await openPay();
-      q('[data-share-pick]')!.click();
-      await flush();
-      expect(el().innerHTML).not.toContain('TOK');
+    describe('never renders or logs the token', () => {
+      const TOKEN = 'Zq9SecretTokenXy7';
+      const methods = ['log', 'info', 'warn', 'error', 'debug'] as const;
+      let spies: ReturnType<typeof vi.spyOn>[];
+
+      beforeEach(() => {
+        spies = methods.map((m) => vi.spyOn(console, m).mockImplementation(() => undefined));
+      });
+      afterEach(() => {
+        for (const spy of spies) spy.mockRestore();
+      });
+
+      const expectNoToken = () => {
+        expect(el().innerHTML).not.toContain(TOKEN);
+        expect(document.title).not.toContain(TOKEN);
+        for (const spy of spies) {
+          for (const args of spy.mock.calls) expect((args as unknown[]).map((a) => String(a)).join(' ')).not.toContain(TOKEN);
+        }
+      };
+
+      it('on the path route, ready and after sharing', async () => {
+        route = { params: { sessionCode: 'abc', token: TOKEN }, query: {} };
+        await openPay();
+        expect(paymentShareCard).toHaveBeenCalledWith('abc', TOKEN);
+        expectNoToken();
+        q('[data-share-pick]')!.click();
+        await flush();
+        expectNoToken();
+      });
+
+      it('on the liff.state route', async () => {
+        route = { params: {}, query: { 'liff.state': `/pay/abc/${TOKEN}` } };
+        await openPay();
+        expect(paymentShareCard).toHaveBeenCalledWith('abc', TOKEN);
+        expectNoToken();
+      });
+
+      it('after the missing phase', async () => {
+        route = { params: { sessionCode: 'abc', token: TOKEN }, query: {} };
+        await openPay(new HttpErrorResponse({ status: 404 }));
+        expect(q('[data-share-missing]')).not.toBeNull();
+        expectNoToken();
+      });
+
+      it('after the error phase', async () => {
+        route = { params: {}, query: { 'liff.state': `/pay/abc/${TOKEN}` } };
+        await openPay(new HttpErrorResponse({ status: 500, url: `/api/sessions/abc/payment-share-card?token=${TOKEN}` }));
+        expect(q('[data-share-error]')).not.toBeNull();
+        expectNoToken();
+      });
     });
 
     it('shares the one message the server returned, straight from the tap', async () => {

@@ -18,12 +18,16 @@ export class PaymentCardService {
     return this.http.get<PaymentCardPanel>(this.url(sessionCode));
   }
 
-  /** Stores tonight's account, freezes the amounts and mints a fresh share link. A partial account is a 400. */
-  confirm(sessionCode: string, account: PayAccount): Observable<PaymentCardPanel> {
-    return this.http.post<PaymentCardPanel>(this.url(sessionCode, '/confirm'), account);
+  /**
+   * Stores tonight's account, freezes the amounts and mints a fresh share link. A partial account is a 400.
+   * `expectedHash` is the `contentHash` of the panel the host is looking at: a card that moved since is a 409
+   * PAYMENT_CHANGED, so a confirm never freezes amounts the host has not seen.
+   */
+  confirm(sessionCode: string, account: PayAccount, expectedHash: string): Observable<PaymentCardPanel> {
+    return this.http.post<PaymentCardPanel>(this.url(sessionCode, '/confirm'), { ...account, expectedHash });
   }
 
-  /** One `sendId` per tap: a retry of that tap is dropped by LINE, a deliberate resend gets a new one. */
+  /** One `sendId` per attempt: a retry of an attempt with no definite answer reuses it, so LINE drops a repeat. */
   send(sessionCode: string, sendId: string): Observable<PaymentSendOutcome> {
     return this.http.post<{ outcome: PaymentSendOutcome }>(this.url(sessionCode, '/send'), { sendId }).pipe(map((r) => r.outcome));
   }

@@ -995,19 +995,19 @@ describe('SessionDashboard', () => {
       await drainReload(baseSession({ endedAt: '2026-09-08T20:00:00.000Z' }));
     };
 
-    it('is hidden when the group has no LINE target', async () => {
+    it('is hidden when the group has no LINE target, which makes no pay-account request', async () => {
       summaryState = () => of(lineAvailable({ available: false, target: null }));
       await settled();
       await openEndDialog();
-      await answerAccount(ACCOUNT);
+      httpMock.expectNone(PAY_URL);
       expect(tick()).toBeNull();
     });
 
-    it('is hidden when the summary state cannot be read, and ending still works', async () => {
+    it('is hidden when the summary state cannot be read, with no pay-account request, and ending still works', async () => {
       summaryState = () => throwError(() => new HttpErrorResponse({ status: 500 }));
       await settled();
       await openEndDialog();
-      await answerAccount(ACCOUNT);
+      httpMock.expectNone(PAY_URL);
       expect(tick()).toBeNull();
       dialogButtonWith('จบรอบ').click();
       expect(httpMock.expectOne(`${B}/sessions/sess1/end`).request.body).toEqual({});

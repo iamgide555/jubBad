@@ -6353,10 +6353,6 @@
         <source>ตอนนี้ส่งเข้าไลน์ไม่ได้ ตรวจการเชื่อมต่อ LINE ของก๊วน</source>
         <target>Cannot send to LINE right now. Check the group's LINE link</target>
       </trans-unit>
-      <trans-unit id="pay.card.outcomeBusy" datatype="html">
-        <source>เพิ่งส่งไปเมื่อครู่ รอสักครู่แล้วลองใหม่</source>
-        <target>Just sent a moment ago. Wait a moment and try again</target>
-      </trans-unit>
       <trans-unit id="pay.card.outcomeStale" datatype="html">
         <source>ยอดเปลี่ยนไปแล้ว กดยืนยันยอดอีกครั้ง</source>
         <target>The amounts changed. Confirm again</target>
@@ -6424,6 +6420,14 @@
       <trans-unit id="share.pay.hint" datatype="html">
         <source>เลือกกลุ่มหรือแชตใน LINE ใบเก็บเงินจะถูกส่งในชื่อของคุณ</source>
         <target>Pick a group or chat in LINE. The payment card is sent as you</target>
+      </trans-unit>
+      <trans-unit id="pay.card.outcomeBusyPosted" datatype="html">
+        <source>เพิ่งส่งเข้ากลุ่มไปแล้ว</source>
+        <target>Just posted to the group</target>
+      </trans-unit>
+      <trans-unit id="pay.card.confirmChanged" datatype="html">
+        <source>ยอดเปลี่ยน ตรวจยอดอีกครั้ง</source>
+        <target>The amounts changed. Check them again.</target>
       </trans-unit>
     </body>
   </file>

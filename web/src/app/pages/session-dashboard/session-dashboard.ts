@@ -876,10 +876,18 @@ export class SessionDashboard implements OnDestroy {
       next: (state) => {
         this.lineSummary.set(state);
         this.sendLineSummary.set(state.defaultOn);
+        // The payment tick shows only with a LINE target, so a group without one costs no account read.
+        if (state.target !== null) this.loadPaymentTickDefault();
       },
       error: () => this.lineSummary.set(null),
     });
-    // Beside the summary read, not the payment card itself: that read runs the whole bill and is wasted here.
+  }
+
+  /**
+   * The group account, not the payment card itself (that read runs the whole bill and is wasted here). Fired
+   * as the tick appears; a failure leaves it off, silently, and a host's own tap always wins over the answer.
+   */
+  private loadPaymentTickDefault(): void {
     this.payAccounts.get(this.session()!.groupCode).subscribe({
       next: (account) => {
         if (!this.paymentTickTouched) this.sendPaymentCard.set(account !== null);

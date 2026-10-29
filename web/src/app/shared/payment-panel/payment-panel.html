@@ -11,7 +11,22 @@
         <h2 class="panel-title" i18n="@@pay.card.title">ใบเก็บเงิน</h2>
       }
 
-      @if (p.rows.length > 0) {
+      @if (!p.ready) {
+        <!-- With an input missing every amount is provisional: name what is missing, show no amount at all. -->
+        <div class="missing" data-missing>
+          <p class="missing-title" i18n="@@pay.card.missingTitle">ยังส่งใบเก็บเงินไม่ได้ ใส่ข้อมูลที่ขาดก่อน</p>
+          <ul>
+            @for (item of missing(); track item) {
+              <li>{{ item }}</li>
+            }
+          </ul>
+          @if (compact()) {
+            <a class="settings-link" data-settings-link [routerLink]="['/s', sessionCode(), 'bill']" (click)="closed.emit()" i18n="@@pay.card.toSettings">ไปหน้าตั้งค่าคิดเงิน</a>
+          }
+        </div>
+      } @else if (nothingDue()) {
+        <p class="muted" data-empty i18n="@@pay.card.empty">ไม่มีใครต้องจ่าย</p>
+      } @else {
         <ul class="rows" data-rows>
           @for (row of p.rows; track row.playerId) {
             <li class="row" data-row>
@@ -29,28 +44,16 @@
         @if (p.settledCount > 0) {
           <p class="muted" data-settled i18n="@@pay.card.settled">จ่ายแล้ว {{ p.settledCount }} คน</p>
         }
-      } @else if (p.ready) {
-        <p class="muted" data-empty i18n="@@pay.card.empty">ไม่มีใครต้องจ่าย</p>
       }
 
-      @for (notice of noticeTexts(); track notice) {
-        <p class="notice" data-notice>{{ notice }}</p>
+      @if (p.ready) {
+        @for (notice of noticeTexts(); track notice) {
+          <p class="notice" data-notice>{{ notice }}</p>
+        }
       }
 
-      @if (!p.ended) {
+      @if (p.ready && !p.ended && !nothingDue()) {
         <p class="muted" data-open-note i18n="@@pay.card.openNote">ส่งใบเก็บเงินได้หลังจบรอบ ตอนนี้เป็นยอดตัวอย่าง</p>
-      } @else if (!p.ready) {
-        <div class="missing" data-missing>
-          <p class="missing-title" i18n="@@pay.card.missingTitle">ยังส่งใบเก็บเงินไม่ได้ ใส่ข้อมูลที่ขาดก่อน</p>
-          <ul>
-            @for (item of missing(); track item) {
-              <li>{{ item }}</li>
-            }
-          </ul>
-          @if (compact()) {
-            <a class="settings-link" data-settings-link [routerLink]="['/s', sessionCode(), 'bill']" (click)="closed.emit()" i18n="@@pay.card.toSettings">ไปหน้าตั้งค่าคิดเงิน</a>
-          }
-        </div>
       } @else if (actionable()) {
         <div class="account">
           <div class="field">

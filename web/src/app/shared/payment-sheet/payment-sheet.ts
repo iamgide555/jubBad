@@ -16,7 +16,7 @@ export class PaymentSheet {
   readonly open = input.required<boolean>();
   readonly sessionCode = input.required<string>();
   readonly refreshKey = input<unknown>(null);
-  /** The host closed the sheet: its close button, Escape, or the panel's link out to the bill. */
+  /** The host closed the sheet: either close button (top or bottom), Escape, or the panel's link out to the bill. */
   readonly closed = output<void>();
   /** The card went into the LINE group. */
   readonly sent = output<void>();

@@ -15,6 +15,9 @@ let panelCount = 0;
 
 const sameAccount = (a: PayAccount, b: PayAccount) => a.bank === b.bank && a.number === b.number && a.name === b.name;
 
+const errorCode = (err: unknown): unknown =>
+  err instanceof HttpErrorResponse ? (err.error as { code?: unknown } | null)?.code : undefined;
+
 /**
  * The payment card's confirm step: who owes what, the receiving account for tonight, and the Confirm and
  * Send actions. One component for the bill screen and the bottom sheet after จบรอบ (`compact`). It renders
@@ -31,7 +34,15 @@ const sameAccount = (a: PayAccount, b: PayAccount) => a.bank === b.bank && a.num
  * Reads, Confirm and Send share one sequence number: whatever started last owns the screen, so an older
  * answer can never overwrite a newer one. A Confirm that was overtaken by a newer read throws its own answer
  * away and re-reads, because only a fresh read can say which amounts are current. After a failed read the
- * amounts on screen may be old, so Confirm and Send stay off until a read succeeds.
+ * amounts on screen may be old, so Confirm and Send stay off until a read succeeds. Confirm carries the
+ * `contentHash` of the read on screen, so the server refuses (PAYMENT_CHANGED) amounts the host has not seen.
+ *
+ * Amounts are shown only while `ready`: with an input missing they are provisional, so only what is missing
+ * is shown. A night where nobody owes (no rows, or every row at 0) reads as nothing to collect.
+ *
+ * Send keeps the `sendId` of an attempt with no definite answer (a `failed` outcome, or no answer at all)
+ * and reuses it on the next tap, so a card LINE took while the answer was lost is not posted twice; any
+ * definite answer, or a change in the card, starts a new id. Every outcome re-reads the panel.
  */
 @Component({
   selector: 'app-payment-panel',
@@ -71,6 +82,8 @@ export class PaymentPanel {
   /** Session code the fields were last filled for, so they are filled once and a re-read never overwrites typing. */
   private filledFor: string | null = null;
   private seq = 0;
+  /** The sendId of an attempt with no definite answer, and the card content it was for; reused by the next tap. */
+  private retry: { sendId: string; contentHash: string | null } | null = null;
 
   /** Trimmed, exactly what Confirm would send. */
   private readonly typed = computed<PayAccount>(() => ({
@@ -96,10 +109,15 @@ export class PaymentPanel {
     const p = this.data();
     return !!p && p.confirmed && !p.stale && !!p.account && !sameAccount(this.typed(), p.account);
   });
+  /** No rows, or every row at 0 baht: nothing to collect, so no card. */
+  protected readonly nothingDue = computed(() => {
+    const p = this.data();
+    return !!p && (p.rows.length === 0 || p.totalSatang === 0);
+  });
   /** Confirmed, current, and matching the fields: the one state in which a send is allowed. */
   private readonly sendable = computed(() => {
     const p = this.data();
-    return !!p && p.ready && p.ended && p.rows.length > 0 && p.confirmed && !p.stale && !this.editedSinceConfirm();
+    return !!p && this.actionable() && p.confirmed && !p.stale && !this.editedSinceConfirm();
   });
   /** Retry is offered whenever a read failed, except for a group that has no payment card at all. */
   protected readonly showRetry = computed(() => this.readFailed() && this.data()?.target !== null);
@@ -108,7 +126,7 @@ export class PaymentPanel {
   /** Amounts are defined, the night is over and someone owes: the account fields and actions apply. */
   protected readonly actionable = computed(() => {
     const p = this.data();
-    return !!p && p.ended && p.ready && p.rows.length > 0;
+    return !!p && p.ended && p.ready && !this.nothingDue();
   });
   protected readonly missing = computed(() =>
     (this.data()?.warnings ?? []).filter((w) => !this.data()!.notices.includes(w)).map((w) => this.missingText(w))
@@ -169,7 +187,8 @@ export class PaymentPanel {
   }
 
   protected async confirm(): Promise<void> {
-    if (this.busy() || this.readFailed() || !this.hasAnyField()) return;
+    const seen = this.data();
+    if (this.busy() || this.readFailed() || !this.hasAnyField() || !seen) return;
     this.error.set(null);
     this.outcome.set(null);
     this.confirmingResend.set(false);
@@ -180,18 +199,24 @@ export class PaymentPanel {
     this.busy.set(true);
     const seq = ++this.seq;
     try {
-      const panel = await firstValueFrom(this.cards.confirm(this.sessionCode(), this.typed()));
+      const panel = await firstValueFrom(this.cards.confirm(this.sessionCode(), this.typed(), seen.contentHash));
       this.drafts.clear(this.sessionCode());
       if (seq === this.seq) {
         this.data.set(panel);
         this.readFailed.set(false);
         if (panel.account) this.fill(panel.account);
       } else {
-        // A read started while this was in flight, so the answer may predate the amounts it shows.
-        void this.load();
+        // A read started while this was in flight, so the answer may predate the amounts it shows. Busy until
+        // the re-read lands, so a second Confirm cannot freeze amounts the host has not seen yet.
+        await this.load();
       }
     } catch (err) {
-      this.error.set(this.confirmError(err));
+      const code = errorCode(err);
+      this.error.set(this.confirmError(code));
+      // The card moved under the host (another tab): show what stands now before Confirm is usable again.
+      if (code === 'PAYMENT_CHANGED' || code === 'PAYMENT_NOT_READY' || code === 'PAYMENT_NOTHING_DUE') {
+        await this.load();
+      }
     } finally {
       this.busy.set(false);
     }
@@ -210,22 +235,29 @@ export class PaymentPanel {
     this.outcome.set(null);
     this.busy.set(true);
     ++this.seq;
+    const contentHash = this.data()?.contentHash ?? null;
+    // An attempt with no definite answer may have reached LINE: retry it under the same id, unless the card changed.
+    if (this.retry === null || this.retry.contentHash !== contentHash) {
+      this.retry = { sendId: crypto.randomUUID(), contentHash };
+    }
     try {
       let outcome: PaymentSendOutcome;
       try {
-        outcome = await firstValueFrom(this.cards.send(this.sessionCode(), crypto.randomUUID()));
+        outcome = await firstValueFrom(this.cards.send(this.sessionCode(), this.retry.sendId));
       } catch {
         outcome = 'failed';
       }
+      // Any answer but `failed` is definite: the next tap is a new attempt with a new id.
+      if (outcome !== 'failed') this.retry = null;
       this.outcome.set(outcome);
       if (outcome === 'sent') {
         // Marked sent at once, so the button already reads "send again" (and asks first) while the re-read runs.
         this.data.update((p) => (p ? { ...p, lastSentAt: new Date().toISOString() } : p));
         this.sent.emit();
       }
-      // The card moved on under the host, or the send time changed: show the server's current state.
+      // Whatever happened, show the server's current state (the send time, a card moved on, a lapsed link).
       // Busy until it lands, so a quick second tap cannot slip past the resend prompt.
-      if (outcome === 'sent' || outcome === 'stale' || outcome === 'not-confirmed') await this.load();
+      await this.load();
     } finally {
       this.busy.set(false);
     }
@@ -242,7 +274,7 @@ export class PaymentPanel {
       case 'unavailable':
         return $localize`:@@pay.card.outcomeUnavailable:ตอนนี้ส่งเข้าไลน์ไม่ได้ ตรวจการเชื่อมต่อ LINE ของก๊วน`;
       case 'busy':
-        return $localize`:@@pay.card.outcomeBusy:เพิ่งส่งไปเมื่อครู่ รอสักครู่แล้วลองใหม่`;
+        return $localize`:@@pay.card.outcomeBusyPosted:เพิ่งส่งเข้ากลุ่มไปแล้ว`;
       case 'stale':
         return $localize`:@@pay.card.outcomeStale:ยอดเปลี่ยนไปแล้ว กดยืนยันยอดอีกครั้ง`;
       case 'not-confirmed':
@@ -250,14 +282,15 @@ export class PaymentPanel {
     }
   }
 
-  private confirmError(err: unknown): string {
-    const code = err instanceof HttpErrorResponse ? (err.error as { code?: unknown } | null)?.code : undefined;
+  /** The caller re-reads the panel for the codes that mean the card moved (changed, not ready, nothing due). */
+  private confirmError(code: unknown): string {
     switch (code) {
       case 'PAY_ACCOUNT_INVALID':
         return $localize`:@@pay.account.invalid:ตรวจบัญชีรับเงินอีกครั้ง ต้องกรอกครบทั้งสามช่อง และเลขบัญชีเป็นตัวเลข 6 หลักขึ้นไป`;
+      case 'PAYMENT_CHANGED':
+        return $localize`:@@pay.card.confirmChanged:ยอดเปลี่ยน ตรวจยอดอีกครั้ง`;
       case 'PAYMENT_NOT_READY':
-        // The inputs changed under the host (another tab): show what is missing now.
-        void this.load();
+      case 'PAYMENT_NOTHING_DUE':
         return $localize`:@@pay.card.confirmNotReady:ยืนยันยอดไม่ได้ ยังมียอดที่ไม่ครบ`;
       case 'PAYMENT_NO_ACCOUNT':
         return this.incompleteText();

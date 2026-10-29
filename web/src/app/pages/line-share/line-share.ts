@@ -23,7 +23,8 @@ interface RouteTarget {
  * it on, so read both. Angular already decodes the query value; one leading
  * slash is the path LIFF appended. The payment card is the same with
  * `/pay/<code>/<token>` in place of `/<code>`; a pay link missing either part
- * has no code, so the page says it is missing.
+ * has no code, so the page says it is missing. A bare `/pay` is one segment,
+ * like any summary code, and is read as one.
  */
 function routeTargetFrom(snapshot: ActivatedRouteSnapshot): RouteTarget {
   const code = snapshot.paramMap.get('sessionCode');
@@ -33,7 +34,7 @@ function routeTargetFrom(snapshot: ActivatedRouteSnapshot): RouteTarget {
   const state = snapshot.queryParamMap.get('liff.state') ?? '';
   const path = state.startsWith('/') ? state.slice(1) : state;
   const parts = path.split('/');
-  if (parts[0] === 'pay') {
+  if (parts[0] === 'pay' && parts.length > 1) {
     return { kind: 'pay', code: parts.length === 3 ? parts[1] : '', token: parts.length === 3 ? parts[2] : null };
   }
   return { kind: 'summary', code: path, token: null };
@@ -111,8 +112,8 @@ export class LineShare {
    * browsers block a popup that is not opened inside the user's gesture.
    */
   protected pick(): void {
-    const messages = this.payment()?.messages ?? (this.summary() && [this.summary()!.card]);
-    if (!messages || this.opening()) return;
+    const messages = this.messages();
+    if (messages === null || this.opening()) return;
     this.opening.set(true);
     this.sendFailed.set(false);
     this.liff.share(messages).then(
@@ -125,6 +126,13 @@ export class LineShare {
         this.sendFailed.set(true);
       },
     );
+  }
+
+  /** What the tap shares: the payment card's messages, or the summary card alone. Null until it is loaded. */
+  private messages(): unknown[] | null {
+    if (this.kind === 'pay') return this.payment()?.messages ?? null;
+    const summary = this.summary();
+    return summary === null ? null : [summary.card];
   }
 
   protected again(): void {

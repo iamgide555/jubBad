@@ -114,9 +114,10 @@ export const routes: Routes = [
       import('./pages/session-summary/session-summary').then((m) => m.SessionSummary),
   },
   {
-    // Before 'line-share/:sessionCode' so the deeper path is not read as a
-    // session code. Unguarded, same page: the host-share link of the payment
-    // card; the token in the path is the only thing that lets it be read.
+    // Unguarded, same page: the host-share link of the payment card; the
+    // token in the path is the only thing that lets it be read. Its place in
+    // this list does not matter: it has four segments, so it can never match
+    // the two-segment 'line-share/:sessionCode' below, nor that one it.
     path: 'line-share/pay/:sessionCode/:token',
     loadComponent: () => import('./pages/line-share/line-share').then((m) => m.LineShare),
   },

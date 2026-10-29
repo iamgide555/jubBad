@@ -6435,15 +6435,23 @@
       </trans-unit>
       <trans-unit id="pay.card.dmSent" datatype="html">
         <source>ส่งการ์ดให้คุณใน LINE แล้ว เปิด LINE แล้วกด "ส่งเข้ากลุ่ม"</source>
-        <target>The card was sent to you on LINE. Open LINE and tap "Send to group".</target>
+        <target>The card was sent to you on LINE. Open LINE and tap "ส่งเข้ากลุ่ม" (Send to group).</target>
       </trans-unit>
       <trans-unit id="pay.card.dmFailed" datatype="html">
-        <source>ส่งไม่สำเร็จ ถ้าคุณบล็อกหรือลบบอทไปแล้ว ให้เพิ่มบอทเป็นเพื่อนอีกครั้ง</source>
-        <target>Could not send. If you blocked or removed the bot, add it as a friend again.</target>
+        <source>ส่งไม่สำเร็จ ลองอีกครั้ง ถ้ายังไม่ได้ อาจเพราะบล็อกหรือลบบอทไปแล้ว ให้เพิ่มบอทเป็นเพื่อนอีกครั้ง</source>
+        <target>Could not send. Try again; if it still fails, you may have blocked or removed the bot, so add it as a friend again.</target>
       </trans-unit>
       <trans-unit id="pay.card.dmResendAsk" datatype="html">
         <source>ส่งการ์ดให้ฉันซ้ำอีกรอบใช่ไหม</source>
         <target>Send the card to me again?</target>
+      </trans-unit>
+      <trans-unit id="pay.card.dmBusy" datatype="html">
+        <source>เพิ่งส่งการ์ดให้คุณไปแล้ว ดูในแชต LINE</source>
+        <target>Just sent to you. Check your LINE chat.</target>
+      </trans-unit>
+      <trans-unit id="pay.card.dmQuota" datatype="html">
+        <source>โควต้าข้อความ LINE ของเดือนนี้หมดแล้ว ส่งการ์ดให้คุณไม่ได้ ใช้ "เปิดใน LINE เพื่อส่ง" แทน</source>
+        <target>This month's LINE message quota is used up, so the card can't be sent to you. Use "Open in LINE to send" instead.</target>
       </trans-unit>
     </body>
   </file>

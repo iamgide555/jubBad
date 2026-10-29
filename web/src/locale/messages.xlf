@@ -8099,10 +8099,16 @@
         <source>ส่งการ์ดให้คุณใน LINE แล้ว เปิด LINE แล้วกด "ส่งเข้ากลุ่ม"</source>
       </trans-unit>
       <trans-unit id="pay.card.dmFailed" datatype="html">
-        <source>ส่งไม่สำเร็จ ถ้าคุณบล็อกหรือลบบอทไปแล้ว ให้เพิ่มบอทเป็นเพื่อนอีกครั้ง</source>
+        <source>ส่งไม่สำเร็จ ลองอีกครั้ง ถ้ายังไม่ได้ อาจเพราะบล็อกหรือลบบอทไปแล้ว ให้เพิ่มบอทเป็นเพื่อนอีกครั้ง</source>
       </trans-unit>
       <trans-unit id="pay.card.dmResendAsk" datatype="html">
         <source>ส่งการ์ดให้ฉันซ้ำอีกรอบใช่ไหม</source>
+      </trans-unit>
+      <trans-unit id="pay.card.dmBusy" datatype="html">
+        <source>เพิ่งส่งการ์ดให้คุณไปแล้ว ดูในแชต LINE</source>
+      </trans-unit>
+      <trans-unit id="pay.card.dmQuota" datatype="html">
+        <source>โควต้าข้อความ LINE ของเดือนนี้หมดแล้ว ส่งการ์ดให้คุณไม่ได้ ใช้ "เปิดใน LINE เพื่อส่ง" แทน</source>
       </trans-unit>
     </body>
   </file>

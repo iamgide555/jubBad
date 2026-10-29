@@ -93,7 +93,10 @@ export class PaymentPanel {
   private filledFor: string | null = null;
   private seq = 0;
   /** The sendId of an attempt with no definite answer, and the card content it was for; reused by the next tap. */
-  private retry: Record<Delivery, { sendId: string; contentHash: string | null } | null> = { group: null, dm: null };
+  private retry: Record<Delivery, { sendId: string; contentHash: string | null; shareUrl: string | null } | null> = {
+    group: null,
+    dm: null,
+  };
 
   /** Trimmed, exactly what Confirm would send. */
   private readonly typed = computed<PayAccount>(() => ({
@@ -133,8 +136,6 @@ export class PaymentPanel {
   protected readonly showRetry = computed(() => this.readFailed() && this.data()?.target !== null);
   protected readonly canSendToGroup = computed(() => this.sendable() && this.data()?.target === 'group');
   protected readonly shareUrl = computed(() => (this.sendable() && this.data()?.target === 'host' ? this.data()!.shareUrl : null));
-  /** The bot can DM the card to the host: the host link is offered, which is exactly a sendable, current host card. */
-  protected readonly canDm = computed(() => this.shareUrl() !== null);
   /** Amounts are defined, the night is over and someone owes: the account fields and actions apply. */
   protected readonly actionable = computed(() => {
     const p = this.data();
@@ -209,6 +210,8 @@ export class PaymentPanel {
     try {
       const panel = await firstValueFrom(this.cards.confirm(this.sessionCode(), this.typed(), seen.contentHash));
       this.drafts.clear(this.sessionCode());
+      // Every confirm mints a new share token, so a kept DM attempt would be for a card with a dead link.
+      this.retry.dm = null;
       if (seq === this.seq) {
         this.data.set(panel);
         this.readFailed.set(false);
@@ -262,8 +265,10 @@ export class PaymentPanel {
     const contentHash = this.data()?.contentHash ?? null;
     // An attempt with no definite answer may have reached LINE: retry it under the same id, unless the card changed.
     let attempt = this.retry[kind];
-    if (attempt === null || attempt.contentHash !== contentHash) {
-      attempt = this.retry[kind] = { sendId: crypto.randomUUID(), contentHash };
+    // The DM card embeds the share link, which every confirm replaces, so a new link is a new card too.
+    const shareUrl = this.data()?.shareUrl ?? null;
+    if (attempt === null || attempt.contentHash !== contentHash || attempt.shareUrl !== shareUrl) {
+      attempt = this.retry[kind] = { sendId: crypto.randomUUID(), contentHash, shareUrl };
     }
     try {
       let outcome: PaymentSendOutcome;
@@ -302,15 +307,19 @@ export class PaymentPanel {
           ? $localize`:@@pay.card.dmSent:ส่งการ์ดให้คุณใน LINE แล้ว เปิด LINE แล้วกด "ส่งเข้ากลุ่ม"`
           : $localize`:@@pay.card.outcomeSent:ส่งแล้ว`;
       case 'quota':
-        return $localize`:@@pay.card.outcomeQuota:โควต้าข้อความ LINE ของเดือนนี้หมดแล้ว ส่งเข้ากลุ่มไม่ได้`;
+        return dm
+          ? $localize`:@@pay.card.dmQuota:โควต้าข้อความ LINE ของเดือนนี้หมดแล้ว ส่งการ์ดให้คุณไม่ได้ ใช้ "เปิดใน LINE เพื่อส่ง" แทน`
+          : $localize`:@@pay.card.outcomeQuota:โควต้าข้อความ LINE ของเดือนนี้หมดแล้ว ส่งเข้ากลุ่มไม่ได้`;
       case 'failed':
         return dm
-          ? $localize`:@@pay.card.dmFailed:ส่งไม่สำเร็จ ถ้าคุณบล็อกหรือลบบอทไปแล้ว ให้เพิ่มบอทเป็นเพื่อนอีกครั้ง`
+          ? $localize`:@@pay.card.dmFailed:ส่งไม่สำเร็จ ลองอีกครั้ง ถ้ายังไม่ได้ อาจเพราะบล็อกหรือลบบอทไปแล้ว ให้เพิ่มบอทเป็นเพื่อนอีกครั้ง`
           : $localize`:@@pay.card.outcomeFailed:ส่งไม่สำเร็จ ลองอีกครั้ง`;
       case 'unavailable':
         return $localize`:@@pay.card.outcomeUnavailable:ตอนนี้ส่งเข้าไลน์ไม่ได้ ตรวจการเชื่อมต่อ LINE ของก๊วน`;
       case 'busy':
-        return $localize`:@@pay.card.outcomeBusyPosted:เพิ่งส่งเข้ากลุ่มไปแล้ว`;
+        return dm
+          ? $localize`:@@pay.card.dmBusy:เพิ่งส่งการ์ดให้คุณไปแล้ว ดูในแชต LINE`
+          : $localize`:@@pay.card.outcomeBusyPosted:เพิ่งส่งเข้ากลุ่มไปแล้ว`;
       case 'stale':
         return $localize`:@@pay.card.outcomeStale:ยอดเปลี่ยนไปแล้ว กดยืนยันยอดอีกครั้ง`;
       case 'not-confirmed':

@@ -547,6 +547,9 @@ describe('PaymentCardPanel', () => {
       await settle();
       const reread = http.expectOne(URL);
       expect(q<HTMLButtonElement>('[data-dm-send]')?.disabled).toBe(true);
+      // Before the re-read lands: only the optimistic lastDmAt can make the button read "again".
+      expect(q('[data-dm-send]')?.textContent).toContain('ส่งอีกครั้ง');
+      expect(q('[data-dm-send]')?.textContent).not.toContain('ส่งการ์ดให้ฉันทาง LINE');
       reread.flush(host({ lastDmAt: '2026-10-29T13:05:00.000Z' }));
       await settle();
       expect(q('[data-dm-send]')?.textContent).toContain('ส่งอีกครั้ง');
@@ -598,6 +601,30 @@ describe('PaymentCardPanel', () => {
       expect(next.sendId).not.toBe(first.sendId);
     });
 
+    it('a kept sendId does not survive a re-confirm, which rotates the share link the DM card carries', async () => {
+      await open(host());
+      const first = await dm('failed');
+      // Same amounts. The second re-confirm brings the very same link, so only the confirm itself can reset it.
+      await confirm(host({ shareUrl: 'https://liff.line.me/1/pay/sess1/tok2' }));
+      const second = await dm('failed', host({ shareUrl: 'https://liff.line.me/1/pay/sess1/tok2' }));
+      expect(second.sendId).not.toBe(first.sendId);
+
+      await confirm(host({ shareUrl: 'https://liff.line.me/1/pay/sess1/tok2' }));
+      const third = await dm('failed', host({ shareUrl: 'https://liff.line.me/1/pay/sess1/tok2' }));
+      expect(third.sendId).not.toBe(second.sendId);
+    });
+
+    it('a kept sendId is not reused when a read brings a different share link', async () => {
+      await open(host(), { refreshKey: 1 });
+      const first = await dm('failed');
+      fixture.componentRef.setInput('refreshKey', 2);
+      fixture.detectChanges();
+      http.expectOne(URL).flush(host({ shareUrl: 'https://liff.line.me/1/pay/sess1/tok3' }));
+      await settle();
+      const next = await dm('sent', host({ shareUrl: 'https://liff.line.me/1/pay/sess1/tok3', lastDmAt: '2026-10-29T13:05:00.000Z' }));
+      expect(next.sendId).not.toBe(first.sendId);
+    });
+
     it('a request that throws reads as failed, re-reads the panel and retries under the same sendId', async () => {
       await open(host());
       await click('[data-dm-send]');
@@ -612,10 +639,10 @@ describe('PaymentCardPanel', () => {
     });
 
     const cases: [PaymentSendOutcome, string][] = [
-      ['failed', 'ส่งไม่สำเร็จ ถ้าคุณบล็อกหรือลบบอทไปแล้ว ให้เพิ่มบอทเป็นเพื่อนอีกครั้ง'],
-      ['quota', 'โควต้า'],
+      ['failed', 'ส่งไม่สำเร็จ ลองอีกครั้ง ถ้ายังไม่ได้ อาจเพราะบล็อกหรือลบบอทไปแล้ว ให้เพิ่มบอทเป็นเพื่อนอีกครั้ง'],
+      ['quota', 'ส่งการ์ดให้คุณไม่ได้ ใช้ "เปิดใน LINE เพื่อส่ง" แทน'],
       ['unavailable', 'ตอนนี้ส่งเข้าไลน์ไม่ได้'],
-      ['busy', 'เพิ่งส่งเข้ากลุ่มไปแล้ว'],
+      ['busy', 'เพิ่งส่งการ์ดให้คุณไปแล้ว ดูในแชต LINE'],
       ['stale', 'ยอดเปลี่ยนไปแล้ว'],
       ['not-confirmed', 'ยังไม่ได้ยืนยันยอด'],
     ];
@@ -631,6 +658,8 @@ describe('PaymentCardPanel', () => {
         await settle();
         expect(q('[data-outcome]')?.textContent).toContain(message);
         expect(text()).not.toContain('ส่งการ์ดให้คุณใน LINE แล้ว');
+        if (outcome === 'busy' || outcome === 'quota') expect(text()).not.toContain('ส่งเข้ากลุ่มไม่ได้');
+        if (outcome === 'busy') expect(text()).not.toContain('เพิ่งส่งเข้ากลุ่มไปแล้ว');
       });
     }
 

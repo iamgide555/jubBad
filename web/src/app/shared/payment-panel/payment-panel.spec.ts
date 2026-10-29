@@ -29,6 +29,7 @@ function panel(over: Partial<PaymentCardPanel> = {}): PaymentCardPanel {
     confirmed: false,
     stale: false,
     lastSentAt: null,
+    lastDmAt: null,
     shareUrl: null,
     ...over,
   };
@@ -453,6 +454,205 @@ describe('PaymentCardPanel', () => {
       const first = await send('failed', panel({ confirmed: true, contentHash: 'hash-2' }));
       const next = await send('sent', panel({ confirmed: true, contentHash: 'hash-2', lastSentAt: '2026-10-29T13:05:00.000Z' }));
       expect(next.sendId).not.toBe(first.sendId);
+    });
+  });
+
+  describe('host target: bot DM of the card', () => {
+    const SHARE = 'https://liff.line.me/1/pay/sess1/tok';
+    const host = (over: Partial<PaymentCardPanel> = {}) =>
+      panel({ target: 'host', confirmed: true, shareUrl: SHARE, ...over });
+
+    /** One tap of the DM button; the outcome re-reads the panel, which answers `reloaded`. */
+    async function dm(outcome: PaymentSendOutcome, reloaded: PaymentCardPanel = host()) {
+      await click('[data-dm-send]');
+      const req = http.expectOne(`${URL}/dm`);
+      expect(req.request.method).toBe('POST');
+      req.flush({ outcome });
+      await settle();
+      http.expectOne(URL).flush(reloaded);
+      await settle();
+      return req.request.body as { sendId: string };
+    }
+
+    it('offers a primary DM button for a sendable card, keeping the link and its hint as the secondary action', async () => {
+      await open(host());
+      expect(q('[data-dm-send]')?.textContent).toContain('ส่งการ์ดให้ฉันทาง LINE');
+      expect(q<HTMLButtonElement>('[data-dm-send]')!.disabled).toBe(false);
+      expect(q<HTMLAnchorElement>('a[data-share-link]')!.getAttribute('href')).toBe(SHARE);
+      expect(text()).toContain('เปิดใน LINE เพื่อส่ง');
+      expect(text()).toContain('กดแล้วเลือกกลุ่มในแอป LINE');
+      expect(q('[data-send]')).toBeNull();
+    });
+
+    it('does not offer it for the group target', async () => {
+      await open(panel({ confirmed: true }));
+      expect(q('[data-dm-send]')).toBeNull();
+      expect(q('[data-send]')).toBeTruthy();
+    });
+
+    it('does not offer it before the confirm', async () => {
+      await open(panel({ target: 'host' }));
+      expect(q('[data-dm-send]')).toBeNull();
+    });
+
+    it('does not offer it for a stale card', async () => {
+      await open(host({ stale: true, shareUrl: null }));
+      expect(q('[data-dm-send]')).toBeNull();
+    });
+
+    it('does not offer it once the account is edited after the confirm', async () => {
+      await open(host());
+      expect(q('[data-dm-send]')).toBeTruthy();
+      await type('input[data-field="name"]', 'Someone Else');
+      expect(q('[data-dm-send]')).toBeNull();
+      expect(q('[data-share-link]')).toBeNull();
+    });
+
+    it('does not offer it while an amount is undefined', async () => {
+      await open(host({ ready: false, warnings: ['MISSING_COURT_FEE'], shareUrl: null }));
+      expect(q('[data-dm-send]')).toBeNull();
+    });
+
+    it('does not offer it when nobody owes', async () => {
+      await open(host({ rows: [], totalSatang: 0, shareUrl: null }));
+      expect(q('[data-dm-send]')).toBeNull();
+    });
+
+    it('does not offer it without a share link (no LIFF id on the server)', async () => {
+      await open(host({ shareUrl: null }));
+      expect(q('[data-dm-send]')).toBeNull();
+    });
+
+    it('a tap posts a fresh UUID, says the card is in LINE with the sent time, and does not tell the host page', async () => {
+      await open(host());
+      const sent: number[] = [];
+      fixture.componentInstance.sent.subscribe(() => sent.push(1));
+      const at = '2026-10-29T13:05:00.000Z';
+      const body = await dm('sent', host({ lastDmAt: at }));
+      expect(body.sendId).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/);
+      const live = q('[aria-live="polite"]')!;
+      expect(live.textContent).toContain('ส่งการ์ดให้คุณใน LINE แล้ว เปิด LINE แล้วกด "ส่งเข้ากลุ่ม"');
+      const time = new Date(at);
+      const hhmm = `${String(time.getHours()).padStart(2, '0')}:${String(time.getMinutes()).padStart(2, '0')}`;
+      expect(q('[data-last-dm]')?.textContent).toContain(`ส่งแล้ว ${hhmm}`);
+      expect(sent).toHaveLength(0);
+      expect(q('[data-dm-send]')?.textContent).toContain('ส่งอีกครั้ง');
+      expect(q('[data-last-sent]')).toBeNull();
+    });
+
+    it('marks the DM sent at once, so a quick second tap already asks first while the re-read runs', async () => {
+      await open(host());
+      await click('[data-dm-send]');
+      http.expectOne(`${URL}/dm`).flush({ outcome: 'sent' });
+      await settle();
+      const reread = http.expectOne(URL);
+      expect(q<HTMLButtonElement>('[data-dm-send]')?.disabled).toBe(true);
+      reread.flush(host({ lastDmAt: '2026-10-29T13:05:00.000Z' }));
+      await settle();
+      expect(q('[data-dm-send]')?.textContent).toContain('ส่งอีกครั้ง');
+    });
+
+    it('a second tap after a sent card goes through the inline two-step, with a new UUID', async () => {
+      await open(host({ lastDmAt: '2026-10-29T13:05:00.000Z' }));
+      expect(q('[data-dm-send]')?.textContent).toContain('ส่งอีกครั้ง');
+
+      await click('[data-dm-send]');
+      http.expectNone(`${URL}/dm`);
+      expect(q('[data-dm-resend-prompt]')).toBeTruthy();
+      expect(q('[data-dm-resend-prompt]')?.textContent).toContain('ส่งการ์ดให้ฉันซ้ำอีกรอบใช่ไหม');
+
+      await click('[data-dm-resend-cancel]');
+      expect(q('[data-dm-resend-prompt]')).toBeNull();
+      http.expectNone(`${URL}/dm`);
+
+      await click('[data-dm-send]');
+      await click('[data-dm-resend-yes]');
+      const req = http.expectOne(`${URL}/dm`);
+      expect(req.request.body.sendId).toMatch(/^[0-9a-f-]{36}$/);
+      req.flush({ outcome: 'sent' });
+      await settle();
+      http.expectOne(URL).flush(host({ lastDmAt: '2026-10-29T13:06:00.000Z' }));
+      await settle();
+    });
+
+    it('a failed send is retried with the same sendId, and a definite answer starts a new one', async () => {
+      await open(host());
+      const first = await dm('failed');
+      const second = await dm('sent', host({ lastDmAt: '2026-10-29T13:05:00.000Z' }));
+      expect(second.sendId).toBe(first.sendId);
+
+      await click('[data-dm-send]');
+      await click('[data-dm-resend-yes]');
+      const third = http.expectOne(`${URL}/dm`);
+      expect(third.request.body.sendId).not.toBe(first.sendId);
+      third.flush({ outcome: 'sent' });
+      await settle();
+      http.expectOne(URL).flush(host({ lastDmAt: '2026-10-29T13:06:00.000Z' }));
+      await settle();
+    });
+
+    it('a failed send is not reused once the card content changed', async () => {
+      await open(host());
+      const first = await dm('failed', host({ contentHash: 'hash-2' }));
+      const next = await dm('sent', host({ contentHash: 'hash-2', lastDmAt: '2026-10-29T13:05:00.000Z' }));
+      expect(next.sendId).not.toBe(first.sendId);
+    });
+
+    it('a request that throws reads as failed, re-reads the panel and retries under the same sendId', async () => {
+      await open(host());
+      await click('[data-dm-send]');
+      const lost = http.expectOne(`${URL}/dm`);
+      lost.error(new ProgressEvent('error'));
+      await settle();
+      http.expectOne(URL).flush(host());
+      await settle();
+      expect(q('[data-outcome]')?.textContent).toContain('ส่งไม่สำเร็จ');
+      const retry = await dm('sent', host({ lastDmAt: '2026-10-29T13:05:00.000Z' }));
+      expect(retry.sendId).toBe(lost.request.body.sendId);
+    });
+
+    const cases: [PaymentSendOutcome, string][] = [
+      ['failed', 'ส่งไม่สำเร็จ ถ้าคุณบล็อกหรือลบบอทไปแล้ว ให้เพิ่มบอทเป็นเพื่อนอีกครั้ง'],
+      ['quota', 'โควต้า'],
+      ['unavailable', 'ตอนนี้ส่งเข้าไลน์ไม่ได้'],
+      ['busy', 'เพิ่งส่งเข้ากลุ่มไปแล้ว'],
+      ['stale', 'ยอดเปลี่ยนไปแล้ว'],
+      ['not-confirmed', 'ยังไม่ได้ยืนยันยอด'],
+    ];
+    for (const [outcome, message] of cases) {
+      it(`${outcome} shows its message and re-reads the panel`, async () => {
+        await open(host());
+        await click('[data-dm-send]');
+        http.expectOne(`${URL}/dm`).flush({ outcome });
+        await settle();
+        // Busy until the re-read lands.
+        expect(q<HTMLButtonElement>('[data-dm-send]')?.disabled ?? true).toBe(true);
+        http.expectOne(URL).flush(host({ stale: outcome === 'stale', confirmed: outcome !== 'not-confirmed' }));
+        await settle();
+        expect(q('[data-outcome]')?.textContent).toContain(message);
+        expect(text()).not.toContain('ส่งการ์ดให้คุณใน LINE แล้ว');
+      });
+    }
+
+    it('after a failed refresh the DM button stays off until a read succeeds', async () => {
+      await open(host(), { refreshKey: 1 });
+      fixture.componentRef.setInput('refreshKey', 2);
+      fixture.detectChanges();
+      http.expectOne(URL).flush({}, { status: 500, statusText: 'Server Error' });
+      await settle();
+      expect(q<HTMLButtonElement>('[data-dm-send]')!.disabled).toBe(true);
+    });
+
+    it('the host link never claims a send', async () => {
+      await open(host());
+      const a = q<HTMLAnchorElement>('a[data-share-link]')!;
+      a.addEventListener('click', (e) => e.preventDefault());
+      a.click();
+      await settle();
+      http.expectNone(`${URL}/dm`);
+      expect(q('[data-outcome]')).toBeNull();
+      expect(q('[data-last-dm]')).toBeNull();
+      expect(text()).not.toContain('ส่งแล้ว');
     });
   });
 

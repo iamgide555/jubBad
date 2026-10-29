@@ -31,6 +31,11 @@ export class PaymentCardService {
   send(sessionCode: string, sendId: string): Observable<PaymentSendOutcome> {
     return this.http.post<{ outcome: PaymentSendOutcome }>(this.url(sessionCode, '/send'), { sendId }).pipe(map((r) => r.outcome));
   }
+
+  /** The bot DMs the card to the host's own LINE chat (`host` target). Same `sendId` rule and answer as `send`. */
+  sendDm(sessionCode: string, sendId: string): Observable<PaymentSendOutcome> {
+    return this.http.post<{ outcome: PaymentSendOutcome }>(this.url(sessionCode, '/dm'), { sendId }).pipe(map((r) => r.outcome));
+  }
 }
 
 /**

@@ -6429,6 +6429,22 @@
         <source>ยอดเปลี่ยน ตรวจยอดอีกครั้ง</source>
         <target>The amounts changed. Check them again.</target>
       </trans-unit>
+      <trans-unit id="pay.card.dmSend" datatype="html">
+        <source>ส่งการ์ดให้ฉันทาง LINE</source>
+        <target>Send the card to me on LINE</target>
+      </trans-unit>
+      <trans-unit id="pay.card.dmSent" datatype="html">
+        <source>ส่งการ์ดให้คุณใน LINE แล้ว เปิด LINE แล้วกด "ส่งเข้ากลุ่ม"</source>
+        <target>The card was sent to you on LINE. Open LINE and tap "Send to group".</target>
+      </trans-unit>
+      <trans-unit id="pay.card.dmFailed" datatype="html">
+        <source>ส่งไม่สำเร็จ ถ้าคุณบล็อกหรือลบบอทไปแล้ว ให้เพิ่มบอทเป็นเพื่อนอีกครั้ง</source>
+        <target>Could not send. If you blocked or removed the bot, add it as a friend again.</target>
+      </trans-unit>
+      <trans-unit id="pay.card.dmResendAsk" datatype="html">
+        <source>ส่งการ์ดให้ฉันซ้ำอีกรอบใช่ไหม</source>
+        <target>Send the card to me again?</target>
+      </trans-unit>
     </body>
   </file>
 </xliff>

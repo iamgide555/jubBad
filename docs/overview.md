@@ -1573,8 +1573,14 @@ expired code gets one generic Thai reply (it never says which); a sender who has
     `/line-share/pay/:code/:token` (also reached through the `?liff.state=` first redirect, and a
     bare `/pay` still falls through to the summary flow). It runs the same share picker as the
     summary card, so it works in a group that already has another bot. The server cannot see a
-    share-picker send, so this target has no "sent" state and no resend prompt, and the banner
-    treats a fresh confirm as done. The link needs `LINE_LIFF_ID` and `PUBLIC_APP_URL` (no new
+    share-picker send, so the link has no "sent" state and no resend prompt, and the banner
+    treats a fresh confirm as done. The panel also offers "ส่งการ์ดให้ฉันทาง LINE": a per-tap request
+    (`POST /sessions/:code/payment-card/dm`, same body and outcomes as the group send) that has the bot
+    DM the card to the owner's linked LINE chat, with a secondary "ส่งเข้ากลุ่ม" button that opens the
+    same share link (for a host running the session from an iPad or computer, where the link would open
+    in that device's browser instead of LINE). It is never automatic and spends one bot push per press;
+    its own time (`lastDmAt`), 5-second busy guard and retry key are separate from the group send, and
+    it does not change the banner. The link needs `LINE_LIFF_ID` and `PUBLIC_APP_URL` (no new
     variable); without them no link is shown. The page never renders the token.
   - **Copy button and the plain-text number.** `PAYMENT_NUMBER_TEXT = { group: true, host: true }`
     in `server/src/line/payment-card.ts`: **both paths send a second plain-text message holding only

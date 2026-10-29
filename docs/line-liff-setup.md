@@ -144,6 +144,12 @@ then end it.
       LINE Desktop the button does nothing by design (spike 2026-10-29); the plain-text message
       right after the card is how a desktop reader copies the number.
 - [ ] Same on a group that already has another bot (for example ขุนทอง).
+- [ ] Host-share group, DM button: confirm, then tap "ส่งการ์ดให้ฉันทาง LINE" (try it from a computer
+      or iPad). The card arrives from the bot in the owner's own LINE chat with both the copy button
+      and a "ส่งเข้ากลุ่ม" button; "ส่งเข้ากลุ่ม" opens the LIFF page and the picker sends it. The
+      panel says "ส่งการ์ดให้คุณใน LINE แล้ว ..." with the time, and a second tap asks first. Block
+      the bot (or remove the friend) and tap again: the panel reports the failure and says to add the
+      bot as a friend again.
 - [ ] Bot-linked group: confirm, then "ส่งเข้ากลุ่ม" posts the card into the LINE group, with the
       number message after it. The copy button renders and works in the bot-sent card. If the button
       fails there nothing else is needed, since the text message follows; if the extra message matters

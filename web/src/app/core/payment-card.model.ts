@@ -29,6 +29,8 @@ export interface PaymentCardPanel {
   /** Confirmed, but the card's content has changed since: confirm again before it goes out. */
   stale: boolean;
   lastSentAt: string | null;
+  /** When the bot last DMed the card to the host (`host` target), null if never. */
+  lastDmAt: string | null;
   /** The host-share link (`host` target only), set only while the confirmed card is current. */
   shareUrl: string | null;
 }

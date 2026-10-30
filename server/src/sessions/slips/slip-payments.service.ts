@@ -1,4 +1,4 @@
-import { ConflictException, Injectable } from '@nestjs/common';
+import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service.js';
 import { PaymentCardService } from '../payment-card.service.js';
 import { SessionLock } from '../session-lock.js';
@@ -11,6 +11,21 @@ export interface PaidRow {
   at: string;
   /** A slip credited an amount that no longer matches the player's current bill row. The mark stays; the host decides. */
   amountChangedSince: boolean;
+}
+
+/** The LINE profile the pay page reads for the viewer. Only `userId` is required to link; the rest is for display. */
+export interface LiffUser {
+  userId: string;
+  displayName: string | null;
+  pictureUrl: string | null;
+}
+
+export type ClaimOutcome = 'linked' | 'player-taken' | 'account-already-linked' | 'not-on-bill';
+
+export interface LinkRow {
+  playerId: string;
+  displayName: string | null;
+  linkedBy: 'self' | 'host';
 }
 
 /**
@@ -56,5 +71,80 @@ export class SlipPaymentsService {
       await this.cards.panel(code);
       await this.prisma.sessionPayment.deleteMany({ where: { sessionId: code, playerId } });
     });
+  }
+
+  /**
+   * A viewer claims "this is me" on the pay page. One account per player and one player per account within the group;
+   * the first claim wins and a later one never overwrites it (the host can repoint with `setLink`).
+   */
+  claimPlayer(code: string, user: LiffUser, playerId: string): Promise<ClaimOutcome> {
+    return this.lock.run(code, async () => {
+      const panel = await this.cards.panel(code);
+      if (!panel.rows.some((r) => r.playerId === playerId)) return 'not-on-bill';
+      const groupId = await this.groupOf(code);
+      // A bill row always belongs to the session's group, but a link row must never depend on that being true.
+      if (!(await this.prisma.player.findFirst({ where: { id: playerId, groupId }, select: { id: true } }))) return 'not-on-bill';
+
+      const byAccount = await this.prisma.playerLineAccount.findUnique({
+        where: { groupId_lineUserId: { groupId, lineUserId: user.userId } },
+      });
+      if (byAccount) return byAccount.playerId === playerId ? 'linked' : 'account-already-linked';
+      const byPlayer = await this.prisma.playerLineAccount.findUnique({ where: { groupId_playerId: { groupId, playerId } } });
+      if (byPlayer) return 'player-taken';
+
+      await this.prisma.playerLineAccount.create({
+        data: { groupId, playerId, lineUserId: user.userId, displayName: user.displayName, linkedBy: 'self' },
+      });
+      return 'linked';
+    });
+  }
+
+  /** The player this LINE account is linked to in the group, if any. */
+  async linkedPlayerOf(groupCode: string, lineUserId: string): Promise<string | null> {
+    const link = await this.prisma.playerLineAccount.findUnique({
+      where: { groupId_lineUserId: { groupId: groupCode, lineUserId } },
+      select: { playerId: true },
+    });
+    return link?.playerId ?? null;
+  }
+
+  /** Every link in the session's group, oldest first. */
+  async listLinks(code: string): Promise<LinkRow[]> {
+    const groupId = await this.groupOf(code);
+    const links = await this.prisma.playerLineAccount.findMany({ where: { groupId }, orderBy: { createdAt: 'asc' } });
+    return links.map((l) => ({
+      playerId: l.playerId,
+      displayName: l.displayName,
+      linkedBy: l.linkedBy === 'self' ? 'self' : 'host',
+    }));
+  }
+
+  /** Host: points the player at this account (replacing any link the player has), or with `null` removes the link. */
+  setLink(code: string, playerId: string, lineUserId: string | null): Promise<void> {
+    return this.lock.run(code, async () => {
+      const groupId = await this.groupOf(code);
+      if (lineUserId === null) {
+        await this.prisma.playerLineAccount.deleteMany({ where: { groupId, playerId } });
+        return;
+      }
+      if (!(await this.prisma.player.findFirst({ where: { id: playerId, groupId }, select: { id: true } }))) {
+        throw new ConflictException({ code: 'PLAYER_NOT_IN_GROUP' });
+      }
+      const byAccount = await this.prisma.playerLineAccount.findUnique({
+        where: { groupId_lineUserId: { groupId, lineUserId } },
+      });
+      if (byAccount && byAccount.playerId !== playerId) throw new ConflictException({ code: 'ACCOUNT_ALREADY_LINKED' });
+      if (byAccount?.linkedBy === 'host') return;
+      await this.prisma.$transaction([
+        this.prisma.playerLineAccount.deleteMany({ where: { groupId, playerId } }),
+        this.prisma.playerLineAccount.create({ data: { groupId, playerId, lineUserId, displayName: null, linkedBy: 'host' } }),
+      ]);
+    });
+  }
+
+  private async groupOf(code: string): Promise<string> {
+    const session = await this.prisma.session.findUnique({ where: { code }, select: { groupId: true } });
+    if (!session) throw new NotFoundException();
+    return session.groupId;
   }
 }

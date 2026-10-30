@@ -327,6 +327,13 @@ describe('SlipReview', () => {
       expect(q('[data-update-name]')!.textContent).toContain('อัปเดตชื่อที่ตั้งไว้เป็น "จิตติญา ฉ."');
     });
 
+    it('shows the receiver block but no button when the group has no saved name to change', async () => {
+      // The server only rewrites a saved account's name; with none there is nothing to fix.
+      await open(panel({ waiting: [receiver()] }));
+      expect(q('[data-receiver]')!.textContent).toContain('บนสลิป: จิตติญา ฉ.');
+      expect(q('[data-update-name]')).toBeNull();
+    });
+
     it('is absent for every other reason, and for a receiver slip with no name', async () => {
       await open(panel({ waiting: [waiting({ reason: 'amount', receiverName: 'X' }), waiting({ id: 'w2', reason: 'receiver', receiverName: null })] }));
       expect(q('[data-update-name]')).toBeNull();

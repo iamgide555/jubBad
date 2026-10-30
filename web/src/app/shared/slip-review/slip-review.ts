@@ -71,7 +71,10 @@ export class SlipReview {
   readonly code = input.required<string>();
   /** The panel's rows. Anyone owing nothing is left out of the status list. */
   readonly rows = input.required<readonly SlipReviewRow[]>();
-  /** The pay-account name the card shows now, for the "update saved name" confirmation. */
+  /**
+   * The group's saved pay-account name: the one "update saved name" rewrites, shown as the old name in its
+   * confirmation. Null when the group saves none; there is then nothing to update and the button is not offered.
+   */
   readonly savedName = input<string | null>(null);
 
   private readonly api = inject(SlipHostService);
@@ -131,7 +134,11 @@ export class SlipReview {
         senderId,
         // Only a slip whose account may be unlinked can replace a link; a linked account is refused by the server instead.
         senderWarning: senderId !== null && (slip.reason === 'unmapped' || slip.reason === 'stale') && linked.has(senderId),
-        canFixName: slip.reason === 'receiver' && slip.receiverName !== null && !this.namesUpdated().has(slip.id),
+        canFixName:
+          slip.reason === 'receiver' &&
+          slip.receiverName !== null &&
+          !!this.savedName() &&
+          !this.namesUpdated().has(slip.id),
         nameUpdated: this.namesUpdated().has(slip.id),
       };
     });

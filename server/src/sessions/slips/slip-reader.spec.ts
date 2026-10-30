@@ -1,8 +1,15 @@
 import QRCode from 'qrcode';
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import * as slipQr from './slip-qr.js';
 import { makeSlipPayload } from './slip-qr.js';
 import { SlipReader } from './slip-reader.js';
 import type { SlipOcr, SlipOcrResult } from './slip-ocr.js';
+
+// The real decoder, wrapped so a test can prove the size guard runs before it.
+vi.mock('./slip-qr.js', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('./slip-qr.js')>();
+  return { ...actual, decodeSlipQr: vi.fn(actual.decodeSlipQr) };
+});
 
 function fakeOcr(result: SlipOcrResult) {
   const read = vi.fn(async () => result);
@@ -30,6 +37,8 @@ function pngHeader(width: number, height: number): Buffer {
 }
 
 describe('SlipReader', () => {
+  afterEach(() => vi.mocked(slipQr.decodeSlipQr).mockClear());
+
   it('returns not-slip without calling OCR when there is no slip QR', async () => {
     const { ocr, read } = fakeOcr(OCR_RESULT);
     const reader = new SlipReader(ocr);
@@ -69,6 +78,19 @@ describe('SlipReader', () => {
     expect(await reader.read(pngHeader(6000, 5000))).toEqual({
       kind: 'not-slip',
     });
+    expect(read).not.toHaveBeenCalled();
+  });
+
+  it('treats an image whose size cannot be read from its header as not-slip, before QR decode or OCR', async () => {
+    const { ocr, read } = fakeOcr(OCR_RESULT);
+    const reader = new SlipReader(ocr);
+    // Even if the decoder would find a slip QR in it, an unreadable header never gets that far.
+    vi.mocked(slipQr.decodeSlipQr).mockReturnValueOnce({ bankCode: '004', reference: 'REF123456' });
+    // A JPEG whose segment walk stops at a byte that is not a marker.
+    const odd = Buffer.from([0xff, 0xd8, 0xff, 0xe0, 0x00, 0x04, 0x00, 0x00, 0x12, 0x34, 0x56, 0x78]);
+    expect(slipQr.imageDimensions(odd)).toBeNull();
+    expect(await reader.read(odd)).toEqual({ kind: 'not-slip' });
+    expect(slipQr.decodeSlipQr).not.toHaveBeenCalled();
     expect(read).not.toHaveBeenCalled();
   });
 });

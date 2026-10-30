@@ -16,8 +16,9 @@ export class SlipReader {
   constructor(private readonly ocr: SlipOcr) {}
 
   async read(image: Buffer): Promise<SlipRead> {
+    // A header whose size cannot be read is not decoded at all: its real size is unknown, so it could be huge.
     const size = imageDimensions(image);
-    if (size && size.width * size.height > MAX_PIXELS) {
+    if (!size || size.width * size.height > MAX_PIXELS) {
       return { kind: 'not-slip' };
     }
     const qr = decodeSlipQr(image);

@@ -111,6 +111,39 @@ describe('imageDimensions', () => {
     });
   });
 
+  /** SOI, an APP0 segment, then a frame header with `marker` (after optional fill bytes). */
+  function jpegHeader(marker: number, width: number, height: number, fill = 0): Buffer {
+    const app0 = [0xff, 0xe0, 0x00, 0x10, ...Buffer.from('JFIF\0'), 1, 1, 0, 0, 1, 0, 1, 0, 0];
+    const sof = [0xff, marker, 0x00, 0x11, 8, height >> 8, height & 0xff, width >> 8, width & 0xff, 3];
+    return Buffer.from([0xff, 0xd8, ...app0, ...Array(fill).fill(0xff), ...sof, ...Array(9).fill(0)]);
+  }
+
+  it('reads a progressive (SOF2) JPEG frame header', () => {
+    expect(imageDimensions(jpegHeader(0xc2, 1170, 2532))).toEqual({
+      width: 1170,
+      height: 2532,
+    });
+  });
+
+  it('skips fill bytes before a marker', () => {
+    expect(imageDimensions(jpegHeader(0xc0, 640, 480, 3))).toEqual({
+      width: 640,
+      height: 480,
+    });
+  });
+
+  it('returns null when the segment walk hits a byte that is not a marker', () => {
+    const header = jpegHeader(0xc0, 640, 480);
+    // Corrupt the byte where the frame header's marker should start.
+    const broken = Buffer.from(header);
+    broken[2 + 18] = 0x00;
+    expect(imageDimensions(broken)).toBeNull();
+  });
+
+  it('returns null for a frame header cut short', () => {
+    expect(imageDimensions(jpegHeader(0xc0, 640, 480).subarray(0, 2 + 18 + 6))).toBeNull();
+  });
+
   it('returns null for unknown or truncated input', () => {
     expect(imageDimensions(Buffer.from('not an image'))).toBeNull();
     expect(imageDimensions(Buffer.from([0xff, 0xd8, 0xff, 0xe0]))).toBeNull();

@@ -764,7 +764,10 @@ export class GroupsService {
   }
 
   /**
-   * Hard delete, in dependency order — SQLite has no cascade configured here.
+   * Hard delete, in dependency order: most of these tables have no cascade
+   * configured. The slip tables do (PlayerLineAccount, SessionPayment,
+   * SlipReference, PendingSlip and SlipDuplicate cascade from Group, Session
+   * and Player), so they go with their parent rows.
    * Irreversible, which is why the client asks for the group's name to be
    * typed before calling it.
    */

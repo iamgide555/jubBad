@@ -1654,19 +1654,38 @@ is kept is the reference, amount, receiver text, sender and time.
 tick). *Settled* stays the early-checkout receipt (see Early checkout above); the two are different facts
 and the names are kept apart on purpose.
 
-**Auto-paid, at a glance.** All must hold, otherwise the slip waits for the host: the payment card is
-confirmed and not stale; the sender's LINE account is linked to a player; the slip amount matches what that
-player owes exactly and no other owed amount appears in the text; the receiver name matches the group's
-saved account name by whole words; and the transfer reference has not been used in this group before.
-A mismatch never marks anyone paid; the slip waits for the host.
+**Auto-paid, at a glance.** The pay page needs the group owner on the Host plan or above (accounts default to
+`club`, see plan gating above); a lapsed plan closes the pay page, so nothing new is marked, and recorded marks
+stay. All must hold, otherwise the slip waits for the host:
+- the payment card is confirmed and not stale;
+- the sender's LINE account is linked to a player who is on the bill and unpaid;
+- the slip amount matches what that player owes exactly, and no other owed amount appears in the text;
+- the date printed on the slip falls from the day before the bill's night ended to the day after today
+  (Bangkok calendar days). Added at the final review: without it a genuine old slip of the same amount (last
+  week's, made before references were recorded) paid tonight. A date OCR cannot read holds the slip (reason
+  `date`): the host decides;
+- the receiver name matches by whole words (a word of five or more characters may differ by one character,
+  for OCR misreads), checked against the group's saved account name, else the confirmed card's account name;
+  the check is skipped only when neither the group nor the confirmed card has an account name. Only the lower
+  name block is the receiver (the sender prints first), and nothing at or below a memo label (บันทึกช่วยจำ,
+  บันทึก, ช่วยจำ, memo, note) counts: the memo is free text a sender could fill with the host's name;
+- the transfer reference has not been used in this group before.
+
+A mismatch never marks anyone paid; the slip waits for the host, who sees the reason (the sender does not:
+the pay page only says the slip went to the host).
 
 **What reaches the host.** Waiting slips (with the reason) and duplicates, in the bill screen's review list.
 The host resolves a waiting slip by ticking one or more players (or dismisses it), and dismisses a duplicate. A duplicate never
-pays anyone and the sender is not told off in the group.
+pays anyone and the sender is not told off in the group. A receiver mismatch also offers to make the slip's
+receiver the group's saved name (after a confirmation showing the old and new name); it is offered only when
+the group has a saved account, since that is the name it rewrites.
 
-**Abuse limits.** The pay link is reachable by anyone holding the card, so uploads have a size cap, a
-per-viewer rate limit, a server-wide limit on uploads in flight, and reading is serialised. Bad tokens and
-bad links are throttled by address.
+**Abuse limits.** The pay link is reachable by anyone holding the card, so uploads have a size cap (8 MB,
+in nginx and the API), a per-viewer rate limit, a server-wide limit on uploads in flight, and reading is
+serialised; an image whose pixel size cannot be read from its header, or over 25 megapixels, is never decoded.
+Bad LINE tokens are throttled by address; bad pay links per viewer per session. The card only carries the
+send-slip button when both the LIFF app and the LINE Login channel are configured, so a tap never lands on a
+page that cannot verify anyone.
 
 **Lifecycle.** Unlinking the LINE group (or the bot being removed) purges the group's account links,
 waiting slips, duplicates and used references; recorded `SessionPayment` rows stay. Deleting the JubBad group

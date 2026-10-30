@@ -1,7 +1,7 @@
 <main class="page share">
   @if (kind === 'pay') {
     <h1 i18n="@@share.pay.title">ส่งใบเก็บเงินเข้ากลุ่ม LINE</h1>
-  } @else {
+  } @else if (kind !== 'slip') {
     <h1 i18n="@@share.line.title">ส่งสรุปเข้ากลุ่ม LINE</h1>
   }
 
@@ -35,7 +35,9 @@
       <p class="muted" role="status" data-share-loading i18n="@@share.line.loading">กำลังโหลด…</p>
     }
     @case ('missing') {
-      @if (kind === 'pay') {
+      @if (kind === 'slip') {
+        <p class="muted" role="status" data-share-missing i18n="@@slipPay.unavailable">ลิงก์นี้ใช้ไม่ได้แล้ว</p>
+      } @else if (kind === 'pay') {
         <p class="muted" role="status" data-share-missing i18n="@@share.pay.missing">ไม่พบใบเก็บเงินนี้ ลองกดปุ่มจากหน้าเก็บเงินอีกครั้ง</p>
       } @else {
         <p class="muted" role="status" data-share-missing i18n="@@share.line.missing">ไม่พบสรุปนี้</p>

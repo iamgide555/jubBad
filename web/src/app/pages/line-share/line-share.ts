@@ -1,6 +1,6 @@
 import { HttpErrorResponse } from '@angular/common/http';
 import { Component, computed, inject, signal } from '@angular/core';
-import { ActivatedRoute, type ActivatedRouteSnapshot } from '@angular/router';
+import { ActivatedRoute, type ActivatedRouteSnapshot, Router } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
 import { formatBaht } from '../../core/bill-text';
 import { LiffClient } from '../../core/liff-client';
@@ -10,9 +10,9 @@ import { LineService } from '../../core/line.service';
 type Phase = 'loading' | 'missing' | 'error' | 'login' | 'unavailable' | 'ready' | 'done';
 
 interface RouteTarget {
-  kind: 'summary' | 'pay';
+  kind: 'summary' | 'pay' | 'slip';
   code: string;
-  /** Only for `pay`; never logged or shown. */
+  /** Only for `pay` and `slip`; never logged or shown. */
   token: string | null;
 }
 
@@ -24,7 +24,9 @@ interface RouteTarget {
  * slash is the path LIFF appended. The payment card is the same with
  * `/pay/<code>/<token>` in place of `/<code>`; a pay link missing either part
  * has no code, so the page says it is missing. A bare `/pay` is one segment,
- * like any summary code, and is read as one.
+ * like any summary code, and is read as one. A player's slip link is the same
+ * with `/slip/<code>/<token>`; that page is a different component, so this one
+ * only recognises it and hands over (see the constructor).
  */
 function routeTargetFrom(snapshot: ActivatedRouteSnapshot): RouteTarget {
   const code = snapshot.paramMap.get('sessionCode');
@@ -34,8 +36,8 @@ function routeTargetFrom(snapshot: ActivatedRouteSnapshot): RouteTarget {
   const state = snapshot.queryParamMap.get('liff.state') ?? '';
   const path = state.startsWith('/') ? state.slice(1) : state;
   const parts = path.split('/');
-  if (parts[0] === 'pay' && parts.length > 1) {
-    return { kind: 'pay', code: parts.length === 3 ? parts[1] : '', token: parts.length === 3 ? parts[2] : null };
+  if ((parts[0] === 'pay' || parts[0] === 'slip') && parts.length > 1) {
+    return { kind: parts[0], code: parts.length === 3 ? parts[1] : '', token: parts.length === 3 ? parts[2] : null };
   }
   return { kind: 'summary', code: path, token: null };
 }
@@ -54,7 +56,9 @@ function routeTargetFrom(snapshot: ActivatedRouteSnapshot): RouteTarget {
 export class LineShare {
   private readonly line = inject(LineService);
   private readonly liff = inject(LiffClient);
-  private readonly target = routeTargetFrom(inject(ActivatedRoute).snapshot);
+  private readonly router = inject(Router);
+  private readonly route = inject(ActivatedRoute).snapshot;
+  private readonly target = routeTargetFrom(this.route);
 
   protected readonly kind = this.target.kind;
   protected readonly baht = formatBaht;
@@ -68,6 +72,16 @@ export class LineShare {
   private loading = false;
 
   constructor() {
+    const { kind, code, token } = this.target;
+    if (kind === 'slip' && code && token) {
+      // A player's slip link, as LIFF first opens it. It is not a card to share: the slip page loads
+      // its own data and starts LIFF itself, so go there and leave this URL out of the history.
+      const queryParams = Object.fromEntries(
+        this.route.queryParamMap.keys.filter((k) => k !== 'liff.state').map((k) => [k, this.route.queryParamMap.get(k)!]),
+      );
+      void this.router.navigate(['/line-share', 'slip', code, token], { replaceUrl: true, queryParams });
+      return;
+    }
     void this.load();
   }
 
@@ -89,7 +103,7 @@ export class LineShare {
   /** Card first (a missing summary never needs LIFF), then LIFF, then log in if needed. */
   private async loadCard(): Promise<void> {
     const { kind, code, token } = this.target;
-    if (!code || (kind === 'pay' && !token)) {
+    if (!code || (kind !== 'summary' && !token)) {
       this.phase.set('missing');
       return;
     }

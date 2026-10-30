@@ -1,0 +1,135 @@
+/* One column, used one-handed inside LINE's browser at 360px: the big action is
+   full width and sits under the amount and the account, within thumb reach.
+   Every control is at least the app's 44px tap size. */
+.slip {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.slip section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.slip h1,
+.slip p {
+  margin: 0;
+}
+
+.hero {
+  text-align: center;
+  padding: var(--space-2) 0;
+}
+
+.eyebrow {
+  color: var(--ink-soft);
+  font-size: var(--text-sm);
+}
+
+.amount {
+  font-size: var(--text-5xl);
+  line-height: 1.15;
+  margin: var(--space-0) 0;
+}
+
+.player-name {
+  font-size: var(--text-lg);
+  font-weight: 700;
+}
+
+.tabular {
+  font-variant-numeric: tabular-nums;
+}
+
+.account {
+  padding: var(--space-2) var(--space-3);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-xs);
+  overflow-wrap: anywhere;
+}
+
+.account-name {
+  font-weight: 700;
+  font-size: var(--text-lg);
+}
+
+.result {
+  align-items: center;
+  text-align: center;
+  padding: var(--space-3) 0;
+}
+
+.mark {
+  font-size: var(--text-4xl);
+  line-height: 1;
+}
+
+.amount-small {
+  font-size: var(--text-2xl);
+  font-weight: 700;
+  color: var(--court-ink);
+}
+
+.note {
+  color: var(--ink-soft);
+  font-size: var(--text-sm);
+  text-align: center;
+  padding: var(--space-1) 0;
+}
+
+.claim-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.slip-btn,
+.claim-btn {
+  width: 100%;
+  min-height: 44px;
+}
+
+/* A choice among equals, so outlined rather than the green primary. */
+.claim-btn {
+  justify-content: flex-start;
+  text-align: left;
+  background: var(--surface);
+  color: var(--ink);
+  border: 1.5px solid var(--line);
+}
+
+@media (hover: hover) {
+  .claim-btn:hover:not(:disabled) {
+    background: var(--court-hover);
+    border-color: var(--ink-faint);
+    color: var(--ink);
+  }
+}
+
+.claim-btn:disabled {
+  background: var(--ground-sunk);
+}
+
+button.text-btn,
+button.text-btn:hover {
+  min-height: 44px;
+  width: 100%;
+  background: transparent;
+  color: var(--ink-soft);
+  box-shadow: none;
+  font-size: var(--text-sm);
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+button.text-btn:active {
+  transform: none;
+}

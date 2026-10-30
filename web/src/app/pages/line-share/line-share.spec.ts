@@ -1,6 +1,6 @@
 import { HttpErrorResponse } from '@angular/common/http';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
-import { ActivatedRoute, convertToParamMap } from '@angular/router';
+import { ActivatedRoute, convertToParamMap, Router } from '@angular/router';
 import { of, Subject, throwError } from 'rxjs';
 import { LiffClient } from '../../core/liff-client';
 import type { LineShareCard, PaymentShareCard } from '../../core/line.model';
@@ -39,6 +39,7 @@ describe('LineShare', () => {
   };
 
   let route: { params: Record<string, string>; query: Record<string, string> };
+  let navigate: ReturnType<typeof vi.fn>;
 
   async function open(card: LineShareCard | HttpErrorResponse = CARD) {
     shareCard.mockReturnValue(card instanceof HttpErrorResponse ? throwError(() => card) : of(card));
@@ -58,6 +59,7 @@ describe('LineShare', () => {
     route = { params: { sessionCode: 'sess 1' }, query: {} };
     shareCard = vi.fn();
     paymentShareCard = vi.fn();
+    navigate = vi.fn().mockResolvedValue(true);
     liff = {
       init: vi.fn().mockResolvedValue(undefined),
       isLoggedIn: vi.fn().mockReturnValue(true),
@@ -69,6 +71,7 @@ describe('LineShare', () => {
       providers: [
         { provide: LineService, useValue: { shareCard, paymentShareCard } },
         { provide: LiffClient, useValue: liff },
+        { provide: Router, useValue: { navigate } },
         {
           provide: ActivatedRoute,
           useValue: {
@@ -432,6 +435,61 @@ describe('LineShare', () => {
       await flush();
       expect(q('[data-share-done]')).toBeNull();
       expect(q('[data-share-pick]')).not.toBeNull();
+    });
+  });
+
+  describe('slip pay link', () => {
+    const open_ = async (state: string, query: Record<string, string> = {}) => {
+      route = { params: {}, query: { 'liff.state': state, ...query } };
+      fixture = TestBed.createComponent(LineShare);
+      fixture.detectChanges();
+      await flush();
+    };
+
+    it("hands LIFF's first open of /slip/<code>/<token> to the slip page, replacing the URL", async () => {
+      await open_('/slip/abc/TOK');
+      expect(navigate).toHaveBeenCalledTimes(1);
+      expect(navigate).toHaveBeenCalledWith(['/line-share', 'slip', 'abc', 'TOK'], { replaceUrl: true, queryParams: {} });
+    });
+
+    it('never loads a summary or a payment card, and never starts LIFF, for it', async () => {
+      await open_('/slip/abc/TOK');
+      expect(shareCard).not.toHaveBeenCalled();
+      expect(paymentShareCard).not.toHaveBeenCalled();
+      expect(liff.init).not.toHaveBeenCalled();
+    });
+
+    it('carries other query parameters across but drops liff.state', async () => {
+      await open_('/slip/abc/TOK', { liffClientId: '123' });
+      expect(navigate).toHaveBeenCalledWith(['/line-share', 'slip', 'abc', 'TOK'], {
+        replaceUrl: true,
+        queryParams: { liffClientId: '123' },
+      });
+    });
+
+    it.each(['/slip/abc', '/slip/abc/', '/slip//TOK', '/slip/'])(
+      'says it is missing, with no navigation or request, when liff.state %s lacks a code or token',
+      async (state) => {
+        await open_(state);
+        expect(q('[data-share-missing]')).not.toBeNull();
+        expect(navigate).not.toHaveBeenCalled();
+        expect(shareCard).not.toHaveBeenCalled();
+        expect(paymentShareCard).not.toHaveBeenCalled();
+      },
+    );
+
+    it('reads a bare /slip liff.state as a summary code, like /pay', async () => {
+      shareCard.mockReturnValue(of(CARD));
+      await open_('/slip');
+      expect(shareCard).toHaveBeenCalledWith('slip');
+      expect(navigate).not.toHaveBeenCalled();
+    });
+
+    it('does not navigate for a normal summary or pay link', async () => {
+      await open();
+      route = { params: { sessionCode: 'abc', token: 'TOK' }, query: {} };
+      await openPay();
+      expect(navigate).not.toHaveBeenCalled();
     });
   });
 });

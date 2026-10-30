@@ -30,6 +30,11 @@ export class LiffClient {
     this.sdk().login({ redirectUri });
   }
 
+  /** The viewer's LINE access token, which the server verifies with LINE; null when not logged in. */
+  getAccessToken(): string | null {
+    return this.sdk().getAccessToken() ?? null;
+  }
+
   /** The share picker only exists inside the LINE app (and LIFF browser). */
   canShare(): boolean {
     return this.sdk().isApiAvailable('shareTargetPicker');

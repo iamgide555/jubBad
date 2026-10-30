@@ -8212,6 +8212,81 @@
       <trans-unit id="pay.card.checkFields" datatype="html">
         <source>ตรวจช่องที่ทำเครื่องหมาย</source>
       </trans-unit>
+      <trans-unit id="slipPay.unavailable" datatype="html">
+        <source>ลิงก์นี้ใช้ไม่ได้แล้ว</source>
+      </trans-unit>
+      <trans-unit id="slipPay.loading" datatype="html">
+        <source>กำลังโหลด…</source>
+      </trans-unit>
+      <trans-unit id="slipPay.login" datatype="html">
+        <source>กำลังไปหน้าเข้าสู่ระบบ LINE</source>
+      </trans-unit>
+      <trans-unit id="slipPay.error" datatype="html">
+        <source>เปิดหน้านี้ไม่สำเร็จ ลองอีกครั้ง</source>
+      </trans-unit>
+      <trans-unit id="slipPay.received" datatype="html">
+        <source>รับสลิปแล้ว</source>
+      </trans-unit>
+      <trans-unit id="slipPay.sentToHost" datatype="html">
+        <source>ส่งให้โฮสต์ตรวจแล้ว</source>
+      </trans-unit>
+      <trans-unit id="slipPay.hostWillCheck" datatype="html">
+        <source>โฮสต์จะตรวจและติ๊กให้</source>
+      </trans-unit>
+      <trans-unit id="slipPay.paid" datatype="html">
+        <source>จ่ายแล้ว</source>
+      </trans-unit>
+      <trans-unit id="slipPay.whoAreYou" datatype="html">
+        <source>คุณคือใคร?</source>
+      </trans-unit>
+      <trans-unit id="slipPay.pickName" datatype="html">
+        <source>เลือกชื่อของคุณ (ครั้งเดียว)</source>
+      </trans-unit>
+      <trans-unit id="slipPay.claim.taken" datatype="html">
+        <source>ชื่อนี้มีคนเลือกไปแล้ว เลือกชื่ออื่น</source>
+      </trans-unit>
+      <trans-unit id="slipPay.claim.accountLinked" datatype="html">
+        <source>บัญชี LINE นี้เลือกชื่อไว้แล้ว</source>
+      </trans-unit>
+      <trans-unit id="slipPay.claim.notOnBill" datatype="html">
+        <source>ชื่อนี้ไม่อยู่ในบิลแล้ว</source>
+      </trans-unit>
+      <trans-unit id="slipPay.err.rate" datatype="html">
+        <source>ส่งบ่อยเกินไป ลองใหม่ภายหลัง</source>
+      </trans-unit>
+      <trans-unit id="slipPay.err.generic" datatype="html">
+        <source>ส่งไม่สำเร็จ ลองใหม่อีกครั้ง</source>
+      </trans-unit>
+      <trans-unit id="slipPay.skip" datatype="html">
+        <source>ข้าม — ฉันจ่ายแทนคนอื่น</source>
+      </trans-unit>
+      <trans-unit id="slipPay.amountLabel" datatype="html">
+        <source>ยอดที่ต้องจ่าย</source>
+      </trans-unit>
+      <trans-unit id="slipPay.send" datatype="html">
+        <source>ส่งสลิป</source>
+      </trans-unit>
+      <trans-unit id="slipPay.transferTo" datatype="html">
+        <source>โอนเข้า</source>
+      </trans-unit>
+      <trans-unit id="slipPay.dup" datatype="html">
+        <source>สลิปนี้ถูกใช้ไปแล้ว</source>
+      </trans-unit>
+      <trans-unit id="slipPay.notSlip" datatype="html">
+        <source>ไม่พบสลิปในรูปนี้ ลองเลือกรูปสลิปอีกครั้ง</source>
+      </trans-unit>
+      <trans-unit id="slipPay.err.tooBig" datatype="html">
+        <source>รูปใหญ่เกินไป เลือกรูปที่เล็กกว่านี้</source>
+      </trans-unit>
+      <trans-unit id="slipPay.sending" datatype="html">
+        <source>กำลังส่ง…</source>
+      </trans-unit>
+      <trans-unit id="slipPay.cashNote" datatype="html">
+        <source>บอกโฮสต์ให้ติ๊กให้ในแอปนะ</source>
+      </trans-unit>
+      <trans-unit id="slipPay.cash" datatype="html">
+        <source>ฉันจ่ายเงินสดแล้ว</source>
+      </trans-unit>
     </body>
   </file>
 </xliff>

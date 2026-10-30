@@ -9,6 +9,7 @@ const sdk = vi.hoisted(() => ({
   login: vi.fn(),
   isApiAvailable: vi.fn(),
   shareTargetPicker: vi.fn(),
+  getAccessToken: vi.fn(),
 }));
 vi.mock('@line/liff', () => ({ default: sdk }));
 
@@ -26,6 +27,7 @@ describe('LiffClient', () => {
       ['isLoggedIn', () => client.isLoggedIn()],
       ['login', () => client.login('https://jubbad.test/line-share')],
       ['canShare', () => client.canShare()],
+      ['getAccessToken', () => client.getAccessToken()],
     ])('%s throws a clear error', (_name, call) => {
       expect(call).toThrow('LIFF is not initialised');
     });
@@ -53,6 +55,15 @@ describe('LiffClient', () => {
       expect(sdk.isApiAvailable).toHaveBeenCalledWith('shareTargetPicker');
       client.login('https://jubbad.test/line-share');
       expect(sdk.login).toHaveBeenCalledWith({ redirectUri: 'https://jubbad.test/line-share' });
+    });
+
+    it('getAccessToken passes the SDK token through, and is null when there is none', () => {
+      sdk.getAccessToken.mockReturnValue('tok-123');
+      expect(client.getAccessToken()).toBe('tok-123');
+      sdk.getAccessToken.mockReturnValue(null);
+      expect(client.getAccessToken()).toBeNull();
+      sdk.getAccessToken.mockReturnValue(undefined);
+      expect(client.getAccessToken()).toBeNull();
     });
 
     it('share resolves "sent" only for a success status', async () => {

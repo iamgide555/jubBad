@@ -122,6 +122,17 @@ export const routes: Routes = [
     loadComponent: () => import('./pages/line-share/line-share').then((m) => m.LineShare),
   },
   {
+    // Unguarded: a player's own pay page, opened from the payment card inside
+    // LINE, where there is no JubBad login. The viewer's LINE identity (checked
+    // by the server with LINE) and the unguessable token in the path are the
+    // credentials; the data endpoints are @Public() on the server to match.
+    // Four segments, like the pay route above, so it never meets the shorter
+    // 'line-share/:sessionCode'. LIFF first opens it as
+    // /line-share?liff.state=%2Fslip%2F<code>%2F<token>; LineShare hands that over here.
+    path: 'line-share/slip/:sessionCode/:token',
+    loadComponent: () => import('./pages/slip-pay/slip-pay').then((m) => m.SlipPay),
+  },
+  {
     // Unguarded: LINE opens this in its own browser on the host's phone (via
     // liff.line.me), where there is no JubBad login. LINE login decides who
     // may share, and the card is the one the public summary link already

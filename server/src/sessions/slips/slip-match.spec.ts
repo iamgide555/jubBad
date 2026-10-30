@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   amountPresent,
+  hasAmountToken,
   owedAmountsFound,
   receiverName,
   receiverNameMatches,
@@ -44,6 +45,26 @@ describe('amountPresent', () => {
 
   it('never treats zero as present', () => {
     expect(amountPresent('0.00', 0)).toBe(false);
+  });
+});
+
+describe('hasAmountToken', () => {
+  it('is true for any whole amount token, plain or comma-grouped', () => {
+    expect(hasAmountToken('จำนวนเงิน 172.00 บาท')).toBe(true);
+    expect(hasAmountToken('1,172.00')).toBe(true);
+    expect(hasAmountToken('ค่าธรรมเนียม 0.00 บาท')).toBe(true);
+  });
+
+  it('is false when no number has exactly two decimals', () => {
+    expect(hasAmountToken('')).toBe(false);
+    expect(hasAmountToken('โอนเงินสำเร็จ 30 ต.ค. 69 21:04')).toBe(false);
+    expect(hasAmountToken('172 บาท')).toBe(false);
+    expect(hasAmountToken('172.0 / 172.000')).toBe(false);
+  });
+
+  it('follows the same glue rules as amountPresent', () => {
+    expect(hasAmountToken('1.172.00')).toBe(false);
+    expect(hasAmountToken('172.00.5')).toBe(false);
   });
 });
 

@@ -37,6 +37,11 @@ export function amountPresent(text: string, satang: number): boolean {
   return amountsIn(text).has(satang);
 }
 
+/** True when `text` holds any whole amount token (same token rules as `amountPresent`), zero included. */
+export function hasAmountToken(text: string): boolean {
+  return amountsIn(text).size > 0;
+}
+
 /** The distinct values of `owedSatang` that are printed in `text`, in input order. */
 export function owedAmountsFound(text: string, owedSatang: number[]): number[] {
   const present = amountsIn(text);

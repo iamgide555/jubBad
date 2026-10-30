@@ -312,6 +312,18 @@ export class PaymentCardService {
     };
   }
 
+  /**
+   * True only when the session's confirmed card holds exactly this token. A missing or empty token, an unknown
+   * session and an unconfirmed card are all just false: callers decide what a refusal looks like.
+   */
+  async tokenValid(code: string, token: string | undefined): Promise<boolean> {
+    if (!token) return false;
+    const session = await this.prisma.session.findUnique({ where: { code }, select: { paymentCard: true } });
+    if (!session) return false;
+    const stored = parsePaymentState(session.paymentCard).token;
+    return stored !== null && sameToken(token, stored);
+  }
+
   /** One getBill, one destination read: the panel, the bot send and the share read all start here. */
   private async view(code: string, now: Date): Promise<PaymentView> {
     const session = await this.prisma.session.findUnique({

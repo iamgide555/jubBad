@@ -6,6 +6,8 @@ export interface LineConfig {
   publicAppUrl: string | null;
   /** The LIFF app's id; the host's "send to group" button opens it. Without it the button is left off. */
   liffId: string | null;
+  /** The LINE Login channel the LIFF app belongs to; a LIFF access token is only accepted if it was issued to it. */
+  loginChannelId: string | null;
 }
 
 function nonEmpty(value: string | undefined): string | null {
@@ -31,5 +33,6 @@ export function lineConfig(): LineConfig {
     botAddUrl: httpsUrl(nonEmpty(process.env.LINE_BOT_ADD_URL)),
     publicAppUrl: httpsUrl(nonEmpty(process.env.PUBLIC_APP_URL))?.replace(/\/+$/, '') ?? null,
     liffId: nonEmpty(process.env.LINE_LIFF_ID),
+    loginChannelId: nonEmpty(process.env.LINE_LOGIN_CHANNEL_ID),
   };
 }

@@ -12,6 +12,7 @@ import { PaymentCardService } from './payment-card.service.js';
 import { SessionLock } from './session-lock.js';
 import { SessionsController } from './sessions.controller.js';
 import { SessionsService } from './sessions.service.js';
+import { LiffIdentity } from './slips/liff-identity.js';
 import { SlipOcr } from './slips/slip-ocr.js';
 import { SlipPaymentsService } from './slips/slip-payments.service.js';
 import { SlipReader } from './slips/slip-reader.js';
@@ -19,7 +20,17 @@ import { SlipReader } from './slips/slip-reader.js';
 @Module({
   imports: [GroupsModule, LineModule, PlansModule, VenuesModule],
   controllers: [SessionsController, BillController, CheckoutController, PaymentCardController],
-  providers: [SessionLock, SessionsService, BillService, CheckoutService, PaymentCardService, SlipOcr, SlipReader, SlipPaymentsService],
+  providers: [
+    SessionLock,
+    SessionsService,
+    BillService,
+    CheckoutService,
+    PaymentCardService,
+    SlipOcr,
+    SlipReader,
+    SlipPaymentsService,
+    LiffIdentity,
+  ],
   exports: [SessionsService],
 })
 export class SessionsModule {}

@@ -12,7 +12,15 @@ describe('lineConfig', () => {
     delete process.env.LINE_BOT_ADD_URL;
     delete process.env.PUBLIC_APP_URL;
     delete process.env.LINE_LIFF_ID;
-    expect(lineConfig()).toEqual({ secret: null, token: null, botAddUrl: null, publicAppUrl: null, liffId: null });
+    delete process.env.LINE_LOGIN_CHANNEL_ID;
+    expect(lineConfig()).toEqual({
+      secret: null,
+      token: null,
+      botAddUrl: null,
+      publicAppUrl: null,
+      liffId: null,
+      loginChannelId: null,
+    });
     process.env.LINE_CHANNEL_SECRET = 's';
     process.env.LINE_CHANNEL_ACCESS_TOKEN = 't';
     expect(lineConfig()).toMatchObject({ secret: 's', token: 't' });
@@ -49,5 +57,14 @@ describe('lineConfig', () => {
     expect(lineConfig().liffId).toBeNull();
     process.env.LINE_LIFF_ID = '  1234567890-AbCdEfGh ';
     expect(lineConfig().liffId).toBe('1234567890-AbCdEfGh');
+  });
+
+  it('reads the LINE Login channel id trimmed, and nulls it when unset or blank', () => {
+    delete process.env.LINE_LOGIN_CHANNEL_ID;
+    expect(lineConfig().loginChannelId).toBeNull();
+    process.env.LINE_LOGIN_CHANNEL_ID = '   ';
+    expect(lineConfig().loginChannelId).toBeNull();
+    process.env.LINE_LOGIN_CHANNEL_ID = ' 1234567890 ';
+    expect(lineConfig().loginChannelId).toBe('1234567890');
   });
 });

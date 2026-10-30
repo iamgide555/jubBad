@@ -420,6 +420,8 @@
   gap: var(--space-1);
   width: fit-content;
   min-height: var(--tap);
+  /* Room for the focus ring, so it never touches the text. */
+  padding-inline: var(--space-0);
   color: var(--court-ink);
   font-size: var(--text-sm);
   font-weight: 600;

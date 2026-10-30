@@ -1018,7 +1018,7 @@ describe('SessionSummary', () => {
       it('offers the button when a card can go out and none has, and removes it after a send', async () => {
         lineState = { available: true, sent: false, defaultOn: true, target: 'group', shareUrl: null };
         await load(summary());
-        expect(q('[data-send-line-summary]')).not.toBeNull();
+        expect(q('[data-send-line-summary]')?.textContent?.trim()).toBe('ส่งการ์ดสรุปเข้ากลุ่ม LINE');
 
         q('[data-send-line-summary]')!.click();
         const req = httpMock.expectOne({ url: `${B}/sessions/sess1/line-summary`, method: 'POST' });
@@ -1109,7 +1109,7 @@ describe('SessionSummary', () => {
         await load(summary());
         expect(share()?.getAttribute('href')).toBe(SHARE);
         expect(q('[data-send-line-summary]')).toBeNull();
-        expect(q('[data-line-summary-outcome]')?.textContent).toContain('ส่งการ์ดให้คุณทาง LINE แล้ว');
+        expect(q('[data-line-summary-outcome]')?.textContent).toContain('ส่งการ์ดสรุปให้คุณทาง LINE แล้ว');
       });
 
       it('has no link while the session is still open', async () => {
@@ -1142,7 +1142,7 @@ describe('SessionSummary', () => {
         q('[data-send-line-summary]')!.click();
         httpMock.expectOne({ url: `${B}/sessions/sess1/line-summary`, method: 'POST' }).flush({ outcome: 'sent' });
         await settle();
-        expect(q('[data-line-summary-outcome]')?.textContent).toContain('ส่งการ์ดให้คุณทาง LINE แล้ว');
+        expect(q('[data-line-summary-outcome]')?.textContent).toContain('ส่งการ์ดสรุปให้คุณทาง LINE แล้ว');
         expect(share()?.getAttribute('href')).toBe(SHARE);
       });
 
@@ -1375,6 +1375,21 @@ describe('SessionSummary', () => {
         expect(banner()).toBeNull();
       });
 
+      it('closing the sheet puts focus back on the banner while it stays', async () => {
+        paymentPanel = panelFor({ target: 'group', confirmed: false });
+        await load(summary());
+        banner()!.click();
+        await settle();
+        answerPaymentCard();
+        await settle();
+        (q('app-payment-sheet button.close-top') as HTMLButtonElement).click();
+        await settle();
+        answerPaymentCard();
+        await settle();
+        expect(banner()).not.toBeNull();
+        expect(document.activeElement).toBe(banner());
+      });
+
       it('does not open the sheet on its own without the navigation flag', async () => {
         paymentPanel = panelFor({ target: 'group', confirmed: false });
         await load(summary());
@@ -1412,6 +1427,21 @@ describe('SessionSummary', () => {
         answerPaymentCard();
         await settle();
         expect(q('app-payment-sheet [data-load-failed]')).not.toBeNull();
+      });
+
+      it('closing the auto-opened sheet after the card went out puts focus on the heading, never the page body', async () => {
+        paymentPanel = panelFor({ target: 'group', confirmed: false });
+        await load(summary());
+        answerPaymentCard();
+        await settle();
+        expect(sheetDialog()?.open).toBe(true);
+        paymentPanel = panelFor({ target: 'group', confirmed: true, lastSentAt: '2026-10-29T13:00:00.000Z' });
+        (q('app-payment-sheet button.close-top') as HTMLButtonElement).click();
+        await settle();
+        answerPaymentCard();
+        await settle();
+        expect(banner()).toBeNull();
+        expect(document.activeElement).toBe(q('h1'));
       });
 
       it('does not open for a card with no LINE target', async () => {

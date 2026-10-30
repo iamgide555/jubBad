@@ -184,6 +184,9 @@ describe('PaymentCardPanel', () => {
     expect(bank.getAttribute('aria-invalid')).toBe('true');
     expect(q(`#${bank.getAttribute('aria-describedby')}`)?.textContent).toContain('กรอกช่องนี้');
     expect(document.activeElement).toBe(bank);
+    // Focus moved by validation, not by the host: the bank list stays shut, so it never covers the error.
+    expect(q('[role="listbox"]')).toBeNull();
+    expect(bank.getAttribute('aria-expanded')).toBe('false');
     await type('[data-field="bank"] input', 'กสิกร');
     expect(bank.hasAttribute('aria-invalid')).toBe(false);
   });
@@ -1098,6 +1101,17 @@ describe('PaymentCardPanel', () => {
       expect(live.textContent).toContain('ส่งแล้ว');
       expect(scroll).toHaveBeenCalledWith({ block: 'nearest' });
       expect(scroll.mock.contexts).toContain(live);
+    });
+
+    it('on the bill screen a failed send scrolls its alert into view, not the live region', async () => {
+      await open(panel({ confirmed: true, stale: false }));
+      await send('failed', panel({ confirmed: true, stale: true }));
+      const alert = q('[data-dock] [role="alert"][data-outcome]')!;
+      expect(alert.textContent).toContain('ส่งไม่สำเร็จ');
+      // The live region has text too here (the card moved on), but the failure is what the host must see.
+      expect(q('[aria-live="polite"]')!.textContent?.trim()).not.toBe('');
+      expect(scroll.mock.contexts).toContain(alert);
+      expect(scroll.mock.contexts).not.toContain(q('[aria-live="polite"]'));
     });
 
     it('in the sheet, the dock is not a bar when there is nothing to tap', async () => {

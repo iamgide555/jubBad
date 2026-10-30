@@ -99,7 +99,25 @@ describe('PayAccountPanel', () => {
     expect(bank().getAttribute('aria-invalid')).toBe('true');
     expect(q(`#${bank().getAttribute('aria-describedby')}`)?.textContent).toContain('กรอกช่องนี้');
     expect(document.activeElement).toBe(bank());
+    // Focus moved by validation, not by the host: the bank list stays shut and the error stays readable.
+    expect(q('[role="listbox"]')).toBeNull();
+    expect(q('#pay-bank-error')?.textContent).toContain('กรอกช่องนี้');
     expect(q('[data-pay-error]')).toBeNull();
+    httpMock.expectNone(URL);
+  });
+
+  it('one Save flags a missing field and a bad number together, focusing the first', async () => {
+    await open();
+    await fill(bank(), 'กสิกร');
+    await fill(number(), '12ab');
+    q('[data-pay-save]')!.click();
+    await tick();
+    expect(number().getAttribute('aria-invalid')).toBe('true');
+    expect(q('#pay-number-error')?.textContent).toContain('เลขบัญชีต้องเป็นตัวเลข');
+    expect(name().getAttribute('aria-invalid')).toBe('true');
+    expect(q('#pay-name-error')?.textContent).toContain('กรอกช่องนี้');
+    expect(bank().hasAttribute('aria-invalid')).toBe(false);
+    expect(document.activeElement).toBe(number());
     httpMock.expectNone(URL);
   });
 
@@ -211,6 +229,48 @@ describe('PayAccountPanel', () => {
     await tick();
     expect(document.activeElement).toBe(q('[data-pay-clear]'));
     httpMock.expectNone(URL);
+  });
+
+  it('after a remove, focus lands on Save instead of falling to the page', async () => {
+    await open({ account: ACCOUNT });
+    q('[data-pay-clear]')!.click();
+    await tick();
+    const yes = q('[data-pay-clear-confirm]')!;
+    yes.focus();
+    yes.click();
+    httpMock.expectOne({ url: URL, method: 'PUT' }).flush({ account: null });
+    await tick();
+    expect(q('[data-pay-clear-confirm]')).toBeNull();
+    expect(document.activeElement).toBe(q('[data-pay-save]'));
+  });
+
+  it('while a remove is in flight its buttons are aria-disabled, not disabled, and a failure keeps focus there', async () => {
+    await open({ account: ACCOUNT });
+    q('[data-pay-clear]')!.click();
+    await tick();
+    const yes = q('[data-pay-clear-confirm]') as HTMLButtonElement;
+    yes.focus();
+    yes.click();
+    const req = httpMock.expectOne({ url: URL, method: 'PUT' });
+    fixture.detectChanges();
+    const cancel = q('[data-pay-clear-cancel]') as HTMLButtonElement;
+    for (const button of [yes, cancel]) {
+      expect(button.disabled).toBe(false);
+      expect(button.getAttribute('aria-disabled')).toBe('true');
+    }
+    expect(document.activeElement).toBe(yes);
+    // A second tap, or a cancel, while busy is refused by the guard.
+    yes.click();
+    cancel.click();
+    fixture.detectChanges();
+    httpMock.expectNone(URL);
+    expect(q('[data-pay-clear-confirm]')).toBe(yes);
+    req.flush('x', { status: 500, statusText: 'x' });
+    await tick();
+    expect(error()).toContain('บันทึกไม่สำเร็จ');
+    expect(q('[data-pay-clear-confirm]')).toBe(yes);
+    expect(yes.hasAttribute('aria-disabled')).toBe(false);
+    expect(document.activeElement).toBe(yes);
   });
 
   it('dresses the remove step for what it does: a quiet text action, then danger beside a plain cancel', async () => {

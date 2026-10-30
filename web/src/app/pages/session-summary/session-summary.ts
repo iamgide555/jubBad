@@ -1,6 +1,6 @@
 import { durationSummary } from '../../core/session-duration-summary';
 import { NgTemplateOutlet } from '@angular/common';
-import { Component, computed, inject, signal, viewChild } from '@angular/core';
+import { ChangeDetectorRef, Component, ElementRef, computed, inject, signal, viewChild } from '@angular/core';
 import { HttpClient, HttpErrorResponse, httpResource } from '@angular/common/http';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
@@ -206,7 +206,7 @@ export class SessionSummary {
     const host = state.target === 'host';
     if (state.sent || outcome === 'sent' || outcome === 'already-sent') {
       return host
-        ? $localize`:@@summary.lineHostSent:ส่งการ์ดให้คุณทาง LINE แล้ว`
+        ? $localize`:@@summary.lineHostSent:ส่งการ์ดสรุปให้คุณทาง LINE แล้ว`
         : $localize`:@@summary.lineSent:ส่งสรุปเข้ากลุ่ม LINE แล้ว`;
     }
     switch (outcome) {
@@ -435,6 +435,8 @@ export class SessionSummary {
 
   // ---- owner-only payment card ----
   private readonly paymentCards = inject(PaymentCardService);
+  private readonly cdr = inject(ChangeDetectorRef);
+  private readonly hostEl = inject<ElementRef<HTMLElement>>(ElementRef);
   /** Where the payment card stands, or null while unread or unreadable; the banner needs a successful read. */
   protected readonly paymentPanel = signal<PaymentCardPanel | null>(null);
   protected readonly paymentSheetOpen = signal(false);
@@ -483,10 +485,26 @@ export class SessionSummary {
     this.paymentSheetOpen.set(true);
   }
 
-  /** Closing sends nothing; the page reads the card again so the banner matches what the sheet left behind. */
-  protected closePaymentSheet(): void {
+  /**
+   * Closing sends nothing; the page reads the card again so the banner matches what the sheet left behind.
+   * Focus goes back to the banner, or to the heading once the re-read has removed it, never to the page body
+   * (the sheet may have opened by itself after จบรอบ, with nothing focused before it).
+   */
+  protected async closePaymentSheet(): Promise<void> {
     this.paymentSheetOpen.set(false);
-    void this.loadPaymentPanel();
+    this.focusAfterSheet();
+    await this.loadPaymentPanel();
+    this.focusAfterSheet();
+  }
+
+  private focusAfterSheet(): void {
+    this.cdr.detectChanges();
+    const active = document.activeElement;
+    const root = this.hostEl.nativeElement;
+    const banner = root.querySelector<HTMLElement>('[data-payment-banner]');
+    // A focus the host placed since (anywhere but the body or a removed element) is theirs to keep.
+    if (active && active !== document.body && active.isConnected && active !== banner) return;
+    (banner ?? root.querySelector<HTMLElement>('h1'))?.focus();
   }
 
   /** The row whose profile link was just copied, so only that row confirms. */

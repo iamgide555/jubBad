@@ -6043,15 +6043,15 @@
       </trans-unit>
       <trans-unit id="dashboard.sendLineSummaryHost" datatype="html">
         <source>ส่งการ์ดสรุปให้ฉันทาง LINE</source>
-        <target>DM me the summary card</target>
+        <target>Send the summary card to me on LINE</target>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/session-dashboard/session-dashboard.html</context>
           <context context-type="linenumber">508,510</context>
         </context-group>
       </trans-unit>
       <trans-unit id="dashboard.sendLineSummary" datatype="html">
-        <source>ส่งสรุปเข้ากลุ่ม LINE</source>
-        <target>Send summary to LINE group</target>
+        <source>ส่งการ์ดสรุปเข้ากลุ่ม LINE</source>
+        <target>Send the summary card to the group on LINE</target>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/session-dashboard/session-dashboard.html</context>
           <context context-type="linenumber">508,510</context>
@@ -6066,16 +6066,16 @@
         </context-group>
       </trans-unit>
       <trans-unit id="summary.sendLine" datatype="html">
-        <source>ส่งสรุปเข้ากลุ่ม LINE</source>
-        <target>Send summary to LINE group</target>
+        <source>ส่งการ์ดสรุปเข้ากลุ่ม LINE</source>
+        <target>Send the summary card to the group on LINE</target>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/session-summary/session-summary.html</context>
           <context context-type="linenumber">20,24</context>
         </context-group>
       </trans-unit>
       <trans-unit id="summary.lineHostSent" datatype="html">
-        <source>ส่งการ์ดให้คุณทาง LINE แล้ว</source>
-        <target>Card sent to you on LINE</target>
+        <source>ส่งการ์ดสรุปให้คุณทาง LINE แล้ว</source>
+        <target>The summary card was sent to you on LINE</target>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/session-summary/session-summary.ts</context>
           <context context-type="linenumber">206</context>

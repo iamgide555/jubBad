@@ -68,3 +68,14 @@ button.remove-link:disabled {
   flex-wrap: wrap;
   gap: var(--space-2);
 }
+
+/* Busy: refused by a guard, but still focusable so a failed remove keeps focus here. Looks off, like :disabled. */
+.pay-remove-actions button[aria-disabled='true'],
+.pay-remove-actions button[aria-disabled='true']:hover {
+  background: var(--ground-sunk);
+  border-color: var(--line);
+  color: var(--ink-soft);
+  box-shadow: none;
+  cursor: not-allowed;
+  transform: none;
+}

@@ -11,6 +11,7 @@ import {
   output,
   signal,
   untracked,
+  viewChild,
 } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
@@ -104,6 +105,7 @@ export class PaymentPanel {
   private readonly drafts = inject(PaymentDraftService);
   private readonly cdr = inject(ChangeDetectorRef);
   private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
+  private readonly bankField = viewChild(BankField);
   private destroyed = false;
 
   protected readonly data = signal<PaymentCardPanel | null>(null);
@@ -315,7 +317,10 @@ export class PaymentPanel {
       // Each field names its own problem; beside Confirm only a pointer to them, never the same words again.
       this.error.set($localize`:@@pay.card.checkFields:ตรวจช่องที่ทำเครื่องหมาย`);
       this.cdr.detectChanges();
-      this.host.nativeElement.querySelector<HTMLInputElement>('input[aria-invalid="true"]')?.focus();
+      const first = this.host.nativeElement.querySelector<HTMLInputElement>('input[aria-invalid="true"]');
+      // The bank list is not opened by this focus: it would cover the error under the field.
+      if (first?.closest('app-bank-field')) this.bankField()?.focusWithoutOpening();
+      else first?.focus();
       return;
     }
     this.operation.set('confirm');
@@ -443,13 +448,16 @@ export class PaymentPanel {
   }
 
   /**
-   * On the bill screen the outcome sits in the page flow above the button, so bring it into view. In the sheet
-   * it is already on screen, in the sticky bar.
+   * On the bill screen the outcome sits in the page flow above the button, so bring it into view: a failure's
+   * alert first (the live region may also hold a "confirm again" line then), else the live status. In the
+   * sheet it is already on screen, in the sticky bar.
    */
   private revealStatus(): void {
     if (this.destroyed || this.compact()) return;
-    const statuses = this.host.nativeElement.querySelectorAll<HTMLElement>('[data-dock] [role="alert"], [data-live]');
-    [...statuses].find((s) => s.textContent?.trim())?.scrollIntoView?.({ block: 'nearest' });
+    const root = this.host.nativeElement;
+    const said = (el: HTMLElement | null) => (el?.textContent?.trim() ? el : null);
+    const alert = [...root.querySelectorAll<HTMLElement>('[data-dock] [role="alert"]')].find((el) => said(el));
+    (alert ?? said(root.querySelector<HTMLElement>('[data-live]')))?.scrollIntoView?.({ block: 'nearest' });
   }
 
   protected outcomeText(outcome: PaymentSendOutcome): string {

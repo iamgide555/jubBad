@@ -184,6 +184,9 @@ describe('PaymentCardPanel', () => {
     expect(bank.getAttribute('aria-invalid')).toBe('true');
     expect(q(`#${bank.getAttribute('aria-describedby')}`)?.textContent).toContain('กรอกช่องนี้');
     expect(document.activeElement).toBe(bank);
+    // Focus moved by validation, not by the host: the bank list stays shut, so it never covers the error.
+    expect(q('[role="listbox"]')).toBeNull();
+    expect(bank.getAttribute('aria-expanded')).toBe('false');
     await type('[data-field="bank"] input', 'กสิกร');
     expect(bank.hasAttribute('aria-invalid')).toBe(false);
   });
@@ -907,7 +910,24 @@ describe('PaymentCardPanel', () => {
       await type('[data-field="bank"] input', 'กสิกร');
       await click('[data-confirm]');
       http.expectNone(`${URL}/confirm`);
-      expect(q('[data-error]')?.textContent).toContain('กรอกให้ครบทั้งสามช่อง');
+      // The fields say what is wrong; the line beside Confirm only points at them.
+      expect(q('[data-error]')?.textContent?.trim()).toBe('ตรวจช่องที่ทำเครื่องหมาย');
+      for (const field of ['number', 'name']) {
+        const input = q<HTMLInputElement>(`input[data-field="${field}"]`)!;
+        expect(input.getAttribute('aria-invalid')).toBe('true');
+        expect(q(`#${input.getAttribute('aria-describedby')!.split(' ').pop()}`)?.textContent).toContain('กรอกช่องนี้');
+      }
+    });
+
+    it('a bad number is named once, under its field, not again beside Confirm', async () => {
+      await open();
+      await expandAccount();
+      await type('input[data-field="number"]', '12abc');
+      await click('[data-confirm]');
+      http.expectNone(`${URL}/confirm`);
+      expect(text().split('เลขบัญชีต้องเป็นตัวเลข').length - 1).toBe(1);
+      expect(q('[data-error]')?.textContent?.trim()).toBe('ตรวจช่องที่ทำเครื่องหมาย');
+      expect(q('[data-error]')?.getAttribute('role')).toBe('alert');
     });
   });
 
@@ -1000,6 +1020,106 @@ describe('PaymentCardPanel', () => {
     await send('sent', panel({ confirmed: true, lastSentAt: '2026-10-29T13:05:00.000Z' }));
     expect(q('[aria-live="polite"]')).toBe(live);
     expect(live.textContent).toContain('ส่งแล้ว');
+  });
+
+  describe('status beside the action that caused it', () => {
+    const SHARE = 'https://liff.line.me/1/pay/sess1/tok';
+    const AT = '2026-10-29T13:05:00.000Z';
+    const hhmm = (iso: string) => {
+      const at = new Date(iso);
+      return `${String(at.getHours()).padStart(2, '0')}:${String(at.getMinutes()).padStart(2, '0')}`;
+    };
+    const before = (a: Element, b: Element) => !!(a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING);
+    let scroll: ReturnType<typeof vi.fn>;
+    beforeEach(() => {
+      scroll = vi.fn();
+      Object.defineProperty(Element.prototype, 'scrollIntoView', { value: scroll, configurable: true, writable: true });
+    });
+    afterEach(() => {
+      delete (Element.prototype as { scrollIntoView?: unknown }).scrollIntoView;
+    });
+
+    it('in the sheet, a group send says sent, with its time, inside the bottom bar above Send', async () => {
+      await open(panel({ confirmed: true }), { compact: true });
+      const live = q('[aria-live="polite"]')!;
+      await send('sent', panel({ confirmed: true, lastSentAt: AT }));
+      expect(q('[aria-live="polite"]')).toBe(live);
+      const bar = q('[data-dock]')!;
+      expect(bar.classList.contains('bar')).toBe(true);
+      expect(bar.contains(live)).toBe(true);
+      expect(live.querySelector('[data-outcome]')?.textContent?.trim()).toBe(`ส่งแล้ว ${hhmm(AT)}`);
+      const button = q('[data-send]')!;
+      expect(bar.contains(button)).toBe(true);
+      expect(before(live, button)).toBe(true);
+    });
+
+    it('in the sheet, a DM says where the card went inside the bottom bar above the DM button', async () => {
+      await open(panel({ target: 'host', confirmed: true, shareUrl: SHARE }), { compact: true });
+      const live = q('[aria-live="polite"]')!;
+      await click('[data-dm-send]');
+      http.expectOne(`${URL}/dm`).flush({ outcome: 'sent' });
+      await settle();
+      http.expectOne(URL).flush(panel({ target: 'host', confirmed: true, shareUrl: SHARE, lastDmAt: AT }));
+      await settle();
+      expect(q('[aria-live="polite"]')).toBe(live);
+      const bar = q('[data-dock]')!;
+      expect(bar.classList.contains('bar')).toBe(true);
+      expect(bar.contains(live)).toBe(true);
+      expect(live.querySelector('[data-last-dm]')?.textContent).toContain(`ส่งให้คุณใน LINE แล้ว ${hhmm(AT)}`);
+      expect(before(live, q('[data-dm-send]')!)).toBe(true);
+    });
+
+    it('in the sheet, the confirmed line and a failed send also sit in the bar, above the button', async () => {
+      await open(panel(), { compact: true });
+      await confirm(panel({ confirmed: true }));
+      const bar = q('[data-dock]')!;
+      expect(bar.querySelector('[data-confirmed]')).toBeTruthy();
+      await send('failed');
+      const failed = bar.querySelector('[data-outcome]')!;
+      expect(failed.textContent).toContain('ส่งไม่สำเร็จ');
+      expect(before(failed, q('[data-send]')!)).toBe(true);
+    });
+
+    it('in the sheet, an earlier send time sits in the bar above "send again"', async () => {
+      await open(panel({ confirmed: true, lastSentAt: AT }), { compact: true });
+      const bar = q('[data-dock]')!;
+      expect(bar.querySelector('[data-last-sent]')?.textContent).toContain(`ส่งแล้ว ${hhmm(AT)}`);
+      expect(before(bar.querySelector('[data-last-sent]')!, q('[data-send]')!)).toBe(true);
+    });
+
+    it('the sheet bar never scrolls: the status is already on screen', async () => {
+      await open(panel({ confirmed: true }), { compact: true });
+      await send('sent', panel({ confirmed: true, lastSentAt: AT }));
+      expect(scroll.mock.contexts).not.toContain(q('[aria-live="polite"]'));
+    });
+
+    it('on the bill screen there is no bar, and the status is scrolled into view after a send', async () => {
+      await open(panel({ confirmed: true }));
+      expect(q('[data-dock]')?.classList.contains('bar')).toBe(false);
+      await send('sent', panel({ confirmed: true, lastSentAt: AT }));
+      const live = q('[aria-live="polite"]')!;
+      expect(live.textContent).toContain('ส่งแล้ว');
+      expect(scroll).toHaveBeenCalledWith({ block: 'nearest' });
+      expect(scroll.mock.contexts).toContain(live);
+    });
+
+    it('on the bill screen a failed send scrolls its alert into view, not the live region', async () => {
+      await open(panel({ confirmed: true, stale: false }));
+      await send('failed', panel({ confirmed: true, stale: true }));
+      const alert = q('[data-dock] [role="alert"][data-outcome]')!;
+      expect(alert.textContent).toContain('ส่งไม่สำเร็จ');
+      // The live region has text too here (the card moved on), but the failure is what the host must see.
+      expect(q('[aria-live="polite"]')!.textContent?.trim()).not.toBe('');
+      expect(scroll.mock.contexts).toContain(alert);
+      expect(scroll.mock.contexts).not.toContain(q('[aria-live="polite"]'));
+    });
+
+    it('in the sheet, the dock is not a bar when there is nothing to tap', async () => {
+      await open(panel({ ended: false }), { compact: true });
+      expect(q('[data-actions]')).toBeNull();
+      expect(q('[data-dock]')?.classList.contains('bar')).toBe(false);
+      expect(q('[data-dock] [aria-live="polite"]')).toBeTruthy();
+    });
   });
 
   describe('sequencing', () => {
@@ -1283,9 +1403,11 @@ describe('PaymentCardPanel', () => {
     it('sits in a sticky bottom bar in the sheet only', async () => {
       await open(panel(), { compact: true });
       expect(q('[data-actions]')?.classList.contains('bar')).toBe(true);
+      expect(q('[data-dock]')?.classList.contains('bar')).toBe(true);
       fixture.destroy();
       await open(panel());
       expect(q('[data-actions]')?.classList.contains('bar')).toBe(false);
+      expect(q('[data-dock]')?.classList.contains('bar')).toBe(false);
     });
 
     it('has no action row when there is nothing to do', async () => {

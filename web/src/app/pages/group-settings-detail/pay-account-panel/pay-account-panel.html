@@ -57,10 +57,13 @@
         <div class="pay-remove">
           @if (confirmingClear()) {
             <p i18n="@@pay.account.removeAsk">ลบบัญชีรับเงินของกลุ่มนี้ใช่ไหม</p>
-            <button type="button" class="ghost" data-pay-clear-confirm [disabled]="busy()" (click)="clear()" i18n="@@pay.account.removeConfirm">ใช่ ลบบัญชี</button>
-            <button type="button" class="ghost" data-pay-clear-cancel [disabled]="busy()" (click)="confirmingClear.set(false)" i18n="@@pay.card.cancel">ยกเลิก</button>
+            <div class="pay-remove-actions">
+              <!-- aria-disabled, not disabled, while busy: a failure must not drop focus out of the confirm. -->
+              <button type="button" class="danger" data-pay-clear-confirm [attr.aria-disabled]="busy() ? 'true' : null" (click)="clear()" i18n="@@pay.account.removeConfirm">ใช่ ลบบัญชี</button>
+              <button type="button" class="ghost" data-pay-clear-cancel [attr.aria-disabled]="busy() ? 'true' : null" (click)="cancelClear()" i18n="@@pay.card.cancel">ยกเลิก</button>
+            </div>
           } @else {
-            <button type="button" class="ghost" data-pay-clear [disabled]="busy()" (click)="confirmingClear.set(true)" i18n="@@pay.account.remove">ลบบัญชีนี้</button>
+            <button type="button" class="remove-link" data-pay-clear [disabled]="busy()" (click)="askClear()" i18n="@@pay.account.remove">ลบบัญชีนี้</button>
           }
         </div>
       }

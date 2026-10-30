@@ -154,19 +154,6 @@
         @if (!hasAnyField()) {
           <p class="muted" data-no-account i18n="@@pay.card.noAccount">ตั้งบัญชีรับเงินในหน้าตั้งค่ากลุ่ม</p>
         }
-        @if (error()) {
-          <p class="error" data-error role="alert">{{ error() }}</p>
-        }
-        @if (outcome(); as o) {
-          @if (o !== 'sent') {
-            <p class="error" data-outcome role="alert">{{ outcomeText(o) }}</p>
-          }
-        } @else if (lastSentLabel(); as last) {
-          @if (p.target === 'group') {
-            <p class="muted" data-last-sent>{{ last }}</p>
-          }
-        }
-
         @if (shareUrl(); as url) {
           <details class="other-ways" data-other-ways [open]="dmQuota()">
             <summary><span i18n="@@pay.card.otherWays">ส่งวิธีอื่น</span><app-icon name="chevron" [size]="18" /></summary>
@@ -178,81 +165,100 @@
         }
       }
 
-      <!-- Always in the DOM so assistive tech announces changes to its content, not a newly inserted element. -->
-      <div class="live" aria-live="polite" role="status">
-        @if (progress(); as status) {
-          <p class="progress" data-progress>{{ status }}</p>
-        }
+      <!-- What the last tap did, then the next tap. In the sheet this is the sticky bottom bar, so a send's
+           outcome lands right above the button that caused it instead of under the bar, out of sight. -->
+      <div class="dock" [class.bar]="compact() && hasActions()" data-dock>
         @if (actionable()) {
-          @if (justConfirmed() && (canSendToGroup() || shareUrl())) {
-            <p class="status-ok" data-confirmed>
-              <app-icon name="check" [size]="18" />
-              <span i18n="@@pay.card.confirmedReady">ยืนยันยอดแล้ว · ส่งได้เลย</span>
-            </p>
+          @if (error()) {
+            <p class="error" data-error role="alert">{{ error() }}</p>
           }
-          @if (outcome() === 'sent' && outcomeFor() === 'group') {
-            <p class="muted" data-outcome>{{ outcomeText('sent') }}</p>
-          }
-          @if (p.target === 'host' && dmStatus(); as status) {
-            @if (outcome() === null || outcome() === 'sent') {
-              <p class="status-ok" data-last-dm>{{ status }}</p>
+          @if (outcome(); as o) {
+            @if (o !== 'sent') {
+              <p class="error" data-outcome role="alert">{{ outcomeText(o) }}</p>
             }
-          }
-          @if (p.stale) {
-            <p class="redo" data-stale i18n="@@pay.card.staleAgain">ยอดเปลี่ยน ยืนยันใหม่อีกครั้ง</p>
-          } @else if (editedSinceConfirm()) {
-            <p class="redo" data-edited i18n="@@pay.card.editedAgain">แก้บัญชีแล้ว ยืนยันใหม่อีกครั้ง</p>
+          } @else if (lastSentLabel(); as last) {
+            @if (p.target === 'group') {
+              <p class="muted" data-last-sent>{{ last }}</p>
+            }
           }
         }
-      </div>
 
-      @if (hasActions()) {
-        <div class="actions" [class.bar]="compact()" data-actions>
-          @if (!p.ready) {
-            <a class="button-link" data-settings-link [routerLink]="['/s', sessionCode(), 'bill']" (click)="closed.emit()" i18n="@@pay.card.fillMissing">ไปใส่ค่าที่ขาด</a>
-          } @else if (needsConfirm()) {
-            <button
-              type="button"
-              data-confirm
-              [disabled]="!hasAnyField()"
-              [attr.aria-disabled]="busy() || readFailed() ? 'true' : null"
-              (click)="confirm()"
-            >
-              @if (busy()) { <ng-container i18n="@@pay.card.confirming">กำลังยืนยันยอดและบัญชี…</ng-container> }
-              @else if (reconfirm()) { <ng-container i18n="@@pay.card.reconfirm">ยืนยันใหม่</ng-container> }
-              @else { <ng-container i18n="@@pay.card.confirmAccount">ยืนยันยอดและบัญชี</ng-container> }
-            </button>
-          } @else if (canSendToGroup()) {
-            @if (confirmingResend()) {
-              <div class="resend" data-resend-prompt role="group">
-                <p i18n="@@pay.card.resendAsk">ส่งการ์ดเข้ากลุ่มซ้ำอีกรอบใช่ไหม</p>
-                <button type="button" data-resend-yes [attr.aria-disabled]="busy() || readFailed() ? 'true' : null" (click)="send()" i18n="@@pay.card.resendYes">ใช่ ส่งเลย</button>
-                <button type="button" class="ghost" data-resend-cancel (click)="cancelResend('group')" i18n="@@pay.card.cancel">ยกเลิก</button>
-              </div>
-            } @else {
-              <button type="button" data-send [attr.aria-disabled]="busy() || readFailed() ? 'true' : null" (click)="sendClicked()">
-                @if (busy()) { <ng-container i18n="@@pay.card.sendingGroup">กำลังส่งใบเก็บเงินเข้ากลุ่ม LINE…</ng-container> }
-                @else if (p.lastSentAt) { <ng-container i18n="@@pay.card.sendAgain">ส่งอีกครั้ง</ng-container> }
-                @else { <ng-container i18n="@@pay.card.send">ส่งเข้ากลุ่ม</ng-container> }
-              </button>
+        <!-- Always in the DOM so assistive tech announces changes to its content, not a newly inserted element. -->
+        <div class="live" aria-live="polite" role="status" data-live>
+          @if (progress(); as status) {
+            <p class="progress" data-progress>{{ status }}</p>
+          }
+          @if (actionable()) {
+            @if (justConfirmed() && (canSendToGroup() || shareUrl())) {
+              <p class="status-ok" data-confirmed>
+                <app-icon name="check" [size]="18" />
+                <span i18n="@@pay.card.confirmedReady">ยืนยันยอดแล้ว · ส่งได้เลย</span>
+              </p>
             }
-          } @else if (shareUrl()) {
-            @if (confirmingDmResend()) {
-              <div class="resend" data-dm-resend-prompt role="group">
-                <p i18n="@@pay.card.dmResendAsk">ส่งการ์ดให้ฉันซ้ำอีกรอบใช่ไหม</p>
-                <button type="button" data-dm-resend-yes [attr.aria-disabled]="busy() || readFailed() ? 'true' : null" (click)="sendDm()" i18n="@@pay.card.resendYes">ใช่ ส่งเลย</button>
-                <button type="button" class="ghost" data-dm-resend-cancel (click)="cancelResend('dm')" i18n="@@pay.card.cancel">ยกเลิก</button>
-              </div>
-            } @else {
-              <button type="button" data-dm-send [attr.aria-disabled]="busy() || readFailed() ? 'true' : null" (click)="sendDmClicked()">
-                @if (busy()) { <ng-container i18n="@@pay.card.sendingDm">กำลังส่งใบเก็บเงินให้คุณทาง LINE…</ng-container> }
-                @else if (p.lastDmAt) { <ng-container i18n="@@pay.card.dmSendAgain">ส่งให้ฉันอีกครั้ง</ng-container> }
-                @else { <ng-container i18n="@@pay.card.dmSendToMe">ส่งใบเก็บเงินให้ฉันทาง LINE</ng-container> }
-              </button>
+            @if (outcome() === 'sent' && outcomeFor() === 'group') {
+              <p class="status-ok" data-outcome>{{ lastSentLabel() ?? outcomeText('sent') }}</p>
+            }
+            @if (p.target === 'host' && dmStatus(); as status) {
+              @if (outcome() === null || outcome() === 'sent') {
+                <p class="status-ok" data-last-dm>{{ status }}</p>
+              }
+            }
+            @if (p.stale) {
+              <p class="redo" data-stale i18n="@@pay.card.staleAgain">ยอดเปลี่ยน ยืนยันใหม่อีกครั้ง</p>
+            } @else if (editedSinceConfirm()) {
+              <p class="redo" data-edited i18n="@@pay.card.editedAgain">แก้บัญชีแล้ว ยืนยันใหม่อีกครั้ง</p>
             }
           }
         </div>
-      }
+
+        @if (hasActions()) {
+          <div class="actions" [class.bar]="compact()" data-actions>
+            @if (!p.ready) {
+              <a class="button-link" data-settings-link [routerLink]="['/s', sessionCode(), 'bill']" (click)="closed.emit()" i18n="@@pay.card.fillMissing">ไปใส่ค่าที่ขาด</a>
+            } @else if (needsConfirm()) {
+              <button
+                type="button"
+                data-confirm
+                [disabled]="!hasAnyField()"
+                [attr.aria-disabled]="busy() || readFailed() ? 'true' : null"
+                (click)="confirm()"
+              >
+                @if (busy()) { <ng-container i18n="@@pay.card.confirming">กำลังยืนยันยอดและบัญชี…</ng-container> }
+                @else if (reconfirm()) { <ng-container i18n="@@pay.card.reconfirm">ยืนยันใหม่</ng-container> }
+                @else { <ng-container i18n="@@pay.card.confirmAccount">ยืนยันยอดและบัญชี</ng-container> }
+              </button>
+            } @else if (canSendToGroup()) {
+              @if (confirmingResend()) {
+                <div class="resend" data-resend-prompt role="group">
+                  <p i18n="@@pay.card.resendAsk">ส่งการ์ดเข้ากลุ่มซ้ำอีกรอบใช่ไหม</p>
+                  <button type="button" data-resend-yes [attr.aria-disabled]="busy() || readFailed() ? 'true' : null" (click)="send()" i18n="@@pay.card.resendYes">ใช่ ส่งเลย</button>
+                  <button type="button" class="ghost" data-resend-cancel (click)="cancelResend('group')" i18n="@@pay.card.cancel">ยกเลิก</button>
+                </div>
+              } @else {
+                <button type="button" data-send [attr.aria-disabled]="busy() || readFailed() ? 'true' : null" (click)="sendClicked()">
+                  @if (busy()) { <ng-container i18n="@@pay.card.sendingGroup">กำลังส่งใบเก็บเงินเข้ากลุ่ม LINE…</ng-container> }
+                  @else if (p.lastSentAt) { <ng-container i18n="@@pay.card.sendAgain">ส่งอีกครั้ง</ng-container> }
+                  @else { <ng-container i18n="@@pay.card.send">ส่งเข้ากลุ่ม</ng-container> }
+                </button>
+              }
+            } @else if (shareUrl()) {
+              @if (confirmingDmResend()) {
+                <div class="resend" data-dm-resend-prompt role="group">
+                  <p i18n="@@pay.card.dmResendAsk">ส่งการ์ดให้ฉันซ้ำอีกรอบใช่ไหม</p>
+                  <button type="button" data-dm-resend-yes [attr.aria-disabled]="busy() || readFailed() ? 'true' : null" (click)="sendDm()" i18n="@@pay.card.resendYes">ใช่ ส่งเลย</button>
+                  <button type="button" class="ghost" data-dm-resend-cancel (click)="cancelResend('dm')" i18n="@@pay.card.cancel">ยกเลิก</button>
+                </div>
+              } @else {
+                <button type="button" data-dm-send [attr.aria-disabled]="busy() || readFailed() ? 'true' : null" (click)="sendDmClicked()">
+                  @if (busy()) { <ng-container i18n="@@pay.card.sendingDm">กำลังส่งใบเก็บเงินให้คุณทาง LINE…</ng-container> }
+                  @else if (p.lastDmAt) { <ng-container i18n="@@pay.card.dmSendAgain">ส่งให้ฉันอีกครั้ง</ng-container> }
+                  @else { <ng-container i18n="@@pay.card.dmSendToMe">ส่งใบเก็บเงินให้ฉันทาง LINE</ng-container> }
+                </button>
+              }
+            }
+          </div>
+        }
+      </div>
     </section>
   }
 }

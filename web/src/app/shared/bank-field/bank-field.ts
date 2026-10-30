@@ -1,4 +1,4 @@
-import { Component, computed, input, linkedSignal, output, signal } from '@angular/core';
+import { Component, ElementRef, computed, input, linkedSignal, output, signal, viewChild } from '@angular/core';
 import { searchBanks, type ThaiBank } from '../../core/thai-banks';
 
 /**
@@ -30,6 +30,9 @@ export class BankField {
   /** Off until the host types, so focusing a filled-in field still offers every bank. */
   private readonly filtering = signal(false);
   protected readonly activeIndex = signal(-1);
+  private readonly field = viewChild.required<ElementRef<HTMLInputElement>>('field');
+  /** Set only while focusWithoutOpening() runs, so the focus event it fires leaves the list shut. */
+  private quietFocus = false;
 
   protected readonly matches = computed<ThaiBank[]>(() => searchBanks(this.filtering() ? this.query() : ''));
   protected readonly expanded = computed(() => this.open() && this.matches().length > 0);
@@ -42,7 +45,21 @@ export class BankField {
     return `${this.inputId()}-option-${index}`;
   }
 
+  /**
+   * Focus for a caller that moves it, not the host (a refused save landing on the first invalid field): the
+   * list stays shut so it never covers the error under the field. A tap or typing opens it as usual.
+   */
+  focusWithoutOpening(): void {
+    this.quietFocus = true;
+    try {
+      this.field().nativeElement.focus();
+    } finally {
+      this.quietFocus = false;
+    }
+  }
+
   protected onFocus(): void {
+    if (this.quietFocus) return;
     this.filtering.set(false);
     this.open.set(true);
   }

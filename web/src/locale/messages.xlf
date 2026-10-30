@@ -6444,7 +6444,7 @@
         </context-group>
       </trans-unit>
       <trans-unit id="dashboard.sendLineSummary" datatype="html">
-        <source>ส่งสรุปเข้ากลุ่ม LINE</source>
+        <source>ส่งการ์ดสรุปเข้ากลุ่ม LINE</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/session-dashboard/session-dashboard.html</context>
           <context context-type="linenumber">507,510</context>
@@ -6647,21 +6647,21 @@
         </context-group>
       </trans-unit>
       <trans-unit id="summary.sendLineHost" datatype="html">
-        <source>ส่งการ์ดให้ฉันทาง LINE</source>
+        <source>ส่งการ์ดสรุปให้ฉันทาง LINE</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/session-summary/session-summary.html</context>
           <context context-type="linenumber">21,23</context>
         </context-group>
       </trans-unit>
       <trans-unit id="summary.sendLine" datatype="html">
-        <source>ส่งสรุปเข้ากลุ่ม LINE</source>
+        <source>ส่งการ์ดสรุปเข้ากลุ่ม LINE</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/session-summary/session-summary.html</context>
           <context context-type="linenumber">20,24</context>
         </context-group>
       </trans-unit>
       <trans-unit id="summary.shareToGroup" datatype="html">
-        <source>ส่งการ์ดเข้ากลุ่ม LINE</source>
+        <source>ส่งการ์ดสรุปเข้ากลุ่ม LINE</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/session-summary/session-summary.html</context>
           <context context-type="linenumber">29,33</context>
@@ -6993,7 +6993,7 @@
         </context-group>
       </trans-unit>
       <trans-unit id="summary.lineHostSent" datatype="html">
-        <source>ส่งการ์ดให้คุณทาง LINE แล้ว</source>
+        <source>ส่งการ์ดสรุปให้คุณทาง LINE แล้ว</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/session-summary/session-summary.ts</context>
           <context context-type="linenumber">206</context>
@@ -7909,9 +7909,6 @@
       <trans-unit id="pay.account.loadFailed" datatype="html">
         <source>โหลดบัญชีรับเงินไม่สำเร็จ</source>
       </trans-unit>
-      <trans-unit id="pay.account.incomplete" datatype="html">
-        <source>กรอกให้ครบทั้งสามช่อง หรือกดล้างถ้าไม่ต้องการตั้งบัญชี</source>
-      </trans-unit>
       <trans-unit id="pay.account.badNumber" datatype="html">
         <source>เลขบัญชีต้องเป็นตัวเลขอย่างน้อย 6 หลัก เว้นวรรคหรือใส่ขีดได้ ยาวไม่เกิน 20 ตัวอักษร</source>
       </trans-unit>
@@ -8211,6 +8208,9 @@
       </trans-unit>
       <trans-unit id="summary.openPaymentCard" datatype="html">
         <source>เปิดใบเก็บเงิน</source>
+      </trans-unit>
+      <trans-unit id="pay.card.checkFields" datatype="html">
+        <source>ตรวจช่องที่ทำเครื่องหมาย</source>
       </trans-unit>
     </body>
   </file>

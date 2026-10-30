@@ -920,7 +920,7 @@ describe('SessionDashboard', () => {
       summaryState = () => of({ available: true, sent: false, defaultOn: true, target: 'group', shareUrl: null });
       await settled();
       await openEndDialog();
-      expect(box()?.closest('label')?.textContent).toContain('ส่งสรุปเข้ากลุ่ม LINE');
+      expect(box()?.closest('label')?.textContent?.trim()).toBe('ส่งการ์ดสรุปเข้ากลุ่ม LINE');
     });
 
     it('host target says the card comes to the host, ticked from the saved default', async () => {

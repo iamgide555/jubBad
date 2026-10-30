@@ -1,0 +1,93 @@
+import jpeg from 'jpeg-js';
+import { PNG } from 'pngjs';
+import QRCode from 'qrcode';
+import { describe, expect, it } from 'vitest';
+import { decodeSlipQr, makeSlipPayload, parseSlipQr } from './slip-qr.js';
+
+async function qrPng(text: string): Promise<Buffer> {
+  return QRCode.toBuffer(text, { width: 400, margin: 4 });
+}
+
+function toJpeg(png: Buffer, quality = 60): Buffer {
+  const decoded = PNG.sync.read(png);
+  return jpeg.encode(
+    { width: decoded.width, height: decoded.height, data: decoded.data },
+    quality,
+  ).data;
+}
+
+describe('parseSlipQr', () => {
+  it('parses a well-formed payload', () => {
+    expect(parseSlipQr(makeSlipPayload('004', 'ABC123'))).toEqual({
+      bankCode: '004',
+      reference: 'ABC123',
+    });
+  });
+
+  it('parses a known-good payload with a valid CRC', () => {
+    expect(
+      parseSlipQr(
+        '0041000600000101030040220016302230357CPP133315102TH9104C3DC',
+      ),
+    ).toEqual({ bankCode: '004', reference: '016302230357CPP13331' });
+  });
+
+  it('rejects a payload whose reference was altered (CRC mismatch)', () => {
+    const good = makeSlipPayload('014', 'ABC123');
+    const bad = good.replace('ABC123', 'ABC124');
+    expect(bad).not.toBe(good);
+    expect(parseSlipQr(bad)).toBeNull();
+  });
+
+  it('rejects a PromptPay payload and empty input', () => {
+    expect(
+      parseSlipQr(
+        '00020101021129370016A000000677010111011300660000000005802TH5303764',
+      ),
+    ).toBeNull();
+    expect(parseSlipQr('')).toBeNull();
+  });
+
+  it('rejects a payload with a bad bank code, wrong country or truncated TLV', () => {
+    expect(parseSlipQr(makeSlipPayload('04', 'ABC123'))).toBeNull();
+    expect(parseSlipQr(makeSlipPayload('004', ''))).toBeNull();
+    expect(
+      parseSlipQr(makeSlipPayload('004', 'ABC123').slice(0, 20)),
+    ).toBeNull();
+    expect(parseSlipQr('zz')).toBeNull();
+  });
+});
+
+describe('decodeSlipQr', () => {
+  it('decodes a PNG slip QR', async () => {
+    const png = await qrPng(makeSlipPayload('004', 'ABC123'));
+    expect(decodeSlipQr(png)).toEqual({ bankCode: '004', reference: 'ABC123' });
+  });
+
+  it('decodes a JPEG re-encoded at low quality', async () => {
+    const png = await qrPng(makeSlipPayload('025', 'XYZ789'));
+    expect(decodeSlipQr(toJpeg(png))).toEqual({
+      bankCode: '025',
+      reference: 'XYZ789',
+    });
+  });
+
+  it('returns null for a QR that is not a slip QR', async () => {
+    expect(decodeSlipQr(await qrPng('https://example.com/hello'))).toBeNull();
+  });
+
+  it('returns null for non-images and corrupt images', async () => {
+    expect(decodeSlipQr(Buffer.from('not an image'))).toBeNull();
+    expect(decodeSlipQr(Buffer.alloc(0))).toBeNull();
+    const png = await qrPng(makeSlipPayload('004', 'ABC123'));
+    expect(decodeSlipQr(png.subarray(0, 60))).toBeNull();
+    expect(
+      decodeSlipQr(Buffer.from([0xff, 0xd8, 0xff, 0x00, 0x01, 0x02])),
+    ).toBeNull();
+  });
+
+  it('returns null for an image wider than 8000 px', () => {
+    const png = new PNG({ width: 8001, height: 1 });
+    expect(decodeSlipQr(PNG.sync.write(png))).toBeNull();
+  });
+});

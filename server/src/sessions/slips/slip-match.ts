@@ -162,9 +162,36 @@ function collapse(text: string): string {
   return text.replace(/\s+/g, ' ').trim();
 }
 
+// Memo labels, compared with all whitespace removed (OCR splits Thai words).
+const THAI_MEMO_LABELS = ['บันทึกช่วยจำ', 'บันทึก', 'ช่วยจำ'];
+// Latin labels must be whole words, so `Notebook` is not a label.
+const LATIN_MEMO_LABEL = /^(?:memo|note)(?![a-z])/i;
+const LEADING_NON_LETTER = /^[^฀-๿A-Za-z]+/;
+
+/** True when the line starts with a memo label (after leading non-letter noise). */
+function isMemoLabel(line: OcrLine): boolean {
+  const text = line.text.replace(LEADING_NON_LETTER, '');
+  if (LATIN_MEMO_LABEL.test(text)) return true;
+  const squeezed = text.replace(/\s+/g, '');
+  return THAI_MEMO_LABELS.some((label) => squeezed.startsWith(label));
+}
+
+/**
+ * The lines above the first memo label. The memo is free text the sender
+ * types, so it may hold a title and the host's name (on the label's line or
+ * under it); nothing at or below the label may become the receiver. Slips
+ * print the memo below both name blocks. A label above the receiver is not a
+ * supported layout: the receiver is then dropped too, so the slip fails closed
+ * (held for the host), which is the safe direction.
+ */
+function aboveMemo(sorted: OcrLine[]): OcrLine[] {
+  const label = sorted.find(isMemoLabel);
+  return label === undefined ? sorted : sorted.filter((l) => l.y0 < label.y0);
+}
+
 /** The receiver's name text with the title removed, or null if there is none. */
 function selectReceiver(lines: OcrLine[]): string | null {
-  const sorted = [...lines].sort((a, b) => a.y0 - b.y0);
+  const sorted = aboveMemo([...lines].sort((a, b) => a.y0 - b.y0));
   const named: { entry: NameLine; index: number }[] = [];
   sorted.forEach((line, index) => {
     const entry = parseNameLine(line);

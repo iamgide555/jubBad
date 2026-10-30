@@ -188,6 +188,71 @@ describe('receiverNameMatches', () => {
   });
 });
 
+describe('memo lines', () => {
+  // A sender can type anything in the memo, including the host's title and name.
+  const RECEIVER_THEN = (...memo: string[]) =>
+    lines(
+      'โอนเงินสำเร็จ',
+      'นาย ธนัช อ.',
+      'xxx-xxx-1698',
+      'นาย ทดสอบ ผู้รับเงิน',
+      'xxx-xxx-5953',
+      'จำนวน: 172.00 บาท',
+      ...memo,
+    );
+
+  it('ignores a same-line memo below the real receiver', () => {
+    const l = RECEIVER_THEN('บันทึก น.ส. สมหญิง ใจดี');
+    expect(receiverName(l)).toBe('ทดสอบ ผู้รับเงิน');
+    expect(receiverNameMatches(l, 'สมหญิง')).toBe(false);
+    expect(receiverNameMatches(l, 'ทดสอบ')).toBe(true);
+  });
+
+  it('ignores the lines under a memo label', () => {
+    const l = RECEIVER_THEN('บันทึกช่วยจำ', 'นาย สมหญิง ใจดี');
+    expect(receiverName(l)).toBe('ทดสอบ ผู้รับเงิน');
+    expect(receiverNameMatches(l, 'สมหญิง ใจดี')).toBe(false);
+  });
+
+  it('knows every memo label, after leading noise and with OCR spaces in Thai', () => {
+    for (const memo of [
+      'บันทึกช่วยจำ: นาย สมหญิง',
+      'ช่วยจำ นาย สมหญิง',
+      'บัน ทึก นาย สมหญิง',
+      '© บันทึก นาย สมหญิง',
+      'Memo: Mr. สมหญิง',
+      'MEMO นาย สมหญิง',
+      'note - นาย สมหญิง',
+    ]) {
+      const l = RECEIVER_THEN(memo);
+      expect(receiverName(l), memo).toBe('ทดสอบ ผู้รับเงิน');
+      expect(receiverNameMatches(l, 'สมหญิง'), memo).toBe(false);
+    }
+  });
+
+  it('rejects a saved name that only the memo carries, on a slip with a lone titled receiver', () => {
+    const l = lines('Somchai K.', 'xxx-xxx-1698', 'น.ส. จิตติญา', 'Note: Mr. Somying');
+    expect(receiverName(l)).toBe('จิตติญา');
+    expect(receiverNameMatches(l, 'Somying')).toBe(false);
+  });
+
+  it('does not take a word that merely starts like a label for one', () => {
+    const l = RECEIVER_THEN('Notebook นาย สมหญิง');
+    expect(receiverName(l)).toBe('สมหญิง');
+  });
+
+  it('leaves a slip with no memo unchanged', () => {
+    expect(receiverName(RECEIVER_THEN())).toBe('ทดสอบ ผู้รับเงิน');
+    expect(receiverName(TWO_NAMES)).toBe('จิตติญา ฉัตรเฉลิมวิทย์');
+  });
+
+  it('fails closed on a memo label above the name blocks (not a supported layout)', () => {
+    const l = lines('บันทึก ค่าคอร์ท', 'นาย ธนัช อ.', 'น.ส. จิตติญา');
+    expect(receiverName(l)).toBeNull();
+    expect(receiverNameMatches(l, 'จิตติญา')).toBe(false);
+  });
+});
+
 describe('receiverName', () => {
   it('returns the lowest name block without its title', () => {
     expect(receiverName(TWO_NAMES)).toBe('จิตติญา ฉัตรเฉลิมวิทย์');

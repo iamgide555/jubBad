@@ -92,7 +92,10 @@ export interface PayPageView {
   alreadyPaid: boolean;
 }
 
-/** What a slip may be checked against: the session's group, its current payment panel and the saved receiver name. */
+/**
+ * What a slip may be checked against: the session's group, its current payment panel and the receiver name (the
+ * group's saved one, else the confirmed card's; null only when neither has one).
+ */
 interface SubmitGate {
   groupId: string;
   panel: PaymentPanel;
@@ -473,7 +476,9 @@ export class SlipPaymentsService {
     const panel = await this.cards.panel(code, now);
     if (!panel.confirmed) return null;
     // The group's current saved name, not tonight's frozen account, so a fixed name helps every slip from now on.
-    return { groupId: session.groupId, panel, savedName: parsePayAccount(session.group.payAccount)?.name ?? null };
+    // A group with none still has the account the host typed for tonight in the confirmed card: check against that.
+    const savedName = parsePayAccount(session.group.payAccount)?.name ?? panel.account?.name ?? null;
+    return { groupId: session.groupId, panel, savedName };
   }
 
   /** Decides a slip whose reference is now recorded: the sender's own player paid, or a waiting slip for the host. */

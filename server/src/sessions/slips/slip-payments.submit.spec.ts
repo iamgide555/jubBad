@@ -268,13 +268,25 @@ describe('slip payments: submit pipeline', () => {
       expect(await paymentsOf(code)).toMatchObject([{ amountSatang: 117200 }]);
     });
 
-    it('skips the receiver check when the group has no saved account name', async () => {
+    it("checks the confirmed card's account name when the group has no saved account", async () => {
+      // The host typed an account for tonight only: it lives in the card snapshot, not on the group.
       const { code, ids, token } = await setup({ payAccount: null });
       const a = await linked(code, ids[0]);
-      reader.read.mockResolvedValue(
-        slip(newRef(), { amount: baht(await owed(code, ids[0])), receiver: 'นาย ใครก็ได้ ไม่รู้จัก' })
-      );
+      reader.read.mockResolvedValue(slip(newRef(), { amount: baht(await owed(code, ids[0])) }));
       expect(await slips.submitSlip(code, token, a, IMAGE)).toEqual({ kind: 'paid', playerIds: [ids[0]] });
+    });
+
+    it("the group's saved name wins over the confirmed card's account name", async () => {
+      const { code, groupCode, ids, token } = await setup();
+      await prisma.group.update({
+        where: { code: groupCode },
+        data: { payAccount: JSON.stringify({ ...ACCOUNT, name: 'จิตติญา' }) },
+      });
+      const a = await linked(code, ids[0]);
+      // RECEIVER is the card's account name; the group now saves another, so the slip is held.
+      reader.read.mockResolvedValue(slip(newRef(), { amount: baht(await owed(code, ids[0])) }));
+      expect(await slips.submitSlip(code, token, a, IMAGE)).toEqual({ kind: 'waiting', reason: 'receiver' });
+      expect(await paymentsOf(code)).toEqual([]);
     });
 
     it("checks the group's current saved name, not the one frozen in the confirmed card", async () => {
@@ -638,6 +650,17 @@ describe('slip payments: submit pipeline', () => {
       expect(await onePending(code)).toMatchObject({
         reason: 'receiver', amountSatang: amount, receiverName: 'จิตติญา ฉัตรเฉลิมวิทย์', receiverTail: '5953',
       });
+    });
+
+    it("holds a slip paid to someone else when only the confirmed card has an account name", async () => {
+      const { code, ids, token } = await setup({ payAccount: null });
+      const a = await linked(code, ids[0]);
+      reader.read.mockResolvedValue(
+        slip(newRef(), { amount: baht(await owed(code, ids[0])), receiver: 'นาย ใครก็ได้ ไม่รู้จัก' })
+      );
+      expect(await slips.submitSlip(code, token, a, IMAGE)).toEqual({ kind: 'waiting', reason: 'receiver' });
+      expect(await paymentsOf(code)).toEqual([]);
+      expect(await onePending(code)).toMatchObject({ reason: 'receiver', receiverName: 'ใครก็ได้ ไม่รู้จัก' });
     });
 
     it('holds a slip where the saved name is the sender (the host paying someone back)', async () => {

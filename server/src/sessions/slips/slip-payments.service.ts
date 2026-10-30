@@ -3,7 +3,7 @@ import { Prisma } from '@prisma/client';
 import { planAtLeast } from '../../plans/plan.js';
 import { PlansService } from '../../plans/plans.service.js';
 import { PrismaService } from '../../prisma/prisma.service.js';
-import { parsePayAccount } from '../pay-account.js';
+import { parsePayAccount, serializePayAccount, validatePayAccount } from '../pay-account.js';
 import { PaymentCardService, type PaymentPanel } from '../payment-card.service.js';
 import { SessionLock } from '../session-lock.js';
 import {
@@ -51,6 +51,33 @@ export type SubmitOutcome =
   | { kind: 'duplicate' }
   | { kind: 'not-slip' }
   | { kind: 'unavailable' };
+
+/** A slip held for the host: who sent it, what it showed, and the players it might be for. */
+export interface WaitingSlip {
+  id: string;
+  reason: WaitingReason;
+  displayName: string | null;
+  pictureUrl: string | null;
+  lineUserId: string;
+  /** The one owed amount read from the slip, or null when none or several were found. */
+  amountSatang: number | null;
+  /** Only on a receiver mismatch: the receiver as read, so the host can fix the saved name. */
+  receiverName: string | null;
+  receiverTail: string | null;
+  createdAt: string;
+  /** Unpaid players on the bill whose row equals the slip's amount; every unpaid player when there is no amount. */
+  candidatePlayerIds: string[];
+}
+
+/** A slip whose reference was already used in the group. The full reference is not shipped, only its tail. */
+export interface DuplicateSlip {
+  id: string;
+  displayName: string | null;
+  lineUserId: string;
+  referenceTail: string;
+  originalPlayerIds: string[];
+  createdAt: string;
+}
 
 /** What a slip may be checked against: the session's group, its current payment panel and the saved receiver name. */
 interface SubmitGate {
@@ -234,6 +261,132 @@ export class SlipPaymentsService {
     });
   }
 
+  /** Slips held for the host in this session, oldest first, each with the players it could be for. */
+  async listWaiting(code: string): Promise<WaitingSlip[]> {
+    await this.groupOf(code);
+    const panel = await this.cards.panel(code);
+    const paid = await this.paidIds(code);
+    const unpaid = panel.rows.filter((r) => !paid.has(r.playerId));
+    const rows = await this.prisma.pendingSlip.findMany({
+      where: { sessionId: code, resolvedAt: null },
+      orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
+    });
+    return rows.map((s) => ({
+      id: s.id,
+      reason: s.reason as WaitingReason,
+      displayName: s.displayName,
+      pictureUrl: s.pictureUrl,
+      lineUserId: s.lineUserId,
+      amountSatang: s.amountSatang,
+      receiverName: s.receiverName,
+      receiverTail: s.receiverTail,
+      createdAt: s.createdAt.toISOString(),
+      // Nobody owing nothing is ever a match for an amount.
+      candidatePlayerIds: unpaid
+        .filter((r) => (s.amountSatang === null ? true : r.amountSatang > 0 && r.amountSatang === s.amountSatang))
+        .map((r) => r.playerId),
+    }));
+  }
+
+  /**
+   * Host: this slip covers these players (all marked paid, those already paid left alone) and, optionally, its sender is
+   * this player (the account is linked for future nights). Either everything is written or nothing is.
+   */
+  resolveWaiting(code: string, id: string, input: { coversPlayerIds: string[]; senderPlayerId: string | null }): Promise<void> {
+    return this.lock.run(code, async () => {
+      const slip = await this.prisma.pendingSlip.findFirst({ where: { id, sessionId: code, resolvedAt: null } });
+      if (!slip) throw new NotFoundException();
+      const covers = [...new Set(input.coversPlayerIds)];
+      if (covers.length === 0) throw new ConflictException({ code: 'COVERS_REQUIRED' });
+      const panel = await this.cards.panel(code);
+      const onBill = new Set(panel.rows.map((r) => r.playerId));
+      if (covers.some((playerId) => !onBill.has(playerId))) throw new ConflictException({ code: 'PLAYER_NOT_ON_BILL' });
+      const paid = await this.paidIds(code);
+
+      // Judge the link before anything is written, so a refusal leaves no payment behind.
+      const groupId = slip.groupId;
+      const link = input.senderPlayerId === null ? null : await this.linkWrites(groupId, input.senderPlayerId, slip);
+
+      const writes = [
+        ...covers
+          .filter((playerId) => !paid.has(playerId))
+          // A slip for several players equals no single player's row, so no amount is kept (and none can go stale).
+          .map((playerId) =>
+            this.prisma.sessionPayment.create({
+              data: { sessionId: code, playerId, source: 'slip', amountSatang: null, reference: slip.reference },
+            })
+          ),
+        ...(link ?? []),
+        this.prisma.pendingSlip.update({ where: { id }, data: { resolvedAt: new Date() } }),
+      ];
+      try {
+        await this.prisma.$transaction(writes);
+      } catch (error) {
+        // Another session of this group linked the account in between (the lock is per session); nothing was written.
+        if (link && isUniqueViolation(error)) throw new ConflictException({ code: 'ACCOUNT_ALREADY_LINKED' });
+        throw error;
+      }
+    });
+  }
+
+  /** Host: nothing to credit for this slip. It leaves the list; no one is marked paid. */
+  dismissWaiting(code: string, id: string): Promise<void> {
+    return this.lock.run(code, async () => {
+      const { count } = await this.prisma.pendingSlip.updateMany({
+        where: { id, sessionId: code, resolvedAt: null },
+        data: { resolvedAt: new Date() },
+      });
+      if (count === 0) throw new NotFoundException();
+    });
+  }
+
+  /** Duplicate slips of this session the host has not dismissed, oldest first. */
+  async listDuplicates(code: string): Promise<DuplicateSlip[]> {
+    await this.groupOf(code);
+    const rows = await this.prisma.slipDuplicate.findMany({
+      where: { sessionId: code, dismissedAt: null },
+      orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
+    });
+    return rows.map((d) => ({
+      id: d.id,
+      displayName: d.displayName,
+      lineUserId: d.lineUserId,
+      referenceTail: d.reference.slice(-6),
+      originalPlayerIds: parseIds(d.originalPlayerIds),
+      createdAt: d.createdAt.toISOString(),
+    }));
+  }
+
+  dismissDuplicate(code: string, id: string): Promise<void> {
+    return this.lock.run(code, async () => {
+      const { count } = await this.prisma.slipDuplicate.updateMany({
+        where: { id, sessionId: code, dismissedAt: null },
+        data: { dismissedAt: new Date() },
+      });
+      if (count === 0) throw new NotFoundException();
+    });
+  }
+
+  /**
+   * Host: the receiver on a waiting slip is the host's own account, so make its name the saved one (bank and number
+   * stay). Marks no one paid and leaves the slip waiting: the image is gone, so the host still ticks its players.
+   */
+  updateSavedReceiverName(code: string, waitingId: string): Promise<void> {
+    return this.lock.run(code, async () => {
+      const slip = await this.prisma.pendingSlip.findFirst({ where: { id: waitingId, sessionId: code, resolvedAt: null } });
+      if (!slip) throw new NotFoundException();
+      if (slip.reason !== 'receiver' || slip.receiverName === null) {
+        throw new ConflictException({ code: 'NAME_UPDATE_NOT_APPLICABLE' });
+      }
+      const group = await this.prisma.group.findUnique({ where: { code: slip.groupId }, select: { payAccount: true } });
+      const saved = parsePayAccount(group?.payAccount ?? null);
+      if (!saved) throw new ConflictException({ code: 'NAME_UPDATE_NOT_APPLICABLE' });
+      const result = validatePayAccount({ bank: saved.bank, number: saved.number, name: slip.receiverName });
+      if (!result.ok || result.value === null) throw new ConflictException({ code: 'PAY_ACCOUNT_INVALID' });
+      await this.prisma.group.update({ where: { code: slip.groupId }, data: { payAccount: serializePayAccount(result.value) } });
+    });
+  }
+
   /** What an existing link says about a claim, or null when neither the account nor the player is linked. */
   private async existingOutcome(groupId: string, lineUserId: string, playerId: string): Promise<ClaimOutcome | null> {
     const byAccount = await this.prisma.playerLineAccount.findUnique({
@@ -356,6 +509,38 @@ export class SlipPaymentsService {
     return { kind: 'duplicate' };
   }
 
+  /** The player ids that currently count as paid in the session. */
+  private async paidIds(code: string): Promise<Set<string>> {
+    const rows = await this.prisma.sessionPayment.findMany({ where: { sessionId: code }, select: { playerId: true } });
+    return new Set(rows.map((p) => p.playerId));
+  }
+
+  /**
+   * The writes that make the slip's account this player's (the rules of `setLink`, labelled as the host's), or a thrown
+   * refusal. Nothing is written here.
+   */
+  private async linkWrites(
+    groupId: string,
+    playerId: string,
+    slip: { lineUserId: string; displayName: string | null }
+  ): Promise<Prisma.PrismaPromise<unknown>[]> {
+    if (!(await this.prisma.player.findFirst({ where: { id: playerId, groupId }, select: { id: true } }))) {
+      throw new ConflictException({ code: 'PLAYER_NOT_IN_GROUP' });
+    }
+    const byAccount = await this.prisma.playerLineAccount.findUnique({
+      where: { groupId_lineUserId: { groupId, lineUserId: slip.lineUserId } },
+    });
+    if (byAccount && byAccount.playerId !== playerId) throw new ConflictException({ code: 'ACCOUNT_ALREADY_LINKED' });
+    // Already this player's account: only the label changes; the stored name stays.
+    if (byAccount) return [this.prisma.playerLineAccount.update({ where: { id: byAccount.id }, data: { linkedBy: 'host' } })];
+    return [
+      this.prisma.playerLineAccount.deleteMany({ where: { groupId, playerId } }),
+      this.prisma.playerLineAccount.create({
+        data: { groupId, playerId, lineUserId: slip.lineUserId, displayName: slip.displayName, linkedBy: 'host' },
+      }),
+    ];
+  }
+
   private async groupOf(code: string): Promise<string> {
     const session = await this.prisma.session.findUnique({ where: { code }, select: { groupId: true } });
     if (!session) throw new NotFoundException();
@@ -365,4 +550,13 @@ export class SlipPaymentsService {
 
 function isUniqueViolation(error: unknown): boolean {
   return error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002';
+}
+
+function parseIds(raw: string): string[] {
+  try {
+    const v: unknown = JSON.parse(raw);
+    return Array.isArray(v) ? v.filter((x): x is string => typeof x === 'string') : [];
+  } catch {
+    return [];
+  }
 }

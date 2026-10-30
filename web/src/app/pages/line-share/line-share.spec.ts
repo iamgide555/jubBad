@@ -467,6 +467,24 @@ describe('LineShare', () => {
       });
     });
 
+    it.each(['/slip/abc/TOK?liff.hback=2', '/slip/abc/TOK#frag', '/slip/abc/TOK?liff.hback=2#frag'])(
+      "keeps LIFF's own suffix out of the token when liff.state is %s",
+      async (state) => {
+        await open_(state, { state: 'S1', liffClientId: '123' });
+        expect(navigate).toHaveBeenCalledTimes(1);
+        expect(navigate).toHaveBeenCalledWith(['/line-share', 'slip', 'abc', 'TOK'], {
+          replaceUrl: true,
+          queryParams: { state: 'S1', liffClientId: '123' },
+        });
+      },
+    );
+
+    it("keeps LIFF's own suffix out of a summary code too", async () => {
+      shareCard.mockReturnValue(of(CARD));
+      await open_('/abc123?liff.hback=2');
+      expect(shareCard).toHaveBeenCalledWith('abc123');
+    });
+
     it.each(['/slip/abc', '/slip/abc/', '/slip//TOK', '/slip/'])(
       'says it is missing, with no navigation or request, when liff.state %s lacks a code or token',
       async (state) => {

@@ -33,7 +33,9 @@ function routeTargetFrom(snapshot: ActivatedRouteSnapshot): RouteTarget {
   const token = snapshot.paramMap.get('token');
   if (code && token) return { kind: 'pay', code, token };
   if (code) return { kind: 'summary', code, token: null };
-  const state = snapshot.queryParamMap.get('liff.state') ?? '';
+  // LIFF can append its own query or fragment to the state it carries (a return from LINE login adds
+  // `?liff.hback=2`), and that must never end up inside the code or the token.
+  const state = (snapshot.queryParamMap.get('liff.state') ?? '').split(/[?#]/)[0];
   const path = state.startsWith('/') ? state.slice(1) : state;
   const parts = path.split('/');
   if ((parts[0] === 'pay' || parts[0] === 'slip') && parts.length > 1) {

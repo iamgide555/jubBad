@@ -9,7 +9,7 @@ import { SESSION_SECRET } from '../auth/auth.module.js';
 import { AuthBootstrapService } from '../auth/bootstrap.service.js';
 import { LineClient } from '../line/line-client.js';
 import { retryKeyFor } from '../line/line-summary.service.js';
-import { paymentCardMessages, paymentDmMessages } from '../line/payment-card.js';
+import { liffSlipUrl, paymentCardMessages, paymentDmMessages } from '../line/payment-card.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { UsersService } from '../users/users.service.js';
 import { BillService } from './bill.service.js';
@@ -412,6 +412,19 @@ describe('payment card: owner panel, confirm and bot send', () => {
       const stored = parsePaymentState((await prisma.session.findUniqueOrThrow({ where: { code } })).paymentCard);
       expect((await panelOf(code)).contentHash).toBe(stored.confirmedHash);
     });
+
+    it('does not depend on the LIFF id: the send-slip button is outside the hash, so confirmed stays current', async () => {
+      const { code } = await setup();
+      const withLiff = await panelOf(code);
+      delete process.env.LINE_LIFF_ID;
+      expect((await panelOf(code)).contentHash).toBe(withLiff.contentHash);
+      await confirm(code).expect(200);
+      const stored = parsePaymentState((await prisma.session.findUniqueOrThrow({ where: { code } })).paymentCard);
+      process.env.LINE_LIFF_ID = LIFF_ID;
+      const after = await panelOf(code);
+      expect(after.contentHash).toBe(stored.confirmedHash);
+      expect(after).toMatchObject({ confirmed: true, stale: false });
+    });
   });
 
   describe('confirm', () => {
@@ -580,6 +593,7 @@ describe('payment card: owner panel, confirm and bot send', () => {
       const panel = (await confirm(code).expect(200)).body as PaymentPanel;
       const sendId = randomUUID();
       expect((await send(code, sendId).expect(200)).body).toEqual({ outcome: 'sent' });
+      const token = parsePaymentState((await prisma.session.findUniqueOrThrow({ where: { code } })).paymentCard).token!;
 
       expect(fakeClient.push).toHaveBeenCalledTimes(1);
       const group = await prisma.group.findUniqueOrThrow({ where: { code: groupCode } });
@@ -598,12 +612,53 @@ describe('payment card: owner panel, confirm and bot send', () => {
             totalSatang: panel.totalSatang,
             account: ACCOUNT,
           },
-          'group'
+          'group',
+          // LINE_LIFF_ID is set in beforeEach, so the card carries the send-slip button.
+          liffSlipUrl(LIFF_ID, code, token)
         )
       );
       const after = await panelOf(code);
       expect(after.lastSentAt).not.toBeNull();
       expect(Date.now() - Date.parse(after.lastSentAt!)).toBeLessThan(60_000);
+    });
+
+    const slipButtons = (messages: unknown): Record<string, any>[] => {
+      const found: Record<string, any>[] = [];
+      const visit = (n: unknown): void => {
+        if (Array.isArray(n)) return n.forEach(visit);
+        if (n === null || typeof n !== 'object') return;
+        const node = n as Record<string, any>;
+        if (node.type === 'button' && node.action?.label === 'ส่งสลิป') found.push(node);
+        Object.values(node).forEach(visit);
+      };
+      visit(messages);
+      return found;
+    };
+
+    it('puts a send-slip button with the confirmed token on the posted card when the LIFF id is set', async () => {
+      const { code } = await setup();
+      await confirm(code).expect(200);
+      const token = parsePaymentState((await prisma.session.findUniqueOrThrow({ where: { code } })).paymentCard).token!;
+      await send(code).expect(200);
+      const [, messages] = fakeClient.push.mock.calls[0];
+      const buttons = slipButtons(messages);
+      expect(buttons).toHaveLength(1);
+      expect(buttons[0].action.uri).toBe(`https://liff.line.me/${LIFF_ID}/slip/${code}/${token}`);
+      // Copy button first, slip button after it.
+      const footer = messages[0].contents.footer.contents;
+      expect(footer).toHaveLength(2);
+      expect(footer[0].action.type).toBe('clipboard');
+      expect(footer[1]).toBe(buttons[0]);
+    });
+
+    it('posts the card without a send-slip button when the LIFF id is not set', async () => {
+      const { code } = await setup();
+      await confirm(code).expect(200);
+      delete process.env.LINE_LIFF_ID;
+      expect((await send(code).expect(200)).body).toEqual({ outcome: 'sent' });
+      const [, messages] = fakeClient.push.mock.calls[0];
+      expect(slipButtons(messages)).toHaveLength(0);
+      expect(messages[0].contents.footer.contents).toHaveLength(1);
     });
 
     it('uses one retry key per sendId: the same id repeats it, a new id does not', async () => {

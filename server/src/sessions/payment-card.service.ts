@@ -4,7 +4,7 @@ import { LineClient } from '../line/line-client.js';
 import { lineConfig } from '../line/line-config.js';
 import { cardTexts, clip, TEXT_MAX } from '../line/line-summary-card.js';
 import { LineSummaryService, type LineSummaryTarget } from '../line/line-summary.service.js';
-import { liffPayUrl, paymentCardMessages, paymentDmMessages, type PaymentCardInput } from '../line/payment-card.js';
+import { liffPayUrl, liffSlipUrl, paymentCardMessages, paymentDmMessages, type PaymentCardInput } from '../line/payment-card.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import type { BillWarning } from '../../../engines/bill.ts';
 import { BillService } from './bill.service.js';
@@ -218,7 +218,11 @@ export class PaymentCardService {
 
       let outcome: Awaited<ReturnType<LineClient['push']>>;
       try {
-        const messages = paymentCardMessages(cardInput(panel.account), 'group');
+        // The send-slip button rides on the card only when the LIFF app and the confirmed token both exist; it is
+        // never part of the content hash or the retry key, so a missing one just means no button.
+        const { liffId } = lineConfig();
+        const slipUrl = liffId !== null && state.token ? liffSlipUrl(liffId, code, state.token) : null;
+        const messages = paymentCardMessages(cardInput(panel.account), 'group', slipUrl);
         outcome = await this.line.push(to, messages, paymentRetryKey(code, sendId));
       } catch {
         return 'failed';
@@ -300,7 +304,8 @@ export class PaymentCardService {
     const { name, date } = cardTexts(input);
     return {
       liffId,
-      messages: paymentCardMessages(input, 'host'),
+      // `stored` is the confirmed token the caller just matched, so the slip button carries exactly that one.
+      messages: paymentCardMessages(input, 'host', liffSlipUrl(liffId, code, stored)),
       preview: {
         name,
         date,

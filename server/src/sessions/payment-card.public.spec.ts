@@ -8,7 +8,7 @@ import { AppModule } from '../app.module.js';
 import { SESSION_SECRET } from '../auth/auth.module.js';
 import { AuthBootstrapService } from '../auth/bootstrap.service.js';
 import { LineClient } from '../line/line-client.js';
-import { liffPayUrl, paymentCardMessages } from '../line/payment-card.js';
+import { liffPayUrl, liffSlipUrl, paymentCardMessages } from '../line/payment-card.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { UsersService } from '../users/users.service.js';
 import { newShareToken, parsePaymentState, serializePaymentState } from './payment-card-state.js';
@@ -194,9 +194,11 @@ describe('GET /sessions/:code/payment-share-card (public, token-gated)', () => {
           totalSatang: panel.totalSatang,
           account: ACCOUNT,
         },
-        'host'
+        'host',
+        liffSlipUrl(LIFF_ID, code, token)
       )
     );
+    expect(JSON.stringify(res.body.messages)).toContain('ส่งสลิป');
     expect(res.body.preview).toEqual({
       name: 'ตีชิล',
       date: '29 ต.ค. 2569',
@@ -207,7 +209,8 @@ describe('GET /sessions/:code/payment-share-card (public, token-gated)', () => {
     });
     // The account number is the card's whole point; nothing else private comes with it.
     expect(res.text).toContain(ACCOUNT.number);
-    for (const secret of [token, groupCode, ownerId, ownerEmail, 'lineUserId', 'confirmedHash', 'paymentCard', 'playerId']) {
+    // The token is in the response on purpose now: it is the send-slip button's link, and the caller supplied it.
+    for (const secret of [groupCode, ownerId, ownerEmail, 'lineUserId', 'confirmedHash', 'paymentCard', 'playerId']) {
       expect(res.text).not.toContain(secret);
     }
   });

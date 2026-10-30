@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { vi } from 'vitest';
+import { ENDED_AT, slipDateLine } from '../../../test/slip-http.fixture.js';
 import { AppModule } from '../../app.module.js';
 import { AuthBootstrapService } from '../../auth/bootstrap.service.js';
 import { PrismaService } from '../../prisma/prisma.service.js';
@@ -26,7 +27,8 @@ function slip(reference: string, options: { amount?: string | null; receiver?: s
   const { amount = null, receiver = RECEIVER } = options;
   const texts = [
     'โอนเงินสำเร็จ',
-    '30 ต.ค. 69 21:04',
+    // Made an hour before the session ended: inside the slip date window.
+    slipDateLine(new Date(ENDED_AT.getTime() - 3_600_000)),
     SENDER,
     'xxx-xxx-1234',
     receiver,
@@ -129,7 +131,7 @@ describe('slip payments: host review', () => {
       },
     });
     await configure(code, over);
-    await prisma.session.update({ where: { code }, data: { endedAt: new Date('2026-10-30T15:00:00Z') } });
+    await prisma.session.update({ where: { code }, data: { endedAt: ENDED_AT } });
     const token = newShareToken();
     await confirm(code, token);
     return { code, token };

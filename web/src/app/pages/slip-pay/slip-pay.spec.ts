@@ -16,6 +16,7 @@ const LINKED: SlipPayView = {
   claimable: [],
   accountName: 'จิตติญา ฉัตรเฉลิมวิทย์',
   alreadyPaid: false,
+  sessionDate: '30 ต.ค. 2569',
 };
 const UNLINKED: SlipPayView = {
   amountSatang: null,
@@ -26,6 +27,7 @@ const UNLINKED: SlipPayView = {
   ],
   accountName: 'จิตติญา ฉัตรเฉลิมวิทย์',
   alreadyPaid: false,
+  sessionDate: '30 ต.ค. 2569',
 };
 
 describe('SlipPay', () => {
@@ -170,6 +172,20 @@ describe('SlipPay', () => {
       expect(q('[data-slip-claim]')).toBeNull();
     });
 
+    it('names the night the bill is for, above the amount', async () => {
+      await open();
+      const night = q('[data-slip-session-date]')!;
+      expect(night.textContent?.trim()).toBe('บิลวันที่ 30 ต.ค. 2569');
+      const amount = q('[data-slip-amount]')!;
+      expect(night.compareDocumentPosition(amount) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    });
+
+    it('leaves the night out when the session has no date', async () => {
+      await open({ ...LINKED, sessionDate: null });
+      expect(q('[data-slip-session-date]')).toBeNull();
+      expect(text()).not.toContain('บิลวันที่');
+    });
+
     it('keeps satang when the amount has them', async () => {
       await open({ ...LINKED, amountSatang: 17250 });
       expect(q('[data-slip-amount]')?.textContent).toContain('฿172.50');
@@ -229,6 +245,8 @@ describe('SlipPay', () => {
       expect(q('[data-slip-claim]')).toBeNull();
       expect(q('[data-slip-amount]')).toBeNull();
       expect(text()).toContain('จิตติญา ฉัตรเฉลิมวิทย์');
+      // A friend paying for others still sees which night the bill is for.
+      expect(q('[data-slip-session-date]')?.textContent?.trim()).toBe('บิลวันที่ 30 ต.ค. 2569');
       expect(q('[data-slip-send]')).not.toBeNull();
       expect(svc.claim).not.toHaveBeenCalled();
     });

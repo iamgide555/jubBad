@@ -10,7 +10,7 @@ export interface SlipPaidRow {
   amountChangedSince: boolean;
 }
 
-export type SlipWaitingReason = 'unmapped' | 'amount' | 'receiver' | 'unreadable' | 'stale' | 'collision';
+export type SlipWaitingReason = 'unmapped' | 'amount' | 'date' | 'receiver' | 'unreadable' | 'stale' | 'collision';
 
 /** A slip held for the host instead of marking anyone paid. */
 export interface SlipWaiting {

@@ -79,6 +79,9 @@
             <section>
               @if (v.amountSatang !== null) {
                 <div class="hero">
+                  @if (v.sessionDate) {
+                    <p class="eyebrow" data-slip-session-date i18n="@@slipPay.sessionDate">บิลวันที่ {{ v.sessionDate }}</p>
+                  }
                   <p class="eyebrow" i18n="@@slipPay.amountLabel">ยอดที่ต้องจ่าย</p>
                   <h1 class="amount tabular" data-slip-amount>฿{{ baht(v.amountSatang) }}</h1>
                   @if (v.playerName) {
@@ -86,6 +89,9 @@
                   }
                 </div>
               } @else {
+                @if (v.sessionDate) {
+                  <p class="eyebrow" data-slip-session-date i18n="@@slipPay.sessionDate">บิลวันที่ {{ v.sessionDate }}</p>
+                }
                 <h1 i18n="@@slipPay.send">ส่งสลิป</h1>
               }
 

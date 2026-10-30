@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { vi } from 'vitest';
+import { ENDED_AT, slipDateLine } from '../../../test/slip-http.fixture.js';
 import { AppModule } from '../../app.module.js';
 import { AuthBootstrapService } from '../../auth/bootstrap.service.js';
 import { PrismaService } from '../../prisma/prisma.service.js';
@@ -23,15 +24,25 @@ const IMAGE = Buffer.from('fake image bytes');
 const baht = (satang: number) =>
   `${Math.floor(satang / 100).toLocaleString('en-US')}.${String(satang % 100).padStart(2, '0')}`;
 
-/** A slip the way OCR reads it: a header, the sender block above, the receiver block below, then the amount. */
+const HOUR = 3_600_000;
+const DAY = 24 * HOUR;
+
+/**
+ * A slip the way OCR reads it: a header, the date line, the sender block above, the receiver block below, then the
+ * amount. Made an hour before the session ended unless `madeAt` says otherwise; `date: null` leaves no date line.
+ */
 function slip(
   reference: string,
-  options: { amount?: string | null; sender?: string; receiver?: string; extra?: string[] } = {}
+  options: {
+    amount?: string | null; sender?: string; receiver?: string; extra?: string[]; madeAt?: Date; date?: string | null;
+  } = {}
 ): SlipRead {
-  const { amount = null, sender = SENDER, receiver = RECEIVER, extra = [] } = options;
+  const { amount = null, sender = SENDER, receiver = RECEIVER, extra = [], madeAt = new Date(ENDED_AT.getTime() - HOUR) } =
+    options;
+  const date = options.date === undefined ? slipDateLine(madeAt) : options.date;
   const texts = [
     OCR_MARKER,
-    '30 ต.ค. 69 21:04',
+    ...(date === null ? [] : [date]),
     sender,
     'xxx-xxx-1234',
     receiver,
@@ -156,7 +167,7 @@ describe('slip payments: submit pipeline', () => {
       },
     });
     await configure(code, over);
-    await prisma.session.update({ where: { code }, data: { endedAt: new Date('2026-10-30T15:00:00Z') } });
+    await prisma.session.update({ where: { code }, data: { endedAt: ENDED_AT } });
     const token = newShareToken();
     if (confirmed) await confirm(code, token);
     return { code, token };
@@ -309,6 +320,77 @@ describe('slip payments: submit pipeline', () => {
       const a = await linked(code, ids[0]);
       reader.read.mockResolvedValue(slip(newRef(), { amount: baht(await owed(code, ids[0])) }));
       expect(await slips.submitSlip(code, token, a, IMAGE)).toEqual({ kind: 'paid', playerIds: [ids[0]] });
+    });
+  });
+
+  describe('slip date', () => {
+    /** A linked sender of player 0 and a slip of exactly their amount: only the date can hold it. */
+    async function ready() {
+      const { code, ids, token } = await setup();
+      const a = await linked(code, ids[0]);
+      return { code, ids, token, a, amount: await owed(code, ids[0]) };
+    }
+
+    it('pays a slip made on the day the session ended', async () => {
+      const { code, ids, token, a, amount } = await ready();
+      reader.read.mockResolvedValue(slip(newRef(), { amount: baht(amount), madeAt: new Date(ENDED_AT.getTime() - HOUR) }));
+      expect(await slips.submitSlip(code, token, a, IMAGE)).toEqual({ kind: 'paid', playerIds: [ids[0]] });
+    });
+
+    it('pays a slip made the day before the session ended (paid ahead)', async () => {
+      const { code, ids, token, a, amount } = await ready();
+      reader.read.mockResolvedValue(slip(newRef(), { amount: baht(amount), madeAt: new Date(ENDED_AT.getTime() - DAY) }));
+      expect(await slips.submitSlip(code, token, a, IMAGE)).toEqual({ kind: 'paid', playerIds: [ids[0]] });
+    });
+
+    it('holds a week-old slip of the right amount and pays nobody', async () => {
+      // A genuine old slip (say last week's, same amount, made before this feature recorded references).
+      const { code, token, a, amount } = await ready();
+      reader.read.mockResolvedValue(slip(newRef(), { amount: baht(amount), madeAt: new Date(ENDED_AT.getTime() - 7 * DAY) }));
+      expect(await slips.submitSlip(code, token, a, IMAGE)).toEqual({ kind: 'waiting', reason: 'date' });
+      expect(await paymentsOf(code)).toEqual([]);
+      expect(await onePending(code)).toMatchObject({ reason: 'date', amountSatang: amount, receiverName: null });
+    });
+
+    it('holds a slip dated three days after today', async () => {
+      const { code, token, a, amount } = await ready();
+      const now = new Date(ENDED_AT.getTime() + HOUR);
+      reader.read.mockResolvedValue(slip(newRef(), { amount: baht(amount), madeAt: new Date(now.getTime() + 3 * DAY) }));
+      expect(await slips.submitSlip(code, token, a, IMAGE, now)).toEqual({ kind: 'waiting', reason: 'date' });
+      expect(await paymentsOf(code)).toEqual([]);
+    });
+
+    it('pays a slip dated the day after today (a phone clock a little ahead)', async () => {
+      const { code, ids, token, a, amount } = await ready();
+      const now = new Date(ENDED_AT.getTime() + HOUR);
+      reader.read.mockResolvedValue(slip(newRef(), { amount: baht(amount), madeAt: new Date(now.getTime() + DAY) }));
+      expect(await slips.submitSlip(code, token, a, IMAGE, now)).toEqual({ kind: 'paid', playerIds: [ids[0]] });
+    });
+
+    it('holds a slip whose date cannot be read (fails closed)', async () => {
+      const { code, token, a, amount } = await ready();
+      reader.read.mockResolvedValue(slip(newRef(), { amount: baht(amount), date: null }));
+      expect(await slips.submitSlip(code, token, a, IMAGE)).toEqual({ kind: 'waiting', reason: 'date' });
+      reader.read.mockResolvedValue(slip(newRef(), { amount: baht(amount), date: '3O ตุ.ค. 6? 21:04' }));
+      expect(await slips.submitSlip(code, token, a, IMAGE)).toEqual({ kind: 'waiting', reason: 'date' });
+      expect(await paymentsOf(code)).toEqual([]);
+    });
+
+    it('reads the other bank formats: 4-digit Buddhist year and English', async () => {
+      for (const date of ['30 ต.ค. 2569 - 21:04', '30 Oct 2026 21:04']) {
+        const { code, ids, token, a, amount } = await ready();
+        reader.read.mockResolvedValue(slip(newRef(), { amount: baht(amount), date }));
+        expect(await slips.submitSlip(code, token, a, IMAGE), date).toEqual({ kind: 'paid', playerIds: [ids[0]] });
+      }
+    });
+
+    it('is checked after the amount and before the receiver', async () => {
+      const { code, token, a, amount } = await ready();
+      const old = new Date(ENDED_AT.getTime() - 7 * DAY);
+      reader.read.mockResolvedValue(slip(newRef(), { amount: '999.00', madeAt: old }));
+      expect(await slips.submitSlip(code, token, a, IMAGE)).toEqual({ kind: 'waiting', reason: 'amount' });
+      reader.read.mockResolvedValue(slip(newRef(), { amount: baht(amount), madeAt: old, receiver: 'นาย ใครก็ได้ ไม่รู้จัก' }));
+      expect(await slips.submitSlip(code, token, a, IMAGE)).toEqual({ kind: 'waiting', reason: 'date' });
     });
   });
 

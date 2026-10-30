@@ -58,6 +58,16 @@ describe('SlipPaymentsService.payPageView and claimForPayPage', () => {
     expect(after!.claimable.map((c) => c.playerId).sort()).toEqual([ids[2], ids[3]].sort());
   });
 
+  it('names the night the bill is for, as the card writes it, or null without a session date', async () => {
+    const { code, token } = await kit.setup(hostId);
+    // The fixture's session date is 2026-10-30, stored as yyyy-mm-dd: written as a Thai date like the card's.
+    expect(await slips.payPageView(code, token, lineUser())).toMatchObject({ sessionDate: '30 ต.ค. 2569' });
+    await kit.prisma.session.update({ where: { code }, data: { date: 'พฤหัส 30 ต.ค.' } });
+    expect(await slips.payPageView(code, token, lineUser())).toMatchObject({ sessionDate: 'พฤหัส 30 ต.ค.' });
+    await kit.prisma.session.update({ where: { code }, data: { date: null } });
+    expect(await slips.payPageView(code, token, lineUser())).toMatchObject({ sessionDate: null });
+  });
+
   it('shows no amount for a viewer linked to a player who is not on tonight\'s bill', async () => {
     const { code, token, groupCode } = await kit.setup(hostId);
     const stray = await kit.prisma.player.create({ data: { groupId: groupCode, name: 'ไม่มา', aliases: '[]' } });

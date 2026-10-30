@@ -15,6 +15,8 @@ export interface SlipPayView {
   claimable: SlipPayClaimable[];
   accountName: string;
   alreadyPaid: boolean;
+  /** The night the bill is for, as the payment card writes it; null when the session has no date. */
+  sessionDate: string | null;
 }
 
 export type SlipPayClaimOutcome = 'linked' | 'player-taken' | 'account-already-linked' | 'not-on-bill';

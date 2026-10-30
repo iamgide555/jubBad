@@ -6,6 +6,8 @@ import {
   receiverName,
   receiverNameMatches,
   receiverTail,
+  slipDate,
+  slipDateInWindow,
   type OcrLine,
 } from './slip-match.js';
 
@@ -287,5 +289,112 @@ describe('receiverTail', () => {
   it('is null without a masked number', () => {
     expect(receiverTail('no digits')).toBeNull();
     expect(receiverTail('123-456-7890')).toBeNull();
+  });
+});
+
+describe('slipDate', () => {
+  const oct29 = { year: 2026, month: 10, day: 29 };
+
+  it('reads the four bank formats seen on real slips', () => {
+    expect(slipDate('โอนเงินสำเร็จ\n29 ต.ค. 2569 - 22:11\nนาย ก')).toEqual(oct29);
+    expect(slipDate('29 ต.ค. 69, 22:10')).toEqual(oct29);
+    expect(slipDate('29 ต.ค. 69  23:03 น.')).toEqual(oct29);
+    expect(slipDate('30 ต.ค. 2569 12:50:41')).toEqual({ year: 2026, month: 10, day: 30 });
+  });
+
+  it('tolerates OCR noise: missing dots, spaces, a comma or a dash', () => {
+    for (const text of ['29 ต.ค 2569', '29 ตค 2569', '29ต.ค.2569', '29 ต. ค. 69', '29, ต.ค., 2569', '29-ต.ค.-69']) {
+      expect(slipDate(text), text).toEqual(oct29);
+    }
+  });
+
+  it('survives the misreads seen when OCR-ing real slips', () => {
+    // ต read as the Thai digit ๓; a stray vowel mark after the dot; the day glued to the month after icon noise.
+    expect(slipDate('5 ๓.ค. 69, 21:00')).toEqual({ year: 2026, month: 10, day: 5 });
+    expect(slipDate('5 ต.ุค. 69 21:00 น.')).toEqual({ year: 2026, month: 10, day: 5 });
+    expect(slipDate('1 15๓ค.2569 09:30:00')).toEqual({ year: 2026, month: 10, day: 15 });
+  });
+
+  it('does not let a stray mark turn มีค (March) into มค (January)', () => {
+    expect(slipDate('5 มีค 2569')).toEqual({ year: 2026, month: 3, day: 5 });
+    expect(slipDate('5 มิย 2569')).toEqual({ year: 2026, month: 6, day: 5 });
+  });
+
+  it('knows every Thai month, abbreviated and in full', () => {
+    const abbr = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.'];
+    const full = [
+      'มกราคม', 'กุมภาพันธ์', 'มีนาคม', 'เมษายน', 'พฤษภาคม', 'มิถุนายน',
+      'กรกฎาคม', 'สิงหาคม', 'กันยายน', 'ตุลาคม', 'พฤศจิกายน', 'ธันวาคม',
+    ];
+    abbr.forEach((m, i) => expect(slipDate(`5 ${m} 2569`), m).toEqual({ year: 2026, month: i + 1, day: 5 }));
+    full.forEach((m, i) => expect(slipDate(`5 ${m} 2569`), m).toEqual({ year: 2026, month: i + 1, day: 5 }));
+  });
+
+  it('reads English months, any case, abbreviated or in full, with a Gregorian year', () => {
+    expect(slipDate('29 Oct 2026 22:11')).toEqual(oct29);
+    expect(slipDate('29 OCT. 2026')).toEqual(oct29);
+    expect(slipDate('29 october 2026')).toEqual(oct29);
+    expect(slipDate('1 Sept 2026')).toEqual({ year: 2026, month: 9, day: 1 });
+    // A 2-digit year is always read as Buddhist (Thai slips print 69 for 2569), even beside an English month.
+    expect(slipDate('3 May 69')).toEqual({ year: 2026, month: 5, day: 3 });
+  });
+
+  it('reads a 2-digit year as Buddhist (25yy) and a 4-digit year as Buddhist from 2400, else Gregorian', () => {
+    expect(slipDate('1 ม.ค. 70')).toEqual({ year: 2027, month: 1, day: 1 });
+    expect(slipDate('1 ม.ค. 2570')).toEqual({ year: 2027, month: 1, day: 1 });
+    expect(slipDate('1 ม.ค. 2027')).toEqual({ year: 2027, month: 1, day: 1 });
+  });
+
+  it('takes the first date on the slip', () => {
+    expect(slipDate('29 ต.ค. 2569 22:11\nบันทึก 1 พ.ย. 2569')).toEqual(oct29);
+  });
+
+  it('is null for garbage, a missing year and impossible dates', () => {
+    expect(slipDate('')).toBeNull();
+    expect(slipDate('โอนเงินสำเร็จ 172.00 บาท')).toBeNull();
+    expect(slipDate('29 ต.ค. 22:11')).toBeNull();
+    expect(slipDate('31 พ.ย. 2569')).toBeNull();
+    expect(slipDate('29 ก.พ. 2569')).toBeNull();
+    expect(slipDate('0 ต.ค. 2569')).toBeNull();
+    expect(slipDate('32 ต.ค. 2569')).toBeNull();
+    expect(slipDate('29 ต.ค. 2300')).toBeNull();
+  });
+
+  it('does not take a month abbreviation inside a longer word', () => {
+    // ตค inside a word, and Mar / May inside English words.
+    expect(slipDate('29 ตคม 2569')).toBeNull();
+    expect(slipDate('12 Market 2026')).toBeNull();
+    expect(slipDate('5 Mayor 2026')).toBeNull();
+    expect(slipDate('29 กต.ค. 2569')).toBeNull();
+  });
+});
+
+describe('slipDateInWindow', () => {
+  // The bill ended 30 Oct 2026 at 22:00 Bangkok time (15:00 UTC).
+  const ended = new Date('2026-10-30T15:00:00Z');
+  const at = (day: number, month = 10) => ({ year: 2026, month, day });
+
+  it('accepts the end day, the day before it, and up to the day after today', () => {
+    const now = new Date('2026-10-31T03:00:00Z'); // 31 Oct, 10:00 Bangkok
+    expect(slipDateInWindow(at(30), ended, now)).toBe(true);
+    expect(slipDateInWindow(at(29), ended, now)).toBe(true);
+    expect(slipDateInWindow(at(1, 11), ended, now)).toBe(true);
+  });
+
+  it('refuses two days before the end day, two days after today, and no date', () => {
+    const now = new Date('2026-10-31T03:00:00Z');
+    expect(slipDateInWindow(at(28), ended, now)).toBe(false);
+    expect(slipDateInWindow(at(2, 11), ended, now)).toBe(false);
+    expect(slipDateInWindow(at(23), ended, now)).toBe(false);
+    expect(slipDateInWindow(null, ended, now)).toBe(false);
+  });
+
+  it('uses Bangkok calendar days, not UTC ones', () => {
+    // 31 Oct 00:30 Bangkok is still 30 Oct in UTC: the end day is 31 Oct, so 29 Oct is two days before.
+    const lateEnd = new Date('2026-10-30T17:30:00Z');
+    const now = new Date('2026-10-30T18:00:00Z');
+    expect(slipDateInWindow(at(30), lateEnd, now)).toBe(true);
+    expect(slipDateInWindow(at(29), lateEnd, now)).toBe(false);
+    expect(slipDateInWindow(at(1, 11), lateEnd, now)).toBe(true);
   });
 });

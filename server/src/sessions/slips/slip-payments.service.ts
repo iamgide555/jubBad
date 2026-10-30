@@ -1,6 +1,7 @@
 import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { lineConfig } from '../../line/line-config.js';
+import { cardDate } from '../../line/line-summary-card.js';
 import { planAtLeast } from '../../plans/plan.js';
 import { PlansService } from '../../plans/plans.service.js';
 import { PrismaService } from '../../prisma/prisma.service.js';
@@ -14,6 +15,8 @@ import {
   receiverName,
   receiverNameMatches,
   receiverTail,
+  slipDate,
+  slipDateInWindow,
 } from './slip-match.js';
 import type { SlipOcrResult } from './slip-ocr.js';
 import { SlipReader } from './slip-reader.js';
@@ -44,7 +47,7 @@ export interface LinkRow {
 }
 
 /** Why a slip was held for the host instead of marking anyone paid. */
-export type WaitingReason = 'unmapped' | 'amount' | 'receiver' | 'unreadable' | 'stale' | 'collision';
+export type WaitingReason = 'unmapped' | 'amount' | 'date' | 'receiver' | 'unreadable' | 'stale' | 'collision';
 
 export type SubmitOutcome =
   | { kind: 'paid'; playerIds: string[] }
@@ -90,6 +93,8 @@ export interface PayPageView {
   /** Who the transfer goes to, as the confirmed card shows it. */
   accountName: string;
   alreadyPaid: boolean;
+  /** The night the bill is for, as the card writes it (a stored yyyy-mm-dd becomes a Thai date); null with no date. */
+  sessionDate: string | null;
 }
 
 /**
@@ -100,6 +105,10 @@ interface SubmitGate {
   groupId: string;
   panel: PaymentPanel;
   savedName: string | null;
+  /** When the bill's night ended (when the session was created, if it never ended): the slip date window starts here. */
+  billEnd: Date;
+  /** The session's own date text (the roster header's), if any. */
+  date: string | null;
 }
 
 /**
@@ -133,7 +142,7 @@ export class SlipPaymentsService {
       // The card may have been reconfirmed, re-priced or unconfirmed, or the plan lapsed, while the slip was read.
       const gate = await this.gate(code, token, now);
       if (!gate) return { kind: 'unavailable' };
-      const { groupId, panel, savedName } = gate;
+      const { groupId } = gate;
       const { reference, bankCode } = qr;
 
       if (await this.prisma.slipReference.findUnique({ where: { groupId_reference: { groupId, reference } } })) {
@@ -151,7 +160,7 @@ export class SlipPaymentsService {
       }
 
       try {
-        return await this.settle(code, groupId, panel, savedName, reference, user, ocr);
+        return await this.settle(code, gate, reference, user, ocr, now);
       } catch (error) {
         // Nothing was recorded for this slip, so release its reference: sending it again must not be a duplicate.
         await this.prisma.slipReference.deleteMany({ where: { groupId, reference, sessionId: code } });
@@ -167,7 +176,7 @@ export class SlipPaymentsService {
   async payPageView(code: string, token: string | undefined, user: LiffUser, now: Date = new Date()): Promise<PayPageView | null> {
     const gate = await this.gate(code, token, now);
     if (!gate) return null;
-    const { groupId, panel, savedName } = gate;
+    const { groupId, panel, savedName, billEnd, date } = gate;
     const paid = await this.paidIds(code);
     const linkedId = await this.linkedPlayerOf(groupId, user.userId);
     const row = linkedId === null ? undefined : panel.rows.find((r) => r.playerId === linkedId);
@@ -185,6 +194,7 @@ export class SlipPaymentsService {
         .map((r) => ({ playerId: r.playerId, name: r.name })),
       accountName: panel.account?.name ?? savedName ?? '',
       alreadyPaid: linkedId !== null && paid.has(linkedId),
+      sessionDate: date === null || date.trim() === '' ? null : cardDate(date, billEnd),
     };
   }
 
@@ -469,7 +479,7 @@ export class SlipPaymentsService {
     if (!(await this.cards.tokenValid(code, token))) return null;
     const session = await this.prisma.session.findUnique({
       where: { code },
-      select: { groupId: true, group: { select: { payAccount: true } } },
+      select: { groupId: true, date: true, endedAt: true, createdAt: true, group: { select: { payAccount: true } } },
     });
     if (!session) return null;
     if (!planAtLeast(await this.plans.planForGroup(session.groupId, now), 'host')) return null;
@@ -478,19 +488,20 @@ export class SlipPaymentsService {
     // The group's current saved name, not tonight's frozen account, so a fixed name helps every slip from now on.
     // A group with none still has the account the host typed for tonight in the confirmed card: check against that.
     const savedName = parsePayAccount(session.group.payAccount)?.name ?? panel.account?.name ?? null;
-    return { groupId: session.groupId, panel, savedName };
+    const billEnd = session.endedAt ?? session.createdAt;
+    return { groupId: session.groupId, panel, savedName, billEnd, date: session.date };
   }
 
   /** Decides a slip whose reference is now recorded: the sender's own player paid, or a waiting slip for the host. */
   private async settle(
     code: string,
-    groupId: string,
-    panel: PaymentPanel,
-    savedName: string | null,
+    gate: SubmitGate,
     reference: string,
     user: LiffUser,
-    ocr: SlipOcrResult
+    ocr: SlipOcrResult,
+    now: Date
   ): Promise<SubmitOutcome> {
+    const { groupId, panel } = gate;
     const paid = new Set(
       (await this.prisma.sessionPayment.findMany({ where: { sessionId: code }, select: { playerId: true } })).map(
         (p) => p.playerId
@@ -498,7 +509,7 @@ export class SlipPaymentsService {
     );
     const unpaid = panel.rows.filter((r) => !paid.has(r.playerId));
 
-    let reason = await this.waitingReason(groupId, panel, savedName, unpaid, user, ocr);
+    let reason = await this.waitingReason(gate, unpaid, user, ocr, now);
     if (typeof reason !== 'string') {
       const row = reason;
       try {
@@ -535,12 +546,11 @@ export class SlipPaymentsService {
 
   /** The auto-paid rule, in order: the first rule that fails is the reason; when all hold, the row to pay. */
   private async waitingReason(
-    groupId: string,
-    panel: PaymentPanel,
-    savedName: string | null,
+    { groupId, panel, savedName, billEnd }: SubmitGate,
     unpaid: PaymentPanel['rows'],
     user: LiffUser,
-    ocr: SlipOcrResult
+    ocr: SlipOcrResult,
+    now: Date
   ): Promise<WaitingReason | PaymentPanel['rows'][number]> {
     // Amounts are moving until the host confirms again.
     if (panel.stale) return 'stale';
@@ -554,6 +564,10 @@ export class SlipPaymentsService {
     // Call 1: two different owed amounts on one slip is not a match. Repeated values collapse, so a night where
     // everyone owes the same still pays; zero is never an owed amount found.
     if (owedAmountsFound(ocr.text, unpaid.map((r) => r.amountSatang)).length !== 1) return 'amount';
+    // A genuine slip of the right amount from another night (last week's, made before references were recorded) must
+    // not pay tonight: the printed date must fall from the day before the bill ended to the day after today. A date
+    // that cannot be read fails closed: the host decides.
+    if (!slipDateInWindow(slipDate(ocr.text), billEnd, now)) return 'date';
     if (savedName !== null && !receiverNameMatches(ocr.lines, savedName)) return 'receiver';
     return row;
   }

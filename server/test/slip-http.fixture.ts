@@ -38,10 +38,24 @@ export const lineUser = (name = 'Somchai'): LiffUser => ({
   pictureUrl: null,
 });
 
-/** A slip the way OCR reads it, showing `amount` (satang) as the transferred amount. */
+/** When every session these specs set up ended: 30 Oct 2026, 22:00 in Bangkok. */
+export const ENDED_AT = new Date('2026-10-30T15:00:00Z');
+
+const THAI_MONTHS = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.'];
+
+/** The date line a Thai bank prints on a slip made at `at` (Bangkok time, 2-digit Buddhist year): `30 ต.ค. 69 21:04`. */
+export function slipDateLine(at: Date): string {
+  const local = new Date(at.getTime() + 7 * 3_600_000);
+  const hh = String(local.getUTCHours()).padStart(2, '0');
+  const mm = String(local.getUTCMinutes()).padStart(2, '0');
+  const yy = String((local.getUTCFullYear() + 543) % 100).padStart(2, '0');
+  return `${local.getUTCDate()} ${THAI_MONTHS[local.getUTCMonth()]} ${yy} ${hh}:${mm}`;
+}
+
+/** A slip the way OCR reads it, showing `amount` (satang) as the transferred amount, made an hour before the end. */
 export function slipRead(reference: string, amountSatang: number | null): SlipRead {
   const texts = [
-    '30 ต.ค. 69 21:04',
+    slipDateLine(new Date(ENDED_AT.getTime() - 3_600_000)),
     SENDER,
     'xxx-xxx-1234',
     RECEIVER,
@@ -154,7 +168,7 @@ export async function bootSlipApp() {
       buffetShuttlesIncluded: true, startingFeeSatang: 0, hostFeeSatang: 0, walkInFeeSatang: 0, roundingBaht: 1,
       addedIds: [], removedIds: [], overrides: [],
     } as never);
-    await prisma.session.update({ where: { code }, data: { endedAt: new Date('2026-10-30T15:00:00Z') } });
+    await prisma.session.update({ where: { code }, data: { endedAt: ENDED_AT } });
     const token = newShareToken();
     await confirm(code, token);
     return { groupCode, ids, code, token };

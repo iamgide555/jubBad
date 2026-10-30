@@ -81,6 +81,7 @@ A player is marked paid automatically only when all hold:
 4. The OCR text contains the amount that player owes as a whole token with two decimals (`172.00`, or `1,172.00` with separators). It must not match inside a longer number (`1172.00` is not `172.00`). A player who owes 0 is never auto-matched.
 5. The transaction reference is new.
 6. The receiver name on the slip matches the group's saved pay-account name (see open decision 2), when the group has one saved.
+7. The date printed on the slip (read by OCR) falls between the day before the bill's night ended and the day after today, in Bangkok calendar days. Added at the final review: rule 1 meant "a slip for this bill", but a genuine old slip of the same amount (last week's, made before references were recorded) passed every other rule. A date that cannot be read holds the slip for the host (reason `date`), checked after the amount and before the receiver.
 
 If the sender is mapped to a player who is not on tonight's bill, or the amount does not match, the slip is not auto-marked; it goes to the host (below).
 

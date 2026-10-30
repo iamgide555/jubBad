@@ -6873,6 +6873,14 @@
         <source>ทำไม่สำเร็จ ลองใหม่อีกครั้ง</source>
         <target>That did not work. Try again</target>
       </trans-unit>
+      <trans-unit id="slipReview.reason.date" datatype="html">
+        <source>วันที่บนสลิปไม่ตรงกับบิลนี้</source>
+        <target>The date on the slip does not match this bill</target>
+      </trans-unit>
+      <trans-unit id="slipPay.sessionDate" datatype="html">
+        <source>บิลวันที่ <x id="INTERPOLATION" equiv-text="{{ v.sessionDate }}"/></source>
+        <target>Bill for <x id="INTERPOLATION" equiv-text="{{ v.sessionDate }}"/></target>
+      </trans-unit>
     </body>
   </file>
 </xliff>

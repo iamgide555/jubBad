@@ -12,6 +12,12 @@
   margin-bottom: 0.35rem;
 }
 
+/* A field validation refused: a warn border, kept while focused, beside the error text under it (the text
+   names the problem; the colour is never the only signal). The bank list styles its own input. */
+.pay-field input[aria-invalid='true'] {
+  border-color: var(--warn);
+}
+
 .pay-actions {
   display: flex;
   flex-wrap: wrap;
@@ -25,4 +31,40 @@
 
 .pay-remove p, .pay-field .error {
   margin: 0.35rem 0;
+}
+
+/* The way in to removing is a quiet text action, not a second button beside Save: warn ink, no fill or
+   border, still a 44px target. The irreversible step is the danger button in the confirm. */
+button.remove-link {
+  min-height: var(--tap);
+  padding: 0 var(--space-0);
+  margin-inline-start: calc(-1 * var(--space-0));
+  background: none;
+  box-shadow: none;
+  color: var(--error-ink);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  text-decoration: underline;
+  text-decoration-thickness: from-font;
+  text-underline-offset: 0.2em;
+}
+
+@media (hover: hover) {
+  button.remove-link:hover {
+    background: none;
+    box-shadow: none;
+    color: color-mix(in srgb, var(--error-ink) 80%, var(--ink));
+  }
+}
+
+button.remove-link:disabled {
+  background: none;
+  color: var(--ink-faint);
+}
+
+/* ใช่ ลบบัญชี and ยกเลิก: a clear gap between them, so a thumb never lands on the wrong one. */
+.pay-remove-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
 }

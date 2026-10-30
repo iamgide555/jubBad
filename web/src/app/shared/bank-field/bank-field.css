@@ -7,6 +7,11 @@
   width: 100%;
 }
 
+/* The caller's validation refused the bank: the same warn border as the fields around it, kept while focused. */
+.bank-field input[aria-invalid='true'] {
+  border-color: var(--warn);
+}
+
 /* Floats over the fields below rather than pushing them down, like a native autocomplete list. */
 .bank-list {
   position: absolute;

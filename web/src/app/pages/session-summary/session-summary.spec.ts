@@ -1098,9 +1098,10 @@ describe('SessionSummary', () => {
       it('links to the LIFF page on an ended session, before the card has gone out', async () => {
         lineState = hostState();
         await load(summary());
-        expect(share()?.textContent).toContain('ส่งการ์ดเข้ากลุ่ม LINE');
+        // "การ์ดสรุป", never a bare "การ์ด": the payment card's banner sits right below these two.
+        expect(share()?.textContent?.trim()).toBe('ส่งการ์ดสรุปเข้ากลุ่ม LINE');
         expect(share()?.getAttribute('href')).toBe(SHARE);
-        expect(q('[data-send-line-summary]')).not.toBeNull();
+        expect(q('[data-send-line-summary]')?.textContent?.trim()).toBe('ส่งการ์ดสรุปให้ฉันทาง LINE');
       });
 
       it('keeps the link after the card was sent, and drops the resend button', async () => {

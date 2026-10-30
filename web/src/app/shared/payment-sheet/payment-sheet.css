@@ -12,8 +12,9 @@
   border-radius: var(--radius-lg) var(--radius-lg) 0 0;
   overflow-y: auto;
   overscroll-behavior: contain;
-  /* Keyboard focus and in-sheet scrolls stop clear of the sticky header and the sticky action bar. */
-  scroll-padding-block: 5rem 6rem;
+  /* Keyboard focus and in-sheet scrolls stop clear of the sticky header and the sticky action bar, which
+     grows by a line or two when it carries the last send's status (or the resend question) above its button. */
+  scroll-padding-block: 5rem 9rem;
 }
 
 .payment-sheet[open] {

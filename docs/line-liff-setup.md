@@ -89,7 +89,7 @@ with at least one finished game and leave the "ส่งการ์ดสรุ
 - [ ] Tap "เลือกกลุ่มแล้วส่ง": the share picker opens, pick a group, and the card is sent from the
       host's own account. The page shows "ส่งแล้ว" and offers to send elsewhere.
 - [ ] Closing the picker without sending leaves the page as it was, with no error.
-- [ ] iPad / external browser: open the same button (or the "ส่งการ์ดเข้ากลุ่ม LINE" link on the
+- [ ] iPad / external browser: open the same button (or the "ส่งการ์ดสรุปเข้ากลุ่ม LINE" link on the
       summary page). LINE Login appears (email and password, or phone QR), then it returns to the
       page and the picker works. If the browser cannot open the picker, the page says to open it in
       the LINE app.
@@ -111,7 +111,7 @@ with at least one finished game and leave the "ส่งการ์ดสรุ
 - [ ] Paused group (plan lapsed): no card of either kind is sent. The host settings switch is
       hidden for a paused group.
 - [ ] Only one DM per session: once the DM is delivered the summary page offers no resend, so a
-      second card cannot be sent from there; the "ส่งการ์ดเข้ากลุ่ม LINE" link remains.
+      second card cannot be sent from there; the "ส่งการ์ดสรุปเข้ากลุ่ม LINE" link remains.
 
 The LIFF page is served from the Thai (root) build only, so its English strings are never shown to
 LINE users: nginx serves English under `/en/`, and the LIFF endpoint is `<PUBLIC_APP_URL>/line-share`.

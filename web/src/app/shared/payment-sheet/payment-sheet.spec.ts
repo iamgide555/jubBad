@@ -139,6 +139,12 @@ describe('PaymentSheet', () => {
     const bar = el().querySelector('[data-actions]') as HTMLElement;
     expect(bar.classList.contains('bar')).toBe(true);
     expect(bar.querySelector('[data-confirm]')).not.toBeNull();
+    // The status region rides in the same sticky bar, directly above the button, so an outcome is never under it.
+    const dock = el().querySelector('[data-dock]') as HTMLElement;
+    const live = dock.querySelector('[aria-live="polite"]')!;
+    expect(dock.classList.contains('bar')).toBe(true);
+    expect(dock.contains(bar)).toBe(true);
+    expect(live.compareDocumentPosition(bar) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 
   it('shows no amounts while the bill is not ready', async () => {

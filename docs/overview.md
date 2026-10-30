@@ -1472,7 +1472,7 @@ expired code gets one generic Thai reply (it never says which); a sender who has
     It 404s unless the session is ended, has a finished game and is on the `host` target, and it
     exposes only what the public summary page already shows (group name, date, venue, players,
     games); a spec asserts no owner-only field is added.
-  - **Owner's summary page** shows "ส่งการ์ดเข้ากลุ่ม LINE" (a link straight to the LIFF URL,
+  - **Owner's summary page** shows "ส่งการ์ดสรุปเข้ากลุ่ม LINE" (a link straight to the LIFF URL,
     repeatable, shown even after the DM went out) for the `host` target.
   - **Settings switch.** The default switch (`lineSummaryDefault`) also shows on the host-DM card
     with host wording ("ส่งการ์ดสรุปให้ฉันทาง LINE เมื่อจบรอบ"). It is hidden for a paused (plan

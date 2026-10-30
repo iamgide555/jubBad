@@ -1,5 +1,5 @@
 import { HttpErrorResponse } from '@angular/common/http';
-import { Component, OnInit, computed, inject, input, signal } from '@angular/core';
+import { ChangeDetectorRef, Component, ElementRef, OnInit, computed, inject, input, signal } from '@angular/core';
 import { firstValueFrom } from 'rxjs';
 import { PayAccountService, type PayAccount } from '../../../core/pay-account.service';
 import { BankField } from '../../../shared/bank-field/bank-field';
@@ -24,6 +24,8 @@ export class PayAccountPanel implements OnInit {
   readonly groupCode = input.required<string>();
 
   private readonly payAccounts = inject(PayAccountService);
+  private readonly cdr = inject(ChangeDetectorRef);
+  private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
 
   protected readonly loaded = signal(false);
   protected readonly loadFailed = signal(false);
@@ -70,25 +72,45 @@ export class PayAccountPanel implements OnInit {
     const number = this.number().trim();
     const name = this.name().trim();
     if (bank === '' && number === '' && name === '') return this.send(null);
+    // A field error is said once, under its field; the general alert is only for what no field explains.
     if (bank === '' || number === '' || name === '') {
       const required = $localize`:@@pay.account.required:กรอกช่องนี้`;
-      this.fieldErrors.set({ bank: bank ? undefined : required, number: number ? undefined : required, name: name ? undefined : required });
-      this.error.set($localize`:@@pay.account.incomplete:กรอกให้ครบทั้งสามช่อง หรือกดล้างถ้าไม่ต้องการตั้งบัญชี`);
-      return;
+      return this.refuse({ bank: bank ? undefined : required, number: number ? undefined : required, name: name ? undefined : required });
     }
     if (!NUMBER_PATTERN.test(number) || number.replace(/[^0-9]/g, '').length < MIN_DIGITS) {
-      this.error.set(
-        $localize`:@@pay.account.badNumber:เลขบัญชีต้องเป็นตัวเลขอย่างน้อย 6 หลัก เว้นวรรคหรือใส่ขีดได้ ยาวไม่เกิน 20 ตัวอักษร`
-      );
-      this.fieldErrors.set({ number: this.error()! });
-      return;
+      return this.refuse({
+        number: $localize`:@@pay.account.badNumber:เลขบัญชีต้องเป็นตัวเลขอย่างน้อย 6 หลัก เว้นวรรคหรือใส่ขีดได้ ยาวไม่เกิน 20 ตัวอักษร`,
+      });
     }
     return this.send({ bank, number, name });
+  }
+
+  /** "ลบบัญชีนี้": the inline confirm replaces the button, so focus moves to its safe choice, ยกเลิก. */
+  protected askClear(): void {
+    this.confirmingClear.set(true);
+    this.focus('[data-pay-clear-cancel]');
+  }
+
+  protected cancelClear(): void {
+    this.confirmingClear.set(false);
+    this.focus('[data-pay-clear]');
   }
 
   protected clear(): Promise<void> {
     if (this.busy() || !this.confirmingClear()) return Promise.resolve();
     return this.send(null);
+  }
+
+  /** Marks the fields, then hands keyboard focus to the first marked one, which reads its error out. */
+  private refuse(errors: Partial<Record<'bank' | 'number' | 'name', string>>): void {
+    this.fieldErrors.set(errors);
+    this.focus('input[aria-invalid="true"]');
+  }
+
+  /** Renders the state change now (the target may be new), then focuses `selector`'s first match. */
+  private focus(selector: string): void {
+    this.cdr.detectChanges();
+    this.host.nativeElement.querySelector<HTMLElement>(selector)?.focus();
   }
 
   private async send(account: PayAccount | null): Promise<void> {

@@ -74,30 +74,48 @@ describe('PayAccountPanel', () => {
     expect(q('[data-pay-save]')).toBeNull();
   });
 
-  it('a partial entry shows the validation message and never calls the API', async () => {
+  it('a partial entry marks the empty fields, focuses the first, and never calls the API', async () => {
     await open();
     await fill(bank(), 'กสิกร');
     q('[data-pay-save]')!.click();
     await tick();
-    expect(error()).toContain('กรอกให้ครบทั้งสามช่อง');
+    // The fields name the problem; no second, general alert repeating it under the last field.
+    expect(q('[data-pay-error]')).toBeNull();
     expect(bank().hasAttribute('aria-invalid')).toBe(false);
     for (const field of [number(), name()]) {
       expect(field.getAttribute('aria-invalid')).toBe('true');
-      expect(q(`#${field.getAttribute('aria-describedby')}`)?.textContent).toBeTruthy();
+      expect(q(`#${field.getAttribute('aria-describedby')}`)?.textContent).toContain('กรอกช่องนี้');
     }
+    expect(document.activeElement).toBe(number());
     httpMock.expectNone(URL);
   });
 
-  it('a number with too few digits is refused before the API', async () => {
+  it('an empty bank is marked on the bank input itself, which takes focus', async () => {
+    await open();
+    await fill(number(), '1234567890');
+    await fill(name(), 'สมชาย');
+    q('[data-pay-save]')!.click();
+    await tick();
+    expect(bank().getAttribute('aria-invalid')).toBe('true');
+    expect(q(`#${bank().getAttribute('aria-describedby')}`)?.textContent).toContain('กรอกช่องนี้');
+    expect(document.activeElement).toBe(bank());
+    expect(q('[data-pay-error]')).toBeNull();
+    httpMock.expectNone(URL);
+  });
+
+  it('a number with too few digits is refused before the API, named once, under the number', async () => {
     await open();
     await fill(bank(), 'กสิกร');
     await fill(number(), '--- 12 ---');
     await fill(name(), 'สมชาย');
     q('[data-pay-save]')!.click();
     await tick();
-    expect(error()).toContain('เลขบัญชี');
+    expect(q('[data-pay-error]')).toBeNull();
     expect(number().getAttribute('aria-invalid')).toBe('true');
     expect(q(`#${number().getAttribute('aria-describedby')}`)?.textContent).toContain('เลขบัญชี');
+    expect(el().textContent!.split('เลขบัญชีต้องเป็นตัวเลข').length - 1).toBe(1);
+    expect(name().hasAttribute('aria-invalid')).toBe(false);
+    expect(document.activeElement).toBe(number());
     httpMock.expectNone(URL);
   });
 
@@ -108,7 +126,8 @@ describe('PayAccountPanel', () => {
     await fill(name(), 'สมชาย');
     q('[data-pay-save]')!.click();
     await tick();
-    expect(error()).toContain('เลขบัญชี');
+    expect(q('#pay-number-error')?.textContent).toContain('เลขบัญชี');
+    expect(q('[data-pay-error]')).toBeNull();
     httpMock.expectNone(URL);
   });
 
@@ -179,6 +198,37 @@ describe('PayAccountPanel', () => {
     expect(name().value).toBe('');
     expect(q('[data-pay-clear]')).toBeNull();
     expect(q('[data-pay-saved]')?.textContent).toContain('ล้างบัญชีแล้ว');
+  });
+
+  it('moves focus into the remove confirm, and back to "ลบบัญชีนี้" when it is cancelled', async () => {
+    await open({ account: ACCOUNT });
+    const remove = q('[data-pay-clear]')!;
+    remove.focus();
+    remove.click();
+    await tick();
+    expect(document.activeElement).toBe(q('[data-pay-clear-cancel]'));
+    q('[data-pay-clear-cancel]')!.click();
+    await tick();
+    expect(document.activeElement).toBe(q('[data-pay-clear]'));
+    httpMock.expectNone(URL);
+  });
+
+  it('dresses the remove step for what it does: a quiet text action, then danger beside a plain cancel', async () => {
+    await open({ account: ACCOUNT });
+    const remove = q('[data-pay-clear]')!;
+    expect(remove.classList.contains('remove-link')).toBe(true);
+    expect(remove.classList.contains('ghost')).toBe(false);
+    remove.click();
+    await tick();
+    const yes = q('[data-pay-clear-confirm]')!;
+    const cancel = q('[data-pay-clear-cancel]')!;
+    expect(yes.classList.contains('danger')).toBe(true);
+    expect(yes.classList.contains('ghost')).toBe(false);
+    expect(cancel.classList.contains('ghost')).toBe(true);
+    expect(cancel.classList.contains('danger')).toBe(false);
+    // Both in one spaced row, so the two never touch.
+    expect(yes.parentElement).toBe(cancel.parentElement);
+    expect(yes.parentElement!.classList.contains('pay-remove-actions')).toBe(true);
   });
 
   it('saving with every field blank clears the account too', async () => {

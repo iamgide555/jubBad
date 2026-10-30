@@ -307,7 +307,7 @@ describe('SlipPay', () => {
     });
 
     it('waiting says it went to the host to check', async () => {
-      uploads({ outcome: 'waiting', reason: 'amount-mismatch' });
+      uploads({ outcome: 'waiting' });
       await open();
       await pick();
       const box = q('[data-slip-result="waiting"]')!;
@@ -415,11 +415,11 @@ describe('SlipPay', () => {
         vi.spyOn(console, m).mockImplementation(() => undefined),
       );
       try {
-        uploads({ outcome: 'waiting', reason: 'amount-mismatch' });
+        uploads({ outcome: 'waiting' });
         await open();
         await pick();
         for (const secret of [TOKEN, ACCESS]) expect(el().innerHTML).not.toContain(secret);
-        for (const raw of ['waiting', 'amount-mismatch', 'not-slip', 'duplicate']) expect(text()).not.toContain(raw);
+        for (const raw of ['waiting', 'not-slip', 'duplicate']) expect(text()).not.toContain(raw);
         for (const spy of spies) {
           for (const args of spy.mock.calls) {
             const line = (args as unknown[]).map(String).join(' ');

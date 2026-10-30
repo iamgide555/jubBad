@@ -191,13 +191,17 @@ describe('slip pay-page routes (public, token-gated)', () => {
       expect(user.userId).toBeTruthy();
     });
 
-    it('answers waiting with its reason for an unlinked sender', async () => {
+    it('answers waiting without saying why, for an unlinked sender', async () => {
+      // The reason stays with the host: a sender (or a forger) is never told which check held the slip.
       const { code, token, ids } = await setupSession();
       const [access] = viewer();
       kit.reader.read.mockResolvedValue(slipRead(newRef(), await kit.owed(code, ids[0])));
       const res = await upload(code, q(token), access);
       expect(res.status).toBe(200);
-      expect(res.body).toEqual({ outcome: 'waiting', reason: 'unmapped' });
+      expect(res.body).toEqual({ outcome: 'waiting' });
+      expect(await kit.prisma.pendingSlip.findMany({ where: { sessionId: code } })).toEqual([
+        expect.objectContaining({ reason: 'unmapped' }),
+      ]);
     });
 
     it('answers not-slip for an image with no slip QR', async () => {

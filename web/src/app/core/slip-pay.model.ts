@@ -21,7 +21,7 @@ export type SlipPayClaimOutcome = 'linked' | 'player-taken' | 'account-already-l
 
 export type SlipPayUploadOutcome = 'paid' | 'waiting' | 'duplicate' | 'not-slip';
 
+/** The outcome only: why a slip was held is the host's to know, never the sender's. */
 export interface SlipPayUploadResult {
   outcome: SlipPayUploadOutcome;
-  reason?: string;
 }

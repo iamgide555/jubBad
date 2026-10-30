@@ -26,13 +26,14 @@ import {
   type LiffUser,
   type PayPageView,
   type SubmitOutcome,
-  type WaitingReason,
 } from './slip-payments.service.js';
 
-/** What the upload says back: the outcome kind, and for a held slip, why. */
+/**
+ * What the upload says back: the outcome kind only. A held slip's reason is for the host; telling the sender which
+ * check held it would tell a forger what to fix.
+ */
 export interface SlipUploadResult {
   outcome: Exclude<SubmitOutcome['kind'], 'unavailable'>;
-  reason?: WaitingReason;
 }
 
 /**
@@ -123,7 +124,7 @@ export class SlipPayController {
     if (result.kind === 'unavailable') this.fail(key);
     // A paid slip is the one outcome that clears the viewer's failures; the others are neither failures nor successes.
     if (result.kind === 'paid') this.throttle.recordSuccess(key);
-    return result.kind === 'waiting' ? { outcome: 'waiting', reason: result.reason } : { outcome: result.kind };
+    return { outcome: result.kind };
   }
 
   /**

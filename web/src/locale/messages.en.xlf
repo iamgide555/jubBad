@@ -6689,6 +6689,190 @@
         <source>ฉันจ่ายเงินสดแล้ว</source>
         <target>I paid cash</target>
       </trans-unit>
+      <trans-unit id="slipReview.loadFailed" datatype="html">
+        <source>โหลดสถานะการชำระเงินไม่สำเร็จ</source>
+        <target>Could not load payment status</target>
+      </trans-unit>
+      <trans-unit id="slipReview.label" datatype="html">
+        <source>สถานะการชำระเงิน</source>
+        <target>Payment status</target>
+      </trans-unit>
+      <trans-unit id="slipReview.title" datatype="html">
+        <source>สถานะการชำระเงิน</source>
+        <target>Payment status</target>
+      </trans-unit>
+      <trans-unit id="slipReview.badge" datatype="html">
+        <source>รอตรวจ <x id="INTERPOLATION" equiv-text="{{ reviewCount() }}"/></source>
+        <target><x id="INTERPOLATION" equiv-text="{{ reviewCount() }}"/> to review</target>
+      </trans-unit>
+      <trans-unit id="slipReview.paidCount" datatype="html">
+        <source>ชำระแล้ว <x id="INTERPOLATION" equiv-text="{{ paidCount() }}"/> / <x id="INTERPOLATION_1" equiv-text="{{ billedCount() }}"/> คน</source>
+        <target>Paid <x id="INTERPOLATION" equiv-text="{{ paidCount() }}"/> / <x id="INTERPOLATION_1" equiv-text="{{ billedCount() }}"/></target>
+      </trans-unit>
+      <trans-unit id="slipReview.unknownName" datatype="html">
+        <source>ไม่ทราบชื่อ</source>
+        <target>Unknown name</target>
+      </trans-unit>
+      <trans-unit id="slipReview.amountChanged" datatype="html">
+        <source>ยอดเปลี่ยนหลังจ่าย</source>
+        <target>Amount changed after payment</target>
+      </trans-unit>
+      <trans-unit id="slipReview.chip.unpaid" datatype="html">
+        <source>ยังไม่จ่าย</source>
+        <target>Not paid</target>
+      </trans-unit>
+      <trans-unit id="slipReview.chip.slip" datatype="html">
+        <source>สลิป</source>
+        <target>Slip</target>
+      </trans-unit>
+      <trans-unit id="slipReview.chip.host" datatype="html">
+        <source>โฮสต์ติ๊ก</source>
+        <target>Ticked by host</target>
+      </trans-unit>
+      <trans-unit id="slipReview.amountUnknown" datatype="html">
+        <source>ไม่ทราบยอด</source>
+        <target>Amount unknown</target>
+      </trans-unit>
+      <trans-unit id="slipReview.reason.amount" datatype="html">
+        <source>ยอดไม่ตรงกับที่ต้องจ่าย</source>
+        <target>Amount does not match what is owed</target>
+      </trans-unit>
+      <trans-unit id="slipReview.reason.receiver" datatype="html">
+        <source>ชื่อผู้รับไม่ตรง</source>
+        <target>Receiver name does not match</target>
+      </trans-unit>
+      <trans-unit id="slipReview.reason.unreadable" datatype="html">
+        <source>อ่านยอดจากสลิปไม่ได้</source>
+        <target>Could not read the amount from the slip</target>
+      </trans-unit>
+      <trans-unit id="slipReview.reason.stale" datatype="html">
+        <source>ยอดบิลเปลี่ยนหลังยืนยัน</source>
+        <target>The bill changed after you confirmed it</target>
+      </trans-unit>
+      <trans-unit id="slipReview.reason.collision" datatype="html">
+        <source>คนนี้จ่ายไปแล้วหรือไม่อยู่ในบิล</source>
+        <target>This person already paid or is not on the bill</target>
+      </trans-unit>
+      <trans-unit id="slipReview.reason.unmapped" datatype="html">
+        <source>ยังไม่รู้ว่าเป็นใคร</source>
+        <target>We do not know who this is yet</target>
+      </trans-unit>
+      <trans-unit id="slipReview.onSlip" datatype="html">
+        <source>บนสลิป: <x id="INTERPOLATION" equiv-text="{{ c.slip.receiverName }}"/></source>
+        <target>On the slip: <x id="INTERPOLATION" equiv-text="{{ c.slip.receiverName }}"/></target>
+      </trans-unit>
+      <trans-unit id="slipReview.tail" datatype="html">
+        <source>เลขบัญชีลงท้าย <x id="INTERPOLATION" equiv-text="{{ c.slip.receiverTail }}"/></source>
+        <target>Account ending <x id="INTERPOLATION" equiv-text="{{ c.slip.receiverTail }}"/></target>
+      </trans-unit>
+      <trans-unit id="slipReview.updateName" datatype="html">
+        <source>อัปเดตชื่อที่ตั้งไว้เป็น &quot;<x id="INTERPOLATION" equiv-text="{{ c.slip.receiverName }}"/>&quot;</source>
+        <target>Update saved name to &quot;<x id="INTERPOLATION" equiv-text="{{ c.slip.receiverName }}"/>&quot;</target>
+      </trans-unit>
+      <trans-unit id="slipReview.nameUpdated" datatype="html">
+        <source>เปลี่ยนชื่อที่ตั้งไว้แล้ว ติ๊กคนที่สลิปนี้จ่ายให้ได้เลย</source>
+        <target>Saved name updated. You can now tick who this slip paid for</target>
+      </trans-unit>
+      <trans-unit id="slipReview.covers" datatype="html">
+        <source>สลิปนี้จ่ายให้</source>
+        <target>This slip covers</target>
+      </trans-unit>
+      <trans-unit id="slipReview.sender" datatype="html">
+        <source>คนส่งคือ (ไม่บังคับ)</source>
+        <target>The sender is (optional)</target>
+      </trans-unit>
+      <trans-unit id="slipReview.senderNone" datatype="html">
+        <source>ไม่มีในระบบ</source>
+        <target>Not in the system</target>
+      </trans-unit>
+      <trans-unit id="slipReview.senderWarning" datatype="html">
+        <source>คนนี้ผูกกับบัญชี LINE อื่นอยู่แล้ว การยืนยันจะแทนที่บัญชีเดิม</source>
+        <target>This person is linked to a different LINE account. Confirming will replace the old one</target>
+      </trans-unit>
+      <trans-unit id="slipReview.skip" datatype="html">
+        <source>ข้าม</source>
+        <target>Skip</target>
+      </trans-unit>
+      <trans-unit id="slipReview.confirm" datatype="html">
+        <source>ยืนยัน</source>
+        <target>Confirm</target>
+      </trans-unit>
+      <trans-unit id="slipReview.duplicates" datatype="html">
+        <source>สลิปซ้ำ</source>
+        <target>Duplicate slips</target>
+      </trans-unit>
+      <trans-unit id="slipReview.dupUsed" datatype="html">
+        <source>ใช้กับ <x id="INTERPOLATION" equiv-text="{{ names }}"/> แล้ว</source>
+        <target>Already used for <x id="INTERPOLATION" equiv-text="{{ names }}"/></target>
+      </trans-unit>
+      <trans-unit id="slipReview.ack" datatype="html">
+        <source>รับทราบ</source>
+        <target>Acknowledge</target>
+      </trans-unit>
+      <trans-unit id="slipReview.links" datatype="html">
+        <source>บัญชี LINE ที่ผูกแล้ว</source>
+        <target>Linked LINE accounts</target>
+      </trans-unit>
+      <trans-unit id="slipReview.linkSelf" datatype="html">
+        <source>ผูกเอง</source>
+        <target>Linked by player</target>
+      </trans-unit>
+      <trans-unit id="slipReview.linkHost" datatype="html">
+        <source>โฮสต์ผูก</source>
+        <target>Linked by host</target>
+      </trans-unit>
+      <trans-unit id="slipReview.unlink" datatype="html">
+        <source>ยกเลิกการผูก</source>
+        <target>Remove link</target>
+      </trans-unit>
+      <trans-unit id="slipReview.nameAsk" datatype="html">
+        <source>เปลี่ยนชื่อผู้รับจาก &quot;<x id="INTERPOLATION" equiv-text="{{ n.oldName }}"/>&quot; เป็น &quot;<x id="INTERPOLATION_1" equiv-text="{{ n.newName }}"/>&quot;? หลังจากนี้สลิปที่โอนให้ชื่อนี้จะผ่านอัตโนมัติ</source>
+        <target>Change the receiver name from &quot;<x id="INTERPOLATION" equiv-text="{{ n.oldName }}"/>&quot; to &quot;<x id="INTERPOLATION_1" equiv-text="{{ n.newName }}"/>&quot;? From now on, slips sent to this name will pass automatically</target>
+      </trans-unit>
+      <trans-unit id="slipReview.nameAskNoOld" datatype="html">
+        <source>เปลี่ยนชื่อผู้รับเป็น &quot;<x id="INTERPOLATION" equiv-text="{{ n.newName }}"/>&quot;? หลังจากนี้สลิปที่โอนให้ชื่อนี้จะผ่านอัตโนมัติ</source>
+        <target>Change the receiver name to &quot;<x id="INTERPOLATION" equiv-text="{{ n.newName }}"/>&quot;? From now on, slips sent to this name will pass automatically</target>
+      </trans-unit>
+      <trans-unit id="slipReview.nameCancel" datatype="html">
+        <source>ยกเลิก</source>
+        <target>Cancel</target>
+      </trans-unit>
+      <trans-unit id="slipReview.nameOk" datatype="html">
+        <source>เปลี่ยนชื่อ</source>
+        <target>Change name</target>
+      </trans-unit>
+      <trans-unit id="slipReview.err.coversRequired" datatype="html">
+        <source>เลือกคนที่สลิปนี้จ่ายให้อย่างน้อย 1 คน</source>
+        <target>Pick at least one person this slip is for</target>
+      </trans-unit>
+      <trans-unit id="slipReview.err.notOnBill" datatype="html">
+        <source>มีคนที่ไม่อยู่ในบิลแล้ว ลองดูรายชื่ออีกครั้ง</source>
+        <target>Someone is no longer on the bill. Check the list again</target>
+      </trans-unit>
+      <trans-unit id="slipReview.err.accountLinked" datatype="html">
+        <source>บัญชี LINE นี้ผูกกับคนอื่นอยู่แล้ว</source>
+        <target>This LINE account is already linked to someone else</target>
+      </trans-unit>
+      <trans-unit id="slipReview.err.notInGroup" datatype="html">
+        <source>คนนี้ไม่ได้อยู่ในก๊วนนี้แล้ว</source>
+        <target>This person is no longer in the group</target>
+      </trans-unit>
+      <trans-unit id="slipReview.err.nameNotApplicable" datatype="html">
+        <source>เปลี่ยนชื่อผู้รับจากสลิปนี้ไม่ได้</source>
+        <target>The receiver name cannot be changed from this slip</target>
+      </trans-unit>
+      <trans-unit id="slipReview.err.accountInvalid" datatype="html">
+        <source>ชื่อผู้รับบนสลิปใช้ไม่ได้ ไปแก้ในการตั้งค่าบัญชีรับเงิน</source>
+        <target>The receiver name on the slip cannot be used. Fix it in the pay account settings</target>
+      </trans-unit>
+      <trans-unit id="slipReview.err.gone" datatype="html">
+        <source>ไม่พบรายการนี้แล้ว อาจมีคนจัดการไปแล้ว</source>
+        <target>This item is gone. Someone may have handled it already</target>
+      </trans-unit>
+      <trans-unit id="slipReview.err.generic" datatype="html">
+        <source>ทำไม่สำเร็จ ลองใหม่อีกครั้ง</source>
+        <target>That did not work. Try again</target>
+      </trans-unit>
     </body>
   </file>
 </xliff>

@@ -2,6 +2,7 @@ import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { ActivatedRoute, convertToParamMap, provideRouter } from '@angular/router';
+import { of } from 'rxjs';
 import { SessionSummary } from './session-summary';
 import { AuthService } from '../../core/auth.service';
 import { environment } from '../../../environments/environment';
@@ -9,6 +10,7 @@ import type { SessionSummary as Summary } from '../../core/session-summary.model
 import type { ShuttleInventory } from '../../core/shuttle.model';
 import type { LineSummaryState } from '../../core/line.model';
 import type { PaymentCardPanel } from '../../core/payment-card.model';
+import { SlipHostService } from '../../core/slip-host.service';
 import { PaymentSheet } from '../../shared/payment-sheet/payment-sheet';
 import { By } from '@angular/platform-browser';
 
@@ -96,6 +98,8 @@ describe('SessionSummary', () => {
       providers: [
         provideHttpClient(),
         provideHttpClientTesting(),
+        // A confirmed card embeds the slip review, which reads its own routes (covered in slip-review.spec.ts).
+        { provide: SlipHostService, useValue: { panel: () => of({ paid: [], waiting: [], duplicates: [], links: [] }) } },
         { provide: AuthService, useValue: { check: () => Promise.resolve(isHost) } },
         provideRouter([]),
         {

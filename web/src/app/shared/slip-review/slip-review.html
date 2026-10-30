@@ -1,0 +1,241 @@
+@if (loadFailed()) {
+  <p class="error load-failed" role="alert" data-load-failed>
+    <ng-container i18n="@@slipReview.loadFailed">โหลดสถานะการชำระเงินไม่สำเร็จ</ng-container>
+    <button type="button" class="ghost" (click)="load()" i18n="@@entry.retry">ลองอีกครั้ง</button>
+  </p>
+}
+@if (data(); as d) {
+  <section class="review" data-slip-review i18n-aria-label="@@slipReview.label" aria-label="สถานะการชำระเงิน">
+    <header class="head">
+      <h3 i18n="@@slipReview.title">สถานะการชำระเงิน</h3>
+      @if (reviewCount() > 0) {
+        <span class="badge" data-review-badge i18n="@@slipReview.badge">รอตรวจ {{ reviewCount() }}</span>
+      }
+    </header>
+
+    <!-- Who has paid, and how. Worded "ชำระแล้ว" so it is never read as the card's early-checkout "จ่ายแล้ว N คน". -->
+    <p class="count tabular" data-paid-count i18n="@@slipReview.paidCount">ชำระแล้ว {{ paidCount() }} / {{ billedCount() }} คน</p>
+    @if (errors()['people']; as message) {
+      <p class="error" role="alert" data-error>{{ message }}</p>
+    }
+    <ul class="people" data-people>
+      @for (p of people(); track p.playerId) {
+        <li>
+          <button type="button" class="person" data-person [attr.aria-pressed]="p.paid ? 'true' : 'false'" [disabled]="busy().has('tick:' + p.playerId)" (click)="toggle(p)">
+            <span class="person-main">
+              <span class="person-name">
+                @if (p.name) {
+                  {{ p.name }}
+                } @else {
+                  <ng-container i18n="@@slipReview.unknownName">ไม่ทราบชื่อ</ng-container>
+                }
+              </span>
+              @if (p.paid?.amountChangedSince) {
+                <span class="changed" data-changed i18n="@@slipReview.amountChanged">ยอดเปลี่ยนหลังจ่าย</span>
+              }
+            </span>
+            @if (!p.paid) {
+              <span class="status status-unpaid" data-chip i18n="@@slipReview.chip.unpaid">ยังไม่จ่าย</span>
+            } @else if (p.paid.source === 'slip') {
+              <span class="status status-slip" data-chip i18n="@@slipReview.chip.slip">สลิป</span>
+            } @else {
+              <span class="status status-host" data-chip i18n="@@slipReview.chip.host">โฮสต์ติ๊ก</span>
+            }
+          </button>
+        </li>
+      }
+    </ul>
+
+    @if (d.waiting.length > 0) {
+      <div class="group" data-waiting-list>
+        @for (c of cards(); track c.slip.id; let i = $index) {
+          <article class="slip" data-waiting>
+            <div class="who">
+              @if (c.slip.pictureUrl) {
+                <img class="avatar" data-w-avatar [src]="c.slip.pictureUrl" alt="" referrerpolicy="no-referrer" width="40" height="40" />
+              } @else {
+                <span class="avatar placeholder" data-w-placeholder aria-hidden="true"></span>
+              }
+              <div class="who-text">
+                <p class="who-name" data-w-name>
+                  @if (c.slip.displayName) {
+                    {{ c.slip.displayName }}
+                  } @else {
+                    <ng-container i18n="@@slipReview.unknownName">ไม่ทราบชื่อ</ng-container>
+                  }
+                </p>
+                <p class="muted tabular">
+                  <span data-w-amount>
+                    @if (c.slip.amountSatang !== null) {
+                      ฿{{ baht(c.slip.amountSatang) }}
+                    } @else {
+                      <ng-container i18n="@@slipReview.amountUnknown">ไม่ทราบยอด</ng-container>
+                    }
+                  </span>
+                  @if (clock(c.slip.createdAt); as time) {
+                    · <span data-w-time>{{ time }}</span>
+                  }
+                </p>
+              </div>
+            </div>
+
+            <p class="reason" data-w-reason>
+              @switch (c.slip.reason) {
+                @case ('amount') {
+                  <ng-container i18n="@@slipReview.reason.amount">ยอดไม่ตรงกับที่ต้องจ่าย</ng-container>
+                }
+                @case ('receiver') {
+                  <ng-container i18n="@@slipReview.reason.receiver">ชื่อผู้รับไม่ตรง</ng-container>
+                }
+                @case ('unreadable') {
+                  <ng-container i18n="@@slipReview.reason.unreadable">อ่านยอดจากสลิปไม่ได้</ng-container>
+                }
+                @case ('stale') {
+                  <ng-container i18n="@@slipReview.reason.stale">ยอดบิลเปลี่ยนหลังยืนยัน</ng-container>
+                }
+                @case ('collision') {
+                  <ng-container i18n="@@slipReview.reason.collision">คนนี้จ่ายไปแล้วหรือไม่อยู่ในบิล</ng-container>
+                }
+                @default {
+                  <ng-container i18n="@@slipReview.reason.unmapped">ยังไม่รู้ว่าเป็นใคร</ng-container>
+                }
+              }
+            </p>
+
+            @if (c.slip.reason === 'receiver' && c.slip.receiverName) {
+              <div class="receiver" data-receiver>
+                <p i18n="@@slipReview.onSlip">บนสลิป: {{ c.slip.receiverName }}</p>
+                @if (c.slip.receiverTail) {
+                  <p class="muted" i18n="@@slipReview.tail">เลขบัญชีลงท้าย {{ c.slip.receiverTail }}</p>
+                }
+                @if (c.canFixName) {
+                  <button type="button" class="ghost" data-update-name [disabled]="busy().has('w:' + c.slip.id)" (click)="askUpdateName(c)" i18n="@@slipReview.updateName">อัปเดตชื่อที่ตั้งไว้เป็น "{{ c.slip.receiverName }}"</button>
+                } @else if (c.nameUpdated) {
+                  <p class="ok" data-name-updated role="status" i18n="@@slipReview.nameUpdated">เปลี่ยนชื่อที่ตั้งไว้แล้ว ติ๊กคนที่สลิปนี้จ่ายให้ได้เลย</p>
+                }
+              </div>
+            }
+
+            <fieldset class="covers">
+              <legend i18n="@@slipReview.covers">สลิปนี้จ่ายให้</legend>
+              @for (o of coverOptions(); track o.playerId) {
+                <label class="pick">
+                  <input type="checkbox" data-cover [checked]="c.covers.includes(o.playerId)" (change)="toggleCover(c, o.playerId)" />
+                  <span class="pick-name">{{ o.name }}</span>
+                  <span class="muted tabular">฿{{ baht(o.amountSatang) }}</span>
+                </label>
+              }
+            </fieldset>
+
+            <div class="sender">
+              <label [for]="uid + '-s' + i" i18n="@@slipReview.sender">คนส่งคือ (ไม่บังคับ)</label>
+              <select [id]="uid + '-s' + i" data-sender (change)="setSender(c, $any($event.target).value)">
+                <option value="" [selected]="c.senderId === null" i18n="@@slipReview.senderNone">ไม่มีในระบบ</option>
+                @for (r of rows(); track r.playerId) {
+                  <option [value]="r.playerId" [selected]="c.senderId === r.playerId">{{ r.name }}</option>
+                }
+              </select>
+              @if (c.senderWarning) {
+                <p class="warning" data-sender-warning role="status" i18n="@@slipReview.senderWarning">คนนี้ผูกกับบัญชี LINE อื่นอยู่แล้ว การยืนยันจะแทนที่บัญชีเดิม</p>
+              }
+            </div>
+
+            @if (errors()['w:' + c.slip.id]; as message) {
+              <p class="error" role="alert" data-w-error>{{ message }}</p>
+            }
+            <div class="actions">
+              <button type="button" class="ghost" data-dismiss [disabled]="busy().has('w:' + c.slip.id)" (click)="dismiss(c)" i18n="@@slipReview.skip">ข้าม</button>
+              <button type="button" data-resolve [disabled]="c.covers.length === 0 || busy().has('w:' + c.slip.id)" (click)="resolve(c)" i18n="@@slipReview.confirm">ยืนยัน</button>
+            </div>
+          </article>
+        }
+      </div>
+    }
+
+    @if (d.duplicates.length > 0) {
+      <div class="group" data-duplicates>
+        <h4 i18n="@@slipReview.duplicates">สลิปซ้ำ</h4>
+        @for (x of d.duplicates; track x.id) {
+          <article class="dup" data-duplicate>
+            <div class="dup-text">
+              <p class="who-name">
+                @if (x.displayName) {
+                  {{ x.displayName }}
+                } @else {
+                  <ng-container i18n="@@slipReview.unknownName">ไม่ทราบชื่อ</ng-container>
+                }
+                @if (clock(x.createdAt); as time) {
+                  <span class="muted"> · {{ time }}</span>
+                }
+              </p>
+              @if (duplicateOriginals(x.originalPlayerIds); as names) {
+                <p class="muted" i18n="@@slipReview.dupUsed">ใช้กับ {{ names }} แล้ว</p>
+              }
+              <p class="muted tabular">…{{ x.referenceTail }}</p>
+              @if (errors()['d:' + x.id]; as message) {
+                <p class="error" role="alert" data-d-error>{{ message }}</p>
+              }
+            </div>
+            <button type="button" class="ghost" data-dup-ack [disabled]="busy().has('d:' + x.id)" (click)="acknowledge(x.id)" i18n="@@slipReview.ack">รับทราบ</button>
+          </article>
+        }
+      </div>
+    }
+
+    @if (d.links.length > 0) {
+      <details class="links" data-links>
+        <summary><span i18n="@@slipReview.links">บัญชี LINE ที่ผูกแล้ว</span></summary>
+        @if (errors()['links']; as message) {
+          <p class="error" role="alert" data-l-error>{{ message }}</p>
+        }
+        <ul>
+          @for (l of d.links; track l.playerId) {
+            <li class="link" data-link>
+              <div class="link-text">
+                <p class="who-name">
+                  @if (nameOf(l.playerId); as name) {
+                    {{ name }}
+                  } @else {
+                    <ng-container i18n="@@slipReview.unknownName">ไม่ทราบชื่อ</ng-container>
+                  }
+                </p>
+                <p class="muted">
+                  @if (l.displayName) {
+                    {{ l.displayName }}
+                  } @else {
+                    <ng-container i18n="@@slipReview.unknownName">ไม่ทราบชื่อ</ng-container>
+                  }
+                  ·
+                  <span data-link-kind>
+                    @if (l.linkedBy === 'self') {
+                      <ng-container i18n="@@slipReview.linkSelf">ผูกเอง</ng-container>
+                    } @else {
+                      <ng-container i18n="@@slipReview.linkHost">โฮสต์ผูก</ng-container>
+                    }
+                  </span>
+                </p>
+              </div>
+              <button type="button" class="ghost" data-link-remove [disabled]="busy().has('l:' + l.playerId)" (click)="unlink(l.playerId)" i18n="@@slipReview.unlink">ยกเลิกการผูก</button>
+            </li>
+          }
+        </ul>
+      </details>
+    }
+  </section>
+}
+
+<dialog #nameDialog class="sheet-dialog" data-name-dialog (close)="nameConfirm.set(null)">
+  @if (nameConfirm(); as n) {
+    <div class="dialog-body">
+      @if (n.oldName) {
+        <p data-name-text i18n="@@slipReview.nameAsk">เปลี่ยนชื่อผู้รับจาก "{{ n.oldName }}" เป็น "{{ n.newName }}"? หลังจากนี้สลิปที่โอนให้ชื่อนี้จะผ่านอัตโนมัติ</p>
+      } @else {
+        <p data-name-text i18n="@@slipReview.nameAskNoOld">เปลี่ยนชื่อผู้รับเป็น "{{ n.newName }}"? หลังจากนี้สลิปที่โอนให้ชื่อนี้จะผ่านอัตโนมัติ</p>
+      }
+      <div class="actions">
+        <button type="button" class="ghost" data-name-cancel (click)="cancelUpdateName()" i18n="@@slipReview.nameCancel">ยกเลิก</button>
+        <button type="button" data-name-confirm (click)="confirmUpdateName()" i18n="@@slipReview.nameOk">เปลี่ยนชื่อ</button>
+      </div>
+    </div>
+  }
+</dialog>

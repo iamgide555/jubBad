@@ -2,10 +2,13 @@ import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { provideRouter } from '@angular/router';
+import { of } from 'rxjs';
 import { PaymentPanel } from './payment-panel';
 import { environment } from '../../../environments/environment';
 import type { PaymentCardPanel, PaymentSendOutcome } from '../../core/payment-card.model';
 import { PaymentDraftService } from '../../core/payment-card.service';
+import type { SlipHostPanel } from '../../core/slip-host.model';
+import { SlipHostService } from '../../core/slip-host.service';
 
 const URL = `${environment.apiBaseUrl}/sessions/sess1/payment-card`;
 const GROUP_ACCOUNT = { bank: 'กสิกร', number: '123-4-56789-0', name: 'Host Name' };
@@ -38,14 +41,39 @@ function panel(over: Partial<PaymentCardPanel> = {}): PaymentCardPanel {
   };
 }
 
+beforeAll(() => {
+  // jsdom has no modal dialogs; the embedded slip review confirms with one.
+  if (!HTMLDialogElement.prototype.showModal) {
+    HTMLDialogElement.prototype.showModal = function (this: HTMLDialogElement) {
+      this.setAttribute('open', '');
+    };
+  }
+  if (!HTMLDialogElement.prototype.close) {
+    HTMLDialogElement.prototype.close = function (this: HTMLDialogElement) {
+      this.removeAttribute('open');
+      this.dispatchEvent(new Event('close'));
+    };
+  }
+});
+
 describe('PaymentCardPanel', () => {
   let fixture: ComponentFixture<PaymentPanel>;
   let http: HttpTestingController;
+  /** The embedded slip review reads its own routes; its behaviour is covered in slip-review.spec.ts. */
+  let slipPanel: SlipHostPanel;
+  let slipHost: { panel: ReturnType<typeof vi.fn> };
 
   beforeEach(async () => {
+    slipPanel = { paid: [], waiting: [], duplicates: [], links: [] };
+    slipHost = { panel: vi.fn().mockImplementation(() => of(slipPanel)) };
     await TestBed.configureTestingModule({
       imports: [PaymentPanel],
-      providers: [provideHttpClient(), provideHttpClientTesting(), provideRouter([{ path: '**', children: [] }])],
+      providers: [
+        provideHttpClient(),
+        provideHttpClientTesting(),
+        provideRouter([{ path: '**', children: [] }]),
+        { provide: SlipHostService, useValue: slipHost },
+      ],
     }).compileComponents();
     http = TestBed.inject(HttpTestingController);
   });
@@ -1535,6 +1563,43 @@ describe('PaymentCardPanel', () => {
       http.expectOne(URL).flush(panel({ confirmed: true, lastSentAt: '2026-10-29T13:06:00.000Z' }));
       await settle();
       expect(document.activeElement).toBe(q('[data-send]'));
+    });
+  });
+  describe('slip review', () => {
+    it('renders nothing from it before the card is confirmed', async () => {
+      await open(panel({ confirmed: false }));
+      expect(q('app-slip-review')).toBeNull();
+      expect(slipHost.panel).not.toHaveBeenCalled();
+    });
+
+    it('embeds it once the card is confirmed, with the same session and rows', async () => {
+      await open(panel({ confirmed: true }));
+      expect(q('app-slip-review')).not.toBeNull();
+      expect(slipHost.panel).toHaveBeenCalledWith('sess1');
+      expect(el().querySelectorAll('app-slip-review [data-person]')).toHaveLength(2);
+    });
+
+    it('passes tonight\'s account name for the update-name confirmation', async () => {
+      slipPanel = {
+        ...slipPanel,
+        waiting: [
+          {
+            id: 'w1',
+            reason: 'receiver',
+            displayName: 'Mind',
+            pictureUrl: null,
+            lineUserId: 'U1',
+            amountSatang: 9000,
+            receiverName: 'New Name',
+            receiverTail: null,
+            createdAt: '2026-10-30T13:05:00.000Z',
+            candidatePlayerIds: ['a'],
+          },
+        ],
+      };
+      await open(panel({ confirmed: true }));
+      await click('[data-update-name]');
+      expect(q('[data-name-dialog]')!.textContent).toContain('"Host Name"');
     });
   });
 });

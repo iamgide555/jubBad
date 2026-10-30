@@ -8287,6 +8287,144 @@
       <trans-unit id="slipPay.cash" datatype="html">
         <source>ฉันจ่ายเงินสดแล้ว</source>
       </trans-unit>
+      <trans-unit id="slipReview.loadFailed" datatype="html">
+        <source>โหลดสถานะการชำระเงินไม่สำเร็จ</source>
+      </trans-unit>
+      <trans-unit id="slipReview.label" datatype="html">
+        <source>สถานะการชำระเงิน</source>
+      </trans-unit>
+      <trans-unit id="slipReview.title" datatype="html">
+        <source>สถานะการชำระเงิน</source>
+      </trans-unit>
+      <trans-unit id="slipReview.badge" datatype="html">
+        <source>รอตรวจ <x id="INTERPOLATION" equiv-text="{{ reviewCount() }}"/></source>
+      </trans-unit>
+      <trans-unit id="slipReview.paidCount" datatype="html">
+        <source>ชำระแล้ว <x id="INTERPOLATION" equiv-text="{{ paidCount() }}"/> / <x id="INTERPOLATION_1" equiv-text="{{ billedCount() }}"/> คน</source>
+      </trans-unit>
+      <trans-unit id="slipReview.unknownName" datatype="html">
+        <source>ไม่ทราบชื่อ</source>
+      </trans-unit>
+      <trans-unit id="slipReview.amountChanged" datatype="html">
+        <source>ยอดเปลี่ยนหลังจ่าย</source>
+      </trans-unit>
+      <trans-unit id="slipReview.chip.unpaid" datatype="html">
+        <source>ยังไม่จ่าย</source>
+      </trans-unit>
+      <trans-unit id="slipReview.chip.slip" datatype="html">
+        <source>สลิป</source>
+      </trans-unit>
+      <trans-unit id="slipReview.chip.host" datatype="html">
+        <source>โฮสต์ติ๊ก</source>
+      </trans-unit>
+      <trans-unit id="slipReview.amountUnknown" datatype="html">
+        <source>ไม่ทราบยอด</source>
+      </trans-unit>
+      <trans-unit id="slipReview.reason.amount" datatype="html">
+        <source>ยอดไม่ตรงกับที่ต้องจ่าย</source>
+      </trans-unit>
+      <trans-unit id="slipReview.reason.receiver" datatype="html">
+        <source>ชื่อผู้รับไม่ตรง</source>
+      </trans-unit>
+      <trans-unit id="slipReview.reason.unreadable" datatype="html">
+        <source>อ่านยอดจากสลิปไม่ได้</source>
+      </trans-unit>
+      <trans-unit id="slipReview.reason.stale" datatype="html">
+        <source>ยอดบิลเปลี่ยนหลังยืนยัน</source>
+      </trans-unit>
+      <trans-unit id="slipReview.reason.collision" datatype="html">
+        <source>คนนี้จ่ายไปแล้วหรือไม่อยู่ในบิล</source>
+      </trans-unit>
+      <trans-unit id="slipReview.reason.unmapped" datatype="html">
+        <source>ยังไม่รู้ว่าเป็นใคร</source>
+      </trans-unit>
+      <trans-unit id="slipReview.onSlip" datatype="html">
+        <source>บนสลิป: <x id="INTERPOLATION" equiv-text="{{ c.slip.receiverName }}"/></source>
+      </trans-unit>
+      <trans-unit id="slipReview.tail" datatype="html">
+        <source>เลขบัญชีลงท้าย <x id="INTERPOLATION" equiv-text="{{ c.slip.receiverTail }}"/></source>
+      </trans-unit>
+      <trans-unit id="slipReview.updateName" datatype="html">
+        <source>อัปเดตชื่อที่ตั้งไว้เป็น &quot;<x id="INTERPOLATION" equiv-text="{{ c.slip.receiverName }}"/>&quot;</source>
+      </trans-unit>
+      <trans-unit id="slipReview.nameUpdated" datatype="html">
+        <source>เปลี่ยนชื่อที่ตั้งไว้แล้ว ติ๊กคนที่สลิปนี้จ่ายให้ได้เลย</source>
+      </trans-unit>
+      <trans-unit id="slipReview.covers" datatype="html">
+        <source>สลิปนี้จ่ายให้</source>
+      </trans-unit>
+      <trans-unit id="slipReview.sender" datatype="html">
+        <source>คนส่งคือ (ไม่บังคับ)</source>
+      </trans-unit>
+      <trans-unit id="slipReview.senderNone" datatype="html">
+        <source>ไม่มีในระบบ</source>
+      </trans-unit>
+      <trans-unit id="slipReview.senderWarning" datatype="html">
+        <source>คนนี้ผูกกับบัญชี LINE อื่นอยู่แล้ว การยืนยันจะแทนที่บัญชีเดิม</source>
+      </trans-unit>
+      <trans-unit id="slipReview.skip" datatype="html">
+        <source>ข้าม</source>
+      </trans-unit>
+      <trans-unit id="slipReview.confirm" datatype="html">
+        <source>ยืนยัน</source>
+      </trans-unit>
+      <trans-unit id="slipReview.duplicates" datatype="html">
+        <source>สลิปซ้ำ</source>
+      </trans-unit>
+      <trans-unit id="slipReview.dupUsed" datatype="html">
+        <source>ใช้กับ <x id="INTERPOLATION" equiv-text="{{ names }}"/> แล้ว</source>
+      </trans-unit>
+      <trans-unit id="slipReview.ack" datatype="html">
+        <source>รับทราบ</source>
+      </trans-unit>
+      <trans-unit id="slipReview.links" datatype="html">
+        <source>บัญชี LINE ที่ผูกแล้ว</source>
+      </trans-unit>
+      <trans-unit id="slipReview.linkSelf" datatype="html">
+        <source>ผูกเอง</source>
+      </trans-unit>
+      <trans-unit id="slipReview.linkHost" datatype="html">
+        <source>โฮสต์ผูก</source>
+      </trans-unit>
+      <trans-unit id="slipReview.unlink" datatype="html">
+        <source>ยกเลิกการผูก</source>
+      </trans-unit>
+      <trans-unit id="slipReview.nameAsk" datatype="html">
+        <source>เปลี่ยนชื่อผู้รับจาก &quot;<x id="INTERPOLATION" equiv-text="{{ n.oldName }}"/>&quot; เป็น &quot;<x id="INTERPOLATION_1" equiv-text="{{ n.newName }}"/>&quot;? หลังจากนี้สลิปที่โอนให้ชื่อนี้จะผ่านอัตโนมัติ</source>
+      </trans-unit>
+      <trans-unit id="slipReview.nameAskNoOld" datatype="html">
+        <source>เปลี่ยนชื่อผู้รับเป็น &quot;<x id="INTERPOLATION" equiv-text="{{ n.newName }}"/>&quot;? หลังจากนี้สลิปที่โอนให้ชื่อนี้จะผ่านอัตโนมัติ</source>
+      </trans-unit>
+      <trans-unit id="slipReview.nameCancel" datatype="html">
+        <source>ยกเลิก</source>
+      </trans-unit>
+      <trans-unit id="slipReview.nameOk" datatype="html">
+        <source>เปลี่ยนชื่อ</source>
+      </trans-unit>
+      <trans-unit id="slipReview.err.coversRequired" datatype="html">
+        <source>เลือกคนที่สลิปนี้จ่ายให้อย่างน้อย 1 คน</source>
+      </trans-unit>
+      <trans-unit id="slipReview.err.notOnBill" datatype="html">
+        <source>มีคนที่ไม่อยู่ในบิลแล้ว ลองดูรายชื่ออีกครั้ง</source>
+      </trans-unit>
+      <trans-unit id="slipReview.err.accountLinked" datatype="html">
+        <source>บัญชี LINE นี้ผูกกับคนอื่นอยู่แล้ว</source>
+      </trans-unit>
+      <trans-unit id="slipReview.err.notInGroup" datatype="html">
+        <source>คนนี้ไม่ได้อยู่ในก๊วนนี้แล้ว</source>
+      </trans-unit>
+      <trans-unit id="slipReview.err.nameNotApplicable" datatype="html">
+        <source>เปลี่ยนชื่อผู้รับจากสลิปนี้ไม่ได้</source>
+      </trans-unit>
+      <trans-unit id="slipReview.err.accountInvalid" datatype="html">
+        <source>ชื่อผู้รับบนสลิปใช้ไม่ได้ ไปแก้ในการตั้งค่าบัญชีรับเงิน</source>
+      </trans-unit>
+      <trans-unit id="slipReview.err.gone" datatype="html">
+        <source>ไม่พบรายการนี้แล้ว อาจมีคนจัดการไปแล้ว</source>
+      </trans-unit>
+      <trans-unit id="slipReview.err.generic" datatype="html">
+        <source>ทำไม่สำเร็จ ลองใหม่อีกครั้ง</source>
+      </trans-unit>
     </body>
   </file>
 </xliff>

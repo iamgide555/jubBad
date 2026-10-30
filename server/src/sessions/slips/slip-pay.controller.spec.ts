@@ -9,6 +9,7 @@ import {
   slipRead,
 } from '../../../test/slip-http.fixture.js';
 import { SlipPaymentsService, type LiffUser } from './slip-payments.service.js';
+import { SlipUploadSlots } from './slip-throttles.js';
 
 type Kit = Awaited<ReturnType<typeof bootSlipApp>>;
 
@@ -426,6 +427,85 @@ describe('slip pay-page routes (public, token-gated)', () => {
 
       kit.reader.read.mockResolvedValue({ kind: 'not-slip' });
       expect((await upload(code, q(token), viewers[6])).status).toBe(200);
+    });
+  });
+
+  describe('the in-flight slot is released on every path', () => {
+    const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
+    const until = async (cond: () => boolean) => {
+      for (let i = 0; i < 300 && !cond(); i++) await wait(10);
+      expect(cond()).toBe(true);
+    };
+    const inFlight = () => kit.app.get(SlipUploadSlots).inFlight;
+
+    /** A chunked image upload that is started and left open; `abort()` drops the connection. */
+    function openUpload(code: string, query: string, access: string, withBody = true) {
+      const { port } = kit.server.address() as AddressInfo;
+      const req = http.request({
+        host: '127.0.0.1', port, method: 'POST', path: `${pay(code)}/upload${query}`,
+        headers: { 'content-type': 'image/png', 'transfer-encoding': 'chunked', [HEADER]: access },
+      });
+      req.on('error', () => {});
+      // Without a body the server notices the disconnect at once; with unread body bytes it may not until it reads them.
+      if (withBody) req.write(Buffer.alloc(64 * 1024, 1));
+      else req.flushHeaders();
+      return { abort: () => req.destroy() };
+    }
+
+    it('does not leak slots when clients abort during a slow LINE verification (six times)', async () => {
+      const { code, token } = await setupSession();
+      const [access, user] = viewer();
+      const pending: (() => void)[] = [];
+      kit.liff.verify.mockReset().mockImplementation(
+        () => new Promise((resolve) => pending.push(() => resolve(user)))
+      );
+      for (let i = 0; i < 6; i++) {
+        const call = openUpload(code, q(token), access, false);
+        await until(() => kit.liff.verify.mock.calls.length === i + 1);
+        call.abort();
+      }
+      await wait(100);
+      // LINE answers after every client is gone.
+      pending.forEach((resolve) => resolve());
+      await wait(100);
+      expect(inFlight()).toBe(0);
+      expect(kit.reader.read).not.toHaveBeenCalled();
+
+      kit.liff.verify.mockReset().mockImplementation(async (t) => users.get(t) ?? null);
+      kit.reader.read.mockResolvedValue({ kind: 'not-slip' });
+      expect((await upload(code, q(token), access)).status).toBe(200);
+      // The aborted attempts spent none of the viewer's upload budget: ten more uploads still fit after the one above...
+      const statuses: number[] = [];
+      for (let i = 0; i < 9; i++) statuses.push((await upload(code, q(token), access)).status);
+      expect(statuses).toEqual(Array(9).fill(200));
+      expect((await upload(code, q(token), access)).status).toBe(429);
+      expect(inFlight()).toBe(0);
+    });
+
+    it('releases the slot when the client aborts during the body read', async () => {
+      const { code, token } = await setupSession();
+      const [access] = viewer();
+      const call = openUpload(code, q(token), access);
+      await until(() => inFlight() === 1);
+      call.abort();
+      await until(() => inFlight() === 0);
+      expect(kit.reader.read).not.toHaveBeenCalled();
+    });
+
+    it('still refuses the seventh of six live uploads, and counts zero once they finish', async () => {
+      const { code, token } = await setupSession();
+      const release: (() => void)[] = [];
+      kit.reader.read.mockImplementation(
+        () => new Promise((resolve) => release.push(() => resolve({ kind: 'not-slip' })))
+      );
+      const viewers = Array.from({ length: 7 }, (_, i) => viewer(`W${i}`)[0]);
+      const live = viewers.slice(0, 6).map((v) => upload(code, q(token), v).then((r) => r));
+      await until(() => kit.reader.read.mock.calls.length === 6);
+      expect(inFlight()).toBe(6);
+      expect((await upload(code, q(token), viewers[6], Buffer.alloc(1024, 1))).status).toBe(429);
+      release.forEach((r) => r());
+      for (const res of await Promise.all(live)) expect(res.status).toBe(200);
+      await until(() => inFlight() === 0);
     });
   });
 });

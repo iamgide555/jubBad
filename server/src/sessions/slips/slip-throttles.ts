@@ -1,3 +1,4 @@
+import { Injectable } from '@nestjs/common';
 import { MAX_ATTEMPTS, WINDOW_MS } from '../../auth/login-throttle.js';
 
 /**
@@ -16,3 +17,28 @@ export const UPLOAD_WINDOW_MS = WINDOW_MS;
 
 /** Uploads being processed (body read, decoded, OCR'd) at once across the whole server; beyond this: 429. */
 export const MAX_IN_FLIGHT_UPLOADS = 6;
+
+/**
+ * The server-wide count of uploads being processed. `take` is synchronous and hands back a release that is safe to call
+ * more than once, so a caller registers it on the response in the same step it takes the slot.
+ */
+@Injectable()
+export class SlipUploadSlots {
+  private held = 0;
+
+  /** Slots held right now; specs read it to prove no path leaks one. */
+  get inFlight(): number {
+    return this.held;
+  }
+
+  take(): (() => void) | null {
+    if (this.held >= MAX_IN_FLIGHT_UPLOADS) return null;
+    this.held += 1;
+    let released = false;
+    return () => {
+      if (released) return;
+      released = true;
+      this.held -= 1;
+    };
+  }
+}

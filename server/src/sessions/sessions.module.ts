@@ -19,7 +19,7 @@ import { SlipPaymentsService } from './slips/slip-payments.service.js';
 import { SlipPayController } from './slips/slip-pay.controller.js';
 import { SlipPaymentsController } from './slips/slip-payments.controller.js';
 import { SlipReader } from './slips/slip-reader.js';
-import { SLIP_FAILURE_THROTTLE, SLIP_UPLOAD_THROTTLE } from './slips/slip-throttles.js';
+import { SLIP_FAILURE_THROTTLE, SLIP_UPLOAD_THROTTLE, SlipUploadSlots } from './slips/slip-throttles.js';
 import { SlipUploadMiddleware } from './slips/slip-upload.middleware.js';
 
 @Module({
@@ -42,6 +42,7 @@ import { SlipUploadMiddleware } from './slips/slip-upload.middleware.js';
     SlipReader,
     SlipPaymentsService,
     LiffIdentity,
+    SlipUploadSlots,
     { provide: SLIP_FAILURE_THROTTLE, useFactory: () => new LoginThrottle() },
     { provide: SLIP_UPLOAD_THROTTLE, useFactory: () => new LoginThrottle() },
   ],

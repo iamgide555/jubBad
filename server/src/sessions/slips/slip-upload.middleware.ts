@@ -4,11 +4,7 @@ import type { NextFunction, Request, Response } from 'express';
 import { LoginThrottle } from '../../auth/login-throttle.js';
 import { LiffIdentity } from './liff-identity.js';
 import type { LiffUser } from './slip-payments.service.js';
-import {
-  MAX_IN_FLIGHT_UPLOADS,
-  SLIP_FAILURE_THROTTLE,
-  SLIP_UPLOAD_THROTTLE,
-} from './slip-throttles.js';
+import { SLIP_FAILURE_THROTTLE, SLIP_UPLOAD_THROTTLE, SlipUploadSlots } from './slip-throttles.js';
 
 /** The largest slip image accepted; a phone screenshot is well under this. */
 export const SLIP_UPLOAD_LIMIT = '8mb';
@@ -34,12 +30,12 @@ const UPLOAD_PATH = /^\/sessions\/([^/?#]+)\/slip-pay\/upload(?:[/?#]|$)/;
 @Injectable()
 export class SlipUploadMiddleware implements NestMiddleware {
   private readonly parse = raw({ type: 'image/*', limit: SLIP_UPLOAD_LIMIT });
-  private inFlight = 0;
 
   constructor(
     private readonly liff: LiffIdentity,
     @Inject(SLIP_FAILURE_THROTTLE) private readonly failures: LoginThrottle,
-    @Inject(SLIP_UPLOAD_THROTTLE) private readonly uploads: LoginThrottle
+    @Inject(SLIP_UPLOAD_THROTTLE) private readonly uploads: LoginThrottle,
+    private readonly slots: SlipUploadSlots
   ) {}
 
   async use(req: SlipViewerRequest, res: Response, next: NextFunction): Promise<void> {
@@ -50,25 +46,23 @@ export class SlipUploadMiddleware implements NestMiddleware {
     // No token costs LINE nothing, so it is not counted against the address.
     if (typeof header !== 'string' || header === '') return next();
     const user = await this.liff.verify(header).catch(() => null);
-    if (!user) {
-      this.failures.recordFailure(ipKey);
-      return next();
-    }
+    if (!user) this.failures.recordFailure(ipKey);
+    // The client may have gone while LINE was being asked (up to seconds). Its close event has already fired, so a
+    // listener attached now would never run: take no slot, spend no budget, and let the dead request be.
+    // (Not `req.destroyed`: a request whose body an earlier parser read to the end is destroyed too, and is alive.)
+    if (res.destroyed || res.closed || res.writableEnded || req.socket?.destroyed) return;
+    if (!user) return next();
     req.slipViewer = user;
 
     const budgetKey = `slip-up:${sessionCodeOf(req)}:${user.userId}`;
     if (!this.uploads.check(budgetKey)) return tooMany(res);
-    if (this.inFlight >= MAX_IN_FLIGHT_UPLOADS) return tooMany(res);
 
+    // From the slot to the parser there is no await: taking it and registering its release are one step, so it is
+    // freed on every path (finish, abort during the body read, 413, an error in a later handler).
+    const release = this.slots.take();
+    if (!release) return tooMany(res);
     // One use of the budget per upload that reaches the parser (the throttle counts "failures"; here it counts uses).
     this.uploads.recordFailure(budgetKey);
-    this.inFlight += 1;
-    let released = false;
-    const release = () => {
-      if (released) return;
-      released = true;
-      this.inFlight -= 1;
-    };
     res.once('finish', release);
     res.once('close', release);
     this.parse(req, res, next);

@@ -1,6 +1,8 @@
 import { randomUUID } from 'node:crypto';
 import { ConflictException, INestApplication, NotFoundException } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
+import { Prisma } from '@prisma/client';
+import { vi } from 'vitest';
 import { AppModule } from '../../app.module.js';
 import { AuthBootstrapService } from '../../auth/bootstrap.service.js';
 import { PrismaService } from '../../prisma/prisma.service.js';
@@ -140,6 +142,67 @@ describe('slip payments: LINE account links', () => {
     });
   });
 
+  describe('claimPlayer racing another session of the same group', () => {
+    const p2002 = () => new Prisma.PrismaClientKnownRequestError('unique', { code: 'P2002', clientVersion: 'test' });
+
+    /** The next create loses: a competing row is written first (as if another session won), then P2002 is thrown. */
+    function loseRaceTo(groupCode: string, winner: { playerId: string; lineUserId: string }) {
+      const create = prisma.playerLineAccount.create.bind(prisma.playerLineAccount);
+      return vi.spyOn(prisma.playerLineAccount, 'create').mockImplementationOnce((async () => {
+        await create({ data: { groupId: groupCode, linkedBy: 'self', displayName: null, ...winner } });
+        throw p2002();
+      }) as never);
+    }
+
+    afterEach(() => vi.restoreAllMocks());
+
+    it('answers linked when the winning row is this very account on this player', async () => {
+      const { code, groupCode, ids } = await setup();
+      const a = user();
+      loseRaceTo(groupCode, { playerId: ids[0], lineUserId: a.userId });
+      expect(await slips.claimPlayer(code, a, ids[0])).toBe('linked');
+      expect(await linkCount(groupCode)).toBe(1);
+    });
+
+    it('answers account-already-linked when the winning row put this account on another player', async () => {
+      const { code, groupCode, ids } = await setup();
+      const a = user();
+      loseRaceTo(groupCode, { playerId: ids[1], lineUserId: a.userId });
+      expect(await slips.claimPlayer(code, a, ids[0])).toBe('account-already-linked');
+      expect(await linkCount(groupCode)).toBe(1);
+    });
+
+    it('answers player-taken when the winning row put another account on this player', async () => {
+      const { code, groupCode, ids } = await setup();
+      const a = user();
+      const winner = user();
+      loseRaceTo(groupCode, { playerId: ids[0], lineUserId: winner.userId });
+      expect(await slips.claimPlayer(code, a, ids[0])).toBe('player-taken');
+      expect(await slips.linkedPlayerOf(groupCode, winner.userId)).toBe(ids[0]);
+      expect(await slips.linkedPlayerOf(groupCode, a.userId)).toBeNull();
+    });
+
+    it('rethrows an error that is not a unique violation', async () => {
+      const { code } = await setup();
+      vi.spyOn(prisma.playerLineAccount, 'create').mockRejectedValueOnce(new Error('disk full') as never);
+      const { ids } = await prisma.session
+        .findUniqueOrThrow({ where: { code }, include: { roster: true } })
+        .then((x) => ({ ids: x.roster.map((r) => r.playerId) }));
+      await expect(slips.claimPlayer(code, user(), ids[0])).rejects.toThrow('disk full');
+    });
+
+    it('setLink turns a unique violation into ACCOUNT_ALREADY_LINKED and leaves the old link', async () => {
+      const { code, groupCode, ids } = await setup();
+      const a = user();
+      await slips.claimPlayer(code, a, ids[0]);
+      vi.spyOn(prisma, '$transaction').mockRejectedValueOnce(p2002() as never);
+      const error = await slips.setLink(code, ids[0], user().userId).catch((e: unknown) => e);
+      expect(error).toBeInstanceOf(ConflictException);
+      expect((error as ConflictException).getResponse()).toMatchObject({ code: 'ACCOUNT_ALREADY_LINKED' });
+      expect(await slips.linkedPlayerOf(groupCode, a.userId)).toBe(ids[0]);
+    });
+  });
+
   describe('setLink', () => {
     it('removes the player link with null, and is a no-op when there is none', async () => {
       const { code, groupCode, ids } = await setup();
@@ -182,6 +245,18 @@ describe('slip payments: LINE account links', () => {
       await slips.setLink(code, ids[2], a.userId);
       expect(await slips.linkedPlayerOf(groupCode, a.userId)).toBe(ids[2]);
       await slips.setLink(code, ids[2], a.userId);
+      expect(await linkCount(groupCode)).toBe(1);
+    });
+
+    it('flips a self link of the same account to host in place, keeping its name and age', async () => {
+      const { code, groupCode, ids } = await setup();
+      const a = user('Somchai');
+      await slips.claimPlayer(code, a, ids[0]);
+      const before = await prisma.playerLineAccount.findFirstOrThrow({ where: { groupId: groupCode } });
+      await slips.setLink(code, ids[0], a.userId);
+      const after = await prisma.playerLineAccount.findFirstOrThrow({ where: { groupId: groupCode } });
+      expect(after).toMatchObject({ id: before.id, displayName: 'Somchai', linkedBy: 'host', lineUserId: a.userId });
+      expect(after.createdAt).toEqual(before.createdAt);
       expect(await linkCount(groupCode)).toBe(1);
     });
 

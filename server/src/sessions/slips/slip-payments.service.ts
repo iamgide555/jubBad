@@ -1,4 +1,5 @@
 import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service.js';
 import { PaymentCardService } from '../payment-card.service.js';
 import { SessionLock } from '../session-lock.js';
@@ -85,16 +86,18 @@ export class SlipPaymentsService {
       // A bill row always belongs to the session's group, but a link row must never depend on that being true.
       if (!(await this.prisma.player.findFirst({ where: { id: playerId, groupId }, select: { id: true } }))) return 'not-on-bill';
 
-      const byAccount = await this.prisma.playerLineAccount.findUnique({
-        where: { groupId_lineUserId: { groupId, lineUserId: user.userId } },
-      });
-      if (byAccount) return byAccount.playerId === playerId ? 'linked' : 'account-already-linked';
-      const byPlayer = await this.prisma.playerLineAccount.findUnique({ where: { groupId_playerId: { groupId, playerId } } });
-      if (byPlayer) return 'player-taken';
-
-      await this.prisma.playerLineAccount.create({
-        data: { groupId, playerId, lineUserId: user.userId, displayName: user.displayName, linkedBy: 'self' },
-      });
+      const existing = await this.existingOutcome(groupId, user.userId, playerId);
+      if (existing) return existing;
+      try {
+        await this.prisma.playerLineAccount.create({
+          data: { groupId, playerId, lineUserId: user.userId, displayName: user.displayName, linkedBy: 'self' },
+        });
+      } catch (error) {
+        // The lock is per session, so a claim from another session of this group can win between the check and the
+        // create. Judge the row that won the same way as the pre-check does.
+        if (!isUniqueViolation(error)) throw error;
+        return (await this.existingOutcome(groupId, user.userId, playerId)) ?? 'player-taken';
+      }
       return 'linked';
     });
   }
@@ -134,12 +137,35 @@ export class SlipPaymentsService {
         where: { groupId_lineUserId: { groupId, lineUserId } },
       });
       if (byAccount && byAccount.playerId !== playerId) throw new ConflictException({ code: 'ACCOUNT_ALREADY_LINKED' });
-      if (byAccount?.linkedBy === 'host') return;
-      await this.prisma.$transaction([
-        this.prisma.playerLineAccount.deleteMany({ where: { groupId, playerId } }),
-        this.prisma.playerLineAccount.create({ data: { groupId, playerId, lineUserId, displayName: null, linkedBy: 'host' } }),
-      ]);
+      try {
+        if (byAccount) {
+          // Already this player's account: only the label changes; the stored name and age stay.
+          await this.prisma.playerLineAccount.update({ where: { id: byAccount.id }, data: { linkedBy: 'host' } });
+          return;
+        }
+        await this.prisma.$transaction([
+          this.prisma.playerLineAccount.deleteMany({ where: { groupId, playerId } }),
+          this.prisma.playerLineAccount.create({
+            data: { groupId, playerId, lineUserId, displayName: null, linkedBy: 'host' },
+          }),
+        ]);
+      } catch (error) {
+        // Another session of this group linked the account in between (the lock is per session); the transaction
+        // rolled back, so nothing changed.
+        if (isUniqueViolation(error)) throw new ConflictException({ code: 'ACCOUNT_ALREADY_LINKED' });
+        throw error;
+      }
     });
+  }
+
+  /** What an existing link says about a claim, or null when neither the account nor the player is linked. */
+  private async existingOutcome(groupId: string, lineUserId: string, playerId: string): Promise<ClaimOutcome | null> {
+    const byAccount = await this.prisma.playerLineAccount.findUnique({
+      where: { groupId_lineUserId: { groupId, lineUserId } },
+    });
+    if (byAccount) return byAccount.playerId === playerId ? 'linked' : 'account-already-linked';
+    const byPlayer = await this.prisma.playerLineAccount.findUnique({ where: { groupId_playerId: { groupId, playerId } } });
+    return byPlayer ? 'player-taken' : null;
   }
 
   private async groupOf(code: string): Promise<string> {
@@ -147,4 +173,8 @@ export class SlipPaymentsService {
     if (!session) throw new NotFoundException();
     return session.groupId;
   }
+}
+
+function isUniqueViolation(error: unknown): boolean {
+  return error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002';
 }

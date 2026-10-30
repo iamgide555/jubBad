@@ -275,6 +275,9 @@ it is, the feature reports "not configured" and everything else works as before.
    needs the `profile` scope switched on in the console (players are asked to consent the first time they open
    the pay page). Slip reading (OCR) needs no extra environment: its language data ships in the image
    (`server/assets/tessdata`, copied to `/app/assets/tessdata`) and nothing is downloaded at runtime.
+   Slip uploads (up to 8 MB) pass through the `web` container's nginx, whose `client_max_body_size 8m`
+   lives in `web/nginx.conf`: rebuild the `web` container too, not only `api`, or nginx keeps its 1 MB
+   default and refuses most slip screenshots with 413 before they reach the API.
 6. Run `npm run db:backup`, then deploy (this release has a migration; see "When the release
    contains a migration").
 7. Press **Verify** next to the webhook URL in the console. If it fails, check that Cloudflare

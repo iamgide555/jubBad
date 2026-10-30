@@ -80,6 +80,8 @@ describe('GET /sessions/:code/payment-share-card (public, token-gated)', () => {
     process.env.LINE_CHANNEL_ACCESS_TOKEN = 't';
     process.env.PUBLIC_APP_URL = 'https://jubbad.test';
     process.env.LINE_LIFF_ID = LIFF_ID;
+    // The pay page verifies LINE access tokens against this channel; without it the slip button is left off.
+    process.env.LINE_LOGIN_CHANNEL_ID = '1234567890';
     await prisma.user.update({
       where: { id: ownerId },
       data: { plan: 'host', planRenewsAt: null, lineUserId: `U${ownerId.replace(/-/g, '')}` },
@@ -213,6 +215,16 @@ describe('GET /sessions/:code/payment-share-card (public, token-gated)', () => {
     for (const secret of [groupCode, ownerId, ownerEmail, 'lineUserId', 'confirmedHash', 'paymentCard', 'playerId']) {
       expect(res.text).not.toContain(secret);
     }
+  });
+
+  it('serves the card without the send-slip button when the LINE Login channel id is not set', async () => {
+    const { code } = await setup();
+    await confirm(code);
+    const token = await tokenOf(code);
+    delete process.env.LINE_LOGIN_CHANNEL_ID;
+    const res = await share(code, `?token=${encodeURIComponent(token)}`).expect(200);
+    expect(JSON.stringify(res.body.messages)).not.toContain('ส่งสลิป');
+    expect(JSON.stringify(res.body.messages)).not.toContain('/slip/');
   });
 
   it('kills the old token on a re-confirm and serves the new one', async () => {

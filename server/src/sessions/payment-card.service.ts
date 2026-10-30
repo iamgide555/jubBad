@@ -218,10 +218,12 @@ export class PaymentCardService {
 
       let outcome: Awaited<ReturnType<LineClient['push']>>;
       try {
-        // The send-slip button rides on the card only when the LIFF app and the confirmed token both exist; it is
-        // never part of the content hash or the retry key, so a missing one just means no button.
-        const { liffId } = lineConfig();
-        const slipUrl = liffId !== null && state.token ? liffSlipUrl(liffId, code, state.token) : null;
+        // The send-slip button rides on the card only when the pay page can work (the LIFF app, and the LINE Login
+        // channel it verifies players against) and the confirmed token exists; it is never part of the content hash
+        // or the retry key, so a missing one just means no button.
+        const { liffId, loginChannelId } = lineConfig();
+        const slipUrl =
+          liffId !== null && loginChannelId !== null && state.token ? liffSlipUrl(liffId, code, state.token) : null;
         const messages = paymentCardMessages(cardInput(panel.account), 'group', slipUrl);
         outcome = await this.line.push(to, messages, paymentRetryKey(code, sendId));
       } catch {
@@ -287,7 +289,7 @@ export class PaymentCardService {
    */
   async shareCard(code: string, token: string | undefined, now: Date = new Date()): Promise<PaymentShareCard> {
     // Config first: with the feature off, an anonymous caller must not cost a database lookup.
-    const { liffId, publicAppUrl } = lineConfig();
+    const { liffId, publicAppUrl, loginChannelId } = lineConfig();
     if (liffId === null || publicAppUrl === null || !token) throw new NotFoundException();
     const session = await this.prisma.session.findUnique({
       where: { code },
@@ -304,8 +306,9 @@ export class PaymentCardService {
     const { name, date } = cardTexts(input);
     return {
       liffId,
-      // `stored` is the confirmed token the caller just matched, so the slip button carries exactly that one.
-      messages: paymentCardMessages(input, 'host', liffSlipUrl(liffId, code, stored)),
+      // `stored` is the confirmed token the caller just matched, so the slip button carries exactly that one. No
+      // button without the LINE Login channel: the pay page could not verify anyone.
+      messages: paymentCardMessages(input, 'host', loginChannelId === null ? null : liffSlipUrl(liffId, code, stored)),
       preview: {
         name,
         date,

@@ -104,6 +104,8 @@ describe('payment card: owner panel, confirm and bot send', () => {
     process.env.LINE_CHANNEL_ACCESS_TOKEN = 't';
     process.env.PUBLIC_APP_URL = 'https://jubbad.test';
     process.env.LINE_LIFF_ID = LIFF_ID;
+    // The pay page verifies LINE access tokens against this channel; without it the slip button is left off.
+    process.env.LINE_LOGIN_CHANNEL_ID = '1234567890';
     // A host-plan owner who linked their own LINE account, so an unlinked group with the DM switch on is `host`.
     await prisma.user.update({
       where: { id: ownerId },
@@ -655,6 +657,17 @@ describe('payment card: owner panel, confirm and bot send', () => {
       const { code } = await setup();
       await confirm(code).expect(200);
       delete process.env.LINE_LIFF_ID;
+      expect((await send(code).expect(200)).body).toEqual({ outcome: 'sent' });
+      const [, messages] = fakeClient.push.mock.calls[0];
+      expect(slipButtons(messages)).toHaveLength(0);
+      expect(messages[0].contents.footer.contents).toHaveLength(1);
+    });
+
+    it('posts the card without a send-slip button when the LINE Login channel id is not set', async () => {
+      // The pay page could not verify anyone, so every tap would end on "link no longer works".
+      const { code } = await setup();
+      await confirm(code).expect(200);
+      delete process.env.LINE_LOGIN_CHANNEL_ID;
       expect((await send(code).expect(200)).body).toEqual({ outcome: 'sent' });
       const [, messages] = fakeClient.push.mock.calls[0];
       expect(slipButtons(messages)).toHaveLength(0);

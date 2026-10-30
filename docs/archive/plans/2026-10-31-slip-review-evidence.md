@@ -28,4 +28,16 @@
 ### Task 4: Release Verification
 
 - [x] **Verify:** Run full tests/builds/lint; inspect mobile/desktop/enlarged render; complete independent spec/code review; update overview/deploy notes; archive completed plan/spec.
-- [ ] **Release:** Commit scoped changes, backup production DB, apply migration and deploy branch, verify API health/read-only boundary. Preserve unrelated handoff/cache files.
+- [x] **Release:** Commit scoped changes, backup production DB, apply migration and deploy branch, verify API health/read-only boundary. Preserve unrelated handoff/cache files.
+
+
+---
+
+## Release Evidence
+
+- **Runtime:** `3b71656`, deployed on `feat/slip-payments` on 2026-10-31 Bangkok time; migration applied successfully and API restart count stayed zero.
+- **Storage:** `/mnt/hdd2/jubbad/slips` binds to `/app/slip-images`; mode `0700`; container write/read probe passed and removed its own probe file.
+- **Backup:** `jubbad-2026-10-30T18-05-52-879Z.db`, online backup before migration, integrity check passed.
+- **Validation:** Server full suite 1,753 passed with one fixture-gated skip; web full suite 1,814 passed plus four new closed-bill error cases verified in a 206-test focused run. Engines 408 passed. Server type/build/lint and Thai/English web production build passed.
+- **Browser:** Mobile, desktop, dark, English, amount mismatch, image enlargement, close confirmation/closed state and 200% text checks passed using isolated mocked APIs and synthetic evidence. Independent spec/code/visual reviews passed.
+- **Live boundary:** Site and status page `200`; invalid status token `404`; private image and collection close without host cookie `401`.

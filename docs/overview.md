@@ -1678,7 +1678,7 @@ stay. All must hold, otherwise the slip waits for the host:
 A mismatch never marks anyone paid; the slip waits for the host, who sees the reason (the sender does not:
 the pay page only says the slip went to the host).
 
-**Host amount review and collection close.** Design: `docs/superpowers/specs/2026-10-31-slip-review-evidence-design.md`. Waiting slips show their private image (tap to enlarge),
+**Host amount review and collection close.** Design: `docs/archive/specs/2026-10-31-slip-review-evidence-design.md`. Waiting slips show their private image (tap to enlarge),
 the unique positive OCR amount even if nobody owes it, and an editable reviewed amount. Unknown or
 ambiguous OCR requires host entry from the original image. The selected unpaid players' current total
 must exactly equal the reviewed amount, enforced under the session lock. Each paid row snapshots its

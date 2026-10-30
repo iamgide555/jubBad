@@ -146,6 +146,11 @@ export class LineLinkService {
       }),
       this.prisma.lineRosterMessage.deleteMany({ where: { groupId: groupCode } }),
       this.prisma.lineLinkCode.deleteMany({ where: { groupId: groupCode } }),
+      // Slip links and slips go with the link; recorded SessionPayment rows stay.
+      this.prisma.playerLineAccount.deleteMany({ where: { groupId: groupCode } }),
+      this.prisma.pendingSlip.deleteMany({ where: { groupId: groupCode } }),
+      this.prisma.slipDuplicate.deleteMany({ where: { groupId: groupCode } }),
+      this.prisma.slipReference.deleteMany({ where: { groupId: groupCode } }),
     ]);
     if (group?.lineGroupId) await this.leaveQuietly(group.lineGroupId);
   }
@@ -161,6 +166,11 @@ export class LineLinkService {
       }),
       this.prisma.lineRosterMessage.deleteMany({ where: { groupId: group.code } }),
       this.prisma.lineLinkCode.deleteMany({ where: { groupId: group.code } }),
+      // Slip links and slips go with the link; recorded SessionPayment rows stay.
+      this.prisma.playerLineAccount.deleteMany({ where: { groupId: group.code } }),
+      this.prisma.pendingSlip.deleteMany({ where: { groupId: group.code } }),
+      this.prisma.slipDuplicate.deleteMany({ where: { groupId: group.code } }),
+      this.prisma.slipReference.deleteMany({ where: { groupId: group.code } }),
     ]);
   }
 

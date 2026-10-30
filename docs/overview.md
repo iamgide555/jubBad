@@ -1632,6 +1632,49 @@ expired code gets one generic Thai reply (it never says which); a sender who has
 - **Unverified until a real LINE group is used:** the exact type string of LINE's edit event
   (`messageEdited` per the docs summary) and that Cloudflare lets LINE's webhook through.
 
+### Slip payment matching (phase 1)
+
+Design: `docs/superpowers/specs/2026-10-30-slip-payment-matching-design.md`; build plan:
+`docs/superpowers/plans/2026-10-30-slip-payment-matching-phase-1.md`. Read the spec for the exact rules and
+the risks; this section is the why.
+
+**The problem.** After the payment card goes out, the host matched bank-transfer slips to names by eye,
+one screenshot at a time. Phase 1 lets the player upload their own slip from a pay page; a later phase will
+have the bot watch the LINE group for slips. The split is deliberate: the pay page needs no bot
+permissions and identifies the sender for certain (the LIFF login), so it proves the matching rules before
+anything depends on the group's chat.
+
+**Free QR + OCR, no paid verification service.** The slip's QR gives the bank and the transfer reference;
+OCR (Tesseract, language data shipped in the image) reads the amount and receiver name. A paid slip
+verification API was rejected on cost on 2026-10-30. The price of free is that anything unclear goes to the
+host instead of being guessed. **No slip image is ever stored**: it is read in memory and dropped; what
+is kept is the reference, amount, receiver text, sender and time.
+
+**Paid is not "settled".** A player is *paid* when a `SessionPayment` row exists (from a slip or the host's
+tick). *Settled* stays the early-checkout receipt (see Early checkout above); the two are different facts
+and the names are kept apart on purpose.
+
+**Auto-paid, at a glance.** All must hold, otherwise the slip waits for the host: the payment card is
+confirmed and not stale; the sender's LINE account is linked to a player; the slip amount matches what that
+player owes exactly and no other owed amount appears in the text; the receiver name matches the group's
+saved account name by whole words; and the transfer reference has not been used in this group before.
+A mismatch never marks anyone paid; the slip waits for the host.
+
+**What reaches the host.** Waiting slips (with the reason) and duplicates, in the bill screen's review list.
+The host resolves a waiting slip by ticking one or more players (or dismisses it), and dismisses a duplicate. A duplicate never
+pays anyone and the sender is not told off in the group.
+
+**Abuse limits.** The pay link is reachable by anyone holding the card, so uploads have a size cap, a
+per-viewer rate limit, a server-wide limit on uploads in flight, and reading is serialised. Bad tokens and
+bad links are throttled by address.
+
+**Lifecycle.** Unlinking the LINE group (or the bot being removed) purges the group's account links,
+waiting slips, duplicates and used references; recorded `SessionPayment` rows stay. Deleting the JubBad group
+cascades everything.
+
+**Where it lives.** `server/src/sessions/slips/` (matching, QR, OCR, pay-page and host controllers),
+`web/src/app/shared/slip-review/` (the host's review list), `web/src/app/pages/slip-pay/` (the player page).
+
 ## Current state
 
 Everything described above is built: the three engines, the API, the Angular

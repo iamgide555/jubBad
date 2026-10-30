@@ -348,6 +348,59 @@ describe('LINE link codes, status and unlink', () => {
       expect((await prisma.group.findUniqueOrThrow({ where: { code } })).lineLeftAt).toBeNull();
     });
 
+    describe('slip data', () => {
+      async function seedSlipRows(groupCode: string) {
+        const sessionCode = `ses-${randomUUID().slice(0, 10)}`;
+        await prisma.session.create({ data: { code: sessionCode, groupId: groupCode, rawImportText: '' } });
+        const player = await prisma.player.create({
+          data: { groupId: groupCode, name: `p-${randomUUID().slice(0, 6)}`, aliases: '[]' },
+        });
+        const lineUserId = `U${randomUUID().replace(/-/g, '')}`;
+        await prisma.playerLineAccount.create({
+          data: { groupId: groupCode, playerId: player.id, lineUserId, linkedBy: 'self' },
+        });
+        await prisma.pendingSlip.create({
+          data: { sessionId: sessionCode, groupId: groupCode, reference: randomUUID(), lineUserId, reason: 'amount' },
+        });
+        await prisma.slipDuplicate.create({
+          data: { groupId: groupCode, reference: randomUUID(), lineUserId, originalPlayerIds: '[]' },
+        });
+        await prisma.slipReference.create({
+          data: { groupId: groupCode, reference: randomUUID(), bankCode: '004' },
+        });
+        await prisma.sessionPayment.create({
+          data: { sessionId: sessionCode, playerId: player.id, source: 'slip', amountSatang: 5000 },
+        });
+        return { sessionCode };
+      }
+
+      const slipCounts = async (groupCode: string) => ({
+        accounts: await prisma.playerLineAccount.count({ where: { groupId: groupCode } }),
+        pending: await prisma.pendingSlip.count({ where: { groupId: groupCode } }),
+        duplicates: await prisma.slipDuplicate.count({ where: { groupId: groupCode } }),
+        references: await prisma.slipReference.count({ where: { groupId: groupCode } }),
+      });
+
+      it.each([
+        ['unlink', (code: string, _lg: string) => link.unlink(code)],
+        ['markLeft', (_code: string, lg: string) => link.markLeft(lg)],
+      ])('%s purges the group slip data but keeps recorded payments and other groups', async (_name, run) => {
+        const lg = lineId();
+        const code = await makeGroup(hostId, { lineGroupId: lg, lineLinkedAt: new Date() });
+        const other = await makeGroup(hostId, { lineGroupId: lineId(), lineLinkedAt: new Date() });
+        const mine = await seedSlipRows(code);
+        const theirs = await seedSlipRows(other);
+        expect(await slipCounts(code)).toEqual({ accounts: 1, pending: 1, duplicates: 1, references: 1 });
+
+        await run(code, lg);
+
+        expect(await slipCounts(code)).toEqual({ accounts: 0, pending: 0, duplicates: 0, references: 0 });
+        expect(await prisma.sessionPayment.count({ where: { sessionId: mine.sessionCode } })).toBe(1);
+        expect(await slipCounts(other)).toEqual({ accounts: 1, pending: 1, duplicates: 1, references: 1 });
+        expect(await prisma.sessionPayment.count({ where: { sessionId: theirs.sessionCode } })).toBe(1);
+      });
+    });
+
     it('deleting a linked JubBad group also asks the bot to leave', async () => {
       const lg = lineId();
       const code = await makeGroup(hostId, { lineGroupId: lg });

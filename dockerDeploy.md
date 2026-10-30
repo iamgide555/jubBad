@@ -269,6 +269,12 @@ it is, the feature reports "not configured" and everything else works as before.
    `https://liff.line.me/<LINE_LIFF_ID>/<code>`; without it the host target (the DM card) is off.
    The LIFF app's endpoint URL must be `<PUBLIC_APP_URL>/line-share`. Full steps, including
    publishing the LINE Login channel: `docs/line-liff-setup.md`.
+   The player slip pay page (ส่งสลิป on the payment card, `https://liff.line.me/<LINE_LIFF_ID>/slip/<code>/<token>`)
+   also needs `LINE_LOGIN_CHANNEL_ID`, the channel ID of that same LINE Login channel: the API verifies each
+   player's LINE access token against it, and without it the pay page and slip upload answer 404. The LIFF app
+   needs the `profile` scope switched on in the console (players are asked to consent the first time they open
+   the pay page). Slip reading (OCR) needs no extra environment: its language data ships in the image
+   (`server/assets/tessdata`, copied to `/app/assets/tessdata`) and nothing is downloaded at runtime.
 6. Run `npm run db:backup`, then deploy (this release has a migration; see "When the release
    contains a migration").
 7. Press **Verify** next to the webhook URL in the console. If it fails, check that Cloudflare

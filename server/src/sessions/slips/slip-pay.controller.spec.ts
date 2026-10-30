@@ -1,13 +1,13 @@
 import { randomUUID } from 'node:crypto';
+import http from 'node:http';
+import type { AddressInfo } from 'node:net';
 import request from 'supertest';
-import { LoginThrottle } from '../../auth/login-throttle.js';
 import {
   bootSlipApp,
   lineUser,
   newRef,
   slipRead,
 } from '../../../test/slip-http.fixture.js';
-import { SlipPayController } from './slip-pay.controller.js';
 import { SlipPaymentsService, type LiffUser } from './slip-payments.service.js';
 
 type Kit = Awaited<ReturnType<typeof bootSlipApp>>;
@@ -30,8 +30,7 @@ describe('slip pay-page routes (public, token-gated)', () => {
     users.clear();
     kit.liff.verify.mockReset().mockImplementation(async (t) => users.get(t) ?? null);
     kit.reader.read.mockReset();
-    // A fresh counter per test: the address key is shared by every request from this process.
-    Reflect.set(kit.app.get(SlipPayController), 'throttle', new LoginThrottle());
+    kit.resetThrottles();
   });
 
   /** A viewer LINE account whose access token verifies, as `[token, user]`. */
@@ -293,7 +292,8 @@ describe('slip pay-page routes (public, token-gated)', () => {
       const { code, token } = await kit.setup(lapsed.id);
       const [access] = viewer();
       for (let i = 0; i < 10; i++) expect((await upload(code, q(token), access)).status).toBe(404);
-      expect((await upload(code, q(token), access)).status).toBe(429);
+      // The upload budget does not apply to GET: this 429 is the failure counter.
+      expect((await get(code, q(token), access)).status).toBe(429);
     });
 
     it('a paid upload resets the counter', async () => {
@@ -312,8 +312,10 @@ describe('slip pay-page routes (public, token-gated)', () => {
       const { code, token } = await setupSession();
       const [access] = viewer();
       kit.reader.read.mockResolvedValue({ kind: 'not-slip' });
-      for (let i = 0; i < 15; i++) expect((await upload(code, q(token), access)).status).toBe(200);
+      for (let i = 0; i < 10; i++) expect((await upload(code, q(token), access)).status).toBe(200);
+      // Only the upload budget is spent; the failure counter is untouched.
       expect((await get(code, q(token), access)).status).toBe(200);
+      expect((await claim(code, q(token), access, 'nobody')).status).toBe(200);
     });
 
     it('429s a source address after ten unverifiable LINE tokens, even for a good one', async () => {
@@ -321,6 +323,109 @@ describe('slip pay-page routes (public, token-gated)', () => {
       for (let i = 0; i < 10; i++) expect((await get(code, q(token), `bad-${i}`)).status).toBe(404);
       const [good] = viewer();
       expect((await get(code, q(token), good)).status).toBe(429);
+    });
+  });
+
+  describe('upload abuse limits (checked before the body is read)', () => {
+    /** Starts a chunked image upload and resolves with the status once the server answers, without ending the body. */
+    function chunkedUpload(code: string, query: string, access: string): Promise<{ status: number; consumedAll: boolean }> {
+      const { port } = kit.server.address() as AddressInfo;
+      return new Promise((resolve, reject) => {
+        const req = http.request({
+          host: '127.0.0.1', port, method: 'POST', path: `${pay(code)}/upload${query}`,
+          headers: { 'content-type': 'image/png', 'transfer-encoding': 'chunked', [HEADER]: access },
+        });
+        req.on('response', (res) => {
+          res.resume();
+          // The request body was never ended by the client, so a server that waited for it could not have answered.
+          resolve({ status: res.statusCode ?? 0, consumedAll: false });
+          req.destroy();
+        });
+        req.on('error', (e) => {
+          if ((e as NodeJS.ErrnoException).code !== 'ECONNRESET') reject(e);
+        });
+        req.write(Buffer.alloc(64 * 1024, 1));
+        setTimeout(() => reject(new Error('server waited for the body')), 3000).unref();
+      });
+    }
+
+    it('refuses an upload from a blocked address with 429 without reading the body', async () => {
+      const { code, token } = await setupSession();
+      for (let i = 0; i < 10; i++) expect((await get(code, q(token), `bad-${i}`)).status).toBe(404);
+      const [good] = viewer();
+      const res = await chunkedUpload(code, q(token), good);
+      expect(res.status).toBe(429);
+      expect(kit.liff.verify).not.toHaveBeenCalledWith(good);
+      expect(kit.reader.read).not.toHaveBeenCalled();
+    });
+
+    it('answers an unverifiable LINE token on upload with the uniform 404, counts it against the address, and never reads the body', async () => {
+      const { code, token } = await setupSession();
+      const baseline = await upload(code, q(token), undefined);
+      expect(baseline.status).toBe(404);
+      const res = await chunkedUpload(code, q(token), 'not-a-real-token');
+      expect(res.status).toBe(404);
+      // Nine more unverifiable tokens fill the address budget (ten in all); a missing header earlier did not count.
+      for (let i = 0; i < 9; i++) expect((await upload(code, q(token), `bad-${i}`)).body).toEqual(baseline.body);
+      const [good] = viewer();
+      expect((await get(code, q(token), good)).status).toBe(429);
+    });
+
+    it('a missing header is a bare 404 and is never counted against the address', async () => {
+      const { code, token } = await setupSession();
+      for (let i = 0; i < 15; i++) expect((await upload(code, q(token), undefined)).status).toBe(404);
+      const [good] = viewer();
+      expect((await get(code, q(token), good)).status).toBe(200);
+    });
+
+    it('429s the eleventh upload of one viewer in the window even when every earlier one was harmless', async () => {
+      const { code, token, ids } = await setupSession();
+      const [access] = viewer();
+      kit.reader.read.mockImplementation(async () => slipRead(newRef(), await kit.owed(code, ids[0])));
+      for (let i = 0; i < 10; i++) {
+        const res = await upload(code, q(token), access);
+        expect({ i, status: res.status, outcome: res.body.outcome }).toEqual({ i, status: 200, outcome: 'waiting' });
+      }
+      const calls = kit.reader.read.mock.calls.length;
+      const blocked = await upload(code, q(token), access, Buffer.alloc(1024, 1));
+      expect(blocked.status).toBe(429);
+      expect(kit.reader.read.mock.calls.length).toBe(calls);
+      // GET and claim are not uploads.
+      expect((await get(code, q(token), access)).status).toBe(200);
+    });
+
+    it('does not share a budget between viewers or between sessions', async () => {
+      const one = await setupSession();
+      const two = await setupSession();
+      const [a] = viewer('A');
+      const [b] = viewer('B');
+      kit.reader.read.mockResolvedValue({ kind: 'not-slip' });
+      for (let i = 0; i < 10; i++) expect((await upload(one.code, q(one.token), a)).status).toBe(200);
+      expect((await upload(one.code, q(one.token), a)).status).toBe(429);
+      expect((await upload(one.code, q(one.token), b)).status).toBe(200);
+      expect((await upload(two.code, q(two.token), a)).status).toBe(200);
+    });
+
+    it('refuses with 429 when six uploads are already being processed, and frees the slot afterwards', async () => {
+      const { code, token } = await setupSession();
+      const release: (() => void)[] = [];
+      kit.reader.read.mockImplementation(
+        () => new Promise((resolve) => release.push(() => resolve({ kind: 'not-slip' })))
+      );
+      const viewers = Array.from({ length: 7 }, (_, i) => viewer(`V${i}`)[0]);
+      const inFlight = viewers.slice(0, 6).map((v) => upload(code, q(token), v).then((r) => r));
+      for (let i = 0; i < 200 && kit.reader.read.mock.calls.length < 6; i++) await new Promise((r) => setTimeout(r, 10));
+      expect(kit.reader.read.mock.calls.length).toBe(6);
+
+      const seventh = await upload(code, q(token), viewers[6], Buffer.alloc(1024, 1));
+      expect(seventh.status).toBe(429);
+      expect(kit.reader.read.mock.calls.length).toBe(6);
+
+      release.forEach((r) => r());
+      for (const res of await Promise.all(inFlight)) expect(res.status).toBe(200);
+
+      kit.reader.read.mockResolvedValue({ kind: 'not-slip' });
+      expect((await upload(code, q(token), viewers[6])).status).toBe(200);
     });
   });
 });

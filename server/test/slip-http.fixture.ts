@@ -6,6 +6,7 @@ import request from 'supertest';
 import { vi } from 'vitest';
 import { AppModule } from '../src/app.module.js';
 import { SESSION_SECRET } from '../src/auth/auth.module.js';
+import { LoginThrottle } from '../src/auth/login-throttle.js';
 import { AuthBootstrapService } from '../src/auth/bootstrap.service.js';
 import { PrismaService } from '../src/prisma/prisma.service.js';
 import { UsersService } from '../src/users/users.service.js';
@@ -16,6 +17,7 @@ import { LiffIdentity } from '../src/sessions/slips/liff-identity.js';
 import type { OcrLine } from '../src/sessions/slips/slip-match.js';
 import type { LiffUser } from '../src/sessions/slips/slip-payments.service.js';
 import { SlipReader, type SlipRead } from '../src/sessions/slips/slip-reader.js';
+import { SLIP_FAILURE_THROTTLE, SLIP_UPLOAD_THROTTLE } from '../src/sessions/slips/slip-throttles.js';
 
 /** Shared setup for the slip HTTP specs: the whole AppModule with the LINE and OCR edges stubbed, and a real DB. */
 export const SECRET = 'slip-http-test-secret';
@@ -50,7 +52,20 @@ export function slipRead(reference: string, amountSatang: number | null): SlipRe
   return { kind: 'slip', qr: { bankCode: '004', reference }, ocr: { text: texts.join('\n'), lines } };
 }
 
+/** A `LoginThrottle` a spec can empty between tests (the address key is shared by every request from this process). */
+export class ResettableThrottle {
+  private inner = new LoginThrottle();
+  check = (key: string) => this.inner.check(key);
+  recordFailure = (key: string) => this.inner.recordFailure(key);
+  recordSuccess = (key: string) => this.inner.recordSuccess(key);
+  reset() {
+    this.inner = new LoginThrottle();
+  }
+}
+
 export async function bootSlipApp() {
+  const failures = new ResettableThrottle();
+  const uploads = new ResettableThrottle();
   const liff = { verify: vi.fn<(accessToken: string) => Promise<LiffUser | null>>() };
   const reader = { read: vi.fn<(image: Buffer) => Promise<SlipRead>>() };
   const moduleRef = await Test.createTestingModule({ imports: [AppModule] })
@@ -62,6 +77,10 @@ export async function bootSlipApp() {
     .useValue(liff)
     .overrideProvider(SlipReader)
     .useValue(reader)
+    .overrideProvider(SLIP_FAILURE_THROTTLE)
+    .useValue(failures)
+    .overrideProvider(SLIP_UPLOAD_THROTTLE)
+    .useValue(uploads)
     .compile();
   const app: INestApplication = moduleRef.createNestApplication({ rawBody: true });
   app.use(cookieParser(SECRET));
@@ -161,5 +180,10 @@ export async function bootSlipApp() {
     await app.close();
   }
 
-  return { app, server, prisma, cards, liff, reader, owner, confirm, setup, owed, cleanup };
+  const resetThrottles = () => {
+    failures.reset();
+    uploads.reset();
+  };
+
+  return { app, server, prisma, cards, liff, reader, owner, confirm, setup, owed, cleanup, resetThrottles };
 }

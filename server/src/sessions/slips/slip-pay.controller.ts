@@ -6,6 +6,7 @@ import {
   HttpCode,
   HttpException,
   HttpStatus,
+  Inject,
   NotFoundException,
   Param,
   Post,
@@ -17,6 +18,8 @@ import { Public } from '../../auth/public.decorator.js';
 import { LoginThrottle } from '../../auth/login-throttle.js';
 import { SlipPlayerDto } from '../dto/slip-player.dto.js';
 import { LiffIdentity } from './liff-identity.js';
+import type { SlipViewerRequest } from './slip-upload.middleware.js';
+import { SLIP_FAILURE_THROTTLE } from './slip-throttles.js';
 import {
   SlipPaymentsService,
   type ClaimOutcome,
@@ -38,15 +41,16 @@ export interface SlipUploadResult {
  * (`?token=`). Every failure of either, an unavailable page, or an unknown session is the same bare 404, so nothing
  * tells a guesser which half was wrong; a caller who keeps failing gets 429.
  *
- * The counters are in memory like the login throttle's: a single container, and a reset on deploy is the right trade.
+ * The counters are in memory like the login throttle's (two shared instances, see slip-throttles.ts): a single
+ * container, and a reset on deploy is the right trade. The upload is guarded earlier, by SlipUploadMiddleware, which
+ * verifies the viewer and meters uploads before any body is read.
  */
 @Controller('sessions')
 export class SlipPayController {
-  private readonly throttle = new LoginThrottle();
-
   constructor(
     private readonly slips: SlipPaymentsService,
-    private readonly liff: LiffIdentity
+    private readonly liff: LiffIdentity,
+    @Inject(SLIP_FAILURE_THROTTLE) private readonly throttle: LoginThrottle
   ) {}
 
   @Public()
@@ -77,16 +81,19 @@ export class SlipPayController {
     return { outcome };
   }
 
-  /** The body is parsed by SlipUploadMiddleware (raw `image/*`, 8 MB); anything else arrives here without one. */
+  /** The body is parsed by SlipUploadMiddleware (raw `image/*`, 8 MB) after its checks; anything else arrives here without one. */
   @Public()
   @Post(':code/slip-pay/upload')
   @HttpCode(200)
   async upload(
     @Param('code') code: string,
     @Query('token') token: unknown,
-    @Req() req: Request
+    @Req() req: SlipViewerRequest
   ): Promise<SlipUploadResult> {
-    const { user, key } = await this.viewer(req, code);
+    // The middleware already checked the address, verified the token with LINE and spent the viewer's upload budget;
+    // without a viewer it refused to read the body and this is the uniform 404.
+    if (!req.slipViewer) throw new NotFoundException();
+    const { user, key } = this.known(req.slipViewer, code);
     // Only a caller who passed both gates is told about their body: a bad link is a bare 404 whatever was sent.
     const pay = payToken(token);
     if (pay === undefined) this.fail(key);
@@ -118,6 +125,11 @@ export class SlipPayController {
       throw new NotFoundException();
     }
 
+    return this.known(user, code);
+  }
+
+  /** The viewer's own failure budget for this session: spent means 429. */
+  private known(user: LiffUser, code: string): { user: LiffUser; key: string } {
     const key = `slip:${code}:${user.userId}`;
     if (!this.throttle.check(key)) throw tooMany();
     return { user, key };

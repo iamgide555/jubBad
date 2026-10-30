@@ -1,6 +1,7 @@
 import { MiddlewareConsumer, Module, NestModule, RequestMethod } from '@nestjs/common';
 import { GroupsModule } from '../groups/groups.module.js';
 import { LineModule } from '../line/line.module.js';
+import { LoginThrottle } from '../auth/login-throttle.js';
 import { PlansModule } from '../plans/plans.module.js';
 import { VenuesModule } from '../venues/venues.module.js';
 import { BillController } from './bill.controller.js';
@@ -18,6 +19,7 @@ import { SlipPaymentsService } from './slips/slip-payments.service.js';
 import { SlipPayController } from './slips/slip-pay.controller.js';
 import { SlipPaymentsController } from './slips/slip-payments.controller.js';
 import { SlipReader } from './slips/slip-reader.js';
+import { SLIP_FAILURE_THROTTLE, SLIP_UPLOAD_THROTTLE } from './slips/slip-throttles.js';
 import { SlipUploadMiddleware } from './slips/slip-upload.middleware.js';
 
 @Module({
@@ -40,6 +42,8 @@ import { SlipUploadMiddleware } from './slips/slip-upload.middleware.js';
     SlipReader,
     SlipPaymentsService,
     LiffIdentity,
+    { provide: SLIP_FAILURE_THROTTLE, useFactory: () => new LoginThrottle() },
+    { provide: SLIP_UPLOAD_THROTTLE, useFactory: () => new LoginThrottle() },
   ],
   exports: [SessionsService],
 })

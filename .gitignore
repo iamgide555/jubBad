@@ -25,3 +25,6 @@ server/prisma/dev.db-shm
 # Subagent-driven-development scratch: per-plan ledgers, briefs, review
 # packages. The git history is the durable record once a plan finishes.
 .superpowers/
+
+# Private payment evidence must never enter Git or container images.
+server/prisma/slip-images/

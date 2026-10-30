@@ -178,6 +178,8 @@ export class PaymentCardService {
    */
   confirm(code: string, dto: ConfirmPaymentCardDto, now: Date = new Date()): Promise<PaymentPanel> {
     return this.lock.run(code, async () => {
+      const closed = await this.prisma.session.findUnique({where:{code},select:{paymentCollectionClosedAt:true}});
+      if (closed?.paymentCollectionClosedAt) throw new ConflictException({code:'COLLECTION_CLOSED'});
       const checked = validatePayAccount(dto);
       if (!checked.ok) throw new BadRequestException({ code: 'PAY_ACCOUNT_INVALID' });
       const { panel, nothingDue, state, cardInput } = await this.view(code, now);

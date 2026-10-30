@@ -16,6 +16,9 @@
     @default {
       @if (view(); as v) {
         @switch (screen()) {
+          @case ('closed') {
+            <section class="result" data-slip-closed><h1 i18n="@@payments.closed">เก็บเงินครบแล้ว</h1></section>
+          }
           @case ('result') {
             <section class="result" [attr.data-slip-result]="result()">
               @if (result() === 'paid') {

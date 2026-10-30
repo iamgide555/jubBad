@@ -30,6 +30,18 @@ describe('PaymentStatus', () => {
     ] });
   });
 
+  it('distinguishes pending from unpaid and paid, and shows collection completion', async () => {
+    api.status.mockReturnValue(of({ ...VIEW, closedAt: '2026-10-31', pendingSlipCount: 2, rows: [...VIEW.rows, { name: 'Pending Person', amountSatang: 9000, paid: false, pending: true, amountChangedSince: false }] }));
+    await open();
+    expect(el().querySelector('[data-unpaid-count]')?.textContent).toContain('1');
+    expect(el().querySelector('[data-pending-count]')?.textContent).toContain('1');
+    expect(el().querySelector('[data-pending-slip-count]')?.textContent).toContain('2');
+    expect(text()).toContain('เก็บเงินครบแล้ว');
+    const row = [...el().querySelectorAll('[data-status-row]')].find(r => r.textContent?.includes('Pending Person'));
+    expect(row?.textContent).toContain('รอยืนยัน');
+    expect(row?.querySelector('.pending-state')).not.toBeNull();
+  });
+
   it('reads without a claim, shows counts/date/amounts, and puts unpaid first', async () => {
     await open();
     expect(api.status).toHaveBeenCalledWith('abc', 'TOK', 'ACCESS');

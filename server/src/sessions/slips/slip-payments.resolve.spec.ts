@@ -221,17 +221,17 @@ describe('slip payments: host review', () => {
   });
 
   describe('resolveWaiting', () => {
-    it('marks every covered player paid by slip, with no amount and the slip\'s reference, and clears the slip', async () => {
+    it('marks every covered player paid by slip, with each bill share and the slip\'s reference, and clears the slip', async () => {
       const { code, token, ids } = await setup();
       const { row } = await waiting(code, token, 33300);
       const stored = await prisma.pendingSlip.findUniqueOrThrow({ where: { id: row.id } });
 
-      await slips.resolveWaiting(code, row.id, { coversPlayerIds: [ids[0], ids[2]], senderPlayerId: null });
+      await slips.resolveWaiting(code, row.id, { coversPlayerIds: [ids[0], ids[2]], senderPlayerId: null, reviewedAmountSatang: (await owed(code, ids[0])) + (await owed(code, ids[2])) });
 
       const payments = await paymentsOf(code);
       expect(payments.map((p) => p.playerId).sort()).toEqual([ids[0], ids[2]].sort());
       for (const p of payments) {
-        expect(p).toMatchObject({ source: 'slip', amountSatang: null, reference: stored.reference });
+        expect(p).toMatchObject({ source: 'slip', amountSatang: await owed(code, p.playerId), reference: stored.reference });
       }
       expect(await slips.listWaiting(code)).toEqual([]);
       expect((await prisma.pendingSlip.findUniqueOrThrow({ where: { id: row.id } })).resolvedAt).not.toBeNull();
@@ -255,7 +255,7 @@ describe('slip payments: host review', () => {
     it('links a sender who is not among the covered players', async () => {
       const { code, token, groupCode, ids } = await setup();
       const { row, user } = await waiting(code, token, 33300);
-      await slips.resolveWaiting(code, row.id, { coversPlayerIds: [ids[1]], senderPlayerId: ids[3] });
+      await slips.resolveWaiting(code, row.id, { coversPlayerIds: [ids[1]], senderPlayerId: ids[3], reviewedAmountSatang: await owed(code, ids[1]) });
       expect(await slips.linkedPlayerOf(groupCode, user.userId)).toBe(ids[3]);
       expect((await paymentsOf(code)).map((p) => p.playerId)).toEqual([ids[1]]);
     });
@@ -269,7 +269,7 @@ describe('slip payments: host review', () => {
       expect(row.reason).toBe('amount');
 
       await expect(
-        slips.resolveWaiting(code, row.id, { coversPlayerIds: [ids[0], ids[2]], senderPlayerId: ids[0] })
+        slips.resolveWaiting(code, row.id, { coversPlayerIds: [ids[0], ids[2]], senderPlayerId: ids[0], reviewedAmountSatang: (await owed(code, ids[0])) + (await owed(code, ids[2])) })
       ).rejects.toMatchObject({ response: { code: 'ACCOUNT_ALREADY_LINKED' } });
 
       expect(await paymentsOf(code)).toEqual([]);
@@ -297,21 +297,15 @@ describe('slip payments: host review', () => {
       expect(await slips.listWaiting(code)).toHaveLength(1);
     });
 
-    it('skips a covered player who is already paid without overwriting the mark', async () => {
+    it('refuses already-paid coverage without overwriting its mark', async () => {
       const { code, token, ids } = await setup();
       await slips.tick(code, ids[0]);
       const before = (await paymentsOf(code))[0];
       const { row } = await waiting(code, token, 33300);
-
-      await slips.resolveWaiting(code, row.id, { coversPlayerIds: [ids[0], ids[1]], senderPlayerId: null });
-
-      const payments = await paymentsOf(code);
-      expect(payments).toHaveLength(2);
-      expect(payments.find((p) => p.playerId === ids[0])).toMatchObject({
-        id: before.id, source: 'host', amountSatang: null, reference: null,
-      });
-      expect(payments.find((p) => p.playerId === ids[1])).toMatchObject({ source: 'slip' });
-      expect(await slips.listWaiting(code)).toEqual([]);
+      await expect(slips.resolveWaiting(code, row.id, { coversPlayerIds: [ids[0], ids[1]], senderPlayerId: null }))
+        .rejects.toMatchObject({response:{code:'PLAYER_ALREADY_PAID'}});
+      expect(await paymentsOf(code)).toEqual([before]);
+      expect(await slips.listWaiting(code)).toHaveLength(1);
     });
 
     it('is not found for another session\'s slip, an unknown id, or one already resolved', async () => {
@@ -322,7 +316,7 @@ describe('slip payments: host review', () => {
       await expect(slips.resolveWaiting(b.code, row.id, input)).rejects.toMatchObject({ status: 404 });
       await expect(slips.resolveWaiting(b.code, 'nope', input)).rejects.toMatchObject({ status: 404 });
 
-      await slips.resolveWaiting(a.code, row.id, { coversPlayerIds: [a.ids[0]], senderPlayerId: null });
+      await slips.resolveWaiting(a.code, row.id, { coversPlayerIds: [a.ids[0]], senderPlayerId: null, reviewedAmountSatang: await owed(a.code, a.ids[0]) });
       await expect(
         slips.resolveWaiting(a.code, row.id, { coversPlayerIds: [a.ids[1]], senderPlayerId: null })
       ).rejects.toMatchObject({ status: 404 });

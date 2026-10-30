@@ -332,6 +332,8 @@ model Session {
   queuedMatches QueuedMatch[]
   payments      SessionPayment[]
   pendingSlips  PendingSlip[]
+  slipImages    SlipImage[]
+  paymentCollectionClosedAt DateTime?
 }
 
 model SessionRoster {
@@ -599,6 +601,8 @@ model PendingSlip {
   /// The sender's LINE profile picture address, not the image itself.
   pictureUrl   String?
   amountSatang Int?
+  reviewedAmountSatang Int?
+  reviewedAt   DateTime?
   receiverName String?
   receiverTail String?
   /// Why it was held: 'unmapped' | 'amount' | 'receiver' | 'unreadable' | 'stale' | 'collision'.
@@ -621,4 +625,18 @@ model SlipDuplicate {
   originalPlayerIds String
   dismissedAt       DateTime?
   createdAt         DateTime  @default(now())
+}
+
+/// Private image metadata only; bytes live outside SQLite and its backups.
+model SlipImage {
+  id          String   @id @default(uuid())
+  sessionId   String
+  session     Session  @relation(fields: [sessionId], references: [code], onDelete: Cascade)
+  reference   String
+  contentType String
+  createdAt   DateTime @default(now())
+  expiresAt   DateTime
+
+  @@unique([sessionId, reference])
+  @@index([expiresAt])
 }

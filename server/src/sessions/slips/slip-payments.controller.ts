@@ -1,4 +1,7 @@
-import { Body, Controller, Get, HttpCode, Param, Post } from '@nestjs/common';
+import { Body, Controller, Get, HttpCode, Param, Post, Res, StreamableFile, NotFoundException } from '@nestjs/common';
+import type { Response } from 'express';
+import { CloseCollectionDto } from '../dto/close-collection.dto.js';
+import { SlipImagesService } from './slip-images.service.js';
 import { ResolveWaitingSlipDto } from '../dto/resolve-waiting-slip.dto.js';
 import { SetPlayerLinkDto } from '../dto/set-player-link.dto.js';
 import { SlipPlayerDto } from '../dto/slip-player.dto.js';
@@ -12,6 +15,7 @@ import {
 
 /** Everything the bill screen needs about slips and paid marks in one read. */
 export interface SlipPaymentsPanel {
+  collection: {closedAt: string | null; canClose: boolean; imageCount: number};
   paid: PaidRow[];
   waiting: WaitingSlip[];
   duplicates: DuplicateSlip[];
@@ -24,7 +28,7 @@ export interface SlipPaymentsPanel {
  */
 @Controller('sessions')
 export class SlipPaymentsController {
-  constructor(private readonly slips: SlipPaymentsService) {}
+  constructor(private readonly slips: SlipPaymentsService, private readonly images: SlipImagesService) {}
 
   @Get(':code/payments')
   async panel(@Param('code') code: string): Promise<SlipPaymentsPanel> {
@@ -34,7 +38,22 @@ export class SlipPaymentsController {
       this.slips.listDuplicates(code),
       this.slips.listLinks(code),
     ]);
-    return { paid, waiting, duplicates, links };
+    return { paid, waiting, duplicates, links, collection: await this.slips.collection(code) };
+  }
+
+  @Get(':code/payments/images/:id')
+  async image(@Param('code') code: string, @Param('id') id: string, @Res({passthrough: true}) res: Response): Promise<StreamableFile> {
+    const file = await this.images.read(code, id);
+    if (!file) throw new NotFoundException();
+    res.set({ 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff', 'Content-Security-Policy': "default-src 'none'" });
+    return new StreamableFile(file.image, { type: file.contentType, disposition: 'inline' });
+  }
+
+  @Post(':code/payments/close')
+  @HttpCode(200)
+  async close(@Param('code') code: string, @Body() _dto: CloseCollectionDto): Promise<{ok:true}> {
+    await this.slips.closeCollection(code);
+    return {ok:true};
   }
 
   @Post(':code/payments/tick')
@@ -61,6 +80,7 @@ export class SlipPaymentsController {
     await this.slips.resolveWaiting(code, id, {
       coversPlayerIds: dto.coversPlayerIds,
       senderPlayerId: dto.senderPlayerId ?? null,
+      reviewedAmountSatang: dto.reviewedAmountSatang,
     });
     return { ok: true };
   }

@@ -30,7 +30,9 @@ export class PaymentStatus {
     return [...rows.filter((r) => !r.paid), ...rows.filter((r) => r.paid)];
   });
   protected readonly paidCount = computed(() => this.rows().filter((r) => r.paid).length);
-  protected readonly unpaidCount = computed(() => this.rows().length - this.paidCount());
+  protected readonly unpaidCount = computed(() => this.rows().filter(r => !r.paid && !r.pending).length);
+
+  protected readonly pendingCount = computed(() => this.rows().filter(r => !r.paid && r.pending).length);
 
   constructor() {
     void this.load();

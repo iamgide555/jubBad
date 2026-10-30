@@ -139,7 +139,7 @@ export class SessionBill {
     } catch (e) {
       const locked = e instanceof HttpErrorResponse && e.status === 409 && e.error?.code === 'SHUTTLE_CHARGE_LOCKED';
       this.error.set(
-        planErrorMessage(e) ??
+        closedCollectionMessage(e) ?? planErrorMessage(e) ??
         (locked
           ? $localize`:@@bill.chargeLockedError:เปลี่ยนวิธีคิดค่าลูกไม่ได้ เพราะมีคนเช็คเอาต์ไปแล้ว ยกเลิกเช็คเอาต์ก่อน`
           : $localize`:@@bill.saveFailed:บันทึกไม่สำเร็จ ลองใหม่อีกครั้ง`)
@@ -156,8 +156,8 @@ export class SessionBill {
     try {
       await firstValueFrom(this.http.post(`${this.base}/shuttle-details`, patch));
       await this.load();
-    } catch {
-      this.error.set($localize`:@@bill.shuttleDetailsFailed:บันทึกข้อมูลลูกแบดไม่สำเร็จ ลองใหม่อีกครั้ง`);
+    } catch (e) {
+      this.error.set(closedCollectionMessage(e) ?? $localize`:@@bill.shuttleDetailsFailed:บันทึกข้อมูลลูกแบดไม่สำเร็จ ลองใหม่อีกครั้ง`);
     } finally {
       this.saving.set(false);
     }
@@ -254,8 +254,8 @@ export class SessionBill {
         this.http.post(`${this.base}/roster/${playerId}/walk-in`, { walkIn: !this.walkIn().get(playerId) })
       );
       await this.load();
-    } catch {
-      this.error.set($localize`:@@bill.saveFailed:บันทึกไม่สำเร็จ ลองใหม่อีกครั้ง`);
+    } catch (e) {
+      this.error.set(closedCollectionMessage(e) ?? $localize`:@@bill.saveFailed:บันทึกไม่สำเร็จ ลองใหม่อีกครั้ง`);
     }
   }
 
@@ -296,4 +296,10 @@ export class SessionBill {
       this.clipboardFallback.set(text);
     }
   }
+}
+
+function closedCollectionMessage(error: unknown): string | null {
+  return error instanceof HttpErrorResponse && error.status === 409 && error.error?.code === 'COLLECTION_CLOSED'
+    ? $localize`:@@bill.collectionClosed:ปิดการเก็บเงินแล้ว แก้ไขบิลไม่ได้`
+    : null;
 }

@@ -23,6 +23,11 @@ export class SlipReader {
     }
     const qr = decodeSlipQr(image);
     if (!qr) return { kind: 'not-slip' };
-    return { kind: 'slip', qr, ocr: await this.ocr.read(image) };
+    try {
+      return { kind: 'slip', qr, ocr: await this.ocr.read(image) };
+    } catch {
+      // A valid QR still supplies evidence for manual review when OCR is unavailable.
+      return { kind: 'slip', qr, ocr: { text: '', lines: [] } };
+    }
   }
 }

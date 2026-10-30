@@ -675,7 +675,7 @@ describe('slip payments: submit pipeline', () => {
       expect(await onePending(code)).toMatchObject({ reason: 'collision' });
     });
 
-    it('holds a slip whose amount is not the sender\'s own; stores an amount only when exactly one owed amount shows', async () => {
+    it('holds a slip whose amount is not the sender\'s own; stores a unique amount even when it matches nobody on the bill', async () => {
       const { code, ids, token } = await setup();
       await reprice(code, token, [
         { playerId: ids[1], amountSatang: 25000 },
@@ -692,7 +692,7 @@ describe('slip payments: submit pipeline', () => {
 
       const rows = await prisma.pendingSlip.findMany({ where: { sessionId: code }, orderBy: { createdAt: 'asc' } });
       expect(rows.map((r) => [r.reason, r.amountSatang])).toEqual([
-        ['amount', null],
+        ['amount', 99900],
         ['amount', 25000],
         ['amount', null],
       ]);

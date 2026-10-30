@@ -23,14 +23,16 @@
       <button type="button" (click)="load()" i18n="@@entry.retry">ลองอีกครั้ง</button>
     }
     @case ('ready') {
+      @if (view()?.closedAt) { <p class="paid-state" role="status" i18n="@@payments.closed">เก็บเงินครบแล้ว</p> }
       <div class="status-toolbar">
         <div class="counts" role="status">
           <span data-unpaid-count i18n="@@paymentStatus.unpaidCount">ยังไม่จ่าย {{ unpaidCount() }} คน</span>
+          <span class="pending-state" data-pending-count i18n="@@paymentStatus.pendingCount">รอยืนยัน {{ pendingCount() }} คน</span>
           <span class="paid-count" data-paid-count i18n="@@paymentStatus.paidCount">จ่ายแล้ว {{ paidCount() }} คน</span>
         </div>
         <button type="button" (click)="load()" i18n="@@paymentStatus.refresh">รีเฟรชสถานะ</button>
       </div>
-      <p class="status-note muted" i18n="@@paymentStatus.pendingNote">ส่งสลิปแล้วแต่รอโฮสต์ตรวจ ยังนับว่ายังไม่จ่าย</p>
+      <p class="status-note muted" data-pending-slip-count i18n="@@paymentStatus.pendingSlips">สลิปรอตรวจ {{ view()?.pendingSlipCount ?? 0 }} รายการ</p>
       @if (rows().length === 0) {
         <p class="empty" i18n="@@paymentStatus.empty">ไม่มีรายชื่อในบิลนี้</p>
       } @else {
@@ -47,8 +49,10 @@
                 <span class="amount">฿{{ baht(row.amountSatang) }}</span>
                 @if (row.paid) {
                   <span class="state paid-state" i18n="@@paymentStatus.paid">จ่ายแล้ว</span>
+                } @else if (row.pending) {
+                  <span class="state pending-state" i18n="@@paymentStatus.pending">รอยืนยัน</span>
                 } @else {
-                  <span class="state" i18n="@@paymentStatus.unpaid">ยังไม่จ่าย</span>
+                  <span class="state unpaid-state" i18n="@@paymentStatus.unpaid">ยังไม่จ่าย</span>
                 }
               </div>
             </li>

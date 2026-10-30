@@ -18,12 +18,13 @@ import { SlipOcr } from './slips/slip-ocr.js';
 import { SlipPaymentsService } from './slips/slip-payments.service.js';
 import { SlipPayController } from './slips/slip-pay.controller.js';
 import { SlipPaymentsController } from './slips/slip-payments.controller.js';
+import { SlipImagesModule } from './slips/slip-images.module.js';
 import { SlipReader } from './slips/slip-reader.js';
 import { SLIP_FAILURE_THROTTLE, SLIP_UPLOAD_THROTTLE, SlipUploadSlots } from './slips/slip-throttles.js';
 import { SlipUploadMiddleware } from './slips/slip-upload.middleware.js';
 
 @Module({
-  imports: [GroupsModule, LineModule, PlansModule, VenuesModule],
+  imports: [SlipImagesModule, GroupsModule, LineModule, PlansModule, VenuesModule],
   controllers: [
     SessionsController,
     BillController,

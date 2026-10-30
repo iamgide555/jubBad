@@ -2929,6 +2929,7 @@ export class SessionsService {
   private async setShuttleDetailsExclusively(code: string, dto: SetShuttleDetailsDto) {
     const session = await this.prisma.session.findUnique({ where: { code } });
     if (!session) throw this.notFound('SESSION_NOT_FOUND');
+    if (session.paymentCollectionClosedAt) throw this.conflict('COLLECTION_CLOSED');
 
     // Partial update: a field key absent from the body (dto.<field> ===
     // undefined) is left untouched. An explicit `null` in the body survives
@@ -3629,6 +3630,7 @@ export class SessionsService {
   private async setRosterWalkInExclusively(sessionCode: string, playerId: string, dto: SetRosterWalkInDto) {
     const session = await this.prisma.session.findUnique({ where: { code: sessionCode } });
     if (!session) throw this.notFound('SESSION_NOT_FOUND');
+    if (session.paymentCollectionClosedAt) throw this.conflict('COLLECTION_CLOSED');
     const entry = await this.prisma.sessionRoster.findUnique({
       where: { sessionId_playerId: { sessionId: sessionCode, playerId } },
     });

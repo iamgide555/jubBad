@@ -95,3 +95,6 @@ button {
   padding-block: var(--space-3);
   color: var(--ink-soft);
 }
+
+.pending-state { color: var(--pending-ink); }
+.unpaid-state, [data-unpaid-count] { color: var(--warn); }

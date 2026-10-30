@@ -229,7 +229,7 @@ describe('slip pay-page routes (public, token-gated)', () => {
       const res = await get(code, q(token), access);
       expect(res.status).toBe(200);
       expect(Object.keys(res.body).sort()).toEqual([
-        'accountName', 'alreadyPaid', 'amountSatang', 'claimable', 'playerName', 'sessionDate',
+        'accountName', 'alreadyPaid', 'amountSatang', 'claimable', 'collectionClosed', 'playerName', 'sessionDate',
       ]);
       expect(res.body).toMatchObject({
         amountSatang: null, playerName: null, alreadyPaid: false, accountName: 'สมหญิง ใจดี', sessionDate: '30 ต.ค. 2569',
@@ -272,14 +272,14 @@ describe('slip pay-page routes (public, token-gated)', () => {
       await kit.prisma.sessionPayment.create({ data: { sessionId: code, playerId: ids[0], source: 'slip', amountSatang: 1 } });
       const res = await status(code, q(token), access).expect(200);
       expect(res.headers['cache-control']).toBe('no-store');
-      expect(Object.keys(res.body).sort()).toEqual(['rows', 'sessionDate']);
+      expect(Object.keys(res.body).sort()).toEqual(['closedAt', 'pendingSlipCount', 'rows', 'sessionDate']);
       expect(res.body.sessionDate).toBe('30 ต.ค. 2569');
       expect(res.body.rows).toHaveLength(4);
       expect(res.body.rows.find((r: { name: string }) => r.name === 'สมชาย')).toEqual({
-        name: 'สมชาย', amountSatang: await kit.owed(code, ids[0]), paid: true, amountChangedSince: true,
+        name: 'สมชาย', amountSatang: await kit.owed(code, ids[0]), paid: true, pending: false, amountChangedSince: true,
       });
       expect(res.body.rows.filter((r: { paid: boolean }) => !r.paid)).toHaveLength(3);
-      for (const row of res.body.rows) expect(Object.keys(row).sort()).toEqual(['amountChangedSince', 'amountSatang', 'name', 'paid']);
+      for (const row of res.body.rows) expect(Object.keys(row).sort()).toEqual(['amountChangedSince', 'amountSatang', 'name', 'paid', 'pending']);
       for (const secret of [token, groupCode, ...ids, user.userId, '123-4-56789-0', 'receiverName', 'reference']) expect(res.text).not.toContain(secret);
       expect(await kit.prisma.playerLineAccount.count({ where: { groupId: groupCode } })).toBe(0);
       await kit.app.get(SlipPaymentsService).tick(code, ids[1]);

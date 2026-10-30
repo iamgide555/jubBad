@@ -862,6 +862,14 @@ describe('PaymentCardPanel', () => {
       expect(q('[data-error]')?.textContent).toContain('ตรวจบัญชีรับเงินอีกครั้ง');
     });
 
+    it('explains that a closed collection cannot be reconfirmed', async () => {
+      await open();
+      await click('[data-confirm]');
+      http.expectOne(`${URL}/confirm`).flush({ code: 'COLLECTION_CLOSED' }, { status: 409, statusText: 'Conflict' });
+      await settle();
+      expect(text()).toContain('ปิดการเก็บเงินแล้ว แก้ไขบิลไม่ได้');
+    });
+
     it('changed (409) re-reads the panel before Confirm is usable again, then confirms the new amounts', async () => {
       await open();
       await click('[data-confirm]');

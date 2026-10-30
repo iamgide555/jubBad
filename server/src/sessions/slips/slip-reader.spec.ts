@@ -50,6 +50,15 @@ describe('SlipReader', () => {
     expect(read).not.toHaveBeenCalled();
   });
 
+  it('keeps valid slip readable for host review when OCR fails', async () => {
+    const { ocr, read } = fakeOcr(OCR_RESULT);
+    read.mockRejectedValueOnce(new Error('worker failed'));
+    const reader = new SlipReader(ocr);
+    const image = await qrPng(makeSlipPayload('004', 'TEST12345678'));
+    const result = await reader.read(image);
+    expect(result).toMatchObject({kind:'slip', ocr:{text:'',lines:[]}});
+  });
+
   it('returns the QR and the OCR result for a valid slip QR', async () => {
     const { ocr, read } = fakeOcr(OCR_RESULT);
     const reader = new SlipReader(ocr);
@@ -63,13 +72,13 @@ describe('SlipReader', () => {
     expect(read).toHaveBeenCalledWith(image);
   });
 
-  it('lets an OCR failure propagate to the caller', async () => {
+  it('does not expose OCR worker errors in host review data', async () => {
     const read = vi.fn(async () => {
       throw new Error('ocr down');
     });
     const reader = new SlipReader({ read } as unknown as SlipOcr);
     const image = await qrPng(makeSlipPayload('004', 'REF123456'));
-    await expect(reader.read(image)).rejects.toThrow('ocr down');
+    expect(JSON.stringify(await reader.read(image))).not.toContain('ocr down');
   });
 
   it('treats an image over 25 megapixels as not-slip without OCR', async () => {

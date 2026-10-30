@@ -1,4 +1,5 @@
 import { ConflictException, Injectable, NotFoundException, ServiceUnavailableException } from '@nestjs/common';
+import { SlipImagesService } from '../sessions/slips/slip-images.service.js';
 import { Prisma } from '@prisma/client';
 import { planAtLeast } from '../plans/plan.js';
 import { PlansService } from '../plans/plans.service.js';
@@ -28,7 +29,8 @@ export class LineLinkService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly plans: PlansService,
-    private readonly client: LineClient
+    private readonly client: LineClient,
+    private readonly images: SlipImagesService
   ) {}
 
   async status(groupCode: string): Promise<LineStatus> {
@@ -138,40 +140,48 @@ export class LineLinkService {
    * so it stops receiving a chat it no longer serves. A LINE failure never blocks it.
    */
   async unlink(groupCode: string): Promise<void> {
-    const group = await this.prisma.group.findUnique({ where: { code: groupCode }, select: { lineGroupId: true } });
-    await this.prisma.$transaction([
-      this.prisma.group.updateMany({
-        where: { code: groupCode },
-        data: { lineGroupId: null, lineGroupName: null, lineLinkedAt: null, lineLeftAt: null },
-      }),
-      this.prisma.lineRosterMessage.deleteMany({ where: { groupId: groupCode } }),
-      this.prisma.lineLinkCode.deleteMany({ where: { groupId: groupCode } }),
-      // Slip links and slips go with the link; recorded SessionPayment rows stay.
-      this.prisma.playerLineAccount.deleteMany({ where: { groupId: groupCode } }),
-      this.prisma.pendingSlip.deleteMany({ where: { groupId: groupCode } }),
-      this.prisma.slipDuplicate.deleteMany({ where: { groupId: groupCode } }),
-      this.prisma.slipReference.deleteMany({ where: { groupId: groupCode } }),
-    ]);
-    if (group?.lineGroupId) await this.leaveQuietly(group.lineGroupId);
+    return this.images.withGroupLock(groupCode, async () => {
+      await this.images.purgeGroup(groupCode);
+      const group = await this.prisma.group.findUnique({ where: { code: groupCode }, select: { lineGroupId: true } });
+      await this.prisma.$transaction([
+        this.prisma.group.updateMany({
+          where: { code: groupCode },
+          data: { lineGroupId: null, lineGroupName: null, lineLinkedAt: null, lineLeftAt: null },
+        }),
+        this.prisma.lineRosterMessage.deleteMany({ where: { groupId: groupCode } }),
+        this.prisma.lineLinkCode.deleteMany({ where: { groupId: groupCode } }),
+        // Slip links and slips go with the link; recorded SessionPayment rows stay.
+        this.prisma.playerLineAccount.deleteMany({ where: { groupId: groupCode } }),
+        this.prisma.pendingSlip.deleteMany({ where: { groupId: groupCode } }),
+        this.prisma.slipDuplicate.deleteMany({ where: { groupId: groupCode } }),
+        this.prisma.slipReference.deleteMany({ where: { groupId: groupCode } }),
+      ]);
+      if (group?.lineGroupId) await this.leaveQuietly(group.lineGroupId);
+    });
   }
 
   /** The bot was removed from the LINE group: same as unlink, minus the leave call, and remembered. */
   async markLeft(lineGroupId: string, now: Date = new Date()): Promise<void> {
     const group = await this.prisma.group.findUnique({ where: { lineGroupId }, select: { code: true } });
     if (!group) return;
-    await this.prisma.$transaction([
-      this.prisma.group.update({
-        where: { code: group.code },
-        data: { lineGroupId: null, lineGroupName: null, lineLinkedAt: null, lineLeftAt: now },
-      }),
-      this.prisma.lineRosterMessage.deleteMany({ where: { groupId: group.code } }),
-      this.prisma.lineLinkCode.deleteMany({ where: { groupId: group.code } }),
-      // Slip links and slips go with the link; recorded SessionPayment rows stay.
-      this.prisma.playerLineAccount.deleteMany({ where: { groupId: group.code } }),
-      this.prisma.pendingSlip.deleteMany({ where: { groupId: group.code } }),
-      this.prisma.slipDuplicate.deleteMany({ where: { groupId: group.code } }),
-      this.prisma.slipReference.deleteMany({ where: { groupId: group.code } }),
-    ]);
+    return this.images.withGroupLock(group.code, async () => {
+      const current = await this.prisma.group.findUnique({where:{code:group.code},select:{lineGroupId:true}});
+      if (current?.lineGroupId !== lineGroupId) return;
+      await this.images.purgeGroup(group.code);
+      await this.prisma.$transaction([
+        this.prisma.group.update({
+          where: { code: group.code },
+          data: { lineGroupId: null, lineGroupName: null, lineLinkedAt: null, lineLeftAt: now },
+        }),
+        this.prisma.lineRosterMessage.deleteMany({ where: { groupId: group.code } }),
+        this.prisma.lineLinkCode.deleteMany({ where: { groupId: group.code } }),
+        // Slip links and slips go with the link; recorded SessionPayment rows stay.
+        this.prisma.playerLineAccount.deleteMany({ where: { groupId: group.code } }),
+        this.prisma.pendingSlip.deleteMany({ where: { groupId: group.code } }),
+        this.prisma.slipDuplicate.deleteMany({ where: { groupId: group.code } }),
+        this.prisma.slipReference.deleteMany({ where: { groupId: group.code } }),
+      ]);
+    });
   }
 
   /** Housekeeping: codes that expired or were used more than a day ago. */

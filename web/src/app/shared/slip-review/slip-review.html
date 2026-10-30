@@ -13,6 +13,17 @@
       }
     </header>
 
+    @if (closed()) {
+      <p class="ok" data-collection-closed role="status" i18n="@@payments.closed">เก็บเงินครบแล้ว</p>
+    }
+    @if (canClose()) {
+      <button type="button" class="ghost" data-close-collection [disabled]="busy().has('close')" (click)="askClose()">
+        @if (closed()) { <span i18n="@@slipReview.retryDelete">ลบรูปอีกครั้ง</span> }
+        @else { <span i18n="@@slipReview.close">ปิดการเก็บเงิน</span> }
+      </button>
+    }
+    @if (errors()['collection']; as message) { <p class="error" role="alert">{{ message }}</p> }
+
     <!-- Who has paid, and how. Worded "ชำระแล้ว" so it is never read as the card's early-checkout "จ่ายแล้ว N คน". -->
     <p class="count tabular" data-paid-count i18n="@@slipReview.paidCount">ชำระแล้ว {{ paidCount() }} / {{ billedCount() }} คน</p>
     @if (errors()['people']; as message) {
@@ -21,7 +32,7 @@
     <ul class="people" data-people>
       @for (p of people(); track p.playerId) {
         <li>
-          <button type="button" class="person" data-person [attr.aria-pressed]="p.paid ? 'true' : 'false'" [disabled]="busy().has('tick:' + p.playerId)" (click)="toggle(p)">
+          <button type="button" class="person" data-person [attr.aria-pressed]="p.paid ? 'true' : 'false'" [disabled]="closed() || busy().has('tick:' + p.playerId)" (click)="toggle(p)">
             <span class="person-main">
               <span class="person-name">
                 @if (p.name) {
@@ -34,7 +45,9 @@
                 <span class="changed" data-changed i18n="@@slipReview.amountChanged">ยอดเปลี่ยนหลังจ่าย</span>
               }
             </span>
-            @if (!p.paid) {
+            @if (!p.paid && p.pending) {
+              <span class="status status-pending" data-chip i18n="@@paymentStatus.pending">รอยืนยัน</span>
+            } @else if (!p.paid) {
               <span class="status status-unpaid" data-chip i18n="@@slipReview.chip.unpaid">ยังไม่จ่าย</span>
             } @else if (p.paid.source === 'slip') {
               <span class="status status-slip" data-chip i18n="@@slipReview.chip.slip">สลิป</span>
@@ -65,7 +78,7 @@
                   }
                 </p>
                 <p class="muted tabular">
-                  <span data-w-amount>
+                  <span i18n="@@slipReview.ocrAmount">ยอดที่อ่านได้</span> <span data-w-amount>
                     @if (c.slip.amountSatang !== null) {
                       ฿{{ baht(c.slip.amountSatang) }}
                     } @else {
@@ -77,6 +90,21 @@
                   }
                 </p>
               </div>
+            </div>
+
+            @if (c.slip.imageId && !failedImages().has(c.slip.imageId!)) {
+              <button type="button" class="slip-thumbnail ghost" data-enlarge (click)="enlarge(c.slip.imageId!)" i18n-aria-label="@@slipReview.enlarge" aria-label="ดูรูปสลิปขนาดใหญ่">
+                <img data-slip-image [src]="imageUrl(c.slip.imageId!)" (error)="imageFailed(c.slip.imageId!)" i18n-alt="@@slipReview.imageAlt" alt="รูปสลิปที่ส่งมา" loading="lazy" />
+                <span i18n="@@slipReview.enlarge">ดูรูปสลิปขนาดใหญ่</span>
+              </button>
+            } @else {
+              <p class="muted" data-no-image i18n="@@slipReview.noImage">ไม่มีรูปสลิปที่บันทึกไว้ ตรวจยอดจากสลิปต้นฉบับแล้วกรอกด้านล่าง</p>
+            }
+            <p class="muted retention" i18n="@@slipReview.retention">รูปสลิปเก็บไว้จนปิดการเก็บเงิน หรือไม่เกิน 30 วัน</p>
+            <div class="reviewed-amount">
+              <label [for]="uid + '-amount' + i" i18n="@@slipReview.reviewedAmount">ยอดที่ตรวจจากสลิป (บาท)</label>
+              <input [id]="uid + '-amount' + i" data-reviewed-amount type="text" inputmode="decimal" [value]="c.reviewedAmount" [disabled]="closed() || busy().has('w:' + c.slip.id)" (input)="setAmount(c, $any($event.target).value)" />
+              <p class="muted" i18n="@@slipReview.reviewAmountHint">ตรวจยอดจากรูปก่อนยืนยัน แก้ไขได้หากอ่านยอดผิด</p>
             </div>
 
             <p class="reason" data-w-reason>
@@ -112,27 +140,38 @@
                   <p class="muted" i18n="@@slipReview.tail">เลขบัญชีลงท้าย {{ c.slip.receiverTail }}</p>
                 }
                 @if (c.canFixName) {
-                  <button type="button" class="ghost" data-update-name [disabled]="busy().has('w:' + c.slip.id)" (click)="askUpdateName(c)" i18n="@@slipReview.updateName">อัปเดตชื่อที่ตั้งไว้เป็น "{{ c.slip.receiverName }}"</button>
+                  <button type="button" class="ghost" data-update-name [disabled]="closed() || busy().has('w:' + c.slip.id)" (click)="askUpdateName(c)" i18n="@@slipReview.updateName">อัปเดตชื่อที่ตั้งไว้เป็น "{{ c.slip.receiverName }}"</button>
                 } @else if (c.nameUpdated) {
                   <p class="ok" data-name-updated role="status" i18n="@@slipReview.nameUpdated">เปลี่ยนชื่อที่ตั้งไว้แล้ว ติ๊กคนที่สลิปนี้จ่ายให้ได้เลย</p>
                 }
               </div>
             }
 
-            <fieldset class="covers">
+            <fieldset class="covers" [disabled]="closed() || busy().has('w:' + c.slip.id)">
               <legend i18n="@@slipReview.covers">สลิปนี้จ่ายให้</legend>
               @for (o of coverOptions(); track o.playerId) {
                 <label class="pick">
-                  <input type="checkbox" data-cover [checked]="c.covers.includes(o.playerId)" (change)="toggleCover(c, o.playerId)" />
+                  <input type="checkbox" [disabled]="closed() || busy().has('w:' + c.slip.id)" data-cover [checked]="c.covers.includes(o.playerId)" (change)="toggleCover(c, o.playerId)" />
                   <span class="pick-name">{{ o.name }}</span>
                   <span class="muted tabular">฿{{ baht(o.amountSatang) }}</span>
                 </label>
               }
             </fieldset>
 
+            <div class="review-totals tabular" aria-live="polite">
+              <p data-selected-total i18n="@@slipReview.selectedTotal">ยอดรวมคนที่เลือก ฿{{ baht(c.selectedTotal) }}</p>
+              @if (c.difference !== null) {
+                <p data-difference [class.error]="c.difference !== 0" i18n="@@slipReview.difference">ส่วนต่าง ฿{{ baht(c.difference) }}</p>
+              } @else {
+                <p class="error" i18n="@@slipReview.amountNeeded">กรอกยอดที่ตรวจจากสลิปให้ถูกต้องก่อนยืนยัน</p>
+              }
+              @if (c.difference !== null && c.difference !== 0) {
+                <p class="error" i18n="@@slipReview.matchRequired">ยอดสลิปต้องเท่ากับยอดรวมคนที่เลือก</p>
+              }
+            </div>
             <div class="sender">
               <label [for]="uid + '-s' + i" i18n="@@slipReview.sender">คนส่งคือ (ไม่บังคับ)</label>
-              <select [id]="uid + '-s' + i" data-sender (change)="setSender(c, $any($event.target).value)">
+              <select [disabled]="closed() || busy().has('w:' + c.slip.id)" [id]="uid + '-s' + i" data-sender (change)="setSender(c, $any($event.target).value)">
                 <option value="" [selected]="c.senderId === null" i18n="@@slipReview.senderNone">ไม่มีในระบบ</option>
                 @for (r of rows(); track r.playerId) {
                   <option [value]="r.playerId" [selected]="c.senderId === r.playerId">{{ r.name }}</option>
@@ -147,8 +186,8 @@
               <p class="error" role="alert" data-w-error>{{ message }}</p>
             }
             <div class="actions">
-              <button type="button" class="ghost" data-dismiss [disabled]="busy().has('w:' + c.slip.id)" (click)="dismiss(c)" i18n="@@slipReview.skip">ข้าม</button>
-              <button type="button" data-resolve [disabled]="c.covers.length === 0 || busy().has('w:' + c.slip.id)" (click)="resolve(c)" i18n="@@slipReview.confirm">ยืนยัน</button>
+              <button type="button" class="ghost" data-dismiss [disabled]="closed() || busy().has('w:' + c.slip.id)" (click)="dismiss(c)" i18n="@@slipReview.skip">ข้าม</button>
+              <button type="button" data-resolve [disabled]="!c.canResolve || busy().has('w:' + c.slip.id)" (click)="resolve(c)" i18n="@@slipReview.confirm">ยืนยัน</button>
             </div>
           </article>
         }
@@ -179,7 +218,7 @@
                 <p class="error" role="alert" data-d-error>{{ message }}</p>
               }
             </div>
-            <button type="button" class="ghost" data-dup-ack [disabled]="busy().has('d:' + x.id)" (click)="acknowledge(x.id)" i18n="@@slipReview.ack">รับทราบ</button>
+            <button type="button" class="ghost" data-dup-ack [disabled]="closed() || busy().has('d:' + x.id)" (click)="acknowledge(x.id)" i18n="@@slipReview.ack">รับทราบ</button>
           </article>
         }
       </div>
@@ -218,7 +257,7 @@
                   </span>
                 </p>
               </div>
-              <button type="button" class="ghost" data-link-remove [disabled]="busy().has('l:' + l.playerId)" (click)="unlink(l.playerId)" i18n="@@slipReview.unlink">ยกเลิกการผูก</button>
+              <button type="button" class="ghost" data-link-remove [disabled]="closed() || busy().has('l:' + l.playerId)" (click)="unlink(l.playerId)" i18n="@@slipReview.unlink">ยกเลิกการผูก</button>
             </li>
           }
         </ul>
@@ -241,4 +280,21 @@
       </div>
     </div>
   }
+</dialog>
+
+<dialog #imageDialog i18n-aria-label="@@slipReview.enlarge" aria-label="ดูรูปสลิปขนาดใหญ่" class="sheet-dialog image-dialog" data-image-dialog (close)="enlargedImage.set(null)">
+  @if (enlargedImage(); as url) {
+    <img [src]="url" i18n-alt="@@slipReview.imageAlt" alt="รูปสลิปที่ส่งมา" />
+    <button type="button" class="ghost" (click)="closeImage()" i18n="@@slipReview.closeImage">ปิดรูป</button>
+  }
+</dialog>
+<dialog #closeDialog [attr.aria-labelledby]="uid + '-close-title'" class="sheet-dialog" data-close-dialog>
+  <div class="dialog-body">
+    <h3 [id]="uid + '-close-title'" i18n="@@slipReview.close">ปิดการเก็บเงิน</h3>
+    <p i18n="@@slipReview.closeWarning">รูปสลิป {{ data()?.collection?.imageCount ?? 0 }} รูปจะถูกลบถาวร และแก้ไขการชำระเงินไม่ได้อีก</p>
+    <div class="actions">
+      <button type="button" class="ghost" (click)="cancelClose()" i18n="@@slipReview.nameCancel">ยกเลิก</button>
+      <button type="button" data-confirm-close (click)="confirmClose()" i18n="@@slipReview.closeConfirm">ยืนยันปิดและลบรูป</button>
+    </div>
+  </div>
 </dialog>

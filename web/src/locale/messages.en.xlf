@@ -6917,6 +6917,227 @@
       <trans-unit id="paymentStatus.unpaid" datatype="html">
         <source>ยังไม่จ่าย</source><target>Unpaid</target>
       </trans-unit>
+      <trans-unit id="payments.closed" datatype="html">
+        <source>เก็บเงินครบแล้ว</source>
+        <target>Collection complete</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/payment-status/payment-status.html</context>
+          <context context-type="linenumber">26,27</context>
+        </context-group>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/slip-pay/slip-pay.html</context>
+          <context context-type="linenumber">20,22</context>
+        </context-group>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/shared/slip-review/slip-review.html</context>
+          <context context-type="linenumber">17,18</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="slipReview.close" datatype="html">
+        <source>ปิดการเก็บเงิน</source>
+        <target>Close collection</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/shared/slip-review/slip-review.html</context>
+          <context context-type="linenumber">19,21</context>
+        </context-group>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/shared/slip-review/slip-review.html</context>
+          <context context-type="linenumber">286,287</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="slipReview.ocrAmount" datatype="html">
+        <source>ยอดที่อ่านได้</source>
+        <target>Amount read from slip</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/shared/slip-review/slip-review.html</context>
+          <context context-type="linenumber">75,76</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="slipReview.enlarge" datatype="html">
+        <source>ดูรูปสลิปขนาดใหญ่</source>
+        <target>View full-size slip</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/shared/slip-review/slip-review.html</context>
+          <context context-type="linenumber">90,91</context>
+        </context-group>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/shared/slip-review/slip-review.html</context>
+          <context context-type="linenumber">92,94</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="slipReview.imageAlt" datatype="html">
+        <source>รูปสลิปที่ส่งมา</source>
+        <target>Submitted payment slip</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/shared/slip-review/slip-review.html</context>
+          <context context-type="linenumber">91,92</context>
+        </context-group>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/shared/slip-review/slip-review.html</context>
+          <context context-type="linenumber">280,281</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="slipReview.noImage" datatype="html">
+        <source>ไม่มีรูปสลิปที่บันทึกไว้ ตรวจยอดจากสลิปต้นฉบับแล้วกรอกด้านล่าง</source>
+        <target>No saved image for this slip. Check the original slip and enter its amount below.</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/shared/slip-review/slip-review.html</context>
+          <context context-type="linenumber">95,97</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="slipReview.reviewedAmount" datatype="html">
+        <source>ยอดที่ตรวจจากสลิป (บาท)</source>
+        <target>Reviewed slip amount (baht)</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/shared/slip-review/slip-review.html</context>
+          <context context-type="linenumber">98,99</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="slipReview.reviewAmountHint" datatype="html">
+        <source>ตรวจยอดจากรูปก่อนยืนยัน แก้ไขได้หากอ่านยอดผิด</source>
+        <target>Check the image before confirming. Correct the amount if it was read incorrectly.</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/shared/slip-review/slip-review.html</context>
+          <context context-type="linenumber">100,103</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="slipReview.selectedTotal" datatype="html">
+        <source>ยอดรวมคนที่เลือก ฿<x id="INTERPOLATION" equiv-text="{{ baht(c.selectedTotal) }}"/></source>
+        <target>Selected total ฿<x id="INTERPOLATION" equiv-text="baht(c.selectedTotal)"/></target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/shared/slip-review/slip-review.html</context>
+          <context context-type="linenumber">155,156</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="slipReview.difference" datatype="html">
+        <source>ส่วนต่าง ฿<x id="INTERPOLATION" equiv-text="{{ baht(c.difference) }}"/></source>
+        <target>Difference ฿<x id="INTERPOLATION" equiv-text="baht(c.difference)"/></target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/shared/slip-review/slip-review.html</context>
+          <context context-type="linenumber">157,158</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="slipReview.amountNeeded" datatype="html">
+        <source>กรอกยอดที่ตรวจจากสลิปให้ถูกต้องก่อนยืนยัน</source>
+        <target>Enter a valid reviewed slip amount before confirming.</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/shared/slip-review/slip-review.html</context>
+          <context context-type="linenumber">159,161</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="slipReview.matchRequired" datatype="html">
+        <source>ยอดสลิปต้องเท่ากับยอดรวมคนที่เลือก</source>
+        <target>The slip amount must match the selected total.</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/shared/slip-review/slip-review.html</context>
+          <context context-type="linenumber">162,164</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="slipReview.closeImage" datatype="html">
+        <source>ปิดรูป</source>
+        <target>Close image</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/shared/slip-review/slip-review.html</context>
+          <context context-type="linenumber">281,284</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="slipReview.closeWarning" datatype="html">
+        <source>รูปสลิป <x id="INTERPOLATION" equiv-text="{{ data()?.collection?.imageCount ?? 0 }}"/> รูปจะถูกลบถาวร และแก้ไขการชำระเงินไม่ได้อีก</source>
+        <target><x id="INTERPOLATION" equiv-text="data()?.collection?.imageCount ?? 0"/> slip images will be permanently deleted. Payment records can no longer be changed.</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/shared/slip-review/slip-review.html</context>
+          <context context-type="linenumber">287,288</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="slipReview.closeConfirm" datatype="html">
+        <source>ยืนยันปิดและลบรูป</source>
+        <target>Close and delete images</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/shared/slip-review/slip-review.html</context>
+          <context context-type="linenumber">290,293</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="slipReview.err.amountRequired" datatype="html">
+        <source>กรอกยอดที่ตรวจจากสลิปก่อนยืนยัน</source>
+        <target>Enter the reviewed slip amount before confirming.</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/shared/slip-review/slip-review.ts</context>
+          <context context-type="linenumber">42</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="slipReview.err.amountInvalid" datatype="html">
+        <source>กรอกยอดเงินมากกว่า 0 และทศนิยมไม่เกิน 2 ตำแหน่ง</source>
+        <target>Enter an amount above zero with no more than two decimal places.</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/shared/slip-review/slip-review.ts</context>
+          <context context-type="linenumber">43</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="slipReview.err.amountMismatch" datatype="html">
+        <source>ยอดสลิปต้องเท่ากับยอดรวมคนที่เลือก</source>
+        <target>The slip amount must match the selected total.</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/shared/slip-review/slip-review.ts</context>
+          <context context-type="linenumber">44</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="slipReview.err.alreadyPaid" datatype="html">
+        <source>มีคนที่ชำระแล้ว ลองตรวจรายชื่ออีกครั้ง</source>
+        <target>Someone selected has already paid. Check the list again.</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/shared/slip-review/slip-review.ts</context>
+          <context context-type="linenumber">45</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="slipReview.err.closed" datatype="html">
+        <source>เก็บเงินครบแล้ว แก้ไขการชำระเงินไม่ได้</source>
+        <target>Collection is complete. Payments can no longer be changed.</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/shared/slip-review/slip-review.ts</context>
+          <context context-type="linenumber">46</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="slipReview.err.notReady" datatype="html">
+        <source>ยังปิดการเก็บเงินไม่ได้ ตรวจยอดและรายการรอตรวจก่อน</source>
+        <target>Collection cannot close yet. Check the amounts and pending items first.</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/shared/slip-review/slip-review.ts</context>
+          <context context-type="linenumber">47</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="paymentStatus.pendingCount" datatype="html">
+        <source>รอยืนยัน <x id="INTERPOLATION" equiv-text="{{ pendingCount() }}"/> คน</source>
+        <target>Awaiting confirmation: <x id="INTERPOLATION" equiv-text="pendingCount()"/> people</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/payment-status/payment-status.html</context>
+          <context context-type="linenumber">30,31</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="paymentStatus.pendingSlips" datatype="html">
+        <source>สลิปรอตรวจ <x id="INTERPOLATION" equiv-text="{{ view()?.pendingSlipCount ?? 0 }}"/> รายการ</source>
+        <target>Slips pending review: <x id="INTERPOLATION" equiv-text="view()?.pendingSlipCount ?? 0"/></target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/payment-status/payment-status.html</context>
+          <context context-type="linenumber">35,36</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="paymentStatus.pending" datatype="html">
+        <source>รอยืนยัน</source>
+        <target>Awaiting confirmation</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/payment-status/payment-status.html</context>
+          <context context-type="linenumber">53,55</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="slipReview.retryDelete" datatype="html">
+        <source>ลบรูปอีกครั้ง</source><target>Retry deleting images</target>
+      </trans-unit>
+      <trans-unit id="slipReview.retention" datatype="html">
+        <source>รูปสลิปเก็บไว้จนปิดการเก็บเงิน หรือไม่เกิน 30 วัน</source><target>Slip images are kept until collection closes, or for up to 30 days.</target>
+      </trans-unit>
+      <trans-unit id="bill.collectionClosed" datatype="html">
+        <source>ปิดการเก็บเงินแล้ว แก้ไขบิลไม่ได้</source><target>Collection is closed. The bill can no longer be changed.</target>
+      </trans-unit>
     </body>
   </file>
 </xliff>

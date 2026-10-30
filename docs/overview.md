@@ -1647,8 +1647,12 @@ anything depends on the group's chat.
 **Free QR + OCR, no paid verification service.** The slip's QR gives the bank and the transfer reference;
 OCR (Tesseract, language data shipped in the image) reads the amount and receiver name. A paid slip
 verification API was rejected on cost on 2026-10-30. The price of free is that anything unclear goes to the
-host instead of being guessed. **No slip image is ever stored**: it is read in memory and dropped; what
-is kept is the reference, amount, receiver text, sender and time.
+host instead of being guessed. **Private evidence storage (owner decision, 2026-10-31).** New accepted slip
+images are retained for host review until collection is closed or 30 days after upload. Raw OCR text is
+never stored or logged; structured reference, amount, receiver text, sender and time remain. Images live
+outside SQLite backups, on the server HDD at `/mnt/hdd2/jubbad/slips`, through an explicit private bind
+mount. Only the owning host (or administrator) can fetch them; the group status page cannot. Older slips
+have no recoverable image.
 
 **Paid is not "settled".** A player is *paid* when a `SessionPayment` row exists (from a slip or the host's
 tick). *Settled* stays the early-checkout receipt (see Early checkout above); the two are different facts
@@ -1674,6 +1678,23 @@ stay. All must hold, otherwise the slip waits for the host:
 A mismatch never marks anyone paid; the slip waits for the host, who sees the reason (the sender does not:
 the pay page only says the slip went to the host).
 
+**Host amount review and collection close.** Design: `docs/superpowers/specs/2026-10-31-slip-review-evidence-design.md`. Waiting slips show their private image (tap to enlarge),
+the unique positive OCR amount even if nobody owes it, and an editable reviewed amount. Unknown or
+ambiguous OCR requires host entry from the original image. The selected unpaid players' current total
+must exactly equal the reviewed amount, enforced under the session lock. Each paid row snapshots its
+own bill share; the pending row records reviewed amount and time. Already-paid selected players cause
+refusal rather than silently consuming the slip. This fixes the earlier ability to credit several
+players beyond the slip amount.
+
+**ปิดการเก็บเงิน** becomes available only after every payable bill row is paid and all waiting slips and
+duplicates are handled. Confirmation names the irreversible deletion and image count. Closing records
+the collection time, deletes all its image files/metadata, and keeps payment marks and duplicate
+references. Uploads, claims, payment mutations, bill config, shuttle bill inputs, walk-in billing flags
+and card reconfirmation are then refused; the existing read-only link remains valid. Cleanup failure
+keeps metadata and offers a deletion retry even though the collection is closed. Retention also sweeps
+expired images hourly; deleting a group makes its orphan files inaccessible immediately and the sweep
+removes them. LINE unlink/image submission share a group write lock to keep cleanup consistent.
+
 **What reaches the host.** Waiting slips (with the reason) and duplicates, in the bill screen's review list.
 The host resolves a waiting slip by ticking one or more players (or dismisses it), and dismisses a duplicate. A duplicate never
 pays anyone and the sender is not told off in the group. A receiver mismatch also offers to make the slip's
@@ -1682,9 +1703,11 @@ the group has a saved account, since that is the name it rewrites.
 
 **Read-only payment status (2026-10-31).** Newly generated payment cards also carry **ดูสถานะการจ่าย**,
 opening `/line-share/payment-status/:sessionCode/:token` inside LINE. A collector can see the bill date,
-paid/unpaid counts, names, amounts and recorded payment marks without claiming a player or signing in as
-host. Unpaid names appear first; **รีเฟรชสถานะ** reads current state. Pending slips remain unpaid until
-accepted. Existing paid marks remain after bill edits, with an amount-change note when applicable.
+paid/unpaid/pending counts, names, amounts and recorded payment marks without claiming a player or signing in as
+host. Unpaid names appear first; **รีเฟรชสถานะ** reads current state. Red means **ยังไม่จ่าย**, amber
+means **รอยืนยัน**, green means **จ่ายแล้ว**, with text labels alongside color. A pending person requires
+an unpaid linked sender and a slip amount equal to that person's bill; ambiguous slips appear only in
+the aggregate pending-slip count. Pending is never counted as paid. Existing paid marks remain after bill edits, with an amount-change note when applicable.
 `GET /sessions/:code/slip-pay/status` requires the same verified LINE identity, current confirmation token
 and Host plan as the pay page; reconfirming revokes old links. It returns only the read projection with
 `Cache-Control: no-store`, never review details or LINE profiles. All mutations remain on owner-only routes.

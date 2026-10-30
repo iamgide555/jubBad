@@ -23,6 +23,14 @@ export class SlipHostService {
     return this.http.get<SlipHostPanel>(this.url(sessionCode));
   }
 
+  imageUrl(sessionCode: string, id: string): string {
+    return this.url(sessionCode, `/images/${encodeURIComponent(id)}`);
+  }
+
+  closeCollection(sessionCode: string): Observable<Ok> {
+    return this.http.post<Ok>(this.url(sessionCode, '/close'), { confirmDeleteImages: true });
+  }
+
   tick(sessionCode: string, playerId: string): Observable<Ok> {
     return this.http.post<Ok>(this.url(sessionCode, '/tick'), { playerId });
   }

@@ -15,6 +15,8 @@ export type SlipWaitingReason = 'unmapped' | 'amount' | 'date' | 'receiver' | 'u
 /** A slip held for the host instead of marking anyone paid. */
 export interface SlipWaiting {
   id: string;
+  imageId?: string | null;
+  linkedPlayerId?: string | null;
   reason: SlipWaitingReason;
   displayName: string | null;
   pictureUrl: string | null;
@@ -47,6 +49,7 @@ export interface SlipLink {
 }
 
 export interface SlipHostPanel {
+  collection?: { closedAt: string | null; canClose: boolean; imageCount: number };
   paid: SlipPaidRow[];
   waiting: SlipWaiting[];
   duplicates: SlipDuplicate[];
@@ -54,12 +57,19 @@ export interface SlipHostPanel {
 }
 
 export interface SlipResolveBody {
+  reviewedAmountSatang?: number;
   coversPlayerIds: string[];
   senderPlayerId?: string | null;
 }
 
 /** The 409 codes the host routes answer with. The page maps each to a Thai sentence, never shows the code. */
 export type SlipHostConflict =
+  | 'SLIP_AMOUNT_REQUIRED'
+  | 'SLIP_AMOUNT_INVALID'
+  | 'SLIP_AMOUNT_MISMATCH'
+  | 'PLAYER_ALREADY_PAID'
+  | 'COLLECTION_CLOSED'
+  | 'COLLECTION_NOT_READY'
   | 'COVERS_REQUIRED'
   | 'PLAYER_NOT_ON_BILL'
   | 'ACCOUNT_ALREADY_LINKED'

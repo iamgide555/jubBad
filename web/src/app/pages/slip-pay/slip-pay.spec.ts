@@ -75,6 +75,14 @@ describe('SlipPay', () => {
 
   const uploads = (r: SlipPayUploadResult) => svc.upload.mockReturnValue(of(r));
 
+  it('shows closed collection before claiming or sending', async () => {
+    await open({ ...UNLINKED, collectionClosed: true } as any);
+    expect(text()).toContain('เก็บเงินครบแล้ว');
+    expect(q('[data-slip-claim]')).toBeNull();
+    expect(q('[data-slip-send]')).toBeNull();
+    expect(q('input[type=file]')).toBeNull();
+  });
+
   beforeEach(() => {
     route = { params: { sessionCode: 'sess 1', token: TOKEN } };
     svc = {

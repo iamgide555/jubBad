@@ -63,6 +63,25 @@ export APP_DIR=/home/iamgide/jubBad
 7. Bring up: `docker compose up -d --build`
    (No seed step — `prisma migrate deploy` runs automatically inside the `api` container's startup command (`server/Dockerfile`'s `CMD`) on every boot. Safe to re-run; unlike a seed script it doesn't touch existing data.)
 
+## Private Slip Image Disk
+
+- **Host directory:** `/mnt/hdd2/jubbad/slips` on the separate HDD; SQLite remains on SSD.
+- **Root `.env`:** Set `SLIP_IMAGE_HOST_DIR=/mnt/hdd2/jubbad/slips` alongside `PUID` and `PGID` (this is a Compose variable, not `server/.env`).
+- **Preparation:** Confirm the HDD mount before creating the directory. The private directory must be owned by the Compose user and mode `0700`; image files use `0600`.
+
+```bash
+mountpoint -q /mnt/hdd2
+install -d -m 700 /mnt/hdd2/jubbad/slips
+```
+
+- **Container path:** Compose binds the existing directory to `/app/slip-images` and sets `SLIP_IMAGE_DIR` accordingly. `create_host_path: false` refuses a missing source; always check the HDD mount before deploy so evidence never silently falls back onto SSD.
+- **Local development:** Without Compose, `SLIP_IMAGE_DIR` defaults to `prisma/slip-images` relative to the API working directory. Tests override it with an isolated temporary folder. A local Compose deployment must set its own existing directory explicitly.
+- **Retention:** Images expire 30 days after upload and are swept hourly, or are deleted immediately when the host confirms collection close. Files never enter Git, Docker build contexts or SQLite backups. The image disk is deliberately excluded from database backups; restoring a DB may show an unavailable-image fallback.
+- **Migration:** `20261031180000_slip_review_evidence` adds nullable close/audit fields and image metadata. It does not change existing paid state. Take the standard online DB backup before deploying.
+- **Rollback:** Previous code ignores these additive fields/table. Switch to the prior commit and rebuild API/web; preserve the HDD folder. Rolling back code does not recover images deliberately deleted by close/retention.
+
+---
+
 ## Routine deploy
 ```bash
 # Mac

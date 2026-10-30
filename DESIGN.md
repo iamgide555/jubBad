@@ -19,6 +19,7 @@ colors:
   accent-ink: "#bd3414"
   warn: "#b0201a"
   warn-wash: "#fdecea"
+  pending-ink: "#885600"
   on-fill: "#ffffff"
   waiting: "#a49b8c"
   gold: "#b3801f"
@@ -116,6 +117,7 @@ Two hues do the app's signalling — green for "expected/good," orange for "need
 - **Shuttle Orange** (`#ff5a36`, `--accent`; hover/darker `#e14a28`, `--accent-dark`; wash `#ffe9e2`, `--accent-soft`): reserved for "the host must act on this court right now" — the pending court-panel ring and pulse, `.status-dot.pending`, a real password-reset match. Never the primary action, never a link. A darkened text variant (`#bd3414`, `--accent-ink`) exists specifically because the base `--accent` clears only 4.49:1 on white — just under the 4.5:1 floor — so any body-text use (a matched-review tag, an admin badge, a "reset link sent" line) gets `--accent-ink` instead, dark enough to also clear 4.5:1 against `--accent-soft`'s own background.
 
 ### Tertiary
+- **Payment Pending Amber** (`--pending-ink`; dark theme `#f5c065`): text for payment slips awaiting host review; the light-theme value is defined in the frontmatter. This is a payment-status semantic, distinct from the court-panel action signal.
 - **Gold** (`#b3801f` light / `#e3b155` dark, `--gold`): a winner's stat or top-of-leaderboard mark only — never a status color, never interactive.
 
 ### Neutral
@@ -130,6 +132,8 @@ Two hues do the app's signalling — green for "expected/good," orange for "need
 **The One Ground Rule.** Ground and surface sit in the same lightness family in both themes; a card reads as "the same light, slightly raised," never a second material. Depth is elevation's job (`--shadow-*`) and a colored ring, not a color-family jump — the retired system's two-ground/two-ink split (dark board vs. light paper) is gone because this world no longer has two materials to ink for. `--ink-on-paper`/`--ink-on-paper-soft`/`--ink-on-court`/`--ink-on-court-soft` still exist as CSS custom properties (plain aliases of `--ink`/`--ink-soft`) purely so pre-existing component CSS that rescopes them keeps working; they carry no independent value and should not be treated as a live two-ground system in new work.
 
 **The One Orange Rule.** `--accent` means "the host must act on this court right now" and only that — never the primary/confirm action (`--court`) and never ordinary navigation (`--court-ink`). Diluting it into a general highlight removes the one signal the host actually needs at a glance.
+
+**The Payment Status Rule.** Payment status uses **unpaid** red (`--warn`), **pending review** amber (`--pending-ink`), and **paid** green (`--court-ink`). Always show a text label alongside the color. Pending review still counts as unpaid until the host confirms it. Court-panel pending rings and action signals continue to use shuttle orange (`--accent`).
 
 **The On-Fill Rule.** Text on a filled brand colour (`--court`, `--warn`, `--accent`) uses `--on-fill`, never a literal white: white in light theme, the dark ground (`#0e1310`) in dark theme, because white on the dark theme's bright green (`#3fd07a`) is 2.0:1 and the dark ground clears 4.5:1 on all three fills. A known gap: white on the light theme's `--accent` is 3.10:1, below 4.5:1, tracked by the `it.todo` in `web/src/styles.contrast.spec.ts` and affecting the selected level chip.
 

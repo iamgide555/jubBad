@@ -3,7 +3,9 @@
 }
 
 .review {
+  font-size: var(--text-base);
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: var(--space-2);
   padding-top: var(--space-2);
   border-top: 1px solid var(--line);
@@ -17,6 +19,7 @@
 
 .head {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
   gap: var(--space-2);
@@ -121,7 +124,12 @@ button.person:disabled {
 
 .status-unpaid {
   background: var(--ground-sunk);
-  color: var(--ink-soft);
+  color: var(--warn);
+}
+
+.status-pending {
+  background: var(--ground-sunk);
+  color: var(--pending-ink);
 }
 
 .status-slip {
@@ -130,20 +138,22 @@ button.person:disabled {
 }
 
 .status-host {
-  background: var(--accent-soft);
-  color: var(--accent-ink);
+  background: var(--court-soft);
+  color: var(--court-ink);
 }
 
 /* ---- waiting slips and duplicates ---- */
 
 .group {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: var(--space-2);
 }
 
 .slip,
 .dup {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: var(--space-2);
   padding: var(--space-2);
   background: var(--ground);
@@ -229,6 +239,7 @@ legend {
 
 label.pick {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: var(--space-2);
   min-height: var(--tap);
@@ -272,12 +283,19 @@ label.pick input {
 
 .actions {
   display: flex;
+  flex-wrap: wrap;
   justify-content: flex-end;
   gap: var(--space-2);
 }
 
 .actions button {
-  min-width: 6rem;
+  flex: 1 1 6rem;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.covers {
+  min-inline-size: 0;
 }
 
 /* ---- linked accounts ---- */
@@ -317,3 +335,13 @@ label.pick input {
   margin: 0;
   overflow-wrap: anywhere;
 }
+
+.slip-thumbnail { display: grid; gap: var(--space-1); justify-items: start; width: fit-content; max-width: 100%; }
+.slip-thumbnail img { width: 7rem; max-width: 100%; height: 9rem; object-fit: contain; background: var(--ground-sunk); }
+.image-dialog img { display: block; max-width: 100%; max-height: 70dvh; object-fit: contain; margin-bottom: var(--space-2); }
+.reviewed-amount { display: grid; gap: var(--space-1); }
+.reviewed-amount input { min-height: var(--tap); width: 100%; }
+.reviewed-amount .muted { font-size: var(--text-sm); }
+.review-totals { display: grid; gap: var(--space-0); font-weight: 600; }
+
+.retention { font-size: var(--text-sm); }

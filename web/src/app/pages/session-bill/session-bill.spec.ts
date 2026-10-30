@@ -103,6 +103,26 @@ describe('SessionBill', () => {
     fixture.detectChanges();
   }
 
+  it.each(['config', 'shuttle', 'walkIn'])('explains a closed collection when saving %s', async kind => {
+    await load();
+    const el = fixture.nativeElement as HTMLElement;
+    let url: string;
+    if (kind === 'config') {
+      el.querySelector<HTMLButtonElement>('[data-model="buffet"]')!.click();
+      url = `${B}/sessions/sess1/bill-config`;
+    } else if (kind === 'shuttle') {
+      const input = el.querySelector<HTMLInputElement>('[data-shuttle-price]')!;
+      input.value = '85'; input.dispatchEvent(new Event('change'));
+      url = `${B}/sessions/sess1/shuttle-details`;
+    } else {
+      el.querySelector<HTMLButtonElement>('[data-walk-in="a"]')!.click();
+      url = `${B}/sessions/sess1/roster/a/walk-in`;
+    }
+    http.expectOne(url).flush({ code: 'COLLECTION_CLOSED' }, { status: 409, statusText: 'Conflict' });
+    await new Promise(r => setTimeout(r, 0)); fixture.detectChanges();
+    expect(el.querySelector('.error')?.textContent).toContain('ปิดการเก็บเงินแล้ว แก้ไขบิลไม่ได้');
+  });
+
   it('opens the shared payment modal from above bill settings, with fresh amounts after a save', async () => {
     await load();
     http.expectOne(`${B}/sessions/sess1/payment-card`).flush(paymentPanel());

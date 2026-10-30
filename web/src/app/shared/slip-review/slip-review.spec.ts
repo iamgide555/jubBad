@@ -72,6 +72,8 @@ describe('SlipReview', () => {
     dismiss: ReturnType<typeof vi.fn>;
     updateName: ReturnType<typeof vi.fn>;
     dismissDuplicate: ReturnType<typeof vi.fn>;
+    imageUrl: ReturnType<typeof vi.fn>;
+    closeCollection: ReturnType<typeof vi.fn>;
     setLink: ReturnType<typeof vi.fn>;
   };
 
@@ -106,6 +108,8 @@ describe('SlipReview', () => {
     const ok = () => of({ ok: true as const });
     svc = {
       panel: vi.fn(),
+      imageUrl: vi.fn().mockReturnValue('/private/image'),
+      closeCollection: vi.fn().mockImplementation(ok),
       tick: vi.fn().mockImplementation(ok),
       untick: vi.fn().mockImplementation(ok),
       resolve: vi.fn().mockImplementation(ok),
@@ -115,6 +119,86 @@ describe('SlipReview', () => {
       setLink: vi.fn().mockImplementation(ok),
     };
     TestBed.configureTestingModule({ providers: [provideHttpClient(), { provide: SlipHostService, useValue: svc }] });
+  });
+
+  describe('review evidence and collection', () => {
+    it('shows private thumbnail enlarged on request and a legacy fallback', async () => {
+      await open(panel({ waiting: [waiting({ imageId: 'img1' } as any)] } as any));
+      expect(q<HTMLImageElement>('[data-slip-image]')?.getAttribute('src')).toBe('/private/image');
+      await click(q('[data-enlarge]'));
+      expect(q('[data-image-dialog]')?.hasAttribute('open')).toBe(true);
+      await open(panel({ waiting: [waiting()] }));
+      expect(q('[data-no-image]')?.textContent).toContain('รูป');
+    });
+
+    it('requires an exact reviewed total, preserves multiple selections and sends satang', async () => {
+      await open(panel({ waiting: [waiting({ candidatePlayerIds: [], amountSatang: null })] }));
+      await click(qa('[data-cover]')[0]);
+      await click(qa('[data-cover]')[1]);
+      expect(q<HTMLButtonElement>('[data-resolve]')!.disabled).toBe(true);
+      const amount = q<HTMLInputElement>('[data-reviewed-amount]');
+      expect(amount).not.toBeNull();
+      amount!.value = '199.99'; amount!.dispatchEvent(new Event('input')); await settle();
+      expect(q<HTMLButtonElement>('[data-resolve]')!.disabled).toBe(true);
+      expect(q('[data-selected-total]')?.textContent).toContain('200');
+      expect(q('[data-difference]')?.textContent).toContain('0.01');
+      amount!.value = '200'; amount!.dispatchEvent(new Event('input')); await settle();
+      expect(qa<HTMLInputElement>('[data-cover]').map(c => c.checked)).toEqual([true, true, false]);
+      await click(q('[data-resolve]'));
+      expect(svc.resolve).toHaveBeenCalledWith('sess1', 'w-secret-1', { coversPlayerIds: ['a', 'b'], senderPlayerId: null, reviewedAmountSatang: 20000 });
+    });
+
+    it('rejects invalid money and keeps the original OCR amount visible after editing', async () => {
+      await open(panel({ waiting: [waiting()] }));
+      const amount = q<HTMLInputElement>('[data-reviewed-amount]')!;
+      for (const invalid of ['', '0', '-90', '90.001', 'NaN', '1e2']) {
+        amount.value = invalid; amount.dispatchEvent(new Event('input')); await settle();
+        expect(q<HTMLButtonElement>('[data-resolve]')!.disabled).toBe(true);
+      }
+      amount.value = '110'; amount.dispatchEvent(new Event('input')); await settle();
+      expect(q('[data-w-amount]')!.textContent).toContain('90');
+      expect(q<HTMLButtonElement>('[data-resolve]')!.disabled).toBe(true);
+    });
+
+    it('shows missing image fallback when a retained image cannot load', async () => {
+      await open(panel({ waiting: [waiting({ imageId: 'expired' } as any)] } as any));
+      q('[data-slip-image]')!.dispatchEvent(new Event('error')); await settle();
+      expect(q('[data-no-image]')).not.toBeNull();
+      expect(q('[data-slip-image]')).toBeNull();
+    });
+
+    it('allows deletion retry after collection closed with images remaining', async () => {
+      await open(panel({ collection: { closedAt: '2026-10-31', canClose: false, imageCount: 2 } } as any));
+      expect(q('[data-close-collection]')?.textContent).toContain('ลบรูปอีกครั้ง');
+      await click(q('[data-close-collection]'));
+      await click(q('[data-confirm-close]'));
+      expect(svc.closeCollection).toHaveBeenCalledWith('sess1');
+    });
+
+    it('shows pending only for a linked sender with an exact single-person amount', async () => {
+      await open(panel({ paid: [paid({ playerId: 'c' })], waiting: [waiting({ linkedPlayerId: 'a' } as any), waiting({ id: 'w2', linkedPlayerId: 'b', amountSatang: 9000 } as any)] } as any));
+      expect(qa('[data-chip]').map(c => c.textContent!.trim())).toEqual(['รอยืนยัน', 'ยังไม่จ่าย', 'สลิป']);
+    });
+
+    it('does not prefill sender for a linked account', async () => {
+      await open(panel({ waiting: [waiting({ linkedPlayerId: 'b' } as any)] }));
+      expect(q<HTMLSelectElement>('[data-sender]')!.value).toBe('');
+    });
+
+    it('offers close only when ready, confirms deletion count and disables closed controls', async () => {
+      await open(panel()); expect(q('[data-close-collection]')).toBeNull();
+      await open(panel({ collection: { closedAt: null, canClose: true, imageCount: 3 } } as any));
+      await click(q('[data-close-collection]'));
+      expect(q('[data-close-dialog]')?.hasAttribute('open')).toBe(true);
+      expect(q('[data-close-dialog]')?.textContent).toContain('3');
+      expect(q('[data-close-dialog]')?.textContent).toContain('ถาวร');
+      svc.panel.mockReturnValue(of(panel({ waiting: [waiting()], links: [link()], duplicates: [dup()], collection: { closedAt: '2026-10-31', canClose: false, imageCount: 0 } } as any)));
+      await click(q('[data-confirm-close]'));
+      expect(svc.closeCollection).toHaveBeenCalledWith('sess1');
+      expect(text()).toContain('เก็บเงินครบแล้ว');
+      expect(qa<HTMLButtonElement>('[data-person], [data-resolve], [data-dismiss], [data-link-remove], [data-dup-ack]').every(b => b.disabled)).toBe(true);
+      expect(qa<HTMLInputElement>('[data-cover]').every(b => b.disabled)).toBe(true);
+    });
   });
 
   describe('paid status', () => {
@@ -259,7 +343,7 @@ describe('SlipReview', () => {
       await settle();
       expect(q<HTMLSelectElement>('[data-sender]')!.value).toBe('');
       await click(q('[data-resolve]'));
-      expect(svc.resolve).toHaveBeenCalledWith('sess1', 'w-secret-1', { coversPlayerIds: ['a'], senderPlayerId: null });
+      expect(svc.resolve).toHaveBeenCalledWith('sess1', 'w-secret-1', { coversPlayerIds: ['a'], senderPlayerId: null, reviewedAmountSatang: 9000 });
     });
 
     it('does not pre-fill the sender when two are ticked or the slip is not unmapped', async () => {
@@ -279,7 +363,7 @@ describe('SlipReview', () => {
     });
 
     it('sends both lists on Confirm and refreshes', async () => {
-      await open(panel({ waiting: [waiting({ candidatePlayerIds: [] })] }));
+      await open(panel({ waiting: [waiting({ candidatePlayerIds: [], amountSatang: 18000 })] }));
       await click(qa('[data-cover]')[0]);
       await click(qa('[data-cover]')[2]);
       const sender = q<HTMLSelectElement>('[data-sender]')!;
@@ -287,7 +371,7 @@ describe('SlipReview', () => {
       sender.dispatchEvent(new Event('change'));
       await settle();
       await click(q('[data-resolve]'));
-      expect(svc.resolve).toHaveBeenCalledWith('sess1', 'w-secret-1', { coversPlayerIds: ['a', 'c'], senderPlayerId: 'b' });
+      expect(svc.resolve).toHaveBeenCalledWith('sess1', 'w-secret-1', { coversPlayerIds: ['a', 'c'], senderPlayerId: 'b', reviewedAmountSatang: 18000 });
       expect(svc.panel).toHaveBeenCalledTimes(2);
     });
 

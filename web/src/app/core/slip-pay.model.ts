@@ -10,6 +10,7 @@ export interface SlipPayClaimable {
 
 /** What the pay page shows the viewing LINE account. `amountSatang` and `playerName` are null until the account is linked to a player. */
 export interface SlipPayView {
+  collectionClosed?: boolean;
   amountSatang: number | null;
   playerName: string | null;
   claimable: SlipPayClaimable[];
@@ -30,6 +31,8 @@ export interface SlipPayUploadResult {
 
 /** Minimal read-only projection; no host review details or LINE account identifiers. */
 export interface PaymentStatusView {
+  closedAt?: string | null;
+  pendingSlipCount?: number;
   sessionDate: string | null;
-  rows: { name: string; amountSatang: number; paid: boolean; amountChangedSince: boolean }[];
+  rows: { name: string; amountSatang: number; paid: boolean; pending?: boolean; amountChangedSince: boolean }[];
 }

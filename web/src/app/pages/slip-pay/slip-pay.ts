@@ -23,7 +23,7 @@ const CLAIM_NOTE: Record<Exclude<SlipPayClaimOutcome, 'linked'>, ClaimNote> = {
  * LINE. LIFF gives the viewer's LINE identity (an access token the server
  * verifies with LINE); the pay token in the path says which session's bill it
  * is. First visit: pick your name once. After that: pick a photo and it is sent
- * at once. The photo is never kept by the page or the server.
+ * at once. The server retains the private photo until the host closes collection.
  */
 @Component({
   selector: 'app-slip-pay',
@@ -56,9 +56,10 @@ export class SlipPay {
   protected readonly cashNote = signal(false);
 
   /** Which body to show once the view has loaded. */
-  protected readonly screen = computed<'result' | 'paid' | 'claim' | 'send' | null>(() => {
+  protected readonly screen = computed<'closed' | 'result' | 'paid' | 'claim' | 'send' | null>(() => {
     const v = this.view();
     if (v === null) return null;
+    if (v.collectionClosed) return 'closed';
     if (this.result() !== null) return 'result';
     if (v.alreadyPaid && v.amountSatang !== null) return 'paid';
     if (v.playerName === null && v.claimable.length > 0 && !this.skipped()) return 'claim';
@@ -129,7 +130,7 @@ export class SlipPay {
   }
 
   protected async claim(player: SlipPayClaimable): Promise<void> {
-    if (this.claiming()) return;
+    if (this.claiming() || this.view()?.collectionClosed) return;
     this.claiming.set(true);
     this.claimNote.set(null);
     try {
@@ -161,7 +162,7 @@ export class SlipPay {
     const file = input.files?.[0];
     // Cleared so choosing the same photo again still fires `change`.
     input.value = '';
-    if (!file || this.uploading()) return;
+    if (!file || this.uploading() || this.view()?.collectionClosed) return;
     this.uploading.set(true);
     this.notice.set(null);
     try {

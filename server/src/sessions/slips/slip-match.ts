@@ -31,6 +31,12 @@ function amountsIn(text: string): Set<number> {
   return found;
 }
 
+/** One distinct positive amount anywhere on the slip, independent of tonight's bill. Ambiguous OCR needs host review. */
+export function slipAmount(text: string): number | null {
+  const values = [...amountsIn(text)].filter((n) => Number.isSafeInteger(n) && n > 0 && n <= 2_147_483_647);
+  return values.length === 1 ? values[0] : null;
+}
+
 /** True when `satang` is printed in `text` as a whole amount token. Zero never is. */
 export function amountPresent(text: string, satang: number): boolean {
   if (!Number.isInteger(satang) || satang <= 0) return false;

@@ -38,7 +38,7 @@ describe('host payment routes /sessions/:code/payments (owner only)', () => {
       const { code } = await setupSession();
       const calls: [string, string][] = [
         ['get', ''], ['post', '/tick'], ['post', '/untick'], ['post', '/waiting/x/resolve'], ['post', '/waiting/x/dismiss'],
-        ['post', '/waiting/x/update-name'], ['post', '/duplicates/x/dismiss'], ['post', '/links'],
+        ['post', '/waiting/x/update-name'], ['post', '/duplicates/x/dismiss'], ['post', '/links'], ['get', '/images/x'], ['post', '/close'],
       ];
       for (const [method, path] of calls) {
         const url = `${base(code)}${path}`;
@@ -56,7 +56,7 @@ describe('host payment routes /sessions/:code/payments (owner only)', () => {
   describe('GET', () => {
     it('lists the paid rows, waiting slips, duplicates and links', async () => {
       const { code, groupCode, ids } = await setupSession();
-      expect((await get(code)).body).toEqual({ paid: [], waiting: [], duplicates: [], links: [] });
+      expect((await get(code)).body).toEqual({ paid: [], waiting: [], duplicates: [], links: [], collection: {closedAt:null,canClose:false,imageCount:0} });
 
       await post(code, '/tick', { playerId: ids[0] }).expect(200);
       const waiting = await waitingSlip(code, groupCode);
@@ -110,7 +110,7 @@ describe('host payment routes /sessions/:code/payments (owner only)', () => {
     it('resolve marks the covered players paid and links the sender', async () => {
       const { code, groupCode, ids } = await setupSession();
       const slip = await waitingSlip(code, groupCode, { lineUserId: 'Usender1' });
-      const res = await post(code, `/waiting/${slip.id}/resolve`, { coversPlayerIds: [ids[0], ids[1]], senderPlayerId: ids[0] });
+      const res = await post(code, `/waiting/${slip.id}/resolve`, { coversPlayerIds: [ids[0], ids[1]], senderPlayerId: ids[0], reviewedAmountSatang: (await kit.owed(code, ids[0])) + (await kit.owed(code, ids[1])) });
       expect(res).toMatchObject({ status: 200, body: { ok: true } });
       const after = (await get(code)).body;
       expect(after.waiting).toEqual([]);
@@ -121,7 +121,7 @@ describe('host payment routes /sessions/:code/payments (owner only)', () => {
     it('resolve without a sender links nobody', async () => {
       const { code, groupCode, ids } = await setupSession();
       const slip = await waitingSlip(code, groupCode);
-      await post(code, `/waiting/${slip.id}/resolve`, { coversPlayerIds: [ids[2]] }).expect(200);
+      await post(code, `/waiting/${slip.id}/resolve`, { coversPlayerIds: [ids[2]], reviewedAmountSatang: await kit.owed(code, ids[2]) }).expect(200);
       const after = (await get(code)).body;
       expect(after.links).toEqual([]);
       expect(after.paid).toHaveLength(1);
@@ -135,7 +135,7 @@ describe('host payment routes /sessions/:code/payments (owner only)', () => {
       expect(none.body).toMatchObject({ code: 'COVERS_REQUIRED' });
       expect((await post(code, `/waiting/${slip.id}/resolve`, { coversPlayerIds: ['nobody'] })).status).toBe(409);
       await post(code, '/links', { playerId: ids[3], lineUserId: 'Ulinked' }).expect(200);
-      const taken = await post(code, `/waiting/${slip.id}/resolve`, { coversPlayerIds: [ids[0]], senderPlayerId: ids[0] });
+      const taken = await post(code, `/waiting/${slip.id}/resolve`, { coversPlayerIds: [ids[0]], senderPlayerId: ids[0], reviewedAmountSatang: await kit.owed(code, ids[0]) });
       expect(taken.status).toBe(409);
       expect(taken.body).toMatchObject({ code: 'ACCOUNT_ALREADY_LINKED' });
       // Nothing was written by the refusals.
@@ -144,10 +144,10 @@ describe('host payment routes /sessions/:code/payments (owner only)', () => {
 
     it('resolve of an unknown or already-resolved slip is 404; a malformed body is 400', async () => {
       const { code, groupCode, ids } = await setupSession();
-      expect((await post(code, '/waiting/nope/resolve', { coversPlayerIds: [ids[0]] })).status).toBe(404);
+      expect((await post(code, '/waiting/nope/resolve', { coversPlayerIds: [ids[0]], reviewedAmountSatang: await kit.owed(code, ids[0]) })).status).toBe(404);
       const slip = await waitingSlip(code, groupCode);
-      await post(code, `/waiting/${slip.id}/resolve`, { coversPlayerIds: [ids[0]] }).expect(200);
-      expect((await post(code, `/waiting/${slip.id}/resolve`, { coversPlayerIds: [ids[0]] })).status).toBe(404);
+      await post(code, `/waiting/${slip.id}/resolve`, { coversPlayerIds: [ids[0]], reviewedAmountSatang: await kit.owed(code, ids[0]) }).expect(200);
+      expect((await post(code, `/waiting/${slip.id}/resolve`, { coversPlayerIds: [ids[0]], reviewedAmountSatang: await kit.owed(code, ids[0]) })).status).toBe(404);
       await post(code, `/waiting/${slip.id}/resolve`, { coversPlayerIds: 'x' }).expect(400);
     });
 

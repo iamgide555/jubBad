@@ -17,6 +17,14 @@ describe('SlipHostService', () => {
   });
   afterEach(() => http.verify());
 
+  it('provides encoded private image URLs and explicitly confirms image deletion on close', () => {
+    expect((svc as any).imageUrl('sess 1', 'img/1')).toBe(`${BASE}/images/img%2F1`);
+    (svc as any).closeCollection('sess 1').subscribe();
+    const req = http.expectOne(`${BASE}/close`);
+    expect(req.request.body).toEqual({ confirmDeleteImages: true });
+    req.flush({ ok: true });
+  });
+
   it('reads the whole panel with one GET', () => {
     const body = { paid: [], waiting: [], duplicates: [], links: [] };
     let got: unknown;

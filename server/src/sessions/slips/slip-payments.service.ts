@@ -15,11 +15,13 @@ import {
   receiverName,
   receiverNameMatches,
   receiverTail,
+  slipAmount,
   slipDate,
   slipDateInWindow,
 } from './slip-match.js';
 import type { SlipOcrResult } from './slip-ocr.js';
 import { SlipReader } from './slip-reader.js';
+import { SlipImagesService } from './slip-images.service.js';
 
 /** One person's paid mark on the bill screen. */
 export interface PaidRow {
@@ -59,6 +61,8 @@ export type SubmitOutcome =
 /** A slip held for the host: who sent it, what it showed, and the players it might be for. */
 export interface WaitingSlip {
   id: string;
+  imageId: string | null;
+  linkedPlayerId: string | null;
   reason: WaitingReason;
   displayName: string | null;
   pictureUrl: string | null;
@@ -85,6 +89,7 @@ export interface DuplicateSlip {
 
 /** What the pay page shows one LINE viewer. Never carries an id other than the claimable players'. */
 export interface PayPageView {
+  collectionClosed: boolean;
   /** The viewer's own bill row; null when the viewer is not linked to a player on tonight's bill. */
   amountSatang: number | null;
   playerName: string | null;
@@ -99,8 +104,10 @@ export interface PayPageView {
 
 /** Read-only bill projection for collectors; never includes host review or LINE account data. */
 export interface PaymentStatusView {
+  closedAt: string | null;
+  pendingSlipCount: number;
   sessionDate: string | null;
-  rows: { name: string; amountSatang: number; paid: boolean; amountChangedSince: boolean }[];
+  rows: { name: string; amountSatang: number; paid: boolean; pending: boolean; amountChangedSince: boolean }[];
 }
 
 /**
@@ -109,6 +116,7 @@ export interface PaymentStatusView {
  */
 interface SubmitGate {
   groupId: string;
+  closedAt: Date | null;
   panel: PaymentPanel;
   savedName: string | null;
   /** When the bill's night ended (when the session was created, if it never ended): the slip date window starts here. */
@@ -128,26 +136,28 @@ export class SlipPaymentsService {
     private readonly cards: PaymentCardService,
     private readonly lock: SessionLock,
     private readonly reader: SlipReader,
-    private readonly plans: PlansService
+    private readonly plans: PlansService,
+    private readonly images: SlipImagesService
   ) {}
 
   /**
    * A slip uploaded from the pay page. Marks the sender's own player paid only when every auto-paid rule holds
    * (docs/superpowers/specs/2026-10-30-slip-payment-matching-design.md); anything else is held for the host or
-   * recorded as a duplicate. The image and the OCR text are never stored or logged.
+   * recorded as a duplicate. Slip images are kept privately for host review until close or expiry; raw OCR text is never stored or logged.
    */
   async submitSlip(code: string, token: string, user: LiffUser, image: Buffer, now: Date = new Date()): Promise<SubmitOutcome> {
     // Cheap checks first, so a stale link or a free plan never costs an OCR run.
-    if (!(await this.gate(code, token, now))) return { kind: 'unavailable' };
+    const initialGate = await this.gate(code, token, now);
+    if (!initialGate || initialGate.closedAt) return { kind: 'unavailable' };
     // OCR takes seconds: read outside the lock so the bill screen is not held up meanwhile.
     const read = await this.reader.read(image);
     if (read.kind === 'not-slip') return { kind: 'not-slip' };
     const { qr, ocr } = read;
 
-    return this.lock.run(code, async (): Promise<SubmitOutcome> => {
+    return this.images.withGroupLock(initialGate.groupId, () => this.lock.run(code, async (): Promise<SubmitOutcome> => {
       // The card may have been reconfirmed, re-priced or unconfirmed, or the plan lapsed, while the slip was read.
       const gate = await this.gate(code, token, now);
-      if (!gate) return { kind: 'unavailable' };
+      if (!gate || gate.closedAt) return { kind: 'unavailable' };
       const { groupId } = gate;
       const { reference, bankCode } = qr;
 
@@ -166,13 +176,19 @@ export class SlipPaymentsService {
       }
 
       try {
+        await this.images.save(code, reference, image, now);
         return await this.settle(code, gate, reference, user, ocr, now);
       } catch (error) {
         // Nothing was recorded for this slip, so release its reference: sending it again must not be a duplicate.
-        await this.prisma.slipReference.deleteMany({ where: { groupId, reference, sessionId: code } });
+        try {
+          await this.images.removeForReference(code, reference);
+        } finally {
+          // File deletion failure must not consume a transfer that never received a payment or review row.
+          await this.prisma.slipReference.deleteMany({ where: { groupId, reference, sessionId: code } });
+        }
         throw error;
       }
-    });
+    }));
   }
 
   /**
@@ -193,6 +209,7 @@ export class SlipPaymentsService {
     });
     const linked = new Set(links.map((l) => l.playerId));
     return {
+      collectionClosed: gate.closedAt !== null,
       amountSatang: row?.amountSatang ?? null,
       playerName: row?.name ?? null,
       claimable: panel.rows
@@ -223,8 +240,13 @@ export class SlipPaymentsService {
     playerId: string,
     now: Date = new Date()
   ): Promise<ClaimOutcome | null> {
-    if (!(await this.gate(code, token, now))) return null;
-    return this.claimPlayer(code, user, playerId);
+    const gate = await this.gate(code, token, now);
+    if (!gate || gate.closedAt) return null;
+    try { return await this.claimPlayer(code, user, playerId); }
+    catch (error) {
+      if (error instanceof ConflictException && (error.getResponse() as {code?:string}).code === 'COLLECTION_CLOSED') return null;
+      throw error;
+    }
   }
 
   async paymentStatusView(code: string, token: string | undefined, now: Date = new Date()): Promise<PaymentStatusView | null> {
@@ -233,12 +255,18 @@ export class SlipPaymentsService {
       if (!gate) return null;
       const stored = await this.prisma.sessionPayment.findMany({ where: { sessionId: code } });
       const paid = new Map(stored.map((p) => [p.playerId, p]));
+      const pending = await this.prisma.pendingSlip.findMany({ where: { sessionId: code, resolvedAt: null } });
+      const links = await this.prisma.playerLineAccount.findMany({ where: { groupId: gate.groupId } });
+      const linked = new Map(links.map((l) => [l.lineUserId, l.playerId]));
       return {
+        closedAt: gate.closedAt?.toISOString() ?? null,
+        pendingSlipCount: pending.length,
         sessionDate: gate.date === null || gate.date.trim() === '' ? null : cardDate(gate.date, gate.billEnd),
         rows: gate.panel.rows.map((r) => {
           const mark = paid.get(r.playerId);
           return {
             name: r.name, amountSatang: r.amountSatang, paid: mark !== undefined,
+            pending: !mark && pending.some((p) => linked.get(p.lineUserId) === r.playerId && p.amountSatang === r.amountSatang),
             amountChangedSince: mark !== undefined && mark.amountSatang !== null && mark.amountSatang !== r.amountSatang,
           };
         }),
@@ -261,6 +289,7 @@ export class SlipPaymentsService {
   /** The host marks a person paid. Already paid (by a slip or an earlier tick) stays as it is. */
   tick(code: string, playerId: string): Promise<void> {
     return this.lock.run(code, async () => {
+      await this.assertOpen(code);
       const panel = await this.cards.panel(code);
       if (!panel.rows.some((r) => r.playerId === playerId)) throw new ConflictException({ code: 'PLAYER_NOT_ON_BILL' });
       await this.prisma.sessionPayment.upsert({
@@ -274,6 +303,7 @@ export class SlipPaymentsService {
   /** Removes the paid mark if there is one. The slip's reference is deliberately left alone by this task. */
   untick(code: string, playerId: string): Promise<void> {
     return this.lock.run(code, async () => {
+      await this.assertOpen(code);
       await this.cards.panel(code);
       await this.prisma.sessionPayment.deleteMany({ where: { sessionId: code, playerId } });
     });
@@ -285,6 +315,7 @@ export class SlipPaymentsService {
    */
   claimPlayer(code: string, user: LiffUser, playerId: string): Promise<ClaimOutcome> {
     return this.lock.run(code, async () => {
+      await this.assertOpen(code);
       const panel = await this.cards.panel(code);
       if (!panel.rows.some((r) => r.playerId === playerId)) return 'not-on-bill';
       const groupId = await this.groupOf(code);
@@ -330,6 +361,7 @@ export class SlipPaymentsService {
   /** Host: points the player at this account (replacing any link the player has), or with `null` removes the link. */
   setLink(code: string, playerId: string, lineUserId: string | null): Promise<void> {
     return this.lock.run(code, async () => {
+      await this.assertOpen(code);
       const groupId = await this.groupOf(code);
       if (lineUserId === null) {
         await this.prisma.playerLineAccount.deleteMany({ where: { groupId, playerId } });
@@ -373,8 +405,14 @@ export class SlipPaymentsService {
       where: { sessionId: code, resolvedAt: null },
       orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
     });
+    const imageList = await this.images.list(code);
+    const imageByReference = new Map(imageList.map((i) => [i.reference, i.id]));
+    const links = await this.prisma.playerLineAccount.findMany({ where: { groupId: await this.groupOf(code) } });
+    const linked = new Map(links.map((l) => [l.lineUserId, l.playerId]));
     return rows.map((s) => ({
       id: s.id,
+      imageId: imageByReference.get(s.reference) ?? null,
+      linkedPlayerId: linked.get(s.lineUserId) ?? null,
       reason: s.reason as WaitingReason,
       displayName: s.displayName,
       pictureUrl: s.pictureUrl,
@@ -394,8 +432,9 @@ export class SlipPaymentsService {
    * Host: this slip covers these players (all marked paid, those already paid left alone) and, optionally, its sender is
    * this player (the account is linked for future nights). Either everything is written or nothing is.
    */
-  resolveWaiting(code: string, id: string, input: { coversPlayerIds: string[]; senderPlayerId: string | null }): Promise<void> {
+  resolveWaiting(code: string, id: string, input: { coversPlayerIds: string[]; senderPlayerId: string | null; reviewedAmountSatang?: number }): Promise<void> {
     return this.lock.run(code, async () => {
+      await this.assertOpen(code);
       const slip = await this.prisma.pendingSlip.findFirst({ where: { id, sessionId: code, resolvedAt: null } });
       if (!slip) throw new NotFoundException();
       const covers = [...new Set(input.coversPlayerIds)];
@@ -405,6 +444,15 @@ export class SlipPaymentsService {
       if (covers.some((playerId) => !onBill.has(playerId))) throw new ConflictException({ code: 'PLAYER_NOT_ON_BILL' });
       const paid = await this.paidIds(code);
 
+      if (covers.some((id) => paid.has(id))) throw new ConflictException({ code: 'PLAYER_ALREADY_PAID' });
+      const reviewedAmount = input.reviewedAmountSatang ?? slip.amountSatang;
+      if (reviewedAmount === null || reviewedAmount === undefined) throw new ConflictException({ code: 'SLIP_AMOUNT_REQUIRED' });
+      if (!Number.isSafeInteger(reviewedAmount) || reviewedAmount <= 0 || reviewedAmount > 2_147_483_647) {
+        throw new ConflictException({ code: 'SLIP_AMOUNT_INVALID' });
+      }
+      const selectedTotal = panel.rows.filter((r) => covers.includes(r.playerId)).reduce((sum, r) => sum + r.amountSatang, 0);
+      if (selectedTotal !== reviewedAmount) throw new ConflictException({ code: 'SLIP_AMOUNT_MISMATCH' });
+
       // Judge the link before anything is written, so a refusal leaves no payment behind.
       const groupId = slip.groupId;
       const link = input.senderPlayerId === null ? null : await this.linkWrites(groupId, input.senderPlayerId, slip);
@@ -412,14 +460,14 @@ export class SlipPaymentsService {
       const writes = [
         ...covers
           .filter((playerId) => !paid.has(playerId))
-          // A slip for several players equals no single player's row, so no amount is kept (and none can go stale).
+          // Snapshot each covered player's own share so later bill edits remain visible.
           .map((playerId) =>
             this.prisma.sessionPayment.create({
-              data: { sessionId: code, playerId, source: 'slip', amountSatang: null, reference: slip.reference },
+              data: { sessionId: code, playerId, source: 'slip', amountSatang: panel.rows.find((r) => r.playerId === playerId)!.amountSatang, reference: slip.reference },
             })
           ),
         ...(link ?? []),
-        this.prisma.pendingSlip.update({ where: { id }, data: { resolvedAt: new Date() } }),
+        this.prisma.pendingSlip.update({ where: { id }, data: { resolvedAt: new Date(), reviewedAmountSatang: reviewedAmount, reviewedAt: new Date() } }),
       ];
       try {
         await this.prisma.$transaction(writes);
@@ -471,7 +519,7 @@ export class SlipPaymentsService {
 
   /**
    * Host: the receiver on a waiting slip is the host's own account, so make its name the saved one (bank and number
-   * stay). Marks no one paid and leaves the slip waiting: the image is gone, so the host still ticks its players.
+   * stay). Marks no one paid and leaves the slip waiting for explicit amount-safe review.
    */
   updateSavedReceiverName(code: string, waitingId: string): Promise<void> {
     return this.lock.run(code, async () => {
@@ -504,7 +552,7 @@ export class SlipPaymentsService {
     if (!(await this.cards.tokenValid(code, token))) return null;
     const session = await this.prisma.session.findUnique({
       where: { code },
-      select: { groupId: true, date: true, endedAt: true, createdAt: true, group: { select: { payAccount: true } } },
+      select: { groupId: true, paymentCollectionClosedAt: true, date: true, endedAt: true, createdAt: true, group: { select: { payAccount: true } } },
     });
     if (!session) return null;
     if (!planAtLeast(await this.plans.planForGroup(session.groupId, now), 'host')) return null;
@@ -514,7 +562,7 @@ export class SlipPaymentsService {
     // A group with none still has the account the host typed for tonight in the confirmed card: check against that.
     const savedName = parsePayAccount(session.group.payAccount)?.name ?? panel.account?.name ?? null;
     const billEnd = session.endedAt ?? session.createdAt;
-    return { groupId: session.groupId, panel, savedName, billEnd, date: session.date };
+    return { groupId: session.groupId, closedAt: session.paymentCollectionClosedAt, panel, savedName, billEnd, date: session.date };
   }
 
   /** Decides a slip whose reference is now recorded: the sender's own player paid, or a waiting slip for the host. */
@@ -549,8 +597,8 @@ export class SlipPaymentsService {
       }
     }
 
-    // Call 1: an amount is shown to the host only when exactly one owed amount is on the slip.
-    const found = owedAmountsFound(ocr.text, unpaid.map((r) => r.amountSatang));
+    // Keep a unique OCR amount even when nobody on this bill owes it.
+    const readAmount = slipAmount(ocr.text);
     await this.prisma.pendingSlip.create({
       data: {
         sessionId: code,
@@ -559,7 +607,7 @@ export class SlipPaymentsService {
         lineUserId: user.userId,
         displayName: user.displayName,
         pictureUrl: user.pictureUrl,
-        amountSatang: found.length === 1 ? found[0] : null,
+        amountSatang: readAmount,
         // Only on a receiver mismatch, so the host can fix the saved name: the receiver as read, never the OCR text.
         receiverName: reason === 'receiver' ? receiverName(ocr.lines) : null,
         receiverTail: reason === 'receiver' ? receiverTail(ocr.text) : null,
@@ -647,6 +695,39 @@ export class SlipPaymentsService {
         data: { groupId, playerId, lineUserId: slip.lineUserId, displayName: slip.displayName, linkedBy: 'host' },
       }),
     ];
+  }
+
+  async collection(code: string): Promise<{closedAt: string | null; canClose: boolean; imageCount: number}> {
+    const session = await this.prisma.session.findUnique({ where: { code }, select: { paymentCollectionClosedAt: true } });
+    if (!session) throw new NotFoundException();
+    const panel = await this.cards.panel(code);
+    const paid = await this.paidIds(code);
+    const pending = await this.prisma.pendingSlip.count({ where: { sessionId: code, resolvedAt: null } });
+    const duplicates = await this.prisma.slipDuplicate.count({ where: { sessionId: code, dismissedAt: null } });
+    const payable = panel.rows.filter((r) => r.amountSatang > 0);
+    return {
+      closedAt: session.paymentCollectionClosedAt?.toISOString() ?? null,
+      canClose: !session.paymentCollectionClosedAt && panel.ended && panel.confirmed && panel.ready && !panel.stale && payable.length > 0 && payable.every((r) => paid.has(r.playerId)) && pending === 0 && duplicates === 0,
+      imageCount: await this.images.count(code),
+    };
+  }
+
+  async closeCollection(code: string): Promise<void> {
+    return this.lock.run(code, async () => {
+      const state = await this.collection(code);
+      if (!state.closedAt) {
+        if (!state.canClose) throw new ConflictException({ code: 'COLLECTION_NOT_READY' });
+        await this.prisma.session.update({ where: { code }, data: { paymentCollectionClosedAt: new Date() } });
+      }
+      // A failed file deletion is retried by the same action; the closed state blocks concurrent uploads meanwhile.
+      await this.images.purgeSession(code);
+    });
+  }
+
+  private async assertOpen(code: string): Promise<void> {
+    const session = await this.prisma.session.findUnique({ where: { code }, select: { paymentCollectionClosedAt: true } });
+    if (!session) throw new NotFoundException();
+    if (session.paymentCollectionClosedAt) throw new ConflictException({ code: 'COLLECTION_CLOSED' });
   }
 
   private async groupOf(code: string): Promise<string> {

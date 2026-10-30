@@ -494,6 +494,8 @@ export class PaymentPanel {
    */
   private confirmError(code: unknown): string | null {
     switch (code) {
+      case 'COLLECTION_CLOSED':
+        return $localize`:@@bill.collectionClosed:ปิดการเก็บเงินแล้ว แก้ไขบิลไม่ได้`;
       case 'PAY_ACCOUNT_INVALID':
         return $localize`:@@pay.account.invalid:ตรวจบัญชีรับเงินอีกครั้ง ต้องกรอกครบทั้งสามช่อง และเลขบัญชีเป็นตัวเลข 6 หลักขึ้นไป`;
       case 'PAYMENT_CHANGED':

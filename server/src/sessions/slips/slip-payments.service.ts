@@ -329,6 +329,9 @@ export class SlipPaymentsService {
     if (!row) return 'collision';
     // amountPresent never finds zero, so a player owing nothing is never auto-matched.
     if (!amountPresent(ocr.text, row.amountSatang)) return hasAmountToken(ocr.text) ? 'amount' : 'unreadable';
+    // Call 1: two different owed amounts on one slip is not a match. Repeated values collapse, so a night where
+    // everyone owes the same still pays; zero is never an owed amount found.
+    if (owedAmountsFound(ocr.text, unpaid.map((r) => r.amountSatang)).length !== 1) return 'amount';
     if (savedName !== null && !receiverNameMatches(ocr.lines, savedName)) return 'receiver';
     return row;
   }

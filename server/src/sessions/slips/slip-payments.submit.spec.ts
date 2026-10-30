@@ -248,6 +248,17 @@ describe('slip payments: submit pipeline', () => {
       expect(await slips.getPaid(code)).toMatchObject([{ playerId: ids[0], source: 'slip', amountChangedSince: false }]);
     });
 
+    it('still pays when other unpaid players owe the same amount as the sender (repeated values are one amount)', async () => {
+      const { code, ids, token } = await setup();
+      const amount = await owed(code, ids[0]);
+      const rows = (await cards.panel(code)).rows;
+      expect(rows.filter((r) => r.playerId !== ids[0] && r.amountSatang === amount).length).toBeGreaterThanOrEqual(2);
+      const a = await linked(code, ids[0]);
+      reader.read.mockResolvedValue(slip(newRef(), { amount: baht(amount), extra: [`ยอดรวม ${baht(amount)}`] }));
+      expect(await slips.submitSlip(code, token, a, IMAGE)).toEqual({ kind: 'paid', playerIds: [ids[0]] });
+      expect(await paymentsOf(code)).toMatchObject([{ playerId: ids[0], source: 'slip', amountSatang: amount }]);
+    });
+
     it('pays a comma-grouped amount', async () => {
       const { code, ids, token } = await setup();
       await reprice(code, token, [{ playerId: ids[0], amountSatang: 117200 }]);
@@ -592,6 +603,19 @@ describe('slip payments: submit pipeline', () => {
         ['amount', null],
       ]);
       expect(await paymentsOf(code)).toEqual([]);
+    });
+
+    it("holds a slip showing the sender's own amount and another unpaid player's different amount", async () => {
+      const { code, ids, token } = await setup();
+      await reprice(code, token, [
+        { playerId: ids[0], amountSatang: 17200 },
+        { playerId: ids[1], amountSatang: 15000 },
+      ]);
+      const a = await linked(code, ids[0]);
+      reader.read.mockResolvedValue(slip(newRef(), { amount: '172.00', extra: ['ยอดคงเหลือ 150.00'] }));
+      expect(await slips.submitSlip(code, token, a, IMAGE)).toEqual({ kind: 'waiting', reason: 'amount' });
+      expect(await paymentsOf(code)).toEqual([]);
+      expect(await onePending(code)).toMatchObject({ reason: 'amount', amountSatang: null });
     });
 
     it('holds a slip with no amount token at all as unreadable', async () => {

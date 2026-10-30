@@ -3,6 +3,7 @@ import {
   formatBaht,
   liffPayUrl,
   liffSlipUrl,
+  liffPaymentStatusUrl,
   PAYMENT_NUMBER_TEXT,
   paymentCardMessages,
   paymentDmMessages,
@@ -418,5 +419,21 @@ describe('paymentDmMessages', () => {
 
   it('throws on zero rows, like the other card', () => {
     expect(() => paymentDmMessages({ ...INPUT, rows: [] }, SHARE)).toThrow(RangeError);
+  });
+});
+
+
+describe('read-only payment status card entry', () => {
+  it('encodes code and token and adds a third button on group and shared cards', () => {
+    const url = liffPaymentStatusUrl('1-a', 'a/b c', 't&x');
+    expect(url).toBe('https://liff.line.me/1-a/payment-status/a%2Fb%20c/t%26x');
+    for (const target of ['group', 'host'] as const) {
+      const [message] = paymentCardMessages(INPUT, target, 'https://x.test/slip', url) as Node[];
+      const footer = (message['contents'] as Node)['footer'] as Node;
+      const buttons = footer['contents'] as Node[];
+      expect(buttons).toHaveLength(3);
+      expect(buttons[2]).toEqual({ type: 'button', style: 'secondary', action: { type: 'uri', label: 'ดูสถานะการจ่าย', uri: url } });
+      expect([...((buttons[2]['action'] as Node)['label'] as string)].length).toBeLessThanOrEqual(20);
+    }
   });
 });

@@ -68,6 +68,11 @@ export function liffSlipUrl(
   return `https://liff.line.me/${liffId}/slip/${encodeURIComponent(sessionCode)}/${encodeURIComponent(token)}`;
 }
 
+/** Read-only collector page, using the same confirmed bill token as slip uploads. */
+export function liffPaymentStatusUrl(liffId: string, sessionCode: string, token: string): string {
+  return `https://liff.line.me/${liffId}/payment-status/${encodeURIComponent(sessionCode)}/${encodeURIComponent(token)}`;
+}
+
 /** Name on the left, amount right-aligned; the name wraps and the amount never does. */
 function amountRow(name: string, amount: string, bold = false) {
   const weight = bold ? { weight: 'bold' } : {};
@@ -245,6 +250,7 @@ export function paymentCardMessages(
   input: PaymentCardInput,
   target: 'group' | 'host',
   slipUrl?: string | null,
+  statusUrl?: string | null,
 ): unknown[] {
   assertHasRows(input);
   const footer: unknown[] = [copyButton(input, 'primary')];
@@ -253,6 +259,12 @@ export function paymentCardMessages(
       type: 'button',
       style: 'secondary',
       action: { type: 'uri', label: 'ส่งสลิป', uri: slipUrl },
+    });
+  }
+  if (statusUrl) {
+    footer.push({
+      type: 'button', style: 'secondary',
+      action: { type: 'uri', label: 'ดูสถานะการจ่าย', uri: statusUrl },
     });
   }
   const messages: unknown[] = [paymentCard(input, footer)];

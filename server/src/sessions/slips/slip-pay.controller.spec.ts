@@ -9,6 +9,7 @@ import {
   slipRead,
 } from '../../../test/slip-http.fixture.js';
 import { SlipPaymentsService, type LiffUser } from './slip-payments.service.js';
+import { BillService } from '../bill.service.js';
 import { SlipUploadSlots } from './slip-throttles.js';
 
 type Kit = Awaited<ReturnType<typeof bootSlipApp>>;
@@ -55,6 +56,10 @@ describe('slip pay-page routes (public, token-gated)', () => {
     const r = request(kit.server).post(`${pay(code)}/upload${query}`).set('Content-Type', type);
     return (access === undefined ? r : r.set(HEADER, access)).send(body);
   };
+  const status = (code: string, query: string, access?: string) => {
+    const r = request(kit.server).get(`${pay(code)}/status${query}`);
+    return access === undefined ? r : r.set(HEADER, access);
+  };
   const q = (token: string) => `?token=${encodeURIComponent(token)}`;
   const setupSession = async () => kit.setup(hostId);
   const writtenFor = async (groupCode: string, code: string) =>
@@ -66,6 +71,7 @@ describe('slip pay-page routes (public, token-gated)', () => {
     type Call = (code: string, query: string, access: string | undefined) => request.Test;
     const routes: [string, Call][] = [
       ['GET slip-pay', (c, qs, a) => get(c, qs, a)],
+      ['GET status', (c, qs, a) => status(c, qs, a)],
       ['POST claim', (c, qs, a) => claim(c, qs, a, 'p')],
       ['POST upload', (c, qs, a) => upload(c, qs, a)],
     ];
@@ -124,6 +130,7 @@ describe('slip pay-page routes (public, token-gated)', () => {
       const { code, token, ids } = await kit.setup(lapsed.id);
       const [access] = viewer();
       expect((await get(code, q(token), access)).status).toBe(404);
+      expect((await status(code, q(token), access)).status).toBe(404);
       expect((await claim(code, q(token), access, ids[0])).status).toBe(404);
       expect((await upload(code, q(token), access)).status).toBe(404);
       expect(kit.reader.read).not.toHaveBeenCalled();
@@ -135,6 +142,7 @@ describe('slip pay-page routes (public, token-gated)', () => {
       await kit.prisma.session.update({ where: { code }, data: { paymentCard: null } });
       const [access] = viewer();
       expect((await get(code, q(token), access)).status).toBe(404);
+      expect((await status(code, q(token), access)).status).toBe(404);
     });
   });
 
@@ -254,6 +262,60 @@ describe('slip pay-page routes (public, token-gated)', () => {
       const [access] = viewer();
       const res = await get(code, q(token), access);
       for (const secret of [token, groupCode, '123-4-56789-0', 'lineUserId']) expect(res.text).not.toContain(secret);
+    });
+  });
+
+  describe('GET payment status', () => {
+    it('shows fresh bill rows to an unclaimed viewer without host data or writes', async () => {
+      const { code, token, ids, groupCode } = await setupSession();
+      const [access, user] = viewer();
+      await kit.prisma.sessionPayment.create({ data: { sessionId: code, playerId: ids[0], source: 'slip', amountSatang: 1 } });
+      const res = await status(code, q(token), access).expect(200);
+      expect(res.headers['cache-control']).toBe('no-store');
+      expect(Object.keys(res.body).sort()).toEqual(['rows', 'sessionDate']);
+      expect(res.body.sessionDate).toBe('30 ต.ค. 2569');
+      expect(res.body.rows).toHaveLength(4);
+      expect(res.body.rows.find((r: { name: string }) => r.name === 'สมชาย')).toEqual({
+        name: 'สมชาย', amountSatang: await kit.owed(code, ids[0]), paid: true, amountChangedSince: true,
+      });
+      expect(res.body.rows.filter((r: { paid: boolean }) => !r.paid)).toHaveLength(3);
+      for (const row of res.body.rows) expect(Object.keys(row).sort()).toEqual(['amountChangedSince', 'amountSatang', 'name', 'paid']);
+      for (const secret of [token, groupCode, ...ids, user.userId, '123-4-56789-0', 'receiverName', 'reference']) expect(res.text).not.toContain(secret);
+      expect(await kit.prisma.playerLineAccount.count({ where: { groupId: groupCode } })).toBe(0);
+      await kit.app.get(SlipPaymentsService).tick(code, ids[1]);
+      expect((await status(code, q(token), access)).body.rows.filter((r: { paid: boolean }) => r.paid)).toHaveLength(2);
+      await kit.app.get(SlipPaymentsService).untick(code, ids[1]);
+      expect((await status(code, q(token), access)).body.rows.filter((r: { paid: boolean }) => r.paid)).toHaveLength(1);
+    });
+
+    it('reflects edited bill amounts and names without erasing existing payment marks', async () => {
+      const { code, token, ids } = await setupSession();
+      const [access] = viewer();
+      const owed = await kit.owed(code, ids[0]);
+      await kit.prisma.sessionPayment.create({ data: { sessionId: code, playerId: ids[0], source: 'slip', amountSatang: owed } });
+      await kit.prisma.player.update({ where: { id: ids[0] }, data: { name: 'Updated name' } });
+      await kit.app.get(BillService).setBillConfig(code, {
+        model: 'fair', courtFeeSatang: 80000, courtSplit: 'equal', shuttleSplit: 'byGames',
+        perGameRateSatang: 0, entryFeeSatang: 0, capSatang: null, buffetPriceSatang: 0,
+        buffetShuttlesIncluded: true, startingFeeSatang: 0, hostFeeSatang: 0, walkInFeeSatang: 0, roundingBaht: 1,
+        addedIds: [], removedIds: [], overrides: [],
+      } as never);
+      const res = await status(code, q(token), access).expect(200);
+      const row = res.body.rows.find((r: { name: string }) => r.name === 'Updated name');
+      expect(row.amountSatang).not.toBe(owed);
+      expect(row).toMatchObject({ paid: true, amountChangedSince: true });
+      expect(await kit.prisma.sessionPayment.count({ where: { sessionId: code } })).toBe(1);
+    });
+
+    it('refuses status mutations using only LINE credentials', async () => {
+      const { code, token, ids } = await setupSession();
+      const [access] = viewer();
+      for (const method of ['post', 'patch', 'delete'] as const) {
+        const res = await request(kit.server)[method](`${pay(code)}/status${q(token)}`).set(HEADER, access).send({ playerId: ids[0], paid: true });
+        expect([401, 404]).toContain(res.status);
+      }
+      await request(kit.server).post(`/sessions/${code}/payments/tick`).set(HEADER, access).send({ playerId: ids[0] }).expect(401);
+      expect(await kit.prisma.sessionPayment.count({ where: { sessionId: code } })).toBe(0);
     });
   });
 

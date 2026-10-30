@@ -159,6 +159,8 @@ describe('auth boundary', () => {
       // checked with LINE) plus the confirm's pay token, and answer every failure with the same 404.
       // slip-pay.controller.spec.ts pins that they answer a caller with no cookie.
       if (path === '/sessions/:code/slip-pay') continue;
+      // Read-only collector list, verified LINE identity and card token.
+      if (path === '/sessions/:code/slip-pay/status') continue;
       if (path === '/sessions/:code/slip-pay/claim') continue;
       if (path === '/sessions/:code/slip-pay/upload') continue;
       // Also @Public: the LIFF id for the pay page's liff.init, before it has a LINE identity; gated by the pay token alone.
@@ -373,6 +375,8 @@ describe('auth boundary', () => {
         if (path === '/sessions/:code/payment-share-card') continue;
         // @Public: gated by a LINE viewer plus the confirm's pay token (slip-pay.controller.spec.ts).
         if (path === '/sessions/:code/slip-pay') continue;
+        // Read-only collector list: current card token plus verified LINE identity.
+        if (path === '/sessions/:code/slip-pay/status') continue;
         if (path === '/sessions/:code/slip-pay/claim') continue;
         if (path === '/sessions/:code/slip-pay/upload') continue;
         // @Public: gated by the confirm's pay token alone, no LINE viewer (slip-pay-config.spec.ts).

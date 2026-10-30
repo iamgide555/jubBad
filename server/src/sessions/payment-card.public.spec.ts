@@ -8,7 +8,7 @@ import { AppModule } from '../app.module.js';
 import { SESSION_SECRET } from '../auth/auth.module.js';
 import { AuthBootstrapService } from '../auth/bootstrap.service.js';
 import { LineClient } from '../line/line-client.js';
-import { liffPayUrl, liffSlipUrl, paymentCardMessages } from '../line/payment-card.js';
+import { liffPayUrl, liffSlipUrl, liffPaymentStatusUrl, paymentCardMessages } from '../line/payment-card.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { UsersService } from '../users/users.service.js';
 import { newShareToken, parsePaymentState, serializePaymentState } from './payment-card-state.js';
@@ -197,7 +197,8 @@ describe('GET /sessions/:code/payment-share-card (public, token-gated)', () => {
           account: ACCOUNT,
         },
         'host',
-        liffSlipUrl(LIFF_ID, code, token)
+        liffSlipUrl(LIFF_ID, code, token),
+        liffPaymentStatusUrl(LIFF_ID, code, token)
       )
     );
     expect(JSON.stringify(res.body.messages)).toContain('ส่งสลิป');

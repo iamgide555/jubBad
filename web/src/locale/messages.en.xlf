@@ -6881,6 +6881,42 @@
         <source>บิลวันที่ <x id="INTERPOLATION" equiv-text="{{ v.sessionDate }}"/></source>
         <target>Bill for <x id="INTERPOLATION" equiv-text="{{ v.sessionDate }}"/></target>
       </trans-unit>
+      <trans-unit id="paymentStatus.title" datatype="html">
+        <source>สถานะการจ่าย</source><target>Payment status</target>
+      </trans-unit>
+      <trans-unit id="paymentStatus.date" datatype="html">
+        <source>บิลวันที่ <x id="INTERPOLATION" equiv-text="{{ date }}"/></source><target>Bill for <x id="INTERPOLATION" equiv-text="{{ date }}"/></target>
+      </trans-unit>
+      <trans-unit id="paymentStatus.readOnly" datatype="html">
+        <source>ดูได้อย่างเดียว · โฮสต์เป็นคนแก้สถานะ</source><target>Read only · Only the host can change payment status</target>
+      </trans-unit>
+      <trans-unit id="paymentStatus.refresh" datatype="html">
+        <source>รีเฟรชสถานะ</source><target>Refresh status</target>
+      </trans-unit>
+      <trans-unit id="paymentStatus.error" datatype="html">
+        <source>โหลดสถานะไม่สำเร็จ ลองอีกครั้ง</source><target>Could not load payment status. Try again.</target>
+      </trans-unit>
+      <trans-unit id="paymentStatus.unpaidCount" datatype="html">
+        <source>ยังไม่จ่าย <x id="INTERPOLATION" equiv-text="{{ unpaidCount() }}"/> คน</source><target>Unpaid: <x id="INTERPOLATION" equiv-text="{{ unpaidCount() }}"/></target>
+      </trans-unit>
+      <trans-unit id="paymentStatus.paidCount" datatype="html">
+        <source>จ่ายแล้ว <x id="INTERPOLATION" equiv-text="{{ paidCount() }}"/> คน</source><target>Paid: <x id="INTERPOLATION" equiv-text="{{ paidCount() }}"/></target>
+      </trans-unit>
+      <trans-unit id="paymentStatus.pendingNote" datatype="html">
+        <source>ส่งสลิปแล้วแต่รอโฮสต์ตรวจ ยังนับว่ายังไม่จ่าย</source><target>Slips awaiting host review still count as unpaid.</target>
+      </trans-unit>
+      <trans-unit id="paymentStatus.empty" datatype="html">
+        <source>ไม่มีรายชื่อในบิลนี้</source><target>No players on this bill.</target>
+      </trans-unit>
+      <trans-unit id="paymentStatus.amountChanged" datatype="html">
+        <source>ยอดเปลี่ยนหลังจ่าย</source><target>Amount changed after payment</target>
+      </trans-unit>
+      <trans-unit id="paymentStatus.paid" datatype="html">
+        <source>จ่ายแล้ว</source><target>Paid</target>
+      </trans-unit>
+      <trans-unit id="paymentStatus.unpaid" datatype="html">
+        <source>ยังไม่จ่าย</source><target>Unpaid</target>
+      </trans-unit>
     </body>
   </file>
 </xliff>

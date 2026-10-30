@@ -17,6 +17,17 @@ describe('SlipPayService', () => {
   });
   afterEach(() => http.verify());
 
+  it('status: reads current status with encoded token and LINE identity', () => {
+    const view = { sessionDate: null, rows: [] };
+    let got: unknown;
+    service.status('s/1 x', 't&k=1', 'ACCESS').subscribe((v) => (got = v));
+    const req = http.expectOne(`${base}/status?token=${tok}`);
+    expect(req.request.method).toBe('GET');
+    expect(req.request.headers.get('X-Line-Access-Token')).toBe('ACCESS');
+    req.flush(view);
+    expect(got).toEqual(view);
+  });
+
   it('config: GETs /config with the token and no LINE header', () => {
     let got: unknown;
     service.config('s/1 x', 't&k=1').subscribe((v) => (got = v));

@@ -3,6 +3,7 @@ import {
   Body,
   Controller,
   Get,
+  Header,
   HttpCode,
   HttpException,
   HttpStatus,
@@ -25,6 +26,7 @@ import {
   type ClaimOutcome,
   type LiffUser,
   type PayPageView,
+  type PaymentStatusView,
   type SubmitOutcome,
 } from './slip-payments.service.js';
 
@@ -63,6 +65,20 @@ export class SlipPayController {
   ): Promise<PayPageView> {
     const { user, key } = await this.viewer(req, code);
     const view = await this.slips.payPageView(code, payToken(token), user);
+    if (!view) this.fail(key);
+    return view;
+  }
+
+  @Public()
+  @Get(':code/slip-pay/status')
+  @Header('Cache-Control', 'no-store')
+  async status(
+    @Param('code') code: string,
+    @Query('token') token: unknown,
+    @Req() req: Request
+  ): Promise<PaymentStatusView> {
+    const { key } = await this.viewer(req, code);
+    const view = await this.slips.paymentStatusView(code, payToken(token));
     if (!view) this.fail(key);
     return view;
   }

@@ -27,3 +27,9 @@ export type SlipPayUploadOutcome = 'paid' | 'waiting' | 'duplicate' | 'not-slip'
 export interface SlipPayUploadResult {
   outcome: SlipPayUploadOutcome;
 }
+
+/** Minimal read-only projection; no host review details or LINE account identifiers. */
+export interface PaymentStatusView {
+  sessionDate: string | null;
+  rows: { name: string; amountSatang: number; paid: boolean; amountChangedSince: boolean }[];
+}

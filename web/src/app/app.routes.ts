@@ -133,6 +133,11 @@ export const routes: Routes = [
     loadComponent: () => import('./pages/slip-pay/slip-pay').then((m) => m.SlipPay),
   },
   {
+    // Read-only collector view: LINE identity and confirmed bill token, no host login.
+    path: 'line-share/payment-status/:sessionCode/:token',
+    loadComponent: () => import('./pages/payment-status/payment-status').then((m) => m.PaymentStatus),
+  },
+  {
     // Unguarded: LINE opens this in its own browser on the host's phone (via
     // liff.line.me), where there is no JubBad login. LINE login decides who
     // may share, and the card is the one the public summary link already

@@ -9,7 +9,7 @@ import { SESSION_SECRET } from '../auth/auth.module.js';
 import { AuthBootstrapService } from '../auth/bootstrap.service.js';
 import { LineClient } from '../line/line-client.js';
 import { retryKeyFor } from '../line/line-summary.service.js';
-import { liffSlipUrl, paymentCardMessages, paymentDmMessages } from '../line/payment-card.js';
+import { liffSlipUrl, liffPaymentStatusUrl, paymentCardMessages, paymentDmMessages } from '../line/payment-card.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { UsersService } from '../users/users.service.js';
 import { BillService } from './bill.service.js';
@@ -616,7 +616,8 @@ describe('payment card: owner panel, confirm and bot send', () => {
           },
           'group',
           // LINE_LIFF_ID is set in beforeEach, so the card carries the send-slip button.
-          liffSlipUrl(LIFF_ID, code, token)
+          liffSlipUrl(LIFF_ID, code, token),
+          liffPaymentStatusUrl(LIFF_ID, code, token)
         )
       );
       const after = await panelOf(code);
@@ -646,9 +647,9 @@ describe('payment card: owner panel, confirm and bot send', () => {
       const buttons = slipButtons(messages);
       expect(buttons).toHaveLength(1);
       expect(buttons[0].action.uri).toBe(`https://liff.line.me/${LIFF_ID}/slip/${code}/${token}`);
-      // Copy button first, slip button after it.
+      // Copy, upload, then read-only payment status.
       const footer = messages[0].contents.footer.contents;
-      expect(footer).toHaveLength(2);
+      expect(footer).toHaveLength(3);
       expect(footer[0].action.type).toBe('clipboard');
       expect(footer[1]).toBe(buttons[0]);
     });

@@ -1680,6 +1680,17 @@ pays anyone and the sender is not told off in the group. A receiver mismatch als
 receiver the group's saved name (after a confirmation showing the old and new name); it is offered only when
 the group has a saved account, since that is the name it rewrites.
 
+**Read-only payment status (2026-10-31).** Newly generated payment cards also carry **ดูสถานะการจ่าย**,
+opening `/line-share/payment-status/:sessionCode/:token` inside LINE. A collector can see the bill date,
+paid/unpaid counts, names, amounts and recorded payment marks without claiming a player or signing in as
+host. Unpaid names appear first; **รีเฟรชสถานะ** reads current state. Pending slips remain unpaid until
+accepted. Existing paid marks remain after bill edits, with an amount-change note when applicable.
+`GET /sessions/:code/slip-pay/status` requires the same verified LINE identity, current confirmation token
+and Host plan as the pay page; reconfirming revokes old links. It returns only the read projection with
+`Cache-Control: no-store`, never review details or LINE profiles. All mutations remain on owner-only routes.
+Existing chat cards do not change retroactively: send a new card to get the button. Design:
+`docs/archive/specs/2026-10-31-payment-status-design.md`.
+
 **Abuse limits.** The pay link is reachable by anyone holding the card, so uploads have a size cap (8 MB,
 in nginx and the API), a per-viewer rate limit, a server-wide limit on uploads in flight, and reading is
 serialised; an image whose pixel size cannot be read from its header, or over 25 megapixels, is never decoded.

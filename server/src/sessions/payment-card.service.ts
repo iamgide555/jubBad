@@ -4,7 +4,7 @@ import { LineClient } from '../line/line-client.js';
 import { lineConfig } from '../line/line-config.js';
 import { cardTexts, clip, TEXT_MAX } from '../line/line-summary-card.js';
 import { LineSummaryService, type LineSummaryTarget } from '../line/line-summary.service.js';
-import { liffPayUrl, liffSlipUrl, paymentCardMessages, paymentDmMessages, type PaymentCardInput } from '../line/payment-card.js';
+import { liffPayUrl, liffSlipUrl, liffPaymentStatusUrl, paymentCardMessages, paymentDmMessages, type PaymentCardInput } from '../line/payment-card.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import type { BillWarning } from '../../../engines/bill.ts';
 import { BillService } from './bill.service.js';
@@ -224,7 +224,8 @@ export class PaymentCardService {
         const { liffId, loginChannelId } = lineConfig();
         const slipUrl =
           liffId !== null && loginChannelId !== null && state.token ? liffSlipUrl(liffId, code, state.token) : null;
-        const messages = paymentCardMessages(cardInput(panel.account), 'group', slipUrl);
+        const statusUrl = slipUrl && liffId && state.token ? liffPaymentStatusUrl(liffId, code, state.token) : null;
+        const messages = paymentCardMessages(cardInput(panel.account), 'group', slipUrl, statusUrl);
         outcome = await this.line.push(to, messages, paymentRetryKey(code, sendId));
       } catch {
         return 'failed';
@@ -308,7 +309,11 @@ export class PaymentCardService {
       liffId,
       // `stored` is the confirmed token the caller just matched, so the slip button carries exactly that one. No
       // button without the LINE Login channel: the pay page could not verify anyone.
-      messages: paymentCardMessages(input, 'host', loginChannelId === null ? null : liffSlipUrl(liffId, code, stored)),
+      messages: paymentCardMessages(
+        input, 'host',
+        loginChannelId === null ? null : liffSlipUrl(liffId, code, stored),
+        loginChannelId === null ? null : liffPaymentStatusUrl(liffId, code, stored),
+      ),
       preview: {
         name,
         date,

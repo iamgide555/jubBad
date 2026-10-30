@@ -97,6 +97,12 @@ export interface PayPageView {
   sessionDate: string | null;
 }
 
+/** Read-only bill projection for collectors; never includes host review or LINE account data. */
+export interface PaymentStatusView {
+  sessionDate: string | null;
+  rows: { name: string; amountSatang: number; paid: boolean; amountChangedSince: boolean }[];
+}
+
 /**
  * What a slip may be checked against: the session's group, its current payment panel and the receiver name (the
  * group's saved one, else the confirmed card's; null only when neither has one).
@@ -219,6 +225,25 @@ export class SlipPaymentsService {
   ): Promise<ClaimOutcome | null> {
     if (!(await this.gate(code, token, now))) return null;
     return this.claimPlayer(code, user, playerId);
+  }
+
+  async paymentStatusView(code: string, token: string | undefined, now: Date = new Date()): Promise<PaymentStatusView | null> {
+    return this.lock.run(code, async () => {
+      const gate = await this.gate(code, token, now);
+      if (!gate) return null;
+      const stored = await this.prisma.sessionPayment.findMany({ where: { sessionId: code } });
+      const paid = new Map(stored.map((p) => [p.playerId, p]));
+      return {
+        sessionDate: gate.date === null || gate.date.trim() === '' ? null : cardDate(gate.date, gate.billEnd),
+        rows: gate.panel.rows.map((r) => {
+          const mark = paid.get(r.playerId);
+          return {
+            name: r.name, amountSatang: r.amountSatang, paid: mark !== undefined,
+            amountChangedSince: mark !== undefined && mark.amountSatang !== null && mark.amountSatang !== r.amountSatang,
+          };
+        }),
+      };
+    });
   }
 
   async getPaid(code: string): Promise<PaidRow[]> {

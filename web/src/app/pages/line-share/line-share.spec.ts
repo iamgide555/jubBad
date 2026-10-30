@@ -438,6 +438,21 @@ describe('LineShare', () => {
     });
   });
 
+  it.each(['/payment-status/abc/TOK', '/payment-status/abc/TOK?liff.hback=2', '/payment-status/abc/TOK#frag'])(
+    'hands status link %s to read-only page, preserving login query', async (state) => {
+      route = { params: {}, query: { 'liff.state': state, state: 'AUTH', liffClientId: '123' } };
+      fixture = TestBed.createComponent(LineShare);
+      fixture.detectChanges();
+      await flush();
+      expect(navigate).toHaveBeenCalledWith(['/line-share', 'payment-status', 'abc', 'TOK'], {
+        replaceUrl: true, queryParams: { state: 'AUTH', liffClientId: '123' },
+      });
+      expect(shareCard).not.toHaveBeenCalled();
+      expect(paymentShareCard).not.toHaveBeenCalled();
+      expect(liff.init).not.toHaveBeenCalled();
+    },
+  );
+
   describe('slip pay link', () => {
     const open_ = async (state: string, query: Record<string, string> = {}) => {
       route = { params: {}, query: { 'liff.state': state, ...query } };

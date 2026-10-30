@@ -1,0 +1,97 @@
+.payment-status {
+  max-width: 42rem;
+  font-size: var(--text-base);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+header {
+  display: grid;
+  gap: var(--space-1);
+}
+
+h1, p {
+  margin: 0;
+}
+
+.status-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+
+.counts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1) var(--space-3);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.paid-count, .paid-state {
+  color: var(--court-ink);
+}
+
+button {
+  min-height: var(--tap);
+}
+
+.status-note {
+  font-size: var(--text-sm);
+}
+
+.status-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  border-block: 1px solid var(--line);
+}
+
+.status-list li {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: var(--space-2);
+  padding-block: var(--space-2);
+  border-bottom: 1px solid var(--line);
+}
+
+.status-list li:last-child {
+  border-bottom: 0;
+}
+
+.person, .payment {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-0);
+}
+
+.person-name {
+  overflow-wrap: anywhere;
+  font-weight: 600;
+}
+
+.payment {
+  align-items: flex-end;
+  font-variant-numeric: tabular-nums;
+}
+
+.amount {
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.state, .changed-note {
+  font-size: var(--text-sm);
+}
+
+.changed-note {
+  color: var(--warn);
+}
+
+.empty {
+  padding-block: var(--space-3);
+  color: var(--ink-soft);
+}

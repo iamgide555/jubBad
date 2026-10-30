@@ -10,7 +10,7 @@ import { LineService } from '../../core/line.service';
 type Phase = 'loading' | 'missing' | 'error' | 'login' | 'unavailable' | 'ready' | 'done';
 
 interface RouteTarget {
-  kind: 'summary' | 'pay' | 'slip';
+  kind: 'summary' | 'pay' | 'slip' | 'payment-status';
   code: string;
   /** Only for `pay` and `slip`; never logged or shown. */
   token: string | null;
@@ -38,7 +38,7 @@ function routeTargetFrom(snapshot: ActivatedRouteSnapshot): RouteTarget {
   const state = (snapshot.queryParamMap.get('liff.state') ?? '').split(/[?#]/)[0];
   const path = state.startsWith('/') ? state.slice(1) : state;
   const parts = path.split('/');
-  if ((parts[0] === 'pay' || parts[0] === 'slip') && parts.length > 1) {
+  if ((parts[0] === 'pay' || parts[0] === 'slip' || parts[0] === 'payment-status') && parts.length > 1) {
     return { kind: parts[0], code: parts.length === 3 ? parts[1] : '', token: parts.length === 3 ? parts[2] : null };
   }
   return { kind: 'summary', code: path, token: null };
@@ -75,13 +75,13 @@ export class LineShare {
 
   constructor() {
     const { kind, code, token } = this.target;
-    if (kind === 'slip' && code && token) {
+    if ((kind === 'slip' || kind === 'payment-status') && code && token) {
       // A player's slip link, as LIFF first opens it. It is not a card to share: the slip page loads
       // its own data and starts LIFF itself, so go there and leave this URL out of the history.
       const queryParams = Object.fromEntries(
         this.route.queryParamMap.keys.filter((k) => k !== 'liff.state').map((k) => [k, this.route.queryParamMap.get(k)!]),
       );
-      void this.router.navigate(['/line-share', 'slip', code, token], { replaceUrl: true, queryParams });
+      void this.router.navigate(['/line-share', kind, code, token], { replaceUrl: true, queryParams });
       return;
     }
     void this.load();

@@ -2,7 +2,7 @@ import { HttpClient, HttpHeaders } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import type { Observable } from 'rxjs';
 import { environment } from '../../environments/environment';
-import type { SlipPayClaimOutcome, SlipPayConfig, SlipPayUploadResult, SlipPayView } from './slip-pay.model';
+import type { PaymentStatusView, SlipPayClaimOutcome, SlipPayConfig, SlipPayUploadResult, SlipPayView } from './slip-pay.model';
 
 /**
  * Public routes behind the player pay page. The pay token (query) says which
@@ -30,6 +30,12 @@ export class SlipPayService {
 
   view(code: string, token: string, accessToken: string): Observable<SlipPayView> {
     return this.http.get<SlipPayView>(this.url(code, token), {
+      headers: this.headers(accessToken),
+    });
+  }
+
+  status(code: string, token: string, accessToken: string): Observable<PaymentStatusView> {
+    return this.http.get<PaymentStatusView>(this.url(code, token, '/status'), {
       headers: this.headers(accessToken),
     });
   }

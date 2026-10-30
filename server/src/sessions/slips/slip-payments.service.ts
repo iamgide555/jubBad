@@ -79,6 +79,18 @@ export interface DuplicateSlip {
   createdAt: string;
 }
 
+/** What the pay page shows one LINE viewer. Never carries an id other than the claimable players'. */
+export interface PayPageView {
+  /** The viewer's own bill row; null when the viewer is not linked to a player on tonight's bill. */
+  amountSatang: number | null;
+  playerName: string | null;
+  /** Unpaid players on the bill that no LINE account is linked to yet: the "this is me" choices. */
+  claimable: { playerId: string; name: string }[];
+  /** Who the transfer goes to, as the confirmed card shows it. */
+  accountName: string;
+  alreadyPaid: boolean;
+}
+
 /** What a slip may be checked against: the session's group, its current payment panel and the saved receiver name. */
 interface SubmitGate {
   groupId: string;
@@ -142,6 +154,46 @@ export class SlipPaymentsService {
         throw error;
       }
     });
+  }
+
+  /**
+   * What the pay page shows this viewer, or null when the page is not available: wrong or old pay token, a plan below
+   * host (lapsed counts as free), no confirmed card, or no such session. The caller answers every null the same way.
+   */
+  async payPageView(code: string, token: string | undefined, user: LiffUser, now: Date = new Date()): Promise<PayPageView | null> {
+    const gate = await this.gate(code, token, now);
+    if (!gate) return null;
+    const { groupId, panel, savedName } = gate;
+    const paid = await this.paidIds(code);
+    const linkedId = await this.linkedPlayerOf(groupId, user.userId);
+    const row = linkedId === null ? undefined : panel.rows.find((r) => r.playerId === linkedId);
+
+    const links = await this.prisma.playerLineAccount.findMany({
+      where: { groupId, playerId: { in: panel.rows.map((r) => r.playerId) } },
+      select: { playerId: true },
+    });
+    const linked = new Set(links.map((l) => l.playerId));
+    return {
+      amountSatang: row?.amountSatang ?? null,
+      playerName: row?.name ?? null,
+      claimable: panel.rows
+        .filter((r) => !paid.has(r.playerId) && !linked.has(r.playerId))
+        .map((r) => ({ playerId: r.playerId, name: r.name })),
+      accountName: panel.account?.name ?? savedName ?? '',
+      alreadyPaid: linkedId !== null && paid.has(linkedId),
+    };
+  }
+
+  /** The pay page's "this is me": `claimPlayer` behind the same gates as the page itself; null when gated out. */
+  async claimForPayPage(
+    code: string,
+    token: string | undefined,
+    user: LiffUser,
+    playerId: string,
+    now: Date = new Date()
+  ): Promise<ClaimOutcome | null> {
+    if (!(await this.gate(code, token, now))) return null;
+    return this.claimPlayer(code, user, playerId);
   }
 
   async getPaid(code: string): Promise<PaidRow[]> {
@@ -398,7 +450,7 @@ export class SlipPaymentsService {
   }
 
   /** Null when the slip cannot count here: wrong or old token, a plan below host (lapsed counts as free), or no confirmed card. */
-  private async gate(code: string, token: string, now: Date): Promise<SubmitGate | null> {
+  private async gate(code: string, token: string | undefined, now: Date): Promise<SubmitGate | null> {
     if (!(await this.cards.tokenValid(code, token))) return null;
     const session = await this.prisma.session.findUnique({
       where: { code },

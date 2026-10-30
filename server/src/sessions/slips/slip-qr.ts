@@ -143,3 +143,52 @@ export function decodeSlipQr(image: Buffer): SlipQr | null {
     return null;
   }
 }
+
+/**
+ * Pixel size of a JPEG or PNG read from its header alone (nothing is decoded),
+ * or null when the format is unknown or the header is truncated.
+ */
+export function imageDimensions(
+  image: Buffer,
+): { width: number; height: number } | null {
+  if (
+    image.length >= 24 &&
+    image[0] === 0x89 &&
+    image[1] === 0x50 &&
+    image[2] === 0x4e &&
+    image[3] === 0x47
+  ) {
+    return { width: image.readUInt32BE(16), height: image.readUInt32BE(20) };
+  }
+  if (image[0] !== 0xff || image[1] !== 0xd8) return null;
+  let i = 2;
+  while (i + 4 <= image.length) {
+    if (image[i] !== 0xff) return null;
+    const marker = image[i + 1];
+    if (marker === 0xff) {
+      i += 1; // fill byte
+      continue;
+    }
+    if (marker === 0xd8 || (marker >= 0xd0 && marker <= 0xd7) || marker === 0x01) {
+      i += 2; // standalone markers carry no length
+      continue;
+    }
+    const segmentLength = image.readUInt16BE(i + 2);
+    // SOF0-SOF15 except DHT (c4), JPG (c8) and DAC (cc) start a frame header.
+    if (
+      marker >= 0xc0 &&
+      marker <= 0xcf &&
+      marker !== 0xc4 &&
+      marker !== 0xc8 &&
+      marker !== 0xcc
+    ) {
+      if (i + 9 > image.length) return null;
+      return {
+        height: image.readUInt16BE(i + 5),
+        width: image.readUInt16BE(i + 7),
+      };
+    }
+    i += 2 + segmentLength;
+  }
+  return null;
+}

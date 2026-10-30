@@ -12,11 +12,13 @@ import { PaymentCardService } from './payment-card.service.js';
 import { SessionLock } from './session-lock.js';
 import { SessionsController } from './sessions.controller.js';
 import { SessionsService } from './sessions.service.js';
+import { SlipOcr } from './slips/slip-ocr.js';
+import { SlipReader } from './slips/slip-reader.js';
 
 @Module({
   imports: [GroupsModule, LineModule, PlansModule, VenuesModule],
   controllers: [SessionsController, BillController, CheckoutController, PaymentCardController],
-  providers: [SessionLock, SessionsService, BillService, CheckoutService, PaymentCardService],
+  providers: [SessionLock, SessionsService, BillService, CheckoutService, PaymentCardService, SlipOcr, SlipReader],
   exports: [SessionsService],
 })
 export class SessionsModule {}

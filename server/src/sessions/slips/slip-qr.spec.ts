@@ -2,7 +2,12 @@ import jpeg from 'jpeg-js';
 import { PNG } from 'pngjs';
 import QRCode from 'qrcode';
 import { describe, expect, it } from 'vitest';
-import { decodeSlipQr, makeSlipPayload, parseSlipQr } from './slip-qr.js';
+import {
+  decodeSlipQr,
+  imageDimensions,
+  makeSlipPayload,
+  parseSlipQr,
+} from './slip-qr.js';
 
 async function qrPng(text: string): Promise<Buffer> {
   return QRCode.toBuffer(text, { width: 400, margin: 4 });
@@ -89,5 +94,26 @@ describe('decodeSlipQr', () => {
   it('returns null for an image wider than 8000 px', () => {
     const png = new PNG({ width: 8001, height: 1 });
     expect(decodeSlipQr(PNG.sync.write(png))).toBeNull();
+  });
+});
+
+describe('imageDimensions', () => {
+  it('reads PNG and JPEG sizes from the headers', async () => {
+    const png = await qrPng('hello');
+    const size = PNG.sync.read(png);
+    expect(imageDimensions(png)).toEqual({
+      width: size.width,
+      height: size.height,
+    });
+    expect(imageDimensions(toJpeg(png))).toEqual({
+      width: size.width,
+      height: size.height,
+    });
+  });
+
+  it('returns null for unknown or truncated input', () => {
+    expect(imageDimensions(Buffer.from('not an image'))).toBeNull();
+    expect(imageDimensions(Buffer.from([0xff, 0xd8, 0xff, 0xe0]))).toBeNull();
+    expect(imageDimensions(Buffer.alloc(0))).toBeNull();
   });
 });

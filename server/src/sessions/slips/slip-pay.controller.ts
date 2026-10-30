@@ -66,6 +66,24 @@ export class SlipPayController {
     return view;
   }
 
+  /**
+   * The LIFF id, for a page that has to `liff.init` before it has any LINE identity (so it cannot use the identity-gated
+   * view). Same gates as the page minus the viewer; a gated-out request counts against its address, success never does.
+   */
+  @Public()
+  @Get(':code/slip-pay/config')
+  async config(
+    @Param('code') code: string,
+    @Query('token') token: unknown,
+    @Req() req: Request
+  ): Promise<{ liffId: string }> {
+    const key = `slip-cfg:${req.ip ?? 'unknown'}`;
+    if (!this.throttle.check(key)) throw tooMany();
+    const found = await this.slips.payPageConfig(code, payToken(token));
+    if (!found) this.fail(key);
+    return { liffId: found.liffId };
+  }
+
   @Public()
   @Post(':code/slip-pay/claim')
   @HttpCode(200)

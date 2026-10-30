@@ -161,6 +161,8 @@ describe('auth boundary', () => {
       if (path === '/sessions/:code/slip-pay') continue;
       if (path === '/sessions/:code/slip-pay/claim') continue;
       if (path === '/sessions/:code/slip-pay/upload') continue;
+      // Also @Public: the LIFF id for the pay page's liff.init, before it has a LINE identity; gated by the pay token alone.
+      if (path === '/sessions/:code/slip-pay/config') continue;
 
       // ':code' means a group code under /groups and a session code under
       // /sessions. Substituting the wrong one yields a 404 from a public route,
@@ -373,6 +375,8 @@ describe('auth boundary', () => {
         if (path === '/sessions/:code/slip-pay') continue;
         if (path === '/sessions/:code/slip-pay/claim') continue;
         if (path === '/sessions/:code/slip-pay/upload') continue;
+        // @Public: gated by the confirm's pay token alone, no LINE viewer (slip-pay-config.spec.ts).
+        if (path === '/sessions/:code/slip-pay/config') continue;
 
         const code = path.startsWith('/sessions') ? ctx.sessionCode : ctx.groupCode;
         const concrete = path

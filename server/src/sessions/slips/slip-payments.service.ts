@@ -1,5 +1,6 @@
 import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
+import { lineConfig } from '../../line/line-config.js';
 import { planAtLeast } from '../../plans/plan.js';
 import { PlansService } from '../../plans/plans.service.js';
 import { PrismaService } from '../../prisma/prisma.service.js';
@@ -182,6 +183,17 @@ export class SlipPaymentsService {
       accountName: panel.account?.name ?? savedName ?? '',
       alreadyPaid: linkedId !== null && paid.has(linkedId),
     };
+  }
+
+  /**
+   * What the pay page needs before it can log anyone in: the LIFF id. Needs no LINE identity, so it sits behind the
+   * same gates as the page itself (pay token, plan, confirmed card) plus a configured LIFF id; null when any fails.
+   */
+  async payPageConfig(code: string, token: string | undefined, now: Date = new Date()): Promise<{ liffId: string } | null> {
+    const { liffId } = lineConfig();
+    if (liffId === null) return null;
+    if (!(await this.gate(code, token, now))) return null;
+    return { liffId };
   }
 
   /** The pay page's "this is me": `claimPlayer` behind the same gates as the page itself; null when gated out. */

@@ -111,20 +111,40 @@ function afterLabel(text: string): string | null {
 interface NameLine {
   /** The name with its title removed (not yet whitespace-collapsed). */
   name: string;
-  /** The line itself starts with a จาก / From label. */
+  /** A จาก / From label sits on the same line, before the title. */
   labelled: boolean;
   y0: number;
 }
 
+/** True when a word is exactly a จาก / From label (punctuation ignored). */
+function isLabelWord(word: string): boolean {
+  const rest = afterLabel(stripLeadingNoise(word));
+  return rest !== null && rest.length === 0;
+}
+
+/**
+ * A line is a name line when any whitespace-delimited word in it starts with a
+ * title (OCR often puts the "to" label or an icon before it); the name is taken
+ * from that word onward. A จาก / From label before the title marks it labelled.
+ */
 function parseNameLine(line: OcrLine): NameLine | null {
-  const text = stripLeadingNoise(line.text);
-  const rest = afterLabel(text);
-  if (rest !== null) {
-    const name = afterTitle(rest);
-    if (name !== null) return { name, labelled: true, y0: line.y0 };
+  const text = line.text;
+  for (const word of text.matchAll(/\S+/g)) {
+    const rest = stripLeadingNoise(text.slice(word.index));
+    let name = afterTitle(rest);
+    let glued = false;
+    if (name === null) {
+      // A label glued to the title, e.g. จากน.ส.
+      const afterGlue = afterLabel(rest);
+      name = afterGlue === null ? null : afterTitle(afterGlue);
+      glued = name !== null;
+    }
+    if (name === null) continue;
+    const before = text.slice(0, word.index).split(/\s+/);
+    const labelled = glued || before.some((w) => w && isLabelWord(w));
+    return { name, labelled, y0: line.y0 };
   }
-  const name = afterTitle(text);
-  return name === null ? null : { name, labelled: false, y0: line.y0 };
+  return null;
 }
 
 /** True when the whole line is just a จาก / From label. */
@@ -199,6 +219,8 @@ function savedWords(savedName: string): string[][] {
  * Does the slip's receiver correspond to `savedName`? Every saved word must be
  * a whole word of the receiver block; words of 5+ characters may differ by one
  * character (OCR misread). A saved name of only tiny words never matches.
+ * OCR can truncate or misread a surname, so a first-name-only saved name is the
+ * reliable case.
  */
 export function receiverNameMatches(
   lines: OcrLine[],
@@ -228,8 +250,9 @@ export function receiverNameMatches(
 // Receiver account tail
 // ---------------------------------------------------------------------------
 
+// Mask characters: x/X, plus what OCR commonly reads the mask as (% * •).
 const MASKED_NUMBER =
-  /(?<![0-9A-Za-z])[0-9xX](?:[-\s]?[0-9xX])*(?![0-9A-Za-z])/g;
+  /(?<![0-9A-Za-z])[0-9xX%*•](?:[-\s]?[0-9xX%*•])*(?![0-9A-Za-z])/g;
 
 /**
  * The last 4 digits of a masked account number such as `xxx-xxx-5953`, or null.
@@ -240,8 +263,7 @@ export function receiverTail(text: string): string | null {
   for (const match of text.matchAll(MASKED_NUMBER)) {
     const candidate = match[0];
     const lastX = Math.max(
-      candidate.lastIndexOf('x'),
-      candidate.lastIndexOf('X'),
+      ...['x', 'X', '%', '*', '•'].map((m) => candidate.lastIndexOf(m)),
     );
     if (lastX < 0) continue;
     // Whole digit groups after the last mask character, until there are four.

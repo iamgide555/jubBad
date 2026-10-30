@@ -135,6 +135,31 @@ describe('receiverNameMatches', () => {
     expect(receiverNameMatches(l, 'ธนัช')).toBe(false);
   });
 
+  it('finds the title after OCR noise and a "to" label on the line', () => {
+    const l = lines(
+      'an   @   น.ส.ภัคชนก',
+      'ไปที่ Q® น.ส.จิตติญา ฉัตรเฉลิมวิทย์',
+    );
+    expect(receiverName(l)).toBe('จิตติญา ฉัตรเฉลิมวิทย์');
+    expect(receiverNameMatches(l, 'จิตติญา')).toBe(true);
+    expect(receiverNameMatches(l, 'จิตติญา ฉัตรเฉลิมวิทย์')).toBe(true);
+  });
+
+  it('still rejects the sender when noise precedes both titles', () => {
+    const l = lines(
+      'จาก   @   นาย ธนัช อ.',
+      "ไปยัง 0 ' น.ส. จิตติญา ฉัตรเฉลิมวิทย์",
+    );
+    expect(receiverNameMatches(l, 'ธนัช')).toBe(false);
+    expect(receiverNameMatches(l, 'จิตติญา')).toBe(true);
+  });
+
+  it('rejects a lone name line with จาก before the title on the same line', () => {
+    expect(receiverNameMatches(lines('จาก @ น.ส. จิตติญา'), 'จิตติญา')).toBe(
+      false,
+    );
+  });
+
   it('does not read นางสาว as นาง', () => {
     const l = lines('นาย ธนัช อ.', 'นางสาว จิตติญา');
     expect(receiverName(l)).toBe('จิตติญา');
@@ -161,6 +186,12 @@ describe('receiverTail', () => {
     expect(receiverTail('xxx-xxx-5953')).toBe('5953');
     expect(receiverTail('062-xxx-5953')).toBe('5953');
     expect(receiverTail('เลขบัญชี XXX-X-XX595-3')).toBe('5953');
+  });
+
+  it('accepts OCR-read mask characters', () => {
+    expect(receiverTail('062-%%%-5953')).toBe('5953');
+    expect(receiverTail('xxx-***-5953')).toBe('5953');
+    expect(receiverTail('062-•••-5953')).toBe('5953');
   });
 
   it('prefers the lowest masked number (receiver below sender)', () => {

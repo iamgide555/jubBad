@@ -27,12 +27,22 @@ describe('slip review amounts and collection lifecycle', () => {
     await expect(call).rejects.toMatchObject({ response: { code } });
   };
 
-  it('refuses combined total above or below slip amount, without any writes', async () => {
+  it('refuses combined total above slip amount without any writes', async () => {
     const s = await waiting();
     await conflict(slips.resolveWaiting(s.code, s.slip.id, { coversPlayerIds: s.ids.slice(0, 2), senderPlayerId: null }), 'SLIP_AMOUNT_MISMATCH');
-    await conflict(slips.resolveWaiting(s.code, s.slip.id, { coversPlayerIds: [s.ids[0]], senderPlayerId: null }), 'SLIP_AMOUNT_MISMATCH');
     expect(await kit.prisma.sessionPayment.count({ where: { sessionId: s.code } })).toBe(0);
     expect((await kit.prisma.pendingSlip.findUniqueOrThrow({ where: { id: s.slip.id } })).resolvedAt).toBeNull();
+  });
+
+  it('allows overpayment without inflating the player bill share or spending excess elsewhere', async () => {
+    const s = await waiting(28400);
+    const billShare = await kit.owed(s.code, s.ids[0]);
+    expect(billShare).toBeLessThan(28400);
+    await slips.resolveWaiting(s.code, s.slip.id, { coversPlayerIds: [s.ids[0]], senderPlayerId: null });
+    expect(await kit.prisma.sessionPayment.findMany({where:{sessionId:s.code}})).toEqual([
+      expect.objectContaining({playerId:s.ids[0],amountSatang:billShare,source:'slip'}),
+    ]);
+    expect(await kit.prisma.pendingSlip.findUniqueOrThrow({where:{id:s.slip.id}})).toMatchObject({reviewedAmountSatang:28400});
   });
 
   it('requires reviewed amount when OCR found none and validates exact multi-person total', async () => {

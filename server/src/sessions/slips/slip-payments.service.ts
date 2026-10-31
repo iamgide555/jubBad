@@ -451,7 +451,7 @@ export class SlipPaymentsService {
         throw new ConflictException({ code: 'SLIP_AMOUNT_INVALID' });
       }
       const selectedTotal = panel.rows.filter((r) => covers.includes(r.playerId)).reduce((sum, r) => sum + r.amountSatang, 0);
-      if (selectedTotal !== reviewedAmount) throw new ConflictException({ code: 'SLIP_AMOUNT_MISMATCH' });
+      if (selectedTotal > reviewedAmount) throw new ConflictException({ code: 'SLIP_AMOUNT_MISMATCH' });
 
       // Judge the link before anything is written, so a refusal leaves no payment behind.
       const groupId = slip.groupId;

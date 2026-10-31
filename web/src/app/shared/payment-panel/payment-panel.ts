@@ -21,7 +21,6 @@ import type { PaymentCardPanel, PaymentSendOutcome } from '../../core/payment-ca
 import { PaymentCardService, PaymentDraftService } from '../../core/payment-card.service';
 import { BankField } from '../bank-field/bank-field';
 import { Icon } from '../icon/icon';
-import { SlipReview } from '../slip-review/slip-review';
 
 type Field = keyof PayAccount;
 
@@ -88,7 +87,7 @@ const PRIMARY = '[data-send], [data-dm-send], [data-confirm]';
  */
 @Component({
   selector: 'app-payment-panel',
-  imports: [BankField, Icon, RouterLink, SlipReview],
+  imports: [BankField, Icon, RouterLink],
   templateUrl: './payment-panel.html',
   styleUrl: './payment-panel.css',
 })

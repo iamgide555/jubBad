@@ -6,6 +6,9 @@
   }
   <div class="bill-heading">
     <h1 i18n="@@bill.title">คิดเงิน</h1>
+    @if (bill() && paymentStatusAvailable()) {
+      <button type="button" class="payment-trigger" data-open-payment-status [disabled]="saving()" (click)="paymentStatusOpen.set(true)" i18n="@@slipReview.title">สถานะการชำระเงิน</button>
+    }
     @if (bill() && paymentAvailable()) {
       <button type="button" class="payment-trigger" data-open-payment [disabled]="saving()" (click)="paymentSheetOpen.set(true)" i18n="@@summary.openPaymentCard">เปิดใบเก็บเงิน</button>
     }
@@ -285,11 +288,13 @@
     @if (clipboardFallback(); as t) {
       <textarea class="clipboard-fallback" readonly [value]="t" i18n-aria-label="@@share.fallbackLabel" aria-label="ข้อความสำหรับคัดลอก"></textarea>
     }
+    <app-payment-status-sheet [open]="paymentStatusOpen()" [sessionCode]="sessionCode" (closed)="paymentStatusOpen.set(false)" />
     <app-payment-sheet
       [sessionCode]="sessionCode"
       [open]="paymentSheetOpen()"
       [refreshKey]="bill()"
-      (closed)="paymentSheetOpen.set(false)"
+      (closed)="paymentSheetOpen.set(false); loadPaymentAvailability()"
+      (sent)="loadPaymentAvailability()"
     />
   } @else if (!loadFailed()) {
     <p class="muted" i18n="@@bill.loading">กำลังโหลด…</p>

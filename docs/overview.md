@@ -1681,10 +1681,20 @@ the pay page only says the slip went to the host).
 **Host amount review and collection close.** Design: `docs/archive/specs/2026-10-31-slip-review-evidence-design.md`. Waiting slips show their private image (tap to enlarge),
 the unique positive OCR amount even if nobody owes it, and an editable reviewed amount. Unknown or
 ambiguous OCR requires host entry from the original image. The selected unpaid players' current total
-must exactly equal the reviewed amount, enforced under the session lock. Each paid row snapshots its
+must not exceed the reviewed amount, enforced under the session lock. Overpayment is allowed and stays
+on the slip review record; it does not inflate individual bill shares or create credit elsewhere. Each paid row snapshots its
 own bill share; the pending row records reviewed amount and time. Already-paid selected players cause
 refusal rather than silently consuming the slip. This fixes the earlier ability to credit several
 players beyond the slip amount.
+
+**Direct host access (2026-10-31).** The summary and bill pages expose **สถานะการชำระเงิน** only once a
+confirmed card has a recorded LINE send. It opens directly to counts, players and pending reviews,
+without the invoice preview. **รีเฟรชสถานะ** refreshes marks, pending slips, duplicates and links,
+shows the last successful refresh time, and preserves review drafts. Host DM delivery alone does not
+unlock this entry. Successful LINE share-picker sends acknowledge their current card token with a
+verified LINE identity at `POST /sessions/:code/payment-share-card/sent`; page opening/cancellation does
+not record delivery. A failed receipt save can be retried without posting the card twice. This is a
+client-reported picker receipt, not a bank-payment confirmation. Bot sends use their existing receipt.
 
 **ปิดการเก็บเงิน** becomes available only after every payable bill row is paid and all waiting slips and
 duplicates are handled. Confirmation names the irreversible deletion and image count. Closing records

@@ -123,6 +123,25 @@ describe('SessionBill', () => {
     expect(el.querySelector('.error')?.textContent).toContain('ปิดการเก็บเงินแล้ว แก้ไขบิลไม่ได้');
   });
 
+  it.each([
+    {confirmed: false, lastSentAt: null, lastDmAt: null, visible: false},
+    {confirmed: true, lastSentAt: null, lastDmAt: '2026-10-30', visible: false},
+    {confirmed: true, lastSentAt: '2026-10-30', lastDmAt: null, visible: true},
+  ])('gates direct payment status on confirmed group delivery: %j', async state => {
+    await load(); http.expectOne(`${B}/sessions/sess1/payment-card`).flush(paymentPanel(state));
+    await new Promise(r => setTimeout(r, 0)); fixture.detectChanges();
+    const button = (fixture.nativeElement as HTMLElement).querySelector<HTMLButtonElement>('[data-open-payment-status]');
+    expect(!!button).toBe(state.visible);
+    if (button) {
+      button.click(); fixture.detectChanges();
+      http.expectOne(`${B}/sessions/sess1/payment-card`).flush(paymentPanel({...state, confirmed: true}));
+      await new Promise(r => setTimeout(r, 0)); fixture.detectChanges();
+      await new Promise(r => setTimeout(r, 0)); fixture.detectChanges();
+      expect(fixture.nativeElement.querySelector('app-payment-status-sheet [data-slip-review]')).not.toBeNull();
+      expect(fixture.nativeElement.querySelector('app-payment-status-sheet app-payment-panel')).toBeNull();
+    }
+  });
+
   it('opens the shared payment modal from above bill settings, with fresh amounts after a save', async () => {
     await load();
     http.expectOne(`${B}/sessions/sess1/payment-card`).flush(paymentPanel());
@@ -143,6 +162,8 @@ describe('SessionBill', () => {
     fixture.detectChanges();
     expect(el.querySelector('dialog[open]')).toBeNull();
     expect(el.querySelector('app-payment-panel')).toBeNull();
+    http.expectOne(`${B}/sessions/sess1/payment-card`).flush(paymentPanel());
+    await new Promise(r => setTimeout(r, 0)); fixture.detectChanges();
 
     (fixture.nativeElement.querySelector('[data-model="buffet"]') as HTMLButtonElement).click();
     http.expectOne(`${B}/sessions/sess1/bill-config`).flush(response());

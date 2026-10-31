@@ -1193,6 +1193,31 @@ describe('SessionSummary', () => {
     describe('as the owner', () => {
       beforeEach(() => configure(true));
 
+      it.each([
+        {confirmed: false, lastSentAt: null, lastDmAt: null, visible: false},
+        {confirmed: true, lastSentAt: null, lastDmAt: '2026-10-30', visible: false},
+        {confirmed: true, lastSentAt: '2026-10-30', lastDmAt: null, visible: true},
+      ])('gates direct status on a sent confirmed card: %j', async state => {
+        paymentPanel = panelFor({target: 'host', ...state}); await load(summary());
+        expect(!!q('[data-open-payment-status]')).toBe(state.visible);
+      });
+
+      it('keeps the invoice reachable after a host DM without unlocking status', async () => {
+        paymentPanel = panelFor({target: 'host', confirmed: true, lastDmAt: '2026-10-31', lastSentAt: null});
+        await load(summary());
+        expect(q('[data-open-payment-status]')).toBeNull();
+        expect(q('[data-open-payment]')).not.toBeNull();
+      });
+
+      it('opens sent payment status directly without an invoice preview or banner', async () => {
+        paymentPanel = panelFor({target: 'group', confirmed: true, lastSentAt: '2026-10-30'}); await load(summary());
+        expect(banner()).toBeNull();
+        q('[data-open-payment-status]')!.click(); fixture.detectChanges(); await settle();
+        for (const r of httpMock.match(`${B}/sessions/sess1/payment-card`)) r.flush(paymentPanel!); await settle(); await settle();
+        expect(q('app-payment-status-sheet [data-slip-review]')).not.toBeNull();
+        expect(q('app-payment-status-sheet app-payment-panel')).toBeNull();
+      });
+
       it('shows for a card nobody confirmed yet', async () => {
         paymentPanel = panelFor({ target: 'group', confirmed: false });
         await load(summary());

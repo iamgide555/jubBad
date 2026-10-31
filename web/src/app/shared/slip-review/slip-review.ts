@@ -42,7 +42,7 @@ interface WaitingCard {
 const CONFLICT_TEXT: Record<SlipHostConflict, () => string> = {
   SLIP_AMOUNT_REQUIRED: () => $localize`:@@slipReview.err.amountRequired:กรอกยอดที่ตรวจจากสลิปก่อนยืนยัน`,
   SLIP_AMOUNT_INVALID: () => $localize`:@@slipReview.err.amountInvalid:กรอกยอดเงินมากกว่า 0 และทศนิยมไม่เกิน 2 ตำแหน่ง`,
-  SLIP_AMOUNT_MISMATCH: () => $localize`:@@slipReview.err.amountMismatch:ยอดสลิปต้องเท่ากับยอดรวมคนที่เลือก`,
+  SLIP_AMOUNT_MISMATCH: () => $localize`:@@slipReview.err.amountMismatch:ยอดสลิปน้อยกว่ายอดรวมคนที่เลือก`,
   PLAYER_ALREADY_PAID: () => $localize`:@@slipReview.err.alreadyPaid:มีคนที่ชำระแล้ว ลองตรวจรายชื่ออีกครั้ง`,
   COLLECTION_CLOSED: () => $localize`:@@slipReview.err.closed:เก็บเงินครบแล้ว แก้ไขการชำระเงินไม่ได้`,
   COLLECTION_NOT_READY: () => $localize`:@@slipReview.err.notReady:ยังปิดการเก็บเงินไม่ได้ ตรวจยอดและรายการรอตรวจก่อน`,
@@ -81,6 +81,7 @@ let reviewCount = 0;
 })
 export class SlipReview {
   readonly code = input.required<string>();
+  readonly hideTitle = input(false);
   /** The panel's rows. Anyone owing nothing is left out of the status list. */
   readonly rows = input.required<readonly SlipReviewRow[]>();
   /**
@@ -108,6 +109,8 @@ export class SlipReview {
 
   protected readonly data = signal<SlipHostPanel | null>(null);
   protected readonly loadFailed = signal(false);
+  protected readonly refreshing = signal(false);
+  protected readonly refreshedAt = signal<string | null>(null);
   /** Action keys with a request in flight; a second tap on the same one does nothing. */
   protected readonly busy = signal<ReadonlySet<string>>(new Set());
   protected readonly errors = signal<Record<string, string>>({});
@@ -155,7 +158,7 @@ export class SlipReview {
       return {
         slip, reviewedAmount, reviewedSatang, selectedTotal,
         difference: reviewedSatang === null ? null : selectedTotal - reviewedSatang,
-        canResolve: covers.length > 0 && reviewedSatang !== null && selectedTotal === reviewedSatang && !this.closed(),
+        canResolve: covers.length > 0 && reviewedSatang !== null && selectedTotal <= reviewedSatang && !this.closed() && this.busy().size === 0,
         covers,
         senderId,
         // Only a slip whose account may be unlinked can replace a link; a linked account is refused by the server instead.
@@ -194,15 +197,24 @@ export class SlipReview {
 
   /** Also the retry. A read that is not the latest one is dropped, so an old answer never overwrites a newer one. */
   protected async load(): Promise<void> {
+    this.refreshing.set(true);
     const mine = ++this.seq;
     try {
       const data = await firstValueFrom(this.api.panel(this.code()));
       if (mine !== this.seq) return;
       this.data.set(data);
       this.loadFailed.set(false);
+      this.refreshedAt.set(clock(new Date().toISOString()));
     } catch {
       if (mine === this.seq) this.loadFailed.set(true);
+    } finally {
+      if (mine === this.seq) this.refreshing.set(false);
     }
+  }
+
+  protected refresh(): void {
+    if (this.refreshing() || this.busy().size > 0) return;
+    void this.load();
   }
 
   protected toggle(person: Person): void {
@@ -253,7 +265,7 @@ export class SlipReview {
   }
 
   protected resolve(card: WaitingCard): void {
-    if (!card.canResolve) return;
+    if (!card.canResolve || this.busy().size > 0) return;
     const { id } = card.slip;
     void this.act(`w:${id}`, `w:${id}`, () =>
       this.api.resolve(this.code(), id, { coversPlayerIds: card.covers, senderPlayerId: card.senderId, reviewedAmountSatang: card.reviewedSatang! })

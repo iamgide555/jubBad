@@ -131,7 +131,7 @@ describe('SlipReview', () => {
       expect(q('[data-no-image]')?.textContent).toContain('รูป');
     });
 
-    it('requires an exact reviewed total, preserves multiple selections and sends satang', async () => {
+    it('requires sufficient reviewed total, preserves multiple selections and sends satang', async () => {
       await open(panel({ waiting: [waiting({ candidatePlayerIds: [], amountSatang: null })] }));
       await click(qa('[data-cover]')[0]);
       await click(qa('[data-cover]')[1]);
@@ -148,6 +148,50 @@ describe('SlipReview', () => {
       expect(svc.resolve).toHaveBeenCalledWith('sess1', 'w-secret-1', { coversPlayerIds: ['a', 'b'], senderPlayerId: null, reviewedAmountSatang: 20000 });
     });
 
+    it('accepts reviewed overpayment and names exact, short and extra amounts', async () => {
+      await open(panel({ waiting: [waiting()] }));
+      expect(q('[data-difference]')?.textContent).toContain('ยอดตรงกัน');
+      const amount = q<HTMLInputElement>('[data-reviewed-amount]')!;
+      amount.value = '89'; amount.dispatchEvent(new Event('input')); await settle();
+      expect(q('[data-difference]')?.textContent).toContain('ยังขาด ฿1');
+      expect(q<HTMLButtonElement>('[data-resolve]')!.disabled).toBe(true);
+      amount.value = '100'; amount.dispatchEvent(new Event('input')); await settle();
+      expect(q('[data-difference]')?.textContent).toContain('จ่ายเกิน ฿10');
+      expect(q<HTMLButtonElement>('[data-resolve]')!.disabled).toBe(false);
+      await click(q('[data-resolve]'));
+      expect(svc.resolve).toHaveBeenCalledWith('sess1', 'w-secret-1', { coversPlayerIds: ['a'], senderPlayerId: 'a', reviewedAmountSatang: 10000 });
+    });
+
+    it('refreshes all data once, preserves review drafts and shows last success or failure', async () => {
+      await open(panel({ waiting: [waiting()] }));
+      const amount = q<HTMLInputElement>('[data-reviewed-amount]')!;
+      amount.value = '100'; amount.dispatchEvent(new Event('input')); await settle();
+      expect(q('[data-refreshed-at]')).not.toBeNull();
+      const pending = new Subject<SlipHostPanel>(); svc.panel.mockReturnValue(pending);
+      const refresh = q<HTMLButtonElement>('[data-refresh]'); expect(refresh).not.toBeNull();
+      refresh!.click(); await settle();
+      expect(q<HTMLButtonElement>('[data-refresh]')!.disabled).toBe(true);
+      q<HTMLButtonElement>('[data-refresh]')!.click();
+      expect(svc.panel).toHaveBeenCalledTimes(2);
+      pending.next(panel({ waiting: [waiting()], paid: [paid({ playerId: 'b' })], duplicates: [dup()], links: [link()] })); pending.complete(); await settle();
+      expect(q<HTMLInputElement>('[data-reviewed-amount]')!.value).toBe('100');
+      expect(q('[data-paid-count]')!.textContent).toContain('1 / 3');
+      expect(q('[data-duplicate]')).not.toBeNull(); expect(q('[data-link]')).not.toBeNull();
+      svc.panel.mockReturnValue(throwError(() => new Error('offline')));
+      await click(q('[data-refresh]'));
+      expect(q('[data-load-failed]')).not.toBeNull();
+      expect(q<HTMLInputElement>('[data-reviewed-amount]')!.value).toBe('100');
+      expect(q('[data-refreshed-at]')).not.toBeNull();
+    });
+
+    it('disables manual refresh while a payment mutation is running', async () => {
+      await open(); const pending = new Subject<{ok: true}>(); svc.tick.mockReturnValue(pending);
+      await click(q('[data-person]'));
+      expect(q<HTMLButtonElement>('[data-refresh]')?.disabled).toBe(true);
+      pending.next({ok: true}); pending.complete(); await settle();
+      expect(q<HTMLButtonElement>('[data-refresh]')?.disabled).toBe(false);
+    });
+
     it('rejects invalid money and keeps the original OCR amount visible after editing', async () => {
       await open(panel({ waiting: [waiting()] }));
       const amount = q<HTMLInputElement>('[data-reviewed-amount]')!;
@@ -157,7 +201,7 @@ describe('SlipReview', () => {
       }
       amount.value = '110'; amount.dispatchEvent(new Event('input')); await settle();
       expect(q('[data-w-amount]')!.textContent).toContain('90');
-      expect(q<HTMLButtonElement>('[data-resolve]')!.disabled).toBe(true);
+      expect(q<HTMLButtonElement>('[data-resolve]')!.disabled).toBe(false);
     });
 
     it('shows missing image fallback when a retained image cannot load', async () => {

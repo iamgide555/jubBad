@@ -7026,8 +7026,8 @@
         </context-group>
       </trans-unit>
       <trans-unit id="slipReview.matchRequired" datatype="html">
-        <source>ยอดสลิปต้องเท่ากับยอดรวมคนที่เลือก</source>
-        <target>The slip amount must match the selected total.</target>
+        <source>ยอดสลิปน้อยกว่ายอดรวมคนที่เลือก</source>
+        <target>The slip amount is below the selected total.</target>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/shared/slip-review/slip-review.html</context>
           <context context-type="linenumber">162,164</context>
@@ -7074,8 +7074,8 @@
         </context-group>
       </trans-unit>
       <trans-unit id="slipReview.err.amountMismatch" datatype="html">
-        <source>ยอดสลิปต้องเท่ากับยอดรวมคนที่เลือก</source>
-        <target>The slip amount must match the selected total.</target>
+        <source>ยอดสลิปน้อยกว่ายอดรวมคนที่เลือก</source>
+        <target>The slip amount is below the selected total.</target>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/shared/slip-review/slip-review.ts</context>
           <context context-type="linenumber">44</context>
@@ -7138,6 +7138,26 @@
       <trans-unit id="bill.collectionClosed" datatype="html">
         <source>ปิดการเก็บเงินแล้ว แก้ไขบิลไม่ได้</source><target>Collection is closed. The bill can no longer be changed.</target>
       </trans-unit>
+      <trans-unit id="slipReview.refreshing" datatype="html">
+        <source>กำลังรีเฟรช…</source><target>Refreshing…</target>
+      </trans-unit>
+      <trans-unit id="slipReview.refreshedAt" datatype="html">
+        <source>อัปเดตล่าสุด <x id="INTERPOLATION" equiv-text="{{ time }}"/></source><target>Last updated <x id="INTERPOLATION" equiv-text="{{ time }}"/></target>
+      </trans-unit>
+      <trans-unit id="slipReview.shortfall" datatype="html">
+        <source>ยังขาด ฿<x id="INTERPOLATION" equiv-text="{{ baht(c.difference) }}"/></source><target>Still short ฿<x id="INTERPOLATION" equiv-text="{{ baht(c.difference) }}"/></target>
+      </trans-unit>
+      <trans-unit id="slipReview.overpayment" datatype="html">
+        <source>จ่ายเกิน ฿<x id="INTERPOLATION" equiv-text="{{ baht(-c.difference) }}"/></source><target>Overpaid ฿<x id="INTERPOLATION" equiv-text="{{ baht(-c.difference) }}"/></target>
+      </trans-unit>
+      <trans-unit id="slipReview.exact" datatype="html">
+        <source>ยอดตรงกัน</source><target>Exact amount</target>
+      </trans-unit>
+      <trans-unit id="pay.status.unavailable" datatype="html">
+        <source>ยังเปิดสถานะการชำระเงินไม่ได้ ส่งใบเก็บเงินเข้ากลุ่ม LINE ก่อน</source><target>Payment status is not available. Send the bill to the LINE group first.</target>
+      </trans-unit>
+      <trans-unit id="share.pay.recordFailed" datatype="html"><source>ส่งการ์ดแล้ว แต่ยังบันทึกสถานะไม่ได้</source><target>The card was sent, but its status could not be saved.</target></trans-unit>
+      <trans-unit id="share.pay.recordRetry" datatype="html"><source>ลองบันทึกสถานะอีกครั้ง</source><target>Retry saving status</target></trans-unit>
     </body>
   </file>
 </xliff>

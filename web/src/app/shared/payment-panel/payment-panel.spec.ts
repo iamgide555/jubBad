@@ -1573,53 +1573,11 @@ describe('PaymentCardPanel', () => {
       expect(document.activeElement).toBe(q('[data-send]'));
     });
   });
-  describe('slip review', () => {
-    it('renders nothing from it before the card is confirmed', async () => {
-      await open(panel({ confirmed: false }));
+  describe('invoice focus', () => {
+    it('keeps host review out of the invoice even for a confirmed sent card', async () => {
+      await open(panel({ confirmed: true, lastSentAt: '2026-10-29T13:05:00.000Z' }));
       expect(q('app-slip-review')).toBeNull();
       expect(slipHost.panel).not.toHaveBeenCalled();
-    });
-
-    it('embeds it once the card is confirmed, with the same session and rows', async () => {
-      await open(panel({ confirmed: true }));
-      expect(q('app-slip-review')).not.toBeNull();
-      expect(slipHost.panel).toHaveBeenCalledWith('sess1');
-      expect(el().querySelectorAll('app-slip-review [data-person]')).toHaveLength(2);
-    });
-
-    const receiverSlip = () => ({
-      ...slipPanel,
-      waiting: [
-        {
-          id: 'w1',
-          reason: 'receiver' as const,
-          displayName: 'Mind',
-          pictureUrl: null,
-          lineUserId: 'U1',
-          amountSatang: 9000,
-          receiverName: 'New Name',
-          receiverTail: null,
-          createdAt: '2026-10-30T13:05:00.000Z',
-          candidatePlayerIds: ['a'],
-        },
-      ],
-    });
-
-    it('passes the group\'s saved name, not tonight\'s card account, for the update-name confirmation', async () => {
-      // The fix rewrites the group's saved name, so that is the "old" name the host must see.
-      slipPanel = receiverSlip();
-      await open(panel({ confirmed: true, account: { ...GROUP_ACCOUNT, name: 'Tonight Name' } }));
-      await click('[data-update-name]');
-      const dialog = q('[data-name-dialog]')!.textContent!;
-      expect(dialog).toContain('"Host Name"');
-      expect(dialog).not.toContain('Tonight Name');
-    });
-
-    it('offers no saved-name fix when the group has no saved account', async () => {
-      slipPanel = receiverSlip();
-      await open(panel({ confirmed: true, groupAccount: null, account: { ...GROUP_ACCOUNT, name: 'Tonight Name' } }));
-      expect(q('[data-receiver]')).not.toBeNull();
-      expect(q('[data-update-name]')).toBeNull();
     });
   });
 });

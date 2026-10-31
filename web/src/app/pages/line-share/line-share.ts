@@ -71,6 +71,8 @@ export class LineShare {
   protected readonly loaded = computed(() => this.summary() !== null || this.payment() !== null);
   protected readonly opening = signal(false);
   protected readonly sendFailed = signal(false);
+  protected readonly recordFailed = signal(false);
+  protected readonly recording = signal(false);
   private loading = false;
 
   constructor() {
@@ -151,13 +153,32 @@ export class LineShare {
     this.liff.share(messages).then(
       (result) => {
         this.opening.set(false);
-        if (result === 'sent') this.phase.set('done');
+        if (result === 'sent') {
+          this.phase.set('done');
+          if (this.kind === 'pay') void this.recordShare();
+        }
       },
       () => {
         this.opening.set(false);
         this.sendFailed.set(true);
       },
     );
+  }
+
+  /** Retry only the receipt save: the card is already in LINE and must not be posted twice. */
+  protected async recordShare(): Promise<void> {
+    if (this.kind !== 'pay' || this.recording()) return;
+    this.recording.set(true);
+    this.recordFailed.set(false);
+    try {
+      const accessToken = this.liff.getAccessToken();
+      if (!accessToken || !this.target.token) throw new Error('LINE identity unavailable');
+      await firstValueFrom(this.line.paymentShareSent(this.target.code,this.target.token,accessToken));
+    } catch {
+      this.recordFailed.set(true);
+    } finally {
+      this.recording.set(false);
+    }
   }
 
   /** What the tap shares: the payment card's messages, or the summary card alone. Null until it is loaded. */

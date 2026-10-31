@@ -13,12 +13,13 @@ import { formatShuttleCountInput, formatShuttlePriceInput, parseShuttleCountInpu
 import { BillSettings } from '../../shared/bill-settings/bill-settings';
 import { Icon } from '../../shared/icon/icon';
 import { PaymentCardService } from '../../core/payment-card.service';
+import { PaymentStatusSheet } from '../../shared/payment-status-sheet/payment-status-sheet';
 import { PaymentSheet } from '../../shared/payment-sheet/payment-sheet';
 import { PlanLock } from '../../shared/plan-lock/plan-lock';
 
 @Component({
   selector: 'app-session-bill',
-  imports: [RouterLink, Icon, BillSettings, PaymentSheet, PlanLock],
+  imports: [RouterLink, Icon, BillSettings, PaymentSheet, PaymentStatusSheet, PlanLock],
   templateUrl: './session-bill.html',
   styleUrl: './session-bill.css',
 })
@@ -37,6 +38,8 @@ export class SessionBill {
   protected readonly clipboardFallback = signal<string | null>(null);
   protected readonly paymentAvailable = signal(false);
   protected readonly paymentSheetOpen = signal(false);
+  protected readonly paymentStatusOpen = signal(false);
+  protected readonly paymentStatusAvailable = signal(false);
   private paymentReadSeq = 0;
 
   /** The group owner's plan. `null` (not loaded, or the read failed) counts as paid, so a hiccup never locks the host out. */
@@ -98,14 +101,17 @@ export class SessionBill {
   }
 
   /** Keep the entry hidden for an unlinked group; the shared sheet reads fresh amounts when opened. */
-  private async loadPaymentAvailability(): Promise<void> {
+  protected async loadPaymentAvailability(): Promise<void> {
     const seq = ++this.paymentReadSeq;
     try {
       const panel = await firstValueFrom(this.paymentCards.panel(this.sessionCode));
-      if (seq === this.paymentReadSeq) this.paymentAvailable.set(panel.target !== null);
+      if (seq === this.paymentReadSeq) {
+        this.paymentAvailable.set(panel.target !== null);
+        this.paymentStatusAvailable.set(panel.confirmed && !!panel.lastSentAt);
+      }
     } catch {
       // A failed availability read must not strand the host: the sheet provides the normal retry.
-      if (seq === this.paymentReadSeq) this.paymentAvailable.set(true);
+      if (seq === this.paymentReadSeq) { this.paymentAvailable.set(true); this.paymentStatusAvailable.set(false); }
     }
   }
 

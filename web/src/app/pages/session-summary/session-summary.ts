@@ -23,13 +23,14 @@ import { LineService } from '../../core/line.service';
 import type { LineSummaryOutcome, LineSummaryState } from '../../core/line.model';
 import type { PaymentCardPanel } from '../../core/payment-card.model';
 import { PaymentCardService } from '../../core/payment-card.service';
+import { PaymentStatusSheet } from '../../shared/payment-status-sheet/payment-status-sheet';
 import { PaymentSheet } from '../../shared/payment-sheet/payment-sheet';
 
 type SortKey = 'played' | 'won' | 'lost' | 'doublesRate' | 'singlesRate' | 'time';
 
 @Component({
   selector: 'app-session-summary',
-  imports: [NgTemplateOutlet, RouterLink, SceneHost, ShuttleDetailsDialog, ShuttleCorrectionDialog, ResultCorrectionDialog, PaymentSheet],
+  imports: [NgTemplateOutlet, RouterLink, SceneHost, ShuttleDetailsDialog, ShuttleCorrectionDialog, ResultCorrectionDialog, PaymentSheet, PaymentStatusSheet],
   templateUrl: './session-summary.html',
   styleUrl: './session-summary.css',
 })
@@ -440,12 +441,15 @@ export class SessionSummary {
   /** Where the payment card stands, or null while unread or unreadable; the banner needs a successful read. */
   protected readonly paymentPanel = signal<PaymentCardPanel | null>(null);
   protected readonly paymentSheetOpen = signal(false);
+  protected readonly paymentStatusOpen = signal(false);
+  protected readonly showPaymentReopen = computed(() => this.owner() && !this.showPaymentBanner() && !!this.paymentPanel()?.confirmed && this.paymentPanel()?.target != null && !!this.paymentPanel()?.ended);
+  protected readonly paymentStatusAvailable = computed(() => this.owner() && !!this.paymentPanel()?.confirmed && !!this.paymentPanel()?.lastSentAt);
 
   /**
    * Nudges the host to send the card: nothing was confirmed yet, the amounts moved since, the bot has not
    * posted a confirmed card (group target), or the bot has not DMed the confirmed card to the host (host
-   * target). A host-target send into the group happens in LINE's picker and cannot be observed, so the DM is
-   * as far as this page can know; a confirm alone is not, or the nudge would vanish before anything left.
+   * target). Successful LINE picker sharing is recorded in lastSentAt; a host DM alone never unlocks
+   * payment status. The invoice remains reachable after this send nudge disappears.
    */
   protected readonly showPaymentBanner = computed(() => {
     const p = this.paymentPanel();

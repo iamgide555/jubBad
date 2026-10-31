@@ -1,18 +1,26 @@
+@if (!data() && refreshing()) { <p role="status" i18n="@@slipPay.loading">กำลังโหลด…</p> }
 @if (loadFailed()) {
   <p class="error load-failed" role="alert" data-load-failed>
     <ng-container i18n="@@slipReview.loadFailed">โหลดสถานะการชำระเงินไม่สำเร็จ</ng-container>
-    <button type="button" class="ghost" (click)="load()" i18n="@@entry.retry">ลองอีกครั้ง</button>
+    <button type="button" class="ghost" [disabled]="refreshing() || busy().size > 0" (click)="refresh()" i18n="@@entry.retry">ลองอีกครั้ง</button>
   </p>
 }
 @if (data(); as d) {
   <section class="review" data-slip-review i18n-aria-label="@@slipReview.label" aria-label="สถานะการชำระเงิน">
     <header class="head">
-      <h3 i18n="@@slipReview.title">สถานะการชำระเงิน</h3>
+      @if (!hideTitle()) { <h3 i18n="@@slipReview.title">สถานะการชำระเงิน</h3> }
       @if (reviewCount() > 0) {
         <span class="badge" data-review-badge i18n="@@slipReview.badge">รอตรวจ {{ reviewCount() }}</span>
       }
     </header>
 
+    <div class="refresh-tools">
+      <button type="button" class="ghost" data-refresh [disabled]="refreshing() || busy().size > 0" [attr.aria-busy]="refreshing()" (click)="refresh()">
+        @if (refreshing()) { <span i18n="@@slipReview.refreshing">กำลังรีเฟรช…</span> }
+        @else { <span i18n="@@paymentStatus.refresh">รีเฟรชสถานะ</span> }
+      </button>
+      @if (refreshedAt(); as time) { <p class="muted" data-refreshed-at i18n="@@slipReview.refreshedAt">อัปเดตล่าสุด {{ time }}</p> }
+    </div>
     @if (closed()) {
       <p class="ok" data-collection-closed role="status" i18n="@@payments.closed">เก็บเงินครบแล้ว</p>
     }
@@ -161,12 +169,11 @@
             <div class="review-totals tabular" aria-live="polite">
               <p data-selected-total i18n="@@slipReview.selectedTotal">ยอดรวมคนที่เลือก ฿{{ baht(c.selectedTotal) }}</p>
               @if (c.difference !== null) {
-                <p data-difference [class.error]="c.difference !== 0" i18n="@@slipReview.difference">ส่วนต่าง ฿{{ baht(c.difference) }}</p>
+                @if (c.difference > 0) { <p data-difference class="error" i18n="@@slipReview.shortfall">ยังขาด ฿{{ baht(c.difference) }}</p> }
+                @else if (c.difference < 0) { <p data-difference class="ok" i18n="@@slipReview.overpayment">จ่ายเกิน ฿{{ baht(-c.difference) }}</p> }
+                @else { <p data-difference class="ok" i18n="@@slipReview.exact">ยอดตรงกัน</p> }
               } @else {
                 <p class="error" i18n="@@slipReview.amountNeeded">กรอกยอดที่ตรวจจากสลิปให้ถูกต้องก่อนยืนยัน</p>
-              }
-              @if (c.difference !== null && c.difference !== 0) {
-                <p class="error" i18n="@@slipReview.matchRequired">ยอดสลิปต้องเท่ากับยอดรวมคนที่เลือก</p>
               }
             </div>
             <div class="sender">

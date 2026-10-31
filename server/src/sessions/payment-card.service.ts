@@ -327,6 +327,18 @@ export class PaymentCardService {
     };
   }
 
+  /** A successful LINE share-picker callback, never a page-open or host-DM receipt. */
+  async recordShare(code: string, token: string | undefined, now: Date = new Date()): Promise<void> {
+    return this.lock.run(code, async () => {
+      await this.shareCard(code, token, now);
+      const session = await this.prisma.session.findUniqueOrThrow({where:{code},select:{paymentCard:true}});
+      const state = parsePaymentState(session.paymentCard);
+      // Retrying the acknowledgement must not pretend another card was sent.
+      if (state.lastSentAt !== null) return;
+      await this.prisma.session.update({where:{code},data:{paymentCard:serializePaymentState({...state,lastSentAt:now.toISOString()})}});
+    });
+  }
+
   /**
    * True only when the session's confirmed card holds exactly this token. A missing or empty token, an unknown
    * session and an unconfirmed card are all just false: callers decide what a refusal looks like.

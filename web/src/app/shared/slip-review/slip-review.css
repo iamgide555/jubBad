@@ -345,3 +345,7 @@ label.pick input {
 .review-totals { display: grid; gap: var(--space-0); font-weight: 600; }
 
 .retention { font-size: var(--text-sm); }
+
+.refresh-tools { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-1) var(--space-2); }
+.refresh-tools button { min-height: var(--tap); }
+.refresh-tools p { font-size: var(--text-sm); }

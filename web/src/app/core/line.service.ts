@@ -1,4 +1,4 @@
-import { HttpClient, HttpParams } from '@angular/common/http';
+import { HttpClient, HttpParams, HttpHeaders } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import type { Observable } from 'rxjs';
 import { environment } from '../../environments/environment';
@@ -87,4 +87,11 @@ export class LineService {
       { params: new HttpParams().set('token', token) },
     );
   }
+  paymentShareSent(sessionCode: string, token: string, accessToken: string): Observable<{ok:true}> {
+    return this.http.post<{ok:true}>(
+      `${environment.apiBaseUrl}/sessions/${encodeURIComponent(sessionCode)}/payment-share-card/sent`, {},
+      {params:new HttpParams().set('token',token),headers:new HttpHeaders({'X-Line-Access-Token':accessToken})},
+    );
+  }
+
 }

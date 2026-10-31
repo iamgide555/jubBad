@@ -22,6 +22,7 @@ const PAY: PaymentShareCard = {
 describe('LineShare', () => {
   let fixture: ComponentFixture<LineShare>;
   let shareCard: ReturnType<typeof vi.fn>;
+  let paymentShareSent: ReturnType<typeof vi.fn>;
   let paymentShareCard: ReturnType<typeof vi.fn>;
   let liff: {
     init: ReturnType<typeof vi.fn>;
@@ -29,6 +30,7 @@ describe('LineShare', () => {
     login: ReturnType<typeof vi.fn>;
     canShare: ReturnType<typeof vi.fn>;
     share: ReturnType<typeof vi.fn>;
+    getAccessToken: ReturnType<typeof vi.fn>;
   };
 
   const el = () => fixture.nativeElement as HTMLElement;
@@ -59,6 +61,7 @@ describe('LineShare', () => {
     route = { params: { sessionCode: 'sess 1' }, query: {} };
     shareCard = vi.fn();
     paymentShareCard = vi.fn();
+    paymentShareSent = vi.fn().mockReturnValue(of({ok:true}));
     navigate = vi.fn().mockResolvedValue(true);
     liff = {
       init: vi.fn().mockResolvedValue(undefined),
@@ -66,10 +69,11 @@ describe('LineShare', () => {
       login: vi.fn(),
       canShare: vi.fn().mockReturnValue(true),
       share: vi.fn().mockResolvedValue('sent'),
+      getAccessToken: vi.fn().mockReturnValue('ACCESS'),
     };
     TestBed.configureTestingModule({
       providers: [
-        { provide: LineService, useValue: { shareCard, paymentShareCard } },
+        { provide: LineService, useValue: { shareCard, paymentShareCard, paymentShareSent } },
         { provide: LiffClient, useValue: liff },
         { provide: Router, useValue: { navigate } },
         {
@@ -406,6 +410,27 @@ describe('LineShare', () => {
         expect(q('[data-share-error]')).not.toBeNull();
         expectNoToken();
       });
+    });
+
+    it('records successful picker send, but never page opening or cancellation', async () => {
+      await openPay();
+      expect(paymentShareSent).not.toHaveBeenCalled();
+      liff.share.mockResolvedValueOnce('cancelled');
+      q('[data-share-pick]')!.click(); await flush();
+      expect(paymentShareSent).not.toHaveBeenCalled();
+      q('[data-share-pick]')!.click(); await flush();
+      expect(paymentShareSent).toHaveBeenCalledWith('abc', 'TOK', 'ACCESS');
+    });
+
+    it('retries a failed sent-state save without sharing card twice', async () => {
+      paymentShareSent.mockReturnValueOnce(throwError(() => new HttpErrorResponse({status:500})));
+      await openPay(); q('[data-share-pick]')!.click(); await flush();
+      expect(q('[data-share-done]')).not.toBeNull();
+      expect(q('[data-record-share-retry]')).not.toBeNull();
+      q('[data-record-share-retry]')!.click(); await flush();
+      expect(liff.share).toHaveBeenCalledTimes(1);
+      expect(paymentShareSent).toHaveBeenCalledTimes(2);
+      expect(q('[data-record-share-retry]')).toBeNull();
     });
 
     it('shares the one message the server returned, straight from the tap', async () => {

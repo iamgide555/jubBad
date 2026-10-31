@@ -18,6 +18,7 @@ import type { Request } from 'express';
 import { Public } from '../../auth/public.decorator.js';
 import { LoginThrottle } from '../../auth/login-throttle.js';
 import { SlipPlayerDto } from '../dto/slip-player.dto.js';
+import { PaymentCardService } from '../payment-card.service.js';
 import { LiffIdentity } from './liff-identity.js';
 import type { SlipViewerRequest } from './slip-upload.middleware.js';
 import { SLIP_FAILURE_THROTTLE } from './slip-throttles.js';
@@ -53,6 +54,7 @@ export class SlipPayController {
   constructor(
     private readonly slips: SlipPaymentsService,
     private readonly liff: LiffIdentity,
+    private readonly cards: PaymentCardService,
     @Inject(SLIP_FAILURE_THROTTLE) private readonly throttle: LoginThrottle
   ) {}
 
@@ -81,6 +83,18 @@ export class SlipPayController {
     const view = await this.slips.paymentStatusView(code, payToken(token));
     if (!view) this.fail(key);
     return view;
+  }
+
+  /** Only called after LINE's picker reports success; changes sent metadata, never payment marks. */
+  @Public()
+  @Post(':code/payment-share-card/sent')
+  @HttpCode(200)
+  async recordShare(@Param('code') code: string, @Query('token') token: unknown, @Req() req: Request): Promise<{ok:true}> {
+    const {key} = await this.viewer(req,code);
+    try { await this.cards.recordShare(code,payToken(token)); }
+    catch (error) { if (error instanceof NotFoundException) this.fail(key); throw error; }
+    this.throttle.recordSuccess(key);
+    return {ok:true};
   }
 
   /**

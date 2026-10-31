@@ -86,11 +86,6 @@
         }
       }
 
-      <!-- Paid status and waiting slips only make sense once the amounts are frozen by Confirm. -->
-      @if (p.confirmed) {
-        <app-slip-review [code]="sessionCode()" [rows]="p.rows" [savedName]="p.groupAccount?.name ?? null" />
-      }
-
       @if (p.ready && !p.ended && !nothingDue()) {
         <p class="muted" data-open-note i18n="@@pay.card.openNote">ส่งใบเก็บเงินได้หลังจบรอบ ตอนนี้เป็นยอดตัวอย่าง</p>
       } @else if (actionable()) {

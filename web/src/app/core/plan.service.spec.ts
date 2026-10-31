@@ -95,7 +95,7 @@ describe('planErrorMessage', () => {
 
   it('explains GROUP_PAUSED with the limit', () => {
     const msg = planErrorMessage(refusal(403, { code: 'GROUP_PAUSED', limit: 1 }));
-    expect(msg).toBe('ก๊วนนี้พักไว้ — แพ็ก⁠เกจของคุณเปิดรอบได้ 1 ก๊วน (ก๊วนที่เล่นล่าสุด)');
+    expect(msg).toBe('ก๊วนนี้พักไว้ แพ็ก⁠เกจของคุณเปิดรอบได้ 1 ก๊วน (ก๊วนที่เล่นล่าสุด)');
   });
 
   it('ignores everything else', () => {

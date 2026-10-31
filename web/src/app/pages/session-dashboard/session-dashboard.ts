@@ -1,5 +1,6 @@
 import { NgTemplateOutlet } from '@angular/common';
-import { Component, ElementRef, OnDestroy, computed, effect, inject, signal, viewChild } from '@angular/core';
+import { Component, ElementRef, LOCALE_ID, OnDestroy, computed, effect, inject, signal, viewChild } from '@angular/core';
+import { sessionDateLabel } from '../../core/session-date';
 import { HttpErrorResponse, httpResource } from '@angular/common/http';
 import { Router, RouterLink } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
@@ -481,6 +482,11 @@ export class SessionDashboard implements OnDestroy {
   readonly mode = computed(() => this.session()?.mode ?? 'variety');
 
   private readonly planService = inject(PlanService);
+  private readonly locale = inject(LOCALE_ID);
+  protected readonly dateLabel = computed(() => {
+    const s = this.session();
+    return s ? sessionDateLabel(s.date, s.code, this.locale) : '';
+  });
 
   /**
    * The group owner's plan, read once the session names its group. A failed or

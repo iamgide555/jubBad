@@ -45,14 +45,14 @@
         </context-group>
       </trans-unit>
       <trans-unit id="checkout.err.onCourtNamed" datatype="html">
-        <source>คนนี้อยู่ที่ <x id="court" equiv-text="courtLabel"/> — เอาออกจากคู่ หรือจบแมตช์ก่อน</source>
+        <source>คนนี้อยู่ที่ <x id="court" equiv-text="courtLabel"/> เอาออกจากคู่ หรือจบแมตช์ก่อน</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/core/checkout.model.ts</context>
           <context context-type="linenumber">64</context>
         </context-group>
       </trans-unit>
       <trans-unit id="checkout.err.onCourt" datatype="html">
-        <source>คนนี้อยู่บนคอร์ท — เอาออกจากคู่ หรือจบแมตช์ก่อน</source>
+        <source>คนนี้อยู่บนคอร์ท เอาออกจากคู่ หรือจบแมตช์ก่อน</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/core/checkout.model.ts</context>
           <context context-type="linenumber">65</context>
@@ -777,14 +777,14 @@
         </context-group>
       </trans-unit>
       <trans-unit id="plan.groupPaused" datatype="html">
-        <source>ก๊วนนี้พักไว้ — แพ็ก⁠เกจของคุณเปิดรอบได้ <x id="limit" equiv-text="limit"/> ก๊วน (ก๊วนที่เล่นล่าสุด)</source>
+        <source>ก๊วนนี้พักไว้ แพ็ก⁠เกจของคุณเปิดรอบได้ <x id="limit" equiv-text="limit"/> ก๊วน (ก๊วนที่เล่นล่าสุด)</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/core/plan.ts</context>
           <context context-type="linenumber">98</context>
         </context-group>
       </trans-unit>
       <trans-unit id="plan.notice.lapsed" datatype="html">
-        <source>แพ็ก⁠เกจหมดเมื่อ <x id="date" equiv-text="date"/> — รอบใหม่ใช้แบบฟรี</source>
+        <source>แพ็ก⁠เกจหมดเมื่อ <x id="date" equiv-text="date"/> รอบใหม่ใช้แบบฟรี</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/core/plan.ts</context>
           <context context-type="linenumber">103</context>
@@ -935,7 +935,7 @@
         </context-group>
       </trans-unit>
       <trans-unit id="admin.passwordHint" datatype="html">
-        <source> อย่างน้อย 8 ตัวอักษร — ผู้ใช้เปลี่ยนเองได้ภายหลัง </source>
+        <source> อย่างน้อย 8 ตัวอักษร ผู้ใช้เปลี่ยนเองได้ภายหลัง </source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/admin/admin.html</context>
           <context context-type="linenumber">63,65</context>
@@ -1121,7 +1121,7 @@
         </context-group>
       </trans-unit>
       <trans-unit id="admin.resetLinkLede" datatype="html">
-        <source>ส่งลิงก์นี้ให้ผู้ใช้ด้วยตนเอง (เช่น ทาง LINE) — ใช้ได้ครั้งเดียว หมดอายุใน 1 ชั่วโมง</source>
+        <source>ส่งลิงก์นี้ให้ผู้ใช้ด้วยตนเอง (เช่น ทาง LINE) ใช้ได้ครั้งเดียว หมดอายุใน 1 ชั่วโมง</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/admin/admin.html</context>
           <context context-type="linenumber">184,185</context>
@@ -1290,14 +1290,14 @@
         </context-group>
       </trans-unit>
       <trans-unit id="admin.createFailed" datatype="html">
-        <source>สร้างผู้ใช้ไม่สำเร็จ — อีเมลนี้อาจถูกใช้แล้ว</source>
+        <source>สร้างผู้ใช้ไม่สำเร็จ อีเมลนี้อาจถูกใช้แล้ว</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/admin/admin.ts</context>
           <context context-type="linenumber">113</context>
         </context-group>
       </trans-unit>
       <trans-unit id="admin.editFailed" datatype="html">
-        <source>บันทึกไม่สำเร็จ — อีเมลนี้อาจถูกใช้แล้ว</source>
+        <source>บันทึกไม่สำเร็จ อีเมลนี้อาจถูกใช้แล้ว</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/admin/admin.ts</context>
           <context context-type="linenumber">158</context>
@@ -1325,7 +1325,7 @@
         </context-group>
       </trans-unit>
       <trans-unit id="admin.planEnded" datatype="html">
-        <source>หมดเมื่อ <x id="date" equiv-text="date"/> — ใช้แบบฟรีอยู่</source>
+        <source>หมดเมื่อ <x id="date" equiv-text="date"/> ใช้แบบฟรีอยู่</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/admin/admin.ts</context>
           <context context-type="linenumber">225</context>
@@ -1339,7 +1339,7 @@
         </context-group>
       </trans-unit>
       <trans-unit id="admin.deleteFailed" datatype="html">
-        <source>ลบไม่สำเร็จ — ต้องระบุการจัดการให้ครบทุกก๊วน</source>
+        <source>ลบไม่สำเร็จ ต้องระบุการจัดการให้ครบทุกก๊วน</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/admin/admin.ts</context>
           <context context-type="linenumber">370</context>
@@ -2227,7 +2227,7 @@
         </context-group>
       </trans-unit>
       <trans-unit id="entry.errNoPlayers" datatype="html">
-        <source>ไม่พบรายชื่อผู้เล่น — ตรวจว่าแต่ละชื่ออยู่บรรทัดของตัวเองและมีเลขนำหน้า (เช่น &quot;1. ชื่อ&quot;)</source>
+        <source>ไม่พบรายชื่อผู้เล่น ตรวจว่าแต่ละชื่ออยู่บรรทัดของตัวเองและมีเลขนำหน้า (เช่น &quot;1. ชื่อ&quot;)</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/group-entry/group-entry.ts</context>
           <context context-type="linenumber">708</context>
@@ -2937,7 +2937,7 @@
         </context-group>
       </trans-unit>
       <trans-unit id="levels.removeBlocked" datatype="html">
-        <source>มี <x id="n" equiv-text="n"/> คนอยู่ในระดับนี้ — ย้ายหรือล้างระดับของเขาก่อนจึงจะลบได้</source>
+        <source>มี <x id="n" equiv-text="n"/> คนอยู่ในระดับนี้ ย้ายหรือล้างระดับของเขาก่อนจึงจะลบได้</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/group-levels/group-levels.ts</context>
           <context context-type="linenumber">185</context>
@@ -3552,7 +3552,7 @@
         </context-group>
       </trans-unit>
       <trans-unit id="home.empty" datatype="html">
-        <source>ยังไม่มีก๊วน — สร้างก๊วนแรกได้เลย</source>
+        <source>ยังไม่มีก๊วน สร้างก๊วนแรกได้เลย</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/landing/landing.html</context>
           <context context-type="linenumber">27,30</context>
@@ -3630,7 +3630,7 @@
         </context-group>
       </trans-unit>
       <trans-unit id="home.removeWarning" datatype="html">
-        <source>ลบแล้วกู้คืนไม่ได้ — ทั้งผู้เล่น รอบย้อนหลัง และผลแมตช์จะหายทั้งหมด</source>
+        <source>ลบแล้วกู้คืนไม่ได้ ทั้งผู้เล่น รอบย้อนหลัง และผลแมตช์จะหายทั้งหมด</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/landing/landing.html</context>
           <context context-type="linenumber">110,111</context>
@@ -3763,7 +3763,7 @@
         </context-group>
       </trans-unit>
       <trans-unit id="login.forgotFound" datatype="html">
-        <source> มีบัญชีนี้อยู่ — แจ้งผู้ดูแลแล้ว รอลิงก์ตั้งรหัสผ่านใหม่จากผู้ดูแลโดยตรง </source>
+        <source> มีบัญชีนี้อยู่ แจ้งผู้ดูแลแล้ว รอลิงก์ตั้งรหัสผ่านใหม่จากผู้ดูแลโดยตรง </source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/login/login.html</context>
           <context context-type="linenumber">10,12</context>
@@ -4095,7 +4095,7 @@
         </context-group>
       </trans-unit>
       <trans-unit id="playerRoster.empty" datatype="html">
-        <source>ยังไม่มีผู้เล่นในก๊วนนี้ — ผู้เล่นจะเข้ามาเมื่อเริ่มรอบ วางรายชื่อจาก LINE หรือเพิ่มรายชื่อเอง</source>
+        <source>ยังไม่มีผู้เล่นในก๊วนนี้ ผู้เล่นจะเข้ามาเมื่อเริ่มรอบ วางรายชื่อจาก LINE หรือเพิ่มรายชื่อเอง</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/player-roster/player-roster.html</context>
           <context context-type="linenumber">30,31</context>
@@ -4596,7 +4596,7 @@
         </context-group>
       </trans-unit>
       <trans-unit id="bill.sourceMissing" datatype="html">
-        <source>ยังนับลูกแบดไม่ได้ — ใส่จำนวนลูกที่ใช้จริง หรือบันทึกลูกที่ใช้ในแต่ละแมตช์ให้ครบ</source>
+        <source>ยังนับลูกแบดไม่ได้ ใส่จำนวนลูกที่ใช้จริง หรือบันทึกลูกที่ใช้ในแต่ละแมตช์ให้ครบ</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/session-bill/session-bill.html</context>
           <context context-type="linenumber">64,66</context>
@@ -4610,7 +4610,7 @@
         </context-group>
       </trans-unit>
       <trans-unit id="bill.recordedPartial" datatype="html">
-        <source>ไม่ครบ — <x id="INTERPOLATION" equiv-text="{{ sp.unknownFinishedMatches }}"/> แมตช์ไม่ได้บันทึก</source>
+        <source>ไม่ครบ: <x id="INTERPOLATION" equiv-text="{{ sp.unknownFinishedMatches }}"/> แมตช์ไม่ได้บันทึก</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/session-bill/session-bill.html</context>
           <context context-type="linenumber">68,70</context>
@@ -4666,21 +4666,21 @@
         </context-group>
       </trans-unit>
       <trans-unit id="bill.warnExcess" datatype="html">
-        <source>ยอดที่เช็คเอาต์ไปแล้วเกินต้นทุน <x id="INTERPOLATION" equiv-text="{{ baht(b.result.totals.excessCreditSatang) }}"/>฿ — ต้องคืนเงินเองนอกแอป หรือยกเลิกเช็คเอาต์</source>
+        <source>ยอดที่เช็คเอาต์ไปแล้วเกินต้นทุน <x id="INTERPOLATION" equiv-text="{{ baht(b.result.totals.excessCreditSatang) }}"/>฿ ต้องคืนเงินเองนอกแอป หรือยกเลิกเช็คเอาต์</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/session-bill/session-bill.html</context>
           <context context-type="linenumber">90</context>
         </context-group>
       </trans-unit>
       <trans-unit id="bill.warnUncovered" datatype="html">
-        <source>ไม่มีใครเหลือจ่ายส่วนที่ขาด <x id="INTERPOLATION" equiv-text="{{ baht(b.result.totals.uncoveredCostSatang) }}"/>฿ — ยกเลิกเช็คเอาต์หรือแก้ข้อมูลก่อน</source>
+        <source>ไม่มีใครเหลือจ่ายส่วนที่ขาด <x id="INTERPOLATION" equiv-text="{{ baht(b.result.totals.uncoveredCostSatang) }}"/>฿ ยกเลิกเช็คเอาต์หรือแก้ข้อมูลก่อน</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/session-bill/session-bill.html</context>
           <context context-type="linenumber">91</context>
         </context-group>
       </trans-unit>
       <trans-unit id="bill.warnSurcharge" datatype="html">
-        <source>ค่า walk-in <x id="INTERPOLATION" equiv-text="{{ baht(b.result.totals.unreturnedSurchargeSatang) }}"/>฿ ไม่มีใครรับคืนได้ — ไม่นับเป็นกำไร แก้ก่อนแชร์</source>
+        <source>ค่า walk-in <x id="INTERPOLATION" equiv-text="{{ baht(b.result.totals.unreturnedSurchargeSatang) }}"/>฿ ไม่มีใครรับคืนได้ ไม่นับเป็นกำไร แก้ก่อนแชร์</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/session-bill/session-bill.html</context>
           <context context-type="linenumber">92</context>
@@ -4946,7 +4946,7 @@
         </context-group>
       </trans-unit>
       <trans-unit id="bill.notReady" datatype="html">
-        <source>ยังคัดลอกไม่ได้ — ใส่ข้อมูลที่ขาดให้ครบก่อน แล้วจะเห็นยอดของแต่ละคน</source>
+        <source>ยังคัดลอกไม่ได้ ใส่ข้อมูลที่ขาดให้ครบก่อน แล้วจะเห็นยอดของแต่ละคน</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/session-bill/session-bill.html</context>
           <context context-type="linenumber">271,273</context>
@@ -5207,14 +5207,14 @@
         </context-group>
       </trans-unit>
       <trans-unit id="court.restingInProposal" datatype="html">
-        <source><x id="INTERPOLATION" equiv-text="{{ restingInProposal().join(&apos;, &apos;) }}"/> พักอยู่ — กดชื่อเพื่อเปลี่ยนตัว หรือสุ่มใหม่</source>
+        <source><x id="INTERPOLATION" equiv-text="{{ restingInProposal().join(&apos;, &apos;) }}"/> พักอยู่ กดชื่อเพื่อเปลี่ยนตัว หรือสุ่มใหม่</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/session-dashboard/court-panel/court-panel.html</context>
           <context context-type="linenumber">187,189</context>
         </context-group>
       </trans-unit>
       <trans-unit id="court.ruleConflictFix" datatype="html">
-        <source>— กดชื่อเพื่อเปลี่ยนตัว หรือสุ่มใหม่</source>
+        <source>กดชื่อเพื่อเปลี่ยนตัว หรือสุ่มใหม่</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/session-dashboard/court-panel/court-panel.html</context>
           <context context-type="linenumber">192,194</context>
@@ -5426,7 +5426,7 @@
         </context-group>
       </trans-unit>
       <trans-unit id="court.targetHint" datatype="html">
-        <source>เทียบกับคนที่มาคืนนี้ — ถ้าคนในกลุ่มไม่พอ จะเติมจากกลุ่มใกล้เคียง</source>
+        <source>เทียบกับคนที่มาคืนนี้ ถ้าคนในกลุ่มไม่พอ จะเติมจากกลุ่มใกล้เคียง</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/session-dashboard/court-panel/court-panel.ts</context>
           <context context-type="linenumber">191</context>
@@ -5549,7 +5549,7 @@
         </context-group>
       </trans-unit>
       <trans-unit id="court.trySingles" datatype="html">
-        <source>เหลือ <x id="count" equiv-text="available"/> คน — สลับเป็นเดี่ยวได้</source>
+        <source>เหลือ <x id="count" equiv-text="available"/> คน สลับเป็นเดี่ยวได้</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/session-dashboard/court-panel/court-panel.ts</context>
           <context context-type="linenumber">464</context>
@@ -5661,7 +5661,7 @@
         </context-group>
       </trans-unit>
       <trans-unit id="checkout.saved" datatype="html">
-        <source>บันทึกแล้ว — <x id="INTERPOLATION" equiv-text="{{ baht(r.amountSatang) }}"/> บาท</source>
+        <source>บันทึกแล้ว: <x id="INTERPOLATION" equiv-text="{{ baht(r.amountSatang) }}"/> บาท</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/session-dashboard/early-checkout-dialog/early-checkout-dialog.html</context>
           <context context-type="linenumber">72,73</context>
@@ -6114,7 +6114,7 @@
         </context-group>
       </trans-unit>
       <trans-unit id="dashboard.rosterTipResting" datatype="html">
-        <source>พักอยู่ — แตะชื่อเพื่อกลับมาเล่น</source>
+        <source>พักอยู่ แตะชื่อเพื่อกลับมาเล่น</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/session-dashboard/session-dashboard.html</context>
           <context context-type="linenumber">78,80</context>
@@ -6160,14 +6160,14 @@
         </context-group>
       </trans-unit>
       <trans-unit id="dashboard.rulesInactive" datatype="html">
-        <source>กฎไม่ใช้ในรอบนี้ — รอบนี้เริ่มในแพ็ก⁠เกจฟรี</source>
+        <source>กฎไม่ใช้ในรอบนี้ รอบนี้เริ่มในแพ็ก⁠เกจฟรี</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/session-dashboard/session-dashboard.html</context>
           <context context-type="linenumber">163,165</context>
         </context-group>
       </trans-unit>
       <trans-unit id="dashboard.sessionRulesHint" datatype="html">
-        <source>ปิดกฎเฉพาะคืนนี้ — แก้หรือลบกฎถาวรที่หน้าผู้เล่นในก๊วน</source>
+        <source>ปิดกฎเฉพาะคืนนี้ แก้หรือลบกฎถาวรที่หน้าผู้เล่นในก๊วน</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/session-dashboard/session-dashboard.html</context>
           <context context-type="linenumber">165,167</context>
@@ -6725,7 +6725,7 @@
         </context-group>
       </trans-unit>
       <trans-unit id="summary.shuttlePartial" datatype="html">
-        <source> · ไม่ครบ — <x id="INTERPOLATION" equiv-text="{{ sh.unknownFinishedMatches }}"/> แมตช์ไม่ได้บันทึก</source>
+        <source> · ไม่ครบ: <x id="INTERPOLATION" equiv-text="{{ sh.unknownFinishedMatches }}"/> แมตช์ไม่ได้บันทึก</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/session-summary/session-summary.html</context>
           <context context-type="linenumber">51,52</context>
@@ -7124,7 +7124,7 @@
         </context-group>
       </trans-unit>
       <trans-unit id="addRule.persistHint" datatype="html">
-        <source>กฎนี้บันทึกกับก๊วนถาวร — ปิดเฉพาะคืนนี้ได้จากรายการกฎ</source>
+        <source>กฎนี้บันทึกกับก๊วนถาวร ปิดเฉพาะคืนนี้ได้จากรายการกฎ</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/shared/add-rule-dialog/add-rule-dialog.html</context>
           <context context-type="linenumber">50,53</context>
@@ -7180,7 +7180,7 @@
         </context-group>
       </trans-unit>
       <trans-unit id="walkIn.alreadyOnRoster" datatype="html">
-        <source><x id="INTERPOLATION" equiv-text="{{ match.name }}"/> อยู่ในรอบนี้แล้ว — เปิดจากชิปรายชื่อ</source>
+        <source><x id="INTERPOLATION" equiv-text="{{ match.name }}"/> อยู่ในรอบนี้แล้ว เปิดจากชิปรายชื่อ</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/shared/add-walk-in-dialog/add-walk-in-dialog.html</context>
           <context context-type="linenumber">44,45</context>
@@ -7208,7 +7208,7 @@
         </context-group>
       </trans-unit>
       <trans-unit id="shell.switchToLight" datatype="html">
-        <source>ธีมตามระบบ — แตะเพื่อสลับเป็นธีมสว่าง</source>
+        <source>ธีมตามระบบ แตะเพื่อสลับเป็นธีมสว่าง</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/shared/app-shell/app-shell.html</context>
           <context context-type="linenumber">38,39</context>

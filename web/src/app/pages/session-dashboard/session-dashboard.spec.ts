@@ -2040,7 +2040,7 @@ describe('SessionDashboard', () => {
     it('says the rules are off, and freezes their switches, in a session created on the free plan', async () => {
       await settled();
       await flushRules([], [rule], false);
-      expect(text()).toContain('กฎไม่ใช้ในรอบนี้ — รอบนี้เริ่มในแพ็ก⁠เกจฟรี');
+      expect(text()).toContain('กฎไม่ใช้ในรอบนี้ รอบนี้เริ่มในแพ็ก⁠เกจฟรี');
       expect(text()).toContain('ตั้ม · เบส');
       expect(ruleToggle().disabled).toBe(true);
     });

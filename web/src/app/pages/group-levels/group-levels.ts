@@ -183,7 +183,7 @@ export class GroupLevels implements CanComponentDeactivate {
 
   protected removeBlockedReason(row: DraftRow): string | null {
     const n = row.id === undefined ? 0 : (this.counts()[row.id] ?? 0);
-    return n > 0 ? $localize`:@@levels.removeBlocked:มี ${n}:n: คนอยู่ในระดับนี้ — ย้ายหรือล้างระดับของเขาก่อนจึงจะลบได้` : null;
+    return n > 0 ? $localize`:@@levels.removeBlocked:มี ${n}:n: คนอยู่ในระดับนี้ ย้ายหรือล้างระดับของเขาก่อนจึงจะลบได้` : null;
   }
 
   protected removeRow(key: number): void {

@@ -1,6 +1,7 @@
 import { durationSummary } from '../../core/session-duration-summary';
 import { NgTemplateOutlet } from '@angular/common';
-import { ChangeDetectorRef, Component, ElementRef, computed, inject, signal, viewChild } from '@angular/core';
+import { ChangeDetectorRef, Component, ElementRef, LOCALE_ID, computed, inject, signal, viewChild } from '@angular/core';
+import { sessionDateLabel } from '../../core/session-date';
 import { HttpClient, HttpErrorResponse, httpResource } from '@angular/common/http';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
@@ -173,6 +174,10 @@ export class SessionSummary {
 
   // ---- owner-only LINE summary card ----
   private readonly lineService = inject(LineService);
+  private readonly locale = inject(LOCALE_ID);
+  protected dateLabel(date: string | null, code: string): string {
+    return sessionDateLabel(date, code, this.locale);
+  }
   protected readonly lineState = signal<LineSummaryState | null>(null);
   /** What happened to the card: carried here from ending the session, or from the last button press. */
   protected readonly lineOutcome = signal<LineSummaryOutcome | null>(

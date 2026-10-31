@@ -1,4 +1,4 @@
-import { formatSessionDate, sessionState } from './session-date';
+import { formatSessionDate, sessionDateLabel, sessionState } from './session-date';
 
 const HOUR = 3_600_000;
 const NOW = new Date(2026, 9, 14, 20, 0); // 14 Oct 2026, 20:00 local
@@ -111,5 +111,16 @@ describe('formatSessionDate', () => {
       expect(formatSessionDate('2026-12-31', 'th')).toContain('31');
       expect(formatSessionDate('2026-12-31', 'th')).not.toContain('30');
     });
+  });
+});
+
+describe('sessionDateLabel', () => {
+  it('formats a parseable date for people', () => {
+    expect(sessionDateLabel('2026-10-13', 'ABC123', 'en')).toBe('Tue, Oct 13');
+  });
+
+  it('falls back to the stored text, then the session code', () => {
+    expect(sessionDateLabel('13 Oct', 'ABC123', 'en')).toBe('13 Oct');
+    expect(sessionDateLabel(null, 'ABC123', 'en')).toBe('ABC123');
   });
 });

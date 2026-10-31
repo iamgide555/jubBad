@@ -2,7 +2,7 @@
   <div class="page page-wide dashboard" [class.is-ended]="ended()">
     <div class="board-head">
       <h1>
-        <span class="board-date">{{ session()!.date ?? session()!.code }}</span>
+        <span class="board-date">{{ dateLabel() }}</span>
       </h1>
       @if (session()!.venue) {
         <p class="sub">{{ session()!.venue }}</p>
@@ -75,7 +75,7 @@
     @if (rosterOpen()) {
       <p class="roster-tip" i18n="@@dashboard.rosterTipOpen">แตะชื่อเพื่อพัก หรือกลับมาเล่น</p>
     } @else if (visibleRoster().length > 0) {
-      <p class="roster-tip" i18n="@@dashboard.rosterTipResting">พักอยู่ — แตะชื่อเพื่อกลับมาเล่น</p>
+      <p class="roster-tip" i18n="@@dashboard.rosterTipResting">พักอยู่ แตะชื่อเพื่อกลับมาเล่น</p>
     }
     <div class="roster-chips" id="roster-chips">
       @for (p of visibleRoster(); track p.id; let i = $index) {
@@ -160,9 +160,9 @@
           }
         </ul>
         @if (!rulesActive()) {
-          <p class="muted" data-rules-inactive i18n="@@dashboard.rulesInactive">กฎไม่ใช้ในรอบนี้ — รอบนี้เริ่มในแพ็ก⁠เกจฟรี</p>
+          <p class="muted" data-rules-inactive i18n="@@dashboard.rulesInactive">กฎไม่ใช้ในรอบนี้ รอบนี้เริ่มในแพ็ก⁠เกจฟรี</p>
         }
-        <p class="muted" i18n="@@dashboard.sessionRulesHint">ปิดกฎเฉพาะคืนนี้ — แก้หรือลบกฎถาวรที่หน้าผู้เล่นในก๊วน</p>
+        <p class="muted" i18n="@@dashboard.sessionRulesHint">ปิดกฎเฉพาะคืนนี้ แก้หรือลบกฎถาวรที่หน้าผู้เล่นในก๊วน</p>
         @if (rulesError()) {
           <p class="error" role="alert">{{ rulesError() }}</p>
         }

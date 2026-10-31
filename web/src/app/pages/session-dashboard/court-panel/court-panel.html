@@ -179,17 +179,17 @@
           @if (selection.active()) {
             <p class="hint pick-hint" role="status">
               <ng-container i18n="@@court.holding">กำลังถือ</ng-container>
-              {{ selection.selection()?.name }} —
+              {{ selection.selection()?.name }}
               <button type="button" class="link" (click)="selection.clear()" i18n="@@court.cancelPick">ยกเลิก</button>
             </p>
           }
           @if (restingInProposal().length > 0) {
-            <p class="hint warn" role="status" i18n="@@court.restingInProposal">{{ restingInProposal().join(', ') }} พักอยู่ — กดชื่อเพื่อเปลี่ยนตัว หรือสุ่มใหม่</p>
+            <p class="hint warn" role="status" i18n="@@court.restingInProposal">{{ restingInProposal().join(', ') }} พักอยู่ กดชื่อเพื่อเปลี่ยนตัว หรือสุ่มใหม่</p>
           }
           @if (ruleConflictIds().length > 0) {
             <p class="hint warn" role="status">
               {{ ruleConflictMessage() }}
-              <ng-container i18n="@@court.ruleConflictFix">— กดชื่อเพื่อเปลี่ยนตัว หรือสุ่มใหม่</ng-container>
+              <ng-container i18n="@@court.ruleConflictFix">กดชื่อเพื่อเปลี่ยนตัว หรือสุ่มใหม่</ng-container>
             </p>
           }
           @if (actionError()) {

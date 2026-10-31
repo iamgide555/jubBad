@@ -41,3 +41,12 @@ export function formatSessionDate(isoDate: string | null, locale: string): strin
   if (date.getFullYear() !== year || date.getMonth() !== month - 1 || date.getDate() !== day) return '';
   return new Intl.DateTimeFormat(locale, { weekday: 'short', day: 'numeric', month: 'short' }).format(date);
 }
+
+/**
+ * The heading/label form of a session's date: the people-readable weekday-day-
+ * month when the stored date parses, else the stored text, else the session
+ * code (a session saved without a date still needs something to be called).
+ */
+export function sessionDateLabel(isoDate: string | null, fallback: string, locale: string): string {
+  return formatSessionDate(isoDate, locale) || isoDate || fallback;
+}

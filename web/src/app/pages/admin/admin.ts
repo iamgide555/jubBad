@@ -110,7 +110,7 @@ export class Admin {
       this.users.update((list) => [...list, user]);
       this.closeCreateUser();
     } catch {
-      this.createError.set($localize`:@@admin.createFailed:สร้างผู้ใช้ไม่สำเร็จ — อีเมลนี้อาจถูกใช้แล้ว`);
+      this.createError.set($localize`:@@admin.createFailed:สร้างผู้ใช้ไม่สำเร็จ อีเมลนี้อาจถูกใช้แล้ว`);
     } finally {
       this.createBusy.set(false);
     }
@@ -155,7 +155,7 @@ export class Admin {
       if (this.planDirty(user) && !(await this.savePlan(user))) return;
       this.editingId.set(null);
     } catch {
-      this.editError.set($localize`:@@admin.editFailed:บันทึกไม่สำเร็จ — อีเมลนี้อาจถูกใช้แล้ว`);
+      this.editError.set($localize`:@@admin.editFailed:บันทึกไม่สำเร็จ อีเมลนี้อาจถูกใช้แล้ว`);
     } finally {
       this.editBusy.set(false);
     }
@@ -222,7 +222,7 @@ export class Admin {
   /** "Ended 10/10/2026, on free": the date a lapsed paid plan ran out. */
   planEndedText(user: AdminUser): string {
     const date = bangkokDisplayDate(user.planRenewsAt);
-    return $localize`:@@admin.planEnded:หมดเมื่อ ${date}:date: — ใช้แบบฟรีอยู่`;
+    return $localize`:@@admin.planEnded:หมดเมื่อ ${date}:date: ใช้แบบฟรีอยู่`;
   }
 
   /** An admin account is club whatever its column says, so it never reads as lapsed. */
@@ -367,7 +367,7 @@ export class Admin {
       this.deletingUser.set(null);
     } catch {
       this.deleteError.set(
-        $localize`:@@admin.deleteFailed:ลบไม่สำเร็จ — ต้องระบุการจัดการให้ครบทุกก๊วน`
+        $localize`:@@admin.deleteFailed:ลบไม่สำเร็จ ต้องระบุการจัดการให้ครบทุกก๊วน`
       );
     } finally {
       this.deleteBusy.set(false);

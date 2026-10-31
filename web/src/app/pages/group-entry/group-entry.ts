@@ -1,4 +1,4 @@
-import { formatSessionDate } from '../../core/session-date';
+import { formatSessionDate, sessionDateLabel } from '../../core/session-date';
 import type { GroupSession } from '../../core/group-session.model';
 import type { ClosePreview } from '../../core/session-closure.model';
 import { HttpErrorResponse } from '@angular/common/http';
@@ -99,6 +99,9 @@ export class GroupEntry {
   readonly groupStatus = signal<'loading' | 'ready' | 'not-found' | 'error'>('loading');
   private readonly drafts = inject(RosterDraftService);
   private readonly lineService = inject(LineService);
+  protected dateLabel(date: string | null, code: string): string {
+    return sessionDateLabel(date, code, this.locale);
+  }
   private readonly planService = inject(PlanService);
   /**
    * The group owner's plan. Unknown (loading, or the read failed) says nothing and blocks nothing;
@@ -711,7 +714,7 @@ export class GroupEntry {
 
       if (result.rosterReviews.length === 0) {
         this.pasteError.set(
-          $localize`:@@entry.errNoPlayers:ไม่พบรายชื่อผู้เล่น — ตรวจว่าแต่ละชื่ออยู่บรรทัดของตัวเองและมีเลขนำหน้า (เช่น "1. ชื่อ")`
+          $localize`:@@entry.errNoPlayers:ไม่พบรายชื่อผู้เล่น ตรวจว่าแต่ละชื่ออยู่บรรทัดของตัวเองและมีเลขนำหน้า (เช่น "1. ชื่อ")`
         );
         return;
       }

@@ -32,7 +32,7 @@
       <p class="muted" i18n="@@entry.openSessionHint">กลับไปเล่นต่อ หรือปิดรอบก่อนหน้าเพื่อเริ่มรอบใหม่</p>
       @for (old of openSessions(); track old.code) {
         <div class="open-session-row">
-          <p>{{ old.date || old.code }} @if (old.venue) { · {{ old.venue }} }</p>
+          <p>{{ dateLabel(old.date, old.code) }} @if (old.venue) { · {{ old.venue }} }</p>
           <div class="paste-actions">
             <a class="button ghost" data-resume-session [routerLink]="['/s', old.code]" i18n="@@entry.resumeOpenSession">กลับไปเล่นต่อ</a>
             <button type="button" class="ghost" [disabled]="closureBusy()" (click)="previewClosure(old.code)" i18n="@@entry.reviewClosure">ตรวจสอบก่อนปิด</button>

@@ -21,7 +21,7 @@
           }
         </ul>
       } @else {
-        <p class="empty muted" i18n="@@home.empty">ยังไม่มีก๊วน — สร้างก๊วนแรกได้เลย</p>
+        <p class="empty muted" i18n="@@home.empty">ยังไม่มีก๊วน สร้างก๊วนแรกได้เลย</p>
       }
 
       @if (otherCount() > 0) {
@@ -53,7 +53,7 @@
         }
       }
     } @else {
-      <p class="empty muted" i18n="@@home.empty">ยังไม่มีก๊วน — สร้างก๊วนแรกได้เลย</p>
+      <p class="empty muted" i18n="@@home.empty">ยังไม่มีก๊วน สร้างก๊วนแรกได้เลย</p>
     }
   }
 
@@ -104,7 +104,7 @@
 
     @if (removable && removingCode() === group.code) {
       <div class="remove-confirm">
-        <p class="muted" i18n="@@home.removeWarning">ลบแล้วกู้คืนไม่ได้ — ทั้งผู้เล่น รอบย้อนหลัง และผลแมตช์จะหายทั้งหมด</p>
+        <p class="muted" i18n="@@home.removeWarning">ลบแล้วกู้คืนไม่ได้ ทั้งผู้เล่น รอบย้อนหลัง และผลแมตช์จะหายทั้งหมด</p>
         <label [attr.for]="'confirm-' + group.code" i18n="@@home.removePrompt">พิมพ์ชื่อก๊วนเพื่อยืนยัน</label>
         <input
           [attr.id]="'confirm-' + group.code"

@@ -1,0 +1,138 @@
+<section class="calculation" [attr.aria-busy]="loading() || saving()">
+  <label [for]="selectId" class="label" i18n="@@pay.calc.method">วิธีคิดเงิน</label>
+  <select
+    [id]="selectId"
+    [value]="bill()?.config?.model ?? ''"
+    [attr.aria-disabled]="unavailable()"
+    (change)="selectMethod($event)"
+  >
+    @if (!bill()) {
+      <option value="" i18n="@@pay.calc.unavailable">ยังไม่มีรายละเอียด</option>
+    }
+    @for (model of models(); track model) {
+      <option [value]="model">{{ modelLabel(model) }}</option>
+    }
+  </select>
+  @if (saving()) {
+    <p class="hint" role="status" i18n="@@pay.calc.saving">กำลังเปลี่ยนวิธีคิดเงิน…</p>
+  }
+  @if (loading()) {
+    <p class="hint" role="status" i18n="@@pay.calc.loading">กำลังโหลดรายละเอียด…</p>
+  }
+  @if (error(); as message) {
+    <p class="error" role="alert">{{ message }}</p>
+  }
+  @if (readFailed()) {
+    <button
+      type="button"
+      class="ghost"
+      data-retry
+      [attr.aria-disabled]="loading()"
+      (click)="load()"
+      i18n="@@pay.calc.retry"
+    >
+      ลองโหลดอีกครั้ง
+    </button>
+  }
+  @if (bill(); as b) {
+    @let c = b.config;
+    @if (b.configSource === 'previous') {
+      <p class="hint" i18n="@@pay.calc.previous">ใช้ค่าจากรอบก่อน</p>
+    }
+    <dl>
+      @switch (c.model) {
+        @case ('fair') {
+          <div>
+            <dt i18n="@@pay.calc.court">ค่าคอร์ททั้งหมด</dt>
+            <dd>{{ money(c.courtFeeSatang) }} · {{ split(c.courtSplit) }}</dd>
+          </div>
+        }
+        @case ('perGame') {
+          <div>
+            <dt i18n="@@pay.calc.gameRate">ต่อเกมต่อคน</dt>
+            <dd>{{ money(c.perGameRateSatang) }}</dd>
+          </div>
+          <div>
+            <dt i18n="@@pay.calc.entry">ค่าเข้า</dt>
+            <dd>{{ money(c.entryFeeSatang) }}</dd>
+          </div>
+          <div>
+            <dt i18n="@@pay.calc.cap">สูงสุดต่อคน</dt>
+            <dd>
+              @if (c.capSatang === null) {
+                <span i18n="@@pay.calc.unlimited">ไม่จำกัด</span>
+              } @else {
+                {{ money(c.capSatang) }}
+              }
+            </dd>
+          </div>
+        }
+        @case ('buffet') {
+          <div>
+            <dt i18n="@@pay.calc.personRate">ต่อคน</dt>
+            <dd>{{ money(c.buffetPriceSatang) }}</dd>
+          </div>
+          @if (c.buffetShuttlesIncluded) {
+            <div>
+              <dt i18n="@@pay.calc.shuttles">ค่าลูก</dt>
+              <dd i18n="@@pay.calc.included">รวมค่าลูกแล้ว</dd>
+            </div>
+          }
+        }
+        @case ('perShuttle') {
+          <div>
+            <dt i18n="@@pay.calc.starting">ค่าเริ่มต้นต่อคน</dt>
+            <dd>{{ money(c.startingFeeSatang) }}</dd>
+          </div>
+          <div>
+            <dt i18n="@@pay.calc.basis">วิธีคิดค่าลูก</dt>
+            <dd>
+              @if (c.shuttleCharge === 'shared') {
+                <span i18n="@@pay.calc.shared">แชร์ตามต้นทุน</span>
+              } @else {
+                <span i18n="@@pay.calc.full">คิดเต็มต่อคน</span>
+              }
+            </dd>
+          </div>
+          <div data-real-shuttle-cost>
+            <dt i18n="@@pay.calc.realCost">ต้นทุนต่อลูก</dt>
+            <dd>{{ money(b.session.shuttlePriceSatang) }}</dd>
+          </div>
+          @if (c.shuttleCharge === 'full') {
+            <div data-player-shuttle-charge>
+              <dt i18n="@@pay.calc.playerCharge">คิดต่อคนต่อลูก</dt>
+              <dd>{{ money(c.perPlayerShuttleSatang ?? b.session.shuttlePriceSatang) }}</dd>
+            </div>
+          }
+        }
+      }
+      @if (c.model === 'fair' || (c.model === 'buffet' && !c.buffetShuttlesIncluded)) {
+        <div>
+          <dt i18n="@@pay.calc.shuttles">ค่าลูก</dt>
+          <dd>
+            {{ count(b.accounting.effectiveCount) }} × {{ money(b.session.shuttlePriceSatang) }} ·
+            {{ split(c.shuttleSplit) }}
+          </dd>
+        </div>
+      }
+      @if (c.hostFeeSatang !== 0) {
+        <div>
+          <dt i18n="@@pay.calc.hostFee">ค่าจัดก๊วนต่อคน</dt>
+          <dd>{{ money(c.hostFeeSatang) }}</dd>
+        </div>
+      }
+      @if (c.walkInFeeSatang !== 0) {
+        <div>
+          <dt i18n="@@pay.calc.walkIn">ค่าเพิ่มวอล์กอิน</dt>
+          <dd>{{ money(c.walkInFeeSatang) }}</dd>
+        </div>
+      }
+      @if (c.roundingBaht > 1) {
+        <div>
+          <dt i18n="@@pay.calc.rounding">ปัดขึ้นทีละ</dt>
+          <dd>{{ c.roundingBaht }}฿</dd>
+        </div>
+      }
+    </dl>
+  }
+</section>

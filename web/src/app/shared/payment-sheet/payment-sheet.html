@@ -5,7 +5,7 @@
   (click)="onDialogClick($event)"
   aria-labelledby="payment-sheet-title"
 >
-  @if (open()) {
+  @if (open() || methodPending()) {
     <div class="sheet-card">
       <!-- Sticky, so a long list never scrolls the way out off screen. -->
       <div class="sheet-header">
@@ -17,6 +17,11 @@
         [sessionCode]="sessionCode()"
         [compact]="true"
         [refreshKey]="refreshKey()"
+        [onBillPage]="onBillPage()"
+        (settingsRequested)="settingsRequested.emit()"
+        (billChanged)="billChanged.emit($event)"
+        (methodPending)="setMethodPending($event)"
+        (billRefreshRequested)="billRefreshRequested.emit()"
         (closed)="closed.emit()"
         (sent)="sent.emit()"
       />

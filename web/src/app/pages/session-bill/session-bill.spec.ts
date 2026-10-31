@@ -89,6 +89,9 @@ describe('SessionBill', () => {
     for (const req of http.match((r) => r.url === `${B}/sessions/sess1/payment-card`)) {
       req.flush({}, { status: 500, statusText: 'Server Error' });
     }
+    for (const req of http.match(r => r.url === `${B}/sessions/sess1/bill`)) {
+      req.flush({}, { status: 500, statusText: 'Server Error' });
+    }
     http.verify();
   });
 
@@ -157,6 +160,25 @@ describe('SessionBill', () => {
     await new Promise((r) => setTimeout(r, 0));
     fixture.detectChanges();
     expect(fixture.nativeElement.querySelector('dialog[open] [data-load-failed] button')).not.toBeNull();
+  });
+
+  it('closes a blocked payment sheet and focuses existing bill settings', async () => {
+    await load();
+    const missing = paymentPanel({ ready: false, warnings: ['MISSING_COURT_FEE'] });
+    http.expectOne(`${B}/sessions/sess1/payment-card`).flush(missing);
+    await new Promise(r => setTimeout(r, 0));
+    fixture.detectChanges();
+    (fixture.nativeElement.querySelector('[data-open-payment]') as HTMLButtonElement).click();
+    fixture.detectChanges();
+    http.expectOne(`${B}/sessions/sess1/payment-card`).flush(missing);
+    await new Promise(r => setTimeout(r, 0));
+    fixture.detectChanges();
+    (fixture.nativeElement.querySelector('dialog[open] button[data-settings-link]') as HTMLButtonElement).click();
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('dialog[open]')).toBeNull();
+    const first = fixture.nativeElement.querySelector('[data-bill-settings] input');
+    expect(document.activeElement).toBe(first);
+    http.expectNone(`${B}/sessions/sess1/bill-method`);
   });
 
   it('goes back to the live session while the night is on', async () => {

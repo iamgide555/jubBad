@@ -1519,6 +1519,18 @@ expired code gets one generic Thai reply (it never says which); a sender who has
     in the web app's memory for as long as it stays open (no browser storage) and is lost on a
     reload. The panel is absent, with no hint, when the session has no LINE target. Where it
     appears:
+    - **Calculation method.** The sheet shows the effective method (including the previous-session
+      default), a method selector and model-specific read-only fees. Only the method is editable here;
+      rates, shuttle inputs and player adjustments stay on the bill page. Ordinary sessions offer three
+      methods; shuttle-tracked sessions also offer ตามลูกแบด. `POST /sessions/:code/bill-method`
+      accepts only `model`, preserves the latest other settings under the session lock, and clears the
+      payment confirmation/share token on an actual change, even when amounts happen to match. No-op
+      requests preserve confirmation. A save continues if the sheet closes; the bill page stays blocked
+      until its configuration is current. An uncertain answer triggers fresh reads before delivery resumes.
+    - **Bill settings navigation.** "แก้รายละเอียดในหน้าคิดเงิน" opens the bill settings. Missing
+      required inputs or all-zero dues replace confirm/send with "ไปตั้งค่าในหน้าคิดเงิน". From the
+      bill page this closes the sheet and focuses existing settings; from summary it navigates to
+      `/s/:code/bill#bill-settings`. Numeric calculation inputs never appear in the payment sheet.
     - **End of session.** Next to the summary tick the จบรอบ dialog has a second tick,
       "เปิดใบเก็บเงินให้ตรวจหลังจบรอบ", shown whenever the group has a LINE target and checked by default when the
       group has a saved account. Its label promises a check step, not a send. After the end succeeds
@@ -1543,7 +1555,8 @@ expired code gets one generic Thai reply (it never says which); a sender who has
     notice but does not block, while a missing court fee, shuttle count or price (anything else,
     including a warning code the engine adds later) blocks, and while it blocks the panel shows only
     what is missing, never a provisional amount. A card with nobody to collect from shows
-    "ไม่มีใครต้องจ่าย" and offers nothing.
+    "ไม่มีใครต้องจ่าย" (no rows) or "ยอดทุกคนเป็น 0 บาท" (zero dues), with a bill-settings action
+    in the sheet and no confirm/send.
   - **Confirm is bound to what the host saw.** The panel read carries a `contentHash` (sha256 over
     everything the card would print: group name, date, venue, each row's player id, name, amount and
     ไม่มา flag, settled count, total, account). Confirm sends it back as `expectedHash`; if the bill

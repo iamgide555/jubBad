@@ -5,6 +5,7 @@ import { provideRouter } from '@angular/router';
 import { PaymentSheet } from './payment-sheet';
 import { environment } from '../../../environments/environment';
 import type { PaymentCardPanel } from '../../core/payment-card.model';
+import type { BillResponse } from '../../core/bill.model';
 
 const URL = `${environment.apiBaseUrl}/sessions/sess1/payment-card`;
 const ACCOUNT = { bank: 'กสิกร', number: '123-4-56789-0', name: 'Host Name' };
@@ -73,7 +74,12 @@ describe('PaymentSheet', () => {
     fixture.componentRef.setInput('open', false);
     fixture.detectChanges();
   });
-  afterEach(() => http.verify());
+  afterEach(() => {
+    for (const req of http.match(r => r.url.endsWith('/sessions/sess1/bill'))) {
+      req.flush({}, { status: 500, statusText: 'Server Error' });
+    }
+    http.verify();
+  });
 
   async function settle() {
     fixture.detectChanges();
@@ -92,6 +98,34 @@ describe('PaymentSheet', () => {
   it('is a closed dialog that reads nothing until it is opened', () => {
     expect(dialog().open).toBe(false);
     http.expectNone(URL);
+    expect(el().querySelector('app-payment-panel')).toBeNull();
+  });
+
+  it('keeps an in-flight method save alive after closing and reports its latest bill', async () => {
+    await open(panel({ ready: true, confirmed: true, warnings: [] }));
+    const bill = {
+      session: { shuttleToolsEnabled: false }, configSource: 'saved',
+      config: { model: 'perGame', perGameRateSatang: 1000, entryFeeSatang: 0, capSatang: null, hostFeeSatang: 0, walkInFeeSatang: 0, roundingBaht: 1 },
+    } as BillResponse;
+    http.expectOne(`${environment.apiBaseUrl}/sessions/sess1/bill`).flush(bill);
+    await settle();
+    const changed = vi.fn();
+    fixture.componentInstance.billChanged.subscribe(changed);
+    const select = el().querySelector('app-payment-calculation select') as HTMLSelectElement;
+    select.value = 'buffet';
+    select.dispatchEvent(new Event('change'));
+    await settle();
+    const save = http.expectOne(`${environment.apiBaseUrl}/sessions/sess1/bill-method`);
+    fixture.componentRef.setInput('open', false);
+    fixture.detectChanges();
+    expect(dialog().open).toBe(false);
+    expect(el().querySelector('app-payment-panel')).not.toBeNull();
+    const updated = { ...bill, config: { ...bill.config, model: 'buffet', buffetPriceSatang: 15000, buffetShuttlesIncluded: true } };
+    save.flush(updated);
+    await settle();
+    expect(changed).toHaveBeenCalledWith(updated);
+    http.expectOne(URL).flush(panel({ ready: true, confirmed: false, warnings: [] }));
+    await settle();
     expect(el().querySelector('app-payment-panel')).toBeNull();
   });
 

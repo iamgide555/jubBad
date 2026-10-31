@@ -8,6 +8,8 @@ import { engineMatches, loadBillSnapshot } from './bill-snapshot.js';
 import { parseCheckoutBreakdown } from './checkout-pricing.js';
 import { SessionLock } from './session-lock.js';
 import type { SetBillConfigDto } from './dto/set-bill-config.dto.js';
+import type { SetBillMethodDto } from './dto/set-bill-method.dto.js';
+import { parsePaymentState, serializePaymentState } from './payment-card-state.js';
 
 export interface BillResponse {
   session: {
@@ -147,6 +149,26 @@ export class BillService {
       // The engine only warns about inputs this model actually requires.
       readyToCopy: result.warnings.length === 0,
     };
+  }
+
+  /** A method-only edit queues with checkout and payment confirmation, preserving the latest inputs. */
+  setBillMethod(code: string, dto: SetBillMethodDto): Promise<BillResponse> {
+    return this.lock.run(code, async () => {
+      await this.prisma.$transaction(async (tx) => {
+        const { session, config } = await loadBillSnapshot(tx, code);
+        if (dto.model === 'perShuttle' && !session.shuttleToolsEnabled) {
+          throw new BadRequestException({ code: 'BILL_MODEL_NOT_ALLOWED' });
+        }
+        if (dto.model === config.model) return;
+        const payment = parsePaymentState(session.paymentCard);
+        // Changing the method requires a fresh host confirmation even when its amounts happen to match.
+        await tx.session.update({ where: { code }, data: {
+          billConfig: serializeBillConfig({ ...config, model: dto.model }),
+          paymentCard: serializePaymentState({ ...payment, token: null, confirmedAt: null, confirmedHash: null }),
+        } });
+      });
+      return this.getBill(code);
+    });
   }
 
   /** Under the session lock: a config write can change a checkout quote, so it queues with settlement. */

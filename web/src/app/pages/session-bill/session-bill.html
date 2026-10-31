@@ -1,4 +1,7 @@
-<div class="page bill">
+@if (paymentMethodPending() && !paymentSheetOpen()) {
+  <p class="page muted" role="status" i18n="@@pay.card.recalculating">กำลังอัปเดตวิธีคิดและยอดเงิน…</p>
+}
+<div class="page bill" [attr.inert]="paymentMethodPending() || billUncertain() ? '' : null" [attr.aria-busy]="paymentMethodPending() || billUncertain()">
   @if (bill() && bill()!.session.endedAt === null) {
     <a class="back" data-back-live [routerLink]="['/s', sessionCode]" i18n="@@bill.backLive">← กลับไปหน้าคุมรอบ</a>
   } @else {
@@ -37,7 +40,7 @@
       }
     </div>
 
-    <section class="form-card inputs">
+    <section class="form-card inputs" id="bill-settings" data-bill-settings>
       <app-bill-settings
         [config]="b.config"
         [session]="b.session"
@@ -289,6 +292,11 @@
       [sessionCode]="sessionCode"
       [open]="paymentSheetOpen()"
       [refreshKey]="bill()"
+      [onBillPage]="true"
+      (settingsRequested)="focusBillSettings()"
+      (billChanged)="paymentBillChanged($event)"
+      (billRefreshRequested)="refreshPaymentBill()"
+      (pendingChanged)="paymentMethodPending.set($event)"
       (closed)="paymentSheetOpen.set(false)"
     />
   } @else if (!loadFailed()) {

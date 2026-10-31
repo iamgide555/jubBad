@@ -6,6 +6,19 @@ import { PaymentPanel } from './payment-panel';
 import { environment } from '../../../environments/environment';
 import type { PaymentCardPanel, PaymentSendOutcome } from '../../core/payment-card.model';
 import { PaymentDraftService } from '../../core/payment-card.service';
+import { Component, input, output } from '@angular/core';
+import { By } from '@angular/platform-browser';
+import type { BillResponse } from '../../core/bill.model';
+import { PaymentCalculation } from '../payment-calculation/payment-calculation';
+
+@Component({ selector: 'app-payment-calculation', template: '' })
+class CalculationStub {
+  readonly sessionCode = input.required<string>();
+  readonly refreshKey = input<unknown>(null);
+  readonly locked = input(false);
+  readonly changed = output<BillResponse>();
+  readonly changing = output<boolean>();
+}
 
 const URL = `${environment.apiBaseUrl}/sessions/sess1/payment-card`;
 const GROUP_ACCOUNT = { bank: 'กสิกร', number: '123-4-56789-0', name: 'Host Name' };
@@ -43,6 +56,7 @@ describe('PaymentCardPanel', () => {
   let http: HttpTestingController;
 
   beforeEach(async () => {
+    TestBed.overrideComponent(PaymentPanel, { remove: { imports: [PaymentCalculation] }, add: { imports: [CalculationStub] } });
     await TestBed.configureTestingModule({
       imports: [PaymentPanel],
       providers: [provideHttpClient(), provideHttpClientTesting(), provideRouter([{ path: '**', children: [] }])],
@@ -119,6 +133,35 @@ describe('PaymentCardPanel', () => {
     await open(panel({ target: null }));
     expect(text().trim()).toBe('');
     expect(el().children).toHaveLength(0);
+  });
+
+  it('blocks sending while changing method and until fresh amounts are read', async () => {
+    await open(panel({ confirmed: true }));
+    const calculation = fixture.debugElement.query(By.directive(CalculationStub)).componentInstance as CalculationStub;
+    calculation.changing.emit(true);
+    await click('[data-send]');
+    http.expectNone(`${URL}/send`);
+    calculation.changed.emit({} as BillResponse);
+    calculation.changing.emit(false);
+    await settle();
+    expect(q('[data-send]')).toBeNull();
+    http.expectNone(`${URL}/send`);
+    http.expectOne(URL).flush(panel({ confirmed: false, totalSatang: 30000 }));
+    await settle();
+    expect(q('[data-send]')).toBeNull();
+    expect(q('[data-confirm]')).not.toBeNull();
+    expect(q('[data-total]')?.textContent).toContain('฿300');
+  });
+
+  it('offers bill settings for zero totals and requests local settings from the bill page', async () => {
+    await open(panel({ totalSatang: 0, rows: [{ playerId: 'a', name: 'Amp', amountSatang: 0, absent: false }] }), { compact: true, onBillPage: true });
+    const requested = vi.fn();
+    expect(q('[data-empty]')?.textContent).toContain('ยอดทุกคนเป็น 0 บาท');
+    expect(q('[data-confirm]')).toBeNull();
+    expect(q('[data-send]')).toBeNull();
+    (fixture.componentInstance as unknown as { settingsRequested: { subscribe: (fn: () => void) => unknown } }).settingsRequested.subscribe(requested);
+    await click('button[data-settings-link]');
+    expect(requested).toHaveBeenCalledOnce();
   });
 
   it('shows a loading status until the first read resolves', async () => {
@@ -240,7 +283,7 @@ describe('PaymentCardPanel', () => {
       { playerId: 'd', name: 'Dee', amountSatang: 0, absent: false },
     ];
     await open(panel({ rows: zero, totalSatang: 0, confirmed: true }));
-    expect(q('[data-empty]')?.textContent).toContain('ไม่มีใครต้องจ่าย');
+    expect(q('[data-empty]')?.textContent).toContain('ยอดทุกคนเป็น 0 บาท');
     expect(el().querySelectorAll('[data-row]')).toHaveLength(0);
     expect(q('[data-total]')).toBeNull();
     expect(q('[data-confirm]')).toBeNull();
@@ -440,7 +483,7 @@ describe('PaymentCardPanel', () => {
       const closed: number[] = [];
       fixture.componentInstance.closed.subscribe(() => closed.push(1));
       const link = q<HTMLAnchorElement>('a[data-settings-link]')!;
-      expect(link.getAttribute('href')).toBe('/s/sess1/bill');
+      expect(link.getAttribute('href')).toBe('/s/sess1/bill#bill-settings');
       link.addEventListener('click', (e) => e.preventDefault());
       link.click();
       expect(closed).toHaveLength(1);
@@ -1277,7 +1320,7 @@ describe('PaymentCardPanel', () => {
       expect(buttons()).toHaveLength(1);
       const link = buttons()[0] as HTMLAnchorElement;
       expect(link.matches('a.button-link[data-settings-link]')).toBe(true);
-      expect(link.textContent?.trim()).toBe('ไปใส่ค่าที่ขาด');
+      expect(link.textContent?.trim()).toBe('ไปตั้งค่าในหน้าคิดเงิน');
     });
 
     it('sits in a sticky bottom bar in the sheet only', async () => {

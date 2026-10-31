@@ -5,6 +5,9 @@ import request from 'supertest';
 import { PrismaModule } from '../prisma/prisma.module.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { SessionsModule } from './sessions.module.js';
+import { DEFAULT_BILL_CONFIG } from '../../../engines/bill.ts';
+import { SessionLock } from './session-lock.js';
+import { BillService } from './bill.service.js';
 
 describe('SessionsController (bill)', () => {
   let app: INestApplication;
@@ -630,4 +633,101 @@ describe('SessionsController (bill)', () => {
       }
     });
   });
+  describe('bill method only', () => {
+    const confirmation = {
+      account: { bank: 'Bank', number: '123456', name: 'Host' },
+      token: 'old-share-token', confirmedAt: '2026-01-01T00:00:00.000Z', confirmedHash: 'old-hash',
+      lastSentAt: '2026-01-02T00:00:00.000Z', lastDmAt: '2026-01-03T00:00:00.000Z',
+    };
+    const savedConfig = (ids: string[]) => ({
+      ...DEFAULT_BILL_CONFIG, courtFeeSatang: 34500, courtSplit: 'byGames', shuttleSplit: 'equal',
+      perGameRateSatang: 2500, entryFeeSatang: 1000, capSatang: 9000, buffetPriceSatang: 8500,
+      buffetShuttlesIncluded: false, startingFeeSatang: 1500, hostFeeSatang: 400, walkInFeeSatang: 600,
+      shuttleCharge: 'full', perPlayerShuttleSatang: 700, roundingBaht: 5,
+      addedIds: [ids[0]], removedIds: [ids[1]], absentIds: [ids[2]],
+      overrides: [{ playerId: ids[3], amountSatang: 12300 }],
+    });
+
+    it('updates only the method from the latest saved config and clears confirmation atomically', async () => {
+      const { sessionCode, players, cleanup } = await fixture(4);
+      try {
+        const config = savedConfig(players.map((p) => p.id));
+        await prisma.session.update({ where: { code: sessionCode }, data: {
+          billConfig: JSON.stringify(config), paymentCard: JSON.stringify(confirmation),
+          shuttleCount: 7, shuttlePriceSatang: 850,
+        } });
+        await prisma.sessionRoster.update({ where: { sessionId_playerId: { sessionId: sessionCode, playerId: players[0].id } }, data: { walkIn: true } });
+        const res = await request(server).post(`/sessions/${sessionCode}/bill-method`)
+          .send({ model: 'buffet', courtFeeSatang: 0, removedIds: [] }).expect(201);
+        expect(res.body.config).toEqual({ ...config, model: 'buffet' });
+        expect(res.body.session).toMatchObject({ shuttleCount: 7, shuttlePriceSatang: 850 });
+        expect(res.body.players.find((p: { playerId: string }) => p.playerId === players[0].id).walkIn).toBe(true);
+        const stored = await prisma.session.findUniqueOrThrow({ where: { code: sessionCode } });
+        expect(JSON.parse(stored.billConfig!)).toEqual({ ...config, model: 'buffet' });
+        expect(JSON.parse(stored.paymentCard!)).toEqual({ ...confirmation, token: null, confirmedAt: null, confirmedHash: null });
+      } finally { await cleanup(); }
+    });
+
+    it('requires reconfirmation after a method change even if there are no bill rows or changed totals', async () => {
+      const { sessionCode, cleanup } = await fixture(0);
+      try {
+        await prisma.session.update({ where: { code: sessionCode }, data: { paymentCard: JSON.stringify(confirmation) } });
+        const before = (await request(server).get(`/sessions/${sessionCode}/bill`).expect(200)).body;
+        const after = (await request(server).post(`/sessions/${sessionCode}/bill-method`).send({ model: 'perGame' }).expect(201)).body;
+        expect(after.result.totals).toEqual(before.result.totals);
+        const stored = await prisma.session.findUniqueOrThrow({ where: { code: sessionCode } });
+        expect(JSON.parse(stored.paymentCard!)).toEqual({ ...confirmation, token: null, confirmedAt: null, confirmedHash: null });
+      } finally { await cleanup(); }
+    });
+
+    it('leaves config and confirmation untouched for a no-op, invalid body or disallowed method', async () => {
+      const { sessionCode, cleanup } = await fixture(0);
+      try {
+        const paymentCard = JSON.stringify(confirmation);
+        await prisma.session.update({ where: { code: sessionCode }, data: { paymentCard } });
+        await request(server).post(`/sessions/${sessionCode}/bill-method`).send({ model: 'fair' }).expect(201);
+        for (const body of [{}, { model: null }, { model: 'invalid' }, { model: 1 }, { model: 'perShuttle' }]) {
+          await request(server).post(`/sessions/${sessionCode}/bill-method`).send(body).expect(400);
+        }
+        expect(await prisma.session.findUniqueOrThrow({ where: { code: sessionCode } })).toMatchObject({ billConfig: null, paymentCard });
+        await request(server).post('/sessions/nonexistent/bill-method').send({ model: 'fair' }).expect(404);
+      } finally { await cleanup(); }
+    });
+
+    it('uses inherited effective rates and accepts perShuttle only for an advanced session', async () => {
+      const { sessionCode, groupCode, cleanup } = await fixture(0);
+      try {
+        await prisma.session.create({ data: {
+          code: randomUUID(), groupId: groupCode, rawImportText: '', createdAt: new Date('2020-01-01'),
+          billConfig: JSON.stringify({ ...DEFAULT_BILL_CONFIG, model: 'buffet', buffetPriceSatang: 9300, startingFeeSatang: 2700 }),
+        } });
+        await prisma.session.update({ where: { code: sessionCode }, data: { shuttleToolsEnabled: true } });
+        const before = (await request(server).get(`/sessions/${sessionCode}/bill`).expect(200)).body;
+        expect(before.configSource).toBe('previous');
+        const after = (await request(server).post(`/sessions/${sessionCode}/bill-method`).send({ model: 'perShuttle' }).expect(201)).body;
+        expect(after.config).toEqual({ ...before.config, model: 'perShuttle' });
+        expect(after.configSource).toBe('saved');
+      } finally { await cleanup(); }
+    });
+
+    it('reads config after earlier work releases the session lock', async () => {
+      const { sessionCode, cleanup } = await fixture(0);
+      let release!: () => void;
+      const hold = new Promise<void>((resolve) => { release = resolve; });
+      const pending = app.get(SessionLock).run(sessionCode, async () => {
+        await hold;
+        await prisma.session.update({ where: { code: sessionCode }, data: {
+          billConfig: JSON.stringify({ ...DEFAULT_BILL_CONFIG, buffetPriceSatang: 99100 }),
+        } });
+      });
+      try {
+        const response = app.get(BillService).setBillMethod(sessionCode, { model: 'buffet' });
+        release();
+        await pending;
+        const bill = await response;
+        expect(bill.config.buffetPriceSatang).toBe(99100);
+      } finally { release(); await pending; await cleanup(); }
+    });
+  });
+
 });

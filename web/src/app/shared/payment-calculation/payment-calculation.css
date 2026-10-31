@@ -1,0 +1,53 @@
+:host {
+  display: block;
+  min-width: 0;
+}
+.calculation {
+  display: grid;
+  gap: var(--space-1);
+}
+select {
+  width: 100%;
+  min-height: var(--tap, 44px);
+  font: inherit;
+  font-size: 1rem;
+  color: var(--ink);
+  background: var(--surface);
+  border: 1.5px solid var(--line);
+  border-radius: var(--radius);
+  padding: var(--space-1) var(--space-2);
+}
+select[aria-disabled='true'] {
+  opacity: 0.65;
+  cursor: wait;
+}
+p {
+  margin: 0;
+}
+.hint {
+  color: var(--ink-soft);
+  font-size: var(--text-sm);
+}
+dl {
+  margin: var(--space-1) 0 0;
+}
+dl > div {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.5fr);
+  gap: var(--space-2);
+  padding: var(--space-1) 0;
+  border-bottom: 1px solid var(--line);
+}
+dl > div:last-child {
+  border-bottom: 0;
+}
+dt {
+  color: var(--ink-soft);
+}
+dd {
+  margin: 0;
+  text-align: end;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+  font-variant-numeric: tabular-nums;
+}

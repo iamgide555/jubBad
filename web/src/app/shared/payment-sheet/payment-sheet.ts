@@ -1,10 +1,12 @@
-import { Component, ElementRef, effect, input, output, viewChild } from '@angular/core';
+import { Component, ElementRef, effect, input, output, signal, viewChild } from '@angular/core';
 import { PaymentPanel } from '../payment-panel/payment-panel';
+import type { BillResponse } from '../../core/bill.model';
 
 /**
  * The payment card's shared bottom sheet, opened from the bill page, summary banner, or right after จบรอบ.
- * The parent owns `open` and flips it off on `closed`; the panel inside is mounted only while the sheet is
- * open, so each open reads the card afresh and a closed sheet costs no request. Closing sends nothing.
+ * The parent owns `open` and flips it off on `closed`. The panel normally mounts only while open, but stays
+ * alive through a pending method update so closing cannot lose its response and leave the bill stale.
+ * An idle closed sheet costs no request. Closing sends nothing.
  */
 @Component({
   selector: 'app-payment-sheet',
@@ -16,6 +18,17 @@ export class PaymentSheet {
   readonly open = input.required<boolean>();
   readonly sessionCode = input.required<string>();
   readonly refreshKey = input<unknown>(null);
+  readonly onBillPage = input(false);
+  readonly settingsRequested = output<void>();
+  readonly billChanged = output<BillResponse>();
+  readonly billRefreshRequested = output<void>();
+  readonly pendingChanged = output<boolean>();
+  protected readonly methodPending = signal(false);
+
+  protected setMethodPending(pending: boolean): void {
+    this.methodPending.set(pending);
+    this.pendingChanged.emit(pending);
+  }
   /** The host closed the sheet: the header's close button, Escape, the backdrop, or the panel's link out to the bill. */
   readonly closed = output<void>();
   /** The card went into the LINE group. */

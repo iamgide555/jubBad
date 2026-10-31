@@ -154,6 +154,9 @@ describe('SessionSummary', () => {
     // Specs about the shuttle log flush their own requests by hand; the card state is not their subject.
     answerLineSummary();
     answerPaymentCard();
+    for (const req of httpMock.match(r => r.url.endsWith('/sessions/sess1/bill'))) {
+      req.flush({}, { status: 500, statusText: 'Server Error' });
+    }
     httpMock.verify();
     lineState = { available: false, sent: false, defaultOn: true, target: 'group', shareUrl: null };
     paymentPanel = panelFor();

@@ -259,6 +259,14 @@ describe('auth boundary', () => {
     });
   });
 
+  it('admits the owning host to the method-only bill update', async () => {
+    const login = await request(server).post('/auth/login').send({ email, password: PASSWORD }).expect(201);
+    const cookie = ([] as string[]).concat(login.headers['set-cookie'] ?? [])[0];
+    const res = await request(server).post(`/sessions/${ctx.sessionCode}/bill-method`)
+      .set('Cookie', cookie).send({ model: 'buffet' }).expect(201);
+    expect(res.body.config.model).toBe('buffet');
+  });
+
   it('lets the owning host preview and close a forgotten session, validates consent, and accepts retry', async () => {
     const login = await request(server).post('/auth/login').send({ email, password: PASSWORD }).expect(201);
     const cookie = ([] as string[]).concat(login.headers['set-cookie'] ?? [])[0];

@@ -14,6 +14,35 @@
         <h2 class="panel-title" i18n="@@pay.card.title">ใบเก็บเงิน</h2>
       }
 
+      @if (actionable()) {
+        <section class="review-summary" data-review-summary i18n-aria-label="@@pay.card.reviewSummary" aria-label="ยอดและบัญชีที่ต้องตรวจ">
+          <p class="review-context"><strong>{{ p.groupName }}</strong><span>{{ p.date }}@if (p.venue) { · {{ p.venue }} }</span></p>
+          <p class="review-total"><span i18n="@@pay.card.total">รวม</span><strong>฿{{ baht(p.totalSatang) }}</strong></p>
+          @if (previewAccount(); as a) {
+            <div class="review-payee">
+              <p i18n="@@pay.card.payTo">โอนให้ {{ a.name }}</p>
+              <p class="muted">{{ a.bank }}</p>
+              <p class="review-number">{{ a.number }}</p>
+            </div>
+          }
+        </section>
+      }
+      <app-payment-calculation
+        [sessionCode]="sessionCode()"
+        [refreshKey]="refreshKey()"
+        [locked]="busy() || readFailed()"
+        (changing)="methodProgress($event)"
+        (changed)="methodChanged($event)"
+        (uncertain)="methodUncertain()"
+      />
+      @if (p.ready && !nothingDue()) {
+        @if (onBillPage()) {
+          <button type="button" class="text-button" data-edit-bill-settings (click)="settingsRequested.emit()" i18n="@@pay.card.editBillDetails">แก้รายละเอียดในหน้าคิดเงิน</button>
+        } @else {
+          <a class="settings-link" data-edit-bill-settings [routerLink]="['/s', sessionCode(), 'bill']" fragment="bill-settings" (click)="closed.emit()" i18n="@@pay.card.editBillDetails">แก้รายละเอียดในหน้าคิดเงิน</a>
+        }
+      }
+
       @if (!p.ready) {
         <!-- With an input missing every amount is provisional: name what is missing, show no amount at all. A to-do, not an error. -->
         <div class="missing" data-missing>
@@ -25,21 +54,11 @@
           </ul>
         </div>
       } @else if (nothingDue()) {
-        <p class="muted" data-empty i18n="@@pay.card.empty">ไม่มีใครต้องจ่าย</p>
+        <p class="muted" data-empty>
+          @if (p.rows.length > 0) { <ng-container i18n="@@pay.card.zeroTotals">ยอดทุกคนเป็น 0 บาท</ng-container> }
+          @else { <ng-container i18n="@@pay.card.empty">ไม่มีใครต้องจ่าย</ng-container> }
+        </p>
       } @else {
-        @if (actionable()) {
-          <section class="review-summary" data-review-summary i18n-aria-label="@@pay.card.reviewSummary" aria-label="ยอดและบัญชีที่ต้องตรวจ">
-            <p class="review-context"><strong>{{ p.groupName }}</strong><span>{{ p.date }}@if (p.venue) { · {{ p.venue }} }</span></p>
-            <p class="review-total"><span i18n="@@pay.card.total">รวม</span><strong>฿{{ baht(p.totalSatang) }}</strong></p>
-            @if (previewAccount(); as a) {
-              <div class="review-payee">
-                <p i18n="@@pay.card.payTo">โอนให้ {{ a.name }}</p>
-                <p class="muted">{{ a.bank }}</p>
-                <p class="review-number">{{ a.number }}</p>
-              </div>
-            }
-          </section>
-        }
         <!-- A small copy of the LINE card the group receives: its texts, its order, its ฿ format. -->
         <figure class="preview" data-preview i18n-aria-label="@@pay.card.previewLabel" aria-label="ตัวอย่างการ์ดในแชต LINE">
           <div class="preview-head">
@@ -171,7 +190,7 @@
           <details class="other-ways" data-other-ways [open]="dmQuota()">
             <summary><span i18n="@@pay.card.otherWays">ส่งวิธีอื่น</span><app-icon name="chevron" [size]="18" /></summary>
             <div class="other-ways-body">
-              <a class="share-link" data-share-link [href]="url" target="_blank" rel="noopener" i18n="@@pay.card.openInLine">เปิดใน LINE เพื่อส่ง</a>
+              <a class="share-link" data-share-link [attr.aria-disabled]="blocked() || readFailed() ? 'true' : null" (click)="guardShare($event)" [href]="url" target="_blank" rel="noopener" i18n="@@pay.card.openInLine">เปิดใน LINE เพื่อส่ง</a>
               <p class="muted share-hint" i18n="@@pay.card.openInLineHint">กดแล้วเลือกกลุ่มในแอป LINE</p>
             </div>
           </details>
@@ -208,17 +227,21 @@
 
       @if (hasActions()) {
         <div class="actions" [class.bar]="compact()" data-actions>
-          @if (!p.ready) {
-            <a class="button-link" data-settings-link [routerLink]="['/s', sessionCode(), 'bill']" (click)="closed.emit()" i18n="@@pay.card.fillMissing">ไปใส่ค่าที่ขาด</a>
+          @if (!p.ready || nothingDue()) {
+            @if (onBillPage()) {
+              <button type="button" class="button-link" data-settings-link (click)="settingsRequested.emit()" i18n="@@pay.card.billSettings">ไปตั้งค่าในหน้าคิดเงิน</button>
+            } @else {
+              <a class="button-link" data-settings-link [routerLink]="['/s', sessionCode(), 'bill']" fragment="bill-settings" (click)="closed.emit()" i18n="@@pay.card.billSettings">ไปตั้งค่าในหน้าคิดเงิน</a>
+            }
           } @else if (needsConfirm()) {
             <button
               type="button"
               data-confirm
               [disabled]="!hasAnyField()"
-              [attr.aria-disabled]="busy() || readFailed() ? 'true' : null"
+              [attr.aria-disabled]="blocked() || readFailed() ? 'true' : null"
               (click)="confirm()"
             >
-              @if (busy()) { <ng-container i18n="@@pay.card.confirming">กำลังยืนยันยอดและบัญชี…</ng-container> }
+              @if (blocked()) { {{ progress() }} }
               @else if (reconfirm()) { <ng-container i18n="@@pay.card.reconfirm">ยืนยันใหม่</ng-container> }
               @else { <ng-container i18n="@@pay.card.confirmAccount">ยืนยันยอดและบัญชี</ng-container> }
             </button>
@@ -226,12 +249,12 @@
             @if (confirmingResend()) {
               <div class="resend" data-resend-prompt role="group">
                 <p i18n="@@pay.card.resendAsk">ส่งการ์ดเข้ากลุ่มซ้ำอีกรอบใช่ไหม</p>
-                <button type="button" data-resend-yes [attr.aria-disabled]="busy() || readFailed() ? 'true' : null" (click)="send()" i18n="@@pay.card.resendYes">ใช่ ส่งเลย</button>
+                <button type="button" data-resend-yes [attr.aria-disabled]="blocked() || readFailed() ? 'true' : null" (click)="send()" i18n="@@pay.card.resendYes">ใช่ ส่งเลย</button>
                 <button type="button" class="ghost" data-resend-cancel (click)="cancelResend('group')" i18n="@@pay.card.cancel">ยกเลิก</button>
               </div>
             } @else {
-              <button type="button" data-send [attr.aria-disabled]="busy() || readFailed() ? 'true' : null" (click)="sendClicked()">
-                @if (busy()) { <ng-container i18n="@@pay.card.sendingGroup">กำลังส่งใบเก็บเงินเข้ากลุ่ม LINE…</ng-container> }
+              <button type="button" data-send [attr.aria-disabled]="blocked() || readFailed() ? 'true' : null" (click)="sendClicked()">
+                @if (blocked()) { {{ progress() }} }
                 @else if (p.lastSentAt) { <ng-container i18n="@@pay.card.sendAgain">ส่งอีกครั้ง</ng-container> }
                 @else { <ng-container i18n="@@pay.card.send">ส่งเข้ากลุ่ม</ng-container> }
               </button>
@@ -240,12 +263,12 @@
             @if (confirmingDmResend()) {
               <div class="resend" data-dm-resend-prompt role="group">
                 <p i18n="@@pay.card.dmResendAsk">ส่งการ์ดให้ฉันซ้ำอีกรอบใช่ไหม</p>
-                <button type="button" data-dm-resend-yes [attr.aria-disabled]="busy() || readFailed() ? 'true' : null" (click)="sendDm()" i18n="@@pay.card.resendYes">ใช่ ส่งเลย</button>
+                <button type="button" data-dm-resend-yes [attr.aria-disabled]="blocked() || readFailed() ? 'true' : null" (click)="sendDm()" i18n="@@pay.card.resendYes">ใช่ ส่งเลย</button>
                 <button type="button" class="ghost" data-dm-resend-cancel (click)="cancelResend('dm')" i18n="@@pay.card.cancel">ยกเลิก</button>
               </div>
             } @else {
-              <button type="button" data-dm-send [attr.aria-disabled]="busy() || readFailed() ? 'true' : null" (click)="sendDmClicked()">
-                @if (busy()) { <ng-container i18n="@@pay.card.sendingDm">กำลังส่งใบเก็บเงินให้คุณทาง LINE…</ng-container> }
+              <button type="button" data-dm-send [attr.aria-disabled]="blocked() || readFailed() ? 'true' : null" (click)="sendDmClicked()">
+                @if (blocked()) { {{ progress() }} }
                 @else if (p.lastDmAt) { <ng-container i18n="@@pay.card.dmSendAgain">ส่งให้ฉันอีกครั้ง</ng-container> }
                 @else { <ng-container i18n="@@pay.card.dmSendToMe">ส่งใบเก็บเงินให้ฉันทาง LINE</ng-container> }
               </button>

@@ -1,4 +1,4 @@
-import { Component, computed, effect, inject, signal, untracked } from '@angular/core';
+import { ChangeDetectorRef, Component, ElementRef, computed, effect, inject, signal, untracked } from '@angular/core';
 import { HttpClient, HttpErrorResponse } from '@angular/common/http';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
@@ -23,10 +23,14 @@ import { PlanLock } from '../../shared/plan-lock/plan-lock';
   styleUrl: './session-bill.css',
 })
 export class SessionBill {
+  private readonly cdr = inject(ChangeDetectorRef);
+  private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
+  private readonly route = inject(ActivatedRoute);
+  private settingsFocusedFromRoute = false;
   private readonly http = inject(HttpClient);
   private readonly planService = inject(PlanService);
   private readonly paymentCards = inject(PaymentCardService);
-  protected readonly sessionCode = inject(ActivatedRoute).snapshot.paramMap.get('sessionCode')!;
+  protected readonly sessionCode = this.route.snapshot.paramMap.get('sessionCode')!;
   private readonly base = `${environment.apiBaseUrl}/sessions/${this.sessionCode}`;
 
   protected readonly bill = signal<BillResponse | null>(null);
@@ -37,7 +41,10 @@ export class SessionBill {
   protected readonly clipboardFallback = signal<string | null>(null);
   protected readonly paymentAvailable = signal(false);
   protected readonly paymentSheetOpen = signal(false);
+  protected readonly paymentMethodPending = signal(false);
+  protected readonly billUncertain = signal(false);
   private paymentReadSeq = 0;
+  private paymentBillSeq = 0;
 
   /** The group owner's plan. `null` (not loaded, or the read failed) counts as paid, so a hiccup never locks the host out. */
   private readonly plan = signal<Plan | null>(null);
@@ -122,12 +129,51 @@ export class SessionBill {
   private async load(): Promise<void> {
     try {
       this.bill.set(await firstValueFrom(this.http.get<BillResponse>(`${this.base}/bill`)));
+      if (this.route.snapshot.fragment === 'bill-settings' && !this.settingsFocusedFromRoute) {
+        this.settingsFocusedFromRoute = true;
+        this.focusBillSettings();
+      }
     } catch {
       this.loadFailed.set(true);
     }
   }
 
+  protected focusBillSettings(): void {
+    this.paymentSheetOpen.set(false);
+    this.cdr.detectChanges();
+    const settings = this.host.nativeElement.querySelector<HTMLElement>('[data-bill-settings]');
+    settings?.scrollIntoView?.({ block: 'start' });
+    settings?.querySelector<HTMLInputElement>('input')?.focus({ preventScroll: true });
+  }
+
+  protected paymentBillChanged(bill: BillResponse): void {
+    ++this.paymentBillSeq;
+    this.bill.set(bill);
+    this.saving.set(false);
+    this.error.set(null);
+    this.billUncertain.set(false);
+  }
+
+  protected async refreshPaymentBill(): Promise<void> {
+    // An uncertain method response makes the old full configuration unsafe to re-save.
+    this.saving.set(true);
+    this.billUncertain.set(true);
+    const seq = ++this.paymentBillSeq;
+    try {
+      const bill = await firstValueFrom(this.http.get<BillResponse>(`${this.base}/bill`));
+      if (seq === this.paymentBillSeq) {
+        this.bill.set(bill);
+        this.saving.set(false);
+        this.billUncertain.set(false);
+      }
+    } catch {
+      if (seq === this.paymentBillSeq) this.error.set($localize`:@@pay.card.billRefreshFailed:โหลดวิธีคิดล่าสุดไม่สำเร็จ รีเฟรชหน้าก่อนแก้รายละเอียด`);
+      // Keep edits blocked until the page is reloaded and a current bill has been read.
+    }
+  }
+
   protected async save(patch: Partial<BillConfig>): Promise<void> {
+    if (this.paymentMethodPending() || this.billUncertain()) return;
     const current = this.config();
     if (!current) return;
     this.saving.set(true);
@@ -151,6 +197,7 @@ export class SessionBill {
 
   /** Count and price are session fields shared with the summary page; each edit sends only what changed. */
   protected async saveShuttleDetails(patch: { shuttleCount?: number | null; shuttlePriceSatang?: number | null }): Promise<void> {
+    if (this.paymentMethodPending() || this.billUncertain()) return;
     this.saving.set(true);
     this.error.set(null);
     try {
@@ -248,6 +295,7 @@ export class SessionBill {
   }
 
   protected async toggleWalkIn(playerId: string): Promise<void> {
+    if (this.paymentMethodPending() || this.billUncertain()) return;
     this.error.set(null);
     try {
       await firstValueFrom(
@@ -282,6 +330,7 @@ export class SessionBill {
   }
 
   protected async copy(): Promise<void> {
+    if (this.paymentMethodPending() || this.billUncertain()) return;
     const b = this.bill();
     // Checked again here, not only on the button: nothing may reach the
     // clipboard, or the fallback text box, while a required input is missing.

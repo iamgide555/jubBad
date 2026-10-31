@@ -6589,6 +6589,154 @@
         <source>เปิดใบเก็บเงิน</source>
         <target>Open payment card</target>
       </trans-unit>
+      <trans-unit id="pay.calc.unspecified" datatype="html">
+        <source>ยังไม่ระบุ</source>
+        <target>Not specified</target>
+      </trans-unit>
+      <trans-unit id="pay.calc.equal" datatype="html">
+        <source>หารเท่า</source>
+        <target>Split equally</target>
+      </trans-unit>
+      <trans-unit id="pay.calc.byGames" datatype="html">
+        <source>ตามจำนวนเกม</source>
+        <target>By games played</target>
+      </trans-unit>
+      <trans-unit id="pay.calc.fair" datatype="html">
+        <source>หารตามจริง</source>
+        <target>Share actual costs</target>
+      </trans-unit>
+      <trans-unit id="pay.calc.perGame" datatype="html">
+        <source>คิดต่อเกม</source>
+        <target>Per game</target>
+      </trans-unit>
+      <trans-unit id="pay.calc.buffet" datatype="html">
+        <source>บุฟเฟ่ต์</source>
+        <target>Flat rate</target>
+      </trans-unit>
+      <trans-unit id="pay.calc.perShuttle" datatype="html">
+        <source>ตามลูกแบด</source>
+        <target>Per shuttle</target>
+      </trans-unit>
+      <trans-unit id="pay.calc.loadFailed" datatype="html">
+        <source>โหลดรายละเอียดวิธีคิดเงินไม่สำเร็จ ลองใหม่อีกครั้ง</source>
+        <target>Could not load calculation details. Try again.</target>
+      </trans-unit>
+      <trans-unit id="pay.calc.saveFailed" datatype="html">
+        <source>เปลี่ยนวิธีคิดเงินไม่สำเร็จ ลองเลือกใหม่อีกครั้ง</source>
+        <target>Could not change the calculation method. Select it again to retry.</target>
+      </trans-unit>
+      <trans-unit id="pay.calc.method" datatype="html">
+        <source>วิธีคิดเงิน</source>
+        <target>Calculation method</target>
+      </trans-unit>
+      <trans-unit id="pay.calc.unavailable" datatype="html">
+        <source>ยังไม่มีรายละเอียด</source>
+        <target>Details unavailable</target>
+      </trans-unit>
+      <trans-unit id="pay.calc.saving" datatype="html">
+        <source>กำลังเปลี่ยนวิธีคิดเงิน…</source>
+        <target>Changing calculation method…</target>
+      </trans-unit>
+      <trans-unit id="pay.calc.loading" datatype="html">
+        <source>กำลังโหลดรายละเอียด…</source>
+        <target>Loading details…</target>
+      </trans-unit>
+      <trans-unit id="pay.calc.retry" datatype="html">
+        <source>ลองโหลดอีกครั้ง</source>
+        <target>Retry loading</target>
+      </trans-unit>
+      <trans-unit id="pay.calc.previous" datatype="html">
+        <source>ใช้ค่าจากรอบก่อน</source>
+        <target>Using the previous session’s settings</target>
+      </trans-unit>
+      <trans-unit id="pay.calc.court" datatype="html">
+        <source>ค่าคอร์ททั้งหมด</source>
+        <target>Total court cost</target>
+      </trans-unit>
+      <trans-unit id="pay.calc.gameRate" datatype="html">
+        <source>ต่อเกมต่อคน</source>
+        <target>Per game per person</target>
+      </trans-unit>
+      <trans-unit id="pay.calc.entry" datatype="html">
+        <source>ค่าเข้า</source>
+        <target>Entry fee</target>
+      </trans-unit>
+      <trans-unit id="pay.calc.cap" datatype="html">
+        <source>สูงสุดต่อคน</source>
+        <target>Maximum per person</target>
+      </trans-unit>
+      <trans-unit id="pay.calc.unlimited" datatype="html">
+        <source>ไม่จำกัด</source>
+        <target>No limit</target>
+      </trans-unit>
+      <trans-unit id="pay.calc.personRate" datatype="html">
+        <source>ต่อคน</source>
+        <target>Per person</target>
+      </trans-unit>
+      <trans-unit id="pay.calc.shuttles" datatype="html">
+        <source>ค่าลูก</source>
+        <target>Shuttle cost</target>
+      </trans-unit>
+      <trans-unit id="pay.calc.included" datatype="html">
+        <source>รวมค่าลูกแล้ว</source>
+        <target>Shuttles included</target>
+      </trans-unit>
+      <trans-unit id="pay.calc.starting" datatype="html">
+        <source>ค่าเริ่มต้นต่อคน</source>
+        <target>Starting fee per person</target>
+      </trans-unit>
+      <trans-unit id="pay.calc.basis" datatype="html">
+        <source>วิธีคิดค่าลูก</source>
+        <target>Shuttle charging basis</target>
+      </trans-unit>
+      <trans-unit id="pay.calc.shared" datatype="html">
+        <source>แชร์ตามต้นทุน</source>
+        <target>Share actual cost</target>
+      </trans-unit>
+      <trans-unit id="pay.calc.full" datatype="html">
+        <source>คิดเต็มต่อคน</source>
+        <target>Full charge per person</target>
+      </trans-unit>
+      <trans-unit id="pay.calc.realCost" datatype="html">
+        <source>ต้นทุนต่อลูก</source>
+        <target>Actual cost per shuttle</target>
+      </trans-unit>
+      <trans-unit id="pay.calc.playerCharge" datatype="html">
+        <source>คิดต่อคนต่อลูก</source>
+        <target>Charge per person per shuttle</target>
+      </trans-unit>
+      <trans-unit id="pay.calc.hostFee" datatype="html">
+        <source>ค่าจัดก๊วนต่อคน</source>
+        <target>Host fee per person</target>
+      </trans-unit>
+      <trans-unit id="pay.calc.walkIn" datatype="html">
+        <source>ค่าเพิ่มวอล์กอิน</source>
+        <target>Walk-in surcharge</target>
+      </trans-unit>
+      <trans-unit id="pay.calc.rounding" datatype="html">
+        <source>ปัดขึ้นทีละ</source>
+        <target>Round up in steps of</target>
+      </trans-unit>
+      <trans-unit id="pay.card.recalculating" datatype="html">
+        <source>กำลังอัปเดตวิธีคิดและยอดเงิน…</source>
+        <target>Updating calculation method and amounts…</target>
+      </trans-unit>
+      <trans-unit id="pay.card.zeroTotals" datatype="html">
+        <source>ยอดทุกคนเป็น 0 บาท</source>
+        <target>Everyone’s amount is ฿0</target>
+      </trans-unit>
+      <trans-unit id="pay.card.billSettings" datatype="html">
+        <source>ไปตั้งค่าในหน้าคิดเงิน</source>
+        <target>Edit settings on the bill page</target>
+      </trans-unit>
+      <trans-unit id="pay.card.billRefreshFailed" datatype="html">
+        <source>โหลดวิธีคิดล่าสุดไม่สำเร็จ รีเฟรชหน้าก่อนแก้รายละเอียด</source>
+        <target>Could not load the latest calculation method. Refresh the page before editing details.</target>
+      </trans-unit>
+      <trans-unit id="pay.card.editBillDetails" datatype="html">
+        <source>แก้รายละเอียดในหน้าคิดเงิน</source>
+        <target>Edit details on the bill page</target>
+      </trans-unit>
     </body>
   </file>
 </xliff>

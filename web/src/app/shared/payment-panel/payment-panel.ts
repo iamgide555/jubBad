@@ -20,6 +20,8 @@ import type { PaymentCardPanel, PaymentSendOutcome } from '../../core/payment-ca
 import { PaymentCardService, PaymentDraftService } from '../../core/payment-card.service';
 import { BankField } from '../bank-field/bank-field';
 import { Icon } from '../icon/icon';
+import { PaymentCalculation } from '../payment-calculation/payment-calculation';
+import type { BillResponse } from '../../core/bill.model';
 
 type Field = keyof PayAccount;
 
@@ -84,7 +86,7 @@ const PRIMARY = '[data-send], [data-dm-send], [data-confirm]';
  */
 @Component({
   selector: 'app-payment-panel',
-  imports: [BankField, Icon, RouterLink],
+  imports: [BankField, Icon, RouterLink, PaymentCalculation],
   templateUrl: './payment-panel.html',
   styleUrl: './payment-panel.css',
 })
@@ -93,6 +95,11 @@ export class PaymentPanel {
   /** The bottom-sheet layout: no heading of its own, and a link out to the bill settings when something is missing. */
   readonly compact = input(false);
   readonly refreshKey = input<unknown>(null);
+  readonly onBillPage = input(false);
+  readonly settingsRequested = output<void>();
+  readonly billChanged = output<BillResponse>();
+  readonly methodPending = output<boolean>();
+  readonly billRefreshRequested = output<void>();
   /** The host followed the link to the bill settings, so the sheet around the panel should close. */
   readonly closed = output<void>();
   /** The card went into the LINE group. */
@@ -117,8 +124,12 @@ export class PaymentPanel {
   protected readonly number = signal('');
   protected readonly name = signal('');
   protected readonly busy = signal(false);
+  private readonly methodChanging = signal(false);
+  private readonly methodRefreshing = signal(false);
+  protected readonly blocked = computed(() => this.busy() || this.methodChanging() || this.methodRefreshing());
   private readonly operation = signal<'confirm' | Delivery>('confirm');
   protected readonly progress = computed(() => {
+    if (this.methodChanging() || this.methodRefreshing()) return $localize`:@@pay.card.recalculating:กำลังอัปเดตวิธีคิดและยอดเงิน…`;
     if (!this.busy()) return null;
     if (this.operation() === 'confirm') return $localize`:@@pay.card.confirming:กำลังยืนยันยอดและบัญชี…`;
     return this.operation() === 'dm'
@@ -231,7 +242,7 @@ export class PaymentPanel {
   protected readonly hasActions = computed(() => {
     const p = this.data();
     if (!p) return false;
-    if (!p.ready) return this.compact();
+    if (!p.ready || this.nothingDue()) return this.compact();
     return this.actionable() && (this.needsConfirm() || this.canSendToGroup() || this.shareUrl() !== null);
   });
 
@@ -302,7 +313,7 @@ export class PaymentPanel {
 
   protected async confirm(): Promise<void> {
     const seen = this.data();
-    if (this.busy() || this.readFailed() || !this.hasAnyField() || !seen) return;
+    if (this.blocked() || this.readFailed() || !this.hasAnyField() || !seen) return;
     this.error.set(null);
     this.outcome.set(null);
     this.confirmingResend.set(false);
@@ -355,7 +366,7 @@ export class PaymentPanel {
   }
 
   protected sendClicked(): void {
-    if (this.busy() || this.readFailed()) return;
+    if (this.blocked() || this.readFailed()) return;
     if (this.data()?.lastSentAt) {
       this.confirmingResend.set(true);
       this.refocus('[data-resend-yes]');
@@ -363,7 +374,7 @@ export class PaymentPanel {
   }
 
   protected sendDmClicked(): void {
-    if (this.busy() || this.readFailed()) return;
+    if (this.blocked() || this.readFailed()) return;
     if (this.data()?.lastDmAt) {
       this.confirmingDmResend.set(true);
       this.refocus('[data-dm-resend-yes]');
@@ -385,7 +396,7 @@ export class PaymentPanel {
   }
 
   private async deliver(kind: Delivery): Promise<void> {
-    if (this.busy() || this.readFailed()) return;
+    if (this.blocked() || this.readFailed()) return;
     this.confirmingResend.set(false);
     this.confirmingDmResend.set(false);
     this.error.set(null);
@@ -463,6 +474,45 @@ export class PaymentPanel {
       case 'not-confirmed':
         return $localize`:@@pay.card.outcomeNotConfirmed:ยังไม่ได้ยืนยันยอด กดยืนยันยอดก่อน`;
     }
+  }
+
+  protected methodProgress(changing: boolean): void {
+    this.methodChanging.set(changing);
+    this.methodPending.emit(changing || this.methodRefreshing());
+    if (changing) {
+      this.justConfirmed.set(false);
+      this.outcome.set(null);
+      this.error.set(null);
+      this.confirmingResend.set(false);
+      this.confirmingDmResend.set(false);
+    }
+  }
+
+  protected async methodChanged(bill: BillResponse): Promise<void> {
+    // The server revoked confirmation, including an equal-total method change. Never leave the old link usable.
+    this.data.update(p => p ? { ...p, confirmed: false, shareUrl: null } : p);
+    this.readFailed.set(true);
+    this.methodRefreshing.set(true);
+    this.methodPending.emit(true);
+    // Keep the underlying bill current even when refreshing the payment panel fails or takes longer.
+    this.billChanged.emit(bill);
+    try {
+      await this.load();
+    } finally {
+      this.methodRefreshing.set(false);
+      this.methodPending.emit(this.methodChanging());
+      this.refocus(PRIMARY);
+    }
+  }
+
+  protected methodUncertain(): void {
+    this.readFailed.set(true);
+    this.data.update(p => p ? { ...p, confirmed: false, shareUrl: null } : p);
+    this.billRefreshRequested.emit();
+  }
+
+  protected guardShare(event: Event): void {
+    if (this.blocked() || this.readFailed()) event.preventDefault();
   }
 
   /**

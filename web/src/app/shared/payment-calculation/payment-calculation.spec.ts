@@ -71,7 +71,9 @@ describe('PaymentCalculation', () => {
   let http: HttpTestingController;
   const url = '/api/sessions/one';
   const el = () => fixture.nativeElement as HTMLElement;
-  const select = () => el().querySelector('select')!;
+  const option = (model: string) => el().querySelector<HTMLButtonElement>(`.method-toggle [data-model="${model}"]`)!;
+  const models = () => [...el().querySelectorAll('.method-toggle [data-model]')].map((b) => b.getAttribute('data-model'));
+  const selected = () => el().querySelector('.method-toggle [aria-pressed="true"]')?.getAttribute('data-model');
   async function settle() {
     await Promise.resolve();
     fixture.detectChanges();
@@ -89,8 +91,7 @@ describe('PaymentCalculation', () => {
     await settle();
   }
   function change(model: string) {
-    select().value = model;
-    select().dispatchEvent(new Event('change'));
+    option(model).click();
   }
   beforeEach(async () => {
     await TestBed.configureTestingModule({
@@ -106,7 +107,8 @@ describe('PaymentCalculation', () => {
     expect(el().textContent).toContain('12 × 85฿');
     expect(el().textContent).toContain('1,200฿');
     expect(el().querySelectorAll('input').length).toBe(0);
-    expect([...select().options].map((o) => o.value)).toEqual(['fair', 'perGame', 'buffet']);
+    expect(models()).toEqual(['fair', 'perGame', 'buffet']);
+    expect(el().querySelector('select')).toBeNull();
   });
   it('posts only model, emitting changing before request and changed before unlock', async () => {
     await open();
@@ -120,7 +122,7 @@ describe('PaymentCalculation', () => {
     request.flush(bill('perGame'));
     await settle();
     expect(events).toEqual(['changing:true', 'perGame', 'changing:false']);
-    expect(select().value).toBe('perGame');
+    expect(selected()).toBe('perGame');
     expect(el().textContent).toContain('ไม่จำกัด');
   });
   it('preserves fees and resyncs the parent even when recovery reports the old method', async () => {
@@ -132,7 +134,7 @@ describe('PaymentCalculation', () => {
     await Promise.resolve();
     http.expectOne(`${url}/bill`).flush(bill());
     await settle();
-    expect(select().value).toBe('fair');
+    expect(selected()).toBe('fair');
     expect(el().textContent).toContain('1,200฿');
     expect(el().querySelector('[role="alert"]')).not.toBeNull();
     expect(changed).toHaveBeenCalledOnce();
@@ -151,7 +153,7 @@ describe('PaymentCalculation', () => {
     recovery.flush(bill('buffet'));
     await settle();
     expect(events).toEqual(['changing:true', 'buffet', 'changing:false']);
-    expect(select().value).toBe('buffet');
+    expect(selected()).toBe('buffet');
     expect(el().querySelector('[role="alert"]')!.textContent).toContain(
       'เปลี่ยนวิธีคิดเงินไม่สำเร็จ',
     );
@@ -168,23 +170,23 @@ describe('PaymentCalculation', () => {
     http.expectOne(`${url}/bill`).flush({}, { status: 503, statusText: 'Unavailable' });
     await settle();
     expect(events).toEqual(['changing:true', 'uncertain', 'changing:false']);
-    expect(select().value).toBe('fair');
-    expect(select().getAttribute('aria-disabled')).toBe('true');
+    expect(selected()).toBe('fair');
+    expect(option('fair').getAttribute('aria-disabled')).toBe('true');
     el().querySelector<HTMLButtonElement>('[data-retry]')!.click();
     http.expectOne(`${url}/bill`).flush(bill('buffet'));
     await settle();
     expect(events).toEqual(['changing:true', 'uncertain', 'changing:false', 'buffet']);
-    expect(select().value).toBe('buffet');
+    expect(selected()).toBe('buffet');
   });
   it('keeps locked selection focusable and guards changes', async () => {
     await open();
     fixture.componentRef.setInput('locked', true);
     await settle();
-    expect(select().disabled).toBe(false);
-    expect(select().getAttribute('aria-disabled')).toBe('true');
+    expect(option('fair').disabled).toBe(false);
+    expect(option('fair').getAttribute('aria-disabled')).toBe('true');
     change('perGame');
     http.expectNone(`${url}/bill-method`);
-    expect(select().value).toBe('fair');
+    expect(selected()).toBe('fair');
   });
   it('rejects duplicate changes during save', async () => {
     await open();
@@ -200,7 +202,7 @@ describe('PaymentCalculation', () => {
     el().querySelector<HTMLButtonElement>('[data-retry]')!.click();
     http.expectOne(`${url}/bill`).flush(bill());
     await settle();
-    expect(select().value).toBe('fair');
+    expect(selected()).toBe('fair');
   });
   it('ignores previous-session reads', async () => {
     mount();
@@ -211,7 +213,7 @@ describe('PaymentCalculation', () => {
     await settle();
     old.flush(bill());
     await settle();
-    expect(select().value).toBe('buffet');
+    expect(selected()).toBe('buffet');
   });
   it('does not emit a previous-session save', async () => {
     await open();
@@ -226,7 +228,7 @@ describe('PaymentCalculation', () => {
     old.flush(bill('perGame'));
     await settle();
     expect(changed).not.toHaveBeenCalled();
-    expect(select().value).toBe('buffet');
+    expect(selected()).toBe('buffet');
   });
   it('refreshes when refreshKey changes', async () => {
     await open();
@@ -234,14 +236,14 @@ describe('PaymentCalculation', () => {
     fixture.detectChanges();
     http.expectOne(`${url}/bill`).flush(bill('buffet'));
     await settle();
-    expect(select().value).toBe('buffet');
+    expect(selected()).toBe('buffet');
   });
   it('distinguishes real cost from full player charge', async () => {
     const data = bill('perShuttle', true);
     data.config.shuttleCharge = 'full';
     data.config.perPlayerShuttleSatang = 3000;
     await open(data);
-    expect([...select().options].map((o) => o.value)).toContain('perShuttle');
+    expect(models()).toContain('perShuttle');
     expect(el().querySelector('[data-real-shuttle-cost]')!.textContent).toContain('85฿');
     expect(el().querySelector('[data-player-shuttle-charge]')!.textContent).toContain('30฿');
   });
@@ -250,5 +252,27 @@ describe('PaymentCalculation', () => {
     expect(el().textContent).toContain('200฿');
     expect(el().textContent).toContain('รวมค่าลูกแล้ว');
     expect(el().textContent).not.toContain('1,200฿');
+  });
+});
+
+describe('PaymentCalculation confirmed hint', () => {
+  it('warns that changing the method revokes a confirmed card, but not while saving or when unconfirmed', async () => {
+    await TestBed.configureTestingModule({
+      imports: [PaymentCalculation],
+      providers: [provideHttpClient(), provideHttpClientTesting()],
+    }).compileComponents();
+    const http = TestBed.inject(HttpTestingController);
+    const fixture = TestBed.createComponent(PaymentCalculation);
+    fixture.componentRef.setInput('sessionCode', 'one');
+    fixture.detectChanges();
+    http.expectOne('/api/sessions/one/bill').flush(bill());
+    await fixture.whenStable();
+    fixture.detectChanges();
+    const hint = () => fixture.nativeElement.querySelector('[data-method-hint]');
+    expect(hint()).toBeNull();
+    fixture.componentRef.setInput('confirmed', true);
+    fixture.detectChanges();
+    expect(hint()).not.toBeNull();
+    http.verify();
   });
 });

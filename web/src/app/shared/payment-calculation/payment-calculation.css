@@ -6,18 +6,27 @@
   display: grid;
   gap: var(--space-1);
 }
-select {
-  width: 100%;
-  min-height: var(--tap, 44px);
-  font: inherit;
-  font-size: 1rem;
-  color: var(--ink);
-  background: var(--surface);
-  border: 1.5px solid var(--line);
-  border-radius: var(--radius);
-  padding: var(--space-1) var(--space-2);
+/* A compact, content-width switch: the sheet's job is review and send, so the
+   method choice must not out-weigh Confirm/Send. Labels are small enough for
+   all four to share one line at 320px; the tap height stays at the global 40px. */
+.method-toggle {
+  width: fit-content;
+  max-width: 100%;
+  margin-bottom: 0;
 }
-select[aria-disabled='true'] {
+.method-toggle button {
+  flex: 0 1 auto;
+  padding-inline: var(--space-1);
+  font-size: var(--text-xs);
+  white-space: nowrap;
+}
+/* At 320px the sheet's content is ~272px wide; four labels need ~262px with tight padding. */
+@media (max-width: 23rem) {
+  .method-toggle button {
+    padding-inline: var(--space-0);
+  }
+}
+.method-toggle button[aria-disabled='true'] {
   opacity: 0.65;
   cursor: wait;
 }

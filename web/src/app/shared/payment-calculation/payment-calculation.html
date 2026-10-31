@@ -1,18 +1,29 @@
 <section class="calculation" [attr.aria-busy]="loading() || saving()">
-  <label [for]="selectId" class="label" i18n="@@pay.calc.method">วิธีคิดเงิน</label>
-  <select
-    [id]="selectId"
-    [value]="bill()?.config?.model ?? ''"
-    [attr.aria-disabled]="unavailable()"
-    (change)="selectMethod($event)"
-  >
+  <span class="label" [id]="labelId" i18n="@@pay.calc.method">วิธีคิดเงิน</span>
+  <div class="scope-toggle method-toggle" role="group" [attr.aria-labelledby]="labelId">
     @if (!bill()) {
-      <option value="" i18n="@@pay.calc.unavailable">ยังไม่มีรายละเอียด</option>
+      <span class="hint" i18n="@@pay.calc.unavailable">ยังไม่มีรายละเอียด</span>
     }
     @for (model of models(); track model) {
-      <option [value]="model">{{ modelLabel(model) }}</option>
+      @if (bill()) {
+        <button
+          type="button"
+          [attr.data-model]="model"
+          [class.active]="bill()?.config?.model === model"
+          [attr.aria-pressed]="bill()?.config?.model === model"
+          [attr.aria-disabled]="unavailable()"
+          (click)="selectMethod(model)"
+        >
+          {{ modelLabel(model) }}
+        </button>
+      }
     }
-  </select>
+  </div>
+  @if (confirmed() && !saving()) {
+    <p class="hint" data-method-hint i18n="@@pay.calc.confirmedHint">
+      เปลี่ยนวิธีคิดเงินแล้วต้องยืนยันใบเก็บเงินใหม่ ลิงก์ที่ส่งไปแล้วจะใช้ไม่ได้
+    </p>
+  }
   @if (saving()) {
     <p class="hint" role="status" i18n="@@pay.calc.saving">กำลังเปลี่ยนวิธีคิดเงิน…</p>
   }

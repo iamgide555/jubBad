@@ -31,6 +31,7 @@
         [sessionCode]="sessionCode()"
         [refreshKey]="refreshKey()"
         [locked]="busy() || readFailed()"
+        [confirmed]="p.confirmed && !p.stale"
         (changing)="methodProgress($event)"
         (changed)="methodChanged($event)"
         (uncertain)="methodUncertain()"

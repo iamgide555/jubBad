@@ -25,6 +25,8 @@ export class PaymentCalculation {
   readonly sessionCode = input.required<string>();
   readonly refreshKey = input<unknown>(null);
   readonly locked = input(false);
+  /** A confirmed card (and any link already sent) stands; changing the method revokes it. */
+  readonly confirmed = input(false);
   readonly changed = output<BillResponse>();
   readonly changing = output<boolean>();
   readonly uncertain = output<void>();
@@ -35,7 +37,7 @@ export class PaymentCalculation {
   private pendingRefresh = false;
   /** An unanswered mutation needs a verified snapshot before the parent may trust payment state. */
   private needsResync = false;
-  protected readonly selectId = `payment-calculation-${++instanceCount}`;
+  protected readonly labelId = `payment-calculation-${++instanceCount}-label`;
   protected readonly bill = signal<BillResponse | null>(null);
   protected readonly loading = signal(false);
   protected readonly saving = signal(false);
@@ -118,12 +120,9 @@ export class PaymentCalculation {
     }
   }
 
-  protected async selectMethod(event: Event): Promise<void> {
-    const select = event.target as HTMLSelectElement;
-    const model = select.value as BillModel;
+  protected async selectMethod(model: BillModel): Promise<void> {
     const snapshot = this.bill();
-    // Restore immediately: the server's successful response owns the selected method.
-    select.value = snapshot?.config.model ?? '';
+    // The server's successful response owns the selected method; the toggle only reflects bill().
     if (
       this.unavailable() ||
       !snapshot ||

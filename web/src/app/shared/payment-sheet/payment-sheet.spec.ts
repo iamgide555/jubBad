@@ -111,9 +111,7 @@ describe('PaymentSheet', () => {
     await settle();
     const changed = vi.fn();
     fixture.componentInstance.billChanged.subscribe(changed);
-    const select = el().querySelector('app-payment-calculation select') as HTMLSelectElement;
-    select.value = 'buffet';
-    select.dispatchEvent(new Event('change'));
+    el().querySelector<HTMLButtonElement>('app-payment-calculation [data-model="buffet"]')!.click();
     await settle();
     const save = http.expectOne(`${environment.apiBaseUrl}/sessions/sess1/bill-method`);
     fixture.componentRef.setInput('open', false);

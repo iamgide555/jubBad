@@ -6733,6 +6733,10 @@
         <source>โหลดวิธีคิดล่าสุดไม่สำเร็จ รีเฟรชหน้าก่อนแก้รายละเอียด</source>
         <target>Could not load the latest calculation method. Refresh the page before editing details.</target>
       </trans-unit>
+      <trans-unit id="pay.calc.confirmedHint" datatype="html">
+        <source>เปลี่ยนวิธีคิดเงินแล้วต้องยืนยันใบเก็บเงินใหม่ ลิงก์ที่ส่งไปแล้วจะใช้ไม่ได้</source>
+        <target>Changing the method needs a new confirmation. Links already sent will stop working.</target>
+      </trans-unit>
       <trans-unit id="pay.card.editBillDetails" datatype="html">
         <source>แก้รายละเอียดในหน้าคิดเงิน</source>
         <target>Edit details on the bill page</target>

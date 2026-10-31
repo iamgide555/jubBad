@@ -16,6 +16,7 @@ class CalculationStub {
   readonly sessionCode = input.required<string>();
   readonly refreshKey = input<unknown>(null);
   readonly locked = input(false);
+  readonly confirmed = input(false);
   readonly changed = output<BillResponse>();
   readonly changing = output<boolean>();
 }
@@ -133,6 +134,18 @@ describe('PaymentCardPanel', () => {
     await open(panel({ target: null }));
     expect(text().trim()).toBe('');
     expect(el().children).toHaveLength(0);
+  });
+
+  it('tells the calculation toggle whether a current confirmation stands', async () => {
+    await open(panel({ confirmed: true }));
+    const stub = () => fixture.debugElement.query(By.directive(CalculationStub)).componentInstance as CalculationStub;
+    expect(stub().confirmed()).toBe(true);
+  });
+
+  it('does not warn about revoking when the card is not confirmed', async () => {
+    await open(panel({ confirmed: false }));
+    const stub = fixture.debugElement.query(By.directive(CalculationStub)).componentInstance as CalculationStub;
+    expect(stub.confirmed()).toBe(false);
   });
 
   it('blocks sending while changing method and until fresh amounts are read', async () => {

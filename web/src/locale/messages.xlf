@@ -8320,6 +8320,9 @@
       <trans-unit id="pay.card.billRefreshFailed" datatype="html">
         <source>โหลดวิธีคิดล่าสุดไม่สำเร็จ รีเฟรชหน้าก่อนแก้รายละเอียด</source>
       </trans-unit>
+      <trans-unit id="pay.calc.confirmedHint" datatype="html">
+        <source>เปลี่ยนวิธีคิดเงินแล้วต้องยืนยันใบเก็บเงินใหม่ ลิงก์ที่ส่งไปแล้วจะใช้ไม่ได้</source>
+      </trans-unit>
       <trans-unit id="pay.card.editBillDetails" datatype="html">
         <source>แก้รายละเอียดในหน้าคิดเงิน</source>
       </trans-unit>

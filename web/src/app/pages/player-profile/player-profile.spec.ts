@@ -173,7 +173,6 @@ describe('PlayerProfile', () => {
     // Players open this from a shared link: no host-facing upgrade prompt.
     expect(el.querySelector('app-plan-lock')).toBeNull();
     expect(el.textContent).not.toContain('ไม่พบผู้เล่น');
-    expect(el.querySelector('.profile-hero')).toBeNull();
   });
 
   describe('plan-locked page', () => {

@@ -69,7 +69,7 @@
         <h2>{{ selectedName() }}</h2>
 
         @if (receipt(); as r) {
-          <p class="saved" role="status" data-checkout-saved i18n="@@checkout.saved">บันทึกแล้ว — {{ baht(r.amountSatang) }} บาท</p>
+          <p class="saved" role="status" data-checkout-saved i18n="@@checkout.saved">บันทึกแล้ว: {{ baht(r.amountSatang) }} บาท</p>
           <p class="muted" i18n="@@checkout.savedHint">คนนี้พักจากการจับคู่แล้ว ยอดนี้จะไม่เปลี่ยนแม้ราคาหรือลูกแบดเปลี่ยนทีหลัง</p>
         } @else {
           <fieldset class="model-picker" [disabled]="confirming()">

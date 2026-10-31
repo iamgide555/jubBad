@@ -188,7 +188,7 @@ export class CourtPanel {
   protected readonly targetGroupLabel = $localize`:@@court.targetLabel:กลุ่มผู้เล่นของคอร์ทนี้`;
 
   /** Tooltip only — always-on text repeated under every targeted court. */
-  protected readonly targetHint = $localize`:@@court.targetHint:เทียบกับคนที่มาคืนนี้ — ถ้าคนในกลุ่มไม่พอ จะเติมจากกลุ่มใกล้เคียง`;
+  protected readonly targetHint = $localize`:@@court.targetHint:เทียบกับคนที่มาคืนนี้ ถ้าคนในกลุ่มไม่พอ จะเติมจากกลุ่มใกล้เคียง`;
 
   protected readonly courtTargets: readonly CourtTarget[] = ['auto', 'low', 'high'];
 
@@ -461,7 +461,7 @@ export class CourtPanel {
 
   /** In TS for the same reason as swapLabel: a dynamic count inside the sentence. */
   protected trySinglesHint(available: number): string {
-    return $localize`:@@court.trySingles:เหลือ ${available}:count: คน — สลับเป็นเดี่ยวได้`;
+    return $localize`:@@court.trySingles:เหลือ ${available}:count: คน สลับเป็นเดี่ยวได้`;
   }
 
   protected async startOrReshuffle(): Promise<void> {

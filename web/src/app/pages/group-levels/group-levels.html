@@ -96,7 +96,7 @@
                   (click)="removeRow(row.key)"
                   i18n-aria-label="@@levels.remove"
                   aria-label="ลบระดับ"
-                >✕</button>
+                ><app-icon name="close" [size]="16" /></button>
               </span>
               @if (removeBlockedReason(row); as why) {
                 <span class="row-note muted" data-remove-blocked>{{ why }}</span>

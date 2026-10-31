@@ -23,13 +23,21 @@
 }
 
 .court-panel:has(.status-dot.pending) {
+  background: var(--accent-soft);
   box-shadow: 0 0 0 2px var(--accent), var(--shadow-md);
   animation: ring-pulse 2.2s var(--ease-out) 1;
 }
 
 .court-panel:has(.status-dot.active) {
+  background: var(--court-soft);
   box-shadow: 0 0 0 2px var(--court), var(--shadow-md);
   transform: translateY(-2px);
+}
+
+/* The number carries the state too: ink while idle or waiting on the host,
+   court green only once the match is live. */
+.court-panel:has(.status-dot.active) .court-panel-head h4 {
+  color: var(--court-ink);
 }
 
 .court-panel-head {
@@ -98,7 +106,7 @@
   font-size: var(--text-2xl);
   font-weight: 700;
   line-height: 1;
-  color: var(--court);
+  color: var(--ink);
 }
 
 .court-num {
@@ -526,7 +534,8 @@
   height: 100%;
   background: var(--accent);
   border-radius: inherit;
-  transition: width 1s linear;
+  transform-origin: left;
+  transition: transform 1s linear;
 }
 
 @media (prefers-reduced-motion: reduce) {

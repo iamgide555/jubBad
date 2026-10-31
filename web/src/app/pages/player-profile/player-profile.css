@@ -1,8 +1,3 @@
-.profile-hero {
-  height: clamp(4rem, 12vh, 6rem);
-  margin-bottom: var(--space-2);
-}
-
 /* The numbers are the point of this screen, so they get real size while their
    captions stay quiet underneath — but not the display face: Permanent
    Marker has no digit glyphs, and a stat value is read as a number, not as

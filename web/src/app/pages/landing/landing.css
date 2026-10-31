@@ -2,14 +2,6 @@
   padding-top: var(--space-2);
 }
 
-/* A quieter hero than login's — this is a returning host's own list of
-   groups, not a stranger's first impression, so the scene stays a modest
-   accent above the page's real content rather than a full-screen moment. */
-.landing-hero {
-  height: clamp(6rem, 20vh, 8rem);
-  margin-bottom: var(--space-2);
-}
-
 .home-head {
   display: flex;
   flex-wrap: wrap;
@@ -71,6 +63,10 @@
   font-family: var(--font-display);
   font-size: var(--text-lg);
   font-weight: 700;
+  color: var(--ink);
+  text-decoration-color: var(--court);
+  text-decoration-thickness: 2px;
+  text-underline-offset: 0.2em;
 }
 
 .group-meta {
@@ -85,12 +81,33 @@
   margin-left: auto;
 }
 
+/* The weekly job: paste this week's LINE roster. It is the one filled action
+   on a row, so the host's thumb finds it before the quieter links beside it. */
+.start-link {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--tap);
+  padding: 0 var(--space-2);
+  border-radius: var(--radius);
+  background: var(--court);
+  color: var(--on-fill);
+  font-size: var(--text-sm);
+  text-decoration: none;
+}
+
+@media (hover: hover) {
+  .start-link:hover {
+    background: var(--court-dark);
+  }
+}
+
 .ghost-link {
   display: inline-flex;
   align-items: center;
   min-height: var(--tap);
   padding: 0 var(--space-1);
   font-size: var(--text-sm);
+  color: var(--ink-soft);
 }
 
 /* Quiet until opened. Delete is the one irreversible action on this screen, so
@@ -215,4 +232,13 @@
   color: var(--ink-soft);
   font-size: var(--text-xs);
   font-weight: 600;
+}
+
+.others-chevron {
+  display: inline-flex;
+  transition: transform var(--duration-fast) var(--ease-out);
+}
+
+.others-chevron.open {
+  transform: rotate(180deg);
 }

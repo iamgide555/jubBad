@@ -3,9 +3,6 @@
     @if (canGoBack()) {
       <p><a [routerLink]="['/g', groupCode]" i18n="@@profile.back">← กลับ</a></p>
     }
-    <div class="profile-hero" aria-hidden="true">
-      <app-scene-host variant="hero" />
-    </div>
     <h1>{{ p.name }}</h1>
 
     <div class="stat-row">

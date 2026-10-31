@@ -60,7 +60,7 @@
             aria-describedby="newPasswordHint"
           />
           <p class="field-hint" id="newPasswordHint" i18n="@@admin.passwordHint">
-            อย่างน้อย 8 ตัวอักษร — ผู้ใช้เปลี่ยนเองได้ภายหลัง
+            อย่างน้อย 8 ตัวอักษร ผู้ใช้เปลี่ยนเองได้ภายหลัง
           </p>
         </div>
         <div class="field">
@@ -134,7 +134,7 @@
                   <button type="button" class="ghost" (click)="cancelEdit()" i18n="@@admin.cancel">ยกเลิก</button>
                 </div></td>
               } @else {
-                <td>{{ user.email }}</td>
+                <td class="email-cell">{{ user.email }}</td>
                 <td>
                   @if (user.role === 'admin') {
                     <ng-container i18n="@@admin.roleAdmin">ผู้ดูแลระบบ</ng-container>
@@ -181,7 +181,7 @@
                   @if (resetError()) {
                     <p class="error" role="alert">{{ resetError() }}</p>
                   } @else if (resetLink()) {
-                    <p i18n="@@admin.resetLinkLede">ส่งลิงก์นี้ให้ผู้ใช้ด้วยตนเอง (เช่น ทาง LINE) — ใช้ได้ครั้งเดียว หมดอายุใน 1 ชั่วโมง</p>
+                    <p i18n="@@admin.resetLinkLede">ส่งลิงก์นี้ให้ผู้ใช้ด้วยตนเอง (เช่น ทาง LINE) ใช้ได้ครั้งเดียว หมดอายุใน 1 ชั่วโมง</p>
                     <div class="link-row">
                       <code>{{ resetLink() }}</code>
                       <button type="button" (click)="copyResetLink()" i18n="@@admin.copyLink">คัดลอกลิงก์</button>

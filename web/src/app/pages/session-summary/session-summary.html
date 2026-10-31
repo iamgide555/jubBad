@@ -3,13 +3,10 @@
     @if (isHost()) {
       <p><a [routerLink]="['/g', s.session.groupCode]" i18n="@@summary.back">← กลับ</a></p>
     }
-    <div class="summary-hero" aria-hidden="true">
-      <app-scene-host variant="hero" />
-    </div>
     <!-- tabindex -1: where focus returns when the payment sheet closes with no banner left to land on. -->
     <h1 tabindex="-1" i18n="@@summary.title">สรุปรอบ</h1>
     <p class="muted">
-      {{ s.session.date }}
+      {{ dateLabel(s.session.date, s.session.code) }}
       @if (s.session.venue) { · {{ s.session.venue }} }
     </p>
 
@@ -76,7 +73,7 @@
           <p class="muted">
             <ng-container i18n="@@summary.shuttleDistinct">ที่ใช้ในแมตช์ที่จบแล้ว (นับแต่ละลูกครั้งเดียว)</ng-container>
             @if (sh.unknownFinishedMatches > 0) {
-              <span i18n="@@summary.shuttlePartial"> · ไม่ครบ — {{ sh.unknownFinishedMatches }} แมตช์ไม่ได้บันทึก</span>
+              <span i18n="@@summary.shuttlePartial"> · ไม่ครบ: {{ sh.unknownFinishedMatches }} แมตช์ไม่ได้บันทึก</span>
             }
           </p>
           @if (sh.physical !== null) {
@@ -216,7 +213,7 @@
                   (click)="togglePlayer(row.playerId)"
                 >
                   {{ row.name }}
-                  <span class="chevron" [class.open]="expandedPlayerId() === row.playerId" aria-hidden="true">▾</span>
+                  <span class="chevron" [class.open]="expandedPlayerId() === row.playerId" aria-hidden="true"><app-icon name="chevron" [size]="16" /></span>
                 </button>
               </td>
               <td>{{ row.played }}</td>

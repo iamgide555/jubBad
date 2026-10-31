@@ -61,8 +61,8 @@ export function checkoutErrorMessage(code: string | null, courtLabel?: string): 
       return $localize`:@@checkout.err.checkedOut:คนนี้เช็คเอาต์ไปแล้ว`;
     case 'PLAYER_ON_COURT':
       return courtLabel
-        ? $localize`:@@checkout.err.onCourtNamed:คนนี้อยู่ที่ ${courtLabel}:court: — เอาออกจากคู่ หรือจบแมตช์ก่อน`
-        : $localize`:@@checkout.err.onCourt:คนนี้อยู่บนคอร์ท — เอาออกจากคู่ หรือจบแมตช์ก่อน`;
+        ? $localize`:@@checkout.err.onCourtNamed:คนนี้อยู่ที่ ${courtLabel}:court: เอาออกจากคู่ หรือจบแมตช์ก่อน`
+        : $localize`:@@checkout.err.onCourt:คนนี้อยู่บนคอร์ท เอาออกจากคู่ หรือจบแมตช์ก่อน`;
     case 'UNKNOWN_SHUTTLE_USE':
       return $localize`:@@checkout.err.unknownUse:เกมของคนนี้ยังไม่ได้บันทึกลูกแบด แก้ในหน้าสรุปรอบก่อน`;
     case 'MISSING_SHUTTLE_PRICE':

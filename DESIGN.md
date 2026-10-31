@@ -187,13 +187,13 @@ Real rounding, the deliberate opposite of the retired 2px-corner system: this is
 ### Cards / Containers (Court Panel / Notice Block / Dialogs)
 - **Corner Style:** 22px radius (`--radius-lg`).
 - **Background:** `--surface`, flat white/raised-dark — no tilt, no tape, no torn-paper detail.
-- **Shadow Strategy:** base elevation shadow at rest; a colored ring (see Elevation) added for pending/active state.
+- **Shadow Strategy:** base elevation shadow at rest; a colored ring (see Elevation) added for pending/active state, with the panel itself washed in `--accent-soft` (pending) or `--court-soft` (active) so state reads at arm's length, not just at the edge. The court number turns court green only while live; idle and pending keep it ink.
 - **Border:** none — elevation and the state ring carry the "raised object" read.
 - **Internal Padding:** `--space-2` `--space-3` `--space-3` (court panel).
 
 ### Inputs / Fields
 - **Style:** `--surface` fill, `--ink` text, 1.5px `--line` border, `--radius` corners, 44px min-height, 16px+ font size (never smaller, to avoid iOS Safari's auto-zoom-on-focus).
-- **Focus:** border shifts to `--accent`; `:focus-visible` adds a 2px `--accent` outline with 2px offset across inputs, buttons, and links alike.
+- **Focus:** border shifts to `--ink`; `:focus-visible` adds a 2px `--ink` outline with 2px offset across inputs, buttons, and links alike. Focus is deliberately not orange, so the one orange signal on the dashboard stays unambiguous.
 - **Error:** `.error` text in `--error-ink` (an alias of `--warn`).
 
 ### Navigation

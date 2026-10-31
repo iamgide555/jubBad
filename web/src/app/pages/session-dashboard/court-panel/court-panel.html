@@ -200,7 +200,7 @@
           }
           @if (autoStartLabel(); as label) {
             <p class="hint auto-start-hint" role="status">{{ label }}</p>
-            <div class="auto-start-bar" aria-hidden="true"><span [style.width.%]="autoStartFraction() * 100"></span></div>
+            <div class="auto-start-bar" aria-hidden="true"><span [style.transform]="'scaleX(' + autoStartFraction() + ')'"></span></div>
           }
           <div class="button-row">
             @if (c.mode === 'custom') {

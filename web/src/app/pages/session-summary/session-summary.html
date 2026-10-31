@@ -206,7 +206,7 @@
                   (click)="togglePlayer(row.playerId)"
                 >
                   {{ row.name }}
-                  <span class="chevron" [class.open]="expandedPlayerId() === row.playerId" aria-hidden="true">▾</span>
+                  <span class="chevron" [class.open]="expandedPlayerId() === row.playerId" aria-hidden="true"><app-icon name="chevron" [size]="16" /></span>
                 </button>
               </td>
               <td>{{ row.played }}</td>

@@ -1,4 +1,5 @@
 import { HttpClient } from '@angular/common/http';
+import { Icon } from '../../shared/icon/icon';
 import { NgTemplateOutlet } from '@angular/common';
 import { Component, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
@@ -38,7 +39,7 @@ export interface OwnerGroups {
  */
 @Component({
   selector: 'app-landing',
-  imports: [FormsModule, NgTemplateOutlet, RouterLink, PlanLock],
+  imports: [FormsModule, NgTemplateOutlet, RouterLink, PlanLock, Icon],
   templateUrl: './landing.html',
   styleUrl: './landing.css',
 })

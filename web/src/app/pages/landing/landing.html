@@ -32,7 +32,7 @@
           (click)="toggleOthers()"
         >
           <span i18n="@@home.othersToggle">ก๊วนของผู้ใช้อื่น</span> ({{ otherCount() }})
-          <span aria-hidden="true">{{ othersOpen() ? '▴' : '▾' }}</span>
+          <span class="others-chevron" [class.open]="othersOpen()" aria-hidden="true"><app-icon name="chevron" [size]="16" /></span>
         </button>
         @if (othersOpen()) {
           @for (owner of otherGroups(); track owner.ownerEmail) {

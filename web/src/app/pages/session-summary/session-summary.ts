@@ -1,4 +1,5 @@
 import { durationSummary } from '../../core/session-duration-summary';
+import { Icon } from '../../shared/icon/icon';
 import { NgTemplateOutlet } from '@angular/common';
 import { ChangeDetectorRef, Component, ElementRef, LOCALE_ID, computed, inject, signal, viewChild } from '@angular/core';
 import { sessionDateLabel } from '../../core/session-date';
@@ -29,7 +30,7 @@ type SortKey = 'played' | 'won' | 'lost' | 'doublesRate' | 'singlesRate' | 'time
 
 @Component({
   selector: 'app-session-summary',
-  imports: [NgTemplateOutlet, RouterLink, ShuttleDetailsDialog, ShuttleCorrectionDialog, ResultCorrectionDialog, PaymentSheet],
+  imports: [NgTemplateOutlet, RouterLink, Icon, ShuttleDetailsDialog, ShuttleCorrectionDialog, ResultCorrectionDialog, PaymentSheet],
   templateUrl: './session-summary.html',
   styleUrl: './session-summary.css',
 })

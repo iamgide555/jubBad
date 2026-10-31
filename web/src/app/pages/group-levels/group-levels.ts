@@ -1,4 +1,5 @@
 import { HttpErrorResponse } from '@angular/common/http';
+import { Icon } from '../../shared/icon/icon';
 import { Component, ElementRef, computed, inject, signal, viewChild } from '@angular/core';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
@@ -39,7 +40,7 @@ const MAX_NAME = 16;
  */
 @Component({
   selector: 'app-group-levels',
-  imports: [RouterLink, PlanLock],
+  imports: [RouterLink, PlanLock, Icon],
   templateUrl: './group-levels.html',
   styleUrl: './group-levels.css',
 })

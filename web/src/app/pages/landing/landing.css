@@ -233,3 +233,12 @@
   font-size: var(--text-xs);
   font-weight: 600;
 }
+
+.others-chevron {
+  display: inline-flex;
+  transition: transform var(--duration-fast) var(--ease-out);
+}
+
+.others-chevron.open {
+  transform: rotate(180deg);
+}

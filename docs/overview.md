@@ -1687,7 +1687,7 @@ own bill share; the pending row records reviewed amount and time. Already-paid s
 refusal rather than silently consuming the slip. This fixes the earlier ability to credit several
 players beyond the slip amount.
 
-**Direct host access (2026-10-31).** The summary and bill pages expose **สถานะการชำระเงิน** only once a
+**Direct host access (2026-10-31).** Design: `docs/archive/specs/2026-10-31-host-payment-access-design.md`. The summary and bill pages expose **สถานะการชำระเงิน** only once a
 confirmed card has a recorded LINE send. It opens directly to counts, players and pending reviews,
 without the invoice preview. **รีเฟรชสถานะ** refreshes marks, pending slips, duplicates and links,
 shows the last successful refresh time, and preserves review drafts. Host DM delivery alone does not

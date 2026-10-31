@@ -28,4 +28,15 @@
 ### Task 4: Verification and Release
 
 - [x] **Verify:** Run relevant/full tests and production builds; inspect mobile/desktop/English/enlarged screens; independent spec/code review; update overview and archive completed docs.
-- [ ] **Release:** Commit, push and deploy API/web without migration; verify live permissions and health.
+- [x] **Release:** Commit, push and deploy API/web without migration; verify live permissions and health.
+
+
+---
+
+## Release Evidence
+
+- **Runtime:** `0630bf0`, deployed on `feat/slip-payments`; no pending migration, API restart count zero.
+- **Tests:** Server full suite 1,756 passed plus the added reconfirmation case passed in its three-test focused suite; web full suite 1,835 passed. Production builds, server lint/type checks and independent spec/code/visual reviews passed.
+- **Browser:** Phone, desktop, dark, English and enlarged text checked. DM-only invoice hid status; successful send exposed direct entry. Exact/overpayment enabled confirm, shortfall blocked, refresh updated marks/time and preserved drafts.
+- **Backup:** `jubbad-2026-10-31T04-23-08-715Z.db` before deploy, integrity check passed.
+- **Live:** Site `200`, host status without login `401`, share acknowledgement without identity `404`; image HDD mount unchanged.

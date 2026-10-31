@@ -81,12 +81,33 @@
   margin-left: auto;
 }
 
+/* The weekly job: paste this week's LINE roster. It is the one filled action
+   on a row, so the host's thumb finds it before the quieter links beside it. */
+.start-link {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--tap);
+  padding: 0 var(--space-2);
+  border-radius: var(--radius);
+  background: var(--court);
+  color: var(--on-fill);
+  font-size: var(--text-sm);
+  text-decoration: none;
+}
+
+@media (hover: hover) {
+  .start-link:hover {
+    background: var(--court-dark);
+  }
+}
+
 .ghost-link {
   display: inline-flex;
   align-items: center;
   min-height: var(--tap);
   padding: 0 var(--space-1);
   font-size: var(--text-sm);
+  color: var(--ink-soft);
 }
 
 /* Quiet until opened. Delete is the one irreversible action on this screen, so

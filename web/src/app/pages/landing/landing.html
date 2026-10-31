@@ -92,7 +92,7 @@
       @if (removable && !group.paused) {
         <!-- The weekly job: paste this week's LINE message. One tap from the list
              instead of list, group, เริ่มรอบใหม่, then paste. Own groups only. -->
-        <a class="ghost-link" data-start-link [routerLink]="['/g', group.code, 'start']" i18n="@@home.startSession">เริ่มรอบ</a>
+        <a class="start-link" data-start-link [routerLink]="['/g', group.code, 'start']" i18n="@@home.startSession">เริ่มรอบ</a>
       }
       @if (group.lastSessionCode) {
         <a class="ghost-link" [routerLink]="['/s', group.lastSessionCode]" i18n="@@home.continue">ไปรอบล่าสุด</a>

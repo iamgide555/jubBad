@@ -134,7 +134,7 @@
                   <button type="button" class="ghost" (click)="cancelEdit()" i18n="@@admin.cancel">ยกเลิก</button>
                 </div></td>
               } @else {
-                <td>{{ user.email }}</td>
+                <td class="email-cell">{{ user.email }}</td>
                 <td>
                   @if (user.role === 'admin') {
                     <ng-container i18n="@@admin.roleAdmin">ผู้ดูแลระบบ</ng-container>

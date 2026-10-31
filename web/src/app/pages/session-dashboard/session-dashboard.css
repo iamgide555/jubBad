@@ -876,3 +876,24 @@ app-lineup-queue {
   flex: none;
   accent-color: var(--court);
 }
+
+/* Adding a walk-in is the one thing done mid-night; the rule and full-roster
+   buttons are setup and lookup, so they sit as quiet text, not three
+   identical outlined pills. */
+.roster-actions > button.ghost:not([data-add-walk-in]) {
+  border-color: transparent;
+  background: none;
+  box-shadow: none;
+  color: var(--ink-soft);
+  text-decoration: underline;
+  text-decoration-color: var(--line);
+  text-underline-offset: 0.25em;
+}
+
+@media (hover: hover) {
+  .roster-actions > button.ghost:not([data-add-walk-in]):hover {
+    background: none;
+    color: var(--ink);
+    text-decoration-color: var(--ink-faint);
+  }
+}

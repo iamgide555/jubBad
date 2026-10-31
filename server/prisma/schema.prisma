@@ -62,6 +62,10 @@ model Group {
   payAccount          String?
   lineLinkCodes       LineLinkCode[]
   lineRosterMessages  LineRosterMessage[]
+  playerLineAccounts  PlayerLineAccount[]
+  slipReferences      SlipReference[]
+  pendingSlips        PendingSlip[]
+  slipDuplicates      SlipDuplicate[]
 }
 
 /// A one-time `/link <code>` credential. Only the SHA-256 hash is stored.
@@ -228,6 +232,8 @@ model Player {
   rulesAsA   PlayerRule[] @relation("PlayerRuleA")
   rulesAsB   PlayerRule[] @relation("PlayerRuleB")
   checkouts SessionCheckout[]
+  lineAccounts PlayerLineAccount[]
+  sessionPayments SessionPayment[]
 }
 
 model Session {
@@ -324,6 +330,10 @@ model Session {
   shuttles      SessionShuttle[]
   checkouts     SessionCheckout[]
   queuedMatches QueuedMatch[]
+  payments      SessionPayment[]
+  pendingSlips  PendingSlip[]
+  slipImages    SlipImage[]
+  paymentCollectionClosedAt DateTime?
 }
 
 model SessionRoster {
@@ -524,4 +534,109 @@ model QueuedMatch {
   session   Session  @relation(fields: [sessionId], references: [code])
 
   @@index([sessionId, position])
+}
+
+/// Which LINE account belongs to which player in a group, so a slip sent by that
+/// account can be credited to the right person. One account per player and one
+/// player per account within a group; `linkedBy` records who made the link.
+model PlayerLineAccount {
+  id          String   @id @default(cuid())
+  groupId     String
+  group       Group    @relation(fields: [groupId], references: [code], onDelete: Cascade)
+  playerId    String
+  player      Player   @relation(fields: [playerId], references: [id], onDelete: Cascade)
+  lineUserId  String
+  displayName String?
+  /// 'self' (the player claimed it) | 'host' (the host linked it).
+  linkedBy    String
+  createdAt   DateTime @default(now())
+
+  @@unique([groupId, lineUserId])
+  @@unique([groupId, playerId])
+}
+
+/// A player's paid state for one session. The row's existence is the fact: it is
+/// written by a matched slip or by the host marking the player paid.
+model SessionPayment {
+  id           String   @id @default(cuid())
+  sessionId    String
+  session      Session  @relation(fields: [sessionId], references: [code], onDelete: Cascade)
+  playerId     String
+  player       Player   @relation(fields: [playerId], references: [id], onDelete: Cascade)
+  /// 'slip' (credited from a verified slip) | 'host' (marked by the host).
+  source       String
+  amountSatang Int?
+  reference    String?
+  createdAt    DateTime @default(now())
+
+  @@unique([sessionId, playerId])
+}
+
+/// Every bank transfer reference already used in a group, so the same slip can
+/// never be credited twice. `sessionId` and `lineUserId` are informational only.
+model SlipReference {
+  id         String   @id @default(cuid())
+  groupId    String
+  group      Group    @relation(fields: [groupId], references: [code], onDelete: Cascade)
+  reference  String
+  bankCode   String
+  sessionId  String?
+  lineUserId String?
+  createdAt  DateTime @default(now())
+
+  @@unique([groupId, reference])
+}
+
+/// A slip the bot received but could not credit by itself, waiting for the host
+/// to resolve it (`resolvedAt` set once handled).
+model PendingSlip {
+  id           String    @id @default(cuid())
+  sessionId    String
+  session      Session   @relation(fields: [sessionId], references: [code], onDelete: Cascade)
+  groupId      String
+  group        Group     @relation(fields: [groupId], references: [code], onDelete: Cascade)
+  reference    String
+  lineUserId   String
+  displayName  String?
+  /// The sender's LINE profile picture address, not the image itself.
+  pictureUrl   String?
+  amountSatang Int?
+  reviewedAmountSatang Int?
+  reviewedAt   DateTime?
+  receiverName String?
+  receiverTail String?
+  /// Why it was held: 'unmapped' | 'amount' | 'receiver' | 'unreadable' | 'stale' | 'collision'.
+  reason       String
+  resolvedAt   DateTime?
+  createdAt    DateTime  @default(now())
+}
+
+/// A slip whose reference was already credited, kept so the host can see who got
+/// there first. `originalPlayerIds` is a JSON-encoded string[] of the players
+/// already credited; `dismissedAt` is set once the host has acknowledged it.
+model SlipDuplicate {
+  id                String    @id @default(cuid())
+  groupId           String
+  group             Group     @relation(fields: [groupId], references: [code], onDelete: Cascade)
+  sessionId         String?
+  reference         String
+  lineUserId        String
+  displayName       String?
+  originalPlayerIds String
+  dismissedAt       DateTime?
+  createdAt         DateTime  @default(now())
+}
+
+/// Private image metadata only; bytes live outside SQLite and its backups.
+model SlipImage {
+  id          String   @id @default(uuid())
+  sessionId   String
+  session     Session  @relation(fields: [sessionId], references: [code], onDelete: Cascade)
+  reference   String
+  contentType String
+  createdAt   DateTime @default(now())
+  expiresAt   DateTime
+
+  @@unique([sessionId, reference])
+  @@index([expiresAt])
 }

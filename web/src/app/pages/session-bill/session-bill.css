@@ -349,3 +349,10 @@ details[open] .disclosure {
   font-weight: 700;
   font-variant-numeric: tabular-nums;
 }
+
+/* Four modes share one thumb-width track; a label wrapping to two lines makes
+   its segment taller than the rest, so keep each on one line. */
+.scope-toggle button {
+  white-space: nowrap;
+  padding-inline: var(--space-1);
+}

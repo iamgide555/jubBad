@@ -61,6 +61,7 @@
      background), not just on plain white. */
   --accent-ink: #bd3414;
 
+  --pending-ink: #885600;
   --warn: #b0201a;
   --warn-wash: #fdecea;
   --error-ink: var(--warn);
@@ -158,6 +159,7 @@
     --accent-soft: #33180f;
     --accent-ink: #ff8a6c;
 
+    --pending-ink: #f5c065;
     --warn: #ff6b60;
     --warn-wash: #33130f;
     --on-fill: #0e1310;
@@ -198,6 +200,7 @@
   --accent-soft: #33180f;
   --accent-ink: #ff8a6c;
 
+  --pending-ink: #f5c065;
   --warn: #ff6b60;
   --warn-wash: #33130f;
   --on-fill: #0e1310;
@@ -426,7 +429,7 @@ select:disabled {
 input:focus,
 textarea:focus,
 select:focus {
-  border-color: var(--accent);
+  border-color: var(--ink);
   outline: none;
 }
 
@@ -435,7 +438,7 @@ textarea:focus-visible,
 select:focus-visible,
 button:focus-visible,
 a:focus-visible {
-  outline: 2px solid var(--accent);
+  outline: 2px solid var(--ink);
   outline-offset: 2px;
   border-radius: var(--radius);
 }

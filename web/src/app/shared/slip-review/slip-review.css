@@ -1,0 +1,351 @@
+:host {
+  display: block;
+}
+
+.review {
+  font-size: var(--text-base);
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-2);
+  padding-top: var(--space-2);
+  border-top: 1px solid var(--line);
+}
+
+.review p,
+.review h3,
+.review h4 {
+  margin: 0;
+}
+
+.head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+
+.head h3 {
+  font-size: var(--text-lg);
+}
+
+h4 {
+  font-size: var(--text-base);
+}
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  min-height: 1.75rem;
+  padding: 0 var(--space-2);
+  border-radius: var(--radius-pill);
+  background: var(--accent-soft);
+  color: var(--accent-ink);
+  font-size: var(--text-sm);
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.count {
+  color: var(--ink-soft);
+  font-size: var(--text-sm);
+  font-weight: 600;
+}
+
+.tabular {
+  font-variant-numeric: tabular-nums;
+}
+
+.load-failed {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+}
+
+ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+/* ---- status list: the whole row is the tap target ---- */
+
+.people {
+  display: grid;
+  gap: var(--space-0);
+}
+
+button.person {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  width: 100%;
+  min-height: var(--tap);
+  padding: var(--space-0) var(--space-2);
+  background: var(--surface);
+  color: var(--ink);
+  border: 1px solid var(--line);
+  box-shadow: none;
+  text-align: left;
+  font-weight: 600;
+}
+
+button.person:disabled {
+  background: var(--ground-sunk);
+  color: var(--ink-soft);
+}
+
+.person-main {
+  display: grid;
+  gap: 0.1rem;
+  min-width: 0;
+}
+
+.person-name {
+  overflow-wrap: anywhere;
+}
+
+.changed {
+  color: var(--accent-ink);
+  font-size: var(--text-xs);
+  font-weight: 600;
+}
+
+.status {
+  flex: none;
+  padding: 0.2rem var(--space-2);
+  border-radius: var(--radius-pill);
+  font-size: var(--text-sm);
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.status-unpaid {
+  background: var(--ground-sunk);
+  color: var(--warn);
+}
+
+.status-pending {
+  background: var(--ground-sunk);
+  color: var(--pending-ink);
+}
+
+.status-slip {
+  background: var(--court-soft);
+  color: var(--court-ink);
+}
+
+.status-host {
+  background: var(--court-soft);
+  color: var(--court-ink);
+}
+
+/* ---- waiting slips and duplicates ---- */
+
+.group {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-2);
+}
+
+.slip,
+.dup {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-2);
+  padding: var(--space-2);
+  background: var(--ground);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+}
+
+.dup {
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+}
+
+.who {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.avatar {
+  flex: none;
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: 50%;
+  object-fit: cover;
+  background: var(--ground-sunk);
+}
+
+.who-text,
+.dup-text,
+.link-text {
+  min-width: 0;
+}
+
+.who-name {
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+
+.reason {
+  color: var(--ink);
+  font-weight: 600;
+}
+
+.receiver {
+  display: grid;
+  gap: var(--space-0);
+  justify-items: start;
+  overflow-wrap: anywhere;
+}
+
+.ok {
+  color: var(--court-ink);
+  font-size: var(--text-sm);
+  font-weight: 600;
+}
+
+.warning {
+  margin-top: var(--space-0);
+  padding: var(--space-1) var(--space-2);
+  background: var(--warn-wash);
+  color: var(--warn);
+  border-radius: var(--radius);
+  font-size: var(--text-sm);
+  font-weight: 600;
+}
+
+fieldset.covers {
+  display: grid;
+  gap: var(--space-0);
+  margin: 0;
+  padding: 0;
+  border: none;
+  min-width: 0;
+}
+
+legend {
+  padding: 0;
+  margin-bottom: var(--space-0);
+  color: var(--ink-soft);
+  font-size: var(--text-sm);
+  font-weight: 600;
+}
+
+label.pick {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: var(--tap);
+  margin: 0;
+  padding: 0 var(--space-2);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  color: var(--ink);
+  font-size: var(--text-base);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+label.pick input {
+  flex: none;
+  width: 1.375rem;
+  height: 1.375rem;
+  margin: 0;
+}
+
+.pick-name {
+  flex: 1;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.sender {
+  display: grid;
+  gap: var(--space-0);
+}
+
+.sender label {
+  margin: 0;
+}
+
+.sender select {
+  width: 100%;
+  min-height: var(--tap);
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: var(--space-2);
+}
+
+.actions button {
+  flex: 1 1 6rem;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.covers {
+  min-inline-size: 0;
+}
+
+/* ---- linked accounts ---- */
+
+.links summary {
+  display: flex;
+  align-items: center;
+  min-height: var(--tap);
+  cursor: pointer;
+  font-weight: 700;
+}
+
+.links ul {
+  display: grid;
+  gap: var(--space-1);
+}
+
+.link {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-1) 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.link:last-child {
+  border-bottom: none;
+}
+
+.dialog-body {
+  display: grid;
+  gap: var(--space-3);
+}
+
+.dialog-body p {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.slip-thumbnail { display: grid; gap: var(--space-1); justify-items: start; width: fit-content; max-width: 100%; }
+.slip-thumbnail img { width: 7rem; max-width: 100%; height: 9rem; object-fit: contain; background: var(--ground-sunk); }
+.image-dialog img { display: block; max-width: 100%; max-height: 70dvh; object-fit: contain; margin-bottom: var(--space-2); }
+.reviewed-amount { display: grid; gap: var(--space-1); }
+.reviewed-amount input { min-height: var(--tap); width: 100%; }
+.reviewed-amount .muted { font-size: var(--text-sm); }
+.review-totals { display: grid; gap: var(--space-0); font-weight: 600; }
+
+.retention { font-size: var(--text-sm); }
+
+.refresh-tools { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-1) var(--space-2); }
+.refresh-tools button { min-height: var(--tap); }
+.refresh-tools p { font-size: var(--text-sm); }

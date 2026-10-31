@@ -10,12 +10,13 @@ import { join, resolve } from 'node:path';
  */
 export default function setup(): () => void {
   const directory = mkdtempSync(join(tmpdir(), 'jubbad-vitest-'));
+  process.env.SLIP_IMAGE_DIR = join(directory, 'slip-images');
   process.env.DATABASE_URL = `file:${join(directory, 'test.db')}`;
 
   execFileSync(
     process.execPath,
     [resolve('node_modules/prisma/build/index.js'), 'migrate', 'deploy'],
-    { cwd: process.cwd(), env: process.env, stdio: 'pipe' }
+    { cwd: process.cwd(), env: process.env, stdio: 'pipe' },
   );
 
   return () => rmSync(directory, { recursive: true, force: true });

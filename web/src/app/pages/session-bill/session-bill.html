@@ -9,6 +9,9 @@
   }
   <div class="bill-heading">
     <h1 i18n="@@bill.title">คิดเงิน</h1>
+    @if (bill() && paymentStatusAvailable()) {
+      <button type="button" class="payment-trigger" data-open-payment-status [disabled]="saving()" (click)="paymentStatusOpen.set(true)" i18n="@@slipReview.title">สถานะการชำระเงิน</button>
+    }
     @if (bill() && paymentAvailable()) {
       <button type="button" class="payment-trigger" data-open-payment [disabled]="saving()" (click)="paymentSheetOpen.set(true)" i18n="@@summary.openPaymentCard">เปิดใบเก็บเงิน</button>
     }
@@ -69,11 +72,11 @@
             }
           </p>
         } @else {
-          <p class="warning" i18n="@@bill.sourceMissing">ยังนับลูกแบดไม่ได้ — ใส่จำนวนลูกที่ใช้จริง หรือบันทึกลูกที่ใช้ในแต่ละแมตช์ให้ครบ</p>
+          <p class="warning" i18n="@@bill.sourceMissing">ยังนับลูกแบดไม่ได้ ใส่จำนวนลูกที่ใช้จริง หรือบันทึกลูกที่ใช้ในแต่ละแมตช์ให้ครบ</p>
         }
         <p class="muted" i18n="@@bill.recordedSubtotal">บันทึกในแมตช์: {{ sp.recordedFinishedShuttles }} ลูก</p>
         @if (sp.unknownFinishedMatches > 0) {
-          <p class="muted" i18n="@@bill.recordedPartial">ไม่ครบ — {{ sp.unknownFinishedMatches }} แมตช์ไม่ได้บันทึก</p>
+          <p class="muted" i18n="@@bill.recordedPartial">ไม่ครบ: {{ sp.unknownFinishedMatches }} แมตช์ไม่ได้บันทึก</p>
         }
         @if (sp.difference !== null && sp.difference !== 0) {
           <p class="muted" i18n="@@bill.difference">นับจริงต่างจากที่บันทึก {{ signed(sp.difference) }} ลูก</p>
@@ -95,9 +98,9 @@
               @case ('MISSING_SHUTTLE_PRICE') { <ng-container i18n="@@bill.warnShuttlePrice">ยังไม่ได้ใส่ราคาลูก</ng-container> }
               @case ('MISSING_COURT_FEE') { <ng-container i18n="@@bill.warnCourtFee">ยังไม่ได้ใส่ค่าคอร์ท</ng-container> }
               @case ('UNKNOWN_SHUTTLE_USE') { <ng-container i18n="@@bill.warnUnknownUse">มีแมตช์ที่ไม่ได้บันทึกลูกแบด แก้ในหน้าสรุปรอบก่อน</ng-container> }
-              @case ('EXCESS_CREDIT') { <ng-container i18n="@@bill.warnExcess">ยอดที่เช็คเอาต์ไปแล้วเกินต้นทุน {{ baht(b.result.totals.excessCreditSatang) }}฿ — ต้องคืนเงินเองนอกแอป หรือยกเลิกเช็คเอาต์</ng-container> }
-              @case ('UNCOVERED_COST') { <ng-container i18n="@@bill.warnUncovered">ไม่มีใครเหลือจ่ายส่วนที่ขาด {{ baht(b.result.totals.uncoveredCostSatang) }}฿ — ยกเลิกเช็คเอาต์หรือแก้ข้อมูลก่อน</ng-container> }
-              @case ('UNRETURNED_SURCHARGE') { <ng-container i18n="@@bill.warnSurcharge">ค่า walk-in {{ baht(b.result.totals.unreturnedSurchargeSatang) }}฿ ไม่มีใครรับคืนได้ — ไม่นับเป็นกำไร แก้ก่อนแชร์</ng-container> }
+              @case ('EXCESS_CREDIT') { <ng-container i18n="@@bill.warnExcess">ยอดที่เช็คเอาต์ไปแล้วเกินต้นทุน {{ baht(b.result.totals.excessCreditSatang) }}฿ ต้องคืนเงินเองนอกแอป หรือยกเลิกเช็คเอาต์</ng-container> }
+              @case ('UNCOVERED_COST') { <ng-container i18n="@@bill.warnUncovered">ไม่มีใครเหลือจ่ายส่วนที่ขาด {{ baht(b.result.totals.uncoveredCostSatang) }}฿ ยกเลิกเช็คเอาต์หรือแก้ข้อมูลก่อน</ng-container> }
+              @case ('UNRETURNED_SURCHARGE') { <ng-container i18n="@@bill.warnSurcharge">ค่า walk-in {{ baht(b.result.totals.unreturnedSurchargeSatang) }}฿ ไม่มีใครรับคืนได้ ไม่นับเป็นกำไร แก้ก่อนแชร์</ng-container> }
             }
           </p>
         }
@@ -276,7 +279,7 @@
             <span class="margin" i18n="@@bill.margin">ต้นทุน {{ baht(b.result.totals.costSatang!) }}฿ · ส่วนต่าง {{ baht(b.result.totals.marginSatang) }}฿ (เห็นเฉพาะผู้จัด)</span>
           }
         } @else {
-          <span class="bill-blocked" role="status" i18n="@@bill.notReady">ยังคัดลอกไม่ได้ — ใส่ข้อมูลที่ขาดให้ครบก่อน แล้วจะเห็นยอดของแต่ละคน</span>
+          <span class="bill-blocked" role="status" i18n="@@bill.notReady">ยังคัดลอกไม่ได้ ใส่ข้อมูลที่ขาดให้ครบก่อน แล้วจะเห็นยอดของแต่ละคน</span>
         }
       </div>
       <button type="button" class="primary" [disabled]="!b.readyToCopy" (click)="copy()">
@@ -288,6 +291,7 @@
     @if (clipboardFallback(); as t) {
       <textarea class="clipboard-fallback" readonly [value]="t" i18n-aria-label="@@share.fallbackLabel" aria-label="ข้อความสำหรับคัดลอก"></textarea>
     }
+    <app-payment-status-sheet [open]="paymentStatusOpen()" [sessionCode]="sessionCode" (closed)="paymentStatusOpen.set(false)" />
     <app-payment-sheet
       [sessionCode]="sessionCode"
       [open]="paymentSheetOpen()"
@@ -297,7 +301,8 @@
       (billChanged)="paymentBillChanged($event)"
       (billRefreshRequested)="refreshPaymentBill()"
       (pendingChanged)="paymentMethodPending.set($event)"
-      (closed)="paymentSheetOpen.set(false)"
+      (closed)="paymentSheetOpen.set(false); loadPaymentAvailability()"
+      (sent)="loadPaymentAvailability()"
     />
   } @else if (!loadFailed()) {
     <p class="muted" i18n="@@bill.loading">กำลังโหลด…</p>

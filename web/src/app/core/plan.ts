@@ -95,12 +95,12 @@ export function groupLimitFor(plan: Plan): number {
 
 /** Why a group past the owner's cap cannot start a round. */
 export function groupPausedMessage(limit: number): string {
-  return $localize`:@@plan.groupPaused:ก๊วนนี้พักไว้ — แพ็ก⁠เกจของคุณเปิดรอบได้ ${limit}:limit: ก๊วน (ก๊วนที่เล่นล่าสุด)`;
+  return $localize`:@@plan.groupPaused:ก๊วนนี้พักไว้ แพ็ก⁠เกจของคุณเปิดรอบได้ ${limit}:limit: ก๊วน (ก๊วนที่เล่นล่าสุด)`;
 }
 
 /** Shown on group home and roster entry after a paid plan ran out. */
 export function planLapsedNotice(date: string): string {
-  return $localize`:@@plan.notice.lapsed:แพ็ก⁠เกจหมดเมื่อ ${date}:date: — รอบใหม่ใช้แบบฟรี`;
+  return $localize`:@@plan.notice.lapsed:แพ็ก⁠เกจหมดเมื่อ ${date}:date: รอบใหม่ใช้แบบฟรี`;
 }
 
 /** How long after a lapse the notice keeps showing; after that the locks speak for themselves. */

@@ -920,7 +920,7 @@ describe('SessionDashboard', () => {
       summaryState = () => of({ available: true, sent: false, defaultOn: true, target: 'group', shareUrl: null });
       await settled();
       await openEndDialog();
-      expect(box()?.closest('label')?.textContent).toContain('ส่งสรุปเข้ากลุ่ม LINE');
+      expect(box()?.closest('label')?.textContent?.trim()).toBe('ส่งการ์ดสรุปเข้ากลุ่ม LINE');
     });
 
     it('host target says the card comes to the host, ticked from the saved default', async () => {
@@ -2040,7 +2040,7 @@ describe('SessionDashboard', () => {
     it('says the rules are off, and freezes their switches, in a session created on the free plan', async () => {
       await settled();
       await flushRules([], [rule], false);
-      expect(text()).toContain('กฎไม่ใช้ในรอบนี้ — รอบนี้เริ่มในแพ็ก⁠เกจฟรี');
+      expect(text()).toContain('กฎไม่ใช้ในรอบนี้ รอบนี้เริ่มในแพ็ก⁠เกจฟรี');
       expect(text()).toContain('ตั้ม · เบส');
       expect(ruleToggle().disabled).toBe(true);
     });

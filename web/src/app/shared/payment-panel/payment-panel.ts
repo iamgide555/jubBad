@@ -11,6 +11,7 @@ import {
   output,
   signal,
   untracked,
+  viewChild,
 } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
@@ -73,8 +74,10 @@ const PRIMARY = '[data-send], [data-dm-send], [data-confirm]';
  * One primary action per state: fill in what is missing (sheet only), Confirm (which also locks the account),
  * or Send for the target once confirmed and current. The account fields stay folded into the preview while they
  * are the group default or the confirmed account; "แก้บัญชีคืนนี้" opens them. In the sheet the actions sit in a
- * sticky bottom bar. Focus never drops out of a dialog: busy buttons are `aria-disabled` (a guard refuses the
- * tap) rather than `disabled`, and when a state change removes the focused button focus moves to the next one.
+ * sticky bottom bar, with the outcome of the last tap (and the live status) directly above the button, so it
+ * is never hidden under the bar. Focus never drops out of a dialog: busy buttons are `aria-disabled` (a guard
+ * refuses the tap) rather than `disabled`, and when a state change removes the focused button focus moves to the
+ * next one.
  *
  * Send keeps the `sendId` of an attempt with no definite answer (a `failed` outcome, or no answer at all)
  * and reuses it on the next tap, so a card LINE took while the answer was lost is not posted twice; any
@@ -109,6 +112,7 @@ export class PaymentPanel {
   private readonly drafts = inject(PaymentDraftService);
   private readonly cdr = inject(ChangeDetectorRef);
   private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
+  private readonly bankField = viewChild(BankField);
   private destroyed = false;
 
   protected readonly data = signal<PaymentCardPanel | null>(null);
@@ -321,9 +325,13 @@ export class PaymentPanel {
     const errors = this.accountErrors();
     this.fieldErrors.set(errors);
     if (Object.keys(errors).length > 0) {
-      this.error.set(this.complete() ? Object.values(errors)[0]! : this.incompleteText());
+      // Each field names its own problem; beside Confirm only a pointer to them, never the same words again.
+      this.error.set($localize`:@@pay.card.checkFields:ตรวจช่องที่ทำเครื่องหมาย`);
       this.cdr.detectChanges();
-      this.host.nativeElement.querySelector<HTMLInputElement>('input[aria-invalid="true"]')?.focus();
+      const first = this.host.nativeElement.querySelector<HTMLInputElement>('input[aria-invalid="true"]');
+      // The bank list is not opened by this focus: it would cover the error under the field.
+      if (first?.closest('app-bank-field')) this.bankField()?.focusWithoutOpening();
+      else first?.focus();
       return;
     }
     this.operation.set('confirm');
@@ -446,7 +454,21 @@ export class PaymentPanel {
       this.busy.set(false);
       // A re-read can replace Send with Confirm, or remove all actions when the card is unavailable.
       this.refocus(PRIMARY);
+      this.revealStatus();
     }
+  }
+
+  /**
+   * On the bill screen the outcome sits in the page flow above the button, so bring it into view: a failure's
+   * alert first (the live region may also hold a "confirm again" line then), else the live status. In the
+   * sheet it is already on screen, in the sticky bar.
+   */
+  private revealStatus(): void {
+    if (this.destroyed || this.compact()) return;
+    const root = this.host.nativeElement;
+    const said = (el: HTMLElement | null) => (el?.textContent?.trim() ? el : null);
+    const alert = [...root.querySelectorAll<HTMLElement>('[data-dock] [role="alert"]')].find((el) => said(el));
+    (alert ?? said(root.querySelector<HTMLElement>('[data-live]')))?.scrollIntoView?.({ block: 'nearest' });
   }
 
   protected outcomeText(outcome: PaymentSendOutcome): string {
@@ -521,6 +543,8 @@ export class PaymentPanel {
    */
   private confirmError(code: unknown): string | null {
     switch (code) {
+      case 'COLLECTION_CLOSED':
+        return $localize`:@@bill.collectionClosed:ปิดการเก็บเงินแล้ว แก้ไขบิลไม่ได้`;
       case 'PAY_ACCOUNT_INVALID':
         return $localize`:@@pay.account.invalid:ตรวจบัญชีรับเงินอีกครั้ง ต้องกรอกครบทั้งสามช่อง และเลขบัญชีเป็นตัวเลข 6 หลักขึ้นไป`;
       case 'PAYMENT_CHANGED':

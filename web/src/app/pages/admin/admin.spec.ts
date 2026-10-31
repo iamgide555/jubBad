@@ -104,7 +104,7 @@ describe('Admin plan control', () => {
     ]);
     expect(row('u1').querySelector('[data-plan-label]')!.textContent).toContain('ฟรี');
     expect(row('u1').querySelector('[data-plan-lapsed]')!.textContent).toContain(
-      'หมดเมื่อ 31/01/2026 — ใช้แบบฟรีอยู่'
+      'หมดเมื่อ 31/01/2026 ใช้แบบฟรีอยู่'
     );
     // The date is in the lapsed line, not repeated as a "ถึง" line under it.
     expect(row('u1').querySelector('[data-plan-until]')).toBeNull();

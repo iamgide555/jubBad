@@ -157,5 +157,14 @@ describe('LineService', () => {
     expect(req.request.urlWithParams).toContain('token=a%2Bb/c');
     req.flush(body);
     expect(got).toEqual(body);
+  });  it('acknowledges a completed payment share with card token and LINE identity', () => {
+    service.paymentShareSent('S 1','T+X','ACCESS').subscribe();
+    const req = httpMock.expectOne((r) => r.url === `${B}/sessions/S%201/payment-share-card/sent`);
+    expect(req.request.method).toBe('POST');
+    expect(req.request.params.get('token')).toBe('T+X');
+    expect(req.request.headers.get('X-Line-Access-Token')).toBe('ACCESS');
+    expect(req.request.body).toEqual({});
+    req.flush({ok:true});
   });
+
 });

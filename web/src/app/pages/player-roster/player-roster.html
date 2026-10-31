@@ -27,7 +27,7 @@
     }
     @if (isEmpty()) {
       <!-- Nothing here to set rules or levels on yet: the only useful step is the first session. -->
-      <p class="muted" data-empty i18n="@@playerRoster.empty">ยังไม่มีผู้เล่นในก๊วนนี้ — ผู้เล่นจะเข้ามาเมื่อเริ่มรอบ วางรายชื่อจาก LINE หรือเพิ่มรายชื่อเอง</p>
+      <p class="muted" data-empty i18n="@@playerRoster.empty">ยังไม่มีผู้เล่นในก๊วนนี้ ผู้เล่นจะเข้ามาเมื่อเริ่มรอบ วางรายชื่อจาก LINE หรือเพิ่มรายชื่อเอง</p>
       <p><a class="empty-start" [routerLink]="['/g', groupCode, 'start']" data-empty-start i18n="@@playerRoster.emptyStartFirst">เริ่มรอบแรก →</a></p>
     } @else {
       <details class="pair-rules" [open]="rulesOpen()" (toggle)="rulesOpen.set($any($event.target).open)">

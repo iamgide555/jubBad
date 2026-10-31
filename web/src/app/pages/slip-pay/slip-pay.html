@@ -1,0 +1,155 @@
+<main class="page slip">
+  @switch (phase()) {
+    @case ('loading') {
+      <p class="muted" role="status" data-slip-loading i18n="@@slipPay.loading">กำลังโหลด…</p>
+    }
+    @case ('login') {
+      <p class="muted" role="status" data-slip-login i18n="@@slipPay.login">กำลังไปหน้าเข้าสู่ระบบ LINE</p>
+    }
+    @case ('unavailable') {
+      <h1 data-slip-unavailable i18n="@@slipPay.unavailable">ลิงก์นี้ใช้ไม่ได้แล้ว</h1>
+    }
+    @case ('error') {
+      <p class="error" role="alert" data-slip-error i18n="@@slipPay.error">เปิดหน้านี้ไม่สำเร็จ ลองอีกครั้ง</p>
+      <button type="button" class="slip-btn" data-slip-retry (click)="load()" i18n="@@entry.retry">ลองอีกครั้ง</button>
+    }
+    @default {
+      @if (view(); as v) {
+        @switch (screen()) {
+          @case ('closed') {
+            <section class="result" data-slip-closed><h1 i18n="@@payments.closed">เก็บเงินครบแล้ว</h1></section>
+          }
+          @case ('result') {
+            <section class="result" [attr.data-slip-result]="result()">
+              @if (result() === 'paid') {
+                <p class="mark" aria-hidden="true">✅</p>
+                <h1 i18n="@@slipPay.received">รับสลิปแล้ว</h1>
+                @if (v.amountSatang !== null) {
+                  <p class="amount-small tabular">฿{{ baht(v.amountSatang) }}</p>
+                }
+              } @else {
+                <h1 i18n="@@slipPay.sentToHost">ส่งให้โฮสต์ตรวจแล้ว</h1>
+                <p class="muted" i18n="@@slipPay.hostWillCheck">โฮสต์จะตรวจและติ๊กให้</p>
+              }
+            </section>
+          }
+          @case ('paid') {
+            <section class="result" data-slip-already-paid>
+              <p class="mark" aria-hidden="true">✅</p>
+              <h1 i18n="@@slipPay.paid">จ่ายแล้ว</h1>
+              <p class="amount-small tabular">฿{{ baht(v.amountSatang!) }}</p>
+              @if (v.playerName) {
+                <p class="muted">{{ v.playerName }}</p>
+              }
+            </section>
+          }
+          @case ('claim') {
+            <section>
+              <h1 i18n="@@slipPay.whoAreYou">คุณคือใคร?</h1>
+              <p class="muted" i18n="@@slipPay.pickName">เลือกชื่อของคุณ (ครั้งเดียว)</p>
+              @if (claimNote(); as note) {
+                <p class="error" role="alert" data-slip-claim-note>
+                  @switch (note) {
+                    @case ('taken') {
+                      <ng-container i18n="@@slipPay.claim.taken">ชื่อนี้มีคนเลือกไปแล้ว เลือกชื่ออื่น</ng-container>
+                    }
+                    @case ('accountLinked') {
+                      <ng-container i18n="@@slipPay.claim.accountLinked">บัญชี LINE นี้เลือกชื่อไว้แล้ว</ng-container>
+                    }
+                    @case ('notOnBill') {
+                      <ng-container i18n="@@slipPay.claim.notOnBill">ชื่อนี้ไม่อยู่ในบิลแล้ว</ng-container>
+                    }
+                    @case ('rate') {
+                      <ng-container i18n="@@slipPay.err.rate">ส่งบ่อยเกินไป ลองใหม่ภายหลัง</ng-container>
+                    }
+                    @default {
+                      <ng-container i18n="@@slipPay.err.generic">ส่งไม่สำเร็จ ลองใหม่อีกครั้ง</ng-container>
+                    }
+                  }
+                </p>
+              }
+              <ul class="claim-list">
+                @for (p of v.claimable; track p.playerId) {
+                  <li>
+                    <button type="button" class="claim-btn" data-slip-claim [disabled]="claiming()" (click)="claim(p)">{{ p.name }}</button>
+                  </li>
+                }
+              </ul>
+              <button type="button" class="text-btn" data-slip-skip (click)="skip()" i18n="@@slipPay.skip">ข้าม — ฉันจ่ายแทนคนอื่น</button>
+            </section>
+          }
+          @default {
+            <section>
+              @if (v.amountSatang !== null) {
+                <div class="hero">
+                  @if (v.sessionDate) {
+                    <p class="eyebrow" data-slip-session-date i18n="@@slipPay.sessionDate">บิลวันที่ {{ v.sessionDate }}</p>
+                  }
+                  <p class="eyebrow" i18n="@@slipPay.amountLabel">ยอดที่ต้องจ่าย</p>
+                  <h1 class="amount tabular" data-slip-amount>฿{{ baht(v.amountSatang) }}</h1>
+                  @if (v.playerName) {
+                    <p class="player-name">{{ v.playerName }}</p>
+                  }
+                </div>
+              } @else {
+                @if (v.sessionDate) {
+                  <p class="eyebrow" data-slip-session-date i18n="@@slipPay.sessionDate">บิลวันที่ {{ v.sessionDate }}</p>
+                }
+                <h1 i18n="@@slipPay.send">ส่งสลิป</h1>
+              }
+
+              <div class="account">
+                <p class="eyebrow" i18n="@@slipPay.transferTo">โอนเข้า</p>
+                <p class="account-name">{{ v.accountName }}</p>
+              </div>
+
+              @if (notice(); as n) {
+                <p class="error" role="alert" data-slip-notice>
+                  @switch (n) {
+                    @case ('duplicate') {
+                      <ng-container i18n="@@slipPay.dup">สลิปนี้ถูกใช้ไปแล้ว</ng-container>
+                    }
+                    @case ('notSlip') {
+                      <ng-container i18n="@@slipPay.notSlip">ไม่พบสลิปในรูปนี้ ลองเลือกรูปสลิปอีกครั้ง</ng-container>
+                    }
+                    @case ('rate') {
+                      <ng-container i18n="@@slipPay.err.rate">ส่งบ่อยเกินไป ลองใหม่ภายหลัง</ng-container>
+                    }
+                    @case ('tooBig') {
+                      <ng-container i18n="@@slipPay.err.tooBig">รูปใหญ่เกินไป เลือกรูปที่เล็กกว่านี้</ng-container>
+                    }
+                    @default {
+                      <ng-container i18n="@@slipPay.err.generic">ส่งไม่สำเร็จ ลองใหม่อีกครั้ง</ng-container>
+                    }
+                  }
+                </p>
+              }
+
+              <input #file type="file" accept="image/*" hidden (change)="picked($event)" />
+              <button
+                type="button"
+                class="slip-btn"
+                data-slip-send
+                [disabled]="uploading()"
+                [attr.aria-busy]="uploading()"
+                (click)="file.click()"
+              >
+                @if (uploading()) {
+                  <ng-container i18n="@@slipPay.sending">กำลังส่ง…</ng-container>
+                } @else {
+                  <ng-container i18n="@@slipPay.send">ส่งสลิป</ng-container>
+                }
+              </button>
+
+              @if (cashNote()) {
+                <p class="note" role="status" data-slip-cash-note i18n="@@slipPay.cashNote">บอกโฮสต์ให้ติ๊กให้ในแอปนะ</p>
+              } @else {
+                <button type="button" class="text-btn" data-slip-cash (click)="showCashNote()" i18n="@@slipPay.cash">ฉันจ่ายเงินสดแล้ว</button>
+              }
+            </section>
+          }
+        }
+      }
+    }
+  }
+</main>

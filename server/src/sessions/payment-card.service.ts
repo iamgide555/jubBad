@@ -4,7 +4,7 @@ import { LineClient } from '../line/line-client.js';
 import { lineConfig } from '../line/line-config.js';
 import { cardTexts, clip, TEXT_MAX } from '../line/line-summary-card.js';
 import { LineSummaryService, type LineSummaryTarget } from '../line/line-summary.service.js';
-import { liffPayUrl, paymentCardMessages, paymentDmMessages, type PaymentCardInput } from '../line/payment-card.js';
+import { liffPayUrl, liffSlipUrl, liffPaymentStatusUrl, paymentCardMessages, paymentDmMessages, type PaymentCardInput } from '../line/payment-card.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import type { BillWarning } from '../../../engines/bill.ts';
 import { BillService } from './bill.service.js';
@@ -178,6 +178,8 @@ export class PaymentCardService {
    */
   confirm(code: string, dto: ConfirmPaymentCardDto, now: Date = new Date()): Promise<PaymentPanel> {
     return this.lock.run(code, async () => {
+      const closed = await this.prisma.session.findUnique({where:{code},select:{paymentCollectionClosedAt:true}});
+      if (closed?.paymentCollectionClosedAt) throw new ConflictException({code:'COLLECTION_CLOSED'});
       const checked = validatePayAccount(dto);
       if (!checked.ok) throw new BadRequestException({ code: 'PAY_ACCOUNT_INVALID' });
       const { panel, nothingDue, state, cardInput } = await this.view(code, now);
@@ -218,7 +220,14 @@ export class PaymentCardService {
 
       let outcome: Awaited<ReturnType<LineClient['push']>>;
       try {
-        const messages = paymentCardMessages(cardInput(panel.account), 'group');
+        // The send-slip button rides on the card only when the pay page can work (the LIFF app, and the LINE Login
+        // channel it verifies players against) and the confirmed token exists; it is never part of the content hash
+        // or the retry key, so a missing one just means no button.
+        const { liffId, loginChannelId } = lineConfig();
+        const slipUrl =
+          liffId !== null && loginChannelId !== null && state.token ? liffSlipUrl(liffId, code, state.token) : null;
+        const statusUrl = slipUrl && liffId && state.token ? liffPaymentStatusUrl(liffId, code, state.token) : null;
+        const messages = paymentCardMessages(cardInput(panel.account), 'group', slipUrl, statusUrl);
         outcome = await this.line.push(to, messages, paymentRetryKey(code, sendId));
       } catch {
         return 'failed';
@@ -283,7 +292,7 @@ export class PaymentCardService {
    */
   async shareCard(code: string, token: string | undefined, now: Date = new Date()): Promise<PaymentShareCard> {
     // Config first: with the feature off, an anonymous caller must not cost a database lookup.
-    const { liffId, publicAppUrl } = lineConfig();
+    const { liffId, publicAppUrl, loginChannelId } = lineConfig();
     if (liffId === null || publicAppUrl === null || !token) throw new NotFoundException();
     const session = await this.prisma.session.findUnique({
       where: { code },
@@ -300,7 +309,13 @@ export class PaymentCardService {
     const { name, date } = cardTexts(input);
     return {
       liffId,
-      messages: paymentCardMessages(input, 'host'),
+      // `stored` is the confirmed token the caller just matched, so the slip button carries exactly that one. No
+      // button without the LINE Login channel: the pay page could not verify anyone.
+      messages: paymentCardMessages(
+        input, 'host',
+        loginChannelId === null ? null : liffSlipUrl(liffId, code, stored),
+        loginChannelId === null ? null : liffPaymentStatusUrl(liffId, code, stored),
+      ),
       preview: {
         name,
         date,
@@ -310,6 +325,30 @@ export class PaymentCardService {
         accountName: clip(panel.account.name, TEXT_MAX),
       },
     };
+  }
+
+  /** A successful LINE share-picker callback, never a page-open or host-DM receipt. */
+  async recordShare(code: string, token: string | undefined, now: Date = new Date()): Promise<void> {
+    return this.lock.run(code, async () => {
+      await this.shareCard(code, token, now);
+      const session = await this.prisma.session.findUniqueOrThrow({where:{code},select:{paymentCard:true}});
+      const state = parsePaymentState(session.paymentCard);
+      // Retrying the acknowledgement must not pretend another card was sent.
+      if (state.lastSentAt !== null) return;
+      await this.prisma.session.update({where:{code},data:{paymentCard:serializePaymentState({...state,lastSentAt:now.toISOString()})}});
+    });
+  }
+
+  /**
+   * True only when the session's confirmed card holds exactly this token. A missing or empty token, an unknown
+   * session and an unconfirmed card are all just false: callers decide what a refusal looks like.
+   */
+  async tokenValid(code: string, token: string | undefined): Promise<boolean> {
+    if (!token) return false;
+    const session = await this.prisma.session.findUnique({ where: { code }, select: { paymentCard: true } });
+    if (!session) return false;
+    const stored = parsePaymentState(session.paymentCard).token;
+    return stored !== null && sameToken(token, stored);
   }
 
   /** One getBill, one destination read: the panel, the bot send and the share read all start here. */

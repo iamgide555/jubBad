@@ -179,6 +179,7 @@ export class BillService {
   private async setBillConfigExclusively(code: string, dto: SetBillConfigDto): Promise<BillResponse> {
     const session = await this.prisma.session.findUnique({ where: { code }, include: { roster: { select: { playerId: true } } } });
     if (!session) throw new NotFoundException({ code: 'SESSION_NOT_FOUND' });
+    if (session.paymentCollectionClosedAt) throw new ConflictException({ code: 'COLLECTION_CLOSED' });
     // perShuttle is an advanced-session model: refused on an ordinary session
     // whatever the group's switch says today (the session's snapshot decides).
     if (dto.model === 'perShuttle' && !session.shuttleToolsEnabled) {

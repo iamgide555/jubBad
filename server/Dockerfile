@@ -15,6 +15,8 @@ ENV NODE_ENV=production
 COPY --from=build /repo/server/node_modules ./node_modules
 COPY --from=build /repo/server/dist ./dist
 COPY --from=build /repo/server/prisma ./prisma
+# OCR language data for slip reading; slip-ocr.ts resolves it from /app/assets.
+COPY --from=build /repo/server/assets ./assets
 COPY --from=build /repo/server/package.json ./package.json
 COPY --from=build /repo/server/prisma7.config.ts ./prisma7.config.ts
 # The backup has to run where the database is. Shipping the scripts into the

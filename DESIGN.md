@@ -19,6 +19,7 @@ colors:
   accent-ink: "#bd3414"
   warn: "#b0201a"
   warn-wash: "#fdecea"
+  pending-ink: "#885600"
   on-fill: "#ffffff"
   waiting: "#a49b8c"
   gold: "#b3801f"
@@ -102,7 +103,7 @@ The system ships two themes (light and dark, auto via `prefers-color-scheme` or 
 - One lightness family for ground and surface in both themes (`--ground`/`--surface`); depth comes from `--shadow-xs/sm/md/lg` and a colored ring, not a ground/surface color jump.
 - A structural green (`--court`) carries the primary action, the "live" state, and ordinary navigation on purpose — all three are "the good, expected path." A reserved shuttle-orange (`--accent`) means "the host must act on this court right now" and nothing else.
 - Real rounding throughout (`--radius` 12px controls, `--radius-lg` 22px cards/panels/dialogs, `--radius-pill` capsules) — equipment and courts, not cut paper.
-- One inline feather-arc SVG symbol, reused as the app mark, the `.feather-arc.spin` loading indicator, and — extruded from the same bezier paths into a beveled 3D emblem via three.js — the hero object on five routes (never on session-dashboard/court-panel, for battery/thermal reasons on a long one-handed session). Three earlier passes tried sculpting an actual shuttlecock from primitive geometry and each one read as some other object instead (a spiky cone, a woven basket, a lampshade); giving the app's own proven 2D mark literal depth removed that risk entirely rather than solving it.
+- One inline feather-arc SVG symbol, reused as the app mark, the `.feather-arc.spin` loading indicator, and — extruded from the same bezier paths into a beveled 3D emblem via three.js — the hero object on the login screen only (never on session-dashboard/court-panel, for battery/thermal reasons on a long one-handed session). Three earlier passes tried sculpting an actual shuttlecock from primitive geometry and each one read as some other object instead (a spiky cone, a woven basket, a lampshade); giving the app's own proven 2D mark literal depth removed that risk entirely rather than solving it.
 - A shared CSS motion vocabulary (`--ease-out`, `--ease-spring`, `--duration-fast/base/slow`) plus a small set of Angular motion directives (`appPress` spring bounce, `appReveal` CSS-only stagger-in, `appFlipList` FLIP reorder) — deliberately CSS/timeline-driven rather than per-frame JS state writes, after an earlier JS-tween version intermittently raced test infrastructure.
 
 ## Colors
@@ -116,6 +117,7 @@ Two hues do the app's signalling — green for "expected/good," orange for "need
 - **Shuttle Orange** (`#ff5a36`, `--accent`; hover/darker `#e14a28`, `--accent-dark`; wash `#ffe9e2`, `--accent-soft`): reserved for "the host must act on this court right now" — the pending court-panel ring and pulse, `.status-dot.pending`, a real password-reset match. Never the primary action, never a link. A darkened text variant (`#bd3414`, `--accent-ink`) exists specifically because the base `--accent` clears only 4.49:1 on white — just under the 4.5:1 floor — so any body-text use (a matched-review tag, an admin badge, a "reset link sent" line) gets `--accent-ink` instead, dark enough to also clear 4.5:1 against `--accent-soft`'s own background.
 
 ### Tertiary
+- **Payment Pending Amber** (`--pending-ink`; dark theme `#f5c065`): text for payment slips awaiting host review; the light-theme value is defined in the frontmatter. This is a payment-status semantic, distinct from the court-panel action signal.
 - **Gold** (`#b3801f` light / `#e3b155` dark, `--gold`): a winner's stat or top-of-leaderboard mark only — never a status color, never interactive.
 
 ### Neutral
@@ -130,6 +132,8 @@ Two hues do the app's signalling — green for "expected/good," orange for "need
 **The One Ground Rule.** Ground and surface sit in the same lightness family in both themes; a card reads as "the same light, slightly raised," never a second material. Depth is elevation's job (`--shadow-*`) and a colored ring, not a color-family jump — the retired system's two-ground/two-ink split (dark board vs. light paper) is gone because this world no longer has two materials to ink for. `--ink-on-paper`/`--ink-on-paper-soft`/`--ink-on-court`/`--ink-on-court-soft` still exist as CSS custom properties (plain aliases of `--ink`/`--ink-soft`) purely so pre-existing component CSS that rescopes them keeps working; they carry no independent value and should not be treated as a live two-ground system in new work.
 
 **The One Orange Rule.** `--accent` means "the host must act on this court right now" and only that — never the primary/confirm action (`--court`) and never ordinary navigation (`--court-ink`). Diluting it into a general highlight removes the one signal the host actually needs at a glance.
+
+**The Payment Status Rule.** Payment status uses **unpaid** red (`--warn`), **pending review** amber (`--pending-ink`), and **paid** green (`--court-ink`). Always show a text label alongside the color. Pending review still counts as unpaid until the host confirms it. Court-panel pending rings and action signals continue to use shuttle orange (`--accent`).
 
 **The On-Fill Rule.** Text on a filled brand colour (`--court`, `--warn`, `--accent`) uses `--on-fill`, never a literal white: white in light theme, the dark ground (`#0e1310`) in dark theme, because white on the dark theme's bright green (`#3fd07a`) is 2.0:1 and the dark ground clears 4.5:1 on all three fills. A known gap: white on the light theme's `--accent` is 3.10:1, below 4.5:1, tracked by the `it.todo` in `web/src/styles.contrast.spec.ts` and affecting the selected level chip.
 
@@ -187,13 +191,13 @@ Real rounding, the deliberate opposite of the retired 2px-corner system: this is
 ### Cards / Containers (Court Panel / Notice Block / Dialogs)
 - **Corner Style:** 22px radius (`--radius-lg`).
 - **Background:** `--surface`, flat white/raised-dark — no tilt, no tape, no torn-paper detail.
-- **Shadow Strategy:** base elevation shadow at rest; a colored ring (see Elevation) added for pending/active state.
+- **Shadow Strategy:** base elevation shadow at rest; a colored ring (see Elevation) added for pending/active state, with the panel itself washed in `--accent-soft` (pending) or `--court-soft` (active) so state reads at arm's length, not just at the edge. The court number turns court green only while live; idle and pending keep it ink.
 - **Border:** none — elevation and the state ring carry the "raised object" read.
 - **Internal Padding:** `--space-2` `--space-3` `--space-3` (court panel).
 
 ### Inputs / Fields
 - **Style:** `--surface` fill, `--ink` text, 1.5px `--line` border, `--radius` corners, 44px min-height, 16px+ font size (never smaller, to avoid iOS Safari's auto-zoom-on-focus).
-- **Focus:** border shifts to `--accent`; `:focus-visible` adds a 2px `--accent` outline with 2px offset across inputs, buttons, and links alike.
+- **Focus:** border shifts to `--ink`; `:focus-visible` adds a 2px `--ink` outline with 2px offset across inputs, buttons, and links alike. Focus is deliberately not orange, so the one orange signal on the dashboard stays unambiguous.
 - **Error:** `.error` text in `--error-ink` (an alias of `--warn`).
 
 ### Navigation
@@ -203,7 +207,7 @@ Real rounding, the deliberate opposite of the retired 2px-corner system: this is
 A segmented switch of two or three pills sharing one pill-shaped track (`--radius-pill`), the active segment filled `--surface` with a `--shadow-xs` lift. Two for per-court format and stats scope; three for the session pairing mode (variety/balanced/custom). Capped to content width (`max-width: 28rem` or `flex: 0 0 auto` per instance) rather than stretching edge-to-edge, so the toggle never reads as a banner. The court panel's own instance shrinks further to sit between the court number and the status dot.
 
 ### Feather-Arc Mark — signature component
-One inline SVG symbol (four tapered arcs fanning from a shared base, plus a stem) reused at every scale: the app-shell mark (16–20px), `.feather-arc.spin` as the loading indicator (`@keyframes feather-spin`, 1.1s linear), and — as a 3D emblem — the hero object mounted via `<app-scene-host variant="hero"|"ambient">`. The 3D version (`core/three/feather-scene.ts`) is not a separate sculpted object: it extrudes the icon's own cubic-bezier paths (the exact coordinates from `shared/icon/icon.ts`'s `feather` case) into beveled solid geometry via three.js's `ExtrudeGeometry`, so the hero is guaranteed to read as the same mark shown everywhere else in the app rather than as its own, independently-judged 3D model. The hero variant appears on login, landing, session-summary, and player-profile; the ambient variant appears only on session-display (pinned dark, non-transparent, drifting far back so it never competes with the court data in front of it). It is deliberately never mounted on session-dashboard or court-panel, to keep WebGL off the screen used for hours, one-handed, courtside. Falls back to a flat feather-mark poster — never a fabricated "photo" of the scene — under reduced-motion, ≤4 cores, data-saver, WebGL failure, or off-screen.
+One inline SVG symbol (four tapered arcs fanning from a shared base, plus a stem) reused at every scale: the app-shell mark (16–20px), `.feather-arc.spin` as the loading indicator (`@keyframes feather-spin`, 1.1s linear), and — as a 3D emblem — the hero object mounted via `<app-scene-host variant="hero"|"ambient">`. The 3D version (`core/three/feather-scene.ts`) is not a separate sculpted object: it extrudes the icon's own cubic-bezier paths (the exact coordinates from `shared/icon/icon.ts`'s `feather` case) into beveled solid geometry via three.js's `ExtrudeGeometry`, so the hero is guaranteed to read as the same mark shown everywhere else in the app rather than as its own, independently-judged 3D model. The hero variant appears on login only — it was removed from landing, session-summary, and player-profile because a floating 3D object above a working list or a data table read as decoration and pushed the content down; the ambient variant appears only on session-display (pinned dark, non-transparent, drifting far back so it never competes with the court data in front of it). It is deliberately never mounted on session-dashboard or court-panel, to keep WebGL off the screen used for hours, one-handed, courtside. Falls back to a flat feather-mark poster — never a fabricated "photo" of the scene — under reduced-motion, ≤4 cores, data-saver, WebGL failure, or off-screen.
 
 **Named Rule — Extrude, Don't Sculpt.** A 3D hero object drawn from scratch (a shuttlecock built from primitive cones, blades, or a lathed skirt) carries real risk of reading as the wrong thing entirely — three independent attempts here produced a spiky cone, a woven basket, and a lampshade before this one shipped. Extruding a shape that already works in 2D removes that risk rather than iterating through it: there is no "does this read as intended" question left once the 3D object is provably the same silhouette as the 2D mark it's based on. Any future 3D hero on this app should extrude an existing, approved 2D asset before it tries to sculpt something new.
 

@@ -155,6 +155,18 @@ describe('auth boundary', () => {
       // The same for the payment card's LIFF read: @Public, a 404 unless the right token is given.
       // payment-card.public.spec.ts pins that it answers a caller with no cookie.
       if (path === '/sessions/:code/payment-share-card') continue;
+        // LINE picker receipt: verified LINE identity plus current card token, no payment writes.
+        if (path === '/sessions/:code/payment-share-card/sent') continue;
+      // The pay page's three routes are @Public: no JubBad cookie, they authenticate a LINE viewer (LIFF access token
+      // checked with LINE) plus the confirm's pay token, and answer every failure with the same 404.
+      // slip-pay.controller.spec.ts pins that they answer a caller with no cookie.
+      if (path === '/sessions/:code/slip-pay') continue;
+      // Read-only collector list, verified LINE identity and card token.
+      if (path === '/sessions/:code/slip-pay/status') continue;
+      if (path === '/sessions/:code/slip-pay/claim') continue;
+      if (path === '/sessions/:code/slip-pay/upload') continue;
+      // Also @Public: the LIFF id for the pay page's liff.init, before it has a LINE identity; gated by the pay token alone.
+      if (path === '/sessions/:code/slip-pay/config') continue;
 
       // ':code' means a group code under /groups and a session code under
       // /sessions. Substituting the wrong one yields a 404 from a public route,
@@ -371,6 +383,16 @@ describe('auth boundary', () => {
         if (path === '/sessions/:code/line-share-card') continue;
         // @Public: gated by the confirm's token instead of a login (payment-card.public.spec.ts).
         if (path === '/sessions/:code/payment-share-card') continue;
+        // LINE picker receipt: verified LINE identity plus current card token, no payment writes.
+        if (path === '/sessions/:code/payment-share-card/sent') continue;
+        // @Public: gated by a LINE viewer plus the confirm's pay token (slip-pay.controller.spec.ts).
+        if (path === '/sessions/:code/slip-pay') continue;
+        // Read-only collector list: current card token plus verified LINE identity.
+        if (path === '/sessions/:code/slip-pay/status') continue;
+        if (path === '/sessions/:code/slip-pay/claim') continue;
+        if (path === '/sessions/:code/slip-pay/upload') continue;
+        // @Public: gated by the confirm's pay token alone, no LINE viewer (slip-pay-config.spec.ts).
+        if (path === '/sessions/:code/slip-pay/config') continue;
 
         const code = path.startsWith('/sessions') ? ctx.sessionCode : ctx.groupCode;
         const concrete = path

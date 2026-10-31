@@ -5,6 +5,7 @@
 .payment-panel {
   position: relative;
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: var(--space-2);
   padding: var(--space-2);
   margin: var(--space-2) 0;
@@ -286,6 +287,12 @@
   margin-bottom: 0.35rem;
 }
 
+/* A field validation refused: a warn border, kept while focused, beside the error text under it (the text
+   names the problem; the colour is never the only signal). The bank list styles its own input. */
+.field input[aria-invalid='true'] {
+  border-color: var(--warn);
+}
+
 .account .ghost {
   justify-self: start;
 }
@@ -328,23 +335,31 @@
 
 /* ---- Actions: one primary per state ---- */
 
+/* The last tap's outcome, then the next tap. On the bill screen it is just the end of the panel. */
+.dock {
+  display: grid;
+  gap: var(--space-2);
+}
+
+/* In the sheet the dock is a bar pinned to the bottom of the scrolling sheet: the status above the primary,
+   full width, clear of the home indicator, so a send's outcome is never scrolled away under the bar. The
+   sheet sets --sheet-gutter so the bar runs edge to edge. */
+.dock.bar {
+  position: sticky;
+  bottom: 0;
+  z-index: 1;
+  gap: var(--space-1);
+  margin-inline: calc(-1 * var(--sheet-gutter, 0px));
+  padding: var(--space-2) var(--sheet-gutter, 0px) calc(var(--space-2) + env(safe-area-inset-bottom, 0px));
+  background: var(--surface);
+  border-top: 1px solid var(--line);
+}
+
 .actions {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: var(--space-1);
-}
-
-/* In the sheet the primary sits in a bar pinned to the bottom of the scrolling sheet, full width, clear of
-   the home indicator. The sheet sets --sheet-gutter so the bar runs edge to edge. */
-.actions.bar {
-  position: sticky;
-  bottom: 0;
-  z-index: 1;
-  margin-inline: calc(-1 * var(--sheet-gutter, 0px));
-  padding: var(--space-2) var(--sheet-gutter, 0px) calc(var(--space-2) + env(safe-area-inset-bottom, 0px));
-  background: var(--surface);
-  border-top: 1px solid var(--line);
 }
 
 .actions.bar > button,
@@ -406,6 +421,8 @@
   gap: var(--space-1);
   width: fit-content;
   min-height: var(--tap);
+  /* Room for the focus ring, so it never touches the text. */
+  padding-inline: var(--space-0);
   color: var(--court-ink);
   font-size: var(--text-sm);
   font-weight: 600;

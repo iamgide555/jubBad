@@ -89,7 +89,7 @@ with at least one finished game and leave the "ส่งการ์ดสรุ
 - [ ] Tap "เลือกกลุ่มแล้วส่ง": the share picker opens, pick a group, and the card is sent from the
       host's own account. The page shows "ส่งแล้ว" and offers to send elsewhere.
 - [ ] Closing the picker without sending leaves the page as it was, with no error.
-- [ ] iPad / external browser: open the same button (or the "ส่งการ์ดเข้ากลุ่ม LINE" link on the
+- [ ] iPad / external browser: open the same button (or the "ส่งการ์ดสรุปเข้ากลุ่ม LINE" link on the
       summary page). LINE Login appears (email and password, or phone QR), then it returns to the
       page and the picker works. If the browser cannot open the picker, the page says to open it in
       the LINE app.
@@ -111,7 +111,7 @@ with at least one finished game and leave the "ส่งการ์ดสรุ
 - [ ] Paused group (plan lapsed): no card of either kind is sent. The host settings switch is
       hidden for a paused group.
 - [ ] Only one DM per session: once the DM is delivered the summary page offers no resend, so a
-      second card cannot be sent from there; the "ส่งการ์ดเข้ากลุ่ม LINE" link remains.
+      second card cannot be sent from there; the "ส่งการ์ดสรุปเข้ากลุ่ม LINE" link remains.
 
 The LIFF page is served from the Thai (root) build only, so its English strings are never shown to
 LINE users: nginx serves English under `/en/`, and the LIFF endpoint is `<PUBLIC_APP_URL>/line-share`.
@@ -174,6 +174,27 @@ then end it.
       list scrolls (the sticky header is untested in CI), and "ปิด" at the bottom closes it.
 - [ ] The public summary page, the display (`/s/<code>/display`) and the group dashboard
       (`/d/<token>`) show no amount and no account number.
+
+## Slip pay page checks
+
+The same LIFF app also carries the player pay page (slip payment matching, phase 1; design:
+`docs/superpowers/specs/2026-10-30-slip-payment-matching-design.md`). The LIFF endpoint is unchanged
+(`<PUBLIC_APP_URL>/line-share`). The slip link is
+`https://liff.line.me/<LINE_LIFF_ID>/slip/<code>/<token>`; the payment card's ส่งสลิป button opens it.
+
+One-time setup on top of the steps above:
+- In the LINE Login channel's LIFF app, switch the `profile` scope on. Players are asked to consent the
+  first time they open the pay page.
+- Put the LINE Login channel's ID in `server/.env` as `LINE_LOGIN_CHANNEL_ID` and restart the API. The
+  server verifies each player's LINE access token against it; without it the pay page and slip upload
+  answer 404.
+
+What to check on a real phone (iPhone and Android), with a confirmed payment card in a LINE group:
+- [ ] The ส่งสลิป button on the card opens the pay page inside LINE.
+- [ ] First time only: pick your name from the list (the link is saved, so the next visit skips this).
+- [ ] The photo picker opens from the upload button, on both iPhone and Android.
+- [ ] A real slip for the exact amount marks you paid, and the page says so.
+- [ ] Sending the same slip again reads as a duplicate and does not pay twice.
 
 ## 6. If something is wrong
 

@@ -2,6 +2,7 @@ import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { provideRouter } from '@angular/router';
+import { of } from 'rxjs';
 import { PaymentPanel } from './payment-panel';
 import { environment } from '../../../environments/environment';
 import type { PaymentCardPanel, PaymentSendOutcome } from '../../core/payment-card.model';
@@ -20,6 +21,8 @@ class CalculationStub {
   readonly changed = output<BillResponse>();
   readonly changing = output<boolean>();
 }
+import type { SlipHostPanel } from '../../core/slip-host.model';
+import { SlipHostService } from '../../core/slip-host.service';
 
 const URL = `${environment.apiBaseUrl}/sessions/sess1/payment-card`;
 const GROUP_ACCOUNT = { bank: 'กสิกร', number: '123-4-56789-0', name: 'Host Name' };
@@ -52,15 +55,40 @@ function panel(over: Partial<PaymentCardPanel> = {}): PaymentCardPanel {
   };
 }
 
+beforeAll(() => {
+  // jsdom has no modal dialogs; the embedded slip review confirms with one.
+  if (!HTMLDialogElement.prototype.showModal) {
+    HTMLDialogElement.prototype.showModal = function (this: HTMLDialogElement) {
+      this.setAttribute('open', '');
+    };
+  }
+  if (!HTMLDialogElement.prototype.close) {
+    HTMLDialogElement.prototype.close = function (this: HTMLDialogElement) {
+      this.removeAttribute('open');
+      this.dispatchEvent(new Event('close'));
+    };
+  }
+});
+
 describe('PaymentCardPanel', () => {
   let fixture: ComponentFixture<PaymentPanel>;
   let http: HttpTestingController;
+  /** The embedded slip review reads its own routes; its behaviour is covered in slip-review.spec.ts. */
+  let slipPanel: SlipHostPanel;
+  let slipHost: { panel: ReturnType<typeof vi.fn> };
 
   beforeEach(async () => {
     TestBed.overrideComponent(PaymentPanel, { remove: { imports: [PaymentCalculation] }, add: { imports: [CalculationStub] } });
+    slipPanel = { paid: [], waiting: [], duplicates: [], links: [] };
+    slipHost = { panel: vi.fn().mockImplementation(() => of(slipPanel)) };
     await TestBed.configureTestingModule({
       imports: [PaymentPanel],
-      providers: [provideHttpClient(), provideHttpClientTesting(), provideRouter([{ path: '**', children: [] }])],
+      providers: [
+        provideHttpClient(),
+        provideHttpClientTesting(),
+        provideRouter([{ path: '**', children: [] }]),
+        { provide: SlipHostService, useValue: slipHost },
+      ],
     }).compileComponents();
     http = TestBed.inject(HttpTestingController);
   });
@@ -240,6 +268,9 @@ describe('PaymentCardPanel', () => {
     expect(bank.getAttribute('aria-invalid')).toBe('true');
     expect(q(`#${bank.getAttribute('aria-describedby')}`)?.textContent).toContain('กรอกช่องนี้');
     expect(document.activeElement).toBe(bank);
+    // Focus moved by validation, not by the host: the bank list stays shut, so it never covers the error.
+    expect(q('[role="listbox"]')).toBeNull();
+    expect(bank.getAttribute('aria-expanded')).toBe('false');
     await type('[data-field="bank"] input', 'กสิกร');
     expect(bank.hasAttribute('aria-invalid')).toBe(false);
   });
@@ -887,6 +918,14 @@ describe('PaymentCardPanel', () => {
       expect(q('[data-error]')?.textContent).toContain('ตรวจบัญชีรับเงินอีกครั้ง');
     });
 
+    it('explains that a closed collection cannot be reconfirmed', async () => {
+      await open();
+      await click('[data-confirm]');
+      http.expectOne(`${URL}/confirm`).flush({ code: 'COLLECTION_CLOSED' }, { status: 409, statusText: 'Conflict' });
+      await settle();
+      expect(text()).toContain('ปิดการเก็บเงินแล้ว แก้ไขบิลไม่ได้');
+    });
+
     it('changed (409) re-reads the panel before Confirm is usable again, then confirms the new amounts', async () => {
       await open();
       await click('[data-confirm]');
@@ -963,7 +1002,24 @@ describe('PaymentCardPanel', () => {
       await type('[data-field="bank"] input', 'กสิกร');
       await click('[data-confirm]');
       http.expectNone(`${URL}/confirm`);
-      expect(q('[data-error]')?.textContent).toContain('กรอกให้ครบทั้งสามช่อง');
+      // The fields say what is wrong; the line beside Confirm only points at them.
+      expect(q('[data-error]')?.textContent?.trim()).toBe('ตรวจช่องที่ทำเครื่องหมาย');
+      for (const field of ['number', 'name']) {
+        const input = q<HTMLInputElement>(`input[data-field="${field}"]`)!;
+        expect(input.getAttribute('aria-invalid')).toBe('true');
+        expect(q(`#${input.getAttribute('aria-describedby')!.split(' ').pop()}`)?.textContent).toContain('กรอกช่องนี้');
+      }
+    });
+
+    it('a bad number is named once, under its field, not again beside Confirm', async () => {
+      await open();
+      await expandAccount();
+      await type('input[data-field="number"]', '12abc');
+      await click('[data-confirm]');
+      http.expectNone(`${URL}/confirm`);
+      expect(text().split('เลขบัญชีต้องเป็นตัวเลข').length - 1).toBe(1);
+      expect(q('[data-error]')?.textContent?.trim()).toBe('ตรวจช่องที่ทำเครื่องหมาย');
+      expect(q('[data-error]')?.getAttribute('role')).toBe('alert');
     });
   });
 
@@ -1056,6 +1112,106 @@ describe('PaymentCardPanel', () => {
     await send('sent', panel({ confirmed: true, lastSentAt: '2026-10-29T13:05:00.000Z' }));
     expect(q('[aria-live="polite"]')).toBe(live);
     expect(live.textContent).toContain('ส่งแล้ว');
+  });
+
+  describe('status beside the action that caused it', () => {
+    const SHARE = 'https://liff.line.me/1/pay/sess1/tok';
+    const AT = '2026-10-29T13:05:00.000Z';
+    const hhmm = (iso: string) => {
+      const at = new Date(iso);
+      return `${String(at.getHours()).padStart(2, '0')}:${String(at.getMinutes()).padStart(2, '0')}`;
+    };
+    const before = (a: Element, b: Element) => !!(a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING);
+    let scroll: ReturnType<typeof vi.fn>;
+    beforeEach(() => {
+      scroll = vi.fn();
+      Object.defineProperty(Element.prototype, 'scrollIntoView', { value: scroll, configurable: true, writable: true });
+    });
+    afterEach(() => {
+      delete (Element.prototype as { scrollIntoView?: unknown }).scrollIntoView;
+    });
+
+    it('in the sheet, a group send says sent, with its time, inside the bottom bar above Send', async () => {
+      await open(panel({ confirmed: true }), { compact: true });
+      const live = q('[aria-live="polite"]')!;
+      await send('sent', panel({ confirmed: true, lastSentAt: AT }));
+      expect(q('[aria-live="polite"]')).toBe(live);
+      const bar = q('[data-dock]')!;
+      expect(bar.classList.contains('bar')).toBe(true);
+      expect(bar.contains(live)).toBe(true);
+      expect(live.querySelector('[data-outcome]')?.textContent?.trim()).toBe(`ส่งแล้ว ${hhmm(AT)}`);
+      const button = q('[data-send]')!;
+      expect(bar.contains(button)).toBe(true);
+      expect(before(live, button)).toBe(true);
+    });
+
+    it('in the sheet, a DM says where the card went inside the bottom bar above the DM button', async () => {
+      await open(panel({ target: 'host', confirmed: true, shareUrl: SHARE }), { compact: true });
+      const live = q('[aria-live="polite"]')!;
+      await click('[data-dm-send]');
+      http.expectOne(`${URL}/dm`).flush({ outcome: 'sent' });
+      await settle();
+      http.expectOne(URL).flush(panel({ target: 'host', confirmed: true, shareUrl: SHARE, lastDmAt: AT }));
+      await settle();
+      expect(q('[aria-live="polite"]')).toBe(live);
+      const bar = q('[data-dock]')!;
+      expect(bar.classList.contains('bar')).toBe(true);
+      expect(bar.contains(live)).toBe(true);
+      expect(live.querySelector('[data-last-dm]')?.textContent).toContain(`ส่งให้คุณใน LINE แล้ว ${hhmm(AT)}`);
+      expect(before(live, q('[data-dm-send]')!)).toBe(true);
+    });
+
+    it('in the sheet, the confirmed line and a failed send also sit in the bar, above the button', async () => {
+      await open(panel(), { compact: true });
+      await confirm(panel({ confirmed: true }));
+      const bar = q('[data-dock]')!;
+      expect(bar.querySelector('[data-confirmed]')).toBeTruthy();
+      await send('failed');
+      const failed = bar.querySelector('[data-outcome]')!;
+      expect(failed.textContent).toContain('ส่งไม่สำเร็จ');
+      expect(before(failed, q('[data-send]')!)).toBe(true);
+    });
+
+    it('in the sheet, an earlier send time sits in the bar above "send again"', async () => {
+      await open(panel({ confirmed: true, lastSentAt: AT }), { compact: true });
+      const bar = q('[data-dock]')!;
+      expect(bar.querySelector('[data-last-sent]')?.textContent).toContain(`ส่งแล้ว ${hhmm(AT)}`);
+      expect(before(bar.querySelector('[data-last-sent]')!, q('[data-send]')!)).toBe(true);
+    });
+
+    it('the sheet bar never scrolls: the status is already on screen', async () => {
+      await open(panel({ confirmed: true }), { compact: true });
+      await send('sent', panel({ confirmed: true, lastSentAt: AT }));
+      expect(scroll.mock.contexts).not.toContain(q('[aria-live="polite"]'));
+    });
+
+    it('on the bill screen there is no bar, and the status is scrolled into view after a send', async () => {
+      await open(panel({ confirmed: true }));
+      expect(q('[data-dock]')?.classList.contains('bar')).toBe(false);
+      await send('sent', panel({ confirmed: true, lastSentAt: AT }));
+      const live = q('[aria-live="polite"]')!;
+      expect(live.textContent).toContain('ส่งแล้ว');
+      expect(scroll).toHaveBeenCalledWith({ block: 'nearest' });
+      expect(scroll.mock.contexts).toContain(live);
+    });
+
+    it('on the bill screen a failed send scrolls its alert into view, not the live region', async () => {
+      await open(panel({ confirmed: true, stale: false }));
+      await send('failed', panel({ confirmed: true, stale: true }));
+      const alert = q('[data-dock] [role="alert"][data-outcome]')!;
+      expect(alert.textContent).toContain('ส่งไม่สำเร็จ');
+      // The live region has text too here (the card moved on), but the failure is what the host must see.
+      expect(q('[aria-live="polite"]')!.textContent?.trim()).not.toBe('');
+      expect(scroll.mock.contexts).toContain(alert);
+      expect(scroll.mock.contexts).not.toContain(q('[aria-live="polite"]'));
+    });
+
+    it('in the sheet, the dock is not a bar when there is nothing to tap', async () => {
+      await open(panel({ ended: false }), { compact: true });
+      expect(q('[data-actions]')).toBeNull();
+      expect(q('[data-dock]')?.classList.contains('bar')).toBe(false);
+      expect(q('[data-dock] [aria-live="polite"]')).toBeTruthy();
+    });
   });
 
   describe('sequencing', () => {
@@ -1339,9 +1495,11 @@ describe('PaymentCardPanel', () => {
     it('sits in a sticky bottom bar in the sheet only', async () => {
       await open(panel(), { compact: true });
       expect(q('[data-actions]')?.classList.contains('bar')).toBe(true);
+      expect(q('[data-dock]')?.classList.contains('bar')).toBe(true);
       fixture.destroy();
       await open(panel());
       expect(q('[data-actions]')?.classList.contains('bar')).toBe(false);
+      expect(q('[data-dock]')?.classList.contains('bar')).toBe(false);
     });
 
     it('has no action row when there is nothing to do', async () => {
@@ -1469,6 +1627,13 @@ describe('PaymentCardPanel', () => {
       http.expectOne(URL).flush(panel({ confirmed: true, lastSentAt: '2026-10-29T13:06:00.000Z' }));
       await settle();
       expect(document.activeElement).toBe(q('[data-send]'));
+    });
+  });
+  describe('invoice focus', () => {
+    it('keeps host review out of the invoice even for a confirmed sent card', async () => {
+      await open(panel({ confirmed: true, lastSentAt: '2026-10-29T13:05:00.000Z' }));
+      expect(q('app-slip-review')).toBeNull();
+      expect(slipHost.panel).not.toHaveBeenCalled();
     });
   });
 });

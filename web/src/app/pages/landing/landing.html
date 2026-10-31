@@ -1,7 +1,4 @@
 <div class="page landing">
-  <div class="landing-hero" aria-hidden="true">
-    <app-scene-host variant="hero" />
-  </div>
   <div class="home-head">
     <h1 i18n="@@home.title">ก๊วนของฉัน</h1>
     <div class="home-head-actions">
@@ -24,7 +21,7 @@
           }
         </ul>
       } @else {
-        <p class="empty muted" i18n="@@home.empty">ยังไม่มีก๊วน — สร้างก๊วนแรกได้เลย</p>
+        <p class="empty muted" i18n="@@home.empty">ยังไม่มีก๊วน สร้างก๊วนแรกได้เลย</p>
       }
 
       @if (otherCount() > 0) {
@@ -35,7 +32,7 @@
           (click)="toggleOthers()"
         >
           <span i18n="@@home.othersToggle">ก๊วนของผู้ใช้อื่น</span> ({{ otherCount() }})
-          <span aria-hidden="true">{{ othersOpen() ? '▴' : '▾' }}</span>
+          <span class="others-chevron" [class.open]="othersOpen()" aria-hidden="true"><app-icon name="chevron" [size]="16" /></span>
         </button>
         @if (othersOpen()) {
           @for (owner of otherGroups(); track owner.ownerEmail) {
@@ -56,7 +53,7 @@
         }
       }
     } @else {
-      <p class="empty muted" i18n="@@home.empty">ยังไม่มีก๊วน — สร้างก๊วนแรกได้เลย</p>
+      <p class="empty muted" i18n="@@home.empty">ยังไม่มีก๊วน สร้างก๊วนแรกได้เลย</p>
     }
   }
 
@@ -95,7 +92,7 @@
       @if (removable && !group.paused) {
         <!-- The weekly job: paste this week's LINE message. One tap from the list
              instead of list, group, เริ่มรอบใหม่, then paste. Own groups only. -->
-        <a class="ghost-link" data-start-link [routerLink]="['/g', group.code, 'start']" i18n="@@home.startSession">เริ่มรอบ</a>
+        <a class="start-link" data-start-link [routerLink]="['/g', group.code, 'start']" i18n="@@home.startSession">เริ่มรอบ</a>
       }
       @if (group.lastSessionCode) {
         <a class="ghost-link" [routerLink]="['/s', group.lastSessionCode]" i18n="@@home.continue">ไปรอบล่าสุด</a>
@@ -107,7 +104,7 @@
 
     @if (removable && removingCode() === group.code) {
       <div class="remove-confirm">
-        <p class="muted" i18n="@@home.removeWarning">ลบแล้วกู้คืนไม่ได้ — ทั้งผู้เล่น รอบย้อนหลัง และผลแมตช์จะหายทั้งหมด</p>
+        <p class="muted" i18n="@@home.removeWarning">ลบแล้วกู้คืนไม่ได้ ทั้งผู้เล่น รอบย้อนหลัง และผลแมตช์จะหายทั้งหมด</p>
         <label [attr.for]="'confirm-' + group.code" i18n="@@home.removePrompt">พิมพ์ชื่อก๊วนเพื่อยืนยัน</label>
         <input
           [attr.id]="'confirm-' + group.code"

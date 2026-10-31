@@ -1434,7 +1434,7 @@ expired code gets one generic Thai reply (it never says which); a sender who has
   is set only after LINE accepted the push, and a failed push gives the claim back. Every push
   carries an `X-Line-Retry-Key` derived from the session code, so a timeout whose answer was lost can
   be retried without a duplicate (LINE answers 409, read as sent). The owner's summary page offers
-  "ส่งสรุปเข้ากลุ่ม LINE" for an ended session until a card has gone out. The card writes the stored
+  "ส่งการ์ดสรุปเข้ากลุ่ม LINE" for an ended session until a card has gone out. The card writes the stored
   yyyy-mm-dd date as a Thai date, and clips the group name, venue and date to 60 characters
   (host-typed text must not push the card past LINE's size limit). The group settings switch for the
   default shows only when `PUBLIC_APP_URL` is set (`summaryAvailable` in the LINE status). A card
@@ -1472,7 +1472,7 @@ expired code gets one generic Thai reply (it never says which); a sender who has
     It 404s unless the session is ended, has a finished game and is on the `host` target, and it
     exposes only what the public summary page already shows (group name, date, venue, players,
     games); a spec asserts no owner-only field is added.
-  - **Owner's summary page** shows "ส่งการ์ดเข้ากลุ่ม LINE" (a link straight to the LIFF URL,
+  - **Owner's summary page** shows "ส่งการ์ดสรุปเข้ากลุ่ม LINE" (a link straight to the LIFF URL,
     repeatable, shown even after the DM went out) for the `host` target.
   - **Settings switch.** The default switch (`lineSummaryDefault`) also shows on the host-DM card
     with host wording ("ส่งการ์ดสรุปให้ฉันทาง LINE เมื่อจบรอบ"). It is hidden for a paused (plan
@@ -1644,6 +1644,112 @@ expired code gets one generic Thai reply (it never says which); a sender who has
   per-group switch and the two-card page above.
 - **Unverified until a real LINE group is used:** the exact type string of LINE's edit event
   (`messageEdited` per the docs summary) and that Cloudflare lets LINE's webhook through.
+
+### Slip payment matching (phase 1)
+
+Design: `docs/superpowers/specs/2026-10-30-slip-payment-matching-design.md`; build plan:
+`docs/superpowers/plans/2026-10-30-slip-payment-matching-phase-1.md`. Read the spec for the exact rules and
+the risks; this section is the why.
+
+**The problem.** After the payment card goes out, the host matched bank-transfer slips to names by eye,
+one screenshot at a time. Phase 1 lets the player upload their own slip from a pay page; a later phase will
+have the bot watch the LINE group for slips. The split is deliberate: the pay page needs no bot
+permissions and identifies the sender for certain (the LIFF login), so it proves the matching rules before
+anything depends on the group's chat.
+
+**Free QR + OCR, no paid verification service.** The slip's QR gives the bank and the transfer reference;
+OCR (Tesseract, language data shipped in the image) reads the amount and receiver name. A paid slip
+verification API was rejected on cost on 2026-10-30. The price of free is that anything unclear goes to the
+host instead of being guessed. **Private evidence storage (owner decision, 2026-10-31).** New accepted slip
+images are retained for host review until collection is closed or 30 days after upload. Raw OCR text is
+never stored or logged; structured reference, amount, receiver text, sender and time remain. Images live
+outside SQLite backups, on the server HDD at `/mnt/hdd2/jubbad/slips`, through an explicit private bind
+mount. Only the owning host (or administrator) can fetch them; the group status page cannot. Older slips
+have no recoverable image.
+
+**Paid is not "settled".** A player is *paid* when a `SessionPayment` row exists (from a slip or the host's
+tick). *Settled* stays the early-checkout receipt (see Early checkout above); the two are different facts
+and the names are kept apart on purpose.
+
+**Auto-paid, at a glance.** The pay page needs the group owner on the Host plan or above (accounts default to
+`club`, see plan gating above); a lapsed plan closes the pay page, so nothing new is marked, and recorded marks
+stay. All must hold, otherwise the slip waits for the host:
+- the payment card is confirmed and not stale;
+- the sender's LINE account is linked to a player who is on the bill and unpaid;
+- the slip amount matches what that player owes exactly, and no other owed amount appears in the text;
+- the date printed on the slip falls from the day before the bill's night ended to the day after today
+  (Bangkok calendar days). Added at the final review: without it a genuine old slip of the same amount (last
+  week's, made before references were recorded) paid tonight. A date OCR cannot read holds the slip (reason
+  `date`): the host decides;
+- the receiver name matches by whole words (a word of five or more characters may differ by one character,
+  for OCR misreads), checked against the group's saved account name, else the confirmed card's account name;
+  the check is skipped only when neither the group nor the confirmed card has an account name. Only the lower
+  name block is the receiver (the sender prints first), and nothing at or below a memo label (บันทึกช่วยจำ,
+  บันทึก, ช่วยจำ, memo, note) counts: the memo is free text a sender could fill with the host's name;
+- the transfer reference has not been used in this group before.
+
+A mismatch never marks anyone paid; the slip waits for the host, who sees the reason (the sender does not:
+the pay page only says the slip went to the host).
+
+**Host amount review and collection close.** Design: `docs/archive/specs/2026-10-31-slip-review-evidence-design.md`. Waiting slips show their private image (tap to enlarge),
+the unique positive OCR amount even if nobody owes it, and an editable reviewed amount. Unknown or
+ambiguous OCR requires host entry from the original image. The selected unpaid players' current total
+must not exceed the reviewed amount, enforced under the session lock. Overpayment is allowed and stays
+on the slip review record; it does not inflate individual bill shares or create credit elsewhere. Each paid row snapshots its
+own bill share; the pending row records reviewed amount and time. Already-paid selected players cause
+refusal rather than silently consuming the slip. This fixes the earlier ability to credit several
+players beyond the slip amount.
+
+**Direct host access (2026-10-31).** Design: `docs/archive/specs/2026-10-31-host-payment-access-design.md`. The summary and bill pages expose **สถานะการชำระเงิน** only once a
+confirmed card has a recorded LINE send. It opens directly to counts, players and pending reviews,
+without the invoice preview. **รีเฟรชสถานะ** refreshes marks, pending slips, duplicates and links,
+shows the last successful refresh time, and preserves review drafts. Host DM delivery alone does not
+unlock this entry. Successful LINE share-picker sends acknowledge their current card token with a
+verified LINE identity at `POST /sessions/:code/payment-share-card/sent`; page opening/cancellation does
+not record delivery. A failed receipt save can be retried without posting the card twice. This is a
+client-reported picker receipt, not a bank-payment confirmation. Bot sends use their existing receipt.
+
+**ปิดการเก็บเงิน** becomes available only after every payable bill row is paid and all waiting slips and
+duplicates are handled. Confirmation names the irreversible deletion and image count. Closing records
+the collection time, deletes all its image files/metadata, and keeps payment marks and duplicate
+references. Uploads, claims, payment mutations, bill config, shuttle bill inputs, walk-in billing flags
+and card reconfirmation are then refused; the existing read-only link remains valid. Cleanup failure
+keeps metadata and offers a deletion retry even though the collection is closed. Retention also sweeps
+expired images hourly; deleting a group makes its orphan files inaccessible immediately and the sweep
+removes them. LINE unlink/image submission share a group write lock to keep cleanup consistent.
+
+**What reaches the host.** Waiting slips (with the reason) and duplicates, in the bill screen's review list.
+The host resolves a waiting slip by ticking one or more players (or dismisses it), and dismisses a duplicate. A duplicate never
+pays anyone and the sender is not told off in the group. A receiver mismatch also offers to make the slip's
+receiver the group's saved name (after a confirmation showing the old and new name); it is offered only when
+the group has a saved account, since that is the name it rewrites.
+
+**Read-only payment status (2026-10-31).** Newly generated payment cards also carry **ดูสถานะการจ่าย**,
+opening `/line-share/payment-status/:sessionCode/:token` inside LINE. A collector can see the bill date,
+paid/unpaid/pending counts, names, amounts and recorded payment marks without claiming a player or signing in as
+host. Unpaid names appear first; **รีเฟรชสถานะ** reads current state. Red means **ยังไม่จ่าย**, amber
+means **รอยืนยัน**, green means **จ่ายแล้ว**, with text labels alongside color. A pending person requires
+an unpaid linked sender and a slip amount equal to that person's bill; ambiguous slips appear only in
+the aggregate pending-slip count. Pending is never counted as paid. Existing paid marks remain after bill edits, with an amount-change note when applicable.
+`GET /sessions/:code/slip-pay/status` requires the same verified LINE identity, current confirmation token
+and Host plan as the pay page; reconfirming revokes old links. It returns only the read projection with
+`Cache-Control: no-store`, never review details or LINE profiles. All mutations remain on owner-only routes.
+Existing chat cards do not change retroactively: send a new card to get the button. Design:
+`docs/archive/specs/2026-10-31-payment-status-design.md`.
+
+**Abuse limits.** The pay link is reachable by anyone holding the card, so uploads have a size cap (8 MB,
+in nginx and the API), a per-viewer rate limit, a server-wide limit on uploads in flight, and reading is
+serialised; an image whose pixel size cannot be read from its header, or over 25 megapixels, is never decoded.
+Bad LINE tokens are throttled by address; bad pay links per viewer per session. The card only carries the
+send-slip button when both the LIFF app and the LINE Login channel are configured, so a tap never lands on a
+page that cannot verify anyone.
+
+**Lifecycle.** Unlinking the LINE group (or the bot being removed) purges the group's account links,
+waiting slips, duplicates and used references; recorded `SessionPayment` rows stay. Deleting the JubBad group
+cascades everything.
+
+**Where it lives.** `server/src/sessions/slips/` (matching, QR, OCR, pay-page and host controllers),
+`web/src/app/shared/slip-review/` (the host's review list), `web/src/app/pages/slip-pay/` (the player page).
 
 ## Current state
 

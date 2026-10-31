@@ -1,0 +1,400 @@
+import { describe, expect, it } from 'vitest';
+import {
+  amountPresent,
+  hasAmountToken,
+  owedAmountsFound,
+  receiverName,
+  receiverNameMatches,
+  receiverTail,
+  slipDate,
+  slipDateInWindow,
+  type OcrLine,
+} from './slip-match.js';
+
+function lines(...texts: string[]): OcrLine[] {
+  return texts.map((text, i) => ({ text, y0: i * 100, y1: i * 100 + 60 }));
+}
+
+const TWO_NAMES = lines(
+  'โอนเงินสำเร็จ',
+  'นาย ธนัช อ.',
+  'ธนาคารกสิกรไทย',
+  'น.ส. จิตติญา ฉัตรเฉลิมวิทย์',
+  'xxx-xxx-5953',
+);
+
+describe('amountPresent', () => {
+  it('finds a whole amount token', () => {
+    expect(amountPresent('จำนวนเงิน 172.00 บาท', 17200)).toBe(true);
+  });
+
+  it('does not find 172.00 inside 1172.00', () => {
+    expect(amountPresent('จำนวนเงิน 1172.00 บาท', 17200)).toBe(false);
+  });
+
+  it('finds a comma-grouped amount', () => {
+    expect(amountPresent('1,172.00', 117200)).toBe(true);
+  });
+
+  it('requires exactly two decimals', () => {
+    expect(amountPresent('172.0', 17200)).toBe(false);
+    expect(amountPresent('172.000', 17200)).toBe(false);
+  });
+
+  it('does not match inside a longer dotted number', () => {
+    expect(amountPresent('1.172.00', 17200)).toBe(false);
+  });
+
+  it('never treats zero as present', () => {
+    expect(amountPresent('0.00', 0)).toBe(false);
+  });
+});
+
+describe('hasAmountToken', () => {
+  it('is true for any whole amount token, plain or comma-grouped', () => {
+    expect(hasAmountToken('จำนวนเงิน 172.00 บาท')).toBe(true);
+    expect(hasAmountToken('1,172.00')).toBe(true);
+    expect(hasAmountToken('ค่าธรรมเนียม 0.00 บาท')).toBe(true);
+  });
+
+  it('is false when no number has exactly two decimals', () => {
+    expect(hasAmountToken('')).toBe(false);
+    expect(hasAmountToken('โอนเงินสำเร็จ 30 ต.ค. 69 21:04')).toBe(false);
+    expect(hasAmountToken('172 บาท')).toBe(false);
+    expect(hasAmountToken('172.0 / 172.000')).toBe(false);
+  });
+
+  it('follows the same glue rules as amountPresent', () => {
+    expect(hasAmountToken('1.172.00')).toBe(false);
+    expect(hasAmountToken('172.00.5')).toBe(false);
+  });
+});
+
+describe('owedAmountsFound', () => {
+  it('returns the distinct owed amounts present', () => {
+    expect(owedAmountsFound('172.00 ... 150.00', [17200, 15000, 9900])).toEqual(
+      [17200, 15000],
+    );
+  });
+
+  it('deduplicates repeated owed values', () => {
+    expect(owedAmountsFound('172.00', [17200, 17200])).toEqual([17200]);
+  });
+});
+
+describe('receiverNameMatches', () => {
+  it('matches the receiver (lowest name block)', () => {
+    expect(receiverNameMatches(TWO_NAMES, 'จิตติญา')).toBe(true);
+  });
+
+  it('does not match when the host is the sender', () => {
+    expect(receiverNameMatches(TWO_NAMES, 'ธนัช')).toBe(false);
+  });
+
+  it('rejects a short saved name that is only part of a receiver word', () => {
+    const l = lines('นาย ธนัช อ.', 'น.ส. ภัคชนก');
+    expect(receiverNameMatches(l, 'นก')).toBe(false);
+  });
+
+  it('tolerates a one-character misread on a long word', () => {
+    const l = lines('นาย ธนัช อ.', 'น.ส. จิตติญา ฉัตรเฉลิมวิทย');
+    expect(receiverNameMatches(l, 'จิตติญา ฉัตรเฉลิมวิทย์')).toBe(true);
+  });
+
+  it('allows no tolerance on a four-character word', () => {
+    const l = lines('นาย ธนัช อ.', 'น.ส. ต้อง');
+    expect(receiverNameMatches(l, 'ต้อม')).toBe(false);
+  });
+
+  it('requires every saved word to be present', () => {
+    expect(receiverNameMatches(TWO_NAMES, 'จิตติญา สมศรี')).toBe(false);
+  });
+
+  it('accepts a lone titled line below an untitled sender', () => {
+    const l = lines('Somchai K.', 'น.ส. จิตติญา');
+    expect(receiverNameMatches(l, 'จิตติญา')).toBe(true);
+  });
+
+  it('rejects a lone titled line labelled จาก', () => {
+    const l = lines('จาก', 'น.ส. จิตติญา');
+    expect(receiverNameMatches(l, 'จิตติญา')).toBe(false);
+  });
+
+  it('rejects a lone titled line with จาก as its prefix', () => {
+    const l = lines('จาก น.ส. จิตติญา');
+    expect(receiverNameMatches(l, 'จิตติญา')).toBe(false);
+  });
+
+  it('rejects a lone titled line preceded by From (any case)', () => {
+    const l = lines('FROM', 'Ms. Somying');
+    expect(receiverNameMatches(l, 'Somying')).toBe(false);
+  });
+
+  it('rejects a slip with no titled line', () => {
+    const l = lines('จิตติญา', 'ธนัช');
+    expect(receiverNameMatches(l, 'จิตติญา')).toBe(false);
+  });
+
+  it('rejects a saved name made only of tiny words', () => {
+    const l = lines('นาย ธนัช อ.', 'น.ส. นก ศรี');
+    expect(receiverNameMatches(l, 'นก')).toBe(false);
+  });
+
+  it('rejects an empty saved name', () => {
+    expect(receiverNameMatches(TWO_NAMES, '')).toBe(false);
+    expect(receiverNameMatches(TWO_NAMES, '  ')).toBe(false);
+  });
+
+  it('drops a title from the saved name', () => {
+    expect(receiverNameMatches(TWO_NAMES, 'น.ส. จิตติญา')).toBe(true);
+  });
+
+  it('survives icon noise before the title and orders by y0', () => {
+    const l: OcrLine[] = [
+      { text: '© น.ส. จิตติญา', y0: 500, y1: 560 },
+      { text: 'นาย ธนัช อ.', y0: 100, y1: 160 },
+    ];
+    expect(receiverNameMatches(l, 'จิตติญา')).toBe(true);
+    expect(receiverNameMatches(l, 'ธนัช')).toBe(false);
+  });
+
+  it('finds the title after OCR noise and a "to" label on the line', () => {
+    const l = lines(
+      'an   @   น.ส.ภัคชนก',
+      'ไปที่ Q® น.ส.จิตติญา ฉัตรเฉลิมวิทย์',
+    );
+    expect(receiverName(l)).toBe('จิตติญา ฉัตรเฉลิมวิทย์');
+    expect(receiverNameMatches(l, 'จิตติญา')).toBe(true);
+    expect(receiverNameMatches(l, 'จิตติญา ฉัตรเฉลิมวิทย์')).toBe(true);
+  });
+
+  it('still rejects the sender when noise precedes both titles', () => {
+    const l = lines(
+      'จาก   @   นาย ธนัช อ.',
+      "ไปยัง 0 ' น.ส. จิตติญา ฉัตรเฉลิมวิทย์",
+    );
+    expect(receiverNameMatches(l, 'ธนัช')).toBe(false);
+    expect(receiverNameMatches(l, 'จิตติญา')).toBe(true);
+  });
+
+  it('rejects a lone name line with จาก before the title on the same line', () => {
+    expect(receiverNameMatches(lines('จาก @ น.ส. จิตติญา'), 'จิตติญา')).toBe(
+      false,
+    );
+  });
+
+  it('does not read นางสาว as นาง', () => {
+    const l = lines('นาย ธนัช อ.', 'นางสาว จิตติญา');
+    expect(receiverName(l)).toBe('จิตติญา');
+    expect(receiverNameMatches(l, 'จิตติญา')).toBe(true);
+  });
+});
+
+describe('memo lines', () => {
+  // A sender can type anything in the memo, including the host's title and name.
+  const RECEIVER_THEN = (...memo: string[]) =>
+    lines(
+      'โอนเงินสำเร็จ',
+      'นาย ธนัช อ.',
+      'xxx-xxx-1698',
+      'นาย ทดสอบ ผู้รับเงิน',
+      'xxx-xxx-5953',
+      'จำนวน: 172.00 บาท',
+      ...memo,
+    );
+
+  it('ignores a same-line memo below the real receiver', () => {
+    const l = RECEIVER_THEN('บันทึก น.ส. สมหญิง ใจดี');
+    expect(receiverName(l)).toBe('ทดสอบ ผู้รับเงิน');
+    expect(receiverNameMatches(l, 'สมหญิง')).toBe(false);
+    expect(receiverNameMatches(l, 'ทดสอบ')).toBe(true);
+  });
+
+  it('ignores the lines under a memo label', () => {
+    const l = RECEIVER_THEN('บันทึกช่วยจำ', 'นาย สมหญิง ใจดี');
+    expect(receiverName(l)).toBe('ทดสอบ ผู้รับเงิน');
+    expect(receiverNameMatches(l, 'สมหญิง ใจดี')).toBe(false);
+  });
+
+  it('knows every memo label, after leading noise and with OCR spaces in Thai', () => {
+    for (const memo of [
+      'บันทึกช่วยจำ: นาย สมหญิง',
+      'ช่วยจำ นาย สมหญิง',
+      'บัน ทึก นาย สมหญิง',
+      '© บันทึก นาย สมหญิง',
+      'Memo: Mr. สมหญิง',
+      'MEMO นาย สมหญิง',
+      'note - นาย สมหญิง',
+    ]) {
+      const l = RECEIVER_THEN(memo);
+      expect(receiverName(l), memo).toBe('ทดสอบ ผู้รับเงิน');
+      expect(receiverNameMatches(l, 'สมหญิง'), memo).toBe(false);
+    }
+  });
+
+  it('rejects a saved name that only the memo carries, on a slip with a lone titled receiver', () => {
+    const l = lines('Somchai K.', 'xxx-xxx-1698', 'น.ส. จิตติญา', 'Note: Mr. Somying');
+    expect(receiverName(l)).toBe('จิตติญา');
+    expect(receiverNameMatches(l, 'Somying')).toBe(false);
+  });
+
+  it('does not take a word that merely starts like a label for one', () => {
+    const l = RECEIVER_THEN('Notebook นาย สมหญิง');
+    expect(receiverName(l)).toBe('สมหญิง');
+  });
+
+  it('leaves a slip with no memo unchanged', () => {
+    expect(receiverName(RECEIVER_THEN())).toBe('ทดสอบ ผู้รับเงิน');
+    expect(receiverName(TWO_NAMES)).toBe('จิตติญา ฉัตรเฉลิมวิทย์');
+  });
+
+  it('fails closed on a memo label above the name blocks (not a supported layout)', () => {
+    const l = lines('บันทึก ค่าคอร์ท', 'นาย ธนัช อ.', 'น.ส. จิตติญา');
+    expect(receiverName(l)).toBeNull();
+    expect(receiverNameMatches(l, 'จิตติญา')).toBe(false);
+  });
+});
+
+describe('receiverName', () => {
+  it('returns the lowest name block without its title', () => {
+    expect(receiverName(TWO_NAMES)).toBe('จิตติญา ฉัตรเฉลิมวิทย์');
+  });
+
+  it('is null when there is no name line', () => {
+    expect(receiverName(lines('จำนวนเงิน', '172.00'))).toBeNull();
+  });
+
+  it('is null for a lone titled line labelled จาก', () => {
+    expect(receiverName(lines('จาก', 'น.ส. จิตติญา'))).toBeNull();
+  });
+});
+
+describe('receiverTail', () => {
+  it('reads the last four digits of a masked number', () => {
+    expect(receiverTail('xxx-xxx-5953')).toBe('5953');
+    expect(receiverTail('062-xxx-5953')).toBe('5953');
+    expect(receiverTail('เลขบัญชี XXX-X-XX595-3')).toBe('5953');
+  });
+
+  it('accepts OCR-read mask characters', () => {
+    expect(receiverTail('062-%%%-5953')).toBe('5953');
+    expect(receiverTail('xxx-***-5953')).toBe('5953');
+    expect(receiverTail('062-•••-5953')).toBe('5953');
+  });
+
+  it('prefers the lowest masked number (receiver below sender)', () => {
+    expect(receiverTail('XXX-XXX-1698\nXXX-XXX-5953')).toBe('5953');
+  });
+
+  it('is null without a masked number', () => {
+    expect(receiverTail('no digits')).toBeNull();
+    expect(receiverTail('123-456-7890')).toBeNull();
+  });
+});
+
+describe('slipDate', () => {
+  const oct29 = { year: 2026, month: 10, day: 29 };
+
+  it('reads the four bank formats seen on real slips', () => {
+    expect(slipDate('โอนเงินสำเร็จ\n29 ต.ค. 2569 - 22:11\nนาย ก')).toEqual(oct29);
+    expect(slipDate('29 ต.ค. 69, 22:10')).toEqual(oct29);
+    expect(slipDate('29 ต.ค. 69  23:03 น.')).toEqual(oct29);
+    expect(slipDate('30 ต.ค. 2569 12:50:41')).toEqual({ year: 2026, month: 10, day: 30 });
+  });
+
+  it('tolerates OCR noise: missing dots, spaces, a comma or a dash', () => {
+    for (const text of ['29 ต.ค 2569', '29 ตค 2569', '29ต.ค.2569', '29 ต. ค. 69', '29, ต.ค., 2569', '29-ต.ค.-69']) {
+      expect(slipDate(text), text).toEqual(oct29);
+    }
+  });
+
+  it('survives the misreads seen when OCR-ing real slips', () => {
+    // ต read as the Thai digit ๓; a stray vowel mark after the dot; the day glued to the month after icon noise.
+    expect(slipDate('5 ๓.ค. 69, 21:00')).toEqual({ year: 2026, month: 10, day: 5 });
+    expect(slipDate('5 ต.ุค. 69 21:00 น.')).toEqual({ year: 2026, month: 10, day: 5 });
+    expect(slipDate('1 15๓ค.2569 09:30:00')).toEqual({ year: 2026, month: 10, day: 15 });
+  });
+
+  it('does not let a stray mark turn มีค (March) into มค (January)', () => {
+    expect(slipDate('5 มีค 2569')).toEqual({ year: 2026, month: 3, day: 5 });
+    expect(slipDate('5 มิย 2569')).toEqual({ year: 2026, month: 6, day: 5 });
+  });
+
+  it('knows every Thai month, abbreviated and in full', () => {
+    const abbr = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.'];
+    const full = [
+      'มกราคม', 'กุมภาพันธ์', 'มีนาคม', 'เมษายน', 'พฤษภาคม', 'มิถุนายน',
+      'กรกฎาคม', 'สิงหาคม', 'กันยายน', 'ตุลาคม', 'พฤศจิกายน', 'ธันวาคม',
+    ];
+    abbr.forEach((m, i) => expect(slipDate(`5 ${m} 2569`), m).toEqual({ year: 2026, month: i + 1, day: 5 }));
+    full.forEach((m, i) => expect(slipDate(`5 ${m} 2569`), m).toEqual({ year: 2026, month: i + 1, day: 5 }));
+  });
+
+  it('reads English months, any case, abbreviated or in full, with a Gregorian year', () => {
+    expect(slipDate('29 Oct 2026 22:11')).toEqual(oct29);
+    expect(slipDate('29 OCT. 2026')).toEqual(oct29);
+    expect(slipDate('29 october 2026')).toEqual(oct29);
+    expect(slipDate('1 Sept 2026')).toEqual({ year: 2026, month: 9, day: 1 });
+    // A 2-digit year is always read as Buddhist (Thai slips print 69 for 2569), even beside an English month.
+    expect(slipDate('3 May 69')).toEqual({ year: 2026, month: 5, day: 3 });
+  });
+
+  it('reads a 2-digit year as Buddhist (25yy) and a 4-digit year as Buddhist from 2400, else Gregorian', () => {
+    expect(slipDate('1 ม.ค. 70')).toEqual({ year: 2027, month: 1, day: 1 });
+    expect(slipDate('1 ม.ค. 2570')).toEqual({ year: 2027, month: 1, day: 1 });
+    expect(slipDate('1 ม.ค. 2027')).toEqual({ year: 2027, month: 1, day: 1 });
+  });
+
+  it('takes the first date on the slip', () => {
+    expect(slipDate('29 ต.ค. 2569 22:11\nบันทึก 1 พ.ย. 2569')).toEqual(oct29);
+  });
+
+  it('is null for garbage, a missing year and impossible dates', () => {
+    expect(slipDate('')).toBeNull();
+    expect(slipDate('โอนเงินสำเร็จ 172.00 บาท')).toBeNull();
+    expect(slipDate('29 ต.ค. 22:11')).toBeNull();
+    expect(slipDate('31 พ.ย. 2569')).toBeNull();
+    expect(slipDate('29 ก.พ. 2569')).toBeNull();
+    expect(slipDate('0 ต.ค. 2569')).toBeNull();
+    expect(slipDate('32 ต.ค. 2569')).toBeNull();
+    expect(slipDate('29 ต.ค. 2300')).toBeNull();
+  });
+
+  it('does not take a month abbreviation inside a longer word', () => {
+    // ตค inside a word, and Mar / May inside English words.
+    expect(slipDate('29 ตคม 2569')).toBeNull();
+    expect(slipDate('12 Market 2026')).toBeNull();
+    expect(slipDate('5 Mayor 2026')).toBeNull();
+    expect(slipDate('29 กต.ค. 2569')).toBeNull();
+  });
+});
+
+describe('slipDateInWindow', () => {
+  // The bill ended 30 Oct 2026 at 22:00 Bangkok time (15:00 UTC).
+  const ended = new Date('2026-10-30T15:00:00Z');
+  const at = (day: number, month = 10) => ({ year: 2026, month, day });
+
+  it('accepts the end day, the day before it, and up to the day after today', () => {
+    const now = new Date('2026-10-31T03:00:00Z'); // 31 Oct, 10:00 Bangkok
+    expect(slipDateInWindow(at(30), ended, now)).toBe(true);
+    expect(slipDateInWindow(at(29), ended, now)).toBe(true);
+    expect(slipDateInWindow(at(1, 11), ended, now)).toBe(true);
+  });
+
+  it('refuses two days before the end day, two days after today, and no date', () => {
+    const now = new Date('2026-10-31T03:00:00Z');
+    expect(slipDateInWindow(at(28), ended, now)).toBe(false);
+    expect(slipDateInWindow(at(2, 11), ended, now)).toBe(false);
+    expect(slipDateInWindow(at(23), ended, now)).toBe(false);
+    expect(slipDateInWindow(null, ended, now)).toBe(false);
+  });
+
+  it('uses Bangkok calendar days, not UTC ones', () => {
+    // 31 Oct 00:30 Bangkok is still 30 Oct in UTC: the end day is 31 Oct, so 29 Oct is two days before.
+    const lateEnd = new Date('2026-10-30T17:30:00Z');
+    const now = new Date('2026-10-30T18:00:00Z');
+    expect(slipDateInWindow(at(30), lateEnd, now)).toBe(true);
+    expect(slipDateInWindow(at(29), lateEnd, now)).toBe(false);
+    expect(slipDateInWindow(at(1, 11), lateEnd, now)).toBe(true);
+  });
+});

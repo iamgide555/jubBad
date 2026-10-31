@@ -1,5 +1,5 @@
 import { HttpErrorResponse } from '@angular/common/http';
-import { Component, OnInit, computed, inject, input, signal } from '@angular/core';
+import { ChangeDetectorRef, Component, ElementRef, OnInit, computed, inject, input, signal, viewChild } from '@angular/core';
 import { firstValueFrom } from 'rxjs';
 import { PayAccountService, type PayAccount } from '../../../core/pay-account.service';
 import { BankField } from '../../../shared/bank-field/bank-field';
@@ -24,6 +24,9 @@ export class PayAccountPanel implements OnInit {
   readonly groupCode = input.required<string>();
 
   private readonly payAccounts = inject(PayAccountService);
+  private readonly cdr = inject(ChangeDetectorRef);
+  private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
+  private readonly bankField = viewChild(BankField);
 
   protected readonly loaded = signal(false);
   protected readonly loadFailed = signal(false);
@@ -70,25 +73,58 @@ export class PayAccountPanel implements OnInit {
     const number = this.number().trim();
     const name = this.name().trim();
     if (bank === '' && number === '' && name === '') return this.send(null);
-    if (bank === '' || number === '' || name === '') {
-      const required = $localize`:@@pay.account.required:กรอกช่องนี้`;
-      this.fieldErrors.set({ bank: bank ? undefined : required, number: number ? undefined : required, name: name ? undefined : required });
-      this.error.set($localize`:@@pay.account.incomplete:กรอกให้ครบทั้งสามช่อง หรือกดล้างถ้าไม่ต้องการตั้งบัญชี`);
-      return;
+    // Every problem in one pass, so one Save shows them all. A field error is said once, under its field;
+    // the general alert is only for what no field explains.
+    const required = $localize`:@@pay.account.required:กรอกช่องนี้`;
+    const errors: Partial<Record<'bank' | 'number' | 'name', string>> = {};
+    if (bank === '') errors.bank = required;
+    if (number === '') errors.number = required;
+    else if (!NUMBER_PATTERN.test(number) || number.replace(/[^0-9]/g, '').length < MIN_DIGITS) {
+      errors.number = $localize`:@@pay.account.badNumber:เลขบัญชีต้องเป็นตัวเลขอย่างน้อย 6 หลัก เว้นวรรคหรือใส่ขีดได้ ยาวไม่เกิน 20 ตัวอักษร`;
     }
-    if (!NUMBER_PATTERN.test(number) || number.replace(/[^0-9]/g, '').length < MIN_DIGITS) {
-      this.error.set(
-        $localize`:@@pay.account.badNumber:เลขบัญชีต้องเป็นตัวเลขอย่างน้อย 6 หลัก เว้นวรรคหรือใส่ขีดได้ ยาวไม่เกิน 20 ตัวอักษร`
-      );
-      this.fieldErrors.set({ number: this.error()! });
-      return;
-    }
+    if (name === '') errors.name = required;
+    if (Object.keys(errors).length > 0) return this.refuse(errors);
     return this.send({ bank, number, name });
   }
 
-  protected clear(): Promise<void> {
-    if (this.busy() || !this.confirmingClear()) return Promise.resolve();
-    return this.send(null);
+  /** "ลบบัญชีนี้": the inline confirm replaces the button, so focus moves to its safe choice, ยกเลิก. */
+  protected askClear(): void {
+    this.confirmingClear.set(true);
+    this.focus('[data-pay-clear-cancel]');
+  }
+
+  protected cancelClear(): void {
+    if (this.busy()) return;
+    this.confirmingClear.set(false);
+    this.focus('[data-pay-clear]');
+  }
+
+  /**
+   * The confirm's buttons are aria-disabled while busy (never `disabled`), so a failure leaves focus on them
+   * beside the error. A success removes the whole remove block, so focus goes to Save.
+   */
+  protected async clear(): Promise<void> {
+    if (this.busy() || !this.confirmingClear()) return;
+    await this.send(null);
+    if (!this.confirmingClear()) this.focus('[data-pay-save]');
+  }
+
+  /**
+   * Marks the fields, then hands keyboard focus to the first marked one, which reads its error out. The bank
+   * list is not opened by that focus: it would cover the error under the field.
+   */
+  private refuse(errors: Partial<Record<'bank' | 'number' | 'name', string>>): void {
+    this.fieldErrors.set(errors);
+    this.cdr.detectChanges();
+    const first = this.host.nativeElement.querySelector<HTMLInputElement>('input[aria-invalid="true"]');
+    if (first?.closest('app-bank-field')) this.bankField()?.focusWithoutOpening();
+    else first?.focus();
+  }
+
+  /** Renders the state change now (the target may be new), then focuses `selector`'s first match. */
+  private focus(selector: string): void {
+    this.cdr.detectChanges();
+    this.host.nativeElement.querySelector<HTMLElement>(selector)?.focus();
   }
 
   private async send(account: PayAccount | null): Promise<void> {

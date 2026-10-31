@@ -13,12 +13,13 @@ import { formatShuttleCountInput, formatShuttlePriceInput, parseShuttleCountInpu
 import { BillSettings } from '../../shared/bill-settings/bill-settings';
 import { Icon } from '../../shared/icon/icon';
 import { PaymentCardService } from '../../core/payment-card.service';
+import { PaymentStatusSheet } from '../../shared/payment-status-sheet/payment-status-sheet';
 import { PaymentSheet } from '../../shared/payment-sheet/payment-sheet';
 import { PlanLock } from '../../shared/plan-lock/plan-lock';
 
 @Component({
   selector: 'app-session-bill',
-  imports: [RouterLink, Icon, BillSettings, PaymentSheet, PlanLock],
+  imports: [RouterLink, Icon, BillSettings, PaymentSheet, PaymentStatusSheet, PlanLock],
   templateUrl: './session-bill.html',
   styleUrl: './session-bill.css',
 })
@@ -43,6 +44,8 @@ export class SessionBill {
   protected readonly paymentSheetOpen = signal(false);
   protected readonly paymentMethodPending = signal(false);
   protected readonly billUncertain = signal(false);
+  protected readonly paymentStatusOpen = signal(false);
+  protected readonly paymentStatusAvailable = signal(false);
   private paymentReadSeq = 0;
   private paymentBillSeq = 0;
 
@@ -105,14 +108,17 @@ export class SessionBill {
   }
 
   /** Keep the entry hidden for an unlinked group; the shared sheet reads fresh amounts when opened. */
-  private async loadPaymentAvailability(): Promise<void> {
+  protected async loadPaymentAvailability(): Promise<void> {
     const seq = ++this.paymentReadSeq;
     try {
       const panel = await firstValueFrom(this.paymentCards.panel(this.sessionCode));
-      if (seq === this.paymentReadSeq) this.paymentAvailable.set(panel.target !== null);
+      if (seq === this.paymentReadSeq) {
+        this.paymentAvailable.set(panel.target !== null);
+        this.paymentStatusAvailable.set(panel.confirmed && !!panel.lastSentAt);
+      }
     } catch {
       // A failed availability read must not strand the host: the sheet provides the normal retry.
-      if (seq === this.paymentReadSeq) this.paymentAvailable.set(true);
+      if (seq === this.paymentReadSeq) { this.paymentAvailable.set(true); this.paymentStatusAvailable.set(false); }
     }
   }
 
@@ -185,7 +191,7 @@ export class SessionBill {
     } catch (e) {
       const locked = e instanceof HttpErrorResponse && e.status === 409 && e.error?.code === 'SHUTTLE_CHARGE_LOCKED';
       this.error.set(
-        planErrorMessage(e) ??
+        closedCollectionMessage(e) ?? planErrorMessage(e) ??
         (locked
           ? $localize`:@@bill.chargeLockedError:เปลี่ยนวิธีคิดค่าลูกไม่ได้ เพราะมีคนเช็คเอาต์ไปแล้ว ยกเลิกเช็คเอาต์ก่อน`
           : $localize`:@@bill.saveFailed:บันทึกไม่สำเร็จ ลองใหม่อีกครั้ง`)
@@ -203,8 +209,8 @@ export class SessionBill {
     try {
       await firstValueFrom(this.http.post(`${this.base}/shuttle-details`, patch));
       await this.load();
-    } catch {
-      this.error.set($localize`:@@bill.shuttleDetailsFailed:บันทึกข้อมูลลูกแบดไม่สำเร็จ ลองใหม่อีกครั้ง`);
+    } catch (e) {
+      this.error.set(closedCollectionMessage(e) ?? $localize`:@@bill.shuttleDetailsFailed:บันทึกข้อมูลลูกแบดไม่สำเร็จ ลองใหม่อีกครั้ง`);
     } finally {
       this.saving.set(false);
     }
@@ -302,8 +308,8 @@ export class SessionBill {
         this.http.post(`${this.base}/roster/${playerId}/walk-in`, { walkIn: !this.walkIn().get(playerId) })
       );
       await this.load();
-    } catch {
-      this.error.set($localize`:@@bill.saveFailed:บันทึกไม่สำเร็จ ลองใหม่อีกครั้ง`);
+    } catch (e) {
+      this.error.set(closedCollectionMessage(e) ?? $localize`:@@bill.saveFailed:บันทึกไม่สำเร็จ ลองใหม่อีกครั้ง`);
     }
   }
 
@@ -345,4 +351,10 @@ export class SessionBill {
       this.clipboardFallback.set(text);
     }
   }
+}
+
+function closedCollectionMessage(error: unknown): string | null {
+  return error instanceof HttpErrorResponse && error.status === 409 && error.error?.code === 'COLLECTION_CLOSED'
+    ? $localize`:@@bill.collectionClosed:ปิดการเก็บเงินแล้ว แก้ไขบิลไม่ได้`
+    : null;
 }

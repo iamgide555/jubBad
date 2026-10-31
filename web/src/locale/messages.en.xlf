@@ -443,7 +443,7 @@
         </context-group>
       </trans-unit>
       <trans-unit id="entry.errNoPlayers" datatype="html">
-        <source>ไม่พบรายชื่อผู้เล่น — ตรวจว่าแต่ละชื่ออยู่บรรทัดของตัวเองและมีเลขนำหน้า (เช่น &quot;1. ชื่อ&quot;)</source><target>No players were recognized — check that each name is on its own numbered line (e.g. &quot;1. name&quot;).</target>
+        <source>ไม่พบรายชื่อผู้เล่น ตรวจว่าแต่ละชื่ออยู่บรรทัดของตัวเองและมีเลขนำหน้า (เช่น &quot;1. ชื่อ&quot;)</source><target>No players were recognized. Check that each name is on its own numbered line (e.g. &quot;1. name&quot;).</target>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/group-entry/group-entry.ts</context>
           <context context-type="linenumber">132</context>
@@ -865,7 +865,7 @@
         </context-group>
       </trans-unit>
       <trans-unit id="court.targetHint" datatype="html">
-        <source>เทียบกับคนที่มาคืนนี้ — ถ้าคนในกลุ่มไม่พอ จะเติมจากกลุ่มใกล้เคียง</source><target>Relative to tonight's players — if the group is too small, the court fills from the nearest group</target>
+        <source>เทียบกับคนที่มาคืนนี้ ถ้าคนในกลุ่มไม่พอ จะเติมจากกลุ่มใกล้เคียง</source><target>Relative to tonight's players. If the group is too small, the court fills from the nearest group</target>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/session-dashboard/court-panel/court-panel.ts</context>
           <context context-type="linenumber">1</context>
@@ -893,7 +893,7 @@
         </context-group>
       </trans-unit>
       <trans-unit id="court.trySingles" datatype="html">
-        <source>เหลือ <x id="count" equiv-text="available"/> คน — สลับเป็นเดี่ยวได้</source><target><x id="count" equiv-text="available"/> free — switch to singles?</target>
+        <source>เหลือ <x id="count" equiv-text="available"/> คน สลับเป็นเดี่ยวได้</source><target><x id="count" equiv-text="available"/> free. Switch to singles?</target>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/session-dashboard/court-panel/court-panel.ts</context>
           <context context-type="linenumber">143</context>
@@ -939,7 +939,7 @@
         </context-group>
       </trans-unit>
       <trans-unit id="court.undoBusy" datatype="html">
-        <source>ผู้เล่นลงคอร์ทอื่นแล้ว ย้อนกลับไม่ได้</source><target>Those players are on another court now — cannot undo.</target>
+        <source>ผู้เล่นลงคอร์ทอื่นแล้ว ย้อนกลับไม่ได้</source><target>Those players are on another court now. Cannot undo.</target>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/session-dashboard/court-panel/court-panel.ts</context>
           <context context-type="linenumber">89</context>
@@ -1150,7 +1150,7 @@
         </context-group>
       </trans-unit>
       <trans-unit id="share.failed" datatype="html">
-        <source>คัดลอกไม่ได้ ลองเลือกข้อความเอง</source><target>Could not copy — try selecting the text.</target>
+        <source>คัดลอกไม่ได้ ลองเลือกข้อความเอง</source><target>Could not copy. Try selecting the text.</target>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/session-dashboard/session-dashboard.ts</context>
           <context context-type="linenumber">160</context>
@@ -1485,7 +1485,7 @@
         </context-group>
       </trans-unit>
       <trans-unit id="home.empty" datatype="html">
-        <source>ยังไม่มีก๊วน — สร้างก๊วนแรกได้เลย</source><target>No groups yet — create your first one.</target>
+        <source>ยังไม่มีก๊วน สร้างก๊วนแรกได้เลย</source><target>No groups yet. Create your first one.</target>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/landing/landing.html</context>
           <context context-type="linenumber">50</context>
@@ -1511,7 +1511,7 @@
         </context-group>
       </trans-unit>
       <trans-unit id="home.removeWarning" datatype="html">
-        <source>ลบแล้วกู้คืนไม่ได้ — ทั้งผู้เล่น รอบย้อนหลัง และผลแมตช์จะหายทั้งหมด</source><target>This cannot be undone — every player, past session and match result goes with it.</target>
+        <source>ลบแล้วกู้คืนไม่ได้ ทั้งผู้เล่น รอบย้อนหลัง และผลแมตช์จะหายทั้งหมด</source><target>This cannot be undone. Every player, past session and match result goes with it.</target>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/landing/landing.html</context>
           <context context-type="linenumber">32</context>
@@ -1553,14 +1553,14 @@
         </context-group>
       </trans-unit>
       <trans-unit id="err.code.playerUnavailable" datatype="html">
-        <source>มีผู้เล่นในแมตช์นี้พักอยู่ กรุณาเปลี่ยนตัวหรือสุ่มใหม่</source><target>A player in this match is resting — swap them out or reshuffle</target>
+        <source>มีผู้เล่นในแมตช์นี้พักอยู่ กรุณาเปลี่ยนตัวหรือสุ่มใหม่</source><target>A player in this match is resting. Swap them out or reshuffle</target>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/core/live-session.service.ts</context>
           <context context-type="linenumber">47</context>
         </context-group>
       </trans-unit>
       <trans-unit id="err.code.courtInUse" datatype="html">
-        <source>ยังมีแมตช์เล่นอยู่บนคอร์ทที่จะตัดออก กรุณาบันทึกผลก่อน</source><target>A match is still running on the court being removed — record its result first</target>
+        <source>ยังมีแมตช์เล่นอยู่บนคอร์ทที่จะตัดออก กรุณาบันทึกผลก่อน</source><target>A match is still running on the court being removed. Record its result first</target>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/core/live-session.service.ts</context>
           <context context-type="linenumber">49</context>
@@ -1595,7 +1595,7 @@
         </context-group>
       </trans-unit>
       <trans-unit id="court.restingInProposal" datatype="html">
-        <source><x id="INTERPOLATION" equiv-text="{{ restingInProposal().join(&apos;, &apos;) }}"/> พักอยู่ — กดชื่อเพื่อเปลี่ยนตัว หรือสุ่มใหม่</source><target><x id="INTERPOLATION" equiv-text="{{ restingInProposal().join(&apos;, &apos;) }}"/> is resting — tap the name to swap, or reshuffle</target>
+        <source><x id="INTERPOLATION" equiv-text="{{ restingInProposal().join(&apos;, &apos;) }}"/> พักอยู่ กดชื่อเพื่อเปลี่ยนตัว หรือสุ่มใหม่</source><target><x id="INTERPOLATION" equiv-text="{{ restingInProposal().join(&apos;, &apos;) }}"/> is resting. Tap the name to swap, or reshuffle</target>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/session-dashboard/court-panel/court-panel.html</context>
           <context context-type="linenumber">37,39</context>
@@ -1672,7 +1672,7 @@
         </context-group>
       </trans-unit>
       <trans-unit id="err.code.swapSamePlayer" datatype="html">
-        <source>เลือกคนเดิม ไม่ได้เปลี่ยนตัว</source><target>That is the same player — nothing to swap</target>
+        <source>เลือกคนเดิม ไม่ได้เปลี่ยนตัว</source><target>That is the same player. Nothing to swap</target>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/core/live-session.service.ts</context>
           <context context-type="linenumber">49</context>
@@ -1763,7 +1763,7 @@
         </context-group>
       </trans-unit>
       <trans-unit id="admin.createFailed" datatype="html">
-        <source>สร้างผู้ใช้ไม่สำเร็จ — อีเมลนี้อาจถูกใช้แล้ว</source><target>Could not create the user — this email may already be in use.</target>
+        <source>สร้างผู้ใช้ไม่สำเร็จ อีเมลนี้อาจถูกใช้แล้ว</source><target>Could not create the user. This email may already be in use.</target>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/admin/admin.ts</context>
           <context context-type="linenumber">76</context>
@@ -1875,7 +1875,7 @@
         </context-group>
       </trans-unit>
       <trans-unit id="admin.resetLinkLede" datatype="html">
-        <source>ส่งลิงก์นี้ให้ผู้ใช้ด้วยตนเอง (เช่น ทาง LINE) — ใช้ได้ครั้งเดียว หมดอายุใน 1 ชั่วโมง</source><target>Send this link to the user yourself (e.g. via LINE) — single use, expires in 1 hour.</target>
+        <source>ส่งลิงก์นี้ให้ผู้ใช้ด้วยตนเอง (เช่น ทาง LINE) ใช้ได้ครั้งเดียว หมดอายุใน 1 ชั่วโมง</source><target>Send this link to the user yourself (e.g. via LINE). Single use, expires in 1 hour.</target>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/admin/admin.html</context>
           <context context-type="linenumber">150</context>
@@ -1910,7 +1910,7 @@
         </context-group>
       </trans-unit>
       <trans-unit id="admin.deleteConfirmEmpty" datatype="html">
-        <source>ผู้ใช้นี้ไม่ได้เป็นเจ้าของก๊วนใด ลบได้ทันที</source><target>This user does not own any groups — safe to delete right away.</target>
+        <source>ผู้ใช้นี้ไม่ได้เป็นเจ้าของก๊วนใด ลบได้ทันที</source><target>This user does not own any groups. Safe to delete right away.</target>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/admin/admin.html</context>
           <context context-type="linenumber">166</context>
@@ -1952,7 +1952,7 @@
         </context-group>
       </trans-unit>
       <trans-unit id="admin.deleteFailed" datatype="html">
-        <source>ลบไม่สำเร็จ — ต้องระบุการจัดการให้ครบทุกก๊วน</source><target>Could not delete — every owned group needs a disposition.</target>
+        <source>ลบไม่สำเร็จ ต้องระบุการจัดการให้ครบทุกก๊วน</source><target>Could not delete. Every owned group needs a disposition.</target>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/admin/admin.ts</context>
           <context context-type="linenumber">215</context>
@@ -2036,7 +2036,7 @@
         </context-group>
       </trans-unit>
       <trans-unit id="admin.editFailed" datatype="html">
-        <source>บันทึกไม่สำเร็จ — อีเมลนี้อาจถูกใช้แล้ว</source><target>Could not save — this email may already be in use.</target>
+        <source>บันทึกไม่สำเร็จ อีเมลนี้อาจถูกใช้แล้ว</source><target>Could not save. This email may already be in use.</target>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/admin/admin.ts</context>
           <context context-type="linenumber">121</context>
@@ -2064,7 +2064,7 @@
         </context-group>
       </trans-unit>
       <trans-unit id="admin.passwordHint" datatype="html">
-        <source> อย่างน้อย 8 ตัวอักษร — ผู้ใช้เปลี่ยนเองได้ภายหลัง </source><target>At least 8 characters — the user can change it themselves later.</target>
+        <source> อย่างน้อย 8 ตัวอักษร ผู้ใช้เปลี่ยนเองได้ภายหลัง </source><target>At least 8 characters. The user can change it themselves later.</target>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/admin/admin.html</context>
           <context context-type="linenumber">58</context>
@@ -2106,7 +2106,7 @@
         </context-group>
       </trans-unit>
       <trans-unit id="login.forgotFound" datatype="html">
-        <source> มีบัญชีนี้อยู่ — แจ้งผู้ดูแลแล้ว รอลิงก์ตั้งรหัสผ่านใหม่จากผู้ดูแลโดยตรง </source><target>This account exists — the admin has been notified. Wait for a reset link directly from them.</target>
+        <source> มีบัญชีนี้อยู่ แจ้งผู้ดูแลแล้ว รอลิงก์ตั้งรหัสผ่านใหม่จากผู้ดูแลโดยตรง </source><target>This account exists. The admin has been notified. Wait for a reset link directly from them.</target>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/login/login.html</context>
           <context context-type="linenumber">48</context>
@@ -2162,7 +2162,7 @@
         </context-group>
       </trans-unit>
       <trans-unit id="shell.switchToLight" datatype="html">
-        <source>ธีมตามระบบ — แตะเพื่อสลับเป็นธีมสว่าง</source><target>System theme — tap to switch to light</target>
+        <source>ธีมตามระบบ แตะเพื่อสลับเป็นธีมสว่าง</source><target>System theme. Tap to switch to light</target>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/shared/app-shell/app-shell.html</context>
           <context context-type="linenumber">38,39</context>
@@ -2251,7 +2251,7 @@
         </context-group>
       </trans-unit>
       <trans-unit id="err.code.pairingIncomplete" datatype="html">
-        <source>ยังมีที่ว่างในคอร์ท ใส่ผู้เล่นให้ครบก่อนยืนยัน</source><target>Some seats are still empty — fill every seat before confirming.</target>
+        <source>ยังมีที่ว่างในคอร์ท ใส่ผู้เล่นให้ครบก่อนยืนยัน</source><target>Some seats are still empty. Fill every seat before confirming.</target>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/core/live-session.service.ts</context>
           <context context-type="linenumber">92</context>
@@ -2344,7 +2344,7 @@
         <source> ตามระดับ </source><target>By level</target>
       </trans-unit>
       <trans-unit id="dashboard.modeLevelHint" datatype="html">
-        <source> จัดคนระดับใกล้กัน (±1) ลงคอร์ทเดียวกัน คิวอาจข้ามเพื่อให้จัดได้ </source><target>Groups players within one level of each other on the same court — the queue may skip ahead to make that possible.</target>
+        <source> จัดคนระดับใกล้กัน (±1) ลงคอร์ทเดียวกัน คิวอาจข้ามเพื่อให้จัดได้ </source><target>Groups players within one level of each other on the same court. The queue may skip ahead to make that possible.</target>
       </trans-unit>
       <trans-unit id="dashboard.modeLevelCarryHint" datatype="html">
         <source> มือใหม่ที่ระดับห่างจากกลุ่ม จะได้เล่นคู่กับมือโปร 1 เกมก่อน </source><target>A newcomer far below the group plays their first game with a strong partner first</target>
@@ -2357,13 +2357,13 @@
         <source>ไม่ระบุ</source><target>Not set</target>
       </trans-unit>
       <trans-unit id="level.uncertainHint" datatype="html">
-        <source> ไม่แน่ใจ เลือกใกล้เคียงไว้ก่อน ผลแพ้ชนะจะปรับเรตติ้งเอง </source><target>Not sure? Pick your best guess — results will adjust the rating over time.</target>
+        <source> ไม่แน่ใจ เลือกใกล้เคียงไว้ก่อน ผลแพ้ชนะจะปรับเรตติ้งเอง </source><target>Not sure? Pick your best guess. Results will adjust the rating over time.</target>
       </trans-unit>
       <trans-unit id="level.close" datatype="html">
         <source>ปิด</source><target>Close</target>
       </trans-unit>
       <trans-unit id="level.def.bg" datatype="html">
-        <source>มือเริ่มต้น เพิ่งเริ่มเล่น ตีโดนบ้างไม่โดนบ้าง ตีโต้พื้นฐานได้แต่ยังคุมทิศทางไม่ได้ เบสิคและการเคลื่อนที่ยังไม่ถูก</source><target>Just starting out. Hits the shuttle inconsistently, can rally a little but can't control direction yet — basics and movement aren't there yet.</target>
+        <source>มือเริ่มต้น เพิ่งเริ่มเล่น ตีโดนบ้างไม่โดนบ้าง ตีโต้พื้นฐานได้แต่ยังคุมทิศทางไม่ได้ เบสิคและการเคลื่อนที่ยังไม่ถูก</source><target>Just starting out. Hits the shuttle inconsistently, can rally a little but can't control direction yet. Basics and movement aren't there yet.</target>
       </trans-unit>
       <trans-unit id="level.def.n" datatype="html">
         <source>รู้กติกา นับแต้มเป็น ตีโต้ได้ต่อเนื่อง กะจังหวะลูกได้ รับเสิร์ฟ/รับตบเบาๆ ได้ แต่ยังโยนไม่ถึงท้ายคอร์ท ยังไม่รู้การหมุนตำแหน่งเล่นคู่</source><target>Knows the rules and can keep score. Rallies steadily and times the shuttle, can return a serve or a light smash, but can't clear to the back yet and doesn't know doubles rotation.</target>
@@ -2372,7 +2372,7 @@
         <source>เล่นเกมเป็น ยืนตำแหน่งพื้นฐานได้ ตีลูกพื้นฐานได้ครบ (โยนถึงท้าย หยอด ตบ) แต่ยังไม่นิ่ง จุดอ่อนเยอะ</source><target>Plays a full game and holds basic positions. Has every basic shot (clear, drop, smash) but is inconsistent, with plenty of weak points.</target>
       </trans-unit>
       <trans-unit id="level.def.pminus" datatype="html">
-        <source>เบสิคครบ คุมลูกได้ เริ่มวางแผนการเล่น มีลูกหลอก แต่ยังเสียง่ายเมื่อโดนกดดัน</source><target>Solid basics, controls the shuttle, starts planning points and using deceptive shots — but still cracks under pressure.</target>
+        <source>เบสิคครบ คุมลูกได้ เริ่มวางแผนการเล่น มีลูกหลอก แต่ยังเสียง่ายเมื่อโดนกดดัน</source><target>Solid basics, controls the shuttle, starts planning points and using deceptive shots. But still cracks under pressure.</target>
       </trans-unit>
       <trans-unit id="level.def.p" datatype="html">
         <source>ตีได้ทุกรูปแบบ เล่นคู่ลื่นไหล หมุนตำแหน่งเป็น ฟุตเวิร์กดี</source><target>Has every shot, plays smooth doubles, rotates well, good footwork.</target>
@@ -2381,7 +2381,7 @@
         <source>ความแน่นอนสูง เล่นเกมเร็วได้ ตบหนัก อ่านเกมและหาจุดอ่อนคู่แข่งเป็น</source><target>Very consistent, plays fast, hits hard, reads the game and finds the opponent's weaknesses.</target>
       </trans-unit>
       <trans-unit id="level.def.c" datatype="html">
-        <source>มือแข่งขัน ลงแข่งรายการสมัครเล่นเป็นประจำ มีประสบการณ์แข่ง</source><target>A competitive player — plays amateur tournaments regularly and has real match experience.</target>
+        <source>มือแข่งขัน ลงแข่งรายการสมัครเล่นเป็นประจำ มีประสบการณ์แข่ง</source><target>A competitive player. Plays amateur tournaments regularly and has real match experience.</target>
       </trans-unit>
       <trans-unit id="level.def.b" datatype="html">
         <source>ระดับตัวแทนมหาวิทยาลัย/จังหวัด หรืออดีตนักกีฬา</source><target>University or provincial representative level, or a former athlete.</target>
@@ -2668,7 +2668,7 @@
         </context-group>
       </trans-unit>
       <trans-unit id="bill.walkInOverridden" datatype="html">
-        <source>แก้ยอดเองแล้ว ค่า walk-in ไม่มีผลกับคนนี้</source><target>Amount overridden — the walk-in fee doesn't apply to this player</target>
+        <source>แก้ยอดเองแล้ว ค่า walk-in ไม่มีผลกับคนนี้</source><target>Amount overridden. The walk-in fee doesn't apply to this player</target>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/session-bill/session-bill.ts</context>
           <context context-type="linenumber">51</context>
@@ -2748,7 +2748,7 @@
         <target>Must pair: play as partners or sit out together · Never teammates: may still face each other · Never same court: never on the same court</target>
       </trans-unit>
       <trans-unit id="playerRoster.empty" datatype="html">
-        <source>ยังไม่มีผู้เล่นในก๊วนนี้ — ผู้เล่นจะเข้ามาเมื่อเริ่มรอบ วางรายชื่อจาก LINE หรือเพิ่มรายชื่อเอง</source>
+        <source>ยังไม่มีผู้เล่นในก๊วนนี้ ผู้เล่นจะเข้ามาเมื่อเริ่มรอบ วางรายชื่อจาก LINE หรือเพิ่มรายชื่อเอง</source>
         <target>No players in this group yet. Players join when you start a session: paste a roster from LINE or add names yourself.</target>
       </trans-unit>
       <trans-unit id="playerRoster.emptyStartFirst" datatype="html">
@@ -2866,7 +2866,7 @@
       </trans-unit>
       <trans-unit id="err.code.pairRuleViolation" datatype="html">
         <source>เปลี่ยนไม่ได้ เพราะขัดกับกฎการจับคู่</source>
-        <target>Can't change that — it breaks a pairing rule</target>
+        <target>Can't change that. It breaks a pairing rule</target>
       </trans-unit>
       <trans-unit id="err.code.pairRuleSearchLimit" datatype="html">
         <source>กฎการจับคู่ซับซ้อนเกินไป หาคู่ไม่ทัน ลองใหม่หรือปิดกฎบางข้อคืนนี้</source>
@@ -2874,7 +2874,7 @@
       </trans-unit>
       <trans-unit id="err.code.ruleNotFound" datatype="html">
         <source>ไม่พบกฎนี้ อาจถูกลบไปแล้ว</source>
-        <target>Rule not found — it may have been deleted</target>
+        <target>Rule not found. It may have been deleted</target>
       </trans-unit>
       <trans-unit id="err.toggleRule" datatype="html">
         <source>เปลี่ยนกฎคืนนี้ไม่สำเร็จ</source>
@@ -2885,8 +2885,8 @@
         <target>This lineup breaks a pairing rule</target>
       </trans-unit>
       <trans-unit id="court.ruleConflictFix" datatype="html">
-        <source>— กดชื่อเพื่อเปลี่ยนตัว หรือสุ่มใหม่</source>
-        <target>— tap a name to swap, or reshuffle</target>
+        <source>กดชื่อเพื่อเปลี่ยนตัว หรือสุ่มใหม่</source>
+        <target>Tap a name to swap, or reshuffle</target>
       </trans-unit>
       <trans-unit id="court.rulesBlocked" datatype="html">
         <source>จัดคอร์ทนี้ไม่ได้เพราะกฎการจับคู่</source>
@@ -2905,8 +2905,8 @@
         <target>Tonight's pairing rules (<x id="INTERPOLATION" equiv-text="{{ sessionRuleRows().length }}"/>)</target>
       </trans-unit>
       <trans-unit id="dashboard.sessionRulesHint" datatype="html">
-        <source>ปิดกฎเฉพาะคืนนี้ — แก้หรือลบกฎถาวรที่หน้าผู้เล่นในก๊วน</source>
-        <target>Switch rules off for tonight only — edit or delete rules permanently on the group players page</target>
+        <source>ปิดกฎเฉพาะคืนนี้ แก้หรือลบกฎถาวรที่หน้าผู้เล่นในก๊วน</source>
+        <target>Switch rules off for tonight only. Edit or delete rules permanently on the group players page</target>
       </trans-unit>
       <trans-unit id="dashboard.addRule" datatype="html">
         <source> + เพิ่มกฎการจับคู่ </source>
@@ -2949,8 +2949,8 @@
         <target>Rule type</target>
       </trans-unit>
       <trans-unit id="addRule.persistHint" datatype="html">
-        <source>กฎนี้บันทึกกับก๊วนถาวร — ปิดเฉพาะคืนนี้ได้จากรายการกฎ</source>
-        <target>This rule is saved to the group permanently — switch it off for tonight from the rules list</target>
+        <source>กฎนี้บันทึกกับก๊วนถาวร ปิดเฉพาะคืนนี้ได้จากรายการกฎ</source>
+        <target>This rule is saved to the group permanently. Switch it off for tonight from the rules list</target>
       </trans-unit>
       <trans-unit id="addRule.cancel" datatype="html">
         <source>ยกเลิก</source>
@@ -3002,7 +3002,7 @@
       </trans-unit>
       <trans-unit id="entry.advancedSaveFailed" datatype="html">
         <source>บันทึกไม่สำเร็จ ลองอีกครั้ง</source>
-        <target>Couldn't save — try again</target>
+        <target>Couldn't save. Try again</target>
       </trans-unit>
       <trans-unit id="shuttlePicker.confirmTitle" datatype="html">
         <source>เลือกลูกแบด — <x id="INTERPOLATION" equiv-text="{{ courtLabel() }}"/></source>
@@ -3081,8 +3081,8 @@
         <target>· counted from recorded matches</target>
       </trans-unit>
       <trans-unit id="bill.sourceMissing" datatype="html">
-        <source>ยังนับลูกแบดไม่ได้ — ใส่จำนวนลูกที่ใช้จริง หรือบันทึกลูกที่ใช้ในแต่ละแมตช์ให้ครบ</source>
-        <target>Can't count shuttles yet — enter the number actually used, or record the shuttles used in every match</target>
+        <source>ยังนับลูกแบดไม่ได้ ใส่จำนวนลูกที่ใช้จริง หรือบันทึกลูกที่ใช้ในแต่ละแมตช์ให้ครบ</source>
+        <target>Can't count shuttles yet. Enter the number actually used, or record the shuttles used in every match</target>
       </trans-unit>
       <trans-unit id="bill.recordedSubtotal" datatype="html">
         <source>บันทึกในแมตช์: <x id="INTERPOLATION" equiv-text="{{ sp.recordedFinishedShuttles }}"/> ลูก</source>
@@ -3101,8 +3101,8 @@
         <target>These matches recorded no shuttles used, so the shuttle cost is split equally across matches</target>
       </trans-unit>
       <trans-unit id="bill.notReady" datatype="html">
-        <source>ยังคัดลอกไม่ได้ — ใส่ข้อมูลที่ขาดให้ครบก่อน แล้วจะเห็นยอดของแต่ละคน</source>
-        <target>Can't copy yet — fill in the missing inputs to see each person's amount</target>
+        <source>ยังคัดลอกไม่ได้ ใส่ข้อมูลที่ขาดให้ครบก่อน แล้วจะเห็นยอดของแต่ละคน</source>
+        <target>Can't copy yet. Fill in the missing inputs to see each person's amount</target>
       </trans-unit>
       <trans-unit id="summary.shuttleRowLabel" datatype="html">
         <source>คอร์ท <x id="court" equiv-text="this.courtName(row.courtNumber)"/> · แมตช์ <x id="match" equiv-text="row.matchNumber"/></source>
@@ -3114,11 +3114,11 @@
       </trans-unit>
       <trans-unit id="summary.correctionNotFound" datatype="html">
         <source>ไม่พบลูกแบดลูกนี้ อาจถูกลบไปแล้ว</source>
-        <target>That shuttle wasn't found — it may have been removed</target>
+        <target>That shuttle wasn't found. It may have been removed</target>
       </trans-unit>
       <trans-unit id="summary.correctionFailed" datatype="html">
         <source>บันทึกไม่สำเร็จ ลองอีกครั้ง</source>
-        <target>Couldn't save — try again</target>
+        <target>Couldn't save. Try again</target>
       </trans-unit>
       <trans-unit id="summary.shuttleLogTitle" datatype="html">
         <source>ลูกแบดที่ใช้รายแมตช์</source>
@@ -3129,8 +3129,8 @@
         <target>used in finished matches (each counted once)</target>
       </trans-unit>
       <trans-unit id="summary.shuttlePartial" datatype="html">
-        <source> · ไม่ครบ — <x id="INTERPOLATION" equiv-text="{{ sh.unknownFinishedMatches }}"/> แมตช์ไม่ได้บันทึก</source>
-        <target> · incomplete — <x id="INTERPOLATION" equiv-text="{{ sh.unknownFinishedMatches }}"/> matches not recorded</target>
+        <source> · ไม่ครบ: <x id="INTERPOLATION" equiv-text="{{ sh.unknownFinishedMatches }}"/> แมตช์ไม่ได้บันทึก</source>
+        <target> · incomplete: <x id="INTERPOLATION" equiv-text="{{ sh.unknownFinishedMatches }}"/> matches not recorded</target>
       </trans-unit>
       <trans-unit id="summary.shuttlePhysical" datatype="html">
         <source>นับจริงทั้งคืน <x id="INTERPOLATION" equiv-text="{{ sh.physical }}"/> ลูก</source>
@@ -3193,8 +3193,8 @@
         <target>Save</target>
       </trans-unit>
       <trans-unit id="bill.recordedPartial" datatype="html">
-        <source>ไม่ครบ — <x id="INTERPOLATION" equiv-text="{{ sp.unknownFinishedMatches }}"/> แมตช์ไม่ได้บันทึก</source>
-        <target>Incomplete — <x id="INTERPOLATION" equiv-text="{{ sp.unknownFinishedMatches }}"/> matches not recorded</target>
+        <source>ไม่ครบ: <x id="INTERPOLATION" equiv-text="{{ sp.unknownFinishedMatches }}"/> แมตช์ไม่ได้บันทึก</source>
+        <target>Incomplete: <x id="INTERPOLATION" equiv-text="{{ sp.unknownFinishedMatches }}"/> matches not recorded</target>
       </trans-unit>
       <trans-unit id="summary.shuttleDistinctCount" datatype="html">
         <source><x id="INTERPOLATION" equiv-text="{{ sh.recordedFinishedShuttles }}"/> ลูก</source>
@@ -3321,8 +3321,8 @@
         <target>They're already checked out</target>
       </trans-unit>
       <trans-unit id="checkout.err.onCourt" datatype="html">
-        <source>คนนี้อยู่บนคอร์ท — เอาออกจากคู่ หรือจบแมตช์ก่อน</source>
-        <target>They're on a court — take them out of the match or finish it first</target>
+        <source>คนนี้อยู่บนคอร์ท เอาออกจากคู่ หรือจบแมตช์ก่อน</source>
+        <target>They're on a court. Take them out of the match or finish it first</target>
       </trans-unit>
       <trans-unit id="checkout.err.unknownUse" datatype="html">
         <source>เกมของคนนี้ยังไม่ได้บันทึกลูกแบด แก้ในหน้าสรุปรอบก่อน</source>
@@ -3373,12 +3373,12 @@
         <target>Checked out</target>
       </trans-unit>
       <trans-unit id="checkout.saved" datatype="html">
-        <source>บันทึกแล้ว — <x id="INTERPOLATION" equiv-text="{{ baht(r.amountSatang) }}"/> บาท</source>
-        <target>Saved — <x id="INTERPOLATION" equiv-text="{{ baht(r.amountSatang) }}"/> baht</target>
+        <source>บันทึกแล้ว: <x id="INTERPOLATION" equiv-text="{{ baht(r.amountSatang) }}"/> บาท</source>
+        <target>Saved: <x id="INTERPOLATION" equiv-text="{{ baht(r.amountSatang) }}"/> baht</target>
       </trans-unit>
       <trans-unit id="checkout.err.onCourtNamed" datatype="html">
-        <source>คนนี้อยู่ที่ <x id="court" equiv-text="courtLabel"/> — เอาออกจากคู่ หรือจบแมตช์ก่อน</source>
-        <target>They're on <x id="court" equiv-text="courtLabel"/> — take them out of the match or finish it first</target>
+        <source>คนนี้อยู่ที่ <x id="court" equiv-text="courtLabel"/> เอาออกจากคู่ หรือจบแมตช์ก่อน</source>
+        <target>They're on <x id="court" equiv-text="courtLabel"/>. Take them out of the match or finish it first</target>
       </trans-unit>
       <trans-unit id="dashboard.checkedOut" datatype="html">
         <source><x id="name" equiv-text="name"/> เช็คเอาต์แล้ว</source>
@@ -3417,16 +3417,16 @@
         <target>Some games have no shuttle log. Fix them on the session summary first.</target>
       </trans-unit>
       <trans-unit id="bill.warnExcess" datatype="html">
-        <source>ยอดที่เช็คเอาต์ไปแล้วเกินต้นทุน <x id="INTERPOLATION" equiv-text="{{ baht(b.result.totals.excessCreditSatang) }}"/>฿ — ต้องคืนเงินเองนอกแอป หรือยกเลิกเช็คเอาต์</source>
-        <target>Checked-out payments exceed the cost by <x id="INTERPOLATION" equiv-text="{{ baht(b.result.totals.excessCreditSatang) }}"/>฿ — refund it yourself outside the app, or undo a checkout.</target>
+        <source>ยอดที่เช็คเอาต์ไปแล้วเกินต้นทุน <x id="INTERPOLATION" equiv-text="{{ baht(b.result.totals.excessCreditSatang) }}"/>฿ ต้องคืนเงินเองนอกแอป หรือยกเลิกเช็คเอาต์</source>
+        <target>Checked-out payments exceed the cost by <x id="INTERPOLATION" equiv-text="{{ baht(b.result.totals.excessCreditSatang) }}"/>฿. Refund it yourself outside the app, or undo a checkout.</target>
       </trans-unit>
       <trans-unit id="bill.warnUncovered" datatype="html">
-        <source>ไม่มีใครเหลือจ่ายส่วนที่ขาด <x id="INTERPOLATION" equiv-text="{{ baht(b.result.totals.uncoveredCostSatang) }}"/>฿ — ยกเลิกเช็คเอาต์หรือแก้ข้อมูลก่อน</source>
-        <target>Nobody is left to pay the <x id="INTERPOLATION" equiv-text="{{ baht(b.result.totals.uncoveredCostSatang) }}"/>฿ shortfall — undo a checkout or fix the data first.</target>
+        <source>ไม่มีใครเหลือจ่ายส่วนที่ขาด <x id="INTERPOLATION" equiv-text="{{ baht(b.result.totals.uncoveredCostSatang) }}"/>฿ ยกเลิกเช็คเอาต์หรือแก้ข้อมูลก่อน</source>
+        <target>Nobody is left to pay the <x id="INTERPOLATION" equiv-text="{{ baht(b.result.totals.uncoveredCostSatang) }}"/>฿ shortfall. Undo a checkout or fix the data first.</target>
       </trans-unit>
       <trans-unit id="bill.warnSurcharge" datatype="html">
-        <source>ค่า walk-in <x id="INTERPOLATION" equiv-text="{{ baht(b.result.totals.unreturnedSurchargeSatang) }}"/>฿ ไม่มีใครรับคืนได้ — ไม่นับเป็นกำไร แก้ก่อนแชร์</source>
-        <target><x id="INTERPOLATION" equiv-text="{{ baht(b.result.totals.unreturnedSurchargeSatang) }}"/>฿ of walk-in fees can't be returned to anyone — it isn't profit. Fix it before sharing.</target>
+        <source>ค่า walk-in <x id="INTERPOLATION" equiv-text="{{ baht(b.result.totals.unreturnedSurchargeSatang) }}"/>฿ ไม่มีใครรับคืนได้ ไม่นับเป็นกำไร แก้ก่อนแชร์</source>
+        <target><x id="INTERPOLATION" equiv-text="{{ baht(b.result.totals.unreturnedSurchargeSatang) }}"/>฿ of walk-in fees can't be returned to anyone. It isn't profit. Fix it before sharing.</target>
       </trans-unit>
       <trans-unit id="bill.settledSplit" datatype="html">
         <source>เช็คเอาต์แล้ว <x id="INTERPOLATION" equiv-text="{{ baht(b.result.totals.settledTotalSatang) }}"/>฿ · ยังต้องจ่าย <x id="INTERPOLATION_1" equiv-text="{{ baht(b.result.totals.stillDueSatang) }}"/>฿</source>
@@ -3585,8 +3585,8 @@
         <target>Can't remove this level: <x id="n" equiv-text="n"/> players are in it. Move or clear them first.</target>
       </trans-unit>
       <trans-unit id="levels.removeBlocked" datatype="html">
-        <source>มี <x id="n" equiv-text="n"/> คนอยู่ในระดับนี้ — ย้ายหรือล้างระดับของเขาก่อนจึงจะลบได้</source>
-        <target><x id="n" equiv-text="n"/> players are in this level — move or clear them before removing it</target>
+        <source>มี <x id="n" equiv-text="n"/> คนอยู่ในระดับนี้ ย้ายหรือล้างระดับของเขาก่อนจึงจะลบได้</source>
+        <target><x id="n" equiv-text="n"/> players are in this level. Move or clear them before removing it</target>
       </trans-unit>
       <trans-unit id="levels.val.control" datatype="html">
         <source>ชื่อระดับที่ <x id="n" equiv-text="n"/> มีอักขระที่ใช้ไม่ได้</source>
@@ -4061,7 +4061,7 @@
         </context-group>
       </trans-unit>
       <trans-unit id="dashboard.rosterTipResting" datatype="html">
-        <source>พักอยู่ — แตะชื่อเพื่อกลับมาเล่น</source><target>Resting — tap a name to bring them back</target>
+        <source>พักอยู่ แตะชื่อเพื่อกลับมาเล่น</source><target>Resting. Tap a name to bring them back</target>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/session-dashboard/session-dashboard.html</context>
           <context context-type="linenumber">1</context>
@@ -4306,7 +4306,7 @@
       </trans-unit>
       <trans-unit id="group.shareShows" datatype="html">
         <source>แสดงเฉพาะจำนวนเกมที่เล่น ไม่มีเรตติ้งหรือข้อมูลติดต่อ</source>
-        <target>It shows games played only — no ratings or contact details.</target>
+        <target>It shows games played only. No ratings or contact details.</target>
       </trans-unit>
       <trans-unit id="group.row.advanced" datatype="html">
         <source>ตั้งค่าขั้นสูง</source>
@@ -4410,7 +4410,7 @@
       </trans-unit>
       <trans-unit id="group.newHint" datatype="html">
         <source>บันทึกก๊วนแล้ว เริ่มรอบได้ทันที ระดับผู้เล่นและตัวเลือกอื่นอยู่ใน “ตั้งค่าก๊วน”</source>
-        <target>Group saved — you can start a session now. Player levels and other options are under "Group settings".</target>
+        <target>Group saved. You can start a session now. Player levels and other options are under "Group settings".</target>
       </trans-unit>
       <trans-unit id="group.row.players" datatype="html">
         <source>จัดการผู้เล่น</source>
@@ -4549,7 +4549,7 @@
       </trans-unit>
       <trans-unit id="entry.clipboardEmpty" datatype="html">
         <source>คลิปบอร์ดว่างอยู่ คัดลอกข้อความรายชื่อจาก LINE ก่อน</source>
-        <target>Clipboard is empty — copy the roster message from LINE first</target>
+        <target>Clipboard is empty. Copy the roster message from LINE first</target>
       </trans-unit>
       <trans-unit id="entry.createSessionFailed" datatype="html">
         <source>สร้างรอบไม่สำเร็จ กรุณาลองอีกครั้ง</source>
@@ -5136,8 +5136,8 @@
         </context-group>
       </trans-unit>
       <trans-unit id="summary.shareToGroup" datatype="html">
-        <source>ส่งการ์ดเข้ากลุ่ม LINE</source>
-        <target>Share card to a LINE group</target>
+        <source>ส่งการ์ดสรุปเข้ากลุ่ม LINE</source>
+        <target>Send the summary card to the group on LINE</target>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/session-summary/session-summary.html</context>
           <context context-type="linenumber">29,33</context>
@@ -5243,7 +5243,7 @@
         </context-group>
       </trans-unit>
       <trans-unit id="walkIn.alreadyOnRoster" datatype="html">
-        <source><x id="INTERPOLATION" equiv-text="{{ match.name }}"/> อยู่ในรอบนี้แล้ว — เปิดจากชิปรายชื่อ</source><target><x id="INTERPOLATION" equiv-text="{{ match.name }}"/> is already in this session — open them from the roster chips</target>
+        <source><x id="INTERPOLATION" equiv-text="{{ match.name }}"/> อยู่ในรอบนี้แล้ว เปิดจากชิปรายชื่อ</source><target><x id="INTERPOLATION" equiv-text="{{ match.name }}"/> is already in this session. Open them from the roster chips</target>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/shared/add-walk-in-dialog/add-walk-in-dialog.html</context>
           <context context-type="linenumber">44,45</context>
@@ -5564,7 +5564,7 @@
         </context-group>
       </trans-unit>
       <trans-unit id="plan.groupPaused" datatype="html">
-        <source>ก๊วนนี้พักไว้ — แพ็ก⁠เกจของคุณเปิดรอบได้ <x id="limit" equiv-text="limit"/> ก๊วน (ก๊วนที่เล่นล่าสุด)</source><target>This group is paused: your plan runs <x id="limit" equiv-text="limit"/> group(s), the most recently played</target>
+        <source>ก๊วนนี้พักไว้ แพ็ก⁠เกจของคุณเปิดรอบได้ <x id="limit" equiv-text="limit"/> ก๊วน (ก๊วนที่เล่นล่าสุด)</source><target>This group is paused: your plan runs <x id="limit" equiv-text="limit"/> group(s), the most recently played</target>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/core/plan.ts</context>
           <context context-type="linenumber">80</context>
@@ -5641,7 +5641,7 @@
         </context-group>
       </trans-unit>
       <trans-unit id="plan.notice.lapsed" datatype="html">
-        <source>แพ็ก⁠เกจหมดเมื่อ <x id="date" equiv-text="date"/> — รอบใหม่ใช้แบบฟรี</source><target>Plan ended <x id="date" equiv-text="date"/>; new rounds use the free plan</target>
+        <source>แพ็ก⁠เกจหมดเมื่อ <x id="date" equiv-text="date"/> รอบใหม่ใช้แบบฟรี</source><target>Plan ended <x id="date" equiv-text="date"/>; new rounds use the free plan</target>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/core/plan.ts</context>
           <context context-type="linenumber">103</context>
@@ -5683,7 +5683,7 @@
         </context-group>
       </trans-unit>
       <trans-unit id="dashboard.rulesInactive" datatype="html">
-        <source>กฎไม่ใช้ในรอบนี้ — รอบนี้เริ่มในแพ็ก⁠เกจฟรี</source><target>Rules are off this round: it started on the free plan</target>
+        <source>กฎไม่ใช้ในรอบนี้ รอบนี้เริ่มในแพ็ก⁠เกจฟรี</source><target>Rules are off this round: it started on the free plan</target>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/session-dashboard/session-dashboard.html</context>
           <context context-type="linenumber">163,165</context>
@@ -5711,7 +5711,7 @@
         </context-group>
       </trans-unit>
       <trans-unit id="admin.planEnded" datatype="html">
-        <source>หมดเมื่อ <x id="date" equiv-text="date"/> — ใช้แบบฟรีอยู่</source><target>Ended <x id="date" equiv-text="date"/>, on free</target>
+        <source>หมดเมื่อ <x id="date" equiv-text="date"/> ใช้แบบฟรีอยู่</source><target>Ended <x id="date" equiv-text="date"/>, on free</target>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/admin/admin.ts</context>
           <context context-type="linenumber">225</context>
@@ -6043,39 +6043,39 @@
       </trans-unit>
       <trans-unit id="dashboard.sendLineSummaryHost" datatype="html">
         <source>ส่งการ์ดสรุปให้ฉันทาง LINE</source>
-        <target>DM me the summary card</target>
+        <target>Send the summary card to me on LINE</target>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/session-dashboard/session-dashboard.html</context>
           <context context-type="linenumber">508,510</context>
         </context-group>
       </trans-unit>
       <trans-unit id="dashboard.sendLineSummary" datatype="html">
-        <source>ส่งสรุปเข้ากลุ่ม LINE</source>
-        <target>Send summary to LINE group</target>
+        <source>ส่งการ์ดสรุปเข้ากลุ่ม LINE</source>
+        <target>Send the summary card to the group on LINE</target>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/session-dashboard/session-dashboard.html</context>
           <context context-type="linenumber">508,510</context>
         </context-group>
       </trans-unit>
       <trans-unit id="summary.sendLineHost" datatype="html">
-        <source>ส่งการ์ดให้ฉันทาง LINE</source>
-        <target>DM me the summary card</target>
+        <source>ส่งการ์ดสรุปให้ฉันทาง LINE</source>
+        <target>Send the summary card to me on LINE</target>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/session-summary/session-summary.html</context>
           <context context-type="linenumber">21,23</context>
         </context-group>
       </trans-unit>
       <trans-unit id="summary.sendLine" datatype="html">
-        <source>ส่งสรุปเข้ากลุ่ม LINE</source>
-        <target>Send summary to LINE group</target>
+        <source>ส่งการ์ดสรุปเข้ากลุ่ม LINE</source>
+        <target>Send the summary card to the group on LINE</target>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/session-summary/session-summary.html</context>
           <context context-type="linenumber">20,24</context>
         </context-group>
       </trans-unit>
       <trans-unit id="summary.lineHostSent" datatype="html">
-        <source>ส่งการ์ดให้คุณทาง LINE แล้ว</source>
-        <target>Card sent to you on LINE</target>
+        <source>ส่งการ์ดสรุปให้คุณทาง LINE แล้ว</source>
+        <target>The summary card was sent to you on LINE</target>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/session-summary/session-summary.ts</context>
           <context context-type="linenumber">206</context>
@@ -6184,10 +6184,6 @@
       <trans-unit id="pay.account.loadFailed" datatype="html">
         <source>โหลดบัญชีรับเงินไม่สำเร็จ</source>
         <target>Could not load the payment account</target>
-      </trans-unit>
-      <trans-unit id="pay.account.incomplete" datatype="html">
-        <source>กรอกให้ครบทั้งสามช่อง หรือกดล้างถ้าไม่ต้องการตั้งบัญชี</source>
-        <target>Fill in all three fields, or tap Clear if you don't want an account set</target>
       </trans-unit>
       <trans-unit id="pay.account.badNumber" datatype="html">
         <source>เลขบัญชีต้องเป็นตัวเลขอย่างน้อย 6 หลัก เว้นวรรคหรือใส่ขีดได้ ยาวไม่เกิน 20 ตัวอักษร</source>
@@ -6741,6 +6737,579 @@
         <source>แก้รายละเอียดในหน้าคิดเงิน</source>
         <target>Edit details on the bill page</target>
       </trans-unit>
+      <trans-unit id="pay.card.checkFields" datatype="html">
+        <source>ตรวจช่องที่ทำเครื่องหมาย</source>
+        <target>Check the highlighted fields</target>
+      </trans-unit>
+      <trans-unit id="slipPay.unavailable" datatype="html">
+        <source>ลิงก์นี้ใช้ไม่ได้แล้ว</source>
+        <target>This link no longer works</target>
+      </trans-unit>
+      <trans-unit id="slipPay.loading" datatype="html">
+        <source>กำลังโหลด…</source>
+        <target>Loading…</target>
+      </trans-unit>
+      <trans-unit id="slipPay.login" datatype="html">
+        <source>กำลังไปหน้าเข้าสู่ระบบ LINE</source>
+        <target>Going to LINE login</target>
+      </trans-unit>
+      <trans-unit id="slipPay.error" datatype="html">
+        <source>เปิดหน้านี้ไม่สำเร็จ ลองอีกครั้ง</source>
+        <target>Could not open this page. Try again</target>
+      </trans-unit>
+      <trans-unit id="slipPay.received" datatype="html">
+        <source>รับสลิปแล้ว</source>
+        <target>Slip received</target>
+      </trans-unit>
+      <trans-unit id="slipPay.sentToHost" datatype="html">
+        <source>ส่งให้โฮสต์ตรวจแล้ว</source>
+        <target>Sent to the host to check</target>
+      </trans-unit>
+      <trans-unit id="slipPay.hostWillCheck" datatype="html">
+        <source>โฮสต์จะตรวจและติ๊กให้</source>
+        <target>The host will review it and tick you</target>
+      </trans-unit>
+      <trans-unit id="slipPay.paid" datatype="html">
+        <source>จ่ายแล้ว</source>
+        <target>Paid</target>
+      </trans-unit>
+      <trans-unit id="slipPay.whoAreYou" datatype="html">
+        <source>คุณคือใคร?</source>
+        <target>Who are you?</target>
+      </trans-unit>
+      <trans-unit id="slipPay.pickName" datatype="html">
+        <source>เลือกชื่อของคุณ (ครั้งเดียว)</source>
+        <target>Pick your name (one time)</target>
+      </trans-unit>
+      <trans-unit id="slipPay.claim.taken" datatype="html">
+        <source>ชื่อนี้มีคนเลือกไปแล้ว เลือกชื่ออื่น</source>
+        <target>That name was just taken. Pick another</target>
+      </trans-unit>
+      <trans-unit id="slipPay.claim.accountLinked" datatype="html">
+        <source>บัญชี LINE นี้เลือกชื่อไว้แล้ว</source>
+        <target>This LINE account already picked a name</target>
+      </trans-unit>
+      <trans-unit id="slipPay.claim.notOnBill" datatype="html">
+        <source>ชื่อนี้ไม่อยู่ในบิลแล้ว</source>
+        <target>That name is no longer on the bill</target>
+      </trans-unit>
+      <trans-unit id="slipPay.err.rate" datatype="html">
+        <source>ส่งบ่อยเกินไป ลองใหม่ภายหลัง</source>
+        <target>Too many tries. Try again later</target>
+      </trans-unit>
+      <trans-unit id="slipPay.err.generic" datatype="html">
+        <source>ส่งไม่สำเร็จ ลองใหม่อีกครั้ง</source>
+        <target>Could not send. Try again</target>
+      </trans-unit>
+      <trans-unit id="slipPay.skip" datatype="html">
+        <source>ข้าม — ฉันจ่ายแทนคนอื่น</source>
+        <target>Skip: I'm paying for someone else</target>
+      </trans-unit>
+      <trans-unit id="slipPay.amountLabel" datatype="html">
+        <source>ยอดที่ต้องจ่าย</source>
+        <target>Amount to pay</target>
+      </trans-unit>
+      <trans-unit id="slipPay.send" datatype="html">
+        <source>ส่งสลิป</source>
+        <target>Send slip</target>
+      </trans-unit>
+      <trans-unit id="slipPay.transferTo" datatype="html">
+        <source>โอนเข้า</source>
+        <target>Transfer to</target>
+      </trans-unit>
+      <trans-unit id="slipPay.dup" datatype="html">
+        <source>สลิปนี้ถูกใช้ไปแล้ว</source>
+        <target>This slip was already used</target>
+      </trans-unit>
+      <trans-unit id="slipPay.notSlip" datatype="html">
+        <source>ไม่พบสลิปในรูปนี้ ลองเลือกรูปสลิปอีกครั้ง</source>
+        <target>No slip found in that photo. Try picking the slip again</target>
+      </trans-unit>
+      <trans-unit id="slipPay.err.tooBig" datatype="html">
+        <source>รูปใหญ่เกินไป เลือกรูปที่เล็กกว่านี้</source>
+        <target>That photo is too big. Pick a smaller one</target>
+      </trans-unit>
+      <trans-unit id="slipPay.sending" datatype="html">
+        <source>กำลังส่ง…</source>
+        <target>Sending…</target>
+      </trans-unit>
+      <trans-unit id="slipPay.cashNote" datatype="html">
+        <source>บอกโฮสต์ให้ติ๊กให้ในแอปนะ</source>
+        <target>Tell the host to tick you in the app</target>
+      </trans-unit>
+      <trans-unit id="slipPay.cash" datatype="html">
+        <source>ฉันจ่ายเงินสดแล้ว</source>
+        <target>I paid cash</target>
+      </trans-unit>
+      <trans-unit id="slipReview.loadFailed" datatype="html">
+        <source>โหลดสถานะการชำระเงินไม่สำเร็จ</source>
+        <target>Could not load payment status</target>
+      </trans-unit>
+      <trans-unit id="slipReview.label" datatype="html">
+        <source>สถานะการชำระเงิน</source>
+        <target>Payment status</target>
+      </trans-unit>
+      <trans-unit id="slipReview.title" datatype="html">
+        <source>สถานะการชำระเงิน</source>
+        <target>Payment status</target>
+      </trans-unit>
+      <trans-unit id="slipReview.badge" datatype="html">
+        <source>รอตรวจ <x id="INTERPOLATION" equiv-text="{{ reviewCount() }}"/></source>
+        <target><x id="INTERPOLATION" equiv-text="{{ reviewCount() }}"/> to review</target>
+      </trans-unit>
+      <trans-unit id="slipReview.paidCount" datatype="html">
+        <source>ชำระแล้ว <x id="INTERPOLATION" equiv-text="{{ paidCount() }}"/> / <x id="INTERPOLATION_1" equiv-text="{{ billedCount() }}"/> คน</source>
+        <target>Paid <x id="INTERPOLATION" equiv-text="{{ paidCount() }}"/> / <x id="INTERPOLATION_1" equiv-text="{{ billedCount() }}"/></target>
+      </trans-unit>
+      <trans-unit id="slipReview.unknownName" datatype="html">
+        <source>ไม่ทราบชื่อ</source>
+        <target>Unknown name</target>
+      </trans-unit>
+      <trans-unit id="slipReview.amountChanged" datatype="html">
+        <source>ยอดเปลี่ยนหลังจ่าย</source>
+        <target>Amount changed after payment</target>
+      </trans-unit>
+      <trans-unit id="slipReview.chip.unpaid" datatype="html">
+        <source>ยังไม่จ่าย</source>
+        <target>Not paid</target>
+      </trans-unit>
+      <trans-unit id="slipReview.chip.slip" datatype="html">
+        <source>สลิป</source>
+        <target>Slip</target>
+      </trans-unit>
+      <trans-unit id="slipReview.chip.host" datatype="html">
+        <source>โฮสต์ติ๊ก</source>
+        <target>Ticked by host</target>
+      </trans-unit>
+      <trans-unit id="slipReview.amountUnknown" datatype="html">
+        <source>ไม่ทราบยอด</source>
+        <target>Amount unknown</target>
+      </trans-unit>
+      <trans-unit id="slipReview.reason.amount" datatype="html">
+        <source>ยอดไม่ตรงกับที่ต้องจ่าย</source>
+        <target>Amount does not match what is owed</target>
+      </trans-unit>
+      <trans-unit id="slipReview.reason.receiver" datatype="html">
+        <source>ชื่อผู้รับไม่ตรง</source>
+        <target>Receiver name does not match</target>
+      </trans-unit>
+      <trans-unit id="slipReview.reason.unreadable" datatype="html">
+        <source>อ่านยอดจากสลิปไม่ได้</source>
+        <target>Could not read the amount from the slip</target>
+      </trans-unit>
+      <trans-unit id="slipReview.reason.stale" datatype="html">
+        <source>ยอดบิลเปลี่ยนหลังยืนยัน</source>
+        <target>The bill changed after you confirmed it</target>
+      </trans-unit>
+      <trans-unit id="slipReview.reason.collision" datatype="html">
+        <source>คนนี้จ่ายไปแล้วหรือไม่อยู่ในบิล</source>
+        <target>This person already paid or is not on the bill</target>
+      </trans-unit>
+      <trans-unit id="slipReview.reason.unmapped" datatype="html">
+        <source>ยังไม่รู้ว่าเป็นใคร</source>
+        <target>We do not know who this is yet</target>
+      </trans-unit>
+      <trans-unit id="slipReview.onSlip" datatype="html">
+        <source>บนสลิป: <x id="INTERPOLATION" equiv-text="{{ c.slip.receiverName }}"/></source>
+        <target>On the slip: <x id="INTERPOLATION" equiv-text="{{ c.slip.receiverName }}"/></target>
+      </trans-unit>
+      <trans-unit id="slipReview.tail" datatype="html">
+        <source>เลขบัญชีลงท้าย <x id="INTERPOLATION" equiv-text="{{ c.slip.receiverTail }}"/></source>
+        <target>Account ending <x id="INTERPOLATION" equiv-text="{{ c.slip.receiverTail }}"/></target>
+      </trans-unit>
+      <trans-unit id="slipReview.updateName" datatype="html">
+        <source>อัปเดตชื่อที่ตั้งไว้เป็น &quot;<x id="INTERPOLATION" equiv-text="{{ c.slip.receiverName }}"/>&quot;</source>
+        <target>Update saved name to &quot;<x id="INTERPOLATION" equiv-text="{{ c.slip.receiverName }}"/>&quot;</target>
+      </trans-unit>
+      <trans-unit id="slipReview.nameUpdated" datatype="html">
+        <source>เปลี่ยนชื่อที่ตั้งไว้แล้ว ติ๊กคนที่สลิปนี้จ่ายให้ได้เลย</source>
+        <target>Saved name updated. You can now tick who this slip paid for</target>
+      </trans-unit>
+      <trans-unit id="slipReview.covers" datatype="html">
+        <source>สลิปนี้จ่ายให้</source>
+        <target>This slip covers</target>
+      </trans-unit>
+      <trans-unit id="slipReview.sender" datatype="html">
+        <source>คนส่งคือ (ไม่บังคับ)</source>
+        <target>The sender is (optional)</target>
+      </trans-unit>
+      <trans-unit id="slipReview.senderNone" datatype="html">
+        <source>ไม่มีในระบบ</source>
+        <target>Not in the system</target>
+      </trans-unit>
+      <trans-unit id="slipReview.senderWarning" datatype="html">
+        <source>คนนี้ผูกกับบัญชี LINE อื่นอยู่แล้ว การยืนยันจะแทนที่บัญชีเดิม</source>
+        <target>This person is linked to a different LINE account. Confirming will replace the old one</target>
+      </trans-unit>
+      <trans-unit id="slipReview.skip" datatype="html">
+        <source>ข้าม</source>
+        <target>Skip</target>
+      </trans-unit>
+      <trans-unit id="slipReview.confirm" datatype="html">
+        <source>ยืนยัน</source>
+        <target>Confirm</target>
+      </trans-unit>
+      <trans-unit id="slipReview.duplicates" datatype="html">
+        <source>สลิปซ้ำ</source>
+        <target>Duplicate slips</target>
+      </trans-unit>
+      <trans-unit id="slipReview.dupUsed" datatype="html">
+        <source>ใช้กับ <x id="INTERPOLATION" equiv-text="{{ names }}"/> แล้ว</source>
+        <target>Already used for <x id="INTERPOLATION" equiv-text="{{ names }}"/></target>
+      </trans-unit>
+      <trans-unit id="slipReview.ack" datatype="html">
+        <source>รับทราบ</source>
+        <target>Acknowledge</target>
+      </trans-unit>
+      <trans-unit id="slipReview.links" datatype="html">
+        <source>บัญชี LINE ที่ผูกแล้ว</source>
+        <target>Linked LINE accounts</target>
+      </trans-unit>
+      <trans-unit id="slipReview.linkSelf" datatype="html">
+        <source>ผูกเอง</source>
+        <target>Linked by player</target>
+      </trans-unit>
+      <trans-unit id="slipReview.linkHost" datatype="html">
+        <source>โฮสต์ผูก</source>
+        <target>Linked by host</target>
+      </trans-unit>
+      <trans-unit id="slipReview.unlink" datatype="html">
+        <source>ยกเลิกการผูก</source>
+        <target>Remove link</target>
+      </trans-unit>
+      <trans-unit id="slipReview.nameAsk" datatype="html">
+        <source>เปลี่ยนชื่อผู้รับจาก &quot;<x id="INTERPOLATION" equiv-text="{{ n.oldName }}"/>&quot; เป็น &quot;<x id="INTERPOLATION_1" equiv-text="{{ n.newName }}"/>&quot;? หลังจากนี้สลิปที่โอนให้ชื่อนี้จะผ่านอัตโนมัติ</source>
+        <target>Change the receiver name from &quot;<x id="INTERPOLATION" equiv-text="{{ n.oldName }}"/>&quot; to &quot;<x id="INTERPOLATION_1" equiv-text="{{ n.newName }}"/>&quot;? From now on, slips sent to this name will pass automatically</target>
+      </trans-unit>
+      <trans-unit id="slipReview.nameAskNoOld" datatype="html">
+        <source>เปลี่ยนชื่อผู้รับเป็น &quot;<x id="INTERPOLATION" equiv-text="{{ n.newName }}"/>&quot;? หลังจากนี้สลิปที่โอนให้ชื่อนี้จะผ่านอัตโนมัติ</source>
+        <target>Change the receiver name to &quot;<x id="INTERPOLATION" equiv-text="{{ n.newName }}"/>&quot;? From now on, slips sent to this name will pass automatically</target>
+      </trans-unit>
+      <trans-unit id="slipReview.nameCancel" datatype="html">
+        <source>ยกเลิก</source>
+        <target>Cancel</target>
+      </trans-unit>
+      <trans-unit id="slipReview.nameOk" datatype="html">
+        <source>เปลี่ยนชื่อ</source>
+        <target>Change name</target>
+      </trans-unit>
+      <trans-unit id="slipReview.err.coversRequired" datatype="html">
+        <source>เลือกคนที่สลิปนี้จ่ายให้อย่างน้อย 1 คน</source>
+        <target>Pick at least one person this slip is for</target>
+      </trans-unit>
+      <trans-unit id="slipReview.err.notOnBill" datatype="html">
+        <source>มีคนที่ไม่อยู่ในบิลแล้ว ลองดูรายชื่ออีกครั้ง</source>
+        <target>Someone is no longer on the bill. Check the list again</target>
+      </trans-unit>
+      <trans-unit id="slipReview.err.accountLinked" datatype="html">
+        <source>บัญชี LINE นี้ผูกกับคนอื่นอยู่แล้ว</source>
+        <target>This LINE account is already linked to someone else</target>
+      </trans-unit>
+      <trans-unit id="slipReview.err.notInGroup" datatype="html">
+        <source>คนนี้ไม่ได้อยู่ในก๊วนนี้แล้ว</source>
+        <target>This person is no longer in the group</target>
+      </trans-unit>
+      <trans-unit id="slipReview.err.nameNotApplicable" datatype="html">
+        <source>เปลี่ยนชื่อผู้รับจากสลิปนี้ไม่ได้</source>
+        <target>The receiver name cannot be changed from this slip</target>
+      </trans-unit>
+      <trans-unit id="slipReview.err.accountInvalid" datatype="html">
+        <source>ชื่อผู้รับบนสลิปใช้ไม่ได้ ไปแก้ในการตั้งค่าบัญชีรับเงิน</source>
+        <target>The receiver name on the slip cannot be used. Fix it in the pay account settings</target>
+      </trans-unit>
+      <trans-unit id="slipReview.err.gone" datatype="html">
+        <source>ไม่พบรายการนี้แล้ว อาจมีคนจัดการไปแล้ว</source>
+        <target>This item is gone. Someone may have handled it already</target>
+      </trans-unit>
+      <trans-unit id="slipReview.err.generic" datatype="html">
+        <source>ทำไม่สำเร็จ ลองใหม่อีกครั้ง</source>
+        <target>That did not work. Try again</target>
+      </trans-unit>
+      <trans-unit id="slipReview.reason.date" datatype="html">
+        <source>วันที่บนสลิปไม่ตรงกับบิลนี้</source>
+        <target>The date on the slip does not match this bill</target>
+      </trans-unit>
+      <trans-unit id="slipPay.sessionDate" datatype="html">
+        <source>บิลวันที่ <x id="INTERPOLATION" equiv-text="{{ v.sessionDate }}"/></source>
+        <target>Bill for <x id="INTERPOLATION" equiv-text="{{ v.sessionDate }}"/></target>
+      </trans-unit>
+      <trans-unit id="paymentStatus.title" datatype="html">
+        <source>สถานะการจ่าย</source><target>Payment status</target>
+      </trans-unit>
+      <trans-unit id="paymentStatus.date" datatype="html">
+        <source>บิลวันที่ <x id="INTERPOLATION" equiv-text="{{ date }}"/></source><target>Bill for <x id="INTERPOLATION" equiv-text="{{ date }}"/></target>
+      </trans-unit>
+      <trans-unit id="paymentStatus.readOnly" datatype="html">
+        <source>ดูได้อย่างเดียว · โฮสต์เป็นคนแก้สถานะ</source><target>Read only · Only the host can change payment status</target>
+      </trans-unit>
+      <trans-unit id="paymentStatus.refresh" datatype="html">
+        <source>รีเฟรชสถานะ</source><target>Refresh status</target>
+      </trans-unit>
+      <trans-unit id="paymentStatus.error" datatype="html">
+        <source>โหลดสถานะไม่สำเร็จ ลองอีกครั้ง</source><target>Could not load payment status. Try again.</target>
+      </trans-unit>
+      <trans-unit id="paymentStatus.unpaidCount" datatype="html">
+        <source>ยังไม่จ่าย <x id="INTERPOLATION" equiv-text="{{ unpaidCount() }}"/> คน</source><target>Unpaid: <x id="INTERPOLATION" equiv-text="{{ unpaidCount() }}"/></target>
+      </trans-unit>
+      <trans-unit id="paymentStatus.paidCount" datatype="html">
+        <source>จ่ายแล้ว <x id="INTERPOLATION" equiv-text="{{ paidCount() }}"/> คน</source><target>Paid: <x id="INTERPOLATION" equiv-text="{{ paidCount() }}"/></target>
+      </trans-unit>
+      <trans-unit id="paymentStatus.pendingNote" datatype="html">
+        <source>ส่งสลิปแล้วแต่รอโฮสต์ตรวจ ยังนับว่ายังไม่จ่าย</source><target>Slips awaiting host review still count as unpaid.</target>
+      </trans-unit>
+      <trans-unit id="paymentStatus.empty" datatype="html">
+        <source>ไม่มีรายชื่อในบิลนี้</source><target>No players on this bill.</target>
+      </trans-unit>
+      <trans-unit id="paymentStatus.amountChanged" datatype="html">
+        <source>ยอดเปลี่ยนหลังจ่าย</source><target>Amount changed after payment</target>
+      </trans-unit>
+      <trans-unit id="paymentStatus.paid" datatype="html">
+        <source>จ่ายแล้ว</source><target>Paid</target>
+      </trans-unit>
+      <trans-unit id="paymentStatus.unpaid" datatype="html">
+        <source>ยังไม่จ่าย</source><target>Unpaid</target>
+      </trans-unit>
+      <trans-unit id="payments.closed" datatype="html">
+        <source>เก็บเงินครบแล้ว</source>
+        <target>Collection complete</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/payment-status/payment-status.html</context>
+          <context context-type="linenumber">26,27</context>
+        </context-group>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/slip-pay/slip-pay.html</context>
+          <context context-type="linenumber">20,22</context>
+        </context-group>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/shared/slip-review/slip-review.html</context>
+          <context context-type="linenumber">17,18</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="slipReview.close" datatype="html">
+        <source>ปิดการเก็บเงิน</source>
+        <target>Close collection</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/shared/slip-review/slip-review.html</context>
+          <context context-type="linenumber">19,21</context>
+        </context-group>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/shared/slip-review/slip-review.html</context>
+          <context context-type="linenumber">286,287</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="slipReview.ocrAmount" datatype="html">
+        <source>ยอดที่อ่านได้</source>
+        <target>Amount read from slip</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/shared/slip-review/slip-review.html</context>
+          <context context-type="linenumber">75,76</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="slipReview.enlarge" datatype="html">
+        <source>ดูรูปสลิปขนาดใหญ่</source>
+        <target>View full-size slip</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/shared/slip-review/slip-review.html</context>
+          <context context-type="linenumber">90,91</context>
+        </context-group>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/shared/slip-review/slip-review.html</context>
+          <context context-type="linenumber">92,94</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="slipReview.imageAlt" datatype="html">
+        <source>รูปสลิปที่ส่งมา</source>
+        <target>Submitted payment slip</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/shared/slip-review/slip-review.html</context>
+          <context context-type="linenumber">91,92</context>
+        </context-group>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/shared/slip-review/slip-review.html</context>
+          <context context-type="linenumber">280,281</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="slipReview.noImage" datatype="html">
+        <source>ไม่มีรูปสลิปที่บันทึกไว้ ตรวจยอดจากสลิปต้นฉบับแล้วกรอกด้านล่าง</source>
+        <target>No saved image for this slip. Check the original slip and enter its amount below.</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/shared/slip-review/slip-review.html</context>
+          <context context-type="linenumber">95,97</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="slipReview.reviewedAmount" datatype="html">
+        <source>ยอดที่ตรวจจากสลิป (บาท)</source>
+        <target>Reviewed slip amount (baht)</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/shared/slip-review/slip-review.html</context>
+          <context context-type="linenumber">98,99</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="slipReview.reviewAmountHint" datatype="html">
+        <source>ตรวจยอดจากรูปก่อนยืนยัน แก้ไขได้หากอ่านยอดผิด</source>
+        <target>Check the image before confirming. Correct the amount if it was read incorrectly.</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/shared/slip-review/slip-review.html</context>
+          <context context-type="linenumber">100,103</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="slipReview.selectedTotal" datatype="html">
+        <source>ยอดรวมคนที่เลือก ฿<x id="INTERPOLATION" equiv-text="{{ baht(c.selectedTotal) }}"/></source>
+        <target>Selected total ฿<x id="INTERPOLATION" equiv-text="baht(c.selectedTotal)"/></target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/shared/slip-review/slip-review.html</context>
+          <context context-type="linenumber">155,156</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="slipReview.difference" datatype="html">
+        <source>ส่วนต่าง ฿<x id="INTERPOLATION" equiv-text="{{ baht(c.difference) }}"/></source>
+        <target>Difference ฿<x id="INTERPOLATION" equiv-text="baht(c.difference)"/></target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/shared/slip-review/slip-review.html</context>
+          <context context-type="linenumber">157,158</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="slipReview.amountNeeded" datatype="html">
+        <source>กรอกยอดที่ตรวจจากสลิปให้ถูกต้องก่อนยืนยัน</source>
+        <target>Enter a valid reviewed slip amount before confirming.</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/shared/slip-review/slip-review.html</context>
+          <context context-type="linenumber">159,161</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="slipReview.matchRequired" datatype="html">
+        <source>ยอดสลิปน้อยกว่ายอดรวมคนที่เลือก</source>
+        <target>The slip amount is below the selected total.</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/shared/slip-review/slip-review.html</context>
+          <context context-type="linenumber">162,164</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="slipReview.closeImage" datatype="html">
+        <source>ปิดรูป</source>
+        <target>Close image</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/shared/slip-review/slip-review.html</context>
+          <context context-type="linenumber">281,284</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="slipReview.closeWarning" datatype="html">
+        <source>รูปสลิป <x id="INTERPOLATION" equiv-text="{{ data()?.collection?.imageCount ?? 0 }}"/> รูปจะถูกลบถาวร และแก้ไขการชำระเงินไม่ได้อีก</source>
+        <target><x id="INTERPOLATION" equiv-text="data()?.collection?.imageCount ?? 0"/> slip images will be permanently deleted. Payment records can no longer be changed.</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/shared/slip-review/slip-review.html</context>
+          <context context-type="linenumber">287,288</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="slipReview.closeConfirm" datatype="html">
+        <source>ยืนยันปิดและลบรูป</source>
+        <target>Close and delete images</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/shared/slip-review/slip-review.html</context>
+          <context context-type="linenumber">290,293</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="slipReview.err.amountRequired" datatype="html">
+        <source>กรอกยอดที่ตรวจจากสลิปก่อนยืนยัน</source>
+        <target>Enter the reviewed slip amount before confirming.</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/shared/slip-review/slip-review.ts</context>
+          <context context-type="linenumber">42</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="slipReview.err.amountInvalid" datatype="html">
+        <source>กรอกยอดเงินมากกว่า 0 และทศนิยมไม่เกิน 2 ตำแหน่ง</source>
+        <target>Enter an amount above zero with no more than two decimal places.</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/shared/slip-review/slip-review.ts</context>
+          <context context-type="linenumber">43</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="slipReview.err.amountMismatch" datatype="html">
+        <source>ยอดสลิปน้อยกว่ายอดรวมคนที่เลือก</source>
+        <target>The slip amount is below the selected total.</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/shared/slip-review/slip-review.ts</context>
+          <context context-type="linenumber">44</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="slipReview.err.alreadyPaid" datatype="html">
+        <source>มีคนที่ชำระแล้ว ลองตรวจรายชื่ออีกครั้ง</source>
+        <target>Someone selected has already paid. Check the list again.</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/shared/slip-review/slip-review.ts</context>
+          <context context-type="linenumber">45</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="slipReview.err.closed" datatype="html">
+        <source>เก็บเงินครบแล้ว แก้ไขการชำระเงินไม่ได้</source>
+        <target>Collection is complete. Payments can no longer be changed.</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/shared/slip-review/slip-review.ts</context>
+          <context context-type="linenumber">46</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="slipReview.err.notReady" datatype="html">
+        <source>ยังปิดการเก็บเงินไม่ได้ ตรวจยอดและรายการรอตรวจก่อน</source>
+        <target>Collection cannot close yet. Check the amounts and pending items first.</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/shared/slip-review/slip-review.ts</context>
+          <context context-type="linenumber">47</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="paymentStatus.pendingCount" datatype="html">
+        <source>รอยืนยัน <x id="INTERPOLATION" equiv-text="{{ pendingCount() }}"/> คน</source>
+        <target>Awaiting confirmation: <x id="INTERPOLATION" equiv-text="pendingCount()"/> people</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/payment-status/payment-status.html</context>
+          <context context-type="linenumber">30,31</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="paymentStatus.pendingSlips" datatype="html">
+        <source>สลิปรอตรวจ <x id="INTERPOLATION" equiv-text="{{ view()?.pendingSlipCount ?? 0 }}"/> รายการ</source>
+        <target>Slips pending review: <x id="INTERPOLATION" equiv-text="view()?.pendingSlipCount ?? 0"/></target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/payment-status/payment-status.html</context>
+          <context context-type="linenumber">35,36</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="paymentStatus.pending" datatype="html">
+        <source>รอยืนยัน</source>
+        <target>Awaiting confirmation</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/payment-status/payment-status.html</context>
+          <context context-type="linenumber">53,55</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="slipReview.retryDelete" datatype="html">
+        <source>ลบรูปอีกครั้ง</source><target>Retry deleting images</target>
+      </trans-unit>
+      <trans-unit id="slipReview.retention" datatype="html">
+        <source>รูปสลิปเก็บไว้จนปิดการเก็บเงิน หรือไม่เกิน 30 วัน</source><target>Slip images are kept until collection closes, or for up to 30 days.</target>
+      </trans-unit>
+      <trans-unit id="bill.collectionClosed" datatype="html">
+        <source>ปิดการเก็บเงินแล้ว แก้ไขบิลไม่ได้</source><target>Collection is closed. The bill can no longer be changed.</target>
+      </trans-unit>
+      <trans-unit id="slipReview.refreshing" datatype="html">
+        <source>กำลังรีเฟรช…</source><target>Refreshing…</target>
+      </trans-unit>
+      <trans-unit id="slipReview.refreshedAt" datatype="html">
+        <source>อัปเดตล่าสุด <x id="INTERPOLATION" equiv-text="{{ time }}"/></source><target>Last updated <x id="INTERPOLATION" equiv-text="{{ time }}"/></target>
+      </trans-unit>
+      <trans-unit id="slipReview.shortfall" datatype="html">
+        <source>ยังขาด ฿<x id="INTERPOLATION" equiv-text="{{ baht(c.difference) }}"/></source><target>Still short ฿<x id="INTERPOLATION" equiv-text="{{ baht(c.difference) }}"/></target>
+      </trans-unit>
+      <trans-unit id="slipReview.overpayment" datatype="html">
+        <source>จ่ายเกิน ฿<x id="INTERPOLATION" equiv-text="{{ baht(-c.difference) }}"/></source><target>Overpaid ฿<x id="INTERPOLATION" equiv-text="{{ baht(-c.difference) }}"/></target>
+      </trans-unit>
+      <trans-unit id="slipReview.exact" datatype="html">
+        <source>ยอดตรงกัน</source><target>Exact amount</target>
+      </trans-unit>
+      <trans-unit id="pay.status.unavailable" datatype="html">
+        <source>ยังเปิดสถานะการชำระเงินไม่ได้ ส่งใบเก็บเงินเข้ากลุ่ม LINE ก่อน</source><target>Payment status is not available. Send the bill to the LINE group first.</target>
+      </trans-unit>
+      <trans-unit id="share.pay.recordFailed" datatype="html"><source>ส่งการ์ดแล้ว แต่ยังบันทึกสถานะไม่ได้</source><target>The card was sent, but its status could not be saved.</target></trans-unit>
+      <trans-unit id="share.pay.recordRetry" datatype="html"><source>ลองบันทึกสถานะอีกครั้ง</source><target>Retry saving status</target></trans-unit>
     </body>
   </file>
 </xliff>

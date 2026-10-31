@@ -2,6 +2,7 @@ import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { ActivatedRoute, convertToParamMap, provideRouter } from '@angular/router';
+import { of } from 'rxjs';
 import { SessionSummary } from './session-summary';
 import { AuthService } from '../../core/auth.service';
 import { environment } from '../../../environments/environment';
@@ -9,6 +10,7 @@ import type { SessionSummary as Summary } from '../../core/session-summary.model
 import type { ShuttleInventory } from '../../core/shuttle.model';
 import type { LineSummaryState } from '../../core/line.model';
 import type { PaymentCardPanel } from '../../core/payment-card.model';
+import { SlipHostService } from '../../core/slip-host.service';
 import { PaymentSheet } from '../../shared/payment-sheet/payment-sheet';
 import { By } from '@angular/platform-browser';
 
@@ -96,6 +98,8 @@ describe('SessionSummary', () => {
       providers: [
         provideHttpClient(),
         provideHttpClientTesting(),
+        // A confirmed card embeds the slip review, which reads its own routes (covered in slip-review.spec.ts).
+        { provide: SlipHostService, useValue: { panel: () => of({ paid: [], waiting: [], duplicates: [], links: [] }) } },
         { provide: AuthService, useValue: { check: () => Promise.resolve(isHost) } },
         provideRouter([]),
         {
@@ -1021,7 +1025,7 @@ describe('SessionSummary', () => {
       it('offers the button when a card can go out and none has, and removes it after a send', async () => {
         lineState = { available: true, sent: false, defaultOn: true, target: 'group', shareUrl: null };
         await load(summary());
-        expect(q('[data-send-line-summary]')).not.toBeNull();
+        expect(q('[data-send-line-summary]')?.textContent?.trim()).toBe('ส่งการ์ดสรุปเข้ากลุ่ม LINE');
 
         q('[data-send-line-summary]')!.click();
         const req = httpMock.expectOne({ url: `${B}/sessions/sess1/line-summary`, method: 'POST' });
@@ -1101,9 +1105,10 @@ describe('SessionSummary', () => {
       it('links to the LIFF page on an ended session, before the card has gone out', async () => {
         lineState = hostState();
         await load(summary());
-        expect(share()?.textContent).toContain('ส่งการ์ดเข้ากลุ่ม LINE');
+        // "การ์ดสรุป", never a bare "การ์ด": the payment card's banner sits right below these two.
+        expect(share()?.textContent?.trim()).toBe('ส่งการ์ดสรุปเข้ากลุ่ม LINE');
         expect(share()?.getAttribute('href')).toBe(SHARE);
-        expect(q('[data-send-line-summary]')).not.toBeNull();
+        expect(q('[data-send-line-summary]')?.textContent?.trim()).toBe('ส่งการ์ดสรุปให้ฉันทาง LINE');
       });
 
       it('keeps the link after the card was sent, and drops the resend button', async () => {
@@ -1111,7 +1116,7 @@ describe('SessionSummary', () => {
         await load(summary());
         expect(share()?.getAttribute('href')).toBe(SHARE);
         expect(q('[data-send-line-summary]')).toBeNull();
-        expect(q('[data-line-summary-outcome]')?.textContent).toContain('ส่งการ์ดให้คุณทาง LINE แล้ว');
+        expect(q('[data-line-summary-outcome]')?.textContent).toContain('ส่งการ์ดสรุปให้คุณทาง LINE แล้ว');
       });
 
       it('has no link while the session is still open', async () => {
@@ -1144,7 +1149,7 @@ describe('SessionSummary', () => {
         q('[data-send-line-summary]')!.click();
         httpMock.expectOne({ url: `${B}/sessions/sess1/line-summary`, method: 'POST' }).flush({ outcome: 'sent' });
         await settle();
-        expect(q('[data-line-summary-outcome]')?.textContent).toContain('ส่งการ์ดให้คุณทาง LINE แล้ว');
+        expect(q('[data-line-summary-outcome]')?.textContent).toContain('ส่งการ์ดสรุปให้คุณทาง LINE แล้ว');
         expect(share()?.getAttribute('href')).toBe(SHARE);
       });
 
@@ -1190,6 +1195,31 @@ describe('SessionSummary', () => {
 
     describe('as the owner', () => {
       beforeEach(() => configure(true));
+
+      it.each([
+        {confirmed: false, lastSentAt: null, lastDmAt: null, visible: false},
+        {confirmed: true, lastSentAt: null, lastDmAt: '2026-10-30', visible: false},
+        {confirmed: true, lastSentAt: '2026-10-30', lastDmAt: null, visible: true},
+      ])('gates direct status on a sent confirmed card: %j', async state => {
+        paymentPanel = panelFor({target: 'host', ...state}); await load(summary());
+        expect(!!q('[data-open-payment-status]')).toBe(state.visible);
+      });
+
+      it('keeps the invoice reachable after a host DM without unlocking status', async () => {
+        paymentPanel = panelFor({target: 'host', confirmed: true, lastDmAt: '2026-10-31', lastSentAt: null});
+        await load(summary());
+        expect(q('[data-open-payment-status]')).toBeNull();
+        expect(q('[data-open-payment]')).not.toBeNull();
+      });
+
+      it('opens sent payment status directly without an invoice preview or banner', async () => {
+        paymentPanel = panelFor({target: 'group', confirmed: true, lastSentAt: '2026-10-30'}); await load(summary());
+        expect(banner()).toBeNull();
+        q('[data-open-payment-status]')!.click(); fixture.detectChanges(); await settle();
+        for (const r of httpMock.match(`${B}/sessions/sess1/payment-card`)) r.flush(paymentPanel!); await settle(); await settle();
+        expect(q('app-payment-status-sheet [data-slip-review]')).not.toBeNull();
+        expect(q('app-payment-status-sheet app-payment-panel')).toBeNull();
+      });
 
       it('shows for a card nobody confirmed yet', async () => {
         paymentPanel = panelFor({ target: 'group', confirmed: false });
@@ -1377,6 +1407,21 @@ describe('SessionSummary', () => {
         expect(banner()).toBeNull();
       });
 
+      it('closing the sheet puts focus back on the banner while it stays', async () => {
+        paymentPanel = panelFor({ target: 'group', confirmed: false });
+        await load(summary());
+        banner()!.click();
+        await settle();
+        answerPaymentCard();
+        await settle();
+        (q('app-payment-sheet button.close-top') as HTMLButtonElement).click();
+        await settle();
+        answerPaymentCard();
+        await settle();
+        expect(banner()).not.toBeNull();
+        expect(document.activeElement).toBe(banner());
+      });
+
       it('does not open the sheet on its own without the navigation flag', async () => {
         paymentPanel = panelFor({ target: 'group', confirmed: false });
         await load(summary());
@@ -1414,6 +1459,21 @@ describe('SessionSummary', () => {
         answerPaymentCard();
         await settle();
         expect(q('app-payment-sheet [data-load-failed]')).not.toBeNull();
+      });
+
+      it('closing the auto-opened sheet after the card went out puts focus on the heading, never the page body', async () => {
+        paymentPanel = panelFor({ target: 'group', confirmed: false });
+        await load(summary());
+        answerPaymentCard();
+        await settle();
+        expect(sheetDialog()?.open).toBe(true);
+        paymentPanel = panelFor({ target: 'group', confirmed: true, lastSentAt: '2026-10-29T13:00:00.000Z' });
+        (q('app-payment-sheet button.close-top') as HTMLButtonElement).click();
+        await settle();
+        answerPaymentCard();
+        await settle();
+        expect(banner()).toBeNull();
+        expect(document.activeElement).toBe(q('h1'));
       });
 
       it('does not open for a card with no LINE target', async () => {

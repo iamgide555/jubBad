@@ -1,3 +1,4 @@
+import { SlipImagesModule } from '../sessions/slips/slip-images.module.js';
 import { Module } from '@nestjs/common';
 import { PlansModule } from '../plans/plans.module.js';
 import { LineClient } from './line-client.js';
@@ -16,7 +17,7 @@ import { LineWebhookService } from './line-webhook.service.js';
 // Must not import GroupsModule: GroupsModule imports this one (a deleted group
 // asks the bot to leave), so the dependency runs one way.
 @Module({
-  imports: [PlansModule],
+  imports: [PlansModule, SlipImagesModule],
   controllers: [LineController, LineHostController, LineShareController, LineSummaryController, LineWebhookController],
   providers: [
     LineClient,

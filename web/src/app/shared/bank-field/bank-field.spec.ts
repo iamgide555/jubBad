@@ -45,6 +45,24 @@ describe('BankField', () => {
     expect(options()).toHaveLength(0);
   });
 
+  it('focusWithoutOpening focuses the input but leaves the list closed; a tap still opens it', () => {
+    fixture.componentInstance.focusWithoutOpening();
+    fixture.detectChanges();
+    expect(document.activeElement).toBe(input());
+    expect(options()).toHaveLength(0);
+    expect(input().getAttribute('aria-expanded')).toBe('false');
+    input().click();
+    fixture.detectChanges();
+    expect(options()).toHaveLength(12);
+  });
+
+  it('opens on a real focus after a quiet one has left the field', () => {
+    fixture.componentInstance.focusWithoutOpening();
+    input().blur();
+    focus();
+    expect(options()).toHaveLength(12);
+  });
+
   it('opens the full list of 12 on focus', () => {
     focus();
     expect(options()).toHaveLength(12);

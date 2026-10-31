@@ -1,4 +1,6 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { of } from 'rxjs';
+import { SlipHostService } from '../../core/slip-host.service';
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { provideRouter } from '@angular/router';
@@ -62,7 +64,13 @@ describe('PaymentSheet', () => {
   beforeEach(async () => {
     await TestBed.configureTestingModule({
       imports: [PaymentSheet],
-      providers: [provideHttpClient(), provideHttpClientTesting(), provideRouter([{ path: '**', children: [] }])],
+      providers: [
+        provideHttpClient(),
+        provideHttpClientTesting(),
+        provideRouter([{ path: '**', children: [] }]),
+        // A confirmed card embeds the slip review, which reads its own routes (covered in slip-review.spec.ts).
+        { provide: SlipHostService, useValue: { panel: () => of({ paid: [], waiting: [], duplicates: [], links: [] }) } },
+      ],
     }).compileComponents();
     http = TestBed.inject(HttpTestingController);
     fixture = TestBed.createComponent(PaymentSheet);
@@ -171,6 +179,12 @@ describe('PaymentSheet', () => {
     const bar = el().querySelector('[data-actions]') as HTMLElement;
     expect(bar.classList.contains('bar')).toBe(true);
     expect(bar.querySelector('[data-confirm]')).not.toBeNull();
+    // The status region rides in the same sticky bar, directly above the button, so an outcome is never under it.
+    const dock = el().querySelector('[data-dock]') as HTMLElement;
+    const live = dock.querySelector('[aria-live="polite"]')!;
+    expect(dock.classList.contains('bar')).toBe(true);
+    expect(dock.contains(bar)).toBe(true);
+    expect(live.compareDocumentPosition(bar) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 
   it('shows no amounts while the bill is not ready', async () => {

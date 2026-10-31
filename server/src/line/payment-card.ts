@@ -59,6 +59,20 @@ export function liffPayUrl(
   return `https://liff.line.me/${liffId}/pay/${encodeURIComponent(sessionCode)}/${encodeURIComponent(token)}`;
 }
 
+/** The LIFF app's address for one session's send-slip page; the code is URL-encoded as in `liffPayUrl`. */
+export function liffSlipUrl(
+  liffId: string,
+  sessionCode: string,
+  token: string,
+): string {
+  return `https://liff.line.me/${liffId}/slip/${encodeURIComponent(sessionCode)}/${encodeURIComponent(token)}`;
+}
+
+/** Read-only collector page, using the same confirmed bill token as slip uploads. */
+export function liffPaymentStatusUrl(liffId: string, sessionCode: string, token: string): string {
+  return `https://liff.line.me/${liffId}/payment-status/${encodeURIComponent(sessionCode)}/${encodeURIComponent(token)}`;
+}
+
 /** Name on the left, amount right-aligned; the name wraps and the amount never does. */
 function amountRow(name: string, amount: string, bold = false) {
   const weight = bold ? { weight: 'bold' } : {};
@@ -229,13 +243,31 @@ function assertHasRows(input: PaymentCardInput): void {
 /**
  * The payment card, plus the plain-text account number after it where PAYMENT_NUMBER_TEXT asks for one.
  * Throws on zero rows: a card asking nobody for money is a caller bug, never something to send.
+ * A non-null `slipUrl` adds a secondary "ส่งสลิป" button after the copy button, opening the slip page; without
+ * one the card is exactly what it was. Only the cards members see carry it (not the host DM card).
  */
 export function paymentCardMessages(
   input: PaymentCardInput,
   target: 'group' | 'host',
+  slipUrl?: string | null,
+  statusUrl?: string | null,
 ): unknown[] {
   assertHasRows(input);
-  const messages: unknown[] = [paymentCard(input)];
+  const footer: unknown[] = [copyButton(input, 'primary')];
+  if (slipUrl) {
+    footer.push({
+      type: 'button',
+      style: 'secondary',
+      action: { type: 'uri', label: 'ส่งสลิป', uri: slipUrl },
+    });
+  }
+  if (statusUrl) {
+    footer.push({
+      type: 'button', style: 'secondary',
+      action: { type: 'uri', label: 'ดูสถานะการจ่าย', uri: statusUrl },
+    });
+  }
+  const messages: unknown[] = [paymentCard(input, footer)];
   if (PAYMENT_NUMBER_TEXT[target]) {
     messages.push({ type: 'text', text: copyableNumber(input.account.number) });
   }

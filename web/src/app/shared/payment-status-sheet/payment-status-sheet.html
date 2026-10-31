@@ -1,0 +1,22 @@
+<dialog #dialog class="status-sheet sheet-dialog" data-payment-status-sheet aria-labelledby="payment-status-sheet-title" (close)="dialogClosed()" (click)="backdrop($event)">
+  @if (open()) {
+    <div class="sheet-card">
+      <header class="sheet-header">
+        <h2 id="payment-status-sheet-title" i18n="@@slipReview.title">สถานะการชำระเงิน</h2>
+        <button type="button" class="ghost close-top" (click)="closed.emit()" i18n="@@pay.sheet.close">ปิด</button>
+        @if (panel(); as p) { <p class="collection-context" data-collection-context>{{ p.groupName }} · {{ p.date }}</p> }
+      </header>
+      @switch (phase()) {
+        @case ('loading') { <p role="status" i18n="@@slipPay.loading">กำลังโหลด…</p> }
+        @case ('unavailable') { <p role="status" data-status-unavailable i18n="@@pay.status.unavailable">ยังเปิดสถานะการชำระเงินไม่ได้ ส่งใบเก็บเงินเข้ากลุ่ม LINE ก่อน</p> }
+        @case ('error') {
+          <p class="error" role="alert" i18n="@@slipReview.loadFailed">โหลดสถานะการชำระเงินไม่สำเร็จ</p>
+          <button type="button" class="ghost" data-status-retry (click)="load()" i18n="@@entry.retry">ลองอีกครั้ง</button>
+        }
+        @case ('ready') {
+          @if (panel(); as p) { <app-slip-review [code]="sessionCode()" [rows]="p.rows" [savedName]="p.groupAccount?.name ?? null" [hideTitle]="true" /> }
+        }
+      }
+    </div>
+  }
+</dialog>

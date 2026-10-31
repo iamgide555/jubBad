@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest';
 import {
   formatBaht,
   liffPayUrl,
+  liffSlipUrl,
+  liffPaymentStatusUrl,
   PAYMENT_NUMBER_TEXT,
   paymentCardMessages,
   paymentDmMessages,
@@ -291,6 +293,79 @@ describe('liffPayUrl', () => {
   });
 });
 
+describe('liffSlipUrl', () => {
+  it('encodes the session code and keeps the token, on the /slip path', () => {
+    expect(liffSlipUrl('1-a', 'abc 1', 'T_k-9')).toBe(
+      'https://liff.line.me/1-a/slip/abc%201/T_k-9',
+    );
+    expect(liffSlipUrl('1-a', 'a/b c', 'T_k-9')).toBe(
+      'https://liff.line.me/1-a/slip/a%2Fb%20c/T_k-9',
+    );
+  });
+
+  it('stays far below LINE\'s 1000-character uri limit for a realistic code and token', () => {
+    const url = liffSlipUrl('2001234567-AbCdEfGh', 'x'.repeat(22), 'y'.repeat(22));
+    expect(url.length).toBeLessThan(200);
+  });
+});
+
+describe('the send-slip button', () => {
+  const SLIP = 'https://liff.line.me/1-a/slip/abc12345/T_k-9';
+  const footerOf = (messages: unknown[]) =>
+    ((messages[0] as Node)['contents'] as { footer: Node }).footer;
+
+  it('adds a secondary uri button after the copy button on the group card', () => {
+    const footer = footerOf(paymentCardMessages(INPUT, 'group', SLIP));
+    const parts = footer['contents'] as Node[];
+    expect(parts).toHaveLength(2);
+    const plain = footerOf(paymentCardMessages(INPUT, 'group'))['contents'] as Node[];
+    expect(plain).toHaveLength(1);
+    expect(parts[0]).toEqual(plain[0]);
+    expect(parts[0]).toMatchObject({ style: 'primary', action: { type: 'clipboard', label: 'คัดลอกเลขบัญชี' } });
+    expect(parts[1]).toEqual({
+      type: 'button',
+      style: 'secondary',
+      action: { type: 'uri', label: 'ส่งสลิป', uri: SLIP },
+    });
+    expect(footer['spacing']).toBe('sm');
+  });
+
+  it('adds the same button on the host-share card', () => {
+    const parts = footerOf(paymentCardMessages(INPUT, 'host', SLIP))['contents'] as Node[];
+    expect(parts).toHaveLength(2);
+    expect(parts[1]).toMatchObject({ action: { type: 'uri', label: 'ส่งสลิป', uri: SLIP } });
+  });
+
+  it('leaves the card byte-identical without a slip url (absent, undefined or null)', () => {
+    const plain = JSON.stringify(paymentCardMessages(INPUT, 'group'));
+    expect(JSON.stringify(paymentCardMessages(INPUT, 'group', undefined))).toBe(plain);
+    expect(JSON.stringify(paymentCardMessages(INPUT, 'group', null))).toBe(plain);
+    expect(footerOf(paymentCardMessages(INPUT, 'group', null))['spacing']).toBeUndefined();
+  });
+
+  it('changes nothing but the footer', () => {
+    const [with_] = paymentCardMessages(INPUT, 'group', SLIP) as Node[];
+    const [without] = paymentCardMessages(INPUT, 'group') as Node[];
+    const strip = (m: Node) => {
+      const c = { ...(m['contents'] as Node) };
+      delete c['footer'];
+      return { ...m, contents: c };
+    };
+    expect(strip(with_ as Node)).toEqual(strip(without as Node));
+  });
+
+  it('keeps the label within LINE\'s 20-character action label limit', () => {
+    const parts = footerOf(paymentCardMessages(INPUT, 'group', SLIP))['contents'] as Node[];
+    const label = ((parts[1] as Node)['action'] as Node)['label'] as string;
+    expect(label).toBe('ส่งสลิป');
+    expect([...label].length).toBeLessThanOrEqual(20);
+  });
+
+  it('is not on the host DM card', () => {
+    expect(JSON.stringify(paymentDmMessages(INPUT, 'https://x.test/s'))).not.toContain('ส่งสลิป');
+  });
+});
+
 describe('paymentDmMessages', () => {
   const SHARE = 'https://liff.line.me/1-a/pay/abc12345/T_k-9';
   const footer = (messages: unknown[]) =>
@@ -344,5 +419,21 @@ describe('paymentDmMessages', () => {
 
   it('throws on zero rows, like the other card', () => {
     expect(() => paymentDmMessages({ ...INPUT, rows: [] }, SHARE)).toThrow(RangeError);
+  });
+});
+
+
+describe('read-only payment status card entry', () => {
+  it('encodes code and token and adds a third button on group and shared cards', () => {
+    const url = liffPaymentStatusUrl('1-a', 'a/b c', 't&x');
+    expect(url).toBe('https://liff.line.me/1-a/payment-status/a%2Fb%20c/t%26x');
+    for (const target of ['group', 'host'] as const) {
+      const [message] = paymentCardMessages(INPUT, target, 'https://x.test/slip', url) as Node[];
+      const footer = (message['contents'] as Node)['footer'] as Node;
+      const buttons = footer['contents'] as Node[];
+      expect(buttons).toHaveLength(3);
+      expect(buttons[2]).toEqual({ type: 'button', style: 'secondary', action: { type: 'uri', label: 'ดูสถานะการจ่าย', uri: url } });
+      expect([...((buttons[2]['action'] as Node)['label'] as string)].length).toBeLessThanOrEqual(20);
+    }
   });
 });

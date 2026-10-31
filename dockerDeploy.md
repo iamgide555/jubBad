@@ -63,6 +63,25 @@ export APP_DIR=/home/iamgide/jubBad
 7. Bring up: `docker compose up -d --build`
    (No seed step — `prisma migrate deploy` runs automatically inside the `api` container's startup command (`server/Dockerfile`'s `CMD`) on every boot. Safe to re-run; unlike a seed script it doesn't touch existing data.)
 
+## Private Slip Image Disk
+
+- **Host directory:** `/mnt/hdd2/jubbad/slips` on the separate HDD; SQLite remains on SSD.
+- **Root `.env`:** Set `SLIP_IMAGE_HOST_DIR=/mnt/hdd2/jubbad/slips` alongside `PUID` and `PGID` (this is a Compose variable, not `server/.env`).
+- **Preparation:** Confirm the HDD mount before creating the directory. The private directory must be owned by the Compose user and mode `0700`; image files use `0600`.
+
+```bash
+mountpoint -q /mnt/hdd2
+install -d -m 700 /mnt/hdd2/jubbad/slips
+```
+
+- **Container path:** Compose binds the existing directory to `/app/slip-images` and sets `SLIP_IMAGE_DIR` accordingly. `create_host_path: false` refuses a missing source; always check the HDD mount before deploy so evidence never silently falls back onto SSD.
+- **Local development:** Without Compose, `SLIP_IMAGE_DIR` defaults to `prisma/slip-images` relative to the API working directory. Tests override it with an isolated temporary folder. A local Compose deployment must set its own existing directory explicitly.
+- **Retention:** Images expire 30 days after upload and are swept hourly, or are deleted immediately when the host confirms collection close. Files never enter Git, Docker build contexts or SQLite backups. The image disk is deliberately excluded from database backups; restoring a DB may show an unavailable-image fallback.
+- **Migration:** `20261031180000_slip_review_evidence` adds nullable close/audit fields and image metadata. It does not change existing paid state. Take the standard online DB backup before deploying.
+- **Rollback:** Previous code ignores these additive fields/table. Switch to the prior commit and rebuild API/web; preserve the HDD folder. Rolling back code does not recover images deliberately deleted by close/retention.
+
+---
+
 ## Routine deploy
 ```bash
 # Mac
@@ -269,6 +288,15 @@ it is, the feature reports "not configured" and everything else works as before.
    `https://liff.line.me/<LINE_LIFF_ID>/<code>`; without it the host target (the DM card) is off.
    The LIFF app's endpoint URL must be `<PUBLIC_APP_URL>/line-share`. Full steps, including
    publishing the LINE Login channel: `docs/line-liff-setup.md`.
+   The player slip pay page (ส่งสลิป on the payment card, `https://liff.line.me/<LINE_LIFF_ID>/slip/<code>/<token>`)
+   also needs `LINE_LOGIN_CHANNEL_ID`, the channel ID of that same LINE Login channel: the API verifies each
+   player's LINE access token against it, and without it the pay page and slip upload answer 404. The LIFF app
+   needs the `profile` scope switched on in the console (players are asked to consent the first time they open
+   the pay page). Slip reading (OCR) needs no extra environment: its language data ships in the image
+   (`server/assets/tessdata`, copied to `/app/assets/tessdata`) and nothing is downloaded at runtime.
+   Slip uploads (up to 8 MB) pass through the `web` container's nginx, whose `client_max_body_size 8m`
+   lives in `web/nginx.conf`: rebuild the `web` container too, not only `api`, or nginx keeps its 1 MB
+   default and refuses most slip screenshots with 413 before they reach the API.
 6. Run `npm run db:backup`, then deploy (this release has a migration; see "When the release
    contains a migration").
 7. Press **Verify** next to the webhook URL in the console. If it fails, check that Cloudflare

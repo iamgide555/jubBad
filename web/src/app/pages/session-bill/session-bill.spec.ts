@@ -1,4 +1,6 @@
 import { TestBed, ComponentFixture } from '@angular/core/testing';
+import { of } from 'rxjs';
+import { SlipHostService } from '../../core/slip-host.service';
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { ActivatedRoute, convertToParamMap, provideRouter } from '@angular/router';
@@ -70,6 +72,8 @@ describe('SessionBill', () => {
       imports: [SessionBill],
       providers: [
         provideHttpClient(), provideHttpClientTesting(), provideRouter([]),
+        // A confirmed card embeds the slip review, which reads its own routes (covered in slip-review.spec.ts).
+        { provide: SlipHostService, useValue: { panel: () => of({ paid: [], waiting: [], duplicates: [], links: [] }) } },
         { provide: ActivatedRoute, useValue: { snapshot: { paramMap: convertToParamMap({ sessionCode: 'sess1' }) } } },
       ],
     }).compileComponents();
@@ -102,6 +106,45 @@ describe('SessionBill', () => {
     fixture.detectChanges();
   }
 
+  it.each(['config', 'shuttle', 'walkIn'])('explains a closed collection when saving %s', async kind => {
+    await load();
+    const el = fixture.nativeElement as HTMLElement;
+    let url: string;
+    if (kind === 'config') {
+      el.querySelector<HTMLButtonElement>('[data-model="buffet"]')!.click();
+      url = `${B}/sessions/sess1/bill-config`;
+    } else if (kind === 'shuttle') {
+      const input = el.querySelector<HTMLInputElement>('[data-shuttle-price]')!;
+      input.value = '85'; input.dispatchEvent(new Event('change'));
+      url = `${B}/sessions/sess1/shuttle-details`;
+    } else {
+      el.querySelector<HTMLButtonElement>('[data-walk-in="a"]')!.click();
+      url = `${B}/sessions/sess1/roster/a/walk-in`;
+    }
+    http.expectOne(url).flush({ code: 'COLLECTION_CLOSED' }, { status: 409, statusText: 'Conflict' });
+    await new Promise(r => setTimeout(r, 0)); fixture.detectChanges();
+    expect(el.querySelector('.error')?.textContent).toContain('ปิดการเก็บเงินแล้ว แก้ไขบิลไม่ได้');
+  });
+
+  it.each([
+    {confirmed: false, lastSentAt: null, lastDmAt: null, visible: false},
+    {confirmed: true, lastSentAt: null, lastDmAt: '2026-10-30', visible: false},
+    {confirmed: true, lastSentAt: '2026-10-30', lastDmAt: null, visible: true},
+  ])('gates direct payment status on confirmed group delivery: %j', async state => {
+    await load(); http.expectOne(`${B}/sessions/sess1/payment-card`).flush(paymentPanel(state));
+    await new Promise(r => setTimeout(r, 0)); fixture.detectChanges();
+    const button = (fixture.nativeElement as HTMLElement).querySelector<HTMLButtonElement>('[data-open-payment-status]');
+    expect(!!button).toBe(state.visible);
+    if (button) {
+      button.click(); fixture.detectChanges();
+      http.expectOne(`${B}/sessions/sess1/payment-card`).flush(paymentPanel({...state, confirmed: true}));
+      await new Promise(r => setTimeout(r, 0)); fixture.detectChanges();
+      await new Promise(r => setTimeout(r, 0)); fixture.detectChanges();
+      expect(fixture.nativeElement.querySelector('app-payment-status-sheet [data-slip-review]')).not.toBeNull();
+      expect(fixture.nativeElement.querySelector('app-payment-status-sheet app-payment-panel')).toBeNull();
+    }
+  });
+
   it('opens the shared payment modal from above bill settings, with fresh amounts after a save', async () => {
     await load();
     http.expectOne(`${B}/sessions/sess1/payment-card`).flush(paymentPanel());
@@ -122,6 +165,8 @@ describe('SessionBill', () => {
     fixture.detectChanges();
     expect(el.querySelector('dialog[open]')).toBeNull();
     expect(el.querySelector('app-payment-panel')).toBeNull();
+    http.expectOne(`${B}/sessions/sess1/payment-card`).flush(paymentPanel());
+    await new Promise(r => setTimeout(r, 0)); fixture.detectChanges();
 
     (fixture.nativeElement.querySelector('[data-model="buffet"]') as HTMLButtonElement).click();
     http.expectOne(`${B}/sessions/sess1/bill-config`).flush(response());

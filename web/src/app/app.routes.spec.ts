@@ -19,6 +19,8 @@ import { Admin } from './pages/admin/admin';
 import { GroupDashboard } from './pages/group-dashboard/group-dashboard';
 import { SessionBill } from './pages/session-bill/session-bill';
 import { LineShare } from './pages/line-share/line-share';
+import { SlipPay } from './pages/slip-pay/slip-pay';
+import { PaymentStatus } from './pages/payment-status/payment-status';
 
 /**
  * A stubbed AuthService rather than the real one: these tests are about which
@@ -196,6 +198,39 @@ describe('app routes', () => {
       const snapshot = TestBed.inject(Router).routerState.snapshot.root.firstChild!;
       expect(snapshot.paramMap.get('sessionCode')).toBe('abc');
       expect(snapshot.paramMap.get('token')).toBe('TOK');
+    });
+
+    it('opens the player slip-pay page without signing in, with the code and token as params', async () => {
+      const harness = await RouterTestingHarness.create();
+      const page = await harness.navigateByUrl('/line-share/slip/abc/TOK', SlipPay);
+      expect(page).toBeInstanceOf(SlipPay);
+      const snapshot = TestBed.inject(Router).routerState.snapshot.root.firstChild!;
+      expect(snapshot.paramMap.get('sessionCode')).toBe('abc');
+      expect(snapshot.paramMap.get('token')).toBe('TOK');
+    });
+
+    it("moves LIFF's first open of a slip link (?liff.state) onto the slip page, without a card request", async () => {
+      const harness = await RouterTestingHarness.create();
+      await harness.navigateByUrl('/line-share?liff.state=%2Fslip%2Fabc%2FTOK');
+      await harness.fixture.whenStable();
+      expect(TestBed.inject(Router).url).toBe('/line-share/slip/abc/TOK');
+      expect(harness.routeDebugElement?.componentInstance).toBeInstanceOf(SlipPay);
+    });
+
+    it('opens read-only payment status without host login or name claim', async () => {
+      const harness = await RouterTestingHarness.create();
+      expect(await harness.navigateByUrl('/line-share/payment-status/abc/TOK', PaymentStatus)).toBeInstanceOf(PaymentStatus);
+      const snapshot = TestBed.inject(Router).routerState.snapshot.root.firstChild!;
+      expect(snapshot.paramMap.get('sessionCode')).toBe('abc');
+      expect(snapshot.paramMap.get('token')).toBe('TOK');
+    });
+
+    it('hands the initial LIFF status URL to the read-only component', async () => {
+      const harness = await RouterTestingHarness.create();
+      await harness.navigateByUrl('/line-share?liff.state=%2Fpayment-status%2Fabc%2FTOK%3Fliff.hback%3D2');
+      await harness.fixture.whenStable();
+      expect(TestBed.inject(Router).url).toBe('/line-share/payment-status/abc/TOK');
+      expect(harness.routeDebugElement?.componentInstance).toBeInstanceOf(PaymentStatus);
     });
 
     it('shows the group dashboard without signing in', async () => {

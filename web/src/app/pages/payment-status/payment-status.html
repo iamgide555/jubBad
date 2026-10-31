@@ -1,0 +1,64 @@
+<main class="page payment-status">
+  <header>
+    <h1 i18n="@@paymentStatus.title">สถานะการจ่าย</h1>
+    @if (view()?.sessionDate; as date) {
+      <p class="muted" i18n="@@paymentStatus.date">บิลวันที่ {{ date }}</p>
+    }
+    <p class="muted" i18n="@@paymentStatus.readOnly">ดูได้อย่างเดียว · โฮสต์เป็นคนแก้สถานะ</p>
+  </header>
+
+  @switch (phase()) {
+    @case ('loading') {
+      <p role="status" i18n="@@slipPay.loading">กำลังโหลด…</p>
+      <button type="button" disabled aria-busy="true" i18n="@@paymentStatus.refresh">รีเฟรชสถานะ</button>
+    }
+    @case ('login') {
+      <p role="status" i18n="@@slipPay.login">กำลังไปหน้าเข้าสู่ระบบ LINE</p>
+    }
+    @case ('unavailable') {
+      <p role="alert" i18n="@@slipPay.unavailable">ลิงก์นี้ใช้ไม่ได้แล้ว</p>
+    }
+    @case ('error') {
+      <p class="error" role="alert" i18n="@@paymentStatus.error">โหลดสถานะไม่สำเร็จ ลองอีกครั้ง</p>
+      <button type="button" (click)="load()" i18n="@@entry.retry">ลองอีกครั้ง</button>
+    }
+    @case ('ready') {
+      @if (view()?.closedAt) { <p class="paid-state" role="status" i18n="@@payments.closed">เก็บเงินครบแล้ว</p> }
+      <div class="status-toolbar">
+        <div class="counts" role="status">
+          <span data-unpaid-count i18n="@@paymentStatus.unpaidCount">ยังไม่จ่าย {{ unpaidCount() }} คน</span>
+          <span class="pending-state" data-pending-count i18n="@@paymentStatus.pendingCount">รอยืนยัน {{ pendingCount() }} คน</span>
+          <span class="paid-count" data-paid-count i18n="@@paymentStatus.paidCount">จ่ายแล้ว {{ paidCount() }} คน</span>
+        </div>
+        <button type="button" (click)="load()" i18n="@@paymentStatus.refresh">รีเฟรชสถานะ</button>
+      </div>
+      <p class="status-note muted" data-pending-slip-count i18n="@@paymentStatus.pendingSlips">สลิปรอตรวจ {{ view()?.pendingSlipCount ?? 0 }} รายการ</p>
+      @if (rows().length === 0) {
+        <p class="empty" i18n="@@paymentStatus.empty">ไม่มีรายชื่อในบิลนี้</p>
+      } @else {
+        <ul class="status-list">
+          @for (row of rows(); track $index) {
+            <li data-status-row [class.is-paid]="row.paid">
+              <div class="person">
+                <span class="person-name">{{ row.name }}</span>
+                @if (row.amountChangedSince) {
+                  <span class="changed-note" i18n="@@paymentStatus.amountChanged">ยอดเปลี่ยนหลังจ่าย</span>
+                }
+              </div>
+              <div class="payment">
+                <span class="amount">฿{{ baht(row.amountSatang) }}</span>
+                @if (row.paid) {
+                  <span class="state paid-state" i18n="@@paymentStatus.paid">จ่ายแล้ว</span>
+                } @else if (row.pending) {
+                  <span class="state pending-state" i18n="@@paymentStatus.pending">รอยืนยัน</span>
+                } @else {
+                  <span class="state unpaid-state" i18n="@@paymentStatus.unpaid">ยังไม่จ่าย</span>
+                }
+              </div>
+            </li>
+          }
+        </ul>
+      }
+    }
+  }
+</main>

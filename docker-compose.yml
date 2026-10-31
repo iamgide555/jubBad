@@ -5,6 +5,8 @@ services:
       dockerfile: server/Dockerfile
     restart: always
     env_file: ./server/.env
+    environment:
+      SLIP_IMAGE_DIR: /app/slip-images
     user: "${PUID}:${PGID}"
     volumes:
       # The whole directory, not just dev.db: WAL mode (PrismaService
@@ -14,6 +16,12 @@ services:
       # loses committed writes. The directory also carries schema.prisma and
       # migrations/, which `prisma migrate deploy` reads at startup.
       - ./server/prisma:/app/prisma
+      # Private evidence belongs on an explicitly configured disk, not the image or DB backup.
+      - type: bind
+        source: ${SLIP_IMAGE_HOST_DIR:?Set SLIP_IMAGE_HOST_DIR to an existing private directory}
+        target: /app/slip-images
+        bind:
+          create_host_path: false
     expose:
       - "3000"
 

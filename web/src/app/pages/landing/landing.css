@@ -2,14 +2,6 @@
   padding-top: var(--space-2);
 }
 
-/* A quieter hero than login's — this is a returning host's own list of
-   groups, not a stranger's first impression, so the scene stays a modest
-   accent above the page's real content rather than a full-screen moment. */
-.landing-hero {
-  height: clamp(6rem, 20vh, 8rem);
-  margin-bottom: var(--space-2);
-}
-
 .home-head {
   display: flex;
   flex-wrap: wrap;

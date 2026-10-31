@@ -9,7 +9,6 @@ import { groupCountLabel, groupLimitMessage, type MyPlan } from '../../core/plan
 import { PlanService } from '../../core/plan.service';
 import { UpgradeSheetService } from '../../core/upgrade-sheet.service';
 import { PlanLock } from '../../shared/plan-lock/plan-lock';
-import { SceneHost } from '../../core/three/scene-host';
 import { environment } from '../../../environments/environment';
 
 export interface GroupSummary {
@@ -39,7 +38,7 @@ export interface OwnerGroups {
  */
 @Component({
   selector: 'app-landing',
-  imports: [FormsModule, NgTemplateOutlet, RouterLink, SceneHost, PlanLock],
+  imports: [FormsModule, NgTemplateOutlet, RouterLink, PlanLock],
   templateUrl: './landing.html',
   styleUrl: './landing.css',
 })

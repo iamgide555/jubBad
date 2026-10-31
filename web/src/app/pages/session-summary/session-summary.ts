@@ -7,7 +7,6 @@ import { firstValueFrom } from 'rxjs';
 import { AuthService } from '../../core/auth.service';
 import { absoluteUrl, copyToClipboard } from '../../core/share-link';
 import { environment } from '../../../environments/environment';
-import { SceneHost } from '../../core/three/scene-host';
 import { formatMinutes } from '../../core/game-duration';
 import { labelForCourt } from '../../core/court-label';
 import { formatShuttlePriceInput } from '../../core/shuttle-money';
@@ -29,7 +28,7 @@ type SortKey = 'played' | 'won' | 'lost' | 'doublesRate' | 'singlesRate' | 'time
 
 @Component({
   selector: 'app-session-summary',
-  imports: [NgTemplateOutlet, RouterLink, SceneHost, ShuttleDetailsDialog, ShuttleCorrectionDialog, ResultCorrectionDialog, PaymentSheet],
+  imports: [NgTemplateOutlet, RouterLink, ShuttleDetailsDialog, ShuttleCorrectionDialog, ResultCorrectionDialog, PaymentSheet],
   templateUrl: './session-summary.html',
   styleUrl: './session-summary.css',
 })

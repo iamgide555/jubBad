@@ -587,12 +587,18 @@ export class SlipPaymentsService {
     now: Date
   ): Promise<SubmitOutcome> {
     const { groupId, panel } = gate;
-    // Once per accepted slip, before the paid/held branch, so both outcomes list the sender in the group.
-    await this.lineAccounts.touch(
-      groupId,
-      { lineUserId: user.userId, displayName: user.displayName, pictureUrl: user.pictureUrl },
-      'slip'
-    );
+    // Once per accepted slip, before the paid/held branch, so both outcomes list the sender in the group. The listing
+    // is a convenience: a failure is logged and must not refuse a valid slip (the caller would release its reference).
+    try {
+      await this.lineAccounts.touch(
+        groupId,
+        { lineUserId: user.userId, displayName: user.displayName, pictureUrl: user.pictureUrl },
+        'slip',
+        now
+      );
+    } catch (error) {
+      console.error('[slip-payments] could not record the sender as a LINE account', error);
+    }
     const paid = new Set(
       (await this.prisma.sessionPayment.findMany({ where: { sessionId: code }, select: { playerId: true } })).map(
         (p) => p.playerId

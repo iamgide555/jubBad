@@ -10,6 +10,8 @@ import { BillService } from '../bill.service.js';
 import { newShareToken, serializePaymentState } from '../payment-card-state.js';
 import { PaymentCardService } from '../payment-card.service.js';
 import type { OcrLine } from './slip-match.js';
+import { LineAccountsService } from '../../line/line-accounts.service.js';
+import { SlipImagesService } from './slip-images.service.js';
 import { SlipPaymentsService, type LiffUser } from './slip-payments.service.js';
 import { SlipReader, type SlipRead } from './slip-reader.js';
 
@@ -790,6 +792,47 @@ describe('slip payments: submit pipeline', () => {
       expect(await membership(groupCode, stranger.userId)).toMatchObject({
         source: 'slip',
         lineAccount: { lineUserId: stranger.userId, displayName: 'Nok', pictureUrl: stranger.pictureUrl },
+      });
+    });
+
+    describe('when the directory write fails', () => {
+      // A real image header, so the image is actually stored (the fake IMAGE bytes are not saved).
+      const JPEG = Buffer.from([0xff, 0xd8, 0xff, 0xe0, 0x00, 0x10]);
+      const imagesKept = async (code: string) => {
+        const images = app.get(SlipImagesService);
+        const count = await images.count(code);
+        await images.purgeSession(code);
+        return count;
+      };
+
+      // Called after the test's setup: the pay page's claim needs the directory, only the submit must survive without it.
+      const breakDirectory = () => {
+        vi.spyOn(app.get(LineAccountsService), 'touch').mockRejectedValue(new Error('db busy'));
+        vi.spyOn(console, 'error').mockImplementation(() => {});
+      };
+
+      it('an auto-paid slip is still paid and its reference and image are kept', async () => {
+        const { code, groupCode, ids, token } = await setup();
+        const a = await linked(code, ids[0]);
+        const reference = newRef();
+        reader.read.mockResolvedValue(slip(reference, { amount: baht(await owed(code, ids[0])) }));
+        breakDirectory();
+        expect(await slips.submitSlip(code, token, a, JPEG)).toEqual({ kind: 'paid', playerIds: [ids[0]] });
+        expect(await paymentsOf(code)).toEqual([expect.objectContaining({ playerId: ids[0], reference })]);
+        expect(await referencesOf(groupCode)).toEqual([expect.objectContaining({ reference })]);
+        expect(await imagesKept(code)).toBe(1);
+        expect(console.error).toHaveBeenCalledWith(expect.stringContaining('[slip-payments]'), expect.anything());
+      });
+
+      it('a held slip is still held and its reference and image are kept', async () => {
+        const { code, groupCode, token } = await setup();
+        const reference = newRef();
+        reader.read.mockResolvedValue(slip(reference));
+        breakDirectory();
+        expect(await slips.submitSlip(code, token, lineUser(), JPEG)).toEqual({ kind: 'waiting', reason: 'unmapped' });
+        expect(await onePending(code)).toMatchObject({ reference, reason: 'unmapped' });
+        expect(await referencesOf(groupCode)).toEqual([expect.objectContaining({ reference })]);
+        expect(await imagesKept(code)).toBe(1);
       });
     });
 

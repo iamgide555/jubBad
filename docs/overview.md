@@ -1664,7 +1664,7 @@ host instead of being guessed. **Private evidence storage (owner decision, 2026-
 images are retained for host review until collection is closed or 30 days after upload. Raw OCR text is
 never stored or logged; structured reference, amount, receiver text, sender and time remain. Images live
 outside SQLite backups, on the server HDD at `/mnt/hdd2/jubbad/slips`, through an explicit private bind
-mount. Only the owning host (or administrator) can fetch them; the group status page cannot. Older slips
+mount. Only the owning host, an administrator, or the bill's collector (see Collector access below) can fetch them; the read-only status page cannot. Older slips
 have no recoverable image.
 
 **Paid is not "settled".** A player is *paid* when a `SessionPayment` row exists (from a slip or the host's
@@ -1727,7 +1727,7 @@ the group has a saved account, since that is the name it rewrites.
 **Read-only payment status (2026-10-31).** Newly generated payment cards also carry **ดูสถานะการจ่าย**,
 opening `/line-share/payment-status/:sessionCode/:token` inside LINE. A collector can see the bill date,
 paid/unpaid/pending counts, names, amounts and recorded payment marks without claiming a player or signing in as
-host. Unpaid names appear first; **รีเฟรชสถานะ** reads current state. Red means **ยังไม่จ่าย**, amber
+host. Unpaid names appear first (a collector sees the management screen instead, below); **รีเฟรชสถานะ** reads current state. Red means **ยังไม่จ่าย**, amber
 means **รอยืนยัน**, green means **จ่ายแล้ว**, with text labels alongside color. A pending person requires
 an unpaid linked sender and a slip amount equal to that person's bill; ambiguous slips appear only in
 the aggregate pending-slip count. Pending is never counted as paid. Existing paid marks remain after bill edits, with an amount-change note when applicable.
@@ -1736,6 +1736,61 @@ and Host plan as the pay page; reconfirming revokes old links. It returns only t
 `Cache-Control: no-store`, never review details or LINE profiles. All mutations remain on owner-only routes.
 Existing chat cards do not change retroactively: send a new card to get the button. Design:
 `docs/archive/specs/2026-10-31-payment-status-design.md`.
+
+**Status list order (2026-11-01, 07dc269).** The two lists answer different questions, so they sort differently.
+The host's **สถานะการชำระเงิน** puts paid rows first, earliest payer at the top: the host is reconciling what
+has arrived, and the list reads like the order money came in. The LIFF list keeps unpaid first, then
+pending, then paid earliest-first, because the person opening it is chasing who is still missing. On the
+host list, tapping a slip-paid row opens its slip; undo is a deliberate button, not the row tap, and a row is
+view-only once collection is closed.
+
+### Collector access (2026-11-01)
+
+Design: `docs/archive/specs/2026-11-01-collector-line-access-design.md`; plan:
+`docs/archive/plans/2026-11-01-collector-line-access.md`.
+
+**The problem.** The person holding the receiving bank account is often a regular member, not the host,
+and has no JubBad login, only LINE. They could open **ดูสถานะการจ่าย** but only to read it; to check a slip
+or tick a cash payer they had to ask the host. They are the one who can see the bank app, so they now do
+the work themselves, from the same LINE page.
+
+**Who is the collector.** The host names a player per receiving account: the owner picks **เจ้าของบัญชี**
+in group settings, under บัญชีรับเงิน (`Group.payCollectorPlayerId`, `PUT /groups/:code/pay-collector`), and
+can set a different one for tonight on the payment card when tonight's account differs. Only players with a
+linked LINE account are offered, shown with LINE name and picture so the host can see it is really them,
+and every pick, change or clear asks for confirmation (one stray tap must not hand over payment powers).
+The collector is a separate column, not part of the `payAccount` JSON, because two existing writers
+re-serialise that JSON from its three account fields and would silently drop it.
+
+**Live versus snapshot (the rule).** Which collector a bill has is decided per request:
+- If the confirmed card's account is the group's saved account, the group's **current** collector applies,
+  read live. Fixing a wrong pick in settings takes effect at once, and it matters because reconfirming the
+  card rotates its token and breaks the links already in the chat. "Same account" compares bank and the
+  account number's digits only, not the name, so "update saved name" on a slip never cuts the collector off.
+- Otherwise the card's **night collector** (stored in `Session.paymentCard`, sent with confirm) applies. A
+  night account's owner stays with that bill since nobody else's bank app can check it. If the group's saved
+  account changes after confirm, the card no longer matches and falls back to its night collector (usually
+  none), so the new account's owner never gets a bill paid into someone else's account.
+- The collector's LINE user id is resolved live from `PlayerLineAccount`. Unlinking that player, or the LINE
+  group being unlinked, ends access at once without touching the card.
+
+**Routes and what is withheld.** `GET /sessions/:code/slip-pay/role` answers `{collector}` and
+`/sessions/:code/slip-pay/manage` (panel, slip images, tick, untick, waiting resolve and dismiss, duplicate
+dismiss, close) sit behind the pay-page gate (current token, Host plan, LINE-verified viewer) plus the
+collector match. Every other case is the same uniform 404 as any pay-page failure, so the routes do not
+reveal that a collector exists; a non-collector's role check is not counted against the throttle, since
+every ordinary player makes one. Each write calls the host's existing method under the session lock, so every
+rule the host is held to (closed collection, amount review, already paid, close readiness) holds
+unchanged. Owner decisions: the collector cannot link or unlink LINE accounts, so resolve forces the sender
+to null and the sender picker and linked-LINE list are not shown; there is no update-name, because it
+rewrites the group's saved account. The collector can close collection under the host's own rule. The
+read-only status projection did not change shape (its key set is pinned by a test).
+
+**In the UI.** The LIFF status page renders the host's `SlipReview` in collector mode through an API seam
+(`SlipReviewApi`, implemented for the collector by `CollectorSlipService`); slip images are fetched with
+the LINE header and shown as blob URLs, since an image tag cannot send it. Ticks by the collector are
+recorded with source `collector` and the chip **ผู้รับเงินติ๊ก**. The host sees the line **ผู้รับเงินจัดการใน LINE:
+{name}** on the payment panel and **สถานะการชำระเงิน**, and keeps every power it had.
 
 **Abuse limits.** The pay link is reachable by anyone holding the card, so uploads have a size cap (8 MB,
 in nginx and the API), a per-viewer rate limit, a server-wide limit on uploads in flight, and reading is

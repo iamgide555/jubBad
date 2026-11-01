@@ -1,6 +1,6 @@
 # Receiving-account owner manages payments from LINE
 
-Status: draft for owner review (2026-11-01). Branch: `feat/collector-line-access`.
+Status: built (2026-11-01). Branch: `feat/collector-line-access`.
 
 ## Why
 

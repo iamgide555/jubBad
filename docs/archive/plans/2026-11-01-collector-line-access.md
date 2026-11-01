@@ -8,7 +8,7 @@
 
 **Tech Stack:** NestJS + Prisma (SQLite, better-sqlite3 adapter), vitest; Angular standalone + signals, `ng test` (vitest).
 
-**Spec:** `docs/superpowers/specs/2026-11-01-collector-line-access-design.md`
+**Spec:** `docs/archive/specs/2026-11-01-collector-line-access-design.md`
 
 ## Global Constraints
 
@@ -55,7 +55,7 @@
   - `CollectorService.forBill(code: string): Promise<BillCollector | null>` — card account = `state.account ?? groupAccount`; if `sameReceivingAccount(cardAccount, groupAccount)` use `group.payCollectorPlayerId`, else `state.collectorPlayerId ?? null`; resolve the player's `PlayerLineAccount` in the session's group (with `lineAccount`); null if no player id, player missing, or no link.
   - `assertCollectorEligible(prisma: PrismaService, groupId: string, playerId: string): Promise<void>` in `server/src/groups/pay-collector.ts` — throws `ConflictException({ code: 'COLLECTOR_INVALID' })` unless the player is in the group and has a `PlayerLineAccount` there. Used by Task 2 (groups) and Task 3 (sessions).
 
-- [ ] **Step 1: Write failing tests**
+- [x] **Step 1: Write failing tests**
   - `pay-account.spec.ts`: `sameReceivingAccount` true for `{กสิกร,'123-4-56789-0',A}` vs `{กสิกร,'1234567890',B}`; false for different bank; false when either is null.
   - `payment-card-state.spec.ts` (or existing): round-trip keeps `collectorPlayerId: 'p1'`; a state without it parses to `collectorPlayerId: null`.
   - `collector.service.spec.ts` (AppModule harness like `slip-payments.paid.spec.ts`), cases:
@@ -66,12 +66,12 @@
     - group account bank/number changed after confirm → falls back to night collector (`null`).
     - after `prisma.playerLineAccount.deleteMany` for the collector → `null`.
     - `assertCollectorEligible` rejects a player of another group and an unlinked player with `COLLECTOR_INVALID`.
-- [ ] **Step 2: Run, verify they fail**
+- [x] **Step 2: Run, verify they fail**
   Run: `npx vitest run src/sessions/collector.service.spec.ts src/sessions/pay-account.spec.ts`
   Expected: FAIL (module / export not found)
-- [ ] **Step 3: Add the schema field, create the migration, `npx prisma generate`, implement the functions above**
-- [ ] **Step 4: Run the same command, expect PASS; then `npm test` (server) for regressions**
-- [ ] **Step 5: Commit** `feat(payments): store and resolve a bill's collector`
+- [x] **Step 3: Add the schema field, create the migration, `npx prisma generate`, implement the functions above**
+- [x] **Step 4: Run the same command, expect PASS; then `npm test` (server) for regressions**
+- [x] **Step 5: Commit** `feat(payments): store and resolve a bill's collector`
 
 ### Task 2: Group collector setting API (server)
 
@@ -88,7 +88,7 @@
   - `PUT /groups/:code/pay-collector` body `{ playerId: string | null }` (DTO: `@IsOptional() @IsString() @MaxLength(64)`, null allowed) → `{ collectorPlayerId: string | null }`; owner-only (no `@Public`), not plan-gated (like pay-account). 409 `COLLECTOR_INVALID` for ineligible; 409 `PAY_ACCOUNT_REQUIRED` when setting a non-null collector on a group with no saved account.
   - `setPayAccount` with an all-blank body also sets `payCollectorPlayerId: null`.
 
-- [ ] **Step 1: Failing tests in `pay-account.controller.spec.ts`**
+- [x] **Step 1: Failing tests in `pay-account.controller.spec.ts`**
   - GET on fresh group → `{ account: null, collectorPlayerId: null }`.
   - PUT collector with a linked player → 200, GET returns it.
   - PUT with unlinked player / other group's player → 409 `COLLECTOR_INVALID`, value unchanged.
@@ -97,10 +97,10 @@
   - Clearing the account (all blank) clears the collector; editing only the name keeps it.
   - Non-owner gets 404 (OwnershipGuard), as other group routes.
   - In `slip-payments.resolve.spec.ts` (or the file holding update-name tests): after `updateSavedReceiverName`, `group.payCollectorPlayerId` is unchanged.
-- [ ] **Step 2: Run** `npx vitest run src/groups/pay-account.controller.spec.ts` → FAIL
-- [ ] **Step 3: Implement DTO, route, service methods**
-- [ ] **Step 4: Run again → PASS**
-- [ ] **Step 5: Commit** `feat(groups): pick the pay account's collector`
+- [x] **Step 2: Run** `npx vitest run src/groups/pay-account.controller.spec.ts` → FAIL
+- [x] **Step 3: Implement DTO, route, service methods**
+- [x] **Step 4: Run again → PASS**
+- [x] **Step 5: Commit** `feat(groups): pick the pay account's collector`
 
 ### Task 3: Night collector on confirm, collector on host panels, collector tick source (server)
 
@@ -120,15 +120,15 @@
   - `SlipPaymentsService.tick(code: string, playerId: string, source: 'host' | 'collector' = 'host'): Promise<void>`.
   - `SlipPaymentsPanel.collector: { playerName: string; lineName: string | null } | null`.
 
-- [ ] **Step 1: Failing tests**
+- [x] **Step 1: Failing tests**
   - confirm with a typed different account + eligible `collectorPlayerId` → `forBill` returns that player; with the group's account + any `collectorPlayerId` → stored null, `forBill` is the group's collector; ineligible id → 409 `COLLECTOR_INVALID`, card unchanged.
   - host `GET /sessions/:code/payment-card` (and the confirm response) exposes `groupCode` and `collector`, never the LINE user id: `expect(res.text).not.toContain(lineUserId)`; `cards.panel(code)` itself has no `collector` key.
   - `tick(code, id, 'collector')` → `getPaid` row `source: 'collector'`; a later host `tick` keeps `'collector'`.
   - host `GET /sessions/:code/payments` includes `collector`.
-- [ ] **Step 2: Run** the touched spec files → FAIL
-- [ ] **Step 3: Implement**
-- [ ] **Step 4: Run → PASS, then server `npm test`**
-- [ ] **Step 5: Commit** `feat(payments): night collector on confirm, collector tick source`
+- [x] **Step 2: Run** the touched spec files → FAIL
+- [x] **Step 3: Implement**
+- [x] **Step 4: Run → PASS, then server `npm test`**
+- [x] **Step 5: Commit** `feat(payments): night collector on confirm, collector tick source`
 
 ### Task 4: Collector manage routes (server)
 
@@ -151,7 +151,7 @@
     - `GET /images/:id` → image, same headers as host route.
     - `POST /tick`, `/untick` body `SlipPlayerDto`; `POST /waiting/:id/resolve` body `ResolveWaitingSlipDto` (sender ignored → `null`); `POST /waiting/:id/dismiss`; `POST /duplicates/:id/dismiss`; `POST /close` body `CloseCollectionDto` (`{ confirmDeleteImages: true }`, as the host sends). Each → `{ ok: true }`. Service 409/404 pass through. A collector check that fails after a valid gate is the uniform 404 and counts (only collectors' own pages call these).
 
-- [ ] **Step 1: Failing tests in `slip-collector.controller.spec.ts`** (boot with `bootSlipApp`; collector = `ids[0]` linked via `linkLine` and set via `setCollector`)
+- [x] **Step 1: Failing tests in `slip-collector.controller.spec.ts`** (boot with `bootSlipApp`; collector = `ids[0]` linked via `linkLine` and set via `setCollector`)
   - Uniform-404 table over every manage route: no header, unverifiable header, bad/no/repeated token, unknown session, **verified non-collector**, collector after `playerLineAccount.deleteMany`, lapsed plan (`owner('free')`), reconfirmed card (old token). Each equals the baseline 404 body.
   - Image: collector GET with header → 200 `image/png`; same URL without header → 404.
   - Tick → 200 and `getPaid` source `collector`; untick removes.
@@ -160,10 +160,10 @@
   - No route under manage for `links` or `update-name` (POST to them → 404).
   - Role: collector → `{ collector: true }`; non-collector → `{ collector: false }` 20 times in a row, then `GET status` still 200 (not throttled).
   - Status projection key set unchanged (reuse the existing assertion).
-- [ ] **Step 2: Run** `npx vitest run src/sessions/slips/slip-collector.controller.spec.ts` → FAIL
-- [ ] **Step 3: Extract the gate (no behavior change; `slip-pay.controller.spec.ts` must stay green), add `collectorAccess`, role route, collector controller**
-- [ ] **Step 4: Run the new spec and `src/sessions/slips/` → PASS; server `npm test`; `npm run lint`**
-- [ ] **Step 5: Commit** `feat(payments): collector manage routes behind LINE identity`
+- [x] **Step 2: Run** `npx vitest run src/sessions/slips/slip-collector.controller.spec.ts` → FAIL
+- [x] **Step 3: Extract the gate (no behavior change; `slip-pay.controller.spec.ts` must stay green), add `collectorAccess`, role route, collector controller**
+- [x] **Step 4: Run the new spec and `src/sessions/slips/` → PASS; server `npm test`; `npm run lint`**
+- [x] **Step 5: Commit** `feat(payments): collector manage routes behind LINE identity`
 
 ### Task 5: SlipReview API seam, collector mode, collector chip (web)
 
@@ -183,16 +183,16 @@
   - `SlipReview` resolves image URLs through `api.image()` into a `Map<imageId, url>` signal; revokes `blob:` URLs in `DestroyRef.onDestroy`.
   - Host line `data-collector-line`: `ผู้รับเงินจัดการใน LINE: {playerName}` when `data.collector` and not `collectorMode`.
 
-- [ ] **Step 1: Failing tests in `slip-review.spec.ts`** (provide `{ provide: SlipReviewApi, useValue: svc }`; `svc.image` returns `of('/private/image')`)
+- [x] **Step 1: Failing tests in `slip-review.spec.ts`** (provide `{ provide: SlipReviewApi, useValue: svc }`; `svc.image` returns `of('/private/image')`)
   - chip for `source: 'collector'` reads `ผู้รับเงินติ๊ก`; collector rows untick on tap (no dialog).
   - `collectorMode`: no `[data-sender]`, no `[data-links]`, no `[data-update-name]`; resolve called with `senderPlayerId: null`.
   - host mode with `collector: { playerName: 'บูม' }` shows `[data-collector-line]` containing `บูม`; collector mode hides it.
   - image src comes from `svc.image`; a `blob:` URL given by `svc.image` is revoked on `fixture.destroy()` (spy `URL.revokeObjectURL`).
   - existing tests updated to the renamed `image` method; all green.
-- [ ] **Step 2: Run** `npx ng test --watch=false --include src/app/shared/slip-review` (from `web/`) → FAIL
-- [ ] **Step 3: Implement**
-- [ ] **Step 4: Run → PASS; full `npx ng test --watch=false`**
-- [ ] **Step 5: Commit** `feat(web): slip review behind an API seam, collector mode and chip`
+- [x] **Step 2: Run** `npx ng test --watch=false --include src/app/shared/slip-review` (from `web/`) → FAIL
+- [x] **Step 3: Implement**
+- [x] **Step 4: Run → PASS; full `npx ng test --watch=false`**
+- [x] **Step 5: Commit** `feat(web): slip review behind an API seam, collector mode and chip`
 
 ### Task 6: LIFF status page renders SlipReview for the collector (web)
 
@@ -209,15 +209,15 @@
   - `CollectorSlipService extends SlipReviewApi` (not root-provided) with `configure(token: string, accessToken: string): void`; every call targets `/sessions/:code/slip-pay/manage...?token=` with the `X-Line-Access-Token` header; `panel()` maps the manage response to `SlipHostPanel` (and exposes the rows for the page via `manage(code): Observable<CollectorManageView>`); `closeCollection()` posts `{ confirmDeleteImages: true }`; `image()` GETs the image as a blob and returns `URL.createObjectURL(blob)`; `updateName`/`setLink` return `throwError` (never called in collector mode).
   - `PaymentStatus` component `providers: [CollectorSlipService, { provide: SlipReviewApi, useExisting: CollectorSlipService }]`; after LINE login it calls `role`; `collector: true` → phase `'manage'`, loads `manage(code)` for `rows`/`accountName`, renders header `คุณจัดการการชำระเงินบิลนี้` and `<app-slip-review [code] [rows] [collectorMode]="true" [hideTitle]="true">`; otherwise the existing read-only flow unchanged. A failed role read falls back to the read-only flow.
 
-- [ ] **Step 1: Failing tests in `payment-status.spec.ts`**
+- [x] **Step 1: Failing tests in `payment-status.spec.ts`**
   - role `{collector:false}` → existing read-only list and no `app-slip-review`.
   - role `{collector:true}` → header text present, `app-slip-review` rendered with `collectorMode` true, `status()` not called.
   - role error → read-only list.
   - `collector-slip.service.spec.ts`: requests carry header and `?token=` (HttpTestingController); `image()` returns a `blob:` URL; `panel()` maps `links` to `[]`.
-- [ ] **Step 2: Run** `npx ng test --watch=false --include src/app/pages/payment-status --include src/app/core/collector-slip.service.spec.ts` → FAIL
-- [ ] **Step 3: Implement**
-- [ ] **Step 4: Run → PASS; full web tests; `npx ng build`**
-- [ ] **Step 5: Commit** `feat(web): collector manages payments from the LINE status page`
+- [x] **Step 2: Run** `npx ng test --watch=false --include src/app/pages/payment-status --include src/app/core/collector-slip.service.spec.ts` → FAIL
+- [x] **Step 3: Implement**
+- [x] **Step 4: Run → PASS; full web tests; `npx ng build`**
+- [x] **Step 5: Commit** `feat(web): collector manages payments from the LINE status page`
 
 ### Task 7: Collector picker in group settings and on the payment card (web)
 
@@ -237,21 +237,21 @@
   - Pay account panel: picker under the fields, shown only when an account is saved; `chosen` → `setCollector`; 409 `COLLECTOR_INVALID` → `เลือกคนนี้ไม่ได้ ผู้เล่นต้องผูก LINE ในก๊วนนี้ก่อน`.
   - Payment panel: when the account fields are a different receiving account from `groupAccount` — compared like the server's `sameReceivingAccount` (bank equal and number digits equal, name ignored; add `sameReceiving(a, b)` beside the existing `sameAccount`, which still drives the fold/confirm logic) — the picker shows under the fields (`value` = `nightCollector` signal, initialised from `panel.collector?.playerId` when the confirmed account is not the group's); `chosen` sets `nightCollector` and counts as an edit (`editedSinceConfirm` also true when `nightCollector` differs from the confirmed collector). Confirm sends `collectorPlayerId: nightCollector` (or omitted when fields equal the group account). Panel shows `ผู้รับเงินจัดการใน LINE: {name}` (`data-collector-line`) from `panel.collector` when confirmed.
 
-- [ ] **Step 1: Failing tests**
+- [x] **Step 1: Failing tests**
   - picker: only linked rows listed with name + LINE name; a `value` not in the list shows `data-collector-stale`; choosing opens dialog; cancel emits nothing; confirm emits id; choosing `ไม่มี` asks the clearing copy and emits `null`.
   - pay account panel: picker hidden with no saved account; confirm → `setCollector` called; COLLECTOR_INVALID shows the message.
   - payment panel: fields equal group account → no picker, confirm body has no `collectorPlayerId`; only the name edited → still no picker; edited account → picker shown, confirm body carries the chosen id; changing the night collector after confirm shows `ยืนยันใหม่`; `data-collector-line` shows the confirmed collector.
-- [ ] **Step 2: Run** the three spec files → FAIL
-- [ ] **Step 3: Implement**
-- [ ] **Step 4: Run → PASS; full web tests; `npx ng build`**
-- [ ] **Step 5: Commit** `feat(web): pick the collector in settings and for tonight's account`
+- [x] **Step 2: Run** the three spec files → FAIL
+- [x] **Step 3: Implement**
+- [x] **Step 4: Run → PASS; full web tests; `npx ng build`**
+- [x] **Step 5: Commit** `feat(web): pick the collector in settings and for tonight's account`
 
 ### Task 8: Docs and full verification
 
 **Files:**
 - Modify: `docs/overview.md` (slip images paragraph: "Only the owning host (or administrator)" → "the owning host, an administrator, or the bill's collector"; read-only status paragraph: note the collector sees the management screen, and that the host list orders paid first (earliest payer at the top) while the LIFF list keeps unpaid first (shipped 2026-11-01, 07dc269); new `### Collector access (2026-11-01)` subsection under Slip payment matching with the why and the live/snapshot rule)
-- Modify: `docs/superpowers/specs/2026-11-01-collector-line-access-design.md` (Status: built)
+- Modify: `docs/archive/specs/2026-11-01-collector-line-access-design.md` (Status: built)
 
-- [ ] **Step 1: Write the doc changes**
-- [ ] **Step 2: Run everything** — from repo root `npm test`; `server/`: `npm run lint`; `web/`: `npx ng build`. Expected: all suites pass, lint clean, build complete.
-- [ ] **Step 3: Commit** `docs: collector access`
+- [x] **Step 1: Write the doc changes**
+- [x] **Step 2: Run everything** — from repo root `npm test`; `server/`: `npm run lint`; `web/`: `npx ng build`. Expected: all suites pass, lint clean, build complete.
+- [x] **Step 3: Commit** `docs: collector access`

@@ -586,17 +586,43 @@ describe('PlayerRoster', () => {
       await settle();
     });
 
-    it('a 409 shows the already-linked message and leaves the row unchanged', async () => {
+    it('a 409 shows the already-linked message, leaves the row unlinked, and re-reads the players and the accounts', async () => {
       await openPicker('p2');
       (dialog().querySelector('[data-account="a1"]') as HTMLButtonElement).click();
       httpMock
         .expectOne(`${ACCOUNTS_URL}/a1/player`)
         .flush({ code: 'ACCOUNT_ALREADY_LINKED' }, { status: 409, statusText: 'Conflict' });
       await settle();
+      // The page reloads its players so a row linked elsewhere shows it.
+      httpMock.expectOne(`${B}/groups/group1/players/manage`).flush([{ ...PLAYERS[0], lineAccount: LINE }, PLAYERS[1]]);
+      await settle();
+      await settle();
       expect(el().querySelector('[data-line-error]')!.textContent).toContain('บัญชีนี้ผูกกับผู้เล่นคนอื่นแล้ว');
+      expect(chip('p1')!.textContent).toContain('Tam LINE');
       expect(chip('p2')).toBeNull();
       expect(linkBtn('p2')).not.toBeNull();
       expect(component.players().find((p) => p.id === 'p2')?.lineAccount).toBeNull();
+      // The cached accounts were dropped: the next picker open reads them again.
+      linkBtn('p2')!.click();
+      httpMock.expectOne(ACCOUNTS_URL).flush([account('a2', 'Mod LINE')]);
+      await settle();
+    });
+
+    it('a failed link that is not a 409 does not reload the players', async () => {
+      await openPicker('p2');
+      (dialog().querySelector('[data-account="a1"]') as HTMLButtonElement).click();
+      httpMock.expectOne(`${ACCOUNTS_URL}/a1/player`).flush('x', { status: 500, statusText: 'Server Error' });
+      await settle();
+      httpMock.expectNone(`${B}/groups/group1/players/manage`);
+      expect(el().querySelector('[data-line-error]')).not.toBeNull();
+    });
+
+    it('the link and unlink buttons name their player for assistive tech', () => {
+      showLinked();
+      expect(unlinkBtn('p1')!.getAttribute('aria-label')).toBe('ยกเลิกการผูก LINE ของ ตั้ม');
+      expect(linkBtn('p2')!.getAttribute('aria-label')).toBe('ผูก LINE ให้ มด');
+      expect(unlinkBtn('p1')!.getAttribute('aria-label')).toContain(PLAYERS[0].name);
+      expect(linkBtn('p2')!.getAttribute('aria-label')).toContain(PLAYERS[1].name);
     });
 
     it('cannot read the accounts: says so and opens no picker', async () => {

@@ -7341,6 +7341,8 @@
       <trans-unit id="lineAccounts.unlinkLabel" datatype="html"><source>ยกเลิกการผูก LINE ของ <x id="name" equiv-text="name"/></source><target>Unlink LINE from <x id="name" equiv-text="name"/></target></trans-unit>
       <trans-unit id="lineAccounts.playersLoadFailed" datatype="html"><source>โหลดรายชื่อผู้เล่นไม่สำเร็จ</source><target>Could not load players</target></trans-unit>
       <trans-unit id="playerRoster.lineAccountsLink" datatype="html"><source>บัญชี LINE →</source><target>LINE accounts →</target></trans-unit>
+      <trans-unit id="playerRoster.lineLinkLabel" datatype="html"><source>ผูก LINE ให้ <x id="name" equiv-text="name"/></source><target>Link LINE to <x id="name" equiv-text="name"/></target></trans-unit>
+      <trans-unit id="playerRoster.lineUnlinkLabel" datatype="html"><source>ยกเลิกการผูก LINE ของ <x id="name" equiv-text="name"/></source><target>Unlink LINE from <x id="name" equiv-text="name"/></target></trans-unit>
     </body>
   </file>
 </xliff>

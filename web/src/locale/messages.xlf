@@ -8765,6 +8765,20 @@
           <context context-type="linenumber">21,25</context>
         </context-group>
       </trans-unit>
+      <trans-unit id="playerRoster.lineLinkLabel" datatype="html">
+        <source>ผูก LINE ให้ <x id="name" equiv-text="name"/></source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/player-roster/player-roster.ts</context>
+          <context context-type="linenumber">332</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="playerRoster.lineUnlinkLabel" datatype="html">
+        <source>ยกเลิกการผูก LINE ของ <x id="name" equiv-text="name"/></source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/player-roster/player-roster.ts</context>
+          <context context-type="linenumber">336</context>
+        </context-group>
+      </trans-unit>
     </body>
   </file>
 </xliff>

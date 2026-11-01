@@ -167,8 +167,23 @@ export class LineAccounts {
           ? $localize`:@@playerRoster.lineAlreadyLinked:บัญชีนี้ผูกกับผู้เล่นคนอื่นแล้ว`
           : $localize`:@@playerRoster.saveFailed:บันทึกไม่สำเร็จ`
       );
+      if (code === 'ACCOUNT_ALREADY_LINKED') await this.refreshAfterConflict();
     } finally {
       this.busy.set(false);
+    }
+  }
+
+  /** The account was taken since this page last read it: read both lists again so the rows show who holds it now. */
+  private async refreshAfterConflict(): Promise<void> {
+    try {
+      const [accounts, players] = await Promise.all([
+        firstValueFrom(this.accountsService.list(this.groupCode)),
+        firstValueFrom(this.rosterService.getPlayersManage(this.groupCode)),
+      ]);
+      this.accounts.set(accounts);
+      this.players.set(players);
+    } catch {
+      // The conflict message stays; the lists keep what they had.
     }
   }
 

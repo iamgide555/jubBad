@@ -220,9 +220,9 @@
                 <button type="button" class="ghost" [disabled]="editingId() !== null" (click)="startEdit(player)" i18n="@@playerRoster.edit">แก้ไข</button>
                 @if (editingId() === null) {
                   @if (player.lineAccount) {
-                    <button type="button" class="ghost" [attr.data-unlink-line]="player.id" [disabled]="lineBusyId() === player.id" (click)="unlinkLine(player)" i18n="@@playerRoster.lineUnlink">ยกเลิกการผูก</button>
+                    <button type="button" class="ghost" [attr.data-unlink-line]="player.id" [attr.aria-label]="lineUnlinkLabel(player.name)" [disabled]="lineBusyId() === player.id" (click)="unlinkLine(player)" i18n="@@playerRoster.lineUnlink">ยกเลิกการผูก</button>
                   } @else {
-                    <button type="button" class="ghost" [attr.data-link-line]="player.id" [disabled]="lineBusyId() === player.id" (click)="openLinkPicker(player)" i18n="@@playerRoster.lineLink">ผูก LINE</button>
+                    <button type="button" class="ghost" [attr.data-link-line]="player.id" [attr.aria-label]="lineLinkLabel(player.name)" [disabled]="lineBusyId() === player.id" (click)="openLinkPicker(player)" i18n="@@playerRoster.lineLink">ผูก LINE</button>
                   }
                 }
                 @if (paid()) {

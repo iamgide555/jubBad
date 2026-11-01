@@ -327,6 +327,15 @@ export class PlayerRoster implements CanComponentDeactivate, OnDestroy {
 
   // ---- LINE account link / unlink ----
 
+  /** The row's link button names its player, so a screen reader can tell the rows apart. */
+  lineLinkLabel(name: string): string {
+    return $localize`:@@playerRoster.lineLinkLabel:ผูก LINE ให้ ${name}:name:`;
+  }
+
+  lineUnlinkLabel(name: string): string {
+    return $localize`:@@playerRoster.lineUnlinkLabel:ยกเลิกการผูก LINE ของ ${name}:name:`;
+  }
+
   private readonly lineAccounts = inject(LineAccountsService);
   /** The group's LINE accounts, read the first time a picker opens and again after any link or unlink. */
   private readonly accounts = signal<LineAccountRow[] | null>(null);
@@ -373,6 +382,8 @@ export class PlayerRoster implements CanComponentDeactivate, OnDestroy {
           ? $localize`:@@playerRoster.lineAlreadyLinked:บัญชีนี้ผูกกับผู้เล่นคนอื่นแล้ว`
           : $localize`:@@playerRoster.saveFailed:บันทึกไม่สำเร็จ`
       );
+      // Someone else holds the account, so this page's rows were stale: read them again so they show who has it now.
+      if (code === 'ACCOUNT_ALREADY_LINKED') await this.load();
     } finally {
       // Either way the cached list may be out of date (another player may hold the account now).
       this.accounts.set(null);

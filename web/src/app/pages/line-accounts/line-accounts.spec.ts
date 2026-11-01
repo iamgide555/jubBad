@@ -234,7 +234,7 @@ describe('LineAccounts', () => {
     expect(qa('[data-pick-player]').map((b) => b.getAttribute('data-pick-player'))).toEqual(['p4', 'p1']);
   });
 
-  it('a 409 shows the already-linked message and leaves the row unchanged', async () => {
+  it('a 409 shows the already-linked message and re-reads accounts and players so the rows show who holds the account', async () => {
     await load();
     q('[data-account-row="a1"] [data-link-player]').click();
     http.expectOne(PLAYERS_URL).flush([player('p1', 'ตั้ม')]);
@@ -243,6 +243,36 @@ describe('LineAccounts', () => {
     http
       .expectOne(`${LIST_URL}/a1/player`)
       .flush({ code: 'ACCOUNT_ALREADY_LINKED' }, { status: 409, statusText: 'Conflict' });
+    await settle();
+    // Someone else linked a1 to p9 since this page last looked.
+    const taken = { id: 'a1', displayName: 'Tam LINE', pictureUrl: null, linkedBy: 'host' as const };
+    http.expectOne(LIST_URL).flush([row('a1', 'Tam LINE', { id: 'p9', name: 'ปอ', linkedBy: 'host' }), ACCOUNTS[1], ACCOUNTS[2]]);
+    http.expectOne(PLAYERS_URL).flush([player('p1', 'ตั้ม'), player('p9', 'ปอ', taken)]);
+    await settle();
+    await settle();
+    expect(q('[data-error]').textContent).toContain('บัญชีนี้ผูกกับผู้เล่นคนอื่นแล้ว');
+    expect(q('[data-account-row="a1"] [data-linked-player]').textContent).toContain('ปอ');
+    // The picker's player list is the refreshed one too: ปอ now holds an account, so ตั้ม comes first.
+    q('[data-account-row="a2"] [data-unlink]').click();
+    http.expectOne(`${LIST_URL}/a2/player`).flush({ ok: true });
+    await settle();
+    q('[data-account-row="a2"] [data-link-player]').click();
+    await settle();
+    expect(qa('[data-pick-player]').map((b) => b.getAttribute('data-pick-player'))).toEqual(['p1', 'p9']);
+  });
+
+  it('a 409 whose refresh fails keeps the conflict message', async () => {
+    await load();
+    q('[data-account-row="a1"] [data-link-player]').click();
+    http.expectOne(PLAYERS_URL).flush([player('p1', 'ตั้ม')]);
+    await settle();
+    q('[data-pick-player="p1"]').click();
+    http
+      .expectOne(`${LIST_URL}/a1/player`)
+      .flush({ code: 'ACCOUNT_ALREADY_LINKED' }, { status: 409, statusText: 'Conflict' });
+    await settle();
+    http.expectOne(LIST_URL).flush({}, { status: 500, statusText: 'x' });
+    http.expectOne(PLAYERS_URL).flush({}, { status: 500, statusText: 'x' });
     await settle();
     expect(q('[data-error]').textContent).toContain('บัญชีนี้ผูกกับผู้เล่นคนอื่นแล้ว');
     expect(q('[data-account-row="a1"] [data-linked-player]')).toBeNull();

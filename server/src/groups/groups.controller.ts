@@ -13,6 +13,7 @@ import { UpdatePlayerDto } from './dto/update-player.dto.js';
 import { SetPlayerLevelDto } from './dto/set-player-level.dto.js';
 import { SetPlayerRuleDto, SetPlayerRuleKindDto } from './dto/set-player-rule.dto.js';
 import { SetPayAccountDto } from './dto/set-pay-account.dto.js';
+import { SetPayCollectorDto } from './dto/set-pay-collector.dto.js';
 import { SetShuttleToolsDto } from './dto/set-shuttle-tools.dto.js';
 
 @Controller('groups')
@@ -140,6 +141,15 @@ export class GroupsController {
   @Put(':code/pay-account')
   setPayAccount(@Param('code') code: string, @Body() dto: SetPayAccountDto) {
     return this.groupsService.setPayAccount(code, dto);
+  }
+
+  /**
+   * Owner-only and not plan-gated, like the account it belongs to. A null playerId clears;
+   * 409 COLLECTOR_INVALID for a player who is not linked here, PAY_ACCOUNT_REQUIRED with no saved account.
+   */
+  @Put(':code/pay-collector')
+  setPayCollector(@Param('code') code: string, @Body() dto: SetPayCollectorDto) {
+    return this.groupsService.setPayCollector(code, dto.playerId ?? null);
   }
 
   /** Whether pairing history spans earlier sessions; snapshotted per session. */

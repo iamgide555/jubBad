@@ -1,8 +1,12 @@
 import { HttpErrorResponse } from '@angular/common/http';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { ActivatedRoute, convertToParamMap } from '@angular/router';
+import { Component, input } from '@angular/core';
 import { of, Subject, throwError } from 'rxjs';
+import { CollectorSlipService } from '../../core/collector-slip.service';
 import { LiffClient } from '../../core/liff-client';
+import { SlipReviewApi } from '../../core/slip-review-api';
+import { SlipReview, type SlipReviewRow } from '../../shared/slip-review/slip-review';
 import { SlipPayService } from '../../core/slip-pay.service';
 import { PaymentStatus } from './payment-status';
 
@@ -11,9 +15,20 @@ const VIEW = { sessionDate: '30 ต.ค. 2569', rows: [
   { name: 'Unpaid Person', amountSatang: 18050, paid: false, amountChangedSince: false },
 ] };
 
+/** Stands in for the real review so the page's wiring is what is under test, not the review's own HTTP. */
+@Component({ selector: 'app-slip-review', template: '' })
+class FakeSlipReview {
+  readonly code = input.required<string>();
+  readonly rows = input.required<readonly SlipReviewRow[]>();
+  readonly collectorMode = input(false);
+  readonly hideTitle = input(false);
+}
+
+const MANAGE = { groupName: 'ก๊วน', date: '30 ต.ค. 2569', accountName: 'สมชาย', rows: [{ playerId: 'p1', name: 'A', amountSatang: 10000, absent: false }] };
+
 describe('PaymentStatus', () => {
   let fixture: ComponentFixture<PaymentStatus>;
-  let api: { config: ReturnType<typeof vi.fn>; status: ReturnType<typeof vi.fn>; claim: ReturnType<typeof vi.fn>; upload: ReturnType<typeof vi.fn> };
+  let api: { config: ReturnType<typeof vi.fn>; status: ReturnType<typeof vi.fn>; claim: ReturnType<typeof vi.fn>; role: ReturnType<typeof vi.fn>; upload: ReturnType<typeof vi.fn> };
   let liff: { init: ReturnType<typeof vi.fn>; isLoggedIn: ReturnType<typeof vi.fn>; login: ReturnType<typeof vi.fn>; getAccessToken: ReturnType<typeof vi.fn> };
   const el = () => fixture.nativeElement as HTMLElement;
   const text = () => el().textContent ?? '';
@@ -22,7 +37,7 @@ describe('PaymentStatus', () => {
   const error = (status: number) => throwError(() => new HttpErrorResponse({ status }));
 
   beforeEach(() => {
-    api = { config: vi.fn().mockReturnValue(of({ liffId: 'LIFF' })), status: vi.fn().mockReturnValue(of(VIEW)), claim: vi.fn(), upload: vi.fn() };
+    api = { config: vi.fn().mockReturnValue(of({ liffId: 'LIFF' })), status: vi.fn().mockReturnValue(of(VIEW)), claim: vi.fn(), role: vi.fn().mockReturnValue(of({ collector: false })), upload: vi.fn() };
     liff = { init: vi.fn().mockResolvedValue(undefined), isLoggedIn: vi.fn().mockReturnValue(true), login: vi.fn(), getAccessToken: vi.fn().mockReturnValue('ACCESS') };
     TestBed.configureTestingModule({ providers: [
       { provide: SlipPayService, useValue: api }, { provide: LiffClient, useValue: liff },
@@ -129,5 +144,70 @@ describe('PaymentStatus', () => {
     api.status.mockReturnValue(of({ sessionDate: null, rows: [] })); await open();
     expect(text()).toContain('ไม่มีรายชื่อในบิลนี้');
     expect(el().querySelectorAll('[data-status-row]')).toHaveLength(0);
+  });
+
+  it('shows the read-only list, with no review, when the viewer is not the collector', async () => {
+    await open();
+    expect(api.role).toHaveBeenCalledWith('abc', 'TOK', 'ACCESS');
+    expect(el().querySelector('app-slip-review')).toBeNull();
+    expect(text()).toContain('ดูได้อย่างเดียว · โฮสต์เป็นคนแก้สถานะ');
+    expect(api.status).toHaveBeenCalled();
+  });
+
+  it('gives the review the collector service as its data source, not the host one', async () => {
+    await open();
+    const injector = fixture.debugElement.injector;
+    expect(injector.get(SlipReviewApi)).toBe(injector.get(CollectorSlipService));
+  });
+
+  it('falls back to the read-only list when the role read fails', async () => {
+    api.role.mockReturnValue(error(500));
+    await open();
+    expect(el().querySelector('app-slip-review')).toBeNull();
+    expect(text()).toContain('Unpaid Person');
+  });
+
+  describe('as the collector', () => {
+    let manage: ReturnType<typeof vi.fn>;
+    let configure: ReturnType<typeof vi.fn>;
+    const collectorOpen = async () => {
+      TestBed.overrideComponent(PaymentStatus, {
+        remove: { imports: [SlipReview] },
+        add: { imports: [FakeSlipReview] },
+      });
+      await open();
+    };
+
+    beforeEach(() => {
+      api.role.mockReturnValue(of({ collector: true }));
+      manage = vi.fn().mockReturnValue(of(MANAGE));
+      configure = vi.fn();
+      TestBed.overrideComponent(PaymentStatus, {
+        set: { providers: [{ provide: CollectorSlipService, useValue: { manage, configure } }] },
+      });
+    });
+
+    it('renders the manage header and the review in collector mode instead of the status list', async () => {
+      await collectorOpen();
+      expect(configure).toHaveBeenCalledWith('TOK', 'ACCESS');
+      expect(manage).toHaveBeenCalledWith('abc');
+      expect(api.status).not.toHaveBeenCalled();
+      expect(text()).toContain('คุณจัดการการชำระเงินบิลนี้');
+      expect(text()).not.toContain('ดูได้อย่างเดียว');
+      const review = fixture.debugElement.query((d) => d.name === 'app-slip-review');
+      expect(review).not.toBeNull();
+      expect(review.componentInstance.collectorMode()).toBe(true);
+      expect(review.componentInstance.hideTitle()).toBe(true);
+      expect(review.componentInstance.code()).toBe('abc');
+      expect(review.componentInstance.rows()).toEqual(MANAGE.rows);
+      expect(el().querySelector('[data-status-row]')).toBeNull();
+    });
+
+    it('shows unavailable when the manage read is refused', async () => {
+      manage.mockReturnValue(error(404));
+      await collectorOpen();
+      expect(text()).toContain('ลิงก์นี้ใช้ไม่ได้แล้ว');
+      expect(el().querySelector('app-slip-review')).toBeNull();
+    });
   });
 });

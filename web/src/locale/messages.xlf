@@ -8828,6 +8828,9 @@
           <context context-type="linenumber">1</context>
         </context-group>
       </trans-unit>
+      <trans-unit id="paymentStatus.manage" datatype="html">
+        <source>คุณจัดการการชำระเงินบิลนี้</source>
+      </trans-unit>
     </body>
   </file>
 </xliff>

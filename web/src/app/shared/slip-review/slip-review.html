@@ -40,7 +40,7 @@
     <ul class="people" data-people>
       @for (p of people(); track p.playerId) {
         <li>
-          <button type="button" class="person" data-person [attr.aria-pressed]="p.paid ? 'true' : 'false'" [disabled]="closed() || busy().has('tick:' + p.playerId)" (click)="toggle(p)">
+          <button type="button" class="person" data-person [attr.aria-pressed]="p.paid ? 'true' : 'false'" [disabled]="(closed() && p.paid?.source !== 'slip') || busy().has('tick:' + p.playerId)" (click)="toggle(p)">
             <span class="person-main">
               <span class="person-name">
                 @if (p.name) {
@@ -293,6 +293,42 @@
   @if (enlargedImage(); as url) {
     <img [src]="url" i18n-alt="@@slipReview.imageAlt" alt="รูปสลิปที่ส่งมา" />
     <button type="button" class="ghost" (click)="closeImage()" i18n="@@slipReview.closeImage">ปิดรูป</button>
+  }
+</dialog>
+<dialog #slipDialog [attr.aria-labelledby]="uid + '-slip-title'" class="sheet-dialog slip-dialog" data-slip-dialog (close)="slipView.set(null)">
+  @if (slipView(); as p) {
+    <div class="dialog-body">
+      <header class="slip-dialog-head">
+        <h3 [id]="uid + '-slip-title'">
+          @if (p.name) { {{ p.name }} } @else { <ng-container i18n="@@slipReview.unknownName">ไม่ทราบชื่อ</ng-container> }
+        </h3>
+        <p class="muted tabular" data-slip-paid-at>
+          <ng-container i18n="@@slipReview.paidBySlip">จ่ายด้วยสลิป</ng-container>
+          @if (p.paid && clock(p.paid.at); as time) { · {{ time }} }
+          @if (owed(p.playerId); as amount) { · ฿{{ baht(amount) }} }
+        </p>
+        @if (p.paid?.amountChangedSince) {
+          <p class="changed" i18n="@@slipReview.amountChanged">ยอดเปลี่ยนหลังจ่าย</p>
+        }
+      </header>
+      @if (p.paid?.imageId && !failedImages().has(p.paid!.imageId!)) {
+        <img class="slip-full" data-paid-slip-image [src]="imageUrl(p.paid!.imageId!)" (error)="imageFailed(p.paid!.imageId!)" i18n-alt="@@slipReview.imageAlt" alt="รูปสลิปที่ส่งมา" />
+      } @else {
+        <p class="muted" data-paid-no-image i18n="@@slipReview.paidNoImage">ไม่มีรูปสลิปนี้แล้ว รูปถูกลบเมื่อครบ 30 วันหรือปิดการเก็บเงิน</p>
+      }
+      @if (closed()) {
+        <!-- Collection closed: payments are final, so the slip is view-only. -->
+        <p class="muted undo-note" data-slip-view-only i18n="@@slipReview.viewOnlyClosed">ปิดการเก็บเงินแล้ว ดูได้อย่างเดียว</p>
+      } @else {
+        <p class="muted undo-note" i18n="@@slipReview.undoSlipNote">ยกเลิกแล้วคนนี้จะกลับเป็นยังไม่จ่าย และส่งสลิปใบเดิมซ้ำไม่ได้ ถ้าจ่ายจริงให้ติ๊กเอง</p>
+      }
+      <div class="actions">
+        @if (!closed()) {
+          <button type="button" class="ghost undo" data-undo-slip (click)="undoSlip()" i18n="@@slipReview.undoSlip">ยกเลิกสถานะจ่าย</button>
+        }
+        <button type="button" data-slip-close (click)="closeSlip()" i18n="@@pay.sheet.close">ปิด</button>
+      </div>
+    </div>
   }
 </dialog>
 <dialog #closeDialog [attr.aria-labelledby]="uid + '-close-title'" class="sheet-dialog" data-close-dialog>

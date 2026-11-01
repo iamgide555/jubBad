@@ -121,7 +121,7 @@ describe('slip payments: paid state, manual tick, token check', () => {
       await paid.tick(code, ids[0]);
       const rows = await paid.getPaid(code);
       expect(rows).toEqual([
-        { playerId: ids[0], source: 'host', at: expect.any(String), amountChangedSince: false },
+        { playerId: ids[0], source: 'host', at: expect.any(String), amountChangedSince: false, imageId: null },
       ]);
       expect(new Date(rows[0].at).toISOString()).toBe(rows[0].at);
     });
@@ -166,6 +166,39 @@ describe('slip payments: paid state, manual tick, token check', () => {
       await expect(paid.getPaid('no-such-session')).rejects.toBeInstanceOf(NotFoundException);
       await expect(paid.tick('no-such-session', 'x')).rejects.toBeInstanceOf(NotFoundException);
       await expect(paid.untick('no-such-session', 'x')).rejects.toBeInstanceOf(NotFoundException);
+    });
+  });
+
+  describe('slip image on a paid mark', () => {
+    it('carries the kept image of the slip that paid, and none for a tick or an expired image', async () => {
+      const { code, ids } = await setup();
+      const imageId = randomUUID();
+      await prisma.slipImage.create({
+        data: { id: imageId, sessionId: code, reference: 'REF1', contentType: 'image/png', expiresAt: new Date(Date.now() + 60_000) },
+      });
+      await prisma.slipImage.create({
+        data: { id: randomUUID(), sessionId: code, reference: 'REF2', contentType: 'image/png', expiresAt: new Date(Date.now() - 60_000) },
+      });
+      await prisma.sessionPayment.create({ data: { sessionId: code, playerId: ids[0], source: 'slip', amountSatang: 1, reference: 'REF1' } });
+      await prisma.sessionPayment.create({ data: { sessionId: code, playerId: ids[1], source: 'slip', amountSatang: 1, reference: 'REF2' } });
+      await paid.tick(code, ids[2]);
+      const rows = await paid.getPaid(code);
+      expect(rows.find((r) => r.playerId === ids[0])?.imageId).toBe(imageId);
+      expect(rows.find((r) => r.playerId === ids[1])?.imageId).toBeNull();
+      expect(rows.find((r) => r.playerId === ids[2])?.imageId).toBeNull();
+    });
+  });
+
+  describe('payment status order', () => {
+    it('lists who still owes first in bill order, then the paid with the earliest payer first', async () => {
+      const { code, ids, token } = await setup();
+      const before = (await paid.paymentStatusView(code, token!))!.rows.map((r) => r.name);
+      await prisma.sessionPayment.create({ data: { sessionId: code, playerId: ids[2], source: 'host', createdAt: new Date('2026-10-30T15:10:00Z') } });
+      await prisma.sessionPayment.create({ data: { sessionId: code, playerId: ids[3], source: 'host', createdAt: new Date('2026-10-30T15:05:00Z') } });
+      const rows = (await paid.paymentStatusView(code, token!))!.rows;
+      const unpaid = before.filter((n) => n !== NAMES[2] && n !== NAMES[3]);
+      expect(rows.map((r) => r.name)).toEqual([...unpaid, NAMES[3], NAMES[2]]);
+      expect(rows.map((r) => r.paid)).toEqual([false, false, true, true]);
     });
   });
 

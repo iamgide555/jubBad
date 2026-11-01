@@ -63,6 +63,18 @@ describe('PaymentStatus', () => {
     expect(el().querySelectorAll('button')).toHaveLength(1);
   });
 
+  it('puts the unpaid first, then waiting slips, then the paid in the server\'s order', async () => {
+    api.status.mockReturnValue(of({ ...VIEW, rows: [
+      { name: 'Unpaid A', amountSatang: 1, paid: false, pending: false, amountChangedSince: false },
+      { name: 'Pending B', amountSatang: 1, paid: false, pending: true, amountChangedSince: false },
+      { name: 'First Payer', amountSatang: 1, paid: true, pending: false, amountChangedSince: false },
+      { name: 'Second Payer', amountSatang: 1, paid: true, pending: false, amountChangedSince: false },
+    ] }));
+    await open();
+    const names = [...el().querySelectorAll('[data-status-row] .person-name')].map((n) => n.textContent?.trim());
+    expect(names).toEqual(['Unpaid A', 'Pending B', 'First Payer', 'Second Payer']);
+  });
+
   it('refreshes latest marks and prevents overlapping refresh', async () => {
     await open();
     const pending = new Subject<typeof VIEW>();

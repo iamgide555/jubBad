@@ -7343,6 +7343,46 @@
       <trans-unit id="playerRoster.lineAccountsLink" datatype="html"><source>บัญชี LINE →</source><target>LINE accounts →</target></trans-unit>
       <trans-unit id="playerRoster.lineLinkLabel" datatype="html"><source>ผูก LINE ให้ <x id="name" equiv-text="name"/></source><target>Link LINE to <x id="name" equiv-text="name"/></target></trans-unit>
       <trans-unit id="playerRoster.lineUnlinkLabel" datatype="html"><source>ยกเลิกการผูก LINE ของ <x id="name" equiv-text="name"/></source><target>Unlink LINE from <x id="name" equiv-text="name"/></target></trans-unit>
+      <trans-unit id="slipReview.paidBySlip" datatype="html">
+        <source>จ่ายด้วยสลิป</source>
+        <target>Paid by slip</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/shared/slip-review/slip-review.html</context>
+          <context context-type="linenumber">1</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="slipReview.paidNoImage" datatype="html">
+        <source>ไม่มีรูปสลิปนี้แล้ว รูปถูกลบเมื่อครบ 30 วันหรือปิดการเก็บเงิน</source>
+        <target>This slip's image is gone. Images are deleted after 30 days or when collection closes.</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/shared/slip-review/slip-review.html</context>
+          <context context-type="linenumber">1</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="slipReview.undoSlipNote" datatype="html">
+        <source>ยกเลิกแล้วคนนี้จะกลับเป็นยังไม่จ่าย และส่งสลิปใบเดิมซ้ำไม่ได้ ถ้าจ่ายจริงให้ติ๊กเอง</source>
+        <target>Undoing marks this person unpaid, and the same slip can't be sent again. If they did pay, tick them yourself.</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/shared/slip-review/slip-review.html</context>
+          <context context-type="linenumber">1</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="slipReview.undoSlip" datatype="html">
+        <source>ยกเลิกสถานะจ่าย</source>
+        <target>Undo paid</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/shared/slip-review/slip-review.html</context>
+          <context context-type="linenumber">1</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="slipReview.viewOnlyClosed" datatype="html">
+        <source>ปิดการเก็บเงินแล้ว ดูได้อย่างเดียว</source>
+        <target>Collection closed. View only.</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/shared/slip-review/slip-review.html</context>
+          <context context-type="linenumber">1</context>
+        </context-group>
+      </trans-unit>
     </body>
   </file>
 </xliff>

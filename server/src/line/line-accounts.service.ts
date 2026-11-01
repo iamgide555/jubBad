@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service.js';
 
@@ -10,6 +10,17 @@ export interface LineProfile {
   lineUserId: string;
   displayName: string | null;
   pictureUrl: string | null;
+}
+
+/** One account in a group's list. The browser addresses it by `id`; the raw LINE user id never leaves the server. */
+export interface LineAccountRow {
+  id: string;
+  displayName: string | null;
+  pictureUrl: string | null;
+  source: LineAccountSource;
+  firstSeenAt: string;
+  lastSeenAt: string;
+  player: { id: string; name: string; linkedBy: 'self' | 'host' } | null;
 }
 
 /**
@@ -57,6 +68,84 @@ export class LineAccountsService {
   }
 
   /**
+   * Every account this group has seen, unlinked first and each by newest last-seen, with the player it is linked to.
+   * Reads only through the group's own memberships, so nothing another group knows can appear here.
+   */
+  async list(groupId: string): Promise<LineAccountRow[]> {
+    const memberships = await this.prisma.lineAccountGroup.findMany({
+      where: { groupId },
+      include: { lineAccount: true },
+    });
+    const links = await this.prisma.playerLineAccount.findMany({ where: { groupId }, include: { player: true } });
+    const linkByUserId = new Map(links.map((l) => [l.lineUserId, l]));
+    const rows = memberships.map((m) => {
+      const link = linkByUserId.get(m.lineAccount.lineUserId);
+      return {
+        id: m.lineAccount.id,
+        displayName: m.lineAccount.displayName,
+        pictureUrl: m.lineAccount.pictureUrl,
+        source: toSource(m.source),
+        firstSeenAt: m.firstSeenAt.toISOString(),
+        lastSeenAt: m.lastSeenAt.toISOString(),
+        player: link ? { id: link.player.id, name: link.player.name, linkedBy: toLinkedBy(link.linkedBy) } : null,
+        seenAt: m.lastSeenAt.getTime(),
+      };
+    });
+    rows.sort((a, b) => Number(a.player !== null) - Number(b.player !== null) || b.seenAt - a.seenAt || a.id.localeCompare(b.id));
+    return rows.map(({ seenAt: _seenAt, ...row }) => row);
+  }
+
+  /**
+   * Host: points the player at this account (replacing any other account the player had). The account is found only
+   * through this group's membership and the player only in this group, so neither can be another group's (404).
+   * An account already linked to a different player is refused, never taken over. Linking the same pair again changes
+   * nothing. Another request linking the account between the check and the write loses to a unique violation, which
+   * rolls the transaction back and is reported the same way.
+   */
+  async link(groupId: string, accountId: string, playerId: string): Promise<void> {
+    const membership = await this.prisma.lineAccountGroup.findUnique({
+      where: { groupId_lineAccountId: { groupId, lineAccountId: accountId } },
+      select: { lineAccount: { select: { lineUserId: true } } },
+    });
+    if (!membership) throw new NotFoundException();
+    if (!(await this.prisma.player.findFirst({ where: { id: playerId, groupId }, select: { id: true } }))) {
+      throw new NotFoundException();
+    }
+    const lineUserId = membership.lineAccount.lineUserId;
+    const byAccount = await this.prisma.playerLineAccount.findUnique({
+      where: { groupId_lineUserId: { groupId, lineUserId } },
+    });
+    if (byAccount) {
+      if (byAccount.playerId !== playerId) throw new ConflictException({ code: 'ACCOUNT_ALREADY_LINKED' });
+      return;
+    }
+    try {
+      await this.prisma.$transaction([
+        this.prisma.playerLineAccount.deleteMany({ where: { groupId, playerId } }),
+        this.prisma.playerLineAccount.create({ data: { groupId, playerId, lineUserId, linkedBy: 'host' } }),
+      ]);
+    } catch (error) {
+      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
+        throw new ConflictException({ code: 'ACCOUNT_ALREADY_LINKED' });
+      }
+      throw error;
+    }
+  }
+
+  /**
+   * Host: removes this account's link in the group. Only the link goes; the account and its listing stay. An account
+   * that is not linked is already in the wanted state (ok), one this group never saw is 404.
+   */
+  async unlink(groupId: string, accountId: string): Promise<void> {
+    const membership = await this.prisma.lineAccountGroup.findUnique({
+      where: { groupId_lineAccountId: { groupId, lineAccountId: accountId } },
+      select: { lineAccount: { select: { lineUserId: true } } },
+    });
+    if (!membership) throw new NotFoundException();
+    await this.prisma.playerLineAccount.deleteMany({ where: { groupId, lineUserId: membership.lineAccount.lineUserId } });
+  }
+
+  /**
    * The retention sweep. Deletes every unlinked membership not seen for more than UNLINKED_RETENTION_DAYS, then every
    * account left with no membership and no link (this is also what cleans up after a deleted group, whose cascade only
    * removes the join rows). A linked membership is never swept, and an account with a link is never deleted: the link
@@ -94,6 +183,14 @@ export const UNLINKED_RETENTION_DAYS = 365;
 
 /** Ids per query, well under SQLite's bound-variable limit. */
 const SWEEP_CHUNK = 500;
+
+function toSource(value: string): LineAccountSource {
+  return value === 'slip' || value === 'claim' || value === 'host' ? value : 'roster';
+}
+
+function toLinkedBy(value: string): 'self' | 'host' {
+  return value === 'self' ? 'self' : 'host';
+}
 
 /** A name or picture worth storing: an empty value is treated as unknown, so it never blanks a stored one. */
 function present(value: string | null): string | null {

@@ -248,12 +248,25 @@ export class GroupsService {
       for (const id of match.teamB) bump(id, match.winner === 'B', decisive);
     }
 
+    // One query for every link in the group; the browser gets the account's id, never its LINE user id.
+    const links = await this.prisma.playerLineAccount.findMany({ where: { groupId: code }, include: { lineAccount: true } });
+    const linkByPlayer = new Map(links.map((l) => [l.playerId, l]));
+
     return players.map((p) => {
       const row = tally.get(p.id);
+      const link = linkByPlayer.get(p.id);
       return {
         id: p.id,
         name: p.name,
         aliases: JSON.parse(p.aliases) as string[],
+        lineAccount: link
+          ? {
+              id: link.lineAccount.id,
+              displayName: link.lineAccount.displayName,
+              pictureUrl: link.lineAccount.pictureUrl,
+              linkedBy: link.linkedBy === 'self' ? ('self' as const) : ('host' as const),
+            }
+          : null,
         age: p.age,
         email: p.email,
         phone: p.phone,

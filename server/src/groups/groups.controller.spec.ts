@@ -1003,6 +1003,7 @@ describe('GroupsController', () => {
             rating: 1200,
             singlesRating: null,
             winRate: null,
+            lineAccount: null,
           },
         ]);
       } finally {

@@ -17,6 +17,7 @@ import { SessionsService } from './sessions.service.js';
 import { LiffIdentity } from './slips/liff-identity.js';
 import { SlipOcr } from './slips/slip-ocr.js';
 import { SlipPaymentsService } from './slips/slip-payments.service.js';
+import { SlipCollectorController } from './slips/slip-collector.controller.js';
 import { SlipPayController } from './slips/slip-pay.controller.js';
 import { SlipPaymentsController } from './slips/slip-payments.controller.js';
 import { SlipImagesModule } from './slips/slip-images.module.js';
@@ -33,6 +34,7 @@ import { SlipViewerGate } from './slips/slip-viewer-gate.js';
     CheckoutController,
     PaymentCardController,
     SlipPayController,
+    SlipCollectorController,
     SlipPaymentsController,
   ],
   providers: [

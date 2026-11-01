@@ -1,4 +1,10 @@
-import { HttpException, HttpStatus, Inject, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  HttpException,
+  HttpStatus,
+  Inject,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import type { Request } from 'express';
 import { LoginThrottle } from '../../auth/login-throttle.js';
 import { LiffIdentity } from './liff-identity.js';
@@ -13,20 +19,24 @@ import { SLIP_FAILURE_THROTTLE } from './slip-throttles.js';
 export class SlipViewerGate {
   constructor(
     private readonly liff: LiffIdentity,
-    @Inject(SLIP_FAILURE_THROTTLE) private readonly throttle: LoginThrottle
+    @Inject(SLIP_FAILURE_THROTTLE) private readonly throttle: LoginThrottle,
   ) {}
 
   /**
    * Who is asking, or a thrown 404 (429 once throttled). A request whose access token LINE does not confirm counts
    * against its address; the returned key is the viewer's own budget for this session.
    */
-  async viewer(req: Request, code: string): Promise<{ user: LiffUser; key: string }> {
+  async viewer(
+    req: Request,
+    code: string,
+  ): Promise<{ user: LiffUser; key: string }> {
     const ipKey = `slip-ip:${req.ip ?? 'unknown'}`;
     this.limit(ipKey);
 
     const header = req.headers['x-line-access-token'];
     // No token is asked of nobody: it costs LINE nothing, so it is not counted against the address.
-    if (typeof header !== 'string' || header === '') throw new NotFoundException();
+    if (typeof header !== 'string' || header === '')
+      throw new NotFoundException();
     const user = await this.liff.verify(header);
     if (!user) {
       this.throttle.recordFailure(ipKey);

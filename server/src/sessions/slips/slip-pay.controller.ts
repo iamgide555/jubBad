@@ -20,7 +20,6 @@ import { SlipViewerGate, payToken } from './slip-viewer-gate.js';
 import {
   SlipPaymentsService,
   type ClaimOutcome,
-  type LiffUser,
   type PayPageView,
   type PaymentStatusView,
   type SubmitOutcome,
@@ -77,6 +76,24 @@ export class SlipPayController {
     const view = await this.slips.paymentStatusView(code, payToken(token));
     if (!view) this.gate.fail(key);
     return view;
+  }
+
+  /**
+   * Whether the viewer collects this bill, so the status page knows to show the collector's panel. Gated like the
+   * status read; past the gate, "no" is the normal answer for every player on the bill, so it is never counted.
+   */
+  @Public()
+  @Get(':code/slip-pay/role')
+  @Header('Cache-Control', 'no-store')
+  async role(
+    @Param('code') code: string,
+    @Query('token') token: unknown,
+    @Req() req: Request
+  ): Promise<{ collector: boolean }> {
+    const { user, key } = await this.gate.viewer(req, code);
+    const role = await this.slips.collectorRole(code, payToken(token), user);
+    if (!role) this.gate.fail(key);
+    return { collector: role.collector };
   }
 
   /** Only called after LINE's picker reports success; changes sent metadata, never payment marks. */

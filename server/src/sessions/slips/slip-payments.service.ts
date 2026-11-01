@@ -6,6 +6,7 @@ import { cardDate } from '../../line/line-summary-card.js';
 import { planAtLeast } from '../../plans/plan.js';
 import { PlansService } from '../../plans/plans.service.js';
 import { PrismaService } from '../../prisma/prisma.service.js';
+import { CollectorService } from '../collector.service.js';
 import { parsePayAccount, serializePayAccount, validatePayAccount } from '../pay-account.js';
 import { PaymentCardService, type PaymentPanel } from '../payment-card.service.js';
 import { SessionLock } from '../session-lock.js';
@@ -141,7 +142,8 @@ export class SlipPaymentsService {
     private readonly reader: SlipReader,
     private readonly plans: PlansService,
     private readonly images: SlipImagesService,
-    private readonly lineAccounts: LineAccountsService
+    private readonly lineAccounts: LineAccountsService,
+    private readonly collectors: CollectorService
   ) {}
 
   /**
@@ -284,6 +286,36 @@ export class SlipPaymentsService {
         rows: rows.map((r) => r.row),
       };
     });
+  }
+
+  /**
+   * The collector's way in: the pay page's gate holds and LINE's verified user is the live LINE account of the bill's
+   * collector. Null for anything else; the caller answers every null the same way.
+   */
+  async collectorAccess(
+    code: string,
+    token: string | undefined,
+    user: LiffUser,
+    now: Date = new Date()
+  ): Promise<{ panel: PaymentPanel } | null> {
+    const role = await this.collectorRole(code, token, user, now);
+    return role?.collector ? { panel: role.panel } : null;
+  }
+
+  /**
+   * Whether this viewer collects the bill, or null when the pay page's gate fails (as the status read's would). The
+   * comparison is with the user id LINE verified, never anything from the request, against the collector resolved live.
+   */
+  async collectorRole(
+    code: string,
+    token: string | undefined,
+    user: LiffUser,
+    now: Date = new Date()
+  ): Promise<{ collector: boolean; panel: PaymentPanel } | null> {
+    const gate = await this.gate(code, token, now);
+    if (!gate) return null;
+    const collector = await this.collectors.forBill(code);
+    return { collector: collector !== null && collector.lineUserId === user.userId, panel: gate.panel };
   }
 
   async getPaid(code: string): Promise<PaidRow[]> {

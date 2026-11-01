@@ -179,6 +179,21 @@ export async function bootSlipApp() {
   const owed = async (code: string, playerId: string) =>
     (await cards.panel(code)).rows.find((r) => r.playerId === playerId)!.amountSatang;
 
+  /** Links `user`'s LINE account to the player in the group, as a host link would. */
+  async function linkLine(groupCode: string, playerId: string, user: LiffUser) {
+    if (!lineUserIds.includes(user.userId)) lineUserIds.push(user.userId);
+    await prisma.lineAccount.upsert({
+      where: { lineUserId: user.userId },
+      create: { lineUserId: user.userId, displayName: user.displayName, pictureUrl: user.pictureUrl },
+      update: {},
+    });
+    await prisma.playerLineAccount.create({ data: { groupId: groupCode, playerId, lineUserId: user.userId, linkedBy: 'host' } });
+  }
+
+  /** Makes the player the group's saved collector (the setup's card is confirmed with the group's own account). */
+  const setCollector = (groupCode: string, playerId: string | null) =>
+    prisma.group.update({ where: { code: groupCode }, data: { payCollectorPlayerId: playerId } });
+
   async function cleanup() {
     const byGroup = { groupId: { in: groupCodes } };
     const where = { session: byGroup };
@@ -204,5 +219,7 @@ export async function bootSlipApp() {
     uploads.reset();
   };
 
-  return { app, server, prisma, cards, liff, reader, owner, confirm, setup, owed, cleanup, resetThrottles };
+  return {
+    app, server, prisma, cards, liff, reader, owner, confirm, setup, owed, linkLine, setCollector, cleanup, resetThrottles,
+  };
 }

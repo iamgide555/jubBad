@@ -110,6 +110,16 @@ export class LineClient {
     return profile;
   }
 
+  /** A direct-chat user's name/avatar. Linking still succeeds when LINE cannot return a profile. */
+  async userProfile(userId: string): Promise<MemberProfile | null> {
+    const body = await this.call('GET', `/profile/${encodeURIComponent(userId)}`);
+    if (typeof body?.displayName !== 'string') return null;
+    return {
+      displayName: body.displayName,
+      pictureUrl: typeof body.pictureUrl === 'string' && body.pictureUrl !== '' ? body.pictureUrl : null,
+    };
+  }
+
   async leave(lineGroupId: string): Promise<void> {
     await this.call('POST', `/group/${encodeURIComponent(lineGroupId)}/leave`);
   }

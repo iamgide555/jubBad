@@ -374,6 +374,7 @@ describe('LINE host link codes, status and unlink', () => {
       expect(await host.redeem(line, made.code)).toEqual({
         userId,
         groupName: 'ก๊วนพฤหัส',
+        groupCode: code,
       });
       const user = await prisma.user.findUniqueOrThrow({
         where: { id: userId },
@@ -403,6 +404,7 @@ describe('LINE host link codes, status and unlink', () => {
       expect(await host.redeem(lineId(), made.code)).toEqual({
         userId,
         groupName: 'ก๊วน A',
+        groupCode: a,
       });
       expect(await flagOf(a)).toBe(true);
       expect(await flagOf(b)).toBe(false);
@@ -417,6 +419,7 @@ describe('LINE host link codes, status and unlink', () => {
       expect(await host.redeem(lineId(), made.code)).toEqual({
         userId,
         groupName: null,
+        groupCode: null,
       });
       expect(
         (await prisma.user.findUniqueOrThrow({ where: { id: userId } }))
@@ -431,6 +434,19 @@ describe('LINE host link codes, status and unlink', () => {
       expect(
         await host.redeem(lineId(), ` ${made.code.toLowerCase()} `),
       ).toMatchObject({ userId });
+    });
+
+    it.each(['null', 'deleted'] as const)('links account without returning an ineligible %s generating group', async (state) => {
+      const { userId, code } = await makeOwner();
+      const made = await host.createCode(code);
+      if (state === 'null') {
+        await prisma.lineUserLinkCode.updateMany({ where: { userId }, data: { groupCode: null } });
+      } else {
+        await prisma.group.delete({ where: { code } });
+      }
+      const line = lineId();
+      expect(await host.redeem(line, made.code)).toEqual({ userId, groupName: null, groupCode: null });
+      expect((await prisma.user.findUniqueOrThrow({ where: { id: userId } })).lineUserId).toBe(line);
     });
 
     it('returns null for a wrong code and a badly shaped one', async () => {

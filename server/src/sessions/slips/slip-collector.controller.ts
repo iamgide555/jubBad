@@ -50,10 +50,10 @@ export interface CollectorPanel {
 }
 
 /**
- * The bill's collector manages payments from LINE, with no JubBad login. All @Public: the caller is the collector only
- * when the card token is tonight's, the plan gate holds, LINE verifies the access token, and the verified user is the
- * live LINE account of the bill's collector (`SlipPaymentsService.collectorAccess`). Anything else is the pay page's
- * bare 404, counted against the viewer: only a collector's own page calls these, so a refusal is never routine.
+ * The bill's host or collector manages payments from LINE, with no JubBad login. All @Public: the current card token,
+ * plan gate and verified LINE identity must match the group's current owner or the bill's live collector
+ * (`SlipPaymentsService.collectorAccess`). Anything else is the pay page's bare 404, counted against the viewer:
+ * only a manager's own page calls these, so a refusal is never routine.
  *
  * Each write is the host's own service call, so every rule the host is held to holds here. Not exposed: linking a LINE
  * account to a player (set-link, or naming a slip's sender on resolve) and update-name.
@@ -132,8 +132,8 @@ export class SlipCollectorController {
     @Req() req: Request,
     @Body() dto: SlipPlayerDto,
   ): Promise<{ ok: true }> {
-    await this.collector(code, token, req);
-    await this.slips.tick(code, dto.playerId, 'collector');
+    const access = await this.collector(code, token, req);
+    await this.slips.tick(code, dto.playerId, access.source);
     return { ok: true };
   }
 
@@ -214,7 +214,7 @@ export class SlipCollectorController {
     return { ok: true };
   }
 
-  /** The bill's collector, or the uniform 404 counted against the viewer (429 once their budget is spent). */
+  /** The bill's owner or collector, or the uniform 404 (429 once the viewer's budget is spent). */
   private async collector(code: string, token: unknown, req: Request) {
     const { user, key } = await this.gate.viewer(req, code);
     const access = await this.slips.collectorAccess(

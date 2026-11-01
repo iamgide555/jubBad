@@ -7,7 +7,9 @@ import {
   slipRead,
 } from '../../../test/slip-http.fixture.js';
 import { SlipImagesService } from './slip-images.service.js';
+import { LineAccountsService } from '../../line/line-accounts.service.js';
 import { SlipPaymentsService, type LiffUser } from './slip-payments.service.js';
+import { LineHostService } from '../../line/line-host.service.js';
 
 type Kit = Awaited<ReturnType<typeof bootSlipApp>>;
 type Session = Awaited<ReturnType<Kit['setup']>>;
@@ -158,6 +160,158 @@ describe('collector manage routes (public, LINE identity + card token)', () => {
         post(`${m(c)}/close${qs}`, a, { confirmDeleteImages: true }),
     ],
   ];
+
+  it('directory membership from group linking grants no payment management', async () => {
+    const b = await collectorBill();
+    const [access, user] = viewer('Link sender');
+    await kit.app.get(LineAccountsService).touch(b.groupCode, {
+      lineUserId: user.userId, displayName: user.displayName, pictureUrl: user.pictureUrl,
+    }, 'link');
+    expect((await role(b.code, q(b.token), access).expect(200)).body).toEqual({ collector: false });
+    for (const [, call] of routes) await call(b, b.code, q(b.token), access).expect(404);
+    await untouched(b);
+  });
+
+  /** A host using LINE alone, with no collector, player link or directory membership. */
+  async function ownerBill() {
+    const owner = await kit.owner();
+    const b = await collectorBill(owner.id);
+    await kit.setCollector(b.groupCode, null);
+    await kit.prisma.playerLineAccount.deleteMany({ where: { groupId: b.groupCode } });
+    const [access, user] = viewer('Host');
+    await kit.prisma.user.update({ where: { id: owner.id }, data: { lineUserId: user.userId } });
+    return { ...b, access, user, ownerId: owner.id };
+  }
+
+  describe('linked owner management', () => {
+    for (const [name, send] of routes) {
+      it(`${name}: allows the owner without a collector, player link, directory entry or bot-linked group`, async () => {
+        const b = await ownerBill();
+        expect(await kit.prisma.lineAccountGroup.count({ where: { groupId: b.groupCode } })).toBe(0);
+        expect(await kit.prisma.playerLineAccount.count({ where: { groupId: b.groupCode } })).toBe(0);
+        const group = await kit.prisma.group.findUniqueOrThrow({ where: { code: b.groupCode } });
+        expect(group.lineGroupId).toBeNull();
+        expect(group.lineDmEnabled).toBe(false);
+        expect((await role(b.code, q(b.token), b.access).expect(200)).body).toEqual({ collector: true });
+        if (name === 'POST close') {
+          await slips.dismissWaiting(b.code, b.waitingId);
+          await slips.dismissDuplicate(b.code, b.duplicateId);
+          for (const id of b.ids) await slips.tick(b.code, id);
+        }
+        const res = await send(b, b.code, q(b.token), b.access).expect(200);
+        if (name === 'GET manage') {
+          expect(res.body.links).toEqual([]);
+          expect(res.text).not.toContain('lineUserId');
+        }
+        if (name === 'POST resolve') {
+          expect(await kit.prisma.playerLineAccount.count({ where: { groupId: b.groupCode } })).toBe(0);
+        }
+      });
+    }
+
+    it('covers every currently owned group, but not another owner group', async () => {
+      const b = await ownerBill();
+      const second = await kit.setup(b.ownerId);
+      const unrelated = await kit.setup((await kit.owner()).id);
+      expect((await role(second.code, q(second.token), b.access).expect(200)).body).toEqual({ collector: true });
+      await get(`${m(second.code)}${q(second.token)}`, b.access).expect(200);
+      expect((await role(unrelated.code, q(unrelated.token), b.access).expect(200)).body).toEqual({ collector: false });
+      await get(`${m(unrelated.code)}${q(unrelated.token)}`, b.access).expect(404);
+    });
+
+    it('records owner ticks as host and preserves marks already recorded by any source', async () => {
+      const b = await ownerBill();
+      for (const [index, source] of ['slip', 'host', 'collector'].entries()) {
+        await kit.prisma.sessionPayment.create({
+          data: { sessionId: b.code, playerId: b.ids[index], source },
+        });
+      }
+      for (const id of b.ids) {
+        await post(`${m(b.code)}/tick${q(b.token)}`, b.access, { playerId: id, source: 'collector' }).expect(200);
+      }
+      const paid = await slips.getPaid(b.code);
+      expect(b.ids.map((id) => paid.find((p) => p.playerId === id)?.source)).toEqual(['slip', 'host', 'collector', 'host']);
+    });
+
+    it('prefers host attribution when owner is also collector, then falls back to independent collector grant after host unlink', async () => {
+      const owner = await kit.owner();
+      const b = await collectorBill(owner.id);
+      await kit.prisma.user.update({ where: { id: owner.id }, data: { lineUserId: b.user.userId } });
+      await post(`${m(b.code)}/tick${q(b.token)}`, b.access, { playerId: b.ids[1] }).expect(200);
+      expect((await slips.getPaid(b.code))[0].source).toBe('host');
+      await kit.app.get(LineHostService).unlink(owner.id);
+      expect((await role(b.code, q(b.token), b.access).expect(200)).body).toEqual({ collector: true });
+      await post(`${m(b.code)}/tick${q(b.token)}`, b.access, { playerId: b.ids[2] }).expect(200);
+      expect((await slips.getPaid(b.code)).find((p) => p.playerId === b.ids[2])?.source).toBe('collector');
+    });
+
+    for (const change of ['unlink', 'identity', 'transfer'] as const) {
+      it(`revokes owner-only access on every route after ${change}`, async () => {
+        const b = await ownerBill();
+        await get(`${m(b.code)}${q(b.token)}`, b.access).expect(200);
+        if (change === 'unlink') await kit.app.get(LineHostService).unlink(b.ownerId);
+        if (change === 'identity') {
+          const [newAccess, newUser] = viewer('Replacement host');
+          await kit.prisma.user.update({ where: { id: b.ownerId }, data: { lineUserId: newUser.userId } });
+          await get(`${m(b.code)}${q(b.token)}`, newAccess).expect(200);
+        }
+        if (change === 'transfer') {
+          await kit.prisma.group.update({ where: { code: b.groupCode }, data: { ownerId: (await kit.owner()).id } });
+        }
+        expect((await role(b.code, q(b.token), b.access).expect(200)).body).toEqual({ collector: false });
+        const baseline = await send404Baseline(b);
+        for (const [name, send] of routes) {
+          kit.resetThrottles();
+          const res = await send(b, b.code, q(b.token), b.access);
+          expect({ name, status: res.status, body: res.body }).toEqual({ name, status: 404, body: baseline });
+        }
+        await untouched(b);
+        if (change === 'unlink') {
+          await kit.prisma.user.update({ where: { id: b.ownerId }, data: { lineUserId: b.user.userId } });
+          expect((await role(b.code, q(b.token), b.access).expect(200)).body).toEqual({ collector: true });
+          await get(`${m(b.code)}${q(b.token)}`, b.access).expect(200);
+        }
+      });
+    }
+
+    for (const invalid of ['bad-token', 'old-token', 'lapsed', 'bad-identity'] as const) {
+      it(`keeps every owner manage route behind the existing ${invalid} gate`, async () => {
+        const b = await ownerBill();
+        let query = q(b.token);
+        let access = b.access;
+        if (invalid === 'bad-token') query = '?token=wrong';
+        if (invalid === 'old-token') await kit.confirm(b.code, randomUUID().replace(/-/g, '').slice(0, 22));
+        if (invalid === 'lapsed') await kit.prisma.user.update({ where: { id: b.ownerId }, data: { plan: 'free' } });
+        if (invalid === 'bad-identity') access = 'unverified';
+        const baseline = await send404Baseline(b);
+        for (const [name, send] of routes) {
+          kit.resetThrottles();
+          const res = await send(b, b.code, query, access);
+          expect({ name, status: res.status, body: res.body }).toEqual({ name, status: 404, body: baseline });
+        }
+        await untouched(b);
+      });
+    }
+
+    it('keeps closed collection readable but refuses owner mutations', async () => {
+      const b = await ownerBill();
+      await slips.dismissWaiting(b.code, b.waitingId);
+      await slips.dismissDuplicate(b.code, b.duplicateId);
+      for (const id of b.ids) await slips.tick(b.code, id);
+      await post(`${m(b.code)}/close${q(b.token)}`, b.access, { confirmDeleteImages: true }).expect(200);
+      const panel = await get(`${m(b.code)}${q(b.token)}`, b.access).expect(200);
+      expect(panel.body.collection.closedAt).not.toBeNull();
+      for (const [name, send] of routes.filter(([name]) => name.startsWith('POST') && name !== 'POST close')) {
+        const res = await send(b, b.code, q(b.token), b.access);
+        if (name.includes('dismiss')) {
+          // Closing required these reviews to be resolved already: dismissal keeps its existing missing-item refusal.
+          expect({ name, status: res.status }).toEqual({ name, status: 404 });
+        } else {
+          expect({ name, status: res.status, code: res.body.code }).toEqual({ name, status: 409, code: 'COLLECTION_CLOSED' });
+        }
+      }
+    });
+  });
 
   /**
    * The collector's player is unlinked and a different LINE account then linked to that player: by a self-claim on

@@ -7438,6 +7438,7 @@
         <source>โหลดรายชื่อไม่สำเร็จ</source>
         <target>Could not load the list</target>
       </trans-unit>
+      <trans-unit id="lineAccounts.sourceLink" datatype="html"><source>เชื่อมกลุ่ม</source><target>Group link</target></trans-unit>
     </body>
   </file>
 </xliff>

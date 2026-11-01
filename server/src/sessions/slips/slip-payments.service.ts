@@ -289,33 +289,41 @@ export class SlipPaymentsService {
   }
 
   /**
-   * The collector's way in: the pay page's gate holds and LINE's verified user is the live LINE account of the bill's
-   * collector. Null for anything else; the caller answers every null the same way.
+   * The host or collector's way in: the pay page's gate holds and LINE's verified user matches the current group
+   * owner or the bill's live collector. Source comes from this check, never from the browser.
    */
   async collectorAccess(
     code: string,
     token: string | undefined,
     user: LiffUser,
     now: Date = new Date()
-  ): Promise<{ panel: PaymentPanel } | null> {
+  ): Promise<{ panel: PaymentPanel; source: 'host' | 'collector' } | null> {
     const role = await this.collectorRole(code, token, user, now);
-    return role?.collector ? { panel: role.panel } : null;
+    return role?.source ? { panel: role.panel, source: role.source } : null;
   }
 
   /**
-   * Whether this viewer collects the bill, or null when the pay page's gate fails (as the status read's would). The
-   * comparison is with the user id LINE verified, never anything from the request, against the collector resolved live.
+   * Whether this viewer manages the bill, or null when the pay-page gate fails. Ownership and LINE links are read
+   * live; an owner who is also the collector keeps host attribution. The public controller exposes only collector.
    */
   async collectorRole(
     code: string,
     token: string | undefined,
     user: LiffUser,
     now: Date = new Date()
-  ): Promise<{ collector: boolean; panel: PaymentPanel } | null> {
+  ): Promise<{ collector: boolean; panel: PaymentPanel; source: 'host' | 'collector' | null } | null> {
     const gate = await this.gate(code, token, now);
     if (!gate) return null;
+    const group = await this.prisma.group.findUnique({
+      where: { code: gate.groupId },
+      select: { owner: { select: { lineUserId: true } } },
+    });
+    if (group?.owner?.lineUserId === user.userId) {
+      return { collector: true, panel: gate.panel, source: 'host' };
+    }
     const collector = await this.collectors.forBill(code);
-    return { collector: collector !== null && collector.lineUserId === user.userId, panel: gate.panel };
+    const allowed = collector !== null && collector.lineUserId === user.userId;
+    return { collector: allowed, panel: gate.panel, source: allowed ? 'collector' : null };
   }
 
   async getPaid(code: string): Promise<PaidRow[]> {

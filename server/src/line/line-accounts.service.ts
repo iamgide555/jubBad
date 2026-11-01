@@ -2,8 +2,8 @@ import { ConflictException, Injectable, NotFoundException } from '@nestjs/common
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service.js';
 
-/** Where a group first saw a LINE account: a roster post, a slip, the pay page's "this is me", or a host link. */
-export type LineAccountSource = 'roster' | 'slip' | 'claim' | 'host';
+/** Where a group first saw a LINE account: roster, slip, self-claim, host link, or group-link sender. */
+export type LineAccountSource = 'roster' | 'slip' | 'claim' | 'host' | 'link';
 
 /** A LINE user as one source knows them. A null name or picture means "not known here", never "remove it". */
 export interface LineProfile {
@@ -200,7 +200,7 @@ export const UNLINKED_RETENTION_DAYS = 365;
 const SWEEP_CHUNK = 500;
 
 function toSource(value: string): LineAccountSource {
-  return value === 'slip' || value === 'claim' || value === 'host' ? value : 'roster';
+  return value === 'slip' || value === 'claim' || value === 'host' || value === 'link' ? value : 'roster';
 }
 
 function toLinkedBy(value: string): 'self' | 'host' {

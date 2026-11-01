@@ -128,6 +128,15 @@ describe('LineAccounts', () => {
     expect(q('.source').textContent!.trim()).toBe('ผู้จัด');
   });
 
+  it('labels group-link accounts without auto-linking unknown senders to players', async () => {
+    await load([row('link1', null, null, 'link')]);
+    expect(q('.source').textContent!.trim()).toBe('เชื่อมกลุ่ม');
+    expect(q('.name').textContent!.trim()).toBe('ไม่ทราบชื่อ');
+    expect(q('[data-linked-player]')).toBeNull();
+    expect(q('[data-link-player]')).not.toBeNull();
+    expect(q('[data-unlink]')).toBeNull();
+  });
+
   it('the ยังไม่ผูก filter shows only unlinked accounts', async () => {
     await load();
     const tabs = qa('[data-filter]');

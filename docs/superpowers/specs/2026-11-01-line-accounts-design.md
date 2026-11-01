@@ -82,11 +82,17 @@ LineAccountGroup       "this account is known in this group"
 
 PlayerLineAccount      the link, still per group (a Player belongs to exactly one group)
   groupId, playerId (as today)
-  lineAccountId -> LineAccount.id      replaces the raw lineUserId and displayName columns
+  lineUserId   -> LineAccount.lineUserId, onDelete Cascade   (kept; now a foreign key)
   linkedBy     'self' | 'host' (as today)
-  unique (groupId, lineAccountId)   one player per account per group (as today)
+  unique (groupId, lineUserId)      one player per account per group (as today)
   unique (groupId, playerId)        one account per player (as today)
+  displayName  dropped: the name comes from LineAccount
 ```
+
+Decided in the build plan: the link keeps its `lineUserId` column and gains a relation to
+`LineAccount.lineUserId` (a unique field) instead of a new `lineAccountId` column. Same guarantee (every
+link points at a `LineAccount`, foreign-key enforced) while the existing `groupId_lineUserId` key and its
+call sites stay as they are.
 
 Cross-group later: the same person in two groups is two `Player` rows (one per group),
 each linked to the same `LineAccount`. No array and no schema change needed.
@@ -106,8 +112,8 @@ One Prisma migration. It must preserve existing links. In SQL, in this order:
 3. Backfill `LineAccountGroup` per (group, account) found in those same three tables,
    with `source` from the table it came from; `firstSeenAt`/`lastSeenAt` from the
    row's own timestamps.
-4. Rebuild `PlayerLineAccount` with `lineAccountId` populated from step 2, then drop
-   the old columns.
+4. Rebuild `PlayerLineAccount` with `lineUserId` as a foreign key to the accounts from step 2,
+   dropping its `displayName` column.
 
 Other tables that store a raw `lineUserId` as an informational string (`SlipReference`,
 `SessionPayment`, `PendingSlip`, `SlipDuplicate`, per the schema comments) are not
@@ -180,6 +186,9 @@ which already stops when the plan lapses.
 
 ## Retention (my call, marked for review)
 
+- Disconnecting the LINE group (`LineLinkService.unlink`, or the bot being removed: `markLeft`) already
+  wipes that group's links and slips; it also deletes that group's `LineAccountGroup` rows. The global
+  `LineAccount` rows stay until the sweep below finds them orphaned. Decided in the build plan.
 - A linked account is never dropped by cleanup.
 - An *unlinked* `LineAccountGroup` not seen for 365 days is deleted by the existing
   periodic sweep.

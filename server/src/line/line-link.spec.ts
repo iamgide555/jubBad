@@ -356,6 +356,9 @@ describe('LINE link codes, status and unlink', () => {
           data: { groupId: groupCode, name: `p-${randomUUID().slice(0, 6)}`, aliases: '[]' },
         });
         const lineUserId = `U${randomUUID().replace(/-/g, '')}`;
+        await prisma.lineAccount.create({
+          data: { lineUserId, displayName: 'Nok', groups: { create: { groupId: groupCode, source: 'claim' } } },
+        });
         await prisma.playerLineAccount.create({
           data: { groupId: groupCode, playerId: player.id, lineUserId, linkedBy: 'self' },
         });
@@ -371,7 +374,7 @@ describe('LINE link codes, status and unlink', () => {
         await prisma.sessionPayment.create({
           data: { sessionId: sessionCode, playerId: player.id, source: 'slip', amountSatang: 5000 },
         });
-        return { sessionCode };
+        return { sessionCode, lineUserId };
       }
 
       const slipCounts = async (groupCode: string) => ({
@@ -398,6 +401,27 @@ describe('LINE link codes, status and unlink', () => {
         expect(await prisma.sessionPayment.count({ where: { sessionId: mine.sessionCode } })).toBe(1);
         expect(await slipCounts(other)).toEqual({ accounts: 1, pending: 1, duplicates: 1, references: 1 });
         expect(await prisma.sessionPayment.count({ where: { sessionId: theirs.sessionCode } })).toBe(1);
+      });
+
+      it.each([
+        ['unlink', (code: string, _lg: string) => link.unlink(code)],
+        ['markLeft', (_code: string, lg: string) => link.markLeft(lg)],
+      ])("%s removes the group's LINE account memberships", async (_name, run) => {
+        const lg = lineId();
+        const code = await makeGroup(hostId, { lineGroupId: lg, lineLinkedAt: new Date() });
+        const other = await makeGroup(hostId, { lineGroupId: lineId(), lineLinkedAt: new Date() });
+        const mine = await seedSlipRows(code);
+        await seedSlipRows(other);
+        // The same LINE user is also known in the other group: that membership must survive.
+        await prisma.lineAccountGroup.create({
+          data: { group: { connect: { code: other } }, lineAccount: { connect: { lineUserId: mine.lineUserId } }, source: 'roster' },
+        });
+
+        await run(code, lg);
+
+        expect(await prisma.lineAccountGroup.count({ where: { groupId: code } })).toBe(0);
+        expect(await prisma.lineAccountGroup.count({ where: { groupId: other } })).toBe(2);
+        expect(await prisma.lineAccount.count({ where: { lineUserId: mine.lineUserId } })).toBe(1);
       });
     });
 

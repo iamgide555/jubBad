@@ -39,11 +39,13 @@ function slip(reference: string, options: { amount?: string | null; receiver?: s
   return { kind: 'slip', qr: { bankCode: '004', reference }, ocr: { text: texts.join('\n'), lines } };
 }
 
-const lineUser = (name = 'Somchai'): LiffUser => ({
-  userId: `U${randomUUID().replace(/-/g, '')}`,
-  displayName: name,
-  pictureUrl: `https://profile.line-scdn.net/${encodeURIComponent(name)}`,
-});
+/** Every LINE user these tests made, so their global LineAccount rows can be removed afterwards. */
+const lineUserIds: string[] = [];
+const lineUser = (name = 'Somchai'): LiffUser => {
+  const userId = `U${randomUUID().replace(/-/g, '')}`;
+  lineUserIds.push(userId);
+  return { userId, displayName: name, pictureUrl: `https://profile.line-scdn.net/${encodeURIComponent(name)}` };
+};
 
 const newRef = () => `REF${randomUUID().replace(/-/g, '').slice(0, 16)}`;
 
@@ -86,6 +88,7 @@ describe('slip payments: host review', () => {
     await prisma.session.deleteMany({ where: byGroup });
     await prisma.player.deleteMany({ where: byGroup });
     await prisma.group.deleteMany({ where: { code: { in: groupCodes } } });
+    await prisma.lineAccount.deleteMany({ where: { lineUserId: { in: lineUserIds } } });
     await app.close();
   });
 

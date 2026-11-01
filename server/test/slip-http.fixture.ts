@@ -32,11 +32,13 @@ export const baht = (satang: number) =>
 
 export const newRef = () => `REF${randomUUID().replace(/-/g, '').slice(0, 16)}`;
 
-export const lineUser = (name = 'Somchai'): LiffUser => ({
-  userId: `U${randomUUID().replace(/-/g, '')}`,
-  displayName: name,
-  pictureUrl: null,
-});
+/** Every LINE user the fixture made, so their global LineAccount rows can be removed in cleanup. */
+const lineUserIds: string[] = [];
+export const lineUser = (name = 'Somchai'): LiffUser => {
+  const userId = `U${randomUUID().replace(/-/g, '')}`;
+  lineUserIds.push(userId);
+  return { userId, displayName: name, pictureUrl: null };
+};
 
 /** When every session these specs set up ended: 30 Oct 2026, 22:00 in Bangkok. */
 export const ENDED_AT = new Date('2026-10-30T15:00:00Z');
@@ -190,6 +192,7 @@ export async function bootSlipApp() {
     await prisma.session.deleteMany({ where: byGroup });
     await prisma.player.deleteMany({ where: byGroup });
     await prisma.group.deleteMany({ where: { code: { in: groupCodes } } });
+    await prisma.lineAccount.deleteMany({ where: { lineUserId: { in: lineUserIds } } });
     await prisma.user.deleteMany({ where: { id: { in: userIds } } });
     await app.close();
   }

@@ -1,5 +1,6 @@
 import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
+import { LineAccountsService } from '../../line/line-accounts.service.js';
 import { lineConfig } from '../../line/line-config.js';
 import { cardDate } from '../../line/line-summary-card.js';
 import { planAtLeast } from '../../plans/plan.js';
@@ -137,7 +138,8 @@ export class SlipPaymentsService {
     private readonly lock: SessionLock,
     private readonly reader: SlipReader,
     private readonly plans: PlansService,
-    private readonly images: SlipImagesService
+    private readonly images: SlipImagesService,
+    private readonly lineAccounts: LineAccountsService
   ) {}
 
   /**
@@ -324,9 +326,15 @@ export class SlipPaymentsService {
 
       const existing = await this.existingOutcome(groupId, user.userId, playerId);
       if (existing) return existing;
+      // The link points at the account, so the account (and its listing in this group) comes first.
+      await this.lineAccounts.touch(
+        groupId,
+        { lineUserId: user.userId, displayName: user.displayName, pictureUrl: user.pictureUrl },
+        'claim'
+      );
       try {
         await this.prisma.playerLineAccount.create({
-          data: { groupId, playerId, lineUserId: user.userId, displayName: user.displayName, linkedBy: 'self' },
+          data: { groupId, playerId, lineUserId: user.userId, linkedBy: 'self' },
         });
       } catch (error) {
         // The lock is per session, so a claim from another session of this group can win between the check and the
@@ -347,13 +355,17 @@ export class SlipPaymentsService {
     return link?.playerId ?? null;
   }
 
-  /** Every link in the session's group, oldest first. */
+  /** Every link in the session's group, oldest first, with the account's current LINE name. */
   async listLinks(code: string): Promise<LinkRow[]> {
     const groupId = await this.groupOf(code);
-    const links = await this.prisma.playerLineAccount.findMany({ where: { groupId }, orderBy: { createdAt: 'asc' } });
+    const links = await this.prisma.playerLineAccount.findMany({
+      where: { groupId },
+      orderBy: { createdAt: 'asc' },
+      include: { lineAccount: true },
+    });
     return links.map((l) => ({
       playerId: l.playerId,
-      displayName: l.displayName,
+      displayName: l.lineAccount.displayName,
       linkedBy: l.linkedBy === 'self' ? 'self' : 'host',
     }));
   }
@@ -374,17 +386,17 @@ export class SlipPaymentsService {
         where: { groupId_lineUserId: { groupId, lineUserId } },
       });
       if (byAccount && byAccount.playerId !== playerId) throw new ConflictException({ code: 'ACCOUNT_ALREADY_LINKED' });
+      // The link points at the account; this call carries no profile, so a stored name and picture stay as they are.
+      await this.lineAccounts.touch(groupId, { lineUserId, displayName: null, pictureUrl: null }, 'host');
       try {
         if (byAccount) {
-          // Already this player's account: only the label changes; the stored name and age stay.
+          // Already this player's account: only the label changes; the link's age stays.
           await this.prisma.playerLineAccount.update({ where: { id: byAccount.id }, data: { linkedBy: 'host' } });
           return;
         }
         await this.prisma.$transaction([
           this.prisma.playerLineAccount.deleteMany({ where: { groupId, playerId } }),
-          this.prisma.playerLineAccount.create({
-            data: { groupId, playerId, lineUserId, displayName: null, linkedBy: 'host' },
-          }),
+          this.prisma.playerLineAccount.create({ data: { groupId, playerId, lineUserId, linkedBy: 'host' } }),
         ]);
       } catch (error) {
         // Another session of this group linked the account in between (the lock is per session); the transaction
@@ -673,12 +685,13 @@ export class SlipPaymentsService {
 
   /**
    * The writes that make the slip's account this player's (the rules of `setLink`, labelled as the host's), or a thrown
-   * refusal. Nothing is written here.
+   * refusal. Only the account directory is written here (the link needs its account to exist); the link writes are
+   * returned for the caller's transaction.
    */
   private async linkWrites(
     groupId: string,
     playerId: string,
-    slip: { lineUserId: string; displayName: string | null }
+    slip: { lineUserId: string; displayName: string | null; pictureUrl: string | null }
   ): Promise<Prisma.PrismaPromise<unknown>[]> {
     if (!(await this.prisma.player.findFirst({ where: { id: playerId, groupId }, select: { id: true } }))) {
       throw new ConflictException({ code: 'PLAYER_NOT_IN_GROUP' });
@@ -687,13 +700,16 @@ export class SlipPaymentsService {
       where: { groupId_lineUserId: { groupId, lineUserId: slip.lineUserId } },
     });
     if (byAccount && byAccount.playerId !== playerId) throw new ConflictException({ code: 'ACCOUNT_ALREADY_LINKED' });
-    // Already this player's account: only the label changes; the stored name stays.
+    await this.lineAccounts.touch(
+      groupId,
+      { lineUserId: slip.lineUserId, displayName: slip.displayName, pictureUrl: slip.pictureUrl },
+      'host'
+    );
+    // Already this player's account: only the label changes; the link's age stays.
     if (byAccount) return [this.prisma.playerLineAccount.update({ where: { id: byAccount.id }, data: { linkedBy: 'host' } })];
     return [
       this.prisma.playerLineAccount.deleteMany({ where: { groupId, playerId } }),
-      this.prisma.playerLineAccount.create({
-        data: { groupId, playerId, lineUserId: slip.lineUserId, displayName: slip.displayName, linkedBy: 'host' },
-      }),
+      this.prisma.playerLineAccount.create({ data: { groupId, playerId, lineUserId: slip.lineUserId, linkedBy: 'host' } }),
     ];
   }
 

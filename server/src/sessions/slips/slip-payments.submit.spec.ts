@@ -54,11 +54,13 @@ function slip(
   return { kind: 'slip', qr: { bankCode: '004', reference }, ocr: { text: texts.join('\n'), lines } };
 }
 
-const lineUser = (name = 'Somchai'): LiffUser => ({
-  userId: `U${randomUUID().replace(/-/g, '')}`,
-  displayName: name,
-  pictureUrl: `https://profile.line-scdn.net/${encodeURIComponent(name)}`,
-});
+/** Every LINE user these tests made, so their global LineAccount rows can be removed afterwards. */
+const lineUserIds: string[] = [];
+const lineUser = (name = 'Somchai'): LiffUser => {
+  const userId = `U${randomUUID().replace(/-/g, '')}`;
+  lineUserIds.push(userId);
+  return { userId, displayName: name, pictureUrl: `https://profile.line-scdn.net/${encodeURIComponent(name)}` };
+};
 
 const newRef = () => `REF${randomUUID().replace(/-/g, '').slice(0, 16)}`;
 
@@ -103,6 +105,7 @@ describe('slip payments: submit pipeline', () => {
     await prisma.session.deleteMany({ where: byGroup });
     await prisma.player.deleteMany({ where: byGroup });
     await prisma.group.deleteMany({ where: { code: { in: groupCodes } } });
+    await prisma.lineAccount.deleteMany({ where: { lineUserId: { in: lineUserIds } } });
     await prisma.user.deleteMany({ where: { id: { in: userIds } } });
     await app.close();
   });
@@ -581,6 +584,7 @@ describe('slip payments: submit pipeline', () => {
       });
       expect(await cards.tokenValid(code, token)).toBe(true);
       const a = lineUser();
+      await prisma.lineAccount.create({ data: { lineUserId: a.userId } });
       await prisma.playerLineAccount.create({
         data: { groupId: groupCode, playerId: ids[0], lineUserId: a.userId, linkedBy: 'self' },
       });
@@ -653,6 +657,7 @@ describe('slip payments: submit pipeline', () => {
       const { code, groupCode, ids, token } = await setup();
       const stranger = await prisma.player.create({ data: { groupId: groupCode, name: 'คนนอก', aliases: '[]' } });
       const a = lineUser();
+      await prisma.lineAccount.create({ data: { lineUserId: a.userId } });
       await prisma.playerLineAccount.create({
         data: { groupId: groupCode, playerId: stranger.id, lineUserId: a.userId, linkedBy: 'host' },
       });

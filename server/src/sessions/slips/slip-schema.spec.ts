@@ -7,14 +7,23 @@ describe('slip payment schema', () => {
     adapter: new PrismaBetterSqlite3({ url: process.env.DATABASE_URL! }),
   });
   const groupCodes: string[] = [];
+  const lineUserIds: string[] = [];
 
   afterAll(async () => {
     const where = { groupId: { in: groupCodes } };
     await prisma.session.deleteMany({ where });
     await prisma.player.deleteMany({ where });
     await prisma.group.deleteMany({ where: { code: { in: groupCodes } } });
+    await prisma.lineAccount.deleteMany({ where: { lineUserId: { in: lineUserIds } } });
     await prisma.$disconnect();
   });
+
+  /** A LINE user id unique to this run, so the global account rows never collide with other specs. */
+  const lineUser = (label: string) => {
+    const id = `${label}-${randomUUID()}`;
+    lineUserIds.push(id);
+    return id;
+  };
 
   async function seed() {
     const groupId = `slip-group-${randomUUID()}`;
@@ -30,24 +39,41 @@ describe('slip payment schema', () => {
     await prisma.session.create({
       data: { code: sessionId, groupId, rawImportText: '' },
     });
-    return { groupId, sessionId, playerId: player.id, otherId: other.id };
+    return { groupId, sessionId, playerId: player.id, otherId: other.id, u1: lineUser('U1'), u2: lineUser('U2') };
   }
 
-  const link = (groupId: string, playerId: string, lineUserId: string) =>
-    prisma.playerLineAccount.create({
+  /** A link needs its LINE account to exist first (foreign key), as LineAccountsService.touch guarantees. */
+  const link = async (groupId: string, playerId: string, lineUserId: string) => {
+    await prisma.lineAccount.upsert({ where: { lineUserId }, create: { lineUserId }, update: {} });
+    return prisma.playerLineAccount.create({
       data: { groupId, playerId, lineUserId, linkedBy: 'self' },
     });
+  };
+
+  it('rejects a link to a LINE account that does not exist', async () => {
+    const s = await seed();
+    await expect(
+      prisma.playerLineAccount.create({ data: { groupId: s.groupId, playerId: s.playerId, lineUserId: s.u1, linkedBy: 'self' } }),
+    ).rejects.toThrow();
+  });
+
+  it("removes the account's links when the account is deleted", async () => {
+    const s = await seed();
+    await link(s.groupId, s.playerId, s.u1);
+    await prisma.lineAccount.delete({ where: { lineUserId: s.u1 } });
+    expect(await prisma.playerLineAccount.count({ where: { groupId: s.groupId } })).toBe(0);
+  });
 
   it('rejects a second link for the same LINE user in a group', async () => {
     const s = await seed();
-    await link(s.groupId, s.playerId, 'U1');
-    await expect(link(s.groupId, s.otherId, 'U1')).rejects.toThrow();
+    await link(s.groupId, s.playerId, s.u1);
+    await expect(link(s.groupId, s.otherId, s.u1)).rejects.toThrow();
   });
 
   it('rejects a second LINE account for the same player in a group', async () => {
     const s = await seed();
-    await link(s.groupId, s.playerId, 'U1');
-    await expect(link(s.groupId, s.playerId, 'U2')).rejects.toThrow();
+    await link(s.groupId, s.playerId, s.u1);
+    await expect(link(s.groupId, s.playerId, s.u2)).rejects.toThrow();
   });
 
   it('rejects a second paid row for the same player in a session', async () => {
@@ -72,7 +98,10 @@ describe('slip payment schema', () => {
 
   it('removes every slip table row when the group is deleted', async () => {
     const s = await seed();
-    await link(s.groupId, s.playerId, 'U1');
+    await link(s.groupId, s.playerId, s.u1);
+    await prisma.lineAccountGroup.create({
+      data: { group: { connect: { code: s.groupId } }, lineAccount: { connect: { lineUserId: s.u1 } }, source: 'claim' },
+    });
     await prisma.sessionPayment.create({
       data: { sessionId: s.sessionId, playerId: s.playerId, source: 'host' },
     });
@@ -106,6 +135,7 @@ describe('slip payment schema', () => {
 
     const where = { groupId: s.groupId };
     expect(await prisma.playerLineAccount.count({ where })).toBe(0);
+    expect(await prisma.lineAccountGroup.count({ where })).toBe(0);
     expect(
       await prisma.sessionPayment.count({ where: { sessionId: s.sessionId } }),
     ).toBe(0);
@@ -138,11 +168,11 @@ describe('slip payment schema', () => {
 
   it("removes a deleted player's account link and paid row", async () => {
     const s = await seed();
-    await link(s.groupId, s.playerId, 'U1');
+    await link(s.groupId, s.playerId, s.u1);
     await prisma.sessionPayment.create({
       data: { sessionId: s.sessionId, playerId: s.playerId, source: 'host' },
     });
-    await link(s.groupId, s.otherId, 'U2');
+    await link(s.groupId, s.otherId, s.u2);
 
     await prisma.player.delete({ where: { id: s.playerId } });
 
@@ -155,5 +185,7 @@ describe('slip payment schema', () => {
     expect(
       await prisma.playerLineAccount.count({ where: { playerId: s.otherId } }),
     ).toBe(1);
+    // The account itself outlives its link.
+    expect(await prisma.lineAccount.count({ where: { lineUserId: s.u1 } })).toBe(1);
   });
 });

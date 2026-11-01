@@ -63,6 +63,7 @@ model Group {
   lineLinkCodes       LineLinkCode[]
   lineRosterMessages  LineRosterMessage[]
   playerLineAccounts  PlayerLineAccount[]
+  lineAccountGroups   LineAccountGroup[]
   slipReferences      SlipReference[]
   pendingSlips        PendingSlip[]
   slipDuplicates      SlipDuplicate[]
@@ -536,20 +537,57 @@ model QueuedMatch {
   @@index([sessionId, position])
 }
 
+/// One row per LINE user JubBad has seen, across every group (the id is global).
+/// Never listed on its own: every read goes through LineAccountGroup for one
+/// group, so a host never learns an account is known elsewhere. Written only by
+/// LineAccountsService.touch, which never blanks a stored name or picture.
+model LineAccount {
+  id          String    @id @default(cuid())
+  lineUserId  String    @unique
+  displayName String?
+  /// The LINE profile picture address, not the image itself.
+  pictureUrl  String?
+  /// When displayName/pictureUrl were last refreshed from a LINE profile.
+  profileAt   DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  groups      LineAccountGroup[]
+  links       PlayerLineAccount[]
+}
+
+/// "This LINE account is known in this group": a join row, not an array on the
+/// account, so it can be indexed, carry per-group facts and cascade with the group.
+model LineAccountGroup {
+  id            String      @id @default(cuid())
+  groupId       String
+  group         Group       @relation(fields: [groupId], references: [code], onDelete: Cascade)
+  lineAccountId String
+  lineAccount   LineAccount @relation(fields: [lineAccountId], references: [id], onDelete: Cascade)
+  /// 'roster' | 'slip' | 'claim' | 'host': the first source that created the row.
+  source        String
+  firstSeenAt   DateTime    @default(now())
+  lastSeenAt    DateTime    @default(now())
+
+  @@unique([groupId, lineAccountId])
+  @@index([lastSeenAt])
+}
+
 /// Which LINE account belongs to which player in a group, so a slip sent by that
 /// account can be credited to the right person. One account per player and one
 /// player per account within a group; `linkedBy` records who made the link.
+/// `lineUserId` is a foreign key to LineAccount (its unique lineUserId), which
+/// holds the name and picture.
 model PlayerLineAccount {
-  id          String   @id @default(cuid())
+  id          String      @id @default(cuid())
   groupId     String
-  group       Group    @relation(fields: [groupId], references: [code], onDelete: Cascade)
+  group       Group       @relation(fields: [groupId], references: [code], onDelete: Cascade)
   playerId    String
-  player      Player   @relation(fields: [playerId], references: [id], onDelete: Cascade)
+  player      Player      @relation(fields: [playerId], references: [id], onDelete: Cascade)
   lineUserId  String
-  displayName String?
+  lineAccount LineAccount @relation(fields: [lineUserId], references: [lineUserId], onDelete: Cascade)
   /// 'self' (the player claimed it) | 'host' (the host linked it).
   linkedBy    String
-  createdAt   DateTime @default(now())
+  createdAt   DateTime    @default(now())
 
   @@unique([groupId, lineUserId])
   @@unique([groupId, playerId])

@@ -1745,11 +1745,39 @@ send-slip button when both the LIFF app and the LINE Login channel are configure
 page that cannot verify anyone.
 
 **Lifecycle.** Unlinking the LINE group (or the bot being removed) purges the group's account links,
-waiting slips, duplicates and used references; recorded `SessionPayment` rows stay. Deleting the JubBad group
-cascades everything.
+LINE account memberships (see below), waiting slips, duplicates and used references; recorded
+`SessionPayment` rows stay. Deleting the JubBad group cascades everything.
 
 **Where it lives.** `server/src/sessions/slips/` (matching, QR, OCR, pay-page and host controllers),
 `web/src/app/shared/slip-review/` (the host's review list), `web/src/app/pages/slip-pay/` (the player page).
+
+### LINE accounts directory
+
+Design: `docs/superpowers/specs/2026-11-01-line-accounts-design.md`. A durable list of the LINE accounts
+JubBad has seen in a group (name and avatar), so the host can see and manage which account belongs to which
+player. Every write goes through `LineAccountsService.touch` (`server/src/line/line-accounts.service.ts`).
+
+**Accounts are global, listing is per group.** `LineAccount` is one row per LINE user id, because a LINE id
+names one person (the bot and the pay page sit under one LINE provider, checked on production data), and
+the same person may later be a player in several of an owner's groups. But a host only ever sees accounts
+through `LineAccountGroup` rows for their own group: an account known in group A is never shown, counted or
+hinted at from group B, even when one owner runs both. Decided with the owner.
+
+**A join table, not an array of group ids.** SQLite has no array type, a JSON column cannot be indexed or
+carry per-group facts (first source, first/last seen), and a join row cascades with its group.
+
+**Never auto-link by name.** A LINE display name and a roster name are both free text; matching them is the
+same trap the fuzzy matcher avoids (see Fuzzy matching above). A `PlayerLineAccount` link is created only by
+the player's own "this is me" on the pay page or by a host tap. `PlayerLineAccount.lineUserId` is a foreign
+key to `LineAccount`, which holds the name; the link has no name of its own.
+
+**Never blank a stored profile.** A sighting without a profile (a host link, a failed LINE lookup) records
+the account and its last-seen time but leaves a stored name and picture alone. Two first sightings racing
+each other hit a unique key; the loser retries once.
+
+**Disconnecting the LINE group drops the memberships.** `LineLinkService.unlink` / `markLeft` delete the
+group's `LineAccountGroup` rows with its links and slips; the global `LineAccount` rows stay until no group
+and no link uses them.
 
 ## Current state
 

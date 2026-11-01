@@ -587,6 +587,12 @@ export class SlipPaymentsService {
     now: Date
   ): Promise<SubmitOutcome> {
     const { groupId, panel } = gate;
+    // Once per accepted slip, before the paid/held branch, so both outcomes list the sender in the group.
+    await this.lineAccounts.touch(
+      groupId,
+      { lineUserId: user.userId, displayName: user.displayName, pictureUrl: user.pictureUrl },
+      'slip'
+    );
     const paid = new Set(
       (await this.prisma.sessionPayment.findMany({ where: { sessionId: code }, select: { playerId: true } })).map(
         (p) => p.playerId

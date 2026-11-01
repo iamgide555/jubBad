@@ -17,7 +17,7 @@ const FAIL_TEXT = 'รหัสไม่ถูกต้องหรือหม�
 
 describe('POST /line/webhook', () => {
   const saved = { ...process.env };
-  const fakeClient = { reply: vi.fn(), replyMessages: vi.fn(), groupName: vi.fn(), memberName: vi.fn(), leave: vi.fn() };
+  const fakeClient = { reply: vi.fn(), replyMessages: vi.fn(), groupName: vi.fn(), memberProfile: vi.fn(), leave: vi.fn() };
   let app: INestApplication;
   let prisma: PrismaService;
   let link: LineLinkService;
@@ -94,6 +94,8 @@ describe('POST /line/webhook', () => {
   });
 
   afterAll(async () => {
+    // Roster capture lists its senders (U1 by default) in the global LINE account directory.
+    await prisma.lineAccount.deleteMany({ where: { lineUserId: 'U1' } });
     await app.close();
   });
 
@@ -104,7 +106,7 @@ describe('POST /line/webhook', () => {
     fakeClient.replyMessages.mockReset().mockResolvedValue(undefined);
     fakeClient.leave.mockReset().mockResolvedValue(undefined);
     fakeClient.groupName.mockReset().mockResolvedValue('ก๊วนพฤหัส LINE');
-    fakeClient.memberName.mockReset().mockResolvedValue('Nok');
+    fakeClient.memberProfile.mockReset().mockResolvedValue({ displayName: 'Nok', pictureUrl: null });
   });
 
   afterEach(() => {
@@ -229,7 +231,7 @@ describe('POST /line/webhook', () => {
       await post([textEvent(lineGroupId, ROSTER, { id, userId: null })]).expect(200);
       const row = await prisma.lineRosterMessage.findUniqueOrThrow({ where: { lineMessageId: id } });
       expect([row.senderUserId, row.senderName]).toEqual([null, null]);
-      expect(fakeClient.memberName).not.toHaveBeenCalled();
+      expect(fakeClient.memberProfile).not.toHaveBeenCalled();
     });
 
     it('ignores messages from a one-to-one chat', async () => {
@@ -241,7 +243,7 @@ describe('POST /line/webhook', () => {
 
     it('answers 200 even when one event in the batch fails', async () => {
       const { code, lineGroupId } = await linkedGroup();
-      fakeClient.memberName.mockRejectedValueOnce(new Error('LINE exploded'));
+      fakeClient.memberProfile.mockRejectedValueOnce(new Error('LINE exploded'));
       const first = randomUUID();
       const second = randomUUID();
       await post([textEvent(lineGroupId, ROSTER, { id: first }), textEvent(lineGroupId, ROSTER, { id: second })]).expect(200);
@@ -419,7 +421,7 @@ describe('POST /line/webhook', () => {
       expect(row).toMatchObject({ groupId: code, senderUserId: line, senderName: null, direct: true });
       expect(fakeClient.reply).toHaveBeenCalledTimes(1);
       expect(fakeClient.reply.mock.calls[0][1]).toContain(`ก๊วน ${code}`);
-      expect(fakeClient.memberName).not.toHaveBeenCalled();
+      expect(fakeClient.memberProfile).not.toHaveBeenCalled();
     });
 
     it('tells a stranger to link first and stores nothing', async () => {

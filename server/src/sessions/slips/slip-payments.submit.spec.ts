@@ -774,4 +774,40 @@ describe('slip payments: submit pipeline', () => {
       expect(await onePending(code)).toMatchObject({ amountSatang: null });
     });
   });
+
+  describe('LINE account directory', () => {
+    const membership = (groupCode: string, lineUserId: string) =>
+      prisma.lineAccountGroup.findFirst({
+        where: { groupId: groupCode, lineAccount: { lineUserId } },
+        include: { lineAccount: true },
+      });
+
+    it("a held slip records the sender as a 'slip' account with the LIFF name and picture", async () => {
+      const { code, groupCode, token } = await setup();
+      const stranger = lineUser('Nok');
+      reader.read.mockResolvedValue(slip(newRef()));
+      expect(await slips.submitSlip(code, token, stranger, IMAGE)).toEqual({ kind: 'waiting', reason: 'unmapped' });
+      expect(await membership(groupCode, stranger.userId)).toMatchObject({
+        source: 'slip',
+        lineAccount: { lineUserId: stranger.userId, displayName: 'Nok', pictureUrl: stranger.pictureUrl },
+      });
+    });
+
+    it('an auto-paid slip records the sender too', async () => {
+      const { code, groupCode, ids, token } = await setup();
+      // Linked by the host, so the account has no listing in the group before the slip arrives.
+      const a = lineUser('Mali');
+      await prisma.lineAccount.create({ data: { lineUserId: a.userId, displayName: null, pictureUrl: null } });
+      await prisma.playerLineAccount.create({
+        data: { groupId: groupCode, playerId: ids[0], lineUserId: a.userId, linkedBy: 'host' },
+      });
+      expect(await membership(groupCode, a.userId)).toBeNull();
+      reader.read.mockResolvedValue(slip(newRef(), { amount: baht(await owed(code, ids[0])) }));
+      expect(await slips.submitSlip(code, token, a, IMAGE)).toEqual({ kind: 'paid', playerIds: [ids[0]] });
+      expect(await membership(groupCode, a.userId)).toMatchObject({
+        source: 'slip',
+        lineAccount: { displayName: 'Mali', pictureUrl: a.pictureUrl },
+      });
+    });
+  });
 });

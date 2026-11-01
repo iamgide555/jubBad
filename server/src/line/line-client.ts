@@ -8,6 +8,12 @@ const NAME_TTL_MS = 24 * 60 * 60 * 1000;
 /** How a push ended: sent, refused because this month's message quota is used up, or anything else. */
 export type LinePushOutcome = 'ok' | 'quota' | 'failed';
 
+/** A LINE group member as the Messaging API reports them. */
+export interface MemberProfile {
+  displayName: string;
+  pictureUrl: string | null;
+}
+
 const QUICK_REPLY_LABEL_MAX = 20;
 
 /** At most `max` UTF-16 units, cut between code points so an emoji is never left as half a surrogate pair. */
@@ -46,7 +52,7 @@ export function groupChoiceMessage(text: string, choices: { label: string; data:
  */
 @Injectable()
 export class LineClient {
-  private readonly names = new Map<string, { name: string; expiresAt: number }>();
+  private readonly profiles = new Map<string, { profile: MemberProfile; expiresAt: number }>();
 
   async reply(replyToken: string, text: string): Promise<void> {
     await this.replyMessages(replyToken, [{ type: 'text', text }]);
@@ -83,16 +89,25 @@ export class LineClient {
 
   /** Cached per group and user for 24 hours; a failed lookup is not cached. */
   async memberName(lineGroupId: string, userId: string): Promise<string | null> {
+    return (await this.memberProfile(lineGroupId, userId))?.displayName ?? null;
+  }
+
+  /** A group member's name and avatar (`pictureUrl` is null when LINE omits it). Same 24 hour cache and no-cache-on-failure as memberName. */
+  async memberProfile(lineGroupId: string, userId: string): Promise<MemberProfile | null> {
     const key = `${lineGroupId}:${userId}`;
-    const hit = this.names.get(key);
-    if (hit && hit.expiresAt > Date.now()) return hit.name;
+    const hit = this.profiles.get(key);
+    if (hit && hit.expiresAt > Date.now()) return hit.profile;
     const body = await this.call(
       'GET',
       `/group/${encodeURIComponent(lineGroupId)}/member/${encodeURIComponent(userId)}`
     );
     if (typeof body?.displayName !== 'string') return null;
-    this.names.set(key, { name: body.displayName, expiresAt: Date.now() + NAME_TTL_MS });
-    return body.displayName;
+    const profile = {
+      displayName: body.displayName,
+      pictureUrl: typeof body.pictureUrl === 'string' && body.pictureUrl !== '' ? body.pictureUrl : null,
+    };
+    this.profiles.set(key, { profile, expiresAt: Date.now() + NAME_TTL_MS });
+    return profile;
   }
 
   async leave(lineGroupId: string): Promise<void> {

@@ -40,7 +40,12 @@ export class LinePurgeScheduler implements OnApplicationBootstrap, OnModuleDestr
     this.running = true;
     try {
       await this.roster.purge();
-      await this.accounts.sweep();
+      // Its own guard: a failing account sweep must not skip the code and pending-roster purges below.
+      try {
+        await this.accounts.sweep();
+      } catch (error) {
+        console.error('[line-purge] account sweep failed', error);
+      }
       await this.link.purgeExpiredCodes();
       await this.host.purgeExpired();
     } catch (error) {

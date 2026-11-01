@@ -127,6 +127,60 @@ describe('LineAccountsService.touch', () => {
     upsert.mockRejectedValueOnce(p2002() as never).mockRejectedValueOnce(p2002() as never);
     await expect(accounts.touch(groupId, p, 'roster')).rejects.toBeInstanceOf(Prisma.PrismaClientKnownRequestError);
   });
+
+  it('retries once when a sweep removes the account between the two upserts (foreign key violation)', async () => {
+    const groupId = await makeGroup();
+    const p = profile('Nok');
+    const p2003 = new Prisma.PrismaClientKnownRequestError('fk', { code: 'P2003', clientVersion: 'test' });
+    const upsert = vi.spyOn(prisma.lineAccountGroup, 'upsert').mockRejectedValueOnce(p2003 as never);
+
+    const id = await accounts.touch(groupId, p, 'roster');
+
+    expect(upsert).toHaveBeenCalledTimes(2);
+    expect((await account(p.lineUserId)).id).toBe(id);
+    expect(await memberships(p.lineUserId)).toHaveLength(1);
+
+    upsert.mockRejectedValueOnce(p2003 as never).mockRejectedValueOnce(p2003 as never);
+    await expect(accounts.touch(groupId, p, 'roster')).rejects.toBeInstanceOf(Prisma.PrismaClientKnownRequestError);
+  });
+
+  it('lastSeenAt never moves backwards: an older sighting is ignored, a newer one advances it', async () => {
+    const groupId = await makeGroup();
+    const p = profile('Nok');
+    const first = new Date('2026-11-05T10:00:00Z');
+    const older = new Date('2026-11-03T10:00:00Z');
+    const newer = new Date('2026-11-09T10:00:00Z');
+    await accounts.touch(groupId, p, 'slip', first);
+
+    await accounts.touch(groupId, p, 'roster', older);
+    expect(await memberships(p.lineUserId)).toEqual([expect.objectContaining({ source: 'slip', firstSeenAt: first, lastSeenAt: first })]);
+
+    await accounts.touch(groupId, p, 'roster', newer);
+    expect(await memberships(p.lineUserId)).toEqual([expect.objectContaining({ source: 'slip', firstSeenAt: first, lastSeenAt: newer })]);
+  });
+
+  it('an older-timed profile does not overwrite a newer-timed one', async () => {
+    const groupId = await makeGroup();
+    const p = profile('New name', 'https://new');
+    const newer = new Date('2026-11-09T10:00:00Z');
+    const older = new Date('2026-11-03T10:00:00Z');
+    await accounts.touch(groupId, p, 'slip', newer);
+
+    await accounts.touch(groupId, { ...p, displayName: 'Old name', pictureUrl: 'https://old' }, 'roster', older);
+
+    expect(await account(p.lineUserId)).toMatchObject({ displayName: 'New name', pictureUrl: 'https://new', profileAt: newer });
+  });
+
+  it('an account created without a profile takes the first profile it is given, whenever it was posted', async () => {
+    const groupId = await makeGroup();
+    const p = profile();
+    await accounts.touch(groupId, p, 'roster', new Date('2026-11-09T10:00:00Z'));
+    const posted = new Date('2026-11-03T10:00:00Z');
+
+    await accounts.touch(groupId, { ...p, displayName: 'Nok' }, 'roster', posted);
+
+    expect(await account(p.lineUserId)).toMatchObject({ displayName: 'Nok', profileAt: posted });
+  });
 });
 
 describe('LineAccountsService.sweep', () => {
@@ -177,6 +231,8 @@ describe('LineAccountsService.sweep', () => {
     await prisma.lineAccount.deleteMany({ where: { lineUserId: { in: lineUserIds } } });
   });
 
+  afterEach(() => vi.restoreAllMocks());
+
   it('UNLINKED_RETENTION_DAYS is 365', () => {
     expect(UNLINKED_RETENTION_DAYS).toBe(365);
   });
@@ -205,6 +261,34 @@ describe('LineAccountsService.sweep', () => {
 
     expect(await membershipCount(groupId, p.lineUserId)).toBe(1);
     expect(await accountCount(p.lineUserId)).toBe(1);
+  });
+
+  it('sweep does not delete a membership refreshed after it was selected as stale', async () => {
+    const groupId = await makeGroup();
+    const p = profile();
+    await accounts.touch(groupId, p, 'roster', daysAgo(400));
+    const stale = await prisma.lineAccountGroup.findMany({ where: { groupId }, select: { id: true, groupId: true, lineAccount: { select: { lineUserId: true } } } });
+    await accounts.touch(groupId, p, 'roster', now);
+    vi.spyOn(prisma.lineAccountGroup, 'findMany').mockResolvedValueOnce(stale as never);
+
+    await accounts.sweep(now);
+
+    expect(await membershipCount(groupId, p.lineUserId)).toBe(1);
+    expect(await accountCount(p.lineUserId)).toBe(1);
+  });
+
+  it('sweep does not delete a membership linked after it was selected as stale', async () => {
+    const groupId = await makeGroup();
+    const p = profile();
+    await accounts.touch(groupId, p, 'roster', daysAgo(400));
+    const stale = await prisma.lineAccountGroup.findMany({ where: { groupId }, select: { id: true, groupId: true, lineAccount: { select: { lineUserId: true } } } });
+    await link(groupId, p.lineUserId);
+    vi.spyOn(prisma.lineAccountGroup, 'findMany').mockResolvedValueOnce(stale as never);
+
+    await accounts.sweep(now);
+
+    expect(await membershipCount(groupId, p.lineUserId)).toBe(1);
+    expect(await prisma.playerLineAccount.count({ where: { groupId, lineUserId: p.lineUserId } })).toBe(1);
   });
 
   it('sweep keeps a linked membership however old', async () => {

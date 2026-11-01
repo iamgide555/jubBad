@@ -20,7 +20,7 @@ import { LineWebhookService } from './line-webhook.service.js';
 // asks the bot to leave), so the dependency runs one way.
 @Module({
   imports: [PlansModule, SlipImagesModule],
-  controllers: [LineAccountsController, LineController,LineHostController, LineShareController, LineSummaryController, LineWebhookController],
+  controllers: [LineAccountsController, LineController, LineHostController, LineShareController, LineSummaryController, LineWebhookController],
   providers: [
     LineAccountsService,
     LineClient,

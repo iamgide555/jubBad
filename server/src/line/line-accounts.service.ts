@@ -25,7 +25,7 @@ export interface LineAccountRow {
 
 /**
  * The directory of LINE accounts JubBad has seen: one global `LineAccount` per LINE user id, listed per group through
- * `LineAccountGroup`. Every write goes through here (docs/superpowers/specs/2026-11-01-line-accounts-design.md).
+ * `LineAccountGroup`. Every write goes through here (docs/archive/specs/2026-11-01-line-accounts-design.md).
  */
 @Injectable()
 export class LineAccountsService {
@@ -34,13 +34,16 @@ export class LineAccountsService {
   /**
    * Records that this account was seen in the group: upserts the account (a stored name or picture is only ever
    * replaced, never blanked) and its membership (the first source and first-seen time stay; last-seen moves).
-   * Returns the account id. Two first sightings racing each other lose to a unique violation; the loser retries once.
+   * Time only moves forward: an older `now` (a late redelivery carrying LINE's earlier post time) neither pulls
+   * last-seen back nor overwrites a profile written at a later time.
+   * Returns the account id. Two first sightings racing each other lose to a unique violation (P2002), and a sweep
+   * deleting the account between the two writes breaks the membership's foreign key (P2003); the loser retries once.
    */
   async touch(groupId: string, profile: LineProfile, source: LineAccountSource, now: Date = new Date()): Promise<string> {
     try {
       return await this.upsert(groupId, profile, source, now);
     } catch (error) {
-      if (!(error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002')) throw error;
+      if (!(error instanceof Prisma.PrismaClientKnownRequestError && (error.code === 'P2002' || error.code === 'P2003'))) throw error;
       return this.upsert(groupId, profile, source, now);
     }
   }
@@ -52,17 +55,28 @@ export class LineAccountsService {
     const account = await this.prisma.lineAccount.upsert({
       where: { lineUserId: profile.lineUserId },
       create: { lineUserId: profile.lineUserId, displayName, pictureUrl, profileAt: fresh ? now : null },
-      update: {
-        ...(displayName !== null ? { displayName } : {}),
-        ...(pictureUrl !== null ? { pictureUrl } : {}),
-        ...(fresh ? { profileAt: now } : {}),
-      },
+      update: {},
       select: { id: true },
     });
+    if (fresh) {
+      // Only a profile at least as new as the stored one (or the first one) is written; null parts are left alone.
+      await this.prisma.lineAccount.updateMany({
+        where: { id: account.id, OR: [{ profileAt: null }, { profileAt: { lte: now } }] },
+        data: {
+          ...(displayName !== null ? { displayName } : {}),
+          ...(pictureUrl !== null ? { pictureUrl } : {}),
+          profileAt: now,
+        },
+      });
+    }
     await this.prisma.lineAccountGroup.upsert({
       where: { groupId_lineAccountId: { groupId, lineAccountId: account.id } },
       create: { groupId, lineAccountId: account.id, source, firstSeenAt: now, lastSeenAt: now },
-      update: { lastSeenAt: now },
+      update: {},
+    });
+    await this.prisma.lineAccountGroup.updateMany({
+      where: { groupId, lineAccountId: account.id, lastSeenAt: { lt: now } },
+      data: { lastSeenAt: now },
     });
     return account.id;
   }
@@ -150,28 +164,29 @@ export class LineAccountsService {
    * account left with no membership and no link (this is also what cleans up after a deleted group, whose cascade only
    * removes the join rows). A linked membership is never swept, and an account with a link is never deleted: the link
    * foreign key cascades, so deleting such an account would silently drop the link. Safe to run repeatedly.
+   * The candidates are selected first, but the delete re-asserts both conditions (still stale, still not linked in
+   * that group), so a membership touched or linked in between is left alone.
    */
   async sweep(now: Date = new Date()): Promise<{ memberships: number; accounts: number }> {
     const cutoff = new Date(now.getTime() - UNLINKED_RETENTION_DAYS * 86_400_000);
     const stale = await this.prisma.lineAccountGroup.findMany({
       where: { lastSeenAt: { lt: cutoff } },
-      select: { id: true, groupId: true, lineAccount: { select: { lineUserId: true } } },
+      select: { id: true, groupId: true },
     });
-    const linked = new Set<string>();
-    for (let i = 0; i < stale.length; i += SWEEP_CHUNK) {
-      const links = await this.prisma.playerLineAccount.findMany({
-        where: { lineUserId: { in: stale.slice(i, i + SWEEP_CHUNK).map((m) => m.lineAccount.lineUserId) } },
-        select: { groupId: true, lineUserId: true },
-      });
-      for (const l of links) linked.add(`${l.groupId}\u0000${l.lineUserId}`);
-    }
-    const doomed = stale
-      .filter((m) => !linked.has(`${m.groupId}\u0000${m.lineAccount.lineUserId}`))
-      .map((m) => m.id);
+    const idsByGroup = new Map<string, string[]>();
+    for (const m of stale) idsByGroup.set(m.groupId, [...(idsByGroup.get(m.groupId) ?? []), m.id]);
     let memberships = 0;
-    for (let i = 0; i < doomed.length; i += SWEEP_CHUNK) {
-      const { count } = await this.prisma.lineAccountGroup.deleteMany({ where: { id: { in: doomed.slice(i, i + SWEEP_CHUNK) } } });
-      memberships += count;
+    for (const [groupId, ids] of idsByGroup) {
+      for (let i = 0; i < ids.length; i += SWEEP_CHUNK) {
+        const { count } = await this.prisma.lineAccountGroup.deleteMany({
+          where: {
+            id: { in: ids.slice(i, i + SWEEP_CHUNK) },
+            lastSeenAt: { lt: cutoff },
+            lineAccount: { links: { none: { groupId } } },
+          },
+        });
+        memberships += count;
+      }
     }
     const { count: accounts } = await this.prisma.lineAccount.deleteMany({ where: { groups: { none: {} }, links: { none: {} } } });
     return { memberships, accounts };

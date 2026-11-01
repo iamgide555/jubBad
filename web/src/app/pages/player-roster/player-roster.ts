@@ -18,6 +18,9 @@ import {
 } from '../../core/pair-rule.model';
 import { AddRuleDialog } from '../../shared/add-rule-dialog/add-rule-dialog';
 import { LevelPicker } from '../../shared/level-picker/level-picker';
+import { LineAccountPicker } from '../../shared/line-account-picker/line-account-picker';
+import { LineAvatar } from '../../shared/line-avatar/line-avatar';
+import { LineAccountsService, type LineAccountRow } from '../../core/line-accounts.service';
 import { PlanLock } from '../../shared/plan-lock/plan-lock';
 import type { Level } from '../../../../../engines/levels.ts';
 import { levelRank, levelsErrorMessage, type GroupLevelsResponse } from '../../core/group-levels.model';
@@ -30,7 +33,7 @@ const PHONE_RE = /^[0-9+\- ]{6,20}$/;
 
 @Component({
   selector: 'app-player-roster',
-  imports: [FormsModule, RouterLink, DecimalPipe, LevelPicker, AddRuleDialog, PlanLock],
+  imports: [FormsModule, RouterLink, DecimalPipe, LevelPicker, AddRuleDialog, PlanLock, LineAvatar, LineAccountPicker],
   templateUrl: './player-roster.html',
   styleUrl: './player-roster.css',
 })
@@ -320,6 +323,77 @@ export class PlayerRoster implements CanComponentDeactivate, OnDestroy {
 
   shareLabel(name: string): string {
     return $localize`:@@summary.sharePlayerLabel:คัดลอกลิงก์ของ ${name}:name:`;
+  }
+
+  // ---- LINE account link / unlink ----
+
+  private readonly lineAccounts = inject(LineAccountsService);
+  /** The group's LINE accounts, read the first time a picker opens and again after any link or unlink. */
+  private readonly accounts = signal<LineAccountRow[] | null>(null);
+  /** What the picker offers: accounts with no player yet. */
+  protected readonly unlinkedAccounts = computed(() => (this.accounts() ?? []).filter((a) => a.player === null));
+  private readonly accountPicker = viewChild<LineAccountPicker>('accountPicker');
+  private linkTargetId: string | null = null;
+
+  readonly lineError = signal<string | null>(null);
+  /** The player whose link or unlink is in flight; their buttons wait, the rest of the page does not. */
+  readonly lineBusyId = signal<string | null>(null);
+
+  async openLinkPicker(player: ManagedPlayer): Promise<void> {
+    this.lineError.set(null);
+    this.linkTargetId = player.id;
+    if (this.accounts() === null) {
+      this.lineBusyId.set(player.id);
+      try {
+        this.accounts.set(await firstValueFrom(this.lineAccounts.list(this.groupCode)));
+      } catch {
+        this.lineError.set($localize`:@@playerRoster.lineLoadFailed:โหลดบัญชี LINE ไม่สำเร็จ`);
+        return;
+      } finally {
+        this.lineBusyId.set(null);
+      }
+    }
+    this.accountPicker()?.open();
+  }
+
+  async linkPicked(accountId: string): Promise<void> {
+    const playerId = this.linkTargetId;
+    const account = this.accounts()?.find((a) => a.id === accountId);
+    if (!playerId || !account) return;
+    this.lineError.set(null);
+    this.lineBusyId.set(playerId);
+    try {
+      await firstValueFrom(this.lineAccounts.link(this.groupCode, accountId, playerId));
+      const lineAccount = { id: account.id, displayName: account.displayName, pictureUrl: account.pictureUrl, linkedBy: 'host' as const };
+      this.players.update((list) => list.map((p) => (p.id === playerId ? { ...p, lineAccount } : p)));
+    } catch (err) {
+      const code = err instanceof HttpErrorResponse && typeof err.error?.code === 'string' ? err.error.code : null;
+      this.lineError.set(
+        code === 'ACCOUNT_ALREADY_LINKED'
+          ? $localize`:@@playerRoster.lineAlreadyLinked:บัญชีนี้ผูกกับผู้เล่นคนอื่นแล้ว`
+          : $localize`:@@playerRoster.saveFailed:บันทึกไม่สำเร็จ`
+      );
+    } finally {
+      // Either way the cached list may be out of date (another player may hold the account now).
+      this.accounts.set(null);
+      this.lineBusyId.set(null);
+    }
+  }
+
+  async unlinkLine(player: ManagedPlayer): Promise<void> {
+    const account = player.lineAccount;
+    if (!account) return;
+    this.lineError.set(null);
+    this.lineBusyId.set(player.id);
+    try {
+      await firstValueFrom(this.lineAccounts.unlink(this.groupCode, account.id));
+      this.players.update((list) => list.map((p) => (p.id === player.id ? { ...p, lineAccount: null } : p)));
+      this.accounts.set(null);
+    } catch {
+      this.lineError.set($localize`:@@playerRoster.saveFailed:บันทึกไม่สำเร็จ`);
+    } finally {
+      this.lineBusyId.set(null);
+    }
   }
 
   startEdit(player: ManagedPlayer): void {

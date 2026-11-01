@@ -1,0 +1,45 @@
+<dialog #dialog class="line-account-picker sheet-dialog" (close)="onDialogClose()">
+  @if (isOpen()) {
+    <div class="form-card">
+      <h2 i18n="@@lineAccountPicker.title">เลือกบัญชี LINE</h2>
+      @if (accounts().length === 0) {
+        <p class="muted" data-empty i18n="@@lineAccountPicker.empty">ยังไม่มีบัญชี LINE ที่ยังไม่ได้ผูก</p>
+      } @else {
+        <input
+          type="text"
+          class="account-filter"
+          name="accountFilter"
+          autocomplete="off"
+          [attr.aria-label]="filterLabel"
+          [placeholder]="filterLabel"
+          [value]="query()"
+          (input)="query.set($any($event.target).value)"
+        />
+        <ul class="account-list">
+          @for (a of visible(); track a.id) {
+            <li>
+              <button type="button" class="account" [attr.data-account]="a.id" (click)="pick(a)">
+                <app-line-avatar [name]="a.displayName" [pictureUrl]="a.pictureUrl" [size]="40" />
+                <span class="account-text">
+                  <span class="name">
+                    @if (a.displayName) {
+                      {{ a.displayName }}
+                    } @else {
+                      <ng-container i18n="@@lineAccountPicker.unknownName">ไม่ทราบชื่อ</ng-container>
+                    }
+                  </span>
+                  <span class="seen"><ng-container i18n="@@lineAccountPicker.lastSeen">เห็นล่าสุด</ng-container> {{ seen(a) }}</span>
+                </span>
+              </button>
+            </li>
+          } @empty {
+            <li class="muted" data-no-match i18n="@@lineAccountPicker.noMatch">ไม่พบบัญชี</li>
+          }
+        </ul>
+      }
+      <div class="dialog-actions">
+        <button type="button" class="ghost" data-close (click)="close()" i18n="@@lineAccountPicker.close">ปิด</button>
+      </div>
+    </div>
+  }
+</dialog>

@@ -123,6 +123,7 @@ describe('app routes', () => {
         rating: 1200,
         singlesRating: null,
         winRate: null,
+        lineAccount: null,
       });
 
       const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(false);

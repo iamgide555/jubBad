@@ -7310,6 +7310,18 @@
       </trans-unit>
       <trans-unit id="share.pay.recordFailed" datatype="html"><source>ส่งการ์ดแล้ว แต่ยังบันทึกสถานะไม่ได้</source><target>The card was sent, but its status could not be saved.</target></trans-unit>
       <trans-unit id="share.pay.recordRetry" datatype="html"><source>ลองบันทึกสถานะอีกครั้ง</source><target>Retry saving status</target></trans-unit>
+      <trans-unit id="lineAccountPicker.unknownName" datatype="html"><source>ไม่ทราบชื่อ</source><target>Unknown name</target></trans-unit>
+      <trans-unit id="playerRoster.lineLinkedBySelf" datatype="html"><source>ผู้เล่นผูกเอง</source><target>Linked by player</target></trans-unit>
+      <trans-unit id="playerRoster.lineUnlink" datatype="html"><source>ยกเลิกการผูก</source><target>Unlink</target></trans-unit>
+      <trans-unit id="playerRoster.lineLink" datatype="html"><source>ผูก LINE</source><target>Link LINE</target></trans-unit>
+      <trans-unit id="playerRoster.lineLoadFailed" datatype="html"><source>โหลดบัญชี LINE ไม่สำเร็จ</source><target>Could not load LINE accounts</target></trans-unit>
+      <trans-unit id="playerRoster.lineAlreadyLinked" datatype="html"><source>บัญชีนี้ผูกกับผู้เล่นคนอื่นแล้ว</source><target>This account is already linked to another player</target></trans-unit>
+      <trans-unit id="lineAccountPicker.title" datatype="html"><source>เลือกบัญชี LINE</source><target>Choose a LINE account</target></trans-unit>
+      <trans-unit id="lineAccountPicker.empty" datatype="html"><source>ยังไม่มีบัญชี LINE ที่ยังไม่ได้ผูก</source><target>No unlinked LINE accounts yet</target></trans-unit>
+      <trans-unit id="lineAccountPicker.lastSeen" datatype="html"><source>เห็นล่าสุด</source><target>Last seen</target></trans-unit>
+      <trans-unit id="lineAccountPicker.noMatch" datatype="html"><source>ไม่พบบัญชี</source><target>No account found</target></trans-unit>
+      <trans-unit id="lineAccountPicker.close" datatype="html"><source>ปิด</source><target>Close</target></trans-unit>
+      <trans-unit id="lineAccountPicker.filterLabel" datatype="html"><source>ค้นหาชื่อ LINE</source><target>Search LINE name</target></trans-unit>
     </body>
   </file>
 </xliff>

@@ -8544,6 +8544,94 @@
       <trans-unit id="slipPay.sessionDate" datatype="html">
         <source>บิลวันที่ <x id="INTERPOLATION" equiv-text="{{ v.sessionDate }}"/></source>
       </trans-unit>
+      <trans-unit id="lineAccountPicker.unknownName" datatype="html">
+        <source>ไม่ทราบชื่อ</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/player-roster/player-roster.html</context>
+          <context context-type="linenumber">185,187</context>
+        </context-group>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/shared/line-account-picker/line-account-picker.html</context>
+          <context context-type="linenumber">28,30</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="playerRoster.lineLinkedBySelf" datatype="html">
+        <source>ผู้เล่นผูกเอง</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/player-roster/player-roster.html</context>
+          <context context-type="linenumber">189,191</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="playerRoster.lineUnlink" datatype="html">
+        <source>ยกเลิกการผูก</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/player-roster/player-roster.html</context>
+          <context context-type="linenumber">219,221</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="playerRoster.lineLink" datatype="html">
+        <source>ผูก LINE</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/player-roster/player-roster.html</context>
+          <context context-type="linenumber">221,223</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="playerRoster.lineLoadFailed" datatype="html">
+        <source>โหลดบัญชี LINE ไม่สำเร็จ</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/player-roster/player-roster.ts</context>
+          <context context-type="linenumber">350</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="playerRoster.lineAlreadyLinked" datatype="html">
+        <source>บัญชีนี้ผูกกับผู้เล่นคนอื่นแล้ว</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/player-roster/player-roster.ts</context>
+          <context context-type="linenumber">373</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="lineAccountPicker.title" datatype="html">
+        <source>เลือกบัญชี LINE</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/shared/line-account-picker/line-account-picker.html</context>
+          <context context-type="linenumber">4,5</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="lineAccountPicker.empty" datatype="html">
+        <source>ยังไม่มีบัญชี LINE ที่ยังไม่ได้ผูก</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/shared/line-account-picker/line-account-picker.html</context>
+          <context context-type="linenumber">6,9</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="lineAccountPicker.lastSeen" datatype="html">
+        <source>เห็นล่าสุด</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/shared/line-account-picker/line-account-picker.html</context>
+          <context context-type="linenumber">31,32</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="lineAccountPicker.noMatch" datatype="html">
+        <source>ไม่พบบัญชี</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/shared/line-account-picker/line-account-picker.html</context>
+          <context context-type="linenumber">36,40</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="lineAccountPicker.close" datatype="html">
+        <source>ปิด</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/shared/line-account-picker/line-account-picker.html</context>
+          <context context-type="linenumber">41,45</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="lineAccountPicker.filterLabel" datatype="html">
+        <source>ค้นหาชื่อ LINE</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/shared/line-account-picker/line-account-picker.ts</context>
+          <context context-type="linenumber">28</context>
+        </context-group>
+      </trans-unit>
     </body>
   </file>
 </xliff>

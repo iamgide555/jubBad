@@ -93,11 +93,16 @@ export class PaymentStatus {
     }
   }
 
-  /** A failed role read is not a reason to hide the status: the viewer just gets the read-only list. */
+  /**
+   * Most failed role reads are not a reason to hide the status: the viewer just gets the read-only list. A 404 or 429
+   * is rethrown (load() shows unavailable or the retryable error): the role read runs the same gate as the status
+   * read, so the status read would only be refused again, and each refusal counts against the viewer's budget.
+   */
   private async isCollector(accessToken: string): Promise<boolean> {
     try {
       return (await firstValueFrom(this.api.role(this.code, this.token, accessToken))).collector;
-    } catch {
+    } catch (error) {
+      if (error instanceof HttpErrorResponse && (error.status === 404 || error.status === 429)) throw error;
       return false;
     }
   }

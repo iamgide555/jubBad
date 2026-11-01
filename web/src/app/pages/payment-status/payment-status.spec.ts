@@ -167,6 +167,25 @@ describe('PaymentStatus', () => {
     expect(text()).toContain('Unpaid Person');
   });
 
+  it('goes straight to unavailable when the role read is a 404, without a second refused read', async () => {
+    api.role.mockReturnValue(error(404));
+    await open();
+    expect(api.status).not.toHaveBeenCalled();
+    expect(text()).toContain('ลิงก์นี้ใช้ไม่ได้แล้ว');
+  });
+
+  it('shows the retryable error when the role read is throttled (429), without reading the status', async () => {
+    api.role.mockReturnValue(error(429));
+    await open();
+    expect(api.status).not.toHaveBeenCalled();
+    expect(el().querySelector('[role="alert"]')).not.toBeNull();
+    expect(text()).not.toContain('ลิงก์นี้ใช้ไม่ได้แล้ว');
+    api.role.mockReturnValue(of({ collector: false }));
+    el().querySelector('button')!.click();
+    await flush();
+    expect(text()).toContain('Unpaid Person');
+  });
+
   describe('as the collector', () => {
     let manage: ReturnType<typeof vi.fn>;
     let configure: ReturnType<typeof vi.fn>;

@@ -89,6 +89,8 @@ export class LineAccounts {
         return $localize`:@@lineAccounts.sourceClaim:ผู้เล่นยืนยัน`;
       case 'host':
         return $localize`:@@lineAccounts.sourceHost:ผู้จัด`;
+      case 'link':
+        return $localize`:@@lineAccounts.sourceLink:เชื่อมกลุ่ม`;
     }
   }
 

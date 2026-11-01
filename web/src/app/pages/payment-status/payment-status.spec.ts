@@ -228,5 +228,14 @@ describe('PaymentStatus', () => {
       expect(text()).toContain('ลิงก์นี้ใช้ไม่ได้แล้ว');
       expect(el().querySelector('app-slip-review')).toBeNull();
     });
+
+    it('uses the same management view for owner access and host payment marks', async () => {
+      manage.mockReturnValue(of({ ...MANAGE, paid: [{ playerId: 'p1', source: 'host', at: '2026-11-01T10:00:00Z', amountChangedSince: false, imageId: null }] }));
+      await collectorOpen();
+      expect(manage).toHaveBeenCalledWith('abc');
+      expect(api.status).not.toHaveBeenCalled();
+      const review = fixture.debugElement.query((d) => d.name === 'app-slip-review');
+      expect(review.componentInstance.collectorMode()).toBe(true);
+    });
   });
 });

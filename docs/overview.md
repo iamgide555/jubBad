@@ -1733,7 +1733,8 @@ an unpaid linked sender and a slip amount equal to that person's bill; ambiguous
 the aggregate pending-slip count. Pending is never counted as paid. Existing paid marks remain after bill edits, with an amount-change note when applicable.
 `GET /sessions/:code/slip-pay/status` requires the same verified LINE identity, current confirmation token
 and Host plan as the pay page; reconfirming revokes old links. It returns only the read projection with
-`Cache-Control: no-store`, never review details or LINE profiles. All mutations remain on owner-only routes.
+`Cache-Control: no-store`, never review details or LINE profiles. **Payment mutations** use authenticated host
+routes or the verified owner/collector LINE management routes below.
 Existing chat cards do not change retroactively: send a new card to get the button. Design:
 `docs/archive/specs/2026-10-31-payment-status-design.md`.
 
@@ -1781,10 +1782,20 @@ re-serialise that JSON from its three account fields and would silently drop it.
   holds as nobody with the note **คนที่เลือกไว้ไม่ได้ผูก LINE แล้ว** (`GET /groups/:code/pay-account` answers
   `collectorPlayerId: null, collectorStale: true`), and the payment card's collector line disappears.
 
-**Routes and what is withheld.** `GET /sessions/:code/slip-pay/role` answers `{collector}` and
+**Host LINE access (2026-11-02).** The group's current owner's linked `User.lineUserId` also manages payments
+from the LINE status link, across every group they own. This grant needs no collector assignment, player link,
+directory membership, bot-linked group or enabled DM roster capture. The current card token, confirmed bill,
+Host plan and verified LINE identity are still required. Ownership and host LINE identity are read live on every
+request; unlinking or changing the host account removes this grant, and transferring the group removes the former
+owner's grant. An independently valid collector assignment can still apply. If the host is also the collector,
+host attribution wins: ticks use `source: 'host'` and show **โฮสต์ติ๊ก**. This reuses the existing LINE management
+screen; linking players, reassigning senders and changing the saved receiver name stay in authenticated JubBad.
+
+**Routes and what is withheld.** `GET /sessions/:code/slip-pay/role` answers `{collector}` (true for either
+the linked owner or assigned collector) and
 `/sessions/:code/slip-pay/manage` (panel, slip images, tick, untick, waiting resolve and dismiss, duplicate
 dismiss, close) sit behind the pay-page gate (current token, Host plan, LINE-verified viewer) plus the
-collector match. Every other case is the same uniform 404 as any pay-page failure, so the routes do not
+owner or collector match. Every other case is the same uniform 404 as any pay-page failure, so the routes do not
 reveal that a collector exists; a non-collector's role check is not counted against the throttle, since
 every ordinary player makes one. Each write calls the host's existing method under the session lock, so every
 rule the host is held to (closed collection, amount review, already paid, close readiness) holds
@@ -1837,8 +1848,24 @@ key to `LineAccount`, which holds the name; the link has no name of its own.
 the account and its last-seen time but leaves a stored name and picture alone. Two first sightings racing
 each other hit a unique key; the loser retries once.
 
+**Link-command sightings (2026-11-02).** Successful `/link <code>` in a LINE group adds only the sender to
+the redeemed JubBad group's directory, using the member profile and source `link` (**เชื่อมกลุ่ม** / **Group link**).
+A successful host DM link uses the direct-chat profile and source `host`, and adds a membership only in the group
+that generated the code, provided the linking user still owns it. Other owned groups are not populated. A missing,
+null or transferred code-generating group does not prevent linking the host account; it simply gets no directory
+entry. Failed, expired or used codes and adding the bot alone create no account sighting. A missing group sender
+also skips directory recording. Existing accounts retain their first source and stored profile when the new lookup
+has no profile. Profile or directory failures never reverse successful linking or its success reply.
+
+**Directory membership grants no powers.** Group-link senders are not automatically linked to players and
+receive no payment management access. The host can link an account to a player and assign that player as collector
+in JubBad. The linked owner's payment access comes from ownership, independently of directory membership. New
+link sightings do not backfill accounts from earlier successful commands.
+
 **Disconnecting the LINE group drops the memberships.** `LineLinkService.unlink` / `markLeft` delete the
-group's `LineAccountGroup` rows with its links and slips; the global `LineAccount` rows stay until
+group's `LineAccountGroup` rows with its links and slips; a group-link sender's delayed profile lookup cannot
+recreate a membership after cleanup because insertion shares the group lock and rechecks the live LINE group.
+The global `LineAccount` rows stay until
 `LineAccountsService.sweep` finds that no group lists them and no link uses them.
 
 **Retention.** `sweep` runs from the existing 6-hourly `LinePurgeScheduler` tick. It deletes an *unlinked*

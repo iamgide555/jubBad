@@ -36,6 +36,42 @@ describe('LineClient', () => {
     expect(await client.groupName('C1')).toBeNull();
   });
 
+  describe('userProfile', () => {
+    it('reads a direct-chat profile with bearer auth and encodes the user id', async () => {
+      fetchMock.mockResolvedValue(jsonResponse(200, { displayName: 'Host', pictureUrl: 'https://p/host' }));
+      expect(await client.userProfile('U/1')).toEqual({ displayName: 'Host', pictureUrl: 'https://p/host' });
+      const [url, init] = fetchMock.mock.calls[0];
+      expect(url).toBe('https://api.line.me/v2/bot/profile/U%2F1');
+      expect(init.method).toBe('GET');
+      expect(init.headers.Authorization).toBe('Bearer tok');
+    });
+
+    it.each([undefined, '', 42])('returns a null picture for absent/invalid picture %s', async (pictureUrl) => {
+      fetchMock.mockResolvedValue(jsonResponse(200, { displayName: 'Host', pictureUrl }));
+      expect(await client.userProfile('U1')).toEqual({ displayName: 'Host', pictureUrl: null });
+    });
+
+    it.each([{}, { displayName: 42 }])('refuses malformed profile %j', async (body) => {
+      fetchMock.mockResolvedValue(jsonResponse(200, body));
+      expect(await client.userProfile('U1')).toBeNull();
+    });
+
+    it('returns null for refused or failed lookups and can retry', async () => {
+      fetchMock.mockResolvedValueOnce(jsonResponse(404, { message: 'Not found' }));
+      expect(await client.userProfile('U1')).toBeNull();
+      fetchMock.mockRejectedValueOnce(new Error('offline'));
+      expect(await client.userProfile('U1')).toBeNull();
+      fetchMock.mockResolvedValueOnce(jsonResponse(200, { displayName: 'Host' }));
+      expect(await client.userProfile('U1')).toEqual({ displayName: 'Host', pictureUrl: null });
+    });
+
+    it('does not request a profile without configuration', async () => {
+      delete process.env.LINE_CHANNEL_ACCESS_TOKEN;
+      expect(await client.userProfile('U1')).toBeNull();
+      expect(fetchMock).not.toHaveBeenCalled();
+    });
+  });
+
   it('returns null and makes no request when the access token is unset', async () => {
     delete process.env.LINE_CHANNEL_ACCESS_TOKEN;
     expect(await client.groupName('C1')).toBeNull();

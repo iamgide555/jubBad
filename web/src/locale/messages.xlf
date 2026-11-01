@@ -8858,6 +8858,7 @@
       <trans-unit id="collector.loadFailed" datatype="html">
         <source>โหลดรายชื่อไม่สำเร็จ</source>
       </trans-unit>
+      <trans-unit id="lineAccounts.sourceLink" datatype="html"><source>เชื่อมกลุ่ม</source></trans-unit>
     </body>
   </file>
 </xliff>

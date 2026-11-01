@@ -6,7 +6,8 @@ import request from 'supertest';
 import { PrismaModule } from '../prisma/prisma.module.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { MAX_ATTEMPTS } from '../auth/login-throttle.js';
-import { LineClient } from './line-client.js';
+import { LineClient, type MemberProfile } from './line-client.js';
+import { LineAccountsService } from './line-accounts.service.js';
 import { LineHostService } from './line-host.service.js';
 import { LineLinkService } from './line-link.service.js';
 import { LineModule } from './line.module.js';
@@ -17,7 +18,7 @@ const FAIL_TEXT = 'รหัสไม่ถูกต้องหรือหม�
 
 describe('POST /line/webhook', () => {
   const saved = { ...process.env };
-  const fakeClient = { reply: vi.fn(), replyMessages: vi.fn(), groupName: vi.fn(), memberProfile: vi.fn(), leave: vi.fn() };
+  const fakeClient = { reply: vi.fn(), replyMessages: vi.fn(), groupName: vi.fn(), memberProfile: vi.fn(), userProfile: vi.fn(), leave: vi.fn() };
   let app: INestApplication;
   let prisma: PrismaService;
   let link: LineLinkService;
@@ -107,9 +108,11 @@ describe('POST /line/webhook', () => {
     fakeClient.leave.mockReset().mockResolvedValue(undefined);
     fakeClient.groupName.mockReset().mockResolvedValue('ก๊วนพฤหัส LINE');
     fakeClient.memberProfile.mockReset().mockResolvedValue({ displayName: 'Nok', pictureUrl: null });
+    fakeClient.userProfile.mockReset().mockResolvedValue({ displayName: 'Host', pictureUrl: 'https://p/host' });
   });
 
   afterEach(() => {
+    vi.restoreAllMocks();
     process.env = { ...saved };
   });
 
@@ -137,6 +140,93 @@ describe('POST /line/webhook', () => {
   });
 
   describe('/link', () => {
+    it.each(['unlink', 'left'] as const)('does not recreate directory after %s during profile lookup', async (how) => {
+      const { code, linkCode } = await groupWithCode();
+      const lg = lineId();
+      const sender = `U${randomUUID()}`;
+      let complete!: (profile: MemberProfile) => void;
+      let started!: () => void;
+      const waiting = new Promise<MemberProfile>((resolve) => { complete = resolve; });
+      const entered = new Promise<void>((resolve) => { started = resolve; });
+      fakeClient.memberProfile.mockImplementationOnce(() => {
+        started();
+        return waiting;
+      });
+      const response = post([textEvent(lg, `/link ${linkCode}`, { userId: sender })]).then((res) => res);
+      await entered;
+      try {
+        if (how === 'unlink') await link.unlink(code);
+        else await link.markLeft(lg);
+      } finally {
+        complete({ displayName: 'Sender', pictureUrl: null });
+      }
+      expect((await response).status).toBe(200);
+      expect(await prisma.lineAccountGroup.count({ where: { groupId: code } })).toBe(0);
+      expect(await prisma.lineAccount.count({ where: { lineUserId: sender } })).toBe(0);
+    });
+
+    it('records only successful sender in redeemed group with profile and no player link', async () => {
+      const { code, linkCode } = await groupWithCode();
+      const { code: other } = await groupWithCode();
+      const lg = lineId();
+      const sender = `U${randomUUID()}`;
+      const rejectedSender = `U${randomUUID()}`;
+      fakeClient.memberProfile.mockResolvedValue({ displayName: 'Sender', pictureUrl: 'https://p/sender' });
+      await post([textEvent(lg, `/link ${linkCode}`, { userId: sender })]).expect(200);
+      expect(fakeClient.memberProfile).toHaveBeenCalledExactlyOnceWith(lg, sender);
+      expect(await prisma.lineAccountGroup.findMany({ where: { lineAccount: { lineUserId: sender } } })).toMatchObject([
+        { groupId: code, source: 'link' },
+      ]);
+      expect(await prisma.lineAccountGroup.count({ where: { groupId: other } })).toBe(0);
+      expect(await prisma.lineAccount.findUnique({ where: { lineUserId: sender } })).toMatchObject({ displayName: 'Sender', pictureUrl: 'https://p/sender' });
+      expect(await prisma.playerLineAccount.count({ where: { groupId: code } })).toBe(0);
+      fakeClient.memberProfile.mockClear();
+      await post([textEvent(lg, `/link ${linkCode}`, { userId: rejectedSender })]).expect(200);
+      expect(fakeClient.memberProfile).not.toHaveBeenCalled();
+      expect(await prisma.lineAccount.count({ where: { lineUserId: rejectedSender } })).toBe(0);
+    });
+
+    it.each(['null', 'reject'] as const)('still records unknown sender profile when lookup returns %s', async (failure) => {
+      const { code, linkCode } = await groupWithCode();
+      const sender = `U${randomUUID()}`;
+      if (failure === 'null') fakeClient.memberProfile.mockResolvedValueOnce(null);
+      else fakeClient.memberProfile.mockRejectedValueOnce(new Error('profile offline'));
+      await post([textEvent(lineId(), `/link ${linkCode}`, { userId: sender })]).expect(200);
+      expect(await prisma.lineAccountGroup.findFirst({ where: { groupId: code, lineAccount: { lineUserId: sender } } })).toMatchObject({ source: 'link' });
+      expect(await prisma.lineAccount.findUnique({ where: { lineUserId: sender } })).toMatchObject({ displayName: null, pictureUrl: null });
+      expect(fakeClient.reply.mock.calls[0][1]).not.toBe(FAIL_TEXT);
+    });
+
+    it('directory write failure does not undo group linking or its success reply', async () => {
+      const { code, linkCode } = await groupWithCode();
+      const lg = lineId();
+      const touch = vi.spyOn(app.get(LineAccountsService), 'touch').mockRejectedValueOnce(new Error('directory offline'));
+      await post([textEvent(lg, `/link ${linkCode}`)]).expect(200);
+      expect(touch).toHaveBeenCalledTimes(1);
+      expect((await prisma.group.findUniqueOrThrow({ where: { code } })).lineGroupId).toBe(lg);
+      expect(fakeClient.reply.mock.calls[0][1]).not.toBe(FAIL_TEXT);
+      expect(await link.redeem(lg, linkCode)).toBeNull();
+    });
+
+    it('missing sender still links group without profile lookup or directory write', async () => {
+      const { code, linkCode } = await groupWithCode();
+      const lg = lineId();
+      const touch = vi.spyOn(app.get(LineAccountsService), 'touch');
+      await post([textEvent(lg, `/link ${linkCode}`, { userId: null })]).expect(200);
+      expect((await prisma.group.findUniqueOrThrow({ where: { code } })).lineGroupId).toBe(lg);
+      expect(touch).not.toHaveBeenCalled();
+      expect(fakeClient.memberProfile).not.toHaveBeenCalled();
+    });
+
+    it('invalid and expired codes do not observe senders', async () => {
+      const { code, linkCode } = await groupWithCode();
+      await prisma.lineLinkCode.updateMany({ where: { groupId: code }, data: { expiresAt: new Date(0) } });
+      const touch = vi.spyOn(app.get(LineAccountsService), 'touch');
+      await post([textEvent(lineId(), `/link ${linkCode}`), textEvent(lineId(), '/link ZZZZZZ')]).expect(200);
+      expect(fakeClient.memberProfile).not.toHaveBeenCalled();
+      expect(touch).not.toHaveBeenCalled();
+    });
+
     it('links the LINE group on a valid code and replies once with what the bot keeps', async () => {
       const { code, linkCode } = await groupWithCode();
       const lg = lineId();
@@ -348,18 +438,45 @@ describe('POST /line/webhook', () => {
       expect(text).toContain('เฉพาะข้อความรายชื่อ');
     });
 
+    it.each(['null', 'reject', 'write'] as const)('host link survives profile/directory failure: %s', async (failure) => {
+      const userId = await makeUser();
+      const groupCode = await ownedGroup(userId, false);
+      const { code } = await host.createCode(groupCode);
+      const line = lineUser();
+      if (failure === 'null') fakeClient.userProfile.mockResolvedValueOnce(null);
+      if (failure === 'reject') fakeClient.userProfile.mockRejectedValueOnce(new Error('profile offline'));
+      const touch = vi.spyOn(app.get(LineAccountsService), 'touch');
+      if (failure === 'write') touch.mockRejectedValueOnce(new Error('directory offline'));
+      await post([dm(line, `/link ${code}`)]).expect(200);
+      expect(fakeClient.userProfile).toHaveBeenCalledExactlyOnceWith(line);
+      expect(touch).toHaveBeenCalledTimes(1);
+      expect((await prisma.user.findUniqueOrThrow({ where: { id: userId } })).lineUserId).toBe(line);
+      expect(fakeClient.reply.mock.calls[0][1]).not.toBe(FAIL_TEXT);
+      expect(await host.redeem(line, code)).toBeNull();
+      if (failure !== 'write') {
+        expect(await prisma.lineAccount.findUnique({ where: { lineUserId: line } })).toMatchObject({ displayName: null, pictureUrl: null });
+        expect(await prisma.lineAccountGroup.findFirst({ where: { groupId: groupCode, lineAccount: { lineUserId: line } } })).toMatchObject({ source: 'host' });
+      }
+    });
+
     it('names the group the code was made for in the reply, and switches only that group on', async () => {
       const userId = await makeUser();
       const first = await ownedGroup(userId, false);
       const second = await ownedGroup(userId, false);
       const { code } = await host.createCode(first);
-      await post([dm(lineUser(), `/link ${code}`)]).expect(200);
+      const line = lineUser();
+      await post([dm(line, `/link ${code}`)]).expect(200);
       expect(fakeClient.reply).toHaveBeenCalledTimes(1);
       const text = fakeClient.reply.mock.calls[0][1] as string;
       expect(text).toContain(`«ก๊วน ${first}»`);
       expect(text).not.toContain(second);
       expect((await prisma.group.findUniqueOrThrow({ where: { code: first } })).lineDmEnabled).toBe(true);
       expect((await prisma.group.findUniqueOrThrow({ where: { code: second } })).lineDmEnabled).toBe(false);
+      expect(fakeClient.userProfile).toHaveBeenCalledExactlyOnceWith(line);
+      expect(await prisma.lineAccountGroup.findMany({ where: { lineAccount: { lineUserId: line } } })).toMatchObject([{ groupId: first, source: 'host' }]);
+      expect(await prisma.lineAccountGroup.count({ where: { groupId: second } })).toBe(0);
+      expect(await prisma.lineAccount.findUnique({ where: { lineUserId: line } })).toMatchObject({ displayName: 'Host', pictureUrl: 'https://p/host' });
+      expect(await prisma.playerLineAccount.count({ where: { groupId: first } })).toBe(0);
     });
 
     it('replies without a group name when the group moved away before the code was used', async () => {
@@ -373,6 +490,8 @@ describe('POST /line/webhook', () => {
       expect(text).not.toBe(FAIL_TEXT);
       expect(text).not.toContain('«');
       expect((await prisma.user.findUniqueOrThrow({ where: { id: userId } })).lineUserId).not.toBeNull();
+      expect(fakeClient.userProfile).not.toHaveBeenCalled();
+      expect(await prisma.lineAccountGroup.count({ where: { groupId: first } })).toBe(0);
     });
 
     it('replies the generic failure on a wrong code and links nothing', async () => {
@@ -381,6 +500,8 @@ describe('POST /line/webhook', () => {
       expect(fakeClient.reply).toHaveBeenCalledTimes(1);
       expect(fakeClient.reply.mock.calls[0][1]).toBe(FAIL_TEXT);
       expect(await prisma.user.count({ where: { lineUserId: line } })).toBe(0);
+      expect(fakeClient.userProfile).not.toHaveBeenCalled();
+      expect(await prisma.lineAccount.count({ where: { lineUserId: line } })).toBe(0);
     });
 
     it('replies the generic failure when the LINE user is already linked, and links no one else', async () => {
@@ -391,6 +512,26 @@ describe('POST /line/webhook', () => {
       await post([dm(line, `/link ${code}`)]).expect(200);
       expect(fakeClient.reply.mock.calls.map((c) => c[1])).toEqual([FAIL_TEXT]);
       expect((await prisma.user.findUniqueOrThrow({ where: { id: otherId } })).lineUserId).toBeNull();
+    });
+
+    it.each(['expired', 'used'] as const)('does not observe a sender using a %s host code', async (state) => {
+      const userId = await makeUser();
+      const groupCode = await ownedGroup(userId, false);
+      const { code } = await host.createCode(groupCode);
+      if (state === 'expired') {
+        await prisma.lineUserLinkCode.updateMany({ where: { userId }, data: { expiresAt: new Date(0) } });
+      } else {
+        await post([dm(lineUser(), `/link ${code}`)]).expect(200);
+      }
+      fakeClient.userProfile.mockClear();
+      fakeClient.reply.mockClear();
+      const touch = vi.spyOn(app.get(LineAccountsService), 'touch');
+      const line = lineUser();
+      await post([dm(line, `/link ${code}`)]).expect(200);
+      expect(fakeClient.userProfile).not.toHaveBeenCalled();
+      expect(touch).not.toHaveBeenCalled();
+      expect(fakeClient.reply.mock.calls[0][1]).toBe(FAIL_TEXT);
+      expect(await prisma.lineAccount.count({ where: { lineUserId: line } })).toBe(0);
     });
 
     it('drops bad codes from one LINE user silently once throttled, on a key apart from the group throttle', async () => {

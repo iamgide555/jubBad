@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { LoginThrottle } from '../auth/login-throttle.js';
-import { LineClient } from './line-client.js';
+import { LineAccountsService } from './line-accounts.service.js';
+import { LineClient, type MemberProfile } from './line-client.js';
 import { LineHostRosterService, type HostReply } from './line-host-roster.service.js';
 import { LineHostService } from './line-host.service.js';
 import { LineLinkService } from './line-link.service.js';
@@ -46,7 +47,8 @@ export class LineWebhookService {
     private readonly roster: LineRosterService,
     private readonly client: LineClient,
     private readonly host: LineHostService,
-    private readonly hostRoster: LineHostRosterService
+    private readonly hostRoster: LineHostRosterService,
+    private readonly accounts: LineAccountsService,
   ) {}
 
   async handleEvent(event: LineEvent): Promise<void> {
@@ -102,6 +104,9 @@ export class LineWebhookService {
     const linked = await this.link.redeem(groupId, code);
     if (linked) this.throttle.recordSuccess(key);
     else this.throttle.recordFailure(key);
+    if (linked && senderUserId !== null) {
+      await this.recordLinkAccount(linked.groupCode, senderUserId, 'link', () => this.client.memberProfile(groupId, senderUserId), groupId);
+    }
     if (replyToken) await this.client.reply(replyToken, linked ? linkedText(linked.groupName) : LINK_FAILED_TEXT);
   }
 
@@ -152,7 +157,40 @@ export class LineWebhookService {
     const linked = await this.host.redeem(lineUserId, code);
     if (linked) this.throttle.recordSuccess(key);
     else this.throttle.recordFailure(key);
+    if (linked?.groupCode) {
+      await this.recordLinkAccount(linked.groupCode, lineUserId, 'host', () => this.client.userProfile(lineUserId));
+    }
     if (replyToken) await this.client.reply(replyToken, linked ? hostLinkedText(linked.groupName) : LINK_FAILED_TEXT);
+  }
+
+  /** Directory sightings never grant access or roll back a successful link; a missing profile never blanks one. */
+  private async recordLinkAccount(
+    groupCode: string,
+    lineUserId: string,
+    source: 'host' | 'link',
+    loadProfile: () => Promise<MemberProfile | null>,
+    lineGroupId?: string,
+  ): Promise<void> {
+    let profile: MemberProfile | null = null;
+    try {
+      profile = await loadProfile();
+    } catch {
+      this.logger.warn('link profile lookup failed');
+    }
+    try {
+      const sighting = {
+        lineUserId,
+        displayName: profile?.displayName ?? null,
+        pictureUrl: profile?.pictureUrl ?? null,
+      };
+      if (source === 'link' && lineGroupId !== undefined) {
+        await this.link.recordSender(groupCode, lineGroupId, sighting);
+      } else {
+        await this.accounts.touch(groupCode, sighting, source);
+      }
+    } catch {
+      this.logger.warn('link directory recording failed');
+    }
   }
 
   private async send(replyToken: string | undefined, reply: HostReply): Promise<void> {

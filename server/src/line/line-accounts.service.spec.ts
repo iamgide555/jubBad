@@ -70,6 +70,26 @@ describe('LineAccountsService.touch', () => {
     ]);
   });
 
+  it('lists a group-link sighting without auto-linking a player and preserves earlier sources/profiles', async () => {
+    const groupId = await makeGroup();
+    const p = profile('Linked sender', 'https://p/sender');
+    const first = new Date('2026-11-01T10:00:00Z');
+    const later = new Date('2026-11-02T10:00:00Z');
+    await accounts.touch(groupId, p, 'link', first);
+    expect(await accounts.list(groupId)).toMatchObject([{ source: 'link', player: null }]);
+    await accounts.touch(groupId, { ...p, displayName: null, pictureUrl: null }, 'roster', later);
+    expect(await accounts.list(groupId)).toMatchObject([{
+      source: 'link', player: null, displayName: 'Linked sender', pictureUrl: 'https://p/sender',
+      firstSeenAt: first.toISOString(), lastSeenAt: later.toISOString(),
+    }]);
+    const earlier = profile('Roster sender', 'https://p/roster');
+    await accounts.touch(groupId, earlier, 'roster', first);
+    await accounts.touch(groupId, { ...earlier, displayName: null, pictureUrl: null }, 'link', later);
+    expect(await account(earlier.lineUserId)).toMatchObject({ displayName: 'Roster sender', pictureUrl: 'https://p/roster' });
+    expect(await memberships(earlier.lineUserId)).toMatchObject([{ source: 'roster', lastSeenAt: later }]);
+    expect(await prisma.playerLineAccount.count({ where: { groupId } })).toBe(0);
+  });
+
   it('touch with null name/picture never blanks stored values', async () => {
     const groupId = await makeGroup();
     const p = profile('A', 'https://a');

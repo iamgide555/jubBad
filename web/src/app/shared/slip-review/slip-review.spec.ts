@@ -648,6 +648,16 @@ describe('SlipReview', () => {
   describe('collector seam', () => {
     const recv = () => waiting({ reason: 'receiver', receiverName: 'จิตติญา ฉ.', receiverTail: '1234' });
 
+    it('shows host ticks in LINE management while keeping account linking and name changes in JubBad', async () => {
+      await open(panel({ paid: [paid({ playerId: 'a', source: 'host' })], waiting: [recv()], links: [link()] }), {
+        savedName: 'จิตติญา ฉัตรเฉลิมวิทย์', collectorMode: true,
+      });
+      expect(q('[data-chip]')!.textContent!.trim()).toBe('โฮสต์ติ๊ก');
+      expect(q('[data-sender]')).toBeNull();
+      expect(q('[data-links]')).toBeNull();
+      expect(q('[data-update-name]')).toBeNull();
+    });
+
     it('names a collector tick and unticks it on tap without a dialog', async () => {
       await open(panel({ paid: [paid({ playerId: 'a', source: 'collector' })] }));
       expect(q('[data-chip]')!.textContent!.trim()).toBe('ผู้รับเงินติ๊ก');

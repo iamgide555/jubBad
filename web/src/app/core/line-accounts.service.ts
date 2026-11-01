@@ -7,7 +7,7 @@ export interface LineAccountRow {
   id: string;
   displayName: string | null;
   pictureUrl: string | null;
-  source: 'roster' | 'slip' | 'claim' | 'host';
+  source: 'roster' | 'slip' | 'claim' | 'host' | 'link';
   firstSeenAt: string;
   lastSeenAt: string;
   player: { id: string; name: string; linkedBy: 'self' | 'host' } | null;

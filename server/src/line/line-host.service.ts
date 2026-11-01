@@ -163,7 +163,7 @@ export class LineHostService {
     lineUserId: string,
     rawCode: string,
     now: Date = new Date(),
-  ): Promise<{ userId: string; groupName: string | null } | null> {
+  ): Promise<{ userId: string; groupName: string | null; groupCode: string | null } | null> {
     const code = normalizeCode(rawCode);
     if (code === null) return null;
     const codeHash = hashCode(code);
@@ -182,6 +182,7 @@ export class LineHostService {
       return null;
 
     let groupName: string | null = null;
+    let groupCode: string | null = null;
     try {
       await this.prisma.$transaction(async (tx) => {
         const claimed = await tx.lineUserLinkCode.updateMany({
@@ -206,6 +207,7 @@ export class LineHostService {
               select: { name: true, code: true },
             });
             groupName = group?.name?.trim() || group?.code || null;
+            groupCode = group?.code ?? null;
           }
         }
       });
@@ -219,7 +221,7 @@ export class LineHostService {
         return null;
       throw error;
     }
-    return { userId, groupName };
+    return { userId, groupName, groupCode };
   }
 
   /**

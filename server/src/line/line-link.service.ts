@@ -5,6 +5,7 @@ import { planAtLeast } from '../plans/plan.js';
 import { PlansService } from '../plans/plans.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { LineClient } from './line-client.js';
+import { LineAccountsService, type LineProfile } from './line-accounts.service.js';
 import { CODE_TTL_MS, hashCode, newCode, normalizeCode } from './line-code.js';
 import { lineConfig } from './line-config.js';
 
@@ -30,7 +31,8 @@ export class LineLinkService {
     private readonly prisma: PrismaService,
     private readonly plans: PlansService,
     private readonly client: LineClient,
-    private readonly images: SlipImagesService
+    private readonly images: SlipImagesService,
+    private readonly accounts: LineAccountsService,
   ) {}
 
   async status(groupCode: string): Promise<LineStatus> {
@@ -133,6 +135,15 @@ export class LineLinkService {
       await this.prisma.group.update({ where: { code: groupCode }, data: { lineGroupName: lineName } });
     }
     return { groupCode, groupName };
+  }
+
+  /** A slow profile lookup must not recreate directory membership after unlink/leave cleanup. */
+  recordSender(groupCode: string, lineGroupId: string, profile: LineProfile): Promise<void> {
+    return this.images.withGroupLock(groupCode, async () => {
+      const group = await this.prisma.group.findUnique({ where: { code: groupCode }, select: { lineGroupId: true } });
+      if (group?.lineGroupId !== lineGroupId) return;
+      await this.accounts.touch(groupCode, profile, 'link');
+    });
   }
 
   /**

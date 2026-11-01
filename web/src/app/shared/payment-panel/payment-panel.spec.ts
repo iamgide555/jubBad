@@ -1711,6 +1711,39 @@ describe('PaymentCardPanel', () => {
       expect(body.collectorPlayerId).toBeNull();
     });
 
+    it('shows no empty owner block for a different account when nobody has LINE linked and nothing is set', async () => {
+      await open();
+      await expandAccount();
+      await type('input[data-field="number"]', '111-1-11111-1');
+      http.expectOne(ACCOUNTS_URL).flush([]);
+      await settle();
+      expect(q('[data-collector-picker]')).toBeNull();
+      expect(q<HTMLElement>('[data-night-collector]')!.hidden).toBe(true);
+      expect(text()).not.toContain('เจ้าของบัญชี');
+      const body = await confirm(panel({ confirmed: true }));
+      expect(body.collectorPlayerId).toBeNull();
+    });
+
+    it('keeps the owner block when there is someone to pick', async () => {
+      await open();
+      await expandAccount();
+      await type('input[data-field="number"]', '111-1-11111-1');
+      await lineLinked();
+      expect(q('[data-collector-picker]')).not.toBeNull();
+      expect(q<HTMLElement>('[data-night-collector]')!.hidden).toBe(false);
+    });
+
+    it('keeps the owner block to clear a night pick whose player is not in the linked list', async () => {
+      await open(
+        panel({ account: OTHER_ACCOUNT, confirmed: true, collector: { playerId: 'p1', playerName: 'Amp', lineName: 'Amp line', pictureUrl: null } })
+      );
+      http.expectOne(ACCOUNTS_URL).flush([]);
+      await settle();
+      expect(q('[data-collector-stale]')).not.toBeNull();
+      expect(q('[data-collector-option="none"]')).not.toBeNull();
+      expect(q<HTMLElement>('[data-night-collector]')!.hidden).toBe(false);
+    });
+
     it('hides the picker again when the group account is put back', async () => {
       await open(panel({ account: OTHER_ACCOUNT, confirmed: true, collector: { playerId: 'p1', playerName: 'Amp', lineName: 'Amp line', pictureUrl: null } }));
       await lineLinked();

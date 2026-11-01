@@ -46,13 +46,19 @@ describe('CollectorPicker', () => {
     fixture.detectChanges();
   };
 
-  async function open(rows: LineAccountRow[], value: string | null = null, disabled = false) {
+  async function open(
+    rows: LineAccountRow[],
+    value: string | null = null,
+    disabled = false,
+    more: { lapsed?: boolean; optional?: boolean } = {}
+  ) {
     await TestBed.configureTestingModule({ providers: [provideHttpClient(), provideHttpClientTesting()] }).compileComponents();
     http = TestBed.inject(HttpTestingController);
     fixture = TestBed.createComponent(CollectorPicker);
     fixture.componentRef.setInput('groupCode', 'g1');
     fixture.componentRef.setInput('value', value);
     fixture.componentRef.setInput('disabled', disabled);
+    for (const [name, v] of Object.entries(more)) fixture.componentRef.setInput(name, v);
     chosen = [];
     fixture.componentInstance.chosen.subscribe((v) => chosen.push(v));
     fixture.detectChanges();
@@ -148,9 +154,98 @@ describe('CollectorPicker', () => {
     expect(chosen).toEqual([]);
   });
 
-  it('refuses taps while disabled', async () => {
+  it('refuses taps while disabled, but keeps the options focusable (aria-disabled, not disabled)', async () => {
     await open([row('a')], null, true);
-    expect(q<HTMLButtonElement>('[data-collector-option="p-a"]')!.disabled).toBe(true);
+    const option = q<HTMLButtonElement>('[data-collector-option="p-a"]')!;
+    expect(option.disabled).toBe(false);
+    expect(option.getAttribute('aria-disabled')).toBe('true');
+    option.focus();
+    option.click();
+    await settle();
+    expect(q<HTMLDialogElement>('dialog')!.hasAttribute('open')).toBe(false);
+    expect(document.activeElement).toBe(option);
+    expect(chosen).toEqual([]);
+  });
+
+  it('turns aria-disabled off again once enabled', async () => {
+    await open([row('a')], null, true);
+    fixture.componentRef.setInput('disabled', false);
+    await settle();
+    expect(q('[data-collector-option="p-a"]')!.hasAttribute('aria-disabled')).toBe(false);
+  });
+
+  it('names the dialog by its question', async () => {
+    await open([row('a')]);
+    q('[data-collector-option="p-a"]')!.click();
+    await settle();
+    const dialog = q<HTMLDialogElement>('dialog')!;
+    const id = dialog.getAttribute('aria-labelledby');
+    expect(id).toBeTruthy();
+    expect(el().querySelector(`#${id}`)).toBe(q('[data-collector-text]'));
+  });
+
+  it('can clear a stale value when nobody is linked any more', async () => {
+    await open([row('b', { player: null })], 'p-gone');
+    expect(q('[data-collector-empty]')).not.toBeNull();
+    expect(q('[data-collector-stale]')).not.toBeNull();
+    expect(q('[data-collector-option="none"]')!.getAttribute('aria-pressed')).toBe('true');
+    q('[data-collector-option="none"]')!.click();
+    await settle();
+    expect(q('[data-collector-text]')!.textContent).toContain('ไม่ให้ใครจัดการการชำระเงินใน LINE?');
+    q('[data-collector-confirm]')!.click();
+    await settle();
+    expect(chosen).toEqual([null]);
+  });
+
+  it('shows a pick the server reports lapsed as nobody with the note, and lets it be cleared', async () => {
+    await open([row('a')], null, false, { lapsed: true });
+    expect(q('[data-collector-option="none"]')!.getAttribute('aria-pressed')).toBe('true');
+    expect(q('[data-collector-option="p-a"]')!.getAttribute('aria-pressed')).toBe('false');
+    expect(q('[data-collector-stale]')!.textContent).toContain('คนที่เลือกไว้ไม่ได้ผูก LINE แล้ว');
+    q('[data-collector-option="none"]')!.click();
+    await settle();
+    q('[data-collector-confirm]')!.click();
+    await settle();
+    expect(chosen).toEqual([null]);
+  });
+
+  it('offers nobody for a lapsed pick even when nobody is linked any more', async () => {
+    await open([], null, false, { lapsed: true });
+    expect(q('[data-collector-option="none"]')).not.toBeNull();
+    expect(q('[data-collector-stale]')).not.toBeNull();
+  });
+
+  describe('optional', () => {
+    it('renders nothing when nobody is linked and nothing is set', async () => {
+      await open([row('b', { player: null })], null, false, { optional: true });
+      expect(q('[data-collector-picker]')).toBeNull();
+      expect(el().hidden).toBe(true);
+    });
+
+    it('still renders when there is someone to pick', async () => {
+      await open([row('a')], null, false, { optional: true });
+      expect(q('[data-collector-picker]')).not.toBeNull();
+      expect(el().hidden).toBe(false);
+    });
+
+    it('still renders a stale value to clear', async () => {
+      await open([], 'p-gone', false, { optional: true });
+      expect(q('[data-collector-option="none"]')).not.toBeNull();
+      expect(el().hidden).toBe(false);
+    });
+
+    it('still renders when the list cannot be read', async () => {
+      await TestBed.configureTestingModule({ providers: [provideHttpClient(), provideHttpClientTesting()] }).compileComponents();
+      http = TestBed.inject(HttpTestingController);
+      fixture = TestBed.createComponent(CollectorPicker);
+      fixture.componentRef.setInput('groupCode', 'g1');
+      fixture.componentRef.setInput('optional', true);
+      fixture.detectChanges();
+      http.expectOne(URL).flush('x', { status: 500, statusText: 'x' });
+      await settle();
+      expect(q('[data-collector-load-failed]')).not.toBeNull();
+      expect(el().hidden).toBe(false);
+    });
   });
 
   it('offers a retry when the list cannot be read', async () => {

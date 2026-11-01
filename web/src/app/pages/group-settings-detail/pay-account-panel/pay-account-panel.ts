@@ -44,6 +44,8 @@ export class PayAccountPanel implements OnInit {
   /** An account is saved on the server, so a collector can be set on it. */
   protected readonly hasSavedAccount = signal(false);
   protected readonly collector = signal<string | null>(null);
+  /** The saved pick no longer holds (its LINE account was unlinked or replaced): the picker shows it lapsed. */
+  protected readonly collectorStale = signal(false);
   protected readonly collectorBusy = signal(false);
   protected readonly collectorError = signal<string | null>(null);
   protected readonly collectorSaved = signal(false);
@@ -64,6 +66,7 @@ export class PayAccountPanel implements OnInit {
       this.fill(read.account);
       this.hasSavedAccount.set(read.account !== null);
       this.collector.set(read.account === null ? null : read.collectorPlayerId);
+      this.collectorStale.set(read.account !== null && read.collectorStale);
       this.loaded.set(true);
     } catch {
       this.loadFailed.set(true);
@@ -149,7 +152,10 @@ export class PayAccountPanel implements OnInit {
       this.fill(saved);
       this.hasSavedAccount.set(saved !== null);
       // The server drops the collector with the account it belonged to.
-      if (saved === null) this.collector.set(null);
+      if (saved === null) {
+        this.collector.set(null);
+        this.collectorStale.set(false);
+      }
       this.confirmingClear.set(false);
       this.fieldErrors.set({});
       this.notice.set(saved ? 'saved' : 'cleared');
@@ -173,6 +179,8 @@ export class PayAccountPanel implements OnInit {
     this.collectorSaved.set(false);
     try {
       this.collector.set(await firstValueFrom(this.payAccounts.setCollector(this.groupCode(), playerId)));
+      // A pick (or a clear) just saved holds: the server pinned the LINE account linked right now.
+      this.collectorStale.set(false);
       this.collectorSaved.set(true);
     } catch (err) {
       const invalid = err instanceof HttpErrorResponse && (err.error as { code?: unknown } | null)?.code === 'COLLECTOR_INVALID';

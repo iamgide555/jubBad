@@ -47,7 +47,9 @@ describe('PayAccountPanel', () => {
   const name = () => q('#pay-name') as HTMLInputElement;
   const error = () => q('[data-pay-error]')?.textContent?.trim();
 
-  async function open(initial: { account: typeof ACCOUNT | null; collectorPlayerId?: string | null } | 'failed' = { account: null }) {
+  async function open(
+    initial: { account: typeof ACCOUNT | null; collectorPlayerId?: string | null; collectorStale?: boolean } | 'failed' = { account: null }
+  ) {
     await TestBed.configureTestingModule({
       providers: [provideHttpClient(), provideHttpClientTesting()],
     }).compileComponents();
@@ -435,6 +437,48 @@ describe('PayAccountPanel', () => {
       httpMock.expectOne({ url: COLLECTOR_URL, method: 'PUT' }).flush('x', { status: 500, statusText: 'x' });
       await tick();
       expect(q('[data-collector-error]')!.textContent).toContain('บันทึกไม่สำเร็จ');
+    });
+
+    it('shows a lapsed pick as nobody with the note, and the note goes once a new pick is saved', async () => {
+      await open({ account: ACCOUNT, collectorPlayerId: null, collectorStale: true });
+      httpMock.expectOne(ACCOUNTS_URL).flush([LINKED]);
+      await tick();
+      expect(q('[data-collector-option="none"]')!.getAttribute('aria-pressed')).toBe('true');
+      expect(q('[data-collector-option="p1"]')!.getAttribute('aria-pressed')).toBe('false');
+      expect(q('[data-collector-stale]')!.textContent).toContain('คนที่เลือกไว้ไม่ได้ผูก LINE แล้ว');
+      await choose('p1');
+      httpMock.expectOne({ url: COLLECTOR_URL, method: 'PUT' }).flush({ collectorPlayerId: 'p1' });
+      await tick();
+      expect(q('[data-collector-stale]')).toBeNull();
+      expect(q('[data-collector-option="p1"]')!.getAttribute('aria-pressed')).toBe('true');
+    });
+
+    it('clears a lapsed pick with nobody', async () => {
+      await open({ account: ACCOUNT, collectorPlayerId: null, collectorStale: true });
+      httpMock.expectOne(ACCOUNTS_URL).flush([]);
+      await tick();
+      await choose('none');
+      const req = httpMock.expectOne({ url: COLLECTOR_URL, method: 'PUT' });
+      expect(req.request.body).toEqual({ playerId: null });
+      req.flush({ collectorPlayerId: null });
+      await tick();
+      expect(q('[data-collector-stale]')).toBeNull();
+    });
+
+    it('keeps focus on the option while the pick saves (aria-disabled, not disabled)', async () => {
+      await open({ account: ACCOUNT, collectorPlayerId: null });
+      httpMock.expectOne(ACCOUNTS_URL).flush([LINKED]);
+      await tick();
+      const option = q('[data-collector-option="p1"]')!;
+      option.focus();
+      await choose('p1');
+      const busy = q('[data-collector-option="p1"]') as HTMLButtonElement;
+      expect(busy.disabled).toBe(false);
+      expect(busy.getAttribute('aria-disabled')).toBe('true');
+      expect(document.activeElement).toBe(option);
+      httpMock.expectOne({ url: COLLECTOR_URL, method: 'PUT' }).flush({ collectorPlayerId: 'p1' });
+      await tick();
+      expect(q('[data-collector-option="p1"]')!.hasAttribute('aria-disabled')).toBe(false);
     });
 
     it('removes the picker when the account is cleared', async () => {

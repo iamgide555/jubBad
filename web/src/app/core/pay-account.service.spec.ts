@@ -50,14 +50,20 @@ describe('PayAccountService', () => {
 
   it('reads the account together with the collector', async () => {
     const result = firstValueFrom(service.getWithCollector('group1'));
-    httpMock.expectOne({ url: URL, method: 'GET' }).flush({ account: ACCOUNT, collectorPlayerId: 'p1' });
-    expect(await result).toEqual({ account: ACCOUNT, collectorPlayerId: 'p1' });
+    httpMock.expectOne({ url: URL, method: 'GET' }).flush({ account: ACCOUNT, collectorPlayerId: 'p1', collectorStale: false });
+    expect(await result).toEqual({ account: ACCOUNT, collectorPlayerId: 'p1', collectorStale: false });
+  });
+
+  it('reads a lapsed pick as stale', async () => {
+    const result = firstValueFrom(service.getWithCollector('group1'));
+    httpMock.expectOne(URL).flush({ account: ACCOUNT, collectorPlayerId: null, collectorStale: true });
+    expect(await result).toEqual({ account: ACCOUNT, collectorPlayerId: null, collectorStale: true });
   });
 
   it('reads a missing collector as null', async () => {
     const result = firstValueFrom(service.getWithCollector('group1'));
     httpMock.expectOne(URL).flush({ account: null });
-    expect(await result).toEqual({ account: null, collectorPlayerId: null });
+    expect(await result).toEqual({ account: null, collectorPlayerId: null, collectorStale: false });
   });
 
   it('sets the collector with PUT and returns the stored id', async () => {

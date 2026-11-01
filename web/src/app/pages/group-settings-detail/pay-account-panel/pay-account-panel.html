@@ -70,7 +70,13 @@
     </form>
     @if (hasSavedAccount()) {
       <div class="pay-collector" data-pay-collector>
-        <app-collector-picker [groupCode]="groupCode()" [value]="collector()" [disabled]="collectorBusy()" (chosen)="chooseCollector($event)">
+        <app-collector-picker
+          [groupCode]="groupCode()"
+          [value]="collector()"
+          [lapsed]="collectorStale()"
+          [disabled]="collectorBusy()"
+          (chosen)="chooseCollector($event)"
+        >
           <ng-container i18n="@@collector.label">เจ้าของบัญชี</ng-container>
         </app-collector-picker>
         @if (collectorError()) {

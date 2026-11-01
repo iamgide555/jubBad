@@ -24,11 +24,23 @@ export class PayAccountService {
     return this.http.get<{ account: PayAccount | null }>(this.url(groupCode)).pipe(map((r) => r.account));
   }
 
-  /** The account and who may manage its payments in LINE (a player id), both null when unset. */
-  getWithCollector(groupCode: string): Observable<{ account: PayAccount | null; collectorPlayerId: string | null }> {
+  /**
+   * The account and who may manage its payments in LINE (a player id), both null when unset. A saved pick that no
+   * longer holds (the LINE account pinned at the pick was unlinked or replaced) reads as no collector with
+   * `collectorStale`, so the host sees it lapsed and picks again.
+   */
+  getWithCollector(
+    groupCode: string
+  ): Observable<{ account: PayAccount | null; collectorPlayerId: string | null; collectorStale: boolean }> {
     return this.http
-      .get<{ account: PayAccount | null; collectorPlayerId?: string | null }>(this.url(groupCode))
-      .pipe(map((r) => ({ account: r.account, collectorPlayerId: r.collectorPlayerId ?? null })));
+      .get<{ account: PayAccount | null; collectorPlayerId?: string | null; collectorStale?: boolean }>(this.url(groupCode))
+      .pipe(
+        map((r) => ({
+          account: r.account,
+          collectorPlayerId: r.collectorPlayerId ?? null,
+          collectorStale: r.collectorStale === true,
+        }))
+      );
   }
 
   /**

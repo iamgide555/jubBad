@@ -18,7 +18,7 @@ model Group {
   /// break a fresh deploy before the first boot has run.
   ownerId   String?
   owner     User?     @relation(fields: [ownerId], references: [id])
-  players   Player[]
+  players   Player[] @relation("GroupPlayers")
   sessions  Session[]
   sessionCreations SessionCreation[]
   playerRules PlayerRule[]
@@ -60,6 +60,11 @@ model Group {
   /// name }, or null = none saved. Parsed and written only in
   /// server/src/sessions/pay-account.ts. Host-only, never public.
   payAccount          String?
+  /// The player who owns payAccount, so they can manage the bill's payments from
+  /// LINE (docs/superpowers/specs/2026-11-01-collector-line-access-design.md).
+  /// Only counts while the player has a PlayerLineAccount in this group.
+  payCollectorPlayerId String?
+  payCollector         Player? @relation("PayCollector", fields: [payCollectorPlayerId], references: [id], onDelete: SetNull)
   lineLinkCodes       LineLinkCode[]
   lineRosterMessages  LineRosterMessage[]
   playerLineAccounts  PlayerLineAccount[]
@@ -227,7 +232,8 @@ model Player {
   /// never today's name-to-seed lookup, so editing a ladder cannot move Elo that
   /// was already earned. Null only for a never-tagged player (reads as 1200).
   levelSeed  Int?
-  group      Group  @relation(fields: [groupId], references: [code])
+  group      Group  @relation("GroupPlayers", fields: [groupId], references: [code])
+  collectorOf Group[] @relation("PayCollector")
   rosterEntries SessionRoster[]
   waitlistEntries Waitlist[]
   rulesAsA   PlayerRule[] @relation("PlayerRuleA")

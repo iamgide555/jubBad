@@ -1,4 +1,4 @@
-import { copyableNumber, parsePayAccount, serializePayAccount, validatePayAccount } from './pay-account';
+import { copyableNumber, parsePayAccount, sameReceivingAccount, serializePayAccount, validatePayAccount } from './pay-account';
 
 describe('validatePayAccount', () => {
   it('trims and accepts a full account', () => {
@@ -80,5 +80,24 @@ describe('parsePayAccount / serializePayAccount', () => {
     const account = { bank: 'กสิกร', number: '123-4-56789-0', name: 'สมชาย' };
     expect(parsePayAccount(serializePayAccount(account))).toEqual(account);
     expect(serializePayAccount(null)).toBeNull();
+  });
+});
+
+describe('sameReceivingAccount', () => {
+  const a = { bank: 'กสิกร', number: '123-4-56789-0', name: 'A' };
+
+  it('matches on bank and digits, ignoring the name and number formatting', () => {
+    expect(sameReceivingAccount(a, { bank: 'กสิกร', number: '1234567890', name: 'B' })).toBe(true);
+  });
+
+  it('differs by bank or by number', () => {
+    expect(sameReceivingAccount(a, { ...a, bank: 'ไทยพาณิชย์' })).toBe(false);
+    expect(sameReceivingAccount(a, { ...a, number: '123-4-56789-1' })).toBe(false);
+  });
+
+  it('is false when either side has no account', () => {
+    expect(sameReceivingAccount(null, a)).toBe(false);
+    expect(sameReceivingAccount(a, null)).toBe(false);
+    expect(sameReceivingAccount(null, null)).toBe(false);
   });
 });

@@ -6,6 +6,7 @@ import { PlansModule } from '../plans/plans.module.js';
 import { VenuesModule } from '../venues/venues.module.js';
 import { BillController } from './bill.controller.js';
 import { BillService } from './bill.service.js';
+import { CollectorService } from './collector.service.js';
 import { CheckoutController } from './checkout.controller.js';
 import { CheckoutService } from './checkout.service.js';
 import { PaymentCardController } from './payment-card.controller.js';
@@ -39,6 +40,7 @@ import { SlipUploadMiddleware } from './slips/slip-upload.middleware.js';
     BillService,
     CheckoutService,
     PaymentCardService,
+    CollectorService,
     SlipOcr,
     SlipReader,
     SlipPaymentsService,

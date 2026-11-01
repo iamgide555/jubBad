@@ -21,6 +21,12 @@ export interface PaymentCardState {
   lastSentAt: string | null;
   /** ISO timestamp of the last DM of the card to the host (`host` target), null if never; not part of the content hash. */
   lastDmAt: string | null;
+  /**
+   * The player collecting on this night's card when its account differs from the group's
+   * saved one (the group's own collector then no longer applies). Optional so literals
+   * that predate it keep compiling; parse always yields a value.
+   */
+  collectorPlayerId?: string | null;
 }
 
 /** Frozen: parsePaymentState hands this same object to every caller, so one must not be able to corrupt it. */
@@ -31,6 +37,7 @@ export const EMPTY_PAYMENT_STATE: PaymentCardState = Object.freeze({
   confirmedHash: null,
   lastSentAt: null,
   lastDmAt: null,
+  collectorPlayerId: null,
 });
 
 const str = (v: unknown): string | null => (typeof v === 'string' && v !== '' ? v : null);
@@ -52,11 +59,14 @@ export function parsePaymentState(raw: string | null): PaymentCardState {
     confirmedHash: str(o['confirmedHash']),
     lastSentAt: str(o['lastSentAt']),
     lastDmAt: str(o['lastDmAt']),
+    collectorPlayerId: str(o['collectorPlayerId']),
   };
 }
 
 export function serializePaymentState(state: PaymentCardState): string {
-  return JSON.stringify(state);
+  // An unset collector is left out, so a card stored before this field existed re-serializes unchanged.
+  const { collectorPlayerId, ...rest } = state;
+  return JSON.stringify(collectorPlayerId ? { ...rest, collectorPlayerId } : rest);
 }
 
 export function newShareToken(): string {

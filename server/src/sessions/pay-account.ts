@@ -66,3 +66,12 @@ export function serializePayAccount(account: PayAccount | null): string | null {
 export function copyableNumber(number: string): string {
   return number.replace(/[^0-9]/g, '');
 }
+
+/**
+ * Whether two accounts receive money at the same place: same bank and same
+ * digits. The name is ignored (a typo fix is not a different account).
+ */
+export function sameReceivingAccount(a: PayAccount | null, b: PayAccount | null): boolean {
+  if (a === null || b === null) return false;
+  return a.bank === b.bank && copyableNumber(a.number) === copyableNumber(b.number);
+}

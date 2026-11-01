@@ -36,6 +36,7 @@ describe('parsePaymentState', () => {
       confirmedHash: 'deadbeef',
       lastSentAt: '2026-10-29T10:05:00.000Z',
       lastDmAt: '2026-10-29T10:06:00.000Z',
+      collectorPlayerId: 'p1',
     };
     expect(parsePaymentState(serializePaymentState(state))).toEqual(state);
   });
@@ -56,5 +57,16 @@ describe('newShareToken', () => {
     const a = newShareToken();
     expect(a).toMatch(/^[A-Za-z0-9_-]{22,}$/);
     expect(newShareToken()).not.toBe(a);
+  });
+});
+
+describe('collectorPlayerId', () => {
+  it('round-trips the night collector', () => {
+    const state: PaymentCardState = { ...EMPTY_PAYMENT_STATE, token: 't', collectorPlayerId: 'p1' };
+    expect(parsePaymentState(serializePaymentState(state)).collectorPlayerId).toBe('p1');
+  });
+
+  it('reads a state saved without it as null', () => {
+    expect(parsePaymentState(JSON.stringify({ token: 'abc' })).collectorPlayerId).toBeNull();
   });
 });

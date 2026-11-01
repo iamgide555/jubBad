@@ -11,6 +11,7 @@ import { SessionDashboard } from './pages/session-dashboard/session-dashboard';
 import { SessionDisplay } from './pages/session-display/session-display';
 import { PlayerProfile } from './pages/player-profile/player-profile';
 import { PlayerRoster } from './pages/player-roster/player-roster';
+import { LineAccounts } from './pages/line-accounts/line-accounts';
 import { GroupCreate } from './pages/group-create/group-create';
 import { GroupSettingsDetail } from './pages/group-settings-detail/group-settings-detail';
 import { Landing } from './pages/landing/landing';
@@ -100,6 +101,11 @@ describe('app routes', () => {
       expect(await harness.navigateByUrl('/g/abc123/players', PlayerRoster)).toBeInstanceOf(
         PlayerRoster
       );
+    });
+
+    it('/g/:groupCode/players/line resolves to LineAccounts', async () => {
+      const harness = await RouterTestingHarness.create();
+      expect(await harness.navigateByUrl('/g/abc123/players/line', LineAccounts)).toBeInstanceOf(LineAccounts);
     });
 
     // The guard exists precisely because the in-template back-link swap on
@@ -261,6 +267,7 @@ describe('app routes', () => {
       ['/g/abc123/start', 'roster entry'],
       ['/groups/new', 'group creation'],
       ['/g/abc123/settings/manage', 'group settings'],
+      ['/g/abc123/players/line', 'the group LINE accounts'],
       ['/s/xyz789', 'a live session'],
       ['/s/xyz789/bill', 'a session bill'],
     ])('redirects %s to the login page', async (url) => {

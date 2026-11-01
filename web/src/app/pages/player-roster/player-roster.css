@@ -164,6 +164,7 @@
   font-size: var(--text-sm);
 }
 
+.line-accounts-link,
 .empty-start {
   display: inline-flex;
   align-items: center;

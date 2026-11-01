@@ -17,6 +17,10 @@
     <p><a [routerLink]="['/g', groupCode, 'levels']" data-levels-link i18n="@@playerRoster.groupLevels">ตั้งชื่อระดับของก๊วน →</a></p>
   }
 
+  @if (editingId() === null && players().length > 0) {
+    <p><a class="line-accounts-link" [routerLink]="['/g', groupCode, 'players', 'line']" data-line-accounts-link i18n="@@playerRoster.lineAccountsLink">บัญชี LINE →</a></p>
+  }
+
   @if (!loaded()) {
     <p class="muted" i18n="@@playerRoster.loading">กำลังโหลด…</p>
   } @else if (loadError()) {

@@ -112,6 +112,16 @@ describe('PlayerRoster', () => {
     expect(component.players()).toEqual(PLAYERS);
   });
 
+  it('the บัญชี LINE link goes to /g/:code/players/line, and waits while a row is being edited', () => {
+    const el = fixture.nativeElement as HTMLElement;
+    const link = el.querySelector<HTMLAnchorElement>('[data-line-accounts-link]')!;
+    expect(link.getAttribute('href')).toBe('/g/group1/players/line');
+    expect(link.textContent).toContain('บัญชี LINE');
+    component.startEdit(PLAYERS[0]);
+    fixture.detectChanges();
+    expect(el.querySelector('[data-line-accounts-link]')).toBeNull();
+  });
+
   it('explains an empty group: players join when a session starts', () => {
     const el = fixture.nativeElement as HTMLElement;
     expect(el.querySelector('[data-empty]')).toBeNull();

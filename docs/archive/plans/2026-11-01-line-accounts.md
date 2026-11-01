@@ -8,7 +8,7 @@
 
 **Tech Stack:** NestJS + Prisma 7 (better-sqlite3 adapter) + SQLite, vitest; Angular standalone components with signals, Angular i18n (Thai source, English xlf).
 
-**Spec:** `docs/superpowers/specs/2026-11-01-line-accounts-design.md`
+**Spec:** `docs/archive/specs/2026-11-01-line-accounts-design.md`
 
 ## Global Constraints
 
@@ -94,20 +94,20 @@
   //   lineAccount LineAccount @relation(fields: [lineUserId], references: [lineUserId], onDelete: Cascade)
   ```
 
-- [ ] **Step 1: Branch.** `git switch -c feat/line-accounts`.
+- [x] **Step 1: Branch.** `git switch -c feat/line-accounts`.
 
-- [ ] **Step 2: Write the failing migration test** `server/src/line/line-accounts-migration.spec.ts`, modelled on `server/src/groups/level-ladder-migration.spec.ts` (apply every migration before `*_line_accounts` to a temp DB, insert legacy rows, apply `*_line_accounts`). Fixture: group `g1` with players `p1`, `p2`; group `g2`; `PlayerLineAccount(g1, p1, 'U1', displayName 'Old', linkedBy 'self')`; `PendingSlip(g1, 'U1', displayName 'Slip', pictureUrl 'https://x/1')` and `PendingSlip(g1, 'U2', displayName 'Two', pictureUrl null)`; `LineRosterMessage(g2, senderUserId 'U1', senderName 'Roster', direct 0)`; `LineRosterMessage(g1, senderUserId 'U9', direct 1)`. Assertions:
+- [x] **Step 2: Write the failing migration test** `server/src/line/line-accounts-migration.spec.ts`, modelled on `server/src/groups/level-ladder-migration.spec.ts` (apply every migration before `*_line_accounts` to a temp DB, insert legacy rows, apply `*_line_accounts`). Fixture: group `g1` with players `p1`, `p2`; group `g2`; `PlayerLineAccount(g1, p1, 'U1', displayName 'Old', linkedBy 'self')`; `PendingSlip(g1, 'U1', displayName 'Slip', pictureUrl 'https://x/1')` and `PendingSlip(g1, 'U2', displayName 'Two', pictureUrl null)`; `LineRosterMessage(g2, senderUserId 'U1', senderName 'Roster', direct 0)`; `LineRosterMessage(g1, senderUserId 'U9', direct 1)`. Assertions:
   - `LineAccount` has exactly `U1`, `U2` (U9 is DM-only, excluded); `U1` has `displayName 'Slip'`, `pictureUrl 'https://x/1'` (a pending slip's profile wins, then the link's name, then the roster sender name).
   - `LineAccountGroup` rows: `(g1,U1)` with `source 'claim'` (earliest row's source; a link maps `self`→`claim`, `host`→`host`), `(g1,U2,'slip')`, `(g2,U1,'roster')`; `firstSeenAt` = min and `lastSeenAt` = max of the source rows' timestamps (`createdAt`, or `postedAt` for roster messages).
   - `PlayerLineAccount(g1,p1,'U1')` still exists with `linkedBy 'self'`; `PRAGMA foreign_key_check` returns no rows.
 
-- [ ] **Step 3: Run it.** `cd server && npx vitest run src/line/line-accounts-migration.spec.ts` → FAIL (no `*_line_accounts` dir).
+- [x] **Step 3: Run it.** `cd server && npx vitest run src/line/line-accounts-migration.spec.ts` → FAIL (no `*_line_accounts` dir).
 
-- [ ] **Step 4: Schema + migration.** Edit `schema.prisma` per Interfaces. Generate with `npx prisma migrate dev --create-only --name line_accounts`, rename the dir to `20261101000000_line_accounts`. Hand-edit the SQL so the backfill `INSERT`s into `LineAccount` and `LineAccountGroup` run after those tables are created and before Prisma's `INSERT INTO "new_PlayerLineAccount"`. Ids in SQL: `lower(hex(randomblob(12)))`. Sources and precedence exactly as the test pins; roster rows only where `direct = 0 AND senderUserId IS NOT NULL`.
+- [x] **Step 4: Schema + migration.** Edit `schema.prisma` per Interfaces. Generate with `npx prisma migrate dev --create-only --name line_accounts`, rename the dir to `20261101000000_line_accounts`. Hand-edit the SQL so the backfill `INSERT`s into `LineAccount` and `LineAccountGroup` run after those tables are created and before Prisma's `INSERT INTO "new_PlayerLineAccount"`. Ids in SQL: `lower(hex(randomblob(12)))`. Sources and precedence exactly as the test pins; roster rows only where `direct = 0 AND senderUserId IS NOT NULL`.
 
-- [ ] **Step 5: Run the migration test** → PASS. Then `npx prisma migrate dev` to apply to the dev DB and regenerate the client.
+- [x] **Step 5: Run the migration test** → PASS. Then `npx prisma migrate dev` to apply to the dev DB and regenerate the client.
 
-- [ ] **Step 6: Write failing service tests** `server/src/line/line-accounts.service.spec.ts`:
+- [x] **Step 6: Write failing service tests** `server/src/line/line-accounts.service.spec.ts`:
   - `touch creates the account and the group membership with the given source`
   - `touch again updates lastSeenAt, keeps firstSeenAt and the first source`
   - `touch with null name/picture never blanks stored values` (store 'A'/'https://a', touch with nulls → still 'A'/'https://a'; `profileAt` unchanged)
@@ -115,19 +115,19 @@
   - `the same LINE user in two groups is one LineAccount with two memberships`
   - `concurrent touches for a new user produce one account and one membership` (`Promise.all` of two `touch` calls)
 
-- [ ] **Step 7: Implement `touch`** in `line-accounts.service.ts`: `upsert` `LineAccount` by `lineUserId` (update only the non-null profile fields, and `profileAt = now` when any was given), then `upsert` `LineAccountGroup` by `groupId_lineAccountId` (create sets `source`, `firstSeenAt`, `lastSeenAt`; update sets only `lastSeenAt`). On a Prisma unique violation (`P2002`) retry the whole touch once. Register in `LineModule` providers and exports.
+- [x] **Step 7: Implement `touch`** in `line-accounts.service.ts`: `upsert` `LineAccount` by `lineUserId` (update only the non-null profile fields, and `profileAt = now` when any was given), then `upsert` `LineAccountGroup` by `groupId_lineAccountId` (create sets `source`, `firstSeenAt`, `lastSeenAt`; update sets only `lastSeenAt`). On a Prisma unique violation (`P2002`) retry the whole touch once. Register in `LineModule` providers and exports.
 
-- [ ] **Step 8: Run service tests** → PASS.
+- [x] **Step 8: Run service tests** → PASS.
 
-- [ ] **Step 9: Route existing link writers through it.** In `slip-payments.service.ts`: `claimPlayer` calls `touch(groupId, user, 'claim')` before creating the link; `setLink` (non-null) and `linkWrites` call `touch(groupId, {lineUserId, displayName, pictureUrl}, 'host')` before building writes (use the slip's `displayName`/`pictureUrl` in `linkWrites`, nulls in `setLink`); drop `displayName` from every `playerLineAccount.create`. `listLinks` returns `displayName` from `include: { lineAccount: true }`. `SlipPaymentsService` gets `LineAccountsService` injected (SessionsModule already imports `LineModule`). In `line-link.service.ts` `unlink` and `markLeft`, add `this.prisma.lineAccountGroup.deleteMany({ where: { groupId } })` to the existing transaction, after the `playerLineAccount` delete.
+- [x] **Step 9: Route existing link writers through it.** In `slip-payments.service.ts`: `claimPlayer` calls `touch(groupId, user, 'claim')` before creating the link; `setLink` (non-null) and `linkWrites` call `touch(groupId, {lineUserId, displayName, pictureUrl}, 'host')` before building writes (use the slip's `displayName`/`pictureUrl` in `linkWrites`, nulls in `setLink`); drop `displayName` from every `playerLineAccount.create`. `listLinks` returns `displayName` from `include: { lineAccount: true }`. `SlipPaymentsService` gets `LineAccountsService` injected (SessionsModule already imports `LineModule`). In `line-link.service.ts` `unlink` and `markLeft`, add `this.prisma.lineAccountGroup.deleteMany({ where: { groupId } })` to the existing transaction, after the `playerLineAccount` delete.
 
-- [ ] **Step 10: Fix specs** that create `PlayerLineAccount` directly: create the `LineAccount` first (or call `touch`), and drop `displayName` from the link data. Add to `line-link.spec.ts`: `unlink removes the group's LINE account memberships` and the same for `markLeft`.
+- [x] **Step 10: Fix specs** that create `PlayerLineAccount` directly: create the `LineAccount` first (or call `touch`), and drop `displayName` from the link data. Add to `line-link.spec.ts`: `unlink removes the group's LINE account memberships` and the same for `markLeft`.
 
-- [ ] **Step 11: Run the server suite.** `cd server && npm test && npm run lint` → all PASS, lint clean.
+- [x] **Step 11: Run the server suite.** `cd server && npm test && npm run lint` → all PASS, lint clean.
 
-- [ ] **Step 12: Docs.** `docs/overview.md`: a short section on why accounts are global but listed per group, why a join table and not an array, why never auto-link by name, and that disconnecting the LINE group drops the memberships. `CLAUDE.md`: add `LineAccount`, `LineAccountGroup`, `PlayerLineAccount` to the data-model list. In the spec, replace "`lineAccountId` … replaces the raw `lineUserId`" with the relation-by-`lineUserId` decision above, and add the LINE-disconnect rule.
+- [x] **Step 12: Docs.** `docs/overview.md`: a short section on why accounts are global but listed per group, why a join table and not an array, why never auto-link by name, and that disconnecting the LINE group drops the memberships. `CLAUDE.md`: add `LineAccount`, `LineAccountGroup`, `PlayerLineAccount` to the data-model list. In the spec, replace "`lineAccountId` … replaces the raw `lineUserId`" with the relation-by-`lineUserId` decision above, and add the LINE-disconnect rule.
 
-- [ ] **Step 13: Commit.** `feat(line): LineAccount directory with per-group membership`
+- [x] **Step 13: Commit.** `feat(line): LineAccount directory with per-group membership`
 
 ---
 
@@ -143,14 +143,14 @@
 - Consumes: `LineAccountsService.touch` (Task 1).
 - Produces: `LineClient.memberProfile(lineGroupId: string, userId: string): Promise<{ displayName: string; pictureUrl: string | null } | null>`, same 24 h cache and "failed lookup not cached" rule as `memberName`. `memberName` becomes a thin wrapper returning `memberProfile(...)?.displayName ?? null`.
 
-- [ ] **Step 1: Failing tests.**
+- [x] **Step 1: Failing tests.**
   - `line-client.spec.ts`: `memberProfile returns displayName and pictureUrl`; `memberProfile returns pictureUrl null when LINE omits it`; `memberProfile caches and memberName reuses the cache` (one HTTP call for both).
   - `line-roster.spec.ts`: `capturing a roster records the sender in the group's LINE accounts with name and avatar` (source `'roster'`); `a failed profile lookup still records the account and keeps a stored name`; `an ignored (non-roster) message records no account`; `an unpaid group records no account`.
   - `slip-payments.submit.spec.ts`: `a held slip records the sender as a 'slip' account with the LIFF name and picture`; `an auto-paid slip records the sender too`.
-- [ ] **Step 2: Run** `npx vitest run src/line/line-client.spec.ts src/line/line-roster.spec.ts src/sessions/slips/slip-payments.submit.spec.ts` → new tests FAIL.
-- [ ] **Step 3: Implement.** `memberProfile` as above. `capture`: after the message row is stored (not on the P2002-ignored path), when `senderUserId` is present, `touch(groupCode, { lineUserId, ...profileOrNulls }, 'roster', input.postedAt)`. Slip submit: `touch(groupId, user, 'slip')` once per accepted submit, before the paid/held branch, so both outcomes record the sender. `LineRosterService` gets `LineAccountsService` injected.
-- [ ] **Step 4: Run** the same command → PASS; then `npm test`.
-- [ ] **Step 5: Commit.** `feat(line): record roster senders and slip senders as group LINE accounts`
+- [x] **Step 2: Run** `npx vitest run src/line/line-client.spec.ts src/line/line-roster.spec.ts src/sessions/slips/slip-payments.submit.spec.ts` → new tests FAIL.
+- [x] **Step 3: Implement.** `memberProfile` as above. `capture`: after the message row is stored (not on the P2002-ignored path), when `senderUserId` is present, `touch(groupCode, { lineUserId, ...profileOrNulls }, 'roster', input.postedAt)`. Slip submit: `touch(groupId, user, 'slip')` once per accepted submit, before the paid/held branch, so both outcomes record the sender. `LineRosterService` gets `LineAccountsService` injected.
+- [x] **Step 4: Run** the same command → PASS; then `npm test`.
+- [x] **Step 5: Commit.** `feat(line): record roster senders and slip senders as group LINE accounts`
 
 ---
 
@@ -163,11 +163,11 @@
 **Interfaces:**
 - Produces: `LineAccountsService.sweep(now?: Date): Promise<{ memberships: number; accounts: number }>`; exported const `UNLINKED_RETENTION_DAYS = 365`.
 
-- [ ] **Step 1: Failing tests:** `sweep deletes an unlinked membership unseen for more than 365 days`; `sweep keeps an unlinked membership seen 364 days ago`; `sweep keeps a linked membership however old`; `sweep deletes a LineAccount left with no membership and no link`; `sweep keeps an account still a member of another group`; `deleting a group then sweeping removes the orphaned account` (via `GroupsService.deleteGroup`).
-- [ ] **Step 2: Run** `npx vitest run src/line/line-accounts.service.spec.ts` → FAIL.
-- [ ] **Step 3: Implement `sweep`.** "Linked" = a `PlayerLineAccount` exists with the same `groupId` and the account's `lineUserId`. Delete stale unlinked memberships, then accounts with no `groups` and no `links`. Call it in `LinePurge.tick` after `this.roster.purge()` (inject `LineAccountsService`).
-- [ ] **Step 4: Run** → PASS; `npm test`.
-- [ ] **Step 5: Commit.** `feat(line): sweep stale unlinked LINE accounts`
+- [x] **Step 1: Failing tests:** `sweep deletes an unlinked membership unseen for more than 365 days`; `sweep keeps an unlinked membership seen 364 days ago`; `sweep keeps a linked membership however old`; `sweep deletes a LineAccount left with no membership and no link`; `sweep keeps an account still a member of another group`; `deleting a group then sweeping removes the orphaned account` (via `GroupsService.deleteGroup`).
+- [x] **Step 2: Run** `npx vitest run src/line/line-accounts.service.spec.ts` → FAIL.
+- [x] **Step 3: Implement `sweep`.** "Linked" = a `PlayerLineAccount` exists with the same `groupId` and the account's `lineUserId`. Delete stale unlinked memberships, then accounts with no `groups` and no `links`. Call it in `LinePurge.tick` after `this.roster.purge()` (inject `LineAccountsService`).
+- [x] **Step 4: Run** → PASS; `npm test`.
+- [x] **Step 5: Commit.** `feat(line): sweep stale unlinked LINE accounts`
 
 ---
 
@@ -195,7 +195,7 @@
   - `listPlayersManage` rows gain `lineAccount: { id: string; displayName: string | null; pictureUrl: string | null; linkedBy: 'self' | 'host' } | null`.
 - Errors: account not a member of this group, or player not in this group → 404; account linked to a different player → 409 `{ code: 'ACCOUNT_ALREADY_LINKED' }`; linking a player who already has another account replaces that link (delete + create in one `$transaction`; a P2002 maps to the 409).
 
-- [ ] **Step 1: Failing tests** (`line-accounts.controller.spec.ts`, via HTTP with an owner session like the existing controller specs):
+- [x] **Step 1: Failing tests** (`line-accounts.controller.spec.ts`, via HTTP with an owner session like the existing controller specs):
   - `lists the group's accounts with name, avatar, source and linked player`
   - `link sets linkedBy 'host'`; `link replaces the player's previous account, which stays listed unlinked`
   - `unlink removes the link and the account stays listed`; `unlink twice is ok`
@@ -206,10 +206,10 @@
   - `works on a free plan`
   - `the response never contains a raw lineUserId` (`expect(JSON.stringify(body)).not.toContain(lineUserId)`)
   - `list-players-manage.spec.ts`: `each player carries its linked LINE account or null`.
-- [ ] **Step 2: Run** `npx vitest run src/line/line-accounts.controller.spec.ts src/groups/list-players-manage.spec.ts` → FAIL.
-- [ ] **Step 3: Implement** the service methods, controller and DTO (`class-validator`: `@IsString() @IsNotEmpty() playerId`), register the controller in `LineModule`. `listPlayersManage`: one `playerLineAccount.findMany({ where: { groupId }, include: { lineAccount: true } })`, mapped by `playerId`.
-- [ ] **Step 4: Run** → PASS; `npm test && npm run lint`.
-- [ ] **Step 5: Commit.** `feat(line): host routes to list, link and unlink a group's LINE accounts`
+- [x] **Step 2: Run** `npx vitest run src/line/line-accounts.controller.spec.ts src/groups/list-players-manage.spec.ts` → FAIL.
+- [x] **Step 3: Implement** the service methods, controller and DTO (`class-validator`: `@IsString() @IsNotEmpty() playerId`), register the controller in `LineModule`. `listPlayersManage`: one `playerLineAccount.findMany({ where: { groupId }, include: { lineAccount: true } })`, mapped by `playerId`.
+- [x] **Step 4: Run** → PASS; `npm test && npm run lint`.
+- [x] **Step 5: Commit.** `feat(line): host routes to list, link and unlink a group's LINE accounts`
 
 ---
 
@@ -227,7 +227,7 @@
   - `<app-line-avatar [name] [pictureUrl] [size]>`: image with `referrerpolicy="no-referrer"`, falls back to the first letter on null or image error.
   - `<app-line-account-picker>` dialog: inputs `accounts: LineAccountRow[]` (caller passes unlinked ones), output `picked: string` (account id) and `closed`. A name filter; each row shows avatar, name and last seen.
 
-- [ ] **Step 1: Failing specs** (`player-roster.spec.ts`, `line-account-picker.spec.ts`):
+- [x] **Step 1: Failing specs** (`player-roster.spec.ts`, `line-account-picker.spec.ts`):
   - `a linked player's row shows the LINE avatar and name and an unlink button`
   - `unlink calls the API and the row returns to the link button`
   - `an unlinked player's row shows a link button that opens the picker with only unlinked accounts`
@@ -236,10 +236,10 @@
   - `self-claimed links are labelled as claimed by the player`
   - picker: `filters by name`; `shows an empty message when no unlinked accounts exist`
   - avatar: `falls back to the initial when the picture fails to load`
-- [ ] **Step 2: Run** `cd web && npm test` → new specs FAIL.
-- [ ] **Step 3: Implement.** Chip under the player name in the name cell; link/unlink buttons in the actions cell, hidden while `editingId()` is set. Copy (Thai source / English): `ผูก LINE` / `Link LINE`; `ยกเลิกการผูก` / `Unlink`; `ผู้เล่นผูกเอง` / `Linked by player`; `บัญชีนี้ผูกกับผู้เล่นคนอื่นแล้ว` / `This account is already linked to another player`; picker empty `ยังไม่มีบัญชี LINE ที่ยังไม่ได้ผูก` / `No unlinked LINE accounts yet`. Run `npx ng extract-i18n --output-path src/locale`, then add the English `<target>` for each new id in `messages.en.xlf`.
-- [ ] **Step 4: Run** `npm test && npm run build` → PASS, build has no missing-translation warnings.
-- [ ] **Step 5: Commit.** `feat(web): show and link a player's LINE account in the roster`
+- [x] **Step 2: Run** `cd web && npm test` → new specs FAIL.
+- [x] **Step 3: Implement.** Chip under the player name in the name cell; link/unlink buttons in the actions cell, hidden while `editingId()` is set. Copy (Thai source / English): `ผูก LINE` / `Link LINE`; `ยกเลิกการผูก` / `Unlink`; `ผู้เล่นผูกเอง` / `Linked by player`; `บัญชีนี้ผูกกับผู้เล่นคนอื่นแล้ว` / `This account is already linked to another player`; picker empty `ยังไม่มีบัญชี LINE ที่ยังไม่ได้ผูก` / `No unlinked LINE accounts yet`. Run `npx ng extract-i18n --output-path src/locale`, then add the English `<target>` for each new id in `messages.en.xlf`.
+- [x] **Step 4: Run** `npm test && npm run build` → PASS, build has no missing-translation warnings.
+- [x] **Step 5: Commit.** `feat(web): show and link a player's LINE account in the roster`
 
 ---
 
@@ -252,7 +252,7 @@
 **Interfaces:**
 - Consumes: `LineAccountsService`, `<app-line-avatar>` (Task 5), `RosterService.listPlayersManage` for the player picker.
 
-- [ ] **Step 1: Failing specs** (`line-accounts.spec.ts`):
+- [x] **Step 1: Failing specs** (`line-accounts.spec.ts`):
   - `lists every account with avatar, name, last seen and its linked player`
   - `the ยังไม่ผูก filter shows only unlinked accounts`
   - `unlink keeps the row, now unlinked`
@@ -260,8 +260,8 @@
   - `empty state explains roster posts, slips and the pay page`
   - `back link returns to the roster page`
   - roster spec: `the บัญชี LINE link goes to /g/:code/players/line`
-- [ ] **Step 2: Run** `cd web && npm test` → FAIL.
-- [ ] **Step 3: Implement.** Copy: title `บัญชี LINE ในก๊วน` / `LINE accounts in this group`; filters `ทั้งหมด` / `All`, `ยังไม่ผูก` / `Unlinked`; action `ผูกกับผู้เล่น` / `Link to player`; empty `บัญชีจะขึ้นที่นี่เมื่อมีคนส่งรายชื่อในกลุ่ม LINE ส่งสลิป หรือกดยืนยันตัวเองในหน้าจ่ายเงิน` / `Accounts appear here when someone posts a roster in the LINE group, sends a slip, or confirms themselves on the pay page`; source labels `รายชื่อ` / `Roster`, `สลิป` / `Slip`, `ผู้เล่นยืนยัน` / `Player`, `ผู้จัด` / `Host`. Player picker: a simple dialog listing players (reuse `player-search-field` if it fits). Extract i18n and add English targets as in Task 5.
-- [ ] **Step 4: Run** `npm test && npm run build` → PASS.
-- [ ] **Step 5: Full suite from the repo root.** `npm test` → engines, server, web all PASS.
-- [ ] **Step 6: Commit.** `feat(web): LINE account list for the group`
+- [x] **Step 2: Run** `cd web && npm test` → FAIL.
+- [x] **Step 3: Implement.** Copy: title `บัญชี LINE ในก๊วน` / `LINE accounts in this group`; filters `ทั้งหมด` / `All`, `ยังไม่ผูก` / `Unlinked`; action `ผูกกับผู้เล่น` / `Link to player`; empty `บัญชีจะขึ้นที่นี่เมื่อมีคนส่งรายชื่อในกลุ่ม LINE ส่งสลิป หรือกดยืนยันตัวเองในหน้าจ่ายเงิน` / `Accounts appear here when someone posts a roster in the LINE group, sends a slip, or confirms themselves on the pay page`; source labels `รายชื่อ` / `Roster`, `สลิป` / `Slip`, `ผู้เล่นยืนยัน` / `Player`, `ผู้จัด` / `Host`. Player picker: a simple dialog listing players (reuse `player-search-field` if it fits). Extract i18n and add English targets as in Task 5.
+- [x] **Step 4: Run** `npm test && npm run build` → PASS.
+- [x] **Step 5: Full suite from the repo root.** `npm test` → engines, server, web all PASS.
+- [x] **Step 6: Commit.** `feat(web): LINE account list for the group`

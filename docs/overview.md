@@ -1753,7 +1753,7 @@ LINE account memberships (see below), waiting slips, duplicates and used referen
 
 ### LINE accounts directory
 
-Design: `docs/superpowers/specs/2026-11-01-line-accounts-design.md`. A durable list of the LINE accounts
+Design: `docs/archive/specs/2026-11-01-line-accounts-design.md`. A durable list of the LINE accounts
 JubBad has seen in a group (name and avatar), so the host can see and manage which account belongs to which
 player. Every write goes through `LineAccountsService.touch` (`server/src/line/line-accounts.service.ts`).
 

@@ -1,6 +1,6 @@
 # LINE accounts and per-player link/unlink — design
 
-Date: 2026-11-01. Status: draft for owner review. Not built.
+Date: 2026-11-01. Status: built on feat/line-accounts (2026-11-01); not yet deployed.
 
 ## Why
 

@@ -349,3 +349,10 @@ label.pick input {
 .refresh-tools { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-1) var(--space-2); }
 .refresh-tools button { min-height: var(--tap); }
 .refresh-tools p { font-size: var(--text-sm); }
+
+/* ---- a slip-paid person's slip: look first, undo only on purpose ---- */
+.slip-dialog-head { display: grid; gap: var(--space-0); }
+.slip-dialog-head h3 { font-size: var(--text-lg); overflow-wrap: anywhere; }
+.slip-full { display: block; width: 100%; max-height: 60dvh; object-fit: contain; background: var(--ground-sunk); border-radius: var(--radius); }
+.undo-note { font-size: var(--text-sm); }
+button.ghost.undo { color: var(--warn); }

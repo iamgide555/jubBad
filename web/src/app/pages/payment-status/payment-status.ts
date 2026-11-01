@@ -25,9 +25,10 @@ export class PaymentStatus {
   protected readonly baht = formatBaht;
   protected readonly phase = signal<'loading' | 'login' | 'ready' | 'error' | 'unavailable'>('loading');
   protected readonly view = signal<PaymentStatusView | null>(null);
+  /** Who still owes at the top, then waiting slips, then the paid in the server's order (earliest payer first). */
   protected readonly rows = computed(() => {
     const rows = this.view()?.rows ?? [];
-    return [...rows.filter((r) => !r.paid), ...rows.filter((r) => r.paid)];
+    return [...rows.filter((r) => !r.paid && !r.pending), ...rows.filter((r) => !r.paid && r.pending), ...rows.filter((r) => r.paid)];
   });
   protected readonly paidCount = computed(() => this.rows().filter((r) => r.paid).length);
   protected readonly unpaidCount = computed(() => this.rows().filter(r => !r.paid && !r.pending).length);

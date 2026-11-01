@@ -8,6 +8,8 @@ export interface SlipPaidRow {
   at: string;
   /** The slip credited an amount that no longer matches the player's current row. The mark stays; the host decides. */
   amountChangedSince: boolean;
+  /** The kept image of the slip behind a `slip` mark; null for a tick, or once the image is purged or expired. */
+  imageId?: string | null;
 }
 
 export type SlipWaitingReason = 'unmapped' | 'amount' | 'date' | 'receiver' | 'unreadable' | 'stale' | 'collision';

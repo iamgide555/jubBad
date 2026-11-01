@@ -1,0 +1,17 @@
+{
+  "detector": {
+    "ignoreRules": [],
+    "ignoreFiles": [],
+    "ignoreValues": [
+      {
+        "rule": "broken-image",
+        "value": "*",
+        "files": [
+          "src/app/shared/slip-review/slip-review.html"
+        ],
+        "createdAt": "2026-11-01T13:25:25.548Z",
+        "reason": "model: img src is an Angular [src] binding to the private slip image route, not a missing src (same as existing data-slip-image thumbnail)"
+      }
+    ]
+  }
+}

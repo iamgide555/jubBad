@@ -221,7 +221,7 @@ describe('SlipReview', () => {
 
     it('shows pending only for a linked sender with an exact single-person amount', async () => {
       await open(panel({ paid: [paid({ playerId: 'c' })], waiting: [waiting({ linkedPlayerId: 'a' } as any), waiting({ id: 'w2', linkedPlayerId: 'b', amountSatang: 9000 } as any)] } as any));
-      expect(qa('[data-chip]').map(c => c.textContent!.trim())).toEqual(['รอยืนยัน', 'ยังไม่จ่าย', 'สลิป']);
+      expect(qa('[data-chip]').map(c => c.textContent!.trim())).toEqual(['สลิป', 'รอยืนยัน', 'ยังไม่จ่าย']);
     });
 
     it('does not prefill sender for a linked account', async () => {
@@ -265,28 +265,80 @@ describe('SlipReview', () => {
       expect(qa('[data-person]')[1].querySelector('[data-changed]')).toBeNull();
     });
 
-    it('ticks an unpaid person and undoes a paid one, refreshing after each', async () => {
+    it('ticks an unpaid person and undoes a host tick, refreshing after each', async () => {
       await open(panel({ paid: [paid({ playerId: 'b', source: 'host' })] }));
-      await click(qa('[data-person]')[0]);
+      const row = (name: string) => qa('[data-person]').find((p) => p.textContent!.includes(name))!;
+      await click(row('Amp'));
       expect(svc.tick).toHaveBeenCalledWith('sess1', 'a');
       expect(svc.untick).not.toHaveBeenCalled();
-      await click(qa('[data-person]')[1]);
+      await click(row('Beam'));
       expect(svc.untick).toHaveBeenCalledWith('sess1', 'b');
       expect(svc.panel).toHaveBeenCalledTimes(3);
+    });
+
+    it('lists who paid first at the top, then waiting slips, then the unpaid in bill order', async () => {
+      await open(panel({
+        paid: [paid({ playerId: 'c', source: 'host', at: '2026-10-30T13:20:00.000Z' }), paid({ playerId: 'b', source: 'slip', at: '2026-10-30T13:10:00.000Z' })],
+      }));
+      expect(qa('[data-person]').map((p) => p.querySelector('.person-name')!.textContent!.trim())).toEqual(['Beam', 'Cat', 'Amp']);
+    });
+
+    it('opens a slip-paid person\'s slip on tap instead of unticking, and undoes only on purpose', async () => {
+      await open(panel({ paid: [paid({ playerId: 'a', source: 'slip', imageId: 'img-a' })] }));
+      await click(qa('[data-person]')[0]);
+      expect(svc.untick).not.toHaveBeenCalled();
+      expect(q('[data-slip-dialog]')?.hasAttribute('open')).toBe(true);
+      expect(q('[data-slip-dialog]')!.textContent).toContain('Amp');
+      expect(q('[data-slip-paid-at]')!.textContent).toContain('90');
+      expect(svc.imageUrl).toHaveBeenCalledWith('sess1', 'img-a');
+      expect(q<HTMLImageElement>('[data-paid-slip-image]')?.getAttribute('src')).toBe('/private/image');
+
+      await click(q('[data-slip-close]'));
+      expect(q('[data-slip-dialog]')?.hasAttribute('open')).toBe(false);
+      expect(svc.untick).not.toHaveBeenCalled();
+
+      await click(qa('[data-person]')[0]);
+      await click(q('[data-undo-slip]'));
+      expect(svc.untick).toHaveBeenCalledWith('sess1', 'a');
+      expect(q('[data-slip-dialog]')?.hasAttribute('open')).toBe(false);
+    });
+
+    it('opens a slip-paid person\'s slip view-only once collection is closed', async () => {
+      await open(panel({
+        collection: { closedAt: '2026-10-31T00:00:00.000Z', canClose: false, imageCount: 0 },
+        paid: [paid({ playerId: 'a', source: 'slip', imageId: null }), paid({ playerId: 'b', source: 'host' })],
+      }));
+      const row = (name: string) => qa<HTMLButtonElement>('[data-person]').find((p) => p.textContent!.includes(name))!;
+      expect(row('Amp').disabled).toBe(false);
+      expect(row('Beam').disabled).toBe(true);
+      expect(row('Cat').disabled).toBe(true);
+      await click(row('Amp'));
+      expect(q('[data-slip-dialog]')?.hasAttribute('open')).toBe(true);
+      expect(q('[data-undo-slip]')).toBeNull();
+      expect(q('[data-slip-view-only]')!.textContent).toContain('ดูได้อย่างเดียว');
+      await click(q('[data-slip-close]'));
+      expect(svc.untick).not.toHaveBeenCalled();
+    });
+
+    it('says when a slip-paid person\'s image is gone', async () => {
+      await open(panel({ paid: [paid({ playerId: 'a', source: 'slip', imageId: null })] }));
+      await click(qa('[data-person]')[0]);
+      expect(q('[data-paid-slip-image]')).toBeNull();
+      expect(q('[data-paid-no-image]')!.textContent).toContain('30 วัน');
     });
 
     it('still lists a paid mark whose person is no longer on the bill, so it can be undone', async () => {
       await open(panel({ paid: [paid({ playerId: 'gone', source: 'host' })], links: [link({ playerId: 'gone', displayName: 'Gone LINE' })] }));
       const people = qa('[data-person]');
       expect(people).toHaveLength(4);
-      expect(people[3].textContent).toContain('Gone LINE');
-      await click(people[3]);
+      expect(people[0].textContent).toContain('Gone LINE');
+      await click(people[0]);
       expect(svc.untick).toHaveBeenCalledWith('sess1', 'gone');
     });
 
     it('calls an unknown paid person ไม่ทราบชื่อ', async () => {
       await open(panel({ paid: [paid({ playerId: 'gone', source: 'host' })] }));
-      expect(qa('[data-person]')[3].textContent).toContain('ไม่ทราบชื่อ');
+      expect(qa('[data-person]')[0].textContent).toContain('ไม่ทราบชื่อ');
     });
 
     it('sends one request for a double tap', async () => {

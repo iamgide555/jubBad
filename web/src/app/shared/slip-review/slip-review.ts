@@ -94,6 +94,9 @@ export class SlipReview {
   private readonly nameDialog = viewChild<ElementRef<HTMLDialogElement>>('nameDialog');
   private readonly imageDialog = viewChild<ElementRef<HTMLDialogElement>>('imageDialog');
   private readonly closeDialog = viewChild<ElementRef<HTMLDialogElement>>('closeDialog');
+  private readonly slipDialog = viewChild<ElementRef<HTMLDialogElement>>('slipDialog');
+  /** The slip-paid person whose slip is open in the dialog. */
+  protected readonly slipView = signal<Person | null>(null);
   protected readonly failedImages = signal<ReadonlySet<string>>(new Set());
   protected readonly canClose = computed(() => !this.closed() ? !!this.data()?.collection?.canClose : (this.data()?.collection?.imageCount ?? 0) > 0);
   protected readonly enlargedImage = signal<string | null>(null);
@@ -131,7 +134,11 @@ export class SlipReview {
     const extra = [...paid.values()]
       .filter((p) => !shown.has(p.playerId))
       .map((p) => ({ playerId: p.playerId, name: known.get(p.playerId) ?? linkNames.get(p.playerId) ?? null, paid: p, pending: false }));
-    return [...billed.map((r) => ({ playerId: r.playerId, name: r.name, paid: paid.get(r.playerId) ?? null, pending: !paid.has(r.playerId) && (this.data()?.waiting ?? []).some(s => s.linkedPlayerId === r.playerId && s.amountSatang === r.amountSatang) })), ...extra];
+    const all: Person[] = [...billed.map((r) => ({ playerId: r.playerId, name: r.name, paid: paid.get(r.playerId) ?? null, pending: !paid.has(r.playerId) && (this.data()?.waiting ?? []).some(s => s.linkedPlayerId === r.playerId && s.amountSatang === r.amountSatang) })), ...extra];
+    // Whoever paid first at the top, then slips waiting to be confirmed, then the unpaid; ties keep bill order.
+    const group = (p: Person) => (p.paid ? 0 : p.pending ? 1 : 2);
+    const at = (p: Person) => (p.paid ? Date.parse(p.paid.at) || 0 : 0);
+    return all.sort((a, b) => group(a) - group(b) || at(a) - at(b));
   });
   protected readonly billedCount = computed(() => this.billed().length);
   protected readonly paidCount = computed(() => this.billed().filter((r) => this.paidById().has(r.playerId)).length);
@@ -217,7 +224,35 @@ export class SlipReview {
     void this.load();
   }
 
+  /**
+   * A slip-paid row opens its slip instead of unticking: the slip mark is evidence a stray tap must not erase (a
+   * re-tick would only come back as the host's, and the slip itself cannot be sent again). Undo is a deliberate
+   * button inside that dialog, offered only while collection is open. Unpaid and host-ticked rows still toggle on tap.
+   */
   protected toggle(person: Person): void {
+    if (person.paid?.source === 'slip') {
+      this.slipView.set(person);
+      this.slipDialog()?.nativeElement.showModal();
+      return;
+    }
+    this.flip(person);
+  }
+
+  protected closeSlip(): void { this.slipDialog()?.nativeElement.close(); }
+
+  /** The amount the bill asks of this person now, or null when they are no longer on it. */
+  protected owed(playerId: string): number | null {
+    return this.rows().find((r) => r.playerId === playerId)?.amountSatang ?? null;
+  }
+
+  protected undoSlip(): void {
+    const person = this.slipView();
+    this.closeSlip();
+    // Closed collection: view only (the server refuses too).
+    if (person?.paid && !this.closed()) this.flip(person);
+  }
+
+  private flip(person: Person): void {
     const code = this.code();
     const call = () => (person.paid ? this.api.untick(code, person.playerId) : this.api.tick(code, person.playerId));
     void this.act(`tick:${person.playerId}`, 'people', call);

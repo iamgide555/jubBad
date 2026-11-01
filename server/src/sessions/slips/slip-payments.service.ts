@@ -32,6 +32,8 @@ export interface PaidRow {
   at: string;
   /** A slip credited an amount that no longer matches the player's current bill row. The mark stays; the host decides. */
   amountChangedSince: boolean;
+  /** The kept image of the slip behind a `slip` mark, so the host can look at it; null for a tick or once it is purged. */
+  imageId: string | null;
 }
 
 /** The LINE profile the pay page reads for the viewer. Only `userId` is required to link; the rest is for display. */
@@ -260,18 +262,26 @@ export class SlipPaymentsService {
       const pending = await this.prisma.pendingSlip.findMany({ where: { sessionId: code, resolvedAt: null } });
       const links = await this.prisma.playerLineAccount.findMany({ where: { groupId: gate.groupId } });
       const linked = new Map(links.map((l) => [l.lineUserId, l.playerId]));
+      const rows = gate.panel.rows.map((r) => {
+        const mark = paid.get(r.playerId);
+        return {
+          paidAt: mark?.createdAt.getTime() ?? null,
+          row: {
+            name: r.name, amountSatang: r.amountSatang, paid: mark !== undefined,
+            pending: !mark && pending.some((p) => linked.get(p.lineUserId) === r.playerId && p.amountSatang === r.amountSatang),
+            amountChangedSince: mark !== undefined && mark.amountSatang !== null && mark.amountSatang !== r.amountSatang,
+          },
+        };
+      });
+      // Who still owes first (bill order), then slips waiting for the host, then the paid, earliest payer first.
+      // Only the order carries the pay time, never a field.
+      const order = (r: (typeof rows)[number]) => (r.paidAt !== null ? 2 : r.row.pending ? 1 : 0);
+      rows.sort((a, b) => order(a) - order(b) || (a.paidAt ?? 0) - (b.paidAt ?? 0));
       return {
         closedAt: gate.closedAt?.toISOString() ?? null,
         pendingSlipCount: pending.length,
         sessionDate: gate.date === null || gate.date.trim() === '' ? null : cardDate(gate.date, gate.billEnd),
-        rows: gate.panel.rows.map((r) => {
-          const mark = paid.get(r.playerId);
-          return {
-            name: r.name, amountSatang: r.amountSatang, paid: mark !== undefined,
-            pending: !mark && pending.some((p) => linked.get(p.lineUserId) === r.playerId && p.amountSatang === r.amountSatang),
-            amountChangedSince: mark !== undefined && mark.amountSatang !== null && mark.amountSatang !== r.amountSatang,
-          };
-        }),
+        rows: rows.map((r) => r.row),
       };
     });
   }
@@ -280,11 +290,13 @@ export class SlipPaymentsService {
     const panel = await this.cards.panel(code);
     const current = new Map(panel.rows.map((r) => [r.playerId, r.amountSatang]));
     const stored = await this.prisma.sessionPayment.findMany({ where: { sessionId: code }, orderBy: { createdAt: 'asc' } });
+    const images = new Map((await this.images.list(code)).map((i) => [i.reference, i.id]));
     return stored.map((p) => ({
       playerId: p.playerId,
       source: p.source === 'slip' ? 'slip' : 'host',
       at: p.createdAt.toISOString(),
       amountChangedSince: p.amountSatang !== null && p.amountSatang !== current.get(p.playerId),
+      imageId: p.source === 'slip' && p.reference !== null ? (images.get(p.reference) ?? null) : null,
     }));
   }
 

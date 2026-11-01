@@ -1,10 +1,10 @@
 import { HttpErrorResponse } from '@angular/common/http';
-import { Component, ElementRef, computed, effect, inject, input, signal, untracked, viewChild } from '@angular/core';
+import { Component, DestroyRef, ElementRef, computed, effect, inject, input, signal, untracked, viewChild } from '@angular/core';
 import type { Observable } from 'rxjs';
 import { firstValueFrom } from 'rxjs';
 import { formatBaht } from '../../core/bill-text';
 import type { SlipHostConflict, SlipHostPanel, SlipPaidRow, SlipWaiting } from '../../core/slip-host.model';
-import { SlipHostService } from '../../core/slip-host.service';
+import { SlipReviewApi } from '../../core/slip-review-api';
 
 /** One row of tonight's bill, as the payment panel shows it. */
 export interface SlipReviewRow {
@@ -89,8 +89,13 @@ export class SlipReview {
    * confirmation. Null when the group saves none; there is then nothing to update and the button is not offered.
    */
   readonly savedName = input<string | null>(null);
+  /**
+   * The collector's own LINE page: the one who receives the money confirms slips and ticks, but never links LINE
+   * accounts, picks who sent a slip, or rewrites the saved pay-account name; those stay the host's.
+   */
+  readonly collectorMode = input(false);
 
-  private readonly api = inject(SlipHostService);
+  private readonly api = inject(SlipReviewApi);
   private readonly nameDialog = viewChild<ElementRef<HTMLDialogElement>>('nameDialog');
   private readonly imageDialog = viewChild<ElementRef<HTMLDialogElement>>('imageDialog');
   private readonly closeDialog = viewChild<ElementRef<HTMLDialogElement>>('closeDialog');
@@ -101,7 +106,10 @@ export class SlipReview {
   protected readonly canClose = computed(() => !this.closed() ? !!this.data()?.collection?.canClose : (this.data()?.collection?.imageCount ?? 0) > 0);
   protected readonly enlargedImage = signal<string | null>(null);
   protected readonly closed = computed(() => !!this.data()?.collection?.closedAt);
-  protected readonly imageUrl = (id: string) => this.api.imageUrl(this.code(), id);
+  /** Resolved image URLs by image id. An image is requested once; a `blob:` URL is revoked when the view goes away. */
+  protected readonly imageUrls = signal<ReadonlyMap<string, string>>(new Map());
+  private readonly requestedImages = new Set<string>();
+  private destroyed = false;
   private readonly amountDraft = signal<Record<string, string>>({});
   private seq = 0;
   private readonly locked = new Set<string>();
@@ -157,7 +165,7 @@ export class SlipReview {
       const chosen = new Set(this.coversDraft()[slip.id] ?? only);
       const covers = unpaid.filter((r) => chosen.has(r.playerId)).map((r) => r.playerId);
       const draft = this.senderDraft();
-      const senderId = hasOwn(draft, slip.id) ? draft[slip.id] : slip.reason === 'unmapped' && !slip.linkedPlayerId && covers.length === 1 ? covers[0] : null;
+      const senderId = this.collectorMode() ? null : hasOwn(draft, slip.id) ? draft[slip.id] : slip.reason === 'unmapped' && !slip.linkedPlayerId && covers.length === 1 ? covers[0] : null;
       const reviewedAmount = this.amountDraft()[slip.id] ?? (slip.amountSatang === null ? '' : (slip.amountSatang / 100).toFixed(2));
       const numeric = Number(reviewedAmount);
       const reviewedSatang = /^\d+(?:\.\d{1,2})?$/.test(reviewedAmount) && Number.isSafeInteger(Math.round(numeric * 100)) && numeric > 0 ? Math.round(numeric * 100) : null;
@@ -171,6 +179,7 @@ export class SlipReview {
         // Only a slip whose account may be unlinked can replace a link; a linked account is refused by the server instead.
         senderWarning: senderId !== null && (slip.reason === 'unmapped' || slip.reason === 'stale') && linked.has(senderId),
         canFixName:
+          !this.collectorMode() &&
           slip.reason === 'receiver' &&
           slip.receiverName !== null &&
           !!this.savedName() &&
@@ -188,6 +197,32 @@ export class SlipReview {
       this.code();
       this.rows();
       untracked(() => void this.load());
+    });
+    // A waiting slip's picture is shown at once; a paid slip's only when its dialog opens.
+    effect(() => {
+      const waiting = this.data()?.waiting ?? [];
+      untracked(() => {
+        for (const w of waiting) if (w.imageId) this.loadImage(w.imageId);
+      });
+    });
+    inject(DestroyRef).onDestroy(() => {
+      this.destroyed = true;
+      for (const url of this.imageUrls().values()) if (url.startsWith('blob:')) URL.revokeObjectURL(url);
+    });
+  }
+
+  private loadImage(id: string): void {
+    if (this.requestedImages.has(id)) return;
+    this.requestedImages.add(id);
+    this.api.image(this.code(), id).subscribe({
+      next: (url) => {
+        if (this.destroyed) {
+          if (url.startsWith('blob:')) URL.revokeObjectURL(url);
+          return;
+        }
+        this.imageUrls.update((m) => new Map(m).set(id, url));
+      },
+      error: () => this.imageFailed(id),
     });
   }
 
@@ -231,6 +266,7 @@ export class SlipReview {
    */
   protected toggle(person: Person): void {
     if (person.paid?.source === 'slip') {
+      if (person.paid.imageId) this.loadImage(person.paid.imageId);
       this.slipView.set(person);
       this.slipDialog()?.nativeElement.showModal();
       return;
@@ -281,7 +317,9 @@ export class SlipReview {
   }
 
   protected enlarge(id: string): void {
-    this.enlargedImage.set(this.imageUrl(id));
+    const url = this.imageUrls().get(id);
+    if (!url) return;
+    this.enlargedImage.set(url);
     this.imageDialog()?.nativeElement.showModal();
   }
 

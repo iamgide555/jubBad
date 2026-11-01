@@ -30,6 +30,9 @@
         @else { <span i18n="@@slipReview.close">ปิดการเก็บเงิน</span> }
       </button>
     }
+    @if (d.collector && !collectorMode()) {
+      <p class="muted" data-collector-line i18n="@@slipReview.collectorLine">ผู้รับเงินจัดการใน LINE: {{ d.collector.playerName }}</p>
+    }
     @if (errors()['collection']; as message) { <p class="error" role="alert">{{ message }}</p> }
 
     <!-- Who has paid, and how. Worded "ชำระแล้ว" so it is never read as the card's early-checkout "จ่ายแล้ว N คน". -->
@@ -59,6 +62,8 @@
               <span class="status status-unpaid" data-chip i18n="@@slipReview.chip.unpaid">ยังไม่จ่าย</span>
             } @else if (p.paid.source === 'slip') {
               <span class="status status-slip" data-chip i18n="@@slipReview.chip.slip">สลิป</span>
+            } @else if (p.paid.source === 'collector') {
+              <span class="status status-collector" data-chip i18n="@@slipReview.chip.collector">ผู้รับเงินติ๊ก</span>
             } @else {
               <span class="status status-host" data-chip i18n="@@slipReview.chip.host">โฮสต์ติ๊ก</span>
             }
@@ -102,7 +107,9 @@
 
             @if (c.slip.imageId && !failedImages().has(c.slip.imageId!)) {
               <button type="button" class="slip-thumbnail ghost" data-enlarge (click)="enlarge(c.slip.imageId!)" i18n-aria-label="@@slipReview.enlarge" aria-label="ดูรูปสลิปขนาดใหญ่">
-                <img data-slip-image [src]="imageUrl(c.slip.imageId!)" (error)="imageFailed(c.slip.imageId!)" i18n-alt="@@slipReview.imageAlt" alt="รูปสลิปที่ส่งมา" loading="lazy" />
+                @if (imageUrls().get(c.slip.imageId!); as src) {
+                  <img data-slip-image [src]="src" (error)="imageFailed(c.slip.imageId!)" i18n-alt="@@slipReview.imageAlt" alt="รูปสลิปที่ส่งมา" loading="lazy" />
+                }
                 <span i18n="@@slipReview.enlarge">ดูรูปสลิปขนาดใหญ่</span>
               </button>
             } @else {
@@ -176,6 +183,7 @@
                 <p class="error" i18n="@@slipReview.amountNeeded">กรอกยอดที่ตรวจจากสลิปให้ถูกต้องก่อนยืนยัน</p>
               }
             </div>
+            @if (!collectorMode()) {
             <div class="sender">
               <label [for]="uid + '-s' + i" i18n="@@slipReview.sender">คนส่งคือ (ไม่บังคับ)</label>
               <select [disabled]="closed() || busy().has('w:' + c.slip.id)" [id]="uid + '-s' + i" data-sender (change)="setSender(c, $any($event.target).value)">
@@ -188,6 +196,7 @@
                 <p class="warning" data-sender-warning role="status" i18n="@@slipReview.senderWarning">คนนี้ผูกกับบัญชี LINE อื่นอยู่แล้ว การยืนยันจะแทนที่บัญชีเดิม</p>
               }
             </div>
+            }
 
             @if (errors()['w:' + c.slip.id]; as message) {
               <p class="error" role="alert" data-w-error>{{ message }}</p>
@@ -231,7 +240,7 @@
       </div>
     }
 
-    @if (d.links.length > 0) {
+    @if (d.links.length > 0 && !collectorMode()) {
       <details class="links" data-links>
         <summary><span i18n="@@slipReview.links">บัญชี LINE ที่ผูกแล้ว</span></summary>
         @if (errors()['links']; as message) {
@@ -312,7 +321,9 @@
         }
       </header>
       @if (p.paid?.imageId && !failedImages().has(p.paid!.imageId!)) {
-        <img class="slip-full" data-paid-slip-image [src]="imageUrl(p.paid!.imageId!)" (error)="imageFailed(p.paid!.imageId!)" i18n-alt="@@slipReview.imageAlt" alt="รูปสลิปที่ส่งมา" />
+        @if (imageUrls().get(p.paid!.imageId!); as src) {
+          <img class="slip-full" data-paid-slip-image [src]="src" (error)="imageFailed(p.paid!.imageId!)" i18n-alt="@@slipReview.imageAlt" alt="รูปสลิปที่ส่งมา" />
+        }
       } @else {
         <p class="muted" data-paid-no-image i18n="@@slipReview.paidNoImage">ไม่มีรูปสลิปนี้แล้ว รูปถูกลบเมื่อครบ 30 วันหรือปิดการเก็บเงิน</p>
       }

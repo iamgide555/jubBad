@@ -3,6 +3,7 @@ import { HttpTestingController, provideHttpClientTesting } from '@angular/common
 import { TestBed } from '@angular/core/testing';
 import { environment } from '../../environments/environment';
 import { SlipHostService } from './slip-host.service';
+import { SlipReviewApi } from './slip-review-api';
 
 const BASE = `${environment.apiBaseUrl}/sessions/sess%201/payments`;
 
@@ -18,7 +19,10 @@ describe('SlipHostService', () => {
   afterEach(() => http.verify());
 
   it('provides encoded private image URLs and explicitly confirms image deletion on close', () => {
-    expect((svc as any).imageUrl('sess 1', 'img/1')).toBe(`${BASE}/images/img%2F1`);
+    let url = '';
+    svc.image('sess 1', 'img/1').subscribe((u) => (url = u));
+    expect(url).toBe(`${BASE}/images/img%2F1`);
+    expect(TestBed.inject(SlipReviewApi)).toBe(svc);
     (svc as any).closeCollection('sess 1').subscribe();
     const req = http.expectOne(`${BASE}/close`);
     expect(req.request.body).toEqual({ confirmDeleteImages: true });

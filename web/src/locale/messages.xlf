@@ -8814,6 +8814,20 @@
           <context context-type="linenumber">1</context>
         </context-group>
       </trans-unit>
+      <trans-unit id="slipReview.chip.collector" datatype="html">
+        <source>ผู้รับเงินติ๊ก</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/shared/slip-review/slip-review.html</context>
+          <context context-type="linenumber">1</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="slipReview.collectorLine" datatype="html">
+        <source>ผู้รับเงินจัดการใน LINE: <x id="INTERPOLATION" equiv-text="{{ d.collector.playerName }}"/></source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/shared/slip-review/slip-review.html</context>
+          <context context-type="linenumber">1</context>
+        </context-group>
+      </trans-unit>
     </body>
   </file>
 </xliff>

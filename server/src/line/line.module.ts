@@ -1,6 +1,8 @@
 import { SlipImagesModule } from '../sessions/slips/slip-images.module.js';
 import { Module } from '@nestjs/common';
 import { PlansModule } from '../plans/plans.module.js';
+import { LineAccountsController } from './line-accounts.controller.js';
+import { LineAccountsService } from './line-accounts.service.js';
 import { LineClient } from './line-client.js';
 import { LineController } from './line.controller.js';
 import { LineHostController } from './line-host.controller.js';
@@ -18,8 +20,9 @@ import { LineWebhookService } from './line-webhook.service.js';
 // asks the bot to leave), so the dependency runs one way.
 @Module({
   imports: [PlansModule, SlipImagesModule],
-  controllers: [LineController, LineHostController, LineShareController, LineSummaryController, LineWebhookController],
+  controllers: [LineAccountsController, LineController, LineHostController, LineShareController, LineSummaryController, LineWebhookController],
   providers: [
+    LineAccountsService,
     LineClient,
     LineHostRosterService,
     LineHostService,
@@ -28,6 +31,6 @@ import { LineWebhookService } from './line-webhook.service.js';
     LineSummaryService,
     LineWebhookService
   ],
-  exports: [LineClient, LineHostService, LineLinkService, LineRosterService, LineSummaryService],
+  exports: [LineAccountsService, LineClient, LineHostService, LineLinkService, LineRosterService, LineSummaryService],
 })
 export class LineModule {}

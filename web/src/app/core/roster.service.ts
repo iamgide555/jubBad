@@ -44,6 +44,15 @@ export interface ManagedPlayer {
   rating: number | null;
   singlesRating: number | null;
   winRate: number | null;
+  /** The LINE account linked to this player in this group, if any. */
+  lineAccount: ManagedLineAccount | null;
+}
+
+export interface ManagedLineAccount {
+  id: string;
+  displayName: string | null;
+  pictureUrl: string | null;
+  linkedBy: 'self' | 'host';
 }
 
 export interface UpdatePlayerRequest {

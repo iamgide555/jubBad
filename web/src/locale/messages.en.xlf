@@ -7310,6 +7310,39 @@
       </trans-unit>
       <trans-unit id="share.pay.recordFailed" datatype="html"><source>ส่งการ์ดแล้ว แต่ยังบันทึกสถานะไม่ได้</source><target>The card was sent, but its status could not be saved.</target></trans-unit>
       <trans-unit id="share.pay.recordRetry" datatype="html"><source>ลองบันทึกสถานะอีกครั้ง</source><target>Retry saving status</target></trans-unit>
+      <trans-unit id="lineAccountPicker.unknownName" datatype="html"><source>ไม่ทราบชื่อ</source><target>Unknown name</target></trans-unit>
+      <trans-unit id="playerRoster.lineLinkedBySelf" datatype="html"><source>ผู้เล่นผูกเอง</source><target>Linked by player</target></trans-unit>
+      <trans-unit id="playerRoster.lineUnlink" datatype="html"><source>ยกเลิกการผูก</source><target>Unlink</target></trans-unit>
+      <trans-unit id="playerRoster.lineLink" datatype="html"><source>ผูก LINE</source><target>Link LINE</target></trans-unit>
+      <trans-unit id="playerRoster.lineLoadFailed" datatype="html"><source>โหลดบัญชี LINE ไม่สำเร็จ</source><target>Could not load LINE accounts</target></trans-unit>
+      <trans-unit id="playerRoster.lineAlreadyLinked" datatype="html"><source>บัญชีนี้ผูกกับผู้เล่นคนอื่นแล้ว</source><target>This account is already linked to another player</target></trans-unit>
+      <trans-unit id="lineAccountPicker.title" datatype="html"><source>เลือกบัญชี LINE</source><target>Choose a LINE account</target></trans-unit>
+      <trans-unit id="lineAccountPicker.empty" datatype="html"><source>ยังไม่มีบัญชี LINE ที่ยังไม่ได้ผูก</source><target>No unlinked LINE accounts yet</target></trans-unit>
+      <trans-unit id="lineAccountPicker.lastSeen" datatype="html"><source>เห็นล่าสุด</source><target>Last seen</target></trans-unit>
+      <trans-unit id="lineAccountPicker.noMatch" datatype="html"><source>ไม่พบบัญชี</source><target>No account found</target></trans-unit>
+      <trans-unit id="lineAccountPicker.close" datatype="html"><source>ปิด</source><target>Close</target></trans-unit>
+      <trans-unit id="lineAccountPicker.filterLabel" datatype="html"><source>ค้นหาชื่อ LINE</source><target>Search LINE name</target></trans-unit>
+      <trans-unit id="lineAccounts.back" datatype="html"><source>← ผู้เล่นในก๊วน</source><target>← Players in the group</target></trans-unit>
+      <trans-unit id="lineAccounts.title" datatype="html"><source>บัญชี LINE ในก๊วน</source><target>LINE accounts in this group</target></trans-unit>
+      <trans-unit id="lineAccounts.empty" datatype="html"><source>บัญชีจะขึ้นที่นี่เมื่อมีคนส่งรายชื่อในกลุ่ม LINE ส่งสลิป หรือกดยืนยันตัวเองในหน้าจ่ายเงิน</source><target>Accounts appear here when someone posts a roster in the LINE group, sends a slip, or confirms themselves on the pay page</target></trans-unit>
+      <trans-unit id="lineAccounts.filterGroup" datatype="html"><source>แสดงบัญชี</source><target>Show accounts</target></trans-unit>
+      <trans-unit id="lineAccounts.filterAll" datatype="html"><source>ทั้งหมด</source><target>All</target></trans-unit>
+      <trans-unit id="lineAccounts.filterUnlinked" datatype="html"><source>ยังไม่ผูก</source><target>Unlinked</target></trans-unit>
+      <trans-unit id="lineAccounts.linkedByHost" datatype="html"><source>ผู้จัดผูก</source><target>Linked by host</target></trans-unit>
+      <trans-unit id="lineAccounts.linkPlayer" datatype="html"><source>ผูกกับผู้เล่น</source><target>Link to player</target></trans-unit>
+      <trans-unit id="lineAccounts.pickPlayerTitle" datatype="html"><source>เลือกผู้เล่น</source><target>Choose a player</target></trans-unit>
+      <trans-unit id="lineAccounts.noPlayers" datatype="html"><source>ยังไม่มีผู้เล่นในก๊วนนี้</source><target>No players in this group yet</target></trans-unit>
+      <trans-unit id="lineAccounts.hasLine" datatype="html"><source>มี LINE แล้ว:</source><target>Already has LINE:</target></trans-unit>
+      <trans-unit id="lineAccounts.sourceRoster" datatype="html"><source>รายชื่อ</source><target>Roster</target></trans-unit>
+      <trans-unit id="lineAccounts.sourceSlip" datatype="html"><source>สลิป</source><target>Slip</target></trans-unit>
+      <trans-unit id="lineAccounts.sourceClaim" datatype="html"><source>ผู้เล่นยืนยัน</source><target>Player</target></trans-unit>
+      <trans-unit id="lineAccounts.sourceHost" datatype="html"><source>ผู้จัด</source><target>Host</target></trans-unit>
+      <trans-unit id="lineAccounts.linkLabel" datatype="html"><source>ผูก <x id="name" equiv-text="name"/> กับผู้เล่น</source><target>Link <x id="name" equiv-text="name"/> to a player</target></trans-unit>
+      <trans-unit id="lineAccounts.unlinkLabel" datatype="html"><source>ยกเลิกการผูก LINE ของ <x id="name" equiv-text="name"/></source><target>Unlink LINE from <x id="name" equiv-text="name"/></target></trans-unit>
+      <trans-unit id="lineAccounts.playersLoadFailed" datatype="html"><source>โหลดรายชื่อผู้เล่นไม่สำเร็จ</source><target>Could not load players</target></trans-unit>
+      <trans-unit id="playerRoster.lineAccountsLink" datatype="html"><source>บัญชี LINE →</source><target>LINE accounts →</target></trans-unit>
+      <trans-unit id="playerRoster.lineLinkLabel" datatype="html"><source>ผูก LINE ให้ <x id="name" equiv-text="name"/></source><target>Link LINE to <x id="name" equiv-text="name"/></target></trans-unit>
+      <trans-unit id="playerRoster.lineUnlinkLabel" datatype="html"><source>ยกเลิกการผูก LINE ของ <x id="name" equiv-text="name"/></source><target>Unlink LINE from <x id="name" equiv-text="name"/></target></trans-unit>
     </body>
   </file>
 </xliff>

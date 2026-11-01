@@ -10,6 +10,8 @@ import { BillService } from '../bill.service.js';
 import { newShareToken, serializePaymentState } from '../payment-card-state.js';
 import { PaymentCardService } from '../payment-card.service.js';
 import type { OcrLine } from './slip-match.js';
+import { LineAccountsService } from '../../line/line-accounts.service.js';
+import { SlipImagesService } from './slip-images.service.js';
 import { SlipPaymentsService, type LiffUser } from './slip-payments.service.js';
 import { SlipReader, type SlipRead } from './slip-reader.js';
 
@@ -54,11 +56,13 @@ function slip(
   return { kind: 'slip', qr: { bankCode: '004', reference }, ocr: { text: texts.join('\n'), lines } };
 }
 
-const lineUser = (name = 'Somchai'): LiffUser => ({
-  userId: `U${randomUUID().replace(/-/g, '')}`,
-  displayName: name,
-  pictureUrl: `https://profile.line-scdn.net/${encodeURIComponent(name)}`,
-});
+/** Every LINE user these tests made, so their global LineAccount rows can be removed afterwards. */
+const lineUserIds: string[] = [];
+const lineUser = (name = 'Somchai'): LiffUser => {
+  const userId = `U${randomUUID().replace(/-/g, '')}`;
+  lineUserIds.push(userId);
+  return { userId, displayName: name, pictureUrl: `https://profile.line-scdn.net/${encodeURIComponent(name)}` };
+};
 
 const newRef = () => `REF${randomUUID().replace(/-/g, '').slice(0, 16)}`;
 
@@ -103,6 +107,7 @@ describe('slip payments: submit pipeline', () => {
     await prisma.session.deleteMany({ where: byGroup });
     await prisma.player.deleteMany({ where: byGroup });
     await prisma.group.deleteMany({ where: { code: { in: groupCodes } } });
+    await prisma.lineAccount.deleteMany({ where: { lineUserId: { in: lineUserIds } } });
     await prisma.user.deleteMany({ where: { id: { in: userIds } } });
     await app.close();
   });
@@ -581,6 +586,7 @@ describe('slip payments: submit pipeline', () => {
       });
       expect(await cards.tokenValid(code, token)).toBe(true);
       const a = lineUser();
+      await prisma.lineAccount.create({ data: { lineUserId: a.userId } });
       await prisma.playerLineAccount.create({
         data: { groupId: groupCode, playerId: ids[0], lineUserId: a.userId, linkedBy: 'self' },
       });
@@ -653,6 +659,7 @@ describe('slip payments: submit pipeline', () => {
       const { code, groupCode, ids, token } = await setup();
       const stranger = await prisma.player.create({ data: { groupId: groupCode, name: 'คนนอก', aliases: '[]' } });
       const a = lineUser();
+      await prisma.lineAccount.create({ data: { lineUserId: a.userId } });
       await prisma.playerLineAccount.create({
         data: { groupId: groupCode, playerId: stranger.id, lineUserId: a.userId, linkedBy: 'host' },
       });
@@ -767,6 +774,83 @@ describe('slip payments: submit pipeline', () => {
       expect(await paymentsOf(code)).toEqual([]);
       // Zero is never an owed amount found on a slip either.
       expect(await onePending(code)).toMatchObject({ amountSatang: null });
+    });
+  });
+
+  describe('LINE account directory', () => {
+    const membership = (groupCode: string, lineUserId: string) =>
+      prisma.lineAccountGroup.findFirst({
+        where: { groupId: groupCode, lineAccount: { lineUserId } },
+        include: { lineAccount: true },
+      });
+
+    it("a held slip records the sender as a 'slip' account with the LIFF name and picture", async () => {
+      const { code, groupCode, token } = await setup();
+      const stranger = lineUser('Nok');
+      reader.read.mockResolvedValue(slip(newRef()));
+      expect(await slips.submitSlip(code, token, stranger, IMAGE)).toEqual({ kind: 'waiting', reason: 'unmapped' });
+      expect(await membership(groupCode, stranger.userId)).toMatchObject({
+        source: 'slip',
+        lineAccount: { lineUserId: stranger.userId, displayName: 'Nok', pictureUrl: stranger.pictureUrl },
+      });
+    });
+
+    describe('when the directory write fails', () => {
+      // A real image header, so the image is actually stored (the fake IMAGE bytes are not saved).
+      const JPEG = Buffer.from([0xff, 0xd8, 0xff, 0xe0, 0x00, 0x10]);
+      const imagesKept = async (code: string) => {
+        const images = app.get(SlipImagesService);
+        const count = await images.count(code);
+        await images.purgeSession(code);
+        return count;
+      };
+
+      // Called after the test's setup: the pay page's claim needs the directory, only the submit must survive without it.
+      const breakDirectory = () => {
+        vi.spyOn(app.get(LineAccountsService), 'touch').mockRejectedValue(new Error('db busy'));
+        vi.spyOn(console, 'error').mockImplementation(() => {});
+      };
+
+      it('an auto-paid slip is still paid and its reference and image are kept', async () => {
+        const { code, groupCode, ids, token } = await setup();
+        const a = await linked(code, ids[0]);
+        const reference = newRef();
+        reader.read.mockResolvedValue(slip(reference, { amount: baht(await owed(code, ids[0])) }));
+        breakDirectory();
+        expect(await slips.submitSlip(code, token, a, JPEG)).toEqual({ kind: 'paid', playerIds: [ids[0]] });
+        expect(await paymentsOf(code)).toEqual([expect.objectContaining({ playerId: ids[0], reference })]);
+        expect(await referencesOf(groupCode)).toEqual([expect.objectContaining({ reference })]);
+        expect(await imagesKept(code)).toBe(1);
+        expect(console.error).toHaveBeenCalledWith(expect.stringContaining('[slip-payments]'), expect.anything());
+      });
+
+      it('a held slip is still held and its reference and image are kept', async () => {
+        const { code, groupCode, token } = await setup();
+        const reference = newRef();
+        reader.read.mockResolvedValue(slip(reference));
+        breakDirectory();
+        expect(await slips.submitSlip(code, token, lineUser(), JPEG)).toEqual({ kind: 'waiting', reason: 'unmapped' });
+        expect(await onePending(code)).toMatchObject({ reference, reason: 'unmapped' });
+        expect(await referencesOf(groupCode)).toEqual([expect.objectContaining({ reference })]);
+        expect(await imagesKept(code)).toBe(1);
+      });
+    });
+
+    it('an auto-paid slip records the sender too', async () => {
+      const { code, groupCode, ids, token } = await setup();
+      // Linked by the host, so the account has no listing in the group before the slip arrives.
+      const a = lineUser('Mali');
+      await prisma.lineAccount.create({ data: { lineUserId: a.userId, displayName: null, pictureUrl: null } });
+      await prisma.playerLineAccount.create({
+        data: { groupId: groupCode, playerId: ids[0], lineUserId: a.userId, linkedBy: 'host' },
+      });
+      expect(await membership(groupCode, a.userId)).toBeNull();
+      reader.read.mockResolvedValue(slip(newRef(), { amount: baht(await owed(code, ids[0])) }));
+      expect(await slips.submitSlip(code, token, a, IMAGE)).toEqual({ kind: 'paid', playerIds: [ids[0]] });
+      expect(await membership(groupCode, a.userId)).toMatchObject({
+        source: 'slip',
+        lineAccount: { displayName: 'Mali', pictureUrl: a.pictureUrl },
+      });
     });
   });
 });

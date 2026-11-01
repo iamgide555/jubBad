@@ -4,6 +4,7 @@ import { isRosterMessage, messagesToPurge, rosterStaleness } from '../../../engi
 import { planAtLeast } from '../plans/plan.js';
 import { PlansService } from '../plans/plans.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
+import { LineAccountsService } from './line-accounts.service.js';
 import { LineClient } from './line-client.js';
 
 export interface CaptureInput {
@@ -34,7 +35,8 @@ export class LineRosterService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly plans: PlansService,
-    private readonly client: LineClient
+    private readonly client: LineClient,
+    private readonly accounts: LineAccountsService
   ) {}
 
   async capture(input: CaptureInput): Promise<'stored' | 'ignored'> {
@@ -43,7 +45,8 @@ export class LineRosterService {
     const groupCode = await this.paidLinkedGroup(input.lineGroupId);
     if (groupCode === null) return 'ignored';
 
-    const senderName = input.senderUserId ? await this.client.memberName(input.lineGroupId, input.senderUserId) : null;
+    const profile = input.senderUserId ? await this.client.memberProfile(input.lineGroupId, input.senderUserId) : null;
+    const senderName = profile?.displayName ?? null;
     try {
       await this.prisma.lineRosterMessage.create({
         data: {
@@ -58,6 +61,19 @@ export class LineRosterService {
     } catch (error) {
       if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') return 'ignored';
       throw error;
+    }
+    if (input.senderUserId) {
+      // The message is already stored: a directory failure is logged and must not lose it or fail the webhook.
+      try {
+        await this.accounts.touch(
+          groupCode,
+          { lineUserId: input.senderUserId, displayName: profile?.displayName ?? null, pictureUrl: profile?.pictureUrl ?? null },
+          'roster',
+          input.postedAt
+        );
+      } catch (error) {
+        console.error('[line-roster] could not record the sender as a LINE account', error);
+      }
     }
     await this.purgeFor(groupCode);
     return 'stored';

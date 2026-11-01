@@ -3,6 +3,7 @@ import { HttpTestingController, provideHttpClientTesting } from '@angular/common
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { ActivatedRoute, convertToParamMap } from '@angular/router';
 import { PlayerRoster } from './player-roster';
+import type { ManagedLineAccount } from '../../core/roster.service';
 import { standardLadderFixture } from '../../core/group-levels.testing';
 import { environment } from '../../../environments/environment';
 import { stubPlanService } from '../../core/plan.testing';
@@ -21,6 +22,7 @@ const PLAYERS = [
     rating: 1250,
     singlesRating: null,
     winRate: 0.5,
+    lineAccount: null,
   },
   {
     id: 'p2',
@@ -33,8 +35,20 @@ const PLAYERS = [
     rating: 1180,
     singlesRating: 1300,
     winRate: null,
+    lineAccount: null,
   },
 ];
+
+const LINE = { id: 'a1', displayName: 'Tam LINE', pictureUrl: 'https://profile.example/tam.jpg', linkedBy: 'host' as const };
+const account = (id: string, displayName: string, player: { id: string; name: string; linkedBy: 'self' | 'host' } | null = null) => ({
+  id,
+  displayName,
+  pictureUrl: null,
+  source: 'roster' as const,
+  firstSeenAt: '2026-10-01T10:00:00.000Z',
+  lastSeenAt: '2026-10-20T10:00:00.000Z',
+  player,
+});
 
 const GROUP = { code: 'group1', name: 'ก๊วนอังคาร', lastSessionCode: null };
 
@@ -96,6 +110,16 @@ describe('PlayerRoster', () => {
 
   it('loads and lists players', () => {
     expect(component.players()).toEqual(PLAYERS);
+  });
+
+  it('the บัญชี LINE link goes to /g/:code/players/line, and waits while a row is being edited', () => {
+    const el = fixture.nativeElement as HTMLElement;
+    const link = el.querySelector<HTMLAnchorElement>('[data-line-accounts-link]')!;
+    expect(link.getAttribute('href')).toBe('/g/group1/players/line');
+    expect(link.textContent).toContain('บัญชี LINE');
+    component.startEdit(PLAYERS[0]);
+    fixture.detectChanges();
+    expect(el.querySelector('[data-line-accounts-link]')).toBeNull();
   });
 
   it('explains an empty group: players join when a session starts', () => {
@@ -462,6 +486,160 @@ describe('PlayerRoster', () => {
       req.flush({ deleted: true });
       await done;
       expect(component.rules()).toEqual([]);
+    });
+  });
+
+  describe('LINE accounts', () => {
+    const el = () => fixture.nativeElement as HTMLElement;
+    const ACCOUNTS_URL = `${B}/groups/group1/line/accounts`;
+    const chip = (id: string) => el().querySelector<HTMLElement>(`[data-line-chip="${id}"]`);
+    const linkBtn = (id: string) => el().querySelector<HTMLButtonElement>(`[data-link-line="${id}"]`);
+    const unlinkBtn = (id: string) => el().querySelector<HTMLButtonElement>(`[data-unlink-line="${id}"]`);
+    const dialog = () => el().querySelector('dialog.line-account-picker') as HTMLDialogElement;
+    const settle = async () => {
+      await fixture.whenStable();
+      fixture.detectChanges();
+    };
+    const showLinked = (lineAccount: ManagedLineAccount = LINE) => {
+      component.players.set([{ ...PLAYERS[0], lineAccount }, PLAYERS[1]]);
+      fixture.detectChanges();
+    };
+    async function openPicker(playerId: string, accounts = [account('a1', 'Tam LINE'), account('a2', 'Mod LINE'), account('a3', 'Other', { id: 'px', name: 'คนอื่น', linkedBy: 'host' })]) {
+      linkBtn(playerId)!.click();
+      httpMock.expectOne(ACCOUNTS_URL).flush(accounts);
+      await settle();
+    }
+
+    it('a linked player\'s row shows the LINE avatar and name and an unlink button', () => {
+      showLinked();
+      expect(chip('p1')!.textContent).toContain('Tam LINE');
+      expect(chip('p1')!.querySelector('img')!.getAttribute('referrerpolicy')).toBe('no-referrer');
+      expect(unlinkBtn('p1')!.textContent!.trim()).toBe('ยกเลิกการผูก');
+      expect(linkBtn('p1')).toBeNull();
+      // The unlinked neighbour offers the link instead.
+      expect(chip('p2')).toBeNull();
+      expect(linkBtn('p2')!.textContent!.trim()).toBe('ผูก LINE');
+      expect(unlinkBtn('p2')).toBeNull();
+    });
+
+    it('self-claimed links are labelled as claimed by the player', () => {
+      showLinked({ ...LINE, linkedBy: 'self' });
+      expect(chip('p1')!.textContent).toContain('ผู้เล่นผูกเอง');
+      showLinked({ ...LINE, linkedBy: 'host' });
+      expect(chip('p1')!.textContent).not.toContain('ผู้เล่นผูกเอง');
+    });
+
+    it('unlink calls the API and the row returns to the link button', async () => {
+      showLinked();
+      unlinkBtn('p1')!.click();
+      const del = httpMock.expectOne(`${ACCOUNTS_URL}/a1/player`);
+      expect(del.request.method).toBe('DELETE');
+      del.flush({ ok: true });
+      await settle();
+      expect(chip('p1')).toBeNull();
+      expect(linkBtn('p1')).not.toBeNull();
+      expect(component.players().find((p) => p.id === 'p1')?.lineAccount).toBeNull();
+    });
+
+    it('a failed unlink leaves the row as it was and says so', async () => {
+      showLinked();
+      unlinkBtn('p1')!.click();
+      httpMock.expectOne(`${ACCOUNTS_URL}/a1/player`).flush('x', { status: 500, statusText: 'Server Error' });
+      await settle();
+      expect(chip('p1')).not.toBeNull();
+      expect(el().querySelector('[data-line-error]')).not.toBeNull();
+    });
+
+    it('an unlinked player\'s row shows a link button that opens the picker with only unlinked accounts', async () => {
+      await openPicker('p2');
+      expect(dialog().hasAttribute('open')).toBe(true);
+      expect([...dialog().querySelectorAll('[data-account]')].map((r) => r.getAttribute('data-account'))).toEqual(['a1', 'a2']);
+    });
+
+    it('lists the accounts once and again only after a link or unlink changed them', async () => {
+      await openPicker('p2');
+      (dialog().querySelector('[data-close]') as HTMLButtonElement).click();
+      fixture.detectChanges();
+      linkBtn('p2')!.click();
+      await settle();
+      httpMock.expectNone(ACCOUNTS_URL);
+      expect(dialog().hasAttribute('open')).toBe(true);
+    });
+
+    it('picking an account calls link and the row shows that account', async () => {
+      await openPicker('p2');
+      (dialog().querySelector('[data-account="a2"]') as HTMLButtonElement).click();
+      const put = httpMock.expectOne(`${ACCOUNTS_URL}/a2/player`);
+      expect(put.request.method).toBe('PUT');
+      expect(put.request.body).toEqual({ playerId: 'p2' });
+      put.flush({ ok: true });
+      await settle();
+      expect(chip('p2')!.textContent).toContain('Mod LINE');
+      expect(unlinkBtn('p2')).not.toBeNull();
+      expect(linkBtn('p2')).toBeNull();
+      expect(component.players().find((p) => p.id === 'p2')?.lineAccount).toEqual({
+        id: 'a2', displayName: 'Mod LINE', pictureUrl: null, linkedBy: 'host',
+      });
+      // The cached list is stale now: the next open reads it again.
+      linkBtn('p1')!.click();
+      httpMock.expectOne(ACCOUNTS_URL).flush([account('a1', 'Tam LINE')]);
+      await settle();
+    });
+
+    it('a 409 shows the already-linked message, leaves the row unlinked, and re-reads the players and the accounts', async () => {
+      await openPicker('p2');
+      (dialog().querySelector('[data-account="a1"]') as HTMLButtonElement).click();
+      httpMock
+        .expectOne(`${ACCOUNTS_URL}/a1/player`)
+        .flush({ code: 'ACCOUNT_ALREADY_LINKED' }, { status: 409, statusText: 'Conflict' });
+      await settle();
+      // The page reloads its players so a row linked elsewhere shows it.
+      httpMock.expectOne(`${B}/groups/group1/players/manage`).flush([{ ...PLAYERS[0], lineAccount: LINE }, PLAYERS[1]]);
+      await settle();
+      await settle();
+      expect(el().querySelector('[data-line-error]')!.textContent).toContain('บัญชีนี้ผูกกับผู้เล่นคนอื่นแล้ว');
+      expect(chip('p1')!.textContent).toContain('Tam LINE');
+      expect(chip('p2')).toBeNull();
+      expect(linkBtn('p2')).not.toBeNull();
+      expect(component.players().find((p) => p.id === 'p2')?.lineAccount).toBeNull();
+      // The cached accounts were dropped: the next picker open reads them again.
+      linkBtn('p2')!.click();
+      httpMock.expectOne(ACCOUNTS_URL).flush([account('a2', 'Mod LINE')]);
+      await settle();
+    });
+
+    it('a failed link that is not a 409 does not reload the players', async () => {
+      await openPicker('p2');
+      (dialog().querySelector('[data-account="a1"]') as HTMLButtonElement).click();
+      httpMock.expectOne(`${ACCOUNTS_URL}/a1/player`).flush('x', { status: 500, statusText: 'Server Error' });
+      await settle();
+      httpMock.expectNone(`${B}/groups/group1/players/manage`);
+      expect(el().querySelector('[data-line-error]')).not.toBeNull();
+    });
+
+    it('the link and unlink buttons name their player for assistive tech', () => {
+      showLinked();
+      expect(unlinkBtn('p1')!.getAttribute('aria-label')).toBe('ยกเลิกการผูก LINE ของ ตั้ม');
+      expect(linkBtn('p2')!.getAttribute('aria-label')).toBe('ผูก LINE ให้ มด');
+      expect(unlinkBtn('p1')!.getAttribute('aria-label')).toContain(PLAYERS[0].name);
+      expect(linkBtn('p2')!.getAttribute('aria-label')).toContain(PLAYERS[1].name);
+    });
+
+    it('cannot read the accounts: says so and opens no picker', async () => {
+      linkBtn('p2')!.click();
+      httpMock.expectOne(ACCOUNTS_URL).flush('x', { status: 500, statusText: 'Server Error' });
+      await settle();
+      expect(dialog().hasAttribute('open')).toBe(false);
+      expect(el().querySelector('[data-line-error]')).not.toBeNull();
+    });
+
+    it('offers no link or unlink while a row is being edited', () => {
+      showLinked();
+      component.startEdit(PLAYERS[1]);
+      fixture.detectChanges();
+      expect(linkBtn('p2')).toBeNull();
+      expect(unlinkBtn('p1')).toBeNull();
+      expect(chip('p1')).not.toBeNull();
     });
   });
 

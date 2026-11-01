@@ -152,6 +152,9 @@ export class LineLinkService {
         this.prisma.lineLinkCode.deleteMany({ where: { groupId: groupCode } }),
         // Slip links and slips go with the link; recorded SessionPayment rows stay.
         this.prisma.playerLineAccount.deleteMany({ where: { groupId: groupCode } }),
+        // The group's LINE account directory goes too; the accounts themselves are global and
+        // deleted by LineAccountsService.sweep once no group lists them and no link uses them.
+        this.prisma.lineAccountGroup.deleteMany({ where: { groupId: groupCode } }),
         this.prisma.pendingSlip.deleteMany({ where: { groupId: groupCode } }),
         this.prisma.slipDuplicate.deleteMany({ where: { groupId: groupCode } }),
         this.prisma.slipReference.deleteMany({ where: { groupId: groupCode } }),
@@ -177,6 +180,7 @@ export class LineLinkService {
         this.prisma.lineLinkCode.deleteMany({ where: { groupId: group.code } }),
         // Slip links and slips go with the link; recorded SessionPayment rows stay.
         this.prisma.playerLineAccount.deleteMany({ where: { groupId: group.code } }),
+        this.prisma.lineAccountGroup.deleteMany({ where: { groupId: group.code } }),
         this.prisma.pendingSlip.deleteMany({ where: { groupId: group.code } }),
         this.prisma.slipDuplicate.deleteMany({ where: { groupId: group.code } }),
         this.prisma.slipReference.deleteMany({ where: { groupId: group.code } }),

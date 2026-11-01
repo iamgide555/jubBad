@@ -80,6 +80,37 @@ describe('LineClient', () => {
     expect(await client.memberName('C1', 'U9')).toBe('Mod');
   });
 
+  it('memberProfile returns displayName and pictureUrl', async () => {
+    fetchMock.mockResolvedValue(
+      jsonResponse(200, { displayName: 'Nok', userId: 'U1', pictureUrl: 'https://profile.line-scdn.net/nok' })
+    );
+    expect(await client.memberProfile('C1', 'U1')).toEqual({
+      displayName: 'Nok',
+      pictureUrl: 'https://profile.line-scdn.net/nok',
+    });
+    expect(fetchMock.mock.calls[0][0]).toBe('https://api.line.me/v2/bot/group/C1/member/U1');
+  });
+
+  it('memberProfile returns pictureUrl null when LINE omits it', async () => {
+    fetchMock.mockResolvedValue(jsonResponse(200, { displayName: 'Nok', userId: 'U1' }));
+    expect(await client.memberProfile('C1', 'U1')).toEqual({ displayName: 'Nok', pictureUrl: null });
+  });
+
+  it('memberProfile returns null on a failed lookup and does not cache it', async () => {
+    fetchMock.mockResolvedValueOnce(jsonResponse(404, { message: 'Not found' }));
+    expect(await client.memberProfile('C1', 'U8')).toBeNull();
+    fetchMock.mockResolvedValueOnce(jsonResponse(200, { displayName: 'Mod' }));
+    expect(await client.memberProfile('C1', 'U8')).toEqual({ displayName: 'Mod', pictureUrl: null });
+  });
+
+  it('memberProfile caches and memberName reuses the cache', async () => {
+    fetchMock.mockResolvedValue(jsonResponse(200, { displayName: 'Nok', pictureUrl: 'https://p/nok' }));
+    await client.memberProfile('C1', 'U1');
+    expect(await client.memberName('C1', 'U1')).toBe('Nok');
+    expect(await client.memberProfile('C1', 'U1')).toEqual({ displayName: 'Nok', pictureUrl: 'https://p/nok' });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
   it('returns null once the 3 second timeout fires on a request that never resolves', async () => {
     vi.useFakeTimers();
     fetchMock.mockImplementation(

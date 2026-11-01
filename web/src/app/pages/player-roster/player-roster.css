@@ -124,6 +124,28 @@
   background: var(--court-soft);
 }
 
+/* The player's LINE account under their name: avatar, LINE name, and who made the link when the player did. */
+.line-chip {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-0) var(--space-1);
+  margin-top: var(--space-0);
+  font-size: var(--text-sm);
+  color: var(--ink-soft);
+}
+
+.line-name {
+  overflow-wrap: anywhere;
+}
+
+.line-self {
+  font-size: var(--text-xs);
+  padding: 0 var(--space-1);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-pill);
+}
+
 .clipboard-fallback {
   width: 100%;
   min-height: 4rem;
@@ -142,6 +164,7 @@
   font-size: var(--text-sm);
 }
 
+.line-accounts-link,
 .empty-start {
   display: inline-flex;
   align-items: center;

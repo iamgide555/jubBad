@@ -17,6 +17,10 @@
     <p><a [routerLink]="['/g', groupCode, 'levels']" data-levels-link i18n="@@playerRoster.groupLevels">ตั้งชื่อระดับของก๊วน →</a></p>
   }
 
+  @if (editingId() === null && players().length > 0) {
+    <p><a class="line-accounts-link" [routerLink]="['/g', groupCode, 'players', 'line']" data-line-accounts-link i18n="@@playerRoster.lineAccountsLink">บัญชี LINE →</a></p>
+  }
+
   @if (!loaded()) {
     <p class="muted" i18n="@@playerRoster.loading">กำลังโหลด…</p>
   } @else if (loadError()) {
@@ -24,6 +28,9 @@
   } @else {
     @if (levelSaveError()) {
       <p class="error" role="alert">{{ levelSaveError() }}</p>
+    }
+    @if (lineError()) {
+      <p class="error" role="alert" data-line-error>{{ lineError() }}</p>
     }
     @if (isEmpty()) {
       <!-- Nothing here to set rules or levels on yet: the only useful step is the first session. -->
@@ -172,6 +179,21 @@
                 } @else {
                   {{ player.name }}
                 }
+                @if (player.lineAccount; as line) {
+                  <div class="line-chip" [attr.data-line-chip]="player.id">
+                    <app-line-avatar [name]="line.displayName" [pictureUrl]="line.pictureUrl" [size]="20" />
+                    <span class="line-name">
+                      @if (line.displayName) {
+                        {{ line.displayName }}
+                      } @else {
+                        <ng-container i18n="@@lineAccountPicker.unknownName">ไม่ทราบชื่อ</ng-container>
+                      }
+                    </span>
+                    @if (line.linkedBy === 'self') {
+                      <span class="line-self" i18n="@@playerRoster.lineLinkedBySelf">ผู้เล่นผูกเอง</span>
+                    }
+                  </div>
+                }
               </td>
               <td>
                 <app-level-picker
@@ -196,6 +218,13 @@
               }
               <td>
                 <button type="button" class="ghost" [disabled]="editingId() !== null" (click)="startEdit(player)" i18n="@@playerRoster.edit">แก้ไข</button>
+                @if (editingId() === null) {
+                  @if (player.lineAccount) {
+                    <button type="button" class="ghost" [attr.data-unlink-line]="player.id" [attr.aria-label]="lineUnlinkLabel(player.name)" [disabled]="lineBusyId() === player.id" (click)="unlinkLine(player)" i18n="@@playerRoster.lineUnlink">ยกเลิกการผูก</button>
+                  } @else {
+                    <button type="button" class="ghost" [attr.data-link-line]="player.id" [attr.aria-label]="lineLinkLabel(player.name)" [disabled]="lineBusyId() === player.id" (click)="openLinkPicker(player)" i18n="@@playerRoster.lineLink">ผูก LINE</button>
+                  }
+                }
                 @if (paid()) {
                   <button type="button" class="ghost" data-share-player [attr.aria-label]="shareLabel(player.name)" (click)="sharePlayer(player.id)">
                     @if (sharedPlayerId() === player.id) {
@@ -212,6 +241,7 @@
       </tbody>
       </table>
     </div>
+    <app-line-account-picker #accountPicker [accounts]="unlinkedAccounts()" (picked)="linkPicked($event)" />
     @if (shareFailed()) {
       <p class="error" role="alert" i18n="@@share.failed">คัดลอกไม่ได้ ลองเลือกข้อความเอง</p>
       <textarea class="clipboard-fallback" readonly [value]="clipboardFallback()" i18n-aria-label="@@share.fallbackLabel" aria-label="ข้อความสำหรับคัดลอก"></textarea>

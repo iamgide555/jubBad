@@ -52,8 +52,58 @@ describe('GroupsService.listPlayersManage', () => {
         rating: 1200,
         singlesRating: null,
         winRate: null,
+        lineAccount: null,
       },
     ]);
+  });
+
+  it('each player carries its linked LINE account or null', async () => {
+    const code = randomUUID();
+    const lineUserId = `U${randomUUID().replace(/-/g, '')}`;
+    codes.push(code);
+    await prisma.group.create({ data: { code, name: 'G' } });
+    const [linked, hostLinked, bare] = await Promise.all([
+      prisma.player.create({ data: { groupId: code, name: 'Linked', aliases: '[]' } }),
+      prisma.player.create({ data: { groupId: code, name: 'HostLinked', aliases: '[]' } }),
+      prisma.player.create({ data: { groupId: code, name: 'Bare', aliases: '[]' } }),
+    ]);
+    const hostLineUserId = `U${randomUUID().replace(/-/g, '')}`;
+    const account = await prisma.lineAccount.create({
+      data: { lineUserId, displayName: 'Somchai', pictureUrl: 'https://profile.example.test/a.jpg' },
+    });
+    const hostAccount = await prisma.lineAccount.create({
+      data: { lineUserId: hostLineUserId, displayName: null, pictureUrl: null },
+    });
+    try {
+      await prisma.playerLineAccount.create({
+        data: { groupId: code, playerId: linked.id, lineUserId, linkedBy: 'self' },
+      });
+      await prisma.playerLineAccount.create({
+        data: { groupId: code, playerId: hostLinked.id, lineUserId: hostLineUserId, linkedBy: 'host' },
+      });
+
+      const rows = await service.listPlayersManage(code);
+      const byId = new Map(rows.map((r) => [r.id, r]));
+
+      expect(byId.get(linked.id)!.lineAccount).toEqual({
+        id: account.id,
+        displayName: 'Somchai',
+        pictureUrl: 'https://profile.example.test/a.jpg',
+        linkedBy: 'self',
+      });
+      expect(byId.get(hostLinked.id)!.lineAccount).toEqual({
+        id: hostAccount.id,
+        displayName: null,
+        pictureUrl: null,
+        linkedBy: 'host',
+      });
+      expect(byId.get(bare.id)!.lineAccount).toBeNull();
+      expect(JSON.stringify(rows)).not.toContain(lineUserId);
+      expect(JSON.stringify(rows)).not.toContain(hostLineUserId);
+    } finally {
+      await prisma.player.deleteMany({ where: { groupId: code } });
+      await prisma.lineAccount.deleteMany({ where: { id: { in: [account.id, hostAccount.id] } } });
+    }
   });
 
   it('carries age/email/phone through, and computes rating/winRate from match history', async () => {

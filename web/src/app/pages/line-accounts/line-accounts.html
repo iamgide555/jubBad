@@ -1,0 +1,97 @@
+<div class="page line-accounts">
+  <p>
+    <a class="back" [routerLink]="['/g', groupCode, 'players']" i18n="@@lineAccounts.back">← ผู้เล่นในก๊วน</a>
+  </p>
+  <h1 i18n="@@lineAccounts.title">บัญชี LINE ในก๊วน</h1>
+
+  @if (loadFailed()) {
+    <p class="error" role="alert" data-load-error i18n="@@playerRoster.lineLoadFailed">โหลดบัญชี LINE ไม่สำเร็จ</p>
+  } @else if (accounts() === null) {
+    <p class="muted" i18n="@@playerRoster.loading">กำลังโหลด…</p>
+  } @else if (accounts()!.length === 0) {
+    <p class="muted" data-empty i18n="@@lineAccounts.empty">บัญชีจะขึ้นที่นี่เมื่อมีคนส่งรายชื่อในกลุ่ม LINE ส่งสลิป หรือกดยืนยันตัวเองในหน้าจ่ายเงิน</p>
+  } @else {
+    <div class="filters" role="group" i18n-aria-label="@@lineAccounts.filterGroup" aria-label="แสดงบัญชี">
+      <button type="button" class="chip" data-filter="all" [class.selected]="filter() === 'all'" [attr.aria-pressed]="filter() === 'all'" (click)="setFilter('all')" i18n="@@lineAccounts.filterAll">ทั้งหมด</button>
+      <button type="button" class="chip" data-filter="unlinked" [class.selected]="filter() === 'unlinked'" [attr.aria-pressed]="filter() === 'unlinked'" (click)="setFilter('unlinked')" i18n="@@lineAccounts.filterUnlinked">ยังไม่ผูก</button>
+    </div>
+
+    @if (error()) {
+      <p class="error" role="alert" data-error>{{ error() }}</p>
+    }
+
+    @if (visible().length === 0) {
+      <p class="muted" data-no-unlinked i18n="@@lineAccountPicker.empty">ยังไม่มีบัญชี LINE ที่ยังไม่ได้ผูก</p>
+    } @else {
+      <ul class="account-list">
+        @for (a of visible(); track a.id) {
+          <li class="account-row" [attr.data-account-row]="a.id">
+            <app-line-avatar [name]="a.displayName" [pictureUrl]="a.pictureUrl" [size]="40" />
+            <div class="account-text">
+              <span class="name">
+                @if (a.displayName) {
+                  {{ a.displayName }}
+                } @else {
+                  <ng-container i18n="@@lineAccountPicker.unknownName">ไม่ทราบชื่อ</ng-container>
+                }
+              </span>
+              <span class="seen">
+                <ng-container i18n="@@lineAccountPicker.lastSeen">เห็นล่าสุด</ng-container> {{ seen(a) }}
+                <span class="source">{{ sourceLabel(a.source) }}</span>
+              </span>
+              @if (a.player; as p) {
+                <span class="linked" data-linked-player>
+                  → {{ p.name }}
+                  @if (p.linkedBy === 'self') {
+                    <span class="linked-by" data-linked-by i18n="@@playerRoster.lineLinkedBySelf">ผู้เล่นผูกเอง</span>
+                  } @else {
+                    <span class="linked-by" data-linked-by i18n="@@lineAccounts.linkedByHost">ผู้จัดผูก</span>
+                  }
+                </span>
+              }
+            </div>
+            @if (a.player) {
+              <button type="button" class="ghost" data-unlink [attr.aria-label]="unlinkLabel(a)" [disabled]="busy()" (click)="unlink(a)" i18n="@@playerRoster.lineUnlink">ยกเลิกการผูก</button>
+            } @else {
+              <button type="button" class="ghost" data-link-player [attr.aria-label]="linkLabel(a)" [disabled]="busy()" (click)="openPicker(a)" i18n="@@lineAccounts.linkPlayer">ผูกกับผู้เล่น</button>
+            }
+          </li>
+        }
+      </ul>
+    }
+  }
+
+  <dialog #playerDialog class="player-dialog sheet-dialog" aria-labelledby="line-accounts-picker-title" (close)="onDialogClose()">
+    @if (pickerOpen()) {
+      <div class="form-card">
+        <h2 id="line-accounts-picker-title" i18n="@@lineAccounts.pickPlayerTitle">เลือกผู้เล่น</h2>
+        @if (pickable().length === 0) {
+          <p class="muted" data-no-players i18n="@@lineAccounts.noPlayers">ยังไม่มีผู้เล่นในก๊วนนี้</p>
+        } @else {
+          <ul class="player-list">
+            @for (p of pickable(); track p.id) {
+              <li>
+                <button type="button" class="player" [attr.data-pick-player]="p.id" (click)="pickPlayer(p)">
+                  <span class="name">{{ p.name }}</span>
+                  @if (p.lineAccount; as line) {
+                    <span class="has-line">
+                      <ng-container i18n="@@lineAccounts.hasLine">มี LINE แล้ว:</ng-container>
+                      @if (line.displayName) {
+                        {{ line.displayName }}
+                      } @else {
+                        <ng-container i18n="@@lineAccountPicker.unknownName">ไม่ทราบชื่อ</ng-container>
+                      }
+                    </span>
+                  }
+                </button>
+              </li>
+            }
+          </ul>
+        }
+        <div class="dialog-actions">
+          <button type="button" class="ghost" data-close (click)="closePicker()" i18n="@@lineAccountPicker.close">ปิด</button>
+        </div>
+      </div>
+    }
+  </dialog>
+</div>

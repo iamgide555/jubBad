@@ -11,11 +11,12 @@ import { SlipPaymentsService, type LiffUser } from './slip-payments.service.js';
 
 const NAMES = ['สมชาย', 'มาลี', 'ต้อม', 'นิด'];
 
-const user = (name: string | null = 'Somchai'): LiffUser => ({
-  userId: `U${randomUUID().replace(/-/g, '')}`,
-  displayName: name,
-  pictureUrl: null,
-});
+const lineUserIds: string[] = [];
+const user = (name: string | null = 'Somchai'): LiffUser => {
+  const userId = `U${randomUUID().replace(/-/g, '')}`;
+  lineUserIds.push(userId);
+  return { userId, displayName: name, pictureUrl: null };
+};
 
 describe('slip payments: LINE account links', () => {
   let app: INestApplication;
@@ -45,6 +46,7 @@ describe('slip payments: LINE account links', () => {
     await prisma.session.deleteMany({ where: { groupId: { in: groupCodes } } });
     await prisma.player.deleteMany({ where: { groupId: { in: groupCodes } } });
     await prisma.group.deleteMany({ where: { code: { in: groupCodes } } });
+    await prisma.lineAccount.deleteMany({ where: { lineUserId: { in: lineUserIds } } });
     await app.close();
   });
 
@@ -92,9 +94,12 @@ describe('slip payments: LINE account links', () => {
       expect(await slips.linkedPlayerOf(groupCode, a.userId)).toBeNull();
       expect(await slips.claimPlayer(code, a, ids[0])).toBe('linked');
       expect(await slips.linkedPlayerOf(groupCode, a.userId)).toBe(ids[0]);
-      expect(await prisma.playerLineAccount.findFirstOrThrow({ where: { groupId: groupCode } })).toMatchObject({
-        playerId: ids[0], lineUserId: a.userId, displayName: 'Somchai', linkedBy: 'self',
-      });
+      expect(
+        await prisma.playerLineAccount.findFirstOrThrow({ where: { groupId: groupCode }, include: { lineAccount: true } })
+      ).toMatchObject({ playerId: ids[0], lineUserId: a.userId, linkedBy: 'self', lineAccount: { displayName: 'Somchai' } });
+      expect(await prisma.lineAccountGroup.findMany({ where: { groupId: groupCode } })).toEqual([
+        expect.objectContaining({ source: 'claim' }),
+      ]);
     });
 
     it('refuses a second account claiming the same player and changes nothing', async () => {
@@ -149,7 +154,8 @@ describe('slip payments: LINE account links', () => {
     function loseRaceTo(groupCode: string, winner: { playerId: string; lineUserId: string }) {
       const create = prisma.playerLineAccount.create.bind(prisma.playerLineAccount);
       return vi.spyOn(prisma.playerLineAccount, 'create').mockImplementationOnce((async () => {
-        await create({ data: { groupId: groupCode, linkedBy: 'self', displayName: null, ...winner } });
+        await prisma.lineAccount.upsert({ where: { lineUserId: winner.lineUserId }, create: { lineUserId: winner.lineUserId }, update: {} });
+        await create({ data: { groupId: groupCode, linkedBy: 'self', ...winner } });
         throw p2002();
       }) as never);
     }
@@ -235,8 +241,11 @@ describe('slip payments: LINE account links', () => {
       expect(await slips.linkedPlayerOf(groupCode, a.userId)).toBeNull();
       expect(await slips.linkedPlayerOf(groupCode, b.userId)).toBe(ids[0]);
       expect(await prisma.playerLineAccount.findFirstOrThrow({ where: { groupId: groupCode } })).toMatchObject({
-        playerId: ids[0], lineUserId: b.userId, displayName: null, linkedBy: 'host',
+        playerId: ids[0], lineUserId: b.userId, linkedBy: 'host',
       });
+      // A host link carries no profile, but the account is now listed in the group.
+      expect(await prisma.lineAccountGroup.findFirstOrThrow({ where: { groupId: groupCode, lineAccount: { lineUserId: b.userId } } }))
+        .toMatchObject({ source: 'host' });
     });
 
     it('creates a host link for a player with none, and accepts the account already on that player', async () => {
@@ -254,8 +263,8 @@ describe('slip payments: LINE account links', () => {
       await slips.claimPlayer(code, a, ids[0]);
       const before = await prisma.playerLineAccount.findFirstOrThrow({ where: { groupId: groupCode } });
       await slips.setLink(code, ids[0], a.userId);
-      const after = await prisma.playerLineAccount.findFirstOrThrow({ where: { groupId: groupCode } });
-      expect(after).toMatchObject({ id: before.id, displayName: 'Somchai', linkedBy: 'host', lineUserId: a.userId });
+      const after = await prisma.playerLineAccount.findFirstOrThrow({ where: { groupId: groupCode }, include: { lineAccount: true } });
+      expect(after).toMatchObject({ id: before.id, linkedBy: 'host', lineUserId: a.userId, lineAccount: { displayName: 'Somchai' } });
       expect(after.createdAt).toEqual(before.createdAt);
       expect(await linkCount(groupCode)).toBe(1);
     });

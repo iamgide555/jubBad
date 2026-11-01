@@ -1,0 +1,62 @@
+.form-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.muted {
+  color: var(--ink-soft);
+  margin: 0;
+}
+
+.account-filter {
+  width: 100%;
+  min-height: var(--tap);
+}
+
+/* A long directory scrolls inside its own box so the close button stays on screen. */
+.account-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  max-height: min(24rem, 50dvh);
+  overflow-y: auto;
+}
+
+.account {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  width: 100%;
+  min-height: var(--tap);
+  padding: var(--space-1) var(--space-2);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+  color: var(--ink);
+  text-align: left;
+}
+
+.account-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.name {
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.seen {
+  font-size: var(--text-xs);
+  color: var(--ink-soft);
+}
+
+.dialog-actions {
+  display: flex;
+  justify-content: flex-end;
+}

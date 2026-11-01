@@ -34,7 +34,7 @@ web/         Angular (standalone components, signals). Talks to the API
              only — no business logic, no localStorage state.
 ```
 
-Data model source of truth is `server/prisma/schema.prisma` (Group, User, Player, Session, SessionRoster, Waitlist, Pairing, PasswordReset(Request), SessionCreation). Two shapes worth knowing going in: array fields (`Player.aliases`, `Pairing.teamA`/`teamB`) are JSON-encoded string columns (SQLite has no array type), and a court's status (`idle`/`pending`/`active`) is always *derived* from `Pairing` rows, never stored.
+Data model source of truth is `server/prisma/schema.prisma` (Group, User, Player, Session, SessionRoster, Waitlist, Pairing, PasswordReset(Request), SessionCreation, LineAccount, LineAccountGroup, PlayerLineAccount). Two shapes worth knowing going in: array fields (`Player.aliases`, `Pairing.teamA`/`teamB`) are JSON-encoded string columns (SQLite has no array type), and a court's status (`idle`/`pending`/`active`) is always *derived* from `Pairing` rows, never stored. A `LineAccount` is global (one per LINE user id) but only ever listed per group through `LineAccountGroup`; `PlayerLineAccount.lineUserId` is a foreign key to it (see "LINE accounts directory" in `docs/overview.md`).
 
 ## Commands
 

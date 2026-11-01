@@ -3,6 +3,7 @@ import { Test } from '@nestjs/testing';
 import { vi } from 'vitest';
 import { PrismaModule } from '../prisma/prisma.module.js';
 import { PrismaService } from '../prisma/prisma.service.js';
+import { LineAccountsService } from './line-accounts.service.js';
 import { LineClient } from './line-client.js';
 import { LineRosterService } from './line-roster.service.js';
 import { LineModule } from './line.module.js';
@@ -12,9 +13,10 @@ const HOUR = 60 * 60 * 1000;
 const DAY = 24 * HOUR;
 
 describe('LineRosterService capture, edit, unsend and purge', () => {
-  const fakeClient = { reply: vi.fn(), groupName: vi.fn(), memberName: vi.fn(), leave: vi.fn() };
+  const fakeClient = { reply: vi.fn(), groupName: vi.fn(), memberProfile: vi.fn(), leave: vi.fn() };
   let prisma: PrismaService;
   let roster: LineRosterService;
+  let accounts: LineAccountsService;
   let hostId: string;
   let freeId: string;
 
@@ -38,6 +40,7 @@ describe('LineRosterService capture, edit, unsend and purge', () => {
     await moduleRef.init();
     prisma = moduleRef.get(PrismaService);
     roster = moduleRef.get(LineRosterService);
+    accounts = moduleRef.get(LineAccountsService);
     const tag = randomUUID();
     hostId = (
       await prisma.user.create({
@@ -51,8 +54,11 @@ describe('LineRosterService capture, edit, unsend and purge', () => {
     ).id;
   });
 
+  // Capture records its senders in the global LINE account directory; the older tests all post as U1.
+  afterAll(() => prisma.lineAccount.deleteMany({ where: { lineUserId: 'U1' } }));
+
   beforeEach(() => {
-    fakeClient.memberName.mockReset().mockResolvedValue('Nok');
+    fakeClient.memberProfile.mockReset().mockResolvedValue({ displayName: 'Nok', pictureUrl: 'https://p/nok' });
   });
 
   describe('capture', () => {
@@ -65,7 +71,7 @@ describe('LineRosterService capture, edit, unsend and purge', () => {
       const row = await prisma.lineRosterMessage.findUniqueOrThrow({ where: { lineMessageId: id } });
       expect(row).toMatchObject({ groupId: code, text: ROSTER, senderUserId: 'U1', senderName: 'Nok', botPosted: false });
       expect(row.postedAt.toISOString()).toBe(postedAt.toISOString());
-      expect(fakeClient.memberName).toHaveBeenCalledWith(lineGroupId, 'U1');
+      expect(fakeClient.memberProfile).toHaveBeenCalledWith(lineGroupId, 'U1');
     });
 
     it('stores the same LINE message id once', async () => {
@@ -112,7 +118,7 @@ describe('LineRosterService capture, edit, unsend and purge', () => {
 
     it('stores a null name when LINE will not give one', async () => {
       const { lineGroupId } = await linkedGroup();
-      fakeClient.memberName.mockResolvedValue(null);
+      fakeClient.memberProfile.mockResolvedValue(null);
       const id = messageId();
       await roster.capture({ lineGroupId, lineMessageId: id, text: ROSTER, senderUserId: 'U1', postedAt: new Date() });
       const row = await prisma.lineRosterMessage.findUniqueOrThrow({ where: { lineMessageId: id } });
@@ -125,7 +131,82 @@ describe('LineRosterService capture, edit, unsend and purge', () => {
       await roster.capture({ lineGroupId, lineMessageId: id, text: ROSTER, senderUserId: null, postedAt: new Date() });
       const row = await prisma.lineRosterMessage.findUniqueOrThrow({ where: { lineMessageId: id } });
       expect([row.senderUserId, row.senderName]).toEqual([null, null]);
-      expect(fakeClient.memberName).not.toHaveBeenCalled();
+      expect(fakeClient.memberProfile).not.toHaveBeenCalled();
+    });
+
+    describe('LINE accounts', () => {
+      const senders: string[] = [];
+      const sender = () => {
+        const id = `U${randomUUID().replace(/-/g, '')}`;
+        senders.push(id);
+        return id;
+      };
+      const membership = (groupId: string, lineUserId: string) =>
+        prisma.lineAccountGroup.findFirst({ where: { groupId, lineAccount: { lineUserId } }, include: { lineAccount: true } });
+
+      afterAll(() => prisma.lineAccount.deleteMany({ where: { lineUserId: { in: senders } } }));
+
+      it("capturing a roster records the sender in the group's LINE accounts with name and avatar", async () => {
+        const { code, lineGroupId } = await linkedGroup();
+        const senderUserId = sender();
+        const postedAt = new Date('2026-10-26T11:42:00Z');
+        await roster.capture({ lineGroupId, lineMessageId: messageId(), text: ROSTER, senderUserId, postedAt });
+        const row = await membership(code, senderUserId);
+        expect(row).toMatchObject({
+          source: 'roster',
+          lastSeenAt: postedAt,
+          lineAccount: { displayName: 'Nok', pictureUrl: 'https://p/nok' },
+        });
+      });
+
+      it('a failed profile lookup still records the account and keeps a stored name', async () => {
+        const { code, lineGroupId } = await linkedGroup();
+        const senderUserId = sender();
+        await roster.capture({ lineGroupId, lineMessageId: messageId(), text: ROSTER, senderUserId, postedAt: new Date() });
+        fakeClient.memberProfile.mockResolvedValue(null);
+        const id = messageId();
+        await roster.capture({ lineGroupId, lineMessageId: id, text: ROSTER, senderUserId, postedAt: new Date() });
+        expect((await prisma.lineRosterMessage.findUniqueOrThrow({ where: { lineMessageId: id } })).senderName).toBeNull();
+        expect((await membership(code, senderUserId))?.lineAccount).toMatchObject({ displayName: 'Nok', pictureUrl: 'https://p/nok' });
+
+        const other = sender();
+        await roster.capture({ lineGroupId, lineMessageId: messageId(), text: ROSTER, senderUserId: other, postedAt: new Date() });
+        expect((await membership(code, other))?.lineAccount).toMatchObject({ displayName: null, pictureUrl: null });
+      });
+
+      it('an ignored (non-roster) message records no account', async () => {
+        const { code, lineGroupId } = await linkedGroup();
+        const senderUserId = sender();
+        await roster.capture({ lineGroupId, lineMessageId: messageId(), text: 'ไปไหมคืนนี้', senderUserId, postedAt: new Date() });
+        expect(await membership(code, senderUserId)).toBeNull();
+        expect(await prisma.lineAccount.count({ where: { lineUserId: senderUserId } })).toBe(0);
+      });
+
+      it('an unpaid group records no account', async () => {
+        const { code, lineGroupId } = await linkedGroup(freeId);
+        const senderUserId = sender();
+        await roster.capture({ lineGroupId, lineMessageId: messageId(), text: ROSTER, senderUserId, postedAt: new Date() });
+        expect(await membership(code, senderUserId)).toBeNull();
+        expect(await prisma.lineAccount.count({ where: { lineUserId: senderUserId } })).toBe(0);
+      });
+
+      it('a message with no sender id records no account', async () => {
+        const { code, lineGroupId } = await linkedGroup();
+        const accountsBefore = await prisma.lineAccountGroup.count({ where: { groupId: code } });
+        await roster.capture({ lineGroupId, lineMessageId: messageId(), text: ROSTER, senderUserId: null, postedAt: new Date() });
+        expect(await prisma.lineAccountGroup.count({ where: { groupId: code } })).toBe(accountsBefore);
+      });
+
+      it('a failing account write never loses the stored roster message', async () => {
+        const { code, lineGroupId } = await linkedGroup();
+        vi.spyOn(accounts, 'touch').mockRejectedValue(new Error('db busy'));
+        const log = vi.spyOn(console, 'error').mockImplementation(() => {});
+        const id = messageId();
+        expect(await roster.capture({ lineGroupId, lineMessageId: id, text: ROSTER, senderUserId: sender(), postedAt: new Date() })).toBe('stored');
+        expect(await prisma.lineRosterMessage.count({ where: { groupId: code, lineMessageId: id } })).toBe(1);
+        expect(log).toHaveBeenCalledWith(expect.stringContaining('[line-roster]'), expect.anything());
+        vi.restoreAllMocks();
+      });
     });
 
     it('keeps only the newest 20 per group', async () => {

@@ -1,0 +1,128 @@
+.muted {
+  color: var(--ink-soft);
+}
+
+.back {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--tap);
+  text-decoration: none;
+  font-size: var(--text-sm);
+}
+
+.filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+  margin: var(--space-2) 0;
+}
+
+.filters .chip {
+  min-height: var(--tap);
+}
+
+.filters .chip.selected {
+  border-color: var(--court);
+  background: var(--court-soft);
+  color: var(--court-ink);
+  font-weight: 700;
+}
+
+.account-list,
+.player-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.account-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-1) var(--space-2);
+  padding: var(--space-1) var(--space-2);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+
+.account-text {
+  flex: 1 1 10rem;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.name {
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.seen,
+.linked {
+  font-size: var(--text-sm);
+  color: var(--ink-soft);
+}
+
+.source,
+.linked-by {
+  font-size: var(--text-xs);
+  padding: 0 var(--space-1);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-pill);
+  white-space: nowrap;
+}
+
+.linked {
+  color: var(--ink);
+  overflow-wrap: anywhere;
+}
+
+.account-row button,
+.player-dialog button {
+  min-height: var(--tap);
+}
+
+/* A long roster scrolls inside its own box so the close button stays on screen. */
+.player-list {
+  max-height: min(24rem, 50dvh);
+  overflow-y: auto;
+}
+
+.form-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.form-card h2 {
+  margin: 0;
+}
+
+.player {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  width: 100%;
+  min-height: var(--tap);
+  padding: var(--space-1) var(--space-2);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+  color: var(--ink);
+  text-align: left;
+}
+
+.has-line {
+  font-size: var(--text-xs);
+  color: var(--ink-soft);
+  overflow-wrap: anywhere;
+}
+
+.dialog-actions {
+  display: flex;
+  justify-content: flex-end;
+}

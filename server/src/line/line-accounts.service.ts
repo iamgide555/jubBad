@@ -55,7 +55,45 @@ export class LineAccountsService {
     });
     return account.id;
   }
+
+  /**
+   * The retention sweep. Deletes every unlinked membership not seen for more than UNLINKED_RETENTION_DAYS, then every
+   * account left with no membership and no link (this is also what cleans up after a deleted group, whose cascade only
+   * removes the join rows). A linked membership is never swept, and an account with a link is never deleted: the link
+   * foreign key cascades, so deleting such an account would silently drop the link. Safe to run repeatedly.
+   */
+  async sweep(now: Date = new Date()): Promise<{ memberships: number; accounts: number }> {
+    const cutoff = new Date(now.getTime() - UNLINKED_RETENTION_DAYS * 86_400_000);
+    const stale = await this.prisma.lineAccountGroup.findMany({
+      where: { lastSeenAt: { lt: cutoff } },
+      select: { id: true, groupId: true, lineAccount: { select: { lineUserId: true } } },
+    });
+    const linked = new Set<string>();
+    for (let i = 0; i < stale.length; i += SWEEP_CHUNK) {
+      const links = await this.prisma.playerLineAccount.findMany({
+        where: { lineUserId: { in: stale.slice(i, i + SWEEP_CHUNK).map((m) => m.lineAccount.lineUserId) } },
+        select: { groupId: true, lineUserId: true },
+      });
+      for (const l of links) linked.add(`${l.groupId}\u0000${l.lineUserId}`);
+    }
+    const doomed = stale
+      .filter((m) => !linked.has(`${m.groupId}\u0000${m.lineAccount.lineUserId}`))
+      .map((m) => m.id);
+    let memberships = 0;
+    for (let i = 0; i < doomed.length; i += SWEEP_CHUNK) {
+      const { count } = await this.prisma.lineAccountGroup.deleteMany({ where: { id: { in: doomed.slice(i, i + SWEEP_CHUNK) } } });
+      memberships += count;
+    }
+    const { count: accounts } = await this.prisma.lineAccount.deleteMany({ where: { groups: { none: {} }, links: { none: {} } } });
+    return { memberships, accounts };
+  }
 }
+
+/** An unlinked group membership not seen for this many days is swept. A linked one never is. */
+export const UNLINKED_RETENTION_DAYS = 365;
+
+/** Ids per query, well under SQLite's bound-variable limit. */
+const SWEEP_CHUNK = 500;
 
 /** A name or picture worth storing: an empty value is treated as unknown, so it never blanks a stored one. */
 function present(value: string | null): string | null {

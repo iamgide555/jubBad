@@ -1,10 +1,11 @@
 import { Injectable, Module, OnApplicationBootstrap, OnModuleDestroy } from '@nestjs/common';
+import { LineAccountsService } from './line-accounts.service.js';
 import { LineHostService } from './line-host.service.js';
 import { LineLinkService } from './line-link.service.js';
 import { LineRosterService } from './line-roster.service.js';
 import { LineModule } from './line.module.js';
 
-/** How often idle groups' old roster messages and spent link codes are swept. */
+/** How often idle groups' old roster messages, spent link codes and stale LINE accounts are swept. */
 export const LINE_PURGE_SWEEP_MS = 6 * 60 * 60 * 1000;
 
 /**
@@ -21,7 +22,8 @@ export class LinePurgeScheduler implements OnApplicationBootstrap, OnModuleDestr
   constructor(
     private readonly roster: LineRosterService,
     private readonly link: LineLinkService,
-    private readonly host: LineHostService
+    private readonly host: LineHostService,
+    private readonly accounts: LineAccountsService
   ) {}
 
   onApplicationBootstrap(): void {
@@ -38,6 +40,7 @@ export class LinePurgeScheduler implements OnApplicationBootstrap, OnModuleDestr
     this.running = true;
     try {
       await this.roster.purge();
+      await this.accounts.sweep();
       await this.link.purgeExpiredCodes();
       await this.host.purgeExpired();
     } catch (error) {

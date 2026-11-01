@@ -1776,8 +1776,15 @@ the account and its last-seen time but leaves a stored name and picture alone. T
 each other hit a unique key; the loser retries once.
 
 **Disconnecting the LINE group drops the memberships.** `LineLinkService.unlink` / `markLeft` delete the
-group's `LineAccountGroup` rows with its links and slips; the global `LineAccount` rows stay until no group
-and no link uses them.
+group's `LineAccountGroup` rows with its links and slips; the global `LineAccount` rows stay until
+`LineAccountsService.sweep` finds that no group lists them and no link uses them.
+
+**Retention.** `sweep` runs from the existing 6-hourly `LinePurgeScheduler` tick. It deletes an *unlinked*
+`LineAccountGroup` not seen for 365 days (`UNLINKED_RETENTION_DAYS`), then every `LineAccount` with no
+membership and no link; this is also what cleans up after a deleted group, whose cascade removes only the join
+rows. "Linked" means a `PlayerLineAccount` with the same group and the account's `lineUserId`. A linked
+membership is never swept however old, and an account with any link is never deleted (the link foreign key
+cascades, so deleting it would silently drop the link).
 
 ## Current state
 

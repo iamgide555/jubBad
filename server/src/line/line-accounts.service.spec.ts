@@ -2,9 +2,11 @@ import { randomUUID } from 'node:crypto';
 import { Test } from '@nestjs/testing';
 import { Prisma } from '@prisma/client';
 import { vi } from 'vitest';
+import { GroupsModule } from '../groups/groups.module.js';
+import { GroupsService } from '../groups/groups.service.js';
 import { PrismaModule } from '../prisma/prisma.module.js';
 import { PrismaService } from '../prisma/prisma.service.js';
-import { LineAccountsService, type LineProfile } from './line-accounts.service.js';
+import { LineAccountsService, UNLINKED_RETENTION_DAYS, type LineProfile } from './line-accounts.service.js';
 
 describe('LineAccountsService.touch', () => {
   let prisma: PrismaService;
@@ -124,5 +126,162 @@ describe('LineAccountsService.touch', () => {
 
     upsert.mockRejectedValueOnce(p2002() as never).mockRejectedValueOnce(p2002() as never);
     await expect(accounts.touch(groupId, p, 'roster')).rejects.toBeInstanceOf(Prisma.PrismaClientKnownRequestError);
+  });
+});
+
+describe('LineAccountsService.sweep', () => {
+  let prisma: PrismaService;
+  let accounts: LineAccountsService;
+  let groups: GroupsService;
+  const groupCodes: string[] = [];
+  const lineUserIds: string[] = [];
+  const now = new Date('2027-01-01T00:00:00Z');
+  const daysAgo = (days: number) => new Date(now.getTime() - days * 86_400_000);
+
+  async function makeGroup(): Promise<string> {
+    const code = `sw-${randomUUID().slice(0, 10)}`;
+    groupCodes.push(code);
+    await prisma.group.create({ data: { code, name: code } });
+    return code;
+  }
+
+  function profile(): LineProfile {
+    const lineUserId = `U${randomUUID().replace(/-/g, '')}`;
+    lineUserIds.push(lineUserId);
+    return { lineUserId, displayName: 'Nok', pictureUrl: null };
+  }
+
+  async function link(groupId: string, lineUserId: string): Promise<void> {
+    const player = await prisma.player.create({ data: { groupId, name: `p-${randomUUID().slice(0, 6)}`, aliases: '[]' } });
+    await prisma.playerLineAccount.create({ data: { groupId, playerId: player.id, lineUserId, linkedBy: 'host' } });
+  }
+
+  const membershipCount = (groupId: string, lineUserId: string) =>
+    prisma.lineAccountGroup.count({ where: { groupId, lineAccount: { lineUserId } } });
+  const accountCount = (lineUserId: string) => prisma.lineAccount.count({ where: { lineUserId } });
+
+  beforeAll(async () => {
+    const moduleRef = await Test.createTestingModule({
+      imports: [PrismaModule, GroupsModule],
+      providers: [LineAccountsService],
+    }).compile();
+    await moduleRef.init();
+    prisma = moduleRef.get(PrismaService);
+    accounts = moduleRef.get(LineAccountsService);
+    groups = moduleRef.get(GroupsService);
+  });
+
+  afterAll(async () => {
+    // Groups with players need deleteGroup's full teardown; one test already deleted its group.
+    for (const code of groupCodes) await groups.deleteGroup(code).catch(() => undefined);
+    await prisma.lineAccount.deleteMany({ where: { lineUserId: { in: lineUserIds } } });
+  });
+
+  it('UNLINKED_RETENTION_DAYS is 365', () => {
+    expect(UNLINKED_RETENTION_DAYS).toBe(365);
+  });
+
+  it('sweep deletes an unlinked membership unseen for more than 365 days', async () => {
+    const groupId = await makeGroup();
+    const keeper = await makeGroup();
+    const p = profile();
+    await accounts.touch(groupId, p, 'roster', daysAgo(366));
+    await accounts.touch(keeper, p, 'roster', now);
+
+    const result = await accounts.sweep(now);
+
+    expect(result.memberships).toBeGreaterThanOrEqual(1);
+    expect(await membershipCount(groupId, p.lineUserId)).toBe(0);
+    expect(await membershipCount(keeper, p.lineUserId)).toBe(1);
+    expect(await accountCount(p.lineUserId)).toBe(1);
+  });
+
+  it('sweep keeps an unlinked membership seen 364 days ago', async () => {
+    const groupId = await makeGroup();
+    const p = profile();
+    await accounts.touch(groupId, p, 'roster', daysAgo(364));
+
+    await accounts.sweep(now);
+
+    expect(await membershipCount(groupId, p.lineUserId)).toBe(1);
+    expect(await accountCount(p.lineUserId)).toBe(1);
+  });
+
+  it('sweep keeps a linked membership however old', async () => {
+    const groupId = await makeGroup();
+    const p = profile();
+    await accounts.touch(groupId, p, 'roster', daysAgo(2000));
+    await link(groupId, p.lineUserId);
+
+    await accounts.sweep(now);
+
+    expect(await membershipCount(groupId, p.lineUserId)).toBe(1);
+    expect(await accountCount(p.lineUserId)).toBe(1);
+    expect(await prisma.playerLineAccount.count({ where: { groupId, lineUserId: p.lineUserId } })).toBe(1);
+  });
+
+  it('sweep treats a link in another group as not linking this group', async () => {
+    const stale = await makeGroup();
+    const other = await makeGroup();
+    const p = profile();
+    await accounts.touch(stale, p, 'roster', daysAgo(400));
+    await accounts.touch(other, p, 'roster', now);
+    await link(other, p.lineUserId);
+
+    await accounts.sweep(now);
+
+    expect(await membershipCount(stale, p.lineUserId)).toBe(0);
+    expect(await membershipCount(other, p.lineUserId)).toBe(1);
+    expect(await accountCount(p.lineUserId)).toBe(1);
+  });
+
+  it('sweep deletes a LineAccount left with no membership and no link', async () => {
+    const groupId = await makeGroup();
+    const p = profile();
+    await accounts.touch(groupId, p, 'roster', daysAgo(366));
+
+    const result = await accounts.sweep(now);
+
+    expect(result.accounts).toBeGreaterThanOrEqual(1);
+    expect(await accountCount(p.lineUserId)).toBe(0);
+  });
+
+  it('sweep keeps an account still a member of another group', async () => {
+    const g1 = await makeGroup();
+    const g2 = await makeGroup();
+    const p = profile();
+    await accounts.touch(g1, p, 'roster', now);
+    await accounts.touch(g2, p, 'roster', daysAgo(10));
+
+    await accounts.sweep(now);
+
+    expect(await accountCount(p.lineUserId)).toBe(1);
+    expect(await membershipCount(g1, p.lineUserId)).toBe(1);
+    expect(await membershipCount(g2, p.lineUserId)).toBe(1);
+  });
+
+  it('sweep is safe to repeat', async () => {
+    const groupId = await makeGroup();
+    const p = profile();
+    await accounts.touch(groupId, p, 'roster', daysAgo(366));
+
+    await accounts.sweep(now);
+    const second = await accounts.sweep(now);
+
+    expect(second).toEqual({ memberships: 0, accounts: 0 });
+  });
+
+  it('deleting a group then sweeping removes the orphaned account', async () => {
+    const groupId = await makeGroup();
+    const p = profile();
+    await accounts.touch(groupId, p, 'roster', now);
+    expect(await accountCount(p.lineUserId)).toBe(1);
+
+    await groups.deleteGroup(groupId);
+    expect(await accountCount(p.lineUserId)).toBe(1);
+
+    await accounts.sweep(now);
+
+    expect(await accountCount(p.lineUserId)).toBe(0);
   });
 });

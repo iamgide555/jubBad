@@ -161,6 +161,19 @@
           </div>
         }
 
+        @if (nightPicker()) {
+          <div class="night-collector" data-night-collector>
+            <app-collector-picker [groupCode]="p.groupCode" [value]="nightCollector()" [disabled]="blocked()" (chosen)="chooseNightCollector($event)">
+              <ng-container i18n="@@collector.label">เจ้าของบัญชี</ng-container>
+            </app-collector-picker>
+          </div>
+        }
+        @if (p.confirmed && !editedSinceConfirm()) {
+          @if (p.collector; as c) {
+            <p class="collector-line" data-collector-line i18n="@@slipReview.collectorLine">ผู้รับเงินจัดการใน LINE: {{ c.playerName }}</p>
+          }
+        }
+
         @if (needsConfirm()) {
           <div class="hint" data-hint>
             <p i18n="@@pay.card.collectorHintSelf">คนที่รับเงินไม่ต้องโอนให้ตัวเอง</p>

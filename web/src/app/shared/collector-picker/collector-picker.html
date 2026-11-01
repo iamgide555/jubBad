@@ -1,0 +1,66 @@
+<fieldset class="collector" data-collector-picker>
+  <legend><ng-content /></legend>
+  @if (loadFailed()) {
+    <p class="error" role="alert" data-collector-load-failed>
+      <ng-container i18n="@@collector.loadFailed">โหลดรายชื่อไม่สำเร็จ</ng-container>
+      <button type="button" class="ghost" data-collector-retry (click)="load()" i18n="@@entry.retry">ลองอีกครั้ง</button>
+    </p>
+  } @else if (loaded()) {
+    @if (options().length === 0) {
+      <p class="muted" data-collector-empty i18n="@@collector.empty">ยังไม่มีผู้เล่นที่ผูก LINE</p>
+    } @else {
+      <ul class="options">
+        <li>
+          <button
+            type="button"
+            class="option"
+            data-collector-option="none"
+            [disabled]="disabled()"
+            [attr.aria-pressed]="value() === null || stale()"
+            (click)="ask(null)"
+          >
+            <span class="nobody" aria-hidden="true">–</span>
+            <span class="option-text"><span class="name" i18n="@@collector.nobody">ไม่มี</span></span>
+          </button>
+        </li>
+        @for (o of options(); track o.playerId) {
+          <li>
+            <button
+              type="button"
+              class="option"
+              [attr.data-collector-option]="o.playerId"
+              [disabled]="disabled()"
+              [attr.aria-pressed]="value() === o.playerId"
+              (click)="ask(o)"
+            >
+              <app-line-avatar [name]="o.lineName" [pictureUrl]="o.pictureUrl" [size]="40" />
+              <span class="option-text">
+                <span class="name">{{ o.playerName }}</span>
+                <span class="line-name">{{ o.lineName }}</span>
+              </span>
+            </button>
+          </li>
+        }
+      </ul>
+    }
+    @if (stale()) {
+      <p class="muted" data-collector-stale i18n="@@collector.stale">คนที่เลือกไว้ไม่ได้ผูก LINE แล้ว</p>
+    }
+  }
+</fieldset>
+
+<dialog #dialog class="sheet-dialog" data-collector-dialog (close)="pending.set(null)">
+  @if (pending(); as p) {
+    <div class="dialog-body">
+      @if (pendingOption(); as o) {
+        <p data-collector-text i18n="@@collector.confirmAsk">ให้ {{ o.playerName }} (LINE: {{ o.lineName }}) จัดการการชำระเงินใน LINE ได้?</p>
+      } @else {
+        <p data-collector-text i18n="@@collector.clearAsk">ไม่ให้ใครจัดการการชำระเงินใน LINE?</p>
+      }
+      <div class="actions">
+        <button type="button" class="ghost" data-collector-cancel (click)="cancel()" i18n="@@pay.card.cancel">ยกเลิก</button>
+        <button type="button" data-collector-confirm (click)="confirm()" i18n="@@collector.confirm">ยืนยัน</button>
+      </div>
+    </div>
+  }
+</dialog>

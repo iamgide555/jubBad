@@ -47,4 +47,32 @@ describe('PayAccountService', () => {
     req.flush({ account: null });
     expect(await result).toBeNull();
   });
+
+  it('reads the account together with the collector', async () => {
+    const result = firstValueFrom(service.getWithCollector('group1'));
+    httpMock.expectOne({ url: URL, method: 'GET' }).flush({ account: ACCOUNT, collectorPlayerId: 'p1' });
+    expect(await result).toEqual({ account: ACCOUNT, collectorPlayerId: 'p1' });
+  });
+
+  it('reads a missing collector as null', async () => {
+    const result = firstValueFrom(service.getWithCollector('group1'));
+    httpMock.expectOne(URL).flush({ account: null });
+    expect(await result).toEqual({ account: null, collectorPlayerId: null });
+  });
+
+  it('sets the collector with PUT and returns the stored id', async () => {
+    const result = firstValueFrom(service.setCollector('group1', 'p1'));
+    const req = httpMock.expectOne({ url: `${environment.apiBaseUrl}/groups/group1/pay-collector`, method: 'PUT' });
+    expect(req.request.body).toEqual({ playerId: 'p1' });
+    req.flush({ collectorPlayerId: 'p1' });
+    expect(await result).toBe('p1');
+  });
+
+  it('clears the collector by sending null', async () => {
+    const result = firstValueFrom(service.setCollector('group1', null));
+    const req = httpMock.expectOne({ url: `${environment.apiBaseUrl}/groups/group1/pay-collector`, method: 'PUT' });
+    expect(req.request.body).toEqual({ playerId: null });
+    req.flush({ collectorPlayerId: null });
+    expect(await result).toBeNull();
+  });
 });

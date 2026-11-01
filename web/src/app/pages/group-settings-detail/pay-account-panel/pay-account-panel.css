@@ -79,3 +79,15 @@ button.remove-link:disabled {
   cursor: not-allowed;
   transform: none;
 }
+
+/* Under the account form, set off like the remove block: a separate choice with its own confirmation. */
+.pay-collector {
+  max-width: 28rem;
+  margin-top: var(--space-3);
+  border-top: 1px solid var(--line);
+  padding-top: var(--space-2);
+}
+
+.pay-collector > p {
+  margin: 0.35rem 0 0;
+}

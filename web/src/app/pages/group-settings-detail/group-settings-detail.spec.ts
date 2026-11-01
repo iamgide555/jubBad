@@ -397,6 +397,9 @@ describe('GroupSettingsDetail', () => {
         account: { bank: 'กสิกร', number: '1234567890', name: 'สมชาย' },
       });
       await settle();
+      // A saved account brings the collector picker, which reads the group's LINE accounts.
+      httpMock.expectOne({ url: `${B}/groups/group1/line/accounts`, method: 'GET' }).flush([]);
+      await settle();
       expect(el().textContent).not.toContain('ไม่พบหน้านี้');
       expect(el().querySelector('h1')?.textContent).toContain('บัญชีรับเงิน');
       expect(el().querySelector<HTMLInputElement>('#pay-bank')?.value).toBe('กสิกร');

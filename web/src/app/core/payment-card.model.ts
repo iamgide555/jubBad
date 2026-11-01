@@ -35,6 +35,10 @@ export interface PaymentCardPanel {
   lastSentAt: string | null;
   /** When the bot last DMed the card to the host (`host` target), null if never. */
   lastDmAt: string | null;
+  /** The group's code, for the collector picker's reads. */
+  groupCode: string;
+  /** Who manages the payments in LINE for the confirmed card's account (null: nobody). */
+  collector: { playerId: string; playerName: string; lineName: string | null; pictureUrl: string | null } | null;
   /** The host-share link (`host` target only), set only while the confirmed card is current. */
   shareUrl: string | null;
 }

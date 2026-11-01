@@ -32,6 +32,8 @@ function panel(over: Partial<PaymentCardPanel> = {}): PaymentCardPanel {
     stale: false,
     lastSentAt: null,
     lastDmAt: null,
+    groupCode: 'g1',
+    collector: null,
     shareUrl: null,
     ...over,
   };

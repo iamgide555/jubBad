@@ -3,6 +3,7 @@ import { ChangeDetectorRef, Component, ElementRef, OnInit, computed, inject, inp
 import { firstValueFrom } from 'rxjs';
 import { PayAccountService, type PayAccount } from '../../../core/pay-account.service';
 import { BankField } from '../../../shared/bank-field/bank-field';
+import { CollectorPicker } from '../../../shared/collector-picker/collector-picker';
 
 /** Digits, spaces and dashes, 6-20 characters, at least 6 of them digits: mirrors the server. */
 const NUMBER_PATTERN = /^[0-9 -]{6,20}$/;
@@ -13,10 +14,13 @@ const MIN_DIGITS = 6;
  * three or none; saving with all three blank (or the clear button) removes it. Owner-only and on
  * every plan, with no LINE link needed, so a lapsed host can still read and clear it. The server
  * stores the Thai bank name as plain text and checks the same rules again.
+ *
+ * Once an account is saved, the picker below it chooses who may manage payments in LINE (the collector). It
+ * saves on its own, after its own confirmation, and is independent of the account fields' Save.
  */
 @Component({
   selector: 'app-pay-account-panel',
-  imports: [BankField],
+  imports: [BankField, CollectorPicker],
   templateUrl: './pay-account-panel.html',
   styleUrl: './pay-account-panel.css',
 })
@@ -37,6 +41,12 @@ export class PayAccountPanel implements OnInit {
   protected readonly error = signal<string | null>(null);
   protected readonly notice = signal<'saved' | 'cleared' | null>(null);
   protected readonly confirmingClear = signal(false);
+  /** An account is saved on the server, so a collector can be set on it. */
+  protected readonly hasSavedAccount = signal(false);
+  protected readonly collector = signal<string | null>(null);
+  protected readonly collectorBusy = signal(false);
+  protected readonly collectorError = signal<string | null>(null);
+  protected readonly collectorSaved = signal(false);
   protected readonly fieldErrors = signal<Partial<Record<'bank' | 'number' | 'name', string>>>({});
   /** Something is on screen or saved to take away. */
   protected readonly canClear = computed(
@@ -50,7 +60,10 @@ export class PayAccountPanel implements OnInit {
   protected async load(): Promise<void> {
     this.loadFailed.set(false);
     try {
-      this.fill(await firstValueFrom(this.payAccounts.get(this.groupCode())));
+      const read = await firstValueFrom(this.payAccounts.getWithCollector(this.groupCode()));
+      this.fill(read.account);
+      this.hasSavedAccount.set(read.account !== null);
+      this.collector.set(read.account === null ? null : read.collectorPlayerId);
       this.loaded.set(true);
     } catch {
       this.loadFailed.set(true);
@@ -134,6 +147,9 @@ export class PayAccountPanel implements OnInit {
     try {
       const saved = await firstValueFrom(this.payAccounts.set(this.groupCode(), account));
       this.fill(saved);
+      this.hasSavedAccount.set(saved !== null);
+      // The server drops the collector with the account it belonged to.
+      if (saved === null) this.collector.set(null);
       this.confirmingClear.set(false);
       this.fieldErrors.set({});
       this.notice.set(saved ? 'saved' : 'cleared');
@@ -146,6 +162,27 @@ export class PayAccountPanel implements OnInit {
       );
     } finally {
       this.busy.set(false);
+    }
+  }
+
+  /** The host agreed to the picker's dialog: save it, and keep the old collector on screen if the server says no. */
+  protected async chooseCollector(playerId: string | null): Promise<void> {
+    if (this.collectorBusy()) return;
+    this.collectorBusy.set(true);
+    this.collectorError.set(null);
+    this.collectorSaved.set(false);
+    try {
+      this.collector.set(await firstValueFrom(this.payAccounts.setCollector(this.groupCode(), playerId)));
+      this.collectorSaved.set(true);
+    } catch (err) {
+      const invalid = err instanceof HttpErrorResponse && (err.error as { code?: unknown } | null)?.code === 'COLLECTOR_INVALID';
+      this.collectorError.set(
+        invalid
+          ? $localize`:@@collector.invalid:เลือกคนนี้ไม่ได้ ผู้เล่นต้องผูก LINE ในก๊วนนี้ก่อน`
+          : $localize`:@@pay.account.saveFailed:บันทึกไม่สำเร็จ ลองอีกครั้ง`
+      );
+    } finally {
+      this.collectorBusy.set(false);
     }
   }
 

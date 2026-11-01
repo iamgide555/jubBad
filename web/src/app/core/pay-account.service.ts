@@ -24,6 +24,23 @@ export class PayAccountService {
     return this.http.get<{ account: PayAccount | null }>(this.url(groupCode)).pipe(map((r) => r.account));
   }
 
+  /** The account and who may manage its payments in LINE (a player id), both null when unset. */
+  getWithCollector(groupCode: string): Observable<{ account: PayAccount | null; collectorPlayerId: string | null }> {
+    return this.http
+      .get<{ account: PayAccount | null; collectorPlayerId?: string | null }>(this.url(groupCode))
+      .pipe(map((r) => ({ account: r.account, collectorPlayerId: r.collectorPlayerId ?? null })));
+  }
+
+  /**
+   * Sets who manages the payments in LINE; null clears it. A 409 `COLLECTOR_INVALID` is a player who is not in the
+   * group or has no LINE linked, `PAY_ACCOUNT_REQUIRED` a group with no saved account.
+   */
+  setCollector(groupCode: string, playerId: string | null): Observable<string | null> {
+    return this.http
+      .put<{ collectorPlayerId: string | null }>(`${environment.apiBaseUrl}/groups/${encodeURIComponent(groupCode)}/pay-collector`, { playerId })
+      .pipe(map((r) => r.collectorPlayerId));
+  }
+
   /** Null clears it (the server reads three blank fields as "no account"). A partial account is a 400. */
   set(groupCode: string, account: PayAccount | null): Observable<PayAccount | null> {
     const body = account ?? { bank: '', number: '', name: '' };

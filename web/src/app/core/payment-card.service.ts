@@ -22,9 +22,13 @@ export class PaymentCardService {
    * Stores tonight's account, freezes the amounts and mints a fresh share link. A partial account is a 400.
    * `expectedHash` is the `contentHash` of the panel the host is looking at: a card that moved since is a 409
    * PAYMENT_CHANGED, so a confirm never freezes amounts the host has not seen.
+   * `collectorPlayerId` is who manages tonight's account in LINE (null: nobody). Leave it out when the account is the
+   * group's: the server then keeps no night collector. For any other account send it every time, because a confirm
+   * without it clears the night collector.
    */
-  confirm(sessionCode: string, account: PayAccount, expectedHash: string): Observable<PaymentCardPanel> {
-    return this.http.post<PaymentCardPanel>(this.url(sessionCode, '/confirm'), { ...account, expectedHash });
+  confirm(sessionCode: string, account: PayAccount, expectedHash: string, collectorPlayerId?: string | null): Observable<PaymentCardPanel> {
+    const body = collectorPlayerId === undefined ? { ...account, expectedHash } : { ...account, expectedHash, collectorPlayerId };
+    return this.http.post<PaymentCardPanel>(this.url(sessionCode, '/confirm'), body);
   }
 
   /** One `sendId` per attempt: a retry of an attempt with no definite answer reuses it, so LINE drops a repeat. */

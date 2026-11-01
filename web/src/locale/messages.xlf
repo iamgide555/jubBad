@@ -8831,6 +8831,33 @@
       <trans-unit id="paymentStatus.manage" datatype="html">
         <source>คุณจัดการการชำระเงินบิลนี้</source>
       </trans-unit>
+      <trans-unit id="collector.label" datatype="html">
+        <source>เจ้าของบัญชี</source>
+      </trans-unit>
+      <trans-unit id="collector.nobody" datatype="html">
+        <source>ไม่มี</source>
+      </trans-unit>
+      <trans-unit id="collector.empty" datatype="html">
+        <source>ยังไม่มีผู้เล่นที่ผูก LINE</source>
+      </trans-unit>
+      <trans-unit id="collector.stale" datatype="html">
+        <source>คนที่เลือกไว้ไม่ได้ผูก LINE แล้ว</source>
+      </trans-unit>
+      <trans-unit id="collector.confirmAsk" datatype="html">
+        <source>ให้ <x id="INTERPOLATION" equiv-text="{{ o.playerName }}"/> (LINE: <x id="INTERPOLATION_1" equiv-text="{{ o.lineName }}"/>) จัดการการชำระเงินใน LINE ได้?</source>
+      </trans-unit>
+      <trans-unit id="collector.clearAsk" datatype="html">
+        <source>ไม่ให้ใครจัดการการชำระเงินใน LINE?</source>
+      </trans-unit>
+      <trans-unit id="collector.confirm" datatype="html">
+        <source>ยืนยัน</source>
+      </trans-unit>
+      <trans-unit id="collector.invalid" datatype="html">
+        <source>เลือกคนนี้ไม่ได้ ผู้เล่นต้องผูก LINE ในก๊วนนี้ก่อน</source>
+      </trans-unit>
+      <trans-unit id="collector.loadFailed" datatype="html">
+        <source>โหลดรายชื่อไม่สำเร็จ</source>
+      </trans-unit>
     </body>
   </file>
 </xliff>

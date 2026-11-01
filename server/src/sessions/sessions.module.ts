@@ -23,6 +23,7 @@ import { SlipImagesModule } from './slips/slip-images.module.js';
 import { SlipReader } from './slips/slip-reader.js';
 import { SLIP_FAILURE_THROTTLE, SLIP_UPLOAD_THROTTLE, SlipUploadSlots } from './slips/slip-throttles.js';
 import { SlipUploadMiddleware } from './slips/slip-upload.middleware.js';
+import { SlipViewerGate } from './slips/slip-viewer-gate.js';
 
 @Module({
   imports: [SlipImagesModule, GroupsModule, LineModule, PlansModule, VenuesModule],
@@ -45,6 +46,7 @@ import { SlipUploadMiddleware } from './slips/slip-upload.middleware.js';
     SlipReader,
     SlipPaymentsService,
     LiffIdentity,
+    SlipViewerGate,
     SlipUploadSlots,
     { provide: SLIP_FAILURE_THROTTLE, useFactory: () => new LoginThrottle() },
     { provide: SLIP_UPLOAD_THROTTLE, useFactory: () => new LoginThrottle() },

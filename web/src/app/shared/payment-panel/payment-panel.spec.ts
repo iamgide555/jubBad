@@ -21,10 +21,22 @@ class CalculationStub {
   readonly changed = output<BillResponse>();
   readonly changing = output<boolean>();
 }
+import type { LineAccountRow } from '../../core/line-accounts.service';
 import type { SlipHostPanel } from '../../core/slip-host.model';
 import { SlipHostService } from '../../core/slip-host.service';
 
 const URL = `${environment.apiBaseUrl}/sessions/sess1/payment-card`;
+const ACCOUNTS_URL = `${environment.apiBaseUrl}/groups/g1/line/accounts`;
+const LINKED: LineAccountRow = {
+  id: 'acc1',
+  displayName: 'Amp line',
+  pictureUrl: null,
+  source: 'roster',
+  firstSeenAt: '2026-10-01T00:00:00Z',
+  lastSeenAt: '2026-10-01T00:00:00Z',
+  player: { id: 'p1', name: 'Amp', linkedBy: 'host' },
+};
+const OTHER_ACCOUNT = { bank: 'ไทยพาณิชย์', number: '999-9-99999-9', name: 'Tonight' };
 const GROUP_ACCOUNT = { bank: 'กสิกร', number: '123-4-56789-0', name: 'Host Name' };
 
 function panel(over: Partial<PaymentCardPanel> = {}): PaymentCardPanel {
@@ -47,6 +59,8 @@ function panel(over: Partial<PaymentCardPanel> = {}): PaymentCardPanel {
     groupAccount: GROUP_ACCOUNT,
     account: GROUP_ACCOUNT,
     confirmed: false,
+    groupCode: 'g1',
+    collector: null,
     stale: false,
     lastSentAt: null,
     lastDmAt: null,
@@ -92,7 +106,12 @@ describe('PaymentCardPanel', () => {
     }).compileComponents();
     http = TestBed.inject(HttpTestingController);
   });
-  afterEach(() => http.verify());
+  // The night collector picker reads the group's LINE accounts whenever it is on screen; most tests do not care.
+  let accounts: LineAccountRow[] = [];
+  afterEach(() => {
+    http.match(ACCOUNTS_URL).forEach((r) => r.flush(accounts));
+    http.verify();
+  });
 
   const el = () => fixture.nativeElement as HTMLElement;
   const q = <T extends HTMLElement = HTMLElement>(selector: string) => el().querySelector<T>(selector);
@@ -381,7 +400,7 @@ describe('PaymentCardPanel', () => {
     await expandAccount();
     await type('input[data-field="number"]', ' 111-1-11111-1 ');
     const body = await confirm(panel({ confirmed: true }));
-    expect(body).toEqual({ bank: 'กสิกร', number: '111-1-11111-1', name: 'Host Name', expectedHash: 'hash-1' });
+    expect(body).toEqual({ bank: 'กสิกร', number: '111-1-11111-1', name: 'Host Name', expectedHash: 'hash-1', collectorPlayerId: null });
   });
 
   it('shows the group send button only once confirmed', async () => {
@@ -1634,6 +1653,182 @@ describe('PaymentCardPanel', () => {
       await open(panel({ confirmed: true, lastSentAt: '2026-10-29T13:05:00.000Z' }));
       expect(q('app-slip-review')).toBeNull();
       expect(slipHost.panel).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('collector', () => {
+    const picker = () => q('app-collector-picker');
+    const lineLinked = async () => {
+      http.expectOne(ACCOUNTS_URL).flush([LINKED]);
+      await settle();
+    };
+    const choose = async (id: string) => {
+      await click(`[data-collector-option="${id}"]`);
+      await click('[data-collector-confirm]');
+    };
+
+    it('shows no picker, and sends no collector, while the fields are the group account', async () => {
+      await open();
+      expect(picker()).toBeNull();
+      const body = await confirm(panel({ confirmed: true }));
+      expect(body).not.toHaveProperty('collectorPlayerId');
+    });
+
+    it('shows no picker when only the account name is edited', async () => {
+      await open();
+      await expandAccount();
+      await type('input[data-field="name"]', 'Somebody Else');
+      expect(picker()).toBeNull();
+      const body = await confirm(panel({ confirmed: true }));
+      expect(body).not.toHaveProperty('collectorPlayerId');
+      expect(body.name).toBe('Somebody Else');
+    });
+
+    it('ignores spaces and dashes in the number when comparing with the group account', async () => {
+      await open();
+      await expandAccount();
+      await type('input[data-field="number"]', '1234567890');
+      expect(picker()).toBeNull();
+    });
+
+    it('shows the picker for a different receiving account and sends the chosen collector', async () => {
+      await open();
+      await expandAccount();
+      await type('input[data-field="number"]', '111-1-11111-1');
+      expect(picker()).not.toBeNull();
+      await lineLinked();
+      await choose('p1');
+      const body = await confirm(panel({ confirmed: true, account: { ...GROUP_ACCOUNT, number: '111-1-11111-1' } }));
+      expect(body.collectorPlayerId).toBe('p1');
+    });
+
+    it('sends null on every confirm of a different account when nobody is chosen', async () => {
+      await open();
+      await expandAccount();
+      await type('input[data-field="number"]', '111-1-11111-1');
+      await lineLinked();
+      const body = await confirm(panel({ confirmed: true }));
+      expect(body.collectorPlayerId).toBeNull();
+    });
+
+    it('shows no empty owner block for a different account when nobody has LINE linked and nothing is set', async () => {
+      await open();
+      await expandAccount();
+      await type('input[data-field="number"]', '111-1-11111-1');
+      http.expectOne(ACCOUNTS_URL).flush([]);
+      await settle();
+      expect(q('[data-collector-picker]')).toBeNull();
+      expect(q<HTMLElement>('[data-night-collector]')!.hidden).toBe(true);
+      expect(text()).not.toContain('เจ้าของบัญชี');
+      const body = await confirm(panel({ confirmed: true }));
+      expect(body.collectorPlayerId).toBeNull();
+    });
+
+    it('keeps the owner block when there is someone to pick', async () => {
+      await open();
+      await expandAccount();
+      await type('input[data-field="number"]', '111-1-11111-1');
+      await lineLinked();
+      expect(q('[data-collector-picker]')).not.toBeNull();
+      expect(q<HTMLElement>('[data-night-collector]')!.hidden).toBe(false);
+    });
+
+    it('keeps the owner block to clear a night pick whose player is not in the linked list', async () => {
+      await open(
+        panel({ account: OTHER_ACCOUNT, confirmed: true, collector: { playerId: 'p1', playerName: 'Amp', lineName: 'Amp line', pictureUrl: null } })
+      );
+      http.expectOne(ACCOUNTS_URL).flush([]);
+      await settle();
+      expect(q('[data-collector-stale]')).not.toBeNull();
+      expect(q('[data-collector-option="none"]')).not.toBeNull();
+      expect(q<HTMLElement>('[data-night-collector]')!.hidden).toBe(false);
+    });
+
+    it('hides the picker again when the group account is put back', async () => {
+      await open(panel({ account: OTHER_ACCOUNT, confirmed: true, collector: { playerId: 'p1', playerName: 'Amp', lineName: 'Amp line', pictureUrl: null } }));
+      await lineLinked();
+      expect(picker()).not.toBeNull();
+      await click('[data-use-group]');
+      expect(picker()).toBeNull();
+    });
+
+    it('starts from the confirmed night collector and asks to confirm again when it changes', async () => {
+      await open(
+        panel({ account: OTHER_ACCOUNT, confirmed: true, collector: { playerId: 'p1', playerName: 'Amp', lineName: 'Amp line', pictureUrl: null } })
+      );
+      await lineLinked();
+      expect(q('[data-collector-option="p1"]')!.getAttribute('aria-pressed')).toBe('true');
+      expect(q('[data-confirm]')).toBeNull();
+      await choose('none');
+      expect(q('[data-confirm]')?.textContent).toContain('ยืนยันใหม่');
+      expect(q('[data-edited]')).not.toBeNull();
+      expect(q('[data-send]')).toBeNull();
+      // Putting it back to the confirmed one needs no new confirm.
+      await choose('p1');
+      expect(q('[data-confirm]')).toBeNull();
+      expect(q('[data-send]')).not.toBeNull();
+    });
+
+    it('resends the unchanged night collector when only the account is edited after confirm', async () => {
+      await open(
+        panel({ account: OTHER_ACCOUNT, confirmed: true, collector: { playerId: 'p1', playerName: 'Amp', lineName: 'Amp line', pictureUrl: null } })
+      );
+      await lineLinked();
+      await expandAccount();
+      await type('input[data-field="name"]', 'Renamed');
+      const body = await confirm(panel({ account: { ...OTHER_ACCOUNT, name: 'Renamed' }, confirmed: true }));
+      expect(body.collectorPlayerId).toBe('p1');
+    });
+
+    it('does not take the group collector for a night collector when the confirmed account is the group account', async () => {
+      await open(
+        panel({ confirmed: true, collector: { playerId: 'p1', playerName: 'Amp', lineName: 'Amp line', pictureUrl: null } })
+      );
+      expect(picker()).toBeNull();
+      await expandAccount();
+      await type('input[data-field="number"]', '111-1-11111-1');
+      await lineLinked();
+      expect(q('[data-collector-option="none"]')!.getAttribute('aria-pressed')).toBe('true');
+    });
+
+    it('names the confirmed collector on the card', async () => {
+      await open(panel({ confirmed: true, collector: { playerId: 'p1', playerName: 'Amp', lineName: 'Amp line', pictureUrl: null } }));
+      expect(q('[data-collector-line]')!.textContent).toContain('ผู้รับเงินจัดการใน LINE: Amp');
+    });
+
+    it('says nothing about a collector when none is set', async () => {
+      await open(panel({ confirmed: true }));
+      expect(q('[data-collector-line]')).toBeNull();
+    });
+
+    it('explains a COLLECTOR_INVALID refusal on confirm', async () => {
+      await open();
+      await expandAccount();
+      await type('input[data-field="number"]', '111-1-11111-1');
+      await lineLinked();
+      await choose('p1');
+      await click('[data-confirm]');
+      http.expectOne(`${URL}/confirm`).flush({ code: 'COLLECTOR_INVALID' }, { status: 409, statusText: 'Conflict' });
+      await settle();
+      expect(q('[data-error]')?.textContent).toContain('เลือกคนนี้ไม่ได้ ผู้เล่นต้องผูก LINE ในก๊วนนี้ก่อน');
+    });
+
+    it('takes the night collector from the confirm answer', async () => {
+      await open();
+      await expandAccount();
+      await type('input[data-field="number"]', '111-1-11111-1');
+      await lineLinked();
+      await choose('p1');
+      await confirm(
+        panel({
+          confirmed: true,
+          account: { ...GROUP_ACCOUNT, number: '111-1-11111-1' },
+          collector: { playerId: 'p1', playerName: 'Amp', lineName: 'Amp line', pictureUrl: null },
+        })
+      );
+      expect(q('[data-confirm]')).toBeNull();
+      expect(q('[data-send]')).not.toBeNull();
+      expect(q('[data-collector-line]')!.textContent).toContain('Amp');
     });
   });
 });

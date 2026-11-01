@@ -179,6 +179,31 @@ export async function bootSlipApp() {
   const owed = async (code: string, playerId: string) =>
     (await cards.panel(code)).rows.find((r) => r.playerId === playerId)!.amountSatang;
 
+  /** Links `user`'s LINE account to the player in the group, as a host link would. */
+  async function linkLine(groupCode: string, playerId: string, user: LiffUser) {
+    if (!lineUserIds.includes(user.userId)) lineUserIds.push(user.userId);
+    await prisma.lineAccount.upsert({
+      where: { lineUserId: user.userId },
+      create: { lineUserId: user.userId, displayName: user.displayName, pictureUrl: user.pictureUrl },
+      update: {},
+    });
+    await prisma.playerLineAccount.create({ data: { groupId: groupCode, playerId, lineUserId: user.userId, linkedBy: 'host' } });
+  }
+
+  /**
+   * Makes the player the group's saved collector (the setup's card is confirmed with the group's own account),
+   * pinned to the LINE account linked to them right now, as the host's pick would (none if unlinked).
+   */
+  async function setCollector(groupCode: string, playerId: string | null) {
+    const link = playerId === null
+      ? null
+      : await prisma.playerLineAccount.findFirst({ where: { groupId: groupCode, playerId }, select: { lineUserId: true } });
+    await prisma.group.update({
+      where: { code: groupCode },
+      data: { payCollectorPlayerId: playerId, payCollectorLineUserId: link?.lineUserId ?? null },
+    });
+  }
+
   async function cleanup() {
     const byGroup = { groupId: { in: groupCodes } };
     const where = { session: byGroup };
@@ -190,6 +215,8 @@ export async function bootSlipApp() {
     await prisma.pairing.deleteMany({ where });
     await prisma.sessionRoster.deleteMany({ where });
     await prisma.session.deleteMany({ where: byGroup });
+    // A group's collector is a foreign key to a player, so specs that set one need it cleared before the players go.
+    await prisma.group.updateMany({ where: { code: { in: groupCodes } }, data: { payCollectorPlayerId: null } });
     await prisma.player.deleteMany({ where: byGroup });
     await prisma.group.deleteMany({ where: { code: { in: groupCodes } } });
     await prisma.lineAccount.deleteMany({ where: { lineUserId: { in: lineUserIds } } });
@@ -202,5 +229,7 @@ export async function bootSlipApp() {
     uploads.reset();
   };
 
-  return { app, server, prisma, cards, liff, reader, owner, confirm, setup, owed, cleanup, resetThrottles };
+  return {
+    app, server, prisma, cards, liff, reader, owner, confirm, setup, owed, linkLine, setCollector, cleanup, resetThrottles,
+  };
 }

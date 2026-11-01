@@ -3,7 +3,7 @@
 /** One person's paid mark: by a slip the bot matched, or by the host's own tick. */
 export interface SlipPaidRow {
   playerId: string;
-  source: 'slip' | 'host';
+  source: 'slip' | 'host' | 'collector';
   /** ISO time the mark was written. */
   at: string;
   /** The slip credited an amount that no longer matches the player's current row. The mark stays; the host decides. */
@@ -22,7 +22,8 @@ export interface SlipWaiting {
   reason: SlipWaitingReason;
   displayName: string | null;
   pictureUrl: string | null;
-  lineUserId: string;
+  /** Absent on the collector's panel: the account id never reaches the LINE page. */
+  lineUserId?: string;
   /** The one owed amount read from the slip, or null when none or several were found. */
   amountSatang: number | null;
   /** Only on a receiver mismatch: the receiver as read, so the host can fix the saved name. */
@@ -37,7 +38,7 @@ export interface SlipWaiting {
 export interface SlipDuplicate {
   id: string;
   displayName: string | null;
-  lineUserId: string;
+  lineUserId?: string;
   referenceTail: string;
   originalPlayerIds: string[];
   createdAt: string;
@@ -56,6 +57,8 @@ export interface SlipHostPanel {
   waiting: SlipWaiting[];
   duplicates: SlipDuplicate[];
   links: SlipLink[];
+  /** Who receives the money when it is not the host, so the host sees the bill is managed in LINE. */
+  collector?: { playerName: string; lineName: string | null } | null;
 }
 
 export interface SlipResolveBody {

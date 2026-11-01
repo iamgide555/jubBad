@@ -6,6 +6,7 @@ import { cardDate } from '../../line/line-summary-card.js';
 import { planAtLeast } from '../../plans/plan.js';
 import { PlansService } from '../../plans/plans.service.js';
 import { PrismaService } from '../../prisma/prisma.service.js';
+import { CollectorService } from '../collector.service.js';
 import { parsePayAccount, serializePayAccount, validatePayAccount } from '../pay-account.js';
 import { PaymentCardService, type PaymentPanel } from '../payment-card.service.js';
 import { SessionLock } from '../session-lock.js';
@@ -27,7 +28,7 @@ import { SlipImagesService } from './slip-images.service.js';
 /** One person's paid mark on the bill screen. */
 export interface PaidRow {
   playerId: string;
-  source: 'slip' | 'host';
+  source: 'slip' | 'host' | 'collector';
   /** ISO time the mark was written. */
   at: string;
   /** A slip credited an amount that no longer matches the player's current bill row. The mark stays; the host decides. */
@@ -141,7 +142,8 @@ export class SlipPaymentsService {
     private readonly reader: SlipReader,
     private readonly plans: PlansService,
     private readonly images: SlipImagesService,
-    private readonly lineAccounts: LineAccountsService
+    private readonly lineAccounts: LineAccountsService,
+    private readonly collectors: CollectorService
   ) {}
 
   /**
@@ -286,6 +288,36 @@ export class SlipPaymentsService {
     });
   }
 
+  /**
+   * The collector's way in: the pay page's gate holds and LINE's verified user is the live LINE account of the bill's
+   * collector. Null for anything else; the caller answers every null the same way.
+   */
+  async collectorAccess(
+    code: string,
+    token: string | undefined,
+    user: LiffUser,
+    now: Date = new Date()
+  ): Promise<{ panel: PaymentPanel } | null> {
+    const role = await this.collectorRole(code, token, user, now);
+    return role?.collector ? { panel: role.panel } : null;
+  }
+
+  /**
+   * Whether this viewer collects the bill, or null when the pay page's gate fails (as the status read's would). The
+   * comparison is with the user id LINE verified, never anything from the request, against the collector resolved live.
+   */
+  async collectorRole(
+    code: string,
+    token: string | undefined,
+    user: LiffUser,
+    now: Date = new Date()
+  ): Promise<{ collector: boolean; panel: PaymentPanel } | null> {
+    const gate = await this.gate(code, token, now);
+    if (!gate) return null;
+    const collector = await this.collectors.forBill(code);
+    return { collector: collector !== null && collector.lineUserId === user.userId, panel: gate.panel };
+  }
+
   async getPaid(code: string): Promise<PaidRow[]> {
     const panel = await this.cards.panel(code);
     const current = new Map(panel.rows.map((r) => [r.playerId, r.amountSatang]));
@@ -293,22 +325,25 @@ export class SlipPaymentsService {
     const images = new Map((await this.images.list(code)).map((i) => [i.reference, i.id]));
     return stored.map((p) => ({
       playerId: p.playerId,
-      source: p.source === 'slip' ? 'slip' : 'host',
+      source: p.source === 'slip' || p.source === 'collector' ? p.source : 'host',
       at: p.createdAt.toISOString(),
       amountChangedSince: p.amountSatang !== null && p.amountSatang !== current.get(p.playerId),
       imageId: p.source === 'slip' && p.reference !== null ? (images.get(p.reference) ?? null) : null,
     }));
   }
 
-  /** The host marks a person paid. Already paid (by a slip or an earlier tick) stays as it is. */
-  tick(code: string, playerId: string): Promise<void> {
+  /**
+   * The host, or the collector from LINE, marks a person paid. Already paid (by a slip or an earlier tick) stays as
+   * it is, whoever marked it first.
+   */
+  tick(code: string, playerId: string, source: 'host' | 'collector' = 'host'): Promise<void> {
     return this.lock.run(code, async () => {
       await this.assertOpen(code);
       const panel = await this.cards.panel(code);
       if (!panel.rows.some((r) => r.playerId === playerId)) throw new ConflictException({ code: 'PLAYER_NOT_ON_BILL' });
       await this.prisma.sessionPayment.upsert({
         where: { sessionId_playerId: { sessionId: code, playerId } },
-        create: { sessionId: code, playerId, source: 'host' },
+        create: { sessionId: code, playerId, source },
         update: {},
       });
     });

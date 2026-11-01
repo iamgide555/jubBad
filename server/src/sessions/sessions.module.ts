@@ -6,6 +6,7 @@ import { PlansModule } from '../plans/plans.module.js';
 import { VenuesModule } from '../venues/venues.module.js';
 import { BillController } from './bill.controller.js';
 import { BillService } from './bill.service.js';
+import { CollectorService } from './collector.service.js';
 import { CheckoutController } from './checkout.controller.js';
 import { CheckoutService } from './checkout.service.js';
 import { PaymentCardController } from './payment-card.controller.js';
@@ -16,12 +17,14 @@ import { SessionsService } from './sessions.service.js';
 import { LiffIdentity } from './slips/liff-identity.js';
 import { SlipOcr } from './slips/slip-ocr.js';
 import { SlipPaymentsService } from './slips/slip-payments.service.js';
+import { SlipCollectorController } from './slips/slip-collector.controller.js';
 import { SlipPayController } from './slips/slip-pay.controller.js';
 import { SlipPaymentsController } from './slips/slip-payments.controller.js';
 import { SlipImagesModule } from './slips/slip-images.module.js';
 import { SlipReader } from './slips/slip-reader.js';
 import { SLIP_FAILURE_THROTTLE, SLIP_UPLOAD_THROTTLE, SlipUploadSlots } from './slips/slip-throttles.js';
 import { SlipUploadMiddleware } from './slips/slip-upload.middleware.js';
+import { SlipViewerGate } from './slips/slip-viewer-gate.js';
 
 @Module({
   imports: [SlipImagesModule, GroupsModule, LineModule, PlansModule, VenuesModule],
@@ -31,6 +34,7 @@ import { SlipUploadMiddleware } from './slips/slip-upload.middleware.js';
     CheckoutController,
     PaymentCardController,
     SlipPayController,
+    SlipCollectorController,
     SlipPaymentsController,
   ],
   providers: [
@@ -39,10 +43,12 @@ import { SlipUploadMiddleware } from './slips/slip-upload.middleware.js';
     BillService,
     CheckoutService,
     PaymentCardService,
+    CollectorService,
     SlipOcr,
     SlipReader,
     SlipPaymentsService,
     LiffIdentity,
+    SlipViewerGate,
     SlipUploadSlots,
     { provide: SLIP_FAILURE_THROTTLE, useFactory: () => new LoginThrottle() },
     { provide: SLIP_UPLOAD_THROTTLE, useFactory: () => new LoginThrottle() },

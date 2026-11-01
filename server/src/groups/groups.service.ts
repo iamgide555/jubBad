@@ -21,6 +21,7 @@ import type { ParseRosterDto } from './dto/parse-roster.dto.js';
 import type { UpdatePlayerDto } from './dto/update-player.dto.js';
 import type { SetPlayerRuleDto } from './dto/set-player-rule.dto.js';
 import type { SetPayAccountDto } from './dto/set-pay-account.dto.js';
+import { assertCollectorEligible, collectorPinHolds } from './pay-collector.js';
 
 type PairCount = { played: number; won: number; decisive: number };
 type Caller = { id: string; role: string };
@@ -176,11 +177,30 @@ export class GroupsService {
     return { enabled };
   }
 
-  /** Owner-only: the account number must never ride a public group read. */
+  /**
+   * Owner-only: the account number must never ride a public group read. `collectorPlayerId` is the collector only
+   * while their pick holds (still linked here to the LINE account pinned at the pick); a pick that no longer holds
+   * reads as no collector with `collectorStale`, so the host sees it lapsed and picks again.
+   */
   async getPayAccount(code: string) {
-    const group = await this.prisma.group.findUnique({ where: { code }, select: { payAccount: true } });
+    const group = await this.prisma.group.findUnique({
+      where: { code },
+      select: { payAccount: true, payCollectorPlayerId: true, payCollectorLineUserId: true },
+    });
     if (!group) throw new NotFoundException();
-    return { account: parsePayAccount(group.payAccount) };
+    let holds = false;
+    if (group.payCollectorPlayerId !== null) {
+      const link = await this.prisma.playerLineAccount.findFirst({
+        where: { groupId: code, playerId: group.payCollectorPlayerId },
+        select: { lineUserId: true },
+      });
+      holds = collectorPinHolds(link?.lineUserId, group.payCollectorLineUserId);
+    }
+    return {
+      account: parsePayAccount(group.payAccount),
+      collectorPlayerId: holds ? group.payCollectorPlayerId : null,
+      collectorStale: group.payCollectorPlayerId !== null && !holds,
+    };
   }
 
   /** Blank fields clear it. Only future payment cards snapshot this; a card already opened keeps its own. */
@@ -189,8 +209,34 @@ export class GroupsService {
     if (!result.ok) throw new BadRequestException({ code: 'PAY_ACCOUNT_INVALID' });
     const group = await this.prisma.group.findUnique({ where: { code }, select: { code: true } });
     if (!group) throw new NotFoundException();
-    await this.prisma.group.update({ where: { code }, data: { payAccount: serializePayAccount(result.value) } });
+    // The collector owns the account being cleared, so it goes with it; a name-only edit keeps it.
+    await this.prisma.group.update({
+      where: { code },
+      data: {
+        payAccount: serializePayAccount(result.value),
+        ...(result.value === null ? { payCollectorPlayerId: null, payCollectorLineUserId: null } : {}),
+      },
+    });
     return { account: result.value };
+  }
+
+  /**
+   * null clears. A collector needs a saved account (it is that account's owner) and a player linked on LINE here.
+   * The LINE account linked right now is pinned with the player (see CollectorService), and both are cleared together.
+   */
+  async setPayCollector(code: string, playerId: string | null) {
+    const group = await this.prisma.group.findUnique({ where: { code }, select: { payAccount: true } });
+    if (!group) throw new NotFoundException();
+    let lineUserId: string | null = null;
+    if (playerId !== null) {
+      if (parsePayAccount(group.payAccount) === null) throw new ConflictException({ code: 'PAY_ACCOUNT_REQUIRED' });
+      lineUserId = await assertCollectorEligible(this.prisma, code, playerId);
+    }
+    await this.prisma.group.update({
+      where: { code },
+      data: { payCollectorPlayerId: playerId, payCollectorLineUserId: lineUserId },
+    });
+    return { collectorPlayerId: playerId };
   }
 
   async getCrossSessionHistory(code: string) {

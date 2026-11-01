@@ -161,6 +161,26 @@
           </div>
         }
 
+        @if (nightPicker()) {
+          <!-- optional: a group with no linked player and no pick to clear gets no empty owner block at all. -->
+          <app-collector-picker
+            class="night-collector"
+            data-night-collector
+            [groupCode]="p.groupCode"
+            [value]="nightCollector()"
+            [optional]="true"
+            [disabled]="blocked()"
+            (chosen)="chooseNightCollector($event)"
+          >
+            <ng-container i18n="@@collector.label">เจ้าของบัญชี</ng-container>
+          </app-collector-picker>
+        }
+        @if (p.confirmed && !editedSinceConfirm()) {
+          @if (p.collector; as c) {
+            <p class="collector-line" data-collector-line i18n="@@slipReview.collectorLine">ผู้รับเงินจัดการใน LINE: {{ c.playerName }}</p>
+          }
+        }
+
         @if (needsConfirm()) {
           <div class="hint" data-hint>
             <p i18n="@@pay.card.collectorHintSelf">คนที่รับเงินไม่ต้องโอนให้ตัวเอง</p>

@@ -1,14 +1,15 @@
 import { HttpClient } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
-import type { Observable } from 'rxjs';
+import { of, type Observable } from 'rxjs';
 import { environment } from '../../environments/environment';
 import type { SlipHostPanel, SlipResolveBody } from './slip-host.model';
+import type { SlipReviewApi } from './slip-review-api';
 
 type Ok = { ok: true };
 
 /** Owner-only routes behind the bill screen's paid status and waiting-slip review (cookie auth like the other host routes). */
 @Injectable({ providedIn: 'root' })
-export class SlipHostService {
+export class SlipHostService implements SlipReviewApi {
   private readonly http = inject(HttpClient);
 
   private url(sessionCode: string, path = ''): string {
@@ -23,8 +24,9 @@ export class SlipHostService {
     return this.http.get<SlipHostPanel>(this.url(sessionCode));
   }
 
-  imageUrl(sessionCode: string, id: string): string {
-    return this.url(sessionCode, `/images/${encodeURIComponent(id)}`);
+  /** The host's images are served to the cookie session, so the plain URL is enough. */
+  image(sessionCode: string, id: string): Observable<string> {
+    return of(this.url(sessionCode, `/images/${encodeURIComponent(id)}`));
   }
 
   closeCollection(sessionCode: string): Observable<Ok> {

@@ -20,6 +20,7 @@ import type { PayAccount } from '../../core/pay-account.service';
 import type { PaymentCardPanel, PaymentSendOutcome } from '../../core/payment-card.model';
 import { PaymentCardService, PaymentDraftService } from '../../core/payment-card.service';
 import { BankField } from '../bank-field/bank-field';
+import { CollectorPicker } from '../collector-picker/collector-picker';
 import { Icon } from '../icon/icon';
 import { PaymentCalculation } from '../payment-calculation/payment-calculation';
 import type { BillResponse } from '../../core/bill.model';
@@ -33,6 +34,11 @@ type Delivery = 'group' | 'dm';
 let panelCount = 0;
 
 const sameAccount = (a: PayAccount, b: PayAccount) => a.bank === b.bank && a.number === b.number && a.name === b.name;
+
+const digitsOf = (number: string) => number.replace(/[^0-9]/g, '');
+
+/** The same receiving account as the server sees it: same bank, same digits; the name (a typo fix) is ignored. */
+const sameReceiving = (a: PayAccount, b: PayAccount) => a.bank === b.bank && digitsOf(a.number) === digitsOf(b.number);
 
 const errorCode = (err: unknown): unknown =>
   err instanceof HttpErrorResponse ? (err.error as { code?: unknown } | null)?.code : undefined;
@@ -79,6 +85,12 @@ const PRIMARY = '[data-send], [data-dm-send], [data-confirm]';
  * refuses the tap) rather than `disabled`, and when a state change removes the focused button focus moves to the
  * next one.
  *
+ * An account that is not the group's (by `sameReceiving`) can have its own collector, the player who may manage
+ * its payments in LINE: the picker shows under the fields and `nightCollector` holds the pick. The server keeps no
+ * night collector for the group's own account, and a confirm without one clears it, so Confirm sends the pick
+ * every time for another account (null for nobody) and leaves it out for the group's. Changing the pick after a
+ * confirm counts as an edit: the card on file names the old collector.
+ *
  * Send keeps the `sendId` of an attempt with no definite answer (a `failed` outcome, or no answer at all)
  * and reuses it on the next tap, so a card LINE took while the answer was lost is not posted twice; any
  * definite answer, or a change in the card, starts a new id. Every outcome re-reads the panel.
@@ -89,7 +101,7 @@ const PRIMARY = '[data-send], [data-dm-send], [data-confirm]';
  */
 @Component({
   selector: 'app-payment-panel',
-  imports: [BankField, Icon, RouterLink, PaymentCalculation],
+  imports: [BankField, CollectorPicker, Icon, RouterLink, PaymentCalculation],
   templateUrl: './payment-panel.html',
   styleUrl: './payment-panel.css',
 })
@@ -127,6 +139,8 @@ export class PaymentPanel {
   protected readonly bank = signal('');
   protected readonly number = signal('');
   protected readonly name = signal('');
+  /** Who manages tonight's account in LINE (a player id), when it is not the group's. */
+  protected readonly nightCollector = signal<string | null>(null);
   protected readonly busy = signal(false);
   private readonly methodChanging = signal(false);
   private readonly methodRefreshing = signal(false);
@@ -180,10 +194,17 @@ export class PaymentPanel {
     const group = this.data()?.groupAccount;
     return !!group && !sameAccount(this.typed(), group);
   });
-  /** Confirmed, but the fields were changed afterwards: the card on file has the old account. */
+  /** The fields hold a complete account that is not the group's receiving account: it can have its own collector. */
+  protected readonly nightPicker = computed(() => {
+    const p = this.data();
+    if (!p || !this.actionable() || !this.complete()) return false;
+    return !p.groupAccount || !sameReceiving(this.typed(), p.groupAccount);
+  });
+  /** Confirmed, but the fields or the night collector were changed afterwards: the card on file has the old ones. */
   protected readonly editedSinceConfirm = computed(() => {
     const p = this.data();
-    return !!p && p.confirmed && !p.stale && !!p.account && !sameAccount(this.typed(), p.account);
+    if (!p || !p.confirmed || p.stale || !p.account) return false;
+    return !sameAccount(this.typed(), p.account) || (this.nightPicker() && this.nightCollector() !== this.nightCollectorOf(p));
   });
   /** No rows, or every row at 0 baht: nothing to collect, so no card. */
   protected readonly nothingDue = computed(() => {
@@ -277,6 +298,7 @@ export class PaymentPanel {
       if (this.filledFor !== code) {
         this.filledFor = code;
         this.fill(this.drafts.get(code) ?? panel.account ?? panel.groupAccount);
+        this.nightCollector.set(this.nightCollectorOf(panel));
       }
     } catch {
       if (seq === this.seq) this.readFailed.set(true);
@@ -305,8 +327,19 @@ export class PaymentPanel {
     this.refocus('[data-account-fields]');
   }
 
+  /** The host agreed to the picker's dialog. Like typing in the fields, it is an edit: older outcomes no longer apply. */
+  protected chooseNightCollector(playerId: string | null): void {
+    this.nightCollector.set(playerId);
+    this.justConfirmed.set(false);
+    this.error.set(null);
+    this.outcome.set(null);
+    this.confirmingResend.set(false);
+    this.confirmingDmResend.set(false);
+  }
+
   protected useGroupAccount(): void {
     this.fill(this.data()?.groupAccount ?? null);
+    this.nightCollector.set(null);
     this.drafts.clear(this.sessionCode());
     this.editingAccount.set(false);
     this.error.set(null);
@@ -340,7 +373,7 @@ export class PaymentPanel {
     this.justConfirmed.set(false);
     const seq = ++this.seq;
     try {
-      const panel = await firstValueFrom(this.cards.confirm(this.sessionCode(), this.typed(), seen.contentHash));
+      const panel = await firstValueFrom(this.cards.confirm(this.sessionCode(), this.typed(), seen.contentHash, this.collectorToConfirm(seen)));
       this.drafts.clear(this.sessionCode());
       // Every confirm mints a new share token, so a kept DM attempt would be for a card with a dead link.
       this.retry.dm = null;
@@ -348,10 +381,13 @@ export class PaymentPanel {
         this.data.set(panel);
         this.readFailed.set(false);
         if (panel.account) this.fill(panel.account);
+        this.nightCollector.set(this.nightCollectorOf(panel));
       } else {
         // A read started while this was in flight, so the answer may predate the amounts it shows. Busy until
         // the re-read lands, so a second Confirm cannot freeze amounts the host has not seen yet.
         await this.load();
+        const fresh = this.data();
+        if (fresh) this.nightCollector.set(this.nightCollectorOf(fresh));
       }
       // The account is locked in the card now: fold it back into the preview, say so, and hand focus (and the
       // screen) to the Send that replaced the Confirm button.
@@ -547,6 +583,8 @@ export class PaymentPanel {
         return $localize`:@@bill.collectionClosed:ปิดการเก็บเงินแล้ว แก้ไขบิลไม่ได้`;
       case 'PAY_ACCOUNT_INVALID':
         return $localize`:@@pay.account.invalid:ตรวจบัญชีรับเงินอีกครั้ง ต้องกรอกครบทั้งสามช่อง และเลขบัญชีเป็นตัวเลข 6 หลักขึ้นไป`;
+      case 'COLLECTOR_INVALID':
+        return $localize`:@@collector.invalid:เลือกคนนี้ไม่ได้ ผู้เล่นต้องผูก LINE ในก๊วนนี้ก่อน`;
       case 'PAYMENT_CHANGED':
         return $localize`:@@pay.card.confirmChanged:ยอดเปลี่ยน ตรวจยอดอีกครั้ง`;
       case 'PAYMENT_NOT_READY':
@@ -635,6 +673,18 @@ export class PaymentPanel {
       default:
         return $localize`:@@pay.card.noticeOther:ดูรายละเอียดในหน้าคิดเงิน`;
     }
+  }
+
+  /** The night collector the card on file carries: only a confirmed account other than the group's has one. */
+  private nightCollectorOf(p: PaymentCardPanel): string | null {
+    if (!p.confirmed || !p.account) return null;
+    if (p.groupAccount && sameReceiving(p.account, p.groupAccount)) return null;
+    return p.collector?.playerId ?? null;
+  }
+
+  /** What Confirm sends as `collectorPlayerId`: the pick for another account, nothing for the group's own. */
+  private collectorToConfirm(p: PaymentCardPanel): string | null | undefined {
+    return !p.groupAccount || !sameReceiving(this.typed(), p.groupAccount) ? this.nightCollector() : undefined;
   }
 
   private fill(account: PayAccount | null): void {

@@ -142,6 +142,8 @@ describe('SessionSummary', () => {
     stale: false,
     lastSentAt: null,
     lastDmAt: null,
+    groupCode: 'g1',
+    collector: null,
     shareUrl: null,
     ...over,
   });

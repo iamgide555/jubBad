@@ -45,6 +45,23 @@ const PUBLIC_ROUTES = [
   },
 ] as const;
 
+/**
+ * The bill collector's routes: @Public, no JubBad cookie. They answer only a LINE-verified viewer holding tonight's
+ * pay token who is the bill's collector, and refuse everything else with the pay page's uniform 404
+ * (slip-collector.controller.spec.ts pins every gate; role is the status read's gate plus a yes/no).
+ */
+const COLLECTOR_ROUTES: readonly string[] = [
+  '/sessions/:code/slip-pay/role',
+  '/sessions/:code/slip-pay/manage',
+  '/sessions/:code/slip-pay/manage/images/:id',
+  '/sessions/:code/slip-pay/manage/tick',
+  '/sessions/:code/slip-pay/manage/untick',
+  '/sessions/:code/slip-pay/manage/waiting/:id/resolve',
+  '/sessions/:code/slip-pay/manage/waiting/:id/dismiss',
+  '/sessions/:code/slip-pay/manage/duplicates/:id/dismiss',
+  '/sessions/:code/slip-pay/manage/close',
+];
+
 interface Ctx {
   groupCode: string;
   sessionCode: string;
@@ -167,6 +184,8 @@ describe('auth boundary', () => {
       if (path === '/sessions/:code/slip-pay/upload') continue;
       // Also @Public: the LIFF id for the pay page's liff.init, before it has a LINE identity; gated by the pay token alone.
       if (path === '/sessions/:code/slip-pay/config') continue;
+      // The collector's routes: LINE viewer plus pay token plus being the bill's collector (slip-collector.controller.spec.ts).
+      if (COLLECTOR_ROUTES.includes(path)) continue;
 
       // ':code' means a group code under /groups and a session code under
       // /sessions. Substituting the wrong one yields a 404 from a public route,
@@ -393,6 +412,8 @@ describe('auth boundary', () => {
         if (path === '/sessions/:code/slip-pay/upload') continue;
         // @Public: gated by the confirm's pay token alone, no LINE viewer (slip-pay-config.spec.ts).
         if (path === '/sessions/:code/slip-pay/config') continue;
+        // @Public: LINE viewer plus pay token plus being the bill's collector (slip-collector.controller.spec.ts).
+        if (COLLECTOR_ROUTES.includes(path)) continue;
 
         const code = path.startsWith('/sessions') ? ctx.sessionCode : ctx.groupCode;
         const concrete = path

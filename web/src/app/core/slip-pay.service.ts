@@ -2,7 +2,7 @@ import { HttpClient, HttpHeaders } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import type { Observable } from 'rxjs';
 import { environment } from '../../environments/environment';
-import type { PaymentStatusView, SlipPayClaimOutcome, SlipPayConfig, SlipPayUploadResult, SlipPayView } from './slip-pay.model';
+import type { PaymentStatusView, SlipPayClaimOutcome, SlipPayConfig, SlipPayRole, SlipPayUploadResult, SlipPayView } from './slip-pay.model';
 
 /**
  * Public routes behind the player pay page. The pay token (query) says which
@@ -36,6 +36,13 @@ export class SlipPayService {
 
   status(code: string, token: string, accessToken: string): Observable<PaymentStatusView> {
     return this.http.get<PaymentStatusView>(this.url(code, token, '/status'), {
+      headers: this.headers(accessToken),
+    });
+  }
+
+  /** Whether the viewing LINE account is the one that receives this bill's money. A refusal is the usual bare 404. */
+  role(code: string, token: string, accessToken: string): Observable<SlipPayRole> {
+    return this.http.get<SlipPayRole>(this.url(code, token, '/role'), {
       headers: this.headers(accessToken),
     });
   }

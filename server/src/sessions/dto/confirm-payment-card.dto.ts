@@ -30,4 +30,13 @@ export class ConfirmPaymentCardDto {
   @IsNotEmpty()
   @MaxLength(128)
   expectedHash!: string;
+
+  /**
+   * Who collects tonight's payments when tonight's account is not the group's saved one (the group's own
+   * collector then no longer applies). Ignored for the group's account; checked for eligibility otherwise.
+   */
+  @IsOptional()
+  @IsString()
+  @MaxLength(64)
+  collectorPlayerId?: string | null;
 }

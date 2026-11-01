@@ -1,5 +1,6 @@
 import { Body, Controller, Get, HttpCode, Param, Post, Res, StreamableFile, NotFoundException } from '@nestjs/common';
 import type { Response } from 'express';
+import { CollectorService } from '../collector.service.js';
 import { CloseCollectionDto } from '../dto/close-collection.dto.js';
 import { SlipImagesService } from './slip-images.service.js';
 import { ResolveWaitingSlipDto } from '../dto/resolve-waiting-slip.dto.js';
@@ -20,6 +21,8 @@ export interface SlipPaymentsPanel {
   waiting: WaitingSlip[];
   duplicates: DuplicateSlip[];
   links: LinkRow[];
+  /** Who collects this bill from LINE, if anyone: names only, never the LINE user id. */
+  collector: { playerName: string; lineName: string | null } | null;
 }
 
 /**
@@ -28,17 +31,29 @@ export interface SlipPaymentsPanel {
  */
 @Controller('sessions')
 export class SlipPaymentsController {
-  constructor(private readonly slips: SlipPaymentsService, private readonly images: SlipImagesService) {}
+  constructor(
+    private readonly slips: SlipPaymentsService,
+    private readonly images: SlipImagesService,
+    private readonly collectors: CollectorService
+  ) {}
 
   @Get(':code/payments')
   async panel(@Param('code') code: string): Promise<SlipPaymentsPanel> {
-    const [paid, waiting, duplicates, links] = await Promise.all([
+    const [paid, waiting, duplicates, links, collector] = await Promise.all([
       this.slips.getPaid(code),
       this.slips.listWaiting(code),
       this.slips.listDuplicates(code),
       this.slips.listLinks(code),
+      this.collectors.forBill(code),
     ]);
-    return { paid, waiting, duplicates, links, collection: await this.slips.collection(code) };
+    return {
+      paid,
+      waiting,
+      duplicates,
+      links,
+      collector: collector && { playerName: collector.playerName, lineName: collector.lineName },
+      collection: await this.slips.collection(code),
+    };
   }
 
   @Get(':code/payments/images/:id')

@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import request from 'supertest';
-import { bootSlipApp, lineUser, newRef } from '../../../test/slip-http.fixture.js';
+import { bootSlipApp, lineUser, NAMES, newRef } from '../../../test/slip-http.fixture.js';
 
 type Kit = Awaited<ReturnType<typeof bootSlipApp>>;
 
@@ -56,7 +56,7 @@ describe('host payment routes /sessions/:code/payments (owner only)', () => {
   describe('GET', () => {
     it('lists the paid rows, waiting slips, duplicates and links', async () => {
       const { code, groupCode, ids } = await setupSession();
-      expect((await get(code)).body).toEqual({ paid: [], waiting: [], duplicates: [], links: [], collection: {closedAt:null,canClose:false,imageCount:0} });
+      expect((await get(code)).body).toEqual({ paid: [], waiting: [], duplicates: [], links: [], collector: null, collection: {closedAt:null,canClose:false,imageCount:0} });
 
       await post(code, '/tick', { playerId: ids[0] }).expect(200);
       const waiting = await waitingSlip(code, groupCode);
@@ -77,6 +77,18 @@ describe('host payment routes /sessions/:code/payments (owner only)', () => {
         expect.objectContaining({ referenceTail: '123456', originalPlayerIds: [ids[0]] }),
       ]);
       expect(res.body.links).toEqual([expect.objectContaining({ playerId: ids[1], linkedBy: 'host' })]);
+    });
+
+    it('names the collector, without the LINE user id, and is null when there is none', async () => {
+      const { code, groupCode, ids } = await setupSession();
+      expect((await get(code)).body.collector).toBeNull();
+      const { userId } = lineUser('Malee LINE');
+      await kit.prisma.lineAccount.create({ data: { lineUserId: userId, displayName: 'Malee LINE' } });
+      await kit.prisma.playerLineAccount.create({ data: { groupId: groupCode, playerId: ids[1], lineUserId: userId, linkedBy: 'host' } });
+      await kit.prisma.group.update({ where: { code: groupCode }, data: { payCollectorPlayerId: ids[1], payCollectorLineUserId: userId } });
+      const res = await get(code);
+      expect(res.body.collector).toEqual({ playerName: NAMES[1], lineName: 'Malee LINE' });
+      expect(res.text).not.toContain(userId);
     });
 
     it('404s an unknown session', async () => {

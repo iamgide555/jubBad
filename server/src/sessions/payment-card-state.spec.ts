@@ -36,6 +36,8 @@ describe('parsePaymentState', () => {
       confirmedHash: 'deadbeef',
       lastSentAt: '2026-10-29T10:05:00.000Z',
       lastDmAt: '2026-10-29T10:06:00.000Z',
+      collectorPlayerId: 'p1',
+      collectorLineUserId: 'U1',
     };
     expect(parsePaymentState(serializePaymentState(state))).toEqual(state);
   });
@@ -56,5 +58,35 @@ describe('newShareToken', () => {
     const a = newShareToken();
     expect(a).toMatch(/^[A-Za-z0-9_-]{22,}$/);
     expect(newShareToken()).not.toBe(a);
+  });
+});
+
+describe('collectorPlayerId', () => {
+  it('round-trips the night collector', () => {
+    const state: PaymentCardState = { ...EMPTY_PAYMENT_STATE, token: 't', collectorPlayerId: 'p1' };
+    expect(parsePaymentState(serializePaymentState(state)).collectorPlayerId).toBe('p1');
+  });
+
+  it('reads a state saved without it as null', () => {
+    expect(parsePaymentState(JSON.stringify({ token: 'abc' })).collectorPlayerId).toBeNull();
+  });
+});
+
+describe('collectorLineUserId', () => {
+  it('round-trips the pinned LINE account of the night collector', () => {
+    const state: PaymentCardState = { ...EMPTY_PAYMENT_STATE, token: 't', collectorPlayerId: 'p1', collectorLineUserId: 'U1' };
+    expect(parsePaymentState(serializePaymentState(state))).toMatchObject({ collectorPlayerId: 'p1', collectorLineUserId: 'U1' });
+  });
+
+  it('reads a missing or bad value as null', () => {
+    expect(parsePaymentState(JSON.stringify({ token: 'abc', collectorPlayerId: 'p1' })).collectorLineUserId).toBeNull();
+    expect(parsePaymentState(JSON.stringify({ collectorLineUserId: 7 })).collectorLineUserId).toBeNull();
+  });
+
+  it('leaves both collector fields out when unset, so an older card re-serializes byte-identical', () => {
+    const older = '{"account":null,"token":"abc","confirmedAt":null,"confirmedHash":null,"lastSentAt":null,"lastDmAt":null}';
+    expect(serializePaymentState(parsePaymentState(older))).toBe(older);
+    const withCollector = JSON.stringify({ ...JSON.parse(older), collectorPlayerId: 'p1' });
+    expect(serializePaymentState(parsePaymentState(withCollector))).toBe(withCollector);
   });
 });

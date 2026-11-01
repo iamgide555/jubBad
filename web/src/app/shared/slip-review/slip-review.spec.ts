@@ -2,7 +2,7 @@ import { provideHttpClient, HttpErrorResponse } from '@angular/common/http';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { of, Subject, throwError, type Observable } from 'rxjs';
 import type { SlipDuplicate, SlipHostPanel, SlipLink, SlipPaidRow, SlipWaiting } from '../../core/slip-host.model';
-import { SlipHostService } from '../../core/slip-host.service';
+import { SlipReviewApi } from '../../core/slip-review-api';
 import { SlipReview } from './slip-review';
 
 beforeAll(() => {
@@ -72,7 +72,7 @@ describe('SlipReview', () => {
     dismiss: ReturnType<typeof vi.fn>;
     updateName: ReturnType<typeof vi.fn>;
     dismissDuplicate: ReturnType<typeof vi.fn>;
-    imageUrl: ReturnType<typeof vi.fn>;
+    image: ReturnType<typeof vi.fn>;
     closeCollection: ReturnType<typeof vi.fn>;
     setLink: ReturnType<typeof vi.fn>;
   };
@@ -108,7 +108,7 @@ describe('SlipReview', () => {
     const ok = () => of({ ok: true as const });
     svc = {
       panel: vi.fn(),
-      imageUrl: vi.fn().mockReturnValue('/private/image'),
+      image: vi.fn().mockImplementation(() => of('/private/image')),
       closeCollection: vi.fn().mockImplementation(ok),
       tick: vi.fn().mockImplementation(ok),
       untick: vi.fn().mockImplementation(ok),
@@ -118,7 +118,7 @@ describe('SlipReview', () => {
       dismissDuplicate: vi.fn().mockImplementation(ok),
       setLink: vi.fn().mockImplementation(ok),
     };
-    TestBed.configureTestingModule({ providers: [provideHttpClient(), { provide: SlipHostService, useValue: svc }] });
+    TestBed.configureTestingModule({ providers: [provideHttpClient(), { provide: SlipReviewApi, useValue: svc }] });
   });
 
   describe('review evidence and collection', () => {
@@ -290,7 +290,7 @@ describe('SlipReview', () => {
       expect(q('[data-slip-dialog]')?.hasAttribute('open')).toBe(true);
       expect(q('[data-slip-dialog]')!.textContent).toContain('Amp');
       expect(q('[data-slip-paid-at]')!.textContent).toContain('90');
-      expect(svc.imageUrl).toHaveBeenCalledWith('sess1', 'img-a');
+      expect(svc.image).toHaveBeenCalledWith('sess1', 'img-a');
       expect(q<HTMLImageElement>('[data-paid-slip-image]')?.getAttribute('src')).toBe('/private/image');
 
       await click(q('[data-slip-close]'));
@@ -642,6 +642,67 @@ describe('SlipReview', () => {
       first.complete();
       await settle();
       expect(q('[data-paid-count]')!.textContent).toContain('ชำระแล้ว 1 / 3 คน');
+    });
+  });
+
+  describe('collector seam', () => {
+    const recv = () => waiting({ reason: 'receiver', receiverName: 'จิตติญา ฉ.', receiverTail: '1234' });
+
+    it('names a collector tick and unticks it on tap without a dialog', async () => {
+      await open(panel({ paid: [paid({ playerId: 'a', source: 'collector' })] }));
+      expect(q('[data-chip]')!.textContent!.trim()).toBe('ผู้รับเงินติ๊ก');
+      await click(qa('[data-person]')[0]);
+      expect(q('[data-slip-dialog]')?.hasAttribute('open')).toBe(false);
+      expect(svc.untick).toHaveBeenCalledWith('sess1', 'a');
+    });
+
+    it('collector mode hides the sender pick, the linked accounts and the saved-name fix', async () => {
+      const data = panel({ waiting: [recv()], links: [link()] });
+      await open(data, { savedName: 'จิตติญา ฉัตรเฉลิมวิทย์' });
+      expect(q('[data-sender]')).not.toBeNull();
+      expect(q('[data-links]')).not.toBeNull();
+      expect(q('[data-update-name]')).not.toBeNull();
+
+      await open(data, { savedName: 'จิตติญา ฉัตรเฉลิมวิทย์', collectorMode: true });
+      expect(q('[data-sender]')).toBeNull();
+      expect(q('[data-links]')).toBeNull();
+      expect(q('[data-update-name]')).toBeNull();
+    });
+
+    it('collector mode resolves with no sender even for an unmapped single pick', async () => {
+      await open(panel({ waiting: [waiting()] }), { collectorMode: true });
+      await click(q('[data-resolve]'));
+      expect(svc.resolve).toHaveBeenCalledWith('sess1', 'w-secret-1', { coversPlayerIds: ['a'], senderPlayerId: null, reviewedAmountSatang: 9000 });
+    });
+
+    it('tells the host the bill is managed in LINE, and not the collector', async () => {
+      const data = panel({ collector: { playerName: 'บูม', lineName: 'Boom' } });
+      await open(data);
+      expect(q('[data-collector-line]')!.textContent).toContain('ผู้รับเงินจัดการใน LINE: บูม');
+      await open(data, { collectorMode: true });
+      expect(q('[data-collector-line]')).toBeNull();
+      await open(panel());
+      expect(q('[data-collector-line]')).toBeNull();
+    });
+
+    it('takes image URLs from the api and revokes a blob URL when destroyed', async () => {
+      const revoke = vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => undefined);
+      svc.image.mockImplementation((_c: string, id: string) => of(id === 'img1' ? 'blob:http://x/1' : '/plain'));
+      await open(panel({ waiting: [waiting({ imageId: 'img1' })] }));
+      expect(svc.image).toHaveBeenCalledWith('sess1', 'img1');
+      expect(q<HTMLImageElement>('[data-slip-image]')?.getAttribute('src')).toBe('blob:http://x/1');
+      expect(revoke).not.toHaveBeenCalled();
+      fixture.destroy();
+      expect(revoke).toHaveBeenCalledWith('blob:http://x/1');
+      revoke.mockRestore();
+    });
+
+    it('does not revoke a plain URL', async () => {
+      const revoke = vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => undefined);
+      await open(panel({ waiting: [waiting({ imageId: 'img1' })] }));
+      fixture.destroy();
+      expect(revoke).not.toHaveBeenCalled();
+      revoke.mockRestore();
     });
   });
 });

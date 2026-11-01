@@ -5,7 +5,32 @@ import { environment } from '../../../../environments/environment';
 import { PayAccountPanel } from './pay-account-panel';
 
 const URL = `${environment.apiBaseUrl}/groups/group1/pay-account`;
+const ACCOUNTS_URL = `${environment.apiBaseUrl}/groups/group1/line/accounts`;
+const COLLECTOR_URL = `${environment.apiBaseUrl}/groups/group1/pay-collector`;
+const LINKED = {
+  id: 'acc1',
+  displayName: 'Amp line',
+  pictureUrl: null,
+  source: 'roster',
+  firstSeenAt: '2026-10-01T00:00:00Z',
+  lastSeenAt: '2026-10-01T00:00:00Z',
+  player: { id: 'p1', name: 'Amp', linkedBy: 'host' },
+};
 const ACCOUNT = { bank: 'กสิกร', number: '123-4-56789-0', name: 'สมชาย ใจดี' };
+
+beforeAll(() => {
+  if (!HTMLDialogElement.prototype.showModal) {
+    HTMLDialogElement.prototype.showModal = function (this: HTMLDialogElement) {
+      this.setAttribute('open', '');
+    };
+  }
+  if (!HTMLDialogElement.prototype.close) {
+    HTMLDialogElement.prototype.close = function (this: HTMLDialogElement) {
+      this.removeAttribute('open');
+      this.dispatchEvent(new Event('close'));
+    };
+  }
+});
 
 describe('PayAccountPanel', () => {
   let fixture: ComponentFixture<PayAccountPanel>;
@@ -22,7 +47,9 @@ describe('PayAccountPanel', () => {
   const name = () => q('#pay-name') as HTMLInputElement;
   const error = () => q('[data-pay-error]')?.textContent?.trim();
 
-  async function open(initial: { account: typeof ACCOUNT | null } | 'failed' = { account: null }) {
+  async function open(
+    initial: { account: typeof ACCOUNT | null; collectorPlayerId?: string | null; collectorStale?: boolean } | 'failed' = { account: null }
+  ) {
     await TestBed.configureTestingModule({
       providers: [provideHttpClient(), provideHttpClientTesting()],
     }).compileComponents();
@@ -45,7 +72,11 @@ describe('PayAccountPanel', () => {
     fixture.detectChanges();
   }
 
-  afterEach(() => httpMock.verify());
+  // The collector picker reads the group's LINE accounts once an account is saved; most tests do not care.
+  afterEach(() => {
+    httpMock.match(ACCOUNTS_URL).forEach((r) => r.flush([]));
+    httpMock.verify();
+  });
 
   it('loads the saved account into the three fields', async () => {
     await open({ account: ACCOUNT });
@@ -336,5 +367,130 @@ describe('PayAccountPanel', () => {
     expect(q('[data-pay-saved]')).not.toBeNull();
     await fill(name(), 'สมหญิง');
     expect(q('[data-pay-saved]')).toBeNull();
+  });
+
+  describe('collector', () => {
+    const picker = () => q('app-collector-picker');
+    const choose = async (id: string) => {
+      q(`[data-collector-option="${id}"]`)!.click();
+      await tick();
+      q('[data-collector-confirm]')!.click();
+      await tick();
+    };
+
+    it('has no picker while no account is saved', async () => {
+      await open({ account: null });
+      expect(picker()).toBeNull();
+      httpMock.expectNone(ACCOUNTS_URL);
+    });
+
+    it('shows the picker with the saved collector once an account is saved', async () => {
+      await open({ account: ACCOUNT, collectorPlayerId: 'p1' });
+      httpMock.expectOne(ACCOUNTS_URL).flush([LINKED]);
+      await tick();
+      expect(picker()).not.toBeNull();
+      expect(q('[data-collector-option="p1"]')!.getAttribute('aria-pressed')).toBe('true');
+    });
+
+    it('appears after the first account is saved', async () => {
+      await open({ account: null });
+      await fill(bank(), 'กสิกร');
+      await fill(number(), '1234567890');
+      await fill(name(), 'สมชาย');
+      q('[data-pay-save]')!.click();
+      httpMock.expectOne({ url: URL, method: 'PUT' }).flush({ account: ACCOUNT });
+      await tick();
+      expect(picker()).not.toBeNull();
+    });
+
+    it('saves a confirmed pick with setCollector', async () => {
+      await open({ account: ACCOUNT, collectorPlayerId: null });
+      httpMock.expectOne(ACCOUNTS_URL).flush([LINKED]);
+      await tick();
+      await choose('p1');
+      const req = httpMock.expectOne({ url: COLLECTOR_URL, method: 'PUT' });
+      expect(req.request.body).toEqual({ playerId: 'p1' });
+      req.flush({ collectorPlayerId: 'p1' });
+      await tick();
+      expect(q('[data-collector-option="p1"]')!.getAttribute('aria-pressed')).toBe('true');
+      expect(q('[data-collector-saved]')).not.toBeNull();
+    });
+
+    it('says why when the server refuses the pick as COLLECTOR_INVALID, and keeps the old collector', async () => {
+      await open({ account: ACCOUNT, collectorPlayerId: null });
+      httpMock.expectOne(ACCOUNTS_URL).flush([LINKED]);
+      await tick();
+      await choose('p1');
+      httpMock
+        .expectOne({ url: COLLECTOR_URL, method: 'PUT' })
+        .flush({ code: 'COLLECTOR_INVALID' }, { status: 409, statusText: 'Conflict' });
+      await tick();
+      expect(q('[data-collector-error]')!.textContent).toContain('เลือกคนนี้ไม่ได้ ผู้เล่นต้องผูก LINE ในก๊วนนี้ก่อน');
+      expect(q('[data-collector-option="none"]')!.getAttribute('aria-pressed')).toBe('true');
+    });
+
+    it('shows a generic message for any other failure', async () => {
+      await open({ account: ACCOUNT, collectorPlayerId: null });
+      httpMock.expectOne(ACCOUNTS_URL).flush([LINKED]);
+      await tick();
+      await choose('p1');
+      httpMock.expectOne({ url: COLLECTOR_URL, method: 'PUT' }).flush('x', { status: 500, statusText: 'x' });
+      await tick();
+      expect(q('[data-collector-error]')!.textContent).toContain('บันทึกไม่สำเร็จ');
+    });
+
+    it('shows a lapsed pick as nobody with the note, and the note goes once a new pick is saved', async () => {
+      await open({ account: ACCOUNT, collectorPlayerId: null, collectorStale: true });
+      httpMock.expectOne(ACCOUNTS_URL).flush([LINKED]);
+      await tick();
+      expect(q('[data-collector-option="none"]')!.getAttribute('aria-pressed')).toBe('true');
+      expect(q('[data-collector-option="p1"]')!.getAttribute('aria-pressed')).toBe('false');
+      expect(q('[data-collector-stale]')!.textContent).toContain('คนที่เลือกไว้ไม่ได้ผูก LINE แล้ว');
+      await choose('p1');
+      httpMock.expectOne({ url: COLLECTOR_URL, method: 'PUT' }).flush({ collectorPlayerId: 'p1' });
+      await tick();
+      expect(q('[data-collector-stale]')).toBeNull();
+      expect(q('[data-collector-option="p1"]')!.getAttribute('aria-pressed')).toBe('true');
+    });
+
+    it('clears a lapsed pick with nobody', async () => {
+      await open({ account: ACCOUNT, collectorPlayerId: null, collectorStale: true });
+      httpMock.expectOne(ACCOUNTS_URL).flush([]);
+      await tick();
+      await choose('none');
+      const req = httpMock.expectOne({ url: COLLECTOR_URL, method: 'PUT' });
+      expect(req.request.body).toEqual({ playerId: null });
+      req.flush({ collectorPlayerId: null });
+      await tick();
+      expect(q('[data-collector-stale]')).toBeNull();
+    });
+
+    it('keeps focus on the option while the pick saves (aria-disabled, not disabled)', async () => {
+      await open({ account: ACCOUNT, collectorPlayerId: null });
+      httpMock.expectOne(ACCOUNTS_URL).flush([LINKED]);
+      await tick();
+      const option = q('[data-collector-option="p1"]')!;
+      option.focus();
+      await choose('p1');
+      const busy = q('[data-collector-option="p1"]') as HTMLButtonElement;
+      expect(busy.disabled).toBe(false);
+      expect(busy.getAttribute('aria-disabled')).toBe('true');
+      expect(document.activeElement).toBe(option);
+      httpMock.expectOne({ url: COLLECTOR_URL, method: 'PUT' }).flush({ collectorPlayerId: 'p1' });
+      await tick();
+      expect(q('[data-collector-option="p1"]')!.hasAttribute('aria-disabled')).toBe(false);
+    });
+
+    it('removes the picker when the account is cleared', async () => {
+      await open({ account: ACCOUNT, collectorPlayerId: 'p1' });
+      httpMock.expectOne(ACCOUNTS_URL).flush([LINKED]);
+      await tick();
+      q('[data-pay-clear]')!.click();
+      await tick();
+      q('[data-pay-clear-confirm]')!.click();
+      httpMock.expectOne({ url: URL, method: 'PUT' }).flush({ account: null });
+      await tick();
+      expect(picker()).toBeNull();
+    });
   });
 });

@@ -59,7 +59,7 @@ function paymentPanel(over: Partial<PaymentCardPanel> = {}): PaymentCardPanel {
     groupName: 'ตีชิล', date: '29 ต.ค. 2569', venue: null,
     rows: [{ playerId: 'a', name: 'Amp', amountSatang: 9000, absent: false }],
     settledCount: 0, totalSatang: 9000, groupAccount: null, account: null,
-    confirmed: false, stale: false, lastSentAt: null, lastDmAt: null, shareUrl: null, ...over,
+    confirmed: false, stale: false, lastSentAt: null, lastDmAt: null, shareUrl: null, groupCode: 'g1', collector: null, ...over,
   };
 }
 

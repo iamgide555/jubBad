@@ -1,0 +1,123 @@
+:host {
+  display: block;
+}
+
+:host([hidden]) {
+  display: none;
+}
+
+.collector {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  min-width: 0;
+}
+
+legend {
+  padding: 0;
+  margin-bottom: 0.35rem;
+  font-weight: 600;
+}
+
+.collector p {
+  margin: 0.35rem 0;
+}
+
+.options {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: var(--space-1);
+}
+
+.option {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  width: 100%;
+  min-height: var(--tap);
+  padding: var(--space-1) var(--space-2);
+  text-align: start;
+  background: var(--surface);
+  color: var(--ink);
+  border: 1px solid var(--line);
+  box-shadow: none;
+  font-weight: 500;
+}
+
+.option[aria-pressed='true'] {
+  background: var(--court-soft);
+  border-color: var(--court);
+  box-shadow: inset 0 0 0 1px var(--court);
+}
+
+/* The global button:hover fills with --court-dark, which this ink text cannot read on in either theme: keep the
+   option's own surface on hover (sunk for the unselected, soft green for the selected). */
+@media (hover: hover) {
+  .option:not([aria-disabled='true']):hover {
+    background: var(--ground-sunk);
+    box-shadow: none;
+  }
+
+  .option[aria-pressed='true']:not([aria-disabled='true']):hover {
+    background: var(--court-soft);
+    box-shadow: inset 0 0 0 1px var(--court);
+  }
+
+  /* Busy: no hover change at all, so the global button:hover fill must not apply either. */
+  .option[aria-disabled='true']:hover {
+    background: var(--surface);
+    box-shadow: none;
+  }
+
+  .option[aria-pressed='true'][aria-disabled='true']:hover {
+    background: var(--court-soft);
+    box-shadow: inset 0 0 0 1px var(--court);
+  }
+}
+
+/* Busy: refused by a guard in ask(), but still focusable so focus never drops to the page. */
+.option[aria-disabled='true'] {
+  color: var(--ink-faint);
+  cursor: not-allowed;
+  transform: none;
+}
+
+.option-text {
+  display: grid;
+  min-width: 0;
+}
+
+.name {
+  overflow-wrap: anywhere;
+}
+
+.line-name {
+  color: var(--ink-soft);
+  font-size: var(--text-sm);
+  overflow-wrap: anywhere;
+}
+
+.nobody {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: var(--ground-sunk);
+  color: var(--ink-soft);
+}
+
+.dialog-body p {
+  margin: 0 0 var(--space-2);
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: var(--space-2);
+}

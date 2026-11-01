@@ -13,7 +13,7 @@ const card = (over: Partial<PaymentCardPanel> = {}): PaymentCardPanel => ({
   warnings: [], notices: [], rows: [{playerId: 'a', name: 'Amp', amountSatang: 9000, absent: false}],
   settledCount: 0, totalSatang: 9000, groupAccount: {bank: 'Bank', number: '123456', name: 'Saved Name'},
   account: {bank: 'Bank', number: '123456', name: 'Tonight Name'}, confirmed: true, stale: false,
-  lastSentAt: '2026-10-31T04:00:00Z', lastDmAt: null, shareUrl: null, ...over,
+  lastSentAt: '2026-10-31T04:00:00Z', lastDmAt: null, shareUrl: null, groupCode: 'g1', collector: null, ...over,
 });
 
 beforeAll(() => {

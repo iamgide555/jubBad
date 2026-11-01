@@ -3,6 +3,11 @@ export interface SlipPayConfig {
   liffId: string;
 }
 
+/** Whether the viewing LINE account is the bill's collector, who gets the payment panel instead of the read-only list. */
+export interface SlipPayRole {
+  collector: boolean;
+}
+
 export interface SlipPayClaimable {
   playerId: string;
   name: string;

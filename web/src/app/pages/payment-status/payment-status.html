@@ -1,10 +1,14 @@
 <main class="page payment-status">
   <header>
     <h1 i18n="@@paymentStatus.title">สถานะการจ่าย</h1>
-    @if (view()?.sessionDate; as date) {
+    @if (sessionDate(); as date) {
       <p class="muted" i18n="@@paymentStatus.date">บิลวันที่ {{ date }}</p>
     }
-    <p class="muted" i18n="@@paymentStatus.readOnly">ดูได้อย่างเดียว · โฮสต์เป็นคนแก้สถานะ</p>
+    @if (phase() === 'manage') {
+      <p class="muted" i18n="@@paymentStatus.manage">คุณจัดการการชำระเงินบิลนี้</p>
+    } @else {
+      <p class="muted" i18n="@@paymentStatus.readOnly">ดูได้อย่างเดียว · โฮสต์เป็นคนแก้สถานะ</p>
+    }
   </header>
 
   @switch (phase()) {
@@ -21,6 +25,11 @@
     @case ('error') {
       <p class="error" role="alert" i18n="@@paymentStatus.error">โหลดสถานะไม่สำเร็จ ลองอีกครั้ง</p>
       <button type="button" (click)="load()" i18n="@@entry.retry">ลองอีกครั้ง</button>
+    }
+    @case ('manage') {
+      @if (manageView(); as m) {
+        <app-slip-review [code]="code" [rows]="m.rows" [collectorMode]="true" [hideTitle]="true" />
+      }
     }
     @case ('ready') {
       @if (view()?.closedAt) { <p class="paid-state" role="status" i18n="@@payments.closed">เก็บเงินครบแล้ว</p> }

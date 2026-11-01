@@ -27,7 +27,7 @@ import { SlipImagesService } from './slip-images.service.js';
 /** One person's paid mark on the bill screen. */
 export interface PaidRow {
   playerId: string;
-  source: 'slip' | 'host';
+  source: 'slip' | 'host' | 'collector';
   /** ISO time the mark was written. */
   at: string;
   /** A slip credited an amount that no longer matches the player's current bill row. The mark stays; the host decides. */
@@ -293,22 +293,25 @@ export class SlipPaymentsService {
     const images = new Map((await this.images.list(code)).map((i) => [i.reference, i.id]));
     return stored.map((p) => ({
       playerId: p.playerId,
-      source: p.source === 'slip' ? 'slip' : 'host',
+      source: p.source === 'slip' || p.source === 'collector' ? p.source : 'host',
       at: p.createdAt.toISOString(),
       amountChangedSince: p.amountSatang !== null && p.amountSatang !== current.get(p.playerId),
       imageId: p.source === 'slip' && p.reference !== null ? (images.get(p.reference) ?? null) : null,
     }));
   }
 
-  /** The host marks a person paid. Already paid (by a slip or an earlier tick) stays as it is. */
-  tick(code: string, playerId: string): Promise<void> {
+  /**
+   * The host, or the collector from LINE, marks a person paid. Already paid (by a slip or an earlier tick) stays as
+   * it is, whoever marked it first.
+   */
+  tick(code: string, playerId: string, source: 'host' | 'collector' = 'host'): Promise<void> {
     return this.lock.run(code, async () => {
       await this.assertOpen(code);
       const panel = await this.cards.panel(code);
       if (!panel.rows.some((r) => r.playerId === playerId)) throw new ConflictException({ code: 'PLAYER_NOT_ON_BILL' });
       await this.prisma.sessionPayment.upsert({
         where: { sessionId_playerId: { sessionId: code, playerId } },
-        create: { sessionId: code, playerId, source: 'host' },
+        create: { sessionId: code, playerId, source },
         update: {},
       });
     });

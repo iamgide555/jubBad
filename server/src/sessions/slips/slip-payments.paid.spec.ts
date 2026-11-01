@@ -126,6 +126,20 @@ describe('slip payments: paid state, manual tick, token check', () => {
       expect(new Date(rows[0].at).toISOString()).toBe(rows[0].at);
     });
 
+    it('marks a player paid with source collector, and a later host tick keeps it', async () => {
+      const { code, ids } = await setup();
+      await paid.tick(code, ids[0], 'collector');
+      expect(await paid.getPaid(code)).toMatchObject([{ playerId: ids[0], source: 'collector' }]);
+      await paid.tick(code, ids[0]);
+      expect(await paid.getPaid(code)).toMatchObject([{ playerId: ids[0], source: 'collector' }]);
+    });
+
+    it('reads an unknown stored source as host', async () => {
+      const { code, ids } = await setup();
+      await prisma.sessionPayment.create({ data: { sessionId: code, playerId: ids[0], source: 'mystery' } });
+      expect(await paid.getPaid(code)).toMatchObject([{ playerId: ids[0], source: 'host' }]);
+    });
+
     it('leaves one row when ticked twice', async () => {
       const { code, ids } = await setup();
       await paid.tick(code, ids[1]);

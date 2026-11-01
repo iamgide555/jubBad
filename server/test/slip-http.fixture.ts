@@ -190,6 +190,8 @@ export async function bootSlipApp() {
     await prisma.pairing.deleteMany({ where });
     await prisma.sessionRoster.deleteMany({ where });
     await prisma.session.deleteMany({ where: byGroup });
+    // A group's collector is a foreign key to a player, so specs that set one need it cleared before the players go.
+    await prisma.group.updateMany({ where: { code: { in: groupCodes } }, data: { payCollectorPlayerId: null } });
     await prisma.player.deleteMany({ where: byGroup });
     await prisma.group.deleteMany({ where: { code: { in: groupCodes } } });
     await prisma.lineAccount.deleteMany({ where: { lineUserId: { in: lineUserIds } } });

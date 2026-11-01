@@ -1,5 +1,7 @@
 import { Body, Controller, Get, HttpCode, Param, Post, Query } from '@nestjs/common';
 import { Public } from '../auth/public.decorator.js';
+import { PrismaService } from '../prisma/prisma.service.js';
+import { CollectorService } from './collector.service.js';
 import { ConfirmPaymentCardDto } from './dto/confirm-payment-card.dto.js';
 import { SendPaymentCardDto } from './dto/send-payment-card.dto.js';
 import {
@@ -9,6 +11,17 @@ import {
   type PaymentShareCard,
 } from './payment-card.service.js';
 
+/** The collector as the host sees them: never the LINE user id, which only the bot needs. */
+export interface HostCollector {
+  playerId: string;
+  playerName: string;
+  lineName: string | null;
+  pictureUrl: string | null;
+}
+
+/** The panel as the host's screen reads it: the shared panel plus where its collector settings live and who collects. */
+export type HostPaymentPanel = PaymentPanel & { groupCode: string; collector: HostCollector | null };
+
 /**
  * The panel, confirm, bot send and host DM are owner routes (no @Public): OwnershipGuard covers /sessions/:code/... and
  * refuses a non-owner with 404, and money never reaches the display or a co-host. The share read is the one
@@ -16,17 +29,42 @@ import {
  */
 @Controller('sessions')
 export class PaymentCardController {
-  constructor(private readonly payments: PaymentCardService) {}
+  constructor(
+    private readonly payments: PaymentCardService,
+    private readonly collectors: CollectorService,
+    private readonly prisma: PrismaService
+  ) {}
+
+  /**
+   * groupCode and collector are added here, not in PaymentCardService.panel(): panel() runs many times per slip
+   * request (the pay-page gate, the waiting list, the collection) and must stay free of these extra reads.
+   */
+  private async forHost(code: string, panel: PaymentPanel): Promise<HostPaymentPanel> {
+    const [session, collector] = await Promise.all([
+      this.prisma.session.findUnique({ where: { code }, select: { groupId: true } }),
+      this.collectors.forBill(code),
+    ]);
+    return {
+      ...panel,
+      groupCode: session?.groupId ?? '',
+      collector: collector && {
+        playerId: collector.playerId,
+        playerName: collector.playerName,
+        lineName: collector.lineName,
+        pictureUrl: collector.pictureUrl,
+      },
+    };
+  }
 
   @Get(':code/payment-card')
-  panel(@Param('code') code: string): Promise<PaymentPanel> {
-    return this.payments.panel(code);
+  async panel(@Param('code') code: string): Promise<HostPaymentPanel> {
+    return this.forHost(code, await this.payments.panel(code));
   }
 
   @Post(':code/payment-card/confirm')
   @HttpCode(200)
-  confirm(@Param('code') code: string, @Body() dto: ConfirmPaymentCardDto): Promise<PaymentPanel> {
-    return this.payments.confirm(code, dto);
+  async confirm(@Param('code') code: string, @Body() dto: ConfirmPaymentCardDto): Promise<HostPaymentPanel> {
+    return this.forHost(code, await this.payments.confirm(code, dto));
   }
 
   /** Always answers 200 with the outcome, so the panel can say what happened instead of a bare error. */

@@ -9,7 +9,8 @@ import { PrismaService } from '../prisma/prisma.service.js';
 import type { BillWarning } from '../../../engines/bill.ts';
 import { BillService } from './bill.service.js';
 import type { ConfirmPaymentCardDto } from './dto/confirm-payment-card.dto.js';
-import { parsePayAccount, validatePayAccount, type PayAccount } from './pay-account.js';
+import { assertCollectorEligible } from '../groups/pay-collector.js';
+import { parsePayAccount, sameReceivingAccount, validatePayAccount, type PayAccount } from './pay-account.js';
 import {
   newShareToken,
   parsePaymentState,
@@ -178,7 +179,7 @@ export class PaymentCardService {
    */
   confirm(code: string, dto: ConfirmPaymentCardDto, now: Date = new Date()): Promise<PaymentPanel> {
     return this.lock.run(code, async () => {
-      const closed = await this.prisma.session.findUnique({where:{code},select:{paymentCollectionClosedAt:true}});
+      const closed = await this.prisma.session.findUnique({where:{code},select:{paymentCollectionClosedAt:true,groupId:true}});
       if (closed?.paymentCollectionClosedAt) throw new ConflictException({code:'COLLECTION_CLOSED'});
       const checked = validatePayAccount(dto);
       if (!checked.ok) throw new BadRequestException({ code: 'PAY_ACCOUNT_INVALID' });
@@ -189,6 +190,15 @@ export class PaymentCardService {
       if (dto.expectedHash !== panel.contentHash) throw new ConflictException({ code: 'PAYMENT_CHANGED' });
       const account = checked.value ?? panel.account;
       if (account === null) throw new ConflictException({ code: 'PAYMENT_NO_ACCOUNT' });
+      // A card on the group's own account belongs to the group's collector (resolved live), so no night one is kept.
+      // Another account needs its own, who must be a player here with a LINE link. Checked before the write, still
+      // under the lock, so a refusal leaves the earlier card as it was.
+      let collectorPlayerId: string | null = null;
+      if (!sameReceivingAccount(account, panel.groupAccount) && typeof dto.collectorPlayerId === 'string') {
+        // `closed` was read from this same session a moment ago, so it is non-null once the view succeeded.
+        await assertCollectorEligible(this.prisma, closed!.groupId, dto.collectorPlayerId);
+        collectorPlayerId = dto.collectorPlayerId;
+      }
       const confirmed: PaymentCardState = {
         account,
         token: newShareToken(),
@@ -196,6 +206,7 @@ export class PaymentCardService {
         confirmedHash: contentHash(cardInput(account), panel.rows),
         lastSentAt: state.lastSentAt,
         lastDmAt: state.lastDmAt,
+        collectorPlayerId,
       };
       await this.prisma.session.update({ where: { code }, data: { paymentCard: serializePaymentState(confirmed) } });
       return (await this.view(code, now)).panel;

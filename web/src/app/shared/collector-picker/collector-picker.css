@@ -48,6 +48,20 @@ legend {
   box-shadow: inset 0 0 0 1px var(--court);
 }
 
+/* The global button:hover fills with --court-dark, which this ink text cannot read on in either theme: keep the
+   option's own surface on hover (sunk for the unselected, soft green for the selected). */
+@media (hover: hover) {
+  .option:hover {
+    background: var(--ground-sunk);
+    box-shadow: none;
+  }
+
+  .option[aria-pressed='true']:hover {
+    background: var(--court-soft);
+    box-shadow: inset 0 0 0 1px var(--court);
+  }
+}
+
 .option:disabled {
   color: var(--ink-faint);
 }

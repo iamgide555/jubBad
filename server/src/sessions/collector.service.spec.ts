@@ -31,7 +31,7 @@ describe('CollectorService.forBill', () => {
 
   afterAll(async () => {
     await prisma.session.deleteMany({ where: { groupId: { in: groupCodes } } });
-    await prisma.group.updateMany({ where: { code: { in: groupCodes } }, data: { payCollectorPlayerId: null } });
+    await prisma.group.updateMany({ where: { code: { in: groupCodes } }, data: { payCollectorPlayerId: null, payCollectorLineUserId: null } });
     await prisma.playerLineAccount.deleteMany({ where: { groupId: { in: groupCodes } } });
     await prisma.player.deleteMany({ where: { groupId: { in: groupCodes } } });
     await prisma.group.deleteMany({ where: { code: { in: groupCodes } } });
@@ -53,6 +53,11 @@ describe('CollectorService.forBill', () => {
       await prisma.playerLineAccount.create({ data: { groupId: groupCode, playerId, lineUserId, linkedBy: 'host' } });
       return lineUserId;
     };
+    /** Drops the player's link and links `lineUserId` instead (an existing account, e.g. the one unlinked). */
+    const relink = async (playerId: string, lineUserId: string) => {
+      await prisma.playerLineAccount.deleteMany({ where: { groupId: groupCode, playerId } });
+      await prisma.playerLineAccount.create({ data: { groupId: groupCode, playerId, lineUserId, linkedBy: 'self' } });
+    };
     const u1 = await link(p1.id, 'Malee LINE');
     const u2 = await link(p2.id, 'Tom LINE');
     const code = `s${randomUUID().slice(0, 8)}`;
@@ -64,12 +69,12 @@ describe('CollectorService.forBill', () => {
         where: { code },
         data: { paymentCard: serializePaymentState({ ...EMPTY_PAYMENT_STATE, ...state } as never) },
       });
-    return { groupCode, code, p1, p2, p3, u1, u2, setCard };
+    return { groupCode, code, p1, p2, p3, u1, u2, setCard, link, relink };
   }
 
   it('resolves the saved collector for a card on the saved account', async () => {
     const s = await setup();
-    await prisma.group.update({ where: { code: s.groupCode }, data: { payCollectorPlayerId: s.p1.id } });
+    await prisma.group.update({ where: { code: s.groupCode }, data: { payCollectorPlayerId: s.p1.id, payCollectorLineUserId: s.u1 } });
     await s.setCard({ account: ACCOUNT, confirmedAt: '2026-11-02T10:00:00Z' });
     expect(await collectors.forBill(s.code)).toEqual({
       playerId: s.p1.id,
@@ -82,7 +87,7 @@ describe('CollectorService.forBill', () => {
 
   it('resolves the saved collector for a card not yet confirmed (no snapshot)', async () => {
     const s = await setup();
-    await prisma.group.update({ where: { code: s.groupCode }, data: { payCollectorPlayerId: s.p1.id } });
+    await prisma.group.update({ where: { code: s.groupCode }, data: { payCollectorPlayerId: s.p1.id, payCollectorLineUserId: s.u1 } });
     expect((await collectors.forBill(s.code))?.playerId).toBe(s.p1.id);
   });
 
@@ -99,21 +104,21 @@ describe('CollectorService.forBill', () => {
 
   it('uses the night collector when the card was confirmed with a different account', async () => {
     const s = await setup();
-    await prisma.group.update({ where: { code: s.groupCode }, data: { payCollectorPlayerId: s.p1.id } });
-    await s.setCard({ account: OTHER_ACCOUNT, collectorPlayerId: s.p2.id, confirmedAt: '2026-11-02T10:00:00Z' });
+    await prisma.group.update({ where: { code: s.groupCode }, data: { payCollectorPlayerId: s.p1.id, payCollectorLineUserId: s.u1 } });
+    await s.setCard({ account: OTHER_ACCOUNT, collectorPlayerId: s.p2.id, collectorLineUserId: s.u2, confirmedAt: '2026-11-02T10:00:00Z' });
     expect((await collectors.forBill(s.code))?.playerId).toBe(s.p2.id);
   });
 
   it('is null for a different account with no night collector, even if the group has one', async () => {
     const s = await setup();
-    await prisma.group.update({ where: { code: s.groupCode }, data: { payCollectorPlayerId: s.p1.id } });
+    await prisma.group.update({ where: { code: s.groupCode }, data: { payCollectorPlayerId: s.p1.id, payCollectorLineUserId: s.u1 } });
     await s.setCard({ account: OTHER_ACCOUNT, confirmedAt: '2026-11-02T10:00:00Z' });
     expect(await collectors.forBill(s.code)).toBeNull();
   });
 
   it('still uses the group collector after only the account name changed', async () => {
     const s = await setup();
-    await prisma.group.update({ where: { code: s.groupCode }, data: { payCollectorPlayerId: s.p1.id } });
+    await prisma.group.update({ where: { code: s.groupCode }, data: { payCollectorPlayerId: s.p1.id, payCollectorLineUserId: s.u1 } });
     await s.setCard({ account: ACCOUNT, confirmedAt: '2026-11-02T10:00:00Z' });
     await prisma.group.update({
       where: { code: s.groupCode },
@@ -124,7 +129,7 @@ describe('CollectorService.forBill', () => {
 
   it('falls back to the night collector after the group bank or number changed', async () => {
     const s = await setup();
-    await prisma.group.update({ where: { code: s.groupCode }, data: { payCollectorPlayerId: s.p1.id } });
+    await prisma.group.update({ where: { code: s.groupCode }, data: { payCollectorPlayerId: s.p1.id, payCollectorLineUserId: s.u1 } });
     await s.setCard({ account: ACCOUNT, confirmedAt: '2026-11-02T10:00:00Z' });
     await prisma.group.update({ where: { code: s.groupCode }, data: { payAccount: JSON.stringify(OTHER_ACCOUNT) } });
     expect(await collectors.forBill(s.code)).toBeNull();
@@ -132,9 +137,44 @@ describe('CollectorService.forBill', () => {
 
   it('is null once the collector is unlinked from LINE', async () => {
     const s = await setup();
-    await prisma.group.update({ where: { code: s.groupCode }, data: { payCollectorPlayerId: s.p1.id } });
+    await prisma.group.update({ where: { code: s.groupCode }, data: { payCollectorPlayerId: s.p1.id, payCollectorLineUserId: s.u1 } });
     await prisma.playerLineAccount.deleteMany({ where: { playerId: s.p1.id } });
     expect(await collectors.forBill(s.code)).toBeNull();
+  });
+
+  describe('pinned to the LINE account picked', () => {
+    it('is null once a different LINE account is linked to the group collector, and back with the same one', async () => {
+      const s = await setup();
+      await prisma.group.update({ where: { code: s.groupCode }, data: { payCollectorPlayerId: s.p1.id, payCollectorLineUserId: s.u1 } });
+      await prisma.playerLineAccount.deleteMany({ where: { playerId: s.p1.id } });
+      const stranger = await s.link(s.p1.id, 'Someone else');
+      expect(stranger).not.toBe(s.u1);
+      expect(await collectors.forBill(s.code)).toBeNull();
+      await s.relink(s.p1.id, s.u1);
+      expect((await collectors.forBill(s.code))?.lineUserId).toBe(s.u1);
+    });
+
+    it('is null for a group collector with no pinned LINE account', async () => {
+      const s = await setup();
+      await prisma.group.update({ where: { code: s.groupCode }, data: { payCollectorPlayerId: s.p1.id } });
+      expect(await collectors.forBill(s.code)).toBeNull();
+    });
+
+    it('pins the night collector the same way', async () => {
+      const s = await setup();
+      await s.setCard({ account: OTHER_ACCOUNT, collectorPlayerId: s.p2.id, collectorLineUserId: s.u2, confirmedAt: '2026-11-02T10:00:00Z' });
+      await prisma.playerLineAccount.deleteMany({ where: { playerId: s.p2.id } });
+      await s.link(s.p2.id, 'Someone else');
+      expect(await collectors.forBill(s.code)).toBeNull();
+      await s.relink(s.p2.id, s.u2);
+      expect((await collectors.forBill(s.code))?.playerId).toBe(s.p2.id);
+    });
+
+    it('is null for a night collector with no pinned LINE account', async () => {
+      const s = await setup();
+      await s.setCard({ account: OTHER_ACCOUNT, collectorPlayerId: s.p2.id, confirmedAt: '2026-11-02T10:00:00Z' });
+      expect(await collectors.forBill(s.code)).toBeNull();
+    });
   });
 
   it('is null for an unknown session', async () => {
@@ -142,9 +182,9 @@ describe('CollectorService.forBill', () => {
   });
 
   describe('assertCollectorEligible', () => {
-    it('accepts a linked player of the group', async () => {
+    it('accepts a linked player of the group and returns the LINE account to pin', async () => {
       const s = await setup();
-      await expect(assertCollectorEligible(prisma, s.groupCode, s.p1.id)).resolves.toBeUndefined();
+      await expect(assertCollectorEligible(prisma, s.groupCode, s.p1.id)).resolves.toBe(s.u1);
     });
 
     it('rejects an unlinked player', async () => {

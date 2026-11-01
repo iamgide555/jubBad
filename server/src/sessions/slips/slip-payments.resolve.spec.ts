@@ -417,10 +417,10 @@ describe('slip payments: host review', () => {
     it('leaves the group\'s collector alone', async () => {
       const s = await setup();
       const { row } = await receiverWaiting(s);
-      await prisma.group.update({ where: { code: s.groupCode }, data: { payCollectorPlayerId: s.ids[0] } });
+      await prisma.group.update({ where: { code: s.groupCode }, data: { payCollectorPlayerId: s.ids[0], payCollectorLineUserId: 'Upinned' } });
       await slips.updateSavedReceiverName(s.code, row.id);
       const group = await prisma.group.findUniqueOrThrow({ where: { code: s.groupCode } });
-      expect(group.payCollectorPlayerId).toBe(s.ids[0]);
+      expect([group.payCollectorPlayerId, group.payCollectorLineUserId]).toEqual([s.ids[0], 'Upinned']);
     });
 
     it('refuses a slip held for another reason', async () => {

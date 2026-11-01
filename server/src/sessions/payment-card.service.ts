@@ -193,10 +193,13 @@ export class PaymentCardService {
       // A card on the group's own account belongs to the group's collector (resolved live), so no night one is kept.
       // Another account needs its own, who must be a player here with a LINE link. Checked before the write, still
       // under the lock, so a refusal leaves the earlier card as it was.
+      // The pick is pinned to the LINE account linked right now, so a later link of another LINE account to the
+      // same player does not inherit it (see CollectorService).
       let collectorPlayerId: string | null = null;
+      let collectorLineUserId: string | null = null;
       if (!sameReceivingAccount(account, panel.groupAccount) && typeof dto.collectorPlayerId === 'string') {
         // `closed` was read from this same session a moment ago, so it is non-null once the view succeeded.
-        await assertCollectorEligible(this.prisma, closed!.groupId, dto.collectorPlayerId);
+        collectorLineUserId = await assertCollectorEligible(this.prisma, closed!.groupId, dto.collectorPlayerId);
         collectorPlayerId = dto.collectorPlayerId;
       }
       const confirmed: PaymentCardState = {
@@ -207,6 +210,7 @@ export class PaymentCardService {
         lastSentAt: state.lastSentAt,
         lastDmAt: state.lastDmAt,
         collectorPlayerId,
+        collectorLineUserId,
       };
       await this.prisma.session.update({ where: { code }, data: { paymentCard: serializePaymentState(confirmed) } });
       return (await this.view(code, now)).panel;

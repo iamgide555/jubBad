@@ -27,6 +27,12 @@ export interface PaymentCardState {
    * that predate it keep compiling; parse always yields a value.
    */
   collectorPlayerId?: string | null;
+  /**
+   * The LINE user id that night collector was linked to at the confirm. Access holds only while that same LINE
+   * account is still the player's link here, so it never passes to whoever links the player next. Set and cleared
+   * together with collectorPlayerId.
+   */
+  collectorLineUserId?: string | null;
 }
 
 /** Frozen: parsePaymentState hands this same object to every caller, so one must not be able to corrupt it. */
@@ -38,6 +44,7 @@ export const EMPTY_PAYMENT_STATE: PaymentCardState = Object.freeze({
   lastSentAt: null,
   lastDmAt: null,
   collectorPlayerId: null,
+  collectorLineUserId: null,
 });
 
 const str = (v: unknown): string | null => (typeof v === 'string' && v !== '' ? v : null);
@@ -60,13 +67,18 @@ export function parsePaymentState(raw: string | null): PaymentCardState {
     lastSentAt: str(o['lastSentAt']),
     lastDmAt: str(o['lastDmAt']),
     collectorPlayerId: str(o['collectorPlayerId']),
+    collectorLineUserId: str(o['collectorLineUserId']),
   };
 }
 
 export function serializePaymentState(state: PaymentCardState): string {
-  // An unset collector is left out, so a card stored before this field existed re-serializes unchanged.
-  const { collectorPlayerId, ...rest } = state;
-  return JSON.stringify(collectorPlayerId ? { ...rest, collectorPlayerId } : rest);
+  // An unset collector is left out, so a card stored before these fields existed re-serializes unchanged.
+  const { collectorPlayerId, collectorLineUserId, ...rest } = state;
+  return JSON.stringify({
+    ...rest,
+    ...(collectorPlayerId ? { collectorPlayerId } : {}),
+    ...(collectorLineUserId ? { collectorLineUserId } : {}),
+  });
 }
 
 export function newShareToken(): string {

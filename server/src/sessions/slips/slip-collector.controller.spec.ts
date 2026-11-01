@@ -30,6 +30,7 @@ interface CollectorBill extends Session {
 describe('collector manage routes (public, LINE identity + card token)', () => {
   let kit: Kit;
   let hostId: string;
+  let hostCookie: string;
   let slips: SlipPaymentsService;
   let images: SlipImagesService;
   const users = new Map<string, LiffUser>();
@@ -37,7 +38,9 @@ describe('collector manage routes (public, LINE identity + card token)', () => {
 
   beforeAll(async () => {
     kit = await bootSlipApp();
-    hostId = (await kit.owner()).id;
+    const host = await kit.owner();
+    hostId = host.id;
+    hostCookie = host.cookie;
     slips = kit.app.get(SlipPaymentsService);
     images = kit.app.get(SlipImagesService);
   });
@@ -156,6 +159,39 @@ describe('collector manage routes (public, LINE identity + card token)', () => {
     ],
   ];
 
+  /**
+   * The collector's player is unlinked and a different LINE account then linked to that player: by a self-claim on
+   * the pay page, or by the host repointing the link. Returns that new account's access token and user.
+   */
+  async function relinkedToStranger(b: CollectorBill, how: 'claim' | 'host'): Promise<[string, LiffUser]> {
+    const [access, user] = viewer('Stranger');
+    if (how === 'claim') {
+      await kit.prisma.playerLineAccount.deleteMany({ where: { groupId: b.groupCode, playerId: b.ids[0] } });
+      await post(`/sessions/${b.code}/slip-pay/claim${q(b.token)}`, access, { playerId: b.ids[0] }).expect(200);
+    } else {
+      await kit.prisma.lineAccount.create({
+        data: { lineUserId: user.userId, displayName: user.displayName, pictureUrl: null },
+      });
+      await request(kit.server)
+        .post(`/sessions/${b.code}/payments/links`)
+        .set('Cookie', hostCookie)
+        .send({ playerId: b.ids[0], lineUserId: user.userId })
+        .expect(200);
+    }
+    const link = await kit.prisma.playerLineAccount.findFirstOrThrow({
+      where: { groupId: b.groupCode, playerId: b.ids[0] },
+    });
+    expect(link.lineUserId).toBe(user.userId);
+    return [access, user];
+  }
+
+  /** The body of a refused manage read with no LINE header: what every refusal must look like. */
+  async function send404Baseline(b: CollectorBill) {
+    const res = await get(`${m(b.code)}${q(b.token)}`);
+    expect(res.status).toBe(404);
+    return res.body;
+  }
+
   /** Nothing a collector route could write happened on this bill. */
   async function untouched(b: CollectorBill) {
     expect(
@@ -264,6 +300,62 @@ describe('collector manage routes (public, LINE identity + card token)', () => {
         }
       });
     }
+
+    for (const how of ['claim', 'host'] as const) {
+      it(`every manage route: a different LINE account linked to the collector's player (${how}) inherits nothing`, async () => {
+        const b = await collectorBill();
+        const [stranger] = await relinkedToStranger(b, how);
+        expect((await role(b.code, q(b.token), stranger).expect(200)).body).toEqual({ collector: false });
+        const baseline = await send404Baseline(b);
+        for (const [name, send] of routes) {
+          kit.resetThrottles();
+          const res = await send(b, b.code, q(b.token), stranger);
+          expect({ name, status: res.status, body: res.body }).toEqual({ name, status: 404, body: baseline });
+        }
+        await untouched(b);
+      });
+    }
+
+    it("the same LINE account re-linked to the collector's player gets access back", async () => {
+      const b = await collectorBill();
+      await relinkedToStranger(b, 'host');
+      expect((await role(b.code, q(b.token), b.access).expect(200)).body).toEqual({ collector: false });
+      await request(kit.server)
+        .post(`/sessions/${b.code}/payments/links`)
+        .set('Cookie', hostCookie)
+        .send({ playerId: b.ids[0], lineUserId: b.user.userId })
+        .expect(200);
+      expect((await role(b.code, q(b.token), b.access).expect(200)).body).toEqual({ collector: true });
+      await get(`${m(b.code)}${q(b.token)}`, b.access).expect(200);
+    });
+
+    it('a night collector is pinned the same way', async () => {
+      const b = await collectorBill();
+      await kit.setCollector(b.groupCode, null);
+      // Tonight's card carries another account, collected by ids[0] pinned to their current LINE account.
+      const card = (await kit.prisma.session.findUniqueOrThrow({ where: { code: b.code } })).paymentCard!;
+      await kit.prisma.session.update({
+        where: { code: b.code },
+        data: {
+          paymentCard: JSON.stringify({
+            ...JSON.parse(card),
+            account: { bank: 'ไทยพาณิชย์', number: '987-6-54321-0', name: 'สมชาย' },
+            collectorPlayerId: b.ids[0],
+            collectorLineUserId: b.user.userId,
+          }),
+        },
+      });
+      expect((await role(b.code, q(b.token), b.access).expect(200)).body).toEqual({ collector: true });
+      const [stranger] = await relinkedToStranger(b, 'claim');
+      expect((await role(b.code, q(b.token), stranger).expect(200)).body).toEqual({ collector: false });
+      expect((await get(`${m(b.code)}${q(b.token)}`, stranger)).status).toBe(404);
+      await request(kit.server)
+        .post(`/sessions/${b.code}/payments/links`)
+        .set('Cookie', hostCookie)
+        .send({ playerId: b.ids[0], lineUserId: b.user.userId })
+        .expect(200);
+      expect((await role(b.code, q(b.token), b.access).expect(200)).body).toEqual({ collector: true });
+    });
 
     it('counts a refused collector request against the viewer: the eleventh is 429, and so is their status read', async () => {
       const b = await collectorBill();

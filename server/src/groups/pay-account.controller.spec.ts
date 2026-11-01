@@ -41,6 +41,22 @@ describe('group pay-account routes', () => {
   };
   const storedCollector = async () =>
     (await prisma.group.findUniqueOrThrow({ where: { code }, select: { payCollectorPlayerId: true } })).payCollectorPlayerId;
+  const storedPin = async () =>
+    (await prisma.group.findUniqueOrThrow({ where: { code }, select: { payCollectorLineUserId: true } })).payCollectorLineUserId;
+  const linkOf = async (playerId: string) =>
+    (await prisma.playerLineAccount.findFirstOrThrow({ where: { groupId: code, playerId } })).lineUserId;
+  /** Unlinks the player here and links `lineUserId` to them instead (a fresh LINE account when omitted). */
+  const relink = async (playerId: string, lineUserId?: string) => {
+    await prisma.playerLineAccount.deleteMany({ where: { groupId: code, playerId } });
+    let id = lineUserId;
+    if (id === undefined) {
+      id = `U${randomUUID().replace(/-/g, '')}`;
+      lineUserIds.push(id);
+      await prisma.lineAccount.create({ data: { lineUserId: id } });
+    }
+    await prisma.playerLineAccount.create({ data: { groupId: code, playerId, lineUserId: id, linkedBy: 'self' } });
+    return id;
+  };
 
   const login = async (email: string) => {
     const res = await request(server).post('/auth/login').send({ email, password: PASSWORD }).expect(201);
@@ -94,16 +110,16 @@ describe('group pay-account routes', () => {
   });
 
   beforeEach(async () => {
-    await prisma.group.update({ where: { code }, data: { payAccount: null, payCollectorPlayerId: null } });
+    await prisma.group.update({ where: { code }, data: { payAccount: null, payCollectorPlayerId: null, payCollectorLineUserId: null } });
   });
 
   it('reads no account for a fresh group', async () => {
-    expect((await get().expect(200)).body).toEqual({ account: null, collectorPlayerId: null });
+    expect((await get().expect(200)).body).toEqual({ account: null, collectorPlayerId: null, collectorStale: false });
   });
 
   it('stores all three fields of a real PUT body through the global pipe, and reads them back', async () => {
     expect((await put(ACCOUNT).expect(200)).body).toEqual({ account: ACCOUNT });
-    expect((await get().expect(200)).body).toEqual({ account: ACCOUNT, collectorPlayerId: null });
+    expect((await get().expect(200)).body).toEqual({ account: ACCOUNT, collectorPlayerId: null, collectorStale: false });
     const stored = await prisma.group.findUniqueOrThrow({ where: { code }, select: { payAccount: true } });
     expect(JSON.parse(stored.payAccount as string)).toEqual(ACCOUNT);
   });
@@ -116,7 +132,7 @@ describe('group pay-account routes', () => {
   it('clears on an all-blank or empty body', async () => {
     await put(ACCOUNT).expect(200);
     expect((await put({ bank: ' ', number: '', name: '' }).expect(200)).body).toEqual({ account: null });
-    expect((await get().expect(200)).body).toEqual({ account: null, collectorPlayerId: null });
+    expect((await get().expect(200)).body).toEqual({ account: null, collectorPlayerId: null, collectorStale: false });
     await put(ACCOUNT).expect(200);
     expect((await put({}).expect(200)).body).toEqual({ account: null });
     expect((await prisma.group.findUniqueOrThrow({ where: { code } })).payAccount).toBeNull();
@@ -137,30 +153,30 @@ describe('group pay-account routes', () => {
       const res = await put(body).expect(400);
       expect(res.body.code, JSON.stringify(body)).toBe('PAY_ACCOUNT_INVALID');
     }
-    expect((await get().expect(200)).body).toEqual({ account: ACCOUNT, collectorPlayerId: null });
+    expect((await get().expect(200)).body).toEqual({ account: ACCOUNT, collectorPlayerId: null, collectorStale: false });
   });
 
   it('refuses non-string fields with a generic 400 and keeps the old account', async () => {
     await put(ACCOUNT).expect(200);
     const res = await put({ bank: 5, number: '123456', name: 'x' }).expect(400);
     expect(res.body.code).toBeUndefined();
-    expect((await get().expect(200)).body).toEqual({ account: ACCOUNT, collectorPlayerId: null });
+    expect((await get().expect(200)).body).toEqual({ account: ACCOUNT, collectorPlayerId: null, collectorStale: false });
   });
 
   it('refuses a string over the DTO cap with a 400 and keeps the old account', async () => {
     await put(ACCOUNT).expect(200);
     await put({ ...ACCOUNT, name: 'ส'.repeat(201) }).expect(400);
     await put({ ...ACCOUNT, number: '1'.repeat(201) }).expect(400);
-    expect((await get().expect(200)).body).toEqual({ account: ACCOUNT, collectorPlayerId: null });
+    expect((await get().expect(200)).body).toEqual({ account: ACCOUNT, collectorPlayerId: null, collectorStale: false });
   });
 
   it('reads null like a blank field: all null clears, null beside a filled field is partial', async () => {
     await put(ACCOUNT).expect(200);
     const partial = await put({ bank: 'กสิกร', number: null, name: null }).expect(400);
     expect(partial.body.code).toBe('PAY_ACCOUNT_INVALID');
-    expect((await get().expect(200)).body).toEqual({ account: ACCOUNT, collectorPlayerId: null });
+    expect((await get().expect(200)).body).toEqual({ account: ACCOUNT, collectorPlayerId: null, collectorStale: false });
     expect((await put({ bank: null, number: null, name: null }).expect(200)).body).toEqual({ account: null });
-    expect((await get().expect(200)).body).toEqual({ account: null, collectorPlayerId: null });
+    expect((await get().expect(200)).body).toEqual({ account: null, collectorPlayerId: null, collectorStale: false });
   });
 
   describe('collector', () => {
@@ -168,7 +184,44 @@ describe('group pay-account routes', () => {
       await put(ACCOUNT).expect(200);
       const playerId = await makePlayer(code, true);
       expect((await putCollector({ playerId }).expect(200)).body).toEqual({ collectorPlayerId: playerId });
-      expect((await get().expect(200)).body).toEqual({ account: ACCOUNT, collectorPlayerId: playerId });
+      expect((await get().expect(200)).body).toEqual({ account: ACCOUNT, collectorPlayerId: playerId, collectorStale: false });
+    });
+
+    it('pins the LINE account linked at the pick; clearing clears both', async () => {
+      await put(ACCOUNT).expect(200);
+      const playerId = await makePlayer(code, true);
+      await putCollector({ playerId }).expect(200);
+      expect(await storedPin()).toBe(await linkOf(playerId));
+      await putCollector({ playerId: null }).expect(200);
+      expect([await storedCollector(), await storedPin()]).toEqual([null, null]);
+      await putCollector({ playerId }).expect(200);
+      await put({}).expect(200);
+      expect([await storedCollector(), await storedPin()]).toEqual([null, null]);
+    });
+
+    it('reads a pick whose LINE account was unlinked or replaced as stale, and as held again once the same one is back', async () => {
+      await put(ACCOUNT).expect(200);
+      const playerId = await makePlayer(code, true);
+      const original = await linkOf(playerId);
+      await putCollector({ playerId }).expect(200);
+      await prisma.playerLineAccount.deleteMany({ where: { groupId: code, playerId } });
+      expect((await get().expect(200)).body).toEqual({ account: ACCOUNT, collectorPlayerId: null, collectorStale: true });
+      await relink(playerId);
+      expect((await get().expect(200)).body).toEqual({ account: ACCOUNT, collectorPlayerId: null, collectorStale: true });
+      await relink(playerId, original);
+      expect((await get().expect(200)).body).toEqual({ account: ACCOUNT, collectorPlayerId: playerId, collectorStale: false });
+      // Picking again pins whichever account is linked now.
+      const replaced = await relink(playerId);
+      await putCollector({ playerId }).expect(200);
+      expect(await storedPin()).toBe(replaced);
+      expect((await get().expect(200)).body).toEqual({ account: ACCOUNT, collectorPlayerId: playerId, collectorStale: false });
+    });
+
+    it('reads a pick with no pinned LINE account as stale', async () => {
+      await put(ACCOUNT).expect(200);
+      const playerId = await makePlayer(code, true);
+      await prisma.group.update({ where: { code }, data: { payCollectorPlayerId: playerId, payCollectorLineUserId: null } });
+      expect((await get().expect(200)).body).toEqual({ account: ACCOUNT, collectorPlayerId: null, collectorStale: true });
     });
 
     it('refuses an unlinked player, and another group\'s linked player, with COLLECTOR_INVALID and keeps the value', async () => {
@@ -250,9 +303,9 @@ describe('group pay-account routes', () => {
     };
     const walk = async () => {
       expect((await put(ACCOUNT).expect(200)).body).toEqual({ account: ACCOUNT });
-      expect((await get().expect(200)).body).toEqual({ account: ACCOUNT, collectorPlayerId: null });
+      expect((await get().expect(200)).body).toEqual({ account: ACCOUNT, collectorPlayerId: null, collectorStale: false });
       expect((await put({}).expect(200)).body).toEqual({ account: null });
-      expect((await get().expect(200)).body).toEqual({ account: null, collectorPlayerId: null });
+      expect((await get().expect(200)).body).toEqual({ account: null, collectorPlayerId: null, collectorStale: false });
     };
     // The default owner plan is club, which would pass any gate; these two are the owners a gate would refuse.
     afterEach(async () => {
@@ -276,7 +329,7 @@ describe('group pay-account routes', () => {
     await get(otherCookie).expect(404);
     await put({ bank: 'x', number: '999999', name: 'y' }, otherCookie).expect(404);
     await put({}, otherCookie).expect(404);
-    expect((await get().expect(200)).body).toEqual({ account: ACCOUNT, collectorPlayerId: null });
+    expect((await get().expect(200)).body).toEqual({ account: ACCOUNT, collectorPlayerId: null, collectorStale: false });
   });
 
   it('refuses an unauthenticated caller on both verbs', async () => {

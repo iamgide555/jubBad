@@ -85,7 +85,7 @@ describe('host payment routes /sessions/:code/payments (owner only)', () => {
       const { userId } = lineUser('Malee LINE');
       await kit.prisma.lineAccount.create({ data: { lineUserId: userId, displayName: 'Malee LINE' } });
       await kit.prisma.playerLineAccount.create({ data: { groupId: groupCode, playerId: ids[1], lineUserId: userId, linkedBy: 'host' } });
-      await kit.prisma.group.update({ where: { code: groupCode }, data: { payCollectorPlayerId: ids[1] } });
+      await kit.prisma.group.update({ where: { code: groupCode }, data: { payCollectorPlayerId: ids[1], payCollectorLineUserId: userId } });
       const res = await get(code);
       expect(res.body.collector).toEqual({ playerName: NAMES[1], lineName: 'Malee LINE' });
       expect(res.text).not.toContain(userId);

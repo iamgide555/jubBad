@@ -62,9 +62,15 @@ model Group {
   payAccount          String?
   /// The player who owns payAccount, so they can manage the bill's payments from
   /// LINE (docs/superpowers/specs/2026-11-01-collector-line-access-design.md).
-  /// Only counts while the player has a PlayerLineAccount in this group.
+  /// Only counts while the player has a PlayerLineAccount in this group linking the
+  /// very LINE account pinned in payCollectorLineUserId.
   payCollectorPlayerId String?
   payCollector         Player? @relation("PayCollector", fields: [payCollectorPlayerId], references: [id], onDelete: SetNull)
+  /// The LINE user id the collector's player was linked to when the host picked them.
+  /// Pinned so the powers never pass to whoever links that player's LINE next (a
+  /// self-claim after an unlink, a host repoint); written and cleared together with
+  /// payCollectorPlayerId. Plain id, no relation: the live link is what is checked.
+  payCollectorLineUserId String?
   lineLinkCodes       LineLinkCode[]
   lineRosterMessages  LineRosterMessage[]
   playerLineAccounts  PlayerLineAccount[]
@@ -72,6 +78,8 @@ model Group {
   slipReferences      SlipReference[]
   pendingSlips        PendingSlip[]
   slipDuplicates      SlipDuplicate[]
+
+  @@index([payCollectorPlayerId])
 }
 
 /// A one-time `/link <code>` credential. Only the SHA-256 hash is stored.

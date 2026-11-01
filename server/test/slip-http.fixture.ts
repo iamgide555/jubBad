@@ -190,9 +190,19 @@ export async function bootSlipApp() {
     await prisma.playerLineAccount.create({ data: { groupId: groupCode, playerId, lineUserId: user.userId, linkedBy: 'host' } });
   }
 
-  /** Makes the player the group's saved collector (the setup's card is confirmed with the group's own account). */
-  const setCollector = (groupCode: string, playerId: string | null) =>
-    prisma.group.update({ where: { code: groupCode }, data: { payCollectorPlayerId: playerId } });
+  /**
+   * Makes the player the group's saved collector (the setup's card is confirmed with the group's own account),
+   * pinned to the LINE account linked to them right now, as the host's pick would (none if unlinked).
+   */
+  async function setCollector(groupCode: string, playerId: string | null) {
+    const link = playerId === null
+      ? null
+      : await prisma.playerLineAccount.findFirst({ where: { groupId: groupCode, playerId }, select: { lineUserId: true } });
+    await prisma.group.update({
+      where: { code: groupCode },
+      data: { payCollectorPlayerId: playerId, payCollectorLineUserId: link?.lineUserId ?? null },
+    });
+  }
 
   async function cleanup() {
     const byGroup = { groupId: { in: groupCodes } };

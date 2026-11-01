@@ -1771,8 +1771,15 @@ re-serialise that JSON from its three account fields and would silently drop it.
   night account's owner stays with that bill since nobody else's bank app can check it. If the group's saved
   account changes after confirm, the card no longer matches and falls back to its night collector (usually
   none), so the new account's owner never gets a bill paid into someone else's account.
-- The collector's LINE user id is resolved live from `PlayerLineAccount`. Unlinking that player, or the LINE
-  group being unlinked, ends access at once without touching the card.
+- Access is pinned to the LINE account the player was linked to when the host picked them
+  (`Group.payCollectorLineUserId` beside the player id; `collectorLineUserId` beside the night collector in
+  the card), and each request checks that the player's live `PlayerLineAccount` is still that same account.
+  Unlinking that player, or the LINE group being unlinked, ends access at once without touching the card.
+  A different LINE account linked to that player later (a self-claim on the pay page after the unlink, or a
+  host repoint) does not inherit it: holding tonight's card must never be enough to gain payment powers. The
+  host picks again; re-linking the same LINE account restores access. Settings shows a pick that no longer
+  holds as nobody with the note **คนที่เลือกไว้ไม่ได้ผูก LINE แล้ว** (`GET /groups/:code/pay-account` answers
+  `collectorPlayerId: null, collectorStale: true`), and the payment card's collector line disappears.
 
 **Routes and what is withheld.** `GET /sessions/:code/slip-pay/role` answers `{collector}` and
 `/sessions/:code/slip-pay/manage` (panel, slip images, tick, untick, waiting resolve and dismiss, duplicate

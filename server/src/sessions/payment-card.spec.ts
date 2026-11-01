@@ -540,7 +540,8 @@ describe('payment card: owner panel, confirm and bot send', () => {
       const { code, groupCode, ids } = await setup();
       const lineUserId = await linkPlayer(groupCode, ids[2]);
       const res = await confirm(code, { ...TONIGHT, collectorPlayerId: ids[2] }).expect(200);
-      expect(parsePaymentState((await prisma.session.findUniqueOrThrow({ where: { code } })).paymentCard).collectorPlayerId).toBe(ids[2]);
+      const stored = parsePaymentState((await prisma.session.findUniqueOrThrow({ where: { code } })).paymentCard);
+      expect([stored.collectorPlayerId, stored.collectorLineUserId]).toEqual([ids[2], lineUserId]);
       expect(res.body.collector).toEqual({
         playerId: ids[2], playerName: NAMES[2], lineName: 'Tom LINE', pictureUrl: 'https://example.com/p.png',
       });
@@ -550,12 +551,13 @@ describe('payment card: owner panel, confirm and bot send', () => {
 
     it('ignores the night collector when the account is the group\'s, and uses the group collector', async () => {
       const { code, groupCode, ids } = await setup();
-      await linkPlayer(groupCode, ids[0], 'Group collector');
+      const groupLine = await linkPlayer(groupCode, ids[0], 'Group collector');
       await linkPlayer(groupCode, ids[2]);
-      await prisma.group.update({ where: { code: groupCode }, data: { payCollectorPlayerId: ids[0] } });
+      await prisma.group.update({ where: { code: groupCode }, data: { payCollectorPlayerId: ids[0], payCollectorLineUserId: groupLine } });
       // Same bank and digits as the saved account, typed with different spacing.
       const res = await confirm(code, { ...ACCOUNT, number: '1234567890', collectorPlayerId: ids[2] }).expect(200);
-      expect(parsePaymentState((await prisma.session.findUniqueOrThrow({ where: { code } })).paymentCard).collectorPlayerId).toBeNull();
+      const stored = parsePaymentState((await prisma.session.findUniqueOrThrow({ where: { code } })).paymentCard);
+      expect([stored.collectorPlayerId, stored.collectorLineUserId]).toEqual([null, null]);
       expect(res.body.collector).toMatchObject({ playerId: ids[0], lineName: 'Group collector' });
     });
 
@@ -580,7 +582,7 @@ describe('payment card: owner panel, confirm and bot send', () => {
     it('lets the host panel read groupCode and collector, never the LINE user id, while panel() has no collector', async () => {
       const { code, groupCode, ids } = await setup();
       const lineUserId = await linkPlayer(groupCode, ids[0]);
-      await prisma.group.update({ where: { code: groupCode }, data: { payCollectorPlayerId: ids[0] } });
+      await prisma.group.update({ where: { code: groupCode }, data: { payCollectorPlayerId: ids[0], payCollectorLineUserId: lineUserId } });
       const res = await request(server).get(`/sessions/${code}/payment-card`).set('Cookie', ownerCookie).expect(200);
       expect(res.body.groupCode).toBe(groupCode);
       expect(res.body.collector).toEqual({
@@ -591,12 +593,27 @@ describe('payment card: owner panel, confirm and bot send', () => {
       expect(await payments.panel(code)).not.toHaveProperty('groupCode');
     });
 
+    it('pins the night collector to the LINE account linked at the confirm: another one linked later shows no collector', async () => {
+      const { code, groupCode, ids } = await setup();
+      const original = await linkPlayer(groupCode, ids[2]);
+      await confirm(code, { ...TONIGHT, collectorPlayerId: ids[2] }).expect(200);
+      await prisma.playerLineAccount.deleteMany({ where: { groupId: groupCode, playerId: ids[2] } });
+      await linkPlayer(groupCode, ids[2], 'Someone else');
+      const host = () => request(server).get(`/sessions/${code}/payment-card`).set('Cookie', ownerCookie).expect(200);
+      expect((await host()).body.collector).toBeNull();
+      await prisma.playerLineAccount.deleteMany({ where: { groupId: groupCode, playerId: ids[2] } });
+      await prisma.playerLineAccount.create({ data: { groupId: groupCode, playerId: ids[2], lineUserId: original, linkedBy: 'host' } });
+      expect((await host()).body.collector).toMatchObject({ playerId: ids[2] });
+    });
+
     it('keeps the night collector across a bot send', async () => {
       const { code, groupCode, ids } = await setup();
       await linkPlayer(groupCode, ids[2]);
       await confirm(code, { ...TONIGHT, collectorPlayerId: ids[2] }).expect(200);
       await send(code).expect(200);
-      expect(parsePaymentState((await prisma.session.findUniqueOrThrow({ where: { code } })).paymentCard).collectorPlayerId).toBe(ids[2]);
+      const stored = parsePaymentState((await prisma.session.findUniqueOrThrow({ where: { code } })).paymentCard);
+      expect(stored.collectorPlayerId).toBe(ids[2]);
+      expect(stored.collectorLineUserId).not.toBeNull();
     });
   });
 

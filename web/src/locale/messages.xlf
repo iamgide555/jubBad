@@ -8077,6 +8077,9 @@
       <trans-unit id="share.pay.preview" datatype="html">
         <source>ใบเก็บเงิน · <x id="INTERPOLATION" equiv-text="{{ p.preview.count }}"/> คน · รวม ฿<x id="INTERPOLATION_1" equiv-text="{{ baht(p.preview.totalSatang) }}"/></source>
       </trans-unit>
+      <trans-unit id="share.pay.previewPaid" datatype="html">
+        <source>ใบเก็บเงิน · จ่ายครบแล้ว</source>
+      </trans-unit>
       <trans-unit id="share.pay.payee" datatype="html">
         <source>โอนให้ <x id="INTERPOLATION" equiv-text="{{ p.preview.accountName }}"/> (<x id="INTERPOLATION_1" equiv-text="{{ p.preview.bank }}"/>)</source>
       </trans-unit>

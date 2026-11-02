@@ -24,7 +24,11 @@
       <section class="preview" data-share-preview>
         <p class="preview-name">{{ p.preview.name }}</p>
         <p class="muted">{{ p.preview.date }}</p>
-        <p class="preview-counts" i18n="@@share.pay.preview">ใบเก็บเงิน · {{ p.preview.count }} คน · รวม ฿{{ baht(p.preview.totalSatang) }}</p>
+        @if (p.preview.count === 0) {
+          <p class="preview-counts" i18n="@@share.pay.previewPaid">ใบเก็บเงิน · จ่ายครบแล้ว</p>
+        } @else {
+          <p class="preview-counts" i18n="@@share.pay.preview">ใบเก็บเงิน · {{ p.preview.count }} คน · รวม ฿{{ baht(p.preview.totalSatang) }}</p>
+        }
         <p class="muted" i18n="@@share.pay.payee">โอนให้ {{ p.preview.accountName }} ({{ p.preview.bank }})</p>
       </section>
     }

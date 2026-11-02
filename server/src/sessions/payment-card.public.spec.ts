@@ -228,6 +228,56 @@ describe('GET /sessions/:code/payment-share-card (public, token-gated)', () => {
     expect(JSON.stringify(res.body.messages)).not.toContain('/slip/');
   });
 
+  it('leaves paid players off the card on every share, counts them as paid, and keeps the link alive', async () => {
+    const { code, ids } = await setup();
+    const panel = (await confirm(code)).body as PaymentPanel;
+    const token = await tokenOf(code);
+    const paid = [ids[0], ids[2]];
+    for (const playerId of paid) {
+      await prisma.sessionPayment.create({ data: { sessionId: code, playerId, source: 'host' } });
+    }
+
+    // A payment is not a bill edit: the confirmed card is still current and the host's DM button still works.
+    expect(await payments.panel(code)).toMatchObject({ stale: false, shareUrl: liffPayUrl(LIFF_ID, code, token) });
+    const res = await share(code, `?token=${encodeURIComponent(token)}`).expect(200);
+    const unpaid = panel.rows.filter((r) => !paid.includes(r.playerId));
+    expect(unpaid).toHaveLength(2);
+    expect(res.body.messages).toEqual(
+      paymentCardMessages(
+        {
+          groupName: 'ตีชิล',
+          date: '2026-10-29',
+          endedAt: new Date('2026-10-29T15:00:00Z'),
+          venue: 'Bad@Mama',
+          rows: unpaid.map(({ name, amountSatang, absent }) => ({ name, amountSatang, absent })),
+          settledCount: 2,
+          totalSatang: unpaid.reduce((sum, r) => sum + r.amountSatang, 0),
+          account: ACCOUNT,
+        },
+        'host',
+        liffSlipUrl(LIFF_ID, code, token),
+        liffPaymentStatusUrl(LIFF_ID, code, token)
+      )
+    );
+    expect(JSON.stringify(res.body.messages)).toContain('จ่ายแล้ว 2 คน');
+    expect(res.body.preview).toMatchObject({ count: 2, totalSatang: unpaid.reduce((s, r) => s + r.amountSatang, 0) });
+  });
+
+  it('serves a paid-in-full card once everyone has paid', async () => {
+    const { code, ids } = await setup();
+    await confirm(code);
+    const token = await tokenOf(code);
+    for (const playerId of ids) {
+      await prisma.sessionPayment.create({ data: { sessionId: code, playerId, source: 'slip' } });
+    }
+    const res = await share(code, `?token=${encodeURIComponent(token)}`).expect(200);
+    const json = JSON.stringify(res.body.messages);
+    expect(json).toContain('จ่ายครบแล้ว');
+    expect(json).toContain('จ่ายแล้ว 4 คน');
+    for (const name of NAMES) expect(json).not.toContain(name);
+    expect(res.body.preview).toMatchObject({ count: 0, totalSatang: 0 });
+  });
+
   it('kills the old token on a re-confirm and serves the new one', async () => {
     const { code } = await setup();
     await confirm(code);

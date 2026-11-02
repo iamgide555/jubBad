@@ -360,6 +360,14 @@ describe('LineShare', () => {
       expect(q('[data-share-pick]')?.textContent?.trim()).toBe('เลือกกลุ่มแล้วส่ง');
     });
 
+    it('previews a paid-in-full card as paid, not as 0 people and ฿0', async () => {
+      await openPay({ ...PAY, preview: { ...PAY.preview, count: 0, totalSatang: 0 } });
+      const preview = q('[data-share-preview]')?.textContent ?? '';
+      expect(preview).toContain('ใบเก็บเงิน · จ่ายครบแล้ว');
+      expect(preview).not.toContain('0 คน');
+      expect(q('[data-share-pick]')).not.toBeNull();
+    });
+
     describe('never renders or logs the token', () => {
       const TOKEN = 'Zq9SecretTokenXy7';
       const methods = ['log', 'info', 'warn', 'error', 'debug'] as const;

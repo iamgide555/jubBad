@@ -6409,6 +6409,10 @@
         <source>ใบเก็บเงิน · <x id="INTERPOLATION" equiv-text="{{ p.preview.count }}"/> คน · รวม ฿<x id="INTERPOLATION_1" equiv-text="{{ baht(p.preview.totalSatang) }}"/></source>
         <target>Payment card · <x id="INTERPOLATION" equiv-text="{{ p.preview.count }}"/> players · total ฿<x id="INTERPOLATION_1" equiv-text="{{ baht(p.preview.totalSatang) }}"/></target>
       </trans-unit>
+      <trans-unit id="share.pay.previewPaid" datatype="html">
+        <source>ใบเก็บเงิน · จ่ายครบแล้ว</source>
+        <target>Payment card · everyone has paid</target>
+      </trans-unit>
       <trans-unit id="share.pay.payee" datatype="html">
         <source>โอนให้ <x id="INTERPOLATION" equiv-text="{{ p.preview.accountName }}"/> (<x id="INTERPOLATION_1" equiv-text="{{ p.preview.bank }}"/>)</source>
         <target>Pay to <x id="INTERPOLATION" equiv-text="{{ p.preview.accountName }}"/> (<x id="INTERPOLATION_1" equiv-text="{{ p.preview.bank }}"/>)</target>

@@ -721,6 +721,20 @@ describe('payment card: owner panel, confirm and bot send', () => {
       expect(Date.now() - Date.parse(after.lastSentAt!)).toBeLessThan(60_000);
     });
 
+    it('leaves players already paid by slip or by the host off the posted card, without making it stale', async () => {
+      const { code, ids } = await setup();
+      const panel = (await confirm(code).expect(200)).body as PaymentPanel;
+      await prisma.sessionPayment.create({ data: { sessionId: code, playerId: ids[1], source: 'slip' } });
+      expect((await panelOf(code)).stale).toBe(false);
+      expect((await send(code).expect(200)).body).toEqual({ outcome: 'sent' });
+      const [, messages] = fakeClient.push.mock.calls[0];
+      const unpaid = panel.rows.filter((r) => r.playerId !== ids[1]);
+      const json = JSON.stringify(messages);
+      expect(json).toContain('จ่ายแล้ว 1 คน');
+      expect(json).not.toContain(`"${NAMES[1]}"`);
+      for (const r of unpaid) expect(json).toContain(r.name);
+    });
+
     const slipButtons = (messages: unknown): Record<string, any>[] => {
       const found: Record<string, any>[] = [];
       const visit = (n: unknown): void => {

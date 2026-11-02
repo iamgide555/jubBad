@@ -242,7 +242,8 @@ export class PaymentCardService {
         const slipUrl =
           liffId !== null && loginChannelId !== null && state.token ? liffSlipUrl(liffId, code, state.token) : null;
         const statusUrl = slipUrl && liffId && state.token ? liffPaymentStatusUrl(liffId, code, state.token) : null;
-        const messages = paymentCardMessages(cardInput(panel.account), 'group', slipUrl, statusUrl);
+        const input = await this.memberCardInput(code, panel, cardInput(panel.account));
+        const messages = paymentCardMessages(input, 'group', slipUrl, statusUrl);
         outcome = await this.line.push(to, messages, paymentRetryKey(code, sendId));
       } catch {
         return 'failed';
@@ -281,7 +282,7 @@ export class PaymentCardService {
 
       let outcome: Awaited<ReturnType<LineClient['push']>>;
       try {
-        const messages = paymentDmMessages(cardInput(panel.account), shareUrl);
+        const messages = paymentDmMessages(await this.memberCardInput(code, panel, cardInput(panel.account)), shareUrl);
         outcome = await this.line.push(to, messages, paymentDmRetryKey(code, sendId));
       } catch {
         return 'failed';
@@ -320,7 +321,8 @@ export class PaymentCardService {
     const { panel, nothingDue, cardInput } = await this.view(code, now);
     // The same gate as the link the host was shown (no link, no card), with the send path's checks spelled out.
     if (panel.shareUrl === null || panel.account === null || !panel.ready || nothingDue) throw new NotFoundException();
-    const input = cardInput(panel.account);
+    // Re-read on every open, so each share from the same DM button shows who still owes right now.
+    const input = await this.memberCardInput(code, panel, cardInput(panel.account));
     const { name, date } = cardTexts(input);
     return {
       liffId,
@@ -364,6 +366,30 @@ export class PaymentCardService {
     if (!session) return false;
     const stored = parsePaymentState(session.paymentCard).token;
     return stored !== null && sameToken(token, stored);
+  }
+
+  /**
+   * The card as members see it: a player already paid (a matched slip or the host's mark, `SessionPayment`) is left
+   * off and counted in "จ่ายแล้ว N คน", and the total is what is still owed. Read at every send and every share, and
+   * kept out of the content hash on purpose: a payment is not a bill edit, so it must never make the confirmed card
+   * stale and switch off the host's share link. `input.rows` is `panel.rows` without the ids, in the same order.
+   */
+  private async memberCardInput(code: string, panel: PaymentPanel, input: PaymentCardInput): Promise<PaymentCardInput> {
+    const paid = new Set(
+      (await this.prisma.sessionPayment.findMany({ where: { sessionId: code }, select: { playerId: true } })).map(
+        (p) => p.playerId
+      )
+    );
+    const unpaid = panel.rows.map((r) => !paid.has(r.playerId));
+    const paidCount = unpaid.filter((u) => !u).length;
+    if (paidCount === 0) return input;
+    const rows = input.rows.filter((_, i) => unpaid[i]);
+    return {
+      ...input,
+      rows,
+      settledCount: input.settledCount + paidCount,
+      totalSatang: rows.reduce((sum, r) => sum + r.amountSatang, 0),
+    };
   }
 
   /** One getBill, one destination read: the panel, the bot send and the share read all start here. */

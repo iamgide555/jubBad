@@ -201,6 +201,16 @@ describe('paymentCardMessages', () => {
     );
   });
 
+  it('builds a paid-in-full card when every row is paid: no person rows, the paid count, nothing to throw', () => {
+    const input = { ...INPUT, rows: [], settledCount: 4, totalSatang: 0 };
+    const all = texts(bubble(input));
+    expect(all).toContain('จ่ายครบแล้ว');
+    expect(all).toContain('จ่ายแล้ว 4 คน');
+    expect(all).not.toContain('รวม');
+    expect(personRows(input)).toEqual([]);
+    expect(() => paymentDmMessages(input, 'https://liff.line.me/1-a/pay/abc12345/T_k-9')).not.toThrow();
+  });
+
   it('clips every host-typed text to 60 characters without splitting an emoji', () => {
     const long = '😀'.repeat(80);
     const input: PaymentCardInput = {

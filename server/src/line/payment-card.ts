@@ -145,14 +145,19 @@ function paymentCard(
   const body: unknown[] = [
     { type: 'box', layout: 'vertical', spacing: 'sm', contents: meta },
     { type: 'separator' },
-    {
-      type: 'box',
-      layout: 'vertical',
-      spacing: 'sm',
-      contents: input.rows.map(personRow),
-    },
-    { type: 'separator' },
-    amountRow('รวม', `฿${formatBaht(input.totalSatang)}`, true),
+    // Everyone paid (a re-share after the last slip): one line in place of the rows, and no total of 0 to transfer.
+    ...(input.rows.length === 0
+      ? [{ type: 'text', text: 'จ่ายครบแล้ว', size: 'md', weight: 'bold', color: COURT }]
+      : [
+          {
+            type: 'box',
+            layout: 'vertical',
+            spacing: 'sm',
+            contents: input.rows.map(personRow),
+          },
+          { type: 'separator' },
+          amountRow('รวม', `฿${formatBaht(input.totalSatang)}`, true),
+        ]),
   ];
   if (input.settledCount > 0) {
     body.push({
@@ -199,7 +204,7 @@ function paymentCard(
     type: 'flex',
     // The chat list shows only the alt text: the total there tells members what the card is before they open it.
     altText: clip(
-      `ยอดค่าเล่น ${name} ${date} · รวม ฿${formatBaht(input.totalSatang)}`,
+      `ยอดค่าเล่น ${name} ${date} · ${input.rows.length === 0 ? 'จ่ายครบแล้ว' : `รวม ฿${formatBaht(input.totalSatang)}`}`,
       ALT_TEXT_MAX,
     ),
     contents: {
@@ -232,8 +237,9 @@ function paymentCard(
   };
 }
 
+/** Zero rows is a bug unless everyone on the bill has already paid (`settledCount`), which is the paid-in-full card. */
 function assertHasRows(input: PaymentCardInput): void {
-  if (input.rows.length === 0) {
+  if (input.rows.length === 0 && input.settledCount === 0) {
     throw new RangeError(
       'A payment card needs at least one person to collect from',
     );
@@ -242,7 +248,7 @@ function assertHasRows(input: PaymentCardInput): void {
 
 /**
  * The payment card, plus the plain-text account number after it where PAYMENT_NUMBER_TEXT asks for one.
- * Throws on zero rows: a card asking nobody for money is a caller bug, never something to send.
+ * Throws on zero rows unless everyone has paid (see assertHasRows): a card asking nobody for money is a caller bug.
  * A non-null `slipUrl` adds a secondary "ส่งสลิป" button after the copy button, opening the slip page; without
  * one the card is exactly what it was. Only the cards members see carry it (not the host DM card).
  */

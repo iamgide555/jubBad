@@ -1671,6 +1671,15 @@ have no recoverable image.
 tick). *Settled* stays the early-checkout receipt (see Early checkout above); the two are different facts
 and the names are kept apart on purpose.
 
+**The payment card leaves paid players off (2026-11-02).** Every card members see (the bot's group post, the
+host DM, and each open of the share link) drops players with a `SessionPayment` row, adds them to the card's
+"จ่ายแล้ว N คน" line (so that count is settled + paid), and totals only what is still owed. So a host who taps
+"ส่งเข้ากลุ่ม" on the same DM again after some slips came in posts a fresh card listing only who still owes (a
+LINE message already in the group can't be edited, so the earlier card stays as it was). Once everyone has paid,
+the card says "จ่ายครบแล้ว" in place of the rows and the total. Paid status is read at send time and is
+**not** in the content hash: a payment is not a bill edit, so it must never make the confirmed card stale and
+switch off the share link. The owner panel's rows are unchanged (still every billed person).
+
 **Auto-paid, at a glance.** The pay page needs the group owner on the Host plan or above (accounts default to
 `club`, see plan gating above); a lapsed plan closes the pay page, so nothing new is marked, and recorded marks
 stay. All must hold, otherwise the slip waits for the host:

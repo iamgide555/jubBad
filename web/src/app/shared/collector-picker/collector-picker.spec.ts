@@ -45,6 +45,11 @@ describe('CollectorPicker', () => {
     await new Promise((r) => setTimeout(r, 0));
     fixture.detectChanges();
   };
+  const expand = async () => {
+    const trigger = q<HTMLButtonElement>('[data-collector-trigger]')!;
+    if (trigger.getAttribute('aria-expanded') === 'false') trigger.click();
+    await settle();
+  };
 
   async function open(
     rows: LineAccountRow[],
@@ -67,6 +72,82 @@ describe('CollectorPicker', () => {
   }
 
   afterEach(() => http.verify());
+
+  it('starts as one collapsed field with the selected avatar and name', async () => {
+    await open([row('a'), row('c', { pictureUrl: 'https://profile.line-scdn.net/c' })], 'p-c');
+    const trigger = q<HTMLButtonElement>('[data-collector-trigger]');
+    expect(trigger).not.toBeNull();
+    expect(trigger!.textContent).toContain('Player c');
+    expect(trigger!.textContent).not.toContain('Player a');
+    expect(trigger!.getAttribute('aria-expanded')).toBe('false');
+    expect(q<HTMLElement>('[data-collector-options]')!.hidden).toBe(true);
+    expect(trigger!.querySelector('img')!.getAttribute('src')).toBe('https://profile.line-scdn.net/c');
+    expect(trigger!.querySelector('img')!.getAttribute('referrerpolicy')).toBe('no-referrer');
+  });
+
+  it('opens avatar options on demand and closes before confirmation; cancel preserves selected field', async () => {
+    await open([row('a'), row('c', { pictureUrl: 'https://profile.line-scdn.net/c' })], 'p-a');
+    const trigger = q<HTMLButtonElement>('[data-collector-trigger]')!;
+    expect(trigger).not.toBeNull();
+    trigger.click();
+    await settle();
+    expect(trigger.getAttribute('aria-expanded')).toBe('true');
+    expect(q<HTMLElement>('[data-collector-options]')!.hidden).toBe(false);
+    expect(q('[data-collector-option="p-c"] img')).not.toBeNull();
+    await expand();
+    q('[data-collector-option="p-c"]')!.click();
+    await settle();
+    expect(trigger.getAttribute('aria-expanded')).toBe('false');
+    expect(q('[data-collector-dialog] app-line-avatar')).not.toBeNull();
+    expect(chosen).toEqual([]);
+    q('[data-collector-cancel]')!.click();
+    await settle();
+    expect(trigger.textContent).toContain('Player a');
+    expect(document.activeElement).toBe(trigger);
+  });
+
+  it('supports arrow keys, Home/End and Escape without changing the saved value', async () => {
+    await open([row('a'), row('c')], 'p-a');
+    const trigger = q<HTMLButtonElement>('[data-collector-trigger]')!;
+    expect(trigger).not.toBeNull();
+    trigger.focus();
+    trigger.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true, cancelable: true }));
+    await settle();
+    expect(document.activeElement).toBe(q('[data-collector-option="p-a"]'));
+    document.activeElement!.dispatchEvent(new KeyboardEvent('keydown', { key: 'End', bubbles: true, cancelable: true }));
+    await settle();
+    expect(document.activeElement).toBe(q('[data-collector-option="p-c"]'));
+    document.activeElement!.dispatchEvent(new KeyboardEvent('keydown', { key: 'Home', bubbles: true, cancelable: true }));
+    await settle();
+    expect(document.activeElement).toBe(q('[data-collector-option="none"]'));
+    document.activeElement!.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }));
+    await settle();
+    expect(trigger.getAttribute('aria-expanded')).toBe('false');
+    expect(document.activeElement).toBe(trigger);
+    expect(chosen).toEqual([]);
+  });
+
+  it('closes on outside click without opening confirmation or changing selection', async () => {
+    await open([row('a')], 'p-a');
+    const trigger = q<HTMLButtonElement>('[data-collector-trigger]')!;
+    expect(trigger).not.toBeNull();
+    trigger.click();
+    await settle();
+    document.body.click();
+    await settle();
+    expect(trigger.getAttribute('aria-expanded')).toBe('false');
+    expect(q<HTMLDialogElement>('dialog')!.open).toBe(false);
+    expect(chosen).toEqual([]);
+  });
+
+  it('opens above the field when the phone viewport has insufficient room below', async () => {
+    await open([row('a')]);
+    const trigger = q<HTMLButtonElement>('[data-collector-trigger]')!;
+    vi.spyOn(trigger, 'getBoundingClientRect').mockReturnValue(new DOMRect(0, window.innerHeight - 100, 300, 50));
+    await expand();
+    expect(q('[data-collector-options]')!.classList.contains('above')).toBe(true);
+    expect(parseFloat(q<HTMLElement>('[data-collector-options]')!.style.maxHeight)).toBeLessThanOrEqual(window.innerHeight / 2);
+  });
 
   it('lists only accounts linked to a player, with the player name and the LINE name', async () => {
     await open([row('a'), row('b', { player: null }), row('c', { displayName: 'Cee line' })]);
@@ -108,6 +189,7 @@ describe('CollectorPicker', () => {
 
   it('asks before emitting, naming the player and the LINE name', async () => {
     await open([row('a')]);
+    await expand();
     q('[data-collector-option="p-a"]')!.click();
     await settle();
     expect(chosen).toEqual([]);
@@ -117,6 +199,7 @@ describe('CollectorPicker', () => {
 
   it('emits nothing when the dialog is cancelled', async () => {
     await open([row('a')]);
+    await expand();
     q('[data-collector-option="p-a"]')!.click();
     await settle();
     q('[data-collector-cancel]')!.click();
@@ -127,6 +210,7 @@ describe('CollectorPicker', () => {
 
   it('emits the player id once confirmed', async () => {
     await open([row('a')]);
+    await expand();
     q('[data-collector-option="p-a"]')!.click();
     await settle();
     q('[data-collector-confirm]')!.click();
@@ -137,6 +221,7 @@ describe('CollectorPicker', () => {
 
   it('asks the clearing question for nobody and emits null', async () => {
     await open([row('a')], 'p-a');
+    await expand();
     q('[data-collector-option="none"]')!.click();
     await settle();
     expect(q('[data-collector-text]')!.textContent).toContain('ไม่ให้ใครจัดการการชำระเงินใน LINE?');
@@ -148,22 +233,24 @@ describe('CollectorPicker', () => {
 
   it('does not ask again for the option already chosen', async () => {
     await open([row('a')], 'p-a');
+    await expand();
     q('[data-collector-option="p-a"]')!.click();
     await settle();
     expect(q<HTMLDialogElement>('dialog')!.hasAttribute('open')).toBe(false);
     expect(chosen).toEqual([]);
   });
 
-  it('refuses taps while disabled, but keeps the options focusable (aria-disabled, not disabled)', async () => {
+  it('refuses taps while disabled, but keeps the field focusable (aria-disabled, not disabled)', async () => {
     await open([row('a')], null, true);
-    const option = q<HTMLButtonElement>('[data-collector-option="p-a"]')!;
-    expect(option.disabled).toBe(false);
-    expect(option.getAttribute('aria-disabled')).toBe('true');
-    option.focus();
-    option.click();
+    const trigger = q<HTMLButtonElement>('[data-collector-trigger]')!;
+    expect(trigger.disabled).toBe(false);
+    expect(trigger.getAttribute('aria-disabled')).toBe('true');
+    trigger.focus();
+    trigger.click();
     await settle();
+    expect(trigger.getAttribute('aria-expanded')).toBe('false');
     expect(q<HTMLDialogElement>('dialog')!.hasAttribute('open')).toBe(false);
-    expect(document.activeElement).toBe(option);
+    expect(document.activeElement).toBe(trigger);
     expect(chosen).toEqual([]);
   });
 
@@ -171,11 +258,25 @@ describe('CollectorPicker', () => {
     await open([row('a')], null, true);
     fixture.componentRef.setInput('disabled', false);
     await settle();
-    expect(q('[data-collector-option="p-a"]')!.hasAttribute('aria-disabled')).toBe(false);
+    expect(q('[data-collector-trigger]')!.hasAttribute('aria-disabled')).toBe(false);
+  });
+
+  it('closes the open menu when saving starts, preserves field focus and stays closed when enabled again', async () => {
+    await open([row('a')]);
+    await expand();
+    fixture.componentRef.setInput('disabled', true);
+    await settle();
+    const trigger = q<HTMLButtonElement>('[data-collector-trigger]')!;
+    expect(trigger.getAttribute('aria-expanded')).toBe('false');
+    expect(document.activeElement).toBe(trigger);
+    fixture.componentRef.setInput('disabled', false);
+    await settle();
+    expect(trigger.getAttribute('aria-expanded')).toBe('false');
   });
 
   it('names the dialog by its question', async () => {
     await open([row('a')]);
+    await expand();
     q('[data-collector-option="p-a"]')!.click();
     await settle();
     const dialog = q<HTMLDialogElement>('dialog')!;
@@ -189,6 +290,7 @@ describe('CollectorPicker', () => {
     expect(q('[data-collector-empty]')).not.toBeNull();
     expect(q('[data-collector-stale]')).not.toBeNull();
     expect(q('[data-collector-option="none"]')!.getAttribute('aria-pressed')).toBe('true');
+    await expand();
     q('[data-collector-option="none"]')!.click();
     await settle();
     expect(q('[data-collector-text]')!.textContent).toContain('ไม่ให้ใครจัดการการชำระเงินใน LINE?');
@@ -202,6 +304,7 @@ describe('CollectorPicker', () => {
     expect(q('[data-collector-option="none"]')!.getAttribute('aria-pressed')).toBe('true');
     expect(q('[data-collector-option="p-a"]')!.getAttribute('aria-pressed')).toBe('false');
     expect(q('[data-collector-stale]')!.textContent).toContain('คนที่เลือกไว้ไม่ได้ผูก LINE แล้ว');
+    await expand();
     q('[data-collector-option="none"]')!.click();
     await settle();
     q('[data-collector-confirm]')!.click();

@@ -42,6 +42,24 @@
         />
         @if (fieldErrors().name) { <p class="error" id="pay-name-error">{{ fieldErrors().name }}</p> }
       </div>
+      @if (hasSavedAccount()) {
+        <div class="pay-field pay-collector" data-pay-collector>
+          <app-collector-picker
+            [groupCode]="groupCode()"
+            [value]="collector()"
+            [lapsed]="collectorStale()"
+            [disabled]="collectorBusy()"
+            (chosen)="chooseCollector($event)"
+          >
+            <ng-container i18n="@@collector.label">เจ้าของบัญชี</ng-container>
+          </app-collector-picker>
+          @if (collectorError()) {
+            <p class="error" role="alert" data-collector-error>{{ collectorError() }}</p>
+          } @else if (collectorSaved()) {
+            <p class="muted" role="status" data-collector-saved i18n="@@pay.account.saved">บันทึกแล้ว</p>
+          }
+        </div>
+      }
       @if (error()) {
         <p class="error" role="alert" data-pay-error>{{ error() }}</p>
       }
@@ -68,23 +86,5 @@
         </div>
       }
     </form>
-    @if (hasSavedAccount()) {
-      <div class="pay-collector" data-pay-collector>
-        <app-collector-picker
-          [groupCode]="groupCode()"
-          [value]="collector()"
-          [lapsed]="collectorStale()"
-          [disabled]="collectorBusy()"
-          (chosen)="chooseCollector($event)"
-        >
-          <ng-container i18n="@@collector.label">เจ้าของบัญชี</ng-container>
-        </app-collector-picker>
-        @if (collectorError()) {
-          <p class="error" role="alert" data-collector-error>{{ collectorError() }}</p>
-        } @else if (collectorSaved()) {
-          <p class="muted" role="status" data-collector-saved i18n="@@pay.account.saved">บันทึกแล้ว</p>
-        }
-      </div>
-    }
   }
 </section>

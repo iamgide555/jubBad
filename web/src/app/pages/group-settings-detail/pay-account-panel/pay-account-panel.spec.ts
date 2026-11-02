@@ -372,6 +372,8 @@ describe('PayAccountPanel', () => {
   describe('collector', () => {
     const picker = () => q('app-collector-picker');
     const choose = async (id: string) => {
+      q('[data-collector-trigger]')!.click();
+      await tick();
       q(`[data-collector-option="${id}"]`)!.click();
       await tick();
       q('[data-collector-confirm]')!.click();
@@ -465,20 +467,20 @@ describe('PayAccountPanel', () => {
       expect(q('[data-collector-stale]')).toBeNull();
     });
 
-    it('keeps focus on the option while the pick saves (aria-disabled, not disabled)', async () => {
+    it('keeps focus on the field while the pick saves (aria-disabled, not disabled)', async () => {
       await open({ account: ACCOUNT, collectorPlayerId: null });
       httpMock.expectOne(ACCOUNTS_URL).flush([LINKED]);
       await tick();
-      const option = q('[data-collector-option="p1"]')!;
-      option.focus();
+      const trigger = q('[data-collector-trigger]')!;
+      trigger.focus();
       await choose('p1');
-      const busy = q('[data-collector-option="p1"]') as HTMLButtonElement;
+      const busy = q('[data-collector-trigger]') as HTMLButtonElement;
       expect(busy.disabled).toBe(false);
       expect(busy.getAttribute('aria-disabled')).toBe('true');
-      expect(document.activeElement).toBe(option);
+      expect(document.activeElement).toBe(trigger);
       httpMock.expectOne({ url: COLLECTOR_URL, method: 'PUT' }).flush({ collectorPlayerId: 'p1' });
       await tick();
-      expect(q('[data-collector-option="p1"]')!.hasAttribute('aria-disabled')).toBe(false);
+      expect(q('[data-collector-trigger]')!.hasAttribute('aria-disabled')).toBe(false);
     });
 
     it('removes the picker when the account is cleared', async () => {

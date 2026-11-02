@@ -1,69 +1,149 @@
 @if (!unused()) {
   <fieldset class="collector" data-collector-picker>
-    <legend><ng-content /></legend>
+    <legend [id]="textId + '-label'"><ng-content /></legend>
     @if (loadFailed()) {
       <p class="error" role="alert" data-collector-load-failed>
         <ng-container i18n="@@collector.loadFailed">โหลดรายชื่อไม่สำเร็จ</ng-container>
-        <button type="button" class="ghost" data-collector-retry (click)="load()" i18n="@@entry.retry">ลองอีกครั้ง</button>
+        <button
+          type="button"
+          class="ghost"
+          data-collector-retry
+          (click)="load()"
+          i18n="@@entry.retry"
+        >
+          ลองอีกครั้ง
+        </button>
       </p>
     } @else if (loaded()) {
       @if (options().length === 0) {
-        <p class="muted" data-collector-empty i18n="@@collector.empty">ยังไม่มีผู้เล่นที่ผูก LINE</p>
+        <p class="muted" data-collector-empty i18n="@@collector.empty">
+          ยังไม่มีผู้เล่นที่ผูก LINE
+        </p>
       }
       @if (offerNobody()) {
-        <!-- aria-disabled, not disabled, while busy: focus must not drop out to the page. ask() refuses the tap. -->
-        <ul class="options">
-          <li>
-            <button
-              type="button"
-              class="option"
-              data-collector-option="none"
-              [attr.aria-disabled]="disabled() ? 'true' : null"
-              [attr.aria-pressed]="value() === null || stale()"
-              (click)="ask(null)"
-            >
-              <span class="nobody" aria-hidden="true">–</span>
-              <span class="option-text"><span class="name" i18n="@@collector.nobody">ไม่มี</span></span>
-            </button>
-          </li>
-          @for (o of options(); track o.playerId) {
+        <div class="dropdown">
+          <!-- Keep the field focusable while saving; toggle() refuses changes until the save finishes. -->
+          <button
+            #trigger
+            type="button"
+            class="trigger"
+            data-collector-trigger
+            [attr.aria-labelledby]="textId + '-label ' + textId + '-value'"
+            [attr.aria-expanded]="expanded()"
+            [attr.aria-controls]="textId + '-options'"
+            [attr.aria-describedby]="stale() ? textId + '-stale' : null"
+            [attr.aria-disabled]="disabled() ? 'true' : null"
+            (click)="toggle()"
+          >
+            @if (selected(); as o) {
+              <app-line-avatar [name]="o.lineName" [pictureUrl]="o.pictureUrl" [size]="32" />
+              <span class="selected-name" [id]="textId + '-value'">{{ o.playerName }}</span>
+            } @else {
+              <span class="nobody" aria-hidden="true"><app-icon name="minus" [size]="18" /></span>
+              <span class="selected-name" [id]="textId + '-value'" i18n="@@collector.nobody"
+                >ไม่มี</span
+              >
+            }
+            <app-icon class="chevron" name="chevron" [size]="18" />
+          </button>
+          <ul
+            #list
+            class="options"
+            [id]="textId + '-options'"
+            data-collector-options
+            [hidden]="!expanded()"
+            [class.above]="above()"
+            [style.max-height.px]="menuHeight()"
+            [attr.aria-labelledby]="textId + '-label'"
+          >
             <li>
               <button
                 type="button"
                 class="option"
-                [attr.data-collector-option]="o.playerId"
+                data-collector-option="none"
                 [attr.aria-disabled]="disabled() ? 'true' : null"
-                [attr.aria-pressed]="value() === o.playerId && !stale()"
-                (click)="ask(o)"
+                [attr.aria-pressed]="value() === null || stale()"
+                (click)="ask(null)"
               >
-                <app-line-avatar [name]="o.lineName" [pictureUrl]="o.pictureUrl" [size]="40" />
-                <span class="option-text">
-                  <span class="name">{{ o.playerName }}</span>
-                  <span class="line-name">{{ o.lineName }}</span>
-                </span>
+                <span class="nobody" aria-hidden="true"><app-icon name="minus" [size]="18" /></span>
+                <span class="option-text"
+                  ><span class="name" i18n="@@collector.nobody">ไม่มี</span></span
+                >
+                @if (value() === null || stale()) {
+                  <app-icon class="selected-check" name="check" [size]="18" />
+                }
               </button>
             </li>
-          }
-        </ul>
+            @for (o of options(); track o.playerId) {
+              <li>
+                <button
+                  type="button"
+                  class="option"
+                  [attr.data-collector-option]="o.playerId"
+                  [attr.aria-disabled]="disabled() ? 'true' : null"
+                  [attr.aria-pressed]="value() === o.playerId && !stale()"
+                  (click)="ask(o)"
+                >
+                  <app-line-avatar [name]="o.lineName" [pictureUrl]="o.pictureUrl" [size]="40" />
+                  <span class="option-text">
+                    <span class="name">{{ o.playerName }}</span>
+                    <span class="line-name">{{ o.lineName }}</span>
+                  </span>
+                  @if (value() === o.playerId && !stale()) {
+                    <app-icon class="selected-check" name="check" [size]="18" />
+                  }
+                </button>
+              </li>
+            }
+          </ul>
+        </div>
       }
       @if (stale()) {
-        <p class="muted" data-collector-stale i18n="@@collector.stale">คนที่เลือกไว้ไม่ได้ผูก LINE แล้ว</p>
+        <p class="muted" [id]="textId + '-stale'" data-collector-stale i18n="@@collector.stale">
+          คนที่เลือกไว้ไม่ได้ผูก LINE แล้ว
+        </p>
       }
     }
   </fieldset>
 }
 
-<dialog #dialog class="sheet-dialog" data-collector-dialog [attr.aria-labelledby]="textId" (close)="pending.set(null)">
+<dialog
+  #dialog
+  class="sheet-dialog"
+  data-collector-dialog
+  [attr.aria-labelledby]="textId"
+  (close)="dialogClosed()"
+>
   @if (pending(); as p) {
     <div class="dialog-body">
       @if (pendingOption(); as o) {
-        <p [id]="textId" data-collector-text i18n="@@collector.confirmAsk">ให้ {{ o.playerName }} (LINE: {{ o.lineName }}) จัดการการชำระเงินใน LINE ได้?</p>
+        <app-line-avatar
+          class="confirm-avatar"
+          [name]="o.lineName"
+          [pictureUrl]="o.pictureUrl"
+          [size]="40"
+        />
+        <p [id]="textId" data-collector-text i18n="@@collector.confirmAsk">
+          ให้ {{ o.playerName }} (LINE: {{ o.lineName }}) จัดการการชำระเงินใน LINE ได้?
+        </p>
       } @else {
-        <p [id]="textId" data-collector-text i18n="@@collector.clearAsk">ไม่ให้ใครจัดการการชำระเงินใน LINE?</p>
+        <p [id]="textId" data-collector-text i18n="@@collector.clearAsk">
+          ไม่ให้ใครจัดการการชำระเงินใน LINE?
+        </p>
       }
       <div class="actions">
-        <button type="button" class="ghost" data-collector-cancel (click)="cancel()" i18n="@@pay.card.cancel">ยกเลิก</button>
-        <button type="button" data-collector-confirm (click)="confirm()" i18n="@@collector.confirm">ยืนยัน</button>
+        <button
+          type="button"
+          class="ghost"
+          data-collector-cancel
+          (click)="cancel()"
+          i18n="@@pay.card.cancel"
+        >
+          ยกเลิก
+        </button>
+        <button type="button" data-collector-confirm (click)="confirm()" i18n="@@collector.confirm">
+          ยืนยัน
+        </button>
       </div>
     </div>
   }

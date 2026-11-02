@@ -1663,6 +1663,7 @@ describe('PaymentCardPanel', () => {
       await settle();
     };
     const choose = async (id: string) => {
+      await click('[data-collector-trigger]');
       await click(`[data-collector-option="${id}"]`);
       await click('[data-collector-confirm]');
     };

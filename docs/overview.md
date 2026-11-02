@@ -1763,6 +1763,12 @@ and every pick, change or clear asks for confirmation (one stray tap must not ha
 The collector is a separate column, not part of the `payAccount` JSON, because two existing writers
 re-serialise that JSON from its three account fields and would silently drop it.
 
+**Collector field (2026-11-02).** Both group settings and the night payment card use a compact **เจ้าของบัญชี**
+avatar dropdown. The closed field shows the selected avatar and player name; opening it reveals linked players'
+avatars, player names and LINE names, plus **ไม่มี**. The existing permission confirmation includes the selected
+avatar; cancel preserves the current collector. The list scrolls and opens upward near the bottom of a phone
+screen. Keyboard navigation, outside-click dismissal and focus restoration do not change payment-access rules.
+
 **Live versus snapshot (the rule).** Which collector a bill has is decided per request:
 - If the confirmed card's account is the group's saved account, the group's **current** collector applies,
   read live. Fixing a wrong pick in settings takes effect at once, and it matters because reconfirming the

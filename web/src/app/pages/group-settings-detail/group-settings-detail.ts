@@ -1,6 +1,6 @@
 import { HttpErrorResponse } from '@angular/common/http';
 import { NgTemplateOutlet } from '@angular/common';
-import { Component, DestroyRef, LOCALE_ID, computed, inject, signal } from '@angular/core';
+import { Component, DestroyRef, LOCALE_ID, computed, inject, signal, viewChild } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
@@ -58,6 +58,7 @@ export class GroupSettingsDetail {
   readonly advancedSaved = signal(false);
 
   // line
+  private readonly hostPanel = viewChild(LineHostLinkPanel);
   readonly lineStatus = signal<LineStatus | null>(null);
   readonly lineLoadFailed = signal(false);
   /** The code waiting to be typed into the LINE group, until it links, expires or is replaced. */
@@ -251,8 +252,26 @@ export class GroupSettingsDetail {
     this.lineError.set(null);
     this.lineService.setSummaryDefault(this.groupCode, on).subscribe({
       next: (r) => {
-        this.lineStatus.set({ ...was, summaryDefault: r.summaryDefault });
+        this.lineStatus.update((status) => status ? { ...status, summaryDefault: r.summaryDefault } : status);
         input.checked = r.summaryDefault;
+      },
+      error: (err) =>
+        this.lineError.set(planErrorMessage(err) ?? $localize`:@@line.summaryDefaultFailed:บันทึกไม่สำเร็จ ลองอีกครั้ง`),
+    });
+  }
+
+  /** Save the routing choice before moving the checkbox, then refresh the DM card's controls. */
+  setRosterOnly(input: HTMLInputElement): void {
+    const was = this.lineStatus();
+    if (!was) return;
+    const on = input.checked;
+    input.checked = was.rosterOnly;
+    this.lineError.set(null);
+    this.lineService.setRosterOnly(this.groupCode, on).subscribe({
+      next: (r) => {
+        this.lineStatus.update((status) => status ? { ...status, ...r } : status);
+        input.checked = r.rosterOnly;
+        this.hostPanel()?.load();
       },
       error: (err) =>
         this.lineError.set(planErrorMessage(err) ?? $localize`:@@line.summaryDefaultFailed:บันทึกไม่สำเร็จ ลองอีกครั้ง`),

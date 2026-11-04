@@ -119,6 +119,16 @@ describe('LineService', () => {
     expect(got).toEqual({ outcome: 'sent' });
   });
 
+  it('saves roster-only with a PATCH', () => {
+    let got: unknown;
+    service.setRosterOnly('g1', true).subscribe((r) => (got = r));
+    const req = httpMock.expectOne(`${B}/groups/g1/line`);
+    expect(req.request.method).toBe('PATCH');
+    expect(req.request.body).toEqual({ rosterOnly: true });
+    req.flush({ summaryDefault: true, rosterOnly: true });
+    expect(got).toEqual({ summaryDefault: true, rosterOnly: true });
+  });
+
   it('saves the summary default with a PATCH', () => {
     let got: unknown;
     service.setSummaryDefault('g1', false).subscribe((r) => (got = r));

@@ -7459,6 +7459,20 @@
         <target>Could not load the list</target>
       </trans-unit>
       <trans-unit id="lineAccounts.sourceLink" datatype="html"><source>เชื่อมกลุ่ม</source><target>Group link</target></trans-unit>
+      <trans-unit id="line.rosterOnly" datatype="html">
+        <source>ใช้บอทอ่านรายชื่ออย่างเดียว</source>
+        <target>Bot only reads rosters</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/group-settings-detail/group-settings-detail.html</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="line.rosterOnlyHint" datatype="html">
+        <source>บอทจะไม่ส่งสรุปผลการแข่งหรือการจ่ายเงินเข้ากลุ่ม ถ้าเปิดแชตส่วนตัวไว้ บอทจะส่งให้คุณแทน แล้วกดส่งเข้ากลุ่มเองได้</source>
+        <target>The bot won't post the match summary or payments to the group. If the private chat is on, the bot sends them to you instead, and you can share them to the group yourself.</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/group-settings-detail/group-settings-detail.html</context>
+        </context-group>
+      </trans-unit>
     </body>
   </file>
 </xliff>

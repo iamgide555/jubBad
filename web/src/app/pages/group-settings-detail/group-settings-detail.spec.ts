@@ -443,6 +443,7 @@ describe('GroupSettingsDetail', () => {
       linkedAt: null,
       leftAt: null,
       summaryDefault: true,
+      rosterOnly: false,
       summaryAvailable: true,
     };
     const HOST = { configured: true, botAddUrl: 'https://lin.ee/jubbad', accountLinked: false, enabled: false };
@@ -461,6 +462,99 @@ describe('GroupSettingsDetail', () => {
       await settle();
       return page;
     }
+
+    describe('roster-only checkbox', () => {
+      const LINKED = { linked: true, lineGroupName: 'ก๊วนพฤหัส LINE' };
+      const box = () => q('[data-roster-only]') as HTMLInputElement | null;
+
+      it('is unticked by default with the exact label and hint, without quota wording', async () => {
+        await openLine(LINKED);
+        expect(box()?.checked).toBe(false);
+        expect(box()?.closest('label')?.textContent).toContain('ใช้บอทอ่านรายชื่ออย่างเดียว');
+        expect(box()?.closest('label')?.textContent).toContain('บอทจะไม่ส่งสรุปผลการแข่งหรือการจ่ายเงินเข้ากลุ่ม ถ้าเปิดแชตส่วนตัวไว้ บอทจะส่งให้คุณแทน แล้วกดส่งเข้ากลุ่มเองได้');
+        expect(el().textContent).not.toContain('โควตา');
+      });
+
+      it('saves, hides the group summary switch and shows the DM switch without reload', async () => {
+        await openLine(LINKED);
+        box()!.checked = true;
+        box()!.dispatchEvent(new Event('change'));
+        const req = httpMock.expectOne({ url: `${B}/groups/group1/line`, method: 'PATCH' });
+        expect(req.request.body).toEqual({ rosterOnly: true });
+        req.flush({ summaryDefault: true, rosterOnly: true });
+        httpMock.expectOne(`${B}/groups/group1/line/host`).flush({
+          ...HOST, accountLinked: true, enabled: true, summaryAvailable: true, summaryDefault: true,
+        });
+        await settle();
+        expect(box()?.checked).toBe(true);
+        expect(q('[data-summary-default]')).toBeNull();
+        expect(q('[data-host-summary-default]')).not.toBeNull();
+      });
+
+      it('keeps roster-only when an older summary-default response arrives last', async () => {
+        await openLine(LINKED);
+        const summary = q('[data-summary-default]') as HTMLInputElement;
+        summary.checked = false;
+        summary.dispatchEvent(new Event('change'));
+        const summarySave = httpMock.expectOne({ url: `${B}/groups/group1/line`, method: 'PATCH' });
+        box()!.checked = true;
+        box()!.dispatchEvent(new Event('change'));
+        const rosterSave = httpMock.expectOne({ url: `${B}/groups/group1/line`, method: 'PATCH' });
+        rosterSave.flush({ summaryDefault: false, rosterOnly: true });
+        httpMock.expectOne(`${B}/groups/group1/line/host`).flush(HOST);
+        await settle();
+        summarySave.flush({ summaryDefault: false, rosterOnly: false });
+        await settle();
+        expect(box()?.checked).toBe(true);
+        expect(q('[data-summary-default]')).toBeNull();
+      });
+
+      it('loads checked and hides the group summary switch when roster-only is on', async () => {
+        await openLine({ ...LINKED, rosterOnly: true });
+        expect(box()?.checked).toBe(true);
+        expect(q('[data-summary-default]')).toBeNull();
+      });
+
+      it('can turn roster-only off and restore the group summary switch', async () => {
+        await openLine({ ...LINKED, rosterOnly: true });
+        box()!.checked = false;
+        box()!.dispatchEvent(new Event('change'));
+        httpMock.expectOne({ url: `${B}/groups/group1/line`, method: 'PATCH' })
+          .flush({ summaryDefault: true, rosterOnly: false });
+        httpMock.expectOne(`${B}/groups/group1/line/host`).flush(HOST);
+        await settle();
+        expect(box()?.checked).toBe(false);
+        expect(q('[data-summary-default]')).not.toBeNull();
+        expect(q('[data-host-summary-default]')).toBeNull();
+      });
+
+      it('snaps back and shows an error when saving fails', async () => {
+        await openLine(LINKED);
+        box()!.checked = true;
+        box()!.dispatchEvent(new Event('change'));
+        httpMock.expectOne({ url: `${B}/groups/group1/line`, method: 'PATCH' })
+          .flush('x', { status: 500, statusText: 'x' });
+        await settle();
+        expect(box()?.checked).toBe(false);
+        expect(q('[data-error]')).not.toBeNull();
+        httpMock.expectNone(`${B}/groups/group1/line/host`);
+      });
+
+      it('is absent when unlinked', async () => {
+        await openLine();
+        expect(box()).toBeNull();
+      });
+
+      it('is absent on a free plan', async () => {
+        await openLine(LINKED, 'free');
+        expect(box()).toBeNull();
+      });
+
+      it('remains available without summary configuration because it also controls payments', async () => {
+        await openLine({ ...LINKED, summaryAvailable: false });
+        expect(box()).not.toBeNull();
+      });
+    });
 
     // Under fake timers whenStable() never resolves, so these tests flush by hand.
     async function fakeSettle() {

@@ -190,8 +190,8 @@ describe('payment card: owner panel, confirm and bot send', () => {
    * Six players on the roster: P0-P3 and P5 played (P5 is then removed, ไม่คิดเงิน), P4 did not come (ไม่มา).
    * The bill is ready (court fee, shuttle count and price) unless `ready` is false.
    */
-  async function setup(options: { target?: Target; ended?: boolean; account?: boolean; ready?: boolean } = {}) {
-    const { target = 'group', ended = true, account = true, ready = true } = options;
+  async function setup(options: { target?: Target; rosterOnly?: boolean; alsoLinked?: boolean; ended?: boolean; account?: boolean; ready?: boolean } = {}) {
+    const { target = 'group', rosterOnly = false, alsoLinked = false, ended = true, account = true, ready = true } = options;
     const groupCode = `pay-${randomUUID().slice(0, 10)}`;
     groupCodes.push(groupCode);
     await prisma.group.create({
@@ -199,8 +199,9 @@ describe('payment card: owner panel, confirm and bot send', () => {
         code: groupCode,
         name: 'ตีชิล',
         ownerId,
-        lineGroupId: target === 'group' ? `C${randomUUID().replace(/-/g, '')}` : null,
+        lineGroupId: target === 'group' || alsoLinked ? `C${randomUUID().replace(/-/g, '')}` : null,
         lineDmEnabled: target === 'host',
+        lineGroupRosterOnly: rosterOnly,
         payAccount: account ? JSON.stringify(ACCOUNT) : null,
       },
     });
@@ -926,6 +927,26 @@ describe('payment card: owner panel, confirm and bot send', () => {
   });
 
   describe('sendToHost', () => {
+    it('DMs the host for a group linked to a LINE group when roster-only is on', async () => {
+      const { code } = await setup({ target: 'host', alsoLinked: true, rosterOnly: true });
+      const panel = (await confirm(code).expect(200)).body as PaymentPanel;
+      expect(panel.target).toBe('host');
+      expect((await dm(code).expect(200)).body).toEqual({ outcome: 'sent' });
+      expect((await send(code).expect(200)).body).toEqual({ outcome: 'unavailable' });
+      expect(fakeClient.push).toHaveBeenCalledTimes(1);
+      expect(fakeClient.push.mock.calls[0][0]).toBe(`U${ownerId.replace(/-/g, '')}`);
+    });
+
+    it('offers no send after a roster-only group owner unlinks their LINE account', async () => {
+      const { code } = await setup({ target: 'host', alsoLinked: true, rosterOnly: true });
+      await confirm(code).expect(200);
+      await prisma.user.update({ where: { id: ownerId }, data: { lineUserId: null } });
+      expect(await panelOf(code)).toMatchObject({ target: null, shareUrl: null });
+      expect((await dm(code).expect(200)).body).toEqual({ outcome: 'unavailable' });
+      expect((await send(code).expect(200)).body).toEqual({ outcome: 'unavailable' });
+      expect(fakeClient.push).not.toHaveBeenCalled();
+    });
+
     const confirmedHost = async () => {
       const made = await setup({ target: 'host' });
       const panel = (await confirm(made.code).expect(200)).body as PaymentPanel;

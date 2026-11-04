@@ -35,6 +35,11 @@ export class LineService {
     return this.http.patch<{ summaryDefault: boolean }>(this.base(groupCode), { summaryDefault: on });
   }
 
+  /** Paid and group-linked only; controls both summary and payment cards. */
+  setRosterOnly(groupCode: string, on: boolean): Observable<{ summaryDefault: boolean; rosterOnly: boolean }> {
+    return this.http.patch<{ summaryDefault: boolean; rosterOnly: boolean }>(this.base(groupCode), { rosterOnly: on });
+  }
+
   private hostBase(groupCode: string): string {
     return `${this.base(groupCode)}/host`;
   }

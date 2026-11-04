@@ -1444,13 +1444,18 @@ expired code gets one generic Thai reply (it never says which); a sender who has
 - **Summary card to the host's DM (host share card, 2026-10-28)**
   (`docs/superpowers/specs/2026-10-28-line-host-share-card-design.md`; setup in
   `docs/line-liff-setup.md`). The card used to be group-link only. A session now has one *target*,
-  worked out at request time (no schema change): **`group`** when the group is linked to a LINE
-  group (`lineGroupId`), the bot posts into it as above; **`host`** when it is not group-linked,
-  `lineDmEnabled` is on and the owner has linked their own LINE account (`lineUserId`), the bot DMs
-  the owner the card; otherwise none (no checkbox, no push). **Group wins when both apply**: one
-  card, one place. Both need a paid (Host and up) owner plan, read at send time, and a finished
-  game. The host target also needs `LINE_LIFF_ID` (and `PUBLIC_APP_URL`); without it the host
-  target is off and groups that are group-linked behave exactly as before.
+  worked out at request time: **`group`** when the group is linked to a LINE group (`lineGroupId`)
+  and `lineGroupRosterOnly` is off; otherwise **`host`** when `lineDmEnabled` is on and the owner
+  has linked their own LINE account (`lineUserId`), so the bot DMs the owner the card; otherwise
+  **none** (no checkbox, no push). One card, one place. **Roster-only** defaults off; when on,
+  neither summary nor payment cards are pushed into the group. Without a ready host DM route,
+  no card is sent and there is no fallback or error message (owner decision 2026-11-04;
+  `docs/superpowers/specs/2026-11-04-line-group-card-switch-design.md`). Roster capture and `/link`
+  replies remain unchanged; the setting survives unlink and re-link.
+  **Any future bot post into the group must respect `lineGroupRosterOnly`.**
+  Both targets need a paid (Host and up) owner plan, read at send time, and a finished game.
+  The host target also needs `LINE_LIFF_ID` (and `PUBLIC_APP_URL`); without it the host target is
+  off and group-linked groups with roster-only off behave exactly as before.
   - **One push to the host's DM per night.** This reverses "no push to the host DM" from the
     host DM design, for this one card only (owner decision 2026-10-28). A one-to-one push counts
     once against the monthly quota, not once per group member. Exactly-once reuses the same claim,
@@ -1474,10 +1479,14 @@ expired code gets one generic Thai reply (it never says which); a sender who has
     games); a spec asserts no owner-only field is added.
   - **Owner's summary page** shows "ส่งการ์ดสรุปเข้ากลุ่ม LINE" (a link straight to the LIFF URL,
     repeatable, shown even after the DM went out) for the `host` target.
-  - **Settings switch.** The default switch (`lineSummaryDefault`) also shows on the host-DM card
-    with host wording ("ส่งการ์ดสรุปให้ฉันทาง LINE เมื่อจบรอบ"). It is hidden for a paused (plan
-    lapsed) group and for a bot-linked group, where the group card applies instead
-    (`summaryAvailable` there needs `PUBLIC_APP_URL`, `LINE_LIFF_ID` and no linked LINE group).
+  - **Settings switches.** The linked, paid LINE group card offers **ใช้บอทอ่านรายชื่ออย่างเดียว**
+    (`lineGroupRosterOnly`), independent of summary configuration. When on, the group's summary-default
+    switch is hidden and the host-DM panel refreshes without a page reload. The same default switch
+    (`lineSummaryDefault`) shows on the host-DM card when it is the active route, with host wording
+    ("ส่งการ์ดสรุปให้ฉันทาง LINE เมื่อจบรอบ"). It is hidden for a paused (plan lapsed) group and
+    for a bot-linked group with roster-only off, where the group card applies instead.
+    **Host `summaryAvailable`** needs `PUBLIC_APP_URL`, `LINE_LIFF_ID` and either no linked LINE
+    group or roster-only on; the account must also be linked and DM capture enabled to show the switch.
   - **Verified 2026-10-29 (owner, real LINE):** the share target picker is a channel-level setting
     on the LINE Login channel's LIFF tab (agree to the terms, then Enable); until it is on, the page
     says it cannot share. With it on, the phone in-app flow works.

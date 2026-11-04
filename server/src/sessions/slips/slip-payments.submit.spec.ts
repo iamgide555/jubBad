@@ -437,13 +437,34 @@ describe('slip payments: submit pipeline', () => {
       expect(JSON.parse(dups[0].originalPlayerIds)).toEqual([]);
     });
 
-    it('remembers a waiting slip too: the same reference again is a duplicate', async () => {
+    it('the same sender re-sending a slip still waiting for the host is told it is already sent, not a duplicate', async () => {
       const { code, groupCode, ids, token } = await setup();
       const stranger = lineUser('Stranger');
       reader.read.mockResolvedValue(slip(newRef(), { amount: baht(await owed(code, ids[0])) }));
       expect(await slips.submitSlip(code, token, stranger, IMAGE)).toEqual({ kind: 'waiting', reason: 'unmapped' });
-      expect(await slips.submitSlip(code, token, stranger, IMAGE)).toEqual({ kind: 'duplicate' });
+      expect(await slips.submitSlip(code, token, stranger, IMAGE)).toEqual({ kind: 'already-sent' });
       expect(await pendingOf(code)).toHaveLength(1);
+      // Nothing new for the host to dismiss: the first copy is already in the waiting list.
+      expect(await duplicatesOf(groupCode)).toEqual([]);
+    });
+
+    it('someone else sending a slip still waiting for the host is a duplicate', async () => {
+      const { code, groupCode, ids, token } = await setup();
+      const first = lineUser('First');
+      const other = lineUser('Other');
+      reader.read.mockResolvedValue(slip(newRef(), { amount: baht(await owed(code, ids[0])) }));
+      expect(await slips.submitSlip(code, token, first, IMAGE)).toEqual({ kind: 'waiting', reason: 'unmapped' });
+      expect(await slips.submitSlip(code, token, other, IMAGE)).toEqual({ kind: 'duplicate' });
+      expect(await duplicatesOf(groupCode)).toEqual([expect.objectContaining({ lineUserId: other.userId })]);
+    });
+
+    it('a waiting slip the host has resolved is a duplicate when the same sender sends it again', async () => {
+      const { code, groupCode, ids, token } = await setup();
+      const stranger = lineUser('Stranger');
+      reader.read.mockResolvedValue(slip(newRef(), { amount: baht(await owed(code, ids[0])) }));
+      expect(await slips.submitSlip(code, token, stranger, IMAGE)).toEqual({ kind: 'waiting', reason: 'unmapped' });
+      await prisma.pendingSlip.updateMany({ where: { sessionId: code }, data: { resolvedAt: new Date() } });
+      expect(await slips.submitSlip(code, token, stranger, IMAGE)).toEqual({ kind: 'duplicate' });
       expect(await duplicatesOf(groupCode)).toHaveLength(1);
     });
 

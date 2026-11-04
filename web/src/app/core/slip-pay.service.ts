@@ -2,7 +2,7 @@ import { HttpClient, HttpHeaders } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import type { Observable } from 'rxjs';
 import { environment } from '../../environments/environment';
-import type { PaymentStatusView, SlipPayClaimOutcome, SlipPayConfig, SlipPayRole, SlipPayUploadResult, SlipPayView } from './slip-pay.model';
+import type { PaymentStatusView, SlipPayClaimOutcome, SlipPayUnclaimOutcome, SlipPayConfig, SlipPayRole, SlipPayUploadResult, SlipPayView } from './slip-pay.model';
 
 /**
  * Public routes behind the player pay page. The pay token (query) says which
@@ -53,6 +53,13 @@ export class SlipPayService {
       { playerId },
       { headers: this.headers(accessToken) },
     );
+  }
+
+  /** "Not my name": undoes the viewer's own pick so the name list shows again. */
+  unclaim(code: string, token: string, accessToken: string): Observable<{ outcome: SlipPayUnclaimOutcome }> {
+    return this.http.post<{ outcome: SlipPayUnclaimOutcome }>(this.url(code, token, '/unclaim'), {}, {
+      headers: this.headers(accessToken),
+    });
   }
 
   /** The image goes up as the raw request body; the browser sets the File's own content type. */

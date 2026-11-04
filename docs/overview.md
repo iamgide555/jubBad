@@ -1729,7 +1729,11 @@ removes them. LINE unlink/image submission share a group write lock to keep clea
 
 **What reaches the host.** Waiting slips (with the reason) and duplicates, in the bill screen's review list.
 The host resolves a waiting slip by ticking one or more players (or dismisses it), and dismisses a duplicate. A duplicate never
-pays anyone and the sender is not told off in the group. A receiver mismatch also offers to make the slip's
+pays anyone and the sender is not told off in the group. **Re-sending your own waiting slip is not a duplicate
+(2026-11-04).** When the same LINE account sends a slip whose reference is still in the host's waiting list, the
+pay page says **สลิปนี้ส่งแล้ว รอโฮสต์ตรวจ** and nothing new is recorded: a real host had to dismiss exactly that
+noise. Anyone else sending that reference, or the sender after the host resolved it, is still a duplicate, and
+only the original sender is ever told it is waiting. A receiver mismatch also offers to make the slip's
 receiver the group's saved name (after a confirmation showing the old and new name); it is offered only when
 the group has a saved account, since that is the name it rewrites.
 
@@ -1856,7 +1860,16 @@ carry per-group facts (first source, first/last seen), and a join row cascades w
 
 **Never auto-link by name.** A LINE display name and a roster name are both free text; matching them is the
 same trap the fuzzy matcher avoids (see Fuzzy matching above). A `PlayerLineAccount` link is created only by
-the player's own "this is me" on the pay page or by a host tap. `PlayerLineAccount.lineUserId` is a foreign
+the player's own "this is me" on the pay page or by a host tap.
+
+**A wrong "this is me" can be undone by the player, until money proves it (2026-11-04).** A real player read
+"คุณคือใคร?" as "who are you paying for", linked her LINE to a friend, and could not fix it. The pick screen now
+says to choose your own name, and the pay page (send screen and the "sent to host" result, which shows the
+name the slip went in as) offers **ไม่ใช่ชื่อนี้? เปลี่ยนชื่อ**, which removes the account's own link and shows the
+name list again. Closed once the link is the host's (`linkedBy = 'host'`), the linked player is paid tonight by
+any path, or any slip this account sent has ever paid that player, in any session: a link stays across weeks,
+so "paid tonight" alone would reopen it every week. Owner decision. A slip already waiting stays with the host
+unchanged; the host's review shows the current link. `PlayerLineAccount.lineUserId` is a foreign
 key to `LineAccount`, which holds the name; the link has no name of its own.
 
 **Never blank a stored profile.** A sighting without a profile (a host link, a failed LINE lookup) records

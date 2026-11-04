@@ -16,6 +16,7 @@ const LINKED: SlipPayView = {
   claimable: [],
   accountName: 'จิตติญา ฉัตรเฉลิมวิทย์',
   alreadyPaid: false,
+  canChange: true,
   sessionDate: '30 ต.ค. 2569',
 };
 const UNLINKED: SlipPayView = {
@@ -27,6 +28,7 @@ const UNLINKED: SlipPayView = {
   ],
   accountName: 'จิตติญา ฉัตรเฉลิมวิทย์',
   alreadyPaid: false,
+  canChange: false,
   sessionDate: '30 ต.ค. 2569',
 };
 
@@ -36,6 +38,7 @@ describe('SlipPay', () => {
     config: ReturnType<typeof vi.fn>;
     view: ReturnType<typeof vi.fn>;
     claim: ReturnType<typeof vi.fn>;
+    unclaim: ReturnType<typeof vi.fn>;
     upload: ReturnType<typeof vi.fn>;
   };
   let liff: {
@@ -75,6 +78,65 @@ describe('SlipPay', () => {
 
   const uploads = (r: SlipPayUploadResult) => svc.upload.mockReturnValue(of(r));
 
+  describe('changing a wrong pick', () => {
+    it('offers "not my name" under the name, and after it shows the name list again', async () => {
+      await open(LINKED);
+      expect(q('[data-slip-change]')?.textContent).toContain('ไม่ใช่ชื่อนี้? เปลี่ยนชื่อ');
+      svc.unclaim.mockReturnValue(of({ outcome: 'unlinked' }));
+      svc.view.mockReturnValue(of(UNLINKED));
+      q('[data-slip-change]')!.click();
+      await flush();
+      expect(svc.unclaim).toHaveBeenCalledWith('sess 1', TOKEN, ACCESS);
+      expect(text()).toContain('คุณคือใคร?');
+      expect(el().querySelectorAll('[data-slip-claim]')).toHaveLength(2);
+    });
+
+    it('hides it when the pick can no longer be changed', async () => {
+      await open({ ...LINKED, canChange: false });
+      expect(q('[data-slip-player-name]')?.textContent).toContain('มายด์');
+      expect(q('[data-slip-change]')).toBeNull();
+    });
+
+    it('never offers it on the paid screen', async () => {
+      await open({ ...LINKED, alreadyPaid: true });
+      expect(text()).toContain('จ่ายแล้ว');
+      expect(q('[data-slip-change]')).toBeNull();
+    });
+
+    it('a locked answer keeps the name and says to ask the host', async () => {
+      await open(LINKED);
+      svc.unclaim.mockReturnValue(of({ outcome: 'locked' }));
+      svc.view.mockReturnValue(of({ ...LINKED, canChange: false }));
+      q('[data-slip-change]')!.click();
+      await flush();
+      expect(q('[data-slip-player-name]')?.textContent).toContain('มายด์');
+      expect(q('[data-slip-change]')).toBeNull();
+      expect(q('[data-slip-change-note]')?.textContent).toContain('เปลี่ยนชื่อไม่ได้แล้ว ให้โฮสต์เปลี่ยนให้');
+    });
+
+    it('the waiting result shows who the slip was sent as, and still allows a change', async () => {
+      await open(LINKED);
+      uploads({ outcome: 'waiting' });
+      await pick();
+      const box = q('[data-slip-result="waiting"]')!;
+      expect(box.textContent).toContain('มายด์');
+      expect(box.querySelector('[data-slip-change]')).not.toBeNull();
+      svc.unclaim.mockReturnValue(of({ outcome: 'unlinked' }));
+      svc.view.mockReturnValue(of(UNLINKED));
+      (box.querySelector('[data-slip-change]') as HTMLElement).click();
+      await flush();
+      expect(text()).toContain('คุณคือใคร?');
+    });
+
+    it('the paid result offers no change', async () => {
+      await open(LINKED);
+      uploads({ outcome: 'paid' });
+      await pick();
+      expect(q('[data-slip-result="paid"]')).not.toBeNull();
+      expect(q('[data-slip-change]')).toBeNull();
+    });
+  });
+
   it('shows closed collection before claiming or sending', async () => {
     await open({ ...UNLINKED, collectionClosed: true } as any);
     expect(text()).toContain('เก็บเงินครบแล้ว');
@@ -89,6 +151,7 @@ describe('SlipPay', () => {
       config: vi.fn().mockReturnValue(of({ liffId: '1234567890-AbCdEfGh' })),
       view: vi.fn(),
       claim: vi.fn(),
+      unclaim: vi.fn(),
       upload: vi.fn(),
     };
     liff = {
@@ -211,7 +274,7 @@ describe('SlipPay', () => {
     it('asks who they are and lists the claimable players', async () => {
       await open(UNLINKED);
       expect(text()).toContain('คุณคือใคร?');
-      expect(text()).toContain('เลือกชื่อของคุณ (ครั้งเดียว)');
+      expect(text()).toContain('เลือกชื่อของคุณเอง ไม่ใช่ชื่อคนที่คุณจ่ายให้ (เลือกได้ครั้งเดียว)');
       const names = Array.from(el().querySelectorAll('[data-slip-claim]')).map((b) => b.textContent?.trim());
       expect(names).toEqual(['มายด์', 'บีม']);
       expect(q('[data-slip-skip]')?.textContent?.trim()).toBe('ข้าม — ฉันจ่ายแทนคนอื่น');
@@ -347,6 +410,15 @@ describe('SlipPay', () => {
       await open();
       await pick();
       expect(q('[data-slip-notice]')?.textContent).toContain('สลิปนี้ถูกใช้ไปแล้ว');
+      expect((q('[data-slip-send]') as HTMLButtonElement).disabled).toBe(false);
+    });
+
+    it('already-sent says the slip arrived and is waiting for the host, and keeps the button usable', async () => {
+      uploads({ outcome: 'already-sent' });
+      await open();
+      await pick();
+      expect(q('[data-slip-notice]')?.textContent).toContain('สลิปนี้ส่งแล้ว รอโฮสต์ตรวจ');
+      expect(text()).not.toContain('สลิปนี้ถูกใช้ไปแล้ว');
       expect((q('[data-slip-send]') as HTMLButtonElement).disabled).toBe(false);
     });
 

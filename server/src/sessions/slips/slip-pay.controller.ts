@@ -20,6 +20,7 @@ import { SlipViewerGate, payToken } from './slip-viewer-gate.js';
 import {
   SlipPaymentsService,
   type ClaimOutcome,
+  type UnclaimOutcome,
   type PayPageView,
   type PaymentStatusView,
   type SubmitOutcome,
@@ -137,6 +138,21 @@ export class SlipPayController {
   ): Promise<{ outcome: ClaimOutcome }> {
     const { user, key } = await this.gate.viewer(req, code);
     const outcome = await this.slips.claimForPayPage(code, payToken(token), user, dto.playerId);
+    if (outcome === null) this.gate.fail(key);
+    return { outcome };
+  }
+
+  /** "Not my name": undoes the viewer's own pick so they can choose again, while the pick is still theirs to change. */
+  @Public()
+  @Post(':code/slip-pay/unclaim')
+  @HttpCode(200)
+  async unclaim(
+    @Param('code') code: string,
+    @Query('token') token: unknown,
+    @Req() req: Request
+  ): Promise<{ outcome: UnclaimOutcome }> {
+    const { user, key } = await this.gate.viewer(req, code);
+    const outcome = await this.slips.unclaimForPayPage(code, payToken(token), user);
     if (outcome === null) this.gate.fail(key);
     return { outcome };
   }

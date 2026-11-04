@@ -53,7 +53,20 @@
             } @else if (line.linked) {
               <p class="line-linked" data-linked>{{ linkedText() }}</p>
               <p class="muted" i18n="@@line.linkedHint">เมื่อมีคนส่งรายชื่อในกลุ่ม LINE บอทจะจำฉบับล่าสุดไว้ให้ตอนกดเริ่มรอบ</p>
-              @if (line.summaryAvailable) {
+              <label class="switch-row">
+                <input
+                  type="checkbox"
+                  name="lineGroupRosterOnly"
+                  data-roster-only
+                  [checked]="line.rosterOnly"
+                  (change)="setRosterOnly($any($event.target))"
+                />
+                <span class="switch-text">
+                  <span class="switch-title" i18n="@@line.rosterOnly">ใช้บอทอ่านรายชื่ออย่างเดียว</span>
+                  <span class="muted" i18n="@@line.rosterOnlyHint">บอทจะไม่ส่งสรุปผลการแข่งหรือการจ่ายเงินเข้ากลุ่ม ถ้าเปิดแชตส่วนตัวไว้ บอทจะส่งให้คุณแทน แล้วกดส่งเข้ากลุ่มเองได้</span>
+                </span>
+              </label>
+              @if (line.summaryAvailable && !line.rosterOnly) {
                 <label class="switch-row">
                   <input
                     type="checkbox"

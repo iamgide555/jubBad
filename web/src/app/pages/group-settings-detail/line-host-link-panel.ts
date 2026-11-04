@@ -84,7 +84,7 @@ export class LineHostLinkPanel implements OnInit {
     }
   }
 
-  protected load(): void {
+  load(): void {
     this.loadFailed.set(false);
     this.lineService.hostStatus(this.groupCode()).subscribe({
       next: (s) => this.status.set(s),

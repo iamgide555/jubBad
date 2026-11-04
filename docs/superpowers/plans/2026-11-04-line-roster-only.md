@@ -222,7 +222,7 @@ git commit -m "feat(line): roster-only setting on the group LINE status and PATC
 - Consumes: GET `rosterOnly`, PATCH `{ rosterOnly }` → `{ summaryDefault, rosterOnly }` (Task 2).
 - Produces: `LineService.setRosterOnly(groupCode: string, on: boolean): Observable<{ summaryDefault: boolean; rosterOnly: boolean }>`; `GroupSettingsDetail.setRosterOnly(input: HTMLInputElement): void`; `LineHostLinkPanel.load(): void` (public).
 
-- [ ] **Step 1: Write the failing tests.** `line.service.spec.ts`: `setRosterOnly('g1', true)` PATCHes `${B}/groups/g1/line` with body `{ rosterOnly: true }`. In `group-settings-detail.spec.ts` add `rosterOnly: false` to `STATUS`, and a `describe('roster-only checkbox')` using `openLine`, with `box = () => q('[data-roster-only]') as HTMLInputElement | null`:
+- [x] **Step 1: Write the failing tests.** `line.service.spec.ts`: `setRosterOnly('g1', true)` PATCHes `${B}/groups/g1/line` with body `{ rosterOnly: true }`. In `group-settings-detail.spec.ts` add `rosterOnly: false` to `STATUS`, and a `describe('roster-only checkbox')` using `openLine`, with `box = () => q('[data-roster-only]') as HTMLInputElement | null`:
   - unticked by default; label text contains `ใช้บอทอ่านรายชื่ออย่างเดียว`; hint contains `บอทจะไม่ส่งสรุปผลการแข่งหรือการจ่ายเงินเข้ากลุ่ม`.
   - click → PATCH body `{ rosterOnly: true }`; flush `{ summaryDefault: true, rosterOnly: true }` → box checked, `q('[data-summary-default]')` is null, and a new `GET ${B}/groups/group1/line/host` is issued (the DM panel reloads — Review Focus 4).
   - `openLine({ ...LINKED, rosterOnly: true })` → box checked, `[data-summary-default]` absent.
@@ -230,22 +230,22 @@ git commit -m "feat(line): roster-only setting on the group LINE status and PATC
   - absent when unlinked, and when `openLine(LINKED, 'free')`.
   - no element on the LINE page contains `โควตา`.
 
-- [ ] **Step 2: Run to verify they fail**
+- [x] **Step 2: Run to verify they fail**
 
 Run (from `web/`): `npx ng test --watch=false`
 Expected: FAIL — `[data-roster-only]` not found; `setRosterOnly` not a function.
 
-- [ ] **Step 3: Implement.**
+- [x] **Step 3: Implement.**
   - Template, linked + paid branch, before the summary-default `@if`: a `label.switch-row` like the summary one, `input type="checkbox" name="lineGroupRosterOnly" data-roster-only [checked]="line.rosterOnly" (change)="setRosterOnly($any($event.target))"`, title `i18n="@@line.rosterOnly"`, hint `i18n="@@line.rosterOnlyHint"` with the Global Constraints copy. Shown regardless of `summaryAvailable` (it also governs the payment card). Summary-default `@if` becomes `line.summaryAvailable && !line.rosterOnly`.
   - `setRosterOnly`: same optimistic snap-back pattern as `setSummaryDefault` (error copy reuses `@@line.summaryDefaultFailed`); on success set `lineStatus` from the answer and call `hostPanel()?.load()` where `hostPanel = viewChild(LineHostLinkPanel)`.
   - XLIFF: add `line.rosterOnly` and `line.rosterOnlyHint` to both files. English targets: `Bot only reads rosters` / `The bot won't post the match summary or payments to the group. If the private chat is on, the bot sends them to you instead, and you can share them to the group yourself.`
 
-- [ ] **Step 4: Run to verify they pass**
+- [x] **Step 4: Run to verify they pass**
 
 Run (from `web/`): `npx ng test --watch=false` then `npm run build`
 Expected: PASS; build has no missing-translation warnings for the new ids.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add web/src

@@ -8,6 +8,8 @@ export interface LineStatus {
   leftAt: string | null;
   /** Whether the end-of-session "send the summary card" checkbox starts ticked. */
   summaryDefault: boolean;
+  /** Suppress group cards and use the host DM when ready. */
+  rosterOnly: boolean;
   /** False when the server has no public app url, so no card can be sent and the switch would do nothing. */
   summaryAvailable: boolean;
 }
@@ -23,7 +25,7 @@ export interface LineSummaryState {
   /** The group's saved default for the end-of-session checkbox. */
   defaultOn: boolean;
   /**
-   * Where the card goes: `group` when the bot is in the LINE group, `host` when the owner linked
+   * Where the card goes: `group` when the bot is in the LINE group with roster-only off, `host` when the owner linked
    * their own LINE by DM and the bot hands them the card to share, null when neither is set up.
    */
   target: 'group' | 'host' | null;
@@ -43,7 +45,7 @@ export interface LineHostStatus {
   summaryDefault: boolean;
   /**
    * False when the server cannot send a card (no public app url or LIFF id), and for a bot-linked
-   * group: its card is posted by the bot into the group, which has its own switch.
+   * group with roster-only off: its card is posted into the group, which has its own switch.
    */
   summaryAvailable: boolean;
 }

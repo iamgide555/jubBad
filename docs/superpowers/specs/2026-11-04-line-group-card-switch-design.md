@@ -1,6 +1,6 @@
 # LINE group "roster only" switch — design
 
-**Date:** 2026-11-04 · **Status:** owner-approved (handoff); implementation in progress
+**Date:** 2026-11-04 · **Status:** implemented and tested; owner-run real-LINE check pending
 
 ## Why
 
@@ -106,10 +106,10 @@ the existing `OwnershipGuard`.
 
 ## Done when
 
-- Engines untouched; server + web tests cover: group target with roster-only off (today),
+- [x] **Automated coverage:** engines untouched; server + web tests cover: group target with roster-only off (today),
   roster-only on → host target when DM ready, roster-only on → none when DM not ready, PATCH guard,
   status field, both settings panels show/hide the right switches.
-- `docs/overview.md` host share card section updated: "group wins when both apply" replaced by the
+- [x] **Documentation:** `docs/overview.md` host share card section updated: "group wins when both apply" replaced by the
   new rule, with this spec linked.
-- Real-LINE check on the server: one group linked both ways, roster-only on, end a session → card
+- [ ] **Owner-run real-LINE check** on the server: one group linked both ways, roster-only on, end a session → card
   lands in host DM, share into group works; roster-only off → card lands in group.

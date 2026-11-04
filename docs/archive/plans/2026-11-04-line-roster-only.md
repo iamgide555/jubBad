@@ -259,14 +259,14 @@ git commit -m "feat(web): roster-only checkbox on the LINE group settings card"
 **Files:**
 - Modify: `docs/overview.md` (host share card section, ~line 1444)
 
-- [ ] **Step 1:** Replace "**Group wins when both apply**: one card, one place." with the new rule: group target only when linked and `lineGroupRosterOnly` is off; roster-only on → host target if ready, else none; owner decision 2026-11-04; link the spec. Add one line that any future bot post into the group must respect `lineGroupRosterOnly`.
+- [x] **Step 1:** Replace "**Group wins when both apply**: one card, one place." with the new rule: group target only when linked and `lineGroupRosterOnly` is off; roster-only on → host target if ready, else none; owner decision 2026-11-04; link the spec. Add one line that any future bot post into the group must respect `lineGroupRosterOnly`.
 
-- [ ] **Step 2: Run everything**
+- [x] **Step 2: Run everything**
 
 Run (repo root): `npm test`
 Expected: engines, server, web all PASS.
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add docs/overview.md
@@ -274,3 +274,26 @@ git commit -m "docs: roster-only LINE groups route cards to the host DM"
 ```
 
 Deploy and the real-LINE check (spec "Done when") are owner-run after merge: the new migration must be applied on the server before the rebuild.
+
+
+---
+
+## Completion record
+
+- **Completed:** 2026-11-04 on `feat/line-roster-only`; four task commits, no merge, push or deploy.
+- **Full verification:** root `npm test` passed: 408 engine tests, 1,992 server tests (one skipped),
+  2,006 web tests (one TODO). `cd server && npm run lint` passed. `cd web && npm run build` passed with existing
+  dashboard CSS-budget and LIFF `tiny-sha256` CommonJS warnings; no missing translations.
+- **Migration adjustment:** Prisma 7 did not generate the client during `prisma migrate dev`;
+  ran `npx prisma generate` explicitly. Exactly one migration was created.
+- **Validation adjustment:** used `@ValidateIf` for fields present other than `undefined`, rather than
+  `@IsOptional()`, because the latter also accepts `null`. Invalid nullable fields now return 400;
+  regression tests cover rejection without writes.
+- **Review fix:** changed the summary-default callback to merge into current state, preserving
+  roster-only when responses arrive out of order. Regression test failed before the fix and passed after it.
+- **Environment:** test HTTP listeners required sandbox escalation; sandboxed web build aborted with
+  exit 134 and passed outside the sandbox. No owner dev server was started, stopped or reconfigured.
+- **Archive:** all implementation steps complete; moved this plan to `docs/archive/plans/` per `CLAUDE.md`.
+  The spec stays in `docs/superpowers/specs/` because its owner-run real-LINE check remains open.
+- **Owner follow-up:** after merge, apply the migration before rebuilding; verify roster-only on sends
+  both cards to the host DM and sharing works, then verify off sends into the group.

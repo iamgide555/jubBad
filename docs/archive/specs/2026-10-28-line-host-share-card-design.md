@@ -1,5 +1,7 @@
 # LINE host share card (DM + LIFF) — design
 
+> Archived 2026-11-04: approved and shipped (live at 8e13376). The "Status: draft" line below is from when it was written. "Group wins when both apply" was later changed by docs/superpowers/specs/2026-11-04-line-group-card-switch-design.md.
+
 Status: **draft 2026-10-28, awaiting owner approval.** Builds on the summary card
 (`docs/archive/specs/2026-10-27-line-bot-summary-card-design.md`) and the host DM link
 (`docs/archive/specs/2026-10-28-line-host-dm-roster-design.md`). Items marked **(my call)** were

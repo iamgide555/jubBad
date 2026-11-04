@@ -10,6 +10,7 @@ built; archival means its decisions are closed, not that every feature shipped.
 - `plans/` — the implementation plan for a piece of work, written before it was
   built and kept as a record of the order things were done in.
 - `specs/` — the design that a plan was built against, where the work needed one.
+- `reports/` — finished smoke-test and evidence reports (moved from `docs/reports/` 2026-11-04).
 
 These are point-in-time documents. Where a decision recorded here was later
 reversed, the file says so rather than being edited to match current behaviour;

@@ -1,7 +1,7 @@
 # LINE LIFF setup (host share card)
 
 One-time setup by the owner, in the LINE Developers console and on the home server. Design and
-rules: `docs/superpowers/specs/2026-10-28-line-host-share-card-design.md` and the "LINE bot"
+rules: `docs/archive/specs/2026-10-28-line-host-share-card-design.md` and the "LINE bot"
 section of `docs/overview.md`.
 
 What this turns on: when a group has no bot in its LINE group but the host linked their own LINE

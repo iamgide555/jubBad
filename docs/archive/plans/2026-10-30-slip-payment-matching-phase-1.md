@@ -1,5 +1,7 @@
 # Slip Payment Matching, Phase 1 Implementation Plan
 
+> Archived 2026-11-04: phase 1 merged to main and live. Steps were not ticked during execution and are not checked retroactively. Phase 2 is still open in docs/superpowers/specs/2026-10-30-slip-payment-matching-design.md.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Players upload their e-slip on a LINE pay page; the server reads it for free, marks them paid when it matches, and the host sees paid/unpaid per person with manual tick and a review list for the rest.

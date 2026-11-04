@@ -3,7 +3,7 @@
 Status: **draft 2026-10-29; owner answered the open questions the same day, awaiting final
 approval to plan.** Builds on the bill
 (`docs/overview.md` "Bill (C3)"), the summary card and the host share card
-(`docs/superpowers/specs/2026-10-28-line-host-share-card-design.md`, live). Items marked
+(`docs/archive/specs/2026-10-28-line-host-share-card-design.md`, live). Items marked
 **(my call)** were decided by the writer, not the owner.
 
 ## Intent and why

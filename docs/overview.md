@@ -1442,7 +1442,7 @@ expired code gets one generic Thai reply (it never says which); a sender who has
   (about 86 messages a month for a 20-member group playing weekly; the weekly post will share the
   same quota). Needs `PUBLIC_APP_URL`; unset means no card.
 - **Summary card to the host's DM (host share card, 2026-10-28)**
-  (`docs/superpowers/specs/2026-10-28-line-host-share-card-design.md`; setup in
+  (`docs/archive/specs/2026-10-28-line-host-share-card-design.md`; setup in
   `docs/line-liff-setup.md`). The card used to be group-link only. A session now has one *target*,
   worked out at request time: **`group`** when the group is linked to a LINE group (`lineGroupId`)
   and `lineGroupRosterOnly` is off; otherwise **`host`** when `lineDmEnabled` is on and the owner
@@ -1657,7 +1657,7 @@ expired code gets one generic Thai reply (it never says which); a sender who has
 ### Slip payment matching (phase 1)
 
 Design: `docs/superpowers/specs/2026-10-30-slip-payment-matching-design.md`; build plan:
-`docs/superpowers/plans/2026-10-30-slip-payment-matching-phase-1.md`. Read the spec for the exact rules and
+`docs/archive/plans/2026-10-30-slip-payment-matching-phase-1.md`. Read the spec for the exact rules and
 the risks; this section is the why.
 
 **The problem.** After the payment card goes out, the host matched bank-transfer slips to names by eye,

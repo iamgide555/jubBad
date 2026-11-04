@@ -1,5 +1,7 @@
 # LINE host share card Implementation Plan
 
+> Archived 2026-11-04: shipped and live (8e13376, owner phone flow verified 2026-10-29). Steps were not ticked during execution and are not checked retroactively.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** At จบรอบ, a group whose owner linked their LINE by DM (and has no bot in the group) gets the summary card DMed to the host with a "ส่งเข้ากลุ่ม" button that opens a LIFF page where the host picks a group and LINE sends the card as the host.

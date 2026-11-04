@@ -69,12 +69,13 @@ describe('LineSummaryService', () => {
       ownerId?: string;
       linked?: boolean;
       dm?: boolean;
+      rosterOnly?: boolean;
       games?: number;
       ended?: boolean;
       date?: string | null;
     } = {}
   ): Promise<{ groupCode: string; sessionCode: string }> {
-    const { ownerId = hostId, linked = true, dm = false, games = 2, ended = true, date = '26 ต.ค.' } = options;
+    const { ownerId = hostId, linked = true, dm = false, rosterOnly = false, games = 2, ended = true, date = '26 ต.ค.' } = options;
     const groupCode = `sum-${randomUUID().slice(0, 10)}`;
     await prisma.group.create({
       data: {
@@ -83,6 +84,7 @@ describe('LineSummaryService', () => {
         ownerId,
         lineGroupId: linked ? `C${randomUUID().replace(/-/g, '')}` : null,
         lineDmEnabled: dm,
+        lineGroupRosterOnly: rosterOnly,
       },
     });
     const sessionCode = `s${randomUUID().slice(0, 8)}`;
@@ -324,10 +326,52 @@ describe('LineSummaryService', () => {
       });
     });
 
-    it('is not the target when the group is linked to a LINE group, even with the DM switch on', async () => {
+    it('is not the target when the group is linked to a LINE group, even with the DM switch on and roster-only off', async () => {
       const owner = await makeOwner('host');
       const { sessionCode } = await setup({ ownerId: owner.id, linked: true, dm: true });
       expect(await summary.state(sessionCode)).toMatchObject({ available: true, target: 'group', shareUrl: null });
+    });
+
+    it('is the target for a group linked to a LINE group when roster-only is on and the DM is ready', async () => {
+      const owner = await makeOwner('host');
+      const { sessionCode } = await setup({ ownerId: owner.id, linked: true, dm: true, rosterOnly: true });
+      expect(await summary.state(sessionCode)).toMatchObject({
+        available: true, target: 'host', shareUrl: `https://liff.line.me/2001234567-AbCdEfGh/${sessionCode}`,
+      });
+      expect(await summary.send(sessionCode)).toBe('sent');
+      expect(fakeClient.push.mock.calls[0][0]).toBe(owner.lineUserId);
+    });
+
+    it('has no target and pushes nothing when roster-only is on and the DM is not set up', async () => {
+      const { sessionCode } = await setup({ linked: true, dm: false, rosterOnly: true });
+      expect(await summary.state(sessionCode)).toMatchObject({ available: false, target: null });
+      expect(await summary.send(sessionCode)).toBe('unavailable');
+      expect(fakeClient.push).not.toHaveBeenCalled();
+    });
+
+    it('has no target when roster-only is on and the owner has no linked LINE account', async () => {
+      const owner = await makeOwner('host', null);
+      const { sessionCode } = await setup({ ownerId: owner.id, linked: true, dm: true, rosterOnly: true });
+      expect(await summary.state(sessionCode)).toMatchObject({ available: false, target: null });
+    });
+
+    it('stays sent when roster-only is switched on after the card went to the group', async () => {
+      const owner = await makeOwner('host');
+      const { groupCode, sessionCode } = await setup({ ownerId: owner.id, linked: true, dm: true });
+      expect(await summary.send(sessionCode)).toBe('sent');
+      await prisma.group.update({ where: { code: groupCode }, data: { lineGroupRosterOnly: true } });
+      expect(await summary.send(sessionCode)).toBe('already-sent');
+      expect(fakeClient.push).toHaveBeenCalledTimes(1);
+    });
+
+    it('has no target after a roster-only group owner unlinks their LINE account', async () => {
+      const owner = await makeOwner('host');
+      const { sessionCode } = await setup({ ownerId: owner.id, dm: true, rosterOnly: true });
+      expect((await summary.state(sessionCode)).target).toBe('host');
+      await prisma.user.update({ where: { id: owner.id }, data: { lineUserId: null } });
+      expect(await summary.state(sessionCode)).toMatchObject({ available: false, target: null });
+      expect(await summary.send(sessionCode)).toBe('unavailable');
+      expect(fakeClient.push).not.toHaveBeenCalled();
     });
 
     it('has no target when the group is neither linked nor DM-enabled', async () => {

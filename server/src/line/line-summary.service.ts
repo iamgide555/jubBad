@@ -195,8 +195,8 @@ export class LineSummaryService {
   }
 
   /**
-   * Where the card goes, or null when it cannot go anywhere. A group linked to a LINE group posts there, whether
-   * or not its host DM switch is on. Otherwise the host target needs the DM switch, an owner who linked their own
+   * Where the card goes, or null when it cannot go anywhere. A group linked to a LINE group posts there unless
+   * roster-only is on, whether or not its host DM switch is on. Otherwise the host target needs the DM switch, an owner who linked their own
    * LINE account, and the LIFF app behind the share button. Both need the bot configured, a paid plan (read now,
    * so a lapsed plan stops it) and a finished game. The session may still be open: only `send` requires it ended.
    */
@@ -210,7 +210,7 @@ export class LineSummaryService {
     const { group } = session;
     const hostLineUserId = group.owner?.lineUserId ?? null;
     let resolved: { target: LineSummaryTarget; to: string; shareUrl: string | null };
-    if (group.lineGroupId !== null) {
+    if (group.lineGroupId !== null && !group.lineGroupRosterOnly) {
       resolved = { target: 'group', to: group.lineGroupId, shareUrl: null };
     } else if (group.lineDmEnabled && hostLineUserId !== null && config.liffId !== null) {
       resolved = { target: 'host', to: hostLineUserId, shareUrl: liffShareUrl(config.liffId, session.code) };

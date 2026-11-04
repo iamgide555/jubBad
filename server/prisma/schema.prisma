@@ -56,6 +56,9 @@ model Group {
   /// under this group. Per group, so a host with several groups picks which ones the bot
   /// offers; independent of lineGroupId. Cleared for every group when the account unlinks.
   lineDmEnabled       Boolean @default(false)
+  /// When true, cards go to the host DM if ready, otherwise nowhere; group roster capture stays on.
+  /// docs/superpowers/specs/2026-11-04-line-group-card-switch-design.md
+  lineGroupRosterOnly Boolean @default(false)
   /// The group's bank account for the LINE payment card, as JSON { bank, number,
   /// name }, or null = none saved. Parsed and written only in
   /// server/src/sessions/pay-account.ts. Host-only, never public.

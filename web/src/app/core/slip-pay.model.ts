@@ -21,13 +21,18 @@ export interface SlipPayView {
   claimable: SlipPayClaimable[];
   accountName: string;
   alreadyPaid: boolean;
+  /** The viewer may undo their own pick and choose again. */
+  canChange: boolean;
   /** The night the bill is for, as the payment card writes it; null when the session has no date. */
   sessionDate: string | null;
 }
 
 export type SlipPayClaimOutcome = 'linked' | 'player-taken' | 'account-already-linked' | 'not-on-bill';
 
-export type SlipPayUploadOutcome = 'paid' | 'waiting' | 'duplicate' | 'not-slip';
+/** `locked`: the pick is no longer the player's to change (the host made the link, or a payment has proven it). */
+export type SlipPayUnclaimOutcome = 'unlinked' | 'locked';
+
+export type SlipPayUploadOutcome = 'paid' | 'waiting' | 'duplicate' | 'already-sent' | 'not-slip';
 
 /** The outcome only: why a slip was held is the host's to know, never the sender's. */
 export interface SlipPayUploadResult {

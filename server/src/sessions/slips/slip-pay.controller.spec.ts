@@ -52,6 +52,10 @@ describe('slip pay-page routes (public, token-gated)', () => {
     const r = request(kit.server).post(`${pay(code)}/claim${query}`);
     return (access === undefined ? r : r.set(HEADER, access)).send({ playerId });
   };
+  const unclaim = (code: string, query: string, access: string | undefined) => {
+    const r = request(kit.server).post(`${pay(code)}/unclaim${query}`);
+    return (access === undefined ? r : r.set(HEADER, access)).send({});
+  };
   const upload = (code: string, query: string, access: string | undefined, body: Buffer | string = IMAGE, type = 'image/png') => {
     const r = request(kit.server).post(`${pay(code)}/upload${query}`).set('Content-Type', type);
     return (access === undefined ? r : r.set(HEADER, access)).send(body);
@@ -73,6 +77,7 @@ describe('slip pay-page routes (public, token-gated)', () => {
       ['GET slip-pay', (c, qs, a) => get(c, qs, a)],
       ['GET status', (c, qs, a) => status(c, qs, a)],
       ['POST claim', (c, qs, a) => claim(c, qs, a, 'p')],
+      ['POST unclaim', (c, qs, a) => unclaim(c, qs, a)],
       ['POST upload', (c, qs, a) => upload(c, qs, a)],
     ];
 
@@ -132,6 +137,7 @@ describe('slip pay-page routes (public, token-gated)', () => {
       expect((await get(code, q(token), access)).status).toBe(404);
       expect((await status(code, q(token), access)).status).toBe(404);
       expect((await claim(code, q(token), access, ids[0])).status).toBe(404);
+      expect((await unclaim(code, q(token), access)).status).toBe(404);
       expect((await upload(code, q(token), access)).status).toBe(404);
       expect(kit.reader.read).not.toHaveBeenCalled();
       expect(await kit.prisma.playerLineAccount.count({ where: { lineUserId: users.get(access)!.userId } })).toBe(0);
@@ -210,6 +216,9 @@ describe('slip pay-page routes (public, token-gated)', () => {
       expect(await kit.prisma.pendingSlip.findMany({ where: { sessionId: code } })).toEqual([
         expect.objectContaining({ reason: 'unmapped' }),
       ]);
+      // Sending it again only says it already arrived: still no reason, and nothing for the host to dismiss.
+      const again = await upload(code, q(token), access);
+      expect(again.body).toEqual({ outcome: 'already-sent' });
     });
 
     it('answers not-slip for an image with no slip QR', async () => {
@@ -229,10 +238,10 @@ describe('slip pay-page routes (public, token-gated)', () => {
       const res = await get(code, q(token), access);
       expect(res.status).toBe(200);
       expect(Object.keys(res.body).sort()).toEqual([
-        'accountName', 'alreadyPaid', 'amountSatang', 'claimable', 'collectionClosed', 'playerName', 'sessionDate',
+        'accountName', 'alreadyPaid', 'amountSatang', 'canChange', 'claimable', 'collectionClosed', 'playerName', 'sessionDate',
       ]);
       expect(res.body).toMatchObject({
-        amountSatang: null, playerName: null, alreadyPaid: false, accountName: 'สมหญิง ใจดี', sessionDate: '30 ต.ค. 2569',
+        amountSatang: null, playerName: null, alreadyPaid: false, canChange: false, accountName: 'สมหญิง ใจดี', sessionDate: '30 ต.ค. 2569',
       });
       expect(res.body.claimable.map((c: { playerId: string }) => c.playerId).sort()).toEqual([...ids].sort());
       expect(res.body.claimable[0]).toEqual({ playerId: expect.any(String), name: expect.any(String) });
@@ -250,11 +259,12 @@ describe('slip pay-page routes (public, token-gated)', () => {
         amountSatang: await kit.owed(code, ids[1]),
         playerName: 'มาลี',
         alreadyPaid: false,
+        canChange: true,
       });
       expect(res.body.claimable.map((c: { playerId: string }) => c.playerId).sort()).toEqual([ids[0], ids[3]].sort());
 
       await kit.prisma.sessionPayment.create({ data: { sessionId: code, playerId: ids[1], source: 'host' } });
-      expect((await get(code, q(token), access)).body).toMatchObject({ alreadyPaid: true, playerName: 'มาลี' });
+      expect((await get(code, q(token), access)).body).toMatchObject({ alreadyPaid: true, playerName: 'มาลี', canChange: false });
     });
 
     it('does not leak ids other than the claimable players, the account number or the token', async () => {
@@ -332,6 +342,21 @@ describe('slip pay-page routes (public, token-gated)', () => {
         (await kit.prisma.session.findUniqueOrThrow({ where: { code } })).groupId,
         users.get(a)!.userId
       )).toBe(ids[0]);
+    });
+
+    it('unclaim lets a wrong pick be changed, until the host has made the link', async () => {
+      const { code, token, ids } = await setupSession();
+      const [a, user] = viewer();
+      expect((await claim(code, q(token), a, ids[0])).body).toEqual({ outcome: 'linked' });
+      const res = await unclaim(code, q(token), a);
+      expect(res.status).toBe(200);
+      expect(res.body).toEqual({ outcome: 'unlinked' });
+      expect((await get(code, q(token), a)).body).toMatchObject({ playerName: null, canChange: false });
+      expect((await claim(code, q(token), a, ids[1])).body).toEqual({ outcome: 'linked' });
+
+      await kit.app.get(SlipPaymentsService).setLink(code, ids[1], user.userId);
+      expect((await get(code, q(token), a)).body).toMatchObject({ playerName: 'มาลี', canChange: false });
+      expect((await unclaim(code, q(token), a)).body).toEqual({ outcome: 'locked' });
     });
 
     it('rejects a body without a playerId as a bad request', async () => {

@@ -60,6 +60,16 @@ describe('SlipPayService', () => {
     expect(got).toEqual({ outcome: 'linked' });
   });
 
+  it('unclaim: POSTs with the header', () => {
+    let got: unknown;
+    service.unclaim('s/1 x', 't&k=1', 'ACCESS').subscribe((v) => (got = v));
+    const req = http.expectOne(`${base}/unclaim?token=${tok}`);
+    expect(req.request.method).toBe('POST');
+    expect(req.request.headers.get('X-Line-Access-Token')).toBe('ACCESS');
+    req.flush({ outcome: 'unlinked' });
+    expect(got).toEqual({ outcome: 'unlinked' });
+  });
+
   it('upload: POSTs the raw file with its own content type and the header', () => {
     const file = new File([new Uint8Array([1, 2, 3])], 'slip.png', { type: 'image/png' });
     let got: unknown;

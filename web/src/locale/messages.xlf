@@ -8356,7 +8356,7 @@
         <source>คุณคือใคร?</source>
       </trans-unit>
       <trans-unit id="slipPay.pickName" datatype="html">
-        <source>เลือกชื่อของคุณ (ครั้งเดียว)</source>
+        <source>เลือกชื่อของคุณเอง ไม่ใช่ชื่อคนที่คุณจ่ายให้ (เลือกได้ครั้งเดียว)</source>
       </trans-unit>
       <trans-unit id="slipPay.claim.taken" datatype="html">
         <source>ชื่อนี้มีคนเลือกไปแล้ว เลือกชื่ออื่น</source>
@@ -8387,6 +8387,18 @@
       </trans-unit>
       <trans-unit id="slipPay.dup" datatype="html">
         <source>สลิปนี้ถูกใช้ไปแล้ว</source>
+      </trans-unit>
+      <trans-unit id="slipPay.alreadySent" datatype="html">
+        <source>สลิปนี้ส่งแล้ว รอโฮสต์ตรวจ</source>
+      </trans-unit>
+      <trans-unit id="slipPay.sentAs" datatype="html">
+        <source>ในชื่อ <x id="INTERPOLATION" equiv-text="{{ v.playerName }}"/></source>
+      </trans-unit>
+      <trans-unit id="slipPay.change" datatype="html">
+        <source>ไม่ใช่ชื่อนี้? เปลี่ยนชื่อ</source>
+      </trans-unit>
+      <trans-unit id="slipPay.change.locked" datatype="html">
+        <source>เปลี่ยนชื่อไม่ได้แล้ว ให้โฮสต์เปลี่ยนให้</source>
       </trans-unit>
       <trans-unit id="slipPay.notSlip" datatype="html">
         <source>ไม่พบสลิปในรูปนี้ ลองเลือกรูปสลิปอีกครั้ง</source>

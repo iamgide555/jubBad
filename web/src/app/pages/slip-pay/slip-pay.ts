@@ -1,4 +1,5 @@
 import { HttpErrorResponse } from '@angular/common/http';
+import { NgTemplateOutlet } from '@angular/common';
 import { Component, computed, inject, signal } from '@angular/core';
 import { ActivatedRoute } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
@@ -9,7 +10,7 @@ import { SlipPayService } from '../../core/slip-pay.service';
 
 type Phase = 'loading' | 'login' | 'unavailable' | 'error' | 'ready';
 /** A short message under the form; never a raw outcome string or HTTP code. */
-type Notice = 'duplicate' | 'notSlip' | 'rate' | 'tooBig' | 'generic';
+type Notice = 'duplicate' | 'alreadySent' | 'notSlip' | 'rate' | 'tooBig' | 'generic';
 type ClaimNote = 'taken' | 'accountLinked' | 'notOnBill' | 'rate' | 'generic';
 
 const CLAIM_NOTE: Record<Exclude<SlipPayClaimOutcome, 'linked'>, ClaimNote> = {
@@ -27,6 +28,7 @@ const CLAIM_NOTE: Record<Exclude<SlipPayClaimOutcome, 'linked'>, ClaimNote> = {
  */
 @Component({
   selector: 'app-slip-pay',
+  imports: [NgTemplateOutlet],
   templateUrl: './slip-pay.html',
   styleUrl: './slip-pay.css',
 })
@@ -49,6 +51,9 @@ export class SlipPay {
   protected readonly skipped = signal(false);
   protected readonly claiming = signal(false);
   protected readonly claimNote = signal<ClaimNote | null>(null);
+  protected readonly changing = signal(false);
+  /** Why "not my name" did nothing: the pick is locked, or the request failed. */
+  protected readonly changeNote = signal<'locked' | 'generic' | null>(null);
   protected readonly uploading = signal(false);
   protected readonly notice = signal<Notice | null>(null);
   /** Set once a slip is accepted or handed to the host; the page then stops offering to send. */
@@ -148,6 +153,31 @@ export class SlipPay {
     }
   }
 
+  /** "Not my name": drop the viewer's own pick, then the name list shows again (from the send or waiting screen). */
+  protected async changeName(): Promise<void> {
+    if (this.changing() || this.view()?.collectionClosed) return;
+    this.changing.set(true);
+    this.changeNote.set(null);
+    try {
+      const { outcome } = await firstValueFrom(this.api.unclaim(this.code, this.token, this.accessToken));
+      const read = await this.refresh();
+      if (read === 'gone') this.phase.set('unavailable');
+      else if (read === 'failed') this.changeNote.set('generic');
+      else if (outcome === 'locked') this.changeNote.set('locked');
+      else {
+        this.result.set(null);
+        this.skipped.set(false);
+        this.notice.set(null);
+        this.cashNote.set(false);
+      }
+    } catch (e) {
+      if (isStatus(e, 404)) this.phase.set('unavailable');
+      else this.changeNote.set('generic');
+    } finally {
+      this.changing.set(false);
+    }
+  }
+
   protected skip(): void {
     this.skipped.set(true);
   }
@@ -174,6 +204,9 @@ export class SlipPay {
           break;
         case 'duplicate':
           this.notice.set('duplicate');
+          break;
+        case 'already-sent':
+          this.notice.set('alreadySent');
           break;
         case 'not-slip':
           this.notice.set('notSlip');

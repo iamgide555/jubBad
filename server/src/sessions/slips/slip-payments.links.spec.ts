@@ -147,6 +147,78 @@ describe('slip payments: LINE account links', () => {
     });
   });
 
+  describe('unclaimPlayer (a wrong pick, changed by the player)', () => {
+    /** A slip this account sent that paid `playerId`: the link has been proven by money. */
+    async function paidBySlip(code: string, groupCode: string, lineUserId: string, playerId: string) {
+      const reference = `R${randomUUID().slice(0, 12)}`;
+      await prisma.slipReference.create({ data: { groupId: groupCode, reference, bankCode: '004', sessionId: code, lineUserId } });
+      await prisma.sessionPayment.create({ data: { sessionId: code, playerId, source: 'slip', reference } });
+    }
+
+    it('removes a self-made link so the account can pick again, and frees the old name', async () => {
+      const { code, groupCode, ids } = await setup();
+      const a = user();
+      await slips.claimPlayer(code, a, ids[0]);
+      expect(await slips.unclaimPlayer(code, a)).toBe('unlinked');
+      expect(await slips.linkedPlayerOf(groupCode, a.userId)).toBeNull();
+      expect(await slips.claimPlayer(code, a, ids[1])).toBe('linked');
+      expect(await slips.claimPlayer(code, user(), ids[0])).toBe('linked');
+    });
+
+    it('is a no-op for an account with no link', async () => {
+      const { code, groupCode } = await setup();
+      expect(await slips.unclaimPlayer(code, user())).toBe('unlinked');
+      expect(await linkCount(groupCode)).toBe(0);
+    });
+
+    it('refuses a link the host made', async () => {
+      const { code, groupCode, ids } = await setup();
+      const a = user();
+      await slips.claimPlayer(code, a, ids[0]);
+      await slips.setLink(code, ids[0], a.userId);
+      expect(await slips.unclaimPlayer(code, a)).toBe('locked');
+      expect(await slips.linkedPlayerOf(groupCode, a.userId)).toBe(ids[0]);
+    });
+
+    it('refuses once the linked player is paid tonight, by any path', async () => {
+      const { code, groupCode, ids } = await setup();
+      const a = user();
+      await slips.claimPlayer(code, a, ids[0]);
+      await prisma.sessionPayment.create({ data: { sessionId: code, playerId: ids[0], source: 'host' } });
+      expect(await slips.unclaimPlayer(code, a)).toBe('locked');
+      expect(await slips.linkedPlayerOf(groupCode, a.userId)).toBe(ids[0]);
+    });
+
+    it('refuses once a slip from this account has ever paid the linked player, even in an earlier session', async () => {
+      const { code, groupCode, ids } = await setup();
+      const a = user();
+      await slips.claimPlayer(code, a, ids[0]);
+      const earlier = `s${randomUUID().slice(0, 8)}`;
+      await prisma.session.create({ data: { code: earlier, groupId: groupCode, rawImportText: '' } });
+      await paidBySlip(earlier, groupCode, a.userId, ids[0]);
+      expect(await slips.unclaimPlayer(code, a)).toBe('locked');
+      expect(await slips.linkedPlayerOf(groupCode, a.userId)).toBe(ids[0]);
+    });
+
+    it('still allows a change when this account\'s slips only ever paid someone else', async () => {
+      const { code, groupCode, ids } = await setup();
+      const a = user();
+      const earlier = `s${randomUUID().slice(0, 8)}`;
+      await prisma.session.create({ data: { code: earlier, groupId: groupCode, rawImportText: '' } });
+      await paidBySlip(earlier, groupCode, a.userId, ids[2]);
+      await slips.claimPlayer(code, a, ids[0]);
+      expect(await slips.unclaimPlayer(code, a)).toBe('unlinked');
+    });
+
+    it('refuses after collection is closed', async () => {
+      const { code, ids } = await setup();
+      const a = user();
+      await slips.claimPlayer(code, a, ids[0]);
+      await prisma.session.update({ where: { code }, data: { paymentCollectionClosedAt: new Date() } });
+      await expect(slips.unclaimPlayer(code, a)).rejects.toBeInstanceOf(ConflictException);
+    });
+  });
+
   describe('claimPlayer racing another session of the same group', () => {
     const p2002 = () => new Prisma.PrismaClientKnownRequestError('unique', { code: 'P2002', clientVersion: 'test' });
 

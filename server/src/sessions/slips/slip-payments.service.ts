@@ -46,6 +46,9 @@ export interface LiffUser {
 
 export type ClaimOutcome = 'linked' | 'player-taken' | 'account-already-linked' | 'not-on-bill';
 
+/** `locked`: the link stays, the host made it or money has proven it; `unlinked` also when there was no link. */
+export type UnclaimOutcome = 'unlinked' | 'locked';
+
 export interface LinkRow {
   playerId: string;
   displayName: string | null;
@@ -59,6 +62,8 @@ export type SubmitOutcome =
   | { kind: 'paid'; playerIds: string[] }
   | { kind: 'waiting'; reason: WaitingReason }
   | { kind: 'duplicate' }
+  /** The same LINE account sent this slip before and it is still waiting for the host: nothing new is recorded. */
+  | { kind: 'already-sent' }
   | { kind: 'not-slip' }
   | { kind: 'unavailable' };
 
@@ -102,6 +107,8 @@ export interface PayPageView {
   /** Who the transfer goes to, as the confirmed card shows it. */
   accountName: string;
   alreadyPaid: boolean;
+  /** The viewer may undo their own pick and choose again (see `unclaimPlayer` for when that is closed). */
+  canChange: boolean;
   /** The night the bill is for, as the card writes it (a stored yyyy-mm-dd becomes a Thai date); null with no date. */
   sessionDate: string | null;
 }
@@ -168,6 +175,13 @@ export class SlipPaymentsService {
       const { reference, bankCode } = qr;
 
       if (await this.prisma.slipReference.findUnique({ where: { groupId_reference: { groupId, reference } } })) {
+        // A re-send of the sender's own slip still in the host's waiting list is not news for the host, and the
+        // sender only needs to hear it arrived. Only the same account is told: anyone else learns nothing about it.
+        const waiting = await this.prisma.pendingSlip.findFirst({
+          where: { groupId, reference, lineUserId: user.userId, resolvedAt: null },
+          select: { id: true },
+        });
+        if (waiting) return { kind: 'already-sent' };
         return this.recordDuplicate(groupId, code, reference, user);
       }
       try {
@@ -223,6 +237,7 @@ export class SlipPaymentsService {
         .map((r) => ({ playerId: r.playerId, name: r.name })),
       accountName: panel.account?.name ?? savedName ?? '',
       alreadyPaid: linkedId !== null && paid.has(linkedId),
+      canChange: gate.closedAt === null && (await this.selfChangeable(groupId, user.userId, paid)),
       sessionDate: date === null || date.trim() === '' ? null : cardDate(date, billEnd),
     };
   }
@@ -249,6 +264,17 @@ export class SlipPaymentsService {
     const gate = await this.gate(code, token, now);
     if (!gate || gate.closedAt) return null;
     try { return await this.claimPlayer(code, user, playerId); }
+    catch (error) {
+      if (error instanceof ConflictException && (error.getResponse() as {code?:string}).code === 'COLLECTION_CLOSED') return null;
+      throw error;
+    }
+  }
+
+  /** The pay page's "not my name": `unclaimPlayer` behind the same gates as the page itself; null when gated out. */
+  async unclaimForPayPage(code: string, token: string | undefined, user: LiffUser, now: Date = new Date()): Promise<UnclaimOutcome | null> {
+    const gate = await this.gate(code, token, now);
+    if (!gate || gate.closedAt) return null;
+    try { return await this.unclaimPlayer(code, user); }
     catch (error) {
       if (error instanceof ConflictException && (error.getResponse() as {code?:string}).code === 'COLLECTION_CLOSED') return null;
       throw error;
@@ -399,6 +425,38 @@ export class SlipPaymentsService {
       }
       return 'linked';
     });
+  }
+
+  /**
+   * A viewer undoes their own "this is me" so they can pick again: a wrong first pick is otherwise fixable only by the
+   * host. Closed once the link is the host's, or once money has proven it: the linked player is paid tonight (by any
+   * path), or a slip this account sent has ever paid that player. A slip already waiting stays with the host as it is.
+   */
+  unclaimPlayer(code: string, user: LiffUser): Promise<UnclaimOutcome> {
+    return this.lock.run(code, async () => {
+      await this.assertOpen(code);
+      const groupId = await this.groupOf(code);
+      const link = await this.prisma.playerLineAccount.findUnique({
+        where: { groupId_lineUserId: { groupId, lineUserId: user.userId } },
+      });
+      if (!link) return 'unlinked';
+      if (!(await this.selfChangeable(groupId, user.userId, await this.paidIds(code)))) return 'locked';
+      await this.prisma.playerLineAccount.delete({ where: { id: link.id } });
+      return 'unlinked';
+    });
+  }
+
+  /** Whether this account has a link it made itself that money has not proven yet (`unclaimPlayer`'s rule). */
+  private async selfChangeable(groupId: string, lineUserId: string, paidTonight: Set<string>): Promise<boolean> {
+    const link = await this.prisma.playerLineAccount.findUnique({ where: { groupId_lineUserId: { groupId, lineUserId } } });
+    if (!link || link.linkedBy !== 'self' || paidTonight.has(link.playerId)) return false;
+    const sent = await this.prisma.slipReference.findMany({ where: { groupId, lineUserId }, select: { reference: true } });
+    if (sent.length === 0) return true;
+    const proven = await this.prisma.sessionPayment.findFirst({
+      where: { playerId: link.playerId, source: 'slip', reference: { in: sent.map((r) => r.reference) }, session: { groupId } },
+      select: { id: true },
+    });
+    return proven === null;
   }
 
   /** The player this LINE account is linked to in the group, if any. */

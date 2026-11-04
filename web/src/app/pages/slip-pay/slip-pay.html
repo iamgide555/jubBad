@@ -29,7 +29,11 @@
                 }
               } @else {
                 <h1 i18n="@@slipPay.sentToHost">ส่งให้โฮสต์ตรวจแล้ว</h1>
+                @if (v.playerName) {
+                  <p class="player-name" data-slip-player-name i18n="@@slipPay.sentAs">ในชื่อ {{ v.playerName }}</p>
+                }
                 <p class="muted" i18n="@@slipPay.hostWillCheck">โฮสต์จะตรวจและติ๊กให้</p>
+                <ng-container [ngTemplateOutlet]="change" />
               }
             </section>
           }
@@ -46,7 +50,7 @@
           @case ('claim') {
             <section>
               <h1 i18n="@@slipPay.whoAreYou">คุณคือใคร?</h1>
-              <p class="muted" i18n="@@slipPay.pickName">เลือกชื่อของคุณ (ครั้งเดียว)</p>
+              <p class="muted" i18n="@@slipPay.pickName">เลือกชื่อของคุณเอง ไม่ใช่ชื่อคนที่คุณจ่ายให้ (เลือกได้ครั้งเดียว)</p>
               @if (claimNote(); as note) {
                 <p class="error" role="alert" data-slip-claim-note>
                   @switch (note) {
@@ -88,8 +92,9 @@
                   <p class="eyebrow" i18n="@@slipPay.amountLabel">ยอดที่ต้องจ่าย</p>
                   <h1 class="amount tabular" data-slip-amount>฿{{ baht(v.amountSatang) }}</h1>
                   @if (v.playerName) {
-                    <p class="player-name">{{ v.playerName }}</p>
+                    <p class="player-name" data-slip-player-name>{{ v.playerName }}</p>
                   }
+                  <ng-container [ngTemplateOutlet]="change" />
                 </div>
               } @else {
                 @if (v.sessionDate) {
@@ -108,6 +113,9 @@
                   @switch (n) {
                     @case ('duplicate') {
                       <ng-container i18n="@@slipPay.dup">สลิปนี้ถูกใช้ไปแล้ว</ng-container>
+                    }
+                    @case ('alreadySent') {
+                      <ng-container i18n="@@slipPay.alreadySent">สลิปนี้ส่งแล้ว รอโฮสต์ตรวจ</ng-container>
                     }
                     @case ('notSlip') {
                       <ng-container i18n="@@slipPay.notSlip">ไม่พบสลิปในรูปนี้ ลองเลือกรูปสลิปอีกครั้ง</ng-container>
@@ -153,3 +161,26 @@
     }
   }
 </main>
+
+<!-- "Not my name": only while the pick is still the viewer's own to change; never on a paid screen. -->
+<ng-template #change>
+  @if (view()?.canChange) {
+    <button
+      type="button"
+      class="text-btn"
+      data-slip-change
+      [disabled]="changing()"
+      (click)="changeName()"
+      i18n="@@slipPay.change"
+    >ไม่ใช่ชื่อนี้? เปลี่ยนชื่อ</button>
+  }
+  @if (changeNote(); as cn) {
+    <p class="error" role="alert" data-slip-change-note>
+      @if (cn === 'locked') {
+        <ng-container i18n="@@slipPay.change.locked">เปลี่ยนชื่อไม่ได้แล้ว ให้โฮสต์เปลี่ยนให้</ng-container>
+      } @else {
+        <ng-container i18n="@@slipPay.err.generic">ส่งไม่สำเร็จ ลองใหม่อีกครั้ง</ng-container>
+      }
+    </p>
+  }
+</ng-template>

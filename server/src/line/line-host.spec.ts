@@ -190,6 +190,16 @@ describe('LINE host link codes, status and unlink', () => {
       expect((await host.status(code)).summaryAvailable).toBe(false);
     });
 
+    it('offers the host switch for a bot-linked group once roster-only is on', async () => {
+      process.env.PUBLIC_APP_URL = 'https://jubbad.test';
+      process.env.LINE_LIFF_ID = '1234567890-AbCdEfGh';
+      const { code } = await makeOwner();
+      await prisma.group.update({ where: { code }, data: {
+        lineGroupId: `C${randomUUID().replace(/-/g, '')}`, lineGroupRosterOnly: true,
+      } });
+      expect((await host.status(code)).summaryAvailable).toBe(true);
+    });
+
     it('hides the host switch for a bot-linked group even with both settings present', async () => {
       process.env.PUBLIC_APP_URL = 'https://jubbad.test';
       process.env.LINE_LIFF_ID = '1234567890-AbCdEfGh';

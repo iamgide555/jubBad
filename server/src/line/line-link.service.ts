@@ -18,6 +18,7 @@ export interface LineStatus {
   leftAt: string | null;
   /** Whether the end-of-session "send the summary card" checkbox starts ticked. */
   summaryDefault: boolean;
+  rosterOnly: boolean;
   /** Whether this server can send the card at all: needs `PUBLIC_APP_URL` for the button link. */
   summaryAvailable: boolean;
 }
@@ -46,6 +47,7 @@ export class LineLinkService {
       linkedAt: group?.lineLinkedAt?.toISOString() ?? null,
       leftAt: group?.lineLeftAt?.toISOString() ?? null,
       summaryDefault: group?.lineSummaryDefault ?? true,
+      rosterOnly: group?.lineGroupRosterOnly ?? false,
       summaryAvailable: config.publicAppUrl !== null,
     };
   }
@@ -65,6 +67,16 @@ export class LineLinkService {
     const dmLinked = group.lineDmEnabled && group.owner?.lineUserId != null;
     if (group.lineGroupId === null && !dmLinked) throw new ConflictException({ code: 'LINE_NOT_LINKED' });
     await this.prisma.group.update({ where: { code: groupCode }, data: { lineSummaryDefault: on } });
+    return on;
+  }
+
+  /** Roster-only is a paid, group-linked setting; it survives unlink and re-link. */
+  async setRosterOnly(groupCode: string, on: boolean): Promise<boolean> {
+    await this.plans.requireGroupPlan(groupCode, 'host');
+    const group = await this.prisma.group.findUnique({ where: { code: groupCode } });
+    if (!group) throw new NotFoundException();
+    if (group.lineGroupId === null) throw new ConflictException({ code: 'LINE_NOT_LINKED' });
+    await this.prisma.group.update({ where: { code: groupCode }, data: { lineGroupRosterOnly: on } });
     return on;
   }
 

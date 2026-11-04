@@ -213,6 +213,7 @@ describe('LINE link codes, status and unlink', () => {
         linkedAt: null,
         leftAt: null,
         summaryDefault: true,
+        rosterOnly: false,
         summaryAvailable: false,
       });
     });
@@ -237,6 +238,46 @@ describe('LINE link codes, status and unlink', () => {
       const relinked = await link.status(code);
       expect(relinked.linked).toBe(true);
       expect(relinked.leftAt).toBeNull();
+    });
+  });
+
+  describe('roster only', () => {
+    it('is saved for a linked group on a paid plan and shown in the status', async () => {
+      const code = await makeGroup(hostId, { lineGroupId: lineId() });
+      expect(await link.setRosterOnly(code, true)).toBe(true);
+      expect((await link.status(code)).rosterOnly).toBe(true);
+      expect(await link.setRosterOnly(code, false)).toBe(false);
+      expect((await link.status(code)).rosterOnly).toBe(false);
+    });
+
+    it('is refused on a free plan and nothing is saved', async () => {
+      const code = await makeGroup(freeId, { lineGroupId: lineId() });
+      await expect(link.setRosterOnly(code, true)).rejects.toMatchObject({ status: 403 });
+      expect((await prisma.group.findUniqueOrThrow({ where: { code } })).lineGroupRosterOnly).toBe(false);
+    });
+
+    it('is refused on a lapsed plan and nothing is saved', async () => {
+      const owner = await prisma.user.create({ data: {
+        email: `roster-lapsed-${randomUUID()}@example.test`, passwordHash: 'x', role: 'host',
+        plan: 'host', planRenewsAt: new Date(Date.now() - 86_400_000),
+      } });
+      const code = await makeGroup(owner.id, { lineGroupId: lineId() });
+      await expect(link.setRosterOnly(code, true)).rejects.toMatchObject({ status: 403 });
+      expect((await prisma.group.findUniqueOrThrow({ where: { code } })).lineGroupRosterOnly).toBe(false);
+    });
+
+    it('is refused without a LINE group link even with host DM on', async () => {
+      const code = await makeGroup(hostId, { lineDmEnabled: true });
+      await expect(link.setRosterOnly(code, true)).rejects.toMatchObject({ response: { code: 'LINE_NOT_LINKED' } });
+    });
+
+    it('survives an unlink and a re-link', async () => {
+      const code = await makeGroup(hostId);
+      await link.redeem(lineId(), (await link.createCode(code)).code);
+      await link.setRosterOnly(code, true);
+      await link.unlink(code);
+      await link.redeem(lineId(), (await link.createCode(code)).code);
+      expect((await link.status(code)).rosterOnly).toBe(true);
     });
   });
 
@@ -309,7 +350,7 @@ describe('LINE link codes, status and unlink', () => {
     it('is a PATCH on the group line route', async () => {
       const code = await makeGroup(hostId, { lineGroupId: lineId() });
       const res = await request(server).patch(`/groups/${code}/line`).send({ summaryDefault: false }).expect(200);
-      expect(res.body).toEqual({ summaryDefault: false });
+      expect(res.body).toMatchObject({ summaryDefault: false });
       await request(server).patch(`/groups/${code}/line`).send({ summaryDefault: 'no' }).expect(400);
     });
   });
@@ -460,6 +501,29 @@ describe('LINE link codes, status and unlink', () => {
   });
 
   describe('owner routes', () => {
+    it('PATCH accepts roster-only or both settings and reads back both values', async () => {
+      const code = await makeGroup(hostId, { lineGroupId: lineId() });
+      const patch = (body: object) => request(server).patch(`/groups/${code}/line`).send(body);
+      expect((await patch({ rosterOnly: true }).expect(200)).body).toEqual({ summaryDefault: true, rosterOnly: true });
+      expect((await patch({ rosterOnly: false, summaryDefault: false }).expect(200)).body)
+        .toEqual({ summaryDefault: false, rosterOnly: false });
+    });
+
+    it.each([{}, { rosterOnly: 'yes' }, { rosterOnly: null }, { summaryDefault: null, rosterOnly: true }])(
+      'PATCH rejects invalid settings %j without saving', async (body) => {
+        const code = await makeGroup(hostId, { lineGroupId: lineId() });
+        await request(server).patch(`/groups/${code}/line`).send(body).expect(400);
+        expect(await link.status(code)).toMatchObject({ summaryDefault: true, rosterOnly: false });
+      },
+    );
+
+    it('PATCH roster-only refuses a free owner without saving', async () => {
+      requestUserId = freeId;
+      const code = await makeGroup(freeId, { lineGroupId: lineId() });
+      await request(server).patch(`/groups/${code}/line`).send({ rosterOnly: true }).expect(403);
+      expect((await link.status(code)).rosterOnly).toBe(false);
+    });
+
     it('GET /groups/:code/line returns the status', async () => {
       const code = await makeGroup(hostId);
       const res = await request(server).get(`/groups/${code}/line`).expect(200);

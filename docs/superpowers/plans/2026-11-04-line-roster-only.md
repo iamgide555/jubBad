@@ -139,7 +139,7 @@ git commit -m "feat(line): roster-only groups send cards to the host DM, not the
   - `PATCH /groups/:code/line` body `{ summaryDefault?: boolean; rosterOnly?: boolean }` (at least one; else 400), answers `{ summaryDefault: boolean; rosterOnly: boolean }` read back after the writes.
   - `LineHostStatus.summaryAvailable` = `publicAppUrl !== null && liffId !== null && (!botLinked || rosterOnly)`.
 
-- [ ] **Step 1: Write the failing tests.** In `line-link.spec.ts`:
+- [x] **Step 1: Write the failing tests.** In `line-link.spec.ts`:
   - `status` → the existing `toEqual` for an unlinked group gains `rosterOnly: false`.
   - New `describe('roster only')`:
 
@@ -182,24 +182,24 @@ it('offers the host switch for a bot-linked group once roster-only is on', async
 });
 ```
 
-- [ ] **Step 2: Run to verify they fail**
+- [x] **Step 2: Run to verify they fail**
 
 Run: `npx vitest run src/line/line-link.spec.ts src/line/line-host.spec.ts`
 Expected: FAIL — `setRosterOnly` is not a function; `rosterOnly` missing from status.
 
-- [ ] **Step 3: Implement.**
+- [x] **Step 3: Implement.**
   - `status()`: `rosterOnly: group?.lineGroupRosterOnly ?? false`.
   - `setRosterOnly`: `plans.requireGroupPlan(groupCode, 'host')` first, then `NotFoundException` if no group, `ConflictException({ code: 'LINE_NOT_LINKED' })` if `lineGroupId === null`, then update. Same shape as `setSummaryDefault`, without its DM branch.
   - DTO `UpdateLineSettingsDto`: both fields `@IsOptional() @IsBoolean()`. Delete the old DTO file and fix its imports.
   - Controller PATCH: `BadRequestException` when both fields are `undefined`; call `setSummaryDefault` / `setRosterOnly` for whichever are present; answer from `link.status(code)` (`{ summaryDefault, rosterOnly }`).
   - `line-host.service.ts`: `ownerOf()` also selects and returns `rosterOnly`; `summaryAvailable` per the Interfaces line above.
 
-- [ ] **Step 4: Run to verify they pass**
+- [x] **Step 4: Run to verify they pass**
 
 Run: `npx vitest run src/line/` then `npm run lint`
 Expected: PASS; lint clean.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add server/src/line

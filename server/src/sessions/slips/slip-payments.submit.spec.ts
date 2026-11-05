@@ -422,7 +422,7 @@ describe('slip payments: submit pipeline', () => {
       expectNoOcrText(dups[0]);
     });
 
-    it('is a duplicate again after the paid mark is undone, and pays nobody', async () => {
+    it('an undone paid mark puts the slip back in the waiting list; a re-send is already-sent and pays nobody', async () => {
       const { code, groupCode, ids, token } = await setup();
       const a = await linked(code, ids[0]);
       const reference = newRef();
@@ -430,11 +430,10 @@ describe('slip payments: submit pipeline', () => {
       expect(await slips.submitSlip(code, token, a, IMAGE)).toMatchObject({ kind: 'paid' });
       await slips.untick(code, ids[0]);
 
-      expect(await slips.submitSlip(code, token, a, IMAGE)).toEqual({ kind: 'duplicate' });
+      expect(await pendingOf(code)).toMatchObject([{ reference, reason: 'undone', lineUserId: a.userId, resolvedAt: null }]);
+      expect(await slips.submitSlip(code, token, a, IMAGE)).toEqual({ kind: 'already-sent' });
       expect(await paymentsOf(code)).toEqual([]);
-      const dups = await duplicatesOf(groupCode);
-      expect(dups).toHaveLength(1);
-      expect(JSON.parse(dups[0].originalPlayerIds)).toEqual([]);
+      expect(await duplicatesOf(groupCode)).toEqual([]);
     });
 
     it('the same sender re-sending a slip still waiting for the host is told it is already sent, not a duplicate', async () => {

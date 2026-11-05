@@ -6932,6 +6932,10 @@
         <source>คนนี้จ่ายไปแล้วหรือไม่อยู่ในบิล</source>
         <target>This person already paid or is not on the bill</target>
       </trans-unit>
+      <trans-unit id="slipReview.reason.undone" datatype="html">
+        <source>ยกเลิกสถานะจ่ายไปแล้ว ตรวจใหม่ได้</source>
+        <target>Payment was undone. Review it again.</target>
+      </trans-unit>
       <trans-unit id="slipReview.reason.unmapped" datatype="html">
         <source>ยังไม่รู้ว่าเป็นใคร</source>
         <target>We do not know who this is yet</target>
@@ -7387,8 +7391,8 @@
         </context-group>
       </trans-unit>
       <trans-unit id="slipReview.undoSlipNote" datatype="html">
-        <source>ยกเลิกแล้วคนนี้จะกลับเป็นยังไม่จ่าย และส่งสลิปใบเดิมซ้ำไม่ได้ ถ้าจ่ายจริงให้ติ๊กเอง</source>
-        <target>Undoing marks this person unpaid, and the same slip can't be sent again. If they did pay, tick them yourself.</target>
+        <source>ยกเลิกแล้วคนนี้จะกลับเป็นยังไม่จ่าย และสลิปจะกลับไปรอตรวจ</source>
+        <target>Undoing marks this person unpaid and sends the slip back to the review list.</target>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/shared/slip-review/slip-review.html</context>
           <context context-type="linenumber">1</context>

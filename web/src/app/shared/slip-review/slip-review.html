@@ -139,6 +139,9 @@
                 @case ('stale') {
                   <ng-container i18n="@@slipReview.reason.stale">ยอดบิลเปลี่ยนหลังยืนยัน</ng-container>
                 }
+                @case ('undone') {
+                  <ng-container i18n="@@slipReview.reason.undone">ยกเลิกสถานะจ่ายไปแล้ว ตรวจใหม่ได้</ng-container>
+                }
                 @case ('collision') {
                   <ng-container i18n="@@slipReview.reason.collision">คนนี้จ่ายไปแล้วหรือไม่อยู่ในบิล</ng-container>
                 }
@@ -331,7 +334,7 @@
         <!-- Collection closed: payments are final, so the slip is view-only. -->
         <p class="muted undo-note" data-slip-view-only i18n="@@slipReview.viewOnlyClosed">ปิดการเก็บเงินแล้ว ดูได้อย่างเดียว</p>
       } @else {
-        <p class="muted undo-note" i18n="@@slipReview.undoSlipNote">ยกเลิกแล้วคนนี้จะกลับเป็นยังไม่จ่าย และส่งสลิปใบเดิมซ้ำไม่ได้ ถ้าจ่ายจริงให้ติ๊กเอง</p>
+        <p class="muted undo-note" i18n="@@slipReview.undoSlipNote">ยกเลิกแล้วคนนี้จะกลับเป็นยังไม่จ่าย และสลิปจะกลับไปรอตรวจ</p>
       }
       <div class="actions">
         @if (!closed()) {

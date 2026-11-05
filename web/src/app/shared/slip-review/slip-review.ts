@@ -262,7 +262,8 @@ export class SlipReview {
   /**
    * A slip-paid row opens its slip instead of unticking: the slip mark is evidence a stray tap must not erase (a
    * re-tick would only come back as the host's, and the slip itself cannot be sent again). Undo is a deliberate
-   * button inside that dialog, offered only while collection is open. Unpaid and host-ticked rows still toggle on tap.
+   * button inside that dialog, offered only while collection is open; the server sends the undone slip back to the
+   * waiting list so a mistaken undo can be reviewed again. Unpaid and host-ticked rows still toggle on tap.
    */
   protected toggle(person: Person): void {
     if (person.paid?.source === 'slip') {

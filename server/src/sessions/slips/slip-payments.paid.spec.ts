@@ -165,6 +165,77 @@ describe('slip payments: paid state, manual tick, token check', () => {
       await expect(paid.untick(code, ids[0])).resolves.toBeUndefined();
     });
 
+    describe('undoing a slip payment sends the slip back for review', () => {
+      const owed = async (code: string, playerId: string) =>
+        (await cards.panel(code)).rows.find((r) => r.playerId === playerId)!.amountSatang;
+
+      it('an auto-paid slip comes back as a waiting slip from its sender', async () => {
+        const { code, ids } = await setup();
+        const groupId = (await prisma.session.findUniqueOrThrow({ where: { code } })).groupId;
+        const lineUserId = `U${randomUUID().replace(/-/g, '')}`;
+        await prisma.lineAccount.create({ data: { lineUserId, displayName: 'ไอซ์ LINE', pictureUrl: 'https://p/x.png' } });
+        try {
+          const amount = await owed(code, ids[0]);
+          await prisma.slipReference.create({ data: { groupId, reference: 'AUTO1', bankCode: '004', sessionId: code, lineUserId } });
+          await prisma.sessionPayment.create({ data: { sessionId: code, playerId: ids[0], source: 'slip', amountSatang: amount, reference: 'AUTO1' } });
+
+          await paid.untick(code, ids[0]);
+
+          expect(await paid.getPaid(code)).toEqual([]);
+          const waiting = await paid.listWaiting(code);
+          expect(waiting).toHaveLength(1);
+          expect(waiting[0]).toMatchObject({ reason: 'undone', lineUserId, displayName: 'ไอซ์ LINE', amountSatang: amount });
+          expect(waiting[0].candidatePlayerIds).toContain(ids[0]);
+
+          await paid.resolveWaiting(code, waiting[0].id, { coversPlayerIds: [ids[0]], senderPlayerId: null });
+          expect(await paid.getPaid(code)).toMatchObject([{ playerId: ids[0], source: 'slip' }]);
+          expect(await paid.listWaiting(code)).toEqual([]);
+        } finally {
+          await prisma.pendingSlip.deleteMany({ where: { lineUserId } });
+          await prisma.lineAccount.delete({ where: { lineUserId } });
+        }
+      });
+
+      it('a host-resolved slip reopens its own row with the reviewed amount', async () => {
+        const { code, ids } = await setup();
+        const groupId = (await prisma.session.findUniqueOrThrow({ where: { code } })).groupId;
+        const amount = await owed(code, ids[1]);
+        const slip = await prisma.pendingSlip.create({
+          data: { sessionId: code, groupId, reference: 'HELD1', lineUserId: 'Uheld', amountSatang: null, reason: 'unreadable' },
+        });
+        await paid.resolveWaiting(code, slip.id, { coversPlayerIds: [ids[1]], senderPlayerId: null, reviewedAmountSatang: amount });
+
+        await paid.untick(code, ids[1]);
+
+        const waiting = await paid.listWaiting(code);
+        expect(waiting).toHaveLength(1);
+        expect(waiting[0]).toMatchObject({ id: slip.id, reason: 'undone', amountSatang: amount });
+        expect(await prisma.pendingSlip.count({ where: { sessionId: code } })).toBe(1);
+      });
+
+      it('a slip that covered two people comes back once when both are undone', async () => {
+        const { code, ids } = await setup();
+        const groupId = (await prisma.session.findUniqueOrThrow({ where: { code } })).groupId;
+        const total = (await owed(code, ids[0])) + (await owed(code, ids[1]));
+        const slip = await prisma.pendingSlip.create({
+          data: { sessionId: code, groupId, reference: 'PAIR1', lineUserId: 'Upair', amountSatang: total, reason: 'amount' },
+        });
+        await paid.resolveWaiting(code, slip.id, { coversPlayerIds: [ids[0], ids[1]], senderPlayerId: null });
+
+        await paid.untick(code, ids[0]);
+        await paid.untick(code, ids[1]);
+
+        expect(await paid.listWaiting(code)).toMatchObject([{ id: slip.id, reason: 'undone' }]);
+      });
+
+      it('a host tick leaves nothing to review when undone', async () => {
+        const { code, ids } = await setup();
+        await paid.tick(code, ids[2]);
+        await paid.untick(code, ids[2]);
+        expect(await paid.listWaiting(code)).toEqual([]);
+      });
+    });
+
     it('refuses a player who is not on the bill', async () => {
       const { code } = await setup();
       const stranger = await prisma.player.create({

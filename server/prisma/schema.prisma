@@ -660,7 +660,7 @@ model PendingSlip {
   reviewedAt   DateTime?
   receiverName String?
   receiverTail String?
-  /// Why it was held: 'unmapped' | 'amount' | 'receiver' | 'unreadable' | 'stale' | 'collision'.
+  /// Why it was held: 'unmapped' | 'amount' | 'date' | 'receiver' | 'unreadable' | 'stale' | 'collision' | 'undone' (host undid a slip payment).
   reason       String
   resolvedAt   DateTime?
   createdAt    DateTime  @default(now())

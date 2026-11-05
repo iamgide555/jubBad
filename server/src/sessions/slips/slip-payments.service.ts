@@ -56,7 +56,7 @@ export interface LinkRow {
 }
 
 /** Why a slip was held for the host instead of marking anyone paid. */
-export type WaitingReason = 'unmapped' | 'amount' | 'date' | 'receiver' | 'unreadable' | 'stale' | 'collision';
+export type WaitingReason = 'unmapped' | 'amount' | 'date' | 'receiver' | 'unreadable' | 'stale' | 'collision' | 'undone';
 
 export type SubmitOutcome =
   | { kind: 'paid'; playerIds: string[] }
@@ -383,12 +383,55 @@ export class SlipPaymentsService {
     });
   }
 
-  /** Removes the paid mark if there is one. The slip's reference is deliberately left alone by this task. */
+  /**
+   * Removes the paid mark if there is one. A mark that came from a slip sends that slip back to the host's waiting list
+   * (reason `undone`) instead of dropping it: its reference stays used, so the sender cannot send it again, and without
+   * this a mistaken undo left the slip with no way back but a host tick.
+   */
   untick(code: string, playerId: string): Promise<void> {
     return this.lock.run(code, async () => {
       await this.assertOpen(code);
       await this.cards.panel(code);
-      await this.prisma.sessionPayment.deleteMany({ where: { sessionId: code, playerId } });
+      const mark = await this.prisma.sessionPayment.findUnique({ where: { sessionId_playerId: { sessionId: code, playerId } } });
+      if (!mark) return;
+      const reopen = mark.source === 'slip' && mark.reference !== null ? await this.reopenWrite(code, mark.reference, mark.amountSatang) : null;
+      await this.prisma.$transaction([
+        this.prisma.sessionPayment.delete({ where: { id: mark.id } }),
+        ...(reopen ? [reopen()] : []),
+      ]);
+    });
+  }
+
+  /**
+   * The write that puts an undone slip back in the waiting list, or null when there is nothing to put back. A slip the
+   * host resolved reopens its own row; an auto-paid one never had a row, so one is made from the slip's sender. A slip
+   * still waiting (it covered someone else who was undone first) needs nothing. Returned as a thunk: an async function
+   * returning the Prisma call itself would run it here, outside the caller's transaction.
+   */
+  private async reopenWrite(code: string, reference: string, amountSatang: number | null) {
+    const groupId = await this.groupOf(code);
+    const rows = await this.prisma.pendingSlip.findMany({ where: { sessionId: code, reference }, orderBy: { createdAt: 'desc' } });
+    if (rows.some((r) => r.resolvedAt === null)) return null;
+    if (rows.length > 0) {
+      const id = rows[0].id;
+      return () => this.prisma.pendingSlip.update({ where: { id }, data: { resolvedAt: null, reason: 'undone' } });
+    }
+    const sent = await this.prisma.slipReference.findUnique({ where: { groupId_reference: { groupId, reference } } });
+    if (!sent?.lineUserId) return null;
+    const account = await this.prisma.lineAccount.findUnique({ where: { lineUserId: sent.lineUserId } });
+    const lineUserId = sent.lineUserId;
+    return () => this.prisma.pendingSlip.create({
+      data: {
+        sessionId: code,
+        groupId,
+        reference,
+        lineUserId,
+        displayName: account?.displayName ?? null,
+        pictureUrl: account?.pictureUrl ?? null,
+        // The auto-pay rule only pays an exact match, so the paid share is the amount read off the slip.
+        amountSatang,
+        reason: 'undone',
+      },
     });
   }
 
@@ -534,7 +577,10 @@ export class SlipPaymentsService {
     const imageByReference = new Map(imageList.map((i) => [i.reference, i.id]));
     const links = await this.prisma.playerLineAccount.findMany({ where: { groupId: await this.groupOf(code) } });
     const linked = new Map(links.map((l) => [l.lineUserId, l.playerId]));
-    return rows.map((s) => ({
+    return rows.map((s) => {
+      // A slip back from an undone payment was already reviewed once: the host's amount beats the OCR read.
+      const amountSatang = s.reviewedAmountSatang ?? s.amountSatang;
+      return {
       id: s.id,
       imageId: imageByReference.get(s.reference) ?? null,
       linkedPlayerId: linked.get(s.lineUserId) ?? null,
@@ -542,15 +588,16 @@ export class SlipPaymentsService {
       displayName: s.displayName,
       pictureUrl: s.pictureUrl,
       lineUserId: s.lineUserId,
-      amountSatang: s.amountSatang,
+      amountSatang,
       receiverName: s.receiverName,
       receiverTail: s.receiverTail,
       createdAt: s.createdAt.toISOString(),
       // Nobody owing nothing is ever a match for an amount.
       candidatePlayerIds: unpaid
-        .filter((r) => (s.amountSatang === null ? true : r.amountSatang > 0 && r.amountSatang === s.amountSatang))
+        .filter((r) => (amountSatang === null ? true : r.amountSatang > 0 && r.amountSatang === amountSatang))
         .map((r) => r.playerId),
-    }));
+      };
+    });
   }
 
   /**

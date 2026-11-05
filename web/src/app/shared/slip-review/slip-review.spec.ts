@@ -401,6 +401,7 @@ describe('SlipReview', () => {
       ['unreadable', 'อ่านยอดจากสลิปไม่ได้'],
       ['stale', 'ยอดบิลเปลี่ยนหลังยืนยัน'],
       ['collision', 'คนนี้จ่ายไปแล้วหรือไม่อยู่ในบิล'],
+      ['undone', 'ยกเลิกสถานะจ่ายไปแล้ว ตรวจใหม่ได้'],
     ] as const)('explains a %s slip', async (reason, line) => {
       await open(panel({ waiting: [waiting({ reason })] }));
       expect(q('[data-w-reason]')!.textContent).toContain(line);

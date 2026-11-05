@@ -1738,7 +1738,12 @@ removes them. LINE unlink/image submission share a group write lock to keep clea
 
 **What reaches the host.** Waiting slips (with the reason) and duplicates, in the bill screen's review list.
 The host resolves a waiting slip by ticking one or more players (or dismisses it), and dismisses a duplicate. A duplicate never
-pays anyone and the sender is not told off in the group. **Re-sending your own waiting slip is not a duplicate
+pays anyone and the sender is not told off in the group. **Undoing a slip payment sends the slip back (2026-11-05).** The host's
+ยกเลิกสถานะจ่าย on a slip-paid person used to delete only the paid mark: the reference stayed used, so the slip
+could neither be re-sent nor reviewed again, and a misclick (a real host, ไอซ์) left a host tick as the only way back.
+Now the slip returns to the waiting list with reason `undone` (a host-resolved slip reopens its own row with its
+reviewed amount; an auto-paid slip gets a new row from its sender), so the host re-credits it to the right person or
+dismisses it. A re-send by the same sender is then already-sent, not a duplicate. **Re-sending your own waiting slip is not a duplicate
 (2026-11-04).** When the same LINE account sends a slip whose reference is still in the host's waiting list, the
 pay page says **สลิปนี้ส่งแล้ว รอโฮสต์ตรวจ** and nothing new is recorded: a real host had to dismiss exactly that
 noise. Anyone else sending that reference, or the sender after the host resolved it, is still a duplicate, and

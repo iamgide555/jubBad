@@ -335,6 +335,23 @@ size — 4 for doubles, 2 for singles — so a roster that doesn't divide evenly
 across the offered courts leaves a remainder sitting out even when the court
 count itself isn't the limit.
 
+**One swap for variety (2026-11-06).** That strict queue has a blind spot. Everyone sitting out walked off the same court together, so the next free court has to take them as a block: a trio at 11 players on 2 courts, a pair at 10, the same four at 12. Once they are on one court, the split search can only turn their partnerships into rematches. In a real สลับคู่ night (11 players, 2 courts) two players faced each other 6 times and shared a court in 8 of their roughly 10 games. 15 of the 26 games had three players arriving together from the same previous game. So a games-queued selection now tries trading **one** natural player (a must-pair duo counts as one unit) for one sitter, and keeps the trade only if it scores strictly better on the mode's own comparison. Three limits keep it fair:
+
+- **Same games.** The player coming on has played exactly as many games as the one they replace, so games-played fairness is unchanged.
+- **Anchor.** The most deserving player (fewest games, then longest wait) always plays.
+- **Rest guard.** Nobody fresh off a back-to-back game is pulled forward (`engines/rest.ts`, measured in games started rather than minutes).
+
+The cost is time. The longest wait grows by about a minute, and someone is occasionally passed over once, but they are then first in line. The waiting list is therefore an order, not a promise, past its first name. Simulated over 40 nights (`engines/evidence/sticky-trio-sim.mts`), pairs facing each other 4+ times at 11 players dropped from about 7 to about 3, with games spread still 1.
+
+Where it does not apply:
+
+- **ระดับ** keeps strict wait order, because hosts asked for "longest wait plays first" (2026-09-27).
+- **A reshuffle** re-splits the same players rather than changing who plays.
+- **The carry court** keeps its deliberate random fill.
+- **Plans of more than 8 players** (three or more courts free at once): the swap is skipped. Courts free up one or two at a time mid-session, and searching every swap of a large plan would stall a propose.
+
+In เลือกเอง the same one-swap limit applies to the empty seats only; host-seated players never move.
+
 **The ±1 level band (C1, the `level` pairing mode) is the one exception to
 that predictability.** It is a fourth mode (`variety` / `balanced` / `level`
 / `custom`), not a toggle layered on top of the others — mutually exclusive

@@ -35,3 +35,18 @@ but do not commit identifiable player or session data.
   - **Workaround: wait until every court is idle, then propose.** `propose` already plans across all idle courts and commits the one asked for, so nothing needs building; the cost is that the first court to finish waits for the other. Re-planned together over 14 rounds (evenly spread ratings, one seed, `walkthrough` method in `docs/archive/reports/2026-10-28-pairing-modes-11-and-15-players.md`): 12 players on 2 courts, worst pair 2 times in both สลับคู่ and สูสี (55 and 45 of 66 partner pairs); 16 players on 3 courts, worst pair 1 and 2 times (84 and 78 of 120); 8 players on 2 courts, สลับคู่ meets all 28 pairs (worst pair 2, which is arithmetic: 56 partnerships over 28 pairs).
   - **Still open at exactly 8 players in balanced mode:** with only 8 players balance dominates, so สูสี partners 16 of 28 pairs and repeats one pair up to 4 times even with courts re-planned together. Accepted; it is the roster-size limit, not selection.
   - Not seen in a real session; the simulation is one seed for the re-planned runs against 200 for the one-court-at-a-time figures.
+  - 2026-11-06: largely superseded for สลับคู่/สูสี by G13's one-swap step, which breaks the block at selection time (12 players on 2 courts: pairs opposed 4+ times fell from 17.3 to 2.8). It still applies to ระดับ, and to 8 players with nobody sitting out, where there is no one to swap in.
+- [x] G13. Sitting-out players move back on court as a block. Found in a real session and fixed 2026-11-06 with the one-swap variety step (see `docs/overview.md`, "One swap for variety").
+  - **Evidence:** session 46d5b1bb (วันพฤหัส, 2026-11-05, 11 players, 2 courts, สลับคู่, 26 games). One pair faced each other 6 times and partnered 2 more, so they shared a court in 8 of about 10 games. 15 of 26 games carried three players from the same previous game. Earlier 10-player nights carried a pair in 22 of 24 games, with a worst opponent repeat of 5.
+  - **Mechanism:** everyone sitting out walked off the same court, and selection (games, then wait) ran before history was consulted, so the block always went on together. G12 is the 4-sit-out case of the same thing.
+  - **Fix:** trade one natural player for one same-games sitter when that scores strictly better. The most deserving player always plays, nobody fresh off a back-to-back game is pulled forward (`engines/rest.ts`), and ระดับ, reshuffles and plans over 8 players are excluded.
+  - **Sim** (`engines/evidence/sticky-trio-sim.mts`, 2 courts, 26 games, 40 nights, สลับคู่; before = pre-change engine, same harness):
+
+    | players | pairs opposed 4+ | worst opp repeat | back-to-back run | longest wait | games spread |
+    |---|---|---|---|---|---|
+    | 10 | 8.9 → 7.6 | 6.2 → 5.3 | 4.8 → 4.7 | 8.6 → 9.2 min | 1 → 1 |
+    | 11 | 7.1 → 2.7 | 5.6 → 4.3 | 2.8 → 3.0 | 8.9 → 10.1 min | 1 → 1 |
+    | 12 | 17.3 → 2.8 | 6.2 → 4.4 | 0.9 → 1.9 | 8.2 → 10.2 min | 1 → 1 |
+
+  - **Rejected:** a no-guard version (more variety, but back-to-back runs at 11 players grew 2.8 → 3.6), and a guard banning skipping the same waiter twice (it removed nearly all the gain at 12 players).
+  - **To check on the next real night:** max opponent repeat against 46d5b1bb's 6, and whether anyone notices being passed over.

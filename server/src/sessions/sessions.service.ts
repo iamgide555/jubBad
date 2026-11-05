@@ -34,6 +34,7 @@ import {
 } from '../../../engines/pair-rules.ts';
 import { splitTonight, type Level, type LevelSpec } from '../../../engines/levels.ts';
 import { waitingSinceMap } from '../../../engines/waiting.ts';
+import { playersNeedingRest } from '../../../engines/rest.ts';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { VenuesService } from '../venues/venues.service.js';
 import { levelWrite, loadLevelSetAt, loadPlayerLevels, loadRatingAnchors } from '../player-levels.js';
@@ -858,7 +859,7 @@ export class SessionsService {
         : Promise.resolve(null),
       this.prisma.pairing.findMany({
         where: { sessionId: sessionCode, confirmedAt: { not: null } },
-        select: { teamA: true, teamB: true },
+        select: { teamA: true, teamB: true, confirmedAt: true, endedAt: true },
       }),
       this.prisma.sessionRoster.findMany({
         where: { sessionId: sessionCode },
@@ -917,6 +918,16 @@ export class SessionsService {
         history.recentGroupKeys = new Set(recentGroups.map((group) => groupKey(group)));
       }
     }
+
+    // Rest guard for the engine's one-swap variety step: nobody fresh off a
+    // back-to-back game is pulled forward past the queue (engines/rest.ts).
+    history.needsRest = playersNeedingRest(
+      thisSession.map((p) => ({
+        players: this.playersOf(p),
+        confirmedAt: p.confirmedAt!.getTime(),
+        endedAt: p.endedAt ? p.endedAt.getTime() : null,
+      }))
+    );
 
     return history;
   }

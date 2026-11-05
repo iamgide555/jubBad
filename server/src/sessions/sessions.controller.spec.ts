@@ -4838,6 +4838,12 @@ describe('SessionsController', () => {
    * random and never looked at waiting time. Someone who had just walked off
    * court could be picked ahead of a player who had been waiting half an hour,
    * which is the single thing a rotation is supposed to prevent.
+   *
+   * Since the one-swap variety step (2026-11-06), wait order is no longer
+   * absolute: A-D just played together, so sending all four straight back on
+   * is exactly the sticky block that step exists to break, and it may trade
+   * one of them for a same-games fresh player. What must still hold is that
+   * the wait decides who plays apart from that single swap.
    */
   it('sends the longest-waiting players on first when games played are level', async () => {
     const groupCode = randomUUID();
@@ -4900,7 +4906,8 @@ describe('SessionsController', () => {
           .post(`/sessions/${sessionCode}/courts/1/propose`)
           .expect(201);
         const { teamA, teamB } = res.body.pairing as { teamA: string[]; teamB: string[] };
-        expect(new Set([...teamA, ...teamB])).toEqual(waitedLongest);
+        const waiters = [...teamA, ...teamB].filter((id) => waitedLongest.has(id));
+        expect(waiters.length).toBeGreaterThanOrEqual(3);
         await prisma.pairing.deleteMany({ where: { sessionId: sessionCode, matchNumber: 3 } });
       }
     } finally {

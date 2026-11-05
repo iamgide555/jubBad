@@ -670,6 +670,100 @@ export interface MatchHistory {
    * original behaviour.
    */
   recentGroupKeys?: Set<string>;
+  /**
+   * Players fresh off a game they had themselves started straight off another
+   * one. The one-swap variety step never pulls them forward past the queue, so
+   * it can never lengthen anyone's run of back-to-back games. It only ever
+   * blocks a swap — the queue's own choice of who plays is unaffected.
+   * Optional: without it the rest guard is off. Built server-side by
+   * `playersNeedingRest` (engines/rest.ts).
+   */
+  needsRest?: Set<PlayerId>;
+}
+
+/**
+ * One-swap variety (2026-11-06 real-session finding, see docs/overview.md
+ * "Sit-out selection"). Whoever sits out in a games-queued session walked off
+ * the same court together, so a strict queue sends them back on as a block —
+ * a trio at 11 players on 2 courts — and the split search can then only turn
+ * their partnerships into rematches. Each candidate here is the natural
+ * playing set with exactly one unit (a player, or a must-pair duo) traded for
+ * one sitting unit of the same size, under three fairness limits:
+ *
+ * - **Same games.** The unit coming on has played exactly as many games as the
+ *   one it replaces, so games-played fairness is untouched.
+ * - **Anchor.** The most deserving unit (fewest games, then longest wait)
+ *   always plays. When several tie for that spot, any one of them may sit, as
+ *   long as one of them still plays.
+ * - **Rest guard.** Nobody in `needsRest` is pulled forward.
+ *
+ * A duo's games and wait are its less deserving member's, matching how
+ * `unitsInOrder` ranks it.
+ */
+function oneSwapCandidates(
+  playingUnits: PlayerId[][],
+  sittingUnits: PlayerId[][],
+  history: MatchHistory
+): { playing: PlayerId[]; out: PlayerId[]; in: PlayerId[] }[] {
+  const games = (unit: PlayerId[]) =>
+    Math.max(...unit.map((id) => history.gamesPlayedThisSession.get(id) ?? 0));
+  const wait = (unit: PlayerId[]) => Math.max(...unit.map((id) => history.waitingSince?.get(id) ?? 0));
+  const before = (a: PlayerId[], b: PlayerId[]) => games(a) - games(b) || wait(a) - wait(b);
+
+  const best = playingUnits.reduce<PlayerId[] | null>(
+    (top, unit) => (top === null || before(unit, top) < 0 ? unit : top),
+    null
+  );
+  const anchors = best ? playingUnits.filter((u) => before(u, best) === 0) : [];
+  const uniqueAnchor = anchors.length === 1 ? anchors[0] : null;
+
+  const candidates: { playing: PlayerId[]; out: PlayerId[]; in: PlayerId[] }[] = [];
+  for (const out of playingUnits) {
+    if (out === uniqueAnchor) continue;
+    for (const inn of sittingUnits) {
+      if (inn.length !== out.length) continue;
+      if (games(inn) !== games(out)) continue;
+      if (history.needsRest && inn.some((id) => history.needsRest!.has(id))) continue;
+      const outSet = new Set(out);
+      candidates.push({
+        playing: [...playingUnits.flat().filter((id) => !outSet.has(id)), ...inn],
+        out,
+        in: inn,
+      });
+    }
+  }
+  return candidates;
+}
+
+/**
+ * Runs `oneSwapCandidates` and keeps a swap only when it scores strictly
+ * better than the natural selection by the mode's own comparison — so a fresh
+ * session (no history) or a block that has not met before plays exactly as
+ * the queue says. `arrange` returning null (a candidate that cannot be legally
+ * seated under pair rules) just skips that candidate.
+ */
+function pickVarietySwap(
+  natural: { playing: PlayerId[]; sittingOut: PlayerId[]; courts: CourtAssignment[] },
+  playingUnits: PlayerId[][],
+  sittingUnits: PlayerId[][],
+  history: MatchHistory,
+  arrange: (playing: PlayerId[]) => CourtAssignment[] | null,
+  compare: (one: CourtAssignment[], other: CourtAssignment[]) => number
+): { playing: PlayerId[]; sittingOut: PlayerId[]; courts: CourtAssignment[] } {
+  let chosen = natural;
+  for (const candidate of oneSwapCandidates(playingUnits, sittingUnits, history)) {
+    const courts = arrange(candidate.playing);
+    if (!courts || compare(courts, chosen.courts) >= 0) continue;
+    // Same queue position, other person: whoever was swapped out takes the
+    // sitter's place, so the sit-out order keeps its meaning.
+    const swapBack = new Map(candidate.in.map((id, i) => [id, candidate.out[i]]));
+    chosen = {
+      playing: candidate.playing,
+      sittingOut: natural.sittingOut.map((id) => swapBack.get(id) ?? id),
+      courts,
+    };
+  }
+  return chosen;
 }
 
 export interface RoundResult {
@@ -1568,6 +1662,8 @@ interface RulePlanInput {
   requireFirstCourt: boolean;
   /** Positional with `sizes`. */
   targeting?: Targeting;
+  /** A reshuffle re-splits the same players, so the variety swap is skipped. */
+  reshuffle: boolean;
 }
 
 /**
@@ -1660,7 +1756,44 @@ function planWithRules(p: RulePlanInput): RoundResult {
     }
     if (natural.playing.length <= EXACT_ENUMERATION_MAX_PLAYING || seedGroups) {
       const courts = arrange(natural.playing, courtIndexes, seedGroups);
-      if (courts) return { courts, sittingOut: natural.sittingOut };
+      if (courts) {
+        // Same one-swap variety step as the no-rule path, unit by unit so a
+        // must-pair duo only ever trades places with another duo. Limited to
+        // the exact-search size: above it a candidate would need its own legal
+        // seed search, and a single free court is the case that matters.
+        if (
+          p.queueBy === 'games' &&
+          !p.reshuffle &&
+          natural.sittingOut.length > 0 &&
+          natural.playing.length <= EXACT_ENUMERATION_MAX_PLAYING
+        ) {
+          const poolFloors = historyFloors(roster, history.partnerCounts, history.opponentCounts);
+          const levelsInPlay = p.band ? p.levels : undefined;
+          const targeting = targetingForPositions(p.targeting, courtIndexes);
+          const swapped = pickVarietySwap(
+            { playing: natural.playing, sittingOut: natural.sittingOut, courts },
+            unitsInOrder(natural.playing, rules),
+            unitsInOrder(natural.sittingOut, rules),
+            history,
+            (players) => arrange(players, courtIndexes),
+            (one, other) =>
+              compareArrangements(
+                one,
+                other,
+                history.partnerCounts,
+                history.opponentCounts,
+                p.ratings,
+                poolFloors,
+                p.recentGroupKeys,
+                levelsInPlay,
+                p.ladder,
+                targeting
+              )
+          );
+          return { courts: swapped.courts, sittingOut: swapped.sittingOut };
+        }
+        return { courts, sittingOut: natural.sittingOut };
+      }
     }
   }
 
@@ -1841,6 +1974,7 @@ export function generateRound(
       rules: remainingRules,
       requireFirstCourt: ruleFillPolicy === 'requested' && !carryCourt,
       targeting: effectiveTargeting,
+      reshuffle: effectiveAvoidSplits.length > 0,
     });
     const shifted = planned.courts.map((c) => (carryCourt ? { ...c, court: c.court + 1 } : c));
     return { courts: carryCourt ? [carryCourt, ...shifted] : shifted, sittingOut: planned.sittingOut };
@@ -1867,35 +2001,84 @@ export function generateRound(
     return { courts: carryCourt ? [carryCourt] : [], sittingOut };
   }
 
-  const floors = historyFloors(playing, history.partnerCounts, history.opponentCounts);
-  const ctx: SearchContext = {
-    partnerCounts: history.partnerCounts,
-    opponentCounts: history.opponentCounts,
-    ratings,
-    floors,
-    avoidKeys,
-    recentGroupKeys,
-    levels: band ? levels : undefined,
-    ladder,
-    targeting: effectiveTargeting,
-  };
-
-  const better = (candidate: CourtAssignment[], incumbent: CourtAssignment[] | null): boolean =>
-    !incumbent ||
-    compareArrangements(
-      candidate,
-      incumbent,
-      history.partnerCounts,
-      history.opponentCounts,
+  const searchFor = (players: PlayerId[]): CourtAssignment[] | null => {
+    const floors = historyFloors(players, history.partnerCounts, history.opponentCounts);
+    const ctx: SearchContext = {
+      partnerCounts: history.partnerCounts,
+      opponentCounts: history.opponentCounts,
       ratings,
       floors,
+      avoidKeys,
       recentGroupKeys,
-      ctx.levels,
+      levels: band ? levels : undefined,
       ladder,
-      ctx.targeting
-    ) < 0;
+      targeting: effectiveTargeting,
+    };
 
-  const best = searchArrangement(playing, offered, ctx, random, better);
+    const better = (candidate: CourtAssignment[], incumbent: CourtAssignment[] | null): boolean =>
+      !incumbent ||
+      compareArrangements(
+        candidate,
+        incumbent,
+        history.partnerCounts,
+        history.opponentCounts,
+        ratings,
+        floors,
+        recentGroupKeys,
+        ctx.levels,
+        ladder,
+        ctx.targeting
+      ) < 0;
+
+    return searchArrangement(players, offered, ctx, random, better);
+  };
+
+  let best = searchFor(playing);
+  let finalSittingOut = sittingOut;
+
+  // One-swap variety: games-queued modes only (the level queue is strict wait
+  // order by host request), and never on a reshuffle, which re-splits the
+  // same players rather than changing who plays. Bounded to the exact-search
+  // size — one or two free courts, which is how courts actually free up
+  // mid-session; a candidate per possible swap through the local search
+  // would stall a many-court plan.
+  if (
+    best &&
+    queueBy === 'games' &&
+    effectiveAvoidSplits.length === 0 &&
+    sittingOut.length > 0 &&
+    playing.length <= EXACT_ENUMERATION_MAX_PLAYING
+  ) {
+    // Floors over everyone free, so candidates with different players are
+    // scored on one scale.
+    const poolFloors = historyFloors(
+      [...playing, ...sittingOut],
+      history.partnerCounts,
+      history.opponentCounts
+    );
+    const swapped = pickVarietySwap(
+      { playing, sittingOut, courts: best },
+      playing.map((id) => [id]),
+      sittingOut.map((id) => [id]),
+      history,
+      searchFor,
+      (one, other) =>
+        compareArrangements(
+          one,
+          other,
+          history.partnerCounts,
+          history.opponentCounts,
+          ratings,
+          poolFloors,
+          recentGroupKeys,
+          band ? levels : undefined,
+          ladder,
+          effectiveTargeting
+        )
+    );
+    best = swapped.courts;
+    finalSittingOut = swapped.sittingOut;
+  }
 
   // `best` is null only when every legal split of some court scored NaN — a
   // corrupt count somewhere upstream. Reporting no courts hands that to the
@@ -1905,7 +2088,7 @@ export function generateRound(
   // the exclusion now removes one split of one court, never a whole candidate,
   // so a legal alternative always remains.
   const searched = (best ?? []).map((c) => (carryCourt ? { ...c, court: c.court + 1 } : c));
-  return { courts: carryCourt ? [carryCourt, ...searched] : searched, sittingOut };
+  return { courts: carryCourt ? [carryCourt, ...searched] : searched, sittingOut: finalSittingOut };
 }
 
 /** One seat on a court being manually assembled: a player id, or empty. */
@@ -2047,11 +2230,41 @@ export function completeCourt(
   });
 
   const k = empties.length;
-  const boundaryKey = priorityKey(ordered[k - 1]).join('|');
-  const candidates = [
-    ...ordered.slice(0, k),
-    ...ordered.slice(k).filter((id) => priorityKey(id).join('|') === boundaryKey),
-  ];
+  const keyOf = (id: PlayerId) => priorityKey(id).join('|');
+  const gamesOf = (id: PlayerId) => priorityKey(id)[0];
+  const boundaryKey = keyOf(ordered[k - 1]);
+  const boundaryGames = gamesOf(ordered[k - 1]);
+  const natural = ordered.slice(0, k);
+  const candidates = [...natural, ...ordered.slice(k).filter((id) => keyOf(id) === boundaryKey)];
+
+  // One-swap variety, the same limits as `oneSwapCandidates`: one natural
+  // player on the boundary's games count may give their seat to a later
+  // same-games player who doesn't need rest; anyone with fewer games always
+  // plays; a uniquely longest-waiting player always plays. Exact ties at the
+  // boundary stay freely interchangeable, as before.
+  const swapIns = ordered
+    .slice(k)
+    .filter((id) => keyOf(id) !== boundaryKey && gamesOf(id) === boundaryGames && !history.needsRest?.has(id));
+  const swapInSet = new Set(swapIns);
+  const naturalSet = new Set(natural);
+  const mustPlay = natural.filter((id) => gamesOf(id) < boundaryGames);
+  const strictNatural = natural.filter((id) => keyOf(id) !== boundaryKey);
+  const topKey = keyOf(ordered[0]);
+  const uniqueAnchor = ordered.filter((id) => keyOf(id) === topKey).length === 1 ? ordered[0] : null;
+  const withinOneSwap = (chosen: PlayerId[]): boolean => {
+    const set = new Set(chosen);
+    if (mustPlay.some((id) => !set.has(id))) return false;
+    if (uniqueAnchor !== null && !set.has(uniqueAnchor)) return false;
+    const droppedStrict = strictNatural.filter((id) => !set.has(id)).length;
+    const swappedIn = chosen.filter((id) => swapInSet.has(id)).length;
+    if (droppedStrict + swappedIn > 1) return false;
+    // A dropped longer-waiter's seat goes to a boundary-tied player; at least
+    // one newcomer must be rested, or the swap pulls a tired player forward.
+    if (droppedStrict === 1) {
+      return chosen.some((id) => !naturalSet.has(id) && !history.needsRest?.has(id));
+    }
+    return true;
+  };
 
   const fillWith = (chosen: PlayerId[]): { teamA: Team; teamB: Team } => {
     const teamA = [...seats.teamA];
@@ -2062,7 +2275,10 @@ export function completeCourt(
     return { teamA: teamA as Team, teamB: teamB as Team };
   };
 
-  const bestAmong = (candidates: PlayerId[]): { teamA: Team; teamB: Team } | null => {
+  const bestAmong = (
+    candidates: PlayerId[],
+    allowed?: (chosen: PlayerId[]) => boolean
+  ): { teamA: Team; teamB: Team } | null => {
     const floors = historyFloors(
       [...seatedIds, ...candidates],
       history.partnerCounts,
@@ -2075,6 +2291,7 @@ export function completeCourt(
 
     const search = (): void => {
       if (chosen.length === k) {
+        if (allowed && !allowed(chosen)) return;
         const candidate = fillWith(chosen);
         if (activeRules && !isLegalCourt(candidate.teamA, candidate.teamB, activeRules)) return;
         if (
@@ -2108,8 +2325,11 @@ export function completeCourt(
 
   // `candidates` is always a prefix of `ordered` (the tie widening only
   // extends the run at the boundary), so widening is just a longer prefix.
+  // The swap-ins ride along only on this first pass; the rule-driven widening
+  // below is the separate "no legal seating yet" escape and keeps its own
+  // behaviour.
   let width = candidates.length;
-  let best = bestAmong(candidates);
+  let best = bestAmong([...candidates, ...swapIns], withinOneSwap);
   if (activeRules) {
     while (!best && width < ordered.length) {
       width++;

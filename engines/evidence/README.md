@@ -31,6 +31,7 @@ database read-only. Run from the repo root:
 | `elo-k-peak.mts` | `<db> <groupA> <groupB>` | K up to 512, rating swing per match, rank stability |
 | `tag-accuracy.mts` | `<db> <group>` | Slope and noise of host-set levels against results; tag timing |
 | `pairing-sim.mts` | `<db> <groupA> <groupB> [seeds=6] [players=14]` | True match fairness by Elo config and tag quality (slow, ~3 min per 10 seeds) |
+| `sticky-trio-sim.mts` | `[nights=40] [games=26]` (no database) | Repeat opponents, back-to-back runs and waits on 2 courts at 10–12 players, through the real engine and rest guard (G13) |
 
 ```
 node --experimental-strip-types --no-warnings engines/evidence/elo-replay.mts <db> <group>

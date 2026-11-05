@@ -70,6 +70,7 @@ describe('SlipReview', () => {
     untick: ReturnType<typeof vi.fn>;
     resolve: ReturnType<typeof vi.fn>;
     dismiss: ReturnType<typeof vi.fn>;
+    restore: ReturnType<typeof vi.fn>;
     updateName: ReturnType<typeof vi.fn>;
     dismissDuplicate: ReturnType<typeof vi.fn>;
     image: ReturnType<typeof vi.fn>;
@@ -114,6 +115,7 @@ describe('SlipReview', () => {
       untick: vi.fn().mockImplementation(ok),
       resolve: vi.fn().mockImplementation(ok),
       dismiss: vi.fn().mockImplementation(ok),
+      restore: vi.fn().mockImplementation(ok),
       updateName: vi.fn().mockImplementation(ok),
       dismissDuplicate: vi.fn().mockImplementation(ok),
       setLink: vi.fn().mockImplementation(ok),
@@ -418,6 +420,18 @@ describe('SlipReview', () => {
       expect(qa<HTMLInputElement>('[data-cover]').map((c) => c.checked)).toEqual([true, false, false]);
     });
 
+    it('pre-ticks the linked sender (รอยืนยัน) even when several people owe the same amount', async () => {
+      await open(panel({ waiting: [waiting({ candidatePlayerIds: ['a', 'c'], linkedPlayerId: 'c' })] }));
+      expect(qa<HTMLInputElement>('[data-cover]').map((c) => c.checked)).toEqual([false, false, true]);
+    });
+
+    it('does not pre-tick the linked sender when the slip amount is not what they owe, or unknown', async () => {
+      await open(panel({ waiting: [waiting({ candidatePlayerIds: ['a', 'c'], linkedPlayerId: 'b' })] }));
+      expect(qa<HTMLInputElement>('[data-cover]').every((c) => !c.checked)).toBe(true);
+      await open(panel({ waiting: [waiting({ amountSatang: null, candidatePlayerIds: ['a', 'b', 'c'], linkedPlayerId: 'c' })] }));
+      expect(qa<HTMLInputElement>('[data-cover]').every((c) => !c.checked)).toBe(true);
+    });
+
     it('does not pre-tick with several candidates or none', async () => {
       await open(panel({ waiting: [waiting({ candidatePlayerIds: ['a', 'c'] }), waiting({ id: 'w2', candidatePlayerIds: [] })] }));
       expect(qa<HTMLInputElement>('[data-cover]').every((c) => !c.checked)).toBe(true);
@@ -496,6 +510,30 @@ describe('SlipReview', () => {
       await open(panel({ waiting: [waiting()] }));
       await click(q('[data-dismiss]'));
       expect(svc.dismiss).toHaveBeenCalledWith('sess1', 'w-secret-1');
+    });
+  });
+
+  describe('skipped slips', () => {
+    const skippedSlip = { id: 's1', imageId: null, displayName: 'ICE', pictureUrl: null, amountSatang: 11300, createdAt: '2026-11-05T15:21:00.000Z', skippedAt: '2026-11-05T15:37:00.000Z' };
+
+    it('lists a skipped slip and brings it back to review', async () => {
+      await open(panel({ skipped: [skippedSlip] }));
+      expect(q('[data-skipped] summary')!.textContent).toContain('ข้ามแล้ว 1');
+      expect(q('[data-skipped-slip]')!.textContent).toContain('ICE');
+      expect(q('[data-skipped-slip]')!.textContent).toContain('113');
+      await click(q('[data-restore]'));
+      expect(svc.restore).toHaveBeenCalledWith('sess1', 's1');
+    });
+
+    it('shows no skipped section when there is none, or from an older API', async () => {
+      await open(panel());
+      expect(q('[data-skipped]')).toBeNull();
+    });
+
+    it('offers no restore once collection is closed', async () => {
+      await open(panel({ skipped: [skippedSlip], collection: { closedAt: '2026-11-06T00:00:00.000Z', canClose: false, imageCount: 0 } }));
+      expect(q('[data-skipped-slip]')).not.toBeNull();
+      expect(q('[data-restore]')).toBeNull();
     });
   });
 

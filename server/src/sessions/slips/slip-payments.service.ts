@@ -56,6 +56,17 @@ export interface LinkRow {
 }
 
 /** Why a slip was held for the host instead of marking anyone paid. */
+/** A slip the host skipped, kept so the skip can be undone until collection closes. */
+export interface SkippedSlip {
+  id: string;
+  imageId: string | null;
+  displayName: string | null;
+  pictureUrl: string | null;
+  amountSatang: number | null;
+  createdAt: string;
+  skippedAt: string;
+}
+
 export type WaitingReason = 'unmapped' | 'amount' | 'date' | 'receiver' | 'unreadable' | 'stale' | 'collision' | 'undone';
 
 export type SubmitOutcome =
@@ -296,7 +307,7 @@ export class SlipPaymentsService {
           paidAt: mark?.createdAt.getTime() ?? null,
           row: {
             name: r.name, amountSatang: r.amountSatang, paid: mark !== undefined,
-            pending: !mark && pending.some((p) => linked.get(p.lineUserId) === r.playerId && p.amountSatang === r.amountSatang),
+            pending: !mark && pending.some((p) => linked.get(p.lineUserId) === r.playerId && (p.reviewedAmountSatang ?? p.amountSatang) === r.amountSatang),
             amountChangedSince: mark !== undefined && mark.amountSatang !== null && mark.amountSatang !== r.amountSatang,
           },
         };
@@ -651,7 +662,51 @@ export class SlipPaymentsService {
     });
   }
 
-  /** Host: nothing to credit for this slip. It leaves the list; no one is marked paid. */
+  /**
+   * Slips the host skipped (ข้าม) in this session, latest skip first, so a mistaken skip can be brought back. A resolved
+   * row is skipped when no paid mark of this session carries its reference: that also catches a slip whose payments were
+   * undone before undo started sending slips back.
+   */
+  async listSkipped(code: string): Promise<SkippedSlip[]> {
+    await this.groupOf(code);
+    const rows = await this.prisma.pendingSlip.findMany({
+      where: { sessionId: code, resolvedAt: { not: null } },
+      orderBy: [{ resolvedAt: 'desc' }, { id: 'asc' }],
+    });
+    const used = await this.usedReferences(code);
+    const imageByReference = new Map((await this.images.list(code)).map((i) => [i.reference, i.id]));
+    return rows
+      .filter((s) => !used.has(s.reference))
+      .map((s) => ({
+        id: s.id,
+        imageId: imageByReference.get(s.reference) ?? null,
+        displayName: s.displayName,
+        pictureUrl: s.pictureUrl,
+        amountSatang: s.reviewedAmountSatang ?? s.amountSatang,
+        createdAt: s.createdAt.toISOString(),
+        skippedAt: s.resolvedAt!.toISOString(),
+      }));
+  }
+
+  /** Host: a skipped slip goes back to the waiting list as it was. A slip that paid someone is not skipped and is refused. */
+  restoreWaiting(code: string, id: string): Promise<void> {
+    return this.lock.run(code, async () => {
+      await this.assertOpen(code);
+      const slip = await this.prisma.pendingSlip.findFirst({ where: { id, sessionId: code, resolvedAt: { not: null } } });
+      if (!slip || (await this.usedReferences(code)).has(slip.reference)) throw new NotFoundException();
+      await this.prisma.pendingSlip.update({ where: { id }, data: { resolvedAt: null } });
+    });
+  }
+
+  private async usedReferences(code: string): Promise<Set<string>> {
+    const marks = await this.prisma.sessionPayment.findMany({
+      where: { sessionId: code, reference: { not: null } },
+      select: { reference: true },
+    });
+    return new Set(marks.map((m) => m.reference!));
+  }
+
+  /** Host: nothing to credit for this slip. It leaves the list (to the skipped list); no one is marked paid. */
   dismissWaiting(code: string, id: string): Promise<void> {
     return this.lock.run(code, async () => {
       const { count } = await this.prisma.pendingSlip.updateMany({

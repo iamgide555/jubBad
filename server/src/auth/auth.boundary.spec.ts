@@ -58,6 +58,7 @@ const COLLECTOR_ROUTES: readonly string[] = [
   '/sessions/:code/slip-pay/manage/untick',
   '/sessions/:code/slip-pay/manage/waiting/:id/resolve',
   '/sessions/:code/slip-pay/manage/waiting/:id/dismiss',
+  '/sessions/:code/slip-pay/manage/waiting/:id/restore',
   '/sessions/:code/slip-pay/manage/duplicates/:id/dismiss',
   '/sessions/:code/slip-pay/manage/close',
 ];

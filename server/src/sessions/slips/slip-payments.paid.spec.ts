@@ -236,6 +236,39 @@ describe('slip payments: paid state, manual tick, token check', () => {
       });
     });
 
+    describe('a skipped slip can be brought back', () => {
+      it('lists a skipped slip and restores it to the waiting list as it was', async () => {
+        const { code, ids } = await setup();
+        const groupId = (await prisma.session.findUniqueOrThrow({ where: { code } })).groupId;
+        const slip = await prisma.pendingSlip.create({
+          data: { sessionId: code, groupId, reference: 'SKIP1', lineUserId: 'Uskip', displayName: 'ICE', amountSatang: 11300, reason: 'date' },
+        });
+        await paid.dismissWaiting(code, slip.id);
+        expect(await paid.listWaiting(code)).toEqual([]);
+        expect(await paid.listSkipped(code)).toMatchObject([{ id: slip.id, displayName: 'ICE', amountSatang: 11300 }]);
+
+        await paid.restoreWaiting(code, slip.id);
+
+        expect(await paid.listSkipped(code)).toEqual([]);
+        expect(await paid.listWaiting(code)).toMatchObject([{ id: slip.id, reason: 'date' }]);
+        expect(ids).toHaveLength(4);
+      });
+
+      it('a slip that paid someone is not skipped and cannot be restored', async () => {
+        const { code, ids } = await setup();
+        const groupId = (await prisma.session.findUniqueOrThrow({ where: { code } })).groupId;
+        const amount = (await cards.panel(code)).rows.find((r) => r.playerId === ids[0])!.amountSatang;
+        const slip = await prisma.pendingSlip.create({
+          data: { sessionId: code, groupId, reference: 'PAID1', lineUserId: 'Upaid', amountSatang: amount, reason: 'amount' },
+        });
+        await paid.resolveWaiting(code, slip.id, { coversPlayerIds: [ids[0]], senderPlayerId: null });
+
+        expect(await paid.listSkipped(code)).toEqual([]);
+        await expect(paid.restoreWaiting(code, slip.id)).rejects.toBeInstanceOf(NotFoundException);
+        await expect(paid.restoreWaiting(code, 'no-such-slip')).rejects.toBeInstanceOf(NotFoundException);
+      });
+    });
+
     it('refuses a player who is not on the bill', async () => {
       const { code } = await setup();
       const stranger = await prisma.player.create({

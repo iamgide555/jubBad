@@ -161,8 +161,7 @@ export class SlipReview {
     const unpaidIds = new Set(unpaid.map((r) => r.playerId));
     const linked = new Set(data.links.map((l) => l.playerId));
     return data.waiting.map((slip) => {
-      const only = slip.candidatePlayerIds.length === 1 && unpaidIds.has(slip.candidatePlayerIds[0]) ? [slip.candidatePlayerIds[0]] : [];
-      const chosen = new Set(this.coversDraft()[slip.id] ?? only);
+      const chosen = new Set(this.coversDraft()[slip.id] ?? this.defaultCovers(slip, unpaidIds));
       const covers = unpaid.filter((r) => chosen.has(r.playerId)).map((r) => r.playerId);
       const draft = this.senderDraft();
       const senderId = this.collectorMode() ? null : hasOwn(draft, slip.id) ? draft[slip.id] : slip.reason === 'unmapped' && !slip.linkedPlayerId && covers.length === 1 ? covers[0] : null;
@@ -188,6 +187,20 @@ export class SlipReview {
       };
     });
   });
+
+  /**
+   * Who a waiting slip is ticked for before the host touches it. The sender's own player when the status page already
+   * shows them รอยืนยัน (linked, unpaid, owing exactly the slip's amount); otherwise the one unpaid person owing that
+   * amount. With an even split many people owe the same, so without the linked sender the host had to tick by hand.
+   */
+  private defaultCovers(slip: SlipWaiting, unpaidIds: Set<string>): string[] {
+    const linked = slip.linkedPlayerId;
+    if (linked && slip.amountSatang !== null && unpaidIds.has(linked) && slip.candidatePlayerIds.includes(linked)) return [linked];
+    return slip.candidatePlayerIds.length === 1 && unpaidIds.has(slip.candidatePlayerIds[0]) ? [slip.candidatePlayerIds[0]] : [];
+  }
+
+  /** Skipped slips, latest skip first; empty from an older API. */
+  protected readonly skipped = computed(() => this.data()?.skipped ?? []);
 
   /** Unpaid people who owe money: the choices for "this slip covers". */
   protected readonly coverOptions = computed(() => this.billed().filter((r) => !this.paidById().has(r.playerId)));
@@ -349,6 +362,10 @@ export class SlipReview {
   protected dismiss(card: WaitingCard): void {
     const { id } = card.slip;
     void this.act(`w:${id}`, `w:${id}`, () => this.api.dismiss(this.code(), id));
+  }
+
+  protected restore(id: string): void {
+    void this.act(`s:${id}`, `s:${id}`, () => this.api.restore(this.code(), id));
   }
 
   protected askUpdateName(card: WaitingCard): void {

@@ -213,6 +213,37 @@
       </div>
     }
 
+    @if (skipped().length > 0) {
+      <details class="group skipped" data-skipped>
+        <summary><span i18n="@@slipReview.skipped">ข้ามแล้ว {{ skipped().length }}</span></summary>
+        @for (x of skipped(); track x.id) {
+          <article class="dup" data-skipped-slip>
+            <div class="dup-text">
+              <p class="who-name">
+                @if (x.displayName) {
+                  {{ x.displayName }}
+                } @else {
+                  <ng-container i18n="@@slipReview.unknownName">ไม่ทราบชื่อ</ng-container>
+                }
+                @if (clock(x.createdAt); as time) {
+                  <span class="muted"> · {{ time }}</span>
+                }
+              </p>
+              @if (x.amountSatang !== null) {
+                <p class="muted tabular">฿{{ baht(x.amountSatang) }}</p>
+              }
+              @if (errors()['s:' + x.id]; as message) {
+                <p class="error" role="alert" data-s-error>{{ message }}</p>
+              }
+            </div>
+            @if (!closed()) {
+              <button type="button" class="ghost" data-restore [disabled]="busy().has('s:' + x.id)" (click)="restore(x.id)" i18n="@@slipReview.restore">นำกลับมาตรวจ</button>
+            }
+          </article>
+        }
+      </details>
+    }
+
     @if (d.duplicates.length > 0) {
       <div class="group" data-duplicates>
         <h4 i18n="@@slipReview.duplicates">สลิปซ้ำ</h4>

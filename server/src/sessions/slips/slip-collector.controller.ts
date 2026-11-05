@@ -22,6 +22,7 @@ import {
   SlipPaymentsService,
   type DuplicateSlip,
   type PaidRow,
+  type SkippedSlip,
   type WaitingSlip,
 } from './slip-payments.service.js';
 import { SlipViewerGate, payToken } from './slip-viewer-gate.js';
@@ -39,6 +40,7 @@ export interface CollectorPanel {
   }[];
   paid: PaidRow[];
   waiting: Omit<WaitingSlip, 'lineUserId'>[];
+  skipped: SkippedSlip[];
   duplicates: Omit<DuplicateSlip, 'lineUserId'>[];
   /** Always empty: linking accounts stays with the host. */
   links: [];
@@ -75,9 +77,10 @@ export class SlipCollectorController {
     @Req() req: Request,
   ): Promise<CollectorPanel> {
     const { panel } = await this.collector(code, token, req);
-    const [paid, waiting, duplicates, collection] = await Promise.all([
+    const [paid, waiting, skipped, duplicates, collection] = await Promise.all([
       this.slips.getPaid(code),
       this.slips.listWaiting(code),
+      this.slips.listSkipped(code),
       this.slips.listDuplicates(code),
       this.slips.collection(code),
     ]);
@@ -93,6 +96,7 @@ export class SlipCollectorController {
       })),
       paid,
       waiting: waiting.map(collectorWaiting),
+      skipped: skipped.map(collectorSkipped),
       duplicates: duplicates.map(collectorDuplicate),
       links: [],
       collection,
@@ -186,6 +190,20 @@ export class SlipCollectorController {
   }
 
   @Public()
+  @Post(':code/slip-pay/manage/waiting/:id/restore')
+  @HttpCode(200)
+  async restoreWaiting(
+    @Param('code') code: string,
+    @Param('id') id: string,
+    @Query('token') token: unknown,
+    @Req() req: Request,
+  ): Promise<{ ok: true }> {
+    await this.collector(code, token, req);
+    await this.slips.restoreWaiting(code, id);
+    return { ok: true };
+  }
+
+  @Public()
   @Post(':code/slip-pay/manage/duplicates/:id/dismiss')
   @HttpCode(200)
   async dismissDuplicate(
@@ -244,6 +262,18 @@ function collectorWaiting(s: WaitingSlip): Omit<WaitingSlip, 'lineUserId'> {
     receiverTail: s.receiverTail,
     createdAt: s.createdAt,
     candidatePlayerIds: s.candidatePlayerIds,
+  };
+}
+
+function collectorSkipped(s: SkippedSlip): SkippedSlip {
+  return {
+    id: s.id,
+    imageId: s.imageId,
+    displayName: s.displayName,
+    pictureUrl: s.pictureUrl,
+    amountSatang: s.amountSatang,
+    createdAt: s.createdAt,
+    skippedAt: s.skippedAt,
   };
 }
 

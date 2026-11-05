@@ -1743,7 +1743,12 @@ pays anyone and the sender is not told off in the group. **Undoing a slip paymen
 could neither be re-sent nor reviewed again, and a misclick (a real host, ไอซ์) left a host tick as the only way back.
 Now the slip returns to the waiting list with reason `undone` (a host-resolved slip reopens its own row with its
 reviewed amount; an auto-paid slip gets a new row from its sender), so the host re-credits it to the right person or
-dismisses it. A re-send by the same sender is then already-sent, not a duplicate. **Re-sending your own waiting slip is not a duplicate
+dismisses it. A re-send by the same sender is then already-sent, not a duplicate. **Skipping is undoable too (2026-11-05).** ข้าม is
+one tap with no confirmation, and a real host skipped ไอซ์'s genuine slip by mistake. Skipped slips now sit in a
+collapsed ข้ามแล้ว list with นำกลับมาตรวจ until collection closes (host and collector). "Skipped" is derived, not
+stored: a resolved waiting row whose reference no paid mark of the session carries. **Pre-ticking (2026-11-05):** a
+waiting slip pre-ticks its linked sender's player when the status page shows them รอยืนยัน (unpaid, owing exactly the
+slip's amount), even when several people owe that amount; otherwise only a single matching candidate is pre-ticked. **Re-sending your own waiting slip is not a duplicate
 (2026-11-04).** When the same LINE account sends a slip whose reference is still in the host's waiting list, the
 pay page says **สลิปนี้ส่งแล้ว รอโฮสต์ตรวจ** and nothing new is recorded: a real host had to dismiss exactly that
 noise. Anyone else sending that reference, or the sender after the host resolved it, is still a duplicate, and

@@ -50,6 +50,10 @@ export class SlipHostService implements SlipReviewApi {
     return this.http.post<Ok>(this.waitingUrl(sessionCode, id, 'dismiss'), {});
   }
 
+  restore(sessionCode: string, id: string): Observable<Ok> {
+    return this.http.post<Ok>(this.waitingUrl(sessionCode, id, 'restore'), {});
+  }
+
   /** Makes the receiver name read from the slip the group's saved pay-account name. Marks no one paid. */
   updateName(sessionCode: string, id: string): Observable<Ok> {
     return this.http.post<Ok>(this.waitingUrl(sessionCode, id, 'update-name'), {});

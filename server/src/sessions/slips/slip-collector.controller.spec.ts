@@ -563,6 +563,7 @@ describe('collector manage routes (public, LINE identity + card token)', () => {
         'links',
         'paid',
         'rows',
+        'skipped',
         'waiting',
       ]);
       expect(res.body).toMatchObject({

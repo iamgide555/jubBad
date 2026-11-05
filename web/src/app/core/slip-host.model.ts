@@ -34,6 +34,17 @@ export interface SlipWaiting {
   candidatePlayerIds: string[];
 }
 
+/** A slip the host skipped (ข้าม), kept so a mistaken skip can be brought back until collection closes. */
+export interface SlipSkipped {
+  id: string;
+  imageId: string | null;
+  displayName: string | null;
+  pictureUrl: string | null;
+  amountSatang: number | null;
+  createdAt: string;
+  skippedAt: string;
+}
+
 /** A slip whose reference was already used in the group; it never pays anyone. */
 export interface SlipDuplicate {
   id: string;
@@ -55,6 +66,8 @@ export interface SlipHostPanel {
   collection?: { closedAt: string | null; canClose: boolean; imageCount: number };
   paid: SlipPaidRow[];
   waiting: SlipWaiting[];
+  /** Optional while an older API is still deployed. */
+  skipped?: SlipSkipped[];
   duplicates: SlipDuplicate[];
   links: SlipLink[];
   /** Who receives the money when it is not the host, so the host sees the bill is managed in LINE. */

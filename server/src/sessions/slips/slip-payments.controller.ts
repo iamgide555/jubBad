@@ -11,14 +11,15 @@ import {
   type DuplicateSlip,
   type LinkRow,
   type PaidRow,
-  type WaitingSlip,
-} from './slip-payments.service.js';
+  type WaitingSlip, type SkippedSlip } from './slip-payments.service.js';
 
 /** Everything the bill screen needs about slips and paid marks in one read. */
 export interface SlipPaymentsPanel {
   collection: {closedAt: string | null; canClose: boolean; imageCount: number};
   paid: PaidRow[];
   waiting: WaitingSlip[];
+  /** Skipped slips, so a mistaken ข้าม can be brought back. */
+  skipped: SkippedSlip[];
   duplicates: DuplicateSlip[];
   links: LinkRow[];
   /** Who collects this bill from LINE, if anyone: names only, never the LINE user id. */
@@ -39,9 +40,10 @@ export class SlipPaymentsController {
 
   @Get(':code/payments')
   async panel(@Param('code') code: string): Promise<SlipPaymentsPanel> {
-    const [paid, waiting, duplicates, links, collector] = await Promise.all([
+    const [paid, waiting, skipped, duplicates, links, collector] = await Promise.all([
       this.slips.getPaid(code),
       this.slips.listWaiting(code),
+      this.slips.listSkipped(code),
       this.slips.listDuplicates(code),
       this.slips.listLinks(code),
       this.collectors.forBill(code),
@@ -49,6 +51,7 @@ export class SlipPaymentsController {
     return {
       paid,
       waiting,
+      skipped,
       duplicates,
       links,
       collector: collector && { playerName: collector.playerName, lineName: collector.lineName },
@@ -104,6 +107,13 @@ export class SlipPaymentsController {
   @HttpCode(200)
   async dismiss(@Param('code') code: string, @Param('id') id: string): Promise<{ ok: true }> {
     await this.slips.dismissWaiting(code, id);
+    return { ok: true };
+  }
+
+  @Post(':code/payments/waiting/:id/restore')
+  @HttpCode(200)
+  async restore(@Param('code') code: string, @Param('id') id: string): Promise<{ ok: true }> {
+    await this.slips.restoreWaiting(code, id);
     return { ok: true };
   }
 

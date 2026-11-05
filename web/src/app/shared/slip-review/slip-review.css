@@ -301,6 +301,7 @@ label.pick input {
 
 /* ---- linked accounts ---- */
 
+.skipped summary,
 .links summary {
   display: flex;
   align-items: center;

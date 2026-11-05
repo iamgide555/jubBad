@@ -21,6 +21,8 @@ export abstract class SlipReviewApi {
   abstract untick(sessionCode: string, playerId: string): Observable<Ok>;
   abstract resolve(sessionCode: string, id: string, body: SlipResolveBody): Observable<Ok>;
   abstract dismiss(sessionCode: string, id: string): Observable<Ok>;
+  /** Brings a skipped slip back to the waiting list. */
+  abstract restore(sessionCode: string, id: string): Observable<Ok>;
   abstract updateName(sessionCode: string, id: string): Observable<Ok>;
   abstract dismissDuplicate(sessionCode: string, id: string): Observable<Ok>;
   abstract setLink(sessionCode: string, playerId: string, lineUserId: string | null): Observable<Ok>;

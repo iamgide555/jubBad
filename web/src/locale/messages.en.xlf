@@ -7484,6 +7484,12 @@
           <context context-type="sourcefile">src/app/pages/group-settings-detail/group-settings-detail.html</context>
         </context-group>
       </trans-unit>
+      <trans-unit id="slipReview.skipped" datatype="html">
+        <source>ข้ามแล้ว <x id="INTERPOLATION" equiv-text="{{ skipped().length }}"/></source><target>Skipped <x id="INTERPOLATION" equiv-text="{{ skipped().length }}"/></target>
+      </trans-unit>
+      <trans-unit id="slipReview.restore" datatype="html">
+        <source>นำกลับมาตรวจ</source><target>Review again</target>
+      </trans-unit>
     </body>
   </file>
 </xliff>

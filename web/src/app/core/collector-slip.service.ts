@@ -94,6 +94,10 @@ export class CollectorSlipService implements SlipReviewApi {
     return this.post(code, this.waiting(id, 'dismiss'), {});
   }
 
+  restore(code: string, id: string): Observable<Ok> {
+    return this.post(code, this.waiting(id, 'restore'), {});
+  }
+
   dismissDuplicate(code: string, id: string): Observable<Ok> {
     return this.post(code, `/duplicates/${encodeURIComponent(id)}/dismiss`, {});
   }

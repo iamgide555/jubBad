@@ -302,6 +302,8 @@ export class SlipReview {
    * waiting list so a mistaken undo can be reviewed again. Unpaid and host-ticked rows still toggle on tap.
    */
   protected toggle(person: Person): void {
+    // The เจ้าของบัญชี is paid by definition: nothing to tick or undo.
+    if (person.paid?.source === 'owner') return;
     if (person.paid?.source === 'slip') {
       if (person.paid.imageId) this.loadImage(person.paid.imageId);
       this.slipView.set(person);

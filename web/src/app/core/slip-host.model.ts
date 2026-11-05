@@ -3,7 +3,8 @@
 /** One person's paid mark: by a slip the bot matched, or by the host's own tick. */
 export interface SlipPaidRow {
   playerId: string;
-  source: 'slip' | 'host' | 'collector';
+  /** `owner`: the bill's เจ้าของบัญชี, paid without a mark because the money goes to them. Not tappable. */
+  source: 'slip' | 'host' | 'collector' | 'owner';
   /** ISO time the mark was written. */
   at: string;
   /** The slip credited an amount that no longer matches the player's current row. The mark stays; the host decides. */

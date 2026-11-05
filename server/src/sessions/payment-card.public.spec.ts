@@ -263,6 +263,24 @@ describe('GET /sessions/:code/payment-share-card (public, token-gated)', () => {
     expect(res.body.preview).toMatchObject({ count: 2, totalSatang: unpaid.reduce((s, r) => s + r.amountSatang, 0) });
   });
 
+  it('leaves the bill\'s เจ้าของบัญชี off the card as paid: the money goes to them', async () => {
+    const { code, groupCode, ids } = await setup();
+    const lineUserId = `U${randomUUID().replace(/-/g, '')}`;
+    await prisma.lineAccount.create({ data: { lineUserId, displayName: 'Mookie' } });
+    try {
+      await prisma.playerLineAccount.create({ data: { groupId: groupCode, playerId: ids[1], lineUserId, linkedBy: 'host' } });
+      await prisma.group.update({ where: { code: groupCode }, data: { payCollectorPlayerId: ids[1], payCollectorLineUserId: lineUserId } });
+      await confirm(code);
+      const token = await tokenOf(code);
+      const json = JSON.stringify((await share(code, `?token=${encodeURIComponent(token)}`).expect(200)).body.messages);
+      expect(json).toContain('จ่ายแล้ว 1 คน');
+      expect(json).not.toContain(NAMES[1]);
+      for (const name of [NAMES[0], NAMES[2], NAMES[3]]) expect(json).toContain(name);
+    } finally {
+      await prisma.lineAccount.delete({ where: { lineUserId } });
+    }
+  });
+
   it('serves a paid-in-full card once everyone has paid', async () => {
     const { code, ids } = await setup();
     await confirm(code);

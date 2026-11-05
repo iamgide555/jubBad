@@ -290,10 +290,10 @@ describe('slip pay-page routes (public, token-gated)', () => {
       expect(res.body.sessionDate).toBe('30 ต.ค. 2569');
       expect(res.body.rows).toHaveLength(4);
       expect(res.body.rows.find((r: { name: string }) => r.name === 'สมชาย')).toEqual({
-        name: 'สมชาย', amountSatang: await kit.owed(code, ids[0]), paid: true, pending: false, amountChangedSince: true,
+        name: 'สมชาย', amountSatang: await kit.owed(code, ids[0]), paid: true, pending: false, amountChangedSince: true, owner: false,
       });
       expect(res.body.rows.filter((r: { paid: boolean }) => !r.paid)).toHaveLength(3);
-      for (const row of res.body.rows) expect(Object.keys(row).sort()).toEqual(['amountChangedSince', 'amountSatang', 'name', 'paid', 'pending']);
+      for (const row of res.body.rows) expect(Object.keys(row).sort()).toEqual(['amountChangedSince', 'amountSatang', 'name', 'owner', 'paid', 'pending']);
       for (const secret of [token, groupCode, ...ids, user.userId, '123-4-56789-0', 'receiverName', 'reference']) expect(res.text).not.toContain(secret);
       expect(await kit.prisma.playerLineAccount.count({ where: { groupId: groupCode } })).toBe(0);
       await kit.app.get(SlipPaymentsService).tick(code, ids[1]);

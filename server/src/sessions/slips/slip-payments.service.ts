@@ -28,7 +28,8 @@ import { SlipImagesService } from './slip-images.service.js';
 /** One person's paid mark on the bill screen. */
 export interface PaidRow {
   playerId: string;
-  source: 'slip' | 'host' | 'collector';
+  /** `owner`: the bill's เจ้าของบัญชี (collector). The money goes to them, so they never pay themselves. */
+  source: 'slip' | 'host' | 'collector' | 'owner';
   /** ISO time the mark was written. */
   at: string;
   /** A slip credited an amount that no longer matches the player's current bill row. The mark stays; the host decides. */
@@ -147,7 +148,7 @@ export interface PaymentStatusView {
   closedAt: string | null;
   pendingSlipCount: number;
   sessionDate: string | null;
-  rows: { name: string; amountSatang: number; paid: boolean; pending: boolean; amountChangedSince: boolean }[];
+  rows: { name: string; amountSatang: number; paid: boolean; pending: boolean; amountChangedSince: boolean; owner: boolean }[];
 }
 
 /**
@@ -369,17 +370,21 @@ export class SlipPaymentsService {
       if (!gate) return null;
       const stored = await this.prisma.sessionPayment.findMany({ where: { sessionId: code } });
       const paid = new Map(stored.map((p) => [p.playerId, p]));
+      const ownerId = await this.ownerOf(code);
       const pending = await this.prisma.pendingSlip.findMany({ where: { sessionId: code, resolvedAt: null } });
       const links = await this.prisma.playerLineAccount.findMany({ where: { groupId: gate.groupId } });
       const linked = new Map(links.map((l) => [l.lineUserId, l.playerId]));
       const rows = gate.panel.rows.map((r) => {
-        const mark = paid.get(r.playerId);
+        const owner = r.playerId === ownerId;
+        const mark = owner ? undefined : paid.get(r.playerId);
         return {
-          paidAt: mark?.createdAt.getTime() ?? null,
+          // The owner sorts first among the paid: they never had anything to send.
+          paidAt: owner ? 0 : (mark?.createdAt.getTime() ?? null),
           row: {
-            name: r.name, amountSatang: r.amountSatang, paid: mark !== undefined,
-            pending: !mark && pending.some((p) => linked.get(p.lineUserId) === r.playerId && (p.reviewedAmountSatang ?? p.amountSatang) === r.amountSatang),
+            name: r.name, amountSatang: r.amountSatang, paid: owner || mark !== undefined,
+            pending: !owner && !mark && pending.some((p) => linked.get(p.lineUserId) === r.playerId && (p.reviewedAmountSatang ?? p.amountSatang) === r.amountSatang),
             amountChangedSince: mark !== undefined && mark.amountSatang !== null && mark.amountSatang !== r.amountSatang,
+            owner,
           },
         };
       });
@@ -437,15 +442,29 @@ export class SlipPaymentsService {
   async getPaid(code: string): Promise<PaidRow[]> {
     const panel = await this.cards.panel(code);
     const current = new Map(panel.rows.map((r) => [r.playerId, r.amountSatang]));
-    const stored = await this.prisma.sessionPayment.findMany({ where: { sessionId: code }, orderBy: { createdAt: 'asc' } });
+    const ownerId = await this.ownerOf(code);
+    const stored = (await this.prisma.sessionPayment.findMany({ where: { sessionId: code }, orderBy: { createdAt: 'asc' } }))
+      .filter((p) => p.playerId !== ownerId);
     const images = new Map((await this.images.list(code)).map((i) => [i.reference, i.id]));
-    return stored.map((p) => ({
+    // The owner's row is derived, never stored, and listed first: their share is already in their own account.
+    const owner: PaidRow[] = ownerId !== null && current.has(ownerId)
+      ? [{ playerId: ownerId, source: 'owner', at: new Date(0).toISOString(), amountChangedSince: false, imageId: null }]
+      : [];
+    return [...owner, ...stored.map((p) => ({
       playerId: p.playerId,
-      source: p.source === 'slip' || p.source === 'collector' ? p.source : 'host',
+      source: (p.source === 'slip' || p.source === 'collector' ? p.source : 'host') as PaidRow['source'],
       at: p.createdAt.toISOString(),
       amountChangedSince: p.amountSatang !== null && p.amountSatang !== current.get(p.playerId),
       imageId: p.source === 'slip' && p.reference !== null ? (images.get(p.reference) ?? null) : null,
-    }));
+    }))];
+  }
+
+  /**
+   * The bill's เจ้าของบัญชี (the collector picked in payment settings), who counts as paid without a mark: the money
+   * is sent to them, so their own share never has to be. Null when the bill has no collector.
+   */
+  private async ownerOf(code: string): Promise<string | null> {
+    return (await this.collectors.forBill(code))?.playerId ?? null;
   }
 
   /**
@@ -885,11 +904,7 @@ export class SlipPaymentsService {
     } catch (error) {
       console.error('[slip-payments] could not record the sender as a LINE account', error);
     }
-    const paid = new Set(
-      (await this.prisma.sessionPayment.findMany({ where: { sessionId: code }, select: { playerId: true } })).map(
-        (p) => p.playerId
-      )
-    );
+    const paid = await this.paidIds(code);
     const unpaid = panel.rows.filter((r) => !paid.has(r.playerId));
 
     let reason = await this.waitingReason(gate, unpaid, user, ocr, now);
@@ -983,10 +998,13 @@ export class SlipPaymentsService {
     return { kind: 'duplicate' };
   }
 
-  /** The player ids that currently count as paid in the session. */
+  /** The player ids that currently count as paid in the session: a mark, or being the bill's เจ้าของบัญชี. */
   private async paidIds(code: string): Promise<Set<string>> {
     const rows = await this.prisma.sessionPayment.findMany({ where: { sessionId: code }, select: { playerId: true } });
-    return new Set(rows.map((p) => p.playerId));
+    const ids = new Set(rows.map((p) => p.playerId));
+    const ownerId = await this.ownerOf(code);
+    if (ownerId !== null) ids.add(ownerId);
+    return ids;
   }
 
   /**

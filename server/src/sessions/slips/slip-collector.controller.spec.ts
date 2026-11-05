@@ -238,7 +238,7 @@ describe('collector manage routes (public, LINE identity + card token)', () => {
       const b = await collectorBill(owner.id);
       await kit.prisma.user.update({ where: { id: owner.id }, data: { lineUserId: b.user.userId } });
       await post(`${m(b.code)}/tick${q(b.token)}`, b.access, { playerId: b.ids[1] }).expect(200);
-      expect((await slips.getPaid(b.code))[0].source).toBe('host');
+      expect((await slips.getPaid(b.code)).find((p) => p.playerId === b.ids[1])?.source).toBe('host');
       await kit.app.get(LineHostService).unlink(owner.id);
       expect((await role(b.code, q(b.token), b.access).expect(200)).body).toEqual({ collector: true });
       await post(`${m(b.code)}/tick${q(b.token)}`, b.access, { playerId: b.ids[2] }).expect(200);
@@ -580,7 +580,9 @@ describe('collector manage routes (public, LINE identity + card token)', () => {
           'name',
           'playerId',
         ]);
+      // The collector is the bill's เจ้าของบัญชี: paid without a mark, listed first.
       expect(res.body.paid).toEqual([
+        expect.objectContaining({ playerId: b.ids[0], source: 'owner' }),
         expect.objectContaining({ playerId: b.ids[2], source: 'host' }),
       ]);
       expect(res.body.waiting).toEqual([
@@ -649,6 +651,7 @@ describe('collector manage routes (public, LINE identity + card token)', () => {
         ).body,
       ).toEqual({ ok: true });
       expect(await slips.getPaid(b.code)).toEqual([
+        expect.objectContaining({ playerId: b.ids[0], source: 'owner' }),
         expect.objectContaining({ playerId: b.ids[1], source: 'collector' }),
       ]);
       expect(
@@ -658,7 +661,30 @@ describe('collector manage routes (public, LINE identity + card token)', () => {
           }).expect(200)
         ).body,
       ).toEqual({ ok: true });
-      expect(await slips.getPaid(b.code)).toEqual([]);
+      expect(await slips.getPaid(b.code)).toEqual([
+        expect.objectContaining({ playerId: b.ids[0], source: 'owner' }),
+      ]);
+    });
+
+    it('the เจ้าของบัญชี counts as paid everywhere: status, closing, slip candidates, never as a tick', async () => {
+      const b = await collectorBill();
+      const status = (await slips.paymentStatusView(b.code, b.token))!;
+      const ownerName = (await kit.prisma.player.findUniqueOrThrow({ where: { id: b.ids[0] } })).name;
+      expect(status.rows.filter((r) => r.owner)).toEqual([expect.objectContaining({ name: ownerName, paid: true, pending: false })]);
+      // Who still owes stays on top; the owner leads the paid.
+      expect(status.rows.findIndex((r) => r.paid)).toBe(status.rows.findIndex((r) => r.owner));
+      // A tick and untick on the owner change nothing they can see.
+      await slips.tick(b.code, b.ids[0]);
+      await slips.untick(b.code, b.ids[0]);
+      expect((await slips.getPaid(b.code)).filter((p) => p.playerId === b.ids[0])).toEqual([
+        expect.objectContaining({ source: 'owner' }),
+      ]);
+      expect((await slips.listWaiting(b.code))[0].candidatePlayerIds).not.toContain(b.ids[0]);
+      // Everyone else paid and the review list empty: collection can close without the owner paying.
+      for (const id of b.ids.slice(1)) await slips.tick(b.code, id);
+      await slips.dismissWaiting(b.code, b.waitingId);
+      await slips.dismissDuplicate(b.code, b.duplicateId);
+      expect((await slips.collection(b.code)).canClose).toBe(true);
     });
 
     it("passes the service's refusals through", async () => {
@@ -846,6 +872,7 @@ describe('collector manage routes (public, LINE identity + card token)', () => {
         'amountChangedSince',
         'amountSatang',
         'name',
+        'owner',
         'paid',
         'pending',
       ]);

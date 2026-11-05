@@ -56,5 +56,6 @@ export interface PaymentStatusView {
   closedAt?: string | null;
   pendingSlipCount?: number;
   sessionDate: string | null;
-  rows: { name: string; amountSatang: number; paid: boolean; pending?: boolean; amountChangedSince: boolean }[];
+  /** `owner`: the bill's เจ้าของบัญชี, paid by definition. Absent from an older API. */
+  rows: { name: string; amountSatang: number; paid: boolean; pending?: boolean; amountChangedSince: boolean; owner?: boolean }[];
 }

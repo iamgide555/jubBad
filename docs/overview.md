@@ -1755,7 +1755,11 @@ self plus friends) that passes every other auto-pay check (card not stale, date,
 the pay page asks the sender who it covers, their own row pre-ticked. Their pick pays at once through the host's own
 resolve, so the host's cap holds exactly: someone picked, nobody already paid, picked total ≤ the slip amount. The
 sender can leave it to the host instead (ให้โฮสต์ตรวจแทน), and the host can resolve an `overpaid` slip like any
-other. A slip for less than the sender's share stays `amount`. **Re-sending your own waiting slip is not a duplicate
+other. A slip for less than the sender's share stays `amount`. **The เจ้าของบัญชี counts as paid (2026-11-06).** The bill's collector (the
+player picked as เจ้าของบัญชี in payment settings) receives the money, so their own share is never owed: they count as
+paid everywhere (host list chip เจ้าของบัญชี, status page, member card, slip candidates, closing collection) with no
+`SessionPayment` row. It is derived from `CollectorService.forBill`, so it follows a change of collector, and their row
+cannot be ticked or unticked. Their share stays in the bill split. **Re-sending your own waiting slip is not a duplicate
 (2026-11-04).** When the same LINE account sends a slip whose reference is still in the host's waiting list, the
 pay page says **สลิปนี้ส่งแล้ว รอโฮสต์ตรวจ** and nothing new is recorded: a real host had to dismiss exactly that
 noise. Anyone else sending that reference, or the sender after the host resolved it, is still a duplicate, and

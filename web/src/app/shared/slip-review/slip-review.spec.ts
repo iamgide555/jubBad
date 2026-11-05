@@ -278,6 +278,17 @@ describe('SlipReview', () => {
       expect(svc.panel).toHaveBeenCalledTimes(3);
     });
 
+    it('shows the เจ้าของบัญชี as paid with its own chip, and never ticks or unticks them', async () => {
+      await open(panel({ paid: [paid({ playerId: 'b', source: 'owner', at: '1970-01-01T00:00:00.000Z' })] }));
+      const owner = qa<HTMLButtonElement>('[data-person]').find((p) => p.textContent!.includes('Beam'))!;
+      expect(owner.querySelector('[data-chip]')!.textContent).toContain('เจ้าของบัญชี');
+      expect(owner.disabled).toBe(true);
+      owner.click();
+      await settle();
+      expect(svc.untick).not.toHaveBeenCalled();
+      expect(q('[data-paid-count]')!.textContent).toContain('1 / 3');
+    });
+
     it('lists who paid first at the top, then waiting slips, then the unpaid in bill order', async () => {
       await open(panel({
         paid: [paid({ playerId: 'c', source: 'host', at: '2026-10-30T13:20:00.000Z' }), paid({ playerId: 'b', source: 'slip', at: '2026-10-30T13:10:00.000Z' })],

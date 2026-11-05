@@ -1,3 +1,4 @@
+import { CollectorService } from './collector.service.js';
 import { createHash, timingSafeEqual } from 'node:crypto';
 import { BadRequestException, ConflictException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { LineClient } from '../line/line-client.js';
@@ -163,7 +164,8 @@ export class PaymentCardService {
     private readonly bills: BillService,
     private readonly summary: LineSummaryService,
     private readonly line: LineClient,
-    private readonly lock: SessionLock
+    private readonly lock: SessionLock,
+    private readonly collectors: CollectorService
   ) {}
 
   async panel(code: string, now: Date = new Date()): Promise<PaymentPanel> {
@@ -369,7 +371,8 @@ export class PaymentCardService {
   }
 
   /**
-   * The card as members see it: a player already paid (a matched slip or the host's mark, `SessionPayment`) is left
+   * The card as members see it: a player already paid (a matched slip or the host's mark, `SessionPayment`, or the
+   * bill's เจ้าของบัญชี) is left
    * off and counted in "จ่ายแล้ว N คน", and the total is what is still owed. Read at every send and every share, and
    * kept out of the content hash on purpose: a payment is not a bill edit, so it must never make the confirmed card
    * stale and switch off the host's share link. `input.rows` is `panel.rows` without the ids, in the same order.
@@ -380,6 +383,9 @@ export class PaymentCardService {
         (p) => p.playerId
       )
     );
+    // The bill's เจ้าของบัญชี receives the money, so their own share is never owed (SlipPaymentsService.paidIds).
+    const owner = await this.collectors.forBill(code);
+    if (owner !== null) paid.add(owner.playerId);
     const unpaid = panel.rows.map((r) => !paid.has(r.playerId));
     const paidCount = unpaid.filter((u) => !u).length;
     if (paidCount === 0) return input;

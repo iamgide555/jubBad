@@ -56,7 +56,9 @@
               </div>
               <div class="payment">
                 <span class="amount">฿{{ baht(row.amountSatang) }}</span>
-                @if (row.paid) {
+                @if (row.owner) {
+                  <span class="state paid-state" data-owner-state i18n="@@collector.label">เจ้าของบัญชี</span>
+                } @else if (row.paid) {
                   <span class="state paid-state" i18n="@@paymentStatus.paid">จ่ายแล้ว</span>
                 } @else if (row.pending) {
                   <span class="state pending-state" i18n="@@paymentStatus.pending">รอยืนยัน</span>

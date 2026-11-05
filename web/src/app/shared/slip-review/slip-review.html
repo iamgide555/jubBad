@@ -43,7 +43,7 @@
     <ul class="people" data-people>
       @for (p of people(); track p.playerId) {
         <li>
-          <button type="button" class="person" data-person [attr.aria-pressed]="p.paid ? 'true' : 'false'" [disabled]="(closed() && p.paid?.source !== 'slip') || busy().has('tick:' + p.playerId)" (click)="toggle(p)">
+          <button type="button" class="person" data-person [attr.aria-pressed]="p.paid ? 'true' : 'false'" [disabled]="p.paid?.source === 'owner' || (closed() && p.paid?.source !== 'slip') || busy().has('tick:' + p.playerId)" (click)="toggle(p)">
             <span class="person-main">
               <span class="person-name">
                 @if (p.name) {
@@ -62,6 +62,8 @@
               <span class="status status-unpaid" data-chip i18n="@@slipReview.chip.unpaid">ยังไม่จ่าย</span>
             } @else if (p.paid.source === 'slip') {
               <span class="status status-slip" data-chip i18n="@@slipReview.chip.slip">สลิป</span>
+            } @else if (p.paid.source === 'owner') {
+              <span class="status status-owner" data-chip i18n="@@collector.label">เจ้าของบัญชี</span>
             } @else if (p.paid.source === 'collector') {
               <span class="status status-collector" data-chip i18n="@@slipReview.chip.collector">ผู้รับเงินติ๊ก</span>
             } @else {

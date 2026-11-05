@@ -138,7 +138,8 @@ button.person:disabled {
 }
 
 .status-host,
-.status-collector {
+.status-collector,
+.status-owner {
   background: var(--court-soft);
   color: var(--court-ink);
 }

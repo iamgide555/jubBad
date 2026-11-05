@@ -57,6 +57,14 @@ describe('PaymentStatus', () => {
     expect(row?.querySelector('.pending-state')).not.toBeNull();
   });
 
+  it('labels the เจ้าของบัญชี as such, counted with the paid', async () => {
+    api.status.mockReturnValue(of({ ...VIEW, rows: [...VIEW.rows, { name: 'Mookie', amountSatang: 11300, paid: true, pending: false, amountChangedSince: false, owner: true }] }));
+    await open();
+    const row = [...el().querySelectorAll('[data-status-row]')].find(r => r.textContent?.includes('Mookie'));
+    expect(row?.querySelector('[data-owner-state]')?.textContent).toContain('เจ้าของบัญชี');
+    expect(row?.textContent).not.toContain('จ่ายแล้ว');
+  });
+
   it('reads without a claim, shows counts/date/amounts, and puts unpaid first', async () => {
     await open();
     expect(api.status).toHaveBeenCalledWith('abc', 'TOK', 'ACCESS');

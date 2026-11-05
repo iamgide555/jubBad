@@ -193,9 +193,24 @@ button.person:disabled {
   overflow-wrap: anywhere;
 }
 
-.reason {
-  color: var(--ink);
-  font-weight: 600;
+/* Why the slip was held: the first thing the host must see, so amber and bold, right under the sender. */
+.reason.warning {
+  margin-top: 0;
+  font-size: var(--text-base);
+  font-weight: 700;
+}
+
+.matched {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-1) var(--space-2);
+}
+
+.matched .ok {
+  margin: 0;
+  font-weight: 700;
 }
 
 .receiver {

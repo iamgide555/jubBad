@@ -67,11 +67,20 @@ export interface SkippedSlip {
   skippedAt: string;
 }
 
-export type WaitingReason = 'unmapped' | 'amount' | 'date' | 'receiver' | 'unreadable' | 'stale' | 'collision' | 'undone';
+/**
+ * `overpaid`: the slip is for more than the sender's own share and passed every other auto-pay check; the sender picks
+ * who it covers on the pay page (`coverForPayPage`), or the host resolves it like any waiting slip.
+ */
+export type WaitingReason = 'unmapped' | 'amount' | 'date' | 'receiver' | 'unreadable' | 'stale' | 'collision' | 'undone' | 'overpaid';
+
+/** The pay page's answer to "this slip covers these people". */
+export type CoverOutcome = 'paid' | 'gone' | 'exceeds' | 'already-paid' | 'not-on-bill';
 
 export type SubmitOutcome =
   | { kind: 'paid'; playerIds: string[] }
   | { kind: 'waiting'; reason: WaitingReason }
+  /** An `overpaid` slip: the sender now picks who it covers (`PayPageView.choice`). */
+  | { kind: 'choose' }
   | { kind: 'duplicate' }
   /** The same LINE account sent this slip before and it is still waiting for the host: nothing new is recorded. */
   | { kind: 'already-sent' }
@@ -122,6 +131,15 @@ export interface PayPageView {
   canChange: boolean;
   /** The night the bill is for, as the card writes it (a stored yyyy-mm-dd becomes a Thai date); null with no date. */
   sessionDate: string | null;
+  /**
+   * The viewer's own slip for more than their share, waiting for them to say who it covers; null otherwise. Options are
+   * the unpaid people owing money, the viewer's own row first.
+   */
+  choice: {
+    amountSatang: number;
+    ownPlayerId: string | null;
+    options: { playerId: string; name: string; amountSatang: number }[];
+  } | null;
 }
 
 /** Read-only bill projection for collectors; never includes host review or LINE account data. */
@@ -250,7 +268,60 @@ export class SlipPaymentsService {
       alreadyPaid: linkedId !== null && paid.has(linkedId),
       canChange: gate.closedAt === null && (await this.selfChangeable(groupId, user.userId, paid)),
       sessionDate: date === null || date.trim() === '' ? null : cardDate(date, billEnd),
+      choice: await this.choiceFor(code, gate, user, paid, linkedId),
     };
+  }
+
+  /** The viewer's unresolved `overpaid` slip, latest first, as the pay page's "who does this cover" choice. */
+  private async choiceFor(code: string, gate: SubmitGate, user: LiffUser, paid: Set<string>, ownPlayerId: string | null): Promise<PayPageView['choice']> {
+    if (gate.closedAt !== null || gate.panel.stale) return null;
+    const slip = await this.overpaidSlipOf(code, user);
+    if (!slip || slip.amountSatang === null) return null;
+    const options = gate.panel.rows
+      .filter((r) => !paid.has(r.playerId) && r.amountSatang > 0)
+      .map((r) => ({ playerId: r.playerId, name: r.name, amountSatang: r.amountSatang }))
+      .sort((a, b) => Number(b.playerId === ownPlayerId) - Number(a.playerId === ownPlayerId));
+    return { amountSatang: slip.amountSatang, ownPlayerId: ownPlayerId !== null && options.some((o) => o.playerId === ownPlayerId) ? ownPlayerId : null, options };
+  }
+
+  private overpaidSlipOf(code: string, user: LiffUser) {
+    return this.prisma.pendingSlip.findFirst({
+      where: { sessionId: code, lineUserId: user.userId, reason: 'overpaid', resolvedAt: null },
+      orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+    });
+  }
+
+  /**
+   * The pay page's "this slip covers these people", for the sender's own `overpaid` slip. Exactly the host's resolve
+   * (same cap: the picked total may not exceed the slip amount; same all-or-nothing write), behind the pay page's gates
+   * and a card that is not stale. Null when gated out.
+   */
+  async coverForPayPage(code: string, token: string | undefined, user: LiffUser, playerIds: string[], now: Date = new Date()): Promise<CoverOutcome | null> {
+    const gate = await this.gate(code, token, now);
+    if (!gate || gate.closedAt) return null;
+    if (gate.panel.stale) return 'gone';
+    const slip = await this.overpaidSlipOf(code, user);
+    if (!slip || slip.amountSatang === null) return 'gone';
+    try {
+      await this.resolveWaiting(code, slip.id, { coversPlayerIds: playerIds, senderPlayerId: null, reviewedAmountSatang: slip.amountSatang });
+      return 'paid';
+    } catch (error) {
+      if (error instanceof NotFoundException) return 'gone';
+      if (!(error instanceof ConflictException)) throw error;
+      switch ((error.getResponse() as { code?: string }).code) {
+        case 'SLIP_AMOUNT_MISMATCH':
+        case 'COVERS_REQUIRED':
+          return 'exceeds';
+        case 'PLAYER_ALREADY_PAID':
+          return 'already-paid';
+        case 'PLAYER_NOT_ON_BILL':
+          return 'not-on-bill';
+        case 'COLLECTION_CLOSED':
+          return null;
+        default:
+          throw error;
+      }
+    }
   }
 
   /**
@@ -853,7 +924,7 @@ export class SlipPaymentsService {
         reason,
       },
     });
-    return { kind: 'waiting', reason };
+    return reason === 'overpaid' ? { kind: 'choose' } : { kind: 'waiting', reason };
   }
 
   /** The auto-paid rule, in order: the first rule that fails is the reason; when all hold, the row to pay. */
@@ -872,7 +943,15 @@ export class SlipPaymentsService {
     const row = unpaid.find((r) => r.playerId === playerId);
     if (!row) return 'collision';
     // amountPresent never finds zero, so a player owing nothing is never auto-matched.
-    if (!amountPresent(ocr.text, row.amountSatang)) return hasAmountToken(ocr.text) ? 'amount' : 'unreadable';
+    if (!amountPresent(ocr.text, row.amountSatang)) {
+      if (!hasAmountToken(ocr.text)) return 'unreadable';
+      // More than their own share (paying for friends too): every other rule still holds before the sender may choose.
+      const read = slipAmount(ocr.text);
+      if (row.amountSatang <= 0 || read === null || read <= row.amountSatang) return 'amount';
+      if (!slipDateInWindow(slipDate(ocr.text), billEnd, now)) return 'date';
+      if (savedName !== null && !receiverNameMatches(ocr.lines, savedName)) return 'receiver';
+      return 'overpaid';
+    }
     // Call 1: two different owed amounts on one slip is not a match. Repeated values collapse, so a night where
     // everyone owes the same still pays; zero is never an owed amount found.
     if (owedAmountsFound(ocr.text, unpaid.map((r) => r.amountSatang)).length !== 1) return 'amount';

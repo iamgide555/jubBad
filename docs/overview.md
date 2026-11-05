@@ -1748,7 +1748,14 @@ one tap with no confirmation, and a real host skipped ไอซ์'s genuine sli
 collapsed ข้ามแล้ว list with นำกลับมาตรวจ until collection closes (host and collector). "Skipped" is derived, not
 stored: a resolved waiting row whose reference no paid mark of the session carries. **Pre-ticking (2026-11-05):** a
 waiting slip pre-ticks its linked sender's player when the status page shows them รอยืนยัน (unpaid, owing exactly the
-slip's amount), even when several people owe that amount; otherwise only a single matching candidate is pre-ticked. **Re-sending your own waiting slip is not a duplicate
+slip's amount), even when several people owe that amount; otherwise only a single matching candidate is pre-ticked. Such a matched card collapses to one line (จ่ายให้ X ฿n ·
+ยอดตรงกัน, with เปลี่ยนคน to open the full list), and every card shows its hold reason as an amber warning above the
+image. **Paying for others (2026-11-05).** A slip for *more* than the linked sender's own share (one transfer for
+self plus friends) that passes every other auto-pay check (card not stale, date, receiver) is held as `overpaid` and
+the pay page asks the sender who it covers, their own row pre-ticked. Their pick pays at once through the host's own
+resolve, so the host's cap holds exactly: someone picked, nobody already paid, picked total ≤ the slip amount. The
+sender can leave it to the host instead (ให้โฮสต์ตรวจแทน), and the host can resolve an `overpaid` slip like any
+other. A slip for less than the sender's share stays `amount`. **Re-sending your own waiting slip is not a duplicate
 (2026-11-04).** When the same LINE account sends a slip whose reference is still in the host's waiting list, the
 pay page says **สลิปนี้ส่งแล้ว รอโฮสต์ตรวจ** and nothing new is recorded: a real host had to dismiss exactly that
 noise. Anyone else sending that reference, or the sender after the host resolved it, is still a duplicate, and

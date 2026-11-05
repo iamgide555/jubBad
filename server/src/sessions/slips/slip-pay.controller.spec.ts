@@ -56,6 +56,10 @@ describe('slip pay-page routes (public, token-gated)', () => {
     const r = request(kit.server).post(`${pay(code)}/unclaim${query}`);
     return (access === undefined ? r : r.set(HEADER, access)).send({});
   };
+  const cover = (code: string, query: string, access: string | undefined, body: unknown) => {
+    const r = request(kit.server).post(`${pay(code)}/cover${query}`);
+    return (access === undefined ? r : r.set(HEADER, access)).send(body as object);
+  };
   const upload = (code: string, query: string, access: string | undefined, body: Buffer | string = IMAGE, type = 'image/png') => {
     const r = request(kit.server).post(`${pay(code)}/upload${query}`).set('Content-Type', type);
     return (access === undefined ? r : r.set(HEADER, access)).send(body);
@@ -238,7 +242,7 @@ describe('slip pay-page routes (public, token-gated)', () => {
       const res = await get(code, q(token), access);
       expect(res.status).toBe(200);
       expect(Object.keys(res.body).sort()).toEqual([
-        'accountName', 'alreadyPaid', 'amountSatang', 'canChange', 'claimable', 'collectionClosed', 'playerName', 'sessionDate',
+        'accountName', 'alreadyPaid', 'amountSatang', 'canChange', 'choice', 'claimable', 'collectionClosed', 'playerName', 'sessionDate',
       ]);
       expect(res.body).toMatchObject({
         amountSatang: null, playerName: null, alreadyPaid: false, canChange: false, accountName: 'สมหญิง ใจดี', sessionDate: '30 ต.ค. 2569',
@@ -363,6 +367,17 @@ describe('slip pay-page routes (public, token-gated)', () => {
       const { code, token } = await setupSession();
       const [a] = viewer();
       expect((await claim(code, q(token), a, undefined)).status).toBe(400);
+    });
+  });
+
+  describe('POST cover', () => {
+    it('answers gone with no slip of the viewer\'s to cover, 404 with a bad token, 400 without a list', async () => {
+      const { code, token, ids } = await setupSession();
+      const [a] = viewer();
+      expect((await cover(code, q(token), a, { playerIds: [ids[0]] })).body).toEqual({ outcome: 'gone' });
+      expect((await cover(code, q('wrong'), a, { playerIds: [ids[0]] })).status).toBe(404);
+      expect((await cover(code, q(token), a, {})).status).toBe(400);
+      expect((await cover(code, q(token), a, { playerIds: 'x' })).status).toBe(400);
     });
   });
 

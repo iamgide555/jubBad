@@ -5,13 +5,14 @@ import { ActivatedRoute } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
 import { formatBaht } from '../../core/bill-text';
 import { LiffClient } from '../../core/liff-client';
-import type { SlipPayClaimOutcome, SlipPayClaimable, SlipPayView } from '../../core/slip-pay.model';
+import type { SlipPayChoice, SlipPayClaimOutcome, SlipPayClaimable, SlipPayView } from '../../core/slip-pay.model';
 import { SlipPayService } from '../../core/slip-pay.service';
 
 type Phase = 'loading' | 'login' | 'unavailable' | 'error' | 'ready';
 /** A short message under the form; never a raw outcome string or HTTP code. */
 type Notice = 'duplicate' | 'alreadySent' | 'notSlip' | 'rate' | 'tooBig' | 'generic';
 type ClaimNote = 'taken' | 'accountLinked' | 'notOnBill' | 'rate' | 'generic';
+type CoverNote = 'exceeds' | 'alreadyPaid' | 'notOnBill' | 'rate' | 'generic';
 
 const CLAIM_NOTE: Record<Exclude<SlipPayClaimOutcome, 'linked'>, ClaimNote> = {
   'player-taken': 'taken',
@@ -59,13 +60,36 @@ export class SlipPay {
   /** Set once a slip is accepted or handed to the host; the page then stops offering to send. */
   protected readonly result = signal<'paid' | 'waiting' | null>(null);
   protected readonly cashNote = signal(false);
+  /** The viewer's ticks on the "who does this slip cover" list; null until they touch it (their own row is ticked). */
+  private readonly picksDraft = signal<string[] | null>(null);
+  protected readonly covering = signal(false);
+  protected readonly coverNote = signal<CoverNote | null>(null);
+  /** What a covered slip paid, for the result screen: the names and the slip amount. */
+  protected readonly covered = signal<{ names: string; amountSatang: number } | null>(null);
+
+  protected readonly choice = computed<SlipPayChoice | null>(() => this.view()?.choice ?? null);
+  protected readonly picks = computed<string[]>(() => {
+    const c = this.choice();
+    if (!c) return [];
+    const ids = new Set(c.options.map((o) => o.playerId));
+    return (this.picksDraft() ?? (c.ownPlayerId ? [c.ownPlayerId] : [])).filter((id) => ids.has(id));
+  });
+  protected readonly picksTotal = computed(() =>
+    (this.choice()?.options ?? []).filter((o) => this.picks().includes(o.playerId)).reduce((sum, o) => sum + o.amountSatang, 0)
+  );
+  /** Same cap as the host's review: someone picked, and the total not over the slip. */
+  protected readonly canCover = computed(() => {
+    const c = this.choice();
+    return c !== null && this.picks().length > 0 && this.picksTotal() <= c.amountSatang && !this.covering();
+  });
 
   /** Which body to show once the view has loaded. */
-  protected readonly screen = computed<'closed' | 'result' | 'paid' | 'claim' | 'send' | null>(() => {
+  protected readonly screen = computed<'closed' | 'result' | 'choose' | 'paid' | 'claim' | 'send' | null>(() => {
     const v = this.view();
     if (v === null) return null;
     if (v.collectionClosed) return 'closed';
     if (this.result() !== null) return 'result';
+    if (v.choice) return 'choose';
     if (v.alreadyPaid && v.amountSatang !== null) return 'paid';
     if (v.playerName === null && v.claimable.length > 0 && !this.skipped()) return 'claim';
     return 'send';
@@ -153,6 +177,45 @@ export class SlipPay {
     }
   }
 
+  protected togglePick(playerId: string): void {
+    const now = new Set(this.picks());
+    if (now.has(playerId)) now.delete(playerId);
+    else now.add(playerId);
+    this.picksDraft.set((this.choice()?.options ?? []).map((o) => o.playerId).filter((id) => now.has(id)));
+  }
+
+  /** The slip pays for the picked people at once; the server holds the same cap the host is held to. */
+  protected async cover(): Promise<void> {
+    const c = this.choice();
+    if (!c || !this.canCover()) return;
+    const picked = c.options.filter((o) => this.picks().includes(o.playerId));
+    this.covering.set(true);
+    this.coverNote.set(null);
+    try {
+      const { outcome } = await firstValueFrom(this.api.cover(this.code, this.token, this.accessToken, picked.map((o) => o.playerId)));
+      if (outcome === 'paid') {
+        this.covered.set({ names: picked.map((o) => o.name).join(', '), amountSatang: c.amountSatang });
+        this.result.set('paid');
+      } else if (outcome !== 'gone') {
+        this.coverNote.set(outcome === 'exceeds' ? 'exceeds' : outcome === 'already-paid' ? 'alreadyPaid' : 'notOnBill');
+      }
+      // Paid or not, who still owes may have changed: read the list again.
+      this.picksDraft.set(null);
+      const read = await this.refresh();
+      if (read === 'gone') this.phase.set('unavailable');
+    } catch (e) {
+      if (isStatus(e, 404)) this.phase.set('unavailable');
+      else this.coverNote.set(isStatus(e, 429) ? 'rate' : 'generic');
+    } finally {
+      this.covering.set(false);
+    }
+  }
+
+  /** Leave it to the host: the slip is already in their list. */
+  protected leaveToHost(): void {
+    this.result.set('waiting');
+  }
+
   /** "Not my name": drop the viewer's own pick, then the name list shows again (from the send or waiting screen). */
   protected async changeName(): Promise<void> {
     if (this.changing() || this.view()?.collectionClosed) return;
@@ -202,6 +265,15 @@ export class SlipPay {
         case 'waiting':
           this.result.set(outcome);
           break;
+        case 'choose': {
+          // The view now carries the choice; the screen follows it.
+          this.picksDraft.set(null);
+          this.coverNote.set(null);
+          const read = await this.refresh();
+          if (read === 'gone') this.phase.set('unavailable');
+          else if (read === 'failed') this.result.set('waiting');
+          break;
+        }
         case 'duplicate':
           this.notice.set('duplicate');
           break;

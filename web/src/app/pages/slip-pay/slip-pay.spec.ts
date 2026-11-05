@@ -40,6 +40,7 @@ describe('SlipPay', () => {
     claim: ReturnType<typeof vi.fn>;
     unclaim: ReturnType<typeof vi.fn>;
     upload: ReturnType<typeof vi.fn>;
+    cover: ReturnType<typeof vi.fn>;
   };
   let liff: {
     init: ReturnType<typeof vi.fn>;
@@ -153,6 +154,7 @@ describe('SlipPay', () => {
       claim: vi.fn(),
       unclaim: vi.fn(),
       upload: vi.fn(),
+      cover: vi.fn(),
     };
     liff = {
       init: vi.fn().mockResolvedValue(undefined),
@@ -471,6 +473,81 @@ describe('SlipPay', () => {
       await pick();
       expect(q('[data-slip-result="paid"]')?.textContent).toContain('รับสลิปแล้ว');
       expect(q('[data-slip-result="paid"]')?.textContent).not.toContain('฿');
+    });
+  });
+
+  describe('a slip for more than the viewer\'s share', () => {
+    const CHOOSING: SlipPayView = {
+      ...LINKED,
+      amountSatang: 11300,
+      choice: {
+        amountSatang: 22600,
+        ownPlayerId: 'p1',
+        options: [
+          { playerId: 'p1', name: 'มายด์', amountSatang: 11300 },
+          { playerId: 'p2', name: 'บีม', amountSatang: 11300 },
+          { playerId: 'p3', name: 'ต้อม', amountSatang: 11300 },
+        ],
+      },
+    };
+    const picks = () => Array.from(el().querySelectorAll<HTMLInputElement>('[data-slip-pick]'));
+    const tick = async (i: number) => {
+      picks()[i].click();
+      await flush();
+    };
+
+    it('after upload asks who it covers, with their own row ticked', async () => {
+      uploads({ outcome: 'choose' });
+      await open();
+      svc.view.mockReturnValue(of(CHOOSING));
+      await pick();
+      expect(q('[data-slip-choose]')?.textContent).toContain('฿226');
+      expect(picks().map((c) => c.checked)).toEqual([true, false, false]);
+      expect(q('[data-slip-picked-total]')?.textContent).toContain('฿113');
+    });
+
+    it('pays the picked people and shows who it paid for', async () => {
+      svc.cover.mockReturnValue(of({ outcome: 'paid' }));
+      await open(CHOOSING);
+      await tick(1);
+      svc.view.mockReturnValue(of({ ...LINKED, alreadyPaid: true, choice: null }));
+      (q('[data-slip-cover]') as HTMLButtonElement).click();
+      await flush();
+      await flush();
+      expect(svc.cover).toHaveBeenCalledWith('sess 1', TOKEN, ACCESS, ['p1', 'p2']);
+      expect(q('[data-slip-result="paid"]')?.textContent).toContain('฿226');
+      expect(q('[data-slip-covered]')?.textContent).toContain('มายด์, บีม');
+    });
+
+    it('cannot confirm over the slip amount or with nobody picked', async () => {
+      await open(CHOOSING);
+      await tick(1);
+      await tick(2);
+      expect(q('[data-slip-over]')?.textContent).toContain('฿113');
+      expect((q('[data-slip-cover]') as HTMLButtonElement).disabled).toBe(true);
+      await tick(0);
+      await tick(1);
+      await tick(2);
+      expect((q('[data-slip-cover]') as HTMLButtonElement).disabled).toBe(true);
+      expect(svc.cover).not.toHaveBeenCalled();
+    });
+
+    it('says so when someone picked has already paid, and stays on the list', async () => {
+      svc.cover.mockReturnValue(of({ outcome: 'already-paid' }));
+      await open(CHOOSING);
+      (q('[data-slip-cover]') as HTMLButtonElement).click();
+      await flush();
+      await flush();
+      expect(q('[data-slip-cover-note]')?.textContent).toContain('จ่ายไปแล้ว');
+      expect(q('[data-slip-choose]')).not.toBeNull();
+    });
+
+    it('can leave it to the host instead', async () => {
+      await open(CHOOSING);
+      (q('[data-slip-leave-to-host]') as HTMLButtonElement).click();
+      await flush();
+      expect(q('[data-slip-result="waiting"]')?.textContent).toContain('ส่งให้โฮสต์ตรวจแล้ว');
+      expect(svc.cover).not.toHaveBeenCalled();
     });
   });
 

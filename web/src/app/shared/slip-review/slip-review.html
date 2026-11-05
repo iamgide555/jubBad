@@ -105,6 +105,38 @@
               </div>
             </div>
 
+            <p class="reason warning" data-w-reason role="note">
+              @switch (c.slip.reason) {
+                @case ('amount') {
+                  <ng-container i18n="@@slipReview.reason.amount">ยอดไม่ตรงกับที่ต้องจ่าย</ng-container>
+                }
+                @case ('date') {
+                  <ng-container i18n="@@slipReview.reason.date">วันที่บนสลิปไม่ตรงกับบิลนี้</ng-container>
+                }
+                @case ('receiver') {
+                  <ng-container i18n="@@slipReview.reason.receiver">ชื่อผู้รับไม่ตรง</ng-container>
+                }
+                @case ('unreadable') {
+                  <ng-container i18n="@@slipReview.reason.unreadable">อ่านยอดจากสลิปไม่ได้</ng-container>
+                }
+                @case ('stale') {
+                  <ng-container i18n="@@slipReview.reason.stale">ยอดบิลเปลี่ยนหลังยืนยัน</ng-container>
+                }
+                @case ('overpaid') {
+                  <ng-container i18n="@@slipReview.reason.overpaid">จ่ายเกินยอดตัวเอง รอคนส่งเลือกว่าจ่ายให้ใคร</ng-container>
+                }
+                @case ('undone') {
+                  <ng-container i18n="@@slipReview.reason.undone">ยกเลิกสถานะจ่ายไปแล้ว ตรวจใหม่ได้</ng-container>
+                }
+                @case ('collision') {
+                  <ng-container i18n="@@slipReview.reason.collision">คนนี้จ่ายไปแล้วหรือไม่อยู่ในบิล</ng-container>
+                }
+                @default {
+                  <ng-container i18n="@@slipReview.reason.unmapped">ยังไม่รู้ว่าเป็นใคร</ng-container>
+                }
+              }
+            </p>
+
             @if (c.slip.imageId && !failedImages().has(c.slip.imageId!)) {
               <button type="button" class="slip-thumbnail ghost" data-enlarge (click)="enlarge(c.slip.imageId!)" i18n-aria-label="@@slipReview.enlarge" aria-label="ดูรูปสลิปขนาดใหญ่">
                 @if (imageUrls().get(c.slip.imageId!); as src) {
@@ -122,34 +154,6 @@
               <p class="muted" i18n="@@slipReview.reviewAmountHint">ตรวจยอดจากรูปก่อนยืนยัน แก้ไขได้หากอ่านยอดผิด</p>
             </div>
 
-            <p class="reason" data-w-reason>
-              @switch (c.slip.reason) {
-                @case ('amount') {
-                  <ng-container i18n="@@slipReview.reason.amount">ยอดไม่ตรงกับที่ต้องจ่าย</ng-container>
-                }
-                @case ('date') {
-                  <ng-container i18n="@@slipReview.reason.date">วันที่บนสลิปไม่ตรงกับบิลนี้</ng-container>
-                }
-                @case ('receiver') {
-                  <ng-container i18n="@@slipReview.reason.receiver">ชื่อผู้รับไม่ตรง</ng-container>
-                }
-                @case ('unreadable') {
-                  <ng-container i18n="@@slipReview.reason.unreadable">อ่านยอดจากสลิปไม่ได้</ng-container>
-                }
-                @case ('stale') {
-                  <ng-container i18n="@@slipReview.reason.stale">ยอดบิลเปลี่ยนหลังยืนยัน</ng-container>
-                }
-                @case ('undone') {
-                  <ng-container i18n="@@slipReview.reason.undone">ยกเลิกสถานะจ่ายไปแล้ว ตรวจใหม่ได้</ng-container>
-                }
-                @case ('collision') {
-                  <ng-container i18n="@@slipReview.reason.collision">คนนี้จ่ายไปแล้วหรือไม่อยู่ในบิล</ng-container>
-                }
-                @default {
-                  <ng-container i18n="@@slipReview.reason.unmapped">ยังไม่รู้ว่าเป็นใคร</ng-container>
-                }
-              }
-            </p>
 
             @if (c.slip.reason === 'receiver' && c.slip.receiverName) {
               <div class="receiver" data-receiver>
@@ -165,40 +169,49 @@
               </div>
             }
 
-            <fieldset class="covers" [disabled]="closed() || busy().has('w:' + c.slip.id)">
-              <legend i18n="@@slipReview.covers">สลิปนี้จ่ายให้</legend>
-              @for (o of coverOptions(); track o.playerId) {
-                <label class="pick">
-                  <input type="checkbox" [disabled]="closed() || busy().has('w:' + c.slip.id)" data-cover [checked]="c.covers.includes(o.playerId)" (change)="toggleCover(c, o.playerId)" />
-                  <span class="pick-name">{{ o.name }}</span>
-                  <span class="muted tabular">฿{{ baht(o.amountSatang) }}</span>
-                </label>
-              }
-            </fieldset>
-
-            <div class="review-totals tabular" aria-live="polite">
-              <p data-selected-total i18n="@@slipReview.selectedTotal">ยอดรวมคนที่เลือก ฿{{ baht(c.selectedTotal) }}</p>
-              @if (c.difference !== null) {
-                @if (c.difference > 0) { <p data-difference class="error" i18n="@@slipReview.shortfall">ยังขาด ฿{{ baht(c.difference) }}</p> }
-                @else if (c.difference < 0) { <p data-difference class="ok" i18n="@@slipReview.overpayment">จ่ายเกิน ฿{{ baht(-c.difference) }}</p> }
-                @else { <p data-difference class="ok" i18n="@@slipReview.exact">ยอดตรงกัน</p> }
-              } @else {
-                <p class="error" i18n="@@slipReview.amountNeeded">กรอกยอดที่ตรวจจากสลิปให้ถูกต้องก่อนยืนยัน</p>
-              }
-            </div>
-            @if (!collectorMode()) {
-            <div class="sender">
-              <label [for]="uid + '-s' + i" i18n="@@slipReview.sender">คนส่งคือ (ไม่บังคับ)</label>
-              <select [disabled]="closed() || busy().has('w:' + c.slip.id)" [id]="uid + '-s' + i" data-sender (change)="setSender(c, $any($event.target).value)">
-                <option value="" [selected]="c.senderId === null" i18n="@@slipReview.senderNone">ไม่มีในระบบ</option>
-                @for (r of rows(); track r.playerId) {
-                  <option [value]="r.playerId" [selected]="c.senderId === r.playerId">{{ r.name }}</option>
+            @if (c.matched; as m) {
+              <div class="matched" data-matched>
+                <p class="ok" i18n="@@slipReview.matchedTo">จ่ายให้ {{ m.name }} ฿{{ baht(m.amountSatang) }} · ยอดตรงกัน</p>
+                @if (!closed()) {
+                  <button type="button" class="ghost change-person" data-change-person (click)="expand(c.slip.id)" i18n="@@slipReview.changePerson">เปลี่ยนคน</button>
                 }
-              </select>
-              @if (c.senderWarning) {
-                <p class="warning" data-sender-warning role="status" i18n="@@slipReview.senderWarning">คนนี้ผูกกับบัญชี LINE อื่นอยู่แล้ว การยืนยันจะแทนที่บัญชีเดิม</p>
+              </div>
+            } @else {
+              <fieldset class="covers" [disabled]="closed() || busy().has('w:' + c.slip.id)">
+                <legend i18n="@@slipReview.covers">สลิปนี้จ่ายให้</legend>
+                @for (o of coverOptions(); track o.playerId) {
+                  <label class="pick">
+                    <input type="checkbox" [disabled]="closed() || busy().has('w:' + c.slip.id)" data-cover [checked]="c.covers.includes(o.playerId)" (change)="toggleCover(c, o.playerId)" />
+                    <span class="pick-name">{{ o.name }}</span>
+                    <span class="muted tabular">฿{{ baht(o.amountSatang) }}</span>
+                  </label>
+                }
+              </fieldset>
+
+              <div class="review-totals tabular" aria-live="polite">
+                <p data-selected-total i18n="@@slipReview.selectedTotal">ยอดรวมคนที่เลือก ฿{{ baht(c.selectedTotal) }}</p>
+                @if (c.difference !== null) {
+                  @if (c.difference > 0) { <p data-difference class="error" i18n="@@slipReview.shortfall">ยังขาด ฿{{ baht(c.difference) }}</p> }
+                  @else if (c.difference < 0) { <p data-difference class="ok" i18n="@@slipReview.overpayment">จ่ายเกิน ฿{{ baht(-c.difference) }}</p> }
+                  @else { <p data-difference class="ok" i18n="@@slipReview.exact">ยอดตรงกัน</p> }
+                } @else {
+                  <p class="error" i18n="@@slipReview.amountNeeded">กรอกยอดที่ตรวจจากสลิปให้ถูกต้องก่อนยืนยัน</p>
+                }
+              </div>
+              @if (!collectorMode()) {
+              <div class="sender">
+                <label [for]="uid + '-s' + i" i18n="@@slipReview.sender">คนส่งคือ (ไม่บังคับ)</label>
+                <select [disabled]="closed() || busy().has('w:' + c.slip.id)" [id]="uid + '-s' + i" data-sender (change)="setSender(c, $any($event.target).value)">
+                  <option value="" [selected]="c.senderId === null" i18n="@@slipReview.senderNone">ไม่มีในระบบ</option>
+                  @for (r of rows(); track r.playerId) {
+                    <option [value]="r.playerId" [selected]="c.senderId === r.playerId">{{ r.name }}</option>
+                  }
+                </select>
+                @if (c.senderWarning) {
+                  <p class="warning" data-sender-warning role="status" i18n="@@slipReview.senderWarning">คนนี้ผูกกับบัญชี LINE อื่นอยู่แล้ว การยืนยันจะแทนที่บัญชีเดิม</p>
+                }
+              </div>
               }
-            </div>
             }
 
             @if (errors()['w:' + c.slip.id]; as message) {

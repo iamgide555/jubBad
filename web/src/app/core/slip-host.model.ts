@@ -12,7 +12,7 @@ export interface SlipPaidRow {
   imageId?: string | null;
 }
 
-export type SlipWaitingReason = 'unmapped' | 'amount' | 'date' | 'receiver' | 'unreadable' | 'stale' | 'collision' | 'undone';
+export type SlipWaitingReason = 'unmapped' | 'amount' | 'date' | 'receiver' | 'unreadable' | 'stale' | 'collision' | 'undone' | 'overpaid';
 
 /** A slip held for the host instead of marking anyone paid. */
 export interface SlipWaiting {

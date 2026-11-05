@@ -268,7 +268,7 @@ describe('slip payments: host review', () => {
       const user = lineUser('Sender');
       expect(await slips.claimPlayer(code, user, ids[1])).toBe('linked');
       // Mapped sender with the wrong amount: held for the host.
-      const { row } = await waiting(code, token, 33300, { user });
+      const { row } = await waiting(code, token, 100, { user });
       expect(row.reason).toBe('amount');
 
       await expect(
@@ -437,7 +437,7 @@ describe('slip payments: host review', () => {
       const s = await setup();
       const user = lineUser('Sender');
       await slips.claimPlayer(s.code, user, s.ids[0]);
-      const { row } = await waiting(s.code, s.token, 33300, { user });
+      const { row } = await waiting(s.code, s.token, 100, { user });
       expect(row.reason).toBe('amount');
       await expect(slips.updateSavedReceiverName(s.code, row.id)).rejects.toMatchObject({
         response: { code: 'NAME_UPDATE_NOT_APPLICABLE' },

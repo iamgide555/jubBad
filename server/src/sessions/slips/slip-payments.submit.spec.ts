@@ -392,7 +392,8 @@ describe('slip payments: submit pipeline', () => {
     it('is checked after the amount and before the receiver', async () => {
       const { code, token, a, amount } = await ready();
       const old = new Date(ENDED_AT.getTime() - 7 * DAY);
-      reader.read.mockResolvedValue(slip(newRef(), { amount: '999.00', madeAt: old }));
+      // Below the sender's share: more than it would be `overpaid` and go on to the date check.
+      reader.read.mockResolvedValue(slip(newRef(), { amount: '1.00', madeAt: old }));
       expect(await slips.submitSlip(code, token, a, IMAGE)).toEqual({ kind: 'waiting', reason: 'amount' });
       reader.read.mockResolvedValue(slip(newRef(), { amount: baht(amount), madeAt: old, receiver: 'นาย ใครก็ได้ ไม่รู้จัก' }));
       expect(await slips.submitSlip(code, token, a, IMAGE)).toEqual({ kind: 'waiting', reason: 'date' });
@@ -704,23 +705,24 @@ describe('slip payments: submit pipeline', () => {
 
     it('holds a slip whose amount is not the sender\'s own; stores a unique amount even when it matches nobody on the bill', async () => {
       const { code, ids, token } = await setup();
+      // Everyone else owes less than the sender, so these slips are below the sender's own share (not `overpaid`).
       await reprice(code, token, [
-        { playerId: ids[1], amountSatang: 25000 },
-        { playerId: ids[2], amountSatang: 30000 },
+        { playerId: ids[1], amountSatang: 15000 },
+        { playerId: ids[2], amountSatang: 18000 },
       ]);
       const a = await linked(code, ids[0]);
 
-      reader.read.mockResolvedValue(slip(newRef(), { amount: '999.00' }));
+      reader.read.mockResolvedValue(slip(newRef(), { amount: '9.99' }));
       expect(await slips.submitSlip(code, token, a, IMAGE)).toEqual({ kind: 'waiting', reason: 'amount' });
-      reader.read.mockResolvedValue(slip(newRef(), { amount: '250.00' }));
+      reader.read.mockResolvedValue(slip(newRef(), { amount: '150.00' }));
       expect(await slips.submitSlip(code, token, a, IMAGE)).toEqual({ kind: 'waiting', reason: 'amount' });
-      reader.read.mockResolvedValue(slip(newRef(), { amount: '250.00', extra: ['ยอดรวม 300.00'] }));
+      reader.read.mockResolvedValue(slip(newRef(), { amount: '150.00', extra: ['ยอดรวม 180.00'] }));
       expect(await slips.submitSlip(code, token, a, IMAGE)).toEqual({ kind: 'waiting', reason: 'amount' });
 
       const rows = await prisma.pendingSlip.findMany({ where: { sessionId: code }, orderBy: { createdAt: 'asc' } });
       expect(rows.map((r) => [r.reason, r.amountSatang])).toEqual([
-        ['amount', 99900],
-        ['amount', 25000],
+        ['amount', 999],
+        ['amount', 15000],
         ['amount', null],
       ]);
       expect(await paymentsOf(code)).toEqual([]);
@@ -794,6 +796,93 @@ describe('slip payments: submit pipeline', () => {
       expect(await paymentsOf(code)).toEqual([]);
       // Zero is never an owed amount found on a slip either.
       expect(await onePending(code)).toMatchObject({ amountSatang: null });
+    });
+  });
+
+  describe('a slip for more than the sender\'s share: the sender picks who it covers', () => {
+    /** A linked sender's slip for their own share plus player 1's. */
+    async function overpaid() {
+      const ctx = await setup();
+      const a = await linked(ctx.code, ctx.ids[0]);
+      const total = (await owed(ctx.code, ctx.ids[0])) + (await owed(ctx.code, ctx.ids[1]));
+      reader.read.mockResolvedValue(slip(newRef(), { amount: baht(total) }));
+      return { ...ctx, a, total };
+    }
+
+    it('asks the sender to choose, holds the slip as overpaid, and offers the unpaid with their own row first', async () => {
+      const { code, token, ids, a, total } = await overpaid();
+      expect(await slips.submitSlip(code, token, a, IMAGE)).toEqual({ kind: 'choose' });
+      expect(await onePending(code)).toMatchObject({ reason: 'overpaid', amountSatang: total, resolvedAt: null });
+      expect(await paymentsOf(code)).toEqual([]);
+      const view = (await slips.payPageView(code, token, a))!;
+      expect(view.choice).toMatchObject({ amountSatang: total, ownPlayerId: ids[0] });
+      expect(view.choice!.options[0].playerId).toBe(ids[0]);
+      expect(view.choice!.options.map((o) => o.playerId).sort()).toEqual([...ids].sort());
+      // Another viewer has no choice to make.
+      expect((await slips.payPageView(code, token, lineUser('Other')))!.choice).toBeNull();
+    });
+
+    it('pays everyone picked at once as slip payments when the total fits the slip', async () => {
+      const { code, token, ids, a } = await overpaid();
+      await slips.submitSlip(code, token, a, IMAGE);
+      expect(await slips.coverForPayPage(code, token, a, [ids[0], ids[1]])).toBe('paid');
+      const paid = await paymentsOf(code);
+      expect(paid.map((p) => p.playerId).sort()).toEqual([ids[0], ids[1]].sort());
+      expect(paid.every((p) => p.source === 'slip')).toBe(true);
+      expect((await pendingOf(code))[0].resolvedAt).not.toBeNull();
+      expect((await slips.payPageView(code, token, a))!.choice).toBeNull();
+    });
+
+    it('refuses a pick over the slip amount, and an empty pick, paying nobody', async () => {
+      const { code, token, ids, a } = await overpaid();
+      await slips.submitSlip(code, token, a, IMAGE);
+      expect(await slips.coverForPayPage(code, token, a, [ids[0], ids[1], ids[2]])).toBe('exceeds');
+      expect(await slips.coverForPayPage(code, token, a, [])).toBe('exceeds');
+      expect(await paymentsOf(code)).toEqual([]);
+      expect((await pendingOf(code))[0].resolvedAt).toBeNull();
+    });
+
+    it('refuses someone already paid and a stranger to the bill', async () => {
+      const { code, token, ids, a } = await overpaid();
+      await slips.submitSlip(code, token, a, IMAGE);
+      await slips.tick(code, ids[1]);
+      expect(await slips.coverForPayPage(code, token, a, [ids[0], ids[1]])).toBe('already-paid');
+      expect(await slips.coverForPayPage(code, token, a, [ids[0], 'not-a-player'])).toBe('not-on-bill');
+      expect((await paymentsOf(code)).map((p) => p.playerId)).toEqual([ids[1]]);
+    });
+
+    it('is gone once the host resolved it, for anyone else, and when the card went stale', async () => {
+      const { code, token, ids, a } = await overpaid();
+      await slips.submitSlip(code, token, a, IMAGE);
+      expect(await slips.coverForPayPage(code, token, lineUser('Other'), [ids[0]])).toBe('gone');
+      await reprice(code, token, [{ playerId: ids[3], amountSatang: 1000 }], false);
+      expect(await slips.coverForPayPage(code, token, a, [ids[0]])).toBe('gone');
+      await confirm(code, token);
+      const pending = await onePending(code);
+      await slips.resolveWaiting(code, pending.id, { coversPlayerIds: [ids[0]], senderPlayerId: null });
+      expect(await slips.coverForPayPage(code, token, a, [ids[1]])).toBe('gone');
+    });
+
+    it('is null (gated out) with a wrong token', async () => {
+      const { code, token, ids, a } = await overpaid();
+      await slips.submitSlip(code, token, a, IMAGE);
+      expect(await slips.coverForPayPage(code, 'wrong-token', a, [ids[0]])).toBeNull();
+    });
+
+    it('still holds for the host on a wrong date or receiver, never offering a choice', async () => {
+      const { code, token, a, total } = await overpaid();
+      reader.read.mockResolvedValue(slip(newRef(), { amount: baht(total), madeAt: new Date(ENDED_AT.getTime() - 8 * DAY) }));
+      expect(await slips.submitSlip(code, token, a, IMAGE)).toEqual({ kind: 'waiting', reason: 'date' });
+      reader.read.mockResolvedValue(slip(newRef(), { amount: baht(total), receiver: 'นาย คนอื่น ไม่ใช่' }));
+      expect(await slips.submitSlip(code, token, a, IMAGE)).toEqual({ kind: 'waiting', reason: 'receiver' });
+      expect((await slips.payPageView(code, token, a))!.choice).toBeNull();
+    });
+
+    it('a slip for less than the sender\'s share stays an amount mismatch for the host', async () => {
+      const { code, token, ids } = await setup();
+      const a = await linked(code, ids[0]);
+      reader.read.mockResolvedValue(slip(newRef(), { amount: baht((await owed(code, ids[0])) - 100) }));
+      expect(await slips.submitSlip(code, token, a, IMAGE)).toEqual({ kind: 'waiting', reason: 'amount' });
     });
   });
 

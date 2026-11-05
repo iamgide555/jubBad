@@ -2,7 +2,7 @@ import { HttpClient, HttpHeaders } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import type { Observable } from 'rxjs';
 import { environment } from '../../environments/environment';
-import type { PaymentStatusView, SlipPayClaimOutcome, SlipPayUnclaimOutcome, SlipPayConfig, SlipPayRole, SlipPayUploadResult, SlipPayView } from './slip-pay.model';
+import type { PaymentStatusView, SlipPayClaimOutcome, SlipPayCoverOutcome, SlipPayUnclaimOutcome, SlipPayConfig, SlipPayRole, SlipPayUploadResult, SlipPayView } from './slip-pay.model';
 
 /**
  * Public routes behind the player pay page. The pay token (query) says which
@@ -58,6 +58,13 @@ export class SlipPayService {
   /** "Not my name": undoes the viewer's own pick so the name list shows again. */
   unclaim(code: string, token: string, accessToken: string): Observable<{ outcome: SlipPayUnclaimOutcome }> {
     return this.http.post<{ outcome: SlipPayUnclaimOutcome }>(this.url(code, token, '/unclaim'), {}, {
+      headers: this.headers(accessToken),
+    });
+  }
+
+  /** The viewer's slip for more than their share pays for exactly these people. */
+  cover(code: string, token: string, accessToken: string, playerIds: string[]): Observable<{ outcome: SlipPayCoverOutcome }> {
+    return this.http.post<{ outcome: SlipPayCoverOutcome }>(this.url(code, token, '/cover'), { playerIds }, {
       headers: this.headers(accessToken),
     });
   }

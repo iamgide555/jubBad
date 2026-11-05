@@ -13,6 +13,7 @@ import {
 } from '@nestjs/common';
 import type { Request } from 'express';
 import { Public } from '../../auth/public.decorator.js';
+import { SlipCoverDto } from '../dto/slip-cover.dto.js';
 import { SlipPlayerDto } from '../dto/slip-player.dto.js';
 import { PaymentCardService } from '../payment-card.service.js';
 import type { SlipViewerRequest } from './slip-upload.middleware.js';
@@ -20,6 +21,7 @@ import { SlipViewerGate, payToken } from './slip-viewer-gate.js';
 import {
   SlipPaymentsService,
   type ClaimOutcome,
+  type CoverOutcome,
   type UnclaimOutcome,
   type PayPageView,
   type PaymentStatusView,
@@ -139,6 +141,23 @@ export class SlipPayController {
     const { user, key } = await this.gate.viewer(req, code);
     const outcome = await this.slips.claimForPayPage(code, payToken(token), user, dto.playerId);
     if (outcome === null) this.gate.fail(key);
+    return { outcome };
+  }
+
+  /** The sender of a slip for more than their share says who it covers; paid at once under the host's cap. */
+  @Public()
+  @Post(':code/slip-pay/cover')
+  @HttpCode(200)
+  async cover(
+    @Param('code') code: string,
+    @Query('token') token: unknown,
+    @Req() req: Request,
+    @Body() dto: SlipCoverDto
+  ): Promise<{ outcome: CoverOutcome }> {
+    const { user, key } = await this.gate.viewer(req, code);
+    const outcome = await this.slips.coverForPayPage(code, payToken(token), user, dto.playerIds);
+    if (outcome === null) this.gate.fail(key);
+    if (outcome === 'paid') this.gate.succeed(key);
     return { outcome };
   }
 

@@ -25,14 +25,26 @@ export interface SlipPayView {
   canChange: boolean;
   /** The night the bill is for, as the payment card writes it; null when the session has no date. */
   sessionDate: string | null;
+  /** The viewer's own slip for more than their share, waiting for them to say who it covers. Absent from an older API. */
+  choice?: SlipPayChoice | null;
 }
+
+/** "Who does this slip cover": the unpaid people owing money, the viewer's own row first. */
+export interface SlipPayChoice {
+  amountSatang: number;
+  ownPlayerId: string | null;
+  options: { playerId: string; name: string; amountSatang: number }[];
+}
+
+/** `exceeds`: the picked total is over the slip amount (or nobody was picked). `gone`: nothing of the viewer's to cover. */
+export type SlipPayCoverOutcome = 'paid' | 'gone' | 'exceeds' | 'already-paid' | 'not-on-bill';
 
 export type SlipPayClaimOutcome = 'linked' | 'player-taken' | 'account-already-linked' | 'not-on-bill';
 
 /** `locked`: the pick is no longer the player's to change (the host made the link, or a payment has proven it). */
 export type SlipPayUnclaimOutcome = 'unlinked' | 'locked';
 
-export type SlipPayUploadOutcome = 'paid' | 'waiting' | 'duplicate' | 'already-sent' | 'not-slip';
+export type SlipPayUploadOutcome = 'paid' | 'waiting' | 'choose' | 'duplicate' | 'already-sent' | 'not-slip';
 
 /** The outcome only: why a slip was held is the host's to know, never the sender's. */
 export interface SlipPayUploadResult {

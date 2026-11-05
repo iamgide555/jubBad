@@ -37,6 +37,11 @@ interface WaitingCard {
   /** The saved-name fix applies: a receiver mismatch with a name read from the slip. */
   canFixName: boolean;
   nameUpdated: boolean;
+  /**
+   * The slip is already รอยืนยัน for its linked sender (unpaid, owing exactly the slip's amount) and the host has not
+   * opened it up: the card shows one line naming who it pays instead of the covers list and the sender dropdown.
+   */
+  matched: { name: string; amountSatang: number } | null;
 }
 
 const CONFLICT_TEXT: Record<SlipHostConflict, () => string> = {
@@ -127,6 +132,8 @@ export class SlipReview {
   protected readonly errors = signal<Record<string, string>>({});
   private readonly coversDraft = signal<Record<string, string[]>>({});
   private readonly senderDraft = signal<Record<string, string | null>>({});
+  /** Matched slips the host opened with เปลี่ยนคน: the full covers list shows again. */
+  private readonly expanded = signal<ReadonlySet<string>>(new Set());
   protected readonly namesUpdated = signal<ReadonlySet<string>>(new Set());
   protected readonly nameConfirm = signal<{ slipId: string; oldName: string | null; newName: string } | null>(null);
 
@@ -161,6 +168,11 @@ export class SlipReview {
     const unpaidIds = new Set(unpaid.map((r) => r.playerId));
     const linked = new Set(data.links.map((l) => l.playerId));
     return data.waiting.map((slip) => {
+      const linkedRow = this.linkedMatch(slip, unpaidIds) ? unpaid.find((r) => r.playerId === slip.linkedPlayerId) : undefined;
+      const matched =
+        linkedRow && !this.expanded().has(slip.id) && !hasOwn(this.coversDraft(), slip.id)
+          ? { name: linkedRow.name, amountSatang: linkedRow.amountSatang }
+          : null;
       const chosen = new Set(this.coversDraft()[slip.id] ?? this.defaultCovers(slip, unpaidIds));
       const covers = unpaid.filter((r) => chosen.has(r.playerId)).map((r) => r.playerId);
       const draft = this.senderDraft();
@@ -184,6 +196,7 @@ export class SlipReview {
           !!this.savedName() &&
           !this.namesUpdated().has(slip.id),
         nameUpdated: this.namesUpdated().has(slip.id),
+        matched,
       };
     });
   });
@@ -194,9 +207,19 @@ export class SlipReview {
    * amount. With an even split many people owe the same, so without the linked sender the host had to tick by hand.
    */
   private defaultCovers(slip: SlipWaiting, unpaidIds: Set<string>): string[] {
-    const linked = slip.linkedPlayerId;
-    if (linked && slip.amountSatang !== null && unpaidIds.has(linked) && slip.candidatePlayerIds.includes(linked)) return [linked];
+    if (this.linkedMatch(slip, unpaidIds)) return [slip.linkedPlayerId!];
     return slip.candidatePlayerIds.length === 1 && unpaidIds.has(slip.candidatePlayerIds[0]) ? [slip.candidatePlayerIds[0]] : [];
+  }
+
+  /** The status page's รอยืนยัน rule: a linked sender, unpaid, owing exactly the slip's amount. */
+  private linkedMatch(slip: SlipWaiting, unpaidIds: Set<string>): boolean {
+    const linked = slip.linkedPlayerId;
+    return !!linked && slip.amountSatang !== null && unpaidIds.has(linked) && slip.candidatePlayerIds.includes(linked);
+  }
+
+  /** เปลี่ยนคน on a matched card: show the full covers list (still ticked for the linked sender). */
+  protected expand(id: string): void {
+    this.expanded.update((s) => new Set(s).add(id));
   }
 
   /** Skipped slips, latest skip first; empty from an older API. */

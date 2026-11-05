@@ -24,7 +24,10 @@
               @if (result() === 'paid') {
                 <p class="mark" aria-hidden="true">✅</p>
                 <h1 i18n="@@slipPay.received">รับสลิปแล้ว</h1>
-                @if (v.amountSatang !== null) {
+                @if (covered(); as cv) {
+                  <p class="amount-small tabular">฿{{ baht(cv.amountSatang) }}</p>
+                  <p class="player-name" data-slip-covered i18n="@@slipPay.coveredFor">จ่ายให้ {{ cv.names }}</p>
+                } @else if (v.amountSatang !== null) {
                   <p class="amount-small tabular">฿{{ baht(v.amountSatang) }}</p>
                 }
               } @else {
@@ -36,6 +39,52 @@
                 <ng-container [ngTemplateOutlet]="change" />
               }
             </section>
+          }
+          @case ('choose') {
+            @if (choice(); as c) {
+              <section data-slip-choose>
+                <h1 i18n="@@slipPay.chooseTitle">สลิปนี้ ฿{{ baht(c.amountSatang) }} จ่ายให้ใครบ้าง?</h1>
+                <p class="muted" i18n="@@slipPay.chooseHint">ยอดเกินที่คุณต้องจ่าย เลือกคนที่คุณจ่ายให้ด้วย</p>
+                <ul class="claim-list">
+                  @for (o of c.options; track o.playerId) {
+                    <li>
+                      <label class="pick">
+                        <input type="checkbox" data-slip-pick [checked]="picks().includes(o.playerId)" [disabled]="covering()" (change)="togglePick(o.playerId)" />
+                        <span class="pick-name">{{ o.name }}</span>
+                        <span class="muted tabular">฿{{ baht(o.amountSatang) }}</span>
+                      </label>
+                    </li>
+                  }
+                </ul>
+                <p class="tabular" data-slip-picked-total aria-live="polite" i18n="@@slipPay.pickedTotal">เลือกแล้ว ฿{{ baht(picksTotal()) }} จาก ฿{{ baht(c.amountSatang) }}</p>
+                @if (picksTotal() > c.amountSatang) {
+                  <p class="error" data-slip-over i18n="@@slipPay.pickedOver">เกินยอดสลิป ฿{{ baht(picksTotal() - c.amountSatang) }}</p>
+                }
+                @if (coverNote(); as note) {
+                  <p class="error" role="alert" data-slip-cover-note>
+                    @switch (note) {
+                      @case ('exceeds') {
+                        <ng-container i18n="@@slipPay.cover.exceeds">ยอดรวมเกินยอดสลิป เลือกใหม่</ng-container>
+                      }
+                      @case ('alreadyPaid') {
+                        <ng-container i18n="@@slipPay.cover.alreadyPaid">มีคนที่เลือกจ่ายไปแล้ว เลือกใหม่</ng-container>
+                      }
+                      @case ('notOnBill') {
+                        <ng-container i18n="@@slipPay.claim.notOnBill">ชื่อนี้ไม่อยู่ในบิลแล้ว</ng-container>
+                      }
+                      @case ('rate') {
+                        <ng-container i18n="@@slipPay.err.rate">ส่งบ่อยเกินไป ลองใหม่ภายหลัง</ng-container>
+                      }
+                      @default {
+                        <ng-container i18n="@@slipPay.err.generic">ส่งไม่สำเร็จ ลองใหม่อีกครั้ง</ng-container>
+                      }
+                    }
+                  </p>
+                }
+                <button type="button" class="slip-btn" data-slip-cover [disabled]="!canCover()" (click)="cover()" i18n="@@slipPay.coverConfirm">ยืนยัน</button>
+                <button type="button" class="text-btn" data-slip-leave-to-host [disabled]="covering()" (click)="leaveToHost()" i18n="@@slipPay.leaveToHost">ให้โฮสต์ตรวจแทน</button>
+              </section>
+            }
           }
           @case ('paid') {
             <section class="result" data-slip-already-paid>

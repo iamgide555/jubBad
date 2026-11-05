@@ -404,6 +404,7 @@ describe('SlipReview', () => {
       ['stale', 'ยอดบิลเปลี่ยนหลังยืนยัน'],
       ['collision', 'คนนี้จ่ายไปแล้วหรือไม่อยู่ในบิล'],
       ['undone', 'ยกเลิกสถานะจ่ายไปแล้ว ตรวจใหม่ได้'],
+      ['overpaid', 'จ่ายเกินยอดตัวเอง รอคนส่งเลือกว่าจ่ายให้ใคร'],
     ] as const)('explains a %s slip', async (reason, line) => {
       await open(panel({ waiting: [waiting({ reason })] }));
       expect(q('[data-w-reason]')!.textContent).toContain(line);
@@ -420,9 +421,29 @@ describe('SlipReview', () => {
       expect(qa<HTMLInputElement>('[data-cover]').map((c) => c.checked)).toEqual([true, false, false]);
     });
 
-    it('pre-ticks the linked sender (รอยืนยัน) even when several people owe the same amount', async () => {
+    it('collapses a รอยืนยัน slip to one line for its linked sender, even when several people owe the same amount', async () => {
       await open(panel({ waiting: [waiting({ candidatePlayerIds: ['a', 'c'], linkedPlayerId: 'c' })] }));
+      expect(q('[data-matched]')!.textContent).toContain('จ่ายให้ Cat ฿90');
+      expect(q('[data-matched]')!.textContent).toContain('ยอดตรงกัน');
+      expect(qa('[data-cover]')).toEqual([]);
+      expect(q('[data-sender]')).toBeNull();
+      await click(q('[data-resolve]'));
+      expect(svc.resolve).toHaveBeenCalledWith('sess1', 'w-secret-1', { coversPlayerIds: ['c'], senderPlayerId: null, reviewedAmountSatang: 9000 });
+    });
+
+    it('เปลี่ยนคน opens the full list, still ticked for the linked sender', async () => {
+      await open(panel({ waiting: [waiting({ candidatePlayerIds: ['a', 'c'], linkedPlayerId: 'c' })] }));
+      await click(q('[data-change-person]'));
+      expect(q('[data-matched]')).toBeNull();
       expect(qa<HTMLInputElement>('[data-cover]').map((c) => c.checked)).toEqual([false, false, true]);
+      expect(q('[data-sender]')).not.toBeNull();
+    });
+
+    it('shows the hold reason as a warning above the slip image', async () => {
+      await open(panel({ waiting: [waiting({ reason: 'date', imageId: 'img1' } as never)] }));
+      const reason = q('[data-w-reason]')!;
+      expect(reason.classList).toContain('warning');
+      expect(reason.compareDocumentPosition(q('[data-enlarge]')!) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     });
 
     it('does not pre-tick the linked sender when the slip amount is not what they owe, or unknown', async () => {

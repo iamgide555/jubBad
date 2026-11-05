@@ -7490,6 +7490,42 @@
       <trans-unit id="slipReview.restore" datatype="html">
         <source>นำกลับมาตรวจ</source><target>Review again</target>
       </trans-unit>
+      <trans-unit id="slipPay.chooseTitle" datatype="html">
+        <source>สลิปนี้ ฿<x id="INTERPOLATION" equiv-text="{{ baht(c.amountSatang) }}"/> จ่ายให้ใครบ้าง?</source><target>Who does this ฿<x id="INTERPOLATION" equiv-text="{{ baht(c.amountSatang) }}"/> slip pay for?</target>
+      </trans-unit>
+      <trans-unit id="slipPay.chooseHint" datatype="html">
+        <source>ยอดเกินที่คุณต้องจ่าย เลือกคนที่คุณจ่ายให้ด้วย</source><target>This is more than your share. Pick everyone you paid for.</target>
+      </trans-unit>
+      <trans-unit id="slipPay.pickedTotal" datatype="html">
+        <source>เลือกแล้ว ฿<x id="INTERPOLATION" equiv-text="{{ baht(picksTotal()) }}"/> จาก ฿<x id="INTERPOLATION_1" equiv-text="{{ baht(c.amountSatang) }}"/></source><target>Picked ฿<x id="INTERPOLATION" equiv-text="{{ baht(picksTotal()) }}"/> of ฿<x id="INTERPOLATION_1" equiv-text="{{ baht(c.amountSatang) }}"/></target>
+      </trans-unit>
+      <trans-unit id="slipPay.pickedOver" datatype="html">
+        <source>เกินยอดสลิป ฿<x id="INTERPOLATION" equiv-text="{{ baht(picksTotal() - c.amountSatang) }}"/></source><target>Over the slip by ฿<x id="INTERPOLATION" equiv-text="{{ baht(picksTotal() - c.amountSatang) }}"/></target>
+      </trans-unit>
+      <trans-unit id="slipPay.cover.exceeds" datatype="html">
+        <source>ยอดรวมเกินยอดสลิป เลือกใหม่</source><target>The total is over the slip. Pick again.</target>
+      </trans-unit>
+      <trans-unit id="slipPay.cover.alreadyPaid" datatype="html">
+        <source>มีคนที่เลือกจ่ายไปแล้ว เลือกใหม่</source><target>Someone you picked has already paid. Pick again.</target>
+      </trans-unit>
+      <trans-unit id="slipPay.coverConfirm" datatype="html">
+        <source>ยืนยัน</source><target>Confirm</target>
+      </trans-unit>
+      <trans-unit id="slipPay.leaveToHost" datatype="html">
+        <source>ให้โฮสต์ตรวจแทน</source><target>Let the host check it</target>
+      </trans-unit>
+      <trans-unit id="slipPay.coveredFor" datatype="html">
+        <source>จ่ายให้ <x id="INTERPOLATION" equiv-text="{{ cv.names }}"/></source><target>Paid for <x id="INTERPOLATION" equiv-text="{{ cv.names }}"/></target>
+      </trans-unit>
+      <trans-unit id="slipReview.matchedTo" datatype="html">
+        <source>จ่ายให้ <x id="INTERPOLATION" equiv-text="{{ m.name }}"/> ฿<x id="INTERPOLATION_1" equiv-text="{{ baht(m.amountSatang) }}"/> · ยอดตรงกัน</source><target>Pays <x id="INTERPOLATION" equiv-text="{{ m.name }}"/> ฿<x id="INTERPOLATION_1" equiv-text="{{ baht(m.amountSatang) }}"/> · amount matches</target>
+      </trans-unit>
+      <trans-unit id="slipReview.changePerson" datatype="html">
+        <source>เปลี่ยนคน</source><target>Change person</target>
+      </trans-unit>
+      <trans-unit id="slipReview.reason.overpaid" datatype="html">
+        <source>จ่ายเกินยอดตัวเอง รอคนส่งเลือกว่าจ่ายให้ใคร</source><target>More than their own share; waiting for the sender to pick who it covers</target>
+      </trans-unit>
     </body>
   </file>
 </xliff>

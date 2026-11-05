@@ -183,6 +183,7 @@ describe('auth boundary', () => {
       if (path === '/sessions/:code/slip-pay/status') continue;
       if (path === '/sessions/:code/slip-pay/claim') continue;
       if (path === '/sessions/:code/slip-pay/unclaim') continue;
+      if (path === '/sessions/:code/slip-pay/cover') continue;
       if (path === '/sessions/:code/slip-pay/upload') continue;
       // Also @Public: the LIFF id for the pay page's liff.init, before it has a LINE identity; gated by the pay token alone.
       if (path === '/sessions/:code/slip-pay/config') continue;
@@ -412,6 +413,7 @@ describe('auth boundary', () => {
         if (path === '/sessions/:code/slip-pay/status') continue;
         if (path === '/sessions/:code/slip-pay/claim') continue;
         if (path === '/sessions/:code/slip-pay/unclaim') continue;
+        if (path === '/sessions/:code/slip-pay/cover') continue;
         if (path === '/sessions/:code/slip-pay/upload') continue;
         // @Public: gated by the confirm's pay token alone, no LINE viewer (slip-pay-config.spec.ts).
         if (path === '/sessions/:code/slip-pay/config') continue;

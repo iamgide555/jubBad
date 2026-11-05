@@ -27,7 +27,7 @@ import { PaymentCardService } from '../../core/payment-card.service';
 import { PaymentStatusSheet } from '../../shared/payment-status-sheet/payment-status-sheet';
 import { PaymentSheet } from '../../shared/payment-sheet/payment-sheet';
 
-type SortKey = 'played' | 'won' | 'lost' | 'doublesRate' | 'singlesRate' | 'time';
+type SortKey = 'played' | 'won' | 'lost' | 'noResult' | 'doublesRate' | 'singlesRate' | 'time';
 
 @Component({
   selector: 'app-session-summary',
@@ -62,10 +62,12 @@ export class SessionSummary {
         return row.won;
       case 'lost':
         return row.lost;
+      case 'noResult':
+        return this.noResult(row);
       case 'doublesRate':
-        return row.doubles ? this.winPercent(row.doubles.played, row.doubles.won) : null;
+        return row.doubles ? this.winPercent(row.doubles.won, row.doubles.lost) : null;
       case 'singlesRate':
-        return row.singles ? this.winPercent(row.singles.played, row.singles.won) : null;
+        return row.singles ? this.winPercent(row.singles.won, row.singles.lost) : null;
       case 'time': {
         const time = durationSummary(row.matches);
         return row.matches.length > 0 && time.measuredMatchCount + time.estimatedMatchCount === 0 ? null : row.totalSeconds;
@@ -106,9 +108,18 @@ export class SessionSummary {
     this.expandedPlayerId.set(this.expandedPlayerId() === playerId ? null : playerId);
   }
 
-  /** Whole percent — a casual group does not need decimal places. */
-  protected winPercent(played: number, won: number): number | null {
-    return played === 0 ? null : Math.round((won / played) * 100);
+  /** Whole percent — a casual group does not need decimal places. Only
+   *  decided games count: a ไม่มีผล game is neither a win nor a loss, so it
+   *  must not drag the rate down (same won/decisive rule as the profile and
+   *  roster win rates). Null when nothing was decided. */
+  protected winPercent(won: number, lost: number): number | null {
+    const decisive = won + lost;
+    return decisive === 0 ? null : Math.round((won / decisive) * 100);
+  }
+
+  /** Games finished with no winner recorded — whatever played leaves after won/lost. */
+  protected noResult(row: { played: number; won: number; lost: number }): number {
+    return row.played - row.won - row.lost;
   }
 
   protected readonly formatMinutes = formatMinutes;

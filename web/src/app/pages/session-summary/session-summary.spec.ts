@@ -319,6 +319,57 @@ describe('SessionSummary', () => {
     expect(text).toContain('1 เกม');
   });
 
+  it('shows ไม่มีผล games in their own column and leaves them out of the win rate', async () => {
+    await load(
+      summary({
+        players: [
+          {
+            playerId: 'p1',
+            name: 'ตั้ม',
+            played: 4,
+            won: 1,
+            lost: 1,
+            totalSeconds: 5400,
+            distinctPartners: 2,
+            singles: null,
+            doubles: { played: 4, won: 1, lost: 1 },
+            matches: [],
+          },
+        ],
+      })
+    );
+    const el = fixture.nativeElement as HTMLElement;
+    expect(el.querySelector('thead')!.textContent).toContain('ไม่มีผล');
+    expect(el.querySelector('[data-no-result]')!.textContent!.trim()).toBe('2');
+    const rate = el.querySelectorAll('.player-row .rate-cell')[0].textContent!.replace(/\s+/g, ' ');
+    // 1 win of 2 decided games, not 1 of 4 played.
+    expect(rate).toContain('50%');
+    expect(rate).toContain('2 เกม');
+  });
+
+  it('shows a dash for a format where every game ended ไม่มีผล', async () => {
+    await load(
+      summary({
+        players: [
+          {
+            playerId: 'p1',
+            name: 'ตั้ม',
+            played: 1,
+            won: 0,
+            lost: 0,
+            totalSeconds: 0,
+            distinctPartners: 1,
+            singles: null,
+            doubles: { played: 1, won: 0, lost: 0 },
+            matches: [],
+          },
+        ],
+      })
+    );
+    const rate = (fixture.nativeElement as HTMLElement).querySelectorAll('.player-row .rate-cell')[0];
+    expect(rate.textContent!.trim()).toBe('–');
+  });
+
   it('shows a dash for the format a player has never played', async () => {
     await load(summary());
     const cells = [...(fixture.nativeElement as HTMLElement).querySelectorAll('td')].map(
@@ -412,19 +463,19 @@ describe('SessionSummary', () => {
     );
   });
 
-  it('expanded match-list row spans all 7 columns — no profile column for a non-host viewer', async () => {
+  it('expanded match-list row spans all 8 columns — no profile column for a non-host viewer', async () => {
     await load(summary());
     fixture.componentInstance['togglePlayer']('p1');
     fixture.detectChanges();
     const cell = (fixture.nativeElement as HTMLElement).querySelector('.matches-row td')!;
-    expect(cell.getAttribute('colspan')).toBe('7');
+    expect(cell.getAttribute('colspan')).toBe('8');
   });
 
   it('does not show the profile column at all', async () => {
     await load(summary());
     const el = fixture.nativeElement as HTMLElement;
     expect(el.querySelector('.profile-cell')).toBeNull();
-    expect(el.querySelectorAll('th').length).toBe(7);
+    expect(el.querySelectorAll('th').length).toBe(8);
   });
 
   it('shows the total play time and average game length for a player', async () => {
@@ -446,7 +497,7 @@ describe('SessionSummary', () => {
     const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
     expect(text).toContain('โดยประมาณ'); expect(text).toContain('ไม่ทราบเวลา');
     expect(text).toContain('เวลารวมไม่ครบ'); expect(text).toContain('เฉลี่ย 12 น./เกม');
-    const timeCell = (fixture.nativeElement as HTMLElement).querySelector('tbody tr td:nth-child(7)')!;
+    const timeCell = (fixture.nativeElement as HTMLElement).querySelector('tbody tr td:nth-child(8)')!;
     const qualifiers = [...timeCell.querySelectorAll('.duration-qualifier')].map(el => el.textContent?.trim());
     expect(qualifiers).toEqual(['โดยประมาณ', 'เวลารวมไม่ครบ']);
     expect(timeCell.querySelector('.time-average')?.textContent).toContain('12 น.');
@@ -570,12 +621,12 @@ describe('SessionSummary', () => {
       expect(btn.disabled).toBe(false);
     });
 
-    it('expanded match-list row spans all 8 columns, including the profile column', async () => {
+    it('expanded match-list row spans all 9 columns, including the profile column', async () => {
       await load(summary());
       fixture.componentInstance['togglePlayer']('p1');
       fixture.detectChanges();
       const cell = (fixture.nativeElement as HTMLElement).querySelector('.matches-row td')!;
-      expect(cell.getAttribute('colspan')).toBe('8');
+      expect(cell.getAttribute('colspan')).toBe('9');
     });
 
     it('copies the player profile URL when the profile button is tapped', async () => {

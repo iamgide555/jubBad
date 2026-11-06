@@ -1763,7 +1763,12 @@ reviewed amount; an auto-paid slip gets a new row from its sender), so the host 
 dismisses it. A re-send by the same sender is then already-sent, not a duplicate. **Skipping is undoable too (2026-11-05).** ข้าม is
 one tap with no confirmation, and a real host skipped ไอซ์'s genuine slip by mistake. Skipped slips now sit in a
 collapsed ข้ามแล้ว list with นำกลับมาตรวจ until collection closes (host and collector). "Skipped" is derived, not
-stored: a resolved waiting row whose reference no paid mark of the session carries. **Pre-ticking (2026-11-05):** a
+stored: a resolved waiting row whose reference no paid mark of the session carries. **Un-ticking a hand-made mark brings
+the player's skipped slips back (2026-11-06).** A real host skipped อั๋น's slip (flagged `receiver`) and then ticked him
+paid by hand, so un-ticking afterwards left him plain unpaid with the slip buried in ข้ามแล้ว. Un-ticking a host or
+collector mark now also returns every slip the player's linked LINE account sent that is still skipped, with its original
+reason, so he shows รอยืนยัน again and the host can review or skip it once more. No link, or a slip that already paid
+someone, restores nothing. **Pre-ticking (2026-11-05):** a
 waiting slip pre-ticks its linked sender's player when the status page shows them รอยืนยัน (unpaid, owing exactly the
 slip's amount), even when several people owe that amount; otherwise only a single matching candidate is pre-ticked. Such a matched card collapses to one line (จ่ายให้ X ฿n ·
 ยอดตรงกัน, with เปลี่ยนคน to open the full list), and every card shows its hold reason as an amber warning above the

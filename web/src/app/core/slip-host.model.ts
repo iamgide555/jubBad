@@ -63,8 +63,18 @@ export interface SlipLink {
   linkedBy: 'self' | 'host';
 }
 
+/** What the awards card did when the collection closed; `skipped` is the host's own choice in the close dialog. */
+export type AwardsCardOutcome = 'sent' | 'already-sent' | 'unavailable' | 'failed' | 'skipped';
+
+/** Where the awards card would go on close: the LINE group, or the host's own LINE chat; null when nowhere. */
+export type AwardsCardTarget = 'group' | 'host' | null;
+
+/** The answer to a close; `card` is missing while an older API is still deployed. */
+export type SlipCloseResult = { ok: true; card?: AwardsCardOutcome };
+
 export interface SlipHostPanel {
-  collection?: { closedAt: string | null; canClose: boolean; imageCount: number };
+  /** `card` is optional while an older API is still deployed. */
+  collection?: { closedAt: string | null; canClose: boolean; imageCount: number; card?: AwardsCardTarget };
   paid: SlipPaidRow[];
   waiting: SlipWaiting[];
   /** Optional while an older API is still deployed. */

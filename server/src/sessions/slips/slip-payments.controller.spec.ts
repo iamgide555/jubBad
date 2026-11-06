@@ -56,7 +56,7 @@ describe('host payment routes /sessions/:code/payments (owner only)', () => {
   describe('GET', () => {
     it('lists the paid rows, waiting slips, duplicates and links', async () => {
       const { code, groupCode, ids } = await setupSession();
-      expect((await get(code)).body).toEqual({ paid: [], waiting: [], skipped: [], duplicates: [], links: [], collector: null, collection: {closedAt:null,canClose:false,imageCount:0} });
+      expect((await get(code)).body).toEqual({ paid: [], waiting: [], skipped: [], duplicates: [], links: [], collector: null, collection: {closedAt:null,canClose:false,imageCount:0,card:null} });
 
       await post(code, '/tick', { playerId: ids[0] }).expect(200);
       const waiting = await waitingSlip(code, groupCode);

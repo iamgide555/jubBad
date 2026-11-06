@@ -599,6 +599,7 @@ describe('collector manage routes (public, LINE identity + card token)', () => {
         closedAt: null,
         canClose: false,
         imageCount: 1,
+        card: null,
       });
       expect(res.text).not.toContain('lineUserId');
       const senders = await kit.prisma.pendingSlip.findMany({
@@ -785,7 +786,7 @@ describe('collector manage routes (public, LINE identity + card token)', () => {
         await post(`${m(b.code)}/tick${q(b.token)}`, b.access, {
           playerId: id,
         }).expect(200);
-      expect((await close().expect(200)).body).toEqual({ ok: true });
+      expect((await close().expect(200)).body).toEqual({ ok: true, card: 'unavailable' });
       expect(
         (
           await kit.prisma.session.findUniqueOrThrow({

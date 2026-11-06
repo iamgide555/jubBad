@@ -2,7 +2,7 @@ import { HttpClient, HttpHeaders } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { map, throwError, type Observable } from 'rxjs';
 import { environment } from '../../environments/environment';
-import type { SlipHostPanel, SlipResolveBody } from './slip-host.model';
+import type { SlipCloseResult, SlipHostPanel, SlipResolveBody } from './slip-host.model';
 import type { SlipReviewApi } from './slip-review-api';
 
 type Ok = { ok: true };
@@ -74,8 +74,12 @@ export class CollectorSlipService implements SlipReviewApi {
       .pipe(map((blob) => URL.createObjectURL(blob)));
   }
 
-  closeCollection(code: string): Observable<Ok> {
-    return this.post(code, '/close', { confirmDeleteImages: true });
+  closeCollection(code: string, sendCard?: boolean): Observable<SlipCloseResult> {
+    return this.http.post<SlipCloseResult>(
+      this.url(code, '/close'),
+      { confirmDeleteImages: true, ...(sendCard === false ? { sendCard: false } : {}) },
+      { headers: this.headers() },
+    );
   }
 
   tick(code: string, playerId: string): Observable<Ok> {

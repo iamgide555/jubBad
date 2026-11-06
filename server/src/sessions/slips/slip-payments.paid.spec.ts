@@ -267,6 +267,137 @@ describe('slip payments: paid state, manual tick, token check', () => {
         await expect(paid.restoreWaiting(code, slip.id)).rejects.toBeInstanceOf(NotFoundException);
         await expect(paid.restoreWaiting(code, 'no-such-slip')).rejects.toBeInstanceOf(NotFoundException);
       });
+
+      describe('un-ticking a hand-made mark returns the player’s own skipped slips', () => {
+        /** A LINE account linked to `playerId`, cleaned up by the caller through `drop`. */
+        async function linked(code: string, playerId: string) {
+          const groupId = (await prisma.session.findUniqueOrThrow({ where: { code } })).groupId;
+          const lineUserId = `U${randomUUID().replace(/-/g, '')}`;
+          await prisma.lineAccount.create({ data: { lineUserId, displayName: 'Canin.w' } });
+          await prisma.playerLineAccount.create({ data: { groupId, playerId, lineUserId, linkedBy: 'self' } });
+          const drop = async () => {
+            await prisma.pendingSlip.deleteMany({ where: { lineUserId } });
+            await prisma.playerLineAccount.deleteMany({ where: { lineUserId } });
+            await prisma.lineAccount.delete({ where: { lineUserId } });
+          };
+          return { groupId, lineUserId, drop };
+        }
+        const skip = async (code: string, groupId: string, lineUserId: string, reference: string, reason = 'receiver') => {
+          const slip = await prisma.pendingSlip.create({
+            data: { sessionId: code, groupId, reference, lineUserId, displayName: 'Canin.w', amountSatang: 11300, reason },
+          });
+          await paid.dismissWaiting(code, slip.id);
+          return slip;
+        };
+
+        it('brings the slip back to waiting with its original reason', async () => {
+          const { code, ids } = await setup();
+          const { groupId, lineUserId, drop } = await linked(code, ids[0]);
+          try {
+            const slip = await skip(code, groupId, lineUserId, 'MINE1');
+            await paid.tick(code, ids[0]);
+            expect(await paid.listSkipped(code)).toMatchObject([{ id: slip.id }]);
+
+            await paid.untick(code, ids[0]);
+
+            expect(await paid.getPaid(code)).toEqual([]);
+            expect(await paid.listSkipped(code)).toEqual([]);
+            expect(await paid.listWaiting(code)).toMatchObject([{ id: slip.id, reason: 'receiver', linkedPlayerId: ids[0] }]);
+          } finally {
+            await drop();
+          }
+        });
+
+        it('brings back every skipped slip of that sender, and also works for a collector tick', async () => {
+          const { code, ids } = await setup();
+          const { groupId, lineUserId, drop } = await linked(code, ids[0]);
+          try {
+            await skip(code, groupId, lineUserId, 'MINE2');
+            await skip(code, groupId, lineUserId, 'MINE3', 'date');
+            await paid.tick(code, ids[0], 'collector');
+
+            await paid.untick(code, ids[0]);
+
+            expect(await paid.listSkipped(code)).toEqual([]);
+            expect((await paid.listWaiting(code)).map((w) => w.reason).sort()).toEqual(['date', 'receiver']);
+          } finally {
+            await drop();
+          }
+        });
+
+        it('leaves a skipped slip alone when the player has no LINE link', async () => {
+          const { code, ids } = await setup();
+          const groupId = (await prisma.session.findUniqueOrThrow({ where: { code } })).groupId;
+          const slip = await prisma.pendingSlip.create({
+            data: { sessionId: code, groupId, reference: 'NOLINK1', lineUserId: 'Unolink', amountSatang: 11300, reason: 'receiver' },
+          });
+          await paid.dismissWaiting(code, slip.id);
+          await paid.tick(code, ids[0]);
+
+          await paid.untick(code, ids[0]);
+
+          expect(await paid.listWaiting(code)).toEqual([]);
+          expect(await paid.listSkipped(code)).toMatchObject([{ id: slip.id }]);
+        });
+
+        it('leaves another sender’s skipped slip alone', async () => {
+          const { code, ids } = await setup();
+          const { groupId, lineUserId, drop } = await linked(code, ids[0]);
+          try {
+            const other = await prisma.pendingSlip.create({
+              data: { sessionId: code, groupId, reference: 'OTHER1', lineUserId: 'Uother', amountSatang: 11300, reason: 'receiver' },
+            });
+            await paid.dismissWaiting(code, other.id);
+            await skip(code, groupId, lineUserId, 'MINE4');
+            await paid.tick(code, ids[0]);
+
+            await paid.untick(code, ids[0]);
+
+            expect(await paid.listWaiting(code)).toMatchObject([{ lineUserId }]);
+            expect(await paid.listSkipped(code)).toMatchObject([{ id: other.id }]);
+          } finally {
+            await drop();
+            await prisma.pendingSlip.deleteMany({ where: { lineUserId: 'Uother' } });
+          }
+        });
+
+        it('does not restore a slip that already paid someone', async () => {
+          const { code, ids } = await setup();
+          const { groupId, lineUserId, drop } = await linked(code, ids[0]);
+          try {
+            const amount = (await cards.panel(code)).rows.find((r) => r.playerId === ids[1])!.amountSatang;
+            const used = await prisma.pendingSlip.create({
+              data: { sessionId: code, groupId, reference: 'USED1', lineUserId, amountSatang: amount, reason: 'amount' },
+            });
+            await paid.resolveWaiting(code, used.id, { coversPlayerIds: [ids[1]], senderPlayerId: null });
+            await paid.tick(code, ids[0]);
+
+            await paid.untick(code, ids[0]);
+
+            expect(await paid.listWaiting(code)).toEqual([]);
+            expect(await paid.getPaid(code)).toMatchObject([{ playerId: ids[1], source: 'slip' }]);
+          } finally {
+            await drop();
+          }
+        });
+
+        it('refuses after collection closes and restores nothing', async () => {
+          const { code, ids } = await setup();
+          const { groupId, lineUserId, drop } = await linked(code, ids[0]);
+          try {
+            await skip(code, groupId, lineUserId, 'MINE5');
+            await paid.tick(code, ids[0]);
+            await prisma.session.update({ where: { code }, data: { paymentCollectionClosedAt: new Date() } });
+
+            await expect(paid.untick(code, ids[0])).rejects.toBeInstanceOf(ConflictException);
+
+            expect(await paid.getPaid(code)).toMatchObject([{ playerId: ids[0] }]);
+            expect(await paid.listWaiting(code)).toEqual([]);
+          } finally {
+            await drop();
+          }
+        });
+      });
     });
 
     it('refuses a player who is not on the bill', async () => {

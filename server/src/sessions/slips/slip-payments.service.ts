@@ -495,12 +495,36 @@ export class SlipPaymentsService {
       await this.cards.panel(code);
       const mark = await this.prisma.sessionPayment.findUnique({ where: { sessionId_playerId: { sessionId: code, playerId } } });
       if (!mark) return;
-      const reopen = mark.source === 'slip' && mark.reference !== null ? await this.reopenWrite(code, mark.reference, mark.amountSatang) : null;
+      const fromSlip = mark.source === 'slip' && mark.reference !== null;
+      const reopen = fromSlip ? await this.reopenWrite(code, mark.reference!, mark.amountSatang) : null;
+      // A hand-made tick has no slip to send back, but the player may have sent one the host skipped before ticking.
+      const restore = fromSlip ? null : await this.restoreSkippedOf(code, playerId);
       await this.prisma.$transaction([
         this.prisma.sessionPayment.delete({ where: { id: mark.id } }),
         ...(reopen ? [reopen()] : []),
+        ...(restore ? [restore()] : []),
       ]);
     });
+  }
+
+  /**
+   * The write that brings back every slip this player's linked LINE account sent that the host skipped, or null when
+   * there is none. Un-ticking a host or collector mark means "this player has not paid after all", and a skipped slip
+   * from their own account is the likeliest reason the host ticked by hand. The slips keep their original reason and
+   * the host can skip them again. A thunk, like `reopenWrite`, so it runs inside the caller's transaction.
+   */
+  private async restoreSkippedOf(code: string, playerId: string) {
+    const groupId = await this.groupOf(code);
+    const link = await this.prisma.playerLineAccount.findUnique({ where: { groupId_playerId: { groupId, playerId } } });
+    if (!link) return null;
+    const used = await this.usedReferences(code);
+    const rows = await this.prisma.pendingSlip.findMany({
+      where: { sessionId: code, lineUserId: link.lineUserId, resolvedAt: { not: null } },
+      select: { id: true, reference: true },
+    });
+    const ids = rows.filter((r) => !used.has(r.reference)).map((r) => r.id);
+    if (ids.length === 0) return null;
+    return () => this.prisma.pendingSlip.updateMany({ where: { id: { in: ids } }, data: { resolvedAt: null } });
   }
 
   /**

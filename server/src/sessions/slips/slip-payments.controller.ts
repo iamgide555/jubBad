@@ -6,6 +6,7 @@ import { SlipImagesService } from './slip-images.service.js';
 import { ResolveWaitingSlipDto } from '../dto/resolve-waiting-slip.dto.js';
 import { SetPlayerLinkDto } from '../dto/set-player-link.dto.js';
 import { SlipPlayerDto } from '../dto/slip-player.dto.js';
+import type { AwardsSendOutcome } from '../payment-card.service.js';
 import {
   SlipPaymentsService,
   type DuplicateSlip,
@@ -15,7 +16,7 @@ import {
 
 /** Everything the bill screen needs about slips and paid marks in one read. */
 export interface SlipPaymentsPanel {
-  collection: {closedAt: string | null; canClose: boolean; imageCount: number};
+  collection: {closedAt: string | null; canClose: boolean; imageCount: number; card: 'group' | 'host' | null};
   paid: PaidRow[];
   waiting: WaitingSlip[];
   /** Skipped slips, so a mistaken ปฏิเสธ can be brought back. */
@@ -69,9 +70,8 @@ export class SlipPaymentsController {
 
   @Post(':code/payments/close')
   @HttpCode(200)
-  async close(@Param('code') code: string, @Body() _dto: CloseCollectionDto): Promise<{ok:true}> {
-    await this.slips.closeCollection(code);
-    return {ok:true};
+  async close(@Param('code') code: string, @Body() dto: CloseCollectionDto): Promise<{ok:true; card: AwardsSendOutcome}> {
+    return {ok:true, card: await this.slips.closeCollection(code, {sendCard: dto.sendCard})};
   }
 
   @Post(':code/payments/tick')

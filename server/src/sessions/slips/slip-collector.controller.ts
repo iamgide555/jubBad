@@ -17,6 +17,7 @@ import { Public } from '../../auth/public.decorator.js';
 import { CloseCollectionDto } from '../dto/close-collection.dto.js';
 import { ResolveWaitingSlipDto } from '../dto/resolve-waiting-slip.dto.js';
 import { SlipPlayerDto } from '../dto/slip-player.dto.js';
+import type { AwardsSendOutcome } from '../payment-card.service.js';
 import { SlipImagesService } from './slip-images.service.js';
 import {
   SlipPaymentsService,
@@ -48,6 +49,7 @@ export interface CollectorPanel {
     closedAt: string | null;
     canClose: boolean;
     imageCount: number;
+    card: 'group' | 'host' | null;
   };
 }
 
@@ -225,11 +227,10 @@ export class SlipCollectorController {
     @Param('code') code: string,
     @Query('token') token: unknown,
     @Req() req: Request,
-    @Body() _dto: CloseCollectionDto,
-  ): Promise<{ ok: true }> {
+    @Body() dto: CloseCollectionDto,
+  ): Promise<{ ok: true; card: AwardsSendOutcome }> {
     await this.collector(code, token, req);
-    await this.slips.closeCollection(code);
-    return { ok: true };
+    return { ok: true, card: await this.slips.closeCollection(code, { sendCard: dto.sendCard }) };
   }
 
   /** The bill's owner or collector, or the uniform 404 (429 once the viewer's budget is spent). */

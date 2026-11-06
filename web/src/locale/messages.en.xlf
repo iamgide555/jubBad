@@ -7530,6 +7530,62 @@
       <trans-unit id="slipReview.reason.overpaid" datatype="html">
         <source>จ่ายเกินยอดตัวเอง รอคนส่งเลือกว่าจ่ายให้ใคร</source><target>More than their own share; waiting for the sender to pick who it covers</target>
       </trans-unit>
+      <trans-unit id="slipReview.cardSentGroup" datatype="html">
+        <source>ส่งการ์ดรางวัลเข้ากลุ่มแล้ว 🏆</source>
+        <target>Awards card posted to the group 🏆</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/shared/slip-review/slip-review.html</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="slipReview.cardSentHost" datatype="html">
+        <source>ส่งการ์ดรางวัลให้คุณใน LINE แล้ว กดส่งเข้ากลุ่มได้เลย</source>
+        <target>Awards card sent to you in LINE. Tap send to group when you are ready</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/shared/slip-review/slip-review.html</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="slipReview.cardFailed" datatype="html">
+        <source>ส่งการ์ดรางวัลไม่สำเร็จ</source>
+        <target>The awards card could not be sent</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/shared/slip-review/slip-review.html</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="slipReview.cardRetry" datatype="html">
+        <source>ส่งการ์ดอีกครั้ง</source>
+        <target>Send the card again</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/shared/slip-review/slip-review.html</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="slipReview.sendCardHost" datatype="html">
+        <source>ส่งการ์ดรางวัลให้ฉันใน LINE</source>
+        <target>Send the awards card to me in LINE</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/shared/slip-review/slip-review.html</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="slipReview.sendCardGroup" datatype="html">
+        <source>ส่งการ์ดรางวัลเข้ากลุ่ม LINE</source>
+        <target>Post the awards card to the LINE group</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/shared/slip-review/slip-review.html</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="slipReview.sendCardNote" datatype="html">
+        <source>การ์ดจะโพสต์ในกลุ่มทันทีหลังปิด และลบออกไม่ได้</source>
+        <target>The card is posted to the group right after closing and cannot be removed</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/shared/slip-review/slip-review.html</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="slipReview.closeConfirmCard" datatype="html">
+        <source>ยืนยันปิด ลบรูป และส่งการ์ด</source>
+        <target>Close, delete images and send the card</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/shared/slip-review/slip-review.html</context>
+        </context-group>
+      </trans-unit>
     </body>
   </file>
 </xliff>

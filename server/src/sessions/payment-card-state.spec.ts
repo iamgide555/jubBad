@@ -38,6 +38,7 @@ describe('parsePaymentState', () => {
       lastDmAt: '2026-10-29T10:06:00.000Z',
       collectorPlayerId: 'p1',
       collectorLineUserId: 'U1',
+      awardsSentAt: '2026-10-29T11:00:00.000Z',
     };
     expect(parsePaymentState(serializePaymentState(state))).toEqual(state);
   });

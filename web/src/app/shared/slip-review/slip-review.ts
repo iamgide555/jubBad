@@ -1,9 +1,9 @@
 import { HttpErrorResponse } from '@angular/common/http';
 import { Component, DestroyRef, ElementRef, computed, effect, inject, input, signal, untracked, viewChild } from '@angular/core';
 import type { Observable } from 'rxjs';
-import { firstValueFrom } from 'rxjs';
+import { firstValueFrom, tap } from 'rxjs';
 import { formatBaht } from '../../core/bill-text';
-import type { SlipHostConflict, SlipHostPanel, SlipPaidRow, SlipWaiting } from '../../core/slip-host.model';
+import type { AwardsCardOutcome, AwardsCardTarget, SlipHostConflict, SlipHostPanel, SlipPaidRow, SlipWaiting } from '../../core/slip-host.model';
 import { SlipReviewApi } from '../../core/slip-review-api';
 
 /** One row of tonight's bill, as the payment panel shows it. */
@@ -109,6 +109,20 @@ export class SlipReview {
   protected readonly slipView = signal<Person | null>(null);
   protected readonly failedImages = signal<ReadonlySet<string>>(new Set());
   protected readonly canClose = computed(() => !this.closed() ? !!this.data()?.collection?.canClose : (this.data()?.collection?.imageCount ?? 0) > 0);
+  /** The close dialog's tick: post the awards card on close. On by default, and back on every time the dialog opens. */
+  protected readonly sendCard = signal(true);
+  /** Where the card was headed when the host closed (the panel stops saying once the collection is closed). */
+  private readonly closeTarget = signal<AwardsCardTarget>(null);
+  /** What the card did on the close this session saw; null before a close, or after a reload (the panel does not keep it). */
+  protected readonly cardOutcome = signal<AwardsCardOutcome | null>(null);
+  /** Where a card would go if the host closes now; null hides the tick and the warning line. */
+  protected readonly cardTarget = computed<AwardsCardTarget>(() => this.data()?.collection?.card ?? null);
+  /** The one line under "เก็บเงินครบแล้ว": what happened to the card, in the words for where it went. */
+  protected readonly cardStatus = computed<'sentGroup' | 'sentHost' | 'failed' | null>(() => {
+    const outcome = this.cardOutcome();
+    if (outcome === 'sent') return this.closeTarget() === 'host' ? 'sentHost' : 'sentGroup';
+    return outcome === 'failed' ? 'failed' : null;
+  });
   protected readonly enlargedImage = signal<string | null>(null);
   protected readonly closed = computed(() => !!this.data()?.collection?.closedAt);
   /** Resolved image URLs by image id. An image is requested once; a `blob:` URL is revoked when the view goes away. */
@@ -365,15 +379,32 @@ export class SlipReview {
   protected closeImage(): void { this.imageDialog()?.nativeElement.close(); }
 
   protected askClose(): void {
-    if (this.canClose()) this.closeDialog()?.nativeElement.showModal();
+    if (!this.canClose()) return;
+    this.sendCard.set(true);
+    this.closeDialog()?.nativeElement.showModal();
   }
+
+  protected toggleSendCard(): void { this.sendCard.update((on) => !on); }
 
   protected cancelClose(): void { this.closeDialog()?.nativeElement.close(); }
 
   protected confirmClose(): void {
     this.closeDialog()?.nativeElement.close();
     if (!this.canClose()) return;
-    void this.act('close', 'collection', () => this.api.closeCollection(this.code()));
+    // The tick only means something while a card could go out; the server decides the rest.
+    const target = this.cardTarget();
+    const send = target === null || this.sendCard();
+    this.closeTarget.set(target);
+    void this.act('close', 'collection', () => this.close(send));
+  }
+
+  /** Asks the server to post the card again after a failed send; closing an already closed collection only retries. */
+  protected retryCard(): void {
+    void this.act('close', 'collection', () => this.close(true));
+  }
+
+  private close(sendCard: boolean): Observable<unknown> {
+    return this.api.closeCollection(this.code(), sendCard).pipe(tap((result) => this.cardOutcome.set(result.card ?? null)));
   }
 
   protected resolve(card: WaitingCard): void {

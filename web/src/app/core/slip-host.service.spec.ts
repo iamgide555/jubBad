@@ -29,6 +29,13 @@ describe('SlipHostService', () => {
     req.flush({ ok: true });
   });
 
+  it('sends sendCard false on close only when the host unticked the awards card', () => {
+    (svc as any).closeCollection('sess 1', false).subscribe();
+    const req = http.expectOne(`${BASE}/close`);
+    expect(req.request.body).toEqual({ confirmDeleteImages: true, sendCard: false });
+    req.flush({ ok: true, card: 'skipped' });
+  });
+
   it('reads the whole panel with one GET', () => {
     const body = { paid: [], waiting: [], duplicates: [], links: [] };
     let got: unknown;

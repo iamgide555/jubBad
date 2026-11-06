@@ -17,6 +17,7 @@ import { newShareToken, parsePaymentState, serializePaymentState } from './payme
 import {
   isReady,
   PaymentCardService,
+  awardsRetryKey,
   paymentDmRetryKey,
   paymentRetryKey,
   type PaymentPanel,
@@ -683,6 +684,169 @@ describe('payment card: owner panel, confirm and bot send', () => {
       await confirm(code).expect(200);
       await prisma.session.update({ where: { code }, data: { venue: 'สนามใหม่' } });
       expect((await panelOf(code)).stale).toBe(true);
+    });
+  });
+
+  describe('awards card on ปิดการเก็บเงิน', () => {
+    const close = (code: string, body: object = {}) =>
+      request(server)
+        .post(`/sessions/${code}/payments/close`)
+        .set('Cookie', ownerCookie)
+        .send({ confirmDeleteImages: true, ...body });
+
+    /**
+     * Confirms the card and records a payment per billed person at staggered times after the 15:00 end: the order
+     * is P1, P0, P3, P2, then P4 two days later, which makes P4 the turtle.
+     */
+    const payEveryone = async (code: string, ids: string[]) => {
+      const minutes = new Map([[ids[1], 2], [ids[0], 9], [ids[3], 14], [ids[2], 40], [ids[4], 2 * 24 * 60 + 240]]);
+      for (const [playerId, m] of minutes) {
+        await prisma.sessionPayment.create({
+          data: { sessionId: code, playerId, source: 'slip', createdAt: new Date(Date.parse('2026-10-29T15:00:00Z') + m * 60_000) },
+        });
+      }
+    };
+    const awardsJson = () => JSON.stringify(fakeClient.push.mock.calls[0][1]);
+
+    it('posts the awards card to the group once on close and records it; a repeat close does not post again', async () => {
+      const { code, groupCode, ids } = await setup();
+      await confirm(code).expect(200);
+      await payEveryone(code, ids);
+
+      expect((await close(code).expect(200)).body).toEqual({ ok: true, card: 'sent' });
+      expect(fakeClient.push).toHaveBeenCalledTimes(1);
+      const group = await prisma.group.findUniqueOrThrow({ where: { code: groupCode } });
+      const [to, , retryKey] = fakeClient.push.mock.calls[0];
+      expect(to).toBe(group.lineGroupId);
+      expect(retryKey).toBe(awardsRetryKey(code));
+      const json = awardsJson();
+      expect(json).toContain('ประกาศรางวัลจ่ายไว');
+      expect(json).toContain('รางวัลเต่าทองคำ');
+      expect(json).toContain('2 วัน 4 ชม.');
+      // The podium is P1, P0, P3 in pay order; P2 did not place.
+      const gold = json.indexOf(NAMES[1]);
+      expect(gold).toBeGreaterThan(-1);
+      expect(json.indexOf(NAMES[0])).toBeGreaterThan(gold);
+      expect(json.indexOf(NAMES[3])).toBeGreaterThan(json.indexOf(NAMES[0]));
+      expect(json).toContain('จ่ายครบแล้ว 5 คน 🎉');
+      expect(parsePaymentState((await prisma.session.findUniqueOrThrow({ where: { code } })).paymentCard).awardsSentAt).not.toBeNull();
+
+      expect((await close(code).expect(200)).body).toEqual({ ok: true, card: 'already-sent' });
+      expect(fakeClient.push).toHaveBeenCalledTimes(1);
+    });
+
+    it('ranks a slip by when it was sent, not when the host approved it, and a tick by its own time', async () => {
+      const { code, groupCode, ids } = await setup();
+      await confirm(code).expect(200);
+      const at = (minutes: number) => new Date(Date.parse('2026-10-29T15:00:00Z') + minutes * 60_000);
+      const TWO_DAYS = 2 * 24 * 60;
+      const sent = (reference: string, minutes: number) =>
+        prisma.slipReference.create({ data: { groupId: groupCode, reference, bankCode: '004', sessionId: code, createdAt: at(minutes) } });
+      const paid = (playerId: string, minutes: number, extra: { source?: string; reference?: string } = {}) =>
+        prisma.sessionPayment.create({
+          data: { sessionId: code, playerId, source: extra.source ?? 'slip', reference: extra.reference ?? null, createdAt: at(minutes) },
+        });
+      // สมชาย: held slip sent at +2 min, approved by the host two days later. Wins despite the late approval.
+      await sent('held', 2);
+      await paid(ids[0], TWO_DAYS, { reference: 'held' });
+      // มาลี: matched at once at +9 min.
+      await sent('auto', 9);
+      await paid(ids[1], 9, { reference: 'auto' });
+      // นิด: a host tick (no slip) at +14 min keeps its own time.
+      await paid(ids[3], 14, { source: 'host' });
+      // ต้อม: a slip whose reference is gone (a group unlink) falls back to the payment time, +40 min.
+      await paid(ids[2], 40, { reference: 'swept' });
+      // แดง: sent at +120 min, approved right away; the slowest, so the turtle.
+      await sent('late', 120);
+      await paid(ids[4], 120, { reference: 'late' });
+
+      expect((await close(code).expect(200)).body).toEqual({ ok: true, card: 'sent' });
+      const json = awardsJson();
+      const place = NAMES.map((n) => json.indexOf(n));
+      expect(place[0]).toBeGreaterThan(-1);
+      expect(place[1]).toBeGreaterThan(place[0]);
+      expect(place[3]).toBeGreaterThan(place[1]);
+      expect(place[2]).toBe(-1); // fourth place is not shown
+      expect(json.indexOf(NAMES[4])).toBeGreaterThan(place[3]);
+      // The champion's time is the upload delay (2 min), not the two-day approval delay.
+      expect(json).toContain('"2 นาที"');
+      expect(json).not.toContain('2 วัน');
+    });
+
+    it('sends nothing when the host unticks the card, and a later manual send then posts the awards card', async () => {
+      const { code, ids } = await setup();
+      await confirm(code).expect(200);
+      await payEveryone(code, ids);
+
+      expect((await close(code, { sendCard: false }).expect(200)).body).toEqual({ ok: true, card: 'skipped' });
+      expect(fakeClient.push).not.toHaveBeenCalled();
+      expect((await panelOf(code)).lastSentAt).toBeNull();
+
+      expect((await send(code).expect(200)).body).toEqual({ outcome: 'sent' });
+      expect(fakeClient.push).toHaveBeenCalledTimes(1);
+      expect(awardsJson()).toContain('ประกาศรางวัลจ่ายไว');
+    });
+
+    it('keeps the close when the push fails, and the next close sends the card', async () => {
+      const { code, ids } = await setup();
+      await confirm(code).expect(200);
+      await payEveryone(code, ids);
+
+      fakeClient.push.mockResolvedValueOnce('failed');
+      expect((await close(code).expect(200)).body).toEqual({ ok: true, card: 'failed' });
+      const session = await prisma.session.findUniqueOrThrow({ where: { code } });
+      expect(session.paymentCollectionClosedAt).not.toBeNull();
+      expect(parsePaymentState(session.paymentCard).awardsSentAt).toBeNull();
+
+      expect((await close(code).expect(200)).body).toEqual({ ok: true, card: 'sent' });
+      expect(fakeClient.push).toHaveBeenCalledTimes(2);
+    });
+
+    it('DMs the host the awards card with ส่งเข้ากลุ่ม on a host target, and the share link serves the same card', async () => {
+      const { code, ids } = await setup({ target: 'host' });
+      await confirm(code).expect(200);
+      await payEveryone(code, ids);
+
+      expect((await close(code).expect(200)).body).toEqual({ ok: true, card: 'sent' });
+      const [to] = fakeClient.push.mock.calls[0];
+      expect(to).toBe(`U${ownerId.replace(/-/g, '')}`);
+      const json = awardsJson();
+      expect(json).toContain('ประกาศรางวัลจ่ายไว');
+      expect(json).toContain('การ์ดนี้ยังไม่อยู่ในกลุ่ม');
+      expect(json).toContain('ส่งเข้ากลุ่ม');
+
+      const token = parsePaymentState((await prisma.session.findUniqueOrThrow({ where: { code } })).paymentCard).token!;
+      const share = await request(server).get(`/sessions/${code}/payment-share-card`).query({ token }).expect(200);
+      expect(JSON.stringify(share.body.messages)).toContain('ประกาศรางวัลจ่ายไว');
+      expect(JSON.stringify(share.body.messages)).not.toContain('การ์ดนี้ยังไม่อยู่ในกลุ่ม');
+    });
+
+    it('is unavailable, and the close still holds, when the group was unlinked meanwhile', async () => {
+      const { code, groupCode, ids } = await setup();
+      await confirm(code).expect(200);
+      await payEveryone(code, ids);
+      await prisma.group.update({ where: { code: groupCode }, data: { lineGroupId: null } });
+
+      expect((await close(code).expect(200)).body).toEqual({ ok: true, card: 'unavailable' });
+      expect(fakeClient.push).not.toHaveBeenCalled();
+      expect((await prisma.session.findUniqueOrThrow({ where: { code } })).paymentCollectionClosedAt).not.toBeNull();
+    });
+
+    it('tells the close dialog where the card would go while the close is on offer, and null otherwise', async () => {
+      const { code, ids } = await setup();
+      await confirm(code).expect(200);
+      const panel = () => request(server).get(`/sessions/${code}/payments`).set('Cookie', ownerCookie).expect(200);
+      expect((await panel()).body.collection).toMatchObject({ canClose: false, card: null });
+      await payEveryone(code, ids);
+      expect((await panel()).body.collection).toMatchObject({ canClose: true, card: 'group' });
+    });
+
+    it('sends no awards card when nobody is rankable, and the ordinary card applies', async () => {
+      const { code, ids } = await setup();
+      await confirm(code).expect(200);
+      // Everyone owes 0, so nobody is ranked; the close needs a payable row, so only the destination read is checked.
+      await zeroEveryone(code, ids);
+      expect(await payments.awardsDestination(code)).toBeNull();
     });
   });
 

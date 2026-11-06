@@ -374,3 +374,19 @@ label.pick input {
 .slip-full { display: block; width: 100%; max-height: 60dvh; object-fit: contain; background: var(--ground-sunk); border-radius: var(--radius); }
 .undo-note { font-size: var(--text-sm); }
 button.ghost.undo { color: var(--warn); }
+
+/* The close dialog's tick for posting the awards card: a full 44px row so it is easy to hit one-handed. */
+.card-tick {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  min-height: var(--tap);
+  font-weight: 600;
+}
+
+.card-tick input {
+  width: 1.25rem;
+  height: 1.25rem;
+  flex: none;
+  accent-color: var(--court);
+}

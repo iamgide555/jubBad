@@ -2,7 +2,7 @@ import { HttpClient } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { of, type Observable } from 'rxjs';
 import { environment } from '../../environments/environment';
-import type { SlipHostPanel, SlipResolveBody } from './slip-host.model';
+import type { SlipCloseResult, SlipHostPanel, SlipResolveBody } from './slip-host.model';
 import type { SlipReviewApi } from './slip-review-api';
 
 type Ok = { ok: true };
@@ -29,8 +29,11 @@ export class SlipHostService implements SlipReviewApi {
     return of(this.url(sessionCode, `/images/${encodeURIComponent(id)}`));
   }
 
-  closeCollection(sessionCode: string): Observable<Ok> {
-    return this.http.post<Ok>(this.url(sessionCode, '/close'), { confirmDeleteImages: true });
+  closeCollection(sessionCode: string, sendCard?: boolean): Observable<SlipCloseResult> {
+    return this.http.post<SlipCloseResult>(this.url(sessionCode, '/close'), {
+      confirmDeleteImages: true,
+      ...(sendCard === false ? { sendCard: false } : {}),
+    });
   }
 
   tick(sessionCode: string, playerId: string): Observable<Ok> {

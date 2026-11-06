@@ -8,7 +8,7 @@ import { PlansService } from '../../plans/plans.service.js';
 import { PrismaService } from '../../prisma/prisma.service.js';
 import { CollectorService } from '../collector.service.js';
 import { parsePayAccount, serializePayAccount, validatePayAccount } from '../pay-account.js';
-import { PaymentCardService, type PaymentPanel } from '../payment-card.service.js';
+import { PaymentCardService, type AwardsDestination, type AwardsSendOutcome, type PaymentPanel } from '../payment-card.service.js';
 import { SessionLock } from '../session-lock.js';
 import {
   amountPresent,
@@ -1082,7 +1082,7 @@ export class SlipPaymentsService {
     ];
   }
 
-  async collection(code: string): Promise<{closedAt: string | null; canClose: boolean; imageCount: number}> {
+  async collection(code: string): Promise<{closedAt: string | null; canClose: boolean; imageCount: number; card: AwardsDestination}> {
     const session = await this.prisma.session.findUnique({ where: { code }, select: { paymentCollectionClosedAt: true } });
     if (!session) throw new NotFoundException();
     const panel = await this.cards.panel(code);
@@ -1090,15 +1090,24 @@ export class SlipPaymentsService {
     const pending = await this.prisma.pendingSlip.count({ where: { sessionId: code, resolvedAt: null } });
     const duplicates = await this.prisma.slipDuplicate.count({ where: { sessionId: code, dismissedAt: null } });
     const payable = panel.rows.filter((r) => r.amountSatang > 0);
+    const canClose = !session.paymentCollectionClosedAt && panel.ended && panel.confirmed && panel.ready && !panel.stale && payable.length > 0 && payable.every((r) => paid.has(r.playerId)) && pending === 0 && duplicates === 0;
     return {
       closedAt: session.paymentCollectionClosedAt?.toISOString() ?? null,
-      canClose: !session.paymentCollectionClosedAt && panel.ended && panel.confirmed && panel.ready && !panel.stale && payable.length > 0 && payable.every((r) => paid.has(r.playerId)) && pending === 0 && duplicates === 0,
+      canClose,
       imageCount: await this.images.count(code),
+      // Where the awards card would go on close, so the dialog can word and offer its tick. Asked only while the close is
+      // on offer: it is one more bill read, and nothing else uses it.
+      card: canClose ? await this.cards.awardsDestination(code) : null,
     };
   }
 
-  async closeCollection(code: string): Promise<void> {
-    return this.lock.run(code, async () => {
+  /**
+   * Closes the collection, deletes the slip images, then posts the awards card (unless the host unticked it). The card
+   * is sent after the lock is released (the card service takes the same session lock) and a failed send never undoes the
+   * close: calling close again on a closed session retries the image purge and, until it has gone out, the card.
+   */
+  async closeCollection(code: string, options: { sendCard?: boolean } = {}): Promise<AwardsSendOutcome> {
+    await this.lock.run(code, async () => {
       const state = await this.collection(code);
       if (!state.closedAt) {
         if (!state.canClose) throw new ConflictException({ code: 'COLLECTION_NOT_READY' });
@@ -1107,6 +1116,8 @@ export class SlipPaymentsService {
       // A failed file deletion is retried by the same action; the closed state blocks concurrent uploads meanwhile.
       await this.images.purgeSession(code);
     });
+    if (options.sendCard === false) return 'skipped';
+    return this.cards.sendAwards(code);
   }
 
   private async assertOpen(code: string): Promise<void> {

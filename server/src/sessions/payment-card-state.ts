@@ -33,6 +33,11 @@ export interface PaymentCardState {
    * together with collectorPlayerId.
    */
   collectorLineUserId?: string | null;
+  /**
+   * ISO timestamp of the awards card's automatic send on ปิดการเก็บเงิน, null until it went out. Optional like the
+   * collector fields: a card stored before it existed re-serializes unchanged.
+   */
+  awardsSentAt?: string | null;
 }
 
 /** Frozen: parsePaymentState hands this same object to every caller, so one must not be able to corrupt it. */
@@ -45,6 +50,7 @@ export const EMPTY_PAYMENT_STATE: PaymentCardState = Object.freeze({
   lastDmAt: null,
   collectorPlayerId: null,
   collectorLineUserId: null,
+  awardsSentAt: null,
 });
 
 const str = (v: unknown): string | null => (typeof v === 'string' && v !== '' ? v : null);
@@ -68,16 +74,18 @@ export function parsePaymentState(raw: string | null): PaymentCardState {
     lastDmAt: str(o['lastDmAt']),
     collectorPlayerId: str(o['collectorPlayerId']),
     collectorLineUserId: str(o['collectorLineUserId']),
+    awardsSentAt: str(o['awardsSentAt']),
   };
 }
 
 export function serializePaymentState(state: PaymentCardState): string {
   // An unset collector is left out, so a card stored before these fields existed re-serializes unchanged.
-  const { collectorPlayerId, collectorLineUserId, ...rest } = state;
+  const { collectorPlayerId, collectorLineUserId, awardsSentAt, ...rest } = state;
   return JSON.stringify({
     ...rest,
     ...(collectorPlayerId ? { collectorPlayerId } : {}),
     ...(collectorLineUserId ? { collectorLineUserId } : {}),
+    ...(awardsSentAt ? { awardsSentAt } : {}),
   });
 }
 

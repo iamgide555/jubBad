@@ -96,6 +96,13 @@ describe('CollectorSlipService', () => {
     req.flush({ ok: true });
   });
 
+  it('tells the server not to post the awards card only when the host unticked it', () => {
+    service.closeCollection('abc', false).subscribe();
+    const req = http.expectOne(`${BASE}/close?token=T%20O%2FK`);
+    expect(req.request.body).toEqual({ confirmDeleteImages: true, sendCard: false });
+    req.flush({ ok: true, card: 'skipped' });
+  });
+
   it('refuses the host-only actions without a request', async () => {
     await expect(firstValueFrom(service.updateName('abc', 'w1'))).rejects.toBeDefined();
     await expect(firstValueFrom(service.setLink('abc', 'p1', null))).rejects.toBeDefined();

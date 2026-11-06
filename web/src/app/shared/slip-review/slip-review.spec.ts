@@ -218,7 +218,7 @@ describe('SlipReview', () => {
       expect(q('[data-close-collection]')?.textContent).toContain('ลบรูปอีกครั้ง');
       await click(q('[data-close-collection]'));
       await click(q('[data-confirm-close]'));
-      expect(svc.closeCollection).toHaveBeenCalledWith('sess1');
+      expect(svc.closeCollection).toHaveBeenCalledWith('sess1', true);
     });
 
     it('shows pending only for a linked sender with an exact single-person amount', async () => {
@@ -240,10 +240,93 @@ describe('SlipReview', () => {
       expect(q('[data-close-dialog]')?.textContent).toContain('ถาวร');
       svc.panel.mockReturnValue(of(panel({ waiting: [waiting()], links: [link()], duplicates: [dup()], collection: { closedAt: '2026-10-31', canClose: false, imageCount: 0 } } as any)));
       await click(q('[data-confirm-close]'));
-      expect(svc.closeCollection).toHaveBeenCalledWith('sess1');
+      expect(svc.closeCollection).toHaveBeenCalledWith('sess1', true);
       expect(text()).toContain('เก็บเงินครบแล้ว');
       expect(qa<HTMLButtonElement>('[data-person], [data-resolve], [data-dismiss], [data-link-remove], [data-dup-ack]').every(b => b.disabled)).toBe(true);
       expect(qa<HTMLInputElement>('[data-cover]').every(b => b.disabled)).toBe(true);
+    });
+  });
+
+  describe('awards card on close', () => {
+    const closable = (card: 'group' | 'host' | null) =>
+      panel({ collection: { closedAt: null, canClose: true, imageCount: 3, card } } as any);
+    const closedPanel = () => panel({ collection: { closedAt: '2026-10-31', canClose: false, imageCount: 0 } } as any);
+    const closeAs = (card: 'sent' | 'failed' | 'skipped') =>
+      svc.closeCollection.mockImplementation(() => of({ ok: true as const, card }));
+
+    it('offers a ticked tick and the card wording only when a card would go out', async () => {
+      await open(closable(null));
+      await click(q('[data-close-collection]'));
+      expect(q('[data-send-card]')).toBeNull();
+      expect(q('[data-confirm-close]')?.textContent).toContain('ยืนยันปิดและลบรูป');
+
+      await open(closable('group'));
+      await click(q('[data-close-collection]'));
+      expect(q<HTMLInputElement>('[data-send-card] input')?.checked).toBe(true);
+      expect(q('[data-send-card]')?.textContent).toContain('เข้ากลุ่ม');
+      expect(q('[data-send-card-note]')?.textContent).toContain('ลบออกไม่ได้');
+      expect(q('[data-confirm-close]')?.textContent).toContain('ยืนยันปิด ลบรูป และส่งการ์ด');
+    });
+
+    it('words the tick for the host DM and has no group note', async () => {
+      await open(closable('host'));
+      await click(q('[data-close-collection]'));
+      expect(q('[data-send-card]')?.textContent).toContain('ให้ฉันใน LINE');
+      expect(q('[data-send-card-note]')).toBeNull();
+    });
+
+    it('closes without the card when the host unticks it, and says nothing about a card afterwards', async () => {
+      await open(closable('group'));
+      await click(q('[data-close-collection]'));
+      await click(q('[data-send-card] input'));
+      expect(q('[data-confirm-close]')?.textContent).toContain('ยืนยันปิดและลบรูป');
+      closeAs('skipped');
+      svc.panel.mockReturnValue(of(closedPanel()));
+      await click(q('[data-confirm-close]'));
+      expect(svc.closeCollection).toHaveBeenCalledWith('sess1', false);
+      expect(q('[data-card-status]')).toBeNull();
+      expect(q('[data-card-failed]')).toBeNull();
+    });
+
+    it('ticks again every time the dialog opens', async () => {
+      await open(closable('group'));
+      await click(q('[data-close-collection]'));
+      await click(q('[data-send-card] input'));
+      await click(q('[data-cancel-close]'));
+      await click(q('[data-close-collection]'));
+      expect(q<HTMLInputElement>('[data-send-card] input')?.checked).toBe(true);
+    });
+
+    it('says the card went to the group, or to the host to forward', async () => {
+      await open(closable('group'));
+      await click(q('[data-close-collection]'));
+      closeAs('sent');
+      svc.panel.mockReturnValue(of(closedPanel()));
+      await click(q('[data-confirm-close]'));
+      expect(q('[data-card-status]')?.textContent).toContain('เข้ากลุ่มแล้ว');
+
+      await open(closable('host'));
+      await click(q('[data-close-collection]'));
+      closeAs('sent');
+      svc.panel.mockReturnValue(of(closedPanel()));
+      await click(q('[data-confirm-close]'));
+      expect(q('[data-card-status]')?.textContent).toContain('ให้คุณใน LINE');
+    });
+
+    it('shows a failed card with its own retry, which asks the server to close again', async () => {
+      await open(closable('group'));
+      await click(q('[data-close-collection]'));
+      closeAs('failed');
+      svc.panel.mockReturnValue(of(closedPanel()));
+      await click(q('[data-confirm-close]'));
+      expect(q('[data-card-failed]')?.textContent).toContain('ไม่สำเร็จ');
+      expect(q('[data-card-status]')).toBeNull();
+
+      closeAs('sent');
+      await click(q('[data-retry-card]'));
+      expect(svc.closeCollection).toHaveBeenLastCalledWith('sess1', true);
+      expect(q('[data-card-failed]')).toBeNull();
+      expect(q('[data-card-status]')).not.toBeNull();
     });
   });
 

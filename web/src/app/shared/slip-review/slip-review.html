@@ -23,6 +23,14 @@
     </div>
     @if (closed()) {
       <p class="ok" data-collection-closed role="status" i18n="@@payments.closed">เก็บเงินครบแล้ว</p>
+      @switch (cardStatus()) {
+        @case ('sentGroup') { <p class="ok" data-card-status role="status" i18n="@@slipReview.cardSentGroup">ส่งการ์ดรางวัลเข้ากลุ่มแล้ว 🏆</p> }
+        @case ('sentHost') { <p class="ok" data-card-status role="status" i18n="@@slipReview.cardSentHost">ส่งการ์ดรางวัลให้คุณใน LINE แล้ว กดส่งเข้ากลุ่มได้เลย</p> }
+        @case ('failed') {
+          <p class="error" data-card-failed role="alert" i18n="@@slipReview.cardFailed">ส่งการ์ดรางวัลไม่สำเร็จ</p>
+          <button type="button" class="ghost" data-retry-card [disabled]="busy().has('close')" (click)="retryCard()" i18n="@@slipReview.cardRetry">ส่งการ์ดอีกครั้ง</button>
+        }
+      }
     }
     @if (canClose()) {
       <button type="button" class="ghost" data-close-collection [disabled]="busy().has('close')" (click)="askClose()">
@@ -395,9 +403,22 @@
   <div class="dialog-body">
     <h3 [id]="uid + '-close-title'" i18n="@@slipReview.close">ปิดการเก็บเงิน</h3>
     <p i18n="@@slipReview.closeWarning">รูปสลิป {{ data()?.collection?.imageCount ?? 0 }} รูปจะถูกลบถาวร และแก้ไขการชำระเงินไม่ได้อีก</p>
+    @if (cardTarget(); as target) {
+      <label class="card-tick" data-send-card>
+        <input type="checkbox" [checked]="sendCard()" (change)="toggleSendCard()" />
+        @if (target === 'host') { <span i18n="@@slipReview.sendCardHost">ส่งการ์ดรางวัลให้ฉันใน LINE</span> }
+        @else { <span i18n="@@slipReview.sendCardGroup">ส่งการ์ดรางวัลเข้ากลุ่ม LINE</span> }
+      </label>
+      @if (sendCard() && target === 'group') {
+        <p class="muted" data-send-card-note i18n="@@slipReview.sendCardNote">การ์ดจะโพสต์ในกลุ่มทันทีหลังปิด และลบออกไม่ได้</p>
+      }
+    }
     <div class="actions">
-      <button type="button" class="ghost" (click)="cancelClose()" i18n="@@slipReview.nameCancel">ยกเลิก</button>
-      <button type="button" data-confirm-close (click)="confirmClose()" i18n="@@slipReview.closeConfirm">ยืนยันปิดและลบรูป</button>
+      <button type="button" class="ghost" data-cancel-close (click)="cancelClose()" i18n="@@slipReview.nameCancel">ยกเลิก</button>
+      <button type="button" data-confirm-close (click)="confirmClose()">
+        @if (cardTarget() && sendCard()) { <ng-container i18n="@@slipReview.closeConfirmCard">ยืนยันปิด ลบรูป และส่งการ์ด</ng-container> }
+        @else { <ng-container i18n="@@slipReview.closeConfirm">ยืนยันปิดและลบรูป</ng-container> }
+      </button>
     </div>
   </div>
 </dialog>

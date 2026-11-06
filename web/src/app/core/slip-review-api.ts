@@ -1,6 +1,6 @@
 import { Injectable } from '@angular/core';
 import type { Observable } from 'rxjs';
-import type { SlipHostPanel, SlipResolveBody } from './slip-host.model';
+import type { SlipCloseResult, SlipHostPanel, SlipResolveBody } from './slip-host.model';
 import { SlipHostService } from './slip-host.service';
 
 type Ok = { ok: true };
@@ -16,7 +16,8 @@ export abstract class SlipReviewApi {
   abstract panel(sessionCode: string): Observable<SlipHostPanel>;
   /** A URL usable in `<img src>`. A `blob:` URL is revoked by the component when it goes away. */
   abstract image(sessionCode: string, id: string): Observable<string>;
-  abstract closeCollection(sessionCode: string): Observable<Ok>;
+  /** `sendCard` false is the close dialog's unticked box: close without posting the awards card. */
+  abstract closeCollection(sessionCode: string, sendCard?: boolean): Observable<SlipCloseResult>;
   abstract tick(sessionCode: string, playerId: string): Observable<Ok>;
   abstract untick(sessionCode: string, playerId: string): Observable<Ok>;
   abstract resolve(sessionCode: string, id: string, body: SlipResolveBody): Observable<Ok>;

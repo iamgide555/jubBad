@@ -6,6 +6,7 @@ import { lineConfig } from '../line/line-config.js';
 import { cardTexts, clip, TEXT_MAX } from '../line/line-summary-card.js';
 import { LineSummaryService, type LineSummaryTarget } from '../line/line-summary.service.js';
 import { liffPayUrl, liffSlipUrl, liffPaymentStatusUrl, paymentCardMessages, paymentDmMessages, type PaymentCardInput } from '../line/payment-card.js';
+import { awardsDmMessages, awardsGroupMessages, rankAwards, type AwardsCardInput } from '../line/payment-awards-card.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import type { BillWarning } from '../../../engines/bill.ts';
 import { BillService } from './bill.service.js';
@@ -22,6 +23,15 @@ import { SessionLock } from './session-lock.js';
 
 /** `busy`: a card went out under 5 seconds ago (a double tap from a second tab), so this one was not posted. */
 export type PaymentSendOutcome = 'sent' | 'quota' | 'failed' | 'unavailable' | 'not-confirmed' | 'stale' | 'busy';
+
+/**
+ * What the automatic awards card did on ปิดการเก็บเงิน. `skipped` is the host's choice (the close dialog's tick);
+ * `unavailable` is nothing to send or nowhere to send it; `already-sent` is a repeat close after the card went out.
+ */
+export type AwardsSendOutcome = 'sent' | 'already-sent' | 'unavailable' | 'failed' | 'skipped';
+
+/** Where an awards card would go when the collection closes, for the close dialog's wording; null when it would not send. */
+export type AwardsDestination = 'group' | 'host' | null;
 
 /** The bill screen's payment panel: exactly what the card would say, and where it stands. */
 export interface PaymentPanel {
@@ -79,6 +89,11 @@ interface PaymentView {
   /** The LINE id the bot would push to; null when there is no destination. */
   to: string | null;
   cardInput: (account: PayAccount) => PaymentCardInput;
+  /** Collection is closed (ปิดการเก็บเงิน): payments are frozen, so the awards card applies. */
+  closed: boolean;
+  groupId: string;
+  /** The card's header fields, which the awards card prints too. */
+  header: Pick<PaymentCardInput, 'groupName' | 'date' | 'endedAt' | 'venue'>;
 }
 
 /**
@@ -112,6 +127,12 @@ export function paymentRetryKey(sessionCode: string, sendId: string): string {
  */
 export function paymentDmRetryKey(sessionCode: string, sendId: string): string {
   const h = createHash('sha1').update(`jubbad-line-payment:dm:${sessionCode}:${sendId}`).digest('hex');
+  return `${h.slice(0, 8)}-${h.slice(8, 12)}-5${h.slice(13, 16)}-a${h.slice(17, 20)}-${h.slice(20, 32)}`;
+}
+
+/** One key per session for the awards card: LINE drops a repeat of the same push, so a close retried after a lost answer never posts twice. */
+export function awardsRetryKey(sessionCode: string): string {
+  const h = createHash('sha1').update(`jubbad-line-awards:${sessionCode}`).digest('hex');
   return `${h.slice(0, 8)}-${h.slice(8, 12)}-5${h.slice(13, 16)}-a${h.slice(17, 20)}-${h.slice(20, 32)}`;
 }
 
@@ -226,7 +247,8 @@ export class PaymentCardService {
    */
   send(code: string, sendId: string, now: Date = new Date()): Promise<PaymentSendOutcome> {
     return this.lock.run(code, async () => {
-      const { panel, nothingDue, state, to, cardInput } = await this.view(code, now);
+      const v = await this.view(code, now);
+      const { panel, nothingDue, state, to, cardInput } = v;
       if (panel.target !== 'group' || to === null || !panel.ended) return 'unavailable';
       if (!panel.confirmed || panel.account === null) return 'not-confirmed';
       // An amount undefined since the confirm: the card on file no longer stands, as with a bill edit. Before
@@ -244,8 +266,12 @@ export class PaymentCardService {
         const slipUrl =
           liffId !== null && loginChannelId !== null && state.token ? liffSlipUrl(liffId, code, state.token) : null;
         const statusUrl = slipUrl && liffId && state.token ? liffPaymentStatusUrl(liffId, code, state.token) : null;
-        const input = await this.memberCardInput(code, panel, cardInput(panel.account));
-        const messages = paymentCardMessages(input, 'group', slipUrl, statusUrl);
+        // Once collection is closed the card members get is the awards card (payments are frozen, so it is final).
+        const awards = await this.awardsInput(code, v);
+        const messages =
+          awards !== null
+            ? awardsGroupMessages(awards, lineConfig().publicAppUrl, statusUrl)
+            : paymentCardMessages(await this.memberCardInput(code, panel, cardInput(panel.account)), 'group', slipUrl, statusUrl);
         outcome = await this.line.push(to, messages, paymentRetryKey(code, sendId));
       } catch {
         return 'failed';
@@ -271,7 +297,8 @@ export class PaymentCardService {
    */
   sendToHost(code: string, sendId: string, now: Date = new Date()): Promise<PaymentSendOutcome> {
     return this.lock.run(code, async () => {
-      const { panel, nothingDue, state, to, cardInput } = await this.view(code, now);
+      const v = await this.view(code, now);
+      const { panel, nothingDue, state, to, cardInput } = v;
       if (panel.target !== 'host' || to === null || !panel.ended) return 'unavailable';
       if (!panel.confirmed || panel.account === null) return 'not-confirmed';
       if (panel.stale || !panel.ready) return 'stale';
@@ -284,7 +311,11 @@ export class PaymentCardService {
 
       let outcome: Awaited<ReturnType<LineClient['push']>>;
       try {
-        const messages = paymentDmMessages(await this.memberCardInput(code, panel, cardInput(panel.account)), shareUrl);
+        const awards = await this.awardsInput(code, v);
+        const messages =
+          awards !== null
+            ? awardsDmMessages(awards, lineConfig().publicAppUrl, shareUrl)
+            : paymentDmMessages(await this.memberCardInput(code, panel, cardInput(panel.account)), shareUrl);
         outcome = await this.line.push(to, messages, paymentDmRetryKey(code, sendId));
       } catch {
         return 'failed';
@@ -320,21 +351,24 @@ export class PaymentCardService {
     const stored = parsePaymentState(session.paymentCard).token;
     if (stored === null || !sameToken(token, stored)) throw new NotFoundException();
 
-    const { panel, nothingDue, cardInput } = await this.view(code, now);
+    const v = await this.view(code, now);
+    const { panel, nothingDue, cardInput } = v;
     // The same gate as the link the host was shown (no link, no card), with the send path's checks spelled out.
     if (panel.shareUrl === null || panel.account === null || !panel.ready || nothingDue) throw new NotFoundException();
     // Re-read on every open, so each share from the same DM button shows who still owes right now.
     const input = await this.memberCardInput(code, panel, cardInput(panel.account));
     const { name, date } = cardTexts(input);
+    const statusUrl = loginChannelId === null ? null : liffPaymentStatusUrl(liffId, code, stored);
+    // Closed collection: the share picker posts the awards card, the same one the bot would have sent.
+    const awards = await this.awardsInput(code, v);
     return {
       liffId,
       // `stored` is the confirmed token the caller just matched, so the slip button carries exactly that one. No
       // button without the LINE Login channel: the pay page could not verify anyone.
-      messages: paymentCardMessages(
-        input, 'host',
-        loginChannelId === null ? null : liffSlipUrl(liffId, code, stored),
-        loginChannelId === null ? null : liffPaymentStatusUrl(liffId, code, stored),
-      ),
+      messages:
+        awards !== null
+          ? awardsGroupMessages(awards, publicAppUrl, statusUrl)
+          : paymentCardMessages(input, 'host', loginChannelId === null ? null : liffSlipUrl(liffId, code, stored), statusUrl),
       preview: {
         name,
         date,
@@ -368,6 +402,120 @@ export class PaymentCardService {
     if (!session) return false;
     const stored = parsePaymentState(session.paymentCard).token;
     return stored !== null && sameToken(token, stored);
+  }
+
+  /**
+   * The awards card's content once collection is closed, or null when the ordinary payment card applies (open
+   * collection, or nobody is rankable). Ranked are the billed people with a payment, minus the bill's
+   * เจ้าของบัญชี (who receives the money) and the people who owe nothing; early checkouts are not billed rows, so
+   * they are never ranked either. Everyone still counts toward "จ่ายครบแล้ว X คน".
+   */
+  private async awardsInput(code: string, v: PaymentView): Promise<AwardsCardInput | null> {
+    if (!v.closed) return null;
+    const payments = await this.prisma.sessionPayment.findMany({
+      where: { sessionId: code },
+      select: { playerId: true, createdAt: true, reference: true },
+    });
+    // A slip is timed by when it was sent, never by when the host approved it: the host picks the review order, and
+    // that must not decide the podium. SlipReference is written at upload and never updated, and it outlives an undo
+    // or a reject. A hand-made tick has no slip, so it keeps its own time (so does a reference swept by a group unlink).
+    const references = payments.flatMap((p) => (p.reference === null ? [] : [p.reference]));
+    const uploads = new Map(
+      references.length === 0
+        ? []
+        : (
+            await this.prisma.slipReference.findMany({
+              where: { groupId: v.groupId, reference: { in: references } },
+              select: { reference: true, createdAt: true },
+            })
+          ).map((r) => [r.reference, r.createdAt])
+    );
+    const paidAt = new Map(
+      payments.map((p) => {
+        const sent = p.reference === null ? undefined : uploads.get(p.reference);
+        // Never later than the payment itself, as a safety net against a reference reused out of order.
+        return [p.playerId, sent !== undefined && sent < p.createdAt ? sent : p.createdAt] as const;
+      })
+    );
+    const owner = await this.collectors.forBill(code);
+    const rankable = v.panel.rows.filter(
+      (r) => r.amountSatang > 0 && r.playerId !== owner?.playerId && paidAt.has(r.playerId)
+    );
+    if (rankable.length === 0) return null;
+    const links = await this.prisma.playerLineAccount.findMany({
+      where: { groupId: v.groupId, playerId: { in: rankable.map((r) => r.playerId) } },
+      select: { playerId: true, lineAccount: { select: { pictureUrl: true } } },
+    });
+    const picture = new Map(links.map((l) => [l.playerId, l.lineAccount.pictureUrl]));
+    const view = rankAwards({
+      paid: rankable.map((r) => ({
+        playerId: r.playerId,
+        name: r.name,
+        pictureUrl: picture.get(r.playerId) ?? null,
+        paidAt: paidAt.get(r.playerId)!,
+      })),
+      endedAt: v.header.endedAt,
+      sessionCode: code,
+      everyoneCount: v.panel.rows.length + v.panel.settledCount,
+    });
+    return view === null ? null : { ...v.header, view };
+  }
+
+  /**
+   * Whether closing now would send an awards card, and where: what the close dialog words its tick by. Null when
+   * there is no LINE destination or nobody is rankable. Open collection is judged as if closed, since the dialog
+   * is asked before the close.
+   */
+  async awardsDestination(code: string, now: Date = new Date()): Promise<AwardsDestination> {
+    const v = await this.view(code, now);
+    if (v.to === null || !v.panel.ended || !v.panel.confirmed) return null;
+    if (v.panel.target === 'host' && v.panel.shareUrl === null) return null;
+    const probe: PaymentView = { ...v, closed: true };
+    return (await this.awardsInput(code, probe)) === null ? null : v.panel.target;
+  }
+
+  /**
+   * The automatic send on ปิดการเก็บเงิน: the awards card goes to the session's LINE destination, to the group
+   * (`group` target) or as a DM to the host with ส่งเข้ากลุ่ม (`host` target). Once only: `awardsSentAt` is
+   * recorded after LINE accepts, a repeat close finds it and does nothing, and a failed push leaves it unset so the
+   * close can be retried (the retry key keeps LINE from posting twice). A failure here never undoes the close.
+   * Not subject to the 60-second resend guard: it is its own once-only message.
+   */
+  sendAwards(code: string, now: Date = new Date()): Promise<AwardsSendOutcome> {
+    return this.lock.run(code, async () => {
+      const v = await this.view(code, now);
+      const { panel, state, to } = v;
+      if (!v.closed || to === null || panel.target === null || !panel.ended || !panel.confirmed) return 'unavailable';
+      if (state.awardsSentAt) return 'already-sent';
+      const shareUrl = panel.shareUrl;
+      if (panel.target === 'host' && shareUrl === null) return 'unavailable';
+      let outcome: Awaited<ReturnType<LineClient['push']>>;
+      try {
+        const awards = await this.awardsInput(code, v);
+        if (awards === null) return 'unavailable';
+        const { liffId, loginChannelId, publicAppUrl } = lineConfig();
+        const statusUrl =
+          liffId !== null && loginChannelId !== null && state.token ? liffPaymentStatusUrl(liffId, code, state.token) : null;
+        const messages =
+          panel.target === 'host'
+            ? awardsDmMessages(awards, publicAppUrl, shareUrl as string)
+            : awardsGroupMessages(awards, publicAppUrl, statusUrl);
+        outcome = await this.line.push(to, messages, awardsRetryKey(code));
+      } catch {
+        return 'failed';
+      }
+      if (outcome !== 'ok') return 'failed';
+      try {
+        await this.prisma.session.update({
+          where: { code },
+          data: { paymentCard: serializePaymentState({ ...state, awardsSentAt: now.toISOString() }) },
+        });
+      } catch {
+        // LINE already has the card; only the "sent" mark is lost, and the retry key makes a repeat harmless.
+        this.logger.warn('awards card sent, but its send time could not be saved');
+      }
+      return 'sent';
+    });
   }
 
   /**
@@ -407,6 +555,8 @@ export class PaymentCardService {
         venue: true,
         endedAt: true,
         paymentCard: true,
+        paymentCollectionClosedAt: true,
+        groupId: true,
         group: { select: { name: true, payAccount: true } },
       },
     });
@@ -495,6 +645,9 @@ export class PaymentCardService {
       state,
       to: destination?.to ?? null,
       cardInput,
+      closed: session.paymentCollectionClosedAt !== null,
+      groupId: session.groupId,
+      header: { groupName: base.groupName, date: base.date, endedAt: base.endedAt, venue: base.venue },
     };
   }
 }

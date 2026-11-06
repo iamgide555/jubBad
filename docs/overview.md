@@ -1753,6 +1753,37 @@ keeps metadata and offers a deletion retry even though the collection is closed.
 expired images hourly; deleting a group makes its orphan files inaccessible immediately and the sweep
 removes them. LINE unlink/image submission share a group write lock to keep cleanup consistent.
 
+**The awards card (2026-11-06).** Closing the collection is the one moment the whole group has finished paying, so
+it is also the one automatic post: the bot sends an *awards card* (`line/payment-awards-card.ts`), a podium for the
+three fastest payers and, when the night qualifies, a joke spotlight (เต่าทองคำ) for the slowest. It exists because
+the plain "จ่ายครบแล้ว" line said nothing and because another bot's ranked list made paying fast a small game. The
+decisions behind it:
+- **Ranked by when the payer acted, never by when the host approved.** A slip is timed by its **upload**
+  (`SlipReference.createdAt`, written at submit, never updated, kept through undo/reject/restore), looked up by the
+  payment's `reference`: the host chooses the order they review held slips in, and that must not decide the podium.
+  A host or collector **tick** has no slip, so it keeps its own time (`SessionPayment.createdAt`), as does a payment
+  whose reference was swept by a group unlink. Time shown is that minus the session's end. Accepted consequence: a
+  cash payer ticked late can win the turtle; a player whose first slip was rejected is timed by the corrected slip. The
+  turtle needs **at least 4 ranked** (so it is never also a podium winner) **and at least 30 minutes behind the
+  champion** (so a bulk tick or a quick night never crowns a "slowest" by alphabet or by seconds). Ties in time fall to
+  name then player id so two renders agree.
+- **Who is not ranked:** the bill's เจ้าของบัญชี (they receive the money), early-checkout players (not billed rows)
+  and people who owe ฿0. They only count toward "จ่ายครบแล้ว X คน". With nobody rankable no card is sent.
+- **Affectionate, never a debt callout.** The card exists only once everyone has paid, the turtle line is a joke
+  ("ลูกโด่งยังตกพื้นเร็วกว่า"), and the roasted person is **not named in the alt text** (it shows on lock screens).
+- **Sent once, on close, and the host can opt out.** The close dialog warns that a card will be posted and carries a
+  ticked "ส่งการ์ดรางวัล..." box; unticked sends nothing (`card: 'skipped'`). It goes where the summary and payment
+  cards go: into the group on a `group` target, or as a DM to the host with ส่งเข้ากลุ่ม on a `host` target (a
+  roster-only group), and nowhere with no LINE link. `awardsSentAt` in the payment-card state keeps it once-only; a
+  failed push never undoes the close, and closing again retries until it has gone out (one retry key per session
+  stops LINE posting twice). It skips the 60-second resend guard because it is its own message.
+- **After close, every member-facing render is the awards card:** the close send, a manual ส่งเข้ากลุ่ม or DM, and the
+  share link, so a host who unticked the box can still post it later. Before close nothing changes. It stays out of
+  the content hash, like paid status: closing and paying are not bill edits.
+- **Picture and avatars:** the podium art is a static image (`web/public/line/awards-podium.png`) drawn to fixed step
+  heights (`STEP_TOP_PERCENT`); winners' LINE profile pictures, names and times are live Flex text laid over it with
+  percentage offsets, so they hold at every bubble width. Change the art's step lines and those numbers together.
+
 **What reaches the host.** Waiting slips (with the reason) and duplicates, in the bill screen's review list.
 The host resolves a waiting slip by ticking one or more players (or dismisses it), and dismisses a duplicate. A duplicate never
 pays anyone and the sender is not told off in the group. **Undoing a slip payment sends the slip back (2026-11-05).** The host's

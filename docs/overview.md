@@ -1760,9 +1760,15 @@ pays anyone and the sender is not told off in the group. **Undoing a slip paymen
 could neither be re-sent nor reviewed again, and a misclick (a real host, ไอซ์) left a host tick as the only way back.
 Now the slip returns to the waiting list with reason `undone` (a host-resolved slip reopens its own row with its
 reviewed amount; an auto-paid slip gets a new row from its sender), so the host re-credits it to the right person or
-dismisses it. A re-send by the same sender is then already-sent, not a duplicate. **Skipping is undoable too (2026-11-05).** ข้าม is
-one tap with no confirmation, and a real host skipped ไอซ์'s genuine slip by mistake. Skipped slips now sit in a
-collapsed ข้ามแล้ว list with นำกลับมาตรวจ until collection closes (host and collector). "Skipped" is derived, not
+dismisses it. A re-send by the same sender is then already-sent, not a duplicate. **Rejecting is undoable too (2026-11-05, renamed 2026-11-06).** The
+host's button was ข้าม, one tap with no confirmation, and a real host skipped ไอซ์'s genuine slip by mistake. Its name read
+as "decide later" when it means "this slip is wrong", so it is now **ปฏิเสธ** (API, method and i18n ids keep their
+`skip`/`dismiss` names). Rejected slips sit in a collapsed ปฏิเสธแล้ว list with นำกลับมาตรวจ until collection closes (host and
+collector). **The rejected player is told, privately (2026-11-06).** Their own pay page shows สลิปถูกปฏิเสธ · ส่งสลิปใหม่
+(`PayPageView.slipRejected`) while collection is open, they are unpaid, nothing of theirs is waiting, and one of their
+slips is rejected; bringing the slip back or sending a new one clears it. The shared status list deliberately stays plain
+ยังไม่จ่าย: it is public, so a rejection there would tell the whole group who sent a fake or wrong slip, which is the same
+reason a duplicate slip never calls anyone out. There is no reason picker. "Skipped" is derived, not
 stored: a resolved waiting row whose reference no paid mark of the session carries. **Un-ticking a hand-made mark brings
 the player's skipped slips back (2026-11-06).** A real host skipped อั๋น's slip (flagged `receiver`) and then ticked him
 paid by hand, so un-ticking afterwards left him plain unpaid with the slip buried in ข้ามแล้ว. Un-ticking a host or

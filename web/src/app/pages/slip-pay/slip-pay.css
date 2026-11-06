@@ -43,6 +43,12 @@
   font-variant-numeric: tabular-nums;
 }
 
+.rejected {
+  margin: 0;
+  font-weight: 700;
+  color: var(--warn);
+}
+
 .account {
   padding: var(--space-2) var(--space-3);
   background: var(--surface);

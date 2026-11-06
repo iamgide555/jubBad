@@ -152,6 +152,10 @@
                 <h1 i18n="@@slipPay.send">ส่งสลิป</h1>
               }
 
+              @if (v.slipRejected) {
+                <p class="rejected" data-slip-rejected i18n="@@slipPay.rejected">สลิปถูกปฏิเสธ · ส่งสลิปใหม่</p>
+              }
+
               <div class="account">
                 <p class="eyebrow" i18n="@@slipPay.transferTo">โอนเข้า</p>
                 <p class="account-name">{{ v.accountName }}</p>

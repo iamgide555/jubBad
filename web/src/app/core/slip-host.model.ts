@@ -35,7 +35,7 @@ export interface SlipWaiting {
   candidatePlayerIds: string[];
 }
 
-/** A slip the host skipped (ข้าม), kept so a mistaken skip can be brought back until collection closes. */
+/** A slip the host rejected (ปฏิเสธ), kept so a mistaken rejection can be brought back until collection closes. */
 export interface SlipSkipped {
   id: string;
   imageId: string | null;

@@ -18,7 +18,7 @@ export interface SlipPaymentsPanel {
   collection: {closedAt: string | null; canClose: boolean; imageCount: number};
   paid: PaidRow[];
   waiting: WaitingSlip[];
-  /** Skipped slips, so a mistaken ข้าม can be brought back. */
+  /** Skipped slips, so a mistaken ปฏิเสธ can be brought back. */
   skipped: SkippedSlip[];
   duplicates: DuplicateSlip[];
   links: LinkRow[];

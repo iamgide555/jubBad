@@ -242,10 +242,10 @@ describe('slip pay-page routes (public, token-gated)', () => {
       const res = await get(code, q(token), access);
       expect(res.status).toBe(200);
       expect(Object.keys(res.body).sort()).toEqual([
-        'accountName', 'alreadyPaid', 'amountSatang', 'canChange', 'choice', 'claimable', 'collectionClosed', 'playerName', 'sessionDate',
+        'accountName', 'alreadyPaid', 'amountSatang', 'canChange', 'choice', 'claimable', 'collectionClosed', 'playerName', 'sessionDate', 'slipRejected',
       ]);
       expect(res.body).toMatchObject({
-        amountSatang: null, playerName: null, alreadyPaid: false, canChange: false, accountName: 'สมหญิง ใจดี', sessionDate: '30 ต.ค. 2569',
+        amountSatang: null, playerName: null, alreadyPaid: false, canChange: false, slipRejected: false, accountName: 'สมหญิง ใจดี', sessionDate: '30 ต.ค. 2569',
       });
       expect(res.body.claimable.map((c: { playerId: string }) => c.playerId).sort()).toEqual([...ids].sort());
       expect(res.body.claimable[0]).toEqual({ playerId: expect.any(String), name: expect.any(String) });

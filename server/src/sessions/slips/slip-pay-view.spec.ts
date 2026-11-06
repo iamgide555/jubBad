@@ -68,6 +68,80 @@ describe('SlipPaymentsService.payPageView and claimForPayPage', () => {
     expect(await slips.payPageView(code, token, lineUser())).toMatchObject({ sessionDate: null });
   });
 
+  describe('slipRejected: the viewer\'s own slip was rejected by the host', () => {
+    /** A viewer linked to ids[0] whose slip for exactly their share is waiting. */
+    async function sender() {
+      const night = await kit.setup(hostId);
+      const me = lineUser();
+      expect(await slips.claimForPayPage(night.code, night.token, me, night.ids[0])).toBe('linked');
+      const groupId = (await kit.prisma.session.findUniqueOrThrow({ where: { code: night.code } })).groupId;
+      const owed = await kit.owed(night.code, night.ids[0]);
+      const slip = await kit.prisma.pendingSlip.create({
+        data: { sessionId: night.code, groupId, reference: 'REJ1', lineUserId: me.userId, displayName: 'ส่ง', amountSatang: owed, reason: 'receiver' },
+      });
+      return { ...night, me, groupId, slip, owed };
+    }
+    const flag = async (n: { code: string; token: string }, who: { userId: string }) =>
+      (await slips.payPageView(n.code, n.token, who as never))!.slipRejected;
+
+    it('is false while the slip waits, true once rejected, and false again when brought back', async () => {
+      const n = await sender();
+      expect(await flag(n, n.me)).toBe(false);
+
+      await slips.dismissWaiting(n.code, n.slip.id);
+      expect(await flag(n, n.me)).toBe(true);
+
+      await slips.restoreWaiting(n.code, n.slip.id);
+      expect(await flag(n, n.me)).toBe(false);
+    });
+
+    it('leaves the public status list at unpaid, never marking the rejection', async () => {
+      const n = await sender();
+      await slips.dismissWaiting(n.code, n.slip.id);
+      const view = await slips.paymentStatusView(n.code, n.token);
+      const row = view!.rows.find((r) => r.name === 'สมชาย')!;
+      expect(row).toMatchObject({ paid: false, pending: false });
+      expect(JSON.stringify(view)).not.toMatch(/reject/i);
+    });
+
+    it('is false for another viewer, even one linked to a different player', async () => {
+      const n = await sender();
+      await slips.dismissWaiting(n.code, n.slip.id);
+      const other = lineUser();
+      expect(await slips.claimForPayPage(n.code, n.token, other, n.ids[1])).toBe('linked');
+      expect(await flag(n, other)).toBe(false);
+      expect(await flag(n, lineUser())).toBe(false);
+    });
+
+    it('is false when a newer slip from the same viewer is waiting', async () => {
+      const n = await sender();
+      await slips.dismissWaiting(n.code, n.slip.id);
+      await kit.prisma.pendingSlip.create({
+        data: { sessionId: n.code, groupId: n.groupId, reference: 'REJ2', lineUserId: n.me.userId, displayName: 'ส่ง', amountSatang: n.owed, reason: 'amount' },
+      });
+      expect(await flag(n, n.me)).toBe(false);
+    });
+
+    it('is false once the viewer is paid, and after collection closes', async () => {
+      const n = await sender();
+      await slips.dismissWaiting(n.code, n.slip.id);
+      expect(await flag(n, n.me)).toBe(true);
+
+      await kit.prisma.session.update({ where: { code: n.code }, data: { paymentCollectionClosedAt: new Date() } });
+      expect(await flag(n, n.me)).toBe(false);
+      await kit.prisma.session.update({ where: { code: n.code }, data: { paymentCollectionClosedAt: null } });
+
+      await slips.tick(n.code, n.ids[0]);
+      expect(await flag(n, n.me)).toBe(false);
+    });
+
+    it('is false for a slip that paid someone', async () => {
+      const n = await sender();
+      await slips.resolveWaiting(n.code, n.slip.id, { coversPlayerIds: [n.ids[0]], senderPlayerId: null });
+      expect(await flag(n, n.me)).toBe(false);
+    });
+  });
+
   it('shows no amount for a viewer linked to a player who is not on tonight\'s bill', async () => {
     const { code, token, groupCode } = await kit.setup(hostId);
     const stray = await kit.prisma.player.create({ data: { groupId: groupCode, name: 'ไม่มา', aliases: '[]' } });

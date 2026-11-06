@@ -550,7 +550,7 @@ describe('SlipReview', () => {
 
     it('lists a skipped slip and brings it back to review', async () => {
       await open(panel({ skipped: [skippedSlip] }));
-      expect(q('[data-skipped] summary')!.textContent).toContain('ข้ามแล้ว 1');
+      expect(q('[data-skipped] summary')!.textContent).toContain('ปฏิเสธแล้ว 1');
       expect(q('[data-skipped-slip]')!.textContent).toContain('ICE');
       expect(q('[data-skipped-slip]')!.textContent).toContain('113');
       await click(q('[data-restore]'));

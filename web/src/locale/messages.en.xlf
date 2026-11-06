@@ -6836,6 +6836,10 @@
         <source>สลิปนี้ส่งแล้ว รอโฮสต์ตรวจ</source>
         <target>Slip already sent. Waiting for the host to check</target>
       </trans-unit>
+      <trans-unit id="slipPay.rejected" datatype="html">
+        <source>สลิปถูกปฏิเสธ · ส่งสลิปใหม่</source>
+        <target>Slip rejected · send a new one</target>
+      </trans-unit>
       <trans-unit id="slipPay.sentAs" datatype="html">
         <source>ในชื่อ <x id="INTERPOLATION" equiv-text="{{ v.playerName }}"/></source>
         <target>As <x id="INTERPOLATION" equiv-text="{{ v.playerName }}"/></target>
@@ -6973,8 +6977,8 @@
         <target>This person is linked to a different LINE account. Confirming will replace the old one</target>
       </trans-unit>
       <trans-unit id="slipReview.skip" datatype="html">
-        <source>ข้าม</source>
-        <target>Skip</target>
+        <source>ปฏิเสธ</source>
+        <target>Reject</target>
       </trans-unit>
       <trans-unit id="slipReview.confirm" datatype="html">
         <source>ยืนยัน</source>
@@ -7485,7 +7489,7 @@
         </context-group>
       </trans-unit>
       <trans-unit id="slipReview.skipped" datatype="html">
-        <source>ข้ามแล้ว <x id="INTERPOLATION" equiv-text="{{ skipped().length }}"/></source><target>Skipped <x id="INTERPOLATION" equiv-text="{{ skipped().length }}"/></target>
+        <source>ปฏิเสธแล้ว <x id="INTERPOLATION" equiv-text="{{ skipped().length }}"/></source><target>Rejected <x id="INTERPOLATION" equiv-text="{{ skipped().length }}"/></target>
       </trans-unit>
       <trans-unit id="slipReview.restore" datatype="html">
         <source>นำกลับมาตรวจ</source><target>Review again</target>

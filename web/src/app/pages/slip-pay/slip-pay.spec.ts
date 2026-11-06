@@ -551,6 +551,21 @@ describe('SlipPay', () => {
     });
   });
 
+  describe('a rejected slip', () => {
+    it('tells a viewer whose slip the host rejected to send a new one', async () => {
+      await open({ ...LINKED, slipRejected: true });
+      expect(q('[data-slip-rejected]')?.textContent).toContain('สลิปถูกปฏิเสธ · ส่งสลิปใหม่');
+      expect(q('[data-slip-amount]')).not.toBeNull();
+    });
+
+    it('shows nothing about a rejection for a normal viewer or an older API', async () => {
+      await open(LINKED);
+      expect(q('[data-slip-rejected]')).toBeNull();
+      await open({ ...LINKED, slipRejected: false });
+      expect(q('[data-slip-rejected]')).toBeNull();
+    });
+  });
+
   describe('paying cash', () => {
     it('reveals the note and makes no request at all', async () => {
       await open();

@@ -220,7 +220,7 @@
               <p class="error" role="alert" data-w-error>{{ message }}</p>
             }
             <div class="actions">
-              <button type="button" class="ghost" data-dismiss [disabled]="closed() || busy().has('w:' + c.slip.id)" (click)="dismiss(c)" i18n="@@slipReview.skip">ข้าม</button>
+              <button type="button" class="ghost" data-dismiss [disabled]="closed() || busy().has('w:' + c.slip.id)" (click)="dismiss(c)" i18n="@@slipReview.skip">ปฏิเสธ</button>
               <button type="button" data-resolve [disabled]="!c.canResolve || busy().has('w:' + c.slip.id)" (click)="resolve(c)" i18n="@@slipReview.confirm">ยืนยัน</button>
             </div>
           </article>
@@ -230,7 +230,7 @@
 
     @if (skipped().length > 0) {
       <details class="group skipped" data-skipped>
-        <summary><span i18n="@@slipReview.skipped">ข้ามแล้ว {{ skipped().length }}</span></summary>
+        <summary><span i18n="@@slipReview.skipped">ปฏิเสธแล้ว {{ skipped().length }}</span></summary>
         @for (x of skipped(); track x.id) {
           <article class="dup" data-skipped-slip>
             <div class="dup-text">

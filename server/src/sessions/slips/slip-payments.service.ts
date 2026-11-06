@@ -130,6 +130,12 @@ export interface PayPageView {
   alreadyPaid: boolean;
   /** The viewer may undo their own pick and choose again (see `unclaimPlayer` for when that is closed). */
   canChange: boolean;
+  /**
+   * The host rejected the viewer's own slip (ปฏิเสธ) and nothing of theirs is waiting or paid, so they should send a new
+   * one. Only ever on this per-viewer page: the shared status list stays plain unpaid, so the group never sees who had
+   * a rejected slip.
+   */
+  slipRejected: boolean;
   /** The night the bill is for, as the card writes it (a stored yyyy-mm-dd becomes a Thai date); null with no date. */
   sessionDate: string | null;
   /**
@@ -268,9 +274,24 @@ export class SlipPaymentsService {
       accountName: panel.account?.name ?? savedName ?? '',
       alreadyPaid: linkedId !== null && paid.has(linkedId),
       canChange: gate.closedAt === null && (await this.selfChangeable(groupId, user.userId, paid)),
+      slipRejected: gate.closedAt === null && (linkedId === null || !paid.has(linkedId)) && (await this.hasRejectedSlip(code, user)),
       sessionDate: date === null || date.trim() === '' ? null : cardDate(date, billEnd),
       choice: await this.choiceFor(code, gate, user, paid, linkedId),
     };
+  }
+
+  /**
+   * True when the viewer sent a slip the host rejected and has none waiting. A rejected slip is a resolved row no paid
+   * mark carries (the same rule as `listSkipped`), so bringing it back, or sending a new one, clears this by itself.
+   */
+  private async hasRejectedSlip(code: string, user: LiffUser): Promise<boolean> {
+    const rows = await this.prisma.pendingSlip.findMany({
+      where: { sessionId: code, lineUserId: user.userId },
+      select: { reference: true, resolvedAt: true },
+    });
+    if (rows.length === 0 || rows.some((r) => r.resolvedAt === null)) return false;
+    const used = await this.usedReferences(code);
+    return rows.some((r) => !used.has(r.reference));
   }
 
   /** The viewer's unresolved `overpaid` slip, latest first, as the pay page's "who does this cover" choice. */
@@ -777,7 +798,7 @@ export class SlipPaymentsService {
   }
 
   /**
-   * Slips the host skipped (ข้าม) in this session, latest skip first, so a mistaken skip can be brought back. A resolved
+   * Slips the host rejected (ปฏิเสธ, formerly ข้าม) in this session, latest first, so a mistaken rejection can be brought back. A resolved
    * row is skipped when no paid mark of this session carries its reference: that also catches a slip whose payments were
    * undone before undo started sending slips back.
    */

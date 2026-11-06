@@ -25,6 +25,8 @@ export interface SlipPayView {
   canChange: boolean;
   /** The night the bill is for, as the payment card writes it; null when the session has no date. */
   sessionDate: string | null;
+  /** The host rejected the viewer's own slip and nothing of theirs is waiting or paid: ask them to send a new one. Absent from an older API. */
+  slipRejected?: boolean;
   /** The viewer's own slip for more than their share, waiting for them to say who it covers. Absent from an older API. */
   choice?: SlipPayChoice | null;
 }

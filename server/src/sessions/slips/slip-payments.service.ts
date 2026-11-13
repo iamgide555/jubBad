@@ -203,7 +203,7 @@ export class SlipPaymentsService {
     if (read.kind === 'not-slip') return { kind: 'not-slip' };
     const { qr, ocr } = read;
 
-    return this.images.withGroupLock(initialGate.groupId, () => this.lock.run(code, async (): Promise<SubmitOutcome> => {
+    const outcome = await this.images.withGroupLock(initialGate.groupId, () => this.lock.run(code, async (): Promise<SubmitOutcome> => {
       // The card may have been reconfirmed, re-priced or unconfirmed, or the plan lapsed, while the slip was read.
       const gate = await this.gate(code, token, now);
       if (!gate || gate.closedAt) return { kind: 'unavailable' };
@@ -245,6 +245,15 @@ export class SlipPaymentsService {
         throw error;
       }
     }));
+    // After both locks are released: the notice takes the session lock itself. A slip that was refused or recorded as a
+    // duplicate changes nobody's standing, so only the three outcomes that put the sender on the bill's list count.
+    if (outcome.kind === 'paid' || outcome.kind === 'waiting' || outcome.kind === 'choose') this.notifyAllSent(code);
+    return outcome;
+  }
+
+  /** Fire and forget: the player's upload must not wait on LINE, and the notice never throws. */
+  private notifyAllSent(code: string): void {
+    void this.cards.notifyAllSent(code).catch(() => undefined);
   }
 
   /**
@@ -326,6 +335,7 @@ export class SlipPaymentsService {
     if (!slip || slip.amountSatang === null) return 'gone';
     try {
       await this.resolveWaiting(code, slip.id, { coversPlayerIds: playerIds, senderPlayerId: null, reviewedAmountSatang: slip.amountSatang });
+      this.notifyAllSent(code);
       return 'paid';
     } catch (error) {
       if (error instanceof NotFoundException) return 'gone';

@@ -38,6 +38,12 @@ export interface PaymentCardState {
    * collector fields: a card stored before it existed re-serializes unchanged.
    */
   awardsSentAt?: string | null;
+  /**
+   * ISO timestamp of the "everyone has paid or sent a slip" notice to the host (and เจ้าของบัญชี), null until one went
+   * out. Optional like the fields above. A new confirm builds a fresh state without it, so a card re-priced after the
+   * notice can notify again.
+   */
+  allSentNotifiedAt?: string | null;
 }
 
 /** Frozen: parsePaymentState hands this same object to every caller, so one must not be able to corrupt it. */
@@ -51,6 +57,7 @@ export const EMPTY_PAYMENT_STATE: PaymentCardState = Object.freeze({
   collectorPlayerId: null,
   collectorLineUserId: null,
   awardsSentAt: null,
+  allSentNotifiedAt: null,
 });
 
 const str = (v: unknown): string | null => (typeof v === 'string' && v !== '' ? v : null);
@@ -75,17 +82,19 @@ export function parsePaymentState(raw: string | null): PaymentCardState {
     collectorPlayerId: str(o['collectorPlayerId']),
     collectorLineUserId: str(o['collectorLineUserId']),
     awardsSentAt: str(o['awardsSentAt']),
+    allSentNotifiedAt: str(o['allSentNotifiedAt']),
   };
 }
 
 export function serializePaymentState(state: PaymentCardState): string {
   // An unset collector is left out, so a card stored before these fields existed re-serializes unchanged.
-  const { collectorPlayerId, collectorLineUserId, awardsSentAt, ...rest } = state;
+  const { collectorPlayerId, collectorLineUserId, awardsSentAt, allSentNotifiedAt, ...rest } = state;
   return JSON.stringify({
     ...rest,
     ...(collectorPlayerId ? { collectorPlayerId } : {}),
     ...(collectorLineUserId ? { collectorLineUserId } : {}),
     ...(awardsSentAt ? { awardsSentAt } : {}),
+    ...(allSentNotifiedAt ? { allSentNotifiedAt } : {}),
   });
 }
 

@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import request from 'supertest';
+import { vi } from 'vitest';
 import {
   bootSlipApp,
   lineUser,
@@ -8,6 +9,7 @@ import {
 } from '../../../test/slip-http.fixture.js';
 import { SlipImagesService } from './slip-images.service.js';
 import { LineAccountsService } from '../../line/line-accounts.service.js';
+import { LineClient } from '../../line/line-client.js';
 import { SlipPaymentsService, type LiffUser } from './slip-payments.service.js';
 import { LineHostService } from '../../line/line-host.service.js';
 
@@ -548,6 +550,39 @@ describe('collector manage routes (public, LINE identity + card token)', () => {
     });
   });
 
+  describe('GET manage: add-friend notice', () => {
+    const ADD_URL = 'https://line.me/R/ti/p/@jubbad';
+    const saved = process.env.LINE_BOT_ADD_URL;
+    afterEach(() => {
+      vi.restoreAllMocks();
+      if (saved === undefined) delete process.env.LINE_BOT_ADD_URL;
+      else process.env.LINE_BOT_ADD_URL = saved;
+    });
+    const notify = async (b: CollectorBill) =>
+      (await get(`${m(b.code)}${q(b.token)}`, b.access).expect(200)).body.notify;
+
+    it('offers the add link when LINE says the viewer has not added the bot', async () => {
+      process.env.LINE_BOT_ADD_URL = ADD_URL;
+      const spy = vi.spyOn(kit.app.get(LineClient), 'friendStatus').mockResolvedValue(false);
+      const b = await collectorBill();
+      expect(await notify(b)).toEqual({ friend: false, addUrl: ADD_URL });
+      expect(spy).toHaveBeenCalledWith(b.user.userId);
+    });
+
+    it.each([true, null])('shows no banner when the answer is %s (a friend, or LINE could not say)', async (answer) => {
+      process.env.LINE_BOT_ADD_URL = ADD_URL;
+      vi.spyOn(kit.app.get(LineClient), 'friendStatus').mockResolvedValue(answer);
+      expect(await notify(await collectorBill())).toEqual({ friend: true, addUrl: ADD_URL });
+    });
+
+    it('does not ask LINE at all when there is no add link to offer', async () => {
+      delete process.env.LINE_BOT_ADD_URL;
+      const spy = vi.spyOn(kit.app.get(LineClient), 'friendStatus').mockResolvedValue(false);
+      expect(await notify(await collectorBill())).toEqual({ friend: true, addUrl: null });
+      expect(spy).not.toHaveBeenCalled();
+    });
+  });
+
   describe('GET manage', () => {
     it('shows the collector the review panel, without LINE ids, the card token or links', async () => {
       const b = await collectorBill();
@@ -561,6 +596,7 @@ describe('collector manage routes (public, LINE identity + card token)', () => {
         'duplicates',
         'groupName',
         'links',
+        'notify',
         'paid',
         'rows',
         'skipped',

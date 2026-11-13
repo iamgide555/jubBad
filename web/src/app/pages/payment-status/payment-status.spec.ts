@@ -24,7 +24,7 @@ class FakeSlipReview {
   readonly hideTitle = input(false);
 }
 
-const MANAGE = { groupName: 'ก๊วน', date: '30 ต.ค. 2569', accountName: 'สมชาย', rows: [{ playerId: 'p1', name: 'A', amountSatang: 10000, absent: false }] };
+const MANAGE = { groupName: 'ก๊วน', date: '30 ต.ค. 2569', accountName: 'สมชาย', rows: [{ playerId: 'p1', name: 'A', amountSatang: 10000, absent: false }], notify: { friend: true, addUrl: null } };
 
 describe('PaymentStatus', () => {
   let fixture: ComponentFixture<PaymentStatus>;
@@ -228,6 +228,25 @@ describe('PaymentStatus', () => {
       expect(review.componentInstance.code()).toBe('abc');
       expect(review.componentInstance.rows()).toEqual(MANAGE.rows);
       expect(el().querySelector('[data-status-row]')).toBeNull();
+    });
+
+    it('offers to add the bot as a friend when the viewer has not, so the all-sent notice can reach them', async () => {
+      manage.mockReturnValue(of({ ...MANAGE, notify: { friend: false, addUrl: 'https://line.me/R/ti/p/@jubbad' } }));
+      await collectorOpen();
+      const banner = el().querySelector('[data-add-friend]');
+      expect(banner?.textContent).toContain('เพิ่มเพื่อน JubBad');
+      const link = banner?.querySelector('a');
+      expect(link?.getAttribute('href')).toBe('https://line.me/R/ti/p/@jubbad');
+      expect(link?.getAttribute('target')).toBe('_blank');
+    });
+
+    it.each([
+      ['already a friend', { friend: true, addUrl: 'https://line.me/R/ti/p/@jubbad' }],
+      ['no add link configured', { friend: false, addUrl: null }],
+    ])('shows no add-friend banner when %s', async (_name, notify) => {
+      manage.mockReturnValue(of({ ...MANAGE, notify }));
+      await collectorOpen();
+      expect(el().querySelector('[data-add-friend]')).toBeNull();
     });
 
     it('shows unavailable when the manage read is refused', async () => {

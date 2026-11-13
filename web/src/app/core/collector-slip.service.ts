@@ -21,6 +21,8 @@ export interface CollectorManageView extends SlipHostPanel {
   date: string | null;
   accountName: string;
   rows: CollectorManageRow[];
+  /** Whether the bot can message this viewer, and where to add it when it cannot (the all-sent notice). */
+  notify: { friend: boolean; addUrl: string | null };
 }
 
 /**

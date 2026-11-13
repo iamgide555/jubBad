@@ -36,6 +36,24 @@ describe('LineClient', () => {
     expect(await client.groupName('C1')).toBeNull();
   });
 
+  describe('friendStatus', () => {
+    it.each([
+      [200, { displayName: 'A' }, true],
+      [404, { message: 'Not found' }, false],
+      [429, {}, null],
+      [500, {}, null],
+    ])('status %s reads as %s', async (status, body, expected) => {
+      fetchMock.mockResolvedValue(jsonResponse(status as number, body));
+      expect(await client.friendStatus('U/1')).toBe(expected);
+      expect(fetchMock.mock.calls[0][0]).toBe('https://api.line.me/v2/bot/profile/U%2F1');
+    });
+
+    it('is unknown, never "not a friend", when LINE cannot be reached', async () => {
+      fetchMock.mockRejectedValue(new Error('network'));
+      expect(await client.friendStatus('U1')).toBeNull();
+    });
+  });
+
   describe('userProfile', () => {
     it('reads a direct-chat profile with bearer auth and encodes the user id', async () => {
       fetchMock.mockResolvedValue(jsonResponse(200, { displayName: 'Host', pictureUrl: 'https://p/host' }));

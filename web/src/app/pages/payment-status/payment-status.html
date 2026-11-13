@@ -28,6 +28,12 @@
     }
     @case ('manage') {
       @if (manageView(); as m) {
+        @if (!m.notify.friend && m.notify.addUrl) {
+          <aside class="add-friend" data-add-friend>
+            <p i18n="@@paymentStatus.addFriend">เพิ่มเพื่อน JubBad เพื่อรับแจ้งเตือนเมื่อทุกคนจ่ายครบ</p>
+            <a [href]="m.notify.addUrl" target="_blank" rel="noopener" i18n="@@paymentStatus.addFriendLink">เพิ่มเพื่อน</a>
+          </aside>
+        }
         <app-slip-review [code]="code" [rows]="m.rows" [collectorMode]="true" [hideTitle]="true" />
       }
     }

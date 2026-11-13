@@ -6,6 +6,7 @@ import { lineConfig } from '../line/line-config.js';
 import { cardTexts, clip, TEXT_MAX } from '../line/line-summary-card.js';
 import { LineSummaryService, type LineSummaryTarget } from '../line/line-summary.service.js';
 import { liffPayUrl, liffSlipUrl, liffPaymentStatusUrl, paymentCardMessages, paymentDmMessages, type PaymentCardInput } from '../line/payment-card.js';
+import { allSentMessages } from '../line/payment-all-sent.js';
 import { awardsDmMessages, awardsGroupMessages, rankAwards, type AwardsCardInput } from '../line/payment-awards-card.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import type { BillWarning } from '../../../engines/bill.ts';
@@ -29,6 +30,9 @@ export type PaymentSendOutcome = 'sent' | 'quota' | 'failed' | 'unavailable' | '
  * `unavailable` is nothing to send or nowhere to send it; `already-sent` is a repeat close after the card went out.
  */
 export type AwardsSendOutcome = 'sent' | 'already-sent' | 'unavailable' | 'failed' | 'skipped';
+
+/** What the all-sent notice did: `unavailable` is every reason it did not apply (not yet, already sent, nowhere to send). */
+export type AllSentOutcome = 'sent' | 'unavailable' | 'failed';
 
 /** Where an awards card would go when the collection closes, for the close dialog's wording; null when it would not send. */
 export type AwardsDestination = 'group' | 'host' | null;
@@ -127,6 +131,15 @@ export function paymentRetryKey(sessionCode: string, sendId: string): string {
  */
 export function paymentDmRetryKey(sessionCode: string, sendId: string): string {
   const h = createHash('sha1').update(`jubbad-line-payment:dm:${sessionCode}:${sendId}`).digest('hex');
+  return `${h.slice(0, 8)}-${h.slice(8, 12)}-5${h.slice(13, 16)}-a${h.slice(17, 20)}-${h.slice(20, 32)}`;
+}
+
+/**
+ * One key per session, confirm and recipient for the all-sent notice. The confirm time is in it so that a card
+ * re-confirmed after the notice can notify again: LINE would otherwise drop the repeat as a retry of the first.
+ */
+export function allSentRetryKey(sessionCode: string, confirmedAt: string | null, lineUserId: string): string {
+  const h = createHash('sha1').update(`jubbad-line-allsent:${sessionCode}:${confirmedAt ?? ''}:${lineUserId}`).digest('hex');
   return `${h.slice(0, 8)}-${h.slice(8, 12)}-5${h.slice(13, 16)}-a${h.slice(17, 20)}-${h.slice(20, 32)}`;
 }
 
@@ -516,6 +529,90 @@ export class PaymentCardService {
       }
       return 'sent';
     });
+  }
+
+  /**
+   * Tells the host, and the bill's เจ้าของบัญชี when that is someone else, that nobody owes any more without a payment
+   * or a slip: every billed person has paid, or has a slip waiting for review, so the host should look and close.
+   * Called after a player's own slip action, never after a host tick (the host is already looking). Once per confirm:
+   * `allSentNotifiedAt` is set after a push went out, and a new confirm starts a fresh state without it.
+   *
+   * Under the session lock like every card send, so two slips landing together cannot both notify. A recipient the
+   * bot cannot message (LINE says they are not a friend) is skipped without spending a push; an unknown answer
+   * (a timeout) tries anyway. Never throws: it runs after the player's upload already succeeded.
+   */
+  notifyAllSent(code: string, now: Date = new Date()): Promise<AllSentOutcome> {
+    return this.lock.run(code, async (): Promise<AllSentOutcome> => {
+      try {
+        return await this.notifyAllSentLocked(code, now);
+      } catch {
+        // Nothing from the error is logged: it can carry the stored state (account and token).
+        this.logger.warn('all-sent notice failed');
+        return 'failed';
+      }
+    });
+  }
+
+  private async notifyAllSentLocked(code: string, now: Date): Promise<AllSentOutcome> {
+    const { liffId, loginChannelId } = lineConfig();
+    if (liffId === null || loginChannelId === null) return 'unavailable';
+    const v = await this.view(code, now);
+    const { panel, nothingDue, state } = v;
+    if (v.closed || !panel.ended || !panel.confirmed || panel.stale || !panel.ready || nothingDue) return 'unavailable';
+    if (state.allSentNotifiedAt || !state.token) return 'unavailable';
+
+    const owner = await this.collectors.forBill(code);
+    const payable = panel.rows.filter((r) => r.amountSatang > 0 && r.playerId !== owner?.playerId);
+    if (payable.length === 0) return 'unavailable';
+
+    const [payments, pending, duplicates, links] = await Promise.all([
+      this.prisma.sessionPayment.findMany({ where: { sessionId: code }, select: { playerId: true } }),
+      this.prisma.pendingSlip.findMany({ where: { sessionId: code, resolvedAt: null }, select: { lineUserId: true } }),
+      this.prisma.slipDuplicate.count({ where: { sessionId: code, dismissedAt: null } }),
+      this.prisma.playerLineAccount.findMany({
+        where: { groupId: v.groupId, playerId: { in: payable.map((r) => r.playerId) } },
+        select: { playerId: true, lineUserId: true },
+      }),
+    ]);
+    const playerOf = new Map(links.map((l) => [l.lineUserId, l.playerId]));
+    const paid = new Set(payments.map((p) => p.playerId));
+    const slipped = new Set(pending.flatMap((p) => (playerOf.has(p.lineUserId) ? [playerOf.get(p.lineUserId)!] : [])));
+    // A slip from someone not linked to a payable person (unmapped) may be for any of them, so it covers one each.
+    const unattributed = pending.filter((p) => !playerOf.has(p.lineUserId)).length;
+    const uncovered = payable.filter((r) => !paid.has(r.playerId) && !slipped.has(r.playerId)).length;
+    if (uncovered - unattributed > 0) return 'unavailable';
+
+    const session = await this.prisma.session.findUnique({
+      where: { code },
+      select: { group: { select: { owner: { select: { lineUserId: true } } } } },
+    });
+    const recipients = [
+      ...new Set([session?.group.owner?.lineUserId ?? null, owner?.lineUserId ?? null].filter((id): id is string => id !== null)),
+    ];
+    if (recipients.length === 0) return 'unavailable';
+
+    const { name, date } = cardTexts(v.header);
+    const messages = allSentMessages({
+      groupName: name,
+      date,
+      waitingCount: pending.length + duplicates,
+      statusUrl: liffPaymentStatusUrl(liffId, code, state.token),
+    });
+    let delivered = false;
+    for (const to of recipients) {
+      if ((await this.line.friendStatus(to)) === false) continue;
+      try {
+        if ((await this.line.push(to, messages, allSentRetryKey(code, state.confirmedAt, to))) === 'ok') delivered = true;
+      } catch {
+        // One recipient's failure must not stop the other.
+      }
+    }
+    if (!delivered) return 'failed';
+    await this.prisma.session.update({
+      where: { code },
+      data: { paymentCard: serializePaymentState({ ...state, allSentNotifiedAt: now.toISOString() }) },
+    });
+    return 'sent';
   }
 
   /**

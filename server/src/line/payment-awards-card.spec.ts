@@ -5,7 +5,7 @@ import {
   formatPayDelay,
   rankAwards,
   STEP_TOP_PERCENT,
-  TURTLE_LINE,
+  TURTLE_LINES,
   TURTLE_MIN_GAP_MS,
   usablePicture,
   type AwardsCardInput,
@@ -124,6 +124,24 @@ describe('rankAwards', () => {
   });
 });
 
+describe('the turtle line', () => {
+  it('is the same for the same session and always comes from the pool', () => {
+    const one = rank(NINE, 'ABC')!;
+    expect(rank(NINE, 'ABC')!.turtleLine).toBe(one.turtleLine);
+    expect(TURTLE_LINES).toContain(one.turtleLine);
+  });
+
+  it('varies across sessions, so next week is not the same joke', () => {
+    const drawn = new Set(['S1', 'S2', 'S3', 'S4', 'S5', 'S6', 'S7', 'S8'].map((code) => rank(NINE, code)!.turtleLine));
+    expect(drawn.size).toBeGreaterThan(3);
+  });
+
+  it('has no duplicate lines and none too long for the spotlight', () => {
+    expect(new Set(TURTLE_LINES).size).toBe(TURTLE_LINES.length);
+    TURTLE_LINES.forEach((line) => expect(line.length).toBeLessThanOrEqual(34));
+  });
+});
+
 describe('usablePicture', () => {
   it('accepts a short https address only', () => {
     expect(usablePicture('https://profile.line-scdn.net/abc')).toBe('https://profile.line-scdn.net/abc');
@@ -148,7 +166,8 @@ describe('the awards card', () => {
     expect(all).toContain('3 นาที');
     expect(all).toContain('รางวัลเต่าทองคำ');
     expect(all).toContain('2 วัน 4 ชม.');
-    expect(all).toContain(TURTLE_LINE);
+    expect(TURTLE_LINES).toContain(input.view.turtleLine);
+    expect(all).toContain(input.view.turtleLine);
     expect(all).toContain(`จ่ายครบแล้ว ${input.view.everyoneCount} คน 🎉`);
     input.view.titles.forEach((t) => expect(all).toContain(t));
   });

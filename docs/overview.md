@@ -1788,6 +1788,33 @@ decisions behind it:
   heights (`STEP_TOP_PERCENT`); winners' LINE profile pictures, names and times are live Flex text laid over it with
   percentage offsets, so they hold at every bubble width. Change the art's step lines and those numbers together.
 
+**The all-sent notice (2026-11-13).** Before this, nothing told the host that the last person had paid: they had to open
+LINE, check the list and press ปิดการเก็บเงิน, which is the only thing that sends the awards card. Now the bot sends
+one LINE message (`line/payment-all-sent.ts`, `PaymentCardService.notifyAllSent`) when **nobody who owes is left
+without a payment or a slip**, with a button to the payment-status page where the host or collector reviews and closes.
+- **"Sent" counts, not just "paid".** A person is covered by a `SessionPayment` or by an unresolved `PendingSlip` from a
+  LINE account linked to them. A slip held for review (wrong amount, unmapped sender, overpaid) still counts, because the
+  sender has done their part and the host reviews it anyway; waiting only for fully-approved payments would mean no
+  notice on exactly the nights the host has work to do. A waiting slip from an **unlinked** sender may be for anyone, so it
+  covers one uncovered person each. The message says "จ่ายครบแล้ว" when nothing is waiting and "ส่งสลิปครบแล้ว รอตรวจ N ใบ"
+  otherwise. The bill's เจ้าของบัญชี never counts as owing. Accepted consequence: the notice can say everyone sent while
+  a held slip later turns out wrong; the host finds out in the review it points them to.
+- **Triggered only by a player's own action** (a slip that lands as paid, waiting or choose, or the sender picking who an
+  overpaid slip covers), after the locks are released, fire-and-forget so the upload never waits on LINE. A host or
+  collector **tick** does not trigger it: they are already looking at the list.
+- **Once per confirm.** `allSentNotifiedAt` in the payment-card state is set after a push goes out; a new confirm builds a
+  fresh state without it, so a card re-priced after the notice can notify again. The retry key includes the confirm time
+  for the same reason: LINE would otherwise drop the second push as a retry of the first.
+- **Recipients: the group owner's linked LINE, plus the bill's เจ้าของบัญชี when that is someone else** (de-duplicated, so
+  a host who is also the collector gets one). A push reaches only someone who has added the bot as a friend. The host
+  always has (linking is a 1:1 chat with the bot); a เจ้าของบัญชี linked through the pay page may not have.
+  `LineClient.friendStatus` asks LINE (the profile lookup answers 404 for a non-friend) and a recipient LINE says is not a
+  friend is skipped without spending a push. Only that 404 is "not a friend": a timeout or 429 is unknown and the push is
+  tried anyway, so a hiccup never costs the host their notice. Nothing is recorded if no push went out.
+- **The add-friend banner.** The collector manage read carries `notify: { friend, addUrl }`, and the payment-status page
+  shows "เพิ่มเพื่อน JubBad เพื่อรับแจ้งเตือน..." to a viewer LINE says has not added the bot, so a เจ้าของบัญชี finds out
+  why they got nothing without the host having to ask. No banner without `LINE_BOT_ADD_URL`, and an unknown answer shows none.
+
 **What reaches the host.** Waiting slips (with the reason) and duplicates, in the bill screen's review list.
 The host resolves a waiting slip by ticking one or more players (or dismisses it), and dismisses a duplicate. A duplicate never
 pays anyone and the sender is not told off in the group. **Undoing a slip payment sends the slip back (2026-11-05).** The host's

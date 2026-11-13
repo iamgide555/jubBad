@@ -39,8 +39,15 @@ describe('parsePaymentState', () => {
       collectorPlayerId: 'p1',
       collectorLineUserId: 'U1',
       awardsSentAt: '2026-10-29T11:00:00.000Z',
+      allSentNotifiedAt: '2026-10-29T10:30:00.000Z',
     };
     expect(parsePaymentState(serializePaymentState(state))).toEqual(state);
+  });
+
+  it('leaves the all-sent mark out of the stored JSON until it is set, and reads a bad one as null', () => {
+    expect(serializePaymentState({ ...EMPTY_PAYMENT_STATE, token: 't' })).not.toContain('allSentNotifiedAt');
+    expect(parsePaymentState('{"token":"abc"}').allSentNotifiedAt).toBeNull();
+    expect(parsePaymentState('{"allSentNotifiedAt":7}').allSentNotifiedAt).toBeNull();
   });
 
   it('reads a state stored before lastDmAt existed, and a bad lastDmAt, as null', () => {

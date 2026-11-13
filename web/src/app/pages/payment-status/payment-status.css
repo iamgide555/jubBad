@@ -98,3 +98,21 @@ button {
 
 .pending-state { color: var(--pending-ink); }
 .unpaid-state, [data-unpaid-count] { color: var(--warn); }
+
+.add-friend {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-1) var(--space-3);
+  padding: var(--space-2);
+  border: 1px solid var(--line);
+  border-radius: var(--radius, 0.5rem);
+}
+
+.add-friend a {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--tap);
+  font-weight: 600;
+}

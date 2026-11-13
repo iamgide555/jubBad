@@ -120,6 +120,18 @@ export class LineClient {
     };
   }
 
+  /**
+   * Whether this user has the bot as a friend (and has not blocked it), which a push needs. LINE answers the profile
+   * lookup with 404 for anyone else. Only that answer is `false`: a timeout, rate limit or server error is `null`
+   * (unknown), so a hiccup never reads as "not a friend" and costs someone a message.
+   */
+  async friendStatus(userId: string): Promise<boolean | null> {
+    const result = await this.send('GET', `/profile/${encodeURIComponent(userId)}`);
+    if (result === null) return null;
+    if (result.status >= 200 && result.status < 300) return true;
+    return result.status === 404 ? false : null;
+  }
+
   async leave(lineGroupId: string): Promise<void> {
     await this.call('POST', `/group/${encodeURIComponent(lineGroupId)}/leave`);
   }

@@ -7586,6 +7586,14 @@
           <context context-type="sourcefile">src/app/shared/slip-review/slip-review.html</context>
         </context-group>
       </trans-unit>
+      <trans-unit id="paymentStatus.addFriend" datatype="html">
+        <source>เพิ่มเพื่อน JubBad เพื่อรับแจ้งเตือนเมื่อทุกคนจ่ายครบ</source>
+        <target>Add JubBad as a friend to get notified when everyone has paid</target>
+      </trans-unit>
+      <trans-unit id="paymentStatus.addFriendLink" datatype="html">
+        <source>เพิ่มเพื่อน</source>
+        <target>Add friend</target>
+      </trans-unit>
     </body>
   </file>
 </xliff>

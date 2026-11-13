@@ -14,6 +14,8 @@ import {
 } from '@nestjs/common';
 import type { Request, Response } from 'express';
 import { Public } from '../../auth/public.decorator.js';
+import { LineClient } from '../../line/line-client.js';
+import { lineConfig } from '../../line/line-config.js';
 import { CloseCollectionDto } from '../dto/close-collection.dto.js';
 import { ResolveWaitingSlipDto } from '../dto/resolve-waiting-slip.dto.js';
 import { SlipPlayerDto } from '../dto/slip-player.dto.js';
@@ -51,6 +53,11 @@ export interface CollectorPanel {
     imageCount: number;
     card: 'group' | 'host' | null;
   };
+  /**
+   * Whether the bot can message this viewer (the all-sent notice), and where to add it if not. `friend` is false only
+   * when LINE says the viewer has not added the bot; an unknown answer reads as true, so a hiccup shows no banner.
+   */
+  notify: { friend: boolean; addUrl: string | null };
 }
 
 /**
@@ -68,6 +75,7 @@ export class SlipCollectorController {
     private readonly slips: SlipPaymentsService,
     private readonly images: SlipImagesService,
     private readonly gate: SlipViewerGate,
+    private readonly line: LineClient,
   ) {}
 
   @Public()
@@ -78,7 +86,8 @@ export class SlipCollectorController {
     @Query('token') token: unknown,
     @Req() req: Request,
   ): Promise<CollectorPanel> {
-    const { panel } = await this.collector(code, token, req);
+    const { panel, user } = await this.collector(code, token, req);
+    const addUrl = lineConfig().botAddUrl;
     const [paid, waiting, skipped, duplicates, collection] = await Promise.all([
       this.slips.getPaid(code),
       this.slips.listWaiting(code),
@@ -102,6 +111,8 @@ export class SlipCollectorController {
       duplicates: duplicates.map(collectorDuplicate),
       links: [],
       collection,
+      // Asked only when there is somewhere to send them: with no add link a banner could not offer anything.
+      notify: { friend: addUrl === null || (await this.line.friendStatus(user.userId)) !== false, addUrl },
     };
   }
 
@@ -242,7 +253,7 @@ export class SlipCollectorController {
       user,
     );
     if (!access) this.gate.fail(key);
-    return access;
+    return { ...access, user };
   }
 }
 

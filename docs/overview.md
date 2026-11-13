@@ -1770,7 +1770,9 @@ decisions behind it:
 - **Who is not ranked:** the bill's เจ้าของบัญชี (they receive the money), early-checkout players (not billed rows)
   and people who owe ฿0. They only count toward "จ่ายครบแล้ว X คน". With nobody rankable no card is sent.
 - **Affectionate, never a debt callout.** The card exists only once everyone has paid, the turtle line is a joke
-  ("ลูกโด่งยังตกพื้นเร็วกว่า"), and the roasted person is **not named in the alt text** (it shows on lock screens).
+  drawn per session from `TURTLE_LINES` (11 lines, e.g. "ลูกโด่งยังตกพื้นเร็วกว่า"; each teases how slow, never who or
+  what they owe, and one thanks them), so next week's differs while the group card and the host's DM of the same
+  night agree, and the roasted person is **not named in the alt text** (it shows on lock screens).
 - **Sent once, on close, and the host can opt out.** The close dialog warns that a card will be posted and carries a
   ticked "ส่งการ์ดรางวัล..." box; unticked sends nothing (`card: 'skipped'`). It goes where the summary and payment
   cards go: into the group on a `group` target, or as a DM to the host with ส่งเข้ากลุ่ม on a `host` target (a

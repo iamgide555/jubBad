@@ -41,6 +41,8 @@ export interface AwardsView {
   everyoneCount: number;
   /** A rank title per podium place. */
   titles: string[];
+  /** The joke line under the turtle's time, drawn per session; only shown when `turtle` is set. */
+  turtleLine: string;
 }
 
 export interface AwardsCardInput {
@@ -81,6 +83,24 @@ const TITLES: readonly (readonly string[])[] = [
   ['ทันขึ้นโพเดียม', 'เส้นยาแดงผ่าแปด', 'โพเดียมสุดท้าย'],
 ];
 
+/**
+ * The turtle's joke, one drawn per session. Every line teases how slow, never who or what they owe, and the last one
+ * thanks them so the roast lands soft. Keep each short enough to wrap in two lines beside the turtle art.
+ */
+export const TURTLE_LINES: readonly string[] = [
+  '"ลูกโด่งยังตกพื้นเร็วกว่า"',
+  '"ลูกขนไก่ลงถึงพื้นก่อนเลย"',
+  '"เกมจบตั้งนาน เพิ่งวอร์มนิ้ว"',
+  '"รับลูกตบทัน แต่รับสลิปไม่ทัน"',
+  '"กระต่ายหลับ เต่าโอนทีหลัง"',
+  '"วิ่งแข่งกับเต่า เต่ายังชนะ"',
+  '"ช้าแต่ชัวร์ แชมป์สายมาราธอน"',
+  '"สัญญาณโอนมาจากดาวอังคาร"',
+  '"โหลดสลิปอยู่ใช่ไหม ยังไม่เสร็จ"',
+  '"ลืมกดส่งสลิปแหละ"',
+  '"ช้าหน่อย แต่ก็มาถึง ขอบคุณนะ"',
+];
+
 /** A small stable hash, so the same session always draws the same titles and next week's differ. */
 function hashOf(text: string): number {
   let h = 5381;
@@ -119,7 +139,9 @@ export function rankAwards(input: {
   const turtle = last !== null && last.delayMs - podium[0].delayMs >= TURTLE_MIN_GAP_MS ? last : null;
   const seed = hashOf(input.sessionCode);
   const titles = podium.map((_, i) => TITLES[i][(seed + i) % TITLES[i].length]);
-  return { podium, turtle, everyoneCount: input.everyoneCount, titles };
+  // A different multiplier from the titles' offset, so the turtle's line is not locked to the champion's title.
+  const turtleLine = TURTLE_LINES[(seed * 7 + 3) % TURTLE_LINES.length];
+  return { podium, turtle, everyoneCount: input.everyoneCount, titles, turtleLine };
 }
 
 /** Only an https address LINE can fetch and fits its 2000-character limit is used; anything else shows the fallback. */
@@ -133,7 +155,6 @@ const GOLD_ON_DARK = '#e3b155';
 const COURT_SOFT = '#e8f3ec';
 const SPOTLIGHT_BG = INK;
 const PILL_BG = '#16130fcc';
-export const TURTLE_LINE = '"ลูกโด่งยังตกพื้นเร็วกว่า"';
 
 /**
  * Where each podium step's top edge sits, as a percentage of the podium image's height, and the left edge of each
@@ -253,7 +274,7 @@ function podium(view: AwardsView, artBase: string | null) {
   return { type: 'box', layout: 'vertical', paddingAll: '0px', contents: [art, ...overlays] };
 }
 
-function spotlight(turtle: AwardsWinner, artBase: string | null) {
+function spotlight(turtle: AwardsWinner, turtleLine: string, artBase: string | null) {
   const picture =
     artBase === null
       ? { type: 'text', text: '🐢', size: '4xl', align: 'center', gravity: 'center', flex: 4 }
@@ -287,7 +308,7 @@ function spotlight(turtle: AwardsWinner, artBase: string | null) {
             ],
           },
           { type: 'text', text: formatPayDelay(turtle.delayMs), size: 'xl', weight: 'bold', color: GOLD_ON_DARK },
-          { type: 'text', text: TURTLE_LINE, size: 'xs', color: '#ffffff', wrap: true },
+          { type: 'text', text: turtleLine, size: 'xs', color: '#ffffff', wrap: true },
         ],
       },
     ],
@@ -308,7 +329,7 @@ function awardsCard(input: AwardsCardInput, artBase: string | null, footer: unkn
   const { name, date } = cardTexts(input);
   // The podium runs edge to edge; the spotlight and the count sit in a padded block beneath it.
   const below: unknown[] = [];
-  if (input.view.turtle) below.push(spotlight(input.view.turtle, artBase));
+  if (input.view.turtle) below.push(spotlight(input.view.turtle, input.view.turtleLine, artBase));
   below.push({
     type: 'text',
     text: `จ่ายครบแล้ว ${input.view.everyoneCount} คน 🎉`,

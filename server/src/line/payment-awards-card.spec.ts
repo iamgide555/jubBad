@@ -6,6 +6,7 @@ import {
   rankAwards,
   STEP_TOP_PERCENT,
   TURTLE_LINES,
+  TITLES,
   TURTLE_MIN_GAP_MS,
   usablePicture,
   type AwardsCardInput,
@@ -121,6 +122,29 @@ describe('rankAwards', () => {
     expect(rank(NINE, 'ABC')!.titles).toEqual(one.titles);
     expect(one.titles).toHaveLength(3);
     one.titles.forEach((t) => expect(t.length).toBeGreaterThan(0));
+  });
+});
+
+describe('the podium titles', () => {
+  it('draws each title from its own place pool', () => {
+    for (const code of ['S1', 'S2', 'S3', 'S4', 'S5']) {
+      rank(NINE, code)!.titles.forEach((t, place) => expect(TITLES[place]).toContain(t));
+    }
+  });
+
+  it('has no duplicate title in a pool and none too long for the column', () => {
+    TITLES.forEach((pool) => {
+      expect(new Set(pool).size).toBe(pool.length);
+      pool.forEach((t) => expect(t.length).toBeLessThanOrEqual(20));
+    });
+  });
+
+  it('varies across sessions for every place', () => {
+    const codes = ['S1', 'S2', 'S3', 'S4', 'S5', 'S6', 'S7', 'S8'];
+    for (let place = 0; place < 3; place++) {
+      const drawn = new Set(codes.map((code) => rank(NINE, code)!.titles[place]));
+      expect(drawn.size).toBeGreaterThan(3);
+    }
   });
 });
 

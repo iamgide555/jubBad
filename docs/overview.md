@@ -1782,6 +1782,8 @@ decisions behind it:
 - **After close, every member-facing render is the awards card:** the close send, a manual ส่งเข้ากลุ่ม or DM, and the
   share link, so a host who unticked the box can still post it later. Before close nothing changes. It stays out of
   the content hash, like paid status: closing and paying are not bill edits.
+- **Rank titles are drawn per session too.** Each podium place has its own pool of 9 short titles (`TITLES`), picked by
+  the same session hash as the turtle line, so a regular winner does not see the same title every week.
 - **Picture and avatars:** the podium art is a static image (`web/public/line/awards-podium.png`) drawn to fixed step
   heights (`STEP_TOP_PERCENT`); winners' LINE profile pictures, names and times are live Flex text laid over it with
   percentage offsets, so they hold at every bubble width. Change the art's step lines and those numbers together.

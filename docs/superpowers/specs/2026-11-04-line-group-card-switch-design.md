@@ -38,6 +38,9 @@ to a LINE group and the plan is paid:
 What the bot still does in a roster-only group: reads rosters (silent) and replies to `/link`
 (needed to link at all; replies use the reply API, which costs no quota). Nothing else.
 
+*Amended 2026-11-16:* it also answers `/bill` / `/บิล` with the latest bill card and @mentions
+(a reply, so no quota; see `2026-11-16-line-bill-command-design.md`). Still nothing it posts on its own.
+
 ## How it works
 
 ### Data

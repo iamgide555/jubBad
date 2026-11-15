@@ -1,13 +1,16 @@
 import { CollectorService } from './collector.service.js';
 import { createHash, timingSafeEqual } from 'node:crypto';
-import { BadRequestException, ConflictException, Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ConflictException, Injectable, Logger, OnModuleInit, NotFoundException } from '@nestjs/common';
 import { LineClient } from '../line/line-client.js';
+import { LineGroupCommands } from '../line/line-group-commands.js';
 import { lineConfig } from '../line/line-config.js';
 import { cardTexts, clip, TEXT_MAX } from '../line/line-summary-card.js';
 import { LineSummaryService, type LineSummaryTarget } from '../line/line-summary.service.js';
-import { liffPayUrl, liffSlipUrl, liffPaymentStatusUrl, paymentCardMessages, paymentDmMessages, type PaymentCardInput } from '../line/payment-card.js';
+import { billMentionMessage, liffPayUrl, liffSlipUrl, liffPaymentStatusUrl, paymentCardMessages, paymentDmMessages, type PaymentCardInput } from '../line/payment-card.js';
 import { allSentMessages } from '../line/payment-all-sent.js';
 import { awardsDmMessages, awardsGroupMessages, rankAwards, type AwardsCardInput } from '../line/payment-awards-card.js';
+import { planAtLeast } from '../plans/plan.js';
+import { PlansService } from '../plans/plans.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import type { BillWarning } from '../../../engines/bill.ts';
 import { BillService } from './bill.service.js';
@@ -112,6 +115,9 @@ export function isReady(warnings: readonly string[]): boolean {
   return warnings.every((w) => NOTICES.has(w));
 }
 
+/** A plain Thai text message for a LINE reply. */
+const text = (body: string) => ({ type: 'text', text: body });
+
 /** Long enough to swallow a double tap from two tabs, short enough that a deliberate resend is never blocked. */
 const BUSY_MS = 5_000;
 
@@ -190,7 +196,7 @@ function sentRecently(lastAt: string | null, now: Date): boolean {
  * because it reads the bill; LineModule must not import SessionsModule.
  */
 @Injectable()
-export class PaymentCardService {
+export class PaymentCardService implements OnModuleInit {
   private readonly logger = new Logger(PaymentCardService.name);
 
   constructor(
@@ -199,8 +205,14 @@ export class PaymentCardService {
     private readonly summary: LineSummaryService,
     private readonly line: LineClient,
     private readonly lock: SessionLock,
-    private readonly collectors: CollectorService
+    private readonly collectors: CollectorService,
+    private readonly plans: PlansService,
+    private readonly commands: LineGroupCommands
   ) {}
+
+  onModuleInit(): void {
+    this.commands.setBillHandler((lineGroupId, now) => this.groupBillReply(lineGroupId, now));
+  }
 
   async panel(code: string, now: Date = new Date()): Promise<PaymentPanel> {
     return (await this.view(code, now)).panel;
@@ -613,6 +625,85 @@ export class PaymentCardService {
       data: { paymentCard: serializePaymentState({ ...state, allSentNotifiedAt: now.toISOString() }) },
     });
     return 'sent';
+  }
+
+  /**
+   * The answer to `/bill` typed in a linked LINE group: the latest ended session's card with the people who still
+   * owe @mentioned, or a short Thai line saying why there is no card yet. Null is silence (not linked, lapsed plan,
+   * LINE off). A reply costs no quota, so this works in a roster-only group too. It is not a host send: nothing is
+   * stored, `lastSentAt` and the busy guard are untouched.
+   */
+  async groupBillReply(lineGroupId: string, now: Date = new Date()): Promise<unknown[] | null> {
+    const config = lineConfig();
+    if (!config.secret || !config.token || !config.publicAppUrl) return null;
+    const group = await this.prisma.group.findUnique({ where: { lineGroupId }, select: { code: true } });
+    if (group === null) return null;
+    if (!planAtLeast(await this.plans.planForGroup(group.code, now), 'host')) return null;
+    const latest = await this.prisma.session.findFirst({
+      where: { groupId: group.code, endedAt: { not: null } },
+      orderBy: { endedAt: 'desc' },
+      select: { code: true },
+    });
+    if (latest === null) return [text('ยังไม่มีบิล')];
+    const code = latest.code;
+
+    return this.lock.run(code, async () => {
+      const v = await this.view(code, now);
+      const { panel, nothingDue, state } = v;
+      if (v.closed) {
+        const awards = await this.awardsInput(code, v);
+        if (awards === null) return [text('ปิดรับเงินรอบนี้แล้ว')];
+        const statusUrl = this.statusUrlFor(code, state.token);
+        return awardsGroupMessages(awards, config.publicAppUrl, statusUrl);
+      }
+      if (!panel.confirmed || panel.account === null || !panel.ready) return [text('รอเจ้าของก๊วนยืนยันบิล')];
+      if (panel.stale) return [text('บิลมีการแก้ไข รอเจ้าของก๊วนยืนยันใหม่')];
+      if (nothingDue) return [text('รอบนี้ไม่มียอดต้องจ่าย')];
+
+      const input = await this.memberCardInput(code, panel, v.cardInput(panel.account));
+      if (input.rows.length === 0) return [text('จ่ายครบแล้ว 🎉')];
+
+      const { liffId, loginChannelId } = config;
+      const slipUrl =
+        liffId !== null && loginChannelId !== null && state.token ? liffSlipUrl(liffId, code, state.token) : null;
+      const statusUrl = this.statusUrlFor(code, state.token);
+      const messages = paymentCardMessages(input, 'group', slipUrl, statusUrl);
+      const mention = billMentionMessage(await this.mentionable(code, lineGroupId, v));
+      if (mention !== null) messages.push(mention);
+      return messages;
+    });
+  }
+
+  /** The read-only status link, only when the pay page can work (the LINE Login channel verifies viewers). */
+  private statusUrlFor(code: string, token: string | null): string | null {
+    const { liffId, loginChannelId } = lineConfig();
+    return liffId !== null && loginChannelId !== null && token ? liffPaymentStatusUrl(liffId, code, token) : null;
+  }
+
+  /**
+   * Who `/bill` can tag: billed people who still owe (no payment, not the เจ้าของบัญชี) and have no slip waiting for
+   * review, with a LINE account linked in this group that LINE says is still in the LINE group (a tag for a
+   * non-member would be refused). Returns their LINE user ids.
+   */
+  private async mentionable(code: string, lineGroupId: string, v: PaymentView): Promise<string[]> {
+    const owner = await this.collectors.forBill(code);
+    const [payments, pending] = await Promise.all([
+      this.prisma.sessionPayment.findMany({ where: { sessionId: code }, select: { playerId: true } }),
+      this.prisma.pendingSlip.findMany({ where: { sessionId: code, resolvedAt: null }, select: { lineUserId: true } }),
+    ]);
+    const paid = new Set(payments.map((p) => p.playerId));
+    const owing = v.panel.rows.filter((r) => r.amountSatang > 0 && r.playerId !== owner?.playerId && !paid.has(r.playerId));
+    if (owing.length === 0) return [];
+    const links = await this.prisma.playerLineAccount.findMany({
+      where: { groupId: v.groupId, playerId: { in: owing.map((r) => r.playerId) } },
+      select: { playerId: true, lineUserId: true },
+    });
+    const slipped = new Set(pending.map((p) => p.lineUserId));
+    const candidates = [...new Set(links.filter((l) => !slipped.has(l.lineUserId)).map((l) => l.lineUserId))];
+    const members = await Promise.all(
+      candidates.map(async (userId) => ((await this.line.memberProfile(lineGroupId, userId)) === null ? null : userId))
+    );
+    return members.filter((id): id is string => id !== null);
   }
 
   /**

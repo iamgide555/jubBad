@@ -280,6 +280,30 @@ export function paymentCardMessages(
   return messages;
 }
 
+/** LINE allows up to 20 mentions in one text message. */
+export const MENTION_MAX = 20;
+
+/**
+ * A text message that @mentions people who still owe (LINE's textV2 with mention substitutions; a Flex card
+ * cannot carry a mention). At most MENTION_MAX are tagged; `extra` more who could not be tagged are counted in
+ * the text. Null when there is nobody to tag, so the caller sends the card alone.
+ */
+export function billMentionMessage(userIds: readonly string[], extra = 0): unknown | null {
+  const tagged = userIds.slice(0, MENTION_MAX);
+  const more = extra + (userIds.length - tagged.length);
+  if (tagged.length === 0) return null;
+  const substitution: Record<string, unknown> = {};
+  tagged.forEach((userId, i) => {
+    substitution[`m${i}`] = { type: 'mention', mentionee: { type: 'user', userId } };
+  });
+  const tags = tagged.map((_, i) => `{m${i}}`).join(' ');
+  return {
+    type: 'textV2',
+    text: `ยังไม่ได้จ่าย ${tags}${more > 0 ? ` และอีก ${more} คน` : ''}`,
+    substitution,
+  };
+}
+
 /**
  * The card the bot DMs to the host: one bubble, the payment card with a footer of its own. Forwarding is the
  * one thing the host does with it, so "ส่งเข้ากลุ่ม" (opens the share page, where the host's LINE picks the chat)

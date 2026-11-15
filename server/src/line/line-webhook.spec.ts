@@ -7,6 +7,7 @@ import { PrismaModule } from '../prisma/prisma.module.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { MAX_ATTEMPTS } from '../auth/login-throttle.js';
 import { LineClient, type MemberProfile } from './line-client.js';
+import { LineGroupCommands } from './line-group-commands.js';
 import { LineAccountsService } from './line-accounts.service.js';
 import { LineHostService } from './line-host.service.js';
 import { LineLinkService } from './line-link.service.js';
@@ -657,6 +658,81 @@ describe('POST /line/webhook', () => {
       ]).expect(200);
       expect((await prisma.lineRosterMessage.findUniqueOrThrow({ where: { lineMessageId: id } })).text).toBe(ROSTER);
       expect(fakeClient.reply).not.toHaveBeenCalled();
+    });
+  });
+  describe('/bill', () => {
+    const CARD = [{ type: 'flex' }, { type: 'textV2' }];
+    let commands: LineGroupCommands;
+    const handler = vi.fn();
+
+    beforeAll(() => {
+      commands = app.get(LineGroupCommands);
+    });
+    beforeEach(() => {
+      handler.mockReset().mockResolvedValue(CARD);
+      commands.setBillHandler(handler);
+    });
+    afterAll(() => commands.setBillHandler(async () => null));
+
+    it.each(['/bill', '/บิล', '/BILL', '  /bill  '])('replies with the handler messages to %j and stores nothing', async (text) => {
+      const { code, lineGroupId } = await linkedGroup();
+      const event = textEvent(lineGroupId, text);
+      await post([event]).expect(200);
+      expect(handler).toHaveBeenCalledWith(lineGroupId, expect.any(Date));
+      expect(fakeClient.replyMessages).toHaveBeenCalledWith(event.replyToken, CARD);
+      expect(await prisma.lineRosterMessage.count({ where: { groupId: code } })).toBe(0);
+    });
+
+    it('ignores anything but the whole command', async () => {
+      const { lineGroupId } = await linkedGroup();
+      await post([
+        textEvent(lineGroupId, 'bill'),
+        textEvent(lineGroupId, '/bill now'),
+        textEvent(lineGroupId, 'ขอ /bill หน่อย'),
+        textEvent(lineGroupId, 'บิล'),
+      ]).expect(200);
+      expect(handler).not.toHaveBeenCalled();
+      expect(fakeClient.replyMessages).not.toHaveBeenCalled();
+    });
+
+    it('answers a repeat within a minute with silence, and again after it', async () => {
+      const { lineGroupId } = await linkedGroup();
+      const first = Date.now();
+      await post([textEvent(lineGroupId, '/bill', { at: first })]).expect(200);
+      await post([textEvent(lineGroupId, '/bill', { at: first + 30_000 })]).expect(200);
+      expect(fakeClient.replyMessages).toHaveBeenCalledTimes(1);
+      await post([textEvent(lineGroupId, '/bill', { at: first + 61_000 })]).expect(200);
+      expect(fakeClient.replyMessages).toHaveBeenCalledTimes(2);
+    });
+
+    it('keeps each LINE group on its own cooldown', async () => {
+      const a = (await linkedGroup()).lineGroupId;
+      const b = (await linkedGroup()).lineGroupId;
+      await post([textEvent(a, '/bill'), textEvent(b, '/bill')]).expect(200);
+      expect(fakeClient.replyMessages).toHaveBeenCalledTimes(2);
+    });
+
+    it('stays silent, and starts no cooldown, when the handler has nothing to say', async () => {
+      const { lineGroupId } = await linkedGroup();
+      handler.mockResolvedValueOnce(null);
+      await post([textEvent(lineGroupId, '/bill')]).expect(200);
+      expect(fakeClient.replyMessages).not.toHaveBeenCalled();
+      await post([textEvent(lineGroupId, '/bill')]).expect(200);
+      expect(fakeClient.replyMessages).toHaveBeenCalledTimes(1);
+    });
+
+    it('is silent when no handler is registered', async () => {
+      commands.setBillHandler(async () => null);
+      const { lineGroupId } = await linkedGroup();
+      await post([textEvent(lineGroupId, '/bill')]).expect(200);
+      expect(fakeClient.replyMessages).not.toHaveBeenCalled();
+    });
+
+    it('ignores /bill in a direct chat', async () => {
+      await post([
+        { type: 'message', timestamp: ts++, replyToken: 'rt-dm', source: { type: 'user', userId: 'Ustranger' }, message: { type: 'text', id: randomUUID(), text: '/bill' } },
+      ]).expect(200);
+      expect(handler).not.toHaveBeenCalled();
     });
   });
 });

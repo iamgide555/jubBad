@@ -4,6 +4,7 @@ import { PlansModule } from '../plans/plans.module.js';
 import { LineAccountsController } from './line-accounts.controller.js';
 import { LineAccountsService } from './line-accounts.service.js';
 import { LineClient } from './line-client.js';
+import { LineGroupCommands } from './line-group-commands.js';
 import { LineController } from './line.controller.js';
 import { LineHostController } from './line-host.controller.js';
 import { LineHostRosterService } from './line-host-roster.service.js';
@@ -24,6 +25,7 @@ import { LineWebhookService } from './line-webhook.service.js';
   providers: [
     LineAccountsService,
     LineClient,
+    LineGroupCommands,
     LineHostRosterService,
     LineHostService,
     LineLinkService,
@@ -31,6 +33,6 @@ import { LineWebhookService } from './line-webhook.service.js';
     LineSummaryService,
     LineWebhookService
   ],
-  exports: [LineAccountsService, LineClient, LineHostService, LineLinkService, LineRosterService, LineSummaryService],
+  exports: [LineAccountsService, LineClient, LineGroupCommands, LineHostService, LineLinkService, LineRosterService, LineSummaryService],
 })
 export class LineModule {}

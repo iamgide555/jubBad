@@ -8,6 +8,7 @@ import { AppModule } from '../app.module.js';
 import { SESSION_SECRET } from '../auth/auth.module.js';
 import { AuthBootstrapService } from '../auth/bootstrap.service.js';
 import { LineClient } from '../line/line-client.js';
+import { LineGroupCommands } from '../line/line-group-commands.js';
 import { retryKeyFor } from '../line/line-summary.service.js';
 import { liffSlipUrl, liffPaymentStatusUrl, paymentCardMessages, paymentDmMessages } from '../line/payment-card.js';
 import { PrismaService } from '../prisma/prisma.service.js';
@@ -52,6 +53,7 @@ describe('payment card: owner panel, confirm and bot send', () => {
     memberName: vi.fn(),
     leave: vi.fn(),
     push: vi.fn(),
+    memberProfile: vi.fn(),
   };
 
   const login = async (email: string) => {
@@ -106,6 +108,7 @@ describe('payment card: owner panel, confirm and bot send', () => {
 
   beforeEach(async () => {
     fakeClient.push.mockReset().mockResolvedValue('ok');
+    fakeClient.memberProfile.mockReset().mockResolvedValue({ displayName: 'x', pictureUrl: null });
     process.env.LINE_CHANNEL_SECRET = 's';
     process.env.LINE_CHANNEL_ACCESS_TOKEN = 't';
     process.env.PUBLIC_APP_URL = 'https://jubbad.test';
@@ -1286,6 +1289,150 @@ describe('payment card: owner panel, confirm and bot send', () => {
       await dm(code, randomUUID(), otherCookie).expect(404);
       await request(server).post(`/sessions/${code}/payment-card/dm`).send({ sendId: randomUUID() }).expect(401);
       expect(fakeClient.push).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('/bill in the LINE group (groupBillReply)', () => {
+    const lineGroupOf = async (groupCode: string) =>
+      (await prisma.group.findUniqueOrThrow({ where: { code: groupCode } })).lineGroupId!;
+    const link = async (groupCode: string, playerId: string) => {
+      const lineUserId = `U${randomUUID().replace(/-/g, '')}`;
+      lineUserIds.push(lineUserId);
+      await prisma.lineAccount.create({ data: { lineUserId, displayName: 'n', pictureUrl: null } });
+      await prisma.playerLineAccount.create({ data: { groupId: groupCode, playerId, lineUserId, linkedBy: 'host' } });
+      return lineUserId;
+    };
+    const textOf = (messages: unknown[] | null) => (messages as { type: string; text?: string }[])[0].text;
+    const mentioned = (messages: unknown[] | null) => {
+      const last = (messages as { type: string; substitution?: Record<string, { mentionee: { userId: string } }> }[]).at(-1)!;
+      return last.type === 'textV2' ? Object.values(last.substitution!).map((m) => m.mentionee.userId) : [];
+    };
+
+    it('is silent for an unknown LINE group and for a lapsed plan', async () => {
+      const { code, groupCode } = await setup();
+      await storeConfirmed(code);
+      expect(await payments.groupBillReply('Cnotlinked')).toBeNull();
+      await prisma.user.update({ where: { id: ownerId }, data: { plan: 'free' } });
+      expect(await payments.groupBillReply(await lineGroupOf(groupCode))).toBeNull();
+    });
+
+    it('is silent when LINE is not configured', async () => {
+      const { code, groupCode } = await setup();
+      await storeConfirmed(code);
+      delete process.env.LINE_CHANNEL_ACCESS_TOKEN;
+      expect(await payments.groupBillReply(await lineGroupOf(groupCode))).toBeNull();
+    });
+
+    it('says there is no bill when no session has ended', async () => {
+      const { groupCode } = await setup({ ended: false });
+      expect(textOf(await payments.groupBillReply(await lineGroupOf(groupCode)))).toBe('ยังไม่มีบิล');
+    });
+
+    it('asks the group to wait while the host has not confirmed', async () => {
+      const { groupCode } = await setup();
+      expect(textOf(await payments.groupBillReply(await lineGroupOf(groupCode)))).toBe('รอเจ้าของก๊วนยืนยันบิล');
+    });
+
+    it('asks the group to wait when the bill is not ready to be confirmed', async () => {
+      const { groupCode } = await setup({ ready: false });
+      expect(textOf(await payments.groupBillReply(await lineGroupOf(groupCode)))).toBe('รอเจ้าของก๊วนยืนยันบิล');
+    });
+
+    it('says the bill changed once it was edited after the confirm', async () => {
+      const { code, groupCode } = await setup();
+      await storeConfirmed(code);
+      await billConfig(code, { courtFeeSatang: 90000, absentIds: [], removedIds: [] });
+      expect(textOf(await payments.groupBillReply(await lineGroupOf(groupCode)))).toBe(
+        'บิลมีการแก้ไข รอเจ้าของก๊วนยืนยันใหม่'
+      );
+    });
+
+    it('says nothing is due when everyone owes 0', async () => {
+      const { code, groupCode, ids } = await setup();
+      await zeroEveryone(code, ids);
+      await storeConfirmed(code);
+      expect(textOf(await payments.groupBillReply(await lineGroupOf(groupCode)))).toBe('รอบนี้ไม่มียอดต้องจ่าย');
+    });
+
+    it('sends the card with a mention of linked, still-owing members, in a roster-only group, without a host send', async () => {
+      const { code, groupCode } = await setup({ rosterOnly: true, alsoLinked: true });
+      const owing = (await payments.panel(code)).rows.map((r) => r.playerId);
+      const [a, b] = owing;
+      const ua = await link(groupCode, a);
+      const ub = await link(groupCode, b);
+      await storeConfirmed(code);
+
+      const messages = await payments.groupBillReply(await lineGroupOf(groupCode));
+      expect((messages as { type: string }[])[0].type).toBe('flex');
+      expect(mentioned(messages).sort()).toEqual([ua, ub].sort());
+      expect(fakeClient.push).not.toHaveBeenCalled();
+      expect(parsePaymentState((await prisma.session.findUniqueOrThrow({ where: { code } })).paymentCard).lastSentAt).toBeNull();
+    });
+
+    it('leaves out the paid, the slip-sent, the unlinked, the เจ้าของบัญชี and members no longer in the LINE group', async () => {
+      const { code, groupCode } = await setup();
+      // The fifth row (unlinked) is never linked.
+      const [paidId, slippedId, goneId, keptId] = (await payments.panel(code)).rows.map((r) => r.playerId);
+      await link(groupCode, paidId);
+      const slippedU = await link(groupCode, slippedId);
+      const goneU = await link(groupCode, goneId);
+      const keptU = await link(groupCode, keptId);
+      await prisma.sessionPayment.create({ data: { sessionId: code, playerId: paidId, source: 'host' } });
+      await prisma.pendingSlip.create({
+        data: { sessionId: code, groupId: groupCode, reference: `r-${randomUUID()}`, lineUserId: slippedU, reason: 'amount' },
+      });
+      fakeClient.memberProfile.mockImplementation(async (_g: string, userId: string) =>
+        userId === goneU ? null : { displayName: 'x', pictureUrl: null }
+      );
+      await storeConfirmed(code);
+
+      expect(mentioned(await payments.groupBillReply(await lineGroupOf(groupCode)))).toEqual([keptU]);
+    });
+
+    it('sends the card alone when nobody who owes can be tagged', async () => {
+      const { code, groupCode } = await setup();
+      await storeConfirmed(code);
+      const messages = (await payments.groupBillReply(await lineGroupOf(groupCode))) as { type: string }[];
+      expect(messages.map((m) => m.type)).not.toContain('textV2');
+      expect(messages[0].type).toBe('flex');
+    });
+
+    it('says everyone has paid once every billed person has', async () => {
+      const { code, groupCode } = await setup();
+      await storeConfirmed(code);
+      for (const row of (await payments.panel(code)).rows) {
+        await prisma.sessionPayment.create({ data: { sessionId: code, playerId: row.playerId, source: 'host' } });
+      }
+      expect(textOf(await payments.groupBillReply(await lineGroupOf(groupCode)))).toBe('จ่ายครบแล้ว 🎉');
+    });
+
+    it('answers a closed collection with the awards card, or a plain line when nobody is rankable', async () => {
+      const { code, groupCode, ids } = await setup();
+      await storeConfirmed(code);
+      await prisma.session.update({ where: { code }, data: { paymentCollectionClosedAt: new Date('2026-10-30T15:00:00Z') } });
+      expect(textOf(await payments.groupBillReply(await lineGroupOf(groupCode)))).toBe('ปิดรับเงินรอบนี้แล้ว');
+      await prisma.sessionPayment.create({
+        data: { sessionId: code, playerId: ids[1], source: 'slip', createdAt: new Date('2026-10-29T15:05:00Z') },
+      });
+      expect(JSON.stringify(await payments.groupBillReply(await lineGroupOf(groupCode)))).toContain('ประกาศรางวัลจ่ายไว');
+    });
+
+    it('answers the latest ended session of the group', async () => {
+      const { code, groupCode } = await setup();
+      await storeConfirmed(code);
+      const newer = `p${randomUUID().slice(0, 8)}`;
+      await prisma.session.create({
+        data: { code: newer, groupId: groupCode, rawImportText: '', date: '2026-11-05', endedAt: new Date('2026-11-05T15:00:00Z') },
+      });
+      // The newer session has no bill yet, so its state is what the group hears, not the confirmed older card.
+      expect(textOf(await payments.groupBillReply(await lineGroupOf(groupCode)))).toBe('รอเจ้าของก๊วนยืนยันบิล');
+    });
+
+    it('is what the webhook bridge hands out once the app has started', async () => {
+      const { code, groupCode } = await setup();
+      await storeConfirmed(code);
+      const viaBridge = await app.get(LineGroupCommands).bill(await lineGroupOf(groupCode), new Date());
+      expect((viaBridge as { type: string }[])[0].type).toBe('flex');
     });
   });
 

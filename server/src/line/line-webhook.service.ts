@@ -2,6 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { LoginThrottle } from '../auth/login-throttle.js';
 import { LineAccountsService } from './line-accounts.service.js';
 import { LineClient, type MemberProfile } from './line-client.js';
+import { LineGroupCommands } from './line-group-commands.js';
 import { LineHostRosterService, type HostReply } from './line-host-roster.service.js';
 import { LineHostService } from './line-host.service.js';
 import { LineLinkService } from './line-link.service.js';
@@ -18,6 +19,10 @@ export interface LineEvent {
 }
 
 const LINK_COMMAND = /^\/link\s+([A-Za-z0-9]{6})$/i;
+/** The whole message, nothing else: ordinary chat never sets it off. */
+const BILL_COMMAND = /^\/(bill|บิล)$/i;
+/** One answer per LINE group per minute, so a repeated /bill cannot make the bot spam the group. */
+const BILL_COOLDOWN_MS = 60_000;
 
 /** Spoken into a Thai LINE group, so Thai only. States exactly what the bot keeps. */
 const linkedText = (name: string | null) =>
@@ -41,6 +46,7 @@ export class LineWebhookService {
   private readonly logger = new Logger(LineWebhookService.name);
   /** In memory like the login throttle: a counter that resets on deploy is the right trade. */
   private readonly throttle = new LoginThrottle();
+  private readonly billRepliedAt = new Map<string, number>();
 
   constructor(
     private readonly link: LineLinkService,
@@ -49,6 +55,7 @@ export class LineWebhookService {
     private readonly host: LineHostService,
     private readonly hostRoster: LineHostRosterService,
     private readonly accounts: LineAccountsService,
+    private readonly commands: LineGroupCommands,
   ) {}
 
   async handleEvent(event: LineEvent): Promise<void> {
@@ -74,6 +81,10 @@ export class LineWebhookService {
           await this.onLink(groupId, senderUserId, command[1], event.replyToken);
           return;
         }
+        if (BILL_COMMAND.test(event.message.text.trim())) {
+          await this.onBill(groupId, event.replyToken, postedAt);
+          return;
+        }
         await this.roster.capture({
           lineGroupId: groupId, lineMessageId: event.message.id, text: event.message.text, senderUserId, postedAt,
         });
@@ -95,6 +106,17 @@ export class LineWebhookService {
       default:
         return;
     }
+  }
+
+  /** A reply is free (a push is not), so this is allowed even in a roster-only group. Silent when it has nothing to say. */
+  private async onBill(groupId: string, replyToken: string | undefined, now: Date): Promise<void> {
+    if (!replyToken) return;
+    const last = this.billRepliedAt.get(groupId);
+    if (last !== undefined && now.getTime() - last < BILL_COOLDOWN_MS) return;
+    const messages = await this.commands.bill(groupId, now);
+    if (messages === null || messages.length === 0) return;
+    this.billRepliedAt.set(groupId, now.getTime());
+    await this.client.replyMessages(replyToken, messages);
   }
 
   private async onLink(groupId: string, senderUserId: string | null, code: string, replyToken?: string): Promise<void> {

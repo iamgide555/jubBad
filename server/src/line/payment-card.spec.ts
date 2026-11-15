@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import {
+  billMentionMessage,
   formatBaht,
+  MENTION_MAX,
   liffPayUrl,
   liffSlipUrl,
   liffPaymentStatusUrl,
@@ -445,5 +447,30 @@ describe('read-only payment status card entry', () => {
       expect(buttons[2]).toEqual({ type: 'button', style: 'secondary', action: { type: 'uri', label: 'ดูสถานะการจ่าย', uri: url } });
       expect([...((buttons[2]['action'] as Node)['label'] as string)].length).toBeLessThanOrEqual(20);
     }
+  });
+});
+
+describe('billMentionMessage', () => {
+  it('is null when nobody is to be tagged', () => {
+    expect(billMentionMessage([])).toBeNull();
+    expect(billMentionMessage([], 3)).toBeNull();
+  });
+
+  it('is a textV2 message with one mention substitution per user', () => {
+    expect(billMentionMessage(['U1', 'U2'])).toEqual({
+      type: 'textV2',
+      text: 'ยังไม่ได้จ่าย {m0} {m1}',
+      substitution: {
+        m0: { type: 'mention', mentionee: { type: 'user', userId: 'U1' } },
+        m1: { type: 'mention', mentionee: { type: 'user', userId: 'U2' } },
+      },
+    });
+  });
+
+  it('tags at most 20 and counts the rest, with any caller-supplied extra', () => {
+    const ids = Array.from({ length: MENTION_MAX + 3 }, (_, i) => `U${i}`);
+    const message = billMentionMessage(ids, 2) as { text: string; substitution: Record<string, unknown> };
+    expect(Object.keys(message.substitution)).toHaveLength(MENTION_MAX);
+    expect(message.text.endsWith(' และอีก 5 คน')).toBe(true);
   });
 });

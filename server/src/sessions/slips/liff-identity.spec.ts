@@ -140,4 +140,46 @@ describe('LiffIdentity', () => {
     for (const spy of spies) expect(JSON.stringify(spy.mock.calls)).not.toContain(TOKEN);
     vi.restoreAllMocks();
   });
+
+  describe('logs why LINE did not vouch, never the token', () => {
+    const warned = () => {
+      const spy = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+      return spy;
+    };
+    afterEach(() => vi.restoreAllMocks());
+
+    it('names a timeout', async () => {
+      const spy = warned();
+      fetchMock.mockRejectedValue(new DOMException('slow', 'TimeoutError'));
+      expect(await identity.verify(TOKEN)).toBeNull();
+      expect(spy).toHaveBeenCalledWith('[liff-identity] token not accepted: TimeoutError calling LINE');
+    });
+
+    it('names LINE\'s answer status', async () => {
+      const spy = warned();
+      lineSays(reply(401, {}));
+      expect(await identity.verify(TOKEN)).toBeNull();
+      expect(spy).toHaveBeenCalledWith('[liff-identity] token not accepted: LINE answered 401');
+    });
+
+    it('names another channel and an expired token', async () => {
+      const spy = warned();
+      lineSays(reply(200, { client_id: 'other', expires_in: 100 }));
+      await identity.verify(TOKEN);
+      lineSays(reply(200, { client_id: '1234567890', expires_in: 0 }));
+      await identity.verify(TOKEN);
+      expect(spy.mock.calls.map((c) => c[0])).toEqual([
+        '[liff-identity] token not accepted: token issued to another channel',
+        '[liff-identity] token not accepted: token expired',
+      ]);
+    });
+
+    it('stays silent for a missing token and for success', async () => {
+      const spy = warned();
+      await identity.verify('');
+      lineSays(goodVerify(), goodProfile());
+      await identity.verify(TOKEN);
+      expect(spy).not.toHaveBeenCalled();
+    });
+  });
 });

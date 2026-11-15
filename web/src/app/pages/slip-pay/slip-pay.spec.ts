@@ -330,12 +330,22 @@ describe('SlipPay', () => {
       expect(q('[data-slip-send]')).not.toBeNull();
     });
 
-    it('shows the unavailable state when a claim is a 404', async () => {
+    it('shows the unavailable state when a claim is a 404 and the link is really gone', async () => {
+      await open(UNLINKED);
+      svc.claim.mockReturnValue(http(404));
+      svc.view.mockReturnValue(http(404));
+      q('[data-slip-claim]')!.click();
+      await flush();
+      expect(q('[data-slip-unavailable]')).not.toBeNull();
+    });
+
+    it('a claim 404 on a link that still reads keeps the page and says to try again', async () => {
       await open(UNLINKED);
       svc.claim.mockReturnValue(http(404));
       q('[data-slip-claim]')!.click();
       await flush();
-      expect(q('[data-slip-unavailable]')).not.toBeNull();
+      expect(q('[data-slip-unavailable]')).toBeNull();
+      expect(q('[data-slip-claim-note]')?.textContent).toContain('ส่งไม่สำเร็จ ลองใหม่อีกครั้ง');
     });
   });
 
@@ -442,12 +452,22 @@ describe('SlipPay', () => {
       expect(q('[data-slip-result="paid"]')).not.toBeNull();
     });
 
-    it('a 404 is the terminal unavailable state', async () => {
+    it('a 404 is the terminal unavailable state when the link no longer reads', async () => {
       svc.upload.mockReturnValue(http(404));
       await open();
+      svc.view.mockReturnValue(http(404));
       await pick();
       expect(q('[data-slip-unavailable]')?.textContent).toContain('ลิงก์นี้ใช้ไม่ได้แล้ว');
       expect(q('[data-slip-send]')).toBeNull();
+    });
+
+    it('a 404 on the upload alone (LINE hiccup) keeps the page so the player can send again', async () => {
+      svc.upload.mockReturnValue(http(404));
+      await open();
+      await pick();
+      expect(q('[data-slip-unavailable]')).toBeNull();
+      expect(q('[data-slip-notice]')?.textContent).toContain('ส่งไม่สำเร็จ ลองใหม่อีกครั้ง');
+      expect((q('[data-slip-send]') as HTMLButtonElement).disabled).toBe(false);
     });
 
     it.each([

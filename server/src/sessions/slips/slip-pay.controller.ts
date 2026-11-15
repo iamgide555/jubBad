@@ -187,17 +187,20 @@ export class SlipPayController {
   ): Promise<SlipUploadResult> {
     // The middleware already checked the address, verified the token with LINE and spent the viewer's upload budget;
     // without a viewer it refused to read the body and this is the uniform 404.
-    if (!req.slipViewer) throw new NotFoundException();
+    if (!req.slipViewer) {
+      console.warn('[slip-pay] 404: upload without a verified viewer (see the liff-identity line above)');
+      throw new NotFoundException();
+    }
     const { user, key } = this.gate.known(req.slipViewer, code);
     // Only a caller who passed both gates is told about their body: a bad link is a bare 404 whatever was sent.
     const pay = payToken(token);
-    if (pay === undefined) this.gate.fail(key);
+    if (pay === undefined) this.gate.fail(key, 'upload without a pay token');
     const image: unknown = req.body;
     if (!Buffer.isBuffer(image) || image.length === 0) {
       throw new BadRequestException({ code: 'SLIP_IMAGE_REQUIRED' });
     }
     const result = await this.slips.submitSlip(code, pay, user, image);
-    if (result.kind === 'unavailable') this.gate.fail(key);
+    if (result.kind === 'unavailable') this.gate.fail(key, 'upload refused: link, plan, card or collection closed');
     // A paid slip is the one outcome that clears the viewer's failures; the others are neither failures nor successes.
     if (result.kind === 'paid') this.gate.succeed(key);
     return { outcome: result.kind };

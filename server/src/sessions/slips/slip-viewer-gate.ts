@@ -35,8 +35,10 @@ export class SlipViewerGate {
 
     const header = req.headers['x-line-access-token'];
     // No token is asked of nobody: it costs LINE nothing, so it is not counted against the address.
-    if (typeof header !== 'string' || header === '')
+    if (typeof header !== 'string' || header === '') {
+      console.warn('[slip-pay] 404: no LINE access token sent');
       throw new NotFoundException();
+    }
     const user = await this.liff.verify(header);
     if (!user) {
       this.throttle.recordFailure(ipKey);
@@ -58,8 +60,12 @@ export class SlipViewerGate {
     if (!this.throttle.check(key)) throw tooMany();
   }
 
-  /** The viewer got past LINE but not the page's gates: counts against them, and answers like every other failure. */
-  fail(key: string): never {
+  /**
+   * The viewer got past LINE but not the page's gates: counts against them, and answers like every other failure.
+   * `reason` is for the server log only (the caller still gets the bare 404): a fixed word, never a token or an id.
+   */
+  fail(key: string, reason = 'page not available'): never {
+    console.warn(`[slip-pay] 404: ${reason}`);
     this.throttle.recordFailure(key);
     throw new NotFoundException();
   }

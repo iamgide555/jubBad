@@ -158,6 +158,17 @@ export class SlipPay {
     }
   }
 
+  /**
+   * An action came back 404. That is the server's one answer for every refusal, and a viewer check that LINE failed to
+   * answer in time looks the same as a dead link. So ask the page's own read: only when it also says gone is the link
+   * over; otherwise the failure was a one-off and the caller shows its "try again" note.
+   */
+  private async linkGone(): Promise<boolean> {
+    if ((await this.refresh()) !== 'gone') return false;
+    this.phase.set('unavailable');
+    return true;
+  }
+
   protected async claim(player: SlipPayClaimable): Promise<void> {
     if (this.claiming() || this.view()?.collectionClosed) return;
     this.claiming.set(true);
@@ -170,8 +181,9 @@ export class SlipPay {
       else if (read === 'failed') this.claimNote.set('generic');
       else if (outcome !== 'linked') this.claimNote.set(CLAIM_NOTE[outcome] ?? 'generic');
     } catch (e) {
-      if (isStatus(e, 404)) this.phase.set('unavailable');
-      else this.claimNote.set(isStatus(e, 429) ? 'rate' : 'generic');
+      if (isStatus(e, 404)) {
+        if (!(await this.linkGone())) this.claimNote.set('generic');
+      } else this.claimNote.set(isStatus(e, 429) ? 'rate' : 'generic');
     } finally {
       this.claiming.set(false);
     }
@@ -204,8 +216,9 @@ export class SlipPay {
       const read = await this.refresh();
       if (read === 'gone') this.phase.set('unavailable');
     } catch (e) {
-      if (isStatus(e, 404)) this.phase.set('unavailable');
-      else this.coverNote.set(isStatus(e, 429) ? 'rate' : 'generic');
+      if (isStatus(e, 404)) {
+        if (!(await this.linkGone())) this.coverNote.set('generic');
+      } else this.coverNote.set(isStatus(e, 429) ? 'rate' : 'generic');
     } finally {
       this.covering.set(false);
     }
@@ -234,8 +247,9 @@ export class SlipPay {
         this.cashNote.set(false);
       }
     } catch (e) {
-      if (isStatus(e, 404)) this.phase.set('unavailable');
-      else this.changeNote.set('generic');
+      if (isStatus(e, 404)) {
+        if (!(await this.linkGone())) this.changeNote.set('generic');
+      } else this.changeNote.set('generic');
     } finally {
       this.changing.set(false);
     }
@@ -287,8 +301,9 @@ export class SlipPay {
           this.notice.set('generic');
       }
     } catch (e) {
-      if (isStatus(e, 404)) this.phase.set('unavailable');
-      else if (isStatus(e, 429)) this.notice.set('rate');
+      if (isStatus(e, 404)) {
+        if (!(await this.linkGone())) this.notice.set('generic');
+      } else if (isStatus(e, 429)) this.notice.set('rate');
       else if (isStatus(e, 413)) this.notice.set('tooBig');
       else if (isStatus(e, 400)) this.notice.set('notSlip');
       else this.notice.set('generic');

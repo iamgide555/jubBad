@@ -1,3 +1,4 @@
+import { ServiceUnavailableException } from '@nestjs/common';
 import { randomUUID } from 'node:crypto';
 import http from 'node:http';
 import type { AddressInfo } from 'node:net';
@@ -434,6 +435,34 @@ describe('slip pay-page routes (public, token-gated)', () => {
       for (let i = 0; i < 10; i++) expect((await get(code, q(token), `bad-${i}`)).status).toBe(404);
       const [good] = viewer();
       expect((await get(code, q(token), good)).status).toBe(429);
+    });
+  });
+
+  describe('when LINE cannot be reached', () => {
+    beforeEach(() => vi.spyOn(console, 'warn').mockImplementation(() => undefined));
+    afterEach(() => vi.restoreAllMocks());
+
+    it('answers the page read with 503 (try again), not the dead-link 404', async () => {
+      const { code, token } = await setupSession();
+      kit.liff.verify.mockReset().mockRejectedValue(new ServiceUnavailableException());
+      expect((await get(code, q(token), 'any-token')).status).toBe(503);
+      expect((await status(code, q(token), 'any-token')).status).toBe(503);
+    });
+
+    it('answers an upload with 503 and reads no body', async () => {
+      const { code, token } = await setupSession();
+      kit.liff.verify.mockReset().mockRejectedValue(new ServiceUnavailableException());
+      expect((await upload(code, q(token), 'any-token')).status).toBe(503);
+      expect(kit.reader.read).not.toHaveBeenCalled();
+    });
+
+    it('never counts an outage against the viewer or their address', async () => {
+      const { code, token } = await setupSession();
+      kit.liff.verify.mockReset().mockRejectedValue(new ServiceUnavailableException());
+      for (let i = 0; i < 12; i++) expect((await get(code, q(token), 'any-token')).status).toBe(503);
+      const [good] = viewer();
+      kit.liff.verify.mockReset().mockImplementation(async (t) => users.get(t) ?? null);
+      expect((await get(code, q(token), good)).status).toBe(200);
     });
   });
 

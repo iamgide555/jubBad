@@ -1,4 +1,4 @@
-import { Inject, Injectable, NestMiddleware } from '@nestjs/common';
+import { Inject, Injectable, NestMiddleware, ServiceUnavailableException } from '@nestjs/common';
 import { raw } from 'express';
 import type { NextFunction, Request, Response } from 'express';
 import { LoginThrottle } from '../../auth/login-throttle.js';
@@ -20,7 +20,8 @@ const UPLOAD_PATH = /^\/sessions\/([^/?#]+)\/slip-pay\/upload(?:[/?#]|$)/;
  * Guards the pay page's upload, in this order, before a single body byte is read:
  *  1. the caller's address is not blocked (429);
  *  2. a LINE access token is sent and LINE confirms it (otherwise nothing is read and the controller answers the
- *     uniform 404; a rejected token counts against the address, a missing one does not);
+ *     uniform 404; a rejected token counts against the address, a missing one does not; LINE not answering is a 503
+ *     that counts against nobody);
  *  3. the viewer still has upload budget for this session (429);
  *  4. fewer than MAX_IN_FLIGHT_UPLOADS uploads are being processed server-wide (429).
  * Only then does it spend one use of the viewer's budget and read the body as a raw `image/*`, 8 MB at most (413
@@ -45,7 +46,15 @@ export class SlipUploadMiddleware implements NestMiddleware {
     const header = req.headers['x-line-access-token'];
     // No token costs LINE nothing, so it is not counted against the address.
     if (typeof header !== 'string' || header === '') return next();
-    const user = await this.liff.verify(header).catch(() => null);
+    let user: LiffUser | null;
+    try {
+      user = await this.liff.verify(header);
+    } catch (error) {
+      // LINE did not answer: nothing about this caller is known, so no failure is counted against the address, no body is
+      // read, and the player is told to try again (anything else unexpected still reads as an unverified viewer).
+      if (error instanceof ServiceUnavailableException) return unavailable(res);
+      user = null;
+    }
     if (!user) this.failures.recordFailure(ipKey);
     // The client may have gone while LINE was being asked (up to seconds). Its close event has already fired, so a
     // listener attached now would never run: take no slot, spend no budget, and let the dead request be.
@@ -77,6 +86,10 @@ function sessionCodeOf(req: Request): string {
   } catch {
     return match[1];
   }
+}
+
+function unavailable(res: Response): void {
+  res.status(503).json({ statusCode: 503, message: '' });
 }
 
 function tooMany(res: Response): void {

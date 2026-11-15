@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, ServiceUnavailableException } from '@nestjs/common';
 import { lineConfig } from '../../line/line-config.js';
 import type { LiffUser } from './slip-payments.service.js';
 
@@ -10,11 +10,18 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null;
 }
 
+/** LINE did not answer (timeout, network error or a 5xx): says nothing about the token itself. */
+class LineUnreachable extends Error {}
+
+const ATTEMPTS = 2;
+
 /**
  * Who a LIFF access token really belongs to, asked of LINE itself. The caller never supplies a user id: it is
  * read from the profile the token unlocks, and only after LINE confirms the token was issued to our own LINE
- * Login channel and has not expired. Needs the `profile` scope on the LIFF app. Never throws: any failure,
- * timeout or missing config reads as null. The token and the profile are never logged.
+ * Login channel and has not expired. Needs the `profile` scope on the LIFF app. A token LINE refuses, or a missing
+ * config, reads as null. When LINE simply does not answer, the whole check is tried once more; if that fails too it
+ * throws a 503 ("try again"), which is not a verdict on the token, so callers must not count it as a failed guess.
+ * The token and the profile are never logged.
  */
 @Injectable()
 export class LiffIdentity {
@@ -22,27 +29,44 @@ export class LiffIdentity {
     const channelId = lineConfig().loginChannelId;
     if (channelId === null) return refused('login channel not configured');
     if (typeof accessToken !== 'string' || accessToken === '') return null;
-    try {
-      const checked = await this.get(`${VERIFY_URL}?access_token=${encodeURIComponent(accessToken)}`);
-      if (!isRecord(checked)) return refused('verify body not an object');
-      if (String(checked.client_id) !== channelId) return refused('token issued to another channel');
-      if (typeof checked.expires_in !== 'number' || !(checked.expires_in > 0)) return refused('token expired');
-
-      const profile = await this.get(PROFILE_URL, { Authorization: `Bearer ${accessToken}` });
-      if (!isRecord(profile) || typeof profile.userId !== 'string' || profile.userId === '') return refused('profile has no userId');
-      return {
-        userId: profile.userId,
-        displayName: typeof profile.displayName === 'string' ? profile.displayName : null,
-        pictureUrl: typeof profile.pictureUrl === 'string' ? profile.pictureUrl : null,
-      };
-    } catch (error) {
-      return refused(failureOf(error));
+    for (let attempt = 1; ; attempt++) {
+      try {
+        return await this.check(accessToken, channelId);
+      } catch (error) {
+        if (!(error instanceof LineUnreachable)) return refused(failureOf(error));
+        console.warn(`[liff-identity] LINE did not answer (attempt ${attempt} of ${ATTEMPTS}): ${error.message}`);
+        if (attempt >= ATTEMPTS) throw new ServiceUnavailableException();
+      }
     }
   }
 
-  /** The parsed JSON of a 200 answer; anything else (status, body, network, timeout) throws and is read as null above. */
+  private async check(accessToken: string, channelId: string): Promise<LiffUser | null> {
+    const checked = await this.get(`${VERIFY_URL}?access_token=${encodeURIComponent(accessToken)}`);
+    if (!isRecord(checked)) return refused('verify body not an object');
+    if (String(checked.client_id) !== channelId) return refused('token issued to another channel');
+    if (typeof checked.expires_in !== 'number' || !(checked.expires_in > 0)) return refused('token expired');
+
+    const profile = await this.get(PROFILE_URL, { Authorization: `Bearer ${accessToken}` });
+    if (!isRecord(profile) || typeof profile.userId !== 'string' || profile.userId === '') return refused('profile has no userId');
+    return {
+      userId: profile.userId,
+      displayName: typeof profile.displayName === 'string' ? profile.displayName : null,
+      pictureUrl: typeof profile.pictureUrl === 'string' ? profile.pictureUrl : null,
+    };
+  }
+
+  /**
+   * The parsed JSON of a 200 answer. No answer at all, or a 5xx, is LineUnreachable; any other status (a 4xx is LINE
+   * refusing the token) or a body that is not JSON is an ordinary error that reads as a refusal.
+   */
   private async get(url: string, headers?: Record<string, string>): Promise<unknown> {
-    const res = await fetch(url, { method: 'GET', headers, signal: AbortSignal.timeout(TIMEOUT_MS) });
+    let res: Response;
+    try {
+      res = await fetch(url, { method: 'GET', headers, signal: AbortSignal.timeout(TIMEOUT_MS) });
+    } catch (error) {
+      throw new LineUnreachable(failureOf(error));
+    }
+    if (res.status >= 500) throw new LineUnreachable(`LINE answered ${res.status}`);
     if (res.status !== 200) throw new Error(`LINE answered ${res.status}`);
     return res.json();
   }

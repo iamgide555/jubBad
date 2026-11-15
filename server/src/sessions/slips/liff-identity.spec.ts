@@ -1,3 +1,4 @@
+import { ServiceUnavailableException } from '@nestjs/common';
 import { LiffIdentity } from './liff-identity.js';
 
 const VERIFY = 'https://api.line.me/oauth2/v2.1/verify';
@@ -86,21 +87,41 @@ describe('LiffIdentity', () => {
     await expect(identity.verify(TOKEN)).resolves.toBeNull();
   });
 
-  it('gives null on a network error, without throwing', async () => {
-    fetchMock.mockRejectedValue(new TypeError('fetch failed'));
-    await expect(identity.verify(TOKEN)).resolves.toBeNull();
-  });
+  describe('when LINE does not answer', () => {
+    beforeEach(() => vi.spyOn(console, 'warn').mockImplementation(() => undefined));
+    afterEach(() => vi.restoreAllMocks());
 
-  it('bounds every call with an abort signal, and an AbortError reads as null', async () => {
-    fetchMock.mockRejectedValue(new DOMException('The operation was aborted', 'TimeoutError'));
-    await expect(identity.verify(TOKEN)).resolves.toBeNull();
-    expect(fetchMock.mock.calls[0][1].signal).toBeInstanceOf(AbortSignal);
+    it('tries once more, and a second attempt that works gives the user', async () => {
+      fetchMock.mockRejectedValueOnce(new DOMException('slow', 'TimeoutError'));
+      lineSays(goodVerify(), goodProfile());
+      await expect(identity.verify(TOKEN)).resolves.toMatchObject({ userId: 'U1' });
+      expect(fetchMock).toHaveBeenCalledTimes(3);
+    });
 
-    fetchMock.mockReset();
-    lineSays(goodVerify());
-    fetchMock.mockRejectedValueOnce(new DOMException('aborted', 'AbortError'));
-    await expect(identity.verify(TOKEN)).resolves.toBeNull();
-    expect(fetchMock.mock.calls[1][1].signal).toBeInstanceOf(AbortSignal);
+    it('is a 503 (try again), not a null (refused), when both attempts get no answer', async () => {
+      fetchMock.mockRejectedValue(new TypeError('fetch failed'));
+      await expect(identity.verify(TOKEN)).rejects.toBeInstanceOf(ServiceUnavailableException);
+      expect(fetchMock).toHaveBeenCalledTimes(2);
+    });
+
+    it('treats a LINE 5xx as no answer, and bounds every call with an abort signal', async () => {
+      fetchMock.mockResolvedValue(reply(503, {}));
+      await expect(identity.verify(TOKEN)).rejects.toBeInstanceOf(ServiceUnavailableException);
+      expect(fetchMock.mock.calls[0][1].signal).toBeInstanceOf(AbortSignal);
+    });
+
+    it('does not retry when LINE answered and said no', async () => {
+      lineSays(reply(401, {}));
+      await expect(identity.verify(TOKEN)).resolves.toBeNull();
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+    });
+
+    it('a timeout on the profile call is retried from the start', async () => {
+      lineSays(goodVerify());
+      fetchMock.mockRejectedValueOnce(new DOMException('aborted', 'AbortError'));
+      lineSays(goodVerify(), goodProfile());
+      await expect(identity.verify(TOKEN)).resolves.toMatchObject({ userId: 'U1' });
+    });
   });
 
   it('gives null with no fetch when LINE_LOGIN_CHANNEL_ID is unset or blank', async () => {
@@ -134,8 +155,8 @@ describe('LiffIdentity', () => {
   it('never lets the token escape in a returned value or a console message', async () => {
     const spies = (['log', 'warn', 'error', 'debug', 'info'] as const).map((m) => vi.spyOn(console, m));
     fetchMock.mockRejectedValue(new Error(`boom ${TOKEN}`));
-    const result = await identity.verify(TOKEN);
-    expect(result).toBeNull();
+    const result = await identity.verify(TOKEN).catch((e: unknown) => e);
+    expect(result).toBeInstanceOf(ServiceUnavailableException);
     expect(JSON.stringify(result)).not.toContain(TOKEN);
     for (const spy of spies) expect(JSON.stringify(spy.mock.calls)).not.toContain(TOKEN);
     vi.restoreAllMocks();
@@ -148,11 +169,14 @@ describe('LiffIdentity', () => {
     };
     afterEach(() => vi.restoreAllMocks());
 
-    it('names a timeout', async () => {
+    it('names a timeout, once per attempt', async () => {
       const spy = warned();
       fetchMock.mockRejectedValue(new DOMException('slow', 'TimeoutError'));
-      expect(await identity.verify(TOKEN)).toBeNull();
-      expect(spy).toHaveBeenCalledWith('[liff-identity] token not accepted: TimeoutError calling LINE');
+      await expect(identity.verify(TOKEN)).rejects.toBeInstanceOf(ServiceUnavailableException);
+      expect(spy.mock.calls.map((c) => c[0])).toEqual([
+        '[liff-identity] LINE did not answer (attempt 1 of 2): TimeoutError calling LINE',
+        '[liff-identity] LINE did not answer (attempt 2 of 2): TimeoutError calling LINE',
+      ]);
     });
 
     it('names LINE\'s answer status', async () => {

@@ -5,6 +5,7 @@ import { ActivatedRoute } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
 import { formatBaht } from '../../core/bill-text';
 import { LiffClient } from '../../core/liff-client';
+import { uploadableSlip } from '../../core/slip-image';
 import type { SlipPayChoice, SlipPayClaimOutcome, SlipPayClaimable, SlipPayView } from '../../core/slip-pay.model';
 import { SlipPayService } from '../../core/slip-pay.service';
 
@@ -273,7 +274,8 @@ export class SlipPay {
     this.uploading.set(true);
     this.notice.set(null);
     try {
-      const { outcome } = await firstValueFrom(this.api.upload(this.code, this.token, this.accessToken, file));
+      const body = await uploadableSlip(file);
+      const { outcome } = await firstValueFrom(this.api.upload(this.code, this.token, this.accessToken, body));
       switch (outcome) {
         case 'paid':
         case 'waiting':

@@ -70,7 +70,7 @@ export class SlipPayService {
   }
 
   /** The image goes up as the raw request body; the browser sets the File's own content type. */
-  upload(code: string, token: string, accessToken: string, file: File): Observable<SlipPayUploadResult> {
+  upload(code: string, token: string, accessToken: string, file: Blob): Observable<SlipPayUploadResult> {
     return this.http.post<SlipPayUploadResult>(this.url(code, token, '/upload'), file, {
       headers: this.headers(accessToken),
     });

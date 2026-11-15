@@ -375,6 +375,23 @@ describe('SlipPay', () => {
       expect(q('[data-slip-result="paid"]')?.textContent).toContain('฿172');
     });
 
+    it('sends an iPhone HEIC pick as a JPEG the server can read', async () => {
+      const jpeg = new Blob(['jpeg'], { type: 'image/jpeg' });
+      vi.stubGlobal('createImageBitmap', vi.fn(async () => ({ width: 100, height: 200, close: vi.fn() })));
+      const ctx = { fillStyle: '', fillRect: vi.fn(), drawImage: vi.fn() };
+      const canvas = { width: 0, height: 0, getContext: () => ctx, toBlob: (cb: (b: Blob) => void) => cb(jpeg) };
+      const make = document.createElement.bind(document);
+      vi.spyOn(document, 'createElement').mockImplementation((tag: string) =>
+        tag === 'canvas' ? (canvas as unknown as HTMLElement) : make(tag)
+      );
+      uploads({ outcome: 'paid' });
+      await open();
+      await pick(new File([new Uint8Array([1])], 'slip.heic', { type: 'image/heic' }));
+      expect(svc.upload).toHaveBeenCalledWith('sess 1', TOKEN, ACCESS, jpeg);
+      vi.unstubAllGlobals();
+      vi.restoreAllMocks();
+    });
+
     it('disables the button and shows a busy state while uploading', async () => {
       const pending = new Subject<SlipPayUploadResult>();
       svc.upload.mockReturnValue(pending);

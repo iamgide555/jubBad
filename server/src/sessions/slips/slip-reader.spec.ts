@@ -1,5 +1,5 @@
 import QRCode from 'qrcode';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import * as slipQr from './slip-qr.js';
 import { makeSlipPayload } from './slip-qr.js';
 import { SlipReader } from './slip-reader.js';
@@ -101,5 +101,53 @@ describe('SlipReader', () => {
     expect(await reader.read(odd)).toEqual({ kind: 'not-slip' });
     expect(slipQr.decodeSlipQr).not.toHaveBeenCalled();
     expect(read).not.toHaveBeenCalled();
+  });
+
+  describe('says why an image was not a slip, never the image', () => {
+    // Restores only the console spy: restoreAllMocks would also reset the wrapped decoder above.
+    let spies: Array<{ mockRestore(): void }> = [];
+    const warned = () => {
+      const spy = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+      spies.push(spy);
+      return spy;
+    };
+    // An earlier test queues a one-shot decoder result it never consumes; drop it so it cannot leak into these.
+    beforeEach(() => vi.mocked(slipQr.decodeSlipQr).mockReset());
+    afterEach(() => {
+      spies.forEach((s) => s.mockRestore());
+      spies = [];
+    });
+
+    it('names a HEIC photo as an unsupported format', async () => {
+      const spy = warned();
+      // ISO-BMFF: 4-byte box size, then "ftyp", then the brand.
+      const heic = Buffer.concat([Buffer.from([0, 0, 0, 24]), Buffer.from('ftypheic'), Buffer.alloc(40)]);
+      expect(await new SlipReader(fakeOcr(OCR_RESULT).ocr).read(heic)).toEqual({ kind: 'not-slip' });
+      expect(spy).toHaveBeenCalledWith('[slip-reader] not a slip: unsupported format heic, 52 bytes');
+    });
+
+    it('names bytes it cannot place, without echoing them beyond a 4-byte signature', async () => {
+      const spy = warned();
+      await new SlipReader(fakeOcr(OCR_RESULT).ocr).read(Buffer.from('hello world, not an image'));
+      expect(spy).toHaveBeenCalledWith('[slip-reader] not a slip: unsupported format unknown(68656c6c), 25 bytes');
+    });
+
+    it('names a readable image with no slip QR', async () => {
+      const spy = warned();
+      await new SlipReader(fakeOcr(OCR_RESULT).ocr).read(await qrPng('https://example.com/not-a-slip'));
+      expect(spy).toHaveBeenCalledWith(expect.stringMatching(/^\[slip-reader\] not a slip: no valid slip QR in a png, \d+ bytes$/));
+    });
+
+    it('names an oversized image', async () => {
+      const spy = warned();
+      await new SlipReader(fakeOcr(OCR_RESULT).ocr).read(pngHeader(6000, 6000));
+      expect(spy).toHaveBeenCalledWith('[slip-reader] not a slip: image too large, 6000x6000, 33 bytes');
+    });
+
+    it('stays silent for a real slip', async () => {
+      const spy = warned();
+      await new SlipReader(fakeOcr(OCR_RESULT).ocr).read(await qrPng(makeSlipPayload('014', 'REF1')));
+      expect(spy).not.toHaveBeenCalled();
+    });
   });
 });

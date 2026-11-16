@@ -161,6 +161,21 @@ model User {
   resets       PasswordReset[]
   lineUserLinkCodes LineUserLinkCode[]
   linePendingRoster LinePendingRoster?
+  /// Where the account came from: 'admin' (made in /admin), 'web' (the sign-up
+  /// page) or 'line' (signed up through the bot). Only the admin list reads it.
+  signupSource String @default("admin")
+  trialRecord  TrialRecord?
+}
+
+/// A LINE account that has had its 30-day trial. Never deleted: it is what stops
+/// the same LINE account (or the same JubBad account) earning a second trial, even
+/// after the account is deleted or unlinked.
+model TrialRecord {
+  id         String   @id @default(cuid())
+  lineUserId String   @unique
+  userId     String?  @unique
+  user       User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  createdAt  DateTime @default(now())
 }
 
 /// One-time code a host DMs to the bot to link their LINE account. Only the

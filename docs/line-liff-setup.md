@@ -196,6 +196,39 @@ What to check on a real phone (iPhone and Android), with a confirmed payment car
 - [ ] A real slip for the exact amount marks you paid, and the page says so.
 - [ ] Sending the same slip again reads as a duplicate and does not pay twice.
 
+## Host sign-up pages and the guest menu (2026-11-16)
+
+Design: `docs/superpowers/specs/2026-11-16-host-self-signup-design.md`. Two more pages open through the
+same LIFF app: `https://liff.line.me/<LINE_LIFF_ID>/signup` (a new host creates an account) and
+`.../link` (an existing host links LINE with their email and password). **No LINE console change is needed**:
+they sit under the same endpoint (`<PUBLIC_APP_URL>/line-share`) and need only the `profile` scope that is
+already on. The server verifies each viewer with `LINE_LOGIN_CHANNEL_ID`, as the slip pay page does.
+
+The bot's guest rich menu is made once per LINE channel:
+
+```
+cd server && node --env-file=.env scripts/create-guest-richmenu.mjs
+```
+
+It needs `LINE_CHANNEL_ACCESS_TOKEN` and `LINE_LIFF_ID`, uploads `server/assets/line/guest-menu.png`
+(2500x843; the design source is `guest-menu.html` beside it) and prints `LINE_GUEST_RICHMENU_ID=<id>`. Put
+that line in `server/.env` and restart the API. The menu is shown per user, never as the default. With the
+variable unset the bot makes no rich-menu call and everything else works. To change the image, create a new
+menu, set the new id, and delete the old one in the LINE console.
+
+### Sign-up checks (a second LINE account and a fresh email)
+
+- [ ] Website `/signup` makes a free account and lands on creating a group; the home page shows the
+  "ผูก LINE รับทดลองใช้ครบทุกฟีเจอร์ฟรี 30 วัน" offer.
+- [ ] Tapping the offer opens the link page inside LINE; linking starts the trial and the offer disappears.
+- [ ] A second LINE account adds the bot: it gets the guest menu and a "สมัครเลย" button.
+- [ ] The menu's sign-up button opens the form with the LINE name; creating the account starts the trial,
+  removes the menu and lands on group creation.
+- [ ] Signing up again with the same LINE account is refused; unlinking and linking again gives no second trial.
+- [ ] Outside LINE (a computer), the website's "สมัครผ่าน LINE" link goes through LINE Login and returns to the
+  form, not to a summary page.
+- [ ] The owner's own account is unchanged after all of it.
+
 ## 6. If something is wrong
 
 - **No DM card at all:** the host target is off. Check `LINE_LIFF_ID` and `PUBLIC_APP_URL` are in

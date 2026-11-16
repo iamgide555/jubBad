@@ -91,7 +91,9 @@ export class AuthController {
    * way") was the original design, but the owner asked for a plain answer
    * instead (2026-09-12) — this app's whole user base is a handful of known
    * hosts, not a public signup surface, so the clearer feedback was judged
-   * worth more than the enumeration protection here. Still throttled by IP,
+   * worth more than the enumeration protection here. (Since 2026-11-16 anyone can sign up, so
+   * the address-exists answer is a little less contained than that premise; the IP throttle is what
+   * limits it, and the owner has not asked to change it.) Still throttled by IP,
    * and still grants nothing by itself: the only thing that produces a
    * working reset link is an admin acting on the request from the console.
    */

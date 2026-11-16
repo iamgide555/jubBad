@@ -27,6 +27,15 @@ the gating works is in `docs/overview.md` ("Plans"); this doc is the feature map
 
 Annual: pay 10, get 12.
 
+## Trial (2026-11-16)
+
+A new host gets the Host plan free for **30 days, earned by linking a LINE account for the first time**:
+immediately for a host who signs up through the LINE bot, and whenever they link for a host who signed up
+on the website (which starts on free). One trial per LINE account and one per JubBad account, ever; an
+admin-made account, or one already on a paid plan, is never touched by linking. It ends through the
+ordinary lapse to free (data kept). Mechanics are in `docs/overview.md` ("Plans", "Trial"). This is not a
+price decision: the founding-host offer for the pilot host (above) is separate and still the owner's call.
+
 ## Decisions and their reasons (2026-10-06)
 
 - **Bill extras are paid.** Host fee, walk-in fee, ไม่มา and ตามลูกแบด (including its

@@ -6,6 +6,7 @@ import { PrismaService } from '../prisma/prisma.service.js';
 import { GroupsService } from './groups.service.js';
 import { GroupLevelsService } from './group-levels.service.js';
 import { PlansService } from '../plans/plans.service.js';
+import { TrialService } from '../plans/trial.service.js';
 
 // Ownership filtering is exercised elsewhere (the auth boundary spec); an
 // admin caller sees every group regardless of owner, which is what keeps
@@ -21,7 +22,7 @@ describe('GroupsService.listGroups', () => {
   beforeAll(async () => {
     const moduleRef = await Test.createTestingModule({
       imports: [PrismaModule, LineModule],
-      providers: [GroupsService, GroupLevelsService, PlansService],
+      providers: [GroupsService, GroupLevelsService, PlansService, TrialService],
     }).compile();
     service = moduleRef.get(GroupsService);
     prisma = moduleRef.get(PrismaService);

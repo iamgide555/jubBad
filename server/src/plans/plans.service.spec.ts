@@ -243,6 +243,54 @@ describe('PlansService', () => {
     });
   });
 
+  describe('the trial offer on describeCaller', () => {
+    const saved = { liff: process.env.LINE_LIFF_ID, login: process.env.LINE_LOGIN_CHANNEL_ID };
+    const restore = (key: string, value: string | undefined) => {
+      if (value === undefined) delete process.env[key];
+      else process.env[key] = value;
+    };
+    beforeEach(() => {
+      process.env.LINE_LIFF_ID = 'L1';
+      process.env.LINE_LOGIN_CHANNEL_ID = '999';
+    });
+    afterEach(() => {
+      restore('LINE_LIFF_ID', saved.liff);
+      restore('LINE_LOGIN_CHANNEL_ID', saved.login);
+    });
+
+    it('offers the trial to a free, unlinked host who never had one', async () => {
+      const user = await makeUser({ plan: 'free' });
+      expect(await plans.describeCaller({ id: user.id, role: 'host' })).toMatchObject({
+        trialAvailable: true,
+        linkUrl: 'https://liff.line.me/L1/link',
+      });
+    });
+
+    it('does not offer it once linked, once used, or on a paid plan', async () => {
+      const linked = await makeUser({ plan: 'free' });
+      await prisma.user.update({ where: { id: linked.id }, data: { lineUserId: `U${randomUUID().replace(/-/g, '')}` } });
+      expect((await plans.describeCaller({ id: linked.id, role: 'host' })).trialAvailable).toBe(false);
+
+      const used = await makeUser({ plan: 'free' });
+      const usedLine = `U${randomUUID().replace(/-/g, '')}`;
+      await prisma.trialRecord.create({ data: { lineUserId: usedLine, userId: used.id } });
+      expect((await plans.describeCaller({ id: used.id, role: 'host' })).trialAvailable).toBe(false);
+      await prisma.trialRecord.delete({ where: { lineUserId: usedLine } });
+
+      const paid = await makeUser({ plan: 'club' });
+      expect((await plans.describeCaller({ id: paid.id, role: 'host' })).trialAvailable).toBe(false);
+    });
+
+    it('does not offer it when LIFF is not configured, and has no link', async () => {
+      delete process.env.LINE_LIFF_ID;
+      const user = await makeUser({ plan: 'free' });
+      expect(await plans.describeCaller({ id: user.id, role: 'host' })).toMatchObject({
+        trialAvailable: false,
+        linkUrl: null,
+      });
+    });
+  });
+
   it('describeCaller takes the contact link from UPGRADE_CONTACT_URL, https only', async () => {
     const owner = await makeUser({ plan: 'free' });
     const before = process.env.UPGRADE_CONTACT_URL;

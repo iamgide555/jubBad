@@ -122,6 +122,21 @@ describe('admin module', () => {
     }
   });
 
+  it('lists where each user came from and whether their trial is used', async () => {
+    const line = `U${randomUUID().replace(/-/g, '')}`;
+    await prisma.user.update({ where: { id: hostId }, data: { signupSource: 'web' } });
+    await prisma.trialRecord.create({ data: { lineUserId: line, userId: hostId } });
+    try {
+      const res = await request(server).get('/admin/users').set('Cookie', adminCookie).expect(200);
+      const rows = res.body as { id: string; signupSource: string; trialUsed: boolean }[];
+      expect(rows.find((u) => u.id === hostId)).toMatchObject({ signupSource: 'web', trialUsed: true });
+      expect(rows.find((u) => u.id !== hostId && u.signupSource === 'admin')?.trialUsed).toBe(false);
+    } finally {
+      await prisma.trialRecord.delete({ where: { lineUserId: line } });
+      await prisma.user.update({ where: { id: hostId }, data: { signupSource: 'admin' } });
+    }
+  });
+
   it("lists the admin's own groups first, then other hosts' (by owner), ownerless last", async () => {
     const mine = randomUUID();
     const theirs = randomUUID();

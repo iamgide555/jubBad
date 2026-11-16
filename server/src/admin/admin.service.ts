@@ -26,7 +26,7 @@ export class AdminService {
    */
   async listUsers() {
     const users = await this.prisma.user.findMany({
-      include: { groups: { select: { code: true, name: true } } },
+      include: { groups: { select: { code: true, name: true } }, trialRecord: { select: { id: true } } },
       orderBy: { createdAt: 'asc' },
     });
     const now = new Date();
@@ -36,6 +36,8 @@ export class AdminService {
       role: u.role,
       disabled: u.disabled,
       createdAt: u.createdAt,
+      signupSource: u.signupSource,
+      trialUsed: u.trialRecord !== null,
       plan: u.plan,
       planRenewsAt: u.planRenewsAt?.toISOString() ?? null,
       effectivePlan: effectivePlan(u, now),

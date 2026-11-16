@@ -1,4 +1,6 @@
 import { ForbiddenException, Injectable } from '@nestjs/common';
+import { lineConfig } from '../line/line-config.js';
+import { liffLinkUrl } from '../line/signup-links.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import {
   effectivePlan,
@@ -12,6 +14,7 @@ import {
   type Plan,
   type PlanOwner,
 } from './plan.js';
+import { TrialService } from './trial.service.js';
 
 const OWNER_SELECT = { role: true, plan: true, planRenewsAt: true } as const;
 
@@ -22,7 +25,10 @@ const OWNER_SELECT = { role: true, plan: true, planRenewsAt: true } as const;
  */
 @Injectable()
 export class PlansService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly trials: TrialService
+  ) {}
 
   async planForGroup(groupCode: string, now: Date = new Date()): Promise<Plan> {
     return effectivePlan(await this.ownerOfGroup(groupCode), now);
@@ -85,8 +91,13 @@ export class PlansService {
   async describeCaller(caller: { id: string; role: string }, now: Date = new Date()) {
     const user = await this.prisma.user.findUnique({ where: { id: caller.id }, select: OWNER_SELECT });
     const plan = effectivePlan(user, now);
+    // The offer to earn the trial by linking LINE. Never offered without a link to send them to.
+    const { liffId, loginChannelId } = lineConfig();
+    const linkUrl = liffId !== null && loginChannelId !== null ? liffLinkUrl(liffId) : null;
     return {
       plan,
+      trialAvailable: linkUrl !== null && (await this.trials.availableForUser(caller.id, now)),
+      linkUrl,
       renewsAt: user?.planRenewsAt?.toISOString() ?? null,
       lapsedAt: lapsedAt(user, now)?.toISOString() ?? null,
       groupCount: await this.prisma.group.count({ where: { ownerId: caller.id } }),

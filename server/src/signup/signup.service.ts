@@ -4,6 +4,7 @@ import type { LiffUser } from '../line/liff-identity.js';
 import { LineClient } from '../line/line-client.js';
 import { lineConfig } from '../line/line-config.js';
 import { liffSignupUrl } from '../line/signup-links.js';
+import { effectivePlan, planAtLeast } from '../plans/plan.js';
 import { TrialService } from '../plans/trial.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { SessionLock } from '../sessions/session-lock.js';
@@ -129,7 +130,16 @@ export class SignupService {
             data: { lineUserId: line.userId, lineLinkedAt: now },
           });
           if (linked.count !== 1) return 'account-linked' as const;
-          return { trialUntil: await this.trials.applyOnLink(tx, { userId: user.id, lineUserId: line.userId }, now) };
+          const trialUntil = await this.trials.applyOnLink(tx, { userId: user.id, lineUserId: line.userId }, now);
+          // A linked host on a plan that allows it takes rosters by DM for every group they already own.
+          const owner = await tx.user.findUniqueOrThrow({
+            where: { id: user.id },
+            select: { role: true, plan: true, planRenewsAt: true },
+          });
+          if (planAtLeast(effectivePlan(owner, now), 'host')) {
+            await tx.group.updateMany({ where: { ownerId: user.id }, data: { lineDmEnabled: true } });
+          }
+          return { trialUntil };
         });
       } catch (error) {
         if (isUniqueViolation(error)) return 'line-taken' as const;

@@ -257,6 +257,31 @@ describe('POST /auth/line/link', () => {
     expect((await kit.prisma.user.findUniqueOrThrow({ where: { email: other } })).lineUserId).toBeNull();
   });
 
+  it('linking switches the roster switch on for every group the account owns, when the trial starts', async () => {
+    const email = await webAccount();
+    const user = await kit.prisma.user.findUniqueOrThrow({ where: { email } });
+    const codes = [`ls-g-${randomUUID()}`, `ls-g-${randomUUID()}`];
+    for (const code of codes) await kit.prisma.group.create({ data: { code, name: 'G', ownerId: user.id } });
+    const [token] = kit.viewer();
+    await kit.post('/auth/line/link', token, { email, password: PASSWORD }).expect(200);
+    const rows = await kit.prisma.group.findMany({ where: { code: { in: codes } }, select: { lineDmEnabled: true } });
+    expect(rows.map((r) => r.lineDmEnabled)).toEqual([true, true]);
+    await kit.prisma.group.deleteMany({ where: { code: { in: codes } } });
+  });
+
+  it('linking a LINE account whose trial is used leaves a free account’s groups off', async () => {
+    const email = await webAccount();
+    const user = await kit.prisma.user.findUniqueOrThrow({ where: { email } });
+    const code = `ls-g-${randomUUID()}`;
+    await kit.prisma.group.create({ data: { code, name: 'G', ownerId: user.id } });
+    const [token, line] = kit.viewer();
+    await kit.prisma.trialRecord.create({ data: { lineUserId: line.userId, userId: null } });
+    const res = await kit.post('/auth/line/link', token, { email, password: PASSWORD }).expect(200);
+    expect(res.body.trialUntil).toBeNull();
+    expect((await kit.prisma.group.findUniqueOrThrow({ where: { code } })).lineDmEnabled).toBe(false);
+    await kit.prisma.group.deleteMany({ where: { code } });
+  });
+
   it('unlink then link again earns no second trial', async () => {
     const email = await webAccount();
     const [token] = kit.viewer();

@@ -161,6 +161,13 @@ describe('LineSignup', () => {
     expect(q('form')).not.toBeNull();
   });
 
+  it('points a host who already has a website account at the page that links LINE and starts the trial', async () => {
+    await open();
+    signsUp('email-taken');
+    await submit();
+    expect(q('[data-error] a[href="/line-share/link"]')).not.toBeNull();
+  });
+
   it('sends a LINE account that turns out to be registered to login', async () => {
     await open();
     signsUp('line-registered');

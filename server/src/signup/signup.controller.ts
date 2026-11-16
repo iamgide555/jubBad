@@ -36,12 +36,11 @@ const TOO_MANY = 'ลองใหม่อีกครั้งภายหล�
 @Public()
 @Controller('auth')
 export class SignupController {
-  /** In memory like the login throttle: one container, and a reset on deploy is the right trade. */
-  private readonly throttle = new LoginThrottle();
-
   constructor(
     private readonly signup: SignupService,
-    private readonly liff: LiffIdentity
+    private readonly liff: LiffIdentity,
+    /** The same instance /auth/login uses, so a wrong password counts once whichever door it was tried at. */
+    private readonly throttle: LoginThrottle
   ) {}
 
   /**
@@ -83,7 +82,15 @@ export class SignupController {
     @Req() req: Request,
     @Res({ passthrough: true }) res: Response
   ): Promise<{ authenticated: true; trialUntil: string | null; botFriend: boolean | null }> {
+    // Every attempt counts, as on /auth/register: a LINE account must not be able to try emails at will
+    // (each one costs a password hash and two calls to LINE). Checked before LINE is asked anything.
+    const ipKey = `line-signup:${req.ip ?? 'unknown'}`;
+    if (!this.throttle.check(ipKey)) throw new HttpException(TOO_MANY, HttpStatus.TOO_MANY_REQUESTS);
+    this.throttle.recordFailure(ipKey);
     const line = await this.viewer(req);
+    const idKey = `line-signup:${line.userId}`;
+    if (!this.throttle.check(idKey)) throw new HttpException(TOO_MANY, HttpStatus.TOO_MANY_REQUESTS);
+    this.throttle.recordFailure(idKey);
     const { user, trialUntil, botFriend } = await this.signup.registerLine(line, dto.email, dto.password);
     res.cookie(SESSION_COOKIE, packSession(user.id, user.tokenVersion), sessionCookieOptions());
     return { authenticated: true, trialUntil: trialUntil?.toISOString() ?? null, botFriend };

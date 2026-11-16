@@ -59,6 +59,7 @@
             @switch (p) {
               @case ('taken') {
                 <ng-container i18n="@@signup.emailTaken">อีเมลนี้มีบัญชีแล้ว</ng-container>
+                {{ ' ' }}<a routerLink="/line-share/link" i18n="@@lineSignup.linkInstead">ผูก LINE กับบัญชีนี้แทน</a>
               }
               @case ('short') {
                 <ng-container i18n="@@signup.passwordShort">รหัสผ่านต้องยาวอย่างน้อย 8 ตัวอักษร</ng-container>

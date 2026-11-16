@@ -361,3 +361,57 @@ describe('the guest menu goes away once an account has the LINE link', () => {
     await kit.post('/auth/line/signup', token, { email: kit.newEmail(), password: PASSWORD }).expect(201);
   });
 });
+
+describe('throttles on the LINE routes: signup probing', () => {
+  let kit: Kit;
+  beforeAll(async () => {
+    kit = await boot();
+  });
+  afterAll(() => kit.cleanup());
+
+  it('/auth/line/signup counts every attempt per address, so one LINE account cannot probe emails', async () => {
+    const [token] = kit.viewer();
+    const taken = kit.newEmail();
+    await request(kit.server).post('/auth/register').send({ email: taken, password: PASSWORD }).expect(201);
+    for (let i = 0; i < MAX_ATTEMPTS; i++) {
+      await kit.post('/auth/line/signup', token, { email: taken, password: PASSWORD }).expect(409);
+    }
+    await kit.post('/auth/line/signup', token, { email: kit.newEmail(), password: PASSWORD }).expect(429);
+  });
+});
+
+describe('throttles on the LINE routes: link failures reach login', () => {
+  let kit: Kit;
+  beforeAll(async () => {
+    kit = await boot();
+  });
+  afterAll(() => kit.cleanup());
+
+  it('wrong passwords at /auth/line/link lock /auth/login for that email (one shared counter)', async () => {
+    const email = kit.newEmail();
+    await request(kit.server).post('/auth/register').send({ email, password: PASSWORD }).expect(201);
+    const [token] = kit.viewer();
+    for (let i = 0; i < MAX_ATTEMPTS; i++) {
+      await kit.post('/auth/line/link', token, { email, password: 'wrong password' }).expect(401);
+    }
+    await request(kit.server).post('/auth/login').send({ email, password: PASSWORD }).expect(429);
+  });
+});
+
+describe('throttles on the LINE routes: login failures reach link', () => {
+  let kit: Kit;
+  beforeAll(async () => {
+    kit = await boot();
+  });
+  afterAll(() => kit.cleanup());
+
+  it('and wrong passwords at /auth/login lock /auth/line/link for that email', async () => {
+    const email = kit.newEmail();
+    await request(kit.server).post('/auth/register').send({ email, password: PASSWORD }).expect(201);
+    for (let i = 0; i < MAX_ATTEMPTS; i++) {
+      await request(kit.server).post('/auth/login').send({ email, password: 'wrong password' }).expect(401);
+    }
+    const [token] = kit.viewer();
+    await kit.post('/auth/line/link', token, { email, password: PASSWORD }).expect(429);
+  });
+});

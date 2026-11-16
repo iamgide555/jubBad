@@ -51,6 +51,8 @@ export function requireSessionSecret(): string {
   ],
   // PasswordResetService is exported for the admin module (phase 5), which
   // is what actually mints a reset URL — this module only consumes one.
-  exports: [SESSION_SECRET, PasswordResetService],
+  // LoginThrottle is exported so the LINE link route counts wrong passwords on the same
+  // per-email counter as /auth/login: two counters would double an attacker's guesses.
+  exports: [SESSION_SECRET, PasswordResetService, LoginThrottle],
 })
 export class AuthModule {}

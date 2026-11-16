@@ -14,6 +14,7 @@ import request from 'supertest';
 import { OwnershipGuard } from '../auth/ownership.guard.js';
 import { PrismaModule } from '../prisma/prisma.module.js';
 import { PrismaService } from '../prisma/prisma.service.js';
+import { GuestMenuService } from './guest-menu.service.js';
 import { LineClient } from './line-client.js';
 import { LineHostService } from './line-host.service.js';
 import { LineLinkService } from './line-link.service.js';
@@ -572,6 +573,16 @@ describe('LINE host link codes, status and unlink', () => {
   });
 
   describe('unlink', () => {
+    it('lets the guest menu come back for the LINE user it unlinked', async () => {
+      const { userId } = await makeOwner();
+      const line = lineId();
+      await prisma.user.update({ where: { id: userId }, data: { lineUserId: line, lineLinkedAt: new Date() } });
+      const forget = vi.spyOn(app.get(GuestMenuService), 'forget');
+      await host.unlink(userId);
+      expect(forget).toHaveBeenCalledExactlyOnceWith(line);
+      forget.mockRestore();
+    });
+
     it('clears the link and deletes the pending roster and codes, for a free user too', async () => {
       const { userId, code } = await makeOwner();
       await host.redeem(lineId(), (await host.createCode(code)).code);

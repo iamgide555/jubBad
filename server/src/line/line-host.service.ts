@@ -15,6 +15,7 @@ import {
   normalizeCode,
   PENDING_TTL_MS,
 } from './line-code.js';
+import { GuestMenuService } from './guest-menu.service.js';
 import { lineConfig } from './line-config.js';
 
 export interface LineHostStatus {
@@ -47,6 +48,7 @@ export class LineHostService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly plans: PlansService,
+    private readonly guestMenu: GuestMenuService,
   ) {}
 
   /** The group and its owner's LINE account; the owner is whose account every call below acts on. */
@@ -232,6 +234,7 @@ export class LineHostService {
    * unused codes, any pending roster, and the rosters their groups captured by DM.
    */
   async unlink(userId: string): Promise<void> {
+    const before = await this.prisma.user.findUnique({ where: { id: userId }, select: { lineUserId: true } });
     await this.prisma.$transaction([
       this.prisma.user.updateMany({
         where: { id: userId },
@@ -247,6 +250,8 @@ export class LineHostService {
       this.prisma.lineUserLinkCode.deleteMany({ where: { userId } }),
       this.prisma.linePendingRoster.deleteMany({ where: { userId } }),
     ]);
+    // With no account behind it this LINE user is a guest again: their next message shows the guest menu.
+    if (before?.lineUserId) this.guestMenu.forget(before.lineUserId);
   }
 
   /** Unlink the account of whoever owns this group (the group page is where the host asks). */

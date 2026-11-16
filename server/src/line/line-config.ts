@@ -8,6 +8,11 @@ export interface LineConfig {
   liffId: string | null;
   /** The LINE Login channel the LIFF app belongs to; a LIFF access token is only accepted if it was issued to it. */
   loginChannelId: string | null;
+  /**
+   * The rich menu shown to a LINE user who has no JubBad account (made once by scripts/create-guest-richmenu.mjs).
+   * Without it the bot never touches rich menus.
+   */
+  guestRichMenuId: string | null;
 }
 
 function nonEmpty(value: string | undefined): string | null {
@@ -34,5 +39,6 @@ export function lineConfig(): LineConfig {
     publicAppUrl: httpsUrl(nonEmpty(process.env.PUBLIC_APP_URL))?.replace(/\/+$/, '') ?? null,
     liffId: nonEmpty(process.env.LINE_LIFF_ID),
     loginChannelId: nonEmpty(process.env.LINE_LOGIN_CHANNEL_ID),
+    guestRichMenuId: nonEmpty(process.env.LINE_GUEST_RICHMENU_ID),
   };
 }

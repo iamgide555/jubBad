@@ -132,12 +132,24 @@ export class LineClient {
     return result.status === 404 ? false : null;
   }
 
+  /** Shows `richMenuId` to this one user (they must be a friend of the bot). Whether LINE accepted it; never throws. */
+  async linkRichMenu(userId: string, richMenuId: string): Promise<boolean> {
+    const result = await this.send('POST', `/user/${encodeURIComponent(userId)}/richmenu/${encodeURIComponent(richMenuId)}`);
+    return result !== null && result.status >= 200 && result.status < 300;
+  }
+
+  /** Takes whatever rich menu was linked to this user away again. Whether LINE accepted it; never throws. */
+  async unlinkRichMenu(userId: string): Promise<boolean> {
+    const result = await this.send('DELETE', `/user/${encodeURIComponent(userId)}/richmenu`);
+    return result !== null && result.status >= 200 && result.status < 300;
+  }
+
   async leave(lineGroupId: string): Promise<void> {
     await this.call('POST', `/group/${encodeURIComponent(lineGroupId)}/leave`);
   }
 
   private async call(
-    method: 'GET' | 'POST',
+    method: 'GET' | 'POST' | 'DELETE',
     path: string,
     payload?: unknown
   ): Promise<Record<string, unknown> | null> {
@@ -147,7 +159,7 @@ export class LineClient {
 
   /** The status and JSON body of the response, or null when there was no response at all. */
   private async send(
-    method: 'GET' | 'POST',
+    method: 'GET' | 'POST' | 'DELETE',
     path: string,
     payload?: unknown,
     extraHeaders?: Record<string, string>

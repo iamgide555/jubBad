@@ -287,4 +287,46 @@ describe('LineClient', () => {
       expect(labelOf(`${'ก'.repeat(18)}🏸x`)).toBe(`${'ก'.repeat(18)}🏸`);
     });
   });
+
+  describe('rich menus', () => {
+    it('linkRichMenu posts to the per-user endpoint with no body and says it worked', async () => {
+      fetchMock.mockResolvedValue(jsonResponse(200, {}));
+      expect(await client.linkRichMenu('U1', 'richmenu-1')).toBe(true);
+      const [url, init] = fetchMock.mock.calls[0];
+      expect(url).toBe('https://api.line.me/v2/bot/user/U1/richmenu/richmenu-1');
+      expect(init.method).toBe('POST');
+      expect(init.headers.Authorization).toBe('Bearer tok');
+      expect(init.body).toBeUndefined();
+    });
+
+    it('unlinkRichMenu sends DELETE to the per-user endpoint', async () => {
+      fetchMock.mockResolvedValue(jsonResponse(200, {}));
+      expect(await client.unlinkRichMenu('U1')).toBe(true);
+      const [url, init] = fetchMock.mock.calls[0];
+      expect(url).toBe('https://api.line.me/v2/bot/user/U1/richmenu');
+      expect(init.method).toBe('DELETE');
+    });
+
+    it('encodes the ids it puts in the path', async () => {
+      fetchMock.mockResolvedValue(jsonResponse(200, {}));
+      await client.linkRichMenu('U/1', 'rich menu');
+      expect(fetchMock.mock.calls[0][0]).toBe('https://api.line.me/v2/bot/user/U%2F1/richmenu/rich%20menu');
+    });
+
+    it.each([
+      ['a 400', () => fetchMock.mockResolvedValue(jsonResponse(400, { message: 'no' }))],
+      ['a network error', () => fetchMock.mockRejectedValue(new TypeError('offline'))],
+    ])('both return false on %s and never throw', async (_name, arrange) => {
+      arrange();
+      expect(await client.linkRichMenu('U1', 'r')).toBe(false);
+      expect(await client.unlinkRichMenu('U1')).toBe(false);
+    });
+
+    it('both return false without a request when the access token is unset', async () => {
+      delete process.env.LINE_CHANNEL_ACCESS_TOKEN;
+      expect(await client.linkRichMenu('U1', 'r')).toBe(false);
+      expect(await client.unlinkRichMenu('U1')).toBe(false);
+      expect(fetchMock).not.toHaveBeenCalled();
+    });
+  });
 });

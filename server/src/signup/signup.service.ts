@@ -1,5 +1,6 @@
 import { ConflictException, Injectable } from '@nestjs/common';
 import { Prisma, type User } from '@prisma/client';
+import { GuestMenuService } from '../line/guest-menu.service.js';
 import type { LiffUser } from '../line/liff-identity.js';
 import { LineClient } from '../line/line-client.js';
 import { lineConfig } from '../line/line-config.js';
@@ -46,7 +47,8 @@ export class SignupService {
     private readonly users: UsersService,
     private readonly prisma: PrismaService,
     private readonly trials: TrialService,
-    private readonly line: LineClient
+    private readonly line: LineClient,
+    private readonly guestMenu: GuestMenuService
   ) {}
 
   /** A host who signed up on the website: free plan, no LINE link, no trial yet. */
@@ -106,6 +108,7 @@ export class SignupService {
         }
         throw error;
       }
+      await this.guestMenu.hide(line.userId);
       return { ...created, botFriend: await this.friendOfBot(line.userId) };
     });
   }
@@ -122,7 +125,7 @@ export class SignupService {
   ): Promise<{ trialUntil: Date | null } | LinkRefusal> {
     const user = await this.users.verifyCredentials(email, password);
     if (!user) return 'bad-credentials';
-    return this.lock.run(`line:${line.userId}`, async () => {
+    const outcome = await this.lock.run(`line:${line.userId}`, async () => {
       try {
         return await this.prisma.$transaction(async (tx) => {
           const linked = await tx.user.updateMany({
@@ -146,6 +149,8 @@ export class SignupService {
         throw error;
       }
     });
+    if (typeof outcome !== 'string') await this.guestMenu.hide(line.userId);
+    return outcome;
   }
 
   /** Whether the LINE account has the bot as a friend; null when LINE cannot say. Never throws. */

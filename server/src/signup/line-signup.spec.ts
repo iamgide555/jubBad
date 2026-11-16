@@ -22,7 +22,10 @@ type Kit = Awaited<ReturnType<typeof boot>>;
 
 async function boot() {
   const liff = { verify: vi.fn<(accessToken: string) => Promise<LiffUser | null>>() };
-  const line = { friendStatus: vi.fn<(userId: string) => Promise<boolean | null>>() };
+  const line = {
+    friendStatus: vi.fn<(userId: string) => Promise<boolean | null>>(),
+    unlinkRichMenu: vi.fn<(userId: string) => Promise<boolean>>(),
+  };
   const moduleRef = await Test.createTestingModule({ imports: [AppModule] })
     .overrideProvider(SESSION_SECRET)
     .useValue(SECRET)
@@ -46,6 +49,7 @@ async function boot() {
 
   liff.verify.mockImplementation(async (t) => tokens.get(t) ?? null);
   line.friendStatus.mockResolvedValue(true);
+  line.unlinkRichMenu.mockResolvedValue(true);
 
   /** A LINE account whose access token verifies, as `[token, user]`. */
   function viewer(name = 'Somchai'): [string, LiffUser] {
@@ -310,5 +314,48 @@ describe('POST /auth/line/link throttle', () => {
       await kit.post('/auth/line/link', token, { email, password: 'wrong password' }).expect(401);
     }
     await kit.post('/auth/line/link', token, { email, password: PASSWORD }).expect(429);
+  });
+});
+
+describe('the guest menu goes away once an account has the LINE link', () => {
+  let kit: Kit;
+  const saved = process.env.LINE_GUEST_RICHMENU_ID;
+  beforeAll(async () => {
+    kit = await boot();
+  });
+  beforeEach(() => {
+    process.env.LINE_GUEST_RICHMENU_ID = 'RM1';
+    kit.line.unlinkRichMenu.mockClear().mockResolvedValue(true);
+  });
+  afterAll(async () => {
+    if (saved === undefined) delete process.env.LINE_GUEST_RICHMENU_ID;
+    else process.env.LINE_GUEST_RICHMENU_ID = saved;
+    await kit.cleanup();
+  });
+
+  it('after a LINE sign-up', async () => {
+    const [token, line] = kit.viewer();
+    await kit.post('/auth/line/signup', token, { email: kit.newEmail(), password: PASSWORD }).expect(201);
+    expect(kit.line.unlinkRichMenu).toHaveBeenCalledExactlyOnceWith(line.userId);
+  });
+
+  it('after linking an existing account', async () => {
+    const email = kit.newEmail();
+    await request(kit.server).post('/auth/register').send({ email, password: PASSWORD }).expect(201);
+    const [token, line] = kit.viewer();
+    await kit.post('/auth/line/link', token, { email, password: PASSWORD }).expect(200);
+    expect(kit.line.unlinkRichMenu).toHaveBeenCalledExactlyOnceWith(line.userId);
+  });
+
+  it('not after a refused sign-up or link', async () => {
+    const [token] = kit.viewer();
+    await kit.post('/auth/line/link', token, { email: kit.newEmail(), password: 'not the password' }).expect(401);
+    expect(kit.line.unlinkRichMenu).not.toHaveBeenCalled();
+  });
+
+  it('and a menu failure never fails the sign-up', async () => {
+    const [token] = kit.viewer();
+    kit.line.unlinkRichMenu.mockRejectedValue(new Error('LINE is down'));
+    await kit.post('/auth/line/signup', token, { email: kit.newEmail(), password: PASSWORD }).expect(201);
   });
 });

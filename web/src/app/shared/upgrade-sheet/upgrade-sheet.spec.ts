@@ -22,6 +22,7 @@ describe('UpgradeSheet', () => {
   let fixture: ComponentFixture<UpgradeSheet>;
   const isOpen = signal(false);
   const contactUrl = signal<string | null>(null);
+  const trialLinkUrl = signal<string | null>(null);
   const close = vi.fn(() => isOpen.set(false));
 
   const el = () => fixture.nativeElement as HTMLElement;
@@ -30,9 +31,10 @@ describe('UpgradeSheet', () => {
   beforeEach(async () => {
     isOpen.set(false);
     contactUrl.set(null);
+    trialLinkUrl.set(null);
     close.mockClear();
     TestBed.configureTestingModule({
-      providers: [{ provide: UpgradeSheetService, useValue: { isOpen, contactUrl, close, open: vi.fn() } }],
+      providers: [{ provide: UpgradeSheetService, useValue: { isOpen, contactUrl, trialLinkUrl, close, open: vi.fn() } }],
     });
     fixture = TestBed.createComponent(UpgradeSheet);
     fixture.detectChanges();
@@ -68,6 +70,24 @@ describe('UpgradeSheet', () => {
     await open();
     expect(el().querySelector('a.contact')).toBeNull();
     expect(el().textContent).toContain('ติดต่อทีม JubBad เพื่ออัปเกรด');
+  });
+
+  it('leads with the trial offer when it is available', async () => {
+    trialLinkUrl.set('https://liff.line.me/L1/link');
+    await open();
+    const card = el().querySelector('.sheet-card') as HTMLElement;
+    expect(card.firstElementChild?.tagName).toBe('H2');
+    expect(card.querySelector('app-trial-offer [data-trial-link]')?.getAttribute('href')).toBe('https://liff.line.me/L1/link');
+    // The offer comes before the benefits and the contact.
+    const children = Array.from(card.children);
+    const offerAt = children.findIndex((c) => c.tagName === 'APP-TRIAL-OFFER');
+    expect(offerAt).toBeGreaterThan(0);
+    expect(offerAt).toBeLessThan(children.findIndex((c) => c.classList.contains('benefits')));
+  });
+
+  it('shows only the contact when there is no trial to offer', async () => {
+    await open();
+    expect(el().querySelector('app-trial-offer')).toBeNull();
   });
 
   it('closes from the close button and from Escape', async () => {

@@ -10,6 +10,10 @@ export interface AdminUser {
   role: Role;
   disabled: boolean;
   createdAt: string;
+  /** Where the account came from: made in /admin, the website sign-up, or the LINE sign-up. */
+  signupSource: 'admin' | 'web' | 'line';
+  /** This user has had the 30-day trial. */
+  trialUsed: boolean;
   ownedGroups: { code: string; name: string | null }[];
   plan: Plan;
   /** ISO instant (end of the renewal day, Bangkok); null never lapses. */

@@ -9,6 +9,10 @@
     </div>
   </div>
 
+  @if (trialLink(); as trialUrl) {
+    <app-trial-offer [linkUrl]="trialUrl" />
+  }
+
   @if (loaded()) {
     @if (loadError()) {
       <p class="error" role="alert" i18n="@@home.loadFailed">โหลดก๊วนไม่สำเร็จ</p>

@@ -32,7 +32,7 @@ export function stubPlanService() {
     answer: (plan: Plan, renewsAt: string | null = null, extra: Partial<GroupPlan> = {}) =>
       reply.next({ plan, renewsAt, lapsedAt: null, paused: false, archiveHidden: 0, ...extra }),
     answerMine: (mine: Partial<MyPlan> = {}) =>
-      mineReply.next({ plan: 'free', renewsAt: null, lapsedAt: null, groupCount: 0, groupLimit: 1, upgradeUrl: null, ...mine }),
+      mineReply.next({ plan: 'free', renewsAt: null, lapsedAt: null, groupCount: 0, groupLimit: 1, upgradeUrl: null, trialAvailable: false, linkUrl: null, ...mine }),
     fail: () => reply.error(new HttpErrorResponse({ status: 500 })),
     failMine: () => mineReply.error(new HttpErrorResponse({ status: 500 })),
   };

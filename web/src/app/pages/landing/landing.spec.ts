@@ -150,6 +150,40 @@ describe('Landing', () => {
     expect(fixture.nativeElement.querySelector('[data-start-link]')).not.toBeNull();
   });
 
+  describe('the LINE trial offer', () => {
+    const LINK = 'https://liff.line.me/L1/link';
+    const offer = () => fixture.nativeElement.querySelector('app-trial-offer') as HTMLElement | null;
+    async function withMine(mine: Parameters<typeof plan.answerMine>[0]) {
+      await loadWith();
+      plan.answerMine(mine);
+      await fixture.whenStable();
+      fixture.detectChanges();
+    }
+
+    it('shows the offer to a free host who can still earn it', async () => {
+      await withMine({ trialAvailable: true, linkUrl: LINK });
+      expect(offer()?.querySelector('[data-trial-link]')?.getAttribute('href')).toBe(LINK);
+    });
+
+    it('hides it when the trial is not available or there is no link', async () => {
+      await withMine({ trialAvailable: false, linkUrl: LINK });
+      expect(offer()).toBeNull();
+    });
+
+    it('hides it when there is no link to send them to', async () => {
+      await withMine({ trialAvailable: true, linkUrl: null });
+      expect(offer()).toBeNull();
+    });
+
+    it('hides it when the plan read fails', async () => {
+      await loadWith();
+      plan.failMine();
+      await fixture.whenStable();
+      fixture.detectChanges();
+      expect(offer()).toBeNull();
+    });
+  });
+
   it('puts เริ่มรอบ on every own group row, a link straight to the roster screen', async () => {
     // A host with a weekly group otherwise needs list -> group -> เริ่มรอบใหม่ -> paste.
     await loadWith();

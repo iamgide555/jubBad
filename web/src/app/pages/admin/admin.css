@@ -351,3 +351,9 @@
   white-space: nowrap;
   overflow-wrap: normal;
 }
+
+/* Where the account came from, small under the plan. */
+.plan-source {
+  font-size: var(--text-xs);
+  margin: var(--space-1) 0 0;
+}

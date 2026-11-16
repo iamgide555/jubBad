@@ -10,6 +10,7 @@ import { groupCountLabel, groupLimitMessage, type MyPlan } from '../../core/plan
 import { PlanService } from '../../core/plan.service';
 import { UpgradeSheetService } from '../../core/upgrade-sheet.service';
 import { PlanLock } from '../../shared/plan-lock/plan-lock';
+import { TrialOffer } from '../../shared/trial-offer/trial-offer';
 import { environment } from '../../../environments/environment';
 
 export interface GroupSummary {
@@ -39,7 +40,7 @@ export interface OwnerGroups {
  */
 @Component({
   selector: 'app-landing',
-  imports: [FormsModule, NgTemplateOutlet, RouterLink, PlanLock, Icon],
+  imports: [FormsModule, NgTemplateOutlet, RouterLink, PlanLock, TrialOffer, Icon],
   templateUrl: './landing.html',
   styleUrl: './landing.css',
 })
@@ -53,6 +54,11 @@ export class Landing {
 
   /** The signed-in user's plan, group count and cap. Unknown (loading, failed) never blocks creating. */
   private readonly mine = signal<MyPlan | null>(null);
+  /** The LIFF page that links LINE, while this free host can still earn the 30-day trial by doing so. */
+  protected readonly trialLink = computed(() => {
+    const m = this.mine();
+    return m !== null && m.trialAvailable && m.linkUrl ? m.linkUrl : null;
+  });
   /** At the cap: the create control says so up front instead of failing after a name is typed. */
   protected readonly atCap = computed(() => {
     const m = this.mine();

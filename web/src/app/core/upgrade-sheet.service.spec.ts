@@ -5,13 +5,16 @@ import { environment } from '../../environments/environment';
 import { UpgradeSheetService } from './upgrade-sheet.service';
 
 const B = environment.apiBaseUrl;
-const mine = (upgradeUrl: string | null) => ({
+const mine = (upgradeUrl: string | null, extra: Record<string, unknown> = {}) => ({
   plan: 'free',
   renewsAt: null,
   lapsedAt: null,
   groupCount: 1,
   groupLimit: 1,
   upgradeUrl,
+  trialAvailable: false,
+  linkUrl: null,
+  ...extra,
 });
 
 describe('UpgradeSheetService', () => {
@@ -61,5 +64,24 @@ describe('UpgradeSheetService', () => {
     httpMock.expectOne(`${B}/plans/me`).flush(mine(null));
     service.close();
     expect(service.isOpen()).toBe(false);
+  });
+
+  it('keeps the trial link only when the trial is available and there is a link to send them to', async () => {
+    service.open();
+    httpMock.expectOne(`${B}/plans/me`).flush(mine(null, { trialAvailable: true, linkUrl: 'https://liff.line.me/L1/link' }));
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(service.trialLinkUrl()).toBe('https://liff.line.me/L1/link');
+  });
+
+  it.each([
+    [{ trialAvailable: false, linkUrl: 'https://liff.line.me/L1/link' }],
+    [{ trialAvailable: true, linkUrl: null }],
+  ])('has no trial link for %j', async (extra) => {
+    service.open();
+    httpMock.expectOne(`${B}/plans/me`).flush(mine(null, extra));
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(service.trialLinkUrl()).toBeNull();
   });
 });

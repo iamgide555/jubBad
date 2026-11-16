@@ -41,6 +41,10 @@ export interface MyPlan {
   groupLimit: number | null;
   /** An https contact link from server config, or null (the sheet then shows text only). */
   upgradeUrl: string | null;
+  /** The account is free, has no LINE link and never had the 30-day trial: linking LINE would start one. */
+  trialAvailable: boolean;
+  /** The LIFF page that links LINE; null when LINE is not set up, and then no trial is offered. */
+  linkUrl: string | null;
 }
 
 const EXPIRY_WARNING_MS = 5 * 24 * 60 * 60 * 1000;

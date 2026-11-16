@@ -336,6 +336,12 @@
           <span class="plan-overcap" data-over-cap>{{ overCapText(user) }}</span>
         }
       </div>
+      <p class="muted plan-source">
+        <span data-signup-source>{{ sourceLabel(user.signupSource) }}</span>
+        @if (user.trialUsed) {
+          · <span data-trial-used i18n="@@admin.trialUsed">ทดลองใช้แล้ว</span>
+        }
+      </p>
       <!-- View mode only: the edit row's date field already holds it. -->
       @if (!editing && user.planRenewsAt && user.effectivePlan !== 'free') {
         <p class="muted plan-until" data-plan-until>{{ planUntil(user.planRenewsAt) }}</p>

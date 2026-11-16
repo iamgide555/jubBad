@@ -188,6 +188,18 @@ export class Admin {
   readonly planSavedId = signal<string | null>(null);
   readonly planUntil = planUntil;
 
+  /** Where an account came from, for the admin list. */
+  sourceLabel(source: 'admin' | 'web' | 'line'): string {
+    switch (source) {
+      case 'web':
+        return $localize`:@@admin.sourceWeb:สมัครทางเว็บ`;
+      case 'line':
+        return $localize`:@@admin.sourceLine:สมัครทาง LINE`;
+      default:
+        return $localize`:@@admin.sourceAdmin:ผู้ดูแลสร้าง`;
+    }
+  }
+
   planOf(user: AdminUser): Plan {
     return this.planDraft()[user.id] ?? user.plan;
   }

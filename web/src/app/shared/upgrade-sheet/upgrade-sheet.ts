@@ -1,9 +1,11 @@
 import { Component, ElementRef, effect, inject, viewChild } from '@angular/core';
 import { UpgradeSheetService } from '../../core/upgrade-sheet.service';
+import { TrialOffer } from '../trial-offer/trial-offer';
 
 /** Mounted once in the app shell; opened by UpgradeSheetService from any plan lock. */
 @Component({
   selector: 'app-upgrade-sheet',
+  imports: [TrialOffer],
   templateUrl: './upgrade-sheet.html',
   styleUrl: './upgrade-sheet.css',
 })

@@ -19,6 +19,8 @@ const user = (over: Record<string, unknown>) => ({
   planRenewsAt: null,
   effectivePlan: 'club',
   groupLimit: 10,
+  signupSource: 'admin',
+  trialUsed: false,
   ...over,
 });
 
@@ -356,5 +358,19 @@ describe('Admin plan control', () => {
     expect(row('u1').querySelector('[role="alert"]')).not.toBeNull();
     expect(row('u1').querySelector('[data-plan-label]')!.textContent).toContain('ก๊วนใหญ่');
     expect(component.users()[0].plan).toBe('club');
+  });
+
+  it('labels each user with where they came from and a used trial', async () => {
+    await setup([
+      user({ id: 'u1', signupSource: 'admin' }),
+      user({ id: 'u2', email: 'web@example.test', signupSource: 'web' }),
+      user({ id: 'u3', email: 'line@example.test', signupSource: 'line', trialUsed: true }),
+    ]);
+    const source = (id: string) => row(id).querySelector('[data-signup-source]')!.textContent;
+    expect(source('u1')).toContain('ผู้ดูแลสร้าง');
+    expect(source('u2')).toContain('สมัครทางเว็บ');
+    expect(source('u3')).toContain('สมัครทาง LINE');
+    expect(row('u1').querySelector('[data-trial-used]')).toBeNull();
+    expect(row('u3').querySelector('[data-trial-used]')?.textContent).toContain('ทดลองใช้แล้ว');
   });
 });

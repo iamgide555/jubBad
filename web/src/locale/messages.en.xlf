@@ -7860,6 +7860,48 @@
           <context context-type="linenumber">1</context>
         </context-group>
       </trans-unit>
+      <trans-unit id="trialOffer.line" datatype="html">
+        <source>ผูก LINE รับทดลองใช้ครบทุกฟีเจอร์ฟรี 30 วัน</source><target>Link LINE and get every feature free for 30 days</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/shared/trial-offer/trial-offer.html</context>
+          <context context-type="linenumber">1</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="trialOffer.button" datatype="html">
+        <source>ผูก LINE</source><target>Link LINE</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/shared/trial-offer/trial-offer.html</context>
+          <context context-type="linenumber">1</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="admin.sourceAdmin" datatype="html">
+        <source>ผู้ดูแลสร้าง</source><target>Created by an admin</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/admin/admin.ts</context>
+          <context context-type="linenumber">1</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="admin.sourceWeb" datatype="html">
+        <source>สมัครทางเว็บ</source><target>Signed up on the website</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/admin/admin.ts</context>
+          <context context-type="linenumber">1</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="admin.sourceLine" datatype="html">
+        <source>สมัครทาง LINE</source><target>Signed up through LINE</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/admin/admin.ts</context>
+          <context context-type="linenumber">1</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="admin.trialUsed" datatype="html">
+        <source>ทดลองใช้แล้ว</source><target>Trial used</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/admin/admin.html</context>
+          <context context-type="linenumber">1</context>
+        </context-group>
+      </trans-unit>
     </body>
   </file>
 </xliff>

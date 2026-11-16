@@ -14,7 +14,7 @@ import { PaymentCardService } from './payment-card.service.js';
 import { SessionLock } from './session-lock.js';
 import { SessionsController } from './sessions.controller.js';
 import { SessionsService } from './sessions.service.js';
-import { LiffIdentity } from './slips/liff-identity.js';
+import { LiffIdentityModule } from '../line/liff-identity.module.js';
 import { SlipOcr } from './slips/slip-ocr.js';
 import { SlipPaymentsService } from './slips/slip-payments.service.js';
 import { SlipCollectorController } from './slips/slip-collector.controller.js';
@@ -27,7 +27,7 @@ import { SlipUploadMiddleware } from './slips/slip-upload.middleware.js';
 import { SlipViewerGate } from './slips/slip-viewer-gate.js';
 
 @Module({
-  imports: [SlipImagesModule, GroupsModule, LineModule, PlansModule, VenuesModule],
+  imports: [SlipImagesModule, GroupsModule, LineModule, LiffIdentityModule, PlansModule, VenuesModule],
   controllers: [
     SessionsController,
     BillController,
@@ -47,7 +47,6 @@ import { SlipViewerGate } from './slips/slip-viewer-gate.js';
     SlipOcr,
     SlipReader,
     SlipPaymentsService,
-    LiffIdentity,
     SlipViewerGate,
     SlipUploadSlots,
     { provide: SLIP_FAILURE_THROTTLE, useFactory: () => new LoginThrottle() },

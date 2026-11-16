@@ -1,7 +1,12 @@
 import { ConflictException, Injectable } from '@nestjs/common';
 import { Prisma, type User } from '@prisma/client';
+import type { LiffUser } from '../line/liff-identity.js';
+import { LineClient } from '../line/line-client.js';
 import { lineConfig } from '../line/line-config.js';
 import { liffSignupUrl } from '../line/signup-links.js';
+import { TrialService } from '../plans/trial.service.js';
+import { PrismaService } from '../prisma/prisma.service.js';
+import { SessionLock } from '../sessions/session-lock.js';
 import { UsersService } from '../users/users.service.js';
 
 export interface SignupInfo {
@@ -10,18 +15,45 @@ export interface SignupInfo {
   botAddUrl: string | null;
 }
 
+export interface LineStatus {
+  lineDisplayName: string | null;
+  /** This LINE account already belongs to a JubBad account. */
+  registered: boolean;
+  /** This LINE account has never had a trial (and is not registered). */
+  trialAvailable: boolean;
+}
+
+export type LinkRefusal = 'bad-credentials' | 'account-linked' | 'line-taken';
+
+/** Which unique column a P2002 was about; tolerant of how the driver words `meta`. */
+function violated(error: Prisma.PrismaClientKnownRequestError): 'email' | 'lineUserId' | 'other' {
+  const meta = JSON.stringify(error.meta ?? {});
+  if (meta.includes('lineUserId')) return 'lineUserId';
+  if (meta.includes('email')) return 'email';
+  return 'other';
+}
+
+const isUniqueViolation = (error: unknown): error is Prisma.PrismaClientKnownRequestError =>
+  error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002';
+
 @Injectable()
 export class SignupService {
-  constructor(private readonly users: UsersService) {}
+  /** One LINE account's sign-up or link at a time. In process, like the session lock: a single API container. */
+  private readonly lock = new SessionLock();
+
+  constructor(
+    private readonly users: UsersService,
+    private readonly prisma: PrismaService,
+    private readonly trials: TrialService,
+    private readonly line: LineClient
+  ) {}
 
   /** A host who signed up on the website: free plan, no LINE link, no trial yet. */
   async registerWeb(email: string, password: string): Promise<User> {
     try {
       return await this.users.create(email, password, 'host', { plan: 'free', signupSource: 'web' });
     } catch (error) {
-      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
-        throw new ConflictException({ code: 'EMAIL_TAKEN' });
-      }
+      if (isUniqueViolation(error)) throw new ConflictException({ code: 'EMAIL_TAKEN' });
       throw error;
     }
   }
@@ -35,5 +67,83 @@ export class SignupService {
       lineSignupUrl: liffReady ? liffSignupUrl(liffId) : null,
       botAddUrl,
     };
+  }
+
+  async lineStatus(line: LiffUser): Promise<LineStatus> {
+    const owner = await this.prisma.user.findUnique({ where: { lineUserId: line.userId }, select: { id: true } });
+    return {
+      lineDisplayName: line.displayName,
+      registered: owner !== null,
+      trialAvailable: owner === null && (await this.trials.availableForLine(line.userId)),
+    };
+  }
+
+  /**
+   * A host who signed up through LINE: the account is created already linked, so the trial starts now
+   * (unless this LINE account has had one). A LINE account whose trial is used still gets an account, on free.
+   */
+  registerLine(
+    line: LiffUser,
+    email: string,
+    password: string,
+    now: Date = new Date()
+  ): Promise<{ user: User; trialUntil: Date | null; botFriend: boolean | null }> {
+    return this.lock.run(`line:${line.userId}`, async () => {
+      let created: { user: User; trialUntil: Date | null };
+      try {
+        created = await this.prisma.$transaction(async (tx) => {
+          const held = await tx.user.findUnique({ where: { lineUserId: line.userId }, select: { id: true } });
+          if (held) throw new ConflictException({ code: 'LINE_ALREADY_REGISTERED' });
+          const user = await this.users.create(email, password, 'host', { plan: 'free', signupSource: 'line' }, tx);
+          await tx.user.update({ where: { id: user.id }, data: { lineUserId: line.userId, lineLinkedAt: now } });
+          const trialUntil = await this.trials.applyOnLink(tx, { userId: user.id, lineUserId: line.userId }, now);
+          return { user: await tx.user.findUniqueOrThrow({ where: { id: user.id } }), trialUntil };
+        });
+      } catch (error) {
+        if (isUniqueViolation(error)) {
+          throw new ConflictException({ code: violated(error) === 'email' ? 'EMAIL_TAKEN' : 'LINE_ALREADY_REGISTERED' });
+        }
+        throw error;
+      }
+      return { ...created, botFriend: await this.friendOfBot(line.userId) };
+    });
+  }
+
+  /**
+   * Links this LINE account to an existing JubBad account, proven by that account's email and password. Starts
+   * the trial when the account is free and neither side has had one. It never signs the browser in.
+   */
+  async linkLine(
+    line: LiffUser,
+    email: string,
+    password: string,
+    now: Date = new Date()
+  ): Promise<{ trialUntil: Date | null } | LinkRefusal> {
+    const user = await this.users.verifyCredentials(email, password);
+    if (!user) return 'bad-credentials';
+    return this.lock.run(`line:${line.userId}`, async () => {
+      try {
+        return await this.prisma.$transaction(async (tx) => {
+          const linked = await tx.user.updateMany({
+            where: { id: user.id, lineUserId: null },
+            data: { lineUserId: line.userId, lineLinkedAt: now },
+          });
+          if (linked.count !== 1) return 'account-linked' as const;
+          return { trialUntil: await this.trials.applyOnLink(tx, { userId: user.id, lineUserId: line.userId }, now) };
+        });
+      } catch (error) {
+        if (isUniqueViolation(error)) return 'line-taken' as const;
+        throw error;
+      }
+    });
+  }
+
+  /** Whether the LINE account has the bot as a friend; null when LINE cannot say. Never throws. */
+  private async friendOfBot(lineUserId: string): Promise<boolean | null> {
+    try {
+      return await this.line.friendStatus(lineUserId);
+    } catch {
+      return null;
+    }
   }
 }

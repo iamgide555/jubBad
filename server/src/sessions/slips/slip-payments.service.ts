@@ -1,3 +1,4 @@
+import type { LiffUser } from '../../line/liff-identity.js';
 import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { LineAccountsService } from '../../line/line-accounts.service.js';
@@ -38,12 +39,7 @@ export interface PaidRow {
   imageId: string | null;
 }
 
-/** The LINE profile the pay page reads for the viewer. Only `userId` is required to link; the rest is for display. */
-export interface LiffUser {
-  userId: string;
-  displayName: string | null;
-  pictureUrl: string | null;
-}
+export type { LiffUser };
 
 export type ClaimOutcome = 'linked' | 'player-taken' | 'account-already-linked' | 'not-on-bill';
 

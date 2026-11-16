@@ -159,12 +159,16 @@ export class LineLinkService {
   }
 
   /**
-   * Clears the link, forgets everything stored for it, and asks the bot to leave
-   * so it stops receiving a chat it no longer serves. A LINE failure never blocks it.
+   * Clears the link, forgets what the LINE chat gave us (roster messages, link codes), and asks the bot to leave so
+   * it stops receiving a chat it no longer serves. A LINE failure never blocks it.
+   *
+   * What players and the host set up on the JubBad side survives: player-to-LINE-account links, the group's list of
+   * accounts, and the slip records (waiting slips, duplicates, used references, images). None of it came from the
+   * chat or needs the bot in the group (the pay page works without one), so a throwaway or replaced LINE group must
+   * not erase it. Deleting the JubBad group still cascades all of it.
    */
   async unlink(groupCode: string): Promise<void> {
     return this.images.withGroupLock(groupCode, async () => {
-      await this.images.purgeGroup(groupCode);
       const group = await this.prisma.group.findUnique({ where: { code: groupCode }, select: { lineGroupId: true } });
       await this.prisma.$transaction([
         this.prisma.group.updateMany({
@@ -173,27 +177,18 @@ export class LineLinkService {
         }),
         this.prisma.lineRosterMessage.deleteMany({ where: { groupId: groupCode } }),
         this.prisma.lineLinkCode.deleteMany({ where: { groupId: groupCode } }),
-        // Slip links and slips go with the link; recorded SessionPayment rows stay.
-        this.prisma.playerLineAccount.deleteMany({ where: { groupId: groupCode } }),
-        // The group's LINE account directory goes too; the accounts themselves are global and
-        // deleted by LineAccountsService.sweep once no group lists them and no link uses them.
-        this.prisma.lineAccountGroup.deleteMany({ where: { groupId: groupCode } }),
-        this.prisma.pendingSlip.deleteMany({ where: { groupId: groupCode } }),
-        this.prisma.slipDuplicate.deleteMany({ where: { groupId: groupCode } }),
-        this.prisma.slipReference.deleteMany({ where: { groupId: groupCode } }),
       ]);
       if (group?.lineGroupId) await this.leaveQuietly(group.lineGroupId);
     });
   }
 
-  /** The bot was removed from the LINE group: same as unlink, minus the leave call, and remembered. */
+  /** The bot was removed from the LINE group: same as unlink (what survives is listed there), minus the leave call, and remembered. */
   async markLeft(lineGroupId: string, now: Date = new Date()): Promise<void> {
     const group = await this.prisma.group.findUnique({ where: { lineGroupId }, select: { code: true } });
     if (!group) return;
     return this.images.withGroupLock(group.code, async () => {
       const current = await this.prisma.group.findUnique({where:{code:group.code},select:{lineGroupId:true}});
       if (current?.lineGroupId !== lineGroupId) return;
-      await this.images.purgeGroup(group.code);
       await this.prisma.$transaction([
         this.prisma.group.update({
           where: { code: group.code },
@@ -201,12 +196,6 @@ export class LineLinkService {
         }),
         this.prisma.lineRosterMessage.deleteMany({ where: { groupId: group.code } }),
         this.prisma.lineLinkCode.deleteMany({ where: { groupId: group.code } }),
-        // Slip links and slips go with the link; recorded SessionPayment rows stay.
-        this.prisma.playerLineAccount.deleteMany({ where: { groupId: group.code } }),
-        this.prisma.lineAccountGroup.deleteMany({ where: { groupId: group.code } }),
-        this.prisma.pendingSlip.deleteMany({ where: { groupId: group.code } }),
-        this.prisma.slipDuplicate.deleteMany({ where: { groupId: group.code } }),
-        this.prisma.slipReference.deleteMany({ where: { groupId: group.code } }),
       ]);
     });
   }

@@ -3130,7 +3130,7 @@
         </context-group>
       </trans-unit>
       <trans-unit id="line.unlinkConfirm" datatype="html">
-        <source>ยกเลิกแล้วบอทจะออกจากกลุ่ม LINE และลบรายชื่อที่จำไว้ ถ้าจะเชื่อมใหม่ต้องเชิญบอทอีกครั้ง</source>
+        <source>ยกเลิกแล้วบอทจะออกจากกลุ่ม LINE และลบข้อความรายชื่อที่จำไว้ ส่วนการผูกบัญชี LINE ของผู้เล่นและสลิปยังอยู่ ถ้าจะเชื่อมใหม่ต้องเชิญบอทอีกครั้ง</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/group-settings-detail/group-settings-detail.html</context>
           <context context-type="linenumber">101,102</context>

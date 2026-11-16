@@ -180,7 +180,7 @@ The bot already keeps the sender's LINE id and name with each roster message it 
 - **Spam and large images.** Anyone in the group can post images. Covered by the queue, size cap and per-group limit in the pipeline; the QR check runs before OCR so ordinary photos never reach OCR.
 - **Pending slips.** A slip waiting for the host needs its own stored record (reference, sender, amount if read, candidate players, time) until resolved, because the image is gone. If the host never resolves it, it simply stays on the list until dismissed.
 - **Player changes.** If players can be deleted or merged, mappings and paid state must follow or be cleaned up. A player may have more than one LINE account (new phone); an account maps to only one player per group.
-- **Removing data.** Unlinking the LINE group or deleting a JubBad group already purges stored roster messages (`server/src/line/line-purge.ts`). The new records (seen accounts, account-to-player links, pending slips, duplicate events, references) must be purged the same way. Whether account-to-player links survive an unlink is an open product call, default: purged.
+- **Removing data.** Unlinking the LINE group or deleting a JubBad group already purges stored roster messages (`server/src/line/line-purge.ts`). The new records (seen accounts, account-to-player links, pending slips, duplicate events, references) must be purged the same way. **Decided 2026-11-16:** account-to-player links, the seen-accounts list and the slip records now **survive** an unlink (owner: a throwaway LINE group's unlink wiped a real group's 15 links); only roster messages and link codes are purged. See `docs/overview.md`, slip payments "Lifecycle".
 
 ## Open decisions (owner must answer before the plan)
 

@@ -443,7 +443,7 @@ export class PaymentCardService implements OnModuleInit {
     });
     // A slip is timed by when it was sent, never by when the host approved it: the host picks the review order, and
     // that must not decide the podium. SlipReference is written at upload and never updated, and it outlives an undo
-    // or a reject. A hand-made tick has no slip, so it keeps its own time (so does a reference swept by a group unlink).
+    // or a reject. A hand-made tick has no slip, so it keeps its own time (so does a reference swept by a group unlink before 2026-11-16).
     const references = payments.flatMap((p) => (p.reference === null ? [] : [p.reference]));
     const uploads = new Map(
       references.length === 0

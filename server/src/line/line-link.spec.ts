@@ -428,17 +428,29 @@ describe('LINE link codes, status and unlink', () => {
       it.each([
         ['unlink', (code: string, _lg: string) => link.unlink(code)],
         ['markLeft', (_code: string, lg: string) => link.markLeft(lg)],
-      ])('%s purges the group slip data but keeps recorded payments and other groups', async (_name, run) => {
+      ])('%s keeps player links, slip records and payments, and clears only what the chat gave', async (_name, run) => {
         const lg = lineId();
         const code = await makeGroup(hostId, { lineGroupId: lg, lineLinkedAt: new Date() });
         const other = await makeGroup(hostId, { lineGroupId: lineId(), lineLinkedAt: new Date() });
         const mine = await seedSlipRows(code);
         const theirs = await seedSlipRows(other);
+        await prisma.lineRosterMessage.create({
+          data: { groupId: code, text: 'roster', postedAt: new Date(), lineMessageId: randomUUID() },
+        });
+        await prisma.lineLinkCode.create({
+          data: { groupId: code, codeHash: randomUUID(), expiresAt: new Date(Date.now() + 5 * MINUTE) },
+        });
         expect(await slipCounts(code)).toEqual({ accounts: 1, pending: 1, duplicates: 1, references: 1 });
 
         await run(code, lg);
 
-        expect(await slipCounts(code)).toEqual({ accounts: 0, pending: 0, duplicates: 0, references: 0 });
+        // The chat's own leftovers and the link itself are gone ...
+        const group = await prisma.group.findUniqueOrThrow({ where: { code } });
+        expect(group.lineGroupId).toBeNull();
+        expect(await prisma.lineRosterMessage.count({ where: { groupId: code } })).toBe(0);
+        expect(await prisma.lineLinkCode.count({ where: { groupId: code } })).toBe(0);
+        // ... while what players and the host set up on the JubBad side stays: nobody has to link again.
+        expect(await slipCounts(code)).toEqual({ accounts: 1, pending: 1, duplicates: 1, references: 1 });
         expect(await prisma.sessionPayment.count({ where: { sessionId: mine.sessionCode } })).toBe(1);
         expect(await slipCounts(other)).toEqual({ accounts: 1, pending: 1, duplicates: 1, references: 1 });
         expect(await prisma.sessionPayment.count({ where: { sessionId: theirs.sessionCode } })).toBe(1);
@@ -447,22 +459,33 @@ describe('LINE link codes, status and unlink', () => {
       it.each([
         ['unlink', (code: string, _lg: string) => link.unlink(code)],
         ['markLeft', (_code: string, lg: string) => link.markLeft(lg)],
-      ])("%s removes the group's LINE account memberships", async (_name, run) => {
+      ])("%s keeps the group's LINE account memberships and the accounts themselves", async (_name, run) => {
         const lg = lineId();
         const code = await makeGroup(hostId, { lineGroupId: lg, lineLinkedAt: new Date() });
         const other = await makeGroup(hostId, { lineGroupId: lineId(), lineLinkedAt: new Date() });
         const mine = await seedSlipRows(code);
         await seedSlipRows(other);
-        // The same LINE user is also known in the other group: that membership must survive.
         await prisma.lineAccountGroup.create({
           data: { group: { connect: { code: other } }, lineAccount: { connect: { lineUserId: mine.lineUserId } }, source: 'roster' },
         });
 
         await run(code, lg);
 
-        expect(await prisma.lineAccountGroup.count({ where: { groupId: code } })).toBe(0);
+        expect(await prisma.lineAccountGroup.count({ where: { groupId: code } })).toBe(1);
         expect(await prisma.lineAccountGroup.count({ where: { groupId: other } })).toBe(2);
         expect(await prisma.lineAccount.count({ where: { lineUserId: mine.lineUserId } })).toBe(1);
+      });
+
+      it('a sender seen after an unlink is not added to the directory, and the old links still stand', async () => {
+        const lg = lineId();
+        const code = await makeGroup(hostId, { lineGroupId: lg, lineLinkedAt: new Date() });
+        await seedSlipRows(code);
+        await link.unlink(code);
+
+        await link.recordSender(code, lg, { lineUserId: `U${randomUUID().replace(/-/g, '')}`, displayName: 'Late', pictureUrl: null });
+
+        expect(await prisma.lineAccountGroup.count({ where: { groupId: code } })).toBe(1);
+        expect(await prisma.playerLineAccount.count({ where: { groupId: code } })).toBe(1);
       });
     });
 

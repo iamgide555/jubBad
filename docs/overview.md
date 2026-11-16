@@ -1398,9 +1398,11 @@ expired code gets one generic Thai reply (it never says which); a sender who has
   latest-roster read stop the moment the plan lapses, with the link kept. A lapsed group shows the
   settings row as "paused" with Unlink as its only action, and resumes by itself on renewal
   (derived from the plan, never stored). Unlink and status always work.
-- **Unlink and delete** ask the bot to leave the LINE group (best effort) and delete everything
-  stored for it, so re-linking means inviting the bot again. Bot removed from the chat: the link is
-  cleared and the settings page says so.
+- **Unlink and delete** ask the bot to leave the LINE group (best effort). **Unlink** (and the bot being
+  removed from the chat) forgets only what the chat gave us (stored roster messages, link codes) and clears
+  the link, so re-linking means inviting the bot again; the settings page says so. Player-to-LINE-account
+  links, the group's account list and the slip records **stay** (changed 2026-11-16, see "Lifecycle"
+  under the slip payments section). **Deleting the JubBad group** still erases everything.
 - **Host DM path (2026-10-28):** the way in for a group that already has another bot (LINE allows
   one Official Account per group chat; see "One bot per group" below). The LINE settings page
   (`/g/:code/settings/line`) shows two cards, "กลุ่ม LINE" (the bot in the group) and "แชตส่วนตัวกับ
@@ -1764,7 +1766,7 @@ decisions behind it:
   (`SlipReference.createdAt`, written at submit, never updated, kept through undo/reject/restore), looked up by the
   payment's `reference`: the host chooses the order they review held slips in, and that must not decide the podium.
   A host or collector **tick** has no slip, so it keeps its own time (`SessionPayment.createdAt`), as does a payment
-  whose reference was swept by a group unlink. Time shown is that minus the session's end. Accepted consequence: a
+  whose reference was swept by a group unlink before 2026-11-16 (unlink no longer sweeps references). Time shown is that minus the session's end. Accepted consequence: a
   cash payer ticked late can win the turtle; a player whose first slip was rejected is timed by the corrected slip. The
   turtle needs **at least 4 ranked** (so it is never also a podium winner) **and at least 30 minutes behind the
   champion** (so a bulk tick or a quick night never crowns a "slowest" by alphabet or by seconds). Ties in time fall to
@@ -1916,7 +1918,7 @@ screen. Keyboard navigation, outside-click dismissal and focus restoration do no
 - Access is pinned to the LINE account the player was linked to when the host picked them
   (`Group.payCollectorLineUserId` beside the player id; `collectorLineUserId` beside the night collector in
   the card), and each request checks that the player's live `PlayerLineAccount` is still that same account.
-  Unlinking that player, or the LINE group being unlinked, ends access at once without touching the card.
+  Unlinking that player ends access at once without touching the card; unlinking the LINE group does not (it no longer removes player links).
   A different LINE account linked to that player later (a self-claim on the pay page after the unlink, or a
   host repoint) does not inherit it: holding tonight's card must never be enough to gain payment powers. The
   host picks again; re-linking the same LINE account restores access. Settings shows a pick that no longer
@@ -1958,9 +1960,14 @@ Bad LINE tokens are throttled by address; bad pay links per viewer per session. 
 send-slip button when both the LIFF app and the LINE Login channel are configured, so a tap never lands on a
 page that cannot verify anyone.
 
-**Lifecycle.** Unlinking the LINE group (or the bot being removed) purges the group's account links,
-LINE account memberships (see below), waiting slips, duplicates and used references; recorded
-`SessionPayment` rows stay. Deleting the JubBad group cascades everything.
+**Lifecycle (changed 2026-11-16).** Unlinking the LINE group (or the bot being removed) leaves the group's
+account links, LINE account memberships, waiting slips, duplicates, used references and slip images alone.
+Owner decision: none of it came from the chat or needs the bot in the group (the pay page works without one),
+and an unlink of a throwaway LINE group once erased a real group's 15 links with no way back. It used to purge
+all of that, which the slip-matching spec had only recorded as an open call "default: purged". Only the chat's own
+leftovers go (roster messages, link codes) with the link itself. Deleting the JubBad group cascades everything.
+A consequence: a collector's access (see the collector section) no longer ends when the LINE group is
+unlinked, only when their own link is removed or repointed.
 
 **Where it lives.** `server/src/sessions/slips/` (matching, QR, OCR, pay-page and host controllers),
 `web/src/app/shared/slip-review/` (the host's review list), `web/src/app/pages/slip-pay/` (the player page).
@@ -2012,10 +2019,10 @@ receive no payment management access. The host can link an account to a player a
 in JubBad. The linked owner's payment access comes from ownership, independently of directory membership. New
 link sightings do not backfill accounts from earlier successful commands.
 
-**Disconnecting the LINE group drops the memberships.** `LineLinkService.unlink` / `markLeft` delete the
-group's `LineAccountGroup` rows with its links and slips; a group-link sender's delayed profile lookup cannot
-recreate a membership after cleanup because insertion shares the group lock and rechecks the live LINE group.
-The global `LineAccount` rows stay until
+**Disconnecting the LINE group keeps the memberships (changed 2026-11-16).** `LineLinkService.unlink` /
+`markLeft` leave the group's `LineAccountGroup` rows, links and slips in place (they used to delete them); a
+group-link sender's delayed profile lookup still cannot add a membership after the disconnect, because
+insertion shares the group lock and rechecks the live LINE group. The global `LineAccount` rows stay until
 `LineAccountsService.sweep` finds that no group lists them and no link uses them.
 
 **Retention.** `sweep` runs from the existing 6-hourly `LinePurgeScheduler` tick. It deletes an *unlinked*

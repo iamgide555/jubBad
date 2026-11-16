@@ -121,7 +121,7 @@
               <button type="button" class="ghost" data-unlink [disabled]="lineBusy()" (click)="lineConfirmingUnlink.set(true)" i18n="@@line.unlink">ยกเลิกการเชื่อม</button>
             } @else {
               <div class="line-confirm">
-                <p i18n="@@line.unlinkConfirm">ยกเลิกแล้วบอทจะออกจากกลุ่ม LINE และลบรายชื่อที่จำไว้ ถ้าจะเชื่อมใหม่ต้องเชิญบอทอีกครั้ง</p>
+                <p i18n="@@line.unlinkConfirm">ยกเลิกแล้วบอทจะออกจากกลุ่ม LINE และลบข้อความรายชื่อที่จำไว้ ส่วนการผูกบัญชี LINE ของผู้เล่นและสลิปยังอยู่ ถ้าจะเชื่อมใหม่ต้องเชิญบอทอีกครั้ง</p>
                 <button type="button" class="danger" data-confirm-unlink [disabled]="lineBusy()" (click)="unlinkLine()" i18n="@@line.confirmUnlink">ยืนยันยกเลิกการเชื่อม</button>
                 <button type="button" class="ghost" data-cancel-unlink (click)="lineConfirmingUnlink.set(false)" i18n="@@line.cancelUnlink">ไม่ยกเลิก</button>
               </div>

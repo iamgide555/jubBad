@@ -103,7 +103,7 @@ export class SignupController {
       this.throttle.recordFailure(ipKey);
       this.throttle.recordFailure(emailKey);
       // One answer for a wrong email and a wrong password, as login does.
-      throw new UnauthorizedException('อีเมลหรือรหัสผ่านไม่ถูกต้อง');
+      throw new UnauthorizedException({ code: 'BAD_CREDENTIALS', message: 'อีเมลหรือรหัสผ่านไม่ถูกต้อง' });
     }
     if (result === 'account-linked') throw new ConflictException({ code: 'ACCOUNT_ALREADY_LINKED' });
     if (result === 'line-taken') throw new ConflictException({ code: 'LINE_ALREADY_LINKED' });

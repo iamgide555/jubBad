@@ -105,8 +105,9 @@ describe('POST /auth/line/status', () => {
   });
 
   it('401 without a token and with a token LINE refuses', async () => {
-    await kit.post('/auth/line/status', undefined, {}).expect(401);
+    const missing = await kit.post('/auth/line/status', undefined, {}).expect(401);
     await kit.post('/auth/line/status', 'not-a-real-token', {}).expect(401);
+    expect(missing.body.code).toBeUndefined();
   });
 });
 
@@ -239,7 +240,8 @@ describe('POST /auth/line/link', () => {
   it('a wrong password is 401 and links nothing', async () => {
     const email = await webAccount();
     const [token] = kit.viewer();
-    await kit.post('/auth/line/link', token, { email, password: 'not the password' }).expect(401);
+    const res = await kit.post('/auth/line/link', token, { email, password: 'not the password' }).expect(401);
+    expect(res.body.code).toBe('BAD_CREDENTIALS');
     expect((await kit.prisma.user.findUniqueOrThrow({ where: { email } })).lineUserId).toBeNull();
   });
 

@@ -8995,6 +8995,272 @@
       <trans-unit id="paymentStatus.addFriendLink" datatype="html">
         <source>เพิ่มเพื่อน</source>
       </trans-unit>
+      <trans-unit id="signup.title" datatype="html">
+        <source>สมัครใช้ JubBad</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/signup/signup.html</context>
+          <context context-type="linenumber">1</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="signup.lede" datatype="html">
+        <source>สมัครฟรี สร้างก๊วนแรกได้ทันที</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/signup/signup.html</context>
+          <context context-type="linenumber">1</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="signup.emailTaken" datatype="html">
+        <source>อีเมลนี้มีบัญชีแล้ว</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/signup/signup.html</context>
+          <context context-type="linenumber">1</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="signup.emailTakenLogin" datatype="html">
+        <source>เข้าสู่ระบบ</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/signup/signup.html</context>
+          <context context-type="linenumber">1</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="signup.passwordShort" datatype="html">
+        <source>รหัสผ่านต้องยาวอย่างน้อย 8 ตัวอักษร</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/signup/signup.html</context>
+          <context context-type="linenumber">1</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="signup.invalid" datatype="html">
+        <source>ตรวจอีเมลและรหัสผ่านอีกครั้ง</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/signup/signup.html</context>
+          <context context-type="linenumber">1</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="signup.error" datatype="html">
+        <source>สมัครไม่สำเร็จ ลองใหม่อีกครั้ง</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/signup/signup.html</context>
+          <context context-type="linenumber">1</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="signup.submit" datatype="html">
+        <source>สร้างบัญชี</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/signup/signup.html</context>
+          <context context-type="linenumber">1</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="signup.viaLine" datatype="html">
+        <source>หรือสมัครผ่าน LINE รับทดลองใช้ครบทุกฟีเจอร์ฟรี 30 วันทันที</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/signup/signup.html</context>
+          <context context-type="linenumber">1</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="signup.haveAccount" datatype="html">
+        <source>มีบัญชีแล้ว? เข้าสู่ระบบ</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/signup/signup.html</context>
+          <context context-type="linenumber">1</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="login.signupLink" datatype="html">
+        <source>ยังไม่มีบัญชี? สมัครใช้ฟรี</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/login/login.html</context>
+          <context context-type="linenumber">1</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="line.loading" datatype="html">
+        <source>กำลังโหลด…</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/line-signup/line-signup.html</context>
+          <context context-type="linenumber">1</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="line.needLogin" datatype="html">
+        <source>เข้าสู่ระบบ LINE เพื่อไปต่อ</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/line-signup/line-signup.html</context>
+          <context context-type="linenumber">1</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="line.unavailable" datatype="html">
+        <source>ยังใช้งานผ่าน LINE ไม่ได้ในตอนนี้</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/line-signup/line-signup.html</context>
+          <context context-type="linenumber">1</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="line.tryAgain" datatype="html">
+        <source>LINE ไม่ตอบ ลองใหม่อีกครั้ง</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/line-signup/line-signup.html</context>
+          <context context-type="linenumber">1</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="line.error" datatype="html">
+        <source>เปิดหน้านี้ไม่สำเร็จ ลองใหม่อีกครั้ง</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/line-signup/line-signup.html</context>
+          <context context-type="linenumber">1</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="line.retry" datatype="html">
+        <source>ลองใหม่</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/line-signup/line-signup.html</context>
+          <context context-type="linenumber">1</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="lineSignup.useWebsite" datatype="html">
+        <source>สมัครด้วยอีเมลแทน</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/line-signup/line-signup.html</context>
+          <context context-type="linenumber">1</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="lineSignup.registered" datatype="html">
+        <source>บัญชี LINE นี้มีบัญชี JubBad แล้ว</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/line-signup/line-signup.html</context>
+          <context context-type="linenumber">1</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="lineSignup.login" datatype="html">
+        <source>เข้าสู่ระบบ</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/line-signup/line-signup.html</context>
+          <context context-type="linenumber">1</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="lineSignup.lineName" datatype="html">
+        <source>บัญชี LINE: <x id="INTERPOLATION" equiv-text="{{ lineName() }}"/></source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/line-signup/line-signup.html</context>
+          <context context-type="linenumber">1</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="lineSignup.trialUsed" datatype="html">
+        <source>บัญชี LINE นี้เคยทดลองใช้แล้ว บัญชีใหม่จะเริ่มที่แพ็ก⁠เกจฟรี</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/line-signup/line-signup.html</context>
+          <context context-type="linenumber">1</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="lineSignup.doneTrial" datatype="html">
+        <source>สมัครแล้ว ทดลองใช้ครบทุกฟีเจอร์ได้ถึง <x id="INTERPOLATION" equiv-text="{{ end }}"/></source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/line-signup/line-signup.html</context>
+          <context context-type="linenumber">1</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="lineSignup.doneFree" datatype="html">
+        <source>สมัครแล้ว เริ่มใช้แพ็ก⁠เกจฟรีได้เลย</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/line-signup/line-signup.html</context>
+          <context context-type="linenumber">1</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="lineSignup.addBotWhy" datatype="html">
+        <source>เพิ่มบอทเป็นเพื่อนเพื่อส่งรายชื่อก๊วนทางแชตได้</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/line-signup/line-signup.html</context>
+          <context context-type="linenumber">1</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="lineSignup.addBot" datatype="html">
+        <source>เพิ่มบอทเป็นเพื่อน</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/line-signup/line-signup.html</context>
+          <context context-type="linenumber">1</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="lineSignup.continue" datatype="html">
+        <source>สร้างก๊วนแรก</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/line-signup/line-signup.html</context>
+          <context context-type="linenumber">1</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="lineLink.title" datatype="html">
+        <source>ผูก LINE กับบัญชี JubBad</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/line-link/line-link.html</context>
+          <context context-type="linenumber">1</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="lineLink.alreadyLinked" datatype="html">
+        <source>บัญชี LINE นี้ผูกกับบัญชี JubBad แล้ว</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/line-link/line-link.html</context>
+          <context context-type="linenumber">1</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="lineLink.lede" datatype="html">
+        <source>ใส่อีเมลและรหัสผ่านของบัญชี JubBad ที่มีอยู่แล้ว</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/line-link/line-link.html</context>
+          <context context-type="linenumber">1</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="lineLink.badCredentials" datatype="html">
+        <source>อีเมลหรือรหัสผ่านไม่ถูกต้อง</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/line-link/line-link.html</context>
+          <context context-type="linenumber">1</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="lineLink.accountLinked" datatype="html">
+        <source>บัญชี JubBad นี้ผูกกับ LINE อื่นอยู่แล้ว</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/line-link/line-link.html</context>
+          <context context-type="linenumber">1</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="lineLink.lineLinked" datatype="html">
+        <source>LINE นี้ผูกกับบัญชี JubBad อื่นอยู่แล้ว</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/line-link/line-link.html</context>
+          <context context-type="linenumber">1</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="lineLink.error" datatype="html">
+        <source>ผูกบัญชีไม่สำเร็จ ลองใหม่อีกครั้ง</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/line-link/line-link.html</context>
+          <context context-type="linenumber">1</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="lineLink.submit" datatype="html">
+        <source>ผูกบัญชี</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/line-link/line-link.html</context>
+          <context context-type="linenumber">1</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="lineLink.done" datatype="html">
+        <source>ผูกแล้ว</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/line-link/line-link.html</context>
+          <context context-type="linenumber">1</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="lineLink.doneTrial" datatype="html">
+        <source>ทดลองใช้ครบทุกฟีเจอร์ได้ถึง <x id="INTERPOLATION" equiv-text="{{ end }}"/></source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/line-link/line-link.html</context>
+          <context context-type="linenumber">1</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="lineLink.howTo" datatype="html">
+        <source>ส่งรายชื่อก๊วนมาที่แชตบอทได้เลย</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/line-link/line-link.html</context>
+          <context context-type="linenumber">1</context>
+        </context-group>
+      </trans-unit>
     </body>
   </file>
 </xliff>

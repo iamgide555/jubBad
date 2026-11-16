@@ -1,0 +1,86 @@
+<div class="page line-link">
+  <h1 i18n="@@lineLink.title">ผูก LINE กับบัญชี JubBad</h1>
+
+  @switch (phase()) {
+    @case ('loading') {
+      <p class="lede" i18n="@@line.loading">กำลังโหลด…</p>
+    }
+    @case ('login') {
+      <p class="lede" i18n="@@line.needLogin">เข้าสู่ระบบ LINE เพื่อไปต่อ</p>
+    }
+    @case ('unavailable') {
+      <p class="lede" data-unavailable i18n="@@line.unavailable">ยังใช้งานผ่าน LINE ไม่ได้ในตอนนี้</p>
+    }
+    @case ('lineDown') {
+      <p class="lede" i18n="@@line.tryAgain">LINE ไม่ตอบ ลองใหม่อีกครั้ง</p>
+      <button type="button" data-retry (click)="load()" i18n="@@line.retry">ลองใหม่</button>
+    }
+    @case ('error') {
+      <p class="lede" i18n="@@line.error">เปิดหน้านี้ไม่สำเร็จ ลองใหม่อีกครั้ง</p>
+      <button type="button" data-retry (click)="load()" i18n="@@line.retry">ลองใหม่</button>
+    }
+    @case ('linked') {
+      <p class="lede" data-already-linked i18n="@@lineLink.alreadyLinked">บัญชี LINE นี้ผูกกับบัญชี JubBad แล้ว</p>
+      <a routerLink="/login" class="button" data-login-link i18n="@@lineSignup.login">เข้าสู่ระบบ</a>
+    }
+    @case ('form') {
+      <p class="lede" i18n="@@lineLink.lede">ใส่อีเมลและรหัสผ่านของบัญชี JubBad ที่มีอยู่แล้ว</p>
+      <p class="line-name" data-line-name i18n="@@lineSignup.lineName">บัญชี LINE: {{ lineName() }}</p>
+
+      <form (ngSubmit)="onSubmit()">
+        <label for="email" i18n="@@login.emailLabel">อีเมล</label>
+        <input
+          id="email"
+          name="email"
+          type="email"
+          autocomplete="username"
+          [ngModel]="email()"
+          (ngModelChange)="email.set($event)"
+        />
+
+        <label for="password" i18n="@@login.passwordLabel">รหัสผ่าน</label>
+        <input
+          id="password"
+          name="password"
+          type="password"
+          autocomplete="current-password"
+          [ngModel]="password()"
+          (ngModelChange)="password.set($event)"
+        />
+
+        @if (problem(); as p) {
+          <p class="error" role="alert" data-error>
+            @switch (p) {
+              @case ('badCredentials') {
+                <ng-container i18n="@@lineLink.badCredentials">อีเมลหรือรหัสผ่านไม่ถูกต้อง</ng-container>
+              }
+              @case ('accountLinked') {
+                <ng-container i18n="@@lineLink.accountLinked">บัญชี JubBad นี้ผูกกับ LINE อื่นอยู่แล้ว</ng-container>
+              }
+              @case ('lineLinked') {
+                <ng-container i18n="@@lineLink.lineLinked">LINE นี้ผูกกับบัญชี JubBad อื่นอยู่แล้ว</ng-container>
+              }
+              @case ('rate') {
+                <ng-container i18n="@@login.throttled">ลองมากเกินไป รอสักครู่แล้วลองใหม่</ng-container>
+              }
+              @default {
+                <ng-container i18n="@@lineLink.error">ผูกบัญชีไม่สำเร็จ ลองใหม่อีกครั้ง</ng-container>
+              }
+            }
+          </p>
+        }
+
+        <button type="submit" [disabled]="busy() || !email().trim() || !password()">
+          <ng-container i18n="@@lineLink.submit">ผูกบัญชี</ng-container>
+        </button>
+      </form>
+    }
+    @case ('done') {
+      <p class="lede" data-done i18n="@@lineLink.done">ผูกแล้ว</p>
+      @if (trialEnd(); as end) {
+        <p class="note" data-trial i18n="@@lineLink.doneTrial">ทดลองใช้ครบทุกฟีเจอร์ได้ถึง {{ end }}</p>
+      }
+      <p class="note" i18n="@@lineLink.howTo">ส่งรายชื่อก๊วนมาที่แชตบอทได้เลย</p>
+    }
+  }
+</div>

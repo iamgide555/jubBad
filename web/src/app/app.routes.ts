@@ -15,6 +15,12 @@ export const routes: Routes = [
     loadComponent: () => import('./pages/login/login').then((m) => m.Login),
   },
   {
+    // Unguarded: whoever wants an account has none yet. The server limits it per address and
+    // gives a new account only the free plan (see SignupController).
+    path: 'signup',
+    loadComponent: () => import('./pages/signup/signup').then((m) => m.Signup),
+  },
+  {
     // Unguarded by necessity: a locked-out host reaching this link has no
     // cookie at all. The token in the URL is the credential — see
     // AuthController#resetPassword.
@@ -143,6 +149,19 @@ export const routes: Routes = [
     // Read-only collector view: LINE identity and confirmed bill token, no host login.
     path: 'line-share/payment-status/:sessionCode/:token',
     loadComponent: () => import('./pages/payment-status/payment-status').then((m) => m.PaymentStatus),
+  },
+  {
+    // Before 'line-share/:sessionCode' so these two literal paths are never read as a session code.
+    // Unguarded: a stranger signing up has no JubBad login; LINE says who they are (the server
+    // checks the LIFF access token with LINE) and the routes behind it are @Public() to match.
+    path: 'line-share/signup',
+    loadComponent: () => import('./pages/line-signup/line-signup').then((m) => m.LineSignup),
+  },
+  {
+    // Unguarded for the same reason: LINE's own browser has no JubBad session. It asks for the
+    // account's email and password and signs no one in.
+    path: 'line-share/link',
+    loadComponent: () => import('./pages/line-link/line-link').then((m) => m.LineLink),
   },
   {
     // Unguarded: LINE opens this in its own browser on the host's phone (via

@@ -1,0 +1,79 @@
+<div class="page signup">
+  <h1 i18n="@@signup.title">สมัครใช้ JubBad</h1>
+  <p class="lede" i18n="@@signup.lede">สมัครฟรี สร้างก๊วนแรกได้ทันที</p>
+
+  <form (ngSubmit)="onSubmit()">
+    <label for="email" i18n="@@login.emailLabel">อีเมล</label>
+    <input
+      id="email"
+      name="email"
+      type="email"
+      autocomplete="username"
+      [ngModel]="email()"
+      (ngModelChange)="email.set($event)"
+    />
+
+    <label for="password" i18n="@@login.passwordLabel">รหัสผ่าน</label>
+    <input
+      id="password"
+      name="password"
+      type="password"
+      autocomplete="new-password"
+      [ngModel]="password()"
+      (ngModelChange)="password.set($event)"
+    />
+
+    <div class="trap" aria-hidden="true">
+      <label for="website">Website</label>
+      <input
+        id="website"
+        name="website"
+        type="text"
+        tabindex="-1"
+        autocomplete="off"
+        data-trap
+        [ngModel]="trap()"
+        (ngModelChange)="trap.set($event)"
+      />
+    </div>
+
+    @if (problem(); as p) {
+      <p class="error" role="alert" data-error>
+        @switch (p) {
+          @case ('taken') {
+            <ng-container i18n="@@signup.emailTaken">อีเมลนี้มีบัญชีแล้ว</ng-container>
+            {{ ' ' }}<a routerLink="/login" i18n="@@signup.emailTakenLogin">เข้าสู่ระบบ</a>
+          }
+          @case ('short') {
+            <ng-container i18n="@@signup.passwordShort">รหัสผ่านต้องยาวอย่างน้อย 8 ตัวอักษร</ng-container>
+          }
+          @case ('rate') {
+            <ng-container i18n="@@login.throttled">ลองมากเกินไป รอสักครู่แล้วลองใหม่</ng-container>
+          }
+          @case ('invalid') {
+            <ng-container i18n="@@signup.invalid">ตรวจอีเมลและรหัสผ่านอีกครั้ง</ng-container>
+          }
+          @default {
+            <ng-container i18n="@@signup.error">สมัครไม่สำเร็จ ลองใหม่อีกครั้ง</ng-container>
+          }
+        }
+      </p>
+    }
+
+    <button type="submit" [disabled]="busy() || !email().trim() || !password()">
+      <ng-container i18n="@@signup.submit">สร้างบัญชี</ng-container>
+    </button>
+  </form>
+
+  @if (lineSignupUrl(); as url) {
+    <p class="via-line">
+      <a [href]="url" data-via-line i18n="@@signup.viaLine">
+        หรือสมัครผ่าน LINE รับทดลองใช้ครบทุกฟีเจอร์ฟรี 30 วันทันที
+      </a>
+    </p>
+  }
+
+  <p class="have-account">
+    <a routerLink="/login" data-login-link i18n="@@signup.haveAccount">มีบัญชีแล้ว? เข้าสู่ระบบ</a>
+  </p>
+</div>

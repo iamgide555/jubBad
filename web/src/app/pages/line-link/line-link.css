@@ -1,0 +1,50 @@
+/* Opens inside LINE's own browser on a phone: one column, big targets. */
+.line-link {
+  padding-top: var(--space-4);
+  max-width: 24rem;
+}
+
+.line-link h1 {
+  font-family: var(--font-display);
+  font-size: clamp(2rem, 8vw, 2.75rem);
+  margin-bottom: var(--space-1);
+}
+
+.line-link .lede {
+  color: var(--ink-soft);
+  margin-bottom: var(--space-3);
+}
+
+.line-link .line-name {
+  font-weight: 600;
+  margin-bottom: var(--space-2);
+}
+
+.line-link .note {
+  color: var(--ink-soft);
+  margin-bottom: var(--space-3);
+}
+
+.line-link form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.line-link button,
+.line-link .button {
+  width: 100%;
+  min-height: 44px;
+  margin-top: var(--space-1);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  text-decoration: none;
+}
+
+.line-link .link {
+  display: inline-block;
+  min-height: 44px;
+  line-height: 44px;
+  color: var(--ink-soft);
+}

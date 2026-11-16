@@ -78,4 +78,10 @@
       }
     </form>
   }
+
+  @if (mode() === 'login') {
+    <p class="signup-prompt">
+      <a routerLink="/signup" data-signup-link i18n="@@login.signupLink">ยังไม่มีบัญชี? สมัครใช้ฟรี</a>
+    </p>
+  }
 </div>

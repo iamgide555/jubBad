@@ -1,6 +1,6 @@
 import { Component, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { ActivatedRoute, Router } from '@angular/router';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { AuthService } from '../../core/auth.service';
 import { SceneHost } from '../../core/three/scene-host';
 
@@ -8,7 +8,7 @@ type Mode = 'login' | 'forgot';
 
 @Component({
   selector: 'app-login',
-  imports: [FormsModule, SceneHost],
+  imports: [FormsModule, RouterLink, SceneHost],
   templateUrl: './login.html',
   styleUrl: './login.css',
 })

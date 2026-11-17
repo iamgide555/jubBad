@@ -223,7 +223,14 @@ docker compose exec -T api node scripts/create-guest-richmenu.mjs
 
 Put the printed line in `server/.env`, then recreate the container: `docker compose up -d api`. A plain
 `docker compose restart` does **not** reload `env_file` changes (see `dockerDeploy.md`). The menu is shown per user, never as the default. With the
-variable unset the bot makes no rich-menu call and everything else works. To change the image, create a new
+variable unset the bot makes no rich-menu call and everything else works.
+
+**Where the menu shows (checked 2026-11-17 on the live bot).** It shows in LINE on a phone, after the chat is
+reopened (a chat that was already open when the bot was added keeps its old bar until then). It did **not** show
+in LINE on an iPad, and a computer is likely the same, so the menu is a convenience and never the only way in.
+Everyone has three other ways: the "สมัครเลย" card the bot replies with on adding it, typing `สมัคร` to the bot,
+and the website's `/signup`. Anything added to a rich menu later (the host menu) needs the same: a typed command or
+a card with a button, not a menu button alone. This matters because the owner runs sessions from an iPad. To change the image, create a new
 menu, set the new id, and delete the old one in the LINE console.
 
 ### Deploy notes for the host sign-up release

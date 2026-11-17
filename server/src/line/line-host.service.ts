@@ -266,9 +266,10 @@ export class LineHostService {
     });
   }
 
+  /** The enabled JubBad account holding this LINE user; a disabled account is nobody here (no rosters, no reset). */
   async userForLineUser(lineUserId: string): Promise<{ id: string } | null> {
-    return this.prisma.user.findUnique({
-      where: { lineUserId },
+    return this.prisma.user.findFirst({
+      where: { lineUserId, disabled: false },
       select: { id: true },
     });
   }

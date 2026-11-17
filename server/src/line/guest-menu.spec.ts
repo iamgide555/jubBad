@@ -31,6 +31,12 @@ describe('GuestMenuService', () => {
     expect(client.linkRichMenu).toHaveBeenCalledTimes(2);
   });
 
+  it('force links again even when this process already did (a follow means LINE has no menu for them now)', async () => {
+    await menu.show('U1');
+    await menu.show('U1', true);
+    expect(client.linkRichMenu).toHaveBeenCalledTimes(2);
+  });
+
   it('hide unlinks and lets a later show link again', async () => {
     await menu.show('U1');
     await menu.hide('U1');

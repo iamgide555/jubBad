@@ -11,6 +11,7 @@ import { LineGroupCommands } from './line-group-commands.js';
 import { LineAccountsService } from './line-accounts.service.js';
 import { LineHostService } from './line-host.service.js';
 import { LineLinkService } from './line-link.service.js';
+import { PasswordResetService } from '../auth/password-reset.service.js';
 import { LineModule } from './line.module.js';
 
 const SECRET = 'test-secret';
@@ -705,12 +706,33 @@ describe('POST /line/webhook', () => {
         expect(fakeClient.unlinkRichMenu).toHaveBeenCalledExactlyOnceWith(line);
       });
 
-      it('any other DM from a guest keeps its old reply and shows the menu', async () => {
+      it('any other DM from a guest gets the sign-up button, not the Host-only code flow, and the menu', async () => {
         configure();
         const line = lineUser();
         await post([dm(line, ROSTER)]).expect(200);
-        expect(fakeClient.reply.mock.calls[0][1]).toContain('/link');
+        signupButtonUri();
+        expect(fakeClient.reply).not.toHaveBeenCalled();
         expect(fakeClient.linkRichMenu).toHaveBeenCalledWith(line, 'RM1');
+      });
+
+      it('a guest’s sticker or photo gets the menu but no reply', async () => {
+        configure();
+        const line = lineUser();
+        await post([{ ...dm(line, ''), message: { type: 'sticker', id: randomUUID() } }]).expect(200);
+        expect(fakeClient.linkRichMenu).toHaveBeenCalledWith(line, 'RM1');
+        expect(fakeClient.reply).not.toHaveBeenCalled();
+        expect(fakeClient.replyMessages).not.toHaveBeenCalled();
+      });
+
+      it('a follow links the menu again even if this process already did, and unfollow forgets', async () => {
+        configure();
+        const line = lineUser();
+        await post([follow(line)]).expect(200);
+        await post([follow(line)]).expect(200);
+        expect(fakeClient.linkRichMenu).toHaveBeenCalledTimes(2);
+        await post([{ type: 'unfollow', timestamp: ts++, source: { type: 'user', userId: line } }]).expect(200);
+        await post([dm(line, 'hello')]).expect(200);
+        expect(fakeClient.linkRichMenu).toHaveBeenCalledTimes(3);
       });
 
       it('a linked host’s DMs never touch the menu', async () => {
@@ -746,6 +768,82 @@ describe('POST /line/webhook', () => {
         expect(fakeClient.linkRichMenu).not.toHaveBeenCalled();
         expect(fakeClient.unlinkRichMenu).not.toHaveBeenCalled();
         expect(fakeClient.replyMessages).not.toHaveBeenCalled();
+      });
+    });
+
+    describe('forgotten password by DM', () => {
+      const ask = (line: string, text = 'ลืมรหัสผ่าน') => post([dm(line, text)]).expect(200);
+      const tokenIn = (reply: string) => /\/reset\/([A-Za-z0-9_-]+)/.exec(reply)?.[1];
+
+      beforeEach(() => {
+        process.env.PUBLIC_APP_URL = 'https://jubbad.example';
+      });
+
+      it('gives a linked host a one-time reset link that really sets a new password', async () => {
+        const line = lineUser();
+        const userId = await makeUser(line);
+        await ask(line);
+        const reply = fakeClient.reply.mock.calls[0][1] as string;
+        expect(reply).toContain('https://jubbad.example/reset/');
+        const token = tokenIn(reply)!;
+        expect(await prisma.passwordReset.count({ where: { userId } })).toBe(1);
+        const resets = app.get(PasswordResetService);
+        expect(await resets.consume(token, 'a brand new password')).toBe(true);
+        expect(await resets.consume(token, 'another password again')).toBe(false);
+      });
+
+      it.each(['/reset', 'รีเซ็ตรหัสผ่าน', ' ลืมรหัสผ่าน '])('answers "%s" the same way', async (text) => {
+        const line = lineUser();
+        await makeUser(line);
+        await ask(line, text);
+        expect(tokenIn(fakeClient.reply.mock.calls[0][1] as string)).toBeTruthy();
+      });
+
+      it('gives someone with no JubBad account the sign-up button, and makes no token', async () => {
+        process.env.LINE_LIFF_ID = 'L1';
+        process.env.LINE_LOGIN_CHANNEL_ID = '999';
+        const before = await prisma.passwordReset.count();
+        await ask(lineUser());
+        expect(fakeClient.reply).not.toHaveBeenCalled();
+        expect(fakeClient.replyMessages).toHaveBeenCalledTimes(1);
+        expect(await prisma.passwordReset.count()).toBe(before);
+      });
+
+      it('gives a disabled host nothing', async () => {
+        const line = lineUser();
+        const userId = await makeUser(line);
+        await prisma.user.update({ where: { id: userId }, data: { disabled: true } });
+        await ask(line);
+        expect(await prisma.passwordReset.count({ where: { userId } })).toBe(0);
+        for (const call of fakeClient.reply.mock.calls) expect(String(call[1])).not.toContain('/reset/');
+      });
+
+      it('never answers in a group chat', async () => {
+        const line = lineUser();
+        const userId = await makeUser(line);
+        await post([textEvent(lineId(), 'ลืมรหัสผ่าน', { userId: line })]).expect(200);
+        expect(fakeClient.reply).not.toHaveBeenCalled();
+        expect(await prisma.passwordReset.count({ where: { userId } })).toBe(0);
+      });
+
+      it('makes no token when the site address is not configured', async () => {
+        delete process.env.PUBLIC_APP_URL;
+        const line = lineUser();
+        const userId = await makeUser(line);
+        await ask(line);
+        expect(await prisma.passwordReset.count({ where: { userId } })).toBe(0);
+        expect(fakeClient.reply).toHaveBeenCalledTimes(1);
+        expect(tokenIn(fakeClient.reply.mock.calls[0][1] as string)).toBeUndefined();
+      });
+
+      it('goes silent after MAX_ATTEMPTS asks from one LINE account in the window', async () => {
+        const line = lineUser();
+        const userId = await makeUser(line);
+        for (let i = 0; i < MAX_ATTEMPTS; i++) await ask(line);
+        fakeClient.reply.mockClear();
+        await ask(line);
+        expect(fakeClient.reply).not.toHaveBeenCalled();
+        expect(await prisma.passwordReset.count({ where: { userId } })).toBe(MAX_ATTEMPTS);
       });
     });
 

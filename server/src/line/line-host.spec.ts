@@ -398,6 +398,8 @@ describe('LINE host link codes, status and unlink', () => {
       expect(row.usedAt).not.toBeNull();
       expect(await host.userForLineUser(line)).toEqual({ id: userId });
       expect(await host.userForLineUser(lineId())).toBeNull();
+      await prisma.user.update({ where: { id: userId }, data: { disabled: true } });
+      expect(await host.userForLineUser(line)).toBeNull();
     });
 
     it('falls back to the group code when the name is blank', async () => {

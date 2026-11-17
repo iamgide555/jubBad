@@ -14,9 +14,10 @@ export class GuestMenuService {
 
   constructor(private readonly client: LineClient) {}
 
-  async show(lineUserId: string): Promise<void> {
+  /** `force` links even if this process remembers doing so: a follow means LINE has no menu for them any more. */
+  async show(lineUserId: string, force = false): Promise<void> {
     const { guestRichMenuId } = lineConfig();
-    if (guestRichMenuId === null || this.shown.has(lineUserId)) return;
+    if (guestRichMenuId === null || (!force && this.shown.has(lineUserId))) return;
     try {
       if (await this.client.linkRichMenu(lineUserId, guestRichMenuId)) this.shown.add(lineUserId);
     } catch {

@@ -1,5 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { LoginThrottle } from '../auth/login-throttle.js';
+import { PasswordResetService } from '../auth/password-reset.service.js';
 import { GuestMenuService } from './guest-menu.service.js';
 import { LineAccountsService } from './line-accounts.service.js';
 import { LineClient, type MemberProfile } from './line-client.js';
@@ -26,6 +27,8 @@ const LINK_COMMAND = /^\/link\s+([A-Za-z0-9]{6})$/i;
 const BILL_COMMAND = /^\/(bill|บิล)$/i;
 /** In a one-to-one chat: ask for the sign-up button. Whole message only, with or without the slash. */
 const SIGNUP_COMMAND = /^\/?(signup|สมัคร)$/i;
+/** In a one-to-one chat: a linked host asks for a link to set a new password. */
+const RESET_COMMAND = /^\/?(reset|ลืมรหัสผ่าน|รีเซ็ตรหัสผ่าน)$/i;
 /** One answer per LINE group per minute, so a repeated /bill cannot make the bot spam the group. */
 const BILL_COOLDOWN_MS = 60_000;
 
@@ -46,6 +49,9 @@ const FOLLOW_TEXT =
 const GUEST_WELCOME_TEXT = 'สำหรับหัวก๊วน: สมัครใช้ JubBad ผ่าน LINE รับทดลองใช้ครบทุกฟีเจอร์ฟรี 30 วัน';
 const SIGNUP_LABEL = 'สมัครเลย';
 
+const resetLinkText = (url: string) =>
+  `ลิงก์ตั้งรหัสผ่านใหม่ (ใช้ได้ครั้งเดียว หมดอายุใน 1 ชั่วโมง):\n${url}\nถ้าไม่ได้เป็นผู้ขอ ไม่ต้องทำอะไร`;
+const RESET_UNAVAILABLE_TEXT = 'ยังส่งลิงก์ตั้งรหัสผ่านใหม่ทางแชตนี้ไม่ได้ในตอนนี้ ติดต่อผู้ดูแล JubBad';
 const alreadyRegisteredText = (publicAppUrl: string | null) =>
   `บัญชี LINE นี้มีบัญชี JubBad แล้ว${publicAppUrl ? ` เข้าสู่ระบบได้ที่ ${publicAppUrl}/login` : ''}`;
 
@@ -69,6 +75,7 @@ export class LineWebhookService {
     private readonly accounts: LineAccountsService,
     private readonly commands: LineGroupCommands,
     private readonly guestMenu: GuestMenuService,
+    private readonly passwordResets: PasswordResetService,
   ) {}
 
   async handleEvent(event: LineEvent): Promise<void> {
@@ -155,20 +162,29 @@ export class LineWebhookService {
 
     switch (event.type) {
       case 'message': {
-        if (event.message?.type !== 'text' || !event.message.id || typeof event.message.text !== 'string') return;
+        if (event.message?.type !== 'text' || !event.message.id || typeof event.message.text !== 'string') {
+          // A sticker or photo from someone with no account: no reply, but they get the menu.
+          if (!(await this.isLinked(lineUserId))) await this.guestMenu.show(lineUserId);
+          return;
+        }
         const command = LINK_COMMAND.exec(event.message.text.trim());
         if (command) {
           await this.onHostLink(lineUserId, command[1], event.replyToken);
           return;
         }
         const linked = await this.isLinked(lineUserId);
+        if (RESET_COMMAND.test(event.message.text.trim())) {
+          await this.onReset(lineUserId, linked, event.replyToken);
+          return;
+        }
+        if (!linked) {
+          // Not a roster for anyone yet: point them at signing up (the code flow they used to be sent to needs the Host plan).
+          await this.send(event.replyToken, this.guestWelcome());
+          await this.guestMenu.show(lineUserId);
+          return;
+        }
         if (SIGNUP_COMMAND.test(event.message.text.trim())) {
-          if (linked) {
-            await this.send(event.replyToken, { kind: 'text', text: alreadyRegisteredText(lineConfig().publicAppUrl) });
-          } else {
-            await this.send(event.replyToken, this.guestWelcome());
-            await this.guestMenu.show(lineUserId);
-          }
+          await this.send(event.replyToken, { kind: 'text', text: alreadyRegisteredText(lineConfig().publicAppUrl) });
           return;
         }
         const postedAt = new Date(typeof event.timestamp === 'number' ? event.timestamp : Date.now());
@@ -176,7 +192,6 @@ export class LineWebhookService {
           lineUserId, lineMessageId: event.message.id, text: event.message.text, postedAt,
         });
         await this.send(event.replyToken, reply);
-        if (!linked) await this.guestMenu.show(lineUserId);
         return;
       }
       case 'postback': {
@@ -190,12 +205,14 @@ export class LineWebhookService {
           return;
         }
         await this.send(event.replyToken, this.guestWelcome());
-        await this.guestMenu.show(lineUserId);
+        // A follow means LINE holds no menu for them now, whatever this process remembers.
+        await this.guestMenu.show(lineUserId, true);
         return;
       }
       case 'unfollow':
         // A blocked bot cannot show buttons, so a held roster can never be chosen. The link stays.
         await this.host.dropPending(lineUserId);
+        this.guestMenu.forget(lineUserId);
         return;
       default:
         return;
@@ -215,6 +232,31 @@ export class LineWebhookService {
     if (replyToken) await this.client.reply(replyToken, linked ? hostLinkedText(linked.groupName) : LINK_FAILED_TEXT);
     // A linked account no longer needs the guest menu. Best effort, after the reply.
     if (linked) await this.guestMenu.hide(lineUserId);
+  }
+
+  /**
+   * "Forgot my password" in the host's own chat: a one-time reset link as a free reply. Only for an enabled account
+   * that has this LINE linked; anyone else gets the guest welcome. Every ask counts, so one LINE account cannot
+   * mint reset links without limit. The link is never logged.
+   */
+  private async onReset(lineUserId: string, linked: boolean, replyToken?: string): Promise<void> {
+    if (!linked) {
+      await this.send(replyToken, this.guestWelcome());
+      await this.guestMenu.show(lineUserId);
+      return;
+    }
+    const key = `line:reset:${lineUserId}`;
+    if (!this.throttle.check(key)) return;
+    this.throttle.recordFailure(key);
+    const { publicAppUrl } = lineConfig();
+    if (publicAppUrl === null) {
+      if (replyToken) await this.client.reply(replyToken, RESET_UNAVAILABLE_TEXT);
+      return;
+    }
+    const user = await this.host.userForLineUser(lineUserId);
+    if (!user) return;
+    const token = await this.passwordResets.issue(user.id);
+    if (replyToken) await this.client.reply(replyToken, resetLinkText(`${publicAppUrl}/reset/${token}`));
   }
 
   /** Whether a JubBad account holds this LINE user; guests are everyone else in a one-to-one chat. */

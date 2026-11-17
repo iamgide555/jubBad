@@ -638,12 +638,15 @@ export class PaymentCardService implements OnModuleInit {
     if (!config.secret || !config.token || !config.publicAppUrl) return null;
     const group = await this.prisma.group.findUnique({ where: { lineGroupId }, select: { code: true } });
     if (group === null) return null;
-    if (!planAtLeast(await this.plans.planForGroup(group.code, now), 'host')) return null;
     const latest = await this.prisma.session.findFirst({
       where: { groupId: group.code, endedAt: { not: null } },
       orderBy: { endedAt: 'desc' },
       select: { code: true },
     });
+    // Paid today, or the latest night began while the plan was paid (money is often collected after a plan ran out).
+    const paidNow = planAtLeast(await this.plans.planForGroup(group.code, now), 'host');
+    const paidThen = latest !== null && planAtLeast(await this.plans.planAtSessionCreation(latest.code), 'host');
+    if (!paidNow && !paidThen) return null;
     if (latest === null) return [text('ยังไม่มีบิล')];
     const code = latest.code;
 

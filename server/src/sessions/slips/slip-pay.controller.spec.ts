@@ -148,6 +148,16 @@ describe('slip pay-page routes (public, token-gated)', () => {
       expect(await kit.prisma.playerLineAccount.count({ where: { lineUserId: users.get(access)!.userId } })).toBe(0);
     });
 
+    it('still answers for a night that began while the plan was paid, after the plan lapsed', async () => {
+      const lapsed = await kit.owner('host', new Date(Date.now() - 86_400_000));
+      const { code, token } = await kit.setup(lapsed.id);
+      // The night began two days ago, a day before the plan ran out: collecting money the next morning must still work.
+      await kit.prisma.session.update({ where: { code }, data: { createdAt: new Date(Date.now() - 2 * 86_400_000) } });
+      const [access] = viewer();
+      expect((await get(code, q(token), access)).status).toBe(200);
+      expect((await status(code, q(token), access)).status).toBe(200);
+    });
+
     it('answers 404 when no card is confirmed', async () => {
       const { code, token } = await setupSession();
       await kit.prisma.session.update({ where: { code }, data: { paymentCard: null } });

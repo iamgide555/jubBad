@@ -218,7 +218,8 @@ export class LineSummaryService {
       return null;
     }
 
-    if (!planAtLeast(await this.plans.planForGroup(session.groupId, now), 'host')) return null;
+    // Judged by the plan the night began under, so a plan that runs out mid-night does not stop its summary card.
+    if (!planAtLeast(await this.plans.planAtSessionCreation(session.code), 'host')) return null;
     const games = await this.prisma.pairing.count({ where: { sessionId: session.code, ...FINISHED_GAME } });
     return games > 0 ? resolved : null;
   }

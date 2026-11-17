@@ -915,7 +915,7 @@ export class SlipPaymentsService {
     return byPlayer ? 'player-taken' : null;
   }
 
-  /** Null when the slip cannot count here: wrong or old token, a plan below host (lapsed counts as free), or no confirmed card. */
+  /** Null when the slip cannot count here: wrong or old token, a plan below host when the night began (lapsed counts as free), or no confirmed card. */
   private async gate(code: string, token: string | undefined, now: Date): Promise<SubmitGate | null> {
     if (!(await this.cards.tokenValid(code, token))) return null;
     const session = await this.prisma.session.findUnique({
@@ -923,7 +923,9 @@ export class SlipPaymentsService {
       select: { groupId: true, paymentCollectionClosedAt: true, date: true, endedAt: true, createdAt: true, group: { select: { payAccount: true } } },
     });
     if (!session) return null;
-    if (!planAtLeast(await this.plans.planForGroup(session.groupId, now), 'host')) return null;
+    // The plan the night began under, not today's: money is collected the morning after, and a trial or plan that
+    // ran out at midnight must not shut the pay page on a night that began while it was paid.
+    if (!planAtLeast(await this.plans.planAtSessionCreation(code), 'host')) return null;
     const panel = await this.cards.panel(code, now);
     if (!panel.confirmed) return null;
     // The group's current saved name, not tonight's frozen account, so a fixed name helps every slip from now on.

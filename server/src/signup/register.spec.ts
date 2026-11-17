@@ -128,4 +128,19 @@ describe('website sign-up', () => {
     const off = await request(server).get('/auth/signup-info').expect(200);
     expect(off.body).toEqual({ liffId: null, lineSignupUrl: null, botAddUrl: null });
   });
+
+  it('takes JSON only: a cross-site form post cannot create an account or a session', async () => {
+    const email = newEmail();
+    await request(server).post('/auth/register').type('form').send({ email, password: PASSWORD }).expect(415);
+    await request(server).post('/auth/register').type('text').send(JSON.stringify({ email, password: PASSWORD })).expect(415);
+    expect(await prisma.user.findUnique({ where: { email } })).toBeNull();
+  });
+
+  it('and so does /auth/login', async () => {
+    const email = newEmail();
+    await app.get(UsersService).create(email, PASSWORD);
+    const res = await request(server).post('/auth/login').type('form').send({ email, password: PASSWORD }).expect(415);
+    expect(res.headers['set-cookie']).toBeUndefined();
+  });
 });
+

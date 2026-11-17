@@ -9,12 +9,14 @@ import {
   Req,
   Res,
   UnauthorizedException,
+  UseGuards,
 } from '@nestjs/common';
 import type { Request, Response } from 'express';
 import { resolveSessionUser } from './auth.guard.js';
 import { LoginThrottle } from './login-throttle.js';
 import { PasswordResetService } from './password-reset.service.js';
 import { Public } from './public.decorator.js';
+import { RequireJsonGuard } from './require-json.guard.js';
 import { packSession, SESSION_COOKIE } from './session.js';
 import { sessionCookieOptions } from './session-cookie.js';
 import { ForgotPasswordDto } from './dto/forgot-password.dto.js';
@@ -39,6 +41,7 @@ export class AuthController {
   ) {}
 
   @Post('login')
+  @UseGuards(RequireJsonGuard)
   async login(
     @Body() dto: LoginDto,
     @Req() req: Request,

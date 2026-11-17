@@ -197,12 +197,12 @@ export class LineSummaryService {
   /**
    * Where the card goes, or null when it cannot go anywhere. A group linked to a LINE group posts there unless
    * roster-only is on, whether or not its host DM switch is on. Otherwise the host target needs the DM switch, an owner who linked their own
-   * LINE account, and the LIFF app behind the share button. Both need the bot configured, a paid plan (read now,
-   * so a lapsed plan stops it) and a finished game. The session may still be open: only `send` requires it ended.
+   * LINE account, and the LIFF app behind the share button. Both need the bot configured, a paid plan (the one the night began under,
+   * so a plan that runs out mid-night does not stop its card) and a finished game. The session may still be open: only `send` requires it ended.
    */
   private async resolve(
     session: SessionForSummary,
-    now: Date
+    _now: Date
   ): Promise<{ target: LineSummaryTarget; to: string; shareUrl: string | null } | null> {
     const config = lineConfig();
     if (!config.secret || !config.token || !config.publicAppUrl) return null;

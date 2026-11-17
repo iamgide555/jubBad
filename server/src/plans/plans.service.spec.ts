@@ -6,6 +6,7 @@ import { PrismaModule } from '../prisma/prisma.module.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { GroupsModule } from '../groups/groups.module.js';
 import { PlansService } from './plans.service.js';
+import { trialRenewsAt } from './trial.js';
 
 describe('PlansService', () => {
   let app: INestApplication;
@@ -131,7 +132,7 @@ describe('PlansService', () => {
     const owner = await makeUser({ plan: 'free' });
     const code = await makeGroup(owner.id);
     const res = await request(server).get(`/groups/${code}/plan`).expect(200);
-    expect(res.body).toEqual({ plan: 'free', renewsAt: null, lapsedAt: null, paused: false, archiveHidden: 0 });
+    expect(res.body).toEqual({ plan: 'free', renewsAt: null, lapsedAt: null, paused: false, archiveHidden: 0, trial: false });
   });
 
   it('GET /groups/:code/plan reports the renewal date as ISO', async () => {
@@ -145,6 +146,7 @@ describe('PlansService', () => {
       lapsedAt: null,
       paused: false,
       archiveHidden: 0,
+      trial: false,
     });
   });
 
@@ -223,6 +225,7 @@ describe('PlansService', () => {
       lapsedAt: renewsAt.toISOString(),
       paused: false,
       archiveHidden: 2,
+      trial: false,
     });
   });
 
@@ -240,6 +243,33 @@ describe('PlansService', () => {
     expect(await plans.describeCaller({ id: admin.id, role: 'admin' })).toMatchObject({
       plan: 'club',
       groupLimit: null,
+    });
+  });
+
+  describe('the trial flag', () => {
+    const trialUser = async () => {
+      const user = await makeUser({ plan: 'host', planRenewsAt: trialRenewsAt(new Date()) });
+      const lineUserId = `U${randomUUID().replace(/-/g, '')}`;
+      await prisma.trialRecord.create({ data: { lineUserId, userId: user.id } });
+      return { user, lineUserId };
+    };
+
+    it('describeCaller and describeGroup say a trial host is on a trial', async () => {
+      const { user, lineUserId } = await trialUser();
+      const code = await makeGroup(user.id);
+      try {
+        expect((await plans.describeCaller({ id: user.id, role: 'host' })).trial).toBe(true);
+        expect((await plans.describeGroup(code))?.trial).toBe(true);
+      } finally {
+        await prisma.trialRecord.delete({ where: { lineUserId } });
+      }
+    });
+
+    it('a host on a paid Host plan with no trial record is not on a trial', async () => {
+      const user = await makeUser({ plan: 'host', planRenewsAt: trialRenewsAt(new Date()) });
+      const code = await makeGroup(user.id);
+      expect((await plans.describeCaller({ id: user.id, role: 'host' })).trial).toBe(false);
+      expect((await plans.describeGroup(code))?.trial).toBe(false);
     });
   });
 

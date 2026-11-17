@@ -17,3 +17,17 @@ export function trialRenewsAt(now: Date): Date {
   const startOfDay = new Date(`${bangkokDay}T00:00:00.000+07:00`).getTime();
   return new Date(startOfDay + (TRIAL_DAYS + 1) * DAY_MS - 1);
 }
+
+/**
+ * Whether a Host plan is the free trial rather than a paid one. Nothing stores the difference, so it is read from
+ * the account's trial record: a Host plan ending where a trial started then would end (a day of slack for the
+ * moment the record was written). An admin who later sets a longer end date makes it a paid plan again.
+ */
+export function isTrial(
+  user: { plan: string; planRenewsAt: Date | null },
+  record: { createdAt: Date } | null
+): boolean {
+  if (record === null || user.plan !== TRIAL_PLAN || user.planRenewsAt === null) return false;
+  return user.planRenewsAt.getTime() <= trialRenewsAt(record.createdAt).getTime() + DAY_MS;
+}
+

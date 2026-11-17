@@ -219,11 +219,28 @@ describe('POST /auth/line/link', () => {
     const email = await webAccount();
     const [token, line] = kit.viewer();
     const res = await kit.post('/auth/line/link', token, { email, password: PASSWORD }).expect(200);
-    expect(res.body).toEqual({ linked: true, trialUntil: expect.any(String) });
+    expect(res.body).toEqual({ linked: true, trialUntil: expect.any(String), botFriend: true });
     expect(res.headers['set-cookie']).toBeUndefined();
     const user = await kit.prisma.user.findUniqueOrThrow({ where: { email } });
     expect(user).toMatchObject({ lineUserId: line.userId, plan: 'host' });
     expect(user.planRenewsAt?.toISOString()).toBe(res.body.trialUntil);
+  });
+
+  it('says whether the LINE account is a friend of the bot, so the page can ask them to add it', async () => {
+    const [a] = kit.viewer();
+    kit.line.friendStatus.mockResolvedValueOnce(false);
+    expect((await kit.post('/auth/line/link', a, { email: await webAccount(), password: PASSWORD }).expect(200)).body.botFriend).toBe(false);
+    const [b] = kit.viewer();
+    kit.line.friendStatus.mockRejectedValueOnce(new Error('LINE is down'));
+    expect((await kit.post('/auth/line/link', b, { email: await webAccount(), password: PASSWORD }).expect(200)).body.botFriend).toBeNull();
+  });
+
+  it('links an older account whose password is shorter than a new one may be, as login accepts it', async () => {
+    const email = kit.newEmail();
+    await kit.app.get(UsersService).create(email, 'short');
+    const [token, line] = kit.viewer();
+    await kit.post('/auth/line/link', token, { email, password: 'short' }).expect(200);
+    expect((await kit.prisma.user.findUniqueOrThrow({ where: { email } })).lineUserId).toBe(line.userId);
   });
 
   it('links a club account and leaves its plan alone', async () => {
@@ -415,3 +432,24 @@ describe('throttles on the LINE routes: login failures reach link', () => {
     await kit.post('/auth/line/link', token, { email, password: PASSWORD }).expect(429);
   });
 });
+
+describe('public auth routes take JSON only', () => {
+  let kit: Kit;
+  beforeAll(async () => {
+    kit = await boot();
+  });
+  afterAll(() => kit.cleanup());
+
+  it('refuses a form post to /auth/line/signup, so another site cannot sign a visitor in to its own account', async () => {
+    const [token, line] = kit.viewer();
+    const email = kit.newEmail();
+    await request(kit.server)
+      .post('/auth/line/signup')
+      .set('X-Line-Access-Token', token)
+      .type('form')
+      .send({ email, password: PASSWORD })
+      .expect(415);
+    expect(await kit.prisma.user.count({ where: { lineUserId: line.userId } })).toBe(0);
+  });
+});
+

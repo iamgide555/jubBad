@@ -1,3 +1,4 @@
+import { Logger } from '@nestjs/common';
 import { vi } from 'vitest';
 import { GuestMenuService } from './guest-menu.service.js';
 import type { LineClient } from './line-client.js';
@@ -51,6 +52,15 @@ describe('GuestMenuService', () => {
     expect(client.unlinkRichMenu).not.toHaveBeenCalled();
     await menu.show('U1');
     expect(client.linkRichMenu).toHaveBeenCalledTimes(2);
+  });
+
+  it('says so once in the log when LINE refuses the menu, so a wrong id is not silent', async () => {
+    const warn = vi.spyOn(Logger.prototype, 'warn').mockImplementation(() => undefined);
+    client.linkRichMenu.mockResolvedValue(false);
+    await menu.show('U1');
+    await menu.show('U2');
+    expect(warn).toHaveBeenCalledTimes(1);
+    warn.mockRestore();
   });
 
   it('never throws when LINE does', async () => {

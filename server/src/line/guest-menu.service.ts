@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { LineClient } from './line-client.js';
 import { lineConfig } from './line-config.js';
 
@@ -11,6 +11,8 @@ import { lineConfig } from './line-config.js';
 export class GuestMenuService {
   /** Who this process already linked the menu to, so the bot does not call LINE on every DM. It may reset on deploy. */
   private readonly shown = new Set<string>();
+  private readonly logger = new Logger(GuestMenuService.name);
+  private warned = false;
 
   constructor(private readonly client: LineClient) {}
 
@@ -20,6 +22,7 @@ export class GuestMenuService {
     if (guestRichMenuId === null || (!force && this.shown.has(lineUserId))) return;
     try {
       if (await this.client.linkRichMenu(lineUserId, guestRichMenuId)) this.shown.add(lineUserId);
+      else this.warnOnce();
     } catch {
       // A menu failure never blocks a reply or a sign-up.
     }
@@ -38,5 +41,12 @@ export class GuestMenuService {
   /** Only drops the memory, so the next message from this user shows the menu again (their account was unlinked). */
   forget(lineUserId: string): void {
     this.shown.delete(lineUserId);
+  }
+
+  /** A wrong or deleted LINE_GUEST_RICHMENU_ID would otherwise fail silently on every message. */
+  private warnOnce(): void {
+    if (this.warned) return;
+    this.warned = true;
+    this.logger.warn('LINE did not link the guest rich menu; check LINE_GUEST_RICHMENU_ID (shown once)');
   }
 }

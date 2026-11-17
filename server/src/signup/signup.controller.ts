@@ -10,14 +10,17 @@ import {
   Res,
   UnauthorizedException,
   ConflictException,
+  UseGuards,
 } from '@nestjs/common';
 import type { Request, Response } from 'express';
 import { LoginThrottle } from '../auth/login-throttle.js';
 import { Public } from '../auth/public.decorator.js';
+import { RequireJsonGuard } from '../auth/require-json.guard.js';
 import { packSession, SESSION_COOKIE } from '../auth/session.js';
 import { sessionCookieOptions } from '../auth/session-cookie.js';
 import { LiffIdentity, type LiffUser } from '../line/liff-identity.js';
 import { CredentialsDto } from './dto/credentials.dto.js';
+import { LinkDto } from './dto/link.dto.js';
 import { RegisterDto } from './dto/register.dto.js';
 import { SignupService, type LineStatus, type SignupInfo } from './signup.service.js';
 
@@ -34,6 +37,7 @@ const TOO_MANY = 'ลองใหม่อีกครั้งภายหล�
  * 503 `LiffIdentity.verify` throws, which says nothing about the caller and is never counted.
  */
 @Public()
+@UseGuards(RequireJsonGuard)
 @Controller('auth')
 export class SignupController {
   constructor(
@@ -99,7 +103,10 @@ export class SignupController {
   /** Does not sign the browser in: the page runs in LINE's own browser, not on the host's devices. */
   @Post('line/link')
   @HttpCode(200)
-  async lineLink(@Body() dto: CredentialsDto, @Req() req: Request): Promise<{ linked: true; trialUntil: string | null }> {
+  async lineLink(
+    @Body() dto: LinkDto,
+    @Req() req: Request
+  ): Promise<{ linked: true; trialUntil: string | null; botFriend: boolean | null }> {
     const line = await this.viewer(req);
     const ipKey = this.ipKey(req);
     const emailKey = `email:${dto.email.trim().toLowerCase()}`;
@@ -116,7 +123,7 @@ export class SignupController {
     if (result === 'line-taken') throw new ConflictException({ code: 'LINE_ALREADY_LINKED' });
     this.throttle.recordSuccess(ipKey);
     this.throttle.recordSuccess(emailKey);
-    return { linked: true, trialUntil: result.trialUntil?.toISOString() ?? null };
+    return { linked: true, trialUntil: result.trialUntil?.toISOString() ?? null, botFriend: result.botFriend };
   }
 
   private ipKey(req: Request): string {

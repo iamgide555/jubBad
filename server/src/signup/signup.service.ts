@@ -122,7 +122,7 @@ export class SignupService {
     email: string,
     password: string,
     now: Date = new Date()
-  ): Promise<{ trialUntil: Date | null } | LinkRefusal> {
+  ): Promise<{ trialUntil: Date | null; botFriend: boolean | null } | LinkRefusal> {
     const user = await this.users.verifyCredentials(email, password);
     if (!user) return 'bad-credentials';
     const outcome = await this.lock.run(`line:${line.userId}`, async () => {
@@ -149,8 +149,9 @@ export class SignupService {
         throw error;
       }
     });
-    if (typeof outcome !== 'string') await this.guestMenu.hide(line.userId);
-    return outcome;
+    if (typeof outcome === 'string') return outcome;
+    await this.guestMenu.hide(line.userId);
+    return { trialUntil: outcome.trialUntil, botFriend: await this.friendOfBot(line.userId) };
   }
 
   /** Whether the LINE account has the bot as a friend; null when LINE cannot say. Never throws. */

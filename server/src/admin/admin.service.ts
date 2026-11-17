@@ -10,6 +10,12 @@ import { effectivePlan, GROUP_LIMIT } from '../plans/plan.js';
 import type { UpdateUserDto } from './dto/update-user.dto.js';
 import type { GroupDisposition } from './dto/delete-user.dto.js';
 
+/** A user row without what must never leave the server: the password hash and the session counter. */
+function publicUser<T extends { passwordHash: string; tokenVersion: number }>(user: T): Omit<T, 'passwordHash' | 'tokenVersion'> {
+  const { passwordHash: _hash, tokenVersion: _version, ...rest } = user;
+  return rest;
+}
+
 @Injectable()
 export class AdminService {
   constructor(
@@ -49,7 +55,7 @@ export class AdminService {
 
   async createUser(dto: CreateUserDto) {
     try {
-      return await this.usersService.create(dto.email, dto.password, dto.role ?? 'host');
+      return publicUser(await this.usersService.create(dto.email, dto.password, dto.role ?? 'host'));
     } catch (error) {
       if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
         throw new ConflictException('อีเมลนี้ถูกใช้แล้ว');
@@ -63,10 +69,12 @@ export class AdminService {
     if (!user) throw new NotFoundException();
 
     try {
-      return await this.prisma.user.update({
-        where: { id },
-        data: { email: dto.email?.trim().toLowerCase(), role: dto.role },
-      });
+      return publicUser(
+        await this.prisma.user.update({
+          where: { id },
+          data: { email: dto.email?.trim().toLowerCase(), role: dto.role },
+        })
+      );
     } catch (error) {
       if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
         throw new ConflictException('อีเมลนี้ถูกใช้แล้ว');
@@ -123,12 +131,14 @@ export class AdminService {
     const user = await this.prisma.user.findUnique({ where: { id } });
     if (!user) throw new NotFoundException();
 
-    return this.prisma.user.update({
-      where: { id },
-      data: disabled
-        ? { disabled: true, tokenVersion: { increment: 1 } }
-        : { disabled: false },
-    });
+    return publicUser(
+      await this.prisma.user.update({
+        where: { id },
+        data: disabled
+          ? { disabled: true, tokenVersion: { increment: 1 } }
+          : { disabled: false },
+      })
+    );
   }
 
   /** Mints a one-time reset URL token. Returned once — nothing stores it raw. */

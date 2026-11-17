@@ -122,6 +122,23 @@ describe('admin module', () => {
     }
   });
 
+  it('never returns a password hash or session counter from the user routes', async () => {
+    const email = `strip-${randomUUID()}@example.test`;
+    const created = await request(server).post('/admin/users').set('Cookie', adminCookie).send({ email, password: 'long enough password' }).expect(201);
+    const id = created.body.id as string;
+    try {
+      const updated = await request(server).put(`/admin/users/${id}`).set('Cookie', adminCookie).send({ email: `renamed-${email}` }).expect(200);
+      const disabled = await request(server).post(`/admin/users/${id}/disabled`).set('Cookie', adminCookie).send({ disabled: true }).expect(201);
+      for (const body of [created.body, updated.body, disabled.body]) {
+        expect(body).not.toHaveProperty('passwordHash');
+        expect(body).not.toHaveProperty('tokenVersion');
+        expect(body).toHaveProperty('id', id);
+      }
+    } finally {
+      await prisma.user.deleteMany({ where: { id } });
+    }
+  });
+
   it('lists where each user came from and whether their trial is used', async () => {
     const line = `U${randomUUID().replace(/-/g, '')}`;
     await prisma.user.update({ where: { id: hostId }, data: { signupSource: 'web' } });

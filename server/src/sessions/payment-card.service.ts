@@ -645,7 +645,7 @@ export class PaymentCardService implements OnModuleInit {
     });
     // Paid today, or the latest night began while the plan was paid (money is often collected after a plan ran out).
     const paidNow = planAtLeast(await this.plans.planForGroup(group.code, now), 'host');
-    const paidThen = latest !== null && planAtLeast(await this.plans.planAtSessionCreation(latest.code), 'host');
+    const paidThen = latest !== null && planAtLeast(await this.plans.planForSessionRead(latest.code, now), 'host');
     if (!paidNow && !paidThen) return null;
     if (latest === null) return [text('ยังไม่มีบิล')];
     const code = latest.code;

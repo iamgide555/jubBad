@@ -923,9 +923,9 @@ export class SlipPaymentsService {
       select: { groupId: true, paymentCollectionClosedAt: true, date: true, endedAt: true, createdAt: true, group: { select: { payAccount: true } } },
     });
     if (!session) return null;
-    // The plan the night began under, not today's: money is collected the morning after, and a trial or plan that
-    // ran out at midnight must not shut the pay page on a night that began while it was paid.
-    if (!planAtLeast(await this.plans.planAtSessionCreation(code), 'host')) return null;
+    // The plan the night began under, for a few days after it ended: money is collected the morning after, and a trial or
+    // plan that ran out at midnight must not shut the pay page on a night that began while it was paid.
+    if (!planAtLeast(await this.plans.planForSessionRead(code, now), 'host')) return null;
     const panel = await this.cards.panel(code, now);
     if (!panel.confirmed) return null;
     // The group's current saved name, not tonight's frozen account, so a fixed name helps every slip from now on.

@@ -166,7 +166,7 @@ describe('plan gates on paid session controls', () => {
       expect(row.ratingDelta).toBeNull();
     });
 
-    it('keeps ratings for a night that began while paid and is still running, after the plan lapsed', async () => {
+    it('keeps ratings for a night that began while paid, for a few days after, once the plan lapsed', async () => {
       const lapsed = await prisma.user.create({
         data: {
           email: `gate-lapsed-${randomUUID()}@example.test`, passwordHash: 'test', role: 'host', plan: 'host',
@@ -179,10 +179,13 @@ describe('plan gates on paid session controls', () => {
         await prisma.session.update({ where: { code: f.sessionCode }, data: { createdAt: new Date(Date.now() - 2 * 86_400_000) } });
         const running = (await sessions.getPlayerPanel(f.sessionCode)).find((r) => r.playerId === f.players[0].id)!;
         expect(running.ratingDelta).toBe(0);
-        // Once the night is over, the panel reads the owner's plan at read time, as before.
-        await prisma.session.update({ where: { code: f.sessionCode }, data: { endedAt: new Date() } });
-        const ended = (await sessions.getPlayerPanel(f.sessionCode)).find((r) => r.playerId === f.players[0].id)!;
-        expect(ended.ratingDelta).toBeNull();
+        // A day after it ends, still the plan it began under; days later, the owner's plan now.
+        await prisma.session.update({ where: { code: f.sessionCode }, data: { endedAt: new Date(Date.now() - 86_400_000) } });
+        const soon = (await sessions.getPlayerPanel(f.sessionCode)).find((r) => r.playerId === f.players[0].id)!;
+        expect(soon.ratingDelta).toBe(0);
+        await prisma.session.update({ where: { code: f.sessionCode }, data: { endedAt: new Date(Date.now() - 5 * 86_400_000) } });
+        const later = (await sessions.getPlayerPanel(f.sessionCode)).find((r) => r.playerId === f.players[0].id)!;
+        expect(later.ratingDelta).toBeNull();
       } finally {
         await f.cleanup();
         await prisma.user.delete({ where: { id: lapsed.id } });

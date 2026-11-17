@@ -84,4 +84,25 @@ describe('PasswordResetService', () => {
 
     await prisma.passwordResetRequest.deleteMany({ where: { email } });
   });
+
+  it('ends every other live token for the user once one is used', async () => {
+    const first = await resets.issue(userId);
+    const second = await resets.issue(userId);
+    // Issuing a new link retires the earlier one, so only the newest can work.
+    expect(await resets.consume(first, 'a password that never gets set')).toBe(false);
+    expect(await resets.consume(second, 'a brand new password')).toBe(true);
+    const third = await resets.issue(userId);
+    expect(await resets.consume(third, 'yet another password')).toBe(true);
+  });
+
+  it('a token minted before a successful reset cannot be used after it', async () => {
+    const old = await resets.issue(userId);
+    // Another live token minted by another door (the same user, a second link) is also ended by a successful reset.
+    await prisma.passwordReset.create({
+      data: { userId, tokenHash: `manual-${randomUUID()}`, expiresAt: new Date(Date.now() + 3_600_000) },
+    });
+    expect(await resets.consume(old, 'a brand new password')).toBe(true);
+    expect(await prisma.passwordReset.count({ where: { userId, usedAt: null } })).toBe(0);
+  });
 });
+

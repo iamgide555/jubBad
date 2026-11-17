@@ -246,6 +246,48 @@ describe('PlansService', () => {
     });
   });
 
+  describe('planForSessionRead (the plan a night is read under)', () => {
+    const DAY = 86_400_000;
+    const night = async (owner: { plan: string; planRenewsAt: Date | null }, createdDaysAgo: number, endedDaysAgo: number | null) => {
+      const user = await makeUser(owner);
+      const code = await makeGroup(user.id);
+      const session = `psr-${randomUUID().slice(0, 8)}`;
+      sessionCodes.push(session);
+      await prisma.session.create({
+        data: {
+          code: session, groupId: code, rawImportText: '',
+          createdAt: new Date(Date.now() - createdDaysAgo * DAY),
+          endedAt: endedDaysAgo === null ? null : new Date(Date.now() - endedDaysAgo * DAY),
+        },
+      });
+      return session;
+    };
+    const lapsedYesterday = { plan: 'host', planRenewsAt: new Date(Date.now() - DAY) };
+
+    it('is the plan the night began under, for three days after it ended', async () => {
+      expect(await plans.planForSessionRead(await night(lapsedYesterday, 2, 1))).toBe('host');
+      expect(await plans.planForSessionRead(await night(lapsedYesterday, 5, 2.9))).toBe('host');
+    });
+
+    it('is the owner\'s plan now once more than three days have passed', async () => {
+      expect(await plans.planForSessionRead(await night(lapsedYesterday, 8, 4))).toBe('free');
+    });
+
+    it('measures a night that was never ended from when it began, so it cannot stay paid for ever', async () => {
+      expect(await plans.planForSessionRead(await night(lapsedYesterday, 2, null))).toBe('host');
+      expect(await plans.planForSessionRead(await night(lapsedYesterday, 5, null))).toBe('free');
+    });
+
+    it('never reads lower than the plan now (an upgrade after the night began counts)', async () => {
+      const upgraded = { plan: 'host', planRenewsAt: null };
+      expect(await plans.planForSessionRead(await night(upgraded, 20, 19))).toBe('host');
+    });
+
+    it('is club for a session that does not exist, so the caller\'s own 404 decides', async () => {
+      expect(await plans.planForSessionRead('no-such-session')).toBe('club');
+    });
+  });
+
   describe('the trial flag', () => {
     const trialUser = async () => {
       const user = await makeUser({ plan: 'host', planRenewsAt: trialRenewsAt(new Date()) });

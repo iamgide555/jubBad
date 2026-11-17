@@ -32,6 +32,7 @@ import { UsersService } from '../users/users.service.js';
  * when asking for a reset.
  */
 @Public()
+@UseGuards(RequireJsonGuard)
 @Controller('auth')
 export class AuthController {
   constructor(
@@ -41,7 +42,6 @@ export class AuthController {
   ) {}
 
   @Post('login')
-  @UseGuards(RequireJsonGuard)
   async login(
     @Body() dto: LoginDto,
     @Req() req: Request,

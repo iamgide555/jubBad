@@ -520,8 +520,14 @@ describe('LineSummaryService', () => {
       const after = await setup({ ownerId: lapsed.id });
       expect((await summary.state(after.sessionCode)).available).toBe(false);
       const before = await setup({ ownerId: lapsed.id });
-      await prisma.session.update({ where: { code: before.sessionCode }, data: { createdAt: new Date(Date.now() - 2 * 86_400_000) } });
+      await prisma.session.update({
+        where: { code: before.sessionCode },
+        data: { createdAt: new Date(Date.now() - 2 * 86_400_000), endedAt: new Date(Date.now() - 86_400_000) },
+      });
       expect((await summary.state(before.sessionCode)).available).toBe(true);
+      // Three days after it ended, the plan it began under no longer counts.
+      await prisma.session.update({ where: { code: before.sessionCode }, data: { endedAt: new Date(Date.now() - 5 * 86_400_000) } });
+      expect((await summary.state(before.sessionCode)).available).toBe(false);
     });
 
     it('the group is not linked to a LINE group', async () => {

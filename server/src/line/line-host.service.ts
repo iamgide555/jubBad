@@ -273,6 +273,17 @@ export class LineHostService {
     });
   }
 
+  /**
+   * The account a password-reset link may be sent for: enabled, and not an admin. LINE is a weaker proof than a
+   * password, so it must not be enough on its own to take over the console.
+   */
+  async resettableUser(lineUserId: string): Promise<{ id: string } | null> {
+    return this.prisma.user.findFirst({
+      where: { lineUserId, disabled: false, role: { not: 'admin' } },
+      select: { id: true },
+    });
+  }
+
   /** The enabled JubBad account holding this LINE user; a disabled account is nobody here (no rosters, no reset). */
   async userForLineUser(lineUserId: string): Promise<{ id: string } | null> {
     return this.prisma.user.findFirst({

@@ -14,6 +14,13 @@ export interface PlanOwner {
 /** Groups one owner may have. Callers with role admin have no limit. */
 export const GROUP_LIMIT: Record<Plan, number> = { free: 1, host: 3, club: 10 };
 
+/**
+ * How long a night keeps the plan it began under, counted from when it ended (from when it began, if it never
+ * ended). Money is collected the morning after, so a plan that ran out at midnight must not shut the pay page; but
+ * the snapshot must not last for ever, or one old paid night would keep its LINE cards free for good.
+ */
+export const SESSION_PLAN_GRACE_DAYS = 3;
+
 /** Free plan sees only sessions from the last this-many days in the archive. */
 export const FREE_ARCHIVE_DAYS = 30;
 

@@ -152,10 +152,18 @@ describe('slip pay-page routes (public, token-gated)', () => {
       const lapsed = await kit.owner('host', new Date(Date.now() - 86_400_000));
       const { code, token } = await kit.setup(lapsed.id);
       // The night began two days ago, a day before the plan ran out: collecting money the next morning must still work.
-      await kit.prisma.session.update({ where: { code }, data: { createdAt: new Date(Date.now() - 2 * 86_400_000) } });
+      await kit.prisma.session.update({ where: { code }, data: { createdAt: new Date(Date.now() - 2 * 86_400_000), endedAt: new Date(Date.now() - 86_400_000) } });
       const [access] = viewer();
       expect((await get(code, q(token), access)).status).toBe(200);
       expect((await status(code, q(token), access)).status).toBe(200);
+    });
+
+    it('stops answering once the night ended more than three days ago, so an old paid night is not free for ever', async () => {
+      const lapsed = await kit.owner('host', new Date(Date.now() - 6 * 86_400_000));
+      const { code, token } = await kit.setup(lapsed.id);
+      await kit.prisma.session.update({ where: { code }, data: { createdAt: new Date(Date.now() - 8 * 86_400_000), endedAt: new Date(Date.now() - 5 * 86_400_000) } });
+      const [access] = viewer();
+      expect((await get(code, q(token), access)).status).toBe(404);
     });
 
     it('answers 404 when no card is confirmed', async () => {

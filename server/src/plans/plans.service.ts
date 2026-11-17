@@ -7,8 +7,10 @@ import {
   FREE_ARCHIVE_DAYS,
   GROUP_LIMIT,
   lapsedAt,
+  PLANS,
   planAtLeast,
   rankForCap,
+  SESSION_PLAN_GRACE_DAYS,
   upgradeContactUrl,
   type PaidPlan,
   type Plan,
@@ -160,6 +162,25 @@ export class PlansService {
       select: { createdAt: true, group: { select: { owner: { select: OWNER_SELECT } } } },
     });
     return session ? effectivePlan(session.group.owner, session.createdAt) : 'club';
+  }
+
+  /**
+   * The plan to read a night's own state under (its pay page, cards, rating deltas): the better of the plan it began
+   * under and the plan now, but only for `SESSION_PLAN_GRACE_DAYS` after it ended; later, just the plan now. A session
+   * that does not exist reads as club so the caller's own 404 decides.
+   */
+  async planForSessionRead(sessionCode: string, now: Date = new Date()): Promise<Plan> {
+    const session = await this.prisma.session.findUnique({
+      where: { code: sessionCode },
+      select: { createdAt: true, endedAt: true, group: { select: { owner: { select: OWNER_SELECT } } } },
+    });
+    if (!session) return 'club';
+    const owner = session.group.owner;
+    const current = effectivePlan(owner, now);
+    const since = (session.endedAt ?? session.createdAt).getTime();
+    if (now.getTime() - since > SESSION_PLAN_GRACE_DAYS * 24 * 60 * 60 * 1000) return current;
+    const began = effectivePlan(owner, session.createdAt);
+    return PLANS.indexOf(began) > PLANS.indexOf(current) ? began : current;
   }
 
   async requireGroupPlan(groupCode: string, required: PaidPlan): Promise<void> {

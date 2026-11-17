@@ -145,6 +145,14 @@ describe('website sign-up', () => {
     expect(await prisma.user.findUnique({ where: { email } })).toBeNull();
   });
 
+  it('and so do /auth/forgot, /auth/reset and /auth/logout, so another site cannot post forms to them either', async () => {
+    const before = await prisma.passwordResetRequest.count();
+    await request(server).post('/auth/forgot').type('form').send({ email: 'someone@example.test' }).expect(415);
+    await request(server).post('/auth/reset/sometoken').type('form').send({ password: 'a long enough password' }).expect(415);
+    await request(server).post('/auth/logout').type('form').send({}).expect(415);
+    expect(await prisma.passwordResetRequest.count()).toBe(before);
+  });
+
   it('and so does /auth/login', async () => {
     const email = newEmail();
     await app.get(UsersService).create(email, PASSWORD);

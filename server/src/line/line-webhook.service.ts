@@ -253,8 +253,12 @@ export class LineWebhookService {
       if (replyToken) await this.client.reply(replyToken, RESET_UNAVAILABLE_TEXT);
       return;
     }
-    const user = await this.host.userForLineUser(lineUserId);
-    if (!user) return;
+    const user = await this.host.resettableUser(lineUserId);
+    if (!user) {
+      // An account a link may not be sent for (an admin): the same neutral line as when links cannot be sent at all.
+      if (replyToken) await this.client.reply(replyToken, RESET_UNAVAILABLE_TEXT);
+      return;
+    }
     const token = await this.passwordResets.issue(user.id);
     if (replyToken) await this.client.reply(replyToken, resetLinkText(`${publicAppUrl}/reset/${token}`));
   }

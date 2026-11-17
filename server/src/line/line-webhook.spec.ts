@@ -809,6 +809,16 @@ describe('POST /line/webhook', () => {
         expect(await prisma.passwordReset.count()).toBe(before);
       });
 
+      it('gives an admin account no reset link: an admin takeover must not start from a LINE account alone', async () => {
+        const line = lineUser();
+        const userId = await makeUser(line);
+        await prisma.user.update({ where: { id: userId }, data: { role: 'admin' } });
+        await ask(line);
+        expect(await prisma.passwordReset.count({ where: { userId } })).toBe(0);
+        for (const call of fakeClient.reply.mock.calls) expect(String(call[1])).not.toContain('/reset/');
+        expect(fakeClient.reply).toHaveBeenCalledTimes(1);
+      });
+
       it('gives a disabled host nothing', async () => {
         const line = lineUser();
         const userId = await makeUser(line);

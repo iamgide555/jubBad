@@ -197,8 +197,8 @@ export class LineSummaryService {
   /**
    * Where the card goes, or null when it cannot go anywhere. A group linked to a LINE group posts there unless
    * roster-only is on, whether or not its host DM switch is on. Otherwise the host target needs the DM switch, an owner who linked their own
-   * LINE account, and the LIFF app behind the share button. Both need the bot configured, a paid plan (read now,
-   * so a lapsed plan stops it) and a finished game. The session may still be open: only `send` requires it ended.
+   * LINE account, and the LIFF app behind the share button. Both need the bot configured, a paid plan (the one the night began under for a few days
+   * after it ends, so a plan that runs out mid-night does not stop its card) and a finished game. The session may still be open: only `send` requires it ended.
    */
   private async resolve(
     session: SessionForSummary,
@@ -218,7 +218,8 @@ export class LineSummaryService {
       return null;
     }
 
-    if (!planAtLeast(await this.plans.planForGroup(session.groupId, now), 'host')) return null;
+    // Judged by the plan the night began under, so a plan that runs out mid-night does not stop its summary card.
+    if (!planAtLeast(await this.plans.planForSessionRead(session.code, now), 'host')) return null;
     const games = await this.prisma.pairing.count({ where: { sessionId: session.code, ...FINISHED_GAME } });
     return games > 0 ? resolved : null;
   }

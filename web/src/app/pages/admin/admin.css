@@ -351,3 +351,36 @@
   white-space: nowrap;
   overflow-wrap: normal;
 }
+
+/* Where the account came from, small under the plan. */
+.plan-source {
+  font-size: var(--text-xs);
+  margin: var(--space-1) 0 0;
+}
+
+/* The reset email drafts: the text as the host will read it, ready to copy. */
+.email-draft {
+  margin: var(--space-2) 0;
+  padding: var(--space-2);
+  background: var(--ground-sunk);
+  border-radius: var(--radius);
+}
+
+.email-subject {
+  font-weight: 700;
+  margin: 0 0 var(--space-1);
+}
+
+.email-body {
+  margin: 0 0 var(--space-2);
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-family: inherit;
+}
+
+.mail-open {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--tap);
+  padding: 0 var(--space-2);
+}

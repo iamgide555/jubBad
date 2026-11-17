@@ -7,7 +7,7 @@ import {
 } from '@nestjs/common';
 import type { Request } from 'express';
 import { LoginThrottle } from '../../auth/login-throttle.js';
-import { LiffIdentity } from './liff-identity.js';
+import { LiffIdentity } from '../../line/liff-identity.js';
 import type { LiffUser } from './slip-payments.service.js';
 import { SLIP_FAILURE_THROTTLE } from './slip-throttles.js';
 

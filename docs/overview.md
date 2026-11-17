@@ -63,13 +63,13 @@ firsthand host feedback (items A–G, all done) is recorded in `docs/archive/202
 | No bot in the LINE group chat, ever | A posting bot notifies people who aren't even playing that day — spammy. **Narrowed 2026-10-26 (LINE bot, phase 1).** A roster-only bot now exists, and the only things it ever posts are replies to what someone types: a one-line reply to `/link`, and (since 2026-11-16) the bill card for `/bill` / `/บิล`. A scheduled weekly template post is phase 2: not built, and gated on the push-quota check in the LINE bot design. **Extended 2026-10-28 (host DM).** LINE allows one Official Account per group chat, so a group that already has a bot (most real ก๊วน have ขุนทอง) can never also have this one. The way in for those groups is a direct message with the bot instead of a bot in the chat: the host links their own LINE account once, then DMs or forwards the roster to the bot. A DM is a one-to-one chat, so nothing is posted to or read from any group. The bot's DM replies are free reply messages, never pushes. **Extended 2026-10-28 (host share card).** The summary card is no longer group-only. A group with no bot in its LINE group can still get the card: the bot DMs it to the linked host with a "ส่งเข้ากลุ่ม" button, and the host posts it into the group from their own account (LIFF share picker), so nothing is ever posted by the bot into a chat it is not in. This reverses the earlier "no push to the host DM" decision for this one card (one push per night, approved by the owner 2026-10-28); the DM replies to roster messages stay free reply messages. See "Summary card" under "LINE bot" below |
 | No passive "listener" bot | Even listen-only, it technically sees the *entire* conversation; the host's consent doesn't cover the other ~15-20 people in the chat. Bigger trust risk than the convenience is worth for a casual friend group. **Reversed in part 2026-10-26, by the owner's decision, with the retention risk designed out.** For a group a host has linked (opt-in, paid, a host-only code typed into the chat), LINE delivers every message to the server, but anything that is not a roster is dropped before it reaches the database; only roster messages are stored (text, sender id and display name, time), at most the newest 20 and nothing older than 30 days, and the `/link` reply tells the chat exactly that. The owner judged the members fine with it. See "LINE bot" below. **Extended 2026-10-28 (host DM).** The DM path needs no consent from anyone else, because it listens to nobody: the only text it ever sees is what the linked host themselves sends to the bot one-to-one, and the same roster-only filter applies (a DM that is not roster-shaped is answered and dropped, never stored). It exists because LINE allows one Official Account per group, so groups that already have another bot cannot use the group listener at all |
 | Import is paste-based | The app's data footprint = exactly what the host explicitly hands over. No infra (no webhook server, no persistent message store) — **that part no longer holds for a linked group (2026-10-26): a signed LINE webhook and a roster-message table exist. The principle still does: start only pre-fills a box the host still reads and parses, and every failure falls back to a plain manual paste.** **A host with nothing to paste (ad-hoc night, no LINE message) can still start a session via "เพิ่มรายชื่อเอง" on the roster screen (2026-09-24) — it lands on the same confirm step empty and reuses the existing manual add field; the principle is unchanged, since a manual roster is still exactly what the host typed in, not something the app fetched or inferred.** **The host DM path (2026-10-28) keeps the same principle: the roster is what the host themselves sent to the bot, it only pre-fills the same box, and a pending roster waiting for a group choice is held at most 10 minutes** |
-| No LIFF / LINE Login / LINE platform integration | Paste-based import plus manual share means zero technical touchpoint with LINE's platform is needed. Pure UX polish, addable later. **Reversed in part 2026-10-28 (host share card), and only in part.** One LIFF app exists, used as a *share channel* and nothing else: its one page calls `liff.shareTargetPicker` so LINE sends the summary card from the host's own account. LIFF is not an identity provider here and nothing logs the host in to JubBad; a LINE Login appears only when the page is opened outside the LINE app (an iPad), and only to let LINE's picker run. No JubBad login is required on the host's phone. The reason it exists: LINE does not let a bot's Flex card be forwarded (the owner tried it 2026-10-28), so a forward was not an option. Setup: `docs/line-liff-setup.md` |
-| Per-user accounts for hosts, not player accounts | Administrative screens and writes require signing in as a real user (email + password, session cookie signed server-side). Each user owns the groups they create; an admin role sees and manages every user and group. There are still no individual *player* accounts or profiles — this is identity for whoever runs a session, not for who plays in one. Superseded the earlier one-shared-token design (backlog B12, done 2026-09-12); see the per-user-login design doc for the schema and guard design. |
+| No LIFF / LINE Login / LINE platform integration | Paste-based import plus manual share means zero technical touchpoint with LINE's platform is needed. Pure UX polish, addable later. **Reversed in part 2026-10-28 (host share card), and only in part.** One LIFF app exists, used as a *share channel* and nothing else: its one page calls `liff.shareTargetPicker` so LINE sends the summary card from the host's own account. LIFF is not an identity provider here and nothing logs the host in to JubBad; a LINE Login appears only when the page is opened outside the LINE app (an iPad), and only to let LINE's picker run. No JubBad login is required on the host's phone. The reason it exists: LINE does not let a bot's Flex card be forwarded (the owner tried it 2026-10-28), so a forward was not an option. Setup: `docs/line-liff-setup.md`. **Extended 2026-11-16 (host sign-up).** A verified LINE identity can now be *recorded* on a host account: at sign-up (`/line-share/signup`) or when an existing account is linked (`/line-share/link`). The server asks LINE who the LIFF access token belongs to, the same check the slip pay page uses, and it still never logs anyone in: the session is the email-and-password cookie, as before. LINE is only a proof of who is signing up or linking, and what makes the 30-day trial one per LINE account. Design: `docs/superpowers/specs/2026-11-16-host-self-signup-design.md` |
+| Per-user accounts for hosts, not player accounts | Administrative screens and writes require signing in as a real user (email + password, session cookie signed server-side). Each user owns the groups they create; an admin role sees and manages every user and group. There are still no individual *player* accounts or profiles — this is identity for whoever runs a session, not for who plays in one. Superseded the earlier one-shared-token design (backlog B12, done 2026-09-12); see the per-user-login design doc for the schema and guard design. **Extended 2026-11-16.** A host can now create their own account (website `/signup`, free plan; or through the LINE bot, which starts the 30-day trial) as well as the admin making one in `/admin`. `POST /auth/register` is open to anyone, so it is limited per address and has a hidden bot-trap field; it sends no email and checks none. |
 | Trigger-word LINE bot (reconsidered, still rejected) | The idea: a bot watches the group for a keyword ("Play") then auto-extracts the roster, skipping the manual paste. Rejected on inspection — the LINE Messaging API has no message-history endpoint (confirmed in LINE's docs), so a bot can only look *forward* from when it joins. In real use the roster is posted days before "Play" is typed, so the bot would have to continuously store *all* group messages in a rolling buffer to look backward — that is full passive listening plus retention, the exact risk rejected above, not a lighter trigger-gated version. It also reopens "no infra" and "no posting bot" at once. Revisit only if paste friction proves to be a real dealbreaker; the lower-risk fix for the typing/copying pain is a tap-to-register roster link. **Superseded 2026-10-26:** the owner runs sessions from an iPad that is not logged into their personal LINE, so copying the roster meant logging in and out every week. The design that shipped is not trigger-word: it stores roster-shaped messages only, as they arrive, which is the only look-back LINE allows |
 | No cost-splitting / PromptPay QR in-app | KhunThong (ขุนทอง), KBank/KBTG's LINE bot, already does this well — bill split (equal or not), PromptPay QR, and payment verification by e-slip scan, which the planned v1 didn't even have. The host invites KhunThong separately; no integration needed. **Partly reopened 2026-09-21, and narrowed 2026-09-22, not reversed.** The session now records its shuttle count and price, and every Thai competitor leads with a per-person bill. The owner decided the app will *calculate* each player's share and copy it out as text for LINE, under one of three charging models (fair pay, per game, buffet), with an optional host-fee line. The QR, payment tracking and slip checking stay with KhunThong. Built 2026-09-24 (roadmap C3); see "Bill (C3)" below and `docs/archive/specs/2026-09-22-roadmap-c-series-design.md`. The LINE payment card (2026-10-29, see the LINE section) shows an account and each person's amount, but still tracks no payments and checks no slips; those stay with KhunThong. |
 | Score logging: final score only, no live scoreboard | Point-by-point, serve indicators and timers are scope creep nobody asked for. A final score per court is low-friction and still bootstraps the match history that future skill/Elo balancing would need |
 | Per-group host role (resolved 2026-09-08 decision, built 2026-09-12) | Was: one shared admin token distinguished no one from anyone else — equal power for every holder, including deleting a group, with all-or-nothing revocation. Closed by backlog B12: `Group.ownerId` names one owner per group, `OwnershipGuard` refuses any other host with a 404 (never a 403 — that would confirm the code exists), and disabling one user bumps only their `tokenVersion`, signing out just that person's devices. An admin role bypasses ownership and manages every user and group from `/admin`. Built on a branch and merged into `main` on 2026-09-12 (`559ea5a`). |
-| No data-retention/deletion policy (**accepted risk**) | Names persist indefinitely under a group's link code. A host can now export the group as JSON or delete it outright, which covers the practical need without a policy |
+| No data-retention/deletion policy (**accepted risk**; since 2026-11-17 a public `/privacy` page states what is kept and how to ask for deletion, and strangers can sign up, so the risk is no longer only about known hosts) | Names persist indefinitely under a group's link code. A host can now export the group as JSON or delete it outright, which covers the practical need without a policy |
 | Export and delete require the group's owner (or an admin) to be signed in | They are administrative operations; the client also requires typing the group name to prevent an accidental delete. Revocation is now per-user (disabling one account bumps only that account's `tokenVersion`) rather than the old shared-token design's all-or-nothing. |
 | No promoting a waitlisted (สำรอง) player mid-session | The สำรอง list is resolved in LINE *before* the session — a waitlisted player was told not to come, so there is nobody at the venue to promote. The feature would serve a situation that cannot occur. Waitlisted names are still imported and shown, so the host can see who was turned away |
 | Court format (doubles/singles) is per court, not per session | Courts are booked and run independently already — the app models a court as its own idle/pending/active lifecycle, not as part of a shared session-wide round. A per-session switch would force every court to the same format even though a host's actual need (a short roster, two people wanting a quick game, a court freeing up with only two waiting) is local to one court |
@@ -80,8 +80,9 @@ firsthand host feedback (items A–G, all done) is recorded in `docs/archive/202
   the moat. Since the Thai competitors above exist, it no longer is; it stays
   out of scope because focus is still worth more than breadth.
 - A LINE bot that posts, or that reads or keeps ordinary chat. A roster-only bot exists since 2026-10-26 (see "LINE bot" below); it drops every message that is not a roster before storing anything. A host's DM with the bot (2026-10-28) follows the same rule.
-- LIFF / LINE Login as an identity provider. (LIFF is used since 2026-10-28 only as a
-  share channel for the summary card, with no login of its own; see "LINE bot"
+- LIFF / LINE Login as an identity provider. (LIFF is used since 2026-10-28 as a
+  share channel for the summary card, and since 2026-11-16 to prove which LINE
+  account is signing up or linking; it never logs anyone in. See "LINE bot"
   below.) Note that plain user accounts left
   this list on 2026-09-08 and are now built (backlog B12): per-user login,
   each host owning the groups they create. What stays out of scope is
@@ -1225,7 +1226,8 @@ out; a live one is always shown and links to the public venue display.
 ### Plans
 
 Paid features are gated by the **group owner's** plan, set by hand by an admin
-(`PUT /admin/users/:id/plan`); there is no payment provider. Tiers and what each
+(`PUT /admin/users/:id/plan`) or started as a 30-day trial when an account first links LINE (see
+"Trial" below); there is no payment provider. Tiers and what each
 unlocks: `docs/2026-10-06-pricing-tiers.md`. Pure rules live in
 `server/src/plans/plan.ts`; `PlansService` resolves a group's or session's plan
 from its owner at read time.
@@ -1241,8 +1243,10 @@ role `admin` is club whatever the column says, an ownerless group is club
 (production never has one, and existing fixtures rely on it), and an unknown
 plan string reads as free. `User.disabled` is never touched by plan code.
 
-**The column defaults to `club`, so the deploy is dormant.** Every existing user
-keeps today's behaviour until an admin deliberately sets a lower plan.
+**The column defaults to `club`, so the deploy is dormant for existing users.** Every
+existing user keeps today's behaviour until an admin deliberately sets a lower plan. Accounts
+that sign up themselves are created on `free` explicitly and are the first ones to meet the
+locks; the column default itself never changes.
 
 **Refusals are 403 with a code:** `PLAN_REQUIRED` (with `requiredPlan`) when a
 paid thing is switched on from too low a plan, and `GROUP_LIMIT` (with `limit`)
@@ -1293,7 +1297,14 @@ level tags and the player-level edit; rename, aliases and contact edits; fair /
 per-game / buffet models, rounding, remove or add person, and the plain shuttle
 count and price; `GET /sessions/:code`, display, summary and an issued
 `/d/:token`; and anything in a session already running (a lapsed host keeps
-proposing and confirming in สูสี).
+proposing and confirming in สูสี). **Judged at session start (2026-11-17).** What a
+night reads about its own state (the player pay page and slips, the summary and payment
+cards, `/bill`, and the dashboard's rating deltas while the night is running) uses
+`PlansService.planForSessionRead`: the better of the plan the night began under and the plan now,
+but only for `SESSION_PLAN_GRACE_DAYS` (3) after it ended (from when it began, if it never ended), so a
+plan or trial that runs out at midnight does not shut the pay page on a night that began while it was
+paid, and one old paid night cannot keep its LINE cards free for ever. Turning a paid option *on* (queue,
+mode switch, bill extras) still needs the plan now.
 
 **Lapse: two things that stop** (decided 2026-10-26, reversing "never trap" for
 these two cases only). Data is still never deleted.
@@ -1325,11 +1336,12 @@ these two cases only). Data is still never deleted.
 - *The shared `/d/` dashboard link stays live;* only new shares are blocked.
 
 **Plan facts the web reads.** `GET /groups/:code/plan` returns `{ plan, renewsAt,
-lapsedAt, paused, archiveHidden }`: `lapsedAt` is the renewal date of a paid plan
+lapsedAt, paused, archiveHidden, trial }`: `lapsedAt` is the renewal date of a paid plan
 that has run out (null otherwise), `archiveHidden` the number of sessions the free
 30-day window hides. `GET /plans/me` returns the signed-in user's own `{ plan,
-renewsAt, lapsedAt, groupCount, groupLimit, upgradeUrl }` (`groupLimit` is null for
-an admin); it names no group, so `OwnershipGuard` allowlists that one path.
+renewsAt, lapsedAt, groupCount, groupLimit, upgradeUrl, trial, trialAvailable, linkUrl }`
+(`groupLimit` is null for an admin; `trial` says the Host plan is the free trial, so notices say
+"trial" instead of "renew"); it names no group, so `OwnershipGuard` allowlists that one path.
 `upgradeUrl` is `UPGRADE_CONTACT_URL` when it is a well-formed `https://` URL and
 null otherwise; the web then shows the contact as text only. Admin user rows carry
 `groupLimit` too.
@@ -1362,6 +1374,19 @@ instead of failing after a name is typed, and a พักไว้ badge on a pa
 
 **Word joiner.** Every "แพ็ก⁠เกจ" in the web copy carries U+2060 between "แพ็ก"
 and "เกจ" so a Thai line never breaks inside the word.
+
+**Trial (2026-11-16).** The first time an account gets a LINE link it is given the Host plan for 30 days
+(`plan = 'host'`, `planRenewsAt` = the last millisecond of the Bangkok day 30 days later, the same
+end-of-day form the admin plan form stores). It runs out through the ordinary lapse above: nothing new is
+built for the end of a trial. The rule lives in `server/src/plans/trial.ts` and `TrialService.applyOnLink`,
+and is applied inside the transaction that sets `User.lineUserId`. A trial is given only when all three hold:
+no `TrialRecord` holds this LINE id, none holds this user, and the user's effective plan is free (so an admin,
+or an account on a never-lapsing `club`, is never touched; a lapsed paid plan counts as free). `TrialRecord`
+is never deleted, so a deleted or unlinked account cannot earn a second trial, and `userId` becomes null if
+the user is deleted. `User.signupSource` (`admin` | `web` | `line`) only feeds the admin list. `User.plan`'s
+column default stays `club`: only self sign-up sets `free` explicitly. `GET /plans/me` reports
+`trialAvailable` (free, no LINE link, no trial yet, and a LIFF link to send them to) and `linkUrl`; the
+landing page and the upgrade sheet offer the trial from them.
 
 ### LINE bot (phase 1, plus host DM)
 
@@ -1971,6 +1996,54 @@ unlinked, only when their own link is removed or repointed.
 
 **Where it lives.** `server/src/sessions/slips/` (matching, QR, OCR, pay-page and host controllers),
 `web/src/app/shared/slip-review/` (the host's review list), `web/src/app/pages/slip-pay/` (the player page).
+
+### Host sign-up and the guest menu (2026-11-16)
+
+Design: `docs/superpowers/specs/2026-11-16-host-self-signup-design.md`; plan:
+`docs/superpowers/plans/2026-11-16-host-self-signup.md`.
+
+**Two ways in, one account.** The website's `/signup` makes a free account from an email and a password, no
+LINE needed. The bot's guest menu (and the website's "สมัครผ่าน LINE" link) opens the LIFF page
+`/line-share/signup`, which makes the account already linked, so the trial starts at once. An existing account
+links LINE on `/line-share/link` with its email and password (the page runs in LINE's own browser, where the
+host is not signed in, so it asks and signs no one in). Linking by that page has no plan requirement; the
+`/link <code>` flow keeps its Host-plan rule. LINE-side routes take the LIFF access token in
+`X-Line-Access-Token`, verified with LINE by `LiffIdentity` (a refused token is 401, LINE not answering is
+503 and is never counted against the caller). One LINE account's sign-up or link runs at a time (in-process
+lock), so a double tap makes one account.
+
+**Guest rich menu.** A *guest* is a LINE user no JubBad account holds. `GuestMenuService` links one rich menu
+(two buttons: sign up, link an account) to a guest per user and takes it away when they sign up, link or
+redeem a `/link` code; it is never set as the bot's default, so linked hosts see no menu. It is best effort
+(a LINE failure never blocks a reply or a sign-up) and does nothing without `LINE_GUEST_RICHMENU_ID`, which
+`npm run line:guest-menu` (`server/scripts/create-guest-richmenu.mjs`, image `server/assets/line/guest-menu.png`)
+prints once per channel. In the one-to-one chat only: a guest who follows, or types `สมัคร` / `/signup`, gets
+a button to the sign-up page (or today's follow text when LIFF is not configured); a linked host gets the old
+follow text, or "you already have an account" for the command. Unlinking a host's LINE account makes them a
+guest again on their next message. Everything is a free reply, never a push, and nothing touches a group chat.
+
+**Forgotten passwords (2026-11-17).** The server sends no email. A host who linked LINE types `ลืมรหัสผ่าน`
+(or `/reset`) to the bot in the one-to-one chat and gets a one-time reset link (1 hour, single use) as a free
+reply; it is refused for a disabled account and for an admin (LINE alone must not be enough to take over the console), throttled per LINE account (10 per 15 minutes), never answered in a
+group chat, and the link is never logged. A guest gets the sign-up button instead. Asking for a link retires every earlier one, and a successful reset ends all other live links
+for that user. The linked LINE's display name
+is shown in group settings, because whoever holds that LINE can reset the password. A host with no LINE link
+still goes through the admin: `/admin` > ตั้งรหัสผ่านใหม่ shows a Thai and an English email draft with the link
+(copy, or open in the mail app), which only works if the email they signed up with is real. Sign-up screens
+and the forgot-password page say to link LINE to recover the account yourself.
+
+**Hardening notes.** Every POST on the auth routes (register, login, logout, forgot, reset, `/auth/line/*`) takes JSON only
+(`RequireJsonGuard`, 415 otherwise), so another site cannot post a form that signs a visitor into its own account.
+The LINE link route shares `/auth/login`'s per-email counter (one `LoginThrottle` exported from `AuthModule`).
+`/auth/line/signup` counts every attempt per address and per LINE id. `/auth/line/link` takes login's password
+rule (any length). Admin user routes never return `passwordHash` or `tokenVersion`. At start the API logs which
+sign-up settings are missing and what each costs (`signupReadiness`). The sign-up and link pages and `/privacy`
+carry a consent line and a contact (`UPGRADE_CONTACT_URL` via `GET /auth/signup-info`).
+
+**Rosters by DM from the start.** A group created by a linked host on the Host plan or above starts with its
+roster-by-DM switch on, and linking from the link page switches it on for every group the account already
+owns when its plan allows. Inviting the bot into the LINE *group* chat stays manual (`/link <code>` in the
+group): LINE offers no way to do it for the host.
 
 ### LINE accounts directory
 

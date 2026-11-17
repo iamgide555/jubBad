@@ -14,6 +14,7 @@ import request from 'supertest';
 import { OwnershipGuard } from '../auth/ownership.guard.js';
 import { PrismaModule } from '../prisma/prisma.module.js';
 import { PrismaService } from '../prisma/prisma.service.js';
+import { GuestMenuService } from './guest-menu.service.js';
 import { LineClient } from './line-client.js';
 import { LineHostService } from './line-host.service.js';
 import { LineLinkService } from './line-link.service.js';
@@ -138,6 +139,7 @@ describe('LINE host link codes, status and unlink', () => {
         enabled: false,
         summaryDefault: true,
         summaryAvailable: false,
+        accountName: null,
       });
       const made = await host.createCode(code);
       await host.redeem(lineId(), made.code);
@@ -145,6 +147,21 @@ describe('LINE host link codes, status and unlink', () => {
         accountLinked: true,
         enabled: true,
       });
+    });
+
+    it('names the linked LINE account, so the host can see whose chat can reset their password', async () => {
+      const line = lineId();
+      await prisma.lineAccount.upsert({ where: { lineUserId: line }, create: { lineUserId: line, displayName: 'Somchai', pictureUrl: null }, update: {} });
+      const userId = await makeUser('host', { lineUserId: line, lineLinkedAt: new Date() });
+      const code = await makeGroup(userId);
+      try {
+        expect((await host.status(code)).accountName).toBe('Somchai');
+        // No directory entry (LINE never gave a profile): linked, but nameless.
+        await prisma.lineAccount.delete({ where: { lineUserId: line } });
+        expect(await host.status(code)).toMatchObject({ accountLinked: true, accountName: null });
+      } finally {
+        await prisma.lineAccount.deleteMany({ where: { lineUserId: line } });
+      }
     });
 
     it('is linked but not enabled when the group is switched off', async () => {
@@ -397,6 +414,8 @@ describe('LINE host link codes, status and unlink', () => {
       expect(row.usedAt).not.toBeNull();
       expect(await host.userForLineUser(line)).toEqual({ id: userId });
       expect(await host.userForLineUser(lineId())).toBeNull();
+      await prisma.user.update({ where: { id: userId }, data: { disabled: true } });
+      expect(await host.userForLineUser(line)).toBeNull();
     });
 
     it('falls back to the group code when the name is blank', async () => {
@@ -572,6 +591,16 @@ describe('LINE host link codes, status and unlink', () => {
   });
 
   describe('unlink', () => {
+    it('lets the guest menu come back for the LINE user it unlinked', async () => {
+      const { userId } = await makeOwner();
+      const line = lineId();
+      await prisma.user.update({ where: { id: userId }, data: { lineUserId: line, lineLinkedAt: new Date() } });
+      const forget = vi.spyOn(app.get(GuestMenuService), 'forget');
+      await host.unlink(userId);
+      expect(forget).toHaveBeenCalledExactlyOnceWith(line);
+      forget.mockRestore();
+    });
+
     it('clears the link and deletes the pending roster and codes, for a free user too', async () => {
       const { userId, code } = await makeOwner();
       await host.redeem(lineId(), (await host.createCode(code)).code);
@@ -810,7 +839,8 @@ describe('LINE host link routes', () => {
       accountLinked: false,
       enabled: false,
       summaryDefault: true,
-      summaryAvailable: false
+      summaryAvailable: false,
+      accountName: null,
     });
   });
 

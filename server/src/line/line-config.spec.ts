@@ -13,6 +13,7 @@ describe('lineConfig', () => {
     delete process.env.PUBLIC_APP_URL;
     delete process.env.LINE_LIFF_ID;
     delete process.env.LINE_LOGIN_CHANNEL_ID;
+    delete process.env.LINE_GUEST_RICHMENU_ID;
     expect(lineConfig()).toEqual({
       secret: null,
       token: null,
@@ -20,6 +21,7 @@ describe('lineConfig', () => {
       publicAppUrl: null,
       liffId: null,
       loginChannelId: null,
+      guestRichMenuId: null,
     });
     process.env.LINE_CHANNEL_SECRET = 's';
     process.env.LINE_CHANNEL_ACCESS_TOKEN = 't';
@@ -66,5 +68,14 @@ describe('lineConfig', () => {
     expect(lineConfig().loginChannelId).toBeNull();
     process.env.LINE_LOGIN_CHANNEL_ID = ' 1234567890 ';
     expect(lineConfig().loginChannelId).toBe('1234567890');
+  });
+
+  it('reads the guest rich menu id, trimmed, and nulls it when blank', () => {
+    process.env.LINE_GUEST_RICHMENU_ID = '  richmenu-abc  ';
+    expect(lineConfig().guestRichMenuId).toBe('richmenu-abc');
+    process.env.LINE_GUEST_RICHMENU_ID = '   ';
+    expect(lineConfig().guestRichMenuId).toBeNull();
+    delete process.env.LINE_GUEST_RICHMENU_ID;
+    expect(lineConfig().guestRichMenuId).toBeNull();
   });
 });

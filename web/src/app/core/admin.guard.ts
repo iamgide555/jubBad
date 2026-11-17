@@ -47,3 +47,16 @@ export const adminRoleGuard: CanActivateFn = async (_route, state) => {
 
   return router.createUrlTree(['/']);
 };
+
+/**
+ * Gate for the sign-up page: someone already signed in goes home. Without it a signed-in host could submit the form,
+ * and the server would replace their session cookie with the new account's. Convenience, not a boundary, like the
+ * guards above.
+ */
+export const guestOnlyGuard: CanActivateFn = async () => {
+  const auth = inject(AuthService);
+  const router = inject(Router);
+
+  if (await auth.check()) return router.createUrlTree(['/']);
+  return true;
+};

@@ -34,7 +34,7 @@ web/         Angular (standalone components, signals). Talks to the API
              only — no business logic, no localStorage state.
 ```
 
-Data model source of truth is `server/prisma/schema.prisma` (Group, User, Player, Session, SessionRoster, Waitlist, Pairing, PasswordReset(Request), SessionCreation, LineAccount, LineAccountGroup, PlayerLineAccount). Two shapes worth knowing going in: array fields (`Player.aliases`, `Pairing.teamA`/`teamB`) are JSON-encoded string columns (SQLite has no array type), and a court's status (`idle`/`pending`/`active`) is always *derived* from `Pairing` rows, never stored. A `LineAccount` is global (one per LINE user id) but only ever listed per group through `LineAccountGroup`; `PlayerLineAccount.lineUserId` is a foreign key to it (see "LINE accounts directory" in `docs/overview.md`).
+Data model source of truth is `server/prisma/schema.prisma` (Group, User, Player, Session, SessionRoster, Waitlist, Pairing, PasswordReset(Request), SessionCreation, LineAccount, LineAccountGroup, PlayerLineAccount, TrialRecord). Two shapes worth knowing going in: array fields (`Player.aliases`, `Pairing.teamA`/`teamB`) are JSON-encoded string columns (SQLite has no array type), and a court's status (`idle`/`pending`/`active`) is always *derived* from `Pairing` rows, never stored. A `LineAccount` is global (one per LINE user id) but only ever listed per group through `LineAccountGroup`; `PlayerLineAccount.lineUserId` is a foreign key to it (see "LINE accounts directory" in `docs/overview.md`).
 
 ## Commands
 
@@ -103,6 +103,8 @@ Host and venue routes, access split is fixed:
 - `/g/:groupCode/settings/:section` — share / advanced / manage (admin-guarded)
 - `/s/:sessionCode` — session dashboard, the host's phone (admin-guarded)
 - `/s/:sessionCode/display` — read-only big-text venue-screen view, refreshes every 30s, shows only active courts (public)
+- `/signup` — website sign-up: email + password, a free account (public; limited per address, hidden bot trap)
+- `/line-share/signup` and `/line-share/link` — host sign-up and "link LINE to my account" pages, opened from the bot's guest menu through the LIFF link (public routes; the LIFF access token is verified with LINE). The first LINE link on an account starts a 30-day Host trial
 - `/line-share/slip/:sessionCode/:token` — player pay page for uploading a payment slip, opened from LINE through the LIFF link (public route, authenticated by the card token plus the player's verified LINE identity)
 
 Plus public read-only player profile and session summary pages, and the group dashboard at `/d/:token` — public, keyed by the group's revocable share token (never the group code), participation-only standings, no ratings and no links to player cards.

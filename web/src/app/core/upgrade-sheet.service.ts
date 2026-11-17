@@ -16,6 +16,8 @@ export class UpgradeSheetService {
 
   readonly isOpen = signal(false);
   readonly contactUrl = signal<string | null>(null);
+  /** The LIFF page that links LINE, only while the trial is still on offer to this account. */
+  readonly trialLinkUrl = signal<string | null>(null);
 
   open(): void {
     this.isOpen.set(true);
@@ -32,6 +34,7 @@ export class UpgradeSheetService {
     try {
       const mine = await firstValueFrom(this.injector.get(PlanService).mine());
       this.contactUrl.set(mine.upgradeUrl);
+      this.trialLinkUrl.set(mine.trialAvailable && mine.linkUrl ? mine.linkUrl : null);
     } catch {
       // Text only; the next open tries again.
       this.loaded = false;

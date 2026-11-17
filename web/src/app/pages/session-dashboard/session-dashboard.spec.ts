@@ -2204,7 +2204,7 @@ describe('SessionDashboard', () => {
       httpMock.expectOne(`${B}/groups/group1/players`).flush([]);
       httpMock.expectOne(`${B}/sessions/sess1/stats?scope=session`).flush([]);
       if (reply === 'error') planReply.error(new HttpErrorResponse({ status: 500 }));
-      else if (reply !== 'pending') planReply.next({ plan: reply, renewsAt: null, lapsedAt: null, paused: false, archiveHidden: 0 });
+      else if (reply !== 'pending') planReply.next({ plan: reply, renewsAt: null, lapsedAt: null, paused: false, archiveHidden: 0, trial: false });
       await fixture.whenStable();
       fixture.detectChanges();
     }

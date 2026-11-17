@@ -15,6 +15,7 @@ import {
   normalizeCode,
   PENDING_TTL_MS,
 } from './line-code.js';
+import { GuestMenuService } from './guest-menu.service.js';
 import { lineConfig } from './line-config.js';
 
 export interface LineHostStatus {
@@ -22,6 +23,8 @@ export interface LineHostStatus {
   botAddUrl: string | null;
   /** The group's owner has linked their LINE account (one account for all their groups). */
   accountLinked: boolean;
+  /** That LINE account's display name, when the directory has one: shown so a host sees whose chat can reset their password. */
+  accountName: string | null;
   /** Rosters that account DMs to the bot may be filed under this group. */
   enabled: boolean;
   /** The group's default for the "send the summary card" checkbox at the end of a round. */
@@ -47,6 +50,7 @@ export class LineHostService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly plans: PlansService,
+    private readonly guestMenu: GuestMenuService,
   ) {}
 
   /** The group and its owner's LINE account; the owner is whose account every call below acts on. */
@@ -55,6 +59,7 @@ export class LineHostService {
   ): Promise<{
     ownerId: string;
     accountLinked: boolean;
+    accountName: string | null;
     enabled: boolean;
     summaryDefault: boolean;
     botLinked: boolean;
@@ -75,6 +80,9 @@ export class LineHostService {
     return {
       ownerId: group.ownerId,
       accountLinked: group.owner?.lineUserId != null,
+      accountName: group.owner?.lineUserId
+        ? ((await this.prisma.lineAccount.findUnique({ where: { lineUserId: group.owner.lineUserId }, select: { displayName: true } }))?.displayName ?? null)
+        : null,
       enabled: group.lineDmEnabled,
       summaryDefault: group.lineSummaryDefault,
       botLinked: group.lineGroupId !== null,
@@ -84,12 +92,13 @@ export class LineHostService {
 
   async status(groupCode: string): Promise<LineHostStatus> {
     const config = lineConfig();
-    const { accountLinked, enabled, summaryDefault, botLinked, rosterOnly } =
+    const { accountLinked, accountName, enabled, summaryDefault, botLinked, rosterOnly } =
       await this.ownerOf(groupCode);
     return {
       configured: config.secret !== null && config.token !== null,
       botAddUrl: config.botAddUrl,
       accountLinked,
+      accountName,
       enabled: accountLinked && enabled,
       summaryDefault,
       summaryAvailable:
@@ -232,6 +241,7 @@ export class LineHostService {
    * unused codes, any pending roster, and the rosters their groups captured by DM.
    */
   async unlink(userId: string): Promise<void> {
+    const before = await this.prisma.user.findUnique({ where: { id: userId }, select: { lineUserId: true } });
     await this.prisma.$transaction([
       this.prisma.user.updateMany({
         where: { id: userId },
@@ -247,6 +257,8 @@ export class LineHostService {
       this.prisma.lineUserLinkCode.deleteMany({ where: { userId } }),
       this.prisma.linePendingRoster.deleteMany({ where: { userId } }),
     ]);
+    // With no account behind it this LINE user is a guest again: their next message shows the guest menu.
+    if (before?.lineUserId) this.guestMenu.forget(before.lineUserId);
   }
 
   /** Unlink the account of whoever owns this group (the group page is where the host asks). */
@@ -261,9 +273,21 @@ export class LineHostService {
     });
   }
 
+  /**
+   * The account a password-reset link may be sent for: enabled, and not an admin. LINE is a weaker proof than a
+   * password, so it must not be enough on its own to take over the console.
+   */
+  async resettableUser(lineUserId: string): Promise<{ id: string } | null> {
+    return this.prisma.user.findFirst({
+      where: { lineUserId, disabled: false, role: { not: 'admin' } },
+      select: { id: true },
+    });
+  }
+
+  /** The enabled JubBad account holding this LINE user; a disabled account is nobody here (no rosters, no reset). */
   async userForLineUser(lineUserId: string): Promise<{ id: string } | null> {
-    return this.prisma.user.findUnique({
-      where: { lineUserId },
+    return this.prisma.user.findFirst({
+      where: { lineUserId, disabled: false },
       select: { id: true },
     });
   }

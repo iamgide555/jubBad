@@ -1,6 +1,12 @@
 import { Injectable, ServiceUnavailableException } from '@nestjs/common';
-import { lineConfig } from '../../line/line-config.js';
-import type { LiffUser } from './slip-payments.service.js';
+import { lineConfig } from './line-config.js';
+
+/** The LINE profile a LIFF page reads for the viewer. Only `userId` is required to identify; the rest is for display. */
+export interface LiffUser {
+  userId: string;
+  displayName: string | null;
+  pictureUrl: string | null;
+}
 
 const VERIFY_URL = 'https://api.line.me/oauth2/v2.1/verify';
 const PROFILE_URL = 'https://api.line.me/v2/profile';

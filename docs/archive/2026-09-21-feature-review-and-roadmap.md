@@ -362,7 +362,9 @@ Effort M.
 #### - [x] C8. Billing gates and self-service host sign-up — deferred
 
 **Deferred 2026-09-30 (host):** do not pursue pricing, billing gates or
-self-service sign-up for now. No tier comparison or price was decided.
+self-service sign-up for now. **Reversed in part 2026-11-16:** self-service sign-up was built
+(`docs/superpowers/specs/2026-11-16-host-self-signup-design.md`) because only the owner could create
+accounts, so no new host could use the app. Pricing and billing gates stay deferred. No tier comparison or price was decided.
 Revisit only if monetization becomes necessary, checking current competitor
 prices before choosing tiers.
 

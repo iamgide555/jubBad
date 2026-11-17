@@ -1316,6 +1316,25 @@ describe('payment card: owner panel, confirm and bot send', () => {
       expect(await payments.groupBillReply(await lineGroupOf(groupCode))).toBeNull();
     });
 
+    it('still answers for a night that began while the plan was paid, after the plan lapsed', async () => {
+      const { code, groupCode } = await setup();
+      await storeConfirmed(code);
+      await prisma.user.update({ where: { id: ownerId }, data: { plan: 'host', planRenewsAt: new Date(Date.now() - 86_400_000) } });
+      // Began two days ago and ended yesterday; the plan ran out yesterday.
+      await prisma.session.update({ where: { code }, data: { createdAt: new Date(Date.now() - 2 * 86_400_000), endedAt: new Date(Date.now() - 86_400_000) } });
+      expect(await payments.groupBillReply(await lineGroupOf(groupCode))).not.toBeNull();
+      // Long after it ended, the old night no longer keeps /bill alive for a host who is not paying now.
+      await prisma.session.update({ where: { code }, data: { endedAt: new Date(Date.now() - 5 * 86_400_000) } });
+      expect(await payments.groupBillReply(await lineGroupOf(groupCode))).toBeNull();
+    });
+
+    it('stays silent for a lapsed plan when the latest night began after the lapse', async () => {
+      const { code, groupCode } = await setup();
+      await storeConfirmed(code);
+      await prisma.user.update({ where: { id: ownerId }, data: { plan: 'host', planRenewsAt: new Date(Date.now() - 86_400_000) } });
+      expect(await payments.groupBillReply(await lineGroupOf(groupCode))).toBeNull();
+    });
+
     it('is silent when LINE is not configured', async () => {
       const { code, groupCode } = await setup();
       await storeConfirmed(code);

@@ -9,20 +9,20 @@ import {
   Req,
   Res,
   UnauthorizedException,
+  UseGuards,
 } from '@nestjs/common';
 import type { Request, Response } from 'express';
 import { resolveSessionUser } from './auth.guard.js';
 import { LoginThrottle } from './login-throttle.js';
 import { PasswordResetService } from './password-reset.service.js';
 import { Public } from './public.decorator.js';
+import { RequireJsonGuard } from './require-json.guard.js';
 import { packSession, SESSION_COOKIE } from './session.js';
+import { sessionCookieOptions } from './session-cookie.js';
 import { ForgotPasswordDto } from './dto/forgot-password.dto.js';
 import { LoginDto } from './dto/login.dto.js';
 import { ResetPasswordDto } from './dto/reset-password.dto.js';
 import { UsersService } from '../users/users.service.js';
-
-/** Thirty days: the host should not re-authenticate before every session. */
-const MAX_AGE_MS = 30 * 24 * 60 * 60 * 1000;
 
 /**
  * Every route on this controller is @Public() by necessity — a caller with no
@@ -32,6 +32,7 @@ const MAX_AGE_MS = 30 * 24 * 60 * 60 * 1000;
  * when asking for a reset.
  */
 @Public()
+@UseGuards(RequireJsonGuard)
 @Controller('auth')
 export class AuthController {
   constructor(
@@ -67,13 +68,13 @@ export class AuthController {
 
     this.throttle.recordSuccess(ipKey);
     this.throttle.recordSuccess(emailKey);
-    res.cookie(SESSION_COOKIE, packSession(user.id, user.tokenVersion), this.cookieOptions());
+    res.cookie(SESSION_COOKIE, packSession(user.id, user.tokenVersion), sessionCookieOptions());
     return { authenticated: true };
   }
 
   @Post('logout')
   logout(@Res({ passthrough: true }) res: Response): { authenticated: false } {
-    res.clearCookie(SESSION_COOKIE, this.cookieOptions());
+    res.clearCookie(SESSION_COOKIE, sessionCookieOptions());
     return { authenticated: false };
   }
 
@@ -93,7 +94,9 @@ export class AuthController {
    * way") was the original design, but the owner asked for a plain answer
    * instead (2026-09-12) — this app's whole user base is a handful of known
    * hosts, not a public signup surface, so the clearer feedback was judged
-   * worth more than the enumeration protection here. Still throttled by IP,
+   * worth more than the enumeration protection here. (Since 2026-11-16 anyone can sign up, so
+   * the address-exists answer is a little less contained than that premise; the IP throttle is what
+   * limits it, and the owner has not asked to change it.) Still throttled by IP,
    * and still grants nothing by itself: the only thing that produces a
    * working reset link is an admin acting on the request from the console.
    */
@@ -129,33 +132,5 @@ export class AuthController {
       throw new UnauthorizedException('ลิงก์นี้หมดอายุหรือถูกใช้ไปแล้ว');
     }
     return { ok: true };
-  }
-
-  private cookieOptions() {
-    return {
-      httpOnly: true,
-      /**
-       * Signed rather than plain: the cookie's payload is `userId:tokenVersion`
-       * (session.ts), and a client that could forge or edit it could pick any
-       * user id. cookie-parser verifies the signature against SESSION_SECRET
-       * before AuthGuard ever sees the value.
-       */
-      signed: true,
-      /**
-       * Lax is what makes a separate CSRF token unnecessary: the browser will
-       * not attach this cookie to a cross-site POST, so another origin cannot
-       * drive the API using the host's own session.
-       */
-      sameSite: 'lax' as const,
-      /**
-       * Only in production. Cloudflare terminates TLS so the browser sees
-       * HTTPS and honours it there; over plain-http local dev a Secure cookie
-       * is treated inconsistently between browsers and would silently not be
-       * stored.
-       */
-      secure: process.env.NODE_ENV === 'production',
-      path: '/',
-      maxAge: MAX_AGE_MS,
-    };
   }
 }

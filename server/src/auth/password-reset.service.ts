@@ -23,13 +23,14 @@ export class PasswordResetService {
    */
   async issue(userId: string): Promise<string> {
     const token = randomBytes(32).toString('base64url');
-    await this.prisma.passwordReset.create({
-      data: {
-        userId,
-        tokenHash: sha256(token),
-        expiresAt: new Date(Date.now() + RESET_EXPIRY_MS),
-      },
-    });
+    // Only the newest link works: asking again (in the bot chat, or an admin minting one) retires the earlier ones,
+    // so a link left in a chat's scrollback does not stay live beside the new one.
+    await this.prisma.$transaction([
+      this.prisma.passwordReset.updateMany({ where: { userId, usedAt: null }, data: { usedAt: new Date() } }),
+      this.prisma.passwordReset.create({
+        data: { userId, tokenHash: sha256(token), expiresAt: new Date(Date.now() + RESET_EXPIRY_MS) },
+      }),
+    ]);
     return token;
   }
 
@@ -56,6 +57,8 @@ export class PasswordResetService {
         data: { usedAt: new Date() },
       });
       if (claimed.count === 0) return false; // already used — lost the race, or reused
+      // A reset ends every other live link for this user, not only the one used.
+      await tx.passwordReset.updateMany({ where: { userId: reset.userId, usedAt: null }, data: { usedAt: new Date() } });
 
       await tx.user.update({
         where: { id: reset.userId },

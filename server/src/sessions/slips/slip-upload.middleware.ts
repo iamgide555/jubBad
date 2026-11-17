@@ -2,7 +2,7 @@ import { Inject, Injectable, NestMiddleware, ServiceUnavailableException } from 
 import { raw } from 'express';
 import type { NextFunction, Request, Response } from 'express';
 import { LoginThrottle } from '../../auth/login-throttle.js';
-import { LiffIdentity } from './liff-identity.js';
+import { LiffIdentity } from '../../line/liff-identity.js';
 import type { LiffUser } from './slip-payments.service.js';
 import { SLIP_FAILURE_THROTTLE, SLIP_UPLOAD_THROTTLE, SlipUploadSlots } from './slip-throttles.js';
 

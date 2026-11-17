@@ -20,6 +20,9 @@
       <p class="lede" i18n="@@login.lede2">เข้าสู่ระบบเพื่อจัดการก๊วนของคุณ</p>
     } @else {
       <p class="lede" i18n="@@login.forgotLede">กรอกอีเมลที่ใช้สมัคร แล้วผู้ดูแลจะติดต่อกลับ</p>
+      <p class="muted" data-line-recovery i18n="@@login.forgotLine">
+        ผูกบัญชี LINE กับ JubBad ไว้แล้ว? ส่งคำว่า ลืมรหัสผ่าน ในแชตกับบอท จะได้ลิงก์ตั้งรหัสผ่านใหม่ทันที
+      </p>
     }
 
     <form (ngSubmit)="onSubmit()">
@@ -77,5 +80,11 @@
         </button>
       }
     </form>
+  }
+
+  @if (mode() === 'login') {
+    <p class="signup-prompt">
+      <a routerLink="/signup" data-signup-link i18n="@@login.signupLink">ยังไม่มีบัญชี? สมัครใช้ฟรี</a>
+    </p>
   }
 </div>

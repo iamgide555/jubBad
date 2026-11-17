@@ -49,6 +49,7 @@ describe('expiresSoon', () => {
     lapsedAt: null,
     paused: false,
     archiveHidden: 0,
+    trial: false,
   });
   const inMs = (ms: number) => new Date(now.getTime() + ms).toISOString();
   const H = 3600 * 1000;

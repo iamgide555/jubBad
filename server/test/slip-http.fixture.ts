@@ -13,7 +13,7 @@ import { UsersService } from '../src/users/users.service.js';
 import { BillService } from '../src/sessions/bill.service.js';
 import { newShareToken, serializePaymentState } from '../src/sessions/payment-card-state.js';
 import { PaymentCardService } from '../src/sessions/payment-card.service.js';
-import { LiffIdentity } from '../src/sessions/slips/liff-identity.js';
+import { LiffIdentity } from '../src/line/liff-identity.js';
 import type { OcrLine } from '../src/sessions/slips/slip-match.js';
 import type { LiffUser } from '../src/sessions/slips/slip-payments.service.js';
 import { SlipReader, type SlipRead } from '../src/sessions/slips/slip-reader.js';

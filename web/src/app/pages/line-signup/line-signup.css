@@ -1,0 +1,74 @@
+/* Opens inside LINE's own browser on a phone: one column, big targets. */
+.line-signup {
+  padding-top: var(--space-4);
+  max-width: 24rem;
+}
+
+.line-signup h1 {
+  font-family: var(--font-display);
+  font-size: clamp(2rem, 8vw, 2.75rem);
+  margin-bottom: var(--space-1);
+}
+
+.line-signup .lede {
+  color: var(--ink-soft);
+  margin-bottom: var(--space-3);
+}
+
+.line-signup .line-name {
+  font-weight: 600;
+  margin-bottom: var(--space-2);
+}
+
+.line-signup .note {
+  color: var(--ink-soft);
+  margin-bottom: var(--space-3);
+}
+
+.line-signup .consent {
+  font-size: var(--text-sm);
+  margin: 0;
+}
+
+.line-signup form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.line-signup form > button,
+.line-signup > button,
+.line-signup .button {
+  width: 100%;
+  min-height: var(--tap);
+  margin-top: var(--space-1);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  text-decoration: none;
+}
+
+/* An anchor styled as the app's button: the global button rule only reaches <button>. */
+.line-signup .button {
+  padding: 0.65rem 1.1rem;
+  background: var(--court);
+  color: var(--on-fill);
+  border-radius: var(--radius);
+  font-weight: 700;
+}
+
+.line-signup .button.secondary {
+  background: transparent;
+  color: var(--court-ink);
+  border: 2px solid var(--court);
+}
+
+/* Padding and a min-height make the target, not a tall line-height. */
+.line-signup .link,
+.line-signup .error a,
+.line-signup .lede a {
+  display: inline-block;
+  min-height: var(--tap);
+  padding: 0.6rem 0;
+  color: var(--ink-soft);
+}

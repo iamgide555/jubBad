@@ -146,13 +146,16 @@ model User {
   tokenVersion Int      @default(0)
   /// 'free' | 'host' | 'club'. The default 'club' is what makes the plan-gating
   /// deploy dormant: every existing user keeps every feature and no group cap
-  /// until an admin sets a lower plan. New users are set by an admin too. See
+  /// until an admin sets a lower plan. Accounts that sign up themselves are created on 'free'
+  /// explicitly (and the first LINE link starts a 30-day 'host' trial); only admin-made accounts
+  /// take this default. See
   /// server/src/plans/plan.ts and docs/2026-10-06-pricing-tiers.md.
   plan         String   @default("club")
   /// A paid plan lapses to free once now > planRenewsAt. Null means it never
   /// lapses.
   planRenewsAt DateTime?
-  /// The host's own LINE user id, set when they link by DMing the bot a code.
+  /// The host's own LINE user id, set when they link by DMing the bot a code, on the link page, or
+  /// when they sign up through LINE.
   /// Unique so one LINE account maps to at most one host.
   lineUserId   String?  @unique
   lineLinkedAt DateTime?
@@ -161,6 +164,21 @@ model User {
   resets       PasswordReset[]
   lineUserLinkCodes LineUserLinkCode[]
   linePendingRoster LinePendingRoster?
+  /// Where the account came from: 'admin' (made in /admin), 'web' (the sign-up
+  /// page) or 'line' (signed up through the bot). Only the admin list reads it.
+  signupSource String @default("admin")
+  trialRecord  TrialRecord?
+}
+
+/// A LINE account that has had its 30-day trial. Never deleted: it is what stops
+/// the same LINE account (or the same JubBad account) earning a second trial, even
+/// after the account is deleted or unlinked.
+model TrialRecord {
+  id         String   @id @default(cuid())
+  lineUserId String   @unique
+  userId     String?  @unique
+  user       User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  createdAt  DateTime @default(now())
 }
 
 /// One-time code a host DMs to the bot to link their LINE account. Only the

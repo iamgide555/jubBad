@@ -126,7 +126,7 @@ describe('AuthController', () => {
   });
 
   it('clears the cookie on logout', async () => {
-    const res = await request(server).post('/auth/logout').expect(201);
+    const res = await request(server).post('/auth/logout').send({}).expect(201);
     // Express clears by re-sending the cookie with an expiry in the past. The
     // value itself is not `;` empty here — clearCookie signs an empty payload
     // because cookieOptions() sets signed: true — but the browser deletes on

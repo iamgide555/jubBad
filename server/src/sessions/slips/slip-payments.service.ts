@@ -1,3 +1,4 @@
+import type { LiffUser } from '../../line/liff-identity.js';
 import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { LineAccountsService } from '../../line/line-accounts.service.js';
@@ -38,12 +39,7 @@ export interface PaidRow {
   imageId: string | null;
 }
 
-/** The LINE profile the pay page reads for the viewer. Only `userId` is required to link; the rest is for display. */
-export interface LiffUser {
-  userId: string;
-  displayName: string | null;
-  pictureUrl: string | null;
-}
+export type { LiffUser };
 
 export type ClaimOutcome = 'linked' | 'player-taken' | 'account-already-linked' | 'not-on-bill';
 
@@ -919,7 +915,7 @@ export class SlipPaymentsService {
     return byPlayer ? 'player-taken' : null;
   }
 
-  /** Null when the slip cannot count here: wrong or old token, a plan below host (lapsed counts as free), or no confirmed card. */
+  /** Null when the slip cannot count here: wrong or old token, a plan below host when the night began (lapsed counts as free), or no confirmed card. */
   private async gate(code: string, token: string | undefined, now: Date): Promise<SubmitGate | null> {
     if (!(await this.cards.tokenValid(code, token))) return null;
     const session = await this.prisma.session.findUnique({
@@ -927,7 +923,9 @@ export class SlipPaymentsService {
       select: { groupId: true, paymentCollectionClosedAt: true, date: true, endedAt: true, createdAt: true, group: { select: { payAccount: true } } },
     });
     if (!session) return null;
-    if (!planAtLeast(await this.plans.planForGroup(session.groupId, now), 'host')) return null;
+    // The plan the night began under, for a few days after it ended: money is collected the morning after, and a trial or
+    // plan that ran out at midnight must not shut the pay page on a night that began while it was paid.
+    if (!planAtLeast(await this.plans.planForSessionRead(code, now), 'host')) return null;
     const panel = await this.cards.panel(code, now);
     if (!panel.confirmed) return null;
     // The group's current saved name, not tonight's frozen account, so a fixed name helps every slip from now on.

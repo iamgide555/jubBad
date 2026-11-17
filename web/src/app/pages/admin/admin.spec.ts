@@ -19,6 +19,8 @@ const user = (over: Record<string, unknown>) => ({
   planRenewsAt: null,
   effectivePlan: 'club',
   groupLimit: 10,
+  signupSource: 'admin',
+  trialUsed: false,
   ...over,
 });
 
@@ -357,4 +359,56 @@ describe('Admin plan control', () => {
     expect(row('u1').querySelector('[data-plan-label]')!.textContent).toContain('ก๊วนใหญ่');
     expect(component.users()[0].plan).toBe('club');
   });
+
+  it('labels each user with where they came from and a used trial', async () => {
+    await setup([
+      user({ id: 'u1', signupSource: 'admin' }),
+      user({ id: 'u2', email: 'web@example.test', signupSource: 'web' }),
+      user({ id: 'u3', email: 'line@example.test', signupSource: 'line', trialUsed: true }),
+    ]);
+    const source = (id: string) => row(id).querySelector('[data-signup-source]')!.textContent;
+    expect(source('u1')).toContain('ผู้ดูแลสร้าง');
+    expect(source('u2')).toContain('สมัครทางเว็บ');
+    expect(source('u3')).toContain('สมัครทาง LINE');
+    expect(row('u1').querySelector('[data-trial-used]')).toBeNull();
+    expect(row('u3').querySelector('[data-trial-used]')?.textContent).toContain('ทดลองใช้แล้ว');
+  });
+
+  describe('the reset email draft', () => {
+    const mint = async (id = 'u1') => {
+      (el().querySelector(`[data-plan-row="${id}"]`)!.closest('tr')!.querySelector('button.ghost[data-reset]') as HTMLButtonElement).click();
+      httpMock.expectOne({ url: `${B}/admin/users/${id}/reset`, method: 'POST' }).flush({ token: 'TOKEN123' });
+      await fixture.whenStable();
+      fixture.detectChanges();
+    };
+
+    it('offers a Thai and an English email with the link, and a button that opens it in the mail app', async () => {
+      await setup([user({ id: 'u1', email: 'host@example.test' })]);
+      await mint();
+      for (const lang of ['th', 'en']) {
+        const draft = el().querySelector(`[data-email-draft="${lang}"]`)!;
+        expect(draft.textContent).toContain('host@example.test');
+        expect(draft.textContent).toContain('/reset/TOKEN123');
+        const mail = draft.querySelector<HTMLAnchorElement>('[data-email-open]')!;
+        expect(mail.getAttribute('href')).toMatch(/^mailto:host%40example\.test\?subject=/);
+        expect(decodeURIComponent(mail.getAttribute('href')!)).toContain('/reset/TOKEN123');
+      }
+    });
+
+    it('copies the whole email, subject and body, and says so', async () => {
+      await setup([user({ id: 'u1', email: 'host@example.test' })]);
+      const writeText = vi.fn().mockResolvedValue(undefined);
+      Object.defineProperty(navigator, 'clipboard', { value: { writeText }, configurable: true });
+      await mint();
+      (el().querySelector('[data-email-draft="th"] [data-email-copy]') as HTMLButtonElement).click();
+      await fixture.whenStable();
+      fixture.detectChanges();
+      const copied = writeText.mock.calls.at(-1)![0] as string;
+      expect(copied).toContain('host@example.test');
+      expect(copied).toContain('/reset/TOKEN123');
+      expect(el().querySelector('[data-email-draft="th"] [data-email-copied]')).not.toBeNull();
+      expect(el().querySelector('[data-email-draft="en"] [data-email-copied]')).toBeNull();
+    });
+  });
 });
+

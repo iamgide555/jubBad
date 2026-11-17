@@ -56,3 +56,15 @@
 .login .forgot-result-found {
   color: var(--accent-ink);
 }
+
+/* Under the form: the way in for someone with no account yet. */
+.login .signup-prompt {
+  margin-top: var(--space-3);
+}
+
+.login .signup-prompt a {
+  color: var(--ink-soft);
+  display: inline-block;
+  min-height: 44px;
+  line-height: 44px;
+}

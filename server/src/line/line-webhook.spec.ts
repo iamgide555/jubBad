@@ -11,6 +11,7 @@ import { LineGroupCommands } from './line-group-commands.js';
 import { LineAccountsService } from './line-accounts.service.js';
 import { LineHostService } from './line-host.service.js';
 import { LineLinkService } from './line-link.service.js';
+import { PasswordResetService } from '../auth/password-reset.service.js';
 import { LineModule } from './line.module.js';
 
 const SECRET = 'test-secret';
@@ -19,7 +20,7 @@ const FAIL_TEXT = 'รหัสไม่ถูกต้องหรือหม�
 
 describe('POST /line/webhook', () => {
   const saved = { ...process.env };
-  const fakeClient = { reply: vi.fn(), replyMessages: vi.fn(), groupName: vi.fn(), memberProfile: vi.fn(), userProfile: vi.fn(), leave: vi.fn() };
+  const fakeClient = { reply: vi.fn(), replyMessages: vi.fn(), groupName: vi.fn(), memberProfile: vi.fn(), userProfile: vi.fn(), leave: vi.fn(), linkRichMenu: vi.fn(), unlinkRichMenu: vi.fn() };
   let app: INestApplication;
   let prisma: PrismaService;
   let link: LineLinkService;
@@ -107,6 +108,8 @@ describe('POST /line/webhook', () => {
     fakeClient.reply.mockReset().mockResolvedValue(undefined);
     fakeClient.replyMessages.mockReset().mockResolvedValue(undefined);
     fakeClient.leave.mockReset().mockResolvedValue(undefined);
+    fakeClient.linkRichMenu.mockReset().mockResolvedValue(true);
+    fakeClient.unlinkRichMenu.mockReset().mockResolvedValue(true);
     fakeClient.groupName.mockReset().mockResolvedValue('ก๊วนพฤหัส LINE');
     fakeClient.memberProfile.mockReset().mockResolvedValue({ displayName: 'Nok', pictureUrl: null });
     fakeClient.userProfile.mockReset().mockResolvedValue({ displayName: 'Host', pictureUrl: 'https://p/host' });
@@ -632,6 +635,226 @@ describe('POST /line/webhook', () => {
       await post([{ type: 'follow', timestamp: ts++, replyToken: `rt-${randomUUID()}`, source: { type: 'user', userId: lineUser() } }]).expect(200);
       expect(fakeClient.reply).toHaveBeenCalledTimes(1);
       expect(fakeClient.reply.mock.calls[0][1]).toContain('/link');
+    });
+
+    describe('guest menu and sign-up', () => {
+      const follow = (userId: string) => ({ type: 'follow', timestamp: ts++, replyToken: `rt-${randomUUID()}`, source: { type: 'user', userId } });
+      const configure = (liff = true) => {
+        process.env.LINE_GUEST_RICHMENU_ID = 'RM1';
+        if (liff) {
+          process.env.LINE_LIFF_ID = 'L1';
+          process.env.LINE_LOGIN_CHANNEL_ID = '999';
+        } else {
+          delete process.env.LINE_LIFF_ID;
+          delete process.env.LINE_LOGIN_CHANNEL_ID;
+        }
+      };
+      /** The uri of the one button in the sign-up message the bot sent with replyMessages. */
+      const signupButtonUri = () => {
+        expect(fakeClient.replyMessages).toHaveBeenCalledTimes(1);
+        const [message] = fakeClient.replyMessages.mock.calls[0][1] as { template: { actions: { type: string; label: string; uri: string }[] } }[];
+        expect(message.template.actions).toEqual([{ type: 'uri', label: 'สมัครเลย', uri: 'https://liff.line.me/L1/signup' }]);
+        return message.template.actions[0].uri;
+      };
+
+      it('a guest who follows gets the sign-up button and the guest menu', async () => {
+        configure();
+        const line = lineUser();
+        await post([follow(line)]).expect(200);
+        signupButtonUri();
+        expect(fakeClient.linkRichMenu).toHaveBeenCalledExactlyOnceWith(line, 'RM1');
+      });
+
+      it('a linked host who follows gets the old text and no menu', async () => {
+        configure();
+        const line = lineUser();
+        await makeUser(line);
+        await post([follow(line)]).expect(200);
+        expect(fakeClient.reply.mock.calls[0][1]).toContain('/link');
+        expect(fakeClient.replyMessages).not.toHaveBeenCalled();
+        expect(fakeClient.linkRichMenu).not.toHaveBeenCalled();
+      });
+
+      it.each(['สมัคร', '/signup', ' /สมัคร '])('"%s" from a guest replies with the sign-up button', async (text) => {
+        configure();
+        const line = lineUser();
+        await post([dm(line, text)]).expect(200);
+        signupButtonUri();
+        expect(fakeClient.linkRichMenu).toHaveBeenCalledWith(line, 'RM1');
+      });
+
+      it('"สมัคร" from a linked host says they already have an account', async () => {
+        configure();
+        process.env.PUBLIC_APP_URL = 'https://jubbad.example';
+        const line = lineUser();
+        await makeUser(line);
+        await post([dm(line, 'สมัคร')]).expect(200);
+        expect(fakeClient.replyMessages).not.toHaveBeenCalled();
+        const text = fakeClient.reply.mock.calls[0][1] as string;
+        expect(text).toContain('มีบัญชี JubBad แล้ว');
+        expect(text).toContain('https://jubbad.example/login');
+      });
+
+      it('a redeemed /link hides the guest menu; a failed one does not', async () => {
+        configure();
+        const userId = await makeUser();
+        const { code } = await host.createCode(await ownedGroup(userId, false));
+        const line = lineUser();
+        await post([dm(line, '/link ZZZZZZ')]).expect(200);
+        expect(fakeClient.unlinkRichMenu).not.toHaveBeenCalled();
+        await post([dm(line, `/link ${code}`)]).expect(200);
+        expect(fakeClient.unlinkRichMenu).toHaveBeenCalledExactlyOnceWith(line);
+      });
+
+      it('any other DM from a guest gets the sign-up button, not the Host-only code flow, and the menu', async () => {
+        configure();
+        const line = lineUser();
+        await post([dm(line, ROSTER)]).expect(200);
+        signupButtonUri();
+        expect(fakeClient.reply).not.toHaveBeenCalled();
+        expect(fakeClient.linkRichMenu).toHaveBeenCalledWith(line, 'RM1');
+      });
+
+      it('a guest’s sticker or photo gets the menu but no reply', async () => {
+        configure();
+        const line = lineUser();
+        await post([{ ...dm(line, ''), message: { type: 'sticker', id: randomUUID() } }]).expect(200);
+        expect(fakeClient.linkRichMenu).toHaveBeenCalledWith(line, 'RM1');
+        expect(fakeClient.reply).not.toHaveBeenCalled();
+        expect(fakeClient.replyMessages).not.toHaveBeenCalled();
+      });
+
+      it('a follow links the menu again even if this process already did, and unfollow forgets', async () => {
+        configure();
+        const line = lineUser();
+        await post([follow(line)]).expect(200);
+        await post([follow(line)]).expect(200);
+        expect(fakeClient.linkRichMenu).toHaveBeenCalledTimes(2);
+        await post([{ type: 'unfollow', timestamp: ts++, source: { type: 'user', userId: line } }]).expect(200);
+        await post([dm(line, 'hello')]).expect(200);
+        expect(fakeClient.linkRichMenu).toHaveBeenCalledTimes(3);
+      });
+
+      it('a linked host’s DMs never touch the menu', async () => {
+        configure();
+        const line = lineUser();
+        await ownedGroup(await makeUser(line));
+        await post([dm(line, ROSTER)]).expect(200);
+        expect(fakeClient.linkRichMenu).not.toHaveBeenCalled();
+        expect(fakeClient.unlinkRichMenu).not.toHaveBeenCalled();
+      });
+
+      it('a guest who follows with LIFF unconfigured gets the old follow text, and still the menu', async () => {
+        configure(false);
+        const line = lineUser();
+        await post([follow(line)]).expect(200);
+        expect(fakeClient.replyMessages).not.toHaveBeenCalled();
+        expect(fakeClient.reply.mock.calls[0][1]).toContain('/link');
+        expect(fakeClient.linkRichMenu).toHaveBeenCalledWith(line, 'RM1');
+      });
+
+      it('sends no menu call at all when the guest menu is not configured', async () => {
+        delete process.env.LINE_GUEST_RICHMENU_ID;
+        await post([follow(lineUser())]).expect(200);
+        expect(fakeClient.linkRichMenu).not.toHaveBeenCalled();
+        expect(fakeClient.unlinkRichMenu).not.toHaveBeenCalled();
+      });
+
+      it('a group chat event never touches the guest menu', async () => {
+        configure();
+        const { code, linkCode } = await groupWithCode();
+        await post([textEvent(lineId(), `/link ${linkCode}`, { userId: lineUser() }), textEvent(lineId(), 'สมัคร', { userId: lineUser() })]).expect(200);
+        expect(code).toBeTruthy();
+        expect(fakeClient.linkRichMenu).not.toHaveBeenCalled();
+        expect(fakeClient.unlinkRichMenu).not.toHaveBeenCalled();
+        expect(fakeClient.replyMessages).not.toHaveBeenCalled();
+      });
+    });
+
+    describe('forgotten password by DM', () => {
+      const ask = (line: string, text = 'ลืมรหัสผ่าน') => post([dm(line, text)]).expect(200);
+      const tokenIn = (reply: string) => /\/reset\/([A-Za-z0-9_-]+)/.exec(reply)?.[1];
+
+      beforeEach(() => {
+        process.env.PUBLIC_APP_URL = 'https://jubbad.example';
+      });
+
+      it('gives a linked host a one-time reset link that really sets a new password', async () => {
+        const line = lineUser();
+        const userId = await makeUser(line);
+        await ask(line);
+        const reply = fakeClient.reply.mock.calls[0][1] as string;
+        expect(reply).toContain('https://jubbad.example/reset/');
+        const token = tokenIn(reply)!;
+        expect(await prisma.passwordReset.count({ where: { userId } })).toBe(1);
+        const resets = app.get(PasswordResetService);
+        expect(await resets.consume(token, 'a brand new password')).toBe(true);
+        expect(await resets.consume(token, 'another password again')).toBe(false);
+      });
+
+      it.each(['/reset', 'รีเซ็ตรหัสผ่าน', ' ลืมรหัสผ่าน '])('answers "%s" the same way', async (text) => {
+        const line = lineUser();
+        await makeUser(line);
+        await ask(line, text);
+        expect(tokenIn(fakeClient.reply.mock.calls[0][1] as string)).toBeTruthy();
+      });
+
+      it('gives someone with no JubBad account the sign-up button, and makes no token', async () => {
+        process.env.LINE_LIFF_ID = 'L1';
+        process.env.LINE_LOGIN_CHANNEL_ID = '999';
+        const before = await prisma.passwordReset.count();
+        await ask(lineUser());
+        expect(fakeClient.reply).not.toHaveBeenCalled();
+        expect(fakeClient.replyMessages).toHaveBeenCalledTimes(1);
+        expect(await prisma.passwordReset.count()).toBe(before);
+      });
+
+      it('gives an admin account no reset link: an admin takeover must not start from a LINE account alone', async () => {
+        const line = lineUser();
+        const userId = await makeUser(line);
+        await prisma.user.update({ where: { id: userId }, data: { role: 'admin' } });
+        await ask(line);
+        expect(await prisma.passwordReset.count({ where: { userId } })).toBe(0);
+        for (const call of fakeClient.reply.mock.calls) expect(String(call[1])).not.toContain('/reset/');
+        expect(fakeClient.reply).toHaveBeenCalledTimes(1);
+      });
+
+      it('gives a disabled host nothing', async () => {
+        const line = lineUser();
+        const userId = await makeUser(line);
+        await prisma.user.update({ where: { id: userId }, data: { disabled: true } });
+        await ask(line);
+        expect(await prisma.passwordReset.count({ where: { userId } })).toBe(0);
+        for (const call of fakeClient.reply.mock.calls) expect(String(call[1])).not.toContain('/reset/');
+      });
+
+      it('never answers in a group chat', async () => {
+        const line = lineUser();
+        const userId = await makeUser(line);
+        await post([textEvent(lineId(), 'ลืมรหัสผ่าน', { userId: line })]).expect(200);
+        expect(fakeClient.reply).not.toHaveBeenCalled();
+        expect(await prisma.passwordReset.count({ where: { userId } })).toBe(0);
+      });
+
+      it('makes no token when the site address is not configured', async () => {
+        delete process.env.PUBLIC_APP_URL;
+        const line = lineUser();
+        const userId = await makeUser(line);
+        await ask(line);
+        expect(await prisma.passwordReset.count({ where: { userId } })).toBe(0);
+        expect(fakeClient.reply).toHaveBeenCalledTimes(1);
+        expect(tokenIn(fakeClient.reply.mock.calls[0][1] as string)).toBeUndefined();
+      });
+
+      it('goes silent after MAX_ATTEMPTS asks from one LINE account in the window', async () => {
+        const line = lineUser();
+        const userId = await makeUser(line);
+        for (let i = 0; i < MAX_ATTEMPTS; i++) await ask(line);
+        fakeClient.reply.mockClear();
+        await ask(line);
+        expect(fakeClient.reply).not.toHaveBeenCalled();
+        expect(await prisma.passwordReset.count({ where: { userId } })).toBe(MAX_ATTEMPTS);
+      });
     });
 
     it('forgets the pending roster on unfollow but keeps the link', async () => {

@@ -1,7 +1,8 @@
 # Pricing tiers: feature map (built, dormant)
 
-Status: **decided 2026-10-06, revised 2026-10-19, built behind admin-set plans,
-dormant until a host is set to free.** There is no billing integration; per the
+Status: **decided 2026-10-06, revised 2026-10-19, built behind admin-set plans. Existing
+hosts stay on `club` until set lower; hosts who sign up themselves start on free and
+earn a 30-day Host trial by linking LINE (see "Trial" below).** There is no billing integration; per the
 commercial plan, billing stays manual PromptPay until 2-3 hosts are paying. How
 the gating works is in `docs/overview.md` ("Plans"); this doc is the feature map.
 
@@ -26,6 +27,15 @@ the gating works is in `docs/overview.md` ("Plans"); this doc is the feature map
 | Platform | Login, PWA, delete group, shared venue field, 1 group | LINE bot roster capture (2026-10-26): pre-fills the roster from the group's LINE chat. Up to 3 groups. ก๊วนใหญ่ 499฿/mo: up to 10 groups and 5 managers |
 
 Annual: pay 10, get 12.
+
+## Trial (2026-11-16)
+
+A new host gets the Host plan free for **30 days, earned by linking a LINE account for the first time**:
+immediately for a host who signs up through the LINE bot, and whenever they link for a host who signed up
+on the website (which starts on free). One trial per LINE account and one per JubBad account, ever; an
+admin-made account, or one already on a paid plan, is never touched by linking. It ends through the
+ordinary lapse to free (data kept). Mechanics are in `docs/overview.md` ("Plans", "Trial"). This is not a
+price decision: the founding-host offer for the pilot host (below, under the 2026-10-19 revision) is separate and still the owner's call.
 
 ## Decisions and their reasons (2026-10-06)
 

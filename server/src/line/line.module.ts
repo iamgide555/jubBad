@@ -1,6 +1,8 @@
 import { SlipImagesModule } from '../sessions/slips/slip-images.module.js';
 import { Module } from '@nestjs/common';
 import { PlansModule } from '../plans/plans.module.js';
+import { PasswordResetService } from '../auth/password-reset.service.js';
+import { GuestMenuService } from './guest-menu.service.js';
 import { LineAccountsController } from './line-accounts.controller.js';
 import { LineAccountsService } from './line-accounts.service.js';
 import { LineClient } from './line-client.js';
@@ -23,6 +25,9 @@ import { LineWebhookService } from './line-webhook.service.js';
   imports: [PlansModule, SlipImagesModule],
   controllers: [LineAccountsController, LineController, LineHostController, LineShareController, LineSummaryController, LineWebhookController],
   providers: [
+    GuestMenuService,
+    // Stateless (only the database), so a second instance beside the auth module's is the same service.
+    PasswordResetService,
     LineAccountsService,
     LineClient,
     LineGroupCommands,
@@ -33,6 +38,6 @@ import { LineWebhookService } from './line-webhook.service.js';
     LineSummaryService,
     LineWebhookService
   ],
-  exports: [LineAccountsService, LineClient, LineGroupCommands, LineHostService, LineLinkService, LineRosterService, LineSummaryService],
+  exports: [GuestMenuService, LineAccountsService, LineClient, LineGroupCommands, LineHostService, LineLinkService, LineRosterService, LineSummaryService],
 })
 export class LineModule {}

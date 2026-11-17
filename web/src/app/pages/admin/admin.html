@@ -167,7 +167,7 @@
                       <ng-container i18n="@@admin.disable">ปิดใช้งาน</ng-container>
                     }
                   </button>
-                  <button type="button" class="ghost" (click)="mintReset(user)" i18n="@@admin.resetPassword">
+                  <button type="button" class="ghost" data-reset (click)="mintReset(user)" i18n="@@admin.resetPassword">
                     ตั้งรหัสผ่านใหม่
                   </button>
                   <button type="button" class="danger" (click)="startDelete(user)" i18n="@@admin.delete">ลบ</button>
@@ -189,6 +189,22 @@
                         <span class="muted" i18n="@@admin.copied">คัดลอกแล้ว</span>
                       }
                     </div>
+                    <p class="muted" i18n="@@admin.emailDraftLede">
+                      ผู้ใช้ที่ยังไม่ได้ผูก LINE: ส่งอีเมลนี้ให้ (คัดลอกไปวาง หรือเปิดในแอปอีเมล) ได้ผลเมื่ออีเมลที่ใช้สมัครเป็นของจริงเท่านั้น
+                    </p>
+                    @for (entry of emailDrafts(); track entry.lang) {
+                      <div class="email-draft" [attr.data-email-draft]="entry.lang">
+                        <p class="email-subject">{{ entry.draft.subject }}</p>
+                        <pre class="email-body">{{ entry.draft.body }}</pre>
+                        <div class="link-row">
+                          <button type="button" data-email-copy (click)="copyEmail(entry.lang)" i18n="@@admin.copyEmail">คัดลอกอีเมล</button>
+                          <a class="mail-open" data-email-open [href]="entry.mailto" i18n="@@admin.openEmail">เปิดในแอปอีเมล</a>
+                          @if (emailCopied() === entry.lang) {
+                            <span class="muted" data-email-copied i18n="@@admin.copied">คัดลอกแล้ว</span>
+                          }
+                        </div>
+                      </div>
+                    }
                   }
                   <button type="button" class="ghost" (click)="closeReset()" i18n="@@admin.close">ปิด</button>
                 </td>
@@ -336,6 +352,12 @@
           <span class="plan-overcap" data-over-cap>{{ overCapText(user) }}</span>
         }
       </div>
+      <p class="muted plan-source">
+        <span data-signup-source>{{ sourceLabel(user.signupSource) }}</span>
+        @if (user.trialUsed) {
+          · <span data-trial-used i18n="@@admin.trialUsed">ทดลองใช้แล้ว</span>
+        }
+      </p>
       <!-- View mode only: the edit row's date field already holds it. -->
       @if (!editing && user.planRenewsAt && user.effectivePlan !== 'free') {
         <p class="muted plan-until" data-plan-until>{{ planUntil(user.planRenewsAt) }}</p>

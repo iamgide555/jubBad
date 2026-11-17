@@ -7,6 +7,7 @@ const sdk = vi.hoisted(() => ({
   init: vi.fn(),
   isLoggedIn: vi.fn(),
   login: vi.fn(),
+  logout: vi.fn(),
   isApiAvailable: vi.fn(),
   shareTargetPicker: vi.fn(),
   getAccessToken: vi.fn(),
@@ -20,6 +21,12 @@ describe('LiffClient', () => {
     for (const fn of Object.values(sdk)) fn.mockReset();
     sdk.init.mockResolvedValue(undefined);
     client = TestBed.inject(LiffClient);
+  });
+
+  it('logs the viewer out of LINE through the SDK once started', async () => {
+    await client.init('L1');
+    client.logout();
+    expect(sdk.logout).toHaveBeenCalledTimes(1);
   });
 
   describe('before init', () => {

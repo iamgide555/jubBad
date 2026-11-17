@@ -1,17 +1,23 @@
 import { ForbiddenException, Injectable } from '@nestjs/common';
+import { lineConfig } from '../line/line-config.js';
+import { liffLinkUrl } from '../line/signup-links.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import {
   effectivePlan,
   FREE_ARCHIVE_DAYS,
   GROUP_LIMIT,
   lapsedAt,
+  PLANS,
   planAtLeast,
   rankForCap,
+  SESSION_PLAN_GRACE_DAYS,
   upgradeContactUrl,
   type PaidPlan,
   type Plan,
   type PlanOwner,
 } from './plan.js';
+import { TrialService } from './trial.service.js';
+import { isTrial } from './trial.js';
 
 const OWNER_SELECT = { role: true, plan: true, planRenewsAt: true } as const;
 
@@ -22,7 +28,10 @@ const OWNER_SELECT = { role: true, plan: true, planRenewsAt: true } as const;
  */
 @Injectable()
 export class PlansService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly trials: TrialService
+  ) {}
 
   async planForGroup(groupCode: string, now: Date = new Date()): Promise<Plan> {
     return effectivePlan(await this.ownerOfGroup(groupCode), now);
@@ -56,10 +65,12 @@ export class PlansService {
     lapsedAt: string | null;
     paused: boolean;
     archiveHidden: number;
+    /** The owner's Host plan is the 30-day trial, so the notice can say "trial" instead of "renew". */
+    trial: boolean;
   } | null> {
     const group = await this.prisma.group.findUnique({
       where: { code: groupCode },
-      select: { ownerId: true, owner: { select: OWNER_SELECT } },
+      select: { ownerId: true, owner: { select: { ...OWNER_SELECT, trialRecord: { select: { createdAt: true } } } } },
     });
     if (!group) return null;
     const plan = effectivePlan(group.owner, now);
@@ -78,15 +89,25 @@ export class PlansService {
       lapsedAt: lapsedAt(group.owner, now)?.toISOString() ?? null,
       paused: group.ownerId ? (await this.pausedGroupCodes(group.ownerId, now)).has(groupCode) : false,
       archiveHidden,
+      trial: group.owner !== null && isTrial(group.owner, group.owner.trialRecord),
     };
   }
 
   /** The signed-in user's own plan, group count and cap, for the landing page and the upgrade sheet. */
   async describeCaller(caller: { id: string; role: string }, now: Date = new Date()) {
-    const user = await this.prisma.user.findUnique({ where: { id: caller.id }, select: OWNER_SELECT });
+    const user = await this.prisma.user.findUnique({
+      where: { id: caller.id },
+      select: { ...OWNER_SELECT, trialRecord: { select: { createdAt: true } } },
+    });
     const plan = effectivePlan(user, now);
+    // The offer to earn the trial by linking LINE. Never offered without a link to send them to.
+    const { liffId, loginChannelId } = lineConfig();
+    const linkUrl = liffId !== null && loginChannelId !== null ? liffLinkUrl(liffId) : null;
     return {
       plan,
+      trial: user !== null && isTrial(user, user.trialRecord),
+      trialAvailable: linkUrl !== null && (await this.trials.availableForUser(caller.id, now)),
+      linkUrl,
       renewsAt: user?.planRenewsAt?.toISOString() ?? null,
       lapsedAt: lapsedAt(user, now)?.toISOString() ?? null,
       groupCount: await this.prisma.group.count({ where: { ownerId: caller.id } }),
@@ -141,6 +162,25 @@ export class PlansService {
       select: { createdAt: true, group: { select: { owner: { select: OWNER_SELECT } } } },
     });
     return session ? effectivePlan(session.group.owner, session.createdAt) : 'club';
+  }
+
+  /**
+   * The plan to read a night's own state under (its pay page, cards, rating deltas): the better of the plan it began
+   * under and the plan now, but only for `SESSION_PLAN_GRACE_DAYS` after it ended; later, just the plan now. A session
+   * that does not exist reads as club so the caller's own 404 decides.
+   */
+  async planForSessionRead(sessionCode: string, now: Date = new Date()): Promise<Plan> {
+    const session = await this.prisma.session.findUnique({
+      where: { code: sessionCode },
+      select: { createdAt: true, endedAt: true, group: { select: { owner: { select: OWNER_SELECT } } } },
+    });
+    if (!session) return 'club';
+    const owner = session.group.owner;
+    const current = effectivePlan(owner, now);
+    const since = (session.endedAt ?? session.createdAt).getTime();
+    if (now.getTime() - since > SESSION_PLAN_GRACE_DAYS * 24 * 60 * 60 * 1000) return current;
+    const began = effectivePlan(owner, session.createdAt);
+    return PLANS.indexOf(began) > PLANS.indexOf(current) ? began : current;
   }
 
   async requireGroupPlan(groupCode: string, required: PaidPlan): Promise<void> {

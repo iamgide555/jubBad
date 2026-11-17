@@ -1,0 +1,74 @@
+/* Opens inside LINE's own browser on a phone: one column, big targets. */
+.line-link {
+  padding-top: var(--space-4);
+  max-width: 24rem;
+}
+
+.line-link h1 {
+  font-family: var(--font-display);
+  font-size: clamp(2rem, 8vw, 2.75rem);
+  margin-bottom: var(--space-1);
+}
+
+.line-link .lede {
+  color: var(--ink-soft);
+  margin-bottom: var(--space-3);
+}
+
+.line-link .line-name {
+  font-weight: 600;
+  margin-bottom: var(--space-2);
+}
+
+.line-link .note {
+  color: var(--ink-soft);
+  margin-bottom: var(--space-3);
+}
+
+.line-link .consent {
+  font-size: var(--text-sm);
+  margin: 0;
+}
+
+.line-link form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.line-link form > button,
+.line-link > button,
+.line-link .button {
+  width: 100%;
+  min-height: var(--tap);
+  margin-top: var(--space-1);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  text-decoration: none;
+}
+
+/* An anchor styled as the app's button: the global button rule only reaches <button>. */
+.line-link .button {
+  padding: 0.65rem 1.1rem;
+  background: var(--court);
+  color: var(--on-fill);
+  border-radius: var(--radius);
+  font-weight: 700;
+}
+
+.line-link .button.secondary {
+  background: transparent;
+  color: var(--court-ink);
+  border: 2px solid var(--court);
+}
+
+/* Padding and a min-height make the target, not a tall line-height. */
+.line-link .link,
+.line-link .error a,
+.line-link .lede a {
+  display: inline-block;
+  min-height: var(--tap);
+  padding: 0.6rem 0;
+  color: var(--ink-soft);
+}

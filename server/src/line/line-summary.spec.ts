@@ -510,6 +510,26 @@ describe('LineSummaryService', () => {
       await expectUnavailable(sessionCode);
     });
 
+    it('the plan lapsed before the session began, but not when it began while paid', async () => {
+      const lapsed = await prisma.user.create({
+        data: {
+          email: `sum-lapsed-${randomUUID()}@example.test`, passwordHash: 'x', role: 'host', plan: 'host',
+          planRenewsAt: new Date(Date.now() - 86_400_000),
+        },
+      });
+      const after = await setup({ ownerId: lapsed.id });
+      expect((await summary.state(after.sessionCode)).available).toBe(false);
+      const before = await setup({ ownerId: lapsed.id });
+      await prisma.session.update({
+        where: { code: before.sessionCode },
+        data: { createdAt: new Date(Date.now() - 2 * 86_400_000), endedAt: new Date(Date.now() - 86_400_000) },
+      });
+      expect((await summary.state(before.sessionCode)).available).toBe(true);
+      // Three days after it ended, the plan it began under no longer counts.
+      await prisma.session.update({ where: { code: before.sessionCode }, data: { endedAt: new Date(Date.now() - 5 * 86_400_000) } });
+      expect((await summary.state(before.sessionCode)).available).toBe(false);
+    });
+
     it('the group is not linked to a LINE group', async () => {
       const { sessionCode } = await setup({ linked: false });
       await expectUnavailable(sessionCode);

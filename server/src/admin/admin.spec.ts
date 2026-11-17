@@ -122,6 +122,38 @@ describe('admin module', () => {
     }
   });
 
+  it('never returns a password hash or session counter from the user routes', async () => {
+    const email = `strip-${randomUUID()}@example.test`;
+    const created = await request(server).post('/admin/users').set('Cookie', adminCookie).send({ email, password: 'long enough password' }).expect(201);
+    const id = created.body.id as string;
+    try {
+      const updated = await request(server).put(`/admin/users/${id}`).set('Cookie', adminCookie).send({ email: `renamed-${email}` }).expect(200);
+      const disabled = await request(server).post(`/admin/users/${id}/disabled`).set('Cookie', adminCookie).send({ disabled: true }).expect(201);
+      for (const body of [created.body, updated.body, disabled.body]) {
+        expect(body).not.toHaveProperty('passwordHash');
+        expect(body).not.toHaveProperty('tokenVersion');
+        expect(body).toHaveProperty('id', id);
+      }
+    } finally {
+      await prisma.user.deleteMany({ where: { id } });
+    }
+  });
+
+  it('lists where each user came from and whether their trial is used', async () => {
+    const line = `U${randomUUID().replace(/-/g, '')}`;
+    await prisma.user.update({ where: { id: hostId }, data: { signupSource: 'web' } });
+    await prisma.trialRecord.create({ data: { lineUserId: line, userId: hostId } });
+    try {
+      const res = await request(server).get('/admin/users').set('Cookie', adminCookie).expect(200);
+      const rows = res.body as { id: string; signupSource: string; trialUsed: boolean }[];
+      expect(rows.find((u) => u.id === hostId)).toMatchObject({ signupSource: 'web', trialUsed: true });
+      expect(rows.find((u) => u.id !== hostId && u.signupSource === 'admin')?.trialUsed).toBe(false);
+    } finally {
+      await prisma.trialRecord.delete({ where: { lineUserId: line } });
+      await prisma.user.update({ where: { id: hostId }, data: { signupSource: 'admin' } });
+    }
+  });
+
   it("lists the admin's own groups first, then other hosts' (by owner), ownerless last", async () => {
     const mine = randomUUID();
     const theirs = randomUUID();

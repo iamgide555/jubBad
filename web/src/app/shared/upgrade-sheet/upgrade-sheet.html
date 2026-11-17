@@ -2,6 +2,9 @@
   @if (sheet.isOpen()) {
     <div class="sheet-card">
       <h2 id="upgrade-title" i18n="@@upgrade.title">แพ็ก⁠เกจโฮสต์</h2>
+      @if (sheet.trialLinkUrl(); as trialUrl) {
+        <app-trial-offer [linkUrl]="trialUrl" />
+      }
       <ul class="benefits">
         <li class="benefit" i18n="@@upgrade.b1">สูสีและตามระดับ จัดคู่ตามฝีมือ</li>
         <li class="benefit" i18n="@@upgrade.b2">กฎจับคู่ คิวล่วงหน้า และโหมดแยกคอร์ท</li>

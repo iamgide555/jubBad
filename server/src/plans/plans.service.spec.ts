@@ -6,6 +6,7 @@ import { PrismaModule } from '../prisma/prisma.module.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { GroupsModule } from '../groups/groups.module.js';
 import { PlansService } from './plans.service.js';
+import { trialRenewsAt } from './trial.js';
 
 describe('PlansService', () => {
   let app: INestApplication;
@@ -131,7 +132,7 @@ describe('PlansService', () => {
     const owner = await makeUser({ plan: 'free' });
     const code = await makeGroup(owner.id);
     const res = await request(server).get(`/groups/${code}/plan`).expect(200);
-    expect(res.body).toEqual({ plan: 'free', renewsAt: null, lapsedAt: null, paused: false, archiveHidden: 0 });
+    expect(res.body).toEqual({ plan: 'free', renewsAt: null, lapsedAt: null, paused: false, archiveHidden: 0, trial: false });
   });
 
   it('GET /groups/:code/plan reports the renewal date as ISO', async () => {
@@ -145,6 +146,7 @@ describe('PlansService', () => {
       lapsedAt: null,
       paused: false,
       archiveHidden: 0,
+      trial: false,
     });
   });
 
@@ -223,6 +225,7 @@ describe('PlansService', () => {
       lapsedAt: renewsAt.toISOString(),
       paused: false,
       archiveHidden: 2,
+      trial: false,
     });
   });
 
@@ -240,6 +243,123 @@ describe('PlansService', () => {
     expect(await plans.describeCaller({ id: admin.id, role: 'admin' })).toMatchObject({
       plan: 'club',
       groupLimit: null,
+    });
+  });
+
+  describe('planForSessionRead (the plan a night is read under)', () => {
+    const DAY = 86_400_000;
+    const night = async (owner: { plan: string; planRenewsAt: Date | null }, createdDaysAgo: number, endedDaysAgo: number | null) => {
+      const user = await makeUser(owner);
+      const code = await makeGroup(user.id);
+      const session = `psr-${randomUUID().slice(0, 8)}`;
+      sessionCodes.push(session);
+      await prisma.session.create({
+        data: {
+          code: session, groupId: code, rawImportText: '',
+          createdAt: new Date(Date.now() - createdDaysAgo * DAY),
+          endedAt: endedDaysAgo === null ? null : new Date(Date.now() - endedDaysAgo * DAY),
+        },
+      });
+      return session;
+    };
+    const lapsedYesterday = { plan: 'host', planRenewsAt: new Date(Date.now() - DAY) };
+
+    it('is the plan the night began under, for three days after it ended', async () => {
+      expect(await plans.planForSessionRead(await night(lapsedYesterday, 2, 1))).toBe('host');
+      expect(await plans.planForSessionRead(await night(lapsedYesterday, 5, 2.9))).toBe('host');
+    });
+
+    it('is the owner\'s plan now once more than three days have passed', async () => {
+      expect(await plans.planForSessionRead(await night(lapsedYesterday, 8, 4))).toBe('free');
+    });
+
+    it('measures a night that was never ended from when it began, so it cannot stay paid for ever', async () => {
+      expect(await plans.planForSessionRead(await night(lapsedYesterday, 2, null))).toBe('host');
+      expect(await plans.planForSessionRead(await night(lapsedYesterday, 5, null))).toBe('free');
+    });
+
+    it('never reads lower than the plan now (an upgrade after the night began counts)', async () => {
+      const upgraded = { plan: 'host', planRenewsAt: null };
+      expect(await plans.planForSessionRead(await night(upgraded, 20, 19))).toBe('host');
+    });
+
+    it('is club for a session that does not exist, so the caller\'s own 404 decides', async () => {
+      expect(await plans.planForSessionRead('no-such-session')).toBe('club');
+    });
+  });
+
+  describe('the trial flag', () => {
+    const trialUser = async () => {
+      const user = await makeUser({ plan: 'host', planRenewsAt: trialRenewsAt(new Date()) });
+      const lineUserId = `U${randomUUID().replace(/-/g, '')}`;
+      await prisma.trialRecord.create({ data: { lineUserId, userId: user.id } });
+      return { user, lineUserId };
+    };
+
+    it('describeCaller and describeGroup say a trial host is on a trial', async () => {
+      const { user, lineUserId } = await trialUser();
+      const code = await makeGroup(user.id);
+      try {
+        expect((await plans.describeCaller({ id: user.id, role: 'host' })).trial).toBe(true);
+        expect((await plans.describeGroup(code))?.trial).toBe(true);
+      } finally {
+        await prisma.trialRecord.delete({ where: { lineUserId } });
+      }
+    });
+
+    it('a host on a paid Host plan with no trial record is not on a trial', async () => {
+      const user = await makeUser({ plan: 'host', planRenewsAt: trialRenewsAt(new Date()) });
+      const code = await makeGroup(user.id);
+      expect((await plans.describeCaller({ id: user.id, role: 'host' })).trial).toBe(false);
+      expect((await plans.describeGroup(code))?.trial).toBe(false);
+    });
+  });
+
+  describe('the trial offer on describeCaller', () => {
+    const saved = { liff: process.env.LINE_LIFF_ID, login: process.env.LINE_LOGIN_CHANNEL_ID };
+    const restore = (key: string, value: string | undefined) => {
+      if (value === undefined) delete process.env[key];
+      else process.env[key] = value;
+    };
+    beforeEach(() => {
+      process.env.LINE_LIFF_ID = 'L1';
+      process.env.LINE_LOGIN_CHANNEL_ID = '999';
+    });
+    afterEach(() => {
+      restore('LINE_LIFF_ID', saved.liff);
+      restore('LINE_LOGIN_CHANNEL_ID', saved.login);
+    });
+
+    it('offers the trial to a free, unlinked host who never had one', async () => {
+      const user = await makeUser({ plan: 'free' });
+      expect(await plans.describeCaller({ id: user.id, role: 'host' })).toMatchObject({
+        trialAvailable: true,
+        linkUrl: 'https://liff.line.me/L1/link',
+      });
+    });
+
+    it('does not offer it once linked, once used, or on a paid plan', async () => {
+      const linked = await makeUser({ plan: 'free' });
+      await prisma.user.update({ where: { id: linked.id }, data: { lineUserId: `U${randomUUID().replace(/-/g, '')}` } });
+      expect((await plans.describeCaller({ id: linked.id, role: 'host' })).trialAvailable).toBe(false);
+
+      const used = await makeUser({ plan: 'free' });
+      const usedLine = `U${randomUUID().replace(/-/g, '')}`;
+      await prisma.trialRecord.create({ data: { lineUserId: usedLine, userId: used.id } });
+      expect((await plans.describeCaller({ id: used.id, role: 'host' })).trialAvailable).toBe(false);
+      await prisma.trialRecord.delete({ where: { lineUserId: usedLine } });
+
+      const paid = await makeUser({ plan: 'club' });
+      expect((await plans.describeCaller({ id: paid.id, role: 'host' })).trialAvailable).toBe(false);
+    });
+
+    it('does not offer it when LIFF is not configured, and has no link', async () => {
+      delete process.env.LINE_LIFF_ID;
+      const user = await makeUser({ plan: 'free' });
+      expect(await plans.describeCaller({ id: user.id, role: 'host' })).toMatchObject({
+        trialAvailable: false,
+        linkUrl: null,
+      });
     });
   });
 

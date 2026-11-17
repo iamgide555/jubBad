@@ -57,7 +57,9 @@ whiteboard, or by eyeballing a chat group. Self-hosted, per-user host login
 
 - The host routes are admin-guarded (landing, group creation, group home and its settings, players and roster-entry screens, session dashboard);
   three are public and read-only (player profile, session display, session
-  summary) — this access split is fixed.
+  summary) — this access split is fixed. Sign-up is public too (`/signup`,
+  `/privacy`, and the LIFF pages `/line-share/signup` and `/line-share/link`):
+  a stranger has no login yet.
 - Matchmaking/scoring logic, API behavior, and the data model are engine and
   server concerns, not visual ones — see `docs/overview.md`, not this file,
   for that reasoning.
@@ -66,8 +68,8 @@ whiteboard, or by eyeballing a chat group. Self-hosted, per-user host login
 
 ## Brand Commitments
 
-None binding. "JubBad" is the current name, appearing once, on the login
-screen. The existing app icon (a flat badminton-court graphic) and color
+None binding. "JubBad" is the current name, appearing on the login and sign-up
+screens. The existing app icon (a flat badminton-court graphic) and color
 palette are not locked — confirmed open to full replacement.
 
 ## Evidence on Hand

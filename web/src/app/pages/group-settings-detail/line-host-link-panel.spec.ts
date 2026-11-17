@@ -316,6 +316,19 @@ describe('LineHostLinkPanel', () => {
     expect(q('[data-host-state]')?.classList.contains('on')).toBe(false);
   });
 
+  it('names the linked LINE account and says whose chat can reset the password', async () => {
+    await open({ ...ON, accountName: 'Somchai' });
+    const name = q('[data-host-account-name]');
+    expect(name?.textContent).toContain('Somchai');
+    expect(name?.textContent).toContain('ลืมรหัสผ่าน');
+  });
+
+  it('shows no account name line when the directory has no name for the linked account', async () => {
+    await open({ ...ON, accountName: null });
+    expect(q('[data-host-linked]')).not.toBeNull();
+    expect(q('[data-host-account-name]')).toBeNull();
+  });
+
   it('account linked: unlinks only after an inline confirm, then goes back to the not-linked state', async () => {
     await open(ON);
     expect(q('[data-host-linked]')).not.toBeNull();

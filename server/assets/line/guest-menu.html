@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<title>JubBad guest rich menu (2500x843)</title>
+<!-- Design source for guest-menu.png. Colours are the app's tokens (web/src/styles.css).
+     Render: Google Chrome --headless --screenshot=guest-menu.png --window-size=2500,843 --virtual-time-budget=8000 guest-menu.html -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Anuphan:wght@500;700&family=Bai+Jamjuree:wght@700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --ground: #faf8f4; --ink: #16130f; --ink-soft: #655e53; --court: #1f6b3d; --court-dark: #185530;
+    --accent: #ff5a36; --line: #e5dfd5;
+  }
+  * { box-sizing: border-box; margin: 0; }
+  html, body { width: 2500px; height: 843px; overflow: hidden; font-family: 'Anuphan', system-ui, sans-serif; }
+  .menu { display: grid; grid-template-columns: 1fr 1fr; width: 2500px; height: 843px; }
+  .half { display: flex; flex-direction: column; justify-content: center; gap: 30px; padding: 0 150px; }
+  .signup { background: var(--court); color: #fff; }
+  .link { background: var(--ground); color: var(--ink); border-left: 6px solid var(--line); }
+  .tag { align-self: flex-start; font-size: 54px; font-weight: 700; padding: 6px 34px; border-radius: 999px; }
+  .signup .tag { background: #fff; color: var(--court-dark); }
+  .link .tag { background: var(--ink); color: var(--ground); }
+  h1 { font-family: 'Bai Jamjuree', 'Anuphan', sans-serif; font-weight: 700; font-size: 190px; line-height: 1.05; }
+  .sub { font-size: 64px; font-weight: 500; }
+  .signup .sub { color: #e8f3ec; }
+  .link .sub { color: var(--ink-soft); }
+  .go { align-self: flex-start; margin-top: 10px; font-size: 62px; font-weight: 700; padding: 16px 56px; border-radius: 999px; }
+  .signup .go { background: var(--accent); color: #fff; }
+  .link .go { border: 6px solid var(--court); color: var(--court-dark); }
+</style>
+</head>
+<body>
+<div class="menu">
+  <div class="half signup">
+    <span class="tag">สำหรับหัวก๊วน</span>
+    <h1>สมัครใช้ฟรี</h1>
+    <p class="sub">ทดลองครบทุกฟีเจอร์ 30 วัน</p>
+    <span class="go">แตะเพื่อสมัคร ›</span>
+  </div>
+  <div class="half link">
+    <span class="tag">มีบัญชีแล้ว?</span>
+    <h1>ผูก LINE</h1>
+    <p class="sub">เชื่อมบัญชี JubBad กับ LINE นี้</p>
+    <span class="go">แตะเพื่อผูกบัญชี ›</span>
+  </div>
+</div>
+</body>
+</html>

@@ -1,7 +1,7 @@
 import { TestBed } from '@angular/core/testing';
 import { Router, UrlTree } from '@angular/router';
 import { provideRouter } from '@angular/router';
-import { adminGuard, adminRoleGuard } from './admin.guard';
+import { adminGuard, adminRoleGuard, guestOnlyGuard } from './admin.guard';
 import { AuthService, type Role } from './auth.service';
 
 function runGuard(url: string) {
@@ -105,5 +105,32 @@ describe('adminRoleGuard', () => {
     const result = (await runRoleGuard('/admin')) as UrlTree;
     expect(result.toString()).not.toContain('/login');
     expect(result.toString()).toBe('/');
+  });
+});
+
+describe('guestOnlyGuard', () => {
+  let checkResult: boolean;
+
+  beforeEach(() => {
+    checkResult = false;
+    TestBed.configureTestingModule({
+      providers: [
+        provideRouter([]),
+        { provide: AuthService, useValue: { check: () => Promise.resolve(checkResult) } },
+      ],
+    });
+  });
+
+  const run = () => TestBed.runInInjectionContext(() => guestOnlyGuard({} as never, {} as never)) as Promise<boolean | UrlTree>;
+
+  it('lets someone who is not signed in see the sign-up page', async () => {
+    expect(await run()).toBe(true);
+  });
+
+  it('sends a signed-in host home, so signing up again cannot swap their session for a new account', async () => {
+    checkResult = true;
+    const result = await run();
+    expect(result).toBeInstanceOf(UrlTree);
+    expect((result as UrlTree).toString()).toBe('/');
   });
 });

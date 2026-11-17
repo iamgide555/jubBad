@@ -166,6 +166,32 @@ describe('plan gates on paid session controls', () => {
       expect(row.ratingDelta).toBeNull();
     });
 
+    it('keeps ratings for a night that began while paid, for a few days after, once the plan lapsed', async () => {
+      const lapsed = await prisma.user.create({
+        data: {
+          email: `gate-lapsed-${randomUUID()}@example.test`, passwordHash: 'test', role: 'host', plan: 'host',
+          planRenewsAt: new Date(Date.now() - 86_400_000),
+        },
+      });
+      const f = await fixture({ mode: 'variety', players: 2, owner: lapsed.id });
+      try {
+        await prisma.player.update({ where: { id: f.players[0].id }, data: { level: 'P', levelSetAt: new Date() } });
+        await prisma.session.update({ where: { code: f.sessionCode }, data: { createdAt: new Date(Date.now() - 2 * 86_400_000) } });
+        const running = (await sessions.getPlayerPanel(f.sessionCode)).find((r) => r.playerId === f.players[0].id)!;
+        expect(running.ratingDelta).toBe(0);
+        // A day after it ends, still the plan it began under; days later, the owner's plan now.
+        await prisma.session.update({ where: { code: f.sessionCode }, data: { endedAt: new Date(Date.now() - 86_400_000) } });
+        const soon = (await sessions.getPlayerPanel(f.sessionCode)).find((r) => r.playerId === f.players[0].id)!;
+        expect(soon.ratingDelta).toBe(0);
+        await prisma.session.update({ where: { code: f.sessionCode }, data: { endedAt: new Date(Date.now() - 5 * 86_400_000) } });
+        const later = (await sessions.getPlayerPanel(f.sessionCode)).find((r) => r.playerId === f.players[0].id)!;
+        expect(later.ratingDelta).toBeNull();
+      } finally {
+        await f.cleanup();
+        await prisma.user.delete({ where: { id: lapsed.id } });
+      }
+    });
+
     it('is unchanged for a host owner', async () => {
       const row = await deltaOf(hostId);
       expect(row.level).toBe('P');

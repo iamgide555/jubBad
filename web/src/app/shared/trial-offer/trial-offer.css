@@ -1,0 +1,31 @@
+/* A calm invitation, not an alarm: the accent marks "there is a next step" the way the rest of the app does. */
+.trial-offer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  margin-bottom: var(--space-3);
+  background: var(--accent-soft);
+  border-radius: var(--radius-md, 0.75rem);
+}
+
+.trial-text {
+  margin: 0;
+  color: var(--accent-ink);
+  font-weight: 600;
+}
+
+.trial-link {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  padding: 0 var(--space-3);
+  background: var(--accent);
+  color: var(--on-fill);
+  border-radius: 999px;
+  text-decoration: none;
+  font-weight: 700;
+}

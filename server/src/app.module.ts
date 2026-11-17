@@ -3,6 +3,7 @@ import { AppController } from './app.controller.js';
 import { AppService } from './app.service.js';
 import { AdminModule } from './admin/admin.module.js';
 import { AuthModule } from './auth/auth.module.js';
+import { SignupModule } from './signup/signup.module.js';
 import { PrismaModule } from './prisma/prisma.module.js';
 import { GroupsModule } from './groups/groups.module.js';
 import { SessionsModule } from './sessions/sessions.module.js';
@@ -21,6 +22,7 @@ import { LinePurgeModule } from './line/line-purge.js';
 @Module({
   imports: [
     AuthModule,
+    SignupModule,
     PrismaModule,
     GroupsModule,
     SessionsModule,

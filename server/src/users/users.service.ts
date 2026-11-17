@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
-import type { User } from '@prisma/client';
+import type { Prisma, User } from '@prisma/client';
+import type { Plan } from '../plans/plan.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { hashPassword, verifyPassword } from '../auth/password.js';
 
@@ -29,12 +30,24 @@ export class UsersService {
     return this.prisma.user.count({ where: { role: 'admin' } });
   }
 
-  async create(email: string, password: string, role: Role = 'host'): Promise<User> {
-    return this.prisma.user.create({
+  /**
+   * `extra` and `tx` are optional: with neither, the plan column's default applies
+   * (club, which keeps plan gating dormant for admin-made accounts) and the source is
+   * 'admin'. Self sign-up passes `plan: 'free'` explicitly.
+   */
+  async create(
+    email: string,
+    password: string,
+    role: Role = 'host',
+    extra: { plan?: Plan; signupSource?: 'admin' | 'web' | 'line' } = {},
+    tx?: Prisma.TransactionClient
+  ): Promise<User> {
+    return (tx ?? this.prisma).user.create({
       data: {
         email: normalizeEmail(email),
         passwordHash: await hashPassword(password),
         role,
+        ...extra,
       },
     });
   }

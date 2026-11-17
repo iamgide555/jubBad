@@ -10,7 +10,7 @@ import { LineService } from '../../core/line.service';
 type Phase = 'loading' | 'missing' | 'error' | 'login' | 'unavailable' | 'ready' | 'done';
 
 interface RouteTarget {
-  kind: 'summary' | 'pay' | 'slip' | 'payment-status';
+  kind: 'summary' | 'pay' | 'slip' | 'payment-status' | 'signup' | 'link';
   code: string;
   /** Only for `pay` and `slip`; never logged or shown. */
   token: string | null;
@@ -38,6 +38,10 @@ function routeTargetFrom(snapshot: ActivatedRouteSnapshot): RouteTarget {
   const state = (snapshot.queryParamMap.get('liff.state') ?? '').split(/[?#]/)[0];
   const path = state.startsWith('/') ? state.slice(1) : state;
   const parts = path.split('/');
+  // The host sign-up and link pages: their own components, so this one only recognises them and hands over.
+  if (parts.length === 1 || (parts.length === 2 && parts[1] === '')) {
+    if (parts[0] === 'signup' || parts[0] === 'link') return { kind: parts[0], code: '', token: null };
+  }
   if ((parts[0] === 'pay' || parts[0] === 'slip' || parts[0] === 'payment-status') && parts.length > 1) {
     return { kind: parts[0], code: parts.length === 3 ? parts[1] : '', token: parts.length === 3 ? parts[2] : null };
   }
@@ -77,13 +81,23 @@ export class LineShare {
 
   constructor() {
     const { kind, code, token } = this.target;
-    if ((kind === 'slip' || kind === 'payment-status') && code && token) {
-      // A player's slip link, as LIFF first opens it. It is not a card to share: the slip page loads
-      // its own data and starts LIFF itself, so go there and leave this URL out of the history.
+    const handOver = (segments: string[]) => {
+      // Not a card to share: the other page loads its own data and starts LIFF itself, so go there and
+      // leave this URL out of the history.
       const queryParams = Object.fromEntries(
         this.route.queryParamMap.keys.filter((k) => k !== 'liff.state').map((k) => [k, this.route.queryParamMap.get(k)!]),
       );
-      void this.router.navigate(['/line-share', kind, code, token], { replaceUrl: true, queryParams });
+      // LIFF's own tokens can ride in the fragment; dropping it costs an extra LINE login round trip.
+      const fragment = this.route.fragment;
+      void this.router.navigate(segments, { replaceUrl: true, queryParams, ...(fragment ? { fragment } : {}) });
+    };
+    if ((kind === 'slip' || kind === 'payment-status') && code && token) {
+      // A player's slip link, as LIFF first opens it.
+      handOver(['/line-share', kind, code, token]);
+      return;
+    }
+    if (kind === 'signup' || kind === 'link') {
+      handOver(['/line-share', kind]);
       return;
     }
     void this.load();

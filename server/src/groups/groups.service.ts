@@ -137,11 +137,17 @@ export class GroupsService {
     if (!(await this.prisma.group.findUnique({ where: { code: dto.code }, select: { code: true } }))) {
       await this.plans.assertCanCreateGroup(caller);
     }
+    // A linked host on a plan that allows roster-by-DM gets the switch on from the start, so a host who
+    // signed up through LINE can forward a roster without a settings visit. Only read when the group is
+    // created: a retry on an existing code never changes it (`update` stays empty).
+    const owner = await this.prisma.user.findUnique({ where: { id: caller.id }, select: { lineUserId: true } });
+    const lineDmEnabled =
+      owner?.lineUserId != null && planAtLeast(await this.plans.planForUser(caller.id), 'host');
     let group: { code: string; name: string | null; ownerId: string | null } | null;
     try {
       group = await this.prisma.group.upsert({
         where: { code: dto.code },
-        create: { code: dto.code, name: dto.name, ownerId: caller.id },
+        create: { code: dto.code, name: dto.name, ownerId: caller.id, lineDmEnabled },
         update: {},
       });
     } catch (error) {

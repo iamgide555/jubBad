@@ -1,5 +1,5 @@
 import { Routes } from '@angular/router';
-import { adminGuard, adminRoleGuard } from './core/admin.guard';
+import { adminGuard, adminRoleGuard, guestOnlyGuard } from './core/admin.guard';
 import { canDeactivateGuard } from './core/can-deactivate.guard';
 
 /**
@@ -13,6 +13,18 @@ export const routes: Routes = [
   {
     path: 'login',
     loadComponent: () => import('./pages/login/login').then((m) => m.Login),
+  },
+  {
+    // Unguarded: the sign-up forms link here, and a stranger has no login. Static text plus the operator's contact.
+    path: 'privacy',
+    loadComponent: () => import('./pages/privacy/privacy').then((m) => m.Privacy),
+  },
+  {
+    // Unguarded: whoever wants an account has none yet. The server limits it per address and
+    // gives a new account only the free plan (see SignupController).
+    path: 'signup',
+    canActivate: [guestOnlyGuard],
+    loadComponent: () => import('./pages/signup/signup').then((m) => m.Signup),
   },
   {
     // Unguarded by necessity: a locked-out host reaching this link has no
@@ -143,6 +155,19 @@ export const routes: Routes = [
     // Read-only collector view: LINE identity and confirmed bill token, no host login.
     path: 'line-share/payment-status/:sessionCode/:token',
     loadComponent: () => import('./pages/payment-status/payment-status').then((m) => m.PaymentStatus),
+  },
+  {
+    // Before 'line-share/:sessionCode' so these two literal paths are never read as a session code.
+    // Unguarded: a stranger signing up has no JubBad login; LINE says who they are (the server
+    // checks the LIFF access token with LINE) and the routes behind it are @Public() to match.
+    path: 'line-share/signup',
+    loadComponent: () => import('./pages/line-signup/line-signup').then((m) => m.LineSignup),
+  },
+  {
+    // Unguarded for the same reason: LINE's own browser has no JubBad session. It asks for the
+    // account's email and password and signs no one in.
+    path: 'line-share/link',
+    loadComponent: () => import('./pages/line-link/line-link').then((m) => m.LineLink),
   },
   {
     // Unguarded: LINE opens this in its own browser on the host's phone (via

@@ -2,7 +2,13 @@
   <p><a class="back" [routerLink]="['/']" i18n="@@group.backToList">← ก๊วนของฉัน</a></p>
   <h1 class="create-title" i18n="@@group.createTitle">สร้างก๊วนใหม่</h1>
   @if (!capHint()) {
-    <p class="muted" i18n="@@group.createLede">ตั้งชื่อก๊วนไว้ก่อน รายชื่อผู้เล่นค่อยเพิ่มตอนเริ่มรอบ</p>
+    @if (isFirstGroup()) {
+      <p class="welcome" data-first-welcome i18n="@@group.firstWelcome">
+        ยินดีต้อนรับสู่ JubBad เริ่มจากตั้งชื่อก๊วนแรก รายชื่อผู้เล่นค่อยเพิ่มตอนเริ่มรอบ
+      </p>
+    } @else {
+      <p class="muted" i18n="@@group.createLede">ตั้งชื่อก๊วนไว้ก่อน รายชื่อผู้เล่นค่อยเพิ่มตอนเริ่มรอบ</p>
+    }
   }
 
   @if (capHint(); as hint) {

@@ -1,9 +1,14 @@
+import { Component } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideRouter, Router } from '@angular/router';
 import { AuthService } from '../../core/auth.service';
 import type { RegisterResult, SignupInfo } from '../../core/signup.service';
 import { SignupService } from '../../core/signup.service';
+import { SceneHost } from '../../core/three/scene-host';
 import { Signup } from './signup';
+
+@Component({ selector: 'app-scene-host', template: '' })
+class SceneHostStub {}
 
 const INFO_ON: SignupInfo = { liffId: 'L1', lineSignupUrl: 'https://liff.line.me/L1/signup', botAddUrl: null, contactUrl: null };
 const INFO_OFF: SignupInfo = { liffId: null, lineSignupUrl: null, botAddUrl: null, contactUrl: null };
@@ -54,6 +59,8 @@ describe('Signup', () => {
         { provide: AuthService, useValue: auth },
       ],
     });
+    // The 3D hero needs a canvas; the form is what is under test.
+    TestBed.overrideComponent(Signup, { remove: { imports: [SceneHost] }, add: { imports: [SceneHostStub] } });
     navigate = vi.spyOn(TestBed.inject(Router), 'navigate').mockResolvedValue(true);
   });
 
@@ -190,9 +197,72 @@ describe('Signup', () => {
     expect(q('[data-consent] a')?.getAttribute('href')).toBe('/privacy');
   });
 
-  it('says that linking LINE later lets them reset their own password', async () => {
+  it('does not make the form carry the "link LINE later" note: that is for after sign-up', async () => {
     await open();
-    expect(q('[data-recovery-note]')?.textContent).toContain('LINE');
+    expect(q('[data-recovery-note]')).toBeNull();
+  });
+
+  it('opens with what JubBad does, not just "sign up": a promise headline and three benefits', async () => {
+    await open();
+    // The invisible word joiners keep the phrase from breaking mid-idea; the words themselves are what is read.
+    expect(q('h1')?.textContent?.replace(/\u2060/g, '')).toContain('ไม่ต้องคิดคู่เอง');
+    expect(el().querySelectorAll('[data-benefit]').length).toBe(3);
+    expect(q('app-scene-host')).not.toBeNull();
+  });
+
+  it('puts the LINE door first, as a button that names the trial, then the email form', async () => {
+    await open(INFO_ON);
+    const line = q('[data-via-line]')!;
+    expect(line.textContent).toContain('30 วัน');
+    expect(line.getAttribute('href')).toBe('https://liff.line.me/L1/signup');
+    const form = q('form')!;
+    expect(line.compareDocumentPosition(form) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(q('[data-or-email]')).not.toBeNull();
+  });
+
+  it('has no divider and no LINE button when LINE sign-up is not offered', async () => {
+    await open(INFO_OFF);
+    expect(q('[data-via-line]')).toBeNull();
+    expect(q('[data-or-email]')).toBeNull();
+  });
+
+  it('keeps the submit disabled until the email is filled and the password is long enough', async () => {
+    await open();
+    const submit = () => q('button[type="submit"]') as HTMLButtonElement;
+    expect(submit().disabled).toBe(true);
+    type('#email', 'host@example.test');
+    type('#password', 'short');
+    fixture.detectChanges();
+    expect(submit().disabled).toBe(true);
+    type('#password', 'long enough');
+    fixture.detectChanges();
+    expect(submit().disabled).toBe(false);
+  });
+
+  it('turns the hint into the problem as soon as a too-short password is typed, not after a failed submit', async () => {
+    await open();
+    type('#password', 'abc');
+    fixture.detectChanges();
+    expect(q('[data-password-hint]')?.classList.contains('invalid')).toBe(true);
+    expect(q('#password')?.getAttribute('aria-invalid')).toBe('true');
+    type('#password', 'long enough');
+    fixture.detectChanges();
+    expect(q('[data-password-hint]')?.classList.contains('invalid')).toBe(false);
+  });
+
+  it('puts the login link in a small footer, below the consent line', async () => {
+    await open();
+    const login = q('[data-login-link]')!;
+    const consent = q('[data-consent]')!;
+    expect(consent.compareDocumentPosition(login) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  it('shows the email-taken recovery as its own tappable line, not a link inside the sentence', async () => {
+    await open();
+    registers('email-taken');
+    await submit();
+    const link = q('[data-error] a[href="/login"]')!;
+    expect(link.closest('[data-error-action]')).not.toBeNull();
   });
 });
 

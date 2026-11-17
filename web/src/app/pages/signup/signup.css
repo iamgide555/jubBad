@@ -1,18 +1,95 @@
-/* A plain, quiet form, like the sign-in page without the hero. */
+/* The first screen a stranger sees. It says what JubBad does before it asks for anything: a small version of the
+   sign-in page's shuttle hero, a promise, three plain benefits, then the two ways in, LINE first. */
 .signup {
-  padding-top: var(--space-4);
+  padding-top: var(--space-2);
   max-width: 24rem;
+}
+
+.signup-hero {
+  height: clamp(5rem, 14vh, 7rem);
+  margin-bottom: var(--space-1);
 }
 
 .signup h1 {
   font-family: var(--font-display);
-  font-size: clamp(2rem, 8vw, 2.75rem);
-  margin-bottom: var(--space-1);
+  font-size: clamp(1.75rem, 7vw, 2.25rem);
+  line-height: 1.25;
+  text-wrap: balance;
+  margin-bottom: var(--space-2);
 }
 
-.signup .lede {
+.benefits {
+  list-style: none;
+  margin: 0 0 var(--space-3);
+  padding: 0;
+  display: grid;
+  gap: var(--space-1);
+}
+
+.benefits li {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: var(--space-1);
+  align-items: start;
+  font-size: var(--text-sm);
   color: var(--ink-soft);
-  margin-bottom: var(--space-4);
+}
+
+/* The check sits on the first line of its text, not centred against a wrapped one. */
+.benefits app-icon {
+  color: var(--court-ink);
+  margin-top: 0.2rem;
+}
+
+/* The LINE door: where this audience already lives, and where the trial is. One decisive green block. */
+.line-door {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.1rem;
+  min-height: 3.5rem;
+  padding: 0.6rem var(--space-3);
+  background: var(--court);
+  color: var(--on-fill);
+  border-radius: var(--radius);
+  text-decoration: none;
+  box-shadow: var(--shadow-xs);
+}
+
+@media (hover: hover) {
+  .line-door:hover {
+    background: var(--court-dark);
+  }
+}
+
+.line-door-title {
+  font-weight: 700;
+  font-size: var(--text-base);
+}
+
+.line-door-sub {
+  font-weight: 500;
+  font-size: var(--text-xs);
+  /* Tinted from the fill, not grey: secondary text on a coloured surface keeps its hue. */
+  color: color-mix(in srgb, var(--on-fill) 88%, var(--court));
+}
+
+.or-email {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin: var(--space-2) 0;
+  font-size: var(--text-xs);
+  color: var(--ink-soft);
+}
+
+.or-email::before,
+.or-email::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--line);
 }
 
 .signup form {
@@ -21,9 +98,19 @@
   gap: var(--space-2);
 }
 
+/* A label belongs to its own field: tight inside, generous between. */
+.signup .field {
+  display: grid;
+  gap: var(--space-0);
+}
+
+.signup .field label {
+  margin: 0;
+}
+
 .signup form > button {
   width: 100%;
-  margin-top: var(--space-1);
+  margin-top: var(--space-0);
 }
 
 /* Off screen rather than display:none, which a form-filling bot may skip. No person reaches it:
@@ -36,26 +123,49 @@
   overflow: hidden;
 }
 
-.signup .consent,
-.signup .recovery-note {
-  font-size: var(--text-sm);
+/* The error is its own block with its action on its own line, so the recovery is a real tap target. */
+.signup .error p {
   margin: 0;
 }
 
-.signup .recovery-note {
-  margin-top: var(--space-3);
-}
-
-.signup .via-line,
-.signup .have-account {
-  margin-top: var(--space-3);
-}
-
-/* Padding and a min-height make the target, not a tall line-height: a long Thai link wraps tight. */
-.signup .via-line a,
-.signup .have-account a {
-  display: inline-block;
+.signup .error-action a {
+  display: inline-flex;
+  align-items: center;
   min-height: var(--tap);
-  padding: 0.6rem 0;
+}
+
+.signup .consent {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  column-gap: var(--space-0);
+  margin: 0;
+  font-size: var(--text-xs);
   color: var(--ink-soft);
+}
+
+.signup .consent a {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--tap);
+  white-space: nowrap;
+}
+
+.signup .have-account {
+  margin: var(--space-1) 0 0;
+  font-size: var(--text-sm);
+}
+
+.signup .have-account a {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--tap);
+  color: var(--ink-soft);
+}
+
+/* On a short phone the form comes first: the hero steps aside before the submit leaves the screen. */
+@media (max-height: 760px) {
+  .signup-hero {
+    display: none;
+  }
 }

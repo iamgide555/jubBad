@@ -35,5 +35,8 @@ describe('Login', () => {
     expect(note?.textContent).toContain('LINE');
     expect(note?.textContent).toContain('ลืมรหัสผ่าน');
   });
-});
 
+  it('is a main landmark', () => {
+    expect((fixture.nativeElement as HTMLElement).querySelector('main.login')).not.toBeNull();
+  });
+});

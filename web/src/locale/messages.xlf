@@ -9262,14 +9262,14 @@
         </context-group>
       </trans-unit>
       <trans-unit id="trialOffer.line" datatype="html">
-        <source>ผูก LINE รับทดลองใช้ครบทุกฟีเจอร์ฟรี 30 วัน</source>
+        <source>ทดลองใช้ครบทุกฟีเจอร์ฟรี 30 วัน</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/shared/trial-offer/trial-offer.html</context>
           <context context-type="linenumber">1</context>
         </context-group>
       </trans-unit>
       <trans-unit id="trialOffer.button" datatype="html">
-        <source>ผูก LINE</source>
+        <source>ผูก LINE เพื่อเริ่มทดลอง</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/shared/trial-offer/trial-offer.html</context>
           <context context-type="linenumber">1</context>
@@ -9580,6 +9580,104 @@
         <source>ทดลองใช้ครบทุกฟีเจอร์ถึง <x id="INTERPOLATION" equiv-text="{{ ends }}"/></source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/landing/landing.html</context>
+          <context context-type="linenumber">1</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="title.signup" datatype="html">
+        <source>สมัครใช้ JubBad</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/app.routes.ts</context>
+          <context context-type="linenumber">1</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="title.privacy" datatype="html">
+        <source>นโยบายความเป็นส่วนตัว · JubBad</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/app.routes.ts</context>
+          <context context-type="linenumber">1</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="title.lineSignup" datatype="html">
+        <source>สมัครใช้ JubBad ผ่าน LINE</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/app.routes.ts</context>
+          <context context-type="linenumber">1</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="title.lineLink" datatype="html">
+        <source>ผูก LINE กับบัญชี JubBad</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/app.routes.ts</context>
+          <context context-type="linenumber">1</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="signup.pitch" datatype="html">
+        <source>จัดก๊วนแบดฯ ไม่⁠ต้อง⁠คิด⁠คู่⁠เอง</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/signup/signup.html</context>
+          <context context-type="linenumber">1</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="signup.benefit1" datatype="html">
+        <source>วางรายชื่อจาก LINE ระบบจัดคู่ให้ทุกสนาม</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/signup/signup.html</context>
+          <context context-type="linenumber">1</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="signup.benefit2" datatype="html">
+        <source>ไม่ต้องเล่นกับคนเดิมซ้ำๆ ไม่มีใครนั่งรอนาน</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/signup/signup.html</context>
+          <context context-type="linenumber">1</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="signup.benefit3" datatype="html">
+        <source>สรุปค่าสนามและลูกแบดให้ทุกคนจ่ายเท่าที่เล่น</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/signup/signup.html</context>
+          <context context-type="linenumber">1</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="signup.lineButton" datatype="html">
+        <source>สมัครผ่าน LINE</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/signup/signup.html</context>
+          <context context-type="linenumber">1</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="signup.lineButtonSub" datatype="html">
+        <source>ทดลองใช้ครบทุกฟีเจอร์ฟรี 30 วัน</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/signup/signup.html</context>
+          <context context-type="linenumber">1</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="signup.orEmail" datatype="html">
+        <source>หรือใช้อีเมล</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/signup/signup.html</context>
+          <context context-type="linenumber">1</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="trialOffer.includes" datatype="html">
+        <source>จัดคู่ตามฝีมือ กฎจับคู่ คิวล่วงหน้า และดูย้อนหลังทั้งหมด</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/shared/trial-offer/trial-offer.html</context>
+          <context context-type="linenumber">1</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="trialOffer.recovery" datatype="html">
+        <source>ผูก LINE แล้วตั้งรหัสผ่านใหม่เองได้ทางแชตบอท</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/shared/trial-offer/trial-offer.html</context>
+          <context context-type="linenumber">1</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="group.firstWelcome" datatype="html">
+        <source>ยินดีต้อนรับสู่ JubBad เริ่มจากตั้งชื่อก๊วนแรก รายชื่อผู้เล่นค่อยเพิ่มตอนเริ่มรอบ</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/group-create/group-create.html</context>
           <context context-type="linenumber">1</context>
         </context-group>
       </trans-unit>

@@ -1,31 +1,60 @@
-/* A calm invitation, not an alarm: the accent marks "there is a next step" the way the rest of the app does. */
+/* An invitation, not an alarm: the court-soft wash and the feather mark say "this is yours to take". The primary
+   green button is the one next step. */
 .trial-offer {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-2);
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: var(--space-1) var(--space-2);
+  align-items: start;
   padding: var(--space-2) var(--space-3);
   margin-bottom: var(--space-3);
-  background: var(--accent-soft);
-  border-radius: var(--radius-md, 0.75rem);
+  background: var(--court-soft);
+  border-radius: var(--radius-lg);
+}
+
+.trial-mark {
+  color: var(--court-ink);
+  margin-top: 0.15rem;
+}
+
+.trial-body p {
+  margin: 0;
 }
 
 .trial-text {
-  margin: 0;
-  color: var(--accent-ink);
-  font-weight: 600;
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: var(--text-lg);
+  color: var(--court-ink);
 }
 
+.trial-includes,
+.trial-recovery {
+  font-size: var(--text-sm);
+  color: var(--ink-soft);
+}
+
+.trial-recovery {
+  margin-top: var(--space-0);
+}
+
+/* Full width under the text on a phone: the thumb's easiest target, and the Thai label never has to squeeze. */
 .trial-link {
-  flex: none;
+  grid-column: 1 / -1;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-height: 44px;
+  min-height: var(--tap);
   padding: 0 var(--space-3);
-  background: var(--accent);
+  background: var(--court);
   color: var(--on-fill);
-  border-radius: 999px;
+  border-radius: var(--radius);
   text-decoration: none;
   font-weight: 700;
+  box-shadow: var(--shadow-xs);
+}
+
+@media (hover: hover) {
+  .trial-link:hover {
+    background: var(--court-dark);
+  }
 }

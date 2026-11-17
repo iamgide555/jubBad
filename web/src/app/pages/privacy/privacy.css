@@ -33,3 +33,10 @@
   min-height: var(--tap);
   padding: 0.6rem 0;
 }
+
+/* On its own line, a real target: the one thing a person came here to find. */
+.privacy .contact-link {
+  display: flex;
+  align-items: center;
+  min-height: var(--tap);
+}

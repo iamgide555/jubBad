@@ -1,4 +1,15 @@
 <div class="trial-offer">
-  <p class="trial-text" i18n="@@trialOffer.line">ผูก LINE รับทดลองใช้ครบทุกฟีเจอร์ฟรี 30 วัน</p>
-  <a class="trial-link" [href]="linkUrl()" target="_blank" rel="noopener noreferrer" data-trial-link i18n="@@trialOffer.button">ผูก LINE</a>
+  <app-icon class="trial-mark" name="feather" [size]="24" aria-hidden="true" />
+  <div class="trial-body">
+    <p class="trial-text" i18n="@@trialOffer.line">ทดลองใช้ครบทุกฟีเจอร์ฟรี 30 วัน</p>
+    <p class="trial-includes" data-trial-includes i18n="@@trialOffer.includes">
+      จัดคู่ตามฝีมือ กฎจับคู่ คิวล่วงหน้า และดูย้อนหลังทั้งหมด
+    </p>
+    <p class="trial-recovery" data-trial-recovery i18n="@@trialOffer.recovery">
+      ผูก LINE แล้วตั้งรหัสผ่านใหม่เองได้ทางแชตบอท
+    </p>
+  </div>
+  <a class="trial-link" [href]="linkUrl()" target="_blank" rel="noopener noreferrer" data-trial-link i18n="@@trialOffer.button">
+    ผูก LINE เพื่อเริ่มทดลอง
+  </a>
 </div>

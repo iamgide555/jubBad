@@ -1,4 +1,4 @@
-<div class="page privacy">
+<main class="page privacy">
   <h1 i18n="@@privacy.title">นโยบายความเป็นส่วนตัว</h1>
   <p class="lede" i18n="@@privacy.lede">
     JubBad เป็นเครื่องมือจัดก๊วนแบดมินตัน หน้านี้บอกว่าเก็บข้อมูลอะไร เก็บไว้ทำไม และขอลบได้อย่างไร
@@ -44,7 +44,7 @@
         ขอลบบัญชี ขอสำเนาข้อมูล หรือขอตั้งรหัสผ่านใหม่ได้โดยติดต่อผู้ดูแล
       </ng-container>
       @if (contactUrl(); as url) {
-        {{ ' ' }}<a [href]="url" target="_blank" rel="noopener noreferrer" i18n="@@privacy.contactLink">ติดต่อผู้ดูแลทาง LINE</a>
+        {{ ' ' }}<a class="contact-link" [href]="url" target="_blank" rel="noopener noreferrer" i18n="@@privacy.contactLink">ติดต่อผู้ดูแลทาง LINE</a>
       } @else {
         {{ ' ' }}<ng-container i18n="@@privacy.contactFallback">ผ่านช่องทางที่ผู้ดูแลแจ้งไว้ตอนชวนคุณใช้งาน</ng-container>
       }
@@ -54,4 +54,4 @@
   <p class="back">
     <a routerLink="/signup" data-back-link i18n="@@privacy.back">กลับไปสมัคร</a>
   </p>
-</div>
+</main>

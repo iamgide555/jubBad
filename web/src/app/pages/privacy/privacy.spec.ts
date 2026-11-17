@@ -67,4 +67,14 @@ describe('Privacy', () => {
     await open(Promise.resolve(INFO));
     expect(q('[data-back-link]')?.getAttribute('href')).toBe('/signup');
   });
+
+  it('is a main landmark', async () => {
+    await open(Promise.resolve(INFO));
+    expect(q('main.privacy')).not.toBeNull();
+  });
+
+  it('keeps the contact link on its own line so it is a real tap target', async () => {
+    await open(Promise.resolve({ ...INFO, contactUrl: 'https://line.me/ti/p/abc' }));
+    expect(q('[data-contact] a.contact-link')).not.toBeNull();
+  });
 });

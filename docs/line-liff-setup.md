@@ -239,7 +239,9 @@ menu, set the new id, and delete the old one in the LINE console.
 4. Run the menu script above and set `LINE_GUEST_RICHMENU_ID`; recreate the API container.
 5. After the API starts, check its log for the line `sign-up settings: all set` (or `sign-up settings missing:`
    followed by what is unset and what stops working).
-6. People who added the bot before this release never receive a `follow` event, so they see the guest menu only
+6. If LINE keeps refusing the access token (a wrong `LINE_LOGIN_CHANNEL_ID`), the sign-up and link pages try a fresh
+   LINE login once a minute per tab and then show an error with a retry button, instead of looping.
+7. People who added the bot before this release never receive a `follow` event, so they see the guest menu only
    after they next message the bot. That is expected.
 
 ### Sign-up checks (a second LINE account and a fresh email)

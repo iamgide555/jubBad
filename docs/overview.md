@@ -1300,8 +1300,10 @@ count and price; `GET /sessions/:code`, display, summary and an issued
 proposing and confirming in สูสี). **Judged at session start (2026-11-17).** What a
 night reads about its own state (the player pay page and slips, the summary and payment
 cards, `/bill`, and the dashboard's rating deltas while the night is running) uses
-`PlansService.planAtSessionCreation`, so a plan or trial that runs out at midnight does not
-shut the pay page on a night that began while it was paid. Turning a paid option *on* (queue,
+`PlansService.planForSessionRead`: the better of the plan the night began under and the plan now,
+but only for `SESSION_PLAN_GRACE_DAYS` (3) after it ended (from when it began, if it never ended), so a
+plan or trial that runs out at midnight does not shut the pay page on a night that began while it was
+paid, and one old paid night cannot keep its LINE cards free for ever. Turning a paid option *on* (queue,
 mode switch, bill extras) still needs the plan now.
 
 **Lapse: two things that stop** (decided 2026-10-26, reversing "never trap" for
@@ -2022,14 +2024,15 @@ guest again on their next message. Everything is a free reply, never a push, and
 
 **Forgotten passwords (2026-11-17).** The server sends no email. A host who linked LINE types `ลืมรหัสผ่าน`
 (or `/reset`) to the bot in the one-to-one chat and gets a one-time reset link (1 hour, single use) as a free
-reply; it is refused for a disabled account, throttled per LINE account (10 per 15 minutes), never answered in a
-group chat, and the link is never logged. A guest gets the sign-up button instead. The linked LINE's display name
+reply; it is refused for a disabled account and for an admin (LINE alone must not be enough to take over the console), throttled per LINE account (10 per 15 minutes), never answered in a
+group chat, and the link is never logged. A guest gets the sign-up button instead. Asking for a link retires every earlier one, and a successful reset ends all other live links
+for that user. The linked LINE's display name
 is shown in group settings, because whoever holds that LINE can reset the password. A host with no LINE link
 still goes through the admin: `/admin` > ตั้งรหัสผ่านใหม่ shows a Thai and an English email draft with the link
 (copy, or open in the mail app), which only works if the email they signed up with is real. Sign-up screens
 and the forgot-password page say to link LINE to recover the account yourself.
 
-**Hardening notes.** Public auth POSTs (`/auth/register`, `/auth/line/*`, `/auth/login`) take JSON only
+**Hardening notes.** Every POST on the auth routes (register, login, logout, forgot, reset, `/auth/line/*`) takes JSON only
 (`RequireJsonGuard`, 415 otherwise), so another site cannot post a form that signs a visitor into its own account.
 The LINE link route shares `/auth/login`'s per-email counter (one `LoginThrottle` exported from `AuthModule`).
 `/auth/line/signup` counts every attempt per address and per LINE id. `/auth/line/link` takes login's password

@@ -42,6 +42,7 @@ describe('LineLink', () => {
   const links = (r: LineLinkResult) => svc.lineLink.mockResolvedValue(r);
 
   beforeEach(() => {
+    sessionStorage.clear();
     svc = {
       info: vi.fn().mockResolvedValue({ liffId: 'L1', lineSignupUrl: null, botAddUrl: 'https://lin.ee/bot', contactUrl: null }),
       lineStatus: vi.fn(),

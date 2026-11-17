@@ -2,6 +2,10 @@ import { Injectable, inject } from '@angular/core';
 import { LiffClient } from './liff-client';
 import { SignupService, type SignupInfo } from './signup.service';
 
+/** The tab remembers when it last restarted LINE login, so a persistent refusal cannot loop (see `restart`). */
+const RESTARTED_KEY = 'jubbad.line.restartedAt';
+const RESTART_COOLDOWN_MS = 60_000;
+
 /** `redirecting`: the page left for LINE login and comes back here; nothing more to do on this load. */
 export type ViewerStart =
   | { kind: 'ready'; accessToken: string; botAddUrl: string | null }
@@ -50,12 +54,34 @@ export class LineViewer {
    * session here and log in again, which returns to this page with a fresh token.
    */
   async restart(): Promise<ViewerStart> {
+    // One restart a minute per tab. If LINE keeps handing back a token the server refuses (a wrong channel id, a clock
+    // problem), logging out and in again would bounce between LINE and this page for ever; the second time round the
+    // page says it failed and lets the person decide. Where the browser will not remember, a restart is still allowed.
+    if (this.restartedRecently()) return { kind: 'error' };
+    this.rememberRestart();
     try {
       this.liff.logout();
     } catch {
       return { kind: 'error' };
     }
     return this.login();
+  }
+
+  private restartedRecently(): boolean {
+    try {
+      const at = Number(sessionStorage.getItem(RESTARTED_KEY));
+      return Number.isFinite(at) && at > 0 && Date.now() - at < RESTART_COOLDOWN_MS;
+    } catch {
+      return false;
+    }
+  }
+
+  private rememberRestart(): void {
+    try {
+      sessionStorage.setItem(RESTARTED_KEY, String(Date.now()));
+    } catch {
+      // Private mode: no memory, so no loop guard; the server-side address throttle still bounds it.
+    }
   }
 
   private login(): ViewerStart {

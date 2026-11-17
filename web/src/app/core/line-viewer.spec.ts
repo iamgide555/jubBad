@@ -15,6 +15,7 @@ describe('LineViewer', () => {
   };
 
   beforeEach(() => {
+    sessionStorage.clear();
     svc = { info: vi.fn().mockResolvedValue({ liffId: 'L1', lineSignupUrl: null, botAddUrl: 'https://lin.ee/bot' }) };
     liff = {
       init: vi.fn().mockResolvedValue(undefined),
@@ -88,4 +89,35 @@ describe('LineViewer', () => {
     expect(liff.logout).toHaveBeenCalledTimes(1);
     expect(liff.login).toHaveBeenCalledWith(window.location.href);
   });
+
+  describe('restart cannot loop', () => {
+    afterEach(() => vi.restoreAllMocks());
+
+    it('refuses a second restart within a minute: a token LINE keeps refusing would otherwise bounce between LINE login and the page for ever', async () => {
+      expect(await viewer.restart()).toEqual({ kind: 'redirecting' });
+      // The page reloads after LINE login, so a new LineViewer; the memory lives in the browser tab.
+      expect(await TestBed.inject(LineViewer).restart()).toEqual({ kind: 'error' });
+      expect(liff.logout).toHaveBeenCalledTimes(1);
+      expect(liff.login).toHaveBeenCalledTimes(1);
+    });
+
+    it('allows it again after a minute, so a person who tries again later gets a fresh login', async () => {
+      const t = Date.now();
+      const now = vi.spyOn(Date, 'now').mockReturnValue(t);
+      expect(await viewer.restart()).toEqual({ kind: 'redirecting' });
+      now.mockReturnValue(t + 61_000);
+      expect(await viewer.restart()).toEqual({ kind: 'redirecting' });
+    });
+
+    it('still restarts when the browser will not let the page remember (private mode)', async () => {
+      vi.spyOn(Storage.prototype, 'getItem').mockImplementation(() => {
+        throw new Error('denied');
+      });
+      vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
+        throw new Error('denied');
+      });
+      expect(await viewer.restart()).toEqual({ kind: 'redirecting' });
+    });
+  });
 });
+

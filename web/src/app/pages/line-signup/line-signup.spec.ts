@@ -56,6 +56,7 @@ describe('LineSignup', () => {
   const signsUp = (r: LineSignupResult) => svc.lineSignup.mockResolvedValue(r);
 
   beforeEach(() => {
+    sessionStorage.clear();
     svc = { info: vi.fn().mockResolvedValue(INFO), lineStatus: vi.fn(), lineSignup: vi.fn() };
     liff = {
       init: vi.fn().mockResolvedValue(undefined),
@@ -195,6 +196,13 @@ describe('LineSignup', () => {
     expect(liff.logout).toHaveBeenCalledTimes(1);
     expect(liff.login).toHaveBeenCalledTimes(1);
     expect(q('[data-retry]')).toBeNull();
+  });
+
+  it('shows an error with a retry, not another redirect, when a restart just happened and the token is refused again', async () => {
+    sessionStorage.setItem('jubbad.line.restartedAt', String(Date.now()));
+    await open('unauthorized' as LineStatusResult);
+    expect(liff.logout).not.toHaveBeenCalled();
+    expect(q('[data-retry]')).not.toBeNull();
   });
 
   it('does the same when the token is refused on submit', async () => {

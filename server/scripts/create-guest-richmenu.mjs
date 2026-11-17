@@ -5,7 +5,8 @@
  * each guest itself (see GuestMenuService) and never sets it as the default.
  *
  * Needs LINE_CHANNEL_ACCESS_TOKEN and LINE_LIFF_ID in the environment, for example:
- *   node --env-file=.env scripts/create-guest-richmenu.mjs
+ *   node --env-file-if-exists=.env scripts/create-guest-richmenu.mjs   (on a laptop)
+ *   docker compose exec -T api node scripts/create-guest-richmenu.mjs  (on the server: the variables are already there)
  *
  * The image is assets/line/guest-menu.png (2500x843, under LINE's 1 MB limit).
  */

@@ -1,4 +1,4 @@
-# LINE LIFF setup (host share card)
+# LINE LIFF setup (host share card, payment pages and host sign-up)
 
 One-time setup by the owner, in the LINE Developers console and on the home server. Design and
 rules: `docs/archive/specs/2026-10-28-line-host-share-card-design.md` and the "LINE bot"
@@ -35,7 +35,8 @@ On the new LINE Login channel, open the **LIFF** tab and add an app:
 - **Size:** Full.
 - **Endpoint URL:** `https://jubbad.wongnok.dev/line-share` (this is `<PUBLIC_APP_URL>/line-share`,
   with no trailing slash and no session code; LIFF appends the code itself).
-- **Scope:** leave the default; the page reads nothing from the host's profile.
+- **Scope:** turn **profile** on. The slip pay page and the host sign-up pages read the viewer's LINE
+  user id and display name through it (see "Slip pay page checks" below). The share card alone reads nothing.
 
 Save. The console shows a **LIFF ID** (looks like `1234567890-AbCdEfGh`) and a LIFF URL
 (`https://liff.line.me/<LIFF ID>`). Copy the LIFF ID.
@@ -49,9 +50,10 @@ the LINE app).
 
 ## 3. Publish the LINE Login channel (do not skip)
 
-A new channel is in **Developing** status. UNVERIFIED in this session (confirm in the console):
-while a channel is Developing, only the channel's own admins and testers can open its LIFF app, so
-every other host would be refused. Switch the channel to **Published** (the status switch at the top
+A new channel is in **Developing** status. While it is Developing, only the channel's own admins and
+testers can open its LIFF app (LINE's roles documentation), so every other host would be refused.
+The production channel is already Published, since real players use the slip pay page. Switch a new
+channel to **Published** (the status switch at the top
 of the channel page) before real hosts use it.
 
 If you would rather test first, keep it Developing and add the test hosts as testers on the channel;
@@ -211,10 +213,34 @@ cd server && node --env-file=.env scripts/create-guest-richmenu.mjs
 ```
 
 It needs `LINE_CHANNEL_ACCESS_TOKEN` and `LINE_LIFF_ID`, uploads `server/assets/line/guest-menu.png`
-(2500x843; the design source is `guest-menu.html` beside it) and prints `LINE_GUEST_RICHMENU_ID=<id>`. Put
-that line in `server/.env` and restart the API. The menu is shown per user, never as the default. With the
+(2500x843; the design source is `guest-menu.html` beside it) and prints `LINE_GUEST_RICHMENU_ID=<id>`.
+**On the server, run it inside the container** (the script and the image ship in it, and the variables are
+already set there; the container has no `.env` file):
+
+```
+docker compose exec -T api node scripts/create-guest-richmenu.mjs
+```
+
+Put the printed line in `server/.env`, then recreate the container: `docker compose up -d api`. A plain
+`docker compose restart` does **not** reload `env_file` changes (see `dockerDeploy.md`). The menu is shown per user, never as the default. With the
 variable unset the bot makes no rich-menu call and everything else works. To change the image, create a new
 menu, set the new id, and delete the old one in the LINE console.
+
+### Deploy notes for the host sign-up release
+
+1. `npm run db:backup` first. The migration `20261116105831_host_signup` adds one column to `User` and one
+   table; it is additive and applies on start (`prisma migrate deploy`), but a backup costs nothing.
+2. Rebuild **both** images: `docker compose up -d --build` (the web build carries the new pages and routes, the
+   API carries the new endpoints). Check `docker compose exec -T api npx prisma migrate status`: only
+   `20261116105831_host_signup` should have been pending.
+3. Set `UPGRADE_CONTACT_URL` in `server/.env` to a channel **a person reads** (your own LINE or an email link,
+   `https://` only), not the bot's own OA: a DM to the bot's webhook is dropped. It is the contact on `/privacy`
+   and in the upgrade sheet, and the privacy page is only honest once it is set.
+4. Run the menu script above and set `LINE_GUEST_RICHMENU_ID`; recreate the API container.
+5. After the API starts, check its log for the line `sign-up settings: all set` (or `sign-up settings missing:`
+   followed by what is unset and what stops working).
+6. People who added the bot before this release never receive a `follow` event, so they see the guest menu only
+   after they next message the bot. That is expected.
 
 ### Sign-up checks (a second LINE account and a fresh email)
 
@@ -228,6 +254,11 @@ menu, set the new id, and delete the old one in the LINE console.
 - [ ] Outside LINE (a computer), the website's "สมัครผ่าน LINE" link goes through LINE Login and returns to the
   form, not to a summary page.
 - [ ] The owner's own account is unchanged after all of it.
+- [ ] A linked host types `ลืมรหัสผ่าน` to the bot and gets a reset link that sets a new password once; a second
+  tap on the same link fails.
+- [ ] `/privacy` opens from each form and shows the contact link.
+- [ ] In `/admin`, **ตั้งรหัสผ่านใหม่** on a host with no LINE shows a Thai and an English email with the link, and
+  the copy and open-in-mail buttons work.
 
 ## 6. If something is wrong
 

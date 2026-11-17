@@ -2,7 +2,8 @@
 
 - **Date:** 2026-11-16 (third revision the same day)
 - **Branch:** `feat/host-signup`
-- **Status:** awaiting owner approval. Nothing is built.
+- **Status:** built and reviewed on `feat/host-signup` (unmerged, undeployed). A hardening pass followed on
+  2026-11-17: see "Host sign-up and the guest menu" in `docs/overview.md` for what the code does now.
 
 Revision history: (1) one-time link from the bot, LINE required; (2) LIFF
 replaces the one-time link; (3) the website door needs no LINE, and the trial

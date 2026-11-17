@@ -69,7 +69,7 @@ firsthand host feedback (items A–G, all done) is recorded in `docs/archive/202
 | No cost-splitting / PromptPay QR in-app | KhunThong (ขุนทอง), KBank/KBTG's LINE bot, already does this well — bill split (equal or not), PromptPay QR, and payment verification by e-slip scan, which the planned v1 didn't even have. The host invites KhunThong separately; no integration needed. **Partly reopened 2026-09-21, and narrowed 2026-09-22, not reversed.** The session now records its shuttle count and price, and every Thai competitor leads with a per-person bill. The owner decided the app will *calculate* each player's share and copy it out as text for LINE, under one of three charging models (fair pay, per game, buffet), with an optional host-fee line. The QR, payment tracking and slip checking stay with KhunThong. Built 2026-09-24 (roadmap C3); see "Bill (C3)" below and `docs/archive/specs/2026-09-22-roadmap-c-series-design.md`. The LINE payment card (2026-10-29, see the LINE section) shows an account and each person's amount, but still tracks no payments and checks no slips; those stay with KhunThong. |
 | Score logging: final score only, no live scoreboard | Point-by-point, serve indicators and timers are scope creep nobody asked for. A final score per court is low-friction and still bootstraps the match history that future skill/Elo balancing would need |
 | Per-group host role (resolved 2026-09-08 decision, built 2026-09-12) | Was: one shared admin token distinguished no one from anyone else — equal power for every holder, including deleting a group, with all-or-nothing revocation. Closed by backlog B12: `Group.ownerId` names one owner per group, `OwnershipGuard` refuses any other host with a 404 (never a 403 — that would confirm the code exists), and disabling one user bumps only their `tokenVersion`, signing out just that person's devices. An admin role bypasses ownership and manages every user and group from `/admin`. Built on a branch and merged into `main` on 2026-09-12 (`559ea5a`). |
-| No data-retention/deletion policy (**accepted risk**) | Names persist indefinitely under a group's link code. A host can now export the group as JSON or delete it outright, which covers the practical need without a policy |
+| No data-retention/deletion policy (**accepted risk**; since 2026-11-17 a public `/privacy` page states what is kept and how to ask for deletion, and strangers can sign up, so the risk is no longer only about known hosts) | Names persist indefinitely under a group's link code. A host can now export the group as JSON or delete it outright, which covers the practical need without a policy |
 | Export and delete require the group's owner (or an admin) to be signed in | They are administrative operations; the client also requires typing the group name to prevent an accidental delete. Revocation is now per-user (disabling one account bumps only that account's `tokenVersion`) rather than the old shared-token design's all-or-nothing. |
 | No promoting a waitlisted (สำรอง) player mid-session | The สำรอง list is resolved in LINE *before* the session — a waitlisted player was told not to come, so there is nobody at the venue to promote. The feature would serve a situation that cannot occur. Waitlisted names are still imported and shown, so the host can see who was turned away |
 | Court format (doubles/singles) is per court, not per session | Courts are booked and run independently already — the app models a court as its own idle/pending/active lifecycle, not as part of a shared session-wide round. A per-session switch would force every court to the same format even though a host's actual need (a short roster, two people wanting a quick game, a court freeing up with only two waiting) is local to one court |
@@ -1226,7 +1226,8 @@ out; a live one is always shown and links to the public venue display.
 ### Plans
 
 Paid features are gated by the **group owner's** plan, set by hand by an admin
-(`PUT /admin/users/:id/plan`); there is no payment provider. Tiers and what each
+(`PUT /admin/users/:id/plan`) or started as a 30-day trial when an account first links LINE (see
+"Trial" below); there is no payment provider. Tiers and what each
 unlocks: `docs/2026-10-06-pricing-tiers.md`. Pure rules live in
 `server/src/plans/plan.ts`; `PlansService` resolves a group's or session's plan
 from its owner at read time.
@@ -1242,8 +1243,10 @@ role `admin` is club whatever the column says, an ownerless group is club
 (production never has one, and existing fixtures rely on it), and an unknown
 plan string reads as free. `User.disabled` is never touched by plan code.
 
-**The column defaults to `club`, so the deploy is dormant.** Every existing user
-keeps today's behaviour until an admin deliberately sets a lower plan.
+**The column defaults to `club`, so the deploy is dormant for existing users.** Every
+existing user keeps today's behaviour until an admin deliberately sets a lower plan. Accounts
+that sign up themselves are created on `free` explicitly and are the first ones to meet the
+locks; the column default itself never changes.
 
 **Refusals are 403 with a code:** `PLAN_REQUIRED` (with `requiredPlan`) when a
 paid thing is switched on from too low a plan, and `GROUP_LIMIT` (with `limit`)
@@ -1294,7 +1297,12 @@ level tags and the player-level edit; rename, aliases and contact edits; fair /
 per-game / buffet models, rounding, remove or add person, and the plain shuttle
 count and price; `GET /sessions/:code`, display, summary and an issued
 `/d/:token`; and anything in a session already running (a lapsed host keeps
-proposing and confirming in สูสี).
+proposing and confirming in สูสี). **Judged at session start (2026-11-17).** What a
+night reads about its own state (the player pay page and slips, the summary and payment
+cards, `/bill`, and the dashboard's rating deltas while the night is running) uses
+`PlansService.planAtSessionCreation`, so a plan or trial that runs out at midnight does not
+shut the pay page on a night that began while it was paid. Turning a paid option *on* (queue,
+mode switch, bill extras) still needs the plan now.
 
 **Lapse: two things that stop** (decided 2026-10-26, reversing "never trap" for
 these two cases only). Data is still never deleted.
@@ -1326,11 +1334,12 @@ these two cases only). Data is still never deleted.
 - *The shared `/d/` dashboard link stays live;* only new shares are blocked.
 
 **Plan facts the web reads.** `GET /groups/:code/plan` returns `{ plan, renewsAt,
-lapsedAt, paused, archiveHidden }`: `lapsedAt` is the renewal date of a paid plan
+lapsedAt, paused, archiveHidden, trial }`: `lapsedAt` is the renewal date of a paid plan
 that has run out (null otherwise), `archiveHidden` the number of sessions the free
 30-day window hides. `GET /plans/me` returns the signed-in user's own `{ plan,
-renewsAt, lapsedAt, groupCount, groupLimit, upgradeUrl }` (`groupLimit` is null for
-an admin); it names no group, so `OwnershipGuard` allowlists that one path.
+renewsAt, lapsedAt, groupCount, groupLimit, upgradeUrl, trial, trialAvailable, linkUrl }`
+(`groupLimit` is null for an admin; `trial` says the Host plan is the free trial, so notices say
+"trial" instead of "renew"); it names no group, so `OwnershipGuard` allowlists that one path.
 `upgradeUrl` is `UPGRADE_CONTACT_URL` when it is a well-formed `https://` URL and
 null otherwise; the web then shows the contact as text only. Admin user rows carry
 `groupLimit` too.
@@ -2010,6 +2019,23 @@ prints once per channel. In the one-to-one chat only: a guest who follows, or ty
 a button to the sign-up page (or today's follow text when LIFF is not configured); a linked host gets the old
 follow text, or "you already have an account" for the command. Unlinking a host's LINE account makes them a
 guest again on their next message. Everything is a free reply, never a push, and nothing touches a group chat.
+
+**Forgotten passwords (2026-11-17).** The server sends no email. A host who linked LINE types `ลืมรหัสผ่าน`
+(or `/reset`) to the bot in the one-to-one chat and gets a one-time reset link (1 hour, single use) as a free
+reply; it is refused for a disabled account, throttled per LINE account (10 per 15 minutes), never answered in a
+group chat, and the link is never logged. A guest gets the sign-up button instead. The linked LINE's display name
+is shown in group settings, because whoever holds that LINE can reset the password. A host with no LINE link
+still goes through the admin: `/admin` > ตั้งรหัสผ่านใหม่ shows a Thai and an English email draft with the link
+(copy, or open in the mail app), which only works if the email they signed up with is real. Sign-up screens
+and the forgot-password page say to link LINE to recover the account yourself.
+
+**Hardening notes.** Public auth POSTs (`/auth/register`, `/auth/line/*`, `/auth/login`) take JSON only
+(`RequireJsonGuard`, 415 otherwise), so another site cannot post a form that signs a visitor into its own account.
+The LINE link route shares `/auth/login`'s per-email counter (one `LoginThrottle` exported from `AuthModule`).
+`/auth/line/signup` counts every attempt per address and per LINE id. `/auth/line/link` takes login's password
+rule (any length). Admin user routes never return `passwordHash` or `tokenVersion`. At start the API logs which
+sign-up settings are missing and what each costs (`signupReadiness`). The sign-up and link pages and `/privacy`
+carry a consent line and a contact (`UPGRADE_CONTACT_URL` via `GET /auth/signup-info`).
 
 **Rosters by DM from the start.** A group created by a linked host on the Host plan or above starts with its
 roster-by-DM switch on, and linking from the link page switches it on for every group the account already

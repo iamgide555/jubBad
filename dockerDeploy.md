@@ -308,6 +308,13 @@ it is, the feature reports "not configured" and everything else works as before.
    confirm the bot leaves the LINE group. Then end a session with "ส่งสรุปเข้ากลุ่ม LINE" ticked and
    check the card and its button in the group, and that the summary page then shows it as sent.
 
+## Settings the sign-up feature reads
+
+All in `server/.env` (recreate the API container after changing any: `docker compose up -d api`). The API logs
+one line at start saying which are missing and what each costs. `UPGRADE_CONTACT_URL` must be an `https://` link
+to a channel **a person reads** (your own LINE or an email page), not the bot's own OA; it is the contact on
+`/privacy` and in the upgrade sheet. Details: `docs/line-liff-setup.md`.
+
 ## Rollback
 ```bash
 git checkout <prev-sha>

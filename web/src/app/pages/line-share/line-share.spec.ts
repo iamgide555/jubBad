@@ -40,7 +40,7 @@ describe('LineShare', () => {
     fixture.detectChanges();
   };
 
-  let route: { params: Record<string, string>; query: Record<string, string> };
+  let route: { params: Record<string, string>; query: Record<string, string>; fragment?: string | null };
   let navigate: ReturnType<typeof vi.fn>;
 
   async function open(card: LineShareCard | HttpErrorResponse = CARD) {
@@ -80,7 +80,7 @@ describe('LineShare', () => {
           provide: ActivatedRoute,
           useValue: {
             get snapshot() {
-              return { paramMap: convertToParamMap(route.params), queryParamMap: convertToParamMap(route.query) };
+              return { paramMap: convertToParamMap(route.params), queryParamMap: convertToParamMap(route.query), fragment: route.fragment ?? null };
             },
           },
         },
@@ -510,6 +510,24 @@ describe('LineShare', () => {
         replaceUrl: true,
         queryParams: { code: 'abc', liffClientId: '123' },
       });
+      expect(shareCard).not.toHaveBeenCalled();
+    });
+
+    it("keeps LIFF's URL fragment (its access and context tokens ride there) across the hand-over", async () => {
+      route = { params: {}, query: { 'liff.state': '/signup' }, fragment: 'access_token=abc&context_token=def' };
+      fixture = TestBed.createComponent(LineShare);
+      fixture.detectChanges();
+      await flush();
+      expect(navigate).toHaveBeenCalledWith(['/line-share', 'signup'], {
+        replaceUrl: true,
+        queryParams: {},
+        fragment: 'access_token=abc&context_token=def',
+      });
+    });
+
+    it.each(['/signup/', '/link/'])('reads liff.state %s, with a trailing slash, as the page and not a summary called "%s"', async (state) => {
+      await open_(state);
+      expect(navigate).toHaveBeenCalledTimes(1);
       expect(shareCard).not.toHaveBeenCalled();
     });
 

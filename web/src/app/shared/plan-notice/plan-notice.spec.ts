@@ -6,7 +6,7 @@ import { PlanNotice } from './plan-notice';
 const DAY = 24 * 3600 * 1000;
 const inDays = (n: number) => new Date(Date.now() + n * DAY).toISOString();
 const daysAgoIso = (n: number) => new Date(Date.now() - n * DAY).toISOString();
-const base: GroupPlan = { plan: 'free', renewsAt: null, lapsedAt: null, paused: false, archiveHidden: 0 };
+const base: GroupPlan = { plan: 'free', renewsAt: null, lapsedAt: null, paused: false, archiveHidden: 0, trial: false };
 
 describe('PlanNotice', () => {
   let fixture: ComponentFixture<PlanNotice>;
@@ -78,4 +78,20 @@ describe('PlanNotice', () => {
     render({ ...base, paused: true });
     expect(btn().textContent?.trim()).toBe('ดูแพ็ก⁠เกจ');
   });
+
+  it('calls a trial that is ending a trial, and offers the plans instead of "renew"', () => {
+    render({ ...base, plan: 'host', trial: true, renewsAt: inDays(3) });
+    expect(line()?.textContent).toContain('ทดลองใช้');
+    expect(line()?.textContent).not.toContain('แพ็ก⁠เกจโฮสต์หมด');
+    expect(line()?.textContent).toContain('ดูแพ็ก⁠เกจ');
+    expect(line()?.textContent).not.toContain('ต่ออายุ');
+  });
+
+  it('calls a trial that has run out a trial too', () => {
+    render({ ...base, plan: 'free', trial: true, renewsAt: daysAgoIso(2), lapsedAt: daysAgoIso(2) });
+    expect(line()?.getAttribute('data-plan-notice')).toBe('lapsed');
+    expect(line()?.textContent).toContain('ทดลองใช้');
+    expect(line()?.textContent).not.toContain('ต่ออายุ');
+  });
 });
+

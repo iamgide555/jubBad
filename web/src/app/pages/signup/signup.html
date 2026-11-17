@@ -5,22 +5,27 @@
   <form (ngSubmit)="onSubmit()">
     <label for="email" i18n="@@login.emailLabel">อีเมล</label>
     <input
+      #emailField
       id="email"
       name="email"
       type="email"
       autocomplete="username"
       [ngModel]="email()"
-      (ngModelChange)="email.set($event)"
+      (ngModelChange)="onEmail($event)"
+      [attr.aria-invalid]="problem() === 'taken' || problem() === 'invalid' ? 'true' : null"
+      [attr.aria-describedby]="problem() ? 'signup-error' : null"
     />
 
     <label for="password" i18n="@@login.passwordLabel">รหัสผ่าน</label>
-    <input
-      id="password"
-      name="password"
-      type="password"
+    <app-password-field
+      fieldId="password"
       autocomplete="new-password"
-      [ngModel]="password()"
-      (ngModelChange)="password.set($event)"
+      [minLength]="minPassword"
+      [hint]="passwordHint"
+      [invalid]="problem() === 'short'"
+      [describedBy]="problem() ? 'signup-error' : null"
+      [value]="password()"
+      (valueChange)="onPassword($event)"
     />
 
     <div class="trap" aria-hidden="true">
@@ -38,7 +43,7 @@
     </div>
 
     @if (problem(); as p) {
-      <p class="error" role="alert" data-error>
+      <p class="error" id="signup-error" role="alert" data-error>
         @switch (p) {
           @case ('taken') {
             <ng-container i18n="@@signup.emailTaken">อีเมลนี้มีบัญชีแล้ว</ng-container>
@@ -63,7 +68,16 @@
     <button type="submit" [disabled]="busy() || !email().trim() || !password()">
       <ng-container i18n="@@signup.submit">สร้างบัญชี</ng-container>
     </button>
+
+    <p class="consent muted" data-consent>
+      <span i18n="@@consent.text">การสร้างบัญชีถือว่าคุณรับทราบ</span>
+      <a routerLink="/privacy" i18n="@@consent.link">นโยบายความเป็นส่วนตัว</a>
+    </p>
   </form>
+
+  <p class="muted recovery-note" data-recovery-note i18n="@@signup.recoveryNote">
+    ผูกบัญชี LINE ภายหลัง แล้วจะตั้งรหัสผ่านใหม่เองได้ทางแชตบอท
+  </p>
 
   @if (lineSignupUrl(); as url) {
     <p class="via-line">

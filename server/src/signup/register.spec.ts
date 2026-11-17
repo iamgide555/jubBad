@@ -14,7 +14,7 @@ import { SignupModule } from './signup.module.js';
 
 const SECRET = 'register-test-secret';
 const PASSWORD = 'a genuinely correct password';
-const ENV_KEYS = ['LINE_LIFF_ID', 'LINE_LOGIN_CHANNEL_ID', 'LINE_BOT_ADD_URL'] as const;
+const ENV_KEYS = ['LINE_LIFF_ID', 'LINE_LOGIN_CHANNEL_ID', 'LINE_BOT_ADD_URL', 'UPGRADE_CONTACT_URL'] as const;
 
 describe('website sign-up', () => {
   let app: INestApplication;
@@ -120,13 +120,22 @@ describe('website sign-up', () => {
     process.env.LINE_LIFF_ID = 'L1';
     process.env.LINE_LOGIN_CHANNEL_ID = '999';
     process.env.LINE_BOT_ADD_URL = 'https://lin.ee/x';
+    process.env.UPGRADE_CONTACT_URL = 'https://line.me/ti/p/abc';
+    const withContact = await request(server).get('/auth/signup-info').expect(200);
+    expect(withContact.body).toEqual({
+      liffId: 'L1',
+      lineSignupUrl: 'https://liff.line.me/L1/signup',
+      botAddUrl: 'https://lin.ee/x',
+      contactUrl: 'https://line.me/ti/p/abc',
+    });
+    delete process.env.UPGRADE_CONTACT_URL;
     const on = await request(server).get('/auth/signup-info').expect(200);
-    expect(on.body).toEqual({ liffId: 'L1', lineSignupUrl: 'https://liff.line.me/L1/signup', botAddUrl: 'https://lin.ee/x' });
+    expect(on.body).toEqual({ liffId: 'L1', lineSignupUrl: 'https://liff.line.me/L1/signup', botAddUrl: 'https://lin.ee/x', contactUrl: null });
 
     delete process.env.LINE_LIFF_ID;
     delete process.env.LINE_BOT_ADD_URL;
     const off = await request(server).get('/auth/signup-info').expect(200);
-    expect(off.body).toEqual({ liffId: null, lineSignupUrl: null, botAddUrl: null });
+    expect(off.body).toEqual({ liffId: null, lineSignupUrl: null, botAddUrl: null, contactUrl: null });
   });
 
   it('takes JSON only: a cross-site form post cannot create an account or a session', async () => {

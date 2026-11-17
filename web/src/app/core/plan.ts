@@ -29,6 +29,8 @@ export interface GroupPlan {
   paused: boolean;
   /** Sessions the free 30-day window hides from the host's lists (0 on a paid plan). */
   archiveHidden: number;
+  /** The owner's Host plan is the 30-day trial, not a paid plan. */
+  trial: boolean;
 }
 
 /** What `GET /plans/me` returns: the signed-in user's own plan, group count and cap. */
@@ -39,6 +41,8 @@ export interface MyPlan {
   groupCount: number;
   /** Null for an admin, who has no cap. */
   groupLimit: number | null;
+  /** This account's Host plan is the 30-day trial, not a paid plan. */
+  trial: boolean;
   /** An https contact link from server config, or null (the sheet then shows text only). */
   upgradeUrl: string | null;
   /** The account is free, has no LINE link and never had the 30-day trial: linking LINE would start one. */
@@ -113,6 +117,16 @@ export const LAPSE_NOTICE_DAYS = 30;
 /** Shown within 5 days of a paid plan's renewal date. */
 export function planExpiringNotice(name: string, date: string): string {
   return $localize`:@@plan.notice.expiring:แพ็ก⁠เกจ${name}:plan:หมด ${date}:date:`;
+}
+
+/** The notice for a free trial that is about to run out: it is not a paid plan, so there is nothing to "renew". */
+export function trialExpiringNotice(date: string): string {
+  return $localize`:@@plan.notice.trialExpiring:ทดลองใช้ครบทุกฟีเจอร์หมดวันที่ ${date}:date: หลังจากนั้นใช้แบบฟรี`;
+}
+
+/** The notice after a free trial has run out. */
+export function trialLapsedNotice(date: string): string {
+  return $localize`:@@plan.notice.trialLapsed:ทดลองใช้หมดเมื่อ ${date}:date: รอบใหม่ใช้แบบฟรี`;
 }
 
 export function renewLabel(): string {

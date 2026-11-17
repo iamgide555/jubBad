@@ -9,6 +9,10 @@
     </div>
   </div>
 
+  @if (trialEnds(); as ends) {
+    <p class="muted" data-trial-ends i18n="@@home.trialEnds">ทดลองใช้ครบทุกฟีเจอร์ถึง {{ ends }}</p>
+  }
+
   @if (trialLink(); as trialUrl) {
     <app-trial-offer [linkUrl]="trialUrl" />
   }

@@ -1,8 +1,9 @@
-import { Component, inject, OnInit, signal } from '@angular/core';
+import { Component, ElementRef, OnInit, inject, signal, viewChild } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
 import { AuthService } from '../../core/auth.service';
 import { SignupService } from '../../core/signup.service';
+import { PasswordField } from '../../shared/password-field/password-field';
 
 type Problem = 'taken' | 'short' | 'rate' | 'invalid' | 'error';
 
@@ -14,7 +15,7 @@ const MIN_PASSWORD = 8;
  */
 @Component({
   selector: 'app-signup',
-  imports: [FormsModule, RouterLink],
+  imports: [FormsModule, RouterLink, PasswordField],
   templateUrl: './signup.html',
   styleUrl: './signup.css',
 })
@@ -22,7 +23,11 @@ export class Signup implements OnInit {
   private readonly api = inject(SignupService);
   private readonly auth = inject(AuthService);
   private readonly router = inject(Router);
+  private readonly emailEl = viewChild<ElementRef<HTMLInputElement>>('emailField');
+  private readonly passwordEl = viewChild(PasswordField);
 
+  protected readonly minPassword = MIN_PASSWORD;
+  protected readonly passwordHint = $localize`:@@signup.passwordHint:อย่างน้อย 8 ตัวอักษร`;
   protected readonly email = signal('');
   protected readonly password = signal('');
   /** The hidden bot trap: no person ever types here. */
@@ -40,10 +45,21 @@ export class Signup implements OnInit {
     }
   }
 
+  protected onEmail(value: string): void {
+    this.email.set(value);
+    this.problem.set(null);
+  }
+
+  protected onPassword(value: string): void {
+    this.password.set(value);
+    this.problem.set(null);
+  }
+
   protected async onSubmit(): Promise<void> {
     if (this.busy() || !this.email().trim() || !this.password()) return;
     if (this.password().length < MIN_PASSWORD) {
       this.problem.set('short');
+      this.passwordEl()?.focus();
       return;
     }
     this.busy.set(true);
@@ -52,10 +68,11 @@ export class Signup implements OnInit {
     this.busy.set(false);
     if (result === 'ok') {
       await this.auth.check();
-      await this.router.navigate(['/groups/new']);
+      await this.router.navigate(['/groups/new'], { replaceUrl: true });
       return;
     }
+    // The typed values stay: a wrong guess is fixed, not retyped. Focus goes to what needs changing.
     this.problem.set(result === 'email-taken' ? 'taken' : result);
-    this.password.set('');
+    if (result === 'invalid' || result === 'email-taken') this.emailEl()?.nativeElement.focus();
   }
 }

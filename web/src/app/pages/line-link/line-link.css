@@ -25,16 +25,22 @@
   margin-bottom: var(--space-3);
 }
 
+.line-link .consent {
+  font-size: var(--text-sm);
+  margin: 0;
+}
+
 .line-link form {
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
 }
 
-.line-link button,
+.line-link form > button,
+.line-link > button,
 .line-link .button {
   width: 100%;
-  min-height: 44px;
+  min-height: var(--tap);
   margin-top: var(--space-1);
   display: inline-flex;
   align-items: center;
@@ -42,9 +48,27 @@
   text-decoration: none;
 }
 
-.line-link .link {
+/* An anchor styled as the app's button: the global button rule only reaches <button>. */
+.line-link .button {
+  padding: 0.65rem 1.1rem;
+  background: var(--court);
+  color: var(--on-fill);
+  border-radius: var(--radius);
+  font-weight: 700;
+}
+
+.line-link .button.secondary {
+  background: transparent;
+  color: var(--court-ink);
+  border: 2px solid var(--court);
+}
+
+/* Padding and a min-height make the target, not a tall line-height. */
+.line-link .link,
+.line-link .error a,
+.line-link .lede a {
   display: inline-block;
-  min-height: 44px;
-  line-height: 44px;
+  min-height: var(--tap);
+  padding: 0.6rem 0;
   color: var(--ink-soft);
 }

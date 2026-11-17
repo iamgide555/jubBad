@@ -6,7 +6,7 @@ import { FormsModule } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
 import { AuthService } from '../../core/auth.service';
-import { groupCountLabel, groupLimitMessage, type MyPlan } from '../../core/plan';
+import { bangkokDisplayDate, groupCountLabel, groupLimitMessage, type MyPlan } from '../../core/plan';
 import { PlanService } from '../../core/plan.service';
 import { UpgradeSheetService } from '../../core/upgrade-sheet.service';
 import { PlanLock } from '../../shared/plan-lock/plan-lock';
@@ -58,6 +58,11 @@ export class Landing {
   protected readonly trialLink = computed(() => {
     const m = this.mine();
     return m !== null && m.trialAvailable && m.linkUrl ? m.linkUrl : null;
+  });
+  /** When the free trial ends (dd/mm/yyyy), while this host is on one. */
+  protected readonly trialEnds = computed(() => {
+    const m = this.mine();
+    return m !== null && m.trial && m.plan !== 'free' && m.renewsAt ? bangkokDisplayDate(m.renewsAt) : null;
   });
   /** At the cap: the create control says so up front instead of failing after a name is typed. */
   protected readonly atCap = computed(() => {

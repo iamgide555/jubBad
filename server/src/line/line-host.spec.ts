@@ -139,6 +139,7 @@ describe('LINE host link codes, status and unlink', () => {
         enabled: false,
         summaryDefault: true,
         summaryAvailable: false,
+        accountName: null,
       });
       const made = await host.createCode(code);
       await host.redeem(lineId(), made.code);
@@ -146,6 +147,21 @@ describe('LINE host link codes, status and unlink', () => {
         accountLinked: true,
         enabled: true,
       });
+    });
+
+    it('names the linked LINE account, so the host can see whose chat can reset their password', async () => {
+      const line = lineId();
+      await prisma.lineAccount.upsert({ where: { lineUserId: line }, create: { lineUserId: line, displayName: 'Somchai', pictureUrl: null }, update: {} });
+      const userId = await makeUser('host', { lineUserId: line, lineLinkedAt: new Date() });
+      const code = await makeGroup(userId);
+      try {
+        expect((await host.status(code)).accountName).toBe('Somchai');
+        // No directory entry (LINE never gave a profile): linked, but nameless.
+        await prisma.lineAccount.delete({ where: { lineUserId: line } });
+        expect(await host.status(code)).toMatchObject({ accountLinked: true, accountName: null });
+      } finally {
+        await prisma.lineAccount.deleteMany({ where: { lineUserId: line } });
+      }
     });
 
     it('is linked but not enabled when the group is switched off', async () => {
@@ -823,7 +839,8 @@ describe('LINE host link routes', () => {
       accountLinked: false,
       enabled: false,
       summaryDefault: true,
-      summaryAvailable: false
+      summaryAvailable: false,
+      accountName: null,
     });
   });
 

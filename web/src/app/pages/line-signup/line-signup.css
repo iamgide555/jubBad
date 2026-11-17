@@ -25,16 +25,22 @@
   margin-bottom: var(--space-3);
 }
 
+.line-signup .consent {
+  font-size: var(--text-sm);
+  margin: 0;
+}
+
 .line-signup form {
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
 }
 
-.line-signup button,
+.line-signup form > button,
+.line-signup > button,
 .line-signup .button {
   width: 100%;
-  min-height: 44px;
+  min-height: var(--tap);
   margin-top: var(--space-1);
   display: inline-flex;
   align-items: center;
@@ -42,9 +48,27 @@
   text-decoration: none;
 }
 
-.line-signup .link {
+/* An anchor styled as the app's button: the global button rule only reaches <button>. */
+.line-signup .button {
+  padding: 0.65rem 1.1rem;
+  background: var(--court);
+  color: var(--on-fill);
+  border-radius: var(--radius);
+  font-weight: 700;
+}
+
+.line-signup .button.secondary {
+  background: transparent;
+  color: var(--court-ink);
+  border: 2px solid var(--court);
+}
+
+/* Padding and a min-height make the target, not a tall line-height. */
+.line-signup .link,
+.line-signup .error a,
+.line-signup .lede a {
   display: inline-block;
-  min-height: 44px;
-  line-height: 44px;
+  min-height: var(--tap);
+  padding: 0.6rem 0;
   color: var(--ink-soft);
 }

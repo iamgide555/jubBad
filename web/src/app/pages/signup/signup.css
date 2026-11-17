@@ -21,7 +21,7 @@
   gap: var(--space-2);
 }
 
-.signup button {
+.signup form > button {
   width: 100%;
   margin-top: var(--space-1);
 }
@@ -36,14 +36,26 @@
   overflow: hidden;
 }
 
+.signup .consent,
+.signup .recovery-note {
+  font-size: var(--text-sm);
+  margin: 0;
+}
+
+.signup .recovery-note {
+  margin-top: var(--space-3);
+}
+
 .signup .via-line,
 .signup .have-account {
   margin-top: var(--space-3);
 }
 
-.signup a {
-  color: var(--ink-soft);
+/* Padding and a min-height make the target, not a tall line-height: a long Thai link wraps tight. */
+.signup .via-line a,
+.signup .have-account a {
   display: inline-block;
-  min-height: 44px;
-  line-height: 44px;
+  min-height: var(--tap);
+  padding: 0.6rem 0;
+  color: var(--ink-soft);
 }

@@ -59,6 +59,11 @@
         }
         <div class="host-account">
           <p class="muted" data-host-linked i18n="@@line.host.linked">ผูกบัญชี LINE ของคุณแล้ว ใช้ร่วมกันทุกก๊วน</p>
+          @if (host.accountName; as accountName) {
+            <p class="muted" data-host-account-name i18n="@@line.host.accountName">
+              บัญชี LINE: {{ accountName }} · ใครที่ถือ LINE นี้ส่งคำว่า ลืมรหัสผ่าน ให้บอท เพื่อตั้งรหัสผ่านบัญชี JubBad ของคุณใหม่ได้
+            </p>
+          }
           <ng-container [ngTemplateOutlet]="unlinkBlock" />
         </div>
       } @else if (locked()) {

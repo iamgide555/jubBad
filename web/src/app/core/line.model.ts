@@ -39,6 +39,8 @@ export interface LineHostStatus {
   botAddUrl: string | null;
   /** The owner's LINE account is linked (one account for all their groups). */
   accountLinked: boolean;
+  /** That LINE account's display name, when the server has one. */
+  accountName?: string | null;
   /** Rosters that account DMs to the bot may be filed under this group. */
   enabled: boolean;
   /** Whether the end-of-session "send the summary card" checkbox starts ticked (the group's one default). */

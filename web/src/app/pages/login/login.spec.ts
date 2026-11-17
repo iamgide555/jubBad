@@ -25,4 +25,15 @@ describe('Login', () => {
     const link = (fixture.nativeElement as HTMLElement).querySelector<HTMLAnchorElement>('[data-signup-link]');
     expect(link?.getAttribute('href')).toBe('/signup');
   });
+
+  it('tells someone who forgot their password that linked LINE accounts can reset it in the bot chat', () => {
+    const root = fixture.nativeElement as HTMLElement;
+    expect(root.querySelector('[data-line-recovery]')).toBeNull();
+    root.querySelector<HTMLButtonElement>('button.link')!.click();
+    fixture.detectChanges();
+    const note = root.querySelector('[data-line-recovery]');
+    expect(note?.textContent).toContain('LINE');
+    expect(note?.textContent).toContain('ลืมรหัสผ่าน');
+  });
 });
+

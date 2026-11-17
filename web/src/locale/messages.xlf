@@ -9136,7 +9136,7 @@
         </context-group>
       </trans-unit>
       <trans-unit id="lineSignup.lineName" datatype="html">
-        <source>บัญชี LINE: <x id="INTERPOLATION" equiv-text="{{ lineName() }}"/></source>
+        <source>บัญชี LINE: <x id="INTERPOLATION" equiv-text="{{ name }}"/></source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/line-signup/line-signup.html</context>
           <context context-type="linenumber">1</context>
@@ -9307,6 +9307,279 @@
         <source>ผูก LINE กับบัญชีนี้แทน</source>
         <context-group purpose="location">
           <context context-type="sourcefile">src/app/pages/line-signup/line-signup.html</context>
+          <context context-type="linenumber">1</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="signup.passwordHint" datatype="html">
+        <source>อย่างน้อย 8 ตัวอักษร</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/signup/signup.ts</context>
+          <context context-type="linenumber">1</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="signup.recoveryNote" datatype="html">
+        <source>ผูกบัญชี LINE ภายหลัง แล้วจะตั้งรหัสผ่านใหม่เองได้ทางแชตบอท</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/signup/signup.html</context>
+          <context context-type="linenumber">1</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="consent.text" datatype="html">
+        <source>การสร้างบัญชีถือว่าคุณรับทราบ</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/signup/signup.html</context>
+          <context context-type="linenumber">1</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="consent.linkText" datatype="html">
+        <source>การผูกบัญชีถือว่าคุณรับทราบ</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/line-link/line-link.html</context>
+          <context context-type="linenumber">1</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="consent.link" datatype="html">
+        <source>นโยบายความเป็นส่วนตัว</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/signup/signup.html</context>
+          <context context-type="linenumber">1</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="password.show" datatype="html">
+        <source>แสดง</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/shared/password-field/password-field.html</context>
+          <context context-type="linenumber">1</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="password.hide" datatype="html">
+        <source>ซ่อน</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/shared/password-field/password-field.html</context>
+          <context context-type="linenumber">1</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="lineSignup.signedInAs" datatype="html">
+        <source>คุณลงชื่อเข้าใช้อยู่แล้วในชื่อ</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/line-signup/line-signup.html</context>
+          <context context-type="linenumber">1</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="lineSignup.linkThisInstead" datatype="html">
+        <source>ผูก LINE กับบัญชีนี้แทน</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/line-signup/line-signup.html</context>
+          <context context-type="linenumber">1</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="lineSignup.otherDevices" datatype="html">
+        <source>คุณลงชื่อเข้าใช้ในแอป LINE นี้แล้ว หากจะใช้บนเบราว์เซอร์หรือคอมพิวเตอร์ ให้เข้าสู่ระบบด้วยอีเมลและรหัสผ่านที่เพิ่งตั้ง</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/line-signup/line-signup.html</context>
+          <context context-type="linenumber">1</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="lineLink.trialUsed" datatype="html">
+        <source>บัญชี LINE นี้เคยทดลองใช้แล้ว ผูกได้ แต่จะไม่ได้ทดลองใช้อีก</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/line-link/line-link.html</context>
+          <context context-type="linenumber">1</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="lineLink.needsHostPlan" datatype="html">
+        <source>การส่งรายชื่อทางแชตบอทใช้ได้กับแพ็ก⁠เกจโฮสต์ขึ้นไป</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/line-link/line-link.html</context>
+          <context context-type="linenumber">1</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="lineLink.home" datatype="html">
+        <source>กลับหน้าแรก</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/line-link/line-link.html</context>
+          <context context-type="linenumber">1</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="privacy.title" datatype="html">
+        <source>นโยบายความเป็นส่วนตัว</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/privacy/privacy.html</context>
+          <context context-type="linenumber">1</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="privacy.lede" datatype="html">
+        <source>JubBad เป็นเครื่องมือจัดก๊วนแบดมินตัน หน้านี้บอกว่าเก็บข้อมูลอะไร เก็บไว้ทำไม และขอลบได้อย่างไร</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/privacy/privacy.html</context>
+          <context context-type="linenumber">1</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="privacy.collectedTitle" datatype="html">
+        <source>ข้อมูลที่เก็บ</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/privacy/privacy.html</context>
+          <context context-type="linenumber">1</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="privacy.collected1" datatype="html">
+        <source>อีเมล และรหัสผ่านที่เข้ารหัสไว้ (เก็บรหัสผ่านจริงไม่ได้)</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/privacy/privacy.html</context>
+          <context context-type="linenumber">1</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="privacy.collected2" datatype="html">
+        <source>รหัสผู้ใช้ LINE เมื่อคุณสมัครหรือผูกบัญชีผ่าน LINE เก็บไว้เพื่อให้ทดลองใช้ฟรีได้ครั้งเดียวต่อบัญชี LINE และเก็บต่อแม้ลบบัญชี JubBad แล้ว</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/privacy/privacy.html</context>
+          <context context-type="linenumber">1</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="privacy.collected3" datatype="html">
+        <source>ข้อมูลก๊วนที่ใส่เข้ามา เช่น ชื่อผู้เล่น ผลการเล่น และบิลค่าใช้จ่าย</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/privacy/privacy.html</context>
+          <context context-type="linenumber">1</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="privacy.collected4" datatype="html">
+        <source>รูปสลิปโอนเงินที่ผู้เล่นส่งเข้ามา เก็บไว้จนกว่าเจ้าของก๊วนปิดการเก็บเงินของรอบนั้น</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/privacy/privacy.html</context>
+          <context context-type="linenumber">1</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="privacy.useTitle" datatype="html">
+        <source>ใช้ทำอะไร</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/privacy/privacy.html</context>
+          <context context-type="linenumber">1</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="privacy.use" datatype="html">
+        <source>ใช้เพื่อให้บริการ JubBad เท่านั้น คือเข้าสู่ระบบ จัดคิว คำนวณบิล และป้องกันการสมัครทดลองใช้ซ้ำ ไม่ขายหรือแบ่งปันข้อมูลให้ผู้อื่น</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/privacy/privacy.html</context>
+          <context context-type="linenumber">1</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="privacy.visibleTitle" datatype="html">
+        <source>ใครเห็นข้อมูลได้</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/privacy/privacy.html</context>
+          <context context-type="linenumber">1</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="privacy.visible" datatype="html">
+        <source>ผู้ดูแล JubBad ซึ่งเก็บข้อมูลไว้บนเซิร์ฟเวอร์ของตน เห็นข้อมูลทั้งหมดได้ ส่วนผู้เล่นที่ได้รับลิงก์เห็นเฉพาะหน้าสรุปหรือใบเก็บเงินของรอบนั้น</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/privacy/privacy.html</context>
+          <context context-type="linenumber">1</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="privacy.retentionTitle" datatype="html">
+        <source>เก็บนานแค่ไหน</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/privacy/privacy.html</context>
+          <context context-type="linenumber">1</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="privacy.retention" datatype="html">
+        <source>เก็บไว้ตราบที่บัญชียังอยู่ และจะลบเมื่อคุณขอ ยกเว้นรหัสผู้ใช้ LINE ที่ใช้กันการทดลองใช้ซ้ำ</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/privacy/privacy.html</context>
+          <context context-type="linenumber">1</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="privacy.rightsTitle" datatype="html">
+        <source>ขอลบหรือขอความช่วยเหลือ</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/privacy/privacy.html</context>
+          <context context-type="linenumber">1</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="privacy.rights" datatype="html">
+        <source>ขอลบบัญชี ขอสำเนาข้อมูล หรือขอตั้งรหัสผ่านใหม่ได้โดยติดต่อผู้ดูแล</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/privacy/privacy.html</context>
+          <context context-type="linenumber">1</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="privacy.contactLink" datatype="html">
+        <source>ติดต่อผู้ดูแลทาง LINE</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/privacy/privacy.html</context>
+          <context context-type="linenumber">1</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="privacy.contactFallback" datatype="html">
+        <source>ผ่านช่องทางที่ผู้ดูแลแจ้งไว้ตอนชวนคุณใช้งาน</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/privacy/privacy.html</context>
+          <context context-type="linenumber">1</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="privacy.back" datatype="html">
+        <source>กลับไปสมัคร</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/privacy/privacy.html</context>
+          <context context-type="linenumber">1</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="login.forgotLine" datatype="html">
+        <source>ผูกบัญชี LINE กับ JubBad ไว้แล้ว? ส่งคำว่า ลืมรหัสผ่าน ในแชตกับบอท จะได้ลิงก์ตั้งรหัสผ่านใหม่ทันที</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/login/login.html</context>
+          <context context-type="linenumber">1</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="admin.emailDraftLede" datatype="html">
+        <source>ผู้ใช้ที่ยังไม่ได้ผูก LINE: ส่งอีเมลนี้ให้ (คัดลอกไปวาง หรือเปิดในแอปอีเมล) ได้ผลเมื่ออีเมลที่ใช้สมัครเป็นของจริงเท่านั้น</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/admin/admin.html</context>
+          <context context-type="linenumber">1</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="admin.copyEmail" datatype="html">
+        <source>คัดลอกอีเมล</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/admin/admin.html</context>
+          <context context-type="linenumber">1</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="admin.openEmail" datatype="html">
+        <source>เปิดในแอปอีเมล</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/admin/admin.html</context>
+          <context context-type="linenumber">1</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="line.host.accountName" datatype="html">
+        <source>บัญชี LINE: <x id="INTERPOLATION" equiv-text="{{ accountName }}"/> · ใครที่ถือ LINE นี้ส่งคำว่า ลืมรหัสผ่าน ให้บอท เพื่อตั้งรหัสผ่านบัญชี JubBad ของคุณใหม่ได้</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/group-settings-detail/line-host-link-panel.html</context>
+          <context context-type="linenumber">1</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="plan.notice.trialExpiring" datatype="html">
+        <source>ทดลองใช้ครบทุกฟีเจอร์หมดวันที่ <x id="date" equiv-text="date"/> หลังจากนั้นใช้แบบฟรี</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/core/plan.ts</context>
+          <context context-type="linenumber">1</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="plan.notice.trialLapsed" datatype="html">
+        <source>ทดลองใช้หมดเมื่อ <x id="date" equiv-text="date"/> รอบใหม่ใช้แบบฟรี</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/core/plan.ts</context>
+          <context context-type="linenumber">1</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="home.trialEnds" datatype="html">
+        <source>ทดลองใช้ครบทุกฟีเจอร์ถึง <x id="INTERPOLATION" equiv-text="{{ ends }}"/></source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/pages/landing/landing.html</context>
           <context context-type="linenumber">1</context>
         </context-group>
       </trans-unit>

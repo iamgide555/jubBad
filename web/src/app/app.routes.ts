@@ -1,5 +1,5 @@
 import { Routes } from '@angular/router';
-import { adminGuard, adminRoleGuard } from './core/admin.guard';
+import { adminGuard, adminRoleGuard, guestOnlyGuard } from './core/admin.guard';
 import { canDeactivateGuard } from './core/can-deactivate.guard';
 
 /**
@@ -15,9 +15,15 @@ export const routes: Routes = [
     loadComponent: () => import('./pages/login/login').then((m) => m.Login),
   },
   {
+    // Unguarded: the sign-up forms link here, and a stranger has no login. Static text plus the operator's contact.
+    path: 'privacy',
+    loadComponent: () => import('./pages/privacy/privacy').then((m) => m.Privacy),
+  },
+  {
     // Unguarded: whoever wants an account has none yet. The server limits it per address and
     // gives a new account only the free plan (see SignupController).
     path: 'signup',
+    canActivate: [guestOnlyGuard],
     loadComponent: () => import('./pages/signup/signup').then((m) => m.Signup),
   },
   {

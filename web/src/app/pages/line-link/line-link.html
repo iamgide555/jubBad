@@ -10,6 +10,7 @@
     }
     @case ('unavailable') {
       <p class="lede" data-unavailable i18n="@@line.unavailable">ยังใช้งานผ่าน LINE ไม่ได้ในตอนนี้</p>
+      <a routerLink="/" class="link" data-home-link i18n="@@lineLink.home">กลับหน้าแรก</a>
     }
     @case ('lineDown') {
       <p class="lede" i18n="@@line.tryAgain">LINE ไม่ตอบ ลองใหม่อีกครั้ง</p>
@@ -25,31 +26,41 @@
     }
     @case ('form') {
       <p class="lede" i18n="@@lineLink.lede">ใส่อีเมลและรหัสผ่านของบัญชี JubBad ที่มีอยู่แล้ว</p>
-      <p class="line-name" data-line-name i18n="@@lineSignup.lineName">บัญชี LINE: {{ lineName() }}</p>
+      @if (lineName(); as name) {
+        <p class="line-name" data-line-name i18n="@@lineSignup.lineName">บัญชี LINE: {{ name }}</p>
+      }
+      @if (!trialAvailable()) {
+        <p class="note" data-trial-used i18n="@@lineLink.trialUsed">
+          บัญชี LINE นี้เคยทดลองใช้แล้ว ผูกได้ แต่จะไม่ได้ทดลองใช้อีก
+        </p>
+      }
 
       <form (ngSubmit)="onSubmit()">
         <label for="email" i18n="@@login.emailLabel">อีเมล</label>
         <input
+          #emailField
           id="email"
           name="email"
           type="email"
           autocomplete="username"
           [ngModel]="email()"
-          (ngModelChange)="email.set($event)"
+          (ngModelChange)="onEmail($event)"
+          [attr.aria-invalid]="problem() === 'accountLinked' ? 'true' : null"
+          [attr.aria-describedby]="problem() ? 'line-link-error' : null"
         />
 
         <label for="password" i18n="@@login.passwordLabel">รหัสผ่าน</label>
-        <input
-          id="password"
-          name="password"
-          type="password"
+        <app-password-field
+          fieldId="password"
           autocomplete="current-password"
-          [ngModel]="password()"
-          (ngModelChange)="password.set($event)"
+          [invalid]="problem() === 'badCredentials'"
+          [describedBy]="problem() ? 'line-link-error' : null"
+          [value]="password()"
+          (valueChange)="onPassword($event)"
         />
 
         @if (problem(); as p) {
-          <p class="error" role="alert" data-error>
+          <p class="error" id="line-link-error" role="alert" data-error>
             @switch (p) {
               @case ('badCredentials') {
                 <ng-container i18n="@@lineLink.badCredentials">อีเมลหรือรหัสผ่านไม่ถูกต้อง</ng-container>
@@ -73,14 +84,29 @@
         <button type="submit" [disabled]="busy() || !email().trim() || !password()">
           <ng-container i18n="@@lineLink.submit">ผูกบัญชี</ng-container>
         </button>
+
+        <p class="consent muted" data-consent>
+          <span i18n="@@consent.linkText">การผูกบัญชีถือว่าคุณรับทราบ</span>
+          <a routerLink="/privacy" i18n="@@consent.link">นโยบายความเป็นส่วนตัว</a>
+        </p>
       </form>
     }
     @case ('done') {
       <p class="lede" data-done i18n="@@lineLink.done">ผูกแล้ว</p>
       @if (trialEnd(); as end) {
         <p class="note" data-trial i18n="@@lineLink.doneTrial">ทดลองใช้ครบทุกฟีเจอร์ได้ถึง {{ end }}</p>
+        <p class="note" data-how-to i18n="@@lineLink.howTo">ส่งรายชื่อก๊วนมาที่แชตบอทได้เลย</p>
+      } @else {
+        <p class="note" data-needs-host-plan i18n="@@lineLink.needsHostPlan">
+          การส่งรายชื่อทางแชตบอทใช้ได้กับแพ็ก⁠เกจโฮสต์ขึ้นไป
+        </p>
       }
-      <p class="note" i18n="@@lineLink.howTo">ส่งรายชื่อก๊วนมาที่แชตบอทได้เลย</p>
+      @if (addBotUrl(); as bot) {
+        <p class="note" i18n="@@lineSignup.addBotWhy">เพิ่มบอทเป็นเพื่อนเพื่อส่งรายชื่อก๊วนทางแชตได้</p>
+        <a class="button secondary" [href]="bot" target="_blank" rel="noopener" data-add-bot i18n="@@lineSignup.addBot">
+          เพิ่มบอทเป็นเพื่อน
+        </a>
+      }
     }
   }
 </div>

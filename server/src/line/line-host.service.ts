@@ -23,6 +23,8 @@ export interface LineHostStatus {
   botAddUrl: string | null;
   /** The group's owner has linked their LINE account (one account for all their groups). */
   accountLinked: boolean;
+  /** That LINE account's display name, when the directory has one: shown so a host sees whose chat can reset their password. */
+  accountName: string | null;
   /** Rosters that account DMs to the bot may be filed under this group. */
   enabled: boolean;
   /** The group's default for the "send the summary card" checkbox at the end of a round. */
@@ -57,6 +59,7 @@ export class LineHostService {
   ): Promise<{
     ownerId: string;
     accountLinked: boolean;
+    accountName: string | null;
     enabled: boolean;
     summaryDefault: boolean;
     botLinked: boolean;
@@ -77,6 +80,9 @@ export class LineHostService {
     return {
       ownerId: group.ownerId,
       accountLinked: group.owner?.lineUserId != null,
+      accountName: group.owner?.lineUserId
+        ? ((await this.prisma.lineAccount.findUnique({ where: { lineUserId: group.owner.lineUserId }, select: { displayName: true } }))?.displayName ?? null)
+        : null,
       enabled: group.lineDmEnabled,
       summaryDefault: group.lineSummaryDefault,
       botLinked: group.lineGroupId !== null,
@@ -86,12 +92,13 @@ export class LineHostService {
 
   async status(groupCode: string): Promise<LineHostStatus> {
     const config = lineConfig();
-    const { accountLinked, enabled, summaryDefault, botLinked, rosterOnly } =
+    const { accountLinked, accountName, enabled, summaryDefault, botLinked, rosterOnly } =
       await this.ownerOf(groupCode);
     return {
       configured: config.secret !== null && config.token !== null,
       botAddUrl: config.botAddUrl,
       accountLinked,
+      accountName,
       enabled: accountLinked && enabled,
       summaryDefault,
       summaryAvailable:

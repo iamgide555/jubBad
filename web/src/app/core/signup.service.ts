@@ -9,6 +9,8 @@ export interface SignupInfo {
   lineSignupUrl: string | null;
   /** The bot's add-friend link, when configured. */
   botAddUrl: string | null;
+  /** Where a person can reach the operator (the privacy page's contact); an https link or null. */
+  contactUrl: string | null;
 }
 
 export interface LineStatus {
@@ -31,7 +33,7 @@ export type LineSignupResult =
   | 'invalid'
   | 'error';
 export type LineLinkResult =
-  | { trialUntil: string | null }
+  | { trialUntil: string | null; botFriend: boolean | null }
   | 'bad-credentials'
   | 'account-linked'
   | 'line-linked'
@@ -112,13 +114,13 @@ export class SignupService {
   async lineLink(accessToken: string, email: string, password: string): Promise<LineLinkResult> {
     try {
       const res = await firstValueFrom(
-        this.http.post<{ linked: true; trialUntil: string | null }>(
+        this.http.post<{ linked: true; trialUntil: string | null; botFriend: boolean | null }>(
           `${this.base}/line/link`,
           { email, password },
           { headers: this.headers(accessToken) },
         ),
       );
-      return { trialUntil: res.trialUntil };
+      return { trialUntil: res.trialUntil, botFriend: res.botFriend };
     } catch (e) {
       if (!(e instanceof HttpErrorResponse)) return 'error';
       if (e.status === 401) return codeOf(e) === 'BAD_CREDENTIALS' ? 'bad-credentials' : 'unauthorized';

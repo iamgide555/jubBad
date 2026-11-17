@@ -12,6 +12,7 @@ import {
 } from '../../core/admin.service';
 import { AuthService, type Role } from '../../core/auth.service';
 import { PLANS, bangkokDate, bangkokDisplayDate, planLabel, planUntil, type Plan } from '../../core/plan';
+import { mailtoUrl, resetEmail, type EmailDraft, type EmailLang } from '../../core/reset-email';
 import { absoluteUrl, copyToClipboard } from '../../core/share-link';
 
 /**
@@ -289,9 +290,32 @@ export class Admin {
   readonly resetLink = signal<string | null>(null);
   readonly resetCopied = signal(false);
   readonly resetError = signal<string | null>(null);
+  /** The account the link was minted for, so the email drafts can name it. */
+  readonly resettingEmail = signal<string | null>(null);
+  /** Which draft was just copied, so only that button says so. */
+  readonly emailCopied = signal<EmailLang | null>(null);
+  /** The email in each language, once a link exists: for the admin to send to a host with no LINE link. */
+  readonly emailDrafts = computed<{ lang: EmailLang; draft: EmailDraft; mailto: string }[]>(() => {
+    const link = this.resetLink();
+    const email = this.resettingEmail();
+    if (!link || !email) return [];
+    return (['th', 'en'] as const).map((lang) => {
+      const draft = resetEmail(email, link, lang);
+      return { lang, draft, mailto: mailtoUrl(email, draft) };
+    });
+  });
+
+  async copyEmail(lang: EmailLang): Promise<void> {
+    const entry = this.emailDrafts().find((d) => d.lang === lang);
+    if (!entry) return;
+    const copied = await copyToClipboard(`${entry.draft.subject}\n\n${entry.draft.body}`);
+    this.emailCopied.set(copied ? lang : null);
+  }
 
   async mintReset(user: AdminUser): Promise<void> {
     this.resettingId.set(user.id);
+    this.resettingEmail.set(user.email);
+    this.emailCopied.set(null);
     this.resetLink.set(null);
     this.resetCopied.set(false);
     this.resetError.set(null);
@@ -312,6 +336,8 @@ export class Admin {
   closeReset(): void {
     this.resettingId.set(null);
     this.resetLink.set(null);
+    this.resettingEmail.set(null);
+    this.emailCopied.set(null);
   }
 
   // ---- delete user ----

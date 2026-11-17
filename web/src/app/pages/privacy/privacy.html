@@ -1,0 +1,57 @@
+<div class="page privacy">
+  <h1 i18n="@@privacy.title">นโยบายความเป็นส่วนตัว</h1>
+  <p class="lede" i18n="@@privacy.lede">
+    JubBad เป็นเครื่องมือจัดก๊วนแบดมินตัน หน้านี้บอกว่าเก็บข้อมูลอะไร เก็บไว้ทำไม และขอลบได้อย่างไร
+  </p>
+
+  <section data-collected>
+    <h2 i18n="@@privacy.collectedTitle">ข้อมูลที่เก็บ</h2>
+    <ul>
+      <li i18n="@@privacy.collected1">อีเมล และรหัสผ่านที่เข้ารหัสไว้ (เก็บรหัสผ่านจริงไม่ได้)</li>
+      <li i18n="@@privacy.collected2">
+        รหัสผู้ใช้ LINE เมื่อคุณสมัครหรือผูกบัญชีผ่าน LINE เก็บไว้เพื่อให้ทดลองใช้ฟรีได้ครั้งเดียวต่อบัญชี LINE และเก็บต่อแม้ลบบัญชี JubBad แล้ว
+      </li>
+      <li i18n="@@privacy.collected3">ข้อมูลก๊วนที่ใส่เข้ามา เช่น ชื่อผู้เล่น ผลการเล่น และบิลค่าใช้จ่าย</li>
+      <li i18n="@@privacy.collected4">รูปสลิปโอนเงินที่ผู้เล่นส่งเข้ามา เก็บไว้จนกว่าเจ้าของก๊วนปิดการเก็บเงินของรอบนั้น</li>
+    </ul>
+  </section>
+
+  <section data-use>
+    <h2 i18n="@@privacy.useTitle">ใช้ทำอะไร</h2>
+    <p i18n="@@privacy.use">
+      ใช้เพื่อให้บริการ JubBad เท่านั้น คือเข้าสู่ระบบ จัดคิว คำนวณบิล และป้องกันการสมัครทดลองใช้ซ้ำ ไม่ขายหรือแบ่งปันข้อมูลให้ผู้อื่น
+    </p>
+  </section>
+
+  <section data-visible>
+    <h2 i18n="@@privacy.visibleTitle">ใครเห็นข้อมูลได้</h2>
+    <p i18n="@@privacy.visible">
+      ผู้ดูแล JubBad ซึ่งเก็บข้อมูลไว้บนเซิร์ฟเวอร์ของตน เห็นข้อมูลทั้งหมดได้ ส่วนผู้เล่นที่ได้รับลิงก์เห็นเฉพาะหน้าสรุปหรือใบเก็บเงินของรอบนั้น
+    </p>
+  </section>
+
+  <section data-retention>
+    <h2 i18n="@@privacy.retentionTitle">เก็บนานแค่ไหน</h2>
+    <p i18n="@@privacy.retention">
+      เก็บไว้ตราบที่บัญชียังอยู่ และจะลบเมื่อคุณขอ ยกเว้นรหัสผู้ใช้ LINE ที่ใช้กันการทดลองใช้ซ้ำ
+    </p>
+  </section>
+
+  <section data-rights>
+    <h2 i18n="@@privacy.rightsTitle">ขอลบหรือขอความช่วยเหลือ</h2>
+    <p data-contact>
+      <ng-container i18n="@@privacy.rights">
+        ขอลบบัญชี ขอสำเนาข้อมูล หรือขอตั้งรหัสผ่านใหม่ได้โดยติดต่อผู้ดูแล
+      </ng-container>
+      @if (contactUrl(); as url) {
+        {{ ' ' }}<a [href]="url" target="_blank" rel="noopener noreferrer" i18n="@@privacy.contactLink">ติดต่อผู้ดูแลทาง LINE</a>
+      } @else {
+        {{ ' ' }}<ng-container i18n="@@privacy.contactFallback">ผ่านช่องทางที่ผู้ดูแลแจ้งไว้ตอนชวนคุณใช้งาน</ng-container>
+      }
+    </p>
+  </section>
+
+  <p class="back">
+    <a routerLink="/signup" data-back-link i18n="@@privacy.back">กลับไปสมัคร</a>
+  </p>
+</div>

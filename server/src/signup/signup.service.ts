@@ -6,6 +6,7 @@ import { LineClient } from '../line/line-client.js';
 import { lineConfig } from '../line/line-config.js';
 import { liffSignupUrl } from '../line/signup-links.js';
 import { effectivePlan, planAtLeast } from '../plans/plan.js';
+import { upgradeContactUrl } from '../plans/plan.js';
 import { TrialService } from '../plans/trial.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { SessionLock } from '../sessions/session-lock.js';
@@ -15,6 +16,8 @@ export interface SignupInfo {
   liffId: string | null;
   lineSignupUrl: string | null;
   botAddUrl: string | null;
+  /** Where a person can reach the operator (the privacy page's contact); an https link or null. */
+  contactUrl: string | null;
 }
 
 export interface LineStatus {
@@ -69,6 +72,7 @@ export class SignupService {
       liffId: liffReady ? liffId : null,
       lineSignupUrl: liffReady ? liffSignupUrl(liffId) : null,
       botAddUrl,
+      contactUrl: upgradeContactUrl(process.env.UPGRADE_CONTACT_URL),
     };
   }
 

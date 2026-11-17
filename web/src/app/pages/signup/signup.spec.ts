@@ -5,8 +5,8 @@ import type { RegisterResult, SignupInfo } from '../../core/signup.service';
 import { SignupService } from '../../core/signup.service';
 import { Signup } from './signup';
 
-const INFO_ON: SignupInfo = { liffId: 'L1', lineSignupUrl: 'https://liff.line.me/L1/signup', botAddUrl: null };
-const INFO_OFF: SignupInfo = { liffId: null, lineSignupUrl: null, botAddUrl: null };
+const INFO_ON: SignupInfo = { liffId: 'L1', lineSignupUrl: 'https://liff.line.me/L1/signup', botAddUrl: null, contactUrl: null };
+const INFO_OFF: SignupInfo = { liffId: null, lineSignupUrl: null, botAddUrl: null, contactUrl: null };
 
 describe('Signup', () => {
   let fixture: ComponentFixture<Signup>;
@@ -63,7 +63,7 @@ describe('Signup', () => {
     await submit('host@example.test', 'password123');
     expect(svc.register).toHaveBeenCalledWith('host@example.test', 'password123', '');
     expect(auth.check).toHaveBeenCalled();
-    expect(navigate).toHaveBeenCalledWith(['/groups/new']);
+    expect(navigate).toHaveBeenCalledWith(['/groups/new'], { replaceUrl: true });
   });
 
   it('sends whatever is in the trap field', async () => {
@@ -141,4 +141,58 @@ describe('Signup', () => {
     await open();
     expect(q('[data-login-link]')?.getAttribute('href')).toBe('/login');
   });
+
+  it('shows the password rule before anything is submitted', async () => {
+    await open();
+    expect(q('[data-password-hint]')?.textContent).toContain('8');
+    expect((q('#password') as HTMLInputElement).getAttribute('minlength')).toBe('8');
+  });
+
+  it('keeps what was typed after an error, so a typo is fixed, not retyped', async () => {
+    await open();
+    registers('email-taken');
+    await submit('host@example.test', 'password123');
+    expect((q('#password') as HTMLInputElement).value).toBe('password123');
+    expect((q('#email') as HTMLInputElement).value).toBe('host@example.test');
+  });
+
+  it('clears the error as soon as the person edits a field', async () => {
+    await open();
+    registers('email-taken');
+    await submit();
+    expect(q('[data-error]')).not.toBeNull();
+    type('#email', 'other@example.test');
+    fixture.detectChanges();
+    expect(q('[data-error]')).toBeNull();
+  });
+
+  it('moves focus to the field that needs fixing', async () => {
+    await open();
+    const focus = vi.spyOn(HTMLElement.prototype, 'focus');
+    registers('email-taken');
+    await submit();
+    expect((focus.mock.contexts.at(-1) as HTMLElement).id).toBe('email');
+    await submit('host@example.test', 'short');
+    expect((focus.mock.contexts.at(-1) as HTMLElement).id).toBe('password');
+    focus.mockRestore();
+  });
+
+  it('marks the field that has the problem and ties the error to the form for screen readers', async () => {
+    await open();
+    await submit('host@example.test', 'short');
+    expect(q('#password')?.getAttribute('aria-invalid')).toBe('true');
+    expect(q('[data-error]')?.id).toBeTruthy();
+    expect(q('#password')?.getAttribute('aria-describedby')).toContain(q('[data-error]')!.id);
+  });
+
+  it('tells the person what they accept by signing up, with a link to the privacy page', async () => {
+    await open();
+    expect(q('[data-consent] a')?.getAttribute('href')).toBe('/privacy');
+  });
+
+  it('says that linking LINE later lets them reset their own password', async () => {
+    await open();
+    expect(q('[data-recovery-note]')?.textContent).toContain('LINE');
+  });
 });
+

@@ -42,8 +42,8 @@ describe('SignupService', () => {
 
   it('reads the sign-up info', async () => {
     const result = service.info();
-    httpMock.expectOne(`${B}/auth/signup-info`).flush({ liffId: 'L1', lineSignupUrl: 'https://liff.line.me/L1/signup', botAddUrl: null });
-    expect(await result).toEqual({ liffId: 'L1', lineSignupUrl: 'https://liff.line.me/L1/signup', botAddUrl: null });
+    httpMock.expectOne(`${B}/auth/signup-info`).flush({ liffId: 'L1', lineSignupUrl: 'https://liff.line.me/L1/signup', botAddUrl: null, contactUrl: null });
+    expect(await result).toEqual({ liffId: 'L1', lineSignupUrl: 'https://liff.line.me/L1/signup', botAddUrl: null, contactUrl: null });
   });
 
   it('sends the LINE token in the header only, never in the body or URL', async () => {
@@ -96,8 +96,8 @@ describe('SignupService', () => {
       const result = service.lineLink(ACCESS, 'a@b.test', 'password123');
       const req = httpMock.expectOne(`${B}/auth/line/link`);
       expect(req.request.headers.get('X-Line-Access-Token')).toBe(ACCESS);
-      req.flush({ linked: true, trialUntil: null }, { status: 200, statusText: 'OK' });
-      expect(await result).toEqual({ trialUntil: null });
+      req.flush({ linked: true, trialUntil: null, botFriend: false }, { status: 200, statusText: 'OK' });
+      expect(await result).toEqual({ trialUntil: null, botFriend: false });
     });
 
     it.each([

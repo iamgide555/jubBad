@@ -1,3 +1,4 @@
+import { signal } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideRouter, Router } from '@angular/router';
 import { AuthService } from '../../core/auth.service';
@@ -7,7 +8,7 @@ import { SignupService } from '../../core/signup.service';
 import { LineSignup } from './line-signup';
 
 const ACCESS = 'line-access-token-ABC';
-const INFO: SignupInfo = { liffId: 'L1', lineSignupUrl: 'https://liff.line.me/L1/signup', botAddUrl: 'https://lin.ee/bot' };
+const INFO: SignupInfo = { liffId: 'L1', lineSignupUrl: 'https://liff.line.me/L1/signup', botAddUrl: 'https://lin.ee/bot', contactUrl: null };
 const NEW_LINE: LineStatusResult = { lineDisplayName: 'Somchai', registered: false, trialAvailable: true };
 
 describe('LineSignup', () => {
@@ -21,9 +22,10 @@ describe('LineSignup', () => {
     init: ReturnType<typeof vi.fn>;
     isLoggedIn: ReturnType<typeof vi.fn>;
     login: ReturnType<typeof vi.fn>;
+    logout: ReturnType<typeof vi.fn>;
     getAccessToken: ReturnType<typeof vi.fn>;
   };
-  let auth: { check: ReturnType<typeof vi.fn> };
+  let auth: { check: ReturnType<typeof vi.fn>; email: ReturnType<typeof signal<string | null>> };
   let navigate: ReturnType<typeof vi.spyOn>;
 
   const el = () => fixture.nativeElement as HTMLElement;
@@ -59,9 +61,10 @@ describe('LineSignup', () => {
       init: vi.fn().mockResolvedValue(undefined),
       isLoggedIn: vi.fn().mockReturnValue(true),
       login: vi.fn(),
+      logout: vi.fn(),
       getAccessToken: vi.fn().mockReturnValue(ACCESS),
     };
-    auth = { check: vi.fn().mockResolvedValue(true) };
+    auth = { check: vi.fn().mockResolvedValue(false), email: signal<string | null>(null) };
     TestBed.configureTestingModule({
       providers: [
         provideRouter([]),
@@ -133,7 +136,7 @@ describe('LineSignup', () => {
     q('[data-continue]')!.click();
     await flush();
     expect(auth.check).toHaveBeenCalled();
-    expect(navigate).toHaveBeenCalledWith(['/groups/new']);
+    expect(navigate).toHaveBeenCalledWith(['/groups/new'], { replaceUrl: true });
   });
 
   it('offers a retry when LINE does not answer, without running init twice', async () => {
@@ -147,7 +150,7 @@ describe('LineSignup', () => {
   });
 
   it('says LINE sign-up is unavailable when no LIFF id is configured', async () => {
-    svc.info.mockResolvedValue({ liffId: null, lineSignupUrl: null, botAddUrl: null });
+    svc.info.mockResolvedValue({ liffId: null, lineSignupUrl: null, botAddUrl: null, contactUrl: null });
     await open();
     expect(q('[data-unavailable]')).not.toBeNull();
     expect(liff.init).not.toHaveBeenCalled();
@@ -181,4 +184,60 @@ describe('LineSignup', () => {
     expect(svc.lineSignup).not.toHaveBeenCalled();
     expect(q('[data-error]')?.textContent).toContain('8');
   });
+
+  it('reads the sign-up info once for the whole page', async () => {
+    await open();
+    expect(svc.info).toHaveBeenCalledTimes(1);
+  });
+
+  it('sends a refused LINE token through LINE login again instead of repeating the same failure', async () => {
+    await open('unauthorized' as LineStatusResult);
+    expect(liff.logout).toHaveBeenCalledTimes(1);
+    expect(liff.login).toHaveBeenCalledTimes(1);
+    expect(q('[data-retry]')).toBeNull();
+  });
+
+  it('does the same when the token is refused on submit', async () => {
+    await open();
+    signsUp('unauthorized');
+    await submit();
+    expect(liff.logout).toHaveBeenCalledTimes(1);
+    expect(liff.login).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not sign someone up a second time: a signed-in host is told so and offered the link page', async () => {
+    auth.check.mockResolvedValue(true);
+    auth.email.set('host@example.test');
+    await open();
+    expect(q('[data-signed-in]')?.textContent).toContain('host@example.test');
+    expect(q('[data-signed-in] a[href="/line-share/link"]')).not.toBeNull();
+    expect(q('form')).toBeNull();
+    expect(svc.lineStatus).not.toHaveBeenCalled();
+  });
+
+  it('shows the password rule up front and keeps what was typed after an error', async () => {
+    await open();
+    expect(q('[data-password-hint]')?.textContent).toContain('8');
+    signsUp('email-taken');
+    await submit('host@example.test', 'password123');
+    expect((q('#password') as HTMLInputElement).value).toBe('password123');
+  });
+
+  it('shows no empty "LINE account:" line when LINE gave no name', async () => {
+    await open({ lineDisplayName: null, registered: false, trialAvailable: true });
+    expect(q('[data-line-name]')).toBeNull();
+  });
+
+  it('tells a new host the app login is separate from LINE, so they sign in with their email elsewhere', async () => {
+    await open();
+    signsUp({ trialUntil: null, botFriend: true });
+    await submit();
+    expect(q('[data-other-devices]')).not.toBeNull();
+  });
+
+  it('shows what is accepted by signing up, with a link to the privacy page', async () => {
+    await open();
+    expect(q('[data-consent] a')?.getAttribute('href')).toBe('/privacy');
+  });
 });
+

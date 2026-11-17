@@ -30,6 +30,11 @@ export class LiffClient {
     this.sdk().login({ redirectUri });
   }
 
+  /** Ends the viewer's LINE session in this page, so the next login mints a fresh access token. */
+  logout(): void {
+    this.sdk().logout();
+  }
+
   /** The viewer's LINE access token, which the server verifies with LINE; null when not logged in. */
   getAccessToken(): string | null {
     return this.sdk().getAccessToken() ?? null;

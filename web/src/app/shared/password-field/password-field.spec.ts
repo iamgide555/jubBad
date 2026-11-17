@@ -82,4 +82,11 @@ describe('PasswordField', () => {
   it('keeps the toggle a 44px target and out of the form submit', () => {
     expect(toggle().type).toBe('button');
   });
+
+  it('draws the hint as the problem while the field is invalid', () => {
+    fixture.componentInstance.invalid.set(true);
+    fixture.detectChanges();
+    expect(el().querySelector('[data-password-hint]')?.classList.contains('invalid')).toBe(true);
+  });
 });
+

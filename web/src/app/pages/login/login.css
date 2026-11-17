@@ -68,3 +68,16 @@
   min-height: 44px;
   line-height: 44px;
 }
+
+/* The text-style actions are still targets: at least a thumb wide and tall, even for a short Thai word. */
+.login .link {
+  min-width: var(--tap);
+  min-height: var(--tap);
+}
+
+/* On a short phone the form comes first: the hero shrinks before the submit leaves the screen. */
+@media (max-height: 760px) {
+  .login-hero {
+    height: 6rem;
+  }
+}

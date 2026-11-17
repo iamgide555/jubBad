@@ -19,4 +19,18 @@ describe('TrialOffer', () => {
     expect(a.getAttribute('href')).toBe('https://liff.line.me/L1/link');
     expect(a.rel).toContain('noopener');
   });
+
+  it('says what "every feature" includes, in one line', () => {
+    expect((fixture.nativeElement as HTMLElement).querySelector('[data-trial-includes]')?.textContent).toContain('ดูย้อนหลัง');
+  });
+
+  it('names the outcome on the button, not just the mechanism', () => {
+    const text = (fixture.nativeElement as HTMLElement).querySelector('[data-trial-link]')?.textContent ?? '';
+    expect(text).toContain('เริ่มทดลอง');
+  });
+
+  it('carries the recovery benefit that used to sit on the sign-up form', () => {
+    expect((fixture.nativeElement as HTMLElement).querySelector('[data-trial-recovery]')?.textContent).toContain('รหัสผ่าน');
+  });
 });
+

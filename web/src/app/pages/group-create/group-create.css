@@ -56,3 +56,9 @@
 .cap-lock {
   margin-top: var(--space-2);
 }
+
+/* First minute: a plain welcome in the body voice, nothing to dismiss. */
+.welcome {
+  color: var(--court-ink);
+  font-weight: 600;
+}

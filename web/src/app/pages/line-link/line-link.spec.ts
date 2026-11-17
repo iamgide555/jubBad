@@ -196,5 +196,14 @@ describe('LineLink', () => {
     await open();
     expect(q('[data-consent] a')?.getAttribute('href')).toBe('/privacy');
   });
-});
 
+  it('shows waiting and failed states in one status block', async () => {
+    await open('unavailable' as LineStatusResult);
+    expect(q('[data-status] [data-retry]')).not.toBeNull();
+  });
+
+  it('is a main landmark', async () => {
+    await open();
+    expect(q('main.line-link')).not.toBeNull();
+  });
+});

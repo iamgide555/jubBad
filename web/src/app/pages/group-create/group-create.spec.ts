@@ -218,4 +218,19 @@ describe('GroupCreate', () => {
     await done;
     again.destroy();
   });
+
+  it('welcomes a host who has no group yet, and not one who already has groups', async () => {
+    plan.answerMine({ plan: 'free', groupCount: 0, groupLimit: 1 });
+    await fixture.whenStable();
+    fixture.detectChanges();
+    expect(el().querySelector('[data-first-welcome]')?.textContent).toContain('ยินดีต้อนรับ');
+  });
+
+  it('shows no welcome once the host already owns a group', async () => {
+    plan.answerMine({ plan: 'host', groupCount: 1, groupLimit: 3 });
+    await fixture.whenStable();
+    fixture.detectChanges();
+    expect(el().querySelector('[data-first-welcome]')).toBeNull();
+  });
 });
+

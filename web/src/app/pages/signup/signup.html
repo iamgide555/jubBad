@@ -1,32 +1,60 @@
-<div class="page signup">
-  <h1 i18n="@@signup.title">สมัครใช้ JubBad</h1>
-  <p class="lede" i18n="@@signup.lede">สมัครฟรี สร้างก๊วนแรกได้ทันที</p>
+<main class="page signup">
+  <div class="signup-hero" aria-hidden="true">
+    <app-scene-host variant="hero" />
+  </div>
+  <h1 i18n="@@signup.pitch">จัดก๊วนแบดฯ ไม่⁠ต้อง⁠คิด⁠คู่⁠เอง</h1>
+  <ul class="benefits">
+    <li data-benefit>
+      <app-icon name="check" [size]="16" />
+      <span i18n="@@signup.benefit1">วางรายชื่อจาก LINE ระบบจัดคู่ให้ทุกสนาม</span>
+    </li>
+    <li data-benefit>
+      <app-icon name="check" [size]="16" />
+      <span i18n="@@signup.benefit2">ไม่ต้องเล่นกับคนเดิมซ้ำๆ ไม่มีใครนั่งรอนาน</span>
+    </li>
+    <li data-benefit>
+      <app-icon name="check" [size]="16" />
+      <span i18n="@@signup.benefit3">สรุปค่าสนามและลูกแบดให้ทุกคนจ่ายเท่าที่เล่น</span>
+    </li>
+  </ul>
+
+  @if (lineSignupUrl(); as url) {
+    <a class="line-door" [href]="url" data-via-line>
+      <span class="line-door-title" i18n="@@signup.lineButton">สมัครผ่าน LINE</span>
+      <span class="line-door-sub" i18n="@@signup.lineButtonSub">ทดลองใช้ครบทุกฟีเจอร์ฟรี 30 วัน</span>
+    </a>
+    <p class="or-email" data-or-email aria-hidden="true"><span i18n="@@signup.orEmail">หรือใช้อีเมล</span></p>
+  }
 
   <form (ngSubmit)="onSubmit()">
-    <label for="email" i18n="@@login.emailLabel">อีเมล</label>
-    <input
-      #emailField
-      id="email"
-      name="email"
-      type="email"
-      autocomplete="username"
-      [ngModel]="email()"
-      (ngModelChange)="onEmail($event)"
-      [attr.aria-invalid]="problem() === 'taken' || problem() === 'invalid' ? 'true' : null"
-      [attr.aria-describedby]="problem() ? 'signup-error' : null"
-    />
+    <div class="field">
+      <label for="email" i18n="@@login.emailLabel">อีเมล</label>
+      <input
+        #emailField
+        id="email"
+        name="email"
+        type="email"
+        autocomplete="username"
+        [ngModel]="email()"
+        (ngModelChange)="onEmail($event)"
+        [attr.aria-invalid]="problem() === 'taken' || problem() === 'invalid' ? 'true' : null"
+        [attr.aria-describedby]="problem() ? 'signup-error' : null"
+      />
+    </div>
 
-    <label for="password" i18n="@@login.passwordLabel">รหัสผ่าน</label>
-    <app-password-field
-      fieldId="password"
-      autocomplete="new-password"
-      [minLength]="minPassword"
-      [hint]="passwordHint"
-      [invalid]="problem() === 'short'"
-      [describedBy]="problem() ? 'signup-error' : null"
-      [value]="password()"
-      (valueChange)="onPassword($event)"
-    />
+    <div class="field">
+      <label for="password" i18n="@@login.passwordLabel">รหัสผ่าน</label>
+      <app-password-field
+        fieldId="password"
+        autocomplete="new-password"
+        [minLength]="minPassword"
+        [hint]="passwordHint"
+        [invalid]="problem() === 'short' || passwordTooShort()"
+        [describedBy]="problem() ? 'signup-error' : null"
+        [value]="password()"
+        (valueChange)="onPassword($event)"
+      />
+    </div>
 
     <div class="trap" aria-hidden="true">
       <label for="website">Website</label>
@@ -43,51 +71,41 @@
     </div>
 
     @if (problem(); as p) {
-      <p class="error" id="signup-error" role="alert" data-error>
+      <div class="error" id="signup-error" role="alert" data-error>
         @switch (p) {
           @case ('taken') {
-            <ng-container i18n="@@signup.emailTaken">อีเมลนี้มีบัญชีแล้ว</ng-container>
-            {{ ' ' }}<a routerLink="/login" i18n="@@signup.emailTakenLogin">เข้าสู่ระบบ</a>
+            <p i18n="@@signup.emailTaken">อีเมลนี้มีบัญชีแล้ว</p>
+            <p class="error-action" data-error-action>
+              <a routerLink="/login" i18n="@@signup.emailTakenLogin">เข้าสู่ระบบ</a>
+            </p>
           }
           @case ('short') {
-            <ng-container i18n="@@signup.passwordShort">รหัสผ่านต้องยาวอย่างน้อย 8 ตัวอักษร</ng-container>
+            <p i18n="@@signup.passwordShort">รหัสผ่านต้องยาวอย่างน้อย 8 ตัวอักษร</p>
           }
           @case ('rate') {
-            <ng-container i18n="@@login.throttled">ลองมากเกินไป รอสักครู่แล้วลองใหม่</ng-container>
+            <p i18n="@@login.throttled">ลองมากเกินไป รอสักครู่แล้วลองใหม่</p>
           }
           @case ('invalid') {
-            <ng-container i18n="@@signup.invalid">ตรวจอีเมลและรหัสผ่านอีกครั้ง</ng-container>
+            <p i18n="@@signup.invalid">ตรวจอีเมลและรหัสผ่านอีกครั้ง</p>
           }
           @default {
-            <ng-container i18n="@@signup.error">สมัครไม่สำเร็จ ลองใหม่อีกครั้ง</ng-container>
+            <p i18n="@@signup.error">สมัครไม่สำเร็จ ลองใหม่อีกครั้ง</p>
           }
         }
-      </p>
+      </div>
     }
 
-    <button type="submit" [disabled]="busy() || !email().trim() || !password()">
+    <button type="submit" [disabled]="!canSubmit()">
       <ng-container i18n="@@signup.submit">สร้างบัญชี</ng-container>
     </button>
 
-    <p class="consent muted" data-consent>
+    <p class="consent" data-consent>
       <span i18n="@@consent.text">การสร้างบัญชีถือว่าคุณรับทราบ</span>
       <a routerLink="/privacy" i18n="@@consent.link">นโยบายความเป็นส่วนตัว</a>
     </p>
   </form>
 
-  <p class="muted recovery-note" data-recovery-note i18n="@@signup.recoveryNote">
-    ผูกบัญชี LINE ภายหลัง แล้วจะตั้งรหัสผ่านใหม่เองได้ทางแชตบอท
-  </p>
-
-  @if (lineSignupUrl(); as url) {
-    <p class="via-line">
-      <a [href]="url" data-via-line i18n="@@signup.viaLine">
-        หรือสมัครผ่าน LINE รับทดลองใช้ครบทุกฟีเจอร์ฟรี 30 วันทันที
-      </a>
-    </p>
-  }
-
   <p class="have-account">
     <a routerLink="/login" data-login-link i18n="@@signup.haveAccount">มีบัญชีแล้ว? เข้าสู่ระบบ</a>
   </p>
-</div>
+</main>

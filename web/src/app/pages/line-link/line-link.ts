@@ -5,6 +5,7 @@ import { LineViewer } from '../../core/line-viewer';
 import { bangkokDisplayDate } from '../../core/plan';
 import { SignupService, type LineLinkResult } from '../../core/signup.service';
 import { PasswordField } from '../../shared/password-field/password-field';
+import { StatusBlock } from '../../shared/status-block/status-block';
 
 type Phase = 'loading' | 'login' | 'unavailable' | 'lineDown' | 'error' | 'linked' | 'form' | 'done';
 type Problem = 'badCredentials' | 'accountLinked' | 'lineLinked' | 'rate' | 'error';
@@ -16,7 +17,7 @@ type Problem = 'badCredentials' | 'accountLinked' | 'lineLinked' | 'rate' | 'err
  */
 @Component({
   selector: 'app-line-link',
-  imports: [FormsModule, RouterLink, PasswordField],
+  imports: [FormsModule, RouterLink, PasswordField, StatusBlock],
   templateUrl: './line-link.html',
   styleUrl: './line-link.css',
 })

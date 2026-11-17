@@ -1,8 +1,10 @@
-import { Component, ElementRef, OnInit, inject, signal, viewChild } from '@angular/core';
+import { Component, ElementRef, OnInit, computed, inject, signal, viewChild } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
 import { AuthService } from '../../core/auth.service';
 import { SignupService } from '../../core/signup.service';
+import { SceneHost } from '../../core/three/scene-host';
+import { Icon } from '../../shared/icon/icon';
 import { PasswordField } from '../../shared/password-field/password-field';
 
 type Problem = 'taken' | 'short' | 'rate' | 'invalid' | 'error';
@@ -15,7 +17,7 @@ const MIN_PASSWORD = 8;
  */
 @Component({
   selector: 'app-signup',
-  imports: [FormsModule, RouterLink, PasswordField],
+  imports: [FormsModule, RouterLink, PasswordField, SceneHost, Icon],
   templateUrl: './signup.html',
   styleUrl: './signup.css',
 })
@@ -35,6 +37,11 @@ export class Signup implements OnInit {
   protected readonly busy = signal(false);
   protected readonly problem = signal<Problem | null>(null);
   protected readonly lineSignupUrl = signal<string | null>(null);
+  /** Typed, but not long enough yet: the hint says so at once instead of after a failed submit. */
+  protected readonly passwordTooShort = computed(() => this.password().length > 0 && this.password().length < MIN_PASSWORD);
+  protected readonly canSubmit = computed(
+    () => !this.busy() && this.email().trim() !== '' && this.password().length >= MIN_PASSWORD,
+  );
 
   async ngOnInit(): Promise<void> {
     try {

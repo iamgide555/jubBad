@@ -247,5 +247,54 @@ describe('LineSignup', () => {
     await open();
     expect(q('[data-consent] a')?.getAttribute('href')).toBe('/privacy');
   });
-});
 
+  it('shows every waiting or failed state in one status block, with a spinner only while something is happening', async () => {
+    liff.isLoggedIn.mockReturnValue(false);
+    await open();
+    expect(q('[data-status]')).not.toBeNull();
+    expect(q('[data-status] app-icon')).not.toBeNull();
+    expect(q('[data-status] [data-retry]')).toBeNull();
+  });
+
+  it('puts the retry button inside that same block when LINE did not answer', async () => {
+    await open('unavailable' as LineStatusResult);
+    expect(q('[data-status] [data-retry]')).not.toBeNull();
+    expect(q('[data-status] app-icon')).toBeNull();
+  });
+
+  it('leads the done screen with the main next step, and keeps the notes below it', async () => {
+    await open();
+    signsUp({ trialUntil: '2026-12-16T16:59:59.999Z', botFriend: false });
+    await submit();
+    const next = q('[data-continue]')!;
+    for (const later of ['[data-other-devices]', '[data-add-bot]']) {
+      expect(next.compareDocumentPosition(q(later)!) & Node.DOCUMENT_POSITION_FOLLOWING, later).toBeTruthy();
+    }
+  });
+
+  it('tells a signed-in host who they are signed in as and gives them a button, not a link in a sentence', async () => {
+    auth.check.mockResolvedValue(true);
+    auth.email.set('host@example.test');
+    await open();
+    expect(q('[data-signed-in-email]')?.textContent).toContain('host@example.test');
+    expect(q('[data-signed-in] a.button[href="/line-share/link"]')).not.toBeNull();
+  });
+
+  it('keeps the submit disabled until the password is long enough, and says so as it is typed', async () => {
+    await open();
+    const submit_ = () => q('button[type="submit"]') as HTMLButtonElement;
+    type('#email', 'host@example.test');
+    type('#password', 'abc');
+    fixture.detectChanges();
+    expect(submit_().disabled).toBe(true);
+    expect(q('[data-password-hint]')?.classList.contains('invalid')).toBe(true);
+    type('#password', 'long enough');
+    fixture.detectChanges();
+    expect(submit_().disabled).toBe(false);
+  });
+
+  it('is a main landmark', async () => {
+    await open();
+    expect(q('main.line-signup')).not.toBeNull();
+  });
+});

@@ -30,6 +30,8 @@ export class GroupCreate {
   private readonly mine = signal<MyPlan | null>(null);
   /** At the cap on a plan that is already Host or above: said plainly, with no upgrade pitch. */
   protected readonly capIsPaid = computed(() => this.mine()?.plan !== 'free');
+  /** A host with no group yet: this is their first minute, so say hello. */
+  protected readonly isFirstGroup = computed(() => this.mine()?.groupCount === 0);
   protected readonly capHint = computed(() => {
     const m = this.mine();
     return m && m.groupLimit !== null && m.groupCount >= m.groupLimit ? groupLimitMessage(m.groupLimit) : null;

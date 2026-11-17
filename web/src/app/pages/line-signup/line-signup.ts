@@ -1,4 +1,4 @@
-import { Component, ElementRef, inject, signal, viewChild } from '@angular/core';
+import { Component, ElementRef, computed, inject, signal, viewChild } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
 import { AuthService } from '../../core/auth.service';
@@ -6,6 +6,7 @@ import { LineViewer } from '../../core/line-viewer';
 import { bangkokDisplayDate } from '../../core/plan';
 import { SignupService, type LineSignupResult } from '../../core/signup.service';
 import { PasswordField } from '../../shared/password-field/password-field';
+import { StatusBlock } from '../../shared/status-block/status-block';
 
 type Phase = 'loading' | 'login' | 'unavailable' | 'lineDown' | 'error' | 'signedIn' | 'registered' | 'form' | 'done';
 type Problem = 'taken' | 'short' | 'rate' | 'invalid' | 'error';
@@ -19,7 +20,7 @@ const MIN_PASSWORD = 8;
  */
 @Component({
   selector: 'app-line-signup',
-  imports: [FormsModule, RouterLink, PasswordField],
+  imports: [FormsModule, RouterLink, PasswordField, StatusBlock],
   templateUrl: './line-signup.html',
   styleUrl: './line-signup.css',
 })
@@ -42,6 +43,10 @@ export class LineSignup {
   protected readonly email = signal('');
   protected readonly password = signal('');
   protected readonly busy = signal(false);
+  protected readonly passwordTooShort = computed(() => this.password().length > 0 && this.password().length < MIN_PASSWORD);
+  protected readonly canSubmit = computed(
+    () => !this.busy() && this.email().trim() !== '' && this.password().length >= MIN_PASSWORD,
+  );
   protected readonly problem = signal<Problem | null>(null);
   /** The account this browser is already signed in to, when it is. */
   protected readonly signedInEmail = signal<string | null>(null);
